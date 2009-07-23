@@ -59,10 +59,10 @@ util/json.sml
 (*be/datastructs/rangebits.sml
 be/datastructs/exptree.sml
 *)
-thirdparty/fgl/src/fgl.mlb
+(*thirdparty/fgl/src/fgl.mlb*)
 
-util/graphs/dfg.sig
-util/graphs/dfg.sml
+(*util/graphs/dfg.sig
+util/graphs/dfg.sml*)
 (*util/graphs/bof.sml*)
 
 ir/datastructs/sys.sig

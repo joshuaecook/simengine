@@ -1,6 +1,0 @@
-Group
-	signature FUN_ARRAY
-	structure CArray
-is
-	array.sig
-	carray.sml
