@@ -1,0 +1,18 @@
+Version 0.21 
+
+* ported implementation to SML/NJ version 110 (removed
+call to function ListFormat.formatList in file red.sml)
+
+* changed function match (gr_t.sml) so that loops are now 
+properly matched
+
+* extended graph reducer and combinator expression translator
+to account for Y combinator
+
+* changed graph reducer (function combRed, file red.sml) to
+properly terminate on partially applied combinators
+
+* several minor changes in examples files
+
+
+Version 0.20 (alpha release)

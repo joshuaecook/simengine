@@ -1,0 +1,18 @@
+Group
+	structure UGeneral
+	structure UTuple
+	structure UList
+	signature ORD_MAP_UPD
+	structure IntBinaryMapUpd
+is
+(*	smlnj-lib.cm*)
+#if (defined (SMLNJ_VERSION))
+	$/basis.cm
+	$/smlnj-lib.cm
+	$/ml-yacc-lib.cm
+#endif
+	general.sml
+	tuple.sml
+	list.sml
+	./ord-map-sig.sml
+	./int-binary-map.sml

@@ -1,0 +1,55 @@
+How to install the Functional Graph Library (FGL)
+
+
+
+Change to the "src" subdirectory, and make sure that the following 
+files are present:
+
+  applic/
+    build.sml
+    clique.sml
+    dfs.sml
+    indep.sml
+    lamtr.sml
+    paths.sml
+    red.sml
+    rev.sml
+  gr.sig  
+  gr.sml
+  gr_ab.sml
+  gr_as.sml
+  gr_t.sml
+  sources.cm
+  util/
+    funarray/
+       array.sig
+       carray.sml
+       sources.cm
+    general.sml
+    int-binary-map.sml
+    list.sml
+    ord-map-sig.sml
+    sources.cm
+    sparseset.sml
+    tuple.sml
+
+The contents of the files and their relationships are explained
+a little bit in the file src/sources.cm.
+
+
+The current version of FGL assumes that you have SML of New Jersey 
+installed together with the following options: 
+  
+  (1)  The Compilation Manager (CM)
+  (2)  The SML/NJ Library (smlnj-lib.cm is referenced in src/sources.cm)
+
+
+In that case you can start SML/NJ in the directory src and enter
+on the top-level
+
+  CM.make();
+  
+Then all the library files will be compiled, and can be used
+afterwards.
+
+  

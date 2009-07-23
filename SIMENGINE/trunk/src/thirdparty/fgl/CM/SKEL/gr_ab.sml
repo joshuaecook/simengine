@@ -1,0 +1,2 @@
+Skeleton 5
+ae"BoundedGraphArray"i1aä¢FunArray"gp1c"FUN_ARRAY"jh8aä¢Stamp"jçğ±ÿgp1e"StampUtil"aä¢P"jÿ?gp1e"Partition"c4egp1ÿ6eÿ?egp1d"UTuple"egp1d"UList"Cegp1d"GraphExceptions"f1ÿaä¢Types"jh0gp1e"GraphTypes"egp1ÿ‚+f5Cÿd"Int"d"Array"d"SortEdges"d"UGeneral"NNgp1c"BOUNDED_GRAPH"
