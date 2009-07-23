@@ -46,7 +46,7 @@ JTAG_LIB = /opt/lib/libusb-driver.so
 #EXAMPLES = release/tutorial release/pBc release/HN release/HH release/FN release/BRK
 # In the oodlc, examples are in the tests directory under models
 # EXAMPLES = models/*.dsl
-EXAMPLES = ../../examples/misc/*.dsl ../../examples/neural/*/*.dsl
+EXAMPLES = ../examples/misc/*.dsl ../examples/neural/*/*.dsl
 # There are certain files required that must be installed on the host system. These packages are defined as PKGS
 # All of these PKGS have to be in the scripts directory
 ifeq ($(UNAME), Linux)
@@ -176,7 +176,7 @@ BUILDREV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 REV = $(shell pwd | sed -e 's/.*\/branches\/\(.*\)\/oodlc/\1/')
 INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
 VERSION = "BRANCH_$(REV)_$(BUILD_TYPE):$(BUILDREV)"
-TOP_LEVEL=../../..
+TOP_LEVEL=../..
 DEBUG=true
 else	
 ifeq ($(TRUNK),1)		
@@ -184,14 +184,14 @@ RELEASE = "trunk"
 REV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 INSTALL_FILENAME = "$(FILENAME)_devbuild_$(REV)_$(BUILD_TYPE).tar.gz"
 VERSION = "BUILD_$(REV)_$(BUILD_TYPE)"
-TOP_LEVEL=../..
+TOP_LEVEL=..
 else	
 ifeq ($(TAG),1)
 RELEASE = "tag"
 REV = $(shell pwd | sed -e 's/.*\/tags\/\(.*\)\/oodlc/\1/')
 INSTALL_FILENAME = "$(FILENAME)_release_$(REV)_$(BUILD_TYPE).tar.gz"
 VERSION = "$(REV)_$(BUILD_TYPE)"
-TOP_LEVEL=../../..
+TOP_LEVEL=../..
 else	
 RELEASE = "unknown"
 INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
@@ -202,7 +202,7 @@ endif
 endif	
 
 INSTALL_DIR = $(TOP_LEVEL)/build/$(PLATFORM)
-LOCAL_INSTALL = ../local-install
+LOCAL_INSTALL = local-install
 
 # Help Screen
 # ==============================================================================================
@@ -470,42 +470,42 @@ debug-files: $(DEBUG_FILES)
 # ==============================================================================================
 
 
-$(BUILD_DIR)/src/simEngine_wrapper.c: ../matlab/simEngine_wrapper.c
+$(BUILD_DIR)/src/simEngine_wrapper.c: matlab/simEngine_wrapper.c
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/simplot.m: ../matlab/simplot.m
+$(BUILD_DIR)/simplot.m: matlab/simplot.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-../matlab/simEngine_wrapper.$(MEXEXT): ../matlab/simEngine_wrapper.c
-	@cd ../matlab; echo "Creating '$@' from '$<'"
-	@(cd ../matlab; $(MEX) $<)
+matlab/simEngine_wrapper.$(MEXEXT): matlab/simEngine_wrapper.c
+	@cd matlab; echo "Creating '$@' from '$<'"
+	@(cd matlab; $(MEX) simEngine_wrapper.c)
 
-$(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT): ../matlab/simEngine_wrapper.$(MEXEXT)
+$(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT): matlab/simEngine_wrapper.$(MEXEXT)
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/buildEngine.m: ../matlab/buildEngine.m
+$(BUILD_DIR)/buildEngine.m: matlab/buildEngine.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-#$(BUILD_DIR)/lib/solvers.c: ../matlab/solvers.c
+#$(BUILD_DIR)/lib/solvers.c: matlab/solvers.c
 #	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/lib/solvers_%.a: ../solvers/lib/solvers_%.a
+$(BUILD_DIR)/lib/solvers_%.a: solvers/lib/solvers_%.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/include/solvers.h: ../solvers/include/solvers.h
+$(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-../matlab/install.m: simEngine.tgz
-	@(cd ../matlab; $(MATLABCMD) "append_bin_to_file('../oodlc/simEngine.tgz', 'install_wrapper.m', 'install.m'); exit")
+matlab/install.m: simEngine.tgz
+	@(cd matlab; $(MATLABCMD) "append_bin_to_file('../simEngine.tgz', 'install_wrapper.m', 'install.m'); exit")
 
-../install.m: ../matlab/install.m	
+install.m: matlab/install.m	
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a simEngine.tgz local-install ../install.m
+MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a simEngine.tgz install-locally install.m
 
-../solvers/lib/%.a: ../solvers/src/*.c
-	(cd ../solvers; make all)
+solvers/lib/%.a: solvers/src/*.c
+	(cd solvers; make all)
 
 matlab-installer: $(MATLAB_FILES)
 
@@ -514,14 +514,14 @@ simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)
 
 $(LOCAL_INSTALL):
-	@mkdir $@
+	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 	@(cd $(LOCAL_INSTALL); tar xfz simEngine.tgz)
-	@echo "Local install at $(LOCAL_INSTALL) ready"
 
-local-install: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT)
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT)
+	@echo "Local install at $(LOCAL_INSTALL) ready"
 
 # Build type options
 # ==============================================================================================
@@ -1259,9 +1259,9 @@ clean:
 	$(RM) $(SPEC)
 	$(RMDIR) ../$(RPM_TEMP_DIR)
 	$(RM) ../$(RPM_TAR_GZ)
-	$(RM) ../install.m
-	$(RM) ../matlab/simEngine_wrapper.$(MEXEXT)
-	(cd ../solvers; $(MAKE) clean)
+	$(RM) install.m
+	$(RM) matlab/simEngine_wrapper.$(MEXEXT)
+	(cd solvers; $(MAKE) clean)
 
 clean-all:
 	$(MAKE) clean BUILD_TYPE=software
