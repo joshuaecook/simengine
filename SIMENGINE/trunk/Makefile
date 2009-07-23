@@ -58,8 +58,8 @@ endif
 # Adjustable Parameters
 # ==============================================================================================
 
-SVNSRV = https://svn1.hosted-projects.com/simatra/dynamo
-SVNWEBSRV = http://www.hosted-projects.com/trac/simatra/dynamo
+SVNSRV = https://svn1.hosted-projects.com/simatra/simEngine
+SVNWEBSRV = http://www.hosted-projects.com/trac/simatra/simEngine
 SVNTRUNK = $(SVNSRV)/trunk
 SRC = src/
 BUILD = build
