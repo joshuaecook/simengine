@@ -88,8 +88,9 @@ fun printModel (model: DOF.model) =
 		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => ExpProcess.exp2str (Exp.TERM name)) (!(#outputs class)))) ^ "\n"))
 	    end
 
-	fun printSystemProperties {iterators,time} =
+	fun printSystemProperties {iterators,time,precision} =
 	    (print (" time interval: ["^(r2s (#1 time))^","^(r2s (#2 time))^"]\n");
+	     print (" precision: "^(case precision of DOF.SINGLE => "single" | DOF.DOUBLE => "float")^"\n");
 	     app
 		 (fn(sym, itertype)=>
 		    (print (" iterator: " ^ (Symbol.name sym) ^ "\n");

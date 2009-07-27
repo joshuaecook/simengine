@@ -475,7 +475,8 @@ fun translate (exec, object) =
 			[]
 
 		val systemproperties = (*{solver=solver}*){iterators=[(Symbol.symbol "t", DOF.CONTINUOUS solver)] @ discrete_iterators,
-							   time=(exp2real (method "min_t" solverobj), exp2real (method "max_t" solverobj))}
+							   time=(exp2real (method "min_t" solverobj), exp2real (method "max_t" solverobj)),
+							   precision=DOF.DOUBLE (* TODO: Make this configurable *)}
 	    in
 		(classes, topinstance, systemproperties)
 	    end

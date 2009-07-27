@@ -168,10 +168,12 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
 
 	val statespace = EqUtil.class2statesize inst_class
 
-	val {iterators,time=(min_time, max_time)} = props
+	val {iterators,time=(min_time, max_time),precision} = props
 	val solver = CWriter.props2solver props
 
-	val c_data_format = "double"
+	val c_data_format = case precision 
+			     of DOF.SINGLE => "float" 
+			      | DOF.DOUBLE => "double"
 
 	val header_progs = CWriter.header (class_name, 
 					   ["<mex.h>"],

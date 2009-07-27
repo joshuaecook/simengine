@@ -533,10 +533,12 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 
 	val statespace = EqUtil.class2statesize inst_class
 
-	val {iterators,...} = props
+	val {iterators,precision,...} = props
 	val solver = props2solver props
 
-	val c_data_format = "double"
+	val c_data_format = case precision 
+			     of DOF.SINGLE => "float" 
+			      | DOF.DOUBLE => "double"
 
 	val header_progs = header (class_name, 
 				   [], (* no additional includes *)

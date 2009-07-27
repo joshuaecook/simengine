@@ -227,11 +227,13 @@ fun main_code name =
 	 $("}")]
     end
 
-fun createExternalStructure (class: DOF.class) = 
+fun createExternalStructure props (class: DOF.class) = 
     let
 	val {inputs,outputs,...} = class
 
 	val time = Symbol.symbol "t"
+
+	val {precision,...} = props
 
 	fun hasTimeIterator ({eq_type=DOF.INSTANCE {offset,...},...}) = EqUtil.hasInstanceIter offset time
 	  | hasTimeIterator ({eq_type=DOF.INITIAL_VALUE {offset},lhs,...}) = Term.isInitialValue lhs time
@@ -274,6 +276,7 @@ fun createExternalStructure (class: DOF.class) =
 	 $("% " ^ Globals.copyright),
 	 $(""),
 	 $("dif = struct();"),
+	 $("dif.precision = "^(case precision of DOF.SINGLE => "'float'" | DOF.DOUBLE => "'double'")^";"),
 	 $("dif.inputs = struct();")] @
 	(map
 	     (fn{name,default}=> 
@@ -352,10 +355,12 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 
 	val statespace = EqUtil.class2statesize inst_class
 
-	val {iterators,...} = props
+	val {iterators,precision,...} = props
 	val solver = CWriter.props2solver props
 
-	val c_data_format = "double"
+	val c_data_format = case precision 
+			     of DOF.SINGLE => "float" 
+			      | DOF.DOUBLE => "double"
 
 	val header_progs = CWriter.header (class_name, 
 					   ["<mex.h>"],
@@ -405,7 +410,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 							       inputstruct_progs @
 							       main_progs))
 
-	val externalstruct_progs = createExternalStructure inst_class
+	val externalstruct_progs = createExternalStructure props inst_class
 
 	fun write_struct (filename, block) =
 	    let

@@ -13,8 +13,11 @@ type classproperties = {sourcepos: PosLog.pos}
 datatype iteratortype = CONTINUOUS of Solver.solver
 		      | DISCRETE
 
+datatype precision = SINGLE | DOUBLE
+
 type systemproperties = {iterators: (Symbol.symbol * iteratortype) list, 
-			 time: (real * real)}
+			 time: (real * real),
+			 precision: precision}
 
 datatype eq_type = INSTANCE of {name:Symbol.symbol, 
 				classname: Symbol.symbol,
