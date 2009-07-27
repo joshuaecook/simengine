@@ -230,7 +230,7 @@ fun translate (exec, object) =
 				 | n => n
 					
 		in
-		    Exp.FUN (Symbol.symbol name,
+		    Exp.FUN (Fun.BUILTIN (Symbol.symbol name),
 			     map kecexp2dofexp (vec2list(method "args" obj)))
 		end
 	    else if istype (obj, "SimQuantity") orelse istype (obj, "Input") then
@@ -379,7 +379,9 @@ fun translate (exec, object) =
 				  | _ => ()) 
 				    input_exps
 
-			val rhs = Exp.FUN (name,
+			val rhs = Exp.FUN (Fun.INST {classname=name,
+						     instname=Symbol.symbol (exp2str (method "instanceName" object)),
+						     props=Inst.emptyinstprops},
 					   map (fn(i) => kecexp2dofexp i) input_exps)
 
 			val eq = {eq_type=DOF.INSTANCE {name=objname, classname=name, offset=nil},

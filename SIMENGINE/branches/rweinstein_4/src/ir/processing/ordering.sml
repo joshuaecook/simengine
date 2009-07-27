@@ -354,7 +354,12 @@ fun orderModel (model:DOF.model)=
 
 		val inputs = map (fn(i) => List.nth (oldinputs, i)) inputMap
 
-		val rhs' = Exp.FUN (#name class,
+		(*val rhs' = Exp.FUN (#name class,
+				    inputs)*)
+
+		val rhs' = Exp.FUN (Fun.INST {classname= #name class, 
+					      instname=instName,
+					      props=(Inst.setRealName Inst.emptyinstprops orig_inst_name)},
 				    inputs)
 
 		val offset = case #eq_type original_instance_eq of

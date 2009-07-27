@@ -29,7 +29,7 @@ fun exp2symbols (Exp.FUN (_, exps)) =
   | exp2symbols _ = []
     
 
-fun exp2fun_names (Exp.FUN (funname, exps)) = (Symbol.name funname)::(List.concat (map exp2fun_names exps))
+fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(List.concat (map exp2fun_names exps))
   | exp2fun_names _ = []
 
 val uniqueid = ref 0
@@ -49,8 +49,8 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
     let
 	fun useParen (Exp.FUN (str', _)) = 
 	    let
-		val {precedence=prec,associative=assoc,...} = Fun.fun2props str
-		val {precedence=prec',...} = Fun.fun2props str'
+		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
+		val {precedence=prec',...} = FunProcess.fun2props str'
 	    in
 		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
 	    end
@@ -86,7 +86,7 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
       | Exp.COMPLEX (t1,t2) => if Term.isZero t1 andalso Term.isZero t2 then (exp2tersestr (Exp.TERM (Exp.INT 0)))
 			   else if Term.isZero t1 then (exp2tersestr (Exp.TERM t2) ^ " i")
 			   else if Term.isZero t2 then exp2tersestr (Exp.TERM t1)
-			   else exp2tersestr (Exp.FUN (Symbol.symbol "PLUS", [Exp.TERM t1, Exp.FUN (Symbol.symbol "TIMES", [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))])]))	
+			   else exp2tersestr (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
       | Exp.LIST (l,_) => "[" ^ (String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l)) ^ "]"
       | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l))^")"
       | Exp.SYMBOL (s, props) => Term.sym2str (s, props)
@@ -101,8 +101,8 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
     let
 	fun useParen (Exp.FUN (str', _)) = 
 	    let
-		val {precedence=prec,associative=assoc,...} = Fun.fun2props str
-		val {precedence=prec',...} = Fun.fun2props str'
+		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
+		val {precedence=prec',...} = FunProcess.fun2props str'
 	    in
 		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
 	    end
@@ -116,7 +116,7 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
 	    else
 		str
     in
-	Symbol.name str ^ "(" ^ (String.concatWith "," (map exp2fullstr exps)) ^")"
+	Symbol.name (FunProcess.fun2name str) ^ "(" ^ (String.concatWith "," (map exp2fullstr exps)) ^")"
     (*
 	case (Fun.fun2textstrnotation str) of
 	    (v, Fun.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2str e),e)) exps)

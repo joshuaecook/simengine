@@ -1,6 +1,28 @@
 structure Fun =
 struct
 
+type iteratorname = Symbol.symbol
+type instname = Symbol.symbol
+
+datatype instform = FUNCTIONAL
+		  | FUNCTIONAL_BY_REF
+		  | STATELY of {reads: (iteratorname * instname) list,
+				writes: (iteratorname * instname) list}
+type dimlist = int list
+
+type instproperties =
+     {dim: dimlist option,
+      sourcepos: PosLog.pos option,
+      realname: Symbol.symbol option,
+      form: instform option}
+
+datatype funtype = BUILTIN of Symbol.symbol
+		 | INST of {classname:Symbol.symbol, 
+			    instname:Symbol.symbol, 
+			    props:instproperties}
+
+
+
 datatype fix = INFIX | PREFIX | POSTFIX | MATCH
 
 
@@ -246,35 +268,33 @@ val opTable =
     end
     
 
-fun fun2props f : op_props = 
+fun builtin2props f : op_props = 
     case SymbolTable.look (opTable, f)
      of SOME v => v
-      | NONE => 
-	let
-	    val classes = CurrentModel.classes()
-	in
-	    (case (List.find (fn({name,...}:DOF.class)=>name=f) classes)
-	      of SOME {name,properties,inputs,outputs,eqs} => {name=Symbol.name f,
-							       operands=FIXED (length (!inputs)),
-							       precedence=1,
-							       commutative=false,
-							       associative=false,
-							       text=(Symbol.name f, PREFIX),
-							       C=(Symbol.name f, PREFIX)}
-	       | NONE => (print ("Can't handle operation '" ^ (Symbol.name f) ^ "'\n");
-			  DynException.stdException(("No function with name '"^(Symbol.name f)^"' defined"), "Fun.fun2props", Logger.INTERNAL)))
-	end
-																		 
+      | NONE => (print ("Can't handle operation '" ^ (Symbol.name f) ^ "'\n");
+		 DynException.stdException(("No builtin function with name '"^(Symbol.name f)^"' defined"), "Fun.fun2props", Logger.INTERNAL))
+
 
 fun fun2textstrnotation f =
-    case SymbolTable.look (opTable, f)
-     of SOME {text as (str,notation),...} => (str, notation)
-      | NONE => (Symbol.name f, PREFIX)
+    case f 
+	 of BUILTIN v => 
+	    let
+		val {text as (str, notation),...} = builtin2props v
+	    in
+		(str, notation)
+	    end
+	  | INST {classname,...} => (Symbol.name classname, PREFIX)
 
 fun fun2cstrnotation f =
-    case SymbolTable.look (opTable, f)
-     of SOME {C as (str,notation),...} => (str, notation)
-      | NONE => (Symbol.name f, PREFIX)
+    case f 
+	 of BUILTIN v => 
+	    let
+		val {C as (str, notation),...} = builtin2props v
+	    in
+		(str, notation)
+	    end
+	  | INST {classname,...} => (Symbol.name classname, PREFIX)
+
 
 (*	
     case (Symbol.name f) of
@@ -286,6 +306,8 @@ fun fun2cstrnotation f =
       | "EQUALS" => ("==", INFIX)
       | v => (v, PREFIX)
 *)
+
+
 
 
 end

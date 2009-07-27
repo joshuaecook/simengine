@@ -11,8 +11,8 @@ fun exp2c_str (Exp.FUN (str, exps)) =
     let
 	fun useParen (Exp.FUN (str', _)) = 
 	    let
-		val {precedence=prec,associative=assoc,...} = Fun.fun2props str
-		val {precedence=prec',...} = Fun.fun2props str'
+		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
+		val {precedence=prec',...} = FunProcess.fun2props str'
 	    in
 		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
 	    end
