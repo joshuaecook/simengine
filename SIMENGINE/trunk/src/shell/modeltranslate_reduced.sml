@@ -453,6 +453,9 @@ fun translate (exec, object) =
 			       | "ode45" => Solver.ODE45 {dt = exp2real(method "dt" solverobj),
 							  abs_tolerance = exp2real(method "abstol" solverobj),
 							  rel_tolerance = exp2real(method "reltol" solverobj)}
+			       | "cvode" => Solver.CVODE {dt = exp2real(method "dt" solverobj),
+							  abs_tolerance = exp2real(method "abstol" solverobj),
+							  rel_tolerance = exp2real(method "reltol" solverobj)}
 			       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
 		fun eqHasN {eq_type=DOF.INITIAL_VALUE _, lhs, ...} =

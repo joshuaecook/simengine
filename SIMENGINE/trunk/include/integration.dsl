@@ -330,6 +330,9 @@ class Integrators
     property forwardeuler
       get = Solver.new ("forwardeuler", 0.1, 0, 0, 0, 100)
     end
+    property exponentialeuler
+      get = Solver.new ("exponentialeuler", 0.1, 0, 0, 0, 100)
+    end
     property rk4
       get = Solver.new("rk4", 0.1, 0, 0, 0, 100)
     end
@@ -346,6 +349,9 @@ class Integrators
     end
     property ode45
       get = Solver.new("ode45", 0.1, 1e-6, 1e-3, 0, 100)
+    end
+    property cvode
+      get = Solver.new("cvode", 0.1, 1e-6, 1e-3, 0, 100)
     end
 end
 open (Integrators.new())

@@ -14,7 +14,7 @@
 // Properties data structure
 // ============================================================================================================
 
-typedef int (*flowptr)();
+typedef int (*flowptr)(CDATAFORMAT t, const CDATAFORMAT*, CDATAFORMAT*, CDATAFORMAT*, CDATAFORMAT* , int);
 
 typedef struct {
   CDATAFORMAT timestep;
@@ -22,6 +22,11 @@ typedef struct {
   CDATAFORMAT reltol;
   CDATAFORMAT starttime;
   CDATAFORMAT stoptime;
+  CDATAFORMAT *time;
+  CDATAFORMAT *model_states;
+  CDATAFORMAT *inputs;
+  CDATAFORMAT *outputs;
+  int first_iteration;
   int statesize;
   flowptr fun;
 } solver_props;
@@ -30,22 +35,22 @@ typedef struct {
 // ============================================================================================================
 
 typedef struct {
-  solver_props props;
+  solver_props *props;
   CDATAFORMAT *k1;
 } forwardeuler_mem;
 
-forwardeuler_mem forwardeuler_init(solver_props props);
+forwardeuler_mem *forwardeuler_init(solver_props *props);
 
-int forwardeuler_eval(forwardeuler_mem mem, CDATAFORMAT *model_states, CDATAFORMAT *time, CDATAFORMAT *params);
+int forwardeuler_eval(forwardeuler_mem *mem);
 
-void forwardeuler_free(forwardeuler_mem mem);
+void forwardeuler_free(forwardeuler_mem *mem);
 
 
 // Runga-Kutta (4th order) data structures and function declarations
 // ============================================================================================================
 
 typedef struct {
-  solver_props props;
+  solver_props *props;
   CDATAFORMAT *k1;
   CDATAFORMAT *k2;
   CDATAFORMAT *k3;
@@ -53,18 +58,18 @@ typedef struct {
   CDATAFORMAT *temp;
 } rk4_mem;
 
-rk4_mem rk4_init(solver_props props);
+rk4_mem *rk4_init(solver_props *props);
 
-int rk4_eval(rk4_mem mem, CDATAFORMAT *model_states, CDATAFORMAT *time, CDATAFORMAT *params);
+int rk4_eval(rk4_mem *mem);
 
-void rk4_free(rk4_mem mem);
+void rk4_free(rk4_mem *mem);
 
 
 // Bogacki-Shampine (ode23) data structures and function declarations
 // ============================================================================================================
 
 typedef struct {
-  solver_props props;
+  solver_props *props;
   CDATAFORMAT *k1;
   CDATAFORMAT *k2;
   CDATAFORMAT *k3;
@@ -74,18 +79,18 @@ typedef struct {
   CDATAFORMAT *z_next_states;
 } bogacki_shampine_mem;
 
-bogacki_shampine_mem bogacki_shampine_init(solver_props props);
+bogacki_shampine_mem *bogacki_shampine_init(solver_props *props);
 
-int bogacki_shampine_eval(bogacki_shampine_mem mem, CDATAFORMAT *model_states, CDATAFORMAT *time, CDATAFORMAT *params);
+int bogacki_shampine_eval(bogacki_shampine_mem *mem);
 
-void bogacki_shampine_free(bogacki_shampine_mem mem);
+void bogacki_shampine_free(bogacki_shampine_mem *mem);
 
 
 // Dormand-Prince (ode45) data structures and function declarations
 // ============================================================================================================
 
 typedef struct {
-  solver_props props;
+  solver_props *props;
   CDATAFORMAT *k1;
   CDATAFORMAT *k2;
   CDATAFORMAT *k3;
@@ -98,12 +103,26 @@ typedef struct {
   CDATAFORMAT *z_next_states;
 } dormand_prince_mem;
 
-dormand_prince_mem dormand_prince_init(solver_props props);
+dormand_prince_mem *dormand_prince_init(solver_props *props);
 
-int dormand_prince_eval(dormand_prince_mem mem, CDATAFORMAT *model_states, CDATAFORMAT *time, CDATAFORMAT *params);
+int dormand_prince_eval(dormand_prince_mem *mem);
 
-void dormand_prince_free(dormand_prince_mem mem);
+void dormand_prince_free(dormand_prince_mem *mem);
 
 
+// CVODE data structures and function declarations
+// ============================================================================================================
+
+typedef struct{
+  solver_props *props;
+  void *cvmem;
+  void *y0;
+} cvode_mem;
+
+cvode_mem * cvode_init(solver_props *props);
+
+int cvode_eval(cvode_mem *mem);
+
+void cvode_free(cvode_mem *mem);
 
 #endif // SOLVERS_H

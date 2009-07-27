@@ -98,6 +98,8 @@ fun printModel (model: DOF.model) =
 			 (case solver of
 			      Solver.FORWARD_EULER {dt} =>
 			      print ("  Solver = Forward Euler (dt = " ^ (Real.toString dt) ^ ")\n")
+			    | Solver.EXPONENTIAL_EULER {dt} =>
+			      print ("  Solver = Exponential Euler (dt = " ^ (Real.toString dt) ^ ")\n")
 			    | Solver.RK4 {dt} =>
 			      print ("  Solver = RK4 (dt = " ^ (Real.toString dt) ^ ")\n")
 			    | Solver.MIDPOINT {dt} =>
@@ -107,7 +109,9 @@ fun printModel (model: DOF.model) =
 			    | Solver.ODE23 {dt, abs_tolerance, rel_tolerance} =>
 			      print ("  Solver = ODE23 (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ")\n")
 			    | Solver.ODE45 {dt, abs_tolerance, rel_tolerance} =>
-			      print ("  Solver = ODE45 (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ")\n"))
+			      print ("  Solver = ODE45 (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ")\n")
+			    | Solver.CVODE {dt, abs_tolerance, rel_tolerance} =>
+			      print ("  Solver = CVode (dt = )" ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ")\n"))
 		       | DOF.DISCRETE => 
 			 print ("  Discrete\n"))
 		 )
