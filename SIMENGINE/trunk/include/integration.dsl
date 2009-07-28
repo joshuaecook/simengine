@@ -351,7 +351,7 @@ class Integrators
       get = Solver.new("ode45", 0.1, 1e-6, 1e-3, 0, 100)
     end
     property cvode
-      get = Solver.new("cvode", 0.1, 1e-6, 1e-3, 0, 100)
+      get = Solver.new("cvode", 0.1, 1e-6, 1e-6, 0, 100)
     end
 end
 open (Integrators.new())

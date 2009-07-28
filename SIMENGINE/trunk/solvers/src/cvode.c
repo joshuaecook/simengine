@@ -65,6 +65,17 @@ int cvode_eval(cvode_mem *mem) {
 }
 
 void cvode_free(cvode_mem *mem){
+
+  /* // Debug code
+  long int count;
+  if (CVodeGetNumSteps(mem->cvmem, &count) == CV_SUCCESS)
+    fprintf(stderr, "Total Number of steps: %ld\n", count);
+  if (CVodeGetNumRhsEvals(mem->cvmem, &count) == CV_SUCCESS)
+    fprintf(stderr, "RHS Evals: %ld\n", count);
+  if (CVodeGetNumErrTestFails(mem->cvmem, &count) == CV_SUCCESS)
+    fprintf(stderr, "Num of step errors: %ld\n", count);
+  */
+
   // Cleanup
   N_VDestroy_Serial(((N_Vector)(mem->y0)));
   CVodeFree(&(mem->cvmem));
