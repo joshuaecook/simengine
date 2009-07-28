@@ -3,12 +3,13 @@ struct
 
 fun duplicate_class (class: DOF.class) new_name =
     let
-	val {name, properties, inputs, outputs, eqs} = class						       
+	val {name, properties, inputs, outputs, exps, eqs} = class						       
     in
 	{name=new_name,
 	 properties=properties,
 	 inputs=ref (!inputs),
 	 outputs=ref (!outputs),
+	 exps=ref (!exps),
 	 eqs=ref (!eqs)}
     end
 

@@ -1,5 +1,5 @@
 // model definition
-
+settings.debug.logdof.setValue(true)
 import "u_equ.dsl"
 import "w_equ.dsl"
 

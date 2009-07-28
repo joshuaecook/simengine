@@ -198,7 +198,7 @@ fun orderModel (model:DOF.model)=
 	      | NONE 
 		=>
 		let
-		    val {name, properties, inputs, outputs, eqs} = class
+		    val {name, properties, inputs, outputs, exps, eqs} = class
 
 		    val _ = print ("Adding class to class map: " ^ (Symbol.name name) ^ "\n")
 		    val _ = print ("classes are " ^ (String.concatWith ", " (map (fn(c) => Symbol.name (#name c)) classes)) ^ "\n")
@@ -716,6 +716,7 @@ fun orderModel (model:DOF.model)=
 				properties= #properties oldClass,
 				inputs= ref inputs,
 				outputs=ref outputs,
+				exps=ref (map EqUtil.eq2exp eqs),
 				eqs=ref eqs}
 
 		val splitMap' = splitMap 
@@ -841,6 +842,7 @@ fun orderModel (model:DOF.model)=
 		  = foldl (processInstance class) (nil, (splitMap, classMap, classIOMap)) instance_eqs
 
 		val _ = #eqs class := instance_eqs' @ other_eqs
+		val _ = #exps class := (map EqUtil.eq2exp instance_eqs') @ (map EqUtil.eq2exp other_eqs)
 
 		val _ = print ("class map keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap'))) ^ "\n")
 		val _ = print ("===about to reprocess splitting class: " ^ (Symbol.name (#name class)) ^ "\n")
@@ -968,6 +970,9 @@ fun orderModel (model:DOF.model)=
 		val sorted_eqs = sortEqs (#name class) satisfiedDeps sortable_eqs
 
 		val _ = #eqs class := init_eqs @ sorted_eqs @ state_eqs
+		val _ = #exps class := (map EqUtil.eq2exp init_eqs) @ 
+				       (map EqUtil.eq2exp sorted_eqs) @
+				       (map EqUtil.eq2exp state_eqs)
 
 	    in
 		()

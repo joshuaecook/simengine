@@ -380,7 +380,7 @@ fun translate (exec, object) =
 				    input_exps
 
 			val rhs = Exp.FUN (Fun.INST {classname=name,
-						     instname=Symbol.symbol (exp2str (method "instanceName" object)),
+						     instname=objname,
 						     props=Inst.emptyinstprops},
 					   map (fn(i) => kecexp2dofexp i) input_exps)
 
@@ -410,6 +410,7 @@ fun translate (exec, object) =
 		  properties={sourcepos=PosLog.NOPOS},
 		  inputs=ref (map obj2input(vec2list(method "inputs" object))),
 		  outputs=ref (map obj2output(vec2list(method "contents" (method "outputs" object)))),
+		  exps=ref (map EqUtil.eq2exp eqs),
 		  eqs=ref eqs},
 		 submodelclasses)
 	    end

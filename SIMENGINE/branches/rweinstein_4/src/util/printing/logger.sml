@@ -202,6 +202,15 @@ fun log_error message =
 	       ())
 	(!logs))
     
+fun log_internalerror message =
+    (error_count := !error_count + 1;
+    app (fn({outstream, loglevel, ...}) =>
+	   if sufficient_loglevel loglevel ERROR then
+	       output_text outstream INTERNAL ERROR (Printer.SUB [message])
+	   else
+	       ())
+	(!logs))
+    
 fun log_information messageFun group =
     let
 	val logsToUse = List.filter (fn({output_groups, ...}) => is_logged output_groups group) (!logs)

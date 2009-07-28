@@ -68,11 +68,13 @@ fun printModel (model: DOF.model) =
 	  | contents2str contents =
 	    "(" ^ (String.concatWith ", " (map ExpProcess.exp2str contents)) ^ ")"
 
-	fun printClass (class as {name, properties={sourcepos}, inputs, outputs, eqs}) =
+	fun printClass (class as {name, properties={sourcepos}, inputs, outputs, exps, eqs}) =
 	     (print ("Class Name: " ^ (Symbol.name (name)) ^ "\n");
 	      print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => ExpProcess.exp2str (Exp.TERM name) ^ (case default of SOME v => (" = "^(ExpProcess.exp2str v)) | NONE => "")) (!inputs))) ^ "\n");
-	      print ("  Equations:\n");
-	      app (fn(e) => print("  " ^ (eq2str e) ^ "\n")) (!eqs);
+	      print ("  Equations orig:\n");
+	      app (fn(e) => print("    " ^ (eq2str e) ^ "\n")) (!eqs);
+	      print ("  Equations new:\n");
+	      app (fn(e) => print("    " ^ (ExpProcess.exp2str e) ^ "\n")) (!exps);
 	      print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (ExpProcess.exp2str (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (ExpProcess.exp2str condition)) 
 								  (!outputs))) ^ "\n");
 	      print ("  Symbols: {"^(String.concatWith ", " (map Symbol.name (ClassProcess.findSymbols class)))^"}\n"))

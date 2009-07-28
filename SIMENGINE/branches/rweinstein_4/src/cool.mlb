@@ -89,6 +89,7 @@ ir/current_model.sml
 ir/datastructs/inst.sml
 
 ir/processing/fun_process.sml
+ir/processing/exp_validate.sml
 ir/processing/exp_process.sml
 ir/processing/eq_util.sml
 ir/processing/class_process.sml

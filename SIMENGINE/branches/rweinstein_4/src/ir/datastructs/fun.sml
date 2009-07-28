@@ -4,17 +4,17 @@ struct
 type iteratorname = Symbol.symbol
 type instname = Symbol.symbol
 
-datatype instform = FUNCTIONAL
+(*datatype instform = FUNCTIONAL
 		  | FUNCTIONAL_BY_REF
 		  | STATELY of {reads: (iteratorname * instname) list,
-				writes: (iteratorname * instname) list}
+				writes: (iteratorname * instname) list}*)
 type dimlist = int list
 
 type instproperties =
      {dim: dimlist option,
       sourcepos: PosLog.pos option,
-      realname: Symbol.symbol option,
-      form: instform option}
+      realname: Symbol.symbol option(*,
+      form: instform option*)}
 
 
 (* operation list *)

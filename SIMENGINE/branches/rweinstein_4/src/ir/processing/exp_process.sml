@@ -41,8 +41,6 @@ fun uniq(sym) =
 fun exp2term (Exp.TERM t) = t
   | exp2term _ = Exp.NAN
 
-
-
 (*fun sort_explist *)
 
 fun exp2tersestr (Exp.FUN (str, exps)) = 
@@ -151,16 +149,11 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
       | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")"
 
 fun exp2str e = 
-    if DynamoOptions.isFlagSet("usefullform") then
-	exp2fullstr e
-    else
-	exp2tersestr e
-
-
-fun eq2str (lhs, rhs) =
-    ExpBuild.equals (lhs, rhs)
-
-
+    (if DynamoOptions.isFlagSet("usefullform") then
+	 exp2fullstr e
+     else
+	 exp2tersestr e)
+    handle e => DynException.checkpoint "ExpProcess.exp2str" e
 
 fun renameSym (orig_sym, new_sym) exp =
     case exp of
@@ -186,28 +179,120 @@ fun log_exps (header, exps) =
      (app (fn(e)=>log (exp2str e)) exps);
      log ("--------------------------------------"))
 
+fun eq2str (lhs, rhs) =
+    ExpBuild.equals (lhs, rhs)
+
+
+
+(* general processing of expression *)
+
+fun error_no_return exp text = 
+    (Logger.log_internalerror (Printer.$("Error when processing '"^(exp2str exp)^"': "^(text)));
+     DynException.setErrored())
+
+fun error exp text = (error_no_return exp text; Exp.null)
+
+fun isEquation exp =
+    case exp of
+	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, rhs]) => true
+      | _ => false
+
+fun isInstanceEq exp = 
+    case exp of 
+	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, Exp.FUN (Fun.INST _, _)]) => true
+      | _ => false
+
+fun lhs exp = 
+    case exp of 
+	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [l, r]) => l
+      | _ => error exp "No left hand side found"
+
+fun rhs exp = 
+    case exp of 
+	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [l, r]) => r
+      | _ => error exp "No right hand side found"
+
+fun deconstructInst exp = 
+    let
+	val empty_return = {classname=Symbol.symbol "NULL", 
+			    instname=Symbol.symbol "NULL", 
+			    props=Inst.emptyinstprops, 
+			    inpargs=[], 
+			    outargs=[]}
+    in
+	if isInstanceEq exp then
+	    case exp of 
+		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.INST {classname, instname, props}, inpargs)]) => 
+		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=outargs}
+	      | _ => (error_no_return exp "Malformed instance equation"; empty_return)
+	else
+	    (error_no_return exp "Not an instance equation"; empty_return)
+    end
+
+(* the lhs is something of the form of x'[t] *)
+fun isFirstOrderDifferentialTerm exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val derivative = Property.getDerivative props
+	in
+	    case derivative of
+		SOME (order, [iterator]) =>  order = 1 andalso iterator = (Symbol.symbol "t")
+	      | _ => false
+	end
+      | _ => false
+
+fun isFirstOrderDifferentialEq exp =
+    isEquation exp andalso
+    isFirstOrderDifferentialTerm (lhs exp)
+
+(* anything of the form x[0] *)
+fun isInitialConditionTerm exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val iterators = Property.getIterator props
+	in
+	    case iterators of
+		SOME ((itersym, Iterator.ABSOLUTE 0)::rest) => itersym = (Symbol.symbol "t")
+	      | _ => false
+	end
+      | _ => false
+
+fun isInitialConditionEq exp =
+    isEquation exp andalso
+    isInitialConditionTerm (lhs exp)
+
+(* intermediate equations *)
+fun isIntermediateTerm exp =
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val derivative = Property.getDerivative props
+	    val iterators = Property.getIterator props
+	in
+	    case (derivative, iterators) of
+		(SOME _, _) => false
+	      | (_, SOME ((itersym, _)::rest)) => (itersym <> Symbol.symbol "t") andalso 
+						  (itersym <> Symbol.symbol "n")
+	      | (_, _) => true
+	end
+      | _ => false
+
+fun isIntermediateEq exp =
+    isEquation exp andalso
+    isIntermediateTerm (lhs exp)
+
+fun isNonSupportedEq exp =
+    if isEquation exp then
+	if isInitialConditionEq exp orelse
+	   isFirstOrderDifferentialEq exp orelse
+	   isIntermediateEq exp orelse
+	   isInstanceEq exp then
+	    true (* all supported *)
+	else
+	    (error_no_return exp "Not a supported equation type"; false)
+    else
+	(error_no_return exp "Not an equation"; true)
 
 end
-(*
-open DSLEXP;
-
-
-val exps = [initvar "u" equals (int 1),
-	    initvar "w" equals (int 1),
-	    diff "u" equals (plus [tvar "u",neg (power (tvar "u", int 3)), neg (tvar "w"), var "I"]),
-	    diff "w" equals (times [var "e", plus [var "b0", times [var "b1", tvar "u"], neg (tvar "w")]])];
-
-val _ = log ""
-val _ = log ""
-val _ = log "Test Output: "
-val _ = log ("--------------------------------------")
-val _ = log (exp2str (plus [int 1, int 2, var "a"]))
-(*val _ = log (exp2str (Exp.FUN ("PLUS", [Exp.TERM (INT 1), Exp.TERM (INT 2), Exp.TERM (Exp.SYMBOL ("a",[]))])))*)
-val _ = log ((exp2str (times [plus [var "c", var "d"], var "a"])))
-val _ = log ((exp2str (times [plus [var "d", var "e"], plus[var "a",times[var "x", var "y"], var "c"]])))
-val _ = log ((exp2str (var "y" equals (exp (plus [var "x", int 1])))))
-val _ = log ((exp2str (var "y" equals (exp (var "x")))))
-val _ = log ""
-val _ = log_exps ("FN Model", exps)
-*)
-

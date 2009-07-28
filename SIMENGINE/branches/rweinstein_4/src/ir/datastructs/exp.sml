@@ -18,6 +18,7 @@ datatype exp = FUN of (Fun.funtype * exp list)
 
 withtype predicate = (string * (exp -> bool))
 
+val null = FUN (Fun.BUILTIN Fun.NULL, [])
 
 
 end
