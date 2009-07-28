@@ -230,7 +230,7 @@ fun translate (exec, object) =
 				 | n => n
 					
 		in
-		    Exp.FUN (Fun.BUILTIN (Symbol.symbol name),
+		    Exp.FUN (Fun.BUILTIN (Fun.name2op (Symbol.symbol name)),
 			     map kecexp2dofexp (vec2list(method "args" obj)))
 		end
 	    else if istype (obj, "SimQuantity") orelse istype (obj, "Input") then
@@ -453,6 +453,9 @@ fun translate (exec, object) =
 							  abs_tolerance = exp2real(method "abstol" solverobj),
 							  rel_tolerance = exp2real(method "reltol" solverobj)}
 			       | "ode45" => Solver.ODE45 {dt = exp2real(method "dt" solverobj),
+							  abs_tolerance = exp2real(method "abstol" solverobj),
+							  rel_tolerance = exp2real(method "reltol" solverobj)}
+			       | "cvode" => Solver.CVODE {dt = exp2real(method "dt" solverobj),
 							  abs_tolerance = exp2real(method "abstol" solverobj),
 							  rel_tolerance = exp2real(method "reltol" solverobj)}
 			       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)

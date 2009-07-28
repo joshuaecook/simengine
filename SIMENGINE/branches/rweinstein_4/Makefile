@@ -1034,9 +1034,8 @@ ifeq ($(BRANCH),1)
 update-from-trunk:
 	@echo "Updating branch from trunk ..."
 	@echo "First updating the branch to make sure it is up to date"
-	@(cd ..; svn update)
+	@svn update
 	@echo "Determining the first copy revision number ..."; \
-	 cd ..; \
 	 startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
 	 echo "Merging from trunk revision $$startrev ..."; \
 	 svn merge -r$$startrev:HEAD $(SVNTRUNK); \
@@ -1046,15 +1045,13 @@ update-from-trunk:
 #http://www.hosted-projects.com/trac/simatra/dynamo/changeset?old_path=trunk&old=644&new_path=branches%2Frweinstein_299&new=701
 show-changes:
 	@echo "Opening $(BROWSER) to show changes in branch relative to trunk"
-	@cd ..; \
-	 startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
+	@startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
 	 website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=$$startrev\&new_path=branches%2F$(REV)\&new=HEAD; \
 	 echo "Opening website: $$website"; \
 	 $(BROWSER) $$website
 show-changes-vs-trunk:
 	@echo "Opening $(BROWSER) to show changes in branch relative to trunk"
-	@cd ..; \
-	 website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=HEAD\&new_path=branches%2F$(REV)\&new=HEAD; \
+	@website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=HEAD\&new_path=branches%2F$(REV)\&new=HEAD; \
 	 echo "Opening website: $$website"; \
 	 $(BROWSER) $$website
 endif

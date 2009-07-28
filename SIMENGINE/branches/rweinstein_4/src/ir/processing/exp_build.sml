@@ -71,11 +71,11 @@ fun relvar (sym, itersym, offset) =
 fun int i = Exp.TERM (Exp.INT i);
 fun real r = Exp.TERM (Exp.REAL r);
 fun bool b = Exp.TERM (Exp.BOOL b);
-fun plus l = Exp.FUN (Fun.BUILTIN (Symbol.symbol "add"), l);
-fun times l = Exp.FUN (Fun.BUILTIN (Symbol.symbol "mul"), l);
-fun power (a,b) = Exp.FUN (Fun.BUILTIN (Symbol.symbol "pow"), [a, b]);
+fun plus l = Exp.FUN (Fun.BUILTIN Fun.ADD, l);
+fun times l = Exp.FUN (Fun.BUILTIN Fun.MUL, l);
+fun power (a,b) = Exp.FUN (Fun.BUILTIN Fun.POW, [a, b]);
 fun exp v = power (var "e", v)
-fun equals (a,b) = Exp.FUN (Fun.BUILTIN (Symbol.symbol "assign"), [a, b]);
+fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
 fun neg v = times [int ~1, v]
 infix equals;
 

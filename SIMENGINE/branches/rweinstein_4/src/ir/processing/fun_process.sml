@@ -2,7 +2,7 @@ structure FunProcess =
 struct
 
 fun fun2name f = case f of
-		      Fun.BUILTIN sym => sym
+		      Fun.BUILTIN sym => Symbol.symbol (#name (Fun.builtin2props sym))
 		    | Fun.INST {classname=sym,...} => sym		     
 
 fun fun2props f = case f of
