@@ -510,11 +510,16 @@ fun orderModel (model:DOF.model)=
 		    case #eq_type eq of
 			DOF.INSTANCE {name,...} => 
 			(case SymbolTable.look(eqMap, name) of
-			     SOME set => set
+			     SOME set => set 
 			   | NONE => 
+			     let
+				 val ret = 
 			     (foldl SymbolSet.union 
 				    SymbolSet.empty 
-				    (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq)))))
+				    (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq))))
+			     in
+				 ret 
+			     end)
 		      | _ => 
 			let
 			    val sym = term2sym (#lhs eq) 
@@ -526,16 +531,29 @@ fun orderModel (model:DOF.model)=
 					       (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq))))
 			end
 			 
-		fun nameOfInstance inst =
+(*		fun nameOfInstance inst =
 		    case #eq_type inst of
 			DOF.INSTANCE {name, ...} => name
 		      | _ => DynException.stdException("Unexpected non-instance encountered", 
 						       "Ordering.orderModel.buildClass.nameOfInstance", 
 						       Logger.INTERNAL)
+*)
+  		fun instance2deps inst =
+		    case #eq_type inst of
+			DOF.INSTANCE {name, ...} => 
+			if includeMainEqs then
+                          name :: (ExpProcess.exp2symbols(#rhs inst))
+			else
+                          name :: nil
+		      | _ => DynException.stdException("Unexpected non-instance encountered", 
+						       "Ordering.orderModel.buildClass.nameOfInstance", 
+						       Logger.INTERNAL)
+
+		val instanceDeps =  SymbolSet.fromList (foldl (op @) nil (map instance2deps instances)) (*[SymbolSet.fromList(map nameOfInstance instances)]*)
 
 		val mainEqDeps = foldl SymbolSet.union 
 				       (SymbolSet.fromList (map (fn(eq) => term2sym (#lhs eq)) mainEqs))
-				       ((map depsOfEq mainEqs) @ [SymbolSet.fromList(map nameOfInstance instances)])
+				       (instanceDeps :: (map depsOfEq mainEqs))
 
 		val outputDeps = foldl SymbolSet.union SymbolSet.empty (map output2deps outputs)
 
@@ -581,10 +599,13 @@ fun orderModel (model:DOF.model)=
 							    SOME name
 							else
 							    NONE
-				     val partGroup = (case mainInstance of SOME x => [x] | NONE => []) @ outputs
+(*				     val partGroup = (case mainInstance of SOME x => [x] | NONE => []) @ outputs*)
+				     val partGroups = case mainInstance of
+							  SOME x => outputs :: [x] :: nil
+							| NONE => [outputs]
 
 				     (*TODO: do we need to split the subclass before we get here?*)
-				     val _ = print ("for instance "^(Symbol.name name)^" partgroup = " ^ (String.concatWith ", " (map Symbol.name partGroup)) ^ "\n")
+(*				     val _ = print ("for instance "^(Symbol.name name)^" partgroup = " ^ (String.concatWith ", " (map Symbol.name partGroup)) ^ "\n")*)
 
 				     fun outsym2pos newout =
 					 let
@@ -610,7 +631,12 @@ fun orderModel (model:DOF.model)=
 							    
 				     val (instanceClass, inputMap) =  valOf(SymbolTable.look(candidateClasses, key))
 								      
-				     val (splitMap', classMap', classIOMap', eqs) = buildSplit (instanceClass, eq) (partGroup, (splitMap, classMap, classIOMap, eqs))
+(*				     val (splitMap', classMap', classIOMap', eqs) = buildSplit (instanceClass, eq) (partGroup, (splitMap, classMap, classIOMap, eqs))*)
+
+				     val (splitMap', classMap', classIOMap', eqs) =
+					 foldl (buildSplit (instanceClass, eq))
+					       (splitMap, classMap, classIOMap, eqs)
+					       partGroups
 
 				     val generatedInstances' = SymbolSet.add(generatedInstances, name)
 				 in
