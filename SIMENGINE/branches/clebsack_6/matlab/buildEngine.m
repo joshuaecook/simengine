@@ -71,9 +71,9 @@ curdir = pwd;
 cd(compileDirectory);
 try
   status = simEngine_wrapper(simEngine, filename, basename);
-catch me
+catch %me
   cd(curdir);
-  me
+ % me
   error('Simatra:CompileError', ['Can not invoke simEngine compiler. '...
                        'Please verify installation.'])
   return;
@@ -117,6 +117,9 @@ switch computer
   mex('-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
   mex('-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
  case 'i686-pc-linux-gnu'
+  mex('--output', [basename '.mex'], ['-I' fullfile(dynenv,'include')], c_source, solverlib);
+  mex('--output', [basename '_ode.mex'], ['-I' fullfile(dynenv,'include')], ode_c_source);  
+ case 'x86_64-unknown-linux-gnu'
   mex('--output', [basename '.mex'], ['-I' fullfile(dynenv,'include')], c_source, solverlib);
   mex('--output', [basename '_ode.mex'], ['-I' fullfile(dynenv,'include')], ode_c_source);  
  otherwise

@@ -14,7 +14,7 @@
 // Properties data structure
 // ============================================================================================================
 
-typedef int (*flowptr)(CDATAFORMAT t, const CDATAFORMAT*, CDATAFORMAT*, CDATAFORMAT*, CDATAFORMAT* , int);
+//typedef int (*flowptr)(CDATAFORMAT t, const CDATAFORMAT*, CDATAFORMAT*, CDATAFORMAT*, CDATAFORMAT* , int);
 
 typedef struct {
   CDATAFORMAT timestep;
@@ -28,7 +28,6 @@ typedef struct {
   CDATAFORMAT *outputs;
   int first_iteration;
   int statesize;
-  flowptr fun;
 } solver_props;
 
 // Forward Euler data structures and function declarations
@@ -112,17 +111,17 @@ void dormand_prince_free(dormand_prince_mem *mem);
 
 // CVODE data structures and function declarations
 // ============================================================================================================
-
+/*
 typedef struct{
   solver_props *props;
   void *cvmem;
   void *y0;
 } cvode_mem;
 
-cvode_mem * cvode_init(solver_props *props);
+cvode_mem *cvode_init(solver_props *props);
 
 int cvode_eval(cvode_mem *mem);
 
 void cvode_free(cvode_mem *mem);
-
+*/
 #endif // SOLVERS_H

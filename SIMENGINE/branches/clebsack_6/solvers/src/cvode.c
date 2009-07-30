@@ -11,12 +11,12 @@
 int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
   cvode_mem *mem = userdata;
 
-  (mem->props->fun)(t,
-		   NV_DATA_S(y), 
-		   NV_DATA_S(ydot),
-		   mem->props->inputs,
-		   mem->props->outputs,
-		   mem->props->first_iteration);
+  model_flows(t,
+	      NV_DATA_S(y), 
+	      NV_DATA_S(ydot),
+	      mem->props->inputs,
+	      mem->props->outputs,
+	      mem->props->first_iteration);
 
   return CV_SUCCESS;
 }

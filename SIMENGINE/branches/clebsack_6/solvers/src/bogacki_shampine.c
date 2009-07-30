@@ -32,7 +32,7 @@ int bogacki_shampine_eval(bogacki_shampine_mem *mem) {
   //fprintf(stderr, "ts=%g\n", cur_timestep);
 
   int i;
-  int ret = (*mem->props->fun)(*(mem->props->time), mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1);
+  int ret = model_flows(*(mem->props->time), mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1);
 
   int appropriate_step = FALSE;
 
@@ -44,19 +44,19 @@ int bogacki_shampine_eval(bogacki_shampine_mem *mem) {
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[i] = mem->props->model_states[i] + (cur_timestep/2)*mem->k1[i];
     }
-    ret |= (*mem->props->fun)(*(mem->props->time)+(cur_timestep/2), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+(cur_timestep/2), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0);
 
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[i] = mem->props->model_states[i] + (3*cur_timestep/4)*mem->k2[i];
     }
-    ret |= (*mem->props->fun)(*(mem->props->time)+(3*cur_timestep/4), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+(3*cur_timestep/4), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->next_states[i] = mem->props->model_states[i] + (2.0/9.0)*cur_timestep*mem->k1[i] + (1.0/3.0)*cur_timestep*mem->k2[i] + (4.0/9.0)*cur_timestep*mem->k3[i];
     }
     
     // now compute k4 to adapt the step size
-    ret |= (*mem->props->fun)(*(mem->props->time)+cur_timestep, mem->next_states, mem->k4, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+cur_timestep, mem->next_states, mem->k4, mem->props->inputs, mem->props->outputs, 0);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->z_next_states[i] = mem->props->model_states[i] + (7.0/24.0)*cur_timestep*mem->k1[i] + 0.25*cur_timestep*mem->k2[i] + (1.0/3.0)*cur_timestep*mem->k3[i] + 0.125*cur_timestep*mem->k4[i];

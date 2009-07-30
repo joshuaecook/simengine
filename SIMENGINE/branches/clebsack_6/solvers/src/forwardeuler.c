@@ -17,7 +17,7 @@ forwardeuler_mem *forwardeuler_init(solver_props *props) {
 
 int forwardeuler_eval(forwardeuler_mem *mem) {
 
-  int ret = (mem->props->fun)(*(mem->props->time), mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1);
+  int ret = model_flows(*(mem->props->time), mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1);
 
   int i;
   for(i=mem->props->statesize-1; i>=0; i--) {

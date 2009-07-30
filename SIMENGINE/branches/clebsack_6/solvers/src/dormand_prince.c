@@ -35,7 +35,7 @@ int dormand_prince_eval(dormand_prince_mem *mem) {
   //fprintf(stderr, "ts=%g\n", cur_timestep);
 
   int i;
-  int ret = (*mem->props->fun)(*(mem->props->time), mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1);
+  int ret = model_flows(*(mem->props->time), mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1);
 
   int appropriate_step = FALSE;
 
@@ -47,34 +47,34 @@ int dormand_prince_eval(dormand_prince_mem *mem) {
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[i] = mem->props->model_states[i] + (cur_timestep/5.0)*mem->k1[i];
     }
-    ret |= (*mem->props->fun)(*(mem->props->time)+(cur_timestep/5.0), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+(cur_timestep/5.0), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0);
 
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[i] = mem->props->model_states[i] + (3.0*cur_timestep/40.0)*mem->k1[i] + (9.0*cur_timestep/40.0)*mem->k2[i];
     }
-    ret |= (*mem->props->fun)(*(mem->props->time)+(3.0*cur_timestep/10.0), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+(3.0*cur_timestep/10.0), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[i] = mem->props->model_states[i] + (44.0*cur_timestep/45.0)*mem->k1[i] + (-56.0*cur_timestep/15.0)*mem->k2[i] + (32.0*cur_timestep/9.0)*mem->k3[i];
     }
-    ret |= (*mem->props->fun)(*(mem->props->time)+(4.0*cur_timestep/5.0), mem->temp, mem->k4, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+(4.0*cur_timestep/5.0), mem->temp, mem->k4, mem->props->inputs, mem->props->outputs, 0);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[i] = mem->props->model_states[i] + (19372.0*cur_timestep/6561.0)*mem->k1[i] + (-25360.0*cur_timestep/2187.0)*mem->k2[i] + (64448.0*cur_timestep/6561.0)*mem->k3[i] + (-212.0*cur_timestep/729.0)*mem->k4[i];
     }
-    ret |= (*mem->props->fun)(*(mem->props->time)+(8.0*cur_timestep/9.0), mem->temp, mem->k5, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+(8.0*cur_timestep/9.0), mem->temp, mem->k5, mem->props->inputs, mem->props->outputs, 0);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[i] = mem->props->model_states[i] + (9017.0*cur_timestep/3168.0)*mem->k1[i] + (-355.0*cur_timestep/33.0)*mem->k2[i] + (46732.0*cur_timestep/5247.0)*mem->k3[i] + (49.0*cur_timestep/176.0)*mem->k4[i] + (-5103.0*cur_timestep/18656.0)*mem->k5[i];
     }
-    ret |= (*mem->props->fun)(*(mem->props->time)+cur_timestep, mem->temp, mem->k6, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+cur_timestep, mem->temp, mem->k6, mem->props->inputs, mem->props->outputs, 0);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->next_states[i] = mem->props->model_states[i] + (35.0*cur_timestep/384.0)*mem->k1[i] + (500.0*cur_timestep/1113.0)*mem->k3[i] + (125.0*cur_timestep/192.0)*mem->k4[i] + (-2187.0*cur_timestep/6784.0)*mem->k5[i] + (11.0*cur_timestep/84.0)*mem->k6[i];
     }
     
     // now compute k4 to adapt the step size
-    ret |= (*mem->props->fun)(*(mem->props->time)+cur_timestep, mem->next_states, mem->k7, mem->props->inputs, mem->props->outputs, 0);
+    ret |= model_flows(*(mem->props->time)+cur_timestep, mem->next_states, mem->k7, mem->props->inputs, mem->props->outputs, 0);
     
     CDATAFORMAT E1 = 71.0/57600.0;
     CDATAFORMAT E3 = -71.0/16695.0;
@@ -103,7 +103,7 @@ int dormand_prince_eval(dormand_prince_mem *mem) {
 
       //err = fabs(next_states[i]-z_next_states[i]);
       //max_allowed_error = RELTOL*fabs(next_states[i])+ABSTOL;
-      //if (err-max_allowed_error > max_error) max_error = err - max_allowed_error;
+            //if (err-max_allowed_error > max_error) max_error = err - max_allowed_error;
 			       
       CDATAFORMAT ratio = (err/max_allowed_error);
       max_error = ratio>max_error ? ratio : max_error;
