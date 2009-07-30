@@ -515,11 +515,16 @@ fun orderModel (model:DOF.model)=
 		    case #eq_type eq of
 			DOF.INSTANCE {name,...} => 
 			(case SymbolTable.look(eqMap, name) of
-			     SOME set => set
+			     SOME set => set before print ("\n\n\n##########################-##################\n" ^ (Symbol.name name) ^ " " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems set))) ^ "\n")
 			   | NONE => 
+			     let
+				 val ret = 
 			     (foldl SymbolSet.union 
 				    SymbolSet.empty 
-				    (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq)))))
+				    (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq))))
+			     in
+				 ret before print ("\n\n@@@@@@@@@@@@@@@@@@@@@@@@-@@@@@@@@@@@@@@@@@@@@@@\n" ^ (Symbol.name name) ^ " " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems ret))) ^ "\n")
+			     end)
 		      | _ => 
 			let
 			    val sym = term2sym (#lhs eq) 
@@ -531,16 +536,16 @@ fun orderModel (model:DOF.model)=
 					       (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq))))
 			end
 			 
-		fun nameOfInstance inst =
+(*		fun nameOfInstance inst =
 		    case #eq_type inst of
 			DOF.INSTANCE {name, ...} => name
 		      | _ => DynException.stdException("Unexpected non-instance encountered", 
 						       "Ordering.orderModel.buildClass.nameOfInstance", 
 						       Logger.INTERNAL)
-
+*)
 		val mainEqDeps = foldl SymbolSet.union 
 				       (SymbolSet.fromList (map (fn(eq) => term2sym (#lhs eq)) mainEqs))
-				       ((map depsOfEq mainEqs) @ [SymbolSet.fromList(map nameOfInstance instances)])
+				       ((map depsOfEq mainEqs) @ (map depsOfEq instances))(*[SymbolSet.fromList(map nameOfInstance instances)])*)
 
 		val outputDeps = foldl SymbolSet.union SymbolSet.empty (map output2deps outputs)
 

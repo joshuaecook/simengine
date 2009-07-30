@@ -131,12 +131,12 @@ namespace Simulation
     function getPrecision() = self.precision
 
     function setInitialValue (v)
-      function checkDimensions (v: Number, dim) = dim.length() == 0
+/*      function checkDimensions (v: Number, dim) = dim.length() == 0
       overload function checkDimensions (v: Vector, dim) = dim(1) == v.length() and forall elem in v suchthat checkDimensions (elem, dim.rest())
 
       if not (checkDimensions (v, dimensions)) then
         error ("Vector/Matrix dimensions of initial value for " + name + " do not match value of those given for this quantity")
-      end
+      end*/
       initialval = v
     end
 
@@ -170,7 +170,7 @@ namespace Simulation
       self.eq = eq
     end
 
-    function setDimensions (dimensions: Vector of Number)
+    function setDimensions (dimensions: Vector)
       self.dimensions = dimensions
     end
 
@@ -182,7 +182,7 @@ namespace Simulation
       if arg.length() <> dimensions.length() then
         error ("Invalid vector index dimensions on " + name)
       else
-        SpatialReference.new(self, arg)
+        IteratorReference.new(self, arg)
       end
     end
 
@@ -250,11 +250,11 @@ namespace Simulation
       super (assigned_state, expression)
 
 
-      if istype (type Iterator, temporalRef) then
-        self.temporalRef = TemporalReference.new(assigned_state, temporalRef, 0)
-      else
-        self.temporalRef = temporalRef
-      end
+       if istype (type SimIterator, temporalRef) then
+         self.temporalRef = IteratorReference.new(assigned_state, temporalRef, 0)
+       else
+         self.temporalRef = temporalRef
+       end
     end    
   end
 
@@ -327,12 +327,12 @@ namespace Simulation
   end
 
   class IteratorOperation extends ModelOperation
-    var iterator
+    var simIterator
     var step
 
-    constructor (iterator: Iterator, step: Number)
-      super("add", 2, operator_add, 0, [iterator, step])      
-      self.iterator = iterator
+    constructor (simIterator: SimIterator, step: Number)
+      super("add", 2, operator_add, 0, [simIterator, step])      
+      self.simIterator = simIterator
       self.step = step
     end
   end
@@ -356,13 +356,13 @@ namespace Simulation
   
 //  overload function operator_add(arg1: IteratorOperation, arg2) = IteratorOperation.new ("add", 2, operator_add, 0, [arg1, arg2])
 //  overload function operator_add(arg1, arg2: IteratorOperation) = IteratorOperation.new ("add", 2, operator_add, 0, [arg1, arg2])
-  overload function operator_add(arg1: Iterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, arg2) otherwise}
-  overload function operator_add(arg1: Number, arg2: Iterator) = {arg2 when arg1 == 0, IteratorOperation.new (arg2, arg1) otherwise}
+  overload function operator_add(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
+  overload function operator_add(arg1: Number, arg2: SimIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
    
 //  overload function operator_subtract(arg1: IteratorOperation, arg2) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
 //  overload function operator_subtract(arg1, arg2: IteratorOperation) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
-  overload function operator_subtract(arg1: Iterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, -arg2) otherwise}
-//  overload function operator_subtract(arg1: Number, arg2: Iterator) = IteratorOperation.new ("sub", 2, operator_subtract, 0, arg2, arg1)
+  overload function operator_subtract(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, -arg2) otherwise}
+//  overload function operator_subtract(arg1: Number, arg2: SimIterator) = IteratorOperation.new ("sub", 2, operator_subtract, 0, arg2, arg1)
 
 
   overload function operator_multiply(arg1: ModelOperation, arg2) = {arg2 when arg2 == 0,
@@ -614,22 +614,26 @@ namespace Simulation
       self.isTunable = false
     end
 
-    overload operator () (arg: Vector of Iterator)
-      if (arg.length() <> 1) then
-        error "Temporal indexing must be 1 dimensional"
-      else
-        self
-//        TemporalReference.new(self, arg(1), 0)
-      end
+    overload operator () (arg: Vector)
+      IteratorReference.new(self, arg)
     end
 
-    overload operator () (arg: Vector of IteratorOperation)
-      if (arg.length() <> 1) then
-        error "Temporal indexing must be 1 dimensional"
-      else
-        TemporalReference.new(self, arg(1).iterator, arg(1).step)
-      end      
-    end
+//     overload operator () (arg: Vector of SimIterator)
+//       if (arg.length() <> 1) then
+//         error "Temporal indexing must be 1 dimensional"
+//       else
+//         self
+// //        TemporalReference.new(self, arg(1), 0)
+//       end
+//     end
+
+//     overload operator () (arg: Vector of IteratorOperation)
+//       if (arg.length() <> 1) then
+//         error "Temporal indexing must be 1 dimensional"
+//       else
+//         TemporalReference.new(self, arg(1).simIterator, arg(1).step)
+//       end      
+//     end
   end
 
   class State extends SimQuantity
@@ -646,22 +650,26 @@ namespace Simulation
       self.isIterable = true
     end
 
-    overload operator () (arg: Vector of Iterator)
-      if (arg.length() <> 1) then
-        error "Temporal indexing must be 1 dimensional"
-      else
-        self
-//        TemporalReference.new(self, arg(1), 0)
-      end
+    overload operator () (arg: Vector)
+      IteratorReference.new(self, arg)
     end
+//     overload operator () (arg: Vector of SimIterator)
+//       if (arg.length() <> 1) then
+//         error "Temporal indexing must be 1 dimensional"
+//       else
+//         self
+// //        TemporalReference.new(self, arg(1), 0)
 
-    overload operator () (arg: Vector of IteratorOperation)
-      if (arg.length() <> 1) then
-        error "Temporal indexing must be 1 dimensional"
-      else
-        TemporalReference.new(self, arg[1].iterator, arg[1].step)
-      end      
-    end
+//       end
+//     end
+
+//     overload operator () (arg: Vector of IteratorOperation)
+//       if (arg.length() <> 1) then
+//         error "Temporal indexing must be 1 dimensional"
+//       else
+//         TemporalReference.new(self, arg[1].simIterator, arg[1].step)
+//       end      
+//     end
 
     function updateHistoryDepth(depth)
       historyDepth = {depth when depth > historyDepth,
@@ -671,8 +679,17 @@ namespace Simulation
   end
 
 
+  class IteratorReference extends SimQuantity
+    var referencedQuantity
+    var indices
 
-
+    constructor (rquant, indices)
+      referencedQuantity = rquant
+      self.indices = indices      
+    end
+    function getName() = referencedQuantity.getName() + indices
+  end
+/*
   class SpatialReference extends State
     var internalState
     var indices
@@ -691,26 +708,15 @@ namespace Simulation
 
     //TODO: map internalstate into s
   end
-
-  class TemporalReference extends State
-    var internalState
-    var iterator
+*/
+  class RelativeOffset
+    var simIterator
     var step
     
-    property dslname 
-      get = internalState.dslname + "[" + (iterator.getName()) + " + " + step + "]"
-    end
-
-    constructor (s: SimQuantity, iterator: Iterator, step: Number)
-      internalState = s
-      self.isIterable = true      
-      self.iterator = iterator
+    constructor (simIterator: SimIterator, step: Number)
+      self.simIterator = simIterator
       self.step = step
     end    
-
-    function tostring () = (internalState.tostring()) + "[" + (iterator.getName()) + " + " + step + "]"
-
-    //TODO: map internalState into s
   end
 
   class Parameter extends SimQuantity
@@ -726,26 +732,48 @@ namespace Simulation
   end
 
   // down here because it needs to see definition of + with model operations
-  class Iterator extends State
+  class SimIterator extends SimQuantity
+    var value
+    constructor (name: String)
+      super(name)
+    end 
+
+    function setValue(v)
+      value = v
+    end
+    function getValue() = value
+
+  end
+
+  class TimeIterator extends SimQuantity
+    var isContinuous
+    constructor (name: String, isContinuous)
+      super(name)
+      self.isContinuous = isContinuous
+    end 
+
+  end
+
+/*  class SimIterator extends State
     hidden var step
     hidden var maxduration
-    hidden var overrideIterator
+    hidden var overrideSimIterator
     constructor (name: String)
       super(name)
       self.isIterable = true
       self.initialval = 0
     end    
 
-    hidden function iteratorStep2rangeStep(step) = 2^(-(LF num2fixpt step).frac)
+    hidden function simIteratorStep2rangeStep(step) = 2^(-(LF num2fixpt step).frac)
 
     function setStep(step)
       self.step = step     
       self.eq = Equation.new(self, self + (step))
       if isdefined step then
         if isdefined maxduration then
-          self.setPrecision(Range.new(0, maxduration, iteratorStep2rangeStep step))
+          self.setPrecision(Range.new(0, maxduration, simIteratorStep2rangeStep step))
         else
-          self.setPrecision(Range.new(0, 2^32*(iteratorStep2rangeStep step) - 1, iteratorStep2rangeStep step))
+          self.setPrecision(Range.new(0, 2^32*(simIteratorStep2rangeStep step) - 1, simIteratorStep2rangeStep step))
         end
       end
     end
@@ -753,42 +781,42 @@ namespace Simulation
     function setMaxDuration (maxduration)
       self.maxduration = maxduration
       if isdefined step and isdefined maxduration then
-        self.setPrecision(Range.new(0, maxduration, iteratorStep2rangeStep step))
+        self.setPrecision(Range.new(0, maxduration, simIteratorStep2rangeStep step))
       end
     end
 
     function getStep()
       if isOverridden() then
-        overrideIterator.getStep()
+        overrideSimIterator.getStep()
       else
         step
       end
     end
 
-    function override(it: Iterator)
-      overrideIterator = it
+    function override(it: SimIterator)
+      overrideSimIterator = it
     end
 
     function getEquation()
-      if isdefined overrideIterator then
-        overrideIterator.getEquation()
+      if isdefined overrideSimIterator then
+        overrideSimIterator.getEquation()
       else
         eq
       end
     end
 
-    function isOverridden() = isdefined overrideIterator
+    function isOverridden() = isdefined overrideSimIterator
   end  
+*/
+//   class IterationDomain
+//     var continuous
+//     var discrete
 
-  class IterationDomain
-    var continuous
-    var discrete
-
-    constructor(continuous:Iterator, discrete:Iterator)
-      self.continuous = continuous
-      self.discrete = discrete
-    end
-  end
+//     constructor(continuous:SimIterator, discrete:SimIterator)
+//       self.continuous = continuous
+//       self.discrete = discrete
+//     end
+//   end
 
 
   class Output
@@ -905,6 +933,7 @@ namespace Simulation
     
 
     var quantities = []
+    var iterators = []
     var submodels = []
     var dimensions = []
     var outputs = {}
@@ -925,18 +954,18 @@ namespace Simulation
     //initialization
     var t
     var n
-    var domain
+//    var domain
 
 //    var keep_running = State.new ("keep_running")
 
     constructor ()
   //    println "in model.new"
-      t = Iterator.new("t") {initialval = 0}
-      n = Iterator.new("n") {initialval = 0}
-      domain = IterationDomain.new(t,n)
+      t = TimeIterator.new("t", true)
+      n = TimeIterator.new("n", false)
+//      domain = IterationDomain.new(t,n)
 
-      t.setPrecision(InfinitePrecision.new())
-      n.setPrecision(InfinitePrecision.new())
+//      t.setPrecision(InfinitePrecision.new())
+//      n.setPrecision(InfinitePrecision.new())
 
 //       keep_running.setPrecision(Range.new(0,1,1))
 //       keep_running.setInitialValue 1
@@ -1037,7 +1066,7 @@ namespace Simulation
     function getLocalStates()
       function isState(x) = false
       overload function isState(x:SimQuantity) = x.getIsState()
-      overload function isState(x:Iterator) = not (x.isOverridden())
+      overload function isState(x:SimIterator) = not (x.isOverridden())
 
       //filter(isState, getFlattenedMembers())
       [q foreach q in quantities when isState q]
@@ -1111,11 +1140,11 @@ namespace Simulation
     function addSubModel (name, submod: Model)
       submod.domain = domain
 
-      if istype(type Iterator, submod.t) then
+      if istype(type SimIterator, submod.t) then
         submod.t.override(domain.continuous)
       end
 
-      if istype(type Iterator, submod.n) then
+      if istype(type SimIterator, submod.n) then
         submod.n.override(domain.discrete)        
       end
 
@@ -1147,7 +1176,7 @@ namespace Simulation
         else false
         end
       end
-      overload function isEquation(x: Iterator)
+      overload function isEquation(x: SimIterator)
         not (x.isOverridden()) and isdefined (x.getEquation())
       end
 

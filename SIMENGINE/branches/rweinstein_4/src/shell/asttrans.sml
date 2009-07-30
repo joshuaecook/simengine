@@ -400,6 +400,32 @@ and trans_definition definition =
 			     end)
 		    end
 
+		  | Ast.ITERATORDEF {name, value, settings} 
+ 		    =>  
+		    [HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "SimIterator"),
+												   message=Symbol.symbol "new"},
+										    args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))]}),
+				     PosLog.NOPOS),
+		     HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  
+						      args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
+									  HLEC.SYMBOL name]}),
+				  PosLog.NOPOS),
+		     HLEC.ACTION(HLEC.EXP (HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "push_back",
+								     object=HLEC.SYMBOL (Symbol.symbol "iterators")}, 
+						      args=HLEC.TUPLE[HLEC.SYMBOL name]}), PosLog.NOPOS)]
+		    @ (case value of
+			  SOME value => 
+			  [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(name), message=Symbol.symbol "setValue"},  
+							   args=HLEC.TUPLE[trans_exp value]}),
+				       PosLog.NOPOS)]
+			| NONE => [])
+		    @ (case settings of
+			     NONE => []
+			   | SOME settings =>
+			     [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL name,
+								 args=HLEC.TUPLE[trans_exp settings]}),
+					   PosLog.NOPOS)])
+
 		  | Ast.QUANTITYDEF {modifiers, basetype, name, precision, exp, settingstable, dimensions}
 		    => 
 		    (* create quantity *)
@@ -458,7 +484,7 @@ and trans_definition definition =
 		    @ (case dimensions of
 			   NONE => []
 			 | SOME dims => [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setDimensions"},
-									  args=HLEC.TUPLE [trans_exp (Ast.VECTOR dims)]}),
+									  args=HLEC.TUPLE [trans_exp (Ast.VECTOR (map (fn(s) => Ast.LITERAL (Ast.CONSTSTR (Symbol.name s))) dims))]}),
 						      PosLog.NOPOS)])		  (* set initial value exp *)
 		    @ (case exp of
 			   NONE => []

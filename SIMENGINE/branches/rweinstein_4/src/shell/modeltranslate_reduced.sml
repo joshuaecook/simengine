@@ -6,6 +6,11 @@ end
 
 structure ModelTranslate : MODELTRANSLATE=
 struct
+
+fun error (msg) =
+    (*TODO: replace *)
+    DynException.stdException (msg, "ModelTranslate", Logger.USER)
+
 fun translate (exec, object) =
     let
 	(* helper methods *)
@@ -26,6 +31,14 @@ fun translate (exec, object) =
 	    b
 	  | exp2real exp =
 	    DynException.stdException ("Expected a number but received " ^ (PrettyPrint.kecexp2nickname exp) ^ ": " ^ (pretty exp), "ModelTranslate.translate.exp2real", Logger.INTERNAL)
+
+
+	(* This method assumes the exp has already been exec'd *)
+	fun exp2int (KEC.LITERAL(KEC.CONSTREAL b)) =
+	    Real.floor b
+	  | exp2int exp =
+	    DynException.stdException ("Expected a number but received " ^ (PrettyPrint.kecexp2nickname exp) ^ ": " ^ (pretty exp), "ModelTranslate.translate.exp2int", Logger.INTERNAL)
+
 
 	fun exp2realoption (KEC.UNDEFINED) =
 	    NONE 
@@ -248,6 +261,46 @@ fun translate (exec, object) =
 			    ExpBuild.tvar((exp2str (method "instanceName" obj)) ^ "." ^ (exp2str (method "name" obj)))
 			else if (istype (obj, "Intermediate")) orelse ((istype (obj, "State")) andalso istype (method "eq" obj, "DifferentialEquation"))then
 			    ExpBuild.tvar(exp2str (method "name" obj))
+			else if istype (obj, "IteratorReference") then
+			    let
+				val name = exp2str (method "name" (method "referencedQuantity" obj))
+				val args = vec2list (method "indices" obj)
+
+				val iterators = map (Symbol.symbol o exp2str) 
+						    (vec2list (send "getDimensions" 
+								    (method "referencedQuantity" obj)
+								    NONE))
+
+				val namedargs = ListPair.zip (iterators, args)
+
+				val _ = if length namedargs < length args then
+					    error ("Too many indices encountered on index of " ^ name)
+					else
+					    ()
+
+				fun buildIndex (iterator, arg) =
+				    if istype (arg, "Number") then
+					(iterator, Iterator.ABSOLUTE (exp2int arg))
+				    else if istype (arg, "Interval") then
+					(iterator, Iterator.RANGE (exp2int (method "low" arg), exp2int (method "high" arg)))
+				    else if istype (arg, "SimIterator") then
+					if iterator = (Symbol.symbol (exp2str (method "name" arg))) then
+					    (iterator, Iterator.RELATIVE 0)
+					else
+					    error ("Encountered iterator "^(exp2str (method "name" arg))^" in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
+				    else if istype (arg, "RelativeOffset") then
+					if iterator = (Symbol.symbol (exp2str (method "name" (method "simIterator" arg)))) then
+					    (iterator, Iterator.RELATIVE (exp2int(method "step" arg)))
+					else
+					    error ("Encountered iterator "^(exp2str (method "name" (method "simIterator" arg)))^" in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
+				    else 
+					error ("Invalid index detected on index of " ^ name)
+			    in
+				Exp.TERM (Exp.SYMBOL (Symbol.symbol name, 
+						      (Property.setIterator 
+							   Property.default_symbolproperty 
+							   (map buildIndex namedargs))))
+			    end
 			else if istype (obj, "TemporalReference") then
 			    ExpBuild.relvar (Symbol.symbol(exp2str(method "name" (method "internalState" obj))),
 					     Symbol.symbol(exp2str(method "name" (method "iterator" obj))),
