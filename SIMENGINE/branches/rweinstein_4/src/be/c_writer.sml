@@ -54,6 +54,64 @@ fun outputdatastruct_code class =
 	List.concat (map output2struct (!outputs))
     end
 
+fun outputstatestructbyclass_code (class : DOF.class) =
+    let
+	val classname = ClassProcess.class2orig_name class
+	val exps = #exps class
+	val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
+	val instances = List.filter ExpProcess.isInstanceEq (!exps)
+	val class_inst_pairs = ClassProcess.class2instnames class
+    in
+	[$(""),
+	 $("// define state structures"),
+	 $("struct statedata_" ^ (Symbol.name classname) ^ " {"),	 
+	 SUB($("// states (count="^(i2s (List.length diff_eqs_symbols))^")")::
+	     (map (fn(sym)=>
+		     let
+			 val size = Term.symbolSpatialSize (ExpProcess.exp2term sym)
+			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
+		     in
+			 if size = 1 then
+			     $("CDATAFORMAT " ^ name ^ ";")
+			 else
+			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"];")
+		     end) diff_eqs_symbols) @
+	     ($("// instances (count=" ^ (i2s (List.length instances)) ^")")::
+	      (map 
+		   (fn(classname, instname)=>
+		      let			  
+			  val size = 
+			      case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
+			       of SOME inst' => ExpProcess.instSpatialSize inst'
+				| NONE => 1
+		      in
+			  if size = 1 then
+			      $("struct statedata_" ^ (Symbol.name classname) ^ " "^(Symbol.name instname)^";")
+			  else
+			      $("struct statedata_" ^ (Symbol.name classname) ^ " "^(Symbol.name instname)^"["^(i2s size)^"];")
+		      end)
+		   class_inst_pairs))),
+	 $("};")]
+    end
+
+fun outputstatestruct_code classes =
+    let
+	fun isMasterClass {properties={classtype,...},...} =
+	    case classtype of
+		DOF.MASTER _ => true
+	      | _ => false
+	val master_classes = List.filter isMasterClass classes
+
+	val predeclare_statements = 
+	    map
+		(fn(class)=> $("struct " ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ ";"))
+		classes
+
+    in
+	($("")::($("// Pre-declare state structures"))::predeclare_statements) @
+	List.concat (map outputstatestructbyclass_code master_classes)
+    end
+
 fun outputinit_code class =
     let 
 	val outputs = #outputs class
@@ -82,6 +140,67 @@ fun outputinit_code class =
 
     end
 
+fun initbyclass_code class =
+    let
+	val classname = ClassProcess.class2orig_name class
+	val exps = #exps class
+	val init_eqs = (List.filter ExpProcess.isInitialConditionEq (!exps))
+	val instances = List.filter ExpProcess.isInstanceEq (!exps)
+	val class_inst_pairs = ClassProcess.class2instnames class
+    in
+	[$(""),
+	 $("// define state initialization functions"),
+	 $("void init_" ^ (Symbol.name classname) ^ "(struct statedata_"^(Symbol.name classname)^" *states) {"),	 
+	 SUB($("// states (count="^(i2s (List.length init_eqs))^")")::
+	     (map (fn(sym)=>
+		     let
+			 val size = Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))
+			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs sym)))
+			 val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs sym)
+		     in
+			 if size = 1 then
+			     $("states->" ^ name ^ " = " ^ assigned_value ^ ";")
+			 else (* might have to do something special here or in c_writer_util *)
+			     $("states->" ^ name ^ " = " ^ assigned_value ^ ";")
+		     end) init_eqs) @
+	     ($("// instances (count=" ^ (i2s (List.length instances)) ^")")::
+	      (map 
+		   (fn(classname, instname)=>
+		      let			  
+			  val size = 
+			      case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
+			       of SOME inst' => ExpProcess.instSpatialSize inst'
+				| NONE => 1
+		      in
+			  if size = 1 then
+			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^");")
+			  else (* not sure what to do here *)
+			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^");")
+		      end)
+		   class_inst_pairs))),
+	 $("};")]
+    end
+    
+
+fun init_code classes =
+    let
+	fun isMasterClass {properties={classtype,...},...} =
+	    case classtype of
+		DOF.MASTER _ => true
+	      | _ => false
+	val master_classes = List.filter isMasterClass classes
+
+	val predeclare_statements = 
+	    map
+		(fn(class)=> $("void init_" ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ "(struct statedata_"^(Symbol.name (ClassProcess.class2orig_name class))^" *states);"))
+		classes
+
+    in
+	($("")::($("// Pre-declare state initialization functions"))::predeclare_statements) @
+	List.concat (map initbyclass_code master_classes)
+    end
+
+(*
 fun class2init_code iterators class =
     [$(""),
      $("void init_" ^ (Symbol.name (#name class)) ^ "(unsigned int offset) {"),
@@ -102,7 +221,35 @@ fun class2init_code iterators class =
 	     end
 	 val progs = 
 	     Util.flatmap
-		 (fn(eq as {eq_type, sourcepos, lhs, rhs})=>
+		 (fn(exp)=>
+		    if ExpProcess.isInitialValueEq exp then
+			(case ExpProcess.lhs exp of
+			     Exp.SYMBOL (sym, props) =>
+			     let
+				 val iter as (itersym, itertype) =
+				     case (Property.getIterator props) of
+					 SOME (v::rest) => v
+				       | _ => DynException.stdException(("No iterator defined for initial value '"^(ExpProcess.exp2str (EqUtil.eq2exp eq))^"'"),
+									"CWriter.class2init_code",
+									Logger.INTERNAL)
+			     in
+				 case itertype of
+				     Iterator.ABSOLUTE a => if a = 0 then
+								[$("model_states[offset+"^(i2s offset)^"] = " ^ 
+								   (CWriterUtil.exp2c_str rhs) ^
+								   "; // " ^ (ExpProcess.exp2str (Exp.TERM lhs)))]
+							    else
+								[]
+				   | _ => []
+			     end
+			   | _ => DynException.stdException(("Can't handle non-symbol lhs terms '"^(ExpProcess.exp2str (EqUtil.eq2exp eq))^"'"),
+							    "CWriter.class2init_code",
+							    Logger.INTERNAL))
+		    else if ExpProcess.isInstanceEq exp then
+			[$("// put instance here")]
+		    else
+			[])
+	(*	 (fn(eq as {eq_type, sourcepos, lhs, rhs})=>
 		    case eq_type
 		     of DOF.INITIAL_VALUE {offset} => 
 			(case lhs of
@@ -140,15 +287,15 @@ fun class2init_code iterators class =
 			       ("// inst: " ^ (Symbol.name name)))]
 			end
 		      | _ => (*[$("// " ^ (ExpProcess.exp2str (EqUtil.eq2exp eq)))]*)[]
-		 )
-		 (!(#eqs class))
+		 ) *)
+		 (!((*#eqs*)#exps class))
      in
 	 progs
      end
      ),
      $("}"),
      $("")]
-
+*)
 fun class2flow_code (class, top_class, iterators) =
     let
 	val header_progs = 
@@ -358,6 +505,7 @@ fun class2flow_code (class, top_class, iterators) =
 	 $("")]
     end
 
+(*
 fun init_code (classes: DOF.class list) = 
     let
 	(* pre-declare all the init code *)
@@ -374,7 +522,7 @@ fun init_code (classes: DOF.class list) =
 	fundecl_progs @ [$(""), $("// Initialization of flow functions")] @
 	init_progs	
     end
-
+*)
 fun flow_code (classes: DOF.class list, topclass: DOF.class) = 
     let
 	val fundecl_progs = map
@@ -519,7 +667,7 @@ fun main_code name =
 	 $("double t = 0;"),
 	 $("double t1 = atof(argv[1]);"),
 	 $("output_init(); // initialize the outputs"),
-	 $("init_"^name^"(0); // initialize the states"),
+	 $("init_"^name^"((struct statedata_"^name^"*) model_states); // initialize the states"),
 	 $("CDATAFORMAT inputs[INPUTSPACE];"),
 	 $(""),
 	 $("init_inputs(inputs);"),
@@ -562,6 +710,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 
 	val input_progs = input_code inst_class
 	val outputdatastruct_progs = outputdatastruct_code inst_class
+	val outputstatestruct_progs = outputstatestruct_code classes
 	val outputinit_progs = outputinit_code inst_class
 	val init_progs = init_code classes
 	val flow_progs = flow_code (classes, inst_class)
@@ -572,6 +721,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @ 
 					      outputdatastruct_progs @ 
+					      outputstatestruct_progs @
 					      outputinit_progs @ 
 					      input_progs @ 
 					      init_progs @ 

@@ -26,28 +26,5 @@ fun inst2props f : Fun.op_props =
     end
     handle e => DynException.checkpoint "Inst.inst2props" e
 
-(* handle instance properties *)
-val emptyinstprops = {dim=NONE,
-		      sourcepos=NONE,
-		      realname=NONE}
 
-fun getDim (props : Fun.instproperties) = #dim props
-fun getSourcePos (props : Fun.instproperties)= #sourcepos props
-fun getRealName (props : Fun.instproperties)= #realname props
-
-fun setDim (props as {dim, sourcepos, realname} : Fun.instproperties) sym = 
-    {dim=SOME sym,
-    sourcepos=sourcepos,
-    realname=realname}
-															 
-fun setSourcePos (props as {dim, sourcepos, realname} : Fun.instproperties) sym = 
-    {dim=dim,
-    sourcepos=SOME sym,
-    realname=realname}
-															 
-fun setRealName (props as {dim, sourcepos, realname} : Fun.instproperties) sym = 
-    {dim=dim,
-    sourcepos=sourcepos,
-    realname=SOME sym}
-															 
 end

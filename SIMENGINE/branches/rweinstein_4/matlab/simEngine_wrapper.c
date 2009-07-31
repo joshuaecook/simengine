@@ -10,7 +10,7 @@ int runsimEngine (char *simengine, char *file, char *modelname)
 
   int errored = 1;
 
-  snprintf(cmdline, 200, "sh -c 'echo \"import \\\"%s\\\"\nprint(compile(%s))\" | %s -batch'", file, modelname, simengine);
+  snprintf(cmdline, 200, "sh -c 'echo \"import \\\"%s\\\"\nprint(compile(%s))\" | %s -batch 2>& 1'", file, modelname, simengine);
 
   /* we must flush because the man page says we should before a popen call */
   fflush(stdin);

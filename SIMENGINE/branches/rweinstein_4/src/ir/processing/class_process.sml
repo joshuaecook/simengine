@@ -274,5 +274,50 @@ fun fixSymbolNames (class: DOF.class) =
 	    symbols
     end
 
+fun class2instances class = 
+    let
+	val exps = !(#exps class)
+    in
+	List.filter ExpProcess.isInstanceEq exps
+    end
+
+fun class2orig_name (class : DOF.class) =
+    let
+	val {properties={classtype,...},...} = class
+    in
+	case classtype of
+	    DOF.MASTER c => c
+	  | DOF.SLAVE c => c
+    end
+
+fun class2instnames (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list =
+    let
+	val inst_eqs = class2instances class
+	fun inst2orig_names inst =
+	    (ExpProcess.instOrigClassName inst, ExpProcess.instOrigInstName inst)
+
+	fun uniq_fun ((c1,i1),(c2,i2)) = i1 = i2
+	val classes_insts = Util.uniquify_by_fun uniq_fun (map inst2orig_names inst_eqs)
+	val all_classes = CurrentModel.classes()
+	fun name2orig_name orig_name = 
+	    case List.find (fn{name,...}=>name=orig_name) all_classes of
+		SOME {properties={classtype,...},...} => (case classtype of 
+							     DOF.MASTER c => c 
+							   | DOF.SLAVE c => c)
+	      | _ => orig_name
+    in
+	map (fn(c,i)=>(name2orig_name c, i)) classes_insts
+    end
+
+fun makeSlaveClassProperties props = 
+    let
+	val {classtype, sourcepos} = props
+    in
+	{classtype=case classtype of
+		       DOF.MASTER classname => DOF.SLAVE classname
+		     | _ => classtype,
+	 sourcepos=sourcepos}
+    end
+    
 
 end

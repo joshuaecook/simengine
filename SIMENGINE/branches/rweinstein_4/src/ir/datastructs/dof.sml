@@ -7,8 +7,11 @@ type inputproperties =
      {defaultValue: Exp.term option,
       sourcepos: PosLog.pos}
       
+datatype classtype = MASTER of Symbol.symbol
+		   | SLAVE of Symbol.symbol
 
-type classproperties = {sourcepos: PosLog.pos}
+
+type classproperties = {sourcepos: PosLog.pos, (* inline: bool, *)classtype: classtype}
 
 datatype iteratortype = CONTINUOUS of Solver.solver
 		      | DISCRETE

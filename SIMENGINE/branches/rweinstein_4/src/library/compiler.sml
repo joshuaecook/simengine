@@ -31,7 +31,8 @@ fun std_compile exec args =
 	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
 	      val _ = if DynamoOptions.isFlagSet "generateC" then
-			  CWriter.buildC (CurrentModel.getCurrentModel())
+			  (Logger.log_notice (Printer.$("Generating Debug C Back-end"));
+			  CWriter.buildC (CurrentModel.getCurrentModel()))
 		      else
 			  CWriter.SUCCESS
 

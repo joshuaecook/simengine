@@ -434,7 +434,7 @@ fun translate (exec, object) =
 
 			val rhs = Exp.FUN (Fun.INST {classname=name,
 						     instname=objname,
-						     props=Inst.emptyinstprops},
+						     props=Fun.emptyinstprops},
 					   map (fn(i) => kecexp2dofexp i) input_exps)
 
 			val eq = {eq_type=DOF.INSTANCE {name=objname, classname=name, offset=nil},
@@ -460,7 +460,7 @@ fun translate (exec, object) =
 
 	    in
 		({name=name, 
-		  properties={sourcepos=PosLog.NOPOS},
+		  properties={sourcepos=PosLog.NOPOS,classtype=DOF.MASTER name},
 		  inputs=ref (map obj2input(vec2list(method "inputs" object))),
 		  outputs=ref (map obj2output(vec2list(method "contents" (method "outputs" object)))),
 		  exps=ref (map EqUtil.eq2exp eqs),

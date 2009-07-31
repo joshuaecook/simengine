@@ -192,6 +192,16 @@ fun error_no_return exp text =
 
 fun error exp text = (error_no_return exp text; Exp.null)
 
+fun isFun exp = 
+    case exp of
+	Exp.FUN _ => true
+      | Exp.TERM _ => false
+
+fun isTerm exp = 
+    case exp of
+	Exp.FUN _ => false
+      | Exp.TERM _ => true
+
 fun isEquation exp =
     case exp of
 	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, rhs]) => true
@@ -216,7 +226,7 @@ fun deconstructInst exp =
     let
 	val empty_return = {classname=Symbol.symbol "NULL", 
 			    instname=Symbol.symbol "NULL", 
-			    props=Inst.emptyinstprops, 
+			    props=Fun.emptyinstprops, 
 			    inpargs=[], 
 			    outargs=[]}
     in
@@ -227,6 +237,36 @@ fun deconstructInst exp =
 	      | _ => (error_no_return exp "Malformed instance equation"; empty_return)
 	else
 	    (error_no_return exp "Not an instance equation"; empty_return)
+    end
+
+fun instSpatialSize inst =
+    if isInstanceEq inst then
+	let
+	    val {props,...} = deconstructInst inst
+	in
+	    case Fun.getDim props  
+	     of SOME l => Util.prod l
+	      | NONE => 1
+	end	    
+    else
+	DynException.stdException(("Passed exp '"^(exp2str inst)^"' that is not an instance"), "Inst.instSpatialSize", Logger.INTERNAL)
+
+fun instOrigClassName inst = 
+    let
+	val {classname, instname, props, inpargs, outargs} = deconstructInst inst
+    in
+	case Fun.getRealClassName props 
+	 of SOME v => v
+	  | NONE => classname
+    end
+
+fun instOrigInstName inst = 
+    let
+	val {classname, instname, props, inpargs, outargs} = deconstructInst inst
+    in
+	case Fun.getRealInstName props 
+	 of SOME v => v
+	  | NONE => instname
     end
 
 (* the lhs is something of the form of x'[t] *)
@@ -294,5 +334,16 @@ fun isNonSupportedEq exp =
 	    (error_no_return exp "Not a supported equation type"; false)
     else
 	(error_no_return exp "Not an equation"; true)
+
+fun exp2size exp : int option = 
+    let
+	val size = if isTerm exp then
+		       0
+		   else
+		       0
+
+    in
+	SOME size	    
+    end
 
 end

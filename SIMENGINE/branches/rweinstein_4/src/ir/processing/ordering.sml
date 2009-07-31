@@ -319,6 +319,11 @@ fun orderModel (model:DOF.model)=
 			       | _ => DynException.stdException("Malformed equation eq_type", 
 								"Ordering.orderModel.buildInstance", 
 								Logger.INTERNAL)
+		val orig_class_name = case #rhs original_instance_eq of
+					  Exp.FUN (Fun.INST {classname,...}, _) => classname
+					| _ => DynException.stdException("Malformed equation rhs", 
+									 "Ordering.orderModel.buildInstance", 
+									 Logger.INTERNAL)
 				      
 		val instName = Symbol.symbol ((Symbol.name (orig_inst_name)) ^ (Int.toString (Unique.genid())))
 
@@ -359,7 +364,8 @@ fun orderModel (model:DOF.model)=
 
 		val rhs' = Exp.FUN (Fun.INST {classname= #name class, 
 					      instname=instName,
-					      props=(Inst.setRealName Inst.emptyinstprops orig_inst_name)},
+					      props=
+					      Fun.setRealInstName (Fun.setRealClassName Fun.emptyinstprops orig_class_name) orig_inst_name},
 				    inputs)
 
 		val offset = case #eq_type original_instance_eq of
@@ -718,7 +724,10 @@ fun orderModel (model:DOF.model)=
 
 
 		val newclass = {name=newname,
-				properties= #properties oldClass,
+				properties= if includeMainEqs then
+						#properties oldClass
+					    else (* convert it to a slave of the orignal *)
+						ClassProcess.makeSlaveClassProperties (#properties oldClass),
 				inputs= ref inputs,
 				outputs=ref outputs,
 				exps=ref (map EqUtil.eq2exp eqs),

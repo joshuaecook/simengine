@@ -68,8 +68,14 @@ fun printModel (model: DOF.model) =
 	  | contents2str contents =
 	    "(" ^ (String.concatWith ", " (map ExpProcess.exp2str contents)) ^ ")"
 
-	fun printClass (class as {name, properties={sourcepos}, inputs, outputs, exps, eqs}) =
-	     (print ("Class Name: " ^ (Symbol.name (name)) ^ "\n");
+	fun printClass (class as {name, properties={sourcepos, classtype}, inputs, outputs, exps, eqs}) =
+	    (case classtype of
+		 DOF.SLAVE orig_class_name => 
+		 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")
+	       | DOF.MASTER orig_class_name => if orig_class_name = name then
+						   print ("Class Name: " ^ (Symbol.name (name)) ^ "\n")
+					       else
+						   print ("Class Name: " ^ (Symbol.name (name)) ^ " (Master class of '"^(Symbol.name orig_class_name)^"')\n");
 	      print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => ExpProcess.exp2str (Exp.TERM name) ^ (case default of SOME v => (" = "^(ExpProcess.exp2str v)) | NONE => "")) (!inputs))) ^ "\n");
 	      print ("  Equations orig:\n");
 	      app (fn(e) => print("    " ^ (eq2str e) ^ "\n")) (!eqs);

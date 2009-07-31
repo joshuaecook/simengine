@@ -19,6 +19,9 @@ val same = Util.same
 	       | PATTERN of (string * predicate * patterncount)
 *)
 
+fun sym2curname (Exp.SYMBOL (s, props)) = s
+  | sym2curname _ = DynException.stdException("Received an unexpected non symbol", "Term.sym2name", Logger.INTERNAL)
+
 fun sym2name (Exp.SYMBOL (s, props)) = 
     (case (Property.getRealName props)
      of SOME v => Symbol.name v
@@ -91,6 +94,12 @@ fun sym2fullstr (s, props) =
 
 fun sym2c_str (s, props) =
     let
+	val scope = Property.getScope props
+	val prefix = case scope of
+			 Property.LOCAL => ""
+		       | Property.READSTATE v => Symbol.name v ^ "->"
+		       | Property.WRITESTATE v => Symbol.name v ^ "->"
+
 	val (order, vars) = case Property.getDerivative props
 			      of SOME (order, iters) => (order, iters)
 			       | NONE => (0, [])
@@ -107,11 +116,13 @@ fun sym2c_str (s, props) =
 	    DynException.stdException(("Can't support integrals ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	else if order = 0 then
 	    (if iters = "[n+1]" then
-		 "next_" ^ n
+		 prefix ^ n
+		 (*"next_" ^ n*)
 	     else
-		 n (*^ iters*))
+		 prefix ^ n (*^ iters*))
 	else if order = 1 then
-	    "d_" ^ n ^ "_dt" (* only support first order derivatives with respect to t *)
+	    (*"d_" ^ n ^ "_dt"*) (* only support first order derivatives with respect to t *)
+	    prefix ^ n
 	else
 	    DynException.stdException(("Can't support higher order derivative terms ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	(*else if order > 3 andalso (same vars) then
@@ -168,6 +179,46 @@ fun isInitialValue term itersym =
 	     SOME (_,Iterator.ABSOLUTE 0) => true
 	   | _ => false)
       | _ => false
+
+fun symbolTimeDerivativeOrder term =
+    case term
+     of Exp.SYMBOL (sym, props) =>
+	(case Property.getDerivative props
+	  of SOME (order, sym::rest)=> if sym = (Symbol.symbol "t") then 
+					   order
+				       else
+					   0
+	   | _ => 0)
+      | _ => 0
+
+fun symbolSampleDelay term =
+    case term
+     of Exp.SYMBOL (sym, props) =>
+	(case Property.getIterator props
+	      of SOME ((sym, Iterator.RELATIVE i)::rest) => if sym = (Symbol.symbol "n") then 
+								i
+							    else
+								0
+	       | _ => 0)
+      | _ => 0
+
+fun symbolSpatialSize term =
+    case term
+     of Exp.SYMBOL (sym, props) =>
+	(case Property.getDim props
+	  of SOME l => Util.prod l
+	   | NONE => 1)
+      | _ => 1
+
+(* compute the memory requirements of a term *)
+fun termMemorySize term =
+    let
+	val deriv_order = symbolTimeDerivativeOrder term
+	val sample_delay = symbolSampleDelay term
+    in
+	(if deriv_order > 0 then deriv_order else 0) +
+	(if sample_delay > 0 then sample_delay else 0)
+    end
 
 (* need to enhance with iterators and vectors/matrices when possible *)
 fun termSize term =

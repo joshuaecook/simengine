@@ -33,6 +33,7 @@ fun l2s (l: string list) =
     "[" ^ (String.concatWith ", " l) ^ "]"
 
 fun sum l = foldl (op +) 0 l
+fun prod l = foldl (op *) 1 l
 
 fun toUpper string =
     String.map Char.toUpper string
