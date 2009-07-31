@@ -28,6 +28,17 @@ fun exp2symbols (Exp.FUN (_, exps)) =
     (exp2symbols (Exp.TERM t1)) @ (exp2symbols (Exp.TERM t2))
   | exp2symbols _ = []
     
+fun exp2termsymbols (Exp.FUN (_, exps)) = 
+    List.concat (map exp2termsymbols exps)
+  | exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
+  | exp2termsymbols (Exp.TERM (Exp.LIST (terms, _))) = 
+    List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
+  | exp2termsymbols (Exp.TERM (Exp.TUPLE terms)) = 
+    List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
+  | exp2termsymbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
+    (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
+  | exp2termsymbols _ = []
+    
 
 fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(List.concat (map exp2fun_names exps))
   | exp2fun_names _ = []

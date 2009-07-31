@@ -125,9 +125,10 @@ fun inputstruct_code (class: DOF.class) =
     end
 
 
-fun main_code name = 
+fun main_code class = 
     let
-	val _ = ()
+	val name = Symbol.name (#name class)
+	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
     in
 	[$(""),
 	 $("void mexFunction(int nlhs, mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {"),
@@ -159,7 +160,7 @@ fun main_code name =
 	     $(""),
 	     $("// model processing"),
 	     $("output_init(); // initialize the outputs"),
-	     $("init_"^name^"(0); // initialize the states"),
+	     $("init_"^name^"((struct statedata_"^orig_name^"*) model_states); // initialize the states"),
 	     $("CDATAFORMAT inputs[INPUTSPACE];"),
 	     $(""),
 	     $("init_inputs(inputs);"),
@@ -394,7 +395,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 	val outputstruct_progs = outputstruct_code inst_class
 	val inputstruct_progs = inputstruct_code inst_class
 	val statestruct_progs = stateoverride_code()
-	val main_progs = main_code class_name
+	val main_progs = main_code inst_class
 	val logoutput_progs = CWriter.logoutput_code inst_class
 
 	(* write the code *)

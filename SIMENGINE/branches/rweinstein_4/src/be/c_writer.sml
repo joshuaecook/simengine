@@ -127,7 +127,7 @@ fun outputinit_code class =
 
 	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
 	val sym_decls = map
-			    (fn(sym)=> $("CDATAFORMAT outputsave_" ^ (Symbol.name sym) ^ ";"))
+			    (fn(term, sym)=> $("CDATAFORMAT outputsave_" ^ (Symbol.name sym) ^ ";"))
 			    dependent_symbols
     in
 	[$(""),
@@ -397,7 +397,7 @@ fun class2flow_code (class, top_class) =
 		 $("// writing output variables"),
 		 $("if (first_iteration) {"),
 		 SUB(map
-			 (fn(s)=> $("outputsave_" ^ (Symbol.name s) ^ " = " ^ (Symbol.name s) ^ ";"))
+			 (fn(t,s)=> $("outputsave_" ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
 			 (CWriterUtil.class2uniqueoutputsymbols class)),
 		 $("}")]
 	    else
@@ -741,48 +741,64 @@ fun props2solver props =
     end
 
 fun exec_code (class:DOF.class, props, statespace) =
-    [$(""),
-     $("void exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs) {"),
-     SUB[$("solver_props props;"),
-	 $("props.timestep = DT;"),
-	 $("props.abstol = ABSTOL;"),
-	 $("props.reltol = RELTOL;"),
-	 $("props.starttime = *t;"),
-	 $("props.stoptime = t1;"),
-	 $("props.time = t;"),
-	 $("props.model_states = model_states;"),
-	 $("props.inputs = inputs;"),
-	 $("props.outputs = NULL;"),
-	 $("props.first_iteration = TRUE;"),
-	 $("props.statesize = STATESPACE;"),
-	 $("props.fun = &flow_"^(Symbol.name (#name class))^";"),
-	 $(""),          
-	 $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
-	 $("while (*t < t1) {"),
-	 SUB[$("double prev_t = *t;"),
-	     $("int status = INTEGRATION_METHOD(eval)(mem);"),
-	     $("if (status != 0) {"),
-	     SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
-		 $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g\", *t);"),
-		 $("break;")],
+    let
+	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
+    in
+	[$(""),
+	 $("void exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs) {"),
+	 SUB[$("solver_props props;"),
+	     $("props.timestep = DT;"),
+	     $("props.abstol = ABSTOL;"),
+	     $("props.reltol = RELTOL;"),
+	     $("props.starttime = *t;"),
+	     $("props.stoptime = t1;"),
+	     $("props.time = t;"),
+	     $("props.model_states = model_states;"),
+	     $("props.inputs = inputs;"),
+	     $("props.outputs = NULL;"),
+	     $("props.first_iteration = TRUE;"),
+	     $("props.statesize = STATESPACE;"),
+	     $("props.fun = &flow_"^(Symbol.name (#name class))^";"),
+	     $(""),          
+	     $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
+	     $("while (*t < t1) {"),
+	     SUB[$("double prev_t = *t;"),
+		 $("int status = INTEGRATION_METHOD(eval)(mem);"),
+		 $("if (status != 0) {"),
+		 SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
+		     $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g\", *t);"),
+		     $("break;")],
+		 $("}"),
+		 $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states) != 0) {"),
+		 SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
+		     $("break;")],
+		 $("}"),
+		 $("steps++;")(*,
+				   $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
+				     (String.concatWith ", " (List.tabulate (statespace, fn(i)=>"model_states["^(i2s i)^"]")))^");")*)
+		],
 	     $("}"),
-	     $("if (log_outputs(prev_t) != 0) {"),
-	     SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
-		 $("break;")],
-	     $("}"),
-	     $("steps++;")(*,
-	     $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
-	       (String.concatWith ", " (List.tabulate (statespace, fn(i)=>"model_states["^(i2s i)^"]")))^");")*)
-	    ],
-	 $("}"),
-	$("INTEGRATION_METHOD(free)(mem);")],
-     $("}")]
-
+	     $("INTEGRATION_METHOD(free)(mem);")],
+	 $("}")]
+    end
 fun logoutput_code class =
     let
+	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
 	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
 	val sym_decls = map
-			    (fn(sym)=> $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";"))
+			    (fn(term, sym)=> 
+			       let
+				   val local_scope = case term of
+							 Exp.SYMBOL (_, props) => (case Property.getScope props of
+										       LOCAL => true
+										     | _ => false)
+						       | _ => DynException.stdException (("Unexpected non symbol"), "CWriter.logoutput_code", Logger.INTERNAL)
+			       in
+				   if local_scope then
+				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";")
+				   else
+				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")
+			       end)
 			    dependent_symbols
 	val output_exps =Util.flatmap
 			      (fn(out as {condition, contents, name})=> 
@@ -818,7 +834,7 @@ fun logoutput_code class =
 
     in
 	[$(""),
-	 $("int log_outputs(double t) {"),
+	 $("int log_outputs(double t, const struct statedata_"^orig_name^" *y) {"),
 	 SUB(sym_decls @
 	     [$("")] @
 	     output_exps @
@@ -829,23 +845,28 @@ fun logoutput_code class =
 	 $("}")]
     end
 
-fun main_code name =
-    [$("int main(int argc, char **argv) {"),
-     SUB[(*$("FPRINTFUN(stderr,\"Running '"^name^"' model ...\\n\");"),*)
-	 $(""),
-	 $("// Get the simulation time t from the command line"),
-	 $("double t = 0;"),
-	 $("double t1 = atof(argv[1]);"),
-	 $("output_init(); // initialize the outputs"),
-	 $("init_"^name^"((struct statedata_"^name^"*) model_states); // initialize the states"),
-	 $("CDATAFORMAT inputs[INPUTSPACE];"),
-	 $(""),
-	 $("init_inputs(inputs);"),
-	 $(""),
-	 $("exec_loop(&t, t1, inputs);"),
-	 $(""),
-	 $("return 0;")],
-     $("}")]
+fun main_code class =
+    let
+	val name = Symbol.name (#name class)
+	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
+    in
+	[$("int main(int argc, char **argv) {"),
+	 SUB[(*$("FPRINTFUN(stderr,\"Running '"^name^"' model ...\\n\");"),*)
+	     $(""),
+	     $("// Get the simulation time t from the command line"),
+	     $("double t = 0;"),
+	     $("double t1 = atof(argv[1]);"),
+	     $("output_init(); // initialize the outputs"),
+	     $("init_"^name^"((struct statedata_"^orig_name^"*) model_states); // initialize the states"),
+	     $("CDATAFORMAT inputs[INPUTSPACE];"),
+	     $(""),
+	     $("init_inputs(inputs);"),
+	     $(""),
+	     $("exec_loop(&t, t1, inputs);"),
+	     $(""),
+	     $("return 0;")],
+	 $("}")]
+    end
 
 fun buildC (model: DOF.model as (classes, inst, props)) =
     let
@@ -885,7 +906,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val init_progs = init_code classes
 	val flow_progs = flow_code (classes, inst_class)
 	val exec_progs = exec_code (inst_class, props, statespace)
-	val main_progs = main_code class_name	
+	val main_progs = main_code inst_class
 	val logoutput_progs = logoutput_code inst_class
 
 	(* write the code *)

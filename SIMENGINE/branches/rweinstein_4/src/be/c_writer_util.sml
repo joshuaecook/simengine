@@ -85,8 +85,10 @@ fun class2uniqueoutputsymbols (class:DOF.class) =
 	val outputs = !(#outputs class)
 	val all_exps = (Util.flatmap (fn{contents,...}=>contents) outputs) @
 		       (map (fn{condition,...}=>condition) outputs)
-	val all_symbols = Util.flatmap ExpProcess.exp2symbols all_exps
-	val unique_symbols = Util.uniquify all_symbols
+	val all_symbols = Util.flatmap ExpProcess.exp2termsymbols all_exps
+	val sym_mapping = map (fn(term)=>(term, Term.sym2curname term)) all_symbols
+	fun cmp_fun ((_,s1),(_,s2))= s1 = s2
+	val unique_symbols = Util.uniquify_by_fun cmp_fun sym_mapping
     in
 	unique_symbols
     end
