@@ -815,24 +815,24 @@ fun orderModel (model:DOF.model)=
 		if List.exists (fn(os) => SymbolSet.member (instanceDeps, os)) outputSyms orelse mutuallyRecursiveInstances then
 		    let
 			fun orderParts unsatisfiedParts =
-			    if (SymbolSet.isEmpty unsatisfiedParts) then
+			    if (null unsatisfiedParts) then
 				nil
 			    else
 				let
 				    val (readyParts, remainingParts) = 
-					List.partition (fn(p) => SymbolSet.isEmpty (SymbolSet.intersection (unsatisfiedParts,
+					List.partition (fn(p) => SymbolSet.isEmpty (SymbolSet.intersection (SymbolSet.fromList unsatisfiedParts,
 													    valOf(SymbolTable.look(eqMap, p)))))
-						       (SymbolSet.listItems unsatisfiedParts)
+						       unsatisfiedParts
 						       
 				in
-				    readyParts :: (orderParts (SymbolSet.fromList remainingParts))
+				    readyParts :: (orderParts remainingParts)
 				end
 			    
 			val orderedParts = 
 			    if mutuallyRecursiveInstances then
-				(orderParts (SymbolSet.fromList outputSyms)) @ [[instancename]]
+				(orderParts outputSyms) @ [[instancename]]
 			    else
-				orderParts (SymbolSet.fromList(instancename :: outputSyms))
+				orderParts (instancename :: outputSyms)
 
 
 
