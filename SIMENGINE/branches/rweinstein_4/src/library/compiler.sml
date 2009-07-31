@@ -35,9 +35,12 @@ fun std_compile exec args =
 			  CWriter.buildC (CurrentModel.getCurrentModel()))
 		      else
 			  CWriter.SUCCESS
+	      val _ = DynException.checkToProceed()
 
 	      val _ = MexWriter.buildMex (CurrentModel.getCurrentModel())
+	      val _ = DynException.checkToProceed()
 	      val _ = ODEMexWriter.buildODEMex (CurrentModel.getCurrentModel())
+	      val _ = DynException.checkToProceed()
 
 	      val code = System.SUCCESS (*ModelCompileLauncher.compile (name, forest)*)
 	  in 

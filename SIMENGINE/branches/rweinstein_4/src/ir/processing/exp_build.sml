@@ -7,12 +7,24 @@ fun tvar str = Exp.TERM
 				Property.setIterator Property.default_symbolproperty 
 						     [(Symbol.symbol "t",Iterator.RELATIVE 0)]))
 
+fun tvar_from_state str = Exp.TERM 
+			      (Exp.SYMBOL (Symbol.symbol str, 
+					   Property.setScope 
+					       (Property.setIterator Property.default_symbolproperty 
+								     [(Symbol.symbol "t",Iterator.RELATIVE 0)])
+					       (Property.READSTATE (Symbol.symbol "y"))))
+
+
+
 fun diff str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
-				     Property.setDerivative 
-					 (Property.setIterator 
-					      Property.default_symbolproperty 
-					      [(Symbol.symbol "t",Iterator.RELATIVE 0)])
-					 (1, [Symbol.symbol "t"])
+				     Property.setScope
+					 (Property.setDerivative 
+					      (Property.setIterator 
+						   Property.default_symbolproperty 
+						   [(Symbol.symbol "t",Iterator.RELATIVE 0)])
+					      (1, [Symbol.symbol "t"])
+					 )					
+					 (Property.WRITESTATE (Symbol.symbol "dydt"))
 				    )
 			)
 

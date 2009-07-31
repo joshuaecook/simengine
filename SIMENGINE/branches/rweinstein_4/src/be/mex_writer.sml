@@ -386,6 +386,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 
 	val input_progs = CWriter.input_code inst_class
 	val outputdatastruct_progs = CWriter.outputdatastruct_code inst_class
+	val outputstatestruct_progs = CWriter.outputstatestruct_code classes
 	val outputinit_progs = CWriter.outputinit_code inst_class
 	val init_progs = CWriter.init_code classes
 	val flow_progs = CWriter.flow_code (classes, inst_class)
@@ -399,6 +400,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 	(* write the code *)
 	val _ = CWriter.output_code(class_name ^ "_mex", ".", (header_progs @ 
 							       outputdatastruct_progs @ 
+							       outputstatestruct_progs @
 							       outputinit_progs @ 
 							       input_progs @ 
 							       init_progs @ 

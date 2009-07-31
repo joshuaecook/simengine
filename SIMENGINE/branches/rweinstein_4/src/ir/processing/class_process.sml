@@ -13,42 +13,6 @@ fun duplicate_class (class: DOF.class) new_name =
 	 eqs=ref (!eqs)}
     end
 
-(*fun splitClassByOutputs (class: DOF.class as {name,...}) (output_list: Symbol.symbol list) : (DOF.class * DOF.class) = 
-    let
-	val withOutputsClassName = Symbol.symbol ((Symbol.name name) ^ "_1")
-	val withOutputsClass = duplicate_class class withOutputsClassName
-
-	(* go through and remove all state equations and outputs that aren't used *)
-	val {inputs, outputs, eqs, ...} = withOutputsClass
-					  
-					  
-
-
-	val withoutOutputsClassName = Symbol.symbol ((Symbol.name name) ^ "_2")
-	val withoutOutputsClassName = duplicate_class class				      
-    in
-	
-    end
-*)
-
-(*fun generateOffsets (class: DOF.class) = 
-    let
-	val iterators = CurrentModel.iterators()
-
-	val eqs' = map (fn(eq)=>case eq of 
-				    {eq_type=DOF.INSTANCE {name, classname, offset},
-				     sourcepos, lhs, rhs} => {eq_type=DOF.INSTANCE {name=name, 
-										    classname=classname,
-										    offset=(map (fn(iter, itertype)=>(iter, EqUtil.eq2statesizeByIterator iter eq)) iterators)},
-							      sourcepos=sourcepos,
-							      lhs=lhs,
-							      rhs=rhs}
-				  | _=> eq)
-		       (!(#eqs class))
-    in
-	(#eqs class := eqs')
-    end
-*)
 
 fun generateOffsets (class: DOF.class) = 
     let
@@ -210,6 +174,7 @@ fun findSymbols (class: DOF.class) =
 fun renameSym (orig_sym, new_sym) (class: DOF.class) =
     let
 	val eqs = !(#eqs class)
+	val exps = !(#exps class)
 	val inputs = !(#inputs class)
 	val outputs = !(#outputs class)		      
 
@@ -225,6 +190,7 @@ fun renameSym (orig_sym, new_sym) (class: DOF.class) =
 	     condition=exp_rename condition}
     in
 	((#eqs class) := (map (EqUtil.renameSym (orig_sym, new_sym)) eqs);
+	 (#exps class) := (map (ExpProcess.renameSym (orig_sym, new_sym)) exps);
 	 (#inputs class) := (map renameInput inputs);
 	 (#outputs class) := (map renameOutput outputs))
     end

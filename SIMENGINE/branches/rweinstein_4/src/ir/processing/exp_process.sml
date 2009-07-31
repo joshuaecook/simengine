@@ -313,8 +313,8 @@ fun isIntermediateTerm exp =
 	in
 	    case (derivative, iterators) of
 		(SOME _, _) => false
-	      | (_, SOME ((itersym, _)::rest)) => (itersym <> Symbol.symbol "t") andalso 
-						  (itersym <> Symbol.symbol "n")
+	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => (itersym <> Symbol.symbol "t") andalso 
+								    (itersym <> Symbol.symbol "n")
 	      | (_, _) => true
 	end
       | _ => false

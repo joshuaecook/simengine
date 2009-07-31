@@ -20,7 +20,7 @@ val same = Util.same
 *)
 
 fun sym2curname (Exp.SYMBOL (s, props)) = s
-  | sym2curname _ = DynException.stdException("Received an unexpected non symbol", "Term.sym2name", Logger.INTERNAL)
+  | sym2curname _ = DynException.stdException("Received an unexpected non symbol", "Term.sym2curname", Logger.INTERNAL)
 
 fun sym2name (Exp.SYMBOL (s, props)) = 
     (case (Property.getRealName props)
@@ -38,6 +38,12 @@ fun sym2symname (Exp.SYMBOL (s, props)) =
 
 fun sym2str (s, props) =
     let
+	val scope = Property.getScope props
+	val prefix = case scope of
+			 Property.LOCAL => ""
+		       | Property.READSTATE v => Symbol.name v ^ "."
+		       | Property.WRITESTATE v => Symbol.name v ^ "."
+
 	val (order, vars) = case Property.getDerivative props
 			      of SOME (order, iters) => (order, iters)
 			       | NONE => (0, [])
@@ -46,9 +52,9 @@ fun sym2str (s, props) =
 		      of SOME iters => Iterator.iterators2str iters
 		       | NONE => "")
 
-	val n = case (Property.getRealName props)
-		 of SOME v => Symbol.name v
-		  | NONE => Symbol.name s
+	val n = prefix ^ (case (Property.getRealName props)
+			   of SOME v => Symbol.name v
+			    | NONE => Symbol.name s)
 
     in
 	if order < 0 then (* integral *)
@@ -66,6 +72,12 @@ fun sym2str (s, props) =
 
 fun sym2fullstr (s, props) =
     let
+	val scope = Property.getScope props
+	val prefix = case scope of
+			 Property.LOCAL => ""
+		       | Property.READSTATE v => Symbol.name v ^ "."
+		       | Property.WRITESTATE v => Symbol.name v ^ "."
+
 	val (order, vars) = case Property.getDerivative props
 			      of SOME (order, iters) => (order, iters)
 			       | NONE => (0, [])
@@ -74,9 +86,9 @@ fun sym2fullstr (s, props) =
 		      of SOME iters => Iterator.iterators2str iters
 		       | NONE => "")
 
-	val n = case (Property.getRealName props)
-		 of SOME v => (Symbol.name s) ^ "[" ^ (Symbol.name v) ^ "]"
-		  | NONE => Symbol.name s
+	val n = prefix ^ (case (Property.getRealName props)
+			   of SOME v => (Symbol.name s) ^ "[" ^ (Symbol.name v) ^ "]"
+			    | NONE => Symbol.name s)
 
     in
 	if order < 0 then (* integral *)

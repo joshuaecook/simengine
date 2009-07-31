@@ -105,7 +105,7 @@ fun outputstatestruct_code classes =
 	val predeclare_statements = 
 	    map
 		(fn(class)=> $("struct " ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ ";"))
-		classes
+		master_classes
 
     in
 	($("")::($("// Pre-declare state structures"))::predeclare_statements) @
@@ -193,7 +193,7 @@ fun init_code classes =
 	val predeclare_statements = 
 	    map
 		(fn(class)=> $("void init_" ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ "(struct statedata_"^(Symbol.name (ClassProcess.class2orig_name class))^" *states);"))
-		classes
+		master_classes
 
     in
 	($("")::($("// Pre-declare state initialization functions"))::predeclare_statements) @
@@ -296,6 +296,171 @@ fun class2init_code iterators class =
      $("}"),
      $("")]
 *)
+fun class2flow_code (class, top_class) =
+    let
+	val orig_name = ClassProcess.class2orig_name class
+
+	val header_progs = 
+	    [$(""),
+	     $("int flow_" ^ (Symbol.name (#name class)) 
+	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration) {")]
+
+	val read_memory_progs = []
+
+	val read_states_progs = []
+	    
+	val read_inputs_progs =
+	    [$(""),
+	     $("// mapping inputs to variables")] @ 
+	    (map
+		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];"))
+		 (Util.addCount (!(#inputs class))))
+
+
+	(* filter out all the unneeded expressions *)
+	val (initvalue_exps, rest_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
+	val (valid_exps, rest_exps) = List.partition (fn(exp)=>(ExpProcess.isIntermediateEq exp) orelse
+							     (ExpProcess.isInstanceEq exp) orelse
+							     (ExpProcess.isFirstOrderDifferentialEq exp)) rest_exps
+	val _ = if (List.length rest_exps > 0) then
+		    (Logger.log_error($("Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class))));
+		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (ExpProcess.exp2str exp))) rest_exps;
+		     DynException.setErrored())
+		else
+		    ()
+
+	val equ_progs = 
+	    [$(""),
+	     $("// writing all intermediate, instance, and differential equation expressions")] @
+	    (let
+		 val progs =
+		     Util.flatmap
+			 (fn(exp)=>
+			    if (ExpProcess.isIntermediateEq exp) then
+ 				[$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
+			    else if (ExpProcess.isFirstOrderDifferentialEq exp) then
+ 				[$((CWriterUtil.exp2c_str exp) ^ ";")]
+			    else if (ExpProcess.isInstanceEq exp) then
+				let
+				    val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
+				    val orig_instname = case Fun.getRealInstName props of
+							     SOME v => v
+							   | NONE => instname
+
+				    val class = CurrentModel.classname2class classname
+
+				    val calling_name = "flow_" ^ (Symbol.name classname)
+
+				    val inpvar = Unique.unique "inputdata"
+				    val outvar = Unique.unique "outputdata"
+
+				    val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str inpargs)) ^ "};"
+				    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
+				in
+				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
+					  $("// " ^ (CWriterUtil.exp2c_str exp)),
+					  $(inps), $(outs_decl),
+					  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration);")] @
+					 let
+					     val symbols = map
+							       (fn(outsym) => Term.sym2curname outsym)
+							       outargs
+					 in
+					     map
+						 (fn((sym, {name, contents, condition}),i')=> 
+						    $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^
+						      "["^(i2s i')^"]; // Mapped to "^(Symbol.name classname)^": "^(ExpProcess.exp2str (List.hd (contents)))))
+						 (Util.addCount (ListPair.zip (symbols, !(#outputs class))))
+					 end)
+
+				    ]
+				end
+			    else
+				DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CWriter.class2flow_code.equ_progs", Logger.INTERNAL)
+			 )
+			 valid_exps
+	     in
+		 progs
+	     end)
+	    
+	val state_progs = []
+	   (* [$(""),
+	     $("// writing all state equations")] @
+	    (Util.flatmap
+		 (fn(eq)=>[$("// " ^ (ExpProcess.exp2str (EqUtil.eq2exp eq))),
+			   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (EqUtil.eq2exp eq)) ^ ";")])
+		 (List.filter EqUtil.isDerivative (!(#eqs class))))*)
+
+	val output_progs = 
+	    if top_class then
+		[$(""),
+		 $("// writing output variables"),
+		 $("if (first_iteration) {"),
+		 SUB(map
+			 (fn(s)=> $("outputsave_" ^ (Symbol.name s) ^ " = " ^ (Symbol.name s) ^ ";"))
+			 (CWriterUtil.class2uniqueoutputsymbols class)),
+		 $("}")]
+	    else
+		[$(""),
+		 $("// writing output data "),
+		 SUB(map 
+			 (fn({name,contents,condition},i)=> 
+			    let
+				val _ = if length contents = 1 then
+					    ()
+					else
+					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
+					    
+				val valid_condition = case condition 
+						       of (Exp.TERM (Exp.BOOL v)) => v
+							| _ => false
+				val _ = if valid_condition then
+					    ()
+					else
+					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(ExpProcess.exp2str condition)^"' when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
+					    
+			    in
+				case contents of
+				    [content] =>
+				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
+				  | _ => 
+				    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), 
+							       "CWriter.class2flow_code", 
+							       Logger.INTERNAL)
+			    end) (Util.addCount (!(#outputs class))))]
+
+	val mapping_back_progs = []
+(*	    [$(""),
+	     $("// mapping variables back")] @     
+	    (let
+		 val progs = 
+		     Util.flatmap
+			 (fn(eq as {eq_type,...}) => 
+			    case eq_type of
+				DOF.DERIVATIVE_EQ {offset} =>
+				[$("dydt["^(i2s offset)^"] = "^(CWriterUtil.exp2c_str (Exp.TERM (#lhs eq)))^";")]
+			      | _ => [])
+			 (List.filter EqUtil.isDerivative (!(#eqs class)))
+	     in
+		 progs
+	     end)*)
+
+
+    in
+	header_progs @
+	[SUB((*read_memory_progs @*)
+	     read_states_progs @
+	     read_inputs_progs @
+	     equ_progs @
+	     state_progs @
+	     output_progs @
+	     mapping_back_progs @
+	     [$(""),
+	      $("return 0;")]),
+	 $("}"),
+	 $("")]
+    end
+(*
 fun class2flow_code (class, top_class, iterators) =
     let
 	val header_progs = 
@@ -503,7 +668,7 @@ fun class2flow_code (class, top_class, iterators) =
 	      $("return 0;")]),
 	 $("}"),
 	 $("")]
-    end
+    end*)
 
 (*
 fun init_code (classes: DOF.class list) = 
@@ -526,11 +691,16 @@ fun init_code (classes: DOF.class list) =
 fun flow_code (classes: DOF.class list, topclass: DOF.class) = 
     let
 	val fundecl_progs = map
-				(fn(class) => $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration);"))
+				(fn(class) => 
+				   let
+				       val orig_name = ClassProcess.class2orig_name class
+				   in
+				       $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration);")
+				   end)
 				classes
 	val iterators = CurrentModel.iterators()
 				
-	val flow_progs = List.concat (map (fn(c)=>class2flow_code (c,#name c = #name topclass, iterators)) classes)
+	val flow_progs = List.concat (map (fn(c)=>class2flow_code (c,#name c = #name topclass)) classes)
     in
 	[$("// Flow code function declarations")] @
 	fundecl_progs @

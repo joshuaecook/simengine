@@ -259,8 +259,10 @@ fun translate (exec, object) =
 		    val sym = 
 			if (istype (obj, "OutputBinding")) then		    
 			    ExpBuild.tvar((exp2str (method "instanceName" obj)) ^ "." ^ (exp2str (method "name" obj)))
-			else if (istype (obj, "Intermediate")) orelse ((istype (obj, "State")) andalso istype (method "eq" obj, "DifferentialEquation"))then
+			else if (istype (obj, "Intermediate")) then 
 			    ExpBuild.tvar(exp2str (method "name" obj))
+			else if  ((istype (obj, "State")) andalso istype (method "eq" obj, "DifferentialEquation")) then
+			    ExpBuild.tvar_from_state(exp2str (method "name" obj))
 			else if istype (obj, "IteratorReference") then
 			    let
 				val name = exp2str (method "name" (method "referencedQuantity" obj))
