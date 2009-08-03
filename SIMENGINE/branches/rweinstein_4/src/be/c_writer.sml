@@ -76,7 +76,7 @@ fun outputstatestructbyclass_code (class : DOF.class) =
 			 else
 			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"];")
 		     end) diff_eqs_symbols) @
-	     ($("// instances (count=" ^ (i2s (List.length instances)) ^")")::
+	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 	      (map 
 		   (fn(classname, instname)=>
 		      let			  
@@ -163,7 +163,7 @@ fun initbyclass_code class =
 			 else (* might have to do something special here or in c_writer_util *)
 			     $("states->" ^ name ^ " = " ^ assigned_value ^ ";")
 		     end) init_eqs) @
-	     ($("// instances (count=" ^ (i2s (List.length instances)) ^")")::
+	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 	      (map 
 		   (fn(classname, instname)=>
 		      let			  

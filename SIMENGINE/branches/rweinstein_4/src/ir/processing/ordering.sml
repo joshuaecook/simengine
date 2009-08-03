@@ -923,14 +923,14 @@ fun orderModel (model:DOF.model)=
 			      | abs2rel (sym, iterator) =
 				(sym, iterator)
 
-			    val lhs' = case ExpProcess.exp2term (ExpProcess.lhs exp) of
+			    val lhs' = (*case ExpProcess.exp2term (ExpProcess.lhs exp) of
 					   Exp.SYMBOL (sym, prop) => 
 					   Exp.TERM (Exp.SYMBOL (sym, 
 								 (case Property.getIterator (prop) of
 								      SOME (iterators) => 
 								      Property.setIterator prop (map abs2rel iterators)
 								    | NONE => prop)))
-					 | lhs => (ExpProcess.lhs exp)
+					 | lhs =>*) (ExpProcess.lhs exp)
 					   
 					   
 			in
