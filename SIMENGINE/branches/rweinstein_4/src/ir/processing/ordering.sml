@@ -525,9 +525,9 @@ fun orderModel (model:DOF.model)=
 			   | NONE => 
 			     let
 				 val ret = 
-			     (foldl SymbolSet.union 
-				    SymbolSet.empty 
-				    (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq))))
+				     (foldl SymbolSet.union 
+					    SymbolSet.empty 
+					    (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq))))
 			     in
 				 ret before print ("\n\n@@@@@@@@@@@@@@@@@@@@@@@@-@@@@@@@@@@@@@@@@@@@@@@\n" ^ (Symbol.name name) ^ " " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems ret))) ^ "\n")
 			     end)
@@ -541,7 +541,7 @@ fun orderModel (model:DOF.model)=
 					       SymbolSet.empty 
 					       (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (#rhs eq))))
 			end
-			 
+			
 (*		fun nameOfInstance inst =
 		    case #eq_type inst of
 			DOF.INSTANCE {name, ...} => name
@@ -549,9 +549,23 @@ fun orderModel (model:DOF.model)=
 						       "Ordering.orderModel.buildClass.nameOfInstance", 
 						       Logger.INTERNAL)
 *)
+  		fun instance2deps inst =
+		    case #eq_type inst of
+			DOF.INSTANCE {name, ...} => 
+			if includeMainEqs then
+                          name :: (ExpProcess.exp2symbols(#rhs inst))
+			else
+                          name :: nil
+		      | _ => DynException.stdException("Unexpected non-instance encountered", 
+						       "Ordering.orderModel.buildClass.nameOfInstance", 
+						       Logger.INTERNAL)
+
+		val instanceDeps =  SymbolSet.fromList (foldl (op @) nil (map instance2deps instances)) (*[SymbolSet.fromList(map nameOfInstance instances)]*)
+
 		val mainEqDeps = foldl SymbolSet.union 
 				       (SymbolSet.fromList (map (fn(eq) => term2sym (#lhs eq)) mainEqs))
-				       ((map depsOfEq mainEqs) @ (map depsOfEq instances))(*[SymbolSet.fromList(map nameOfInstance instances)])*)
+(*				       ((map depsOfEq mainEqs) @ (map depsOfEq instances))(*[SymbolSet.fromList(map nameOfInstance instances)])*)*)
+				       (instanceDeps :: (map depsOfEq mainEqs))
 
 		val outputDeps = foldl SymbolSet.union SymbolSet.empty (map output2deps outputs)
 
@@ -597,10 +611,13 @@ fun orderModel (model:DOF.model)=
 							    SOME name
 							else
 							    NONE
-				     val partGroup = (case mainInstance of SOME x => [x] | NONE => []) @ outputs
+(*				     val partGroup = (case mainInstance of SOME x => [x] | NONE => []) @ outputs*)
+				     val partGroups = case mainInstance of
+							  SOME x => outputs :: [x] :: nil
+							| NONE => [outputs]
 
 				     (*TODO: do we need to split the subclass before we get here?*)
-				     val _ = print ("for instance "^(Symbol.name name)^" partgroup = " ^ (String.concatWith ", " (map Symbol.name partGroup)) ^ "\n")
+(*				     val _ = print ("for instance "^(Symbol.name name)^" partgroup = " ^ (String.concatWith ", " (map Symbol.name partGroup)) ^ "\n")*)
 
 				     fun outsym2pos newout =
 					 let
@@ -626,7 +643,12 @@ fun orderModel (model:DOF.model)=
 							    
 				     val (instanceClass, inputMap) =  valOf(SymbolTable.look(candidateClasses, key))
 								      
-				     val (splitMap', classMap', classIOMap', eqs) = buildSplit (instanceClass, eq) (partGroup, (splitMap, classMap, classIOMap, eqs))
+(*				     val (splitMap', classMap', classIOMap', eqs) = buildSplit (instanceClass, eq) (partGroup, (splitMap, classMap, classIOMap, eqs))*)
+
+				     val (splitMap', classMap', classIOMap', eqs) =
+					 foldl (buildSplit (instanceClass, eq))
+					       (splitMap, classMap, classIOMap, eqs)
+					       partGroups
 
 				     val generatedInstances' = SymbolSet.add(generatedInstances, name)
 				 in
@@ -684,6 +706,7 @@ fun orderModel (model:DOF.model)=
 
 
 		(* add in initial value eqs ALWAYS *)
+		(* we don't need this anymore *)
 		val eqs = eqs @ (map buildInitialValues (EqUtil.getInitialValueEqs (!(#eqs oldClass))))
 
 
@@ -809,24 +832,24 @@ fun orderModel (model:DOF.model)=
 		if List.exists (fn(os) => SymbolSet.member (instanceDeps, os)) outputSyms orelse mutuallyRecursiveInstances then
 		    let
 			fun orderParts unsatisfiedParts =
-			    if (SymbolSet.isEmpty unsatisfiedParts) then
+			    if (null unsatisfiedParts) then
 				nil
 			    else
 				let
 				    val (readyParts, remainingParts) = 
-					List.partition (fn(p) => SymbolSet.isEmpty (SymbolSet.intersection (unsatisfiedParts,
+					List.partition (fn(p) => SymbolSet.isEmpty (SymbolSet.intersection (SymbolSet.fromList unsatisfiedParts,
 													    valOf(SymbolTable.look(eqMap, p)))))
-						       (SymbolSet.listItems unsatisfiedParts)
+						       unsatisfiedParts
 						       
 				in
-				    readyParts :: (orderParts (SymbolSet.fromList remainingParts))
+				    readyParts :: (orderParts remainingParts)
 				end
 			    
 			val orderedParts = 
 			    if mutuallyRecursiveInstances then
-				(orderParts (SymbolSet.fromList outputSyms)) @ [[instancename]]
+				(orderParts outputSyms) @ [[instancename]]
 			    else
-				orderParts (SymbolSet.fromList(instancename :: outputSyms))
+				orderParts (instancename :: outputSyms)
 
 
 
