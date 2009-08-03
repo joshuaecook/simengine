@@ -369,28 +369,41 @@ fun translate (exec, object) =
 		      sourcepos=PosLog.NOPOS})
 *)
 
-		fun quantity2eq object =
+		fun quantity2exp object =
 		    if (istype (object, "Intermediate")) then
-			[{eq_type=DOF.INTERMEDIATE_EQ,
+			[ExpBuild.equals (ExpBuild.var(exp2str (method "name" object)),
+					 kecexp2dofexp (method "expression" (method "eq" object)))]
+			(*[{eq_type=DOF.INTERMEDIATE_EQ,
 			  sourcepos=PosLog.NOPOS,
 			  lhs=exp2term (ExpBuild.var(exp2str (method "name" object))),
-			  rhs=kecexp2dofexp (method "expression" (method "eq" object))}]
+			  rhs=kecexp2dofexp (method "expression" (method "eq" object))}]*)
 		    else if (istype (object, "State")) then
 			((*if method "isUndefined" then
-			 else*) if istype (method "eq" object, "DifferentialEquation") then
-			     [{eq_type=DOF.DERIVATIVE_EQ {offset=0},
+			 else*) 
+			 if istype (method "eq" object, "DifferentialEquation") then
+			     [ExpBuild.equals (ExpBuild.diff(exp2str (method "name" object)),
+					       kecexp2dofexp (method "expression" (method "eq" object))),
+			      ExpBuild.equals (ExpBuild.initvar(exp2str (method "name" object)),
+					       kecexp2dofexp (getInitialValue object))]
+			     (*[{eq_type=DOF.DERIVATIVE_EQ {offset=0},
 			       sourcepos=PosLog.NOPOS,
 			       lhs=exp2term (ExpBuild.diff(exp2str (method "name" object))),
 			       rhs=kecexp2dofexp (method "expression" (method "eq" object))},
 			      {eq_type=DOF.INITIAL_VALUE {offset=0},
 			       sourcepos=PosLog.NOPOS,
 			       lhs=exp2term (ExpBuild.initvar(exp2str (method "name" object))),
-			       rhs=kecexp2dofexp (getInitialValue object)}]
+			       rhs=kecexp2dofexp (getInitialValue object)}]*)
 			 else
 			     let 
 				 val iteratorName = exp2str (method "name" (method "iterator" (method "temporalRef" (method "eq" object))))
 			     in
-				 [{eq_type=DOF.DIFFERENCE_EQ {offset=0},
+				 [ExpBuild.equals (ExpBuild.relvar(Symbol.symbol(exp2str (method "name" object)),
+								 Symbol.symbol(iteratorName),
+								 Real.floor (exp2real (method "step" (method "temporalRef" (method "eq" object))))),
+						   kecexp2dofexp (method "expression" (method "eq" object))),
+				 ExpBuild.equals (ExpBuild.initavar(exp2str (method "name" object), iteratorName),
+						  kecexp2dofexp (getInitialValue object))]
+				(* [{eq_type=DOF.DIFFERENCE_EQ {offset=0},
 				   sourcepos=PosLog.NOPOS,
 				   lhs=exp2term (ExpBuild.relvar(Symbol.symbol(exp2str (method "name" object)),
 								 Symbol.symbol(iteratorName),
@@ -399,13 +412,13 @@ fun translate (exec, object) =
 				  {eq_type=DOF.INITIAL_VALUE {offset=0},
 				   sourcepos=PosLog.NOPOS,
 				   lhs=exp2term (ExpBuild.initavar(exp2str (method "name" object), iteratorName)),
-				   rhs=kecexp2dofexp (getInitialValue object)}]
+				   rhs=kecexp2dofexp (getInitialValue object)}]*)
 			     end)
 		    else
-			DynException.stdException ("Unexpected quantity encountered", "ModelTranslate.translate.createClass.quantity2eq", Logger.INTERNAL)			
+			DynException.stdException ("Unexpected quantity encountered", "ModelTranslate.translate.createClass.quantity2exp", Logger.INTERNAL)			
 		    
 
-		fun submodel2eq (object, (submodelclasses, eqs)) =
+		fun submodel2exp (object, (submodelclasses, exps)) =
 		    let			
 			val classes = submodelclasses (* rkw - added this so that the foldl adds classes *)
 			val (class, classes) = getClass (method "modeltemplate" object, classes)
@@ -439,34 +452,35 @@ fun translate (exec, object) =
 						     props=Fun.emptyinstprops},
 					   map (fn(i) => kecexp2dofexp i) input_exps)
 
+			val exp = ExpBuild.equals (Exp.TERM lhs, rhs)
+(*
 			val eq = {eq_type=DOF.INSTANCE {name=objname, classname=name, offset=nil},
 				  sourcepos=PosLog.NOPOS,
 				  lhs=lhs,
 				  rhs=rhs}
-				  
+*)				  
 
-			val eqs = eq::eqs
+			val exps = exp::exps
 		    in
-			(classes, eqs)
+			(classes, exps)
 		    end
 
 		fun flatten x = foldr (op @) nil x
 
-		val quant_eqs = 
-		    flatten (map quantity2eq (vec2list (method "quantities" object)))
+		val quant_exps = 
+		    flatten (map quantity2exp (vec2list (method "quantities" object)))
 		    
-		val (submodelclasses, submodel_eqs) =
-		    (foldl submodel2eq (classes, nil) (vec2list (method "submodels" object)))
+		val (submodelclasses, submodel_exps) =
+		    (foldl submodel2exp (classes, nil) (vec2list (method "submodels" object)))
 
-		val eqs = quant_eqs @ submodel_eqs
+		val exps = quant_exps @ submodel_exps
 
 	    in
 		({name=name, 
 		  properties={sourcepos=PosLog.NOPOS,classtype=DOF.MASTER name},
 		  inputs=ref (map obj2input(vec2list(method "inputs" object))),
 		  outputs=ref (map obj2output(vec2list(method "contents" (method "outputs" object)))),
-		  exps=ref (map EqUtil.eq2exp eqs),
-		  eqs=ref eqs},
+		  exps=ref exps},
 		 submodelclasses)
 	    end
 
@@ -516,7 +530,19 @@ fun translate (exec, object) =
 							  rel_tolerance = exp2real(method "reltol" solverobj)}
 			       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
-		fun eqHasN {eq_type=DOF.INITIAL_VALUE _, lhs, ...} =
+		fun expHasN exp =
+		    if ExpProcess.isInitialConditionEq exp then
+			case ExpProcess.getLHSSymbol exp of
+			    Exp.SYMBOL (_, props) => 
+			    (case Property.getIterator props of
+				 SOME iters =>
+				 (List.exists (fn(s,p) => s = (Symbol.symbol "n")) iters)
+			       | NONE => false)
+			  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (ExpProcess.exp2str exp)), "ModelTranslate.translate.expHasN", Logger.INTERNAL)
+		    else
+			false
+
+(*		fun eqHasN {eq_type=DOF.INITIAL_VALUE _, lhs, ...} =
 		    (case lhs of
 			 Exp.SYMBOL (_, props) => 
 			 (case Property.getIterator props of
@@ -525,9 +551,9 @@ fun translate (exec, object) =
 			    | NONE => false)
 		       | _ => false)
 		  | eqHasN _ = false
-
-		fun classHasN ({eqs, ...}: DOF.class) =
-		    List.exists eqHasN (!eqs)
+*)
+		fun classHasN ({exps, ...}: DOF.class) =
+		    List.exists expHasN (!exps)
 
 		val discrete_iterators = 
 		    if List.exists classHasN classes then

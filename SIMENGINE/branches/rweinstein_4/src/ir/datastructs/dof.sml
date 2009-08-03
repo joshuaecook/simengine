@@ -40,11 +40,11 @@ withtype class = {name:Symbol.symbol,
 		  outputs: {name: Exp.term, 
 			    contents: expression list, 
 			    condition: expression} list ref,
-		  exps: expression list ref,
+		  exps: expression list ref(*,
 		  eqs: {eq_type: eq_type,
 			sourcepos: PosLog.pos,
 			lhs: Exp.term,
-			rhs: expression} list ref}
+			rhs: expression} list ref*)}
 			       
 type eq = {eq_type: eq_type,
 	   sourcepos: PosLog.pos,

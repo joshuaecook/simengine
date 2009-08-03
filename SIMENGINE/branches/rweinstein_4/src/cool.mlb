@@ -91,7 +91,7 @@ ir/datastructs/inst.sml
 ir/processing/fun_process.sml
 ir/processing/exp_validate.sml
 ir/processing/exp_process.sml
-ir/processing/eq_util.sml
+(*ir/processing/eq_util.sml*)
 ir/processing/class_process.sml
 
 ir/datastructs/dof_printer.sml

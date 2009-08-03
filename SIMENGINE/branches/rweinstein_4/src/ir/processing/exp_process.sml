@@ -346,15 +346,32 @@ fun isNonSupportedEq exp =
     else
 	(error_no_return exp "Not an equation"; true)
 
-fun exp2size exp : int option = 
+fun exp2size exp = 
     let
-	val size = if isTerm exp then
-		       0
-		   else
-		       0
-
+	fun combineSizes (size1, size2) = 
+	    if (size1 = size2) then size1
+	    else if (size1 = 1) then size2
+	    else if (size2 = 1) then size1
+	    else
+		(error_no_return Exp.null ("Arguments have mismatched sizes ("^(i2s size1)^","^(i2s size2)^")"); 1)
+	
+	val size = case exp of
+		       Exp.TERM t => 
+		       if Term.isNumeric t then
+			   Term.termCount t
+		       else if Term.isScalar t andalso Term.isSymbol t then
+			   Term.symbolSpatialSize t
+		       else 
+			   1 (* out of default - need to do something better here *)
+		     | Exp.FUN (f, args) => foldl combineSizes 1 (map exp2size args)
     in
-	SOME size	    
+	size
     end
+
+fun getLHSSymbol exp = 
+    case exp2term (lhs exp) of
+	Exp.SYMBOL s => Exp.SYMBOL s
+      | _ => (error_no_return exp ("No valid symbol found on LHS");
+	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
 
 end

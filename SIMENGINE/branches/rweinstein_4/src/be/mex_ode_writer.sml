@@ -170,7 +170,7 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
 	val inst_class = CurrentModel.classname2class class_name
 	val class_name = Symbol.name (#name inst_class)
 
-	val statespace = EqUtil.class2statesize inst_class
+	val statespace = ClassProcess.class2statesize inst_class
 
 	val {iterators,time=(min_time, max_time),precision} = props
 	val solver = CWriter.props2solver props
@@ -232,7 +232,7 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
     in
 	System.SUCCESS
     end
-
+    handle e => DynException.checkpoint "ODEMexWriter.buildODEMex" e
 
 
 end

@@ -772,9 +772,9 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states) != 0) {"),
 		 SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
 		     $("break;")],
-		 $("}"),
-		 $("steps++;")(*,
-				   $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
+		 $("}"),		 
+		 $("steps++;")(*,*)
+				 (*  $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
 				     (String.concatWith ", " (List.tabulate (statespace, fn(i)=>"model_states["^(i2s i)^"]")))^");")*)
 		],
 	     $("}"),
@@ -874,7 +874,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val inst_class = CurrentModel.classname2class class_name
 	val class_name = Symbol.name (#name inst_class)
 
-	val statespace = EqUtil.class2statesize inst_class
+	val statespace = ClassProcess.class2statesize inst_class
 
 	val {iterators,precision,...} = props
 	val solver = props2solver props
@@ -923,6 +923,6 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
     in
 	SUCCESS
     end
-
+    handle e => DynException.checkpoint "CWriter.buildC" e
 
 end

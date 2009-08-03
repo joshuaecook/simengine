@@ -177,6 +177,12 @@ fun isSymbol term =
       | Exp.COMPLEX (a,b) => (isSymbol a) andalso (isSymbol b)
       | _ => false
 
+fun isScalar term =
+    case term of
+	Exp.LIST _ => false
+      | Exp.TUPLE _ => false
+      | _ => true
+
 fun termCount term =
     case term of
 	Exp.SYMBOL _ => 1 (* this might have to change *)

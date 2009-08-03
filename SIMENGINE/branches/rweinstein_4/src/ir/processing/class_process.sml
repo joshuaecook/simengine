@@ -3,17 +3,16 @@ struct
 
 fun duplicate_class (class: DOF.class) new_name =
     let
-	val {name, properties, inputs, outputs, exps, eqs} = class						       
+	val {name, properties, inputs, outputs, exps} = class						       
     in
 	{name=new_name,
 	 properties=properties,
 	 inputs=ref (!inputs),
 	 outputs=ref (!outputs),
-	 exps=ref (!exps),
-	 eqs=ref (!eqs)}
+	 exps=ref (!exps)}
     end
 
-
+(*
 fun generateOffsets (class: DOF.class) = 
     let
 	val eqs = (!(#eqs class))
@@ -143,13 +142,13 @@ fun generateOffsets (class: DOF.class) =
     in
 	(#eqs class := eqs')
     end
-
+*)
 
 fun findSymbols (class: DOF.class) =
     let
 	val inputs = !(#inputs class)
 	val outputs = !(#outputs class)
-	val eqs = !(#eqs class)
+	val exps = !(#exps class)
 
 	fun input2symbols (inp as {name, default}) =
 	    ExpProcess.exp2symbols (Exp.TERM (name)) @ 
@@ -162,18 +161,18 @@ fun findSymbols (class: DOF.class) =
 	    (Util.flatmap ExpProcess.exp2symbols contents) @
 	    (ExpProcess.exp2symbols condition)
 
-	fun eq2symbols eq =
-	    ExpProcess.exp2symbols (EqUtil.eq2exp eq)
+	fun exp2symbols exp =
+	    ExpProcess.exp2symbols exp
 	    
     in
 	Util.uniquify (Util.uniquify (Util.flatmap input2symbols inputs) @
 		       Util.uniquify ((Util.flatmap output2symbols outputs)) @
-		       Util.uniquify ((Util.flatmap eq2symbols eqs)))
+		       Util.uniquify ((Util.flatmap exp2symbols exps)))
     end
 
 fun renameSym (orig_sym, new_sym) (class: DOF.class) =
     let
-	val eqs = !(#eqs class)
+	(*val eqs = !(#eqs class)*)
 	val exps = !(#exps class)
 	val inputs = !(#inputs class)
 	val outputs = !(#outputs class)		      
@@ -189,7 +188,7 @@ fun renameSym (orig_sym, new_sym) (class: DOF.class) =
 	     contents=map exp_rename contents,
 	     condition=exp_rename condition}
     in
-	((#eqs class) := (map (EqUtil.renameSym (orig_sym, new_sym)) eqs);
+	((*(#eqs class) := (map (EqUtil.renameSym (orig_sym, new_sym)) eqs);*)
 	 (#exps class) := (map (ExpProcess.renameSym (orig_sym, new_sym)) exps);
 	 (#inputs class) := (map renameInput inputs);
 	 (#outputs class) := (map renameOutput outputs))
@@ -273,6 +272,22 @@ fun class2instnames (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list =
 	      | _ => orig_name
     in
 	map (fn(c,i)=>(name2orig_name c, i)) classes_insts
+    end
+
+fun class2statesize (class: DOF.class) =
+    let
+	val {exps,...} = class
+	val initial_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
+	val instance_equations = List.filter ExpProcess.isInstanceEq (!exps)
+    in
+	Util.sum ((map ExpProcess.exp2size initial_conditions) @ 
+		  (map (fn(exp)=> 
+			  let
+			      val {classname,...} = ExpProcess.deconstructInst exp
+			  in
+			      class2statesize (CurrentModel.classname2class classname)
+			  end
+		       ) instance_equations))
     end
 
 fun makeSlaveClassProperties props = 
