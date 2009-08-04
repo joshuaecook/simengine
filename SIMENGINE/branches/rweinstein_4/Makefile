@@ -520,7 +520,10 @@ $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 	@(cd $(LOCAL_INSTALL); tar xfz simEngine.tgz)
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT)
+$(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT) $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
 # Build type options
