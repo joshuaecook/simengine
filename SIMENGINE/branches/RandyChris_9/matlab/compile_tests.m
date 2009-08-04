@@ -50,15 +50,17 @@ end
 if error_count > 0
     for i=1:length(error_list)
       if in_octave
-        disp(sprintf(['Error encountered when running %s'], error_list{i}.name))      else
+        disp(sprintf(['Error encountered when running %s'], error_list{i}.name))      
+      else
         disp(sprintf(['Error encountered when running %s: ''%s'', ' ...
                       '%s'], error_list{i}.name, error_list{i}.me.identifier, error_list{i}.me.message));
-;
       end
     end
     disp(sprintf('Errors found!!! %d/%d tests passed', success_count, run_count));
 else
     disp(sprintf('All success!!!  %d tests passed', success_count));
+end
+
 end
 
 % check if in octave
