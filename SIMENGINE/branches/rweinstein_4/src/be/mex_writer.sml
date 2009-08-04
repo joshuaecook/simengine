@@ -237,44 +237,6 @@ fun createExternalStructure props (class: DOF.class) =
 
 	val {precision,...} = props
 
-(*
-	fun hasTimeIterator ({eq_type=DOF.INSTANCE {offset,...},...}) = EqUtil.hasInstanceIter offset time
-	  | hasTimeIterator ({eq_type=DOF.INITIAL_VALUE {offset},lhs,...}) = Term.isInitialValue lhs time
-	  | hasTimeIterator _ = false
-
-	fun eq2offset ({eq_type=DOF.INSTANCE {offset,...},...}) = EqUtil.getInstanceIterOffset offset time
-	  | eq2offset ({eq_type=DOF.INITIAL_VALUE {offset},...}) = offset
-	  | eq2offset eq = DynException.stdException(("Can't determine offset from eq: " ^ (ExpProcess.exp2str (EqUtil.eq2exp eq))),
-						      "MexWriter.createExternalStructure.eq2offset", Logger.INTERNAL)
-
-	fun sort_eqs eqs = 
-	    let
-		val eqs' = List.filter hasTimeIterator eqs
-	    in
-		StdFun.sort_compare (fn(a,b)=> (eq2offset a) < (eq2offset b)) eqs'
-	    end
-
-	fun findStatesInitValues basestr (class:DOF.class) =
-	    Util.flatmap 
-		(fn(eq as {eq_type,sourcepos,lhs,rhs})=> 
-		   case eq_type of
-		       DOF.INSTANCE {name, classname, offset} => 
-		       let 
-			   val basename' = Symbol.name name
-					   
-		       in
-			   findStatesInitValues basename' (CurrentModel.classname2class classname)
-		       end
-		     | DOF.INITIAL_VALUE {offset} => 
-		       if Term.isInitialValue lhs (Symbol.symbol "t") then
-			   [((if basestr = "" then "" else basestr ^ "." ) ^ (Term.sym2name lhs), CWriterUtil.exp2c_str rhs)]
-		       else
-			   []
-		     | _ => []
-		)
-		(sort_eqs (!(#eqs class)))
-	val states = findStatesInitValues "" class
-*)
 	fun findStatesInitValues basestr (class:DOF.class) = 
 	    let
 		val classname = ClassProcess.class2orig_name class

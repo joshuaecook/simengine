@@ -58,14 +58,6 @@ fun exp2c_str (Exp.FUN (str, exps)) =
       | PATTERN p => pattern2str p*)
       | _ => DynException.stdException (("Can't write out term '"^(ExpProcess.exp2str (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
 
-(*
-fun eq2c_progs (eq as {eq_type, sourcepos, rhs, lhs}) = 
-    [$("// " ^ (DOFPrinter.eq2str eq)),
-     case eq_type
-      of DOF.INSTANCE {name, classname, offset} => 
-	 $("void " ^ (Symbol.name classname) ^ "(t, /* blah */);")
-       | _ => $(exp2c_str (EqUtil.eq2exp eq) ^ ";")]
-*)
 
 fun log_c_exps (header, exps) = 
     (log "";

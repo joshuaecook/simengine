@@ -292,11 +292,12 @@ fun class2statesize (class: DOF.class) =
 
 fun makeSlaveClassProperties props = 
     let
-	val {classtype, sourcepos} = props
+	val {classtype, classform, sourcepos} = props
     in
 	{classtype=case classtype of
 		       DOF.MASTER classname => DOF.SLAVE classname
 		     | _ => classtype,
+	 classform=classform,
 	 sourcepos=sourcepos}
     end
     

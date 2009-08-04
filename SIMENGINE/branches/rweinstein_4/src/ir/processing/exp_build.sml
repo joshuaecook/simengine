@@ -52,16 +52,20 @@ fun initavar (str, iter) =
 	     )
 
 fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
-					 (Property.setIterator 
-					      Property.default_symbolproperty 
-					      [(Symbol.symbol "n",Iterator.RELATIVE 1)])
-					)
+					Property.setScope
+					    (Property.setIterator 
+						 Property.default_symbolproperty 
+						 [(Symbol.symbol "n",Iterator.RELATIVE 1)])
+					    (Property.WRITESTATE (Symbol.symbol "y_n"))
+				       )
 			   )
 
 fun curvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
-				       (Property.setIterator 
-					    Property.default_symbolproperty 
-					    [(Symbol.symbol "n",Iterator.RELATIVE 0)])
+				       Property.setScope
+					   (Property.setIterator 
+						Property.default_symbolproperty 
+						[(Symbol.symbol "n",Iterator.RELATIVE 0)])
+					   (Property.READSTATE (Symbol.symbol "x_n"))
 				      )
 			  )
 

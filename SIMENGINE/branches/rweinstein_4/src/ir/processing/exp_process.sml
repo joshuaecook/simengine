@@ -180,6 +180,7 @@ fun renameSym (orig_sym, new_sym) exp =
 	    val new_terms = map (fn(t)=> exp2term ((renameSym (orig_sym, new_sym)) (Exp.TERM t))) terms
 	in
 	    Exp.TERM (Exp.TUPLE (new_terms))
+
 	end
       | _ => exp
 
@@ -219,10 +220,12 @@ fun isEquation exp =
       | _ => false
 
 fun isInstanceEq exp = 
-    case exp of 
-	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, Exp.FUN (Fun.INST _, _)]) => true
-      | _ => false
-
+    (case exp of 
+	 Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, Exp.FUN (Fun.INST {props,...}, _)]) => 
+	 not (Fun.isInline props)
+       | _ => false)
+    handle e => DynException.checkpoint "ExpProcess.isInstanceEq" e
+	     
 fun lhs exp = 
     case exp of 
 	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [l, r]) => l

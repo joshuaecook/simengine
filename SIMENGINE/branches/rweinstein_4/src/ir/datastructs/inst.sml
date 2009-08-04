@@ -1,6 +1,16 @@
 structure Inst =
 struct
 
+fun inst2classform f =
+    let
+	val classes = CurrentModel.classes()
+    in
+	case (List.find (fn({name,...}:DOF.class)=>name=f) classes)
+	 of SOME {properties={classform,...},...} => classform
+	  | NONE => DynException.stdException(("No such class with name '"^(Symbol.name f)^"' found"), "Inst.inst2classform", Logger.INTERNAL)
+    end
+    handle e => DynException.checkpoint "Inst.inst2classform" e
+
 fun inst2props f : Fun.op_props = 
     let
 	val classes = CurrentModel.classes()

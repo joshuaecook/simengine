@@ -49,12 +49,16 @@ fun log_eqs (header, eqs) =
 	 log ("--------------------------------------"))
     end
 *)
-fun contents2str [content] = 
-    ExpProcess.exp2str content
-  | contents2str contents =
-    "(" ^ (String.concatWith ", " (map ExpProcess.exp2str contents)) ^ ")"
 
-fun printClass (class as {name, properties={sourcepos, classtype}, inputs, outputs, exps}) =
+fun genlist2str data2str [data] = 
+    data2str data
+  | genlist2str data2str datalist =
+    "(" ^ (String.concatWith ", " (map data2str datalist)) ^ ")"
+
+val symbollist2str = genlist2str Symbol.name
+val contents2str = genlist2str ExpProcess.exp2str
+
+fun printClass (class as {name, properties={sourcepos, classform, classtype}, inputs, outputs, exps}) =
     (case classtype of
 	 DOF.SLAVE orig_class_name => 
 	 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")
@@ -62,6 +66,11 @@ fun printClass (class as {name, properties={sourcepos, classtype}, inputs, outpu
 					   print ("Class Name: " ^ (Symbol.name (name)) ^ "\n")
 				       else
 					   print ("Class Name: " ^ (Symbol.name (name)) ^ " (Master class of '"^(Symbol.name orig_class_name)^"')\n");
+     (case classform of
+	  DOF.FUNCTIONAL => 
+	  print (" |-> Functional class\n")
+	| DOF.INSTANTIATION {readstates, writestates} => 
+	  print (" |-> States read: "^ (symbollist2str readstates) ^ ", States written: " ^(symbollist2str writestates)^ "\n"));
      print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => ExpProcess.exp2str (Exp.TERM name) ^ (case default of SOME v => (" = "^(ExpProcess.exp2str v)) | NONE => "")) (!inputs))) ^ "\n");
      print ("  Equations:\n");
      app (fn(e) => print("    " ^ (ExpProcess.exp2str e) ^ "\n")) (!exps);

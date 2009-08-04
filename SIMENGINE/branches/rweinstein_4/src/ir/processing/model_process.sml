@@ -40,5 +40,6 @@ fun normalizeModel (model:DOF.model) =
     in
 	model
     end
+    handle e => DynException.checkpoint "ModelProcess.normalizeModel" e
 
 end

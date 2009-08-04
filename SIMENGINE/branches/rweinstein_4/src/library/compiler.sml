@@ -50,6 +50,7 @@ fun std_compile exec args =
 	  end 
 	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n")))
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
+    handle e => DynException.checkpoint "CompilerLib.std_compile" e
 
 val library = [{name="compile", operation=std_compile}]
 

@@ -200,102 +200,6 @@ fun init_code classes =
 	List.concat (map initbyclass_code master_classes)
     end
 
-(*
-fun class2init_code iterators class =
-    [$(""),
-     $("void init_" ^ (Symbol.name (#name class)) ^ "(unsigned int offset) {"),
-     SUB(
-     let
-	 val blank_index_list = map (fn(i)=>0) iterators
-	 val iter_names = map (fn(sym,_)=>sym) iterators
-	 fun iter_index iter =
-	     case List.find (fn((sym, _),i)=> sym=iter) (Util.addCount iterators) of
-		 SOME (_,i)=>i
-	       | NONE => DynException.stdException(("Iterator '"^(Symbol.name iter)^"' has not been defined"), "CWriter.class2flow_code", Logger.INTERNAL)
-			 
-	 fun increment_iter iter_list iter = 
-	     let
-		 val i = iter_index iter
-	     in
-		 map (fn(count,i')=> if i=i' then count+1 else count) (Util.addCount iter_list)
-	     end
-	 val progs = 
-	     Util.flatmap
-		 (fn(exp)=>
-		    if ExpProcess.isInitialValueEq exp then
-			(case ExpProcess.lhs exp of
-			     Exp.SYMBOL (sym, props) =>
-			     let
-				 val iter as (itersym, itertype) =
-				     case (Property.getIterator props) of
-					 SOME (v::rest) => v
-				       | _ => DynException.stdException(("No iterator defined for initial value '"^(ExpProcess.exp2str (EqUtil.eq2exp eq))^"'"),
-									"CWriter.class2init_code",
-									Logger.INTERNAL)
-			     in
-				 case itertype of
-				     Iterator.ABSOLUTE a => if a = 0 then
-								[$("model_states[offset+"^(i2s offset)^"] = " ^ 
-								   (CWriterUtil.exp2c_str rhs) ^
-								   "; // " ^ (ExpProcess.exp2str (Exp.TERM lhs)))]
-							    else
-								[]
-				   | _ => []
-			     end
-			   | _ => DynException.stdException(("Can't handle non-symbol lhs terms '"^(ExpProcess.exp2str (EqUtil.eq2exp eq))^"'"),
-							    "CWriter.class2init_code",
-							    Logger.INTERNAL))
-		    else if ExpProcess.isInstanceEq exp then
-			[$("// put instance here")]
-		    else
-			[])
-	(*	 (fn(eq as {eq_type, sourcepos, lhs, rhs})=>
-		    case eq_type
-		     of DOF.INITIAL_VALUE {offset} => 
-			(case lhs of
-			     Exp.SYMBOL (sym, props) =>
-			     let
-				 val iter as (itersym, itertype) =
-				     case (Property.getIterator props) of
-					 SOME (v::rest) => v
-				       | _ => DynException.stdException(("No iterator defined for initial value '"^(ExpProcess.exp2str (EqUtil.eq2exp eq))^"'"),
-									"CWriter.class2init_code",
-									Logger.INTERNAL)
-			     in
-				 case itertype of
-				     Iterator.ABSOLUTE a => if a = 0 then
-								[$("model_states[offset+"^(i2s offset)^"] = " ^ 
-								   (CWriterUtil.exp2c_str rhs) ^
-								   "; // " ^ (ExpProcess.exp2str (Exp.TERM lhs)))]
-							    else
-								[]
-				   | _ => []
-			     end
-			   | _ => DynException.stdException(("Can't handle non-symbol lhs terms '"^(ExpProcess.exp2str (EqUtil.eq2exp eq))^"'"),
-							    "CWriter.class2init_code",
-							    Logger.INTERNAL))
-		      | DOF.INSTANCE {name, classname, offset} => 
-			let
-			    val i = if length offset = 0 then 
-					DynException.stdException(("Instance of '"^(Symbol.name classname)^"' has no defined iterators"), "CWriter.class2init_code", Logger.INTERNAL)
-				    else
-					#2 (Util.hd offset) (* time iterator offset *)
-			in
-			    [$("init_" ^
-			       (Symbol.name classname) ^ 
-			       "(offset+"^(i2s i)^");" ^ 
-			       ("// inst: " ^ (Symbol.name name)))]
-			end
-		      | _ => (*[$("// " ^ (ExpProcess.exp2str (EqUtil.eq2exp eq)))]*)[]
-		 ) *)
-		 (!((*#eqs*)#exps class))
-     in
-	 progs
-     end
-     ),
-     $("}"),
-     $("")]
-*)
 fun class2flow_code (class, top_class) =
     let
 	val orig_name = ClassProcess.class2orig_name class
@@ -384,12 +288,6 @@ fun class2flow_code (class, top_class) =
 	     end)
 	    
 	val state_progs = []
-	   (* [$(""),
-	     $("// writing all state equations")] @
-	    (Util.flatmap
-		 (fn(eq)=>[$("// " ^ (ExpProcess.exp2str (EqUtil.eq2exp eq))),
-			   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (EqUtil.eq2exp eq)) ^ ";")])
-		 (List.filter EqUtil.isDerivative (!(#eqs class))))*)
 
 	val output_progs = 
 	    if top_class then
@@ -430,26 +328,10 @@ fun class2flow_code (class, top_class) =
 			    end) (Util.addCount (!(#outputs class))))]
 
 	val mapping_back_progs = []
-(*	    [$(""),
-	     $("// mapping variables back")] @     
-	    (let
-		 val progs = 
-		     Util.flatmap
-			 (fn(eq as {eq_type,...}) => 
-			    case eq_type of
-				DOF.DERIVATIVE_EQ {offset} =>
-				[$("dydt["^(i2s offset)^"] = "^(CWriterUtil.exp2c_str (Exp.TERM (#lhs eq)))^";")]
-			      | _ => [])
-			 (List.filter EqUtil.isDerivative (!(#eqs class)))
-	     in
-		 progs
-	     end)*)
-
 
     in
 	header_progs @
-	[SUB((*read_memory_progs @*)
-	     read_states_progs @
+	[SUB(read_states_progs @
 	     read_inputs_progs @
 	     equ_progs @
 	     state_progs @
@@ -460,247 +342,38 @@ fun class2flow_code (class, top_class) =
 	 $("}"),
 	 $("")]
     end
-(*
-fun class2flow_code (class, top_class, iterators) =
-    let
-	val header_progs = 
-	    [$(""),
-	     $("int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration) {")]
 
-	val read_memory_progs =
-	    $("")::
-	    $("// mapping y vector to separate vectors per iterator")::
-	    (map (fn((sym, itertype), i)=> $("CDATAFORMAT *y_"^(Symbol.name sym)^" = y["^(i2s i)^"];")) (Util.addCount iterators))
-
-	val read_states_progs = 
-	    $("// mapping state variables first")::	    
-	    let
-		val blank_index_list = map (fn(i)=>0) iterators
-		fun iter_index iter =
-		    case List.find (fn((sym, _),i)=> sym=iter) (Util.addCount iterators) of
-			SOME (_,i)=>i
-		      | NONE => DynException.stdException(("Iterator '"^(Symbol.name iter)^"' has not been defined"), "CWriter.class2flow_code", Logger.INTERNAL)
-
-		fun increment_iter iter_list iter = 
-		    let
-			val i = iter_index iter
-		    in
-			map (fn(count,i')=> if i=i' then count+1 else count) (Util.addCount iter_list)
-		    end
-
-		val progs =
-		    Util.flatmap
-			(fn(eq as {eq_type,lhs,...})=>
-			   case eq_type 
-			    of DOF.INITIAL_VALUE {offset} => 
-			       (case lhs of
-				    Exp.SYMBOL (sym, props) => 
-				    let
-					val iter as (itersym, itertype) = 
-					    case (Property.getIterator props) of 
-						SOME (v::rest) => v
-					      | _ => DynException.stdException(("No iterator defined for initial value '"^(ExpProcess.exp2str (EqUtil.eq2exp eq))^"'"),
-									       "CWriter.class2flow_code",
-									       Logger.INTERNAL)
-				    in
-					case itertype of
-					    Iterator.ABSOLUTE a => if a = 0 then
-								       [$("CDATAFORMAT " ^ (Symbol.name sym) ^ " = y["^(i2s offset)^"];")]
-								   else
-								       []
-					  | Iterator.RELATIVE r => if r = 0 then
-								       [$("CDATAFORMAT " ^ (Symbol.name sym) ^ " = y["^(i2s offset)^"];")]
-								   else
-								       []
-					  | _ => []
-
-				    end
-				  | _ => DynException.stdException(("Can't handle non-symbol lhs terms '"^(ExpProcess.exp2str (EqUtil.eq2exp eq))^"'"),
-								   "CWriter.class2flow_code",
-								   Logger.INTERNAL))
-			     | _ => []
-			)
-			(EqUtil.getInitialValueEqs (!(#eqs class)))
-	    in
-		progs
-	    end
-	    
-	val read_inputs_progs =
-	    [$(""),
-	     $("// mapping inputs to variables")] @ 
-	    (map
-		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];"))
-		 (Util.addCount (!(#inputs class))))
-
-
-	val equ_progs = 
-	    [$(""),
-	     $("// writing all intermediate and instance expressions")] @
-	    (let
-		 val progs =
-		     Util.flatmap
-			 (fn(eq)=>
-			    case #eq_type eq of
-				DOF.INTERMEDIATE_EQ => [$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (EqUtil.eq2exp eq)) ^ ";")]
-			      | DOF.INSTANCE {name,classname,offset} => 
-				let
-				    val class = CurrentModel.classname2class classname
-				    val {lhs, rhs, ...} = eq
-				    val args = case rhs of 
-						   Exp.FUN (name, args) => args
-						 | _ => DynException.stdException("Unexpected term in instance expression", "CWriter.class2flow_code", Logger.INTERNAL)
-				    val calling_name = "flow_" ^ (Symbol.name (#name class))
-				    val i = if length offset = 0 then 
-						DynException.stdException(("Instance of '"^(Symbol.name classname)^"' has no defined iterators"), "CWriter.class2flow_code", Logger.INTERNAL)
-					    else
-						#2 (Util.hd offset) (* time iterator offset *)
-
-				    val inpvar = Unique.unique "inputdata"
-				    val outvar = Unique.unique "outputdata"
-
-				    val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str args)) ^ "};"
-				    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (Term.termCount lhs))^"];"
-				in
-				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-					  $("// " ^ (CWriterUtil.exp2c_str (EqUtil.eq2exp eq))),
-					  $(inps), $(outs_decl),
-					  $(calling_name ^ "(t, y+"^(i2s i)^", dydt+"^(i2s i)^", "^inpvar^", "^outvar^", first_iteration);")] @
-					 let
-					     val symbols = case lhs of
-							       Exp.SYMBOL (sym, _) => [Symbol.name sym]
-							     | Exp.TUPLE l => map (fn(t)=>case t of 
-											      Exp.SYMBOL (sym, _)=> Symbol.name sym
-											    | _ => DynException.stdException("Unexpected non symbol on lhs of instance expression",
-															     "CWriter.class2flow_code", Logger.INTERNAL)) l
-							     | _ => DynException.stdException("Unexpected non symbol on lhs of instance expression",
-											      "CWriter.class2flow_code", Logger.INTERNAL)
-					 in
-					     map
-						 (fn((sym, {name, contents, condition}),i')=> 
-						    $("CDATAFORMAT " ^ sym ^ " = " ^ outvar ^
-						      "["^(i2s i')^"]; // Mapped to "^(Symbol.name classname)^": "^(ExpProcess.exp2str (List.hd (contents)))))
-						 (Util.addCount (ListPair.zip (symbols, !(#outputs class))))
-					 end)
-
-				    ]
-				end
-			      | _ => raise InternalError
-			 )
-			 (List.filter (fn(eq')=>EqUtil.isIntermediate(eq') orelse EqUtil.isInstance(eq')) (!(#eqs class)))
-	     in
-		 progs
-	     end)
-	    
-	val state_progs = 
-	    [$(""),
-	     $("// writing all state equations")] @
-	    (Util.flatmap
-		 (fn(eq)=>[$("// " ^ (ExpProcess.exp2str (EqUtil.eq2exp eq))),
-			   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (EqUtil.eq2exp eq)) ^ ";")])
-		 (List.filter EqUtil.isDerivative (!(#eqs class))))
-
-	val output_progs = 
-	    if top_class then
-		[$(""),
-		 $("// writing output variables"),
-		 $("if (first_iteration) {"),
-		 SUB(map
-			 (fn(s)=> $("outputsave_" ^ (Symbol.name s) ^ " = " ^ (Symbol.name s) ^ ";"))
-			 (CWriterUtil.class2uniqueoutputsymbols class)),
-		 $("}")]
-	    else
-		[$(""),
-		 $("// writing output data "),
-		 SUB(map 
-			 (fn({name,contents,condition},i)=> 
-			    let
-				val _ = if length contents = 1 then
-					    ()
-					else
-					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
-					    
-				val valid_condition = case condition 
-						       of (Exp.TERM (Exp.BOOL v)) => v
-							| _ => false
-				val _ = if valid_condition then
-					    ()
-					else
-					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(ExpProcess.exp2str condition)^"' when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
-					    
-			    in
-				case contents of
-				    [content] =>
-				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
-				  | _ => 
-				    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), 
-							       "CWriter.class2flow_code", 
-							       Logger.INTERNAL)
-			    end) (Util.addCount (!(#outputs class))))]
-
-	val mapping_back_progs = 
-	    [$(""),
-	     $("// mapping variables back")] @     
-	    (let
-		 val progs = 
-		     Util.flatmap
-			 (fn(eq as {eq_type,...}) => 
-			    case eq_type of
-				DOF.DERIVATIVE_EQ {offset} =>
-				[$("dydt["^(i2s offset)^"] = "^(CWriterUtil.exp2c_str (Exp.TERM (#lhs eq)))^";")]
-			      | _ => [])
-			 (List.filter EqUtil.isDerivative (!(#eqs class)))
-	     in
-		 progs
-	     end)
-
-
-    in
-	header_progs @
-	[SUB((*read_memory_progs @*)
-	     read_states_progs @
-	     read_inputs_progs @
-	     equ_progs @
-	     state_progs @
-	     output_progs @
-	     mapping_back_progs @
-	     [$(""),
-	      $("return 0;")]),
-	 $("}"),
-	 $("")]
-    end*)
-
-(*
-fun init_code (classes: DOF.class list) = 
-    let
-	(* pre-declare all the init code *)
-	val fundecl_progs = map
-				(fn(class) => $("void init_" ^ (Symbol.name (#name class)) ^ "(unsigned int offset);"))
-				classes
-
-	val iterators = CurrentModel.iterators()
-	val init_progs = List.concat (map (class2init_code iterators) classes)
-
-
-    in
-	[$("// Initialization code function declarations")] @
-	fundecl_progs @ [$(""), $("// Initialization of flow functions")] @
-	init_progs	
-    end
-*)
 fun flow_code (classes: DOF.class list, topclass: DOF.class) = 
     let
+	fun isInline (class: DOF.class) =
+	    let
+		val {properties={classform,...},...} = class
+	    in
+		case classform of 
+		    DOF.FUNCTIONAL => true
+		  | _ => false
+	    end
+
 	val fundecl_progs = map
 				(fn(class) => 
 				   let
 				       val orig_name = ClassProcess.class2orig_name class
 				   in
-				       $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration);")
+				       if isInline class then
+					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
+				       else
+					   $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration);")
 				   end)
 				classes
 	val iterators = CurrentModel.iterators()
 				
-	val flow_progs = List.concat (map (fn(c)=>class2flow_code (c,#name c = #name topclass)) classes)
+	val flow_progs = List.concat (map (fn(c)=>
+					     if isInline c then
+						 (Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
+						  DynException.setErrored();
+						  [])
+					     else
+						 class2flow_code (c,#name c = #name topclass)) classes)
     in
 	[$("// Flow code function declarations")] @
 	fundecl_progs @
@@ -759,7 +432,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.first_iteration = TRUE;"),
 	     $("props.statesize = STATESPACE;"),
 	     $("props.fun = &flow_"^(Symbol.name (#name class))^";"),
-	     $(""),          
+	     $(""),
 	     $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
 	     $("while (*t < t1) {"),
 	     SUB[$("double prev_t = *t;"),
@@ -790,7 +463,7 @@ fun logoutput_code class =
 			       let
 				   val local_scope = case term of
 							 Exp.SYMBOL (_, props) => (case Property.getScope props of
-										       LOCAL => true
+										       Property.LOCAL => true
 										     | _ => false)
 						       | _ => DynException.stdException (("Unexpected non symbol"), "CWriter.logoutput_code", Logger.INTERNAL)
 			       in

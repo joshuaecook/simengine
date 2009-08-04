@@ -296,192 +296,7 @@ fun orderModel (model:DOF.model)=
 		    (classMap', classIOMap')
 		end)
 	    handle e => DynException.checkpoint "Ordering.addClassToClassMap" e
-(*	fun addEqToEqMap classes (eq:eq, (eqMap, classMap, classIOMap)) =
-	    case #eq_type eq of
-		DOF.INTERMEDIATE_EQ 
-		=>
-		let		    
-		    val lhsSyms = ExpProcess.exp2symbols (Exp.TERM (#lhs eq)) 
-		    val rhsSyms = ExpProcess.exp2symbols (#rhs eq) 
-		    val eqMap' = foldl (fn(sym, eqMap) => SymbolTable.enter (eqMap, sym, SymbolSet.fromList rhsSyms)) 
-				       eqMap 
-				       lhsSyms
-		in
-		    (eqMap', classMap, classIOMap)
-		end
-	      | DOF.INSTANCE {name, classname, offset} =>
-		let
-		    val _ = print ("in add eq to eq map looking for class " ^ (Symbol.name classname) ^ "\n")
-		    val _ = print ("classmap keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap))) ^ "\n")
-		    val _ = print ("classes are " ^ (String.concatWith ", " (map (fn(c) => Symbol.name (#name c)) classes)) ^ "\n")
-		    val class = valOf( List.find (fn(c) => #name c = classname) classes)
-		    val _ = print ("    got it\n")
 
-		    val (classMap', classIOMap') = addClassToClassMap classes (class, (classMap, classIOMap))
-
-		    val ioMap = valOf (SymbolTable.look (classIOMap', classname)) 
-
-		    fun inp2sym {name, ...} =
-			case ExpProcess.exp2symbols (Exp.TERM (name)) of
-			    [sym] => sym
-			  | _ => DynException.stdException("Class " ^ (Symbol.name classname) ^ " has an input that is not a single symbol", 
-							   "Ordering.orderModel.addEqToEqMap.inp2sym", 
-							   Logger.INTERNAL)
-
-		    fun out2sym {name, ...} = 
-			case ExpProcess.exp2symbols (Exp.TERM (name)) of
-			    [sym] => sym
-			  | _ => DynException.stdException("Class " ^ (Symbol.name classname) ^ " has an output that's name is not a single symbol", 
-							   "Ordering.orderModel.addEqToEqMap.out2sym", 
-							   Logger.INTERNAL)
-
-		    val lhs = ListPair.zip (ExpProcess.exp2symbols (Exp.TERM (#lhs eq)),
-					    map out2sym (!(#outputs class)))
-
-		    val inputargs = case (#rhs eq) of
-					Exp.FUN (name, args) => args
-				      | e => DynException.stdException("Class " ^ (Symbol.name classname) ^ " has an instance with a malformed rhs", 
-								       "Ordering.orderModel.addEqToEqMap.out2sym", 
-								       Logger.INTERNAL)
-					     
-					     
-		    val rhs = ListPair.zip (map ExpProcess.exp2symbols inputargs,
-					    map inp2sym (!(#inputs class)))
-
-
-		    fun classInputDeps2instanceInputDeps (classInputDeps) =
-			let
-			    fun classInput2instanceDeps (inputsym) =
-				case List.find (fn(_, inpsym) => inpsym = inputsym) rhs of
-				    NONE => DynException.stdException ("Found a symbol in output to input dependencies of " ^ (Symbol.name classname) ^ " which is not an input symbol: " ^ (Symbol.name inputsym),
-								       "Ordering.orderModel.addEqToEqMap.buildOutputMapping.classInput2instanceDeps",
-								       Logger.INTERNAL)
-				  | SOME (deps, inpsym) => deps
-			in
-			    foldl SymbolSet.union SymbolSet.empty (map SymbolSet.fromList (map classInput2instanceDeps classInputDeps))
-			end
-							   
-		    fun buildOutputMapping ((instanceOutput, classOutput), eqMap) =
-			let
-			    val classInputDeps = SymbolSet.listItems (valOf (SymbolTable.look (ioMap, classOutput)))
-
-			    val instanceInputs = classInputDeps2instanceInputDeps classInputDeps
-				
-			in
-			    SymbolTable.enter (eqMap, instanceOutput, instanceInputs)
-			end
-
-		    val eqMap = SymbolTable.enter (eqMap, name, classInputDeps2instanceInputDeps(map inp2sym (!(#inputs class))))
-
-
-		    val eqMap' = foldl buildOutputMapping
-				       eqMap
-				       lhs
-				       
-		in
-		    (eqMap', classMap', classIOMap')
-		end
-	      | _ => DynException.stdException("Filtering of equations failed", "Ordering.orderModel.addEqToEqMap", Logger.INTERNAL)
-*)
-(*
-	and addClassToClassMap classes (class, (classMap, classIOMap)) =
-	    case SymbolTable.look(classMap, #name class) of
-		SOME _ => (classMap, classIOMap)
-	      | NONE 
-		=>
-		let
-		    val {name, properties, inputs, outputs, exps, eqs} = class
-
-		    val _ = print ("Adding class to class map: " ^ (Symbol.name name) ^ "\n")
-		    val _ = print ("classes are " ^ (String.concatWith ", " (map (fn(c) => Symbol.name (#name c)) classes)) ^ "\n")
-								   
-		    fun isRelevantEq {eq_type=DOF.INTERMEDIATE_EQ, ...} = true
-		      | isRelevantEq {eq_type=DOF.INSTANCE _, ...} = true
-		      | isRelevantEq _ = false
-
-		    val relevantEqs = List.filter isRelevantEq (!eqs)
-
-		    val (eqMap, classMap, classIOMap) = (foldl (addEqToEqMap classes) (SymbolTable.empty, classMap, classIOMap) relevantEqs)
-		    val eqMap = ref eqMap
-		    val changed = ref true
-
-		    (* evolve eqMap deps *)
-		    fun evolveEq eqMap changed symbol =
-			let
-			    val depSet = valOf (SymbolTable.look(!eqMap, symbol))
-
-			    fun addSymDeps (symbol, depSet) =
-				SymbolSet.union (depSet,
-						 setValOf (SymbolTable.look(!eqMap, symbol)))
-
-			    val depSet' = foldl addSymDeps depSet (SymbolSet.listItems (depSet))
-
-			    val _ = if SymbolSet.numItems depSet <> SymbolSet.numItems depSet' then 
-					(changed := true;
-					 eqMap := SymbolTable.enter (!eqMap, symbol, depSet'))
-				    else
-					()
-
-			in
-			    ()
-			end
-
-		    val _ = 
-			while !changed do
-			(changed := false;
-			 app (evolveEq eqMap changed) (SymbolTable.listKeys (!eqMap)))
-			
-			
-		    (* Check for circular references*)
-		    val classMap' = SymbolTable.enter(classMap, name, !eqMap)
-
-		    (* construct classIOMap mappings*)
-
-
-		    fun addIOMapEntry ({name, contents, condition}, ioMap) =
-			let
-			    val namesym = 
-				case ExpProcess.exp2symbols (Exp.TERM (name)) of
-				    [sym] => sym
-				  | _ => DynException.stdException("Class " ^ (Symbol.name (#name class)) ^ " has an output that's name is not a single symbol", 
-								   "Ordering.orderModel.addClassToClassMap.addIOMapEntry", 
-								   Logger.INTERNAL)
-
-			    val depSyms = (GeneralUtil.flatten (map ExpProcess.exp2symbols contents))
-					  @ (ExpProcess.exp2symbols condition)
-			    val depSymsSet = SymbolSet.fromList depSyms
-
-			    fun unionDeps (symbol, set) =
-				case SymbolTable.look(!eqMap, symbol) of
-				    SOME deps => (*SymbolSet.union (set, SymbolSet.add(deps, symbol))*)SymbolSet.union (set, deps)
-				  | NONE => (*SymbolSet.add(set, symbol)*)set
-
-			    val depSet = SymbolSet.foldl unionDeps SymbolSet.empty depSymsSet
-			(* TODO: prune this down to only inputs *)
-			    fun symIsInput s =
-				let
-				    val inputsyms = map (fn(i) => term2sym (#name i)) (!(#inputs class))
-				in
-				    List.exists (fn(is) => is = s) inputsyms
-				end
-
-
-			    val depSet' = SymbolSet.filter (fn(s) => symIsInput s) depSet
-			    val _ = print ("~~~~~~~~~~~~~~~~~~~~~~~~~~\nadding to class IO map for name=" ^ (Symbol.name (term2sym name)) ^ " deps=" ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depSet))) ^"\n")
-			    val _ = print ("  depsyms=" ^ (String.concatWith ", " (map Symbol.name (depSyms))) ^"\n")
-			    val _ = print ("  deps'=" ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depSet'))) ^"\n~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-			in
-			    SymbolTable.enter(ioMap, namesym, depSet')
-			end
-
-		    val ioMap = foldl addIOMapEntry SymbolTable.empty (!(#outputs class))
-
-		    val classIOMap' = SymbolTable.enter(classIOMap, name, ioMap)
-
-		in
-		    (classMap', classIOMap')
-		end
-*)
 	val (classMap, classIOMap) = foldl (addClassToClassMap classes)
 					   (classMap, classIOMap)
 					   classes
@@ -508,27 +323,10 @@ fun orderModel (model:DOF.model)=
 	    let
 		val {instname=orig_inst_name, classname=orig_class_name,props,inpargs=oldinputs, outargs=orig_outs} = ExpProcess.deconstructInst original_instance_exp
 
-(*		val orig_inst_name = case #eq_type original_instance_eq of
-				 DOF.INSTANCE {name, ...} => name
-			       | _ => DynException.stdException("Malformed equation eq_type", 
-								"Ordering.orderModel.buildInstance", 
-								Logger.INTERNAL)
-		val orig_class_name = case #rhs original_instance_eq of
-					  Exp.FUN (Fun.INST {classname,...}, _) => classname
-					| _ => DynException.stdException("Malformed equation rhs", 
-									 "Ordering.orderModel.buildInstance", 
-									 Logger.INTERNAL)
-*)				      
 		val instName = Symbol.symbol ((Symbol.name (orig_inst_name)) ^ (Int.toString (Unique.genid())))
 
 		fun sym2output sym =
 		    let
-			(*val orig_outs = case outargs of
-					    [Exp.TUPLE terms] => terms
-					  | [Exp.SYMBOL _] => outargs
-					  | _ => DynException.stdException(("Encountered invalid LHS: {" ^ (String.concatWith ", " (map (fn(term)=>ExpProcess.exp2str (Exp.TERM term)) outargs)) ^"}"), 
-									   "Ordering.orderModel.buildInstance.sym2output", 
-									   Logger.INTERNAL)*)
 			val oldprops = case List.find (fn(s) => case s of 
 								    Exp.SYMBOL (os, p) => sym = os 
 								  | _ => DynException.stdException("Encountered invalid LHS symbol", 
@@ -547,16 +345,7 @@ fun orderModel (model:DOF.model)=
 
 		val lhs' = Exp.TUPLE (map sym2output outputs)
 
-(*		val oldinputs = case #rhs original_instance_eq of
-				    Exp.FUN (_, outs) => outs
-				  | _ => DynException.stdException("Malformed equation rhs", 
-								   "Ordering.orderModel.buildInstance", 
-								   Logger.INTERNAL)*)
-
 		val inputs = map (fn(i) => List.nth (oldinputs, i)) inputMap
-
-		(*val rhs' = Exp.FUN (#name class,
-				    inputs)*)
 
 		val rhs' = Exp.FUN (Fun.INST {classname= #name class, 
 					      instname=instName,
@@ -564,22 +353,9 @@ fun orderModel (model:DOF.model)=
 					      Fun.setRealInstName (Fun.setRealClassName Fun.emptyinstprops orig_class_name) orig_inst_name},
 				    inputs)
 
-		(*val offset = case #eq_type original_instance_eq of
-				 DOF.INSTANCE {offset, ...} => offset
-			       | _ => DynException.stdException("Malformed equation eq_type", 
-								"Ordering.orderModel.buildInstance", 
-								Logger.INTERNAL)*)
-
 		val exp' = ExpBuild.equals (Exp.TERM lhs', rhs')
 
 	    in
-		(*
-		{eq_type=DOF.INSTANCE {name=instName,
-				       classname= #name class,
-				       offset = offset},
-		 sourcepos = #sourcepos original_instance_eq,
-		 lhs=lhs',
-		 rhs=rhs'}*)
 		exp'
 	    end
 	    handle e => DynException.checkpoint "Ordering.buildInstance" e
@@ -591,11 +367,6 @@ fun orderModel (model:DOF.model)=
 		val classname = #name instanceClass
 		val outputSyms = ExpProcess.exp2symbols (ExpProcess.lhs orig_instance_exp)
 		val {instname=instancename,...} = ExpProcess.deconstructInst orig_instance_exp
-		(*val instancename = case #eq_type orig_instance_eq of
-				       DOF.INSTANCE {name, ...} => name
-				     | _ => DynException.stdException("Encountered non-instance", 
-								      "Ordering.orderModel.buildSplit", 
-								      Logger.INTERNAL)*)
 
 		fun isMainInstance sym =
 		    sym = instancename
@@ -715,11 +486,9 @@ fun orderModel (model:DOF.model)=
 		(*   to consider: instances and how to split them*)
 
 		(* main equations *)
-		(*val mainEqs = ((EqUtil.getDerivativeEqs (!(#eqs oldClass))) @ (EqUtil.getDifferenceEqs (!(#eqs oldClass))))*)
 		val mainExps = List.filter (fn(exp)=> ExpProcess.isFirstOrderDifferentialEq exp) (!(#exps oldClass))
 		(*val _ = app (fn(exp)=>Util.log ("mainExps: " ^ (ExpProcess.exp2str exp))) mainExps*)
 
-		(*val instances = EqUtil.getInstances (!(#eqs oldClass))*)
 		val instances = List.filter ExpProcess.isInstanceEq (!(#exps oldClass))
 
 
@@ -742,7 +511,6 @@ fun orderModel (model:DOF.model)=
 			end
 		    else
 			let
-			    (*val sym = term2sym (#lhs eq) *)
 			    val sym = termexp2sym exp
 			in
 			    case SymbolTable.look(expMap, sym) of
@@ -754,14 +522,6 @@ fun orderModel (model:DOF.model)=
 		    handle e => DynException.checkpoint "Ordering.buildClass.depsOfExp" e
 
 			
-(*		fun nameOfInstance inst =
-		    case #eq_type inst of
-			DOF.INSTANCE {name, ...} => name
-		      | _ => DynException.stdException("Unexpected non-instance encountered", 
-						       "Ordering.orderModel.buildClass.nameOfInstance", 
-						       Logger.INTERNAL)
-*)
-
 		fun instance2deps inst = 
 		    let
 			val {classname = name,...} = ExpProcess.deconstructInst inst
@@ -771,23 +531,11 @@ fun orderModel (model:DOF.model)=
 			else
 			    name :: nil
 		    end
-(*
-  		fun instance2deps inst =
-		    case #eq_type inst of
-			DOF.INSTANCE {name, ...} => 
-			if includeMainEqs then
-                          name :: (ExpProcess.exp2symbols(#rhs inst))
-			else
-                          name :: nil
-		      | _ => DynException.stdException("Unexpected non-instance encountered", 
-						       "Ordering.orderModel.buildClass.nameOfInstance", 
-						       Logger.INTERNAL)
-*)
+
 		val instanceDeps =  SymbolSet.fromList (foldl (op @) nil (map instance2deps instances)) (*[SymbolSet.fromList(map nameOfInstance instances)]*)
 
 		val mainExpDeps = foldl SymbolSet.union 
 				       (SymbolSet.fromList (map (fn(exp) => termexp2sym exp) mainExps))
-(*				       ((map depsOfEq mainEqs) @ (map depsOfEq instances))(*[SymbolSet.fromList(map nameOfInstance instances)])*)*)
 				       (instanceDeps :: (map depsOfExp mainExps))
 				  handle e => DynException.checkpoint "Ordering.buildClass.mainExpDeps" e
 
@@ -821,17 +569,10 @@ fun orderModel (model:DOF.model)=
 			dep = (termexp2sym exp))
 		    handle e => DynException.checkpoint "Ordering.buildClass.depInExp" e
 
-		   (* case #eq_type eq of
-			DOF.INSTANCE {name, classname, offset} => 
-			dep = name orelse List.exists (fn(s) => s = dep) 
-						      (ExpProcess.exp2symbols (Exp.TERM(#lhs eq)))
-		      | DOF.INITIAL_VALUE _ => false
-		      | _ => dep = (term2sym (#lhs eq))*)
-
 		fun dep2exp (dep, (maps as (splitMap, classMap, classIOMap, generatedInstances), exps)) =
-		    case List.find (depInExp dep) (!(#exps oldClass)) of
-			SOME exp =>
-			if ExpProcess.isFirstOrderDifferentialEq exp then
+		    (case List.find (depInExp dep) (!(#exps oldClass)) of
+			 SOME exp =>
+			 if ExpProcess.isFirstOrderDifferentialEq exp then
 			    (maps, if includeMainExps then exp :: exps else exps)
 			else if ExpProcess.isInstanceEq exp then
 			    let
@@ -865,7 +606,7 @@ fun orderModel (model:DOF.model)=
 						case List.find(fn(s,i) => s = newout) numberedOuts of
 						    SOME (_, i) => i
 						  | NONE => DynException.stdException("Couldn't find an expected output, possible corrupted output list", 
-										      "Ordering.orderModel.buildSplit.outsym2pos", 
+										      "Ordering.orderModel.buildClass.dep2exp.outsym2pos", 
 										      Logger.INTERNAL)
 					    end				
 
@@ -880,8 +621,6 @@ fun orderModel (model:DOF.model)=
 							       
 					val (instanceClass, inputMap) =  valOf(SymbolTable.look(candidateClasses, key))
 									 
-					(*val (splitMap', classMap', classIOMap', eqs) = buildSplit (instanceClass, eq) (partGroup, (splitMap, classMap, classIOMap, eqs))*)
-
 					val (splitMap', classMap', classIOMap', exps) =
 					    foldl (buildSplit (instanceClass, exp))
 						  (splitMap, classMap, classIOMap, exps)
@@ -896,18 +635,11 @@ fun orderModel (model:DOF.model)=
 			    (maps, exp :: exps)
 			else
 			    (maps, exps)
-		      | NONE => (maps, exps)
+		      | NONE => (maps, exps))
+		    handle e => DynException.checkpoint "Ordering.orderModel.buildClass.dep2exp" e
 			    
 		val ((splitMap, classMap, classIOMap, _), exps) = foldl dep2exp ((splitMap, classMap, classIOMap, SymbolSet.empty), nil) (SymbolSet.listItems deps)
 
-		(* add in main eqs if applicable *)
-	(*	val eqs = eqs @ 
-		    (if includeMainEqs then
-			 mainEqs 
-		     else
-			 nil )
-
-	 *)
 		(* In order to distinguish between true initial values and placeholders to determine
                    state offset locations, in the latter case we map initial values from absolute iterator
                    offsets to relative.  The latter would never naturally occur, so it is distinguishable.
@@ -935,10 +667,6 @@ fun orderModel (model:DOF.model)=
 					   
 			in
 			    ExpBuild.equals (lhs', ExpProcess.rhs exp)
-			    (*{eq_type = eq_type,
-			     sourcepos=sourcepos,
-			     lhs=lhs',
-			     rhs=rhs}*)
 			end
 			
 
@@ -1005,21 +733,10 @@ fun orderModel (model:DOF.model)=
 	and processInstance containerClass (instance_exp: Exp.exp, (exps, (splitMap, classMap, classIOMap))) =
 	    let
 		val {classname,instname=instancename,...} = ExpProcess.deconstructInst instance_exp
-		(*val classname = case #eq_type instance_eq of
-				    DOF.INSTANCE {classname, ...} => classname
-				  | _ => DynException.stdException("Encountered non-instance", 
-								   "Ordering.orderModel.processInstance.instancename", 
-								   Logger.INTERNAL)*)
 					
 		val _ = print ("classname = " ^ (Symbol.name classname) ^ "\n") 
 		val _ = print ("  classnames = " ^ (String.concatWith ", " (map Symbol.name (map (fn(c) => #name c) classes))) ^ "\n")
 		val instanceClass = valOf (List.find (fn(c) => (#name c) = classname) classes)
-
-		(*val instancename = case #eq_type instance_eq of
-				       DOF.INSTANCE {name, ...} => name
-				     | _ => DynException.stdException("Encountered non-instance", 
-								      "Ordering.orderModel.processInstance.instancename", 
-								      Logger.INTERNAL)*)
 
 		val _ = print ("got here\n")
 
@@ -1060,6 +777,7 @@ fun orderModel (model:DOF.model)=
 							   "Ordering.orderModel.processinstance.depoutput2instance",
 							   Logger.INTERNAL)
 		    end
+		    handle e => DynException.checkpoint "Ordering.orderModel.processinstance.depoutput2instance" e
 
 		val instanceDepInstances = List.mapPartial depoutput2instance (SymbolSet.listItems instanceDeps)
 
@@ -1120,7 +838,6 @@ fun orderModel (model:DOF.model)=
 		val (instance_exps', (splitMap', classMap', classIOMap')) 
 		  = foldl (processInstance class) (nil, (splitMap, classMap, classIOMap)) instance_exps
 
-		(*val _ = #eqs class := instance_eqs' @ other_eqs*)
 		val _ = #exps class := instance_exps' @ other_exps
 
 		val _ = print ("class map keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap'))) ^ "\n")
@@ -1190,7 +907,7 @@ fun orderModel (model:DOF.model)=
 		    in
 			expstr ^ depstr
 		    end
-
+		    handle e => DynException.checkpoint "Ordering.orderModel.sortExps.expanddep2str" e
 
 		val _ = print ("Satisfied deps for " ^ (String.concatWith ", " (map Symbol.name (GeneralUtil.flatten (map getLHSSyms satisfied_exps)))) ^ "\n")
 		val _ = print ("  deps are  " ^ (String.concatWith "\n    " (map expanddep2str (satisfied_exps))) ^ "\n")
@@ -1221,7 +938,6 @@ fun orderModel (model:DOF.model)=
 		(*val state_eqs = (EqUtil.getDerivativeEqs eqs) @ (EqUtil.getDifferenceEqs eqs)*)
 		val other_exps = List.filter (fn(exp)=> (ExpProcess.isInstanceEq exp) orelse
 						       (ExpProcess.isIntermediateEq exp)) exps
-		(*val other_eqs = (EqUtil.getInstances eqs) @ (EqUtil.getIntermediateEqs eqs)*)
 
 		fun pairExpWithDeps exp =
 		    (if ExpProcess.isInstanceEq exp then
@@ -1253,15 +969,12 @@ fun orderModel (model:DOF.model)=
 
 		val sorted_exps = sortExps (#name class) satisfiedDeps sortable_exps
 
-		(*val _ = #eqs class := init_eqs @ sorted_eqs @ state_eqs*)
 		val _ = #exps class := init_exps @ sorted_exps @ state_exps
-		(*val _ = #exps class := (map EqUtil.eq2exp init_eqs) @ 
-				       (map EqUtil.eq2exp sorted_eqs) @
-				       (map EqUtil.eq2exp state_eqs)*)
 
 	    in
 		()
 	    end
+	    handle e => DynException.checkpoint "Ordering.orderModel.orderClass" e
 
 	fun reachableClasses classes name =
 	    let
@@ -1280,6 +993,7 @@ fun orderModel (model:DOF.model)=
 	    in
 		SymbolSet.add(set, name)
 	    end
+	    handle e => DynException.checkpoint "Ordering.orderModel.reachableClasses" e
 
 	(* prune out dead classes *)
 	val liveclasses = reachableClasses classes' (#classname topInstance)

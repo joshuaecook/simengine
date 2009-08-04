@@ -475,9 +475,28 @@ fun translate (exec, object) =
 
 		val exps = quant_exps @ submodel_exps
 
+		fun expHasIterator iter exp =
+		    if ExpProcess.isInitialConditionEq exp then
+			case ExpProcess.getLHSSymbol exp of
+			    Exp.SYMBOL (_, props) => 
+			    (case Property.getIterator props of
+				 SOME iters =>
+				 (List.exists (fn(s,p) => s = iter) iters)
+			       | NONE => false)
+			  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (ExpProcess.exp2str exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
+		    else
+			false
+
+		val classHasN = List.exists (expHasIterator (Symbol.symbol "n")) exps
+		val classHasT = List.exists (expHasIterator (Symbol.symbol "t")) exps
+
+		val classform = DOF.INSTANTIATION 
+				    {readstates=(if classHasT then [Symbol.symbol "y"] else []) @ (if classHasN then [Symbol.symbol "x_n"] else []),
+				     writestates=(if classHasT then [Symbol.symbol "dydt"] else []) @ (if classHasN then [Symbol.symbol "y_n"] else [])}
+
 	    in
 		({name=name, 
-		  properties={sourcepos=PosLog.NOPOS,classtype=DOF.MASTER name},
+		  properties={sourcepos=PosLog.NOPOS,classform=classform,classtype=DOF.MASTER name},
 		  inputs=ref (map obj2input(vec2list(method "inputs" object))),
 		  outputs=ref (map obj2output(vec2list(method "contents" (method "outputs" object)))),
 		  exps=ref exps},
@@ -542,16 +561,6 @@ fun translate (exec, object) =
 		    else
 			false
 
-(*		fun eqHasN {eq_type=DOF.INITIAL_VALUE _, lhs, ...} =
-		    (case lhs of
-			 Exp.SYMBOL (_, props) => 
-			 (case Property.getIterator props of
-			      SOME iters =>
-			     (List.exists (fn(s,p) => s = (Symbol.symbol "n")) iters)
-			    | NONE => false)
-		       | _ => false)
-		  | eqHasN _ = false
-*)
 		fun classHasN ({exps, ...}: DOF.class) =
 		    List.exists expHasN (!exps)
 
