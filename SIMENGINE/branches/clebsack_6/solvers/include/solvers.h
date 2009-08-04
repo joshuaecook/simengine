@@ -28,6 +28,7 @@ typedef struct {
   CDATAFORMAT *outputs;
   int first_iteration;
   int statesize;
+  int num_models;
 } solver_props;
 
 // Forward Euler data structures and function declarations
@@ -40,7 +41,7 @@ typedef struct {
 
 forwardeuler_mem *forwardeuler_init(solver_props *props);
 
-int forwardeuler_eval(forwardeuler_mem *mem);
+int forwardeuler_eval(forwardeuler_mem *mem, int modelid);
 
 void forwardeuler_free(forwardeuler_mem *mem);
 
@@ -59,7 +60,7 @@ typedef struct {
 
 rk4_mem *rk4_init(solver_props *props);
 
-int rk4_eval(rk4_mem *mem);
+int rk4_eval(rk4_mem *mem, int modelid);
 
 void rk4_free(rk4_mem *mem);
 
@@ -80,7 +81,7 @@ typedef struct {
 
 bogacki_shampine_mem *bogacki_shampine_init(solver_props *props);
 
-int bogacki_shampine_eval(bogacki_shampine_mem *mem);
+int bogacki_shampine_eval(bogacki_shampine_mem *mem, int modelid);
 
 void bogacki_shampine_free(bogacki_shampine_mem *mem);
 
@@ -104,24 +105,25 @@ typedef struct {
 
 dormand_prince_mem *dormand_prince_init(solver_props *props);
 
-int dormand_prince_eval(dormand_prince_mem *mem);
+int dormand_prince_eval(dormand_prince_mem *mem, int modelid);
 
 void dormand_prince_free(dormand_prince_mem *mem);
 
 
 // CVODE data structures and function declarations
 // ============================================================================================================
-/*
+
 typedef struct{
   solver_props *props;
   void *cvmem;
   void *y0;
+  int modelid;
 } cvode_mem;
 
 cvode_mem *cvode_init(solver_props *props);
 
-int cvode_eval(cvode_mem *mem);
+int cvode_eval(cvode_mem *mem, int modelid);
 
 void cvode_free(cvode_mem *mem);
-*/
+
 #endif // SOLVERS_H
