@@ -125,9 +125,10 @@ fun inputstruct_code (class: DOF.class) =
     end
 
 
-fun main_code name = 
+fun main_code class = 
     let
-	val _ = ()
+	val name = Symbol.name (#name class)
+	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
     in
 	[$(""),
 	 $("void mexFunction(int nlhs, mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {"),
@@ -159,7 +160,7 @@ fun main_code name =
 	     $(""),
 	     $("// model processing"),
 	     $("output_init(); // initialize the outputs"),
-	     $("init_"^name^"(0); // initialize the states"),
+	     $("init_"^name^"((struct statedata_"^orig_name^"*) model_states); // initialize the states"),
 	     $("CDATAFORMAT inputs[INPUTSPACE];"),
 	     $(""),
 	     $("init_inputs(inputs);"),
@@ -227,53 +228,68 @@ fun main_code name =
 	 $("}")]
     end
 
-fun createExternalStructure (class: DOF.class) = 
+fun createExternalStructure props (class: DOF.class) = 
     let
+
 	val {inputs,outputs,...} = class
 
 	val time = Symbol.symbol "t"
 
-	fun hasTimeIterator ({eq_type=DOF.INSTANCE {offset,...},...}) = EqUtil.hasInstanceIter offset time
-	  | hasTimeIterator ({eq_type=DOF.INITIAL_VALUE {offset},lhs,...}) = Term.isInitialValue lhs time
-	  | hasTimeIterator _ = false
+	val {precision,...} = props
 
-	fun eq2offset ({eq_type=DOF.INSTANCE {offset,...},...}) = EqUtil.getInstanceIterOffset offset time
-	  | eq2offset ({eq_type=DOF.INITIAL_VALUE {offset},...}) = offset
-	  | eq2offset eq = DynException.stdException(("Can't determine offset from eq: " ^ (ExpProcess.exp2str (EqUtil.eq2exp eq))),
-						      "MexWriter.createExternalStructure.eq2offset", Logger.INTERNAL)
-
-	fun sort_eqs eqs = 
+	fun findStatesInitValues basestr (class:DOF.class) = 
 	    let
-		val eqs' = List.filter hasTimeIterator eqs
+		val classname = ClassProcess.class2orig_name class
+		val exps = #exps class
+		val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
+		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
+		fun exp2name exp = 
+		    Term.sym2curname (ExpProcess.exp2term exp)
+		    handle e => DynException.checkpoint ("MexWriter.createExternalStructure.findStatesInitValues.exp2name ["^(ExpProcess.exp2str exp)^"]") e
+				      
+		val sorted_init_conditions = 
+		    map 
+			(fn(exp)=>
+			   let
+			       val name = exp2name exp
+			   in
+			       case List.find (fn(exp')=> 
+						 name = exp2name (ExpProcess.lhs exp')) init_conditions of
+				   SOME v => v
+				 | NONE => DynException.stdException(("No initial condition found for differential equation: " ^ (ExpProcess.exp2str exp)), "MexWriter.createExternalStructure.findStatesInitValues", Logger.INTERNAL)
+			   end)
+			diff_eqs_symbols
+		val instances = List.filter ExpProcess.isInstanceEq (!exps)
+		val class_inst_pairs = ClassProcess.class2instnames class
 	    in
-		StdFun.sort_compare (fn(a,b)=> (eq2offset a) < (eq2offset b)) eqs'
+		(StdFun.flatmap (fn(exp)=>
+				   let
+				       val term = ExpProcess.exp2term (ExpProcess.lhs exp)
+				       val rhs = ExpProcess.rhs exp
+				   in
+				       if Term.isInitialValue term time then
+					   [((if basestr = "" then "" else basestr ^ "." ) ^ (Term.sym2name term), CWriterUtil.exp2c_str rhs)]
+				       else 
+					   []
+				   end) init_conditions)
+		@ (StdFun.flatmap
+		       (fn(classname, instname)=>
+			  let
+			      val basestr' = Symbol.name instname
+			  in
+			      findStatesInitValues basestr' (CurrentModel.classname2class classname)
+			  end)
+		       class_inst_pairs)
 	    end
-
-	fun findStatesInitValues basestr (class:DOF.class) =
-	    Util.flatmap 
-		(fn(eq as {eq_type,sourcepos,lhs,rhs})=> 
-		   case eq_type of
-		       DOF.INSTANCE {name, classname, offset} => 
-		       let 
-			   val basename' = Symbol.name name
-					   
-		       in
-			   findStatesInitValues basename' (CurrentModel.classname2class classname)
-		       end
-		     | DOF.INITIAL_VALUE {offset} => 
-		       if Term.isInitialValue lhs (Symbol.symbol "t") then
-			   [((if basestr = "" then "" else basestr ^ "." ) ^ (Term.sym2name lhs), CWriterUtil.exp2c_str rhs)]
-		       else
-			   []
-		     | _ => []
-		)
-		(sort_eqs (!(#eqs class)))
+	    handle e => DynException.checkpoint "MexWriter.createExternalStructure.findStatesInitValues" e
 	val states = findStatesInitValues "" class
+		     
     in
 	[$("% Generated output data structure for Matlab"),
 	 $("% " ^ Globals.copyright),
 	 $(""),
 	 $("dif = struct();"),
+	 $("dif.precision = "^(case precision of DOF.SINGLE => "'float'" | DOF.DOUBLE => "'double'")^";"),
 	 $("dif.inputs = struct();")] @
 	(map
 	     (fn{name,default}=> 
@@ -289,6 +305,7 @@ fun createExternalStructure (class: DOF.class) =
 	     (Util.addCount states))
 	 
     end
+    handle e => DynException.checkpoint "MexWriter.createExternalStructure" e
 
 fun buildMexHelp name = 
     let
@@ -350,12 +367,14 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 	val inst_class = CurrentModel.classname2class class_name
 	val class_name = Symbol.name (#name inst_class)
 
-	val statespace = EqUtil.class2statesize inst_class
+	val statespace = ClassProcess.class2statesize inst_class
 
-	val {iterators,...} = props
+	val {iterators,precision,...} = props
 	val solver = CWriter.props2solver props
 
-	val c_data_format = "double"
+	val c_data_format = case precision 
+			     of DOF.SINGLE => "float" 
+			      | DOF.DOUBLE => "double"
 
 	val header_progs = CWriter.header (class_name, 
 					   ["<mex.h>"],
@@ -381,6 +400,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 
 	val input_progs = CWriter.input_code inst_class
 	val outputdatastruct_progs = CWriter.outputdatastruct_code inst_class
+	val outputstatestruct_progs = CWriter.outputstatestruct_code classes
 	val outputinit_progs = CWriter.outputinit_code inst_class
 	val init_progs = CWriter.init_code classes
 	val flow_progs = CWriter.flow_code (classes, inst_class)
@@ -388,12 +408,13 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 	val outputstruct_progs = outputstruct_code inst_class
 	val inputstruct_progs = inputstruct_code inst_class
 	val statestruct_progs = stateoverride_code()
-	val main_progs = main_code class_name
+	val main_progs = main_code inst_class
 	val logoutput_progs = CWriter.logoutput_code inst_class
 
 	(* write the code *)
 	val _ = CWriter.output_code(class_name ^ "_mex", ".", (header_progs @ 
 							       outputdatastruct_progs @ 
+							       outputstatestruct_progs @
 							       outputinit_progs @ 
 							       input_progs @ 
 							       init_progs @ 
@@ -405,7 +426,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 							       inputstruct_progs @
 							       main_progs))
 
-	val externalstruct_progs = createExternalStructure inst_class
+	val externalstruct_progs = createExternalStructure props inst_class
 
 	fun write_struct (filename, block) =
 	    let
@@ -423,7 +444,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
     in
 	System.SUCCESS
     end
-
+    handle e => DynException.checkpoint "MexWriter.buildMex" e
 
 
 end

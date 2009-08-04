@@ -116,21 +116,54 @@ fun terms_equivalent assigned_patterns (term1, term2) =
       | (Exp.DONTCARE, _) => (assigned_patterns, true)
       | (_, Exp.DONTCARE) => (assigned_patterns, true)
       (* now handle some of the other cases *)
+      | (t1, Exp.PATTERN p2) => pattern_equivalent assigned_patterns (p2, Exp.TERM t1)
+      | (Exp.PATTERN p1, t2) => pattern_equivalent assigned_patterns (p1, Exp.TERM t2)
       | _ => (*if (isNumeric term1) andalso (isNumeric term2) then
 		   if (termCount term1) = (termCount term2) then*)
 	(assigned_patterns, false)
-	
-(* Check if functions are equivalent *)
-and fun_equivalent assigned_patterns (funname, explist1, explist2) = true
 
+and pattern_equivalent assigned_patterns (pat as (sym, (_,pred), patcount), exp) =
+    case List.find (fn(s, e)=> s=sym) assigned_patterns of
+	SOME (s, e) => (exp_equivalent assigned_patterns (exp, e))
+      | NONE => if pred exp then 
+		  ((sym, exp)::assigned_patterns, true)
+		else
+		    (assigned_patterns, false)
+	
 (* Check if two expressions are equivalent *)
-and exp_equivalent assigned_patterns (exp1, exp2) = true
+and exp_equivalent assigned_patterns (exp1, exp2) = 
+    case (exp1, exp2) of
+	(Exp.TERM t1, Exp.TERM t2) => terms_equivalent assigned_patterns (t1, t2)
+      | (Exp.FUN (Fun.BUILTIN fun1, args1), Exp.FUN (Fun.BUILTIN fun2, args2)) => 
+	if fun1 = fun2 then
+	    allEquiv exp_equivalent assigned_patterns (args1, args2)
+	else
+	    (assigned_patterns, false)
+      | (Exp.FUN (Fun.INST {classname=classname1,...},args1),
+	 Exp.FUN (Fun.INST {classname=classname2,...},args2)) =>
+	if classname1=classname2 then
+	    allEquiv exp_equivalent assigned_patterns (args1, args2)
+	else
+	    (assigned_patterns, false)
+      | (Exp.FUN _, Exp.FUN _) => (assigned_patterns, false)
+      (* need to handle patterns *)
+      | (exp1, Exp.TERM (Exp.PATTERN p)) => pattern_equivalent assigned_patterns (p, exp1)
+      | (Exp.TERM (Exp.PATTERN p), exp2) => pattern_equivalent assigned_patterns (p, exp2)
+      | _ => (assigned_patterns, false)
 
 (* Perform equivalency check on expressions *)
-and equiv (exp1, exp2) = exp_equivalent [] (exp1, exp2)
+and equiv (exp1, exp2) = 
+    let
+	val (assigned_patterns, result) = exp_equivalent [] (exp1, exp2)
+    in
+	result
+    end
 
-(*fun equivalent (FUN (name1, args1), FUN (name2, args2)) = 
-    name1 == name2 andalso List.all *)
-    
+fun findMatches (exp1, exp2) =
+    let
+	val (assigned_patterns, result) = exp_equivalent [] (exp1, exp2)
+    in
+	assigned_patterns
+    end
 
 end

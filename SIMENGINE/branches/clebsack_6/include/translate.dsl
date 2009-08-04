@@ -81,7 +81,7 @@ namespace Translate
 
     multifunction 
       isIterator (q) = false
-      isIterator (q: Iterator) = true
+      isIterator (q: SimIterator) = true
     end
 
     foreach quant in [q foreach q in m.getVisibleQuantities() when not(isIterator(q))] do
@@ -108,7 +108,7 @@ namespace Translate
 
     multifunction 
       isIterator (q) = false
-      isIterator (q: Iterator) = true
+      isIterator (q: SimIterator) = true
     end      
 /*
     foreach subm in flatten [sm(2) foreach sm in m.getSubModels()] do
@@ -129,7 +129,7 @@ namespace Translate
       resolveIteratorInExpression (it) = it
 
       // FIXME: check to ensure that the quantity returned here is actually the one which is overriding the iterator
-      resolveIteratorInExpression (it: Iterator) = {m.getMember(it.name) when it.isOverridden(),
+      resolveIteratorInExpression (it: SimIterator) = {m.getMember(it.name) when it.isOverridden(),
                                                     it otherwise}
 
       resolveIteratorInExpression (it: ModelOperation)
@@ -158,7 +158,7 @@ namespace Translate
     end
 
     adjustForTemporalIndices(exp: TemporalReference)
-      var temporalIndex = exp.step / exp.iterator.getStep()
+      var temporalIndex = exp.step / exp.simIterator.getStep()
 /*      exp.internalState.historyDepth = {temporalIndex when temporalIndex > exp.internalState.historyDepth,
                                         exp.internalState.historyDepth otherwise}*/
       if temporalIndex < exp.internalState.historyDepth then

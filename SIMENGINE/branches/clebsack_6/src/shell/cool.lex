@@ -68,6 +68,7 @@ val keyword_table = [("function",         fn(x) => Tokens.FUNCTION(genpos x, gen
 		     ("visible",          fn(x) => Tokens.VISIBLE(genpos x, genpos (x+7))),
 		     ("output",           fn(x) => Tokens.OUTPUT(genpos x, genpos (x+6))),
 		     ("input",            fn(x) => Tokens.INPUT(genpos x, genpos (x+5))),
+		     ("iterator",         fn(x) => Tokens.ITERATOR(genpos x, genpos (x+8))),
 		     ("model",            fn(x) => Tokens.MODEL(genpos x, genpos (x+5))),
 		     ("submodel",         fn(x) => Tokens.SUBMODEL(genpos x, genpos (x+8))),
 		     ("parameter",        fn(x) => Tokens.PARAMETER(genpos x, genpos (x+9))),
@@ -174,7 +175,7 @@ fun eof () =
 
 %header (functor LexFun(structure Tokens: LC_TOKENS));
 
-KEYWORD = (let | in | end | LF | val | assert | or | and | if | then | else | elseif | true | false | import | class | function | multifunction | while | foreach | do | var | constant | quantity | global | operator | constructor | satisfies | extends | namespace | open | type | overload | when | otherwise | of | lambdafun | undefined | enumeration | d | equation | equations | error | to | by | with | stateful | tunable | visible | output | input | model | submodel | submodels | parameter | parameters | state | states | public | hidden | forall | exists | suchthat | property | get | set);
+KEYWORD = (let | in | end | LF | val | assert | or | and | if | then | else | elseif | true | false | import | class | function | multifunction | while | foreach | do | var | constant | quantity | global | operator | constructor | satisfies | extends | namespace | open | type | overload | when | otherwise | of | lambdafun | undefined | enumeration | d | equation | equations | error | to | by | with | stateful | tunable | visible | output | input | iterator | model | submodel | submodels | parameter | parameters | state | states | public | hidden | forall | exists | suchthat | property | get | set);
 
 
 DIGIT   = [0-9];

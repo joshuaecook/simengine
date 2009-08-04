@@ -11,8 +11,8 @@ fun exp2c_str (Exp.FUN (str, exps)) =
     let
 	fun useParen (Exp.FUN (str', _)) = 
 	    let
-		val {precedence=prec,associative=assoc,...} = Fun.fun2props str
-		val {precedence=prec',...} = Fun.fun2props str'
+		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
+		val {precedence=prec',...} = FunProcess.fun2props str'
 	    in
 		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
 	    end
@@ -58,13 +58,6 @@ fun exp2c_str (Exp.FUN (str, exps)) =
       | PATTERN p => pattern2str p*)
       | _ => DynException.stdException (("Can't write out term '"^(ExpProcess.exp2str (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
 
-fun eq2c_progs (eq as {eq_type, sourcepos, rhs, lhs}) = 
-    [$("// " ^ (DOFPrinter.eq2str eq)),
-     case eq_type
-      of DOF.INSTANCE {name, classname, offset} => 
-	 $("void " ^ (Symbol.name classname) ^ "(t, /* blah */);")
-       | _ => $(exp2c_str (EqUtil.eq2exp eq) ^ ";")]
-
 
 fun log_c_exps (header, exps) = 
     (log "";
@@ -72,21 +65,23 @@ fun log_c_exps (header, exps) =
      log ("--------------------------------------");
      (app (fn(e)=>log (exp2c_str e)) exps);
      log ("--------------------------------------"))
-
+(*
 fun log_c_eqs (header, eqs) = 
     (log "";
      log header;
      log ("-----------------------------------------------------------------");
      printtexts (TextIO.stdOut, List.concat (map (fn(e)=>(eq2c_progs e)) eqs), 0);
      log ("-----------------------------------------------------------------"))
-
+*)
 fun class2uniqueoutputsymbols (class:DOF.class) = 
     let
 	val outputs = !(#outputs class)
 	val all_exps = (Util.flatmap (fn{contents,...}=>contents) outputs) @
 		       (map (fn{condition,...}=>condition) outputs)
-	val all_symbols = Util.flatmap ExpProcess.exp2symbols all_exps
-	val unique_symbols = Util.uniquify all_symbols
+	val all_symbols = Util.flatmap ExpProcess.exp2termsymbols all_exps
+	val sym_mapping = map (fn(term)=>(term, Term.sym2curname term)) all_symbols
+	fun cmp_fun ((_,s1),(_,s2))= s1 = s2
+	val unique_symbols = Util.uniquify_by_fun cmp_fun sym_mapping
     in
 	unique_symbols
     end

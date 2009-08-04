@@ -7,14 +7,24 @@ type inputproperties =
      {defaultValue: Exp.term option,
       sourcepos: PosLog.pos}
       
+datatype classtype = MASTER of Symbol.symbol
+		   | SLAVE of Symbol.symbol
 
-type classproperties = {sourcepos: PosLog.pos}
+datatype classform = FUNCTIONAL
+		   | INSTANTIATION of {readstates:Symbol.symbol list,
+				       writestates: Symbol.symbol list}
+
+
+type classproperties = {sourcepos: PosLog.pos, classform: classform, classtype: classtype}
 
 datatype iteratortype = CONTINUOUS of Solver.solver
 		      | DISCRETE
 
+datatype precisiontype = SINGLE | DOUBLE
+
 type systemproperties = {iterators: (Symbol.symbol * iteratortype) list, 
-			 time: (real * real)}
+			 time: (real * real),
+			 precision: precisiontype}
 
 datatype eq_type = INSTANCE of {name:Symbol.symbol, 
 				classname: Symbol.symbol,
@@ -34,10 +44,11 @@ withtype class = {name:Symbol.symbol,
 		  outputs: {name: Exp.term, 
 			    contents: expression list, 
 			    condition: expression} list ref,
+		  exps: expression list ref(*,
 		  eqs: {eq_type: eq_type,
 			sourcepos: PosLog.pos,
 			lhs: Exp.term,
-			rhs: expression} list ref}
+			rhs: expression} list ref*)}
 			       
 type eq = {eq_type: eq_type,
 	   sourcepos: PosLog.pos,

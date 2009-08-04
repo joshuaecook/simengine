@@ -35,13 +35,13 @@ exception StubbedOut
   | LAMBDAFUN | COMMA | IN | END | LF | LBRACE | RBRACE | UNDERBRACE | PERCENT | WHEN | OTHERWISE | UNDEFINED
   | ASSERT | OR | IF | THEN | ELSE | TRUE | FALSE | ERROR | ELSEIF
   | IMPORT | CLASS | OF | COLON | TO | BY | WITH | STATEFUL | TUNABLE | VISIBLE | OUTPUT | INPUT | MODEL | SUBMODEL | PARAMETER | STATE | HIDDEN | PUBLIC
-  | WHILE | FOREACH | DO | VAR | CONSTANT | GLOBAL | FUNCTION | OPERATOR | CONSTRUCTOR | NEWLINE | SATISFIES | EXTENDS | INTERFACE | NAMESPACE | REPLACE | OVERLOAD | OPEN | TYPE | ENUMERATION | EQUATION | EQUATIONS | QUANTITY | FORALL | EXISTS | SUCHTHAT | PROPERTY | GET | SET | MULTIFUNCTION | LET 
+  | WHILE | FOREACH | DO | VAR | ITERATOR | CONSTANT | GLOBAL | FUNCTION | OPERATOR | CONSTRUCTOR | NEWLINE | SATISFIES | EXTENDS | INTERFACE | NAMESPACE | REPLACE | OVERLOAD | OPEN | TYPE | ENUMERATION | EQUATION | EQUATIONS | QUANTITY | FORALL | EXISTS | SUCHTHAT | PROPERTY | GET | SET | MULTIFUNCTION | LET 
 
 %nonassoc IMPORT CLASS VAR CONSTANT GLOBAL CONSTRUCTOR OPERATOR FUNCTION MULTIFUNCTION SATISFIES EXTENDS INTERFACE NAMESPACE REPLACE OVERLOAD OPEN ENUMERATION QUANTITY PROPERTY GET SET
 %left LAMBDAFUN TYPE
 %right LET IN END WHILE FOREACH DO OF 
 %left IF THEN ELSE ELSEIF
-%nonassoc ASSIGN WHEN OTHERWISE TO BY WITH MODEL SUBMODEL PARAMETER STATE HIDDEN PUBLIC EQARROW
+%nonassoc ASSIGN WHEN OTHERWISE TO BY WITH MODEL SUBMODEL PARAMETER STATE HIDDEN PUBLIC EQARROW ITERATOR 
 %left COMMA
 %left EQUATION EQUATIONS
 %left OR 
@@ -78,7 +78,7 @@ start of Ast.stm
 | returnheader of Ast.header 
 | args of Ast.typedname list 
 | optargs of Ast.typedname list
-| optreturn of Ast.typedname list option
+(*| optreturn of Ast.typedname list option*)
 | arg of Ast.typedname 
 | opttyp of Ast.typepattern option
 | typs of Ast.typepattern list
@@ -139,13 +139,14 @@ start of Ast.stm
 | quantitydef of Ast.modelpart
 | outputdef of Ast.modelpart
 | inputdef of Ast.modelpart
+| iteratordef of Ast.modelpart
 | optwhen of Ast.exp option
 | forclause of {var: Symbol.symbol, collection: Ast.exp, condition: Ast.exp option}
 | forgenerator of {var: Symbol.symbol, collection: Ast.exp, condition: Ast.exp option} list
 | tableentries of (Symbol.symbol * Ast.exp) list
 | tableentry of (Symbol.symbol * Ast.exp)
 | opttable of Ast.exp option
-| optdimensions of Ast.exp list option
+| optdimensions of Symbol.symbol list option
 | get of Ast.stm list 
 | set of (Symbol.symbol * (Ast.stm list)) 
 | optgetset of {read: Ast.stm list option, write: (Symbol.symbol * (Ast.stm list)) option}
@@ -214,9 +215,9 @@ modelheader: ID optargs ({name=Symbol.symbol ID, args=optargs, returns=NONE})
 	   | ID ({name=Symbol.symbol ID, args=[], returns=NONE}) 
 *)
 
-optreturn: (NONE)
+(*optreturn: (NONE)
 	 | LPAREN args RPAREN ASSIGN (SOME args)
-
+*)
 optargs: ([])
        | LPAREN args RPAREN (args)
 
@@ -237,6 +238,7 @@ modelpart: (*statedef newlines (statedef)
 (*	 | temporary newlines (temporary)*)
 	 | outputdef newlines (outputdef)
 	 | inputdef newlines (inputdef)
+	 | iteratordef newlines (iteratordef)
 
 (*temporary: LET ID ASSIGN exp (Ast.TEMPORARY (ID, exp))
 
@@ -257,10 +259,15 @@ outputdef: OUTPUT ID optassignment opttable (Ast.OUTPUTDEF {name=Symbol.symbol I
 inputdef: INPUT ID opttable (Ast.INPUTDEF {name=Symbol.symbol ID,
 					   settings=opttable})
 
-optdimensions: (NONE)
-	     | LBRACE lambda RBRACE (SOME [lambda])
-	     | LBRACE lambdalist RBRACE (SOME lambdalist)
+iteratordef: ITERATOR ID optassignment opttable (Ast.ITERATORDEF {name=Symbol.symbol ID,
+								  value=optassignment,
+								  settings=opttable})
 
+optdimensions: (NONE)
+	     | LBRACE someidslist RBRACE (SOME someidslist)
+(*	     | LBRACE lambda RBRACE (SOME [lambda])
+	     | LBRACE lambdalist RBRACE (SOME lambdalist)
+*)
 opttable: (NONE)
 	| WITH LCBRACE tableentries RCBRACE (SOME (Ast.TABLE tableentries))
 

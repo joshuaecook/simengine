@@ -31,12 +31,16 @@ fun std_compile exec args =
 	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
 	      val _ = if DynamoOptions.isFlagSet "generateC" then
-			  CWriter.buildC (CurrentModel.getCurrentModel())
+			  (Logger.log_notice (Printer.$("Generating Debug C Back-end"));
+			  CWriter.buildC (CurrentModel.getCurrentModel()))
 		      else
 			  CWriter.SUCCESS
+	      val _ = DynException.checkToProceed()
 
 	      val _ = MexWriter.buildMex (CurrentModel.getCurrentModel())
+	      val _ = DynException.checkToProceed()
 	      val _ = ODEMexWriter.buildODEMex (CurrentModel.getCurrentModel())
+	      val _ = DynException.checkToProceed()
 
 	      val code = System.SUCCESS (*ModelCompileLauncher.compile (name, forest)*)
 	  in 
@@ -46,6 +50,7 @@ fun std_compile exec args =
 	  end 
 	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n")))
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
+    handle e => DynException.checkpoint "CompilerLib.std_compile" e
 
 val library = [{name="compile", operation=std_compile}]
 

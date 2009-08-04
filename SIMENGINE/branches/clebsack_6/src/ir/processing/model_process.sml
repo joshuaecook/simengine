@@ -1,6 +1,12 @@
 structure ModelProcess =
 struct
 
+fun model2statesize (model:DOF.model) =
+    let
+	val (_, {name,classname}, _) = model
+    in
+	ClassProcess.class2statesize (CurrentModel.classname2class classname)
+    end
 
 fun normalizeModel (model:DOF.model) =
     let
@@ -10,7 +16,7 @@ fun normalizeModel (model:DOF.model) =
 	(* TODO, write the checks of the model IR as they are needed *)
 
 	(* generate all offsets for instances *)
-	val () = app ClassProcess.generateOffsets classes
+	(*val () = app ClassProcess.generateOffsets classes*)
 
 (*
 	(* reorder all the statements *)
@@ -34,5 +40,6 @@ fun normalizeModel (model:DOF.model) =
     in
 	model
     end
+    handle e => DynException.checkpoint "ModelProcess.normalizeModel" e
 
 end
