@@ -28,8 +28,19 @@ fun exp2symbols (Exp.FUN (_, exps)) =
     (exp2symbols (Exp.TERM t1)) @ (exp2symbols (Exp.TERM t2))
   | exp2symbols _ = []
     
+fun exp2termsymbols (Exp.FUN (_, exps)) = 
+    List.concat (map exp2termsymbols exps)
+  | exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
+  | exp2termsymbols (Exp.TERM (Exp.LIST (terms, _))) = 
+    List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
+  | exp2termsymbols (Exp.TERM (Exp.TUPLE terms)) = 
+    List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
+  | exp2termsymbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
+    (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
+  | exp2termsymbols _ = []
+    
 
-fun exp2fun_names (Exp.FUN (funname, exps)) = (Symbol.name funname)::(List.concat (map exp2fun_names exps))
+fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(List.concat (map exp2fun_names exps))
   | exp2fun_names _ = []
 
 val uniqueid = ref 0
@@ -41,16 +52,14 @@ fun uniq(sym) =
 fun exp2term (Exp.TERM t) = t
   | exp2term _ = Exp.NAN
 
-
-
 (*fun sort_explist *)
 
 fun exp2tersestr (Exp.FUN (str, exps)) = 
     let
 	fun useParen (Exp.FUN (str', _)) = 
 	    let
-		val {precedence=prec,associative=assoc,...} = Fun.fun2props str
-		val {precedence=prec',...} = Fun.fun2props str'
+		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
+		val {precedence=prec',...} = FunProcess.fun2props str'
 	    in
 		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
 	    end
@@ -86,7 +95,7 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
       | Exp.COMPLEX (t1,t2) => if Term.isZero t1 andalso Term.isZero t2 then (exp2tersestr (Exp.TERM (Exp.INT 0)))
 			   else if Term.isZero t1 then (exp2tersestr (Exp.TERM t2) ^ " i")
 			   else if Term.isZero t2 then exp2tersestr (Exp.TERM t1)
-			   else exp2tersestr (Exp.FUN (Symbol.symbol "PLUS", [Exp.TERM t1, Exp.FUN (Symbol.symbol "TIMES", [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))])]))	
+			   else exp2tersestr (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
       | Exp.LIST (l,_) => "[" ^ (String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l)) ^ "]"
       | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l))^")"
       | Exp.SYMBOL (s, props) => Term.sym2str (s, props)
@@ -101,8 +110,8 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
     let
 	fun useParen (Exp.FUN (str', _)) = 
 	    let
-		val {precedence=prec,associative=assoc,...} = Fun.fun2props str
-		val {precedence=prec',...} = Fun.fun2props str'
+		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
+		val {precedence=prec',...} = FunProcess.fun2props str'
 	    in
 		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
 	    end
@@ -116,7 +125,7 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
 	    else
 		str
     in
-	Symbol.name str ^ "(" ^ (String.concatWith "," (map exp2fullstr exps)) ^")"
+	Symbol.name (FunProcess.fun2name str) ^ "(" ^ (String.concatWith "," (map exp2fullstr exps)) ^")"
     (*
 	case (Fun.fun2textstrnotation str) of
 	    (v, Fun.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2str e),e)) exps)
@@ -151,16 +160,11 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
       | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")"
 
 fun exp2str e = 
-    if DynamoOptions.isFlagSet("usefullform") then
-	exp2fullstr e
-    else
-	exp2tersestr e
-
-
-fun eq2str (lhs, rhs) =
-    ExpBuild.equals (lhs, rhs)
-
-
+    (if DynamoOptions.isFlagSet("usefullform") then
+	 exp2fullstr e
+     else
+	 exp2tersestr e)
+    handle e => DynException.checkpoint "ExpProcess.exp2str" e
 
 fun renameSym (orig_sym, new_sym) exp =
     case exp of
@@ -176,6 +180,7 @@ fun renameSym (orig_sym, new_sym) exp =
 	    val new_terms = map (fn(t)=> exp2term ((renameSym (orig_sym, new_sym)) (Exp.TERM t))) terms
 	in
 	    Exp.TERM (Exp.TUPLE (new_terms))
+
 	end
       | _ => exp
 
@@ -186,28 +191,190 @@ fun log_exps (header, exps) =
      (app (fn(e)=>log (exp2str e)) exps);
      log ("--------------------------------------"))
 
+fun eq2str (lhs, rhs) =
+    ExpBuild.equals (lhs, rhs)
+
+
+
+(* general processing of expression *)
+
+fun error_no_return exp text = 
+    (Logger.log_internalerror (Printer.$("Error when processing '"^(exp2str exp)^"': "^(text)));
+     DynException.setErrored())
+
+fun error exp text = (error_no_return exp text; Exp.null)
+
+fun isFun exp = 
+    case exp of
+	Exp.FUN _ => true
+      | Exp.TERM _ => false
+
+fun isTerm exp = 
+    case exp of
+	Exp.FUN _ => false
+      | Exp.TERM _ => true
+
+fun isEquation exp =
+    case exp of
+	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, rhs]) => true
+      | _ => false
+
+fun isInstanceEq exp = 
+    (case exp of 
+	 Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, Exp.FUN (Fun.INST {props,...}, _)]) => 
+	 not (Fun.isInline props)
+       | _ => false)
+    handle e => DynException.checkpoint "ExpProcess.isInstanceEq" e
+	     
+fun lhs exp = 
+    case exp of 
+	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [l, r]) => l
+      | _ => error exp "No left hand side found"
+
+fun rhs exp = 
+    case exp of 
+	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [l, r]) => r
+      | _ => error exp "No right hand side found"
+
+fun deconstructInst exp = 
+    let
+	val empty_return = {classname=Symbol.symbol "NULL", 
+			    instname=Symbol.symbol "NULL", 
+			    props=Fun.emptyinstprops, 
+			    inpargs=[], 
+			    outargs=[]}
+    in
+	if isInstanceEq exp then
+	    case exp of 
+		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.INST {classname, instname, props}, inpargs)]) => 
+		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=outargs}
+	      | _ => (error_no_return exp "Malformed instance equation"; empty_return)
+	else
+	    (error_no_return exp "Not an instance equation"; empty_return)
+    end
+
+fun instSpatialSize inst =
+    if isInstanceEq inst then
+	let
+	    val {props,...} = deconstructInst inst
+	in
+	    case Fun.getDim props  
+	     of SOME l => Util.prod l
+	      | NONE => 1
+	end	    
+    else
+	DynException.stdException(("Passed exp '"^(exp2str inst)^"' that is not an instance"), "Inst.instSpatialSize", Logger.INTERNAL)
+
+fun instOrigClassName inst = 
+    let
+	val {classname, instname, props, inpargs, outargs} = deconstructInst inst
+    in
+	case Fun.getRealClassName props 
+	 of SOME v => v
+	  | NONE => classname
+    end
+
+fun instOrigInstName inst = 
+    let
+	val {classname, instname, props, inpargs, outargs} = deconstructInst inst
+    in
+	case Fun.getRealInstName props 
+	 of SOME v => v
+	  | NONE => instname
+    end
+
+(* the lhs is something of the form of x'[t] *)
+fun isFirstOrderDifferentialTerm exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val derivative = Property.getDerivative props
+	in
+	    case derivative of
+		SOME (order, [iterator]) =>  order = 1 andalso iterator = (Symbol.symbol "t")
+	      | _ => false
+	end
+      | _ => false
+
+fun isFirstOrderDifferentialEq exp =
+    isEquation exp andalso
+    isFirstOrderDifferentialTerm (lhs exp)
+
+(* anything of the form x[0] *)
+fun isInitialConditionTerm exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val iterators = Property.getIterator props
+	in
+	    case iterators of
+		SOME ((itersym, Iterator.ABSOLUTE 0)::rest) => itersym = (Symbol.symbol "t")
+	      | _ => false
+	end
+      | _ => false
+
+fun isInitialConditionEq exp =
+    isEquation exp andalso
+    isInitialConditionTerm (lhs exp)
+
+(* intermediate equations *)
+fun isIntermediateTerm exp =
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val derivative = Property.getDerivative props
+	    val iterators = Property.getIterator props
+	in
+	    case (derivative, iterators) of
+		(SOME _, _) => false
+	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => (itersym <> Symbol.symbol "t") andalso 
+								    (itersym <> Symbol.symbol "n")
+	      | (_, _) => true
+	end
+      | _ => false
+
+fun isIntermediateEq exp =
+    isEquation exp andalso
+    isIntermediateTerm (lhs exp)
+
+fun isNonSupportedEq exp =
+    if isEquation exp then
+	if isInitialConditionEq exp orelse
+	   isFirstOrderDifferentialEq exp orelse
+	   isIntermediateEq exp orelse
+	   isInstanceEq exp then
+	    true (* all supported *)
+	else
+	    (error_no_return exp "Not a supported equation type"; false)
+    else
+	(error_no_return exp "Not an equation"; true)
+
+fun exp2size exp = 
+    let
+	fun combineSizes (size1, size2) = 
+	    if (size1 = size2) then size1
+	    else if (size1 = 1) then size2
+	    else if (size2 = 1) then size1
+	    else
+		(error_no_return Exp.null ("Arguments have mismatched sizes ("^(i2s size1)^","^(i2s size2)^")"); 1)
+	
+	val size = case exp of
+		       Exp.TERM t => 
+		       if Term.isNumeric t then
+			   Term.termCount t
+		       else if Term.isScalar t andalso Term.isSymbol t then
+			   Term.symbolSpatialSize t
+		       else 
+			   1 (* out of default - need to do something better here *)
+		     | Exp.FUN (f, args) => foldl combineSizes 1 (map exp2size args)
+    in
+	size
+    end
+
+fun getLHSSymbol exp = 
+    case exp2term (lhs exp) of
+	Exp.SYMBOL s => Exp.SYMBOL s
+      | _ => (error_no_return exp ("No valid symbol found on LHS");
+	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
 
 end
-(*
-open DSLEXP;
-
-
-val exps = [initvar "u" equals (int 1),
-	    initvar "w" equals (int 1),
-	    diff "u" equals (plus [tvar "u",neg (power (tvar "u", int 3)), neg (tvar "w"), var "I"]),
-	    diff "w" equals (times [var "e", plus [var "b0", times [var "b1", tvar "u"], neg (tvar "w")]])];
-
-val _ = log ""
-val _ = log ""
-val _ = log "Test Output: "
-val _ = log ("--------------------------------------")
-val _ = log (exp2str (plus [int 1, int 2, var "a"]))
-(*val _ = log (exp2str (Exp.FUN ("PLUS", [Exp.TERM (INT 1), Exp.TERM (INT 2), Exp.TERM (Exp.SYMBOL ("a",[]))])))*)
-val _ = log ((exp2str (times [plus [var "c", var "d"], var "a"])))
-val _ = log ((exp2str (times [plus [var "d", var "e"], plus[var "a",times[var "x", var "y"], var "c"]])))
-val _ = log ((exp2str (var "y" equals (exp (plus [var "x", int 1])))))
-val _ = log ((exp2str (var "y" equals (exp (var "x")))))
-val _ = log ""
-val _ = log_exps ("FN Model", exps)
-*)
-

@@ -93,12 +93,20 @@ if status ~= 0
 %  fclose(logFID);
 end
 end
+
+s = getSimulationStructure(compileDirectory, sprintf('%s_struct', basename));
+if returnStructure
+  varargout = {s};
+end
+
+
+
 % Run the MEX commands
 c_source = fullfile(compileDirectory, ...
                     sprintf('%s_%s.c',basename,mode));
 ode_c_source = fullfile(compileDirectory, ...
                         sprintf('%s_ode%s.c',basename,mode));
-solverlib = fullfile(dynenv, 'lib', 'solvers_double.a');
+solverlib = fullfile(dynenv, 'lib', ['solvers_' s.precision '.a']);
 switch computer
  case 'GLNX86'
   mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
@@ -130,11 +138,6 @@ if exist(matlab_help,'file')
   % copy file to current directory
   copyfile(matlab_help,sprintf('%s.m',basename));
   % help(basename)
-end
-
-if returnStructure
-  s = getSimulationStructure(compileDirectory, sprintf('%s_struct', basename));
-  varargout = {s};
 end
 
 disp(sprintf('Run "%s(time, s.inputs) to simulate ..."', basename));
@@ -330,6 +333,7 @@ s.inputs = dif.inputs;
 num_states = length(dif.states);
 s.state_names = cell(1,num_states);
 s.state_inits = zeros(1,num_states);
+s.precision = dif.precision;
 for i=1:num_states,
   s.state_names{i} = dif.states(i).name;
   s.state_inits(i) = dif.states(i).init;

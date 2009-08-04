@@ -1,7 +1,7 @@
 structure Exp =
 struct
 
-datatype exp = FUN of (Symbol.symbol * exp list)
+datatype exp = FUN of (Fun.funtype * exp list)
 	     | TERM of term
      and term = RATIONAL of (int * int)
 	       | INT of int
@@ -18,6 +18,7 @@ datatype exp = FUN of (Symbol.symbol * exp list)
 
 withtype predicate = (string * (exp -> bool))
 
+val null = FUN (Fun.BUILTIN Fun.NULL, [])
 
 
 end

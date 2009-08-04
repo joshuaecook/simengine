@@ -4,6 +4,7 @@ struct
 val i2s = Util.i2s
 val r2s = Util.r2s
 
+(*
 fun eq2str (eq:DOF.eq) = 
     let
 
@@ -35,7 +36,8 @@ fun eq2str (eq:DOF.eq) =
 	  | DOF.INITIAL_VALUE {offset} => 
 	    "Initial Value Equation @"^(i2s offset)^": " ^ expstr
     end
-
+*)
+(*
 fun log_eqs (header, eqs) = 
     let
 	val log = Util.log
@@ -46,6 +48,37 @@ fun log_eqs (header, eqs) =
 	 (app (fn(e)=>log (eq2str e)) eqs);
 	 log ("--------------------------------------"))
     end
+*)
+
+fun genlist2str data2str [data] = 
+    data2str data
+  | genlist2str data2str datalist =
+    "(" ^ (String.concatWith ", " (map data2str datalist)) ^ ")"
+
+val symbollist2str = genlist2str Symbol.name
+val contents2str = genlist2str ExpProcess.exp2str
+
+fun printClass (class as {name, properties={sourcepos, classform, classtype}, inputs, outputs, exps}) =
+    (case classtype of
+	 DOF.SLAVE orig_class_name => 
+	 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")
+       | DOF.MASTER orig_class_name => if orig_class_name = name then
+					   print ("Class Name: " ^ (Symbol.name (name)) ^ "\n")
+				       else
+					   print ("Class Name: " ^ (Symbol.name (name)) ^ " (Master class of '"^(Symbol.name orig_class_name)^"')\n");
+     (case classform of
+	  DOF.FUNCTIONAL => 
+	  print (" |-> Functional class\n")
+	| DOF.INSTANTIATION {readstates, writestates} => 
+	  print (" |-> States read: "^ (symbollist2str readstates) ^ ", States written: " ^(symbollist2str writestates)^ "\n"));
+     print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => ExpProcess.exp2str (Exp.TERM name) ^ (case default of SOME v => (" = "^(ExpProcess.exp2str v)) | NONE => "")) (!inputs))) ^ "\n");
+     print ("  Equations:\n");
+     app (fn(e) => print("    " ^ (ExpProcess.exp2str e) ^ "\n")) (!exps);
+     print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (ExpProcess.exp2str (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (ExpProcess.exp2str condition)) 
+							 (!outputs))) ^ "\n");
+     print ("  Symbols: {"^(String.concatWith ", " (map Symbol.name (ClassProcess.findSymbols class)))^"}\n"))
+    
+
 
 fun printModel (model: DOF.model) =
     let
@@ -63,20 +96,6 @@ fun printModel (model: DOF.model) =
 		()
 	    end
 
-	fun contents2str [content] = 
-	    ExpProcess.exp2str content
-	  | contents2str contents =
-	    "(" ^ (String.concatWith ", " (map ExpProcess.exp2str contents)) ^ ")"
-
-	fun printClass (class as {name, properties={sourcepos}, inputs, outputs, eqs}) =
-	     (print ("Class Name: " ^ (Symbol.name (name)) ^ "\n");
-	      print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => ExpProcess.exp2str (Exp.TERM name) ^ (case default of SOME v => (" = "^(ExpProcess.exp2str v)) | NONE => "")) (!inputs))) ^ "\n");
-	      print ("  Equations:\n");
-	      app (fn(e) => print("  " ^ (eq2str e) ^ "\n")) (!eqs);
-	      print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (ExpProcess.exp2str (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (ExpProcess.exp2str condition)) 
-								  (!outputs))) ^ "\n");
-	      print ("  Symbols: {"^(String.concatWith ", " (map Symbol.name (ClassProcess.findSymbols class)))^"}\n"))
-	    
 
 	fun printTopInstance ({name, classname}) =
 	    let
@@ -88,8 +107,9 @@ fun printModel (model: DOF.model) =
 		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => ExpProcess.exp2str (Exp.TERM name)) (!(#outputs class)))) ^ "\n"))
 	    end
 
-	fun printSystemProperties {iterators,time} =
+	fun printSystemProperties {iterators,time,precision} =
 	    (print (" time interval: ["^(r2s (#1 time))^","^(r2s (#2 time))^"]\n");
+	     print (" precision: "^(case precision of DOF.SINGLE => "single" | DOF.DOUBLE => "float")^"\n");
 	     app
 		 (fn(sym, itertype)=>
 		    (print (" iterator: " ^ (Symbol.name sym) ^ "\n");
@@ -130,7 +150,7 @@ fun printModel (model: DOF.model) =
 	else
 	    ()
     end
-
+    handle e => DynException.checkpoint "DOFPrinter.printModel" e
 (*
 
 	val (classes, (topclass, topinst), globalproperties, id2instance) = model

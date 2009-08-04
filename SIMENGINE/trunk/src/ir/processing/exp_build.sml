@@ -7,12 +7,24 @@ fun tvar str = Exp.TERM
 				Property.setIterator Property.default_symbolproperty 
 						     [(Symbol.symbol "t",Iterator.RELATIVE 0)]))
 
+fun tvar_from_state str = Exp.TERM 
+			      (Exp.SYMBOL (Symbol.symbol str, 
+					   Property.setScope 
+					       (Property.setIterator Property.default_symbolproperty 
+								     [(Symbol.symbol "t",Iterator.RELATIVE 0)])
+					       (Property.READSTATE (Symbol.symbol "y"))))
+
+
+
 fun diff str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
-				     Property.setDerivative 
-					 (Property.setIterator 
-					      Property.default_symbolproperty 
-					      [(Symbol.symbol "t",Iterator.RELATIVE 0)])
-					 (1, [Symbol.symbol "t"])
+				     Property.setScope
+					 (Property.setDerivative 
+					      (Property.setIterator 
+						   Property.default_symbolproperty 
+						   [(Symbol.symbol "t",Iterator.RELATIVE 0)])
+					      (1, [Symbol.symbol "t"])
+					 )					
+					 (Property.WRITESTATE (Symbol.symbol "dydt"))
 				    )
 			)
 
@@ -40,16 +52,20 @@ fun initavar (str, iter) =
 	     )
 
 fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
-					 (Property.setIterator 
-					      Property.default_symbolproperty 
-					      [(Symbol.symbol "n",Iterator.RELATIVE 1)])
-					)
+					Property.setScope
+					    (Property.setIterator 
+						 Property.default_symbolproperty 
+						 [(Symbol.symbol "n",Iterator.RELATIVE 1)])
+					    (Property.WRITESTATE (Symbol.symbol "y_n"))
+				       )
 			   )
 
 fun curvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
-				       (Property.setIterator 
-					    Property.default_symbolproperty 
-					    [(Symbol.symbol "n",Iterator.RELATIVE 0)])
+				       Property.setScope
+					   (Property.setIterator 
+						Property.default_symbolproperty 
+						[(Symbol.symbol "n",Iterator.RELATIVE 0)])
+					   (Property.READSTATE (Symbol.symbol "x_n"))
 				      )
 			  )
 
@@ -71,12 +87,12 @@ fun relvar (sym, itersym, offset) =
 fun int i = Exp.TERM (Exp.INT i);
 fun real r = Exp.TERM (Exp.REAL r);
 fun bool b = Exp.TERM (Exp.BOOL b);
-fun plus l = Exp.FUN (Symbol.symbol "add", l);
-fun times l = Exp.FUN (Symbol.symbol "mul", l);
-fun power (a,b) = Exp.FUN (Symbol.symbol "pow", [a, b]);
+fun plus l = Exp.FUN (Fun.BUILTIN Fun.ADD, l);
+fun times l = Exp.FUN (Fun.BUILTIN Fun.MUL, l);
+fun power (a,b) = Exp.FUN (Fun.BUILTIN Fun.POW, [a, b]);
 fun exp v = power (var "e", v)
-fun equals (a,b) = Exp.FUN (Symbol.symbol "assign", [a, b]);
-fun neg v = Exp.FUN (Symbol.symbol "mul", [int ~1, v])
+fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
+fun neg v = times [int ~1, v]
 infix equals;
 
 end

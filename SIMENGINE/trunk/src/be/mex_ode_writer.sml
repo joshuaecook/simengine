@@ -89,42 +89,46 @@ fun inputstruct_code (class: DOF.class) =
     end
 
 
-fun main_code name =
-    [$(""),
-     $("void mexFunction(int nlhs, mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {"),
-     SUB[$("CDATAFORMAT t = 0;"),
-	 $(""),
-	 $("double *y;"),
-	 $("// Parse right-hand side arguments"),	     
-	 $("if (nrhs != 2) {"),
-	 SUB[$("ERRORFUN(Simatra:argumentError, \"Must have two arguments passed in the right side.  Type 'help "^name^"' for more information.\");"),
-	     $("return;")],
-	 $("}"),
-	 $("if (nrhs >= 1) {"),
-	 SUB[$("t = mxGetScalar(prhs[0]);")],
-	 $("}"),
-	 $("if (nrhs >= 2) {"),
-	 SUB[$("if (STATESPACE != mxGetM(prhs[1])) {"),
-	     SUB[$("ERRORFUN(Simatra:initialValueError, \"The input vector must have a length of %d\", STATESPACE);"),
+fun main_code inst_class =
+    let
+	val name = Symbol.name (#name inst_class)
+	val orig_name = Symbol.name (ClassProcess.class2orig_name inst_class)
+    in
+	[$(""),
+	 $("void mexFunction(int nlhs, mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {"),
+	 SUB[$("CDATAFORMAT t = 0;"),
+	     $(""),
+	     $("double *y;"),
+	     $("// Parse right-hand side arguments"),	     
+	     $("if (nrhs != 2) {"),
+	     SUB[$("ERRORFUN(Simatra:argumentError, \"Must have two arguments passed in the right side.  Type 'help "^name^"' for more information.\");"),
 		 $("return;")],
 	     $("}"),
-	     $("y = (double *)mxGetData(prhs[1]);")],
-	 $("}"),
-	 $(""),
-	 $("CDATAFORMAT inputs[INPUTSPACE];"),
-	 $(""),
-	 $("init_inputs(inputs);"),
-	 $(""),
-	 $("double *dydt;"),
-	 $("dydt = MALLOCFUN(STATESPACE*sizeof(double));"),
-	 $("CDATAFORMAT *outputs;"),
-	 $("flow_"^name^"(t, y, dydt, inputs, outputs, FALSE);"),
-	 $(""),
-	 $("plhs[0] = mxCreateNumericMatrix(STATESPACE,1, mxDOUBLE_CLASS, mxREAL);"),
-	 $("mxSetData(plhs[0], dydt);"),
-	 $("")],
-     $("}")]
-	 
+	     $("if (nrhs >= 1) {"),
+	     SUB[$("t = mxGetScalar(prhs[0]);")],
+	     $("}"),
+	     $("if (nrhs >= 2) {"),
+	     SUB[$("if (STATESPACE != mxGetM(prhs[1])) {"),
+		 SUB[$("ERRORFUN(Simatra:initialValueError, \"The input vector must have a length of %d\", STATESPACE);"),
+		     $("return;")],
+		 $("}"),
+		 $("y = (double *)mxGetData(prhs[1]);")],
+	     $("}"),
+	     $(""),
+	     $("CDATAFORMAT inputs[INPUTSPACE];"),
+	     $(""),
+	     $("init_inputs(inputs);"),
+	     $(""),
+	     $("double *dydt;"),
+	     $("dydt = MALLOCFUN(STATESPACE*sizeof(double));"),
+	     $("CDATAFORMAT *outputs;"),
+	     $("flow_"^name^"(t, (struct statedata_"^orig_name^"*) y, (struct statedata_"^orig_name^"*) dydt, inputs, outputs, FALSE);"),
+	     $(""),
+	     $("plhs[0] = mxCreateNumericMatrix(STATESPACE,1, mxDOUBLE_CLASS, mxREAL);"),
+	     $("mxSetData(plhs[0], dydt);"),
+	     $("")],
+	 $("}")]
+    end	 
 
 fun buildMexHelp name = 
     let
@@ -166,12 +170,14 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
 	val inst_class = CurrentModel.classname2class class_name
 	val class_name = Symbol.name (#name inst_class)
 
-	val statespace = EqUtil.class2statesize inst_class
+	val statespace = ClassProcess.class2statesize inst_class
 
-	val {iterators,time=(min_time, max_time)} = props
+	val {iterators,time=(min_time, max_time),precision} = props
 	val solver = CWriter.props2solver props
 
-	val c_data_format = "double"
+	val c_data_format = case precision 
+			     of DOF.SINGLE => "float" 
+			      | DOF.DOUBLE => "double"
 
 	val header_progs = CWriter.header (class_name, 
 					   ["<mex.h>"],
@@ -196,18 +202,20 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
 
 	val input_progs = CWriter.input_code inst_class
 	val outputdatastruct_progs = CWriter.outputdatastruct_code inst_class
+	val outputstatestruct_progs = CWriter.outputstatestruct_code classes
 	val outputinit_progs = CWriter.outputinit_code inst_class
 	val init_progs = CWriter.init_code classes
 	val flow_progs = CWriter.flow_code (classes, inst_class)
 (*	val exec_progs = CWriter.exec_code (inst_class, props, statespace)
 	val outputstruct_progs = outputstruct_code inst_class
 	val inputstruct_progs = inputstruct_code inst_class*)
-	val main_progs = main_code class_name
+	val main_progs = main_code inst_class
 (*	val logoutput_progs = CWriter.logoutput_code inst_class*)
 
 	(* write the code *)
 	val _ = CWriter.output_code(class_name ^ "_odemex", ".", (header_progs @ 
 								  outputdatastruct_progs @
+								  outputstatestruct_progs @
 								  outputinit_progs @ 
 								  input_progs @ 
 								  init_progs @ 
@@ -224,7 +232,7 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
     in
 	System.SUCCESS
     end
-
+    handle e => DynException.checkpoint "ODEMexWriter.buildODEMex" e
 
 
 end
