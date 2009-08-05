@@ -3,6 +3,7 @@ struct
 
 val i2s = Util.i2s
 val r2s = Util.r2s
+val e2s = ExpPrinter.exp2str
 
 (*
 fun eq2str (eq:DOF.eq) = 
@@ -16,7 +17,7 @@ fun eq2str (eq:DOF.eq) =
 	    end
 	    
 	val {eq_type,...} = eq
-	val expstr = ExpProcess.exp2str (eq2exp eq)
+	val expstr = e2s (eq2exp eq)
 
 	fun offset2str (sym, int) = 
 	    (Symbol.name sym) ^ ":" ^ (i2s int)
@@ -56,7 +57,7 @@ fun genlist2str data2str [data] =
     "(" ^ (String.concatWith ", " (map data2str datalist)) ^ ")"
 
 val symbollist2str = genlist2str Symbol.name
-val contents2str = genlist2str ExpProcess.exp2str
+val contents2str = genlist2str e2s
 
 fun printClass (class as {name, properties={sourcepos, classform, classtype}, inputs, outputs, exps}) =
     (case classtype of
@@ -71,11 +72,19 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
 	  print (" |-> Functional class\n")
 	| DOF.INSTANTIATION {readstates, writestates} => 
 	  print (" |-> States read: "^ (symbollist2str readstates) ^ ", States written: " ^(symbollist2str writestates)^ "\n"));
-     print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => ExpProcess.exp2str (Exp.TERM name) ^ (case default of SOME v => (" = "^(ExpProcess.exp2str v)) | NONE => "")) (!inputs))) ^ "\n");
+     print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => e2s (Exp.TERM name) ^ (case default of SOME v => (" = "^(e2s v)) | NONE => "")) (!inputs))) ^ "\n");
      print ("  Equations:\n");
-     app (fn(e) => (print("    " ^ (ExpProcess.exp2str e) ^ "\n");
-		    print("     -> TermCount="^(i2s (ExpProcess.countTerms e))^"; FunCount="^(i2s (ExpProcess.countFuns e))^"\n"))) (!exps);
-     print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (ExpProcess.exp2str (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (ExpProcess.exp2str condition)) 
+     app (fn(e) => 
+	    if ExpProcess.isInstanceEq e then
+		let
+		    val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
+		in
+		    print("    " ^ (e2s e) ^ "\n")
+		end
+	    else
+		print("    " ^ (e2s e) ^ "\n")
+	 ) (!exps);
+     print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (e2s (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (e2s condition)) 
 							 (!outputs))) ^ "\n");
      print ("  Symbols: {"^(String.concatWith ", " (map Symbol.name (ClassProcess.findSymbols class)))^"}\n"))
     
@@ -104,8 +113,8 @@ fun printModel (model: DOF.model) =
 	    in
 		(print ("  Name: " ^ (case name of SOME name => Symbol.name name | NONE => "NONE") ^ "\n");
 		 print ("  Class: " ^ (Symbol.name classname) ^ "\n");
-		 print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,...} => ExpProcess.exp2str (Exp.TERM name)) (!(#inputs class)))) ^ "\n");
-		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => ExpProcess.exp2str (Exp.TERM name)) (!(#outputs class)))) ^ "\n"))
+		 print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,...} => e2s (Exp.TERM name)) (!(#inputs class)))) ^ "\n");
+		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => e2s (Exp.TERM name)) (!(#outputs class)))) ^ "\n"))
 	    end
 
 	fun printSystemProperties {iterators,time,precision} =
