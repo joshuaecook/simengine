@@ -195,7 +195,8 @@ namespace Simulation
 
     constructor (name: String)
       self.name = name
-      self.eq = DifferentialEquation.new(1, self, 0)
+      self.eq = Equation.new(self', 0)
+//      self.eq = DifferentialEquation.new(1, self, 0)
 
       reset()
     end
@@ -213,6 +214,23 @@ namespace Simulation
 
 
   class Equation
+    var lhs
+    var rhs
+
+    constructor (lhs, rhs)
+      self.lhs = lhs
+      self.rhs = rhs
+    end
+
+    function getState()
+//      function findState(x: State)
+      3
+    end
+    function getReferences() = 0
+    function getOrder() = 0
+  end  
+
+/*  class Equation
     var assigned_state
     var expression
 
@@ -269,7 +287,7 @@ namespace Simulation
       self.degree = degree
     end    
   end
-
+*/
   
 
   function addIntermediateEquation (destination, name, exp)
@@ -356,8 +374,8 @@ namespace Simulation
   
 //  overload function operator_add(arg1: IteratorOperation, arg2) = IteratorOperation.new ("add", 2, operator_add, 0, [arg1, arg2])
 //  overload function operator_add(arg1, arg2: IteratorOperation) = IteratorOperation.new ("add", 2, operator_add, 0, [arg1, arg2])
-  overload function operator_add(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
-  overload function operator_add(arg1: Number, arg2: SimIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
+  overload function operator_add(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
+  overload function operator_add(arg1: Number, arg2: GenericIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
    
 //  overload function operator_subtract(arg1: IteratorOperation, arg2) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
 //  overload function operator_subtract(arg1, arg2: IteratorOperation) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
@@ -713,7 +731,7 @@ namespace Simulation
     var simIterator
     var step
     
-    constructor (simIterator: SimIterator, step: Number)
+    constructor (simIterator: GenericIterator, step: Number)
       self.simIterator = simIterator
       self.step = step
     end    
@@ -731,8 +749,14 @@ namespace Simulation
     end 
   end
 
+  class GenericIterator extends SimQuantity
+    constructor (name: String)
+      super(name)
+    end
+  end
+
   // down here because it needs to see definition of + with model operations
-  class SimIterator extends SimQuantity
+  class SimIterator extends GenericIterator
     var value
     constructor (name: String)
       super(name)
@@ -745,7 +769,7 @@ namespace Simulation
 
   end
 
-  class TimeIterator extends SimQuantity
+  class TimeIterator extends GenericIterator
     var isContinuous
     constructor (name: String, isContinuous)
       super(name)
@@ -979,6 +1003,29 @@ namespace Simulation
     function getLocalQuantities()
       quantities
     end
+
+    function makeEquation (name, lhs, rhs)
+      /*
+        if contains thing named name and is simquantity, then set equation to equation.new(lhs, rhs)
+        else if contains thing named name and is not simquantity then error
+        else
+          add simquantity named name and set equation bla blabla
+      */
+      if objectContains(self, name) then
+        var q = self.getMember name
+        if istype(type SimQuantity, q) then
+      	  q.setEquation (Equation.new(lhs q, rhs q))
+        else
+          error "Cannot create equation for non-quantity: " + name
+        end
+      else
+	var q = Intermediate.new(name)
+        self.addConst(name, q)
+	self.quantities.push_back (q)
+        self.getMember(name).setEquation(Equation.new(lhs q, rhs q))        
+      end
+    end
+
 
 /*    function getQuantities()
       function prune (x) = not ((x.getName() == "t") or (x.getName() == "keep_running") or (x.getName() == "dt"))

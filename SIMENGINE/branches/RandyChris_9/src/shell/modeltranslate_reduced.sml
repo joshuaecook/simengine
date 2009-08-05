@@ -243,10 +243,56 @@ fun translate (exec, object) =
 				 | n => n
 					
 		in
-		    Exp.FUN (Fun.BUILTIN (Fun.name2op (Symbol.symbol name)),
-			     map kecexp2dofexp (vec2list(method "args" obj)))
+		    if name = "deriv" then
+			let
+			    val args = vec2list (method "args" obj)
+			    val (order, quantity) = case args of
+							[order, q] => (order, q)
+						      | _ => DynException.stdException ("Unexpected arguments to derivative operation", 
+											"ModelTranslate.translate.kecexp2dofexp", Logger.INTERNAL)
+
+			    val order = exp2int order
+			    val sym = kecexp2dofexp quantity
+			in
+			    case sym of
+				Exp.TERM(Exp.SYMBOL(s, props)) =>
+				Exp.TERM(Exp.SYMBOL(s, Property.setDerivative props (order,[Symbol.symbol "t"])))
+			      | _ => error "Derivatives of expressions is not supported"
+			end
+		    else
+			Exp.FUN (Fun.BUILTIN (Fun.name2op (Symbol.symbol name)),
+				 map kecexp2dofexp (vec2list(method "args" obj)))
 		end
-	    else if istype (obj, "SimQuantity") orelse istype (obj, "Input") then
+(*	    else if istype (obj, "IteratorReference") then
+		let
+		    val indices = vec2list (method "indices" obj)
+		    val quantity = method "referencedQuantity" obj
+		    val sym = kecexp2dofexp quantity
+
+		    val expected_iterators = 
+
+		    fun buildIterator index =
+			if istype (index, "Wildcard") then
+			    Iterator.ALL
+			else if istype (index, "Interval") then
+			    Iterator.RANGE ()
+			else if istype (index, "Number") then
+			    Iterator.ABSOLUTE ()
+			else if istype (index, "ModelOperation") then
+			    Iterator.RELATIVE ()
+			else if istype (index, "Iterator") then
+			    (, Iterator.RELATIVE (0))
+			else 
+			    error "Invalid index encountered"
+
+		    val iterators = map buildIterator ListPair.zip(indices
+		in
+		    case sym of
+			Exp.TERM(Exp.SYMBOL(s, props)) =>
+			Exp.TERM(Exp.SYMBOL(s, Property.setIterator props iterators))
+		      | _ => error "Indexing performed on invalid quantity"
+		end
+*)	    else if istype (obj, "SimQuantity") orelse istype (obj, "Input") then
 
 (*		if exp2bool (send "getIsIntermediate" obj NONE) then
 		    kecexp2dofexp (send "getExp" (send "getEquation" obj NONE) NONE) (*TODO: make this a read of the name with a notation that its an interm *)
@@ -273,10 +319,28 @@ fun translate (exec, object) =
 								    (method "referencedQuantity" obj)
 								    NONE))
 
+				val iterators = 
+				    if length args > 0 andalso (istype (hd args, "TimeIterator") orelse 
+								(istype (hd args, "ModelOperation") andalso 
+								 List.exists (fn(a) => istype (a, "TimeIterator")) 
+									     (vec2list (method "args" (hd args)))))
+				    then
+					let
+					    val time = if istype (hd args, "TimeIterator") then
+							   hd args
+						       else
+							   valOf (List.find (fn(a) => istype (a, "TimeIterator")) 
+									    (vec2list (method "args" (hd args))))
+						
+					in
+					    ((Symbol.symbol o exp2str) (method "name" time)) :: iterators
+					end
+				    else
+					iterators
 				val namedargs = ListPair.zip (iterators, args)
 
-				val _ = if length namedargs < length args then
-					    error ("Too many indices encountered on index of " ^ name)
+				val _ = if length namedargs <> length args then
+					    error ("Incorrect number of indices encountered on index of " ^ name ^ ": expected " ^ (Int.toString (length namedargs)) ^ " and received " ^ (Int.toString (length args)))
 					else
 					    ()
 
@@ -295,19 +359,23 @@ fun translate (exec, object) =
 					    (iterator, Iterator.RELATIVE (exp2int(method "step" arg)))
 					else
 					    error ("Encountered iterator "^(exp2str (method "name" (method "simIterator" arg)))^" in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
+				    else if istype (arg, "TimeIterator") then
+					(iterator, Iterator.RELATIVE 0)
+				    else if istype (arg, "Wildcard") then
+					(iterator, Iterator.ALL)
 				    else 
-					error ("Invalid index detected on index of " ^ name)
+					error ("Invalid index detected on index of " ^ name ^ ": " ^ (pretty arg))
 			    in
 				Exp.TERM (Exp.SYMBOL (Symbol.symbol name, 
 						      (Property.setIterator 
 							   Property.default_symbolproperty 
 							   (map buildIndex namedargs))))
 			    end
-			else if istype (obj, "TemporalReference") then
+(*			else if istype (obj, "TemporalReference") then
 			    ExpBuild.relvar (Symbol.symbol(exp2str(method "name" (method "internalState" obj))),
 					     Symbol.symbol(exp2str(method "name" (method "iterator" obj))),
 					     Real.floor(exp2real(method "step" obj)))
-			else if (istype (obj, "State")) then
+*)			else if (istype (obj, "State")) then
 			    ExpBuild.var(exp2str (method "name" obj))
 			else
 			    ExpBuild.var(exp2str (method "name" obj))
@@ -319,6 +387,18 @@ fun translate (exec, object) =
 		case obj
 		 of KEC.LITERAL (KEC.CONSTREAL r) => ExpBuild.real r
 		  | KEC.LITERAL (KEC.CONSTBOOL b) => ExpBuild.bool b
+		  | KEC.VECTOR v =>
+		    let
+			val list = KEC.kecvector2list v
+
+			fun exp2term (Exp.TERM t) = t
+			  | exp2term _ = Exp.NAN
+
+			fun kecexp2dofterm exp =
+			    exp2term (kecexp2dofexp exp)
+		    in
+			Exp.TERM(Exp.LIST (map kecexp2dofterm list, [length list]))
+		    end
 		  (* FIXME: Is this an acceptable way to handle undefined? *)
 		  (* 		  | KEC.UNDEFINED => ExpTree.LITERAL (ExpTree.CONSTREAL 0.0) *)
 		  | _ => 
@@ -371,49 +451,13 @@ fun translate (exec, object) =
 
 		fun quantity2exp object =
 		    if (istype (object, "Intermediate")) then
-			[ExpBuild.equals (ExpBuild.var(exp2str (method "name" object)),
-					 kecexp2dofexp (method "expression" (method "eq" object)))]
-			(*[{eq_type=DOF.INTERMEDIATE_EQ,
-			  sourcepos=PosLog.NOPOS,
-			  lhs=exp2term (ExpBuild.var(exp2str (method "name" object))),
-			  rhs=kecexp2dofexp (method "expression" (method "eq" object))}]*)
+			[ExpBuild.equals (kecexp2dofexp (method "lhs" (method "eq" object))(*ExpBuild.var(exp2str (method "name" object)),*),
+					  kecexp2dofexp (method "rhs" (method "eq" object)))]
 		    else if (istype (object, "State")) then
-			((*if method "isUndefined" then
-			 else*) 
-			 if istype (method "eq" object, "DifferentialEquation") then
-			     [ExpBuild.equals (ExpBuild.diff(exp2str (method "name" object)),
-					       kecexp2dofexp (method "expression" (method "eq" object))),
-			      ExpBuild.equals (ExpBuild.initvar(exp2str (method "name" object)),
-					       kecexp2dofexp (getInitialValue object))]
-			     (*[{eq_type=DOF.DERIVATIVE_EQ {offset=0},
-			       sourcepos=PosLog.NOPOS,
-			       lhs=exp2term (ExpBuild.diff(exp2str (method "name" object))),
-			       rhs=kecexp2dofexp (method "expression" (method "eq" object))},
-			      {eq_type=DOF.INITIAL_VALUE {offset=0},
-			       sourcepos=PosLog.NOPOS,
-			       lhs=exp2term (ExpBuild.initvar(exp2str (method "name" object))),
-			       rhs=kecexp2dofexp (getInitialValue object)}]*)
-			 else
-			     let 
-				 val iteratorName = exp2str (method "name" (method "iterator" (method "temporalRef" (method "eq" object))))
-			     in
-				 [ExpBuild.equals (ExpBuild.relvar(Symbol.symbol(exp2str (method "name" object)),
-								 Symbol.symbol(iteratorName),
-								 Real.floor (exp2real (method "step" (method "temporalRef" (method "eq" object))))),
-						   kecexp2dofexp (method "expression" (method "eq" object))),
-				 ExpBuild.equals (ExpBuild.initavar(exp2str (method "name" object), iteratorName),
-						  kecexp2dofexp (getInitialValue object))]
-				(* [{eq_type=DOF.DIFFERENCE_EQ {offset=0},
-				   sourcepos=PosLog.NOPOS,
-				   lhs=exp2term (ExpBuild.relvar(Symbol.symbol(exp2str (method "name" object)),
-								 Symbol.symbol(iteratorName),
-								 Real.floor (exp2real (method "step" (method "temporalRef" (method "eq" object)))))),
-				   rhs=kecexp2dofexp (method "expression" (method "eq" object))},
-				  {eq_type=DOF.INITIAL_VALUE {offset=0},
-				   sourcepos=PosLog.NOPOS,
-				   lhs=exp2term (ExpBuild.initavar(exp2str (method "name" object), iteratorName)),
-				   rhs=kecexp2dofexp (getInitialValue object)}]*)
-			     end)
+			[ExpBuild.equals(ExpBuild.initvar(exp2str (method "name" object)),
+					 kecexp2dofexp (getInitialValue object)),
+			 ExpBuild.equals(kecexp2dofexp (method "lhs" (method "eq" object)),
+					 kecexp2dofexp (method "rhs" (method "eq" object)))]
 		    else
 			DynException.stdException ("Unexpected quantity encountered", "ModelTranslate.translate.createClass.quantity2exp", Logger.INTERNAL)			
 		    

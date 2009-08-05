@@ -1060,139 +1060,172 @@ and trans_action pos action =
 				     pos)]
 		end
 
-	      | trans_eq (Ast.EQUATION (Ast.SYMBOL id, exp)) =
-		(* equation x = exp *)
+	      | trans_eq (Ast.EQUATION (lhs, rhs)) =
 		let
-		    val self = HLEC.SYMBOL (Symbol.symbol "self")
-		in
-(*		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "addIntermediateEquation"),
-						       args=HLEC.TUPLE [self, 
-									HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)), 
-									trans_exp exp]}),
-				 pos),
-		     HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.SEND{message=id, object=self}),
-				     pos)]*)
-		    [HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "makeIntermediate"),
-										 args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)), 
-												 trans_exp exp]}),
-				     pos),
-		     HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-						     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)),
-								      HLEC.SYMBOL id]})
-			       , pos),
-		     HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SEND{message=Symbol.symbol "push_back",
-								      object=HLEC.SYMBOL (Symbol.symbol "quantities")},
-						       args=HLEC.TUPLE[HLEC.SYMBOL id]}),
-				 pos)]
-		end
+		    fun findSymbols exp =
+			case exp of
+			    Ast.SYMBOL s => [s]
+			  | Ast.POS (exp, _) => findSymbols exp
+			  | Ast.APPLY {func=Ast.SYMBOL s, args=Ast.TUPLE [_, e]} 
+			    => if s = (Symbol.symbol "operator_deriv") then
+				   findSymbols e
+			       else
+				   findSymbols Ast.UNDEFINED
+			  | Ast.APPLY {func, args=Ast.TUPLE [Ast.VECTOR _]} 
+			    => findSymbols func
+			       
+			  | _ => nil before print "bottomed\n"
 
-(*	      | trans_eq (Ast.EQUATION (Ast.SEND {message=id, object=object}, exp)) =
-		(* equation x.y = exp *)
-		let
-		    val self = trans_exp object
+		    val syms = findSymbols lhs
+
+		    val sym = case syms of
+				[sym] => sym
+			      | _ =>
+				(error ($"Malformed equation encountered: unexpected number of symbols on left hand side");
+				 raise Skip)
 		in
-		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "addIntermediateEquation"),
-						       args=HLEC.TUPLE [self, 
-									HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)), 
-									trans_exp exp]}),
+		    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "makeEquation"),
+										 args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name sym)), 
+												 HLEC.LAMBDA{args=syms, body=trans_exp lhs},
+												 HLEC.LAMBDA{args=syms, body=trans_exp rhs}]}),
 				 pos),
-		     HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.SEND{message=id, object=self}),
+		     HLEC.DEFINITION(HLEC.DEFCONST(sym, HLEC.DONTCARE, HLEC.SEND {object=HLEC.SYMBOL(Symbol.symbol "self"), message=sym}),
 				     pos)]
 		end
-*)
-	      | trans_eq (Ast.EQUATION (Ast.APPLY {func=state, args=Ast.TUPLE args}, exp)) =
-		let
-		    val state = trans_exp state
-		    val is_diffeq = case state of HLEC.SYMBOL name => name = (Symbol.symbol "operator_deriv") 
-						| _ => false
-		in
-		    if is_diffeq then
-		    (* equation x' = exp *)
-			(case args
-			  of degree :: state :: nil =>
-			     let
-				 val state = trans_exp state
 
-				 val degree = trans_exp degree
+(* 	      | trans_eq (Ast.EQUATION (Ast.SYMBOL id, exp)) = *)
+(* 		(\* equation x = exp *\) *)
+(* 		let *)
+(* 		    val self = HLEC.SYMBOL (Symbol.symbol "self") *)
+(* 		in *)
+(* (\*		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "addIntermediateEquation"), *)
+(* 						       args=HLEC.TUPLE [self,  *)
+(* 									HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)),  *)
+(* 									trans_exp exp]}), *)
+(* 				 pos), *)
+(* 		     HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.SEND{message=id, object=self}), *)
+(* 				     pos)]*\) *)
+(* 		    [HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "makeIntermediate"), *)
+(* 										 args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)),  *)
+(* 												 trans_exp exp]}), *)
+(* 				     pos), *)
+(* 		     HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"}, *)
+(* 						     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)), *)
+(* 								      HLEC.SYMBOL id]}) *)
+(* 			       , pos), *)
+(* 		     HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SEND{message=Symbol.symbol "push_back", *)
+(* 								      object=HLEC.SYMBOL (Symbol.symbol "quantities")}, *)
+(* 						       args=HLEC.TUPLE[HLEC.SYMBOL id]}), *)
+(* 				 pos)] *)
+(* 		end *)
 
-				 val new_eq = HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "DifferentialEquation")}
-				 val make_eq = HLEC.APPLY {func=new_eq, args=HLEC.TUPLE [degree, state, trans_exp exp]}
-				 val set_eq = HLEC.SEND {object=state, message=(Symbol.symbol "setEquation")}
-			     in
-				 [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=set_eq, args=HLEC.TUPLE [make_eq]}),
-					      pos)]
-			     end
+(* (\*	      | trans_eq (Ast.EQUATION (Ast.SEND {message=id, object=object}, exp)) = *)
+(* 		(\* equation x.y = exp *\) *)
+(* 		let *)
+(* 		    val self = trans_exp object *)
+(* 		in *)
+(* 		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "addIntermediateEquation"), *)
+(* 						       args=HLEC.TUPLE [self,  *)
+(* 									HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)),  *)
+(* 									trans_exp exp]}), *)
+(* 				 pos), *)
+(* 		     HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.SEND{message=id, object=self}), *)
+(* 				     pos)] *)
+(* 		end *)
+(* *\) *)
+(* 	      | trans_eq (Ast.EQUATION (Ast.APPLY {func=state, args=Ast.TUPLE args}, exp)) = *)
+(* 		let *)
+(* 		    val state = trans_exp state *)
+(* 		    val is_diffeq = case state of HLEC.SYMBOL name => name = (Symbol.symbol "operator_deriv")  *)
+(* 						| _ => false *)
+(* 		in *)
+(* 		    if is_diffeq then *)
+(* 		    (\* equation x' = exp *\) *)
+(* 			(case args *)
+(* 			  of degree :: state :: nil => *)
+(* 			     let *)
+(* 				 val state = trans_exp state *)
 
-			   | _ => (error ($"Malformed differential equation encountered"); raise Skip))
-		    else
-			(case args
-			  of [Ast.VECTOR [Ast.LITERAL (Ast.CONSTREAL r)]] =>
-			     (* Spatial references *)
-			     if 0 = Real.floor r andalso 0 = Real.ceil r then
-				 (* equation x[0] = exp *)
-				 let
-				     val set_init = HLEC.SEND {object=state, message=(Symbol.symbol "setInitialValue")}
-				 in
-				     [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=set_init, args=HLEC.TUPLE [trans_exp exp]}),
-						   pos)]
-				 end
-			     else
-				 (* equation x[r] = exp *)
-				 let
-				     (* Creates a new equation {exp when n == r, state.getEquation().getExp() otherwise} *)
+(* 				 val degree = trans_exp degree *)
 
-				     (* Ensures that a previous equation was defined before we try to override it. *)
-				     val old_eq = HLEC.APPLY {func=HLEC.SEND {object=state, message=(Symbol.symbol "getEquation")}, args=HLEC.UNIT}
-				     val cond_exp = HLEC.IFEXP {cond=HLEC.APPLY {func=HLEC.SEND {object=state, message=(Symbol.symbol "hasEquation")}, args=HLEC.UNIT},
-								ift=HLEC.APPLY {func=HLEC.SEND {object=old_eq, message=(Symbol.symbol "getExp")}, args=HLEC.UNIT}, 
-								iff=state}
+(* 				 val new_eq = HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "DifferentialEquation")} *)
+(* 				 val make_eq = HLEC.APPLY {func=new_eq, args=HLEC.TUPLE [degree, state, trans_exp exp]} *)
+(* 				 val set_eq = HLEC.SEND {object=state, message=(Symbol.symbol "setEquation")} *)
+(* 			     in *)
+(* 				 [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=set_eq, args=HLEC.TUPLE [make_eq]}), *)
+(* 					      pos)] *)
+(* 			     end *)
 
-				     val cond_exp = HLEC.IFEXP {cond=HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "operator_eq"), 
-										 args=HLEC.TUPLE [HLEC.SYMBOL (Symbol.symbol "n"), HLEC.LITERAL (HLEC.CONSTREAL r)]},
-								ift=trans_exp exp,
-								iff=cond_exp}
+(* 			   | _ => (error ($"Malformed differential equation encountered"); raise Skip)) *)
+(* 		    else *)
+(* 			(case args *)
+(* 			  of [Ast.VECTOR [Ast.LITERAL (Ast.CONSTREAL r)]] => *)
+(* 			     (\* Spatial references *\) *)
+(* 			     if 0 = Real.floor r andalso 0 = Real.ceil r then *)
+(* 				 (\* equation x[0] = exp *\) *)
+(* 				 let *)
+(* 				     val set_init = HLEC.SEND {object=state, message=(Symbol.symbol "setInitialValue")} *)
+(* 				 in *)
+(* 				     [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=set_init, args=HLEC.TUPLE [trans_exp exp]}), *)
+(* 						   pos)] *)
+(* 				 end *)
+(* 			     else *)
+(* 				 (\* equation x[r] = exp *\) *)
+(* 				 let *)
+(* 				     (\* Creates a new equation {exp when n == r, state.getEquation().getExp() otherwise} *\) *)
+
+(* 				     (\* Ensures that a previous equation was defined before we try to override it. *\) *)
+(* 				     val old_eq = HLEC.APPLY {func=HLEC.SEND {object=state, message=(Symbol.symbol "getEquation")}, args=HLEC.UNIT} *)
+(* 				     val cond_exp = HLEC.IFEXP {cond=HLEC.APPLY {func=HLEC.SEND {object=state, message=(Symbol.symbol "hasEquation")}, args=HLEC.UNIT}, *)
+(* 								ift=HLEC.APPLY {func=HLEC.SEND {object=old_eq, message=(Symbol.symbol "getExp")}, args=HLEC.UNIT},  *)
+(* 								iff=state} *)
+
+(* 				     val cond_exp = HLEC.IFEXP {cond=HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "operator_eq"),  *)
+(* 										 args=HLEC.TUPLE [HLEC.SYMBOL (Symbol.symbol "n"), HLEC.LITERAL (HLEC.CONSTREAL r)]}, *)
+(* 								ift=trans_exp exp, *)
+(* 								iff=cond_exp} *)
 						    
 
-				     val new_eq = HLEC.APPLY {func=HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "Equation")},
-							      args=HLEC.TUPLE [state, cond_exp]}
-				 in
-				     [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=HLEC.SEND {object=state, message=(Symbol.symbol "setEquation")},
-									 args=HLEC.TUPLE [new_eq]}),
-						   pos)]
-				 end
+(* 				     val new_eq = HLEC.APPLY {func=HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "Equation")}, *)
+(* 							      args=HLEC.TUPLE [state, cond_exp]} *)
+(* 				 in *)
+(* 				     [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=HLEC.SEND {object=state, message=(Symbol.symbol "setEquation")}, *)
+(* 									 args=HLEC.TUPLE [new_eq]}), *)
+(* 						   pos)] *)
+(* 				 end *)
 				 
-			   | [Ast.VECTOR [newtime]] =>
-			     (* Temporal references *)
-			     (* equation x[n] = exp *)
-			     let
-				 val new_eq = HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "DifferenceEquation")}
-				 val make_eq = HLEC.APPLY {func=new_eq, args=HLEC.TUPLE [trans_exp newtime, state, trans_exp exp]}
-				 val set_eq = HLEC.SEND {object=state, message=(Symbol.symbol "setEquation")}
-			     in
-				 [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=set_eq, args=HLEC.TUPLE [make_eq]}),
-					       pos)]
-			     end
-			   | [Ast.VECTOR nil] =>
-			     (* equation x[] = exp *)
-			     (error ($"No index in a difference equation."); raise Skip)
-			   | [Ast.VECTOR _] =>
-			     (* equation x[n,m] = exp *)
-			     (error ($"Too many indices in a difference equation."); raise Skip)
-			   | _ => 
-			     (error ($"Malformed difference equation encountered"); raise Skip))
-		end
+(* 			   | [Ast.VECTOR [newtime]] => *)
+(* 			     (\* Temporal references *\) *)
+(* 			     (\* equation x[n] = exp *\) *)
+(* 			     let *)
+(* 				 val new_eq = HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "DifferenceEquation")} *)
+(* 				 val make_eq = HLEC.APPLY {func=new_eq, args=HLEC.TUPLE [trans_exp newtime, state, trans_exp exp]} *)
+(* 				 val set_eq = HLEC.SEND {object=state, message=(Symbol.symbol "setEquation")} *)
+(* 			     in *)
+(* 				 [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=set_eq, args=HLEC.TUPLE [make_eq]}), *)
+(* 					       pos)] *)
+(* 			     end *)
+(* 			   | [Ast.VECTOR nil] => *)
+(* 			     (\* equation x[] = exp *\) *)
+(* 			     (error ($"No index in a difference equation."); raise Skip) *)
+(* 			   | [Ast.VECTOR _] => *)
+(* 			     (\* equation x[n,m] = exp *\) *)
+(* 			     (error ($"Too many indices in a difference equation."); raise Skip) *)
+(* 			   | _ =>  *)
+(* 			     (error ($"Malformed difference equation encountered"); raise Skip)) *)
+(* 		end *)
 
-	      | trans_eq (Ast.EQUATION (Ast.APPLY {func=state, args=args}, exp)) =
-		(error ($"Arguments of function application on LHS of equation is not a TUPLE.");
-		 raise Skip)
+(* 	      | trans_eq (Ast.EQUATION (Ast.APPLY {func=state, args=args}, exp)) = *)
+(* 		(error ($"Arguments of function application on LHS of equation is not a TUPLE."); *)
+(* 		 raise Skip) *)
 
-	      | trans_eq (Ast.EQUATION (Ast.POS (exp1, pos), exp2)) =
-		trans_eq (Ast.EQUATION (exp1,exp2))
-
+(* 	      | trans_eq (Ast.EQUATION (Ast.POS (exp1, pos), exp2)) = *)
+(* 		trans_eq (Ast.EQUATION (exp1,exp2)) *)
+(*
 	      | trans_eq eq =		
 		(error ($"Malformed equation encountered");
 		 raise Skip)
-		
+*)		
 
 	    fun safe_trans_eq default eq =
 		trans_eq eq
