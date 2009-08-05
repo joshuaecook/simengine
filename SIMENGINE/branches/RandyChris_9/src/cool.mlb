@@ -76,11 +76,6 @@ ir/datastructs/exp.sml
 ir/datastructs/term.sml
 ir/datastructs/solver.sml
 
-ir/patterns/exp_equality.sml
-ir/patterns/pattern_process.sml
-
-ir/processing/exp_build.sml
-
 (*ir/processing/exp_util.sml*)
 
 ir/datastructs/dof.sml
@@ -89,6 +84,16 @@ ir/current_model.sml
 ir/datastructs/inst.sml
 
 ir/processing/fun_process.sml
+
+ir/processing/exp_build.sml
+ir/patterns/pattern_process.sml
+ir/processing/exp_printer.sml
+
+ir/patterns/exp_equality.sml
+ir/patterns/match.sml
+ir/patterns/rules.sml
+
+
 ir/processing/exp_validate.sml
 ir/processing/exp_process.sml
 (*ir/processing/eq_util.sml*)

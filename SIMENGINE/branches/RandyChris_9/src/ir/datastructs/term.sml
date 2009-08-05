@@ -183,6 +183,21 @@ fun isScalar term =
       | Exp.TUPLE _ => false
       | _ => true
 
+fun isReadState term =
+    case term of
+	Exp.SYMBOL (_, props) => (case (Property.getScope props) of
+				      Property.READSTATE v => true
+				    | _ => false)
+      | _ => false
+					  
+fun isWriteState term =
+    case term of
+	Exp.SYMBOL (_, props) => (case (Property.getScope props) of
+				      Property.WRITESTATE v => true
+				    | _ => false)
+      | _ => false
+					  
+
 fun termCount term =
     case term of
 	Exp.SYMBOL _ => 1 (* this might have to change *)

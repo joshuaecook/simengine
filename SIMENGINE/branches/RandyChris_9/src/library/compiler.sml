@@ -26,6 +26,7 @@ fun std_compile exec args =
 
 	      val _ = CurrentModel.setCurrentModel forest
 
+	      val _ = CurrentModel.setCurrentModel (ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
 	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
 
 	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())

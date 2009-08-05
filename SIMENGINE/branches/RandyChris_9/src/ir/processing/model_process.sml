@@ -8,6 +8,18 @@ fun model2statesize (model:DOF.model) =
 	ClassProcess.class2statesize (CurrentModel.classname2class classname)
     end
 
+fun optimizeModel (model:DOF.model) =
+    let
+	val _ = DynException.checkToProceed()
+	val (classes, _, _) = model
+
+	val _ = map ClassProcess.optimizeClass classes
+
+	val _ = DynException.checkToProceed()
+    in
+	model
+    end
+
 fun normalizeModel (model:DOF.model) =
     let
 	val _ = DynException.checkToProceed()

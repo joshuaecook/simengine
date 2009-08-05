@@ -73,7 +73,8 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
 	  print (" |-> States read: "^ (symbollist2str readstates) ^ ", States written: " ^(symbollist2str writestates)^ "\n"));
      print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => ExpProcess.exp2str (Exp.TERM name) ^ (case default of SOME v => (" = "^(ExpProcess.exp2str v)) | NONE => "")) (!inputs))) ^ "\n");
      print ("  Equations:\n");
-     app (fn(e) => print("    " ^ (ExpProcess.exp2str e) ^ "\n")) (!exps);
+     app (fn(e) => (print("    " ^ (ExpProcess.exp2str e) ^ "\n");
+		    print("     -> TermCount="^(i2s (ExpProcess.countTerms e))^"; FunCount="^(i2s (ExpProcess.countFuns e))^"\n"))) (!exps);
      print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (ExpProcess.exp2str (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (ExpProcess.exp2str condition)) 
 							 (!outputs))) ^ "\n");
      print ("  Symbols: {"^(String.concatWith ", " (map Symbol.name (ClassProcess.findSymbols class)))^"}\n"))
