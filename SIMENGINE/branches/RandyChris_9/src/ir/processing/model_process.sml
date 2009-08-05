@@ -27,6 +27,9 @@ fun normalizeModel (model:DOF.model) =
 	val (classes, _, _) = model
 	(* TODO, write the checks of the model IR as they are needed *)
 
+	(* assign correct scopes for each symbol *)
+	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
+
 	(* generate all offsets for instances *)
 	(*val () = app ClassProcess.generateOffsets classes*)
 

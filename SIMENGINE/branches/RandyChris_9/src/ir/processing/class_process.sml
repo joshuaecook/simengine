@@ -169,6 +169,28 @@ fun makeSlaveClassProperties props =
 	 sourcepos=sourcepos}
     end
 
+fun assignCorrectScope (class: DOF.class) =
+    let
+	val exps = !(#exps class)
+
+	val differential_equations = List.filter ExpProcess.isFirstOrderDifferentialEq exps
+	val derivative_terms = map ExpProcess.lhs differential_equations
+
+	val symbols = Util.flatmap ExpProcess.exp2symbols derivative_terms
+
+	val exps' = map (fn(exp)=>ExpProcess.assignCorrectScope symbols exp) exps		    
+
+	val outputs = !(#outputs class)
+	val outputs' = map (fn{name, contents, condition}=>{name=name,
+							    contents=map (ExpProcess.assignCorrectScope symbols) contents,
+							    condition=ExpProcess.assignCorrectScope symbols condition}) outputs
+		      
+    in
+	((#exps class) := exps';
+	 (#outputs class) := outputs')
+    end
+
+
 fun optimizeClass (class: DOF.class) =
     let
 	val exps = !(#exps class)

@@ -3,7 +3,7 @@ struct
 
 val i2s = Util.i2s
 
-(*type predicate = (string * (exp -> bool))*)
+type predicate = (string * (Exp.exp -> bool))
 
 (*
 datatype patterntype = ANY
@@ -59,6 +59,24 @@ val predicate_anydiffterm = ("DIFFTERM",
 					| NONE => false)
 				   | _ => false)
 
+fun notpred ((id, pred):predicate):predicate = 
+    ("!" ^ id, (fn(x) => not (pred x)))
+    
 
+fun gen_predicate_from_symbol sym = 
+    ("ASYM", 
+     fn(x)=>case x 
+	     of Exp.TERM (Exp.SYMBOL (name, props)) => name = sym
+	      | _ => false)
+
+fun combine_preds nil = ("NIL", fn(x)=>true)
+  | combine_preds [pred1] = pred1
+  | combine_preds ((pred as (id,p))::rest) = 
+    let
+	val (id', combined_preds) = combine_preds rest
+    in
+	(id ^ ":" ^ id',
+	 (fn(x) => ((p x) andalso (combined_preds x))))
+    end
 
 end

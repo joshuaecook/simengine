@@ -103,6 +103,11 @@ fun isTerm exp =
 	Exp.FUN _ => false
       | Exp.TERM _ => true
 
+fun isSymbol exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL _) => true
+      | _ => false
+
 (*fun isEquation exp =
     case exp of
 	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, rhs]) => true
@@ -194,6 +199,32 @@ fun isFirstOrderDifferentialEq exp =
     isEquation exp andalso
     isFirstOrderDifferentialTerm (lhs exp)
 
+(* now difference equations of the form x[n+1] *)
+fun isNextVarDifferenceTerm exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val iterators = Property.getIterator props
+	in
+	    case iterators of
+		SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = (Symbol.symbol "n")
+	      | _ => false
+	end
+      | _ => false
+
+(* difference terms of the form x[n] *)
+fun isCurVarDifferenceTerm exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val iterators = Property.getIterator props
+	in
+	    case iterators of
+		SOME ((iterator, Iterator.ABSOLUTE 0)::rest) => iterator = (Symbol.symbol "n")
+	      | _ => false
+	end
+      | _ => false
+
 (* anything of the form x[0] *)
 fun isInitialConditionTerm exp = 
     case exp of
@@ -279,5 +310,32 @@ fun countTerms exp =
 fun countFuns exp =
     length (Match.findRecursive (Match.anyfun "a", exp))
 
-
+fun assignCorrectScope states exp =
+    if isSymbol exp then
+	let
+	    val sym = Util.hd (exp2symbols exp)
+	in
+	    if List.exists (fn(sym')=>(sym=sym')) states then
+		if isFirstOrderDifferentialTerm exp then
+		    case exp of 
+			Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol "dydt"))))
+		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		else if isNextVarDifferenceTerm exp then
+		    case exp of 
+			Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol "y_n"))))
+		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		else if isCurVarDifferenceTerm exp then
+		    case exp of 
+			Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol "x_n"))))
+		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		else
+		    case exp of 
+			Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol "y"))))
+		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+	    else
+		exp
+	end
+    else
+	(Match.head exp) (map (assignCorrectScope states) (Match.level exp))
+	
 end

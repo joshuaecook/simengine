@@ -11,6 +11,11 @@ fun anyterm sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predi
 fun anynum sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anynumeric, Pattern.ONE))
 fun anysym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ONE))
 fun anydiff sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anydiffterm, Pattern.ONE))
+(* this matches a symbol of a particular name *)
+fun anysym_with_predlist preds sym = Exp.TERM (Exp.PATTERN (sym, PatternProcess.combine_preds preds, Pattern.ONE))
+val anysymnotdiff = anysym_with_predlist [PatternProcess.predicate_anysymbol, PatternProcess.notpred PatternProcess.predicate_anydiffterm]
+
+fun asym sym = Exp.TERM (Exp.PATTERN (sym, PatternProcess.gen_predicate_from_symbol sym, Pattern.ONE))
 
 (* utility function *)
 fun exp2term (Exp.TERM t) = t
@@ -114,7 +119,7 @@ fun applyRuleExp (rule as (pat_exp, repl_exp) : rule) exp =
 		       let
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
 			   val repl_exp' = replacePattern assigned_patterns repl_exp
-			   val _ = Util.log ("Ran replacement '"^(e2s repl_exp)^"' from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")
+			   (*val _ = Util.log ("Ran replacement '"^(e2s repl_exp)^"' from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")*)
 				   
 			   (* substitute it back in, but call replaceExp on its arguments *)
 			   val exp' = (head repl_exp') (map (fn(arg)=> applyRuleExp rule arg) (level repl_exp'))
@@ -124,8 +129,8 @@ fun applyRuleExp (rule as (pat_exp, repl_exp) : rule) exp =
 		   else
 		       (head exp) (map (fn(arg)=> applyRuleExp rule arg) (level exp))
 		       
-	val _ = Util.log ("Apply rule '"^(rule2str (pat_exp, repl_exp))^"' to exp '"^(e2s exp)^"'")
-	val _ = Util.log ("  Result: " ^ (e2s exp'))
+	(*val _ = Util.log ("Apply rule '"^(rule2str (pat_exp, repl_exp))^"' to exp '"^(e2s exp)^"'")
+	val _ = Util.log ("  Result: " ^ (e2s exp'))*)
     in
 	exp'
     end
