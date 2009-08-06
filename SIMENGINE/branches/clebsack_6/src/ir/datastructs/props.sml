@@ -15,7 +15,8 @@ type symbolproperty =
       derivative: (int * Symbol.symbol list) option,
       sourcepos: PosLog.pos option,
       realname: Symbol.symbol option,
-      scope: scopetype}
+      scope: scopetype,
+      ep_index: bool}
 
 val default_symbolproperty = 
     {dim=NONE,
@@ -23,7 +24,8 @@ val default_symbolproperty =
      derivative=NONE,
      sourcepos=NONE,
      realname=NONE,
-     scope=LOCAL}
+     scope=LOCAL,
+     ep_index=false}
 
 fun getDim (props:symbolproperty) = #dim props
 
@@ -42,13 +44,16 @@ fun getRealName (props:symbolproperty) = #realname props
 
 fun getScope (props:symbolproperty) = #scope props
 
+fun useEPIndex (props:symbolproperty) = #ep_index props
+
 fun setDim props p = 
     {dim=SOME p,
      iterator=getIterator props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
-     scope=getScope props}
+     scope=getScope props,
+     ep_index=useEPIndex props}
 	
 fun setIterator props p = 
     {dim=getDim props,
@@ -56,7 +61,8 @@ fun setIterator props p =
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
-     scope=getScope props}
+     scope=getScope props,
+     ep_index=useEPIndex props}
 	
 fun setDerivative props p = 
     {dim=getDim props,
@@ -64,7 +70,8 @@ fun setDerivative props p =
      derivative=SOME p,
      sourcepos=getSourcePos props,
      realname=getRealName props,
-     scope=getScope props}
+     scope=getScope props,
+     ep_index=useEPIndex props}
 	
 fun setSourcePos props p = 
     {dim=getDim props,
@@ -72,7 +79,8 @@ fun setSourcePos props p =
      derivative=getDerivative props,
      sourcepos=SOME p,
      realname=getRealName props,
-     scope=getScope props}
+     scope=getScope props,
+     ep_index=useEPIndex props}
 	
 fun setRealName props p = 
     {dim=getDim props,
@@ -80,7 +88,8 @@ fun setRealName props p =
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=SOME p,
-     scope=getScope props}	
+     scope=getScope props,
+     ep_index=useEPIndex props}	
 
 fun setScope props p = 
     {dim=getDim props,
@@ -88,7 +97,17 @@ fun setScope props p =
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
-     scope=p}	
+     scope=p,
+     ep_index=useEPIndex props}	
+
+fun setEPIndex props p = 
+    {dim=getDim props,
+     iterator=getIterator props,
+     derivative=getDerivative props,
+     sourcepos=getSourcePos props,
+     realname=getRealName props,
+     scope=getScope props,
+     ep_index=p}	
 
 fun getCodeLocStr (props:symbolproperty) = 
     case (#sourcepos props)

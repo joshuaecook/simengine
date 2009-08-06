@@ -377,4 +377,17 @@ fun getLHSSymbol exp =
       | _ => (error_no_return exp ("No valid symbol found on LHS");
 	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
 
+(* function to add EP_index property to all state symbols *)
+fun enableEPIndex states exp = 
+    case exp of
+	Exp.FUN (funtype, args) => Exp.FUN (funtype, map (enableEPIndex states) args)
+      | Exp.TERM (Exp.SYMBOL (sym, props)) => 
+	if List.exists (fn(sym')=>sym=sym') states then
+	    Exp.TERM (Exp.SYMBOL (sym, Property.setEPIndex props true))
+	else
+	    exp
+      | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o (enableEPIndex states) o Exp.TERM) termlist, dimlist))
+      | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o (enableEPIndex states) o Exp.TERM) termlist))
+      | _ => exp
+
 end

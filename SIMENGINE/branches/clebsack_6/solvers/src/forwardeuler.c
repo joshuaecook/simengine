@@ -10,22 +10,22 @@ forwardeuler_mem *forwardeuler_init(solver_props *props) {
   forwardeuler_mem *mem = (forwardeuler_mem*)malloc(sizeof(forwardeuler_mem));
 
   mem->props = props;
-  mem->k1 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k1 = malloc(props->statesize*sizeof(CDATAFORMAT));
 
   return mem;
 }
 
-int forwardeuler_eval(forwardeuler_mem *mem, int modelid) {
+int forwardeuler_eval(forwardeuler_mem *mem) {
 
-  int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
+  int ret = model_flows(mem->props->time[0], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1);
 
   int i;
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->props->model_states[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] + 
-      mem->props->timestep * mem->k1[i*mem->props->num_models + modelid];
+    mem->props->model_states[i] = mem->props->model_states[i] + 
+      mem->props->timestep * mem->k1[i];
   }
 
-  mem->props->time[modelid] += mem->props->timestep;
+  mem->props->time[0] += mem->props->timestep;
 
   return ret;
 }

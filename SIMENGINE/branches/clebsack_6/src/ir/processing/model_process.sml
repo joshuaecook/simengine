@@ -42,4 +42,41 @@ fun normalizeModel (model:DOF.model) =
     end
     handle e => DynException.checkpoint "ModelProcess.normalizeModel" e
 
+fun normalizeParallelModel (model:DOF.model) =
+    let
+	val _ = DynException.checkToProceed()
+
+	val (classes, _, _) = model
+	(* TODO, write the checks of the model IR as they are needed *)
+
+	(* generate all offsets for instances *)
+	(*val () = app ClassProcess.generateOffsets classes*)
+
+(*
+	(* reorder all the statements *)
+	val () = app 
+		     (fn(class)=> 
+			let
+			    val eqs' = EqUtil.order_eqs (!(#eqs class))
+			in
+			    (#eqs class) := eqs'
+			end) 
+		     classes
+	*)
+(*	val _ = Ordering.orderModel(model)*)
+
+	val _ = DynException.checkToProceed()
+
+	(* remap all names into names that can be written into a back-end *)
+	(*val () = app ClassProcess.fixSymbolNames (CurrentModel.classes())*)
+	(* must be put into a different normalizeModel function *)
+	val () = app ClassProcess.addEPIndexToClass (CurrentModel.classes())
+	(*val () = app ClassProcess.fixStateSymbolNames (CurrentModel.classes())*)
+
+	val _ = DynException.checkToProceed()
+    in
+	model
+    end
+    handle e => DynException.checkpoint "ModelProcess.normalizeParallizeModel" e
+
 end

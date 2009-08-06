@@ -492,7 +492,10 @@ $(BUILD_DIR)/buildEngine.m: matlab/buildEngine.m
 $(BUILD_DIR)/lib/solvers_%.a: solvers/lib/solvers_%.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
+$(BUILD_DIR)/lib/psolvers_%.a: solvers/lib/psolvers_%.a
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/include/%solvers.h: solvers/include/%solvers.h
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 matlab/install.m: simEngine.tgz
@@ -502,7 +505,7 @@ install.m: matlab/install.m
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a simEngine.tgz install-locally install.m
+MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/include/psolvers.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a $(BUILD_DIR)/lib/psolvers_double.a $(BUILD_DIR)/lib/psolvers_float.a simEngine.tgz install-locally install.m
 
 solvers/lib/%.a: solvers/src/*.c
 	(cd solvers; make all)

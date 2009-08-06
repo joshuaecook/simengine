@@ -1,4 +1,4 @@
-structure CWriter =
+structure CParallelWriter =
 struct
 
 datatype status =
@@ -22,10 +22,9 @@ fun header (class_name, includes, defpairs) =
      $("#include <math.h>"),
      $("#include <string.h>"),
      $("#define CDATAFORMAT double"),
-     $("#include <solvers.h>")] @
+     $("#include <psolvers.h>")] @
     (map (fn(inc)=> $("#include "^inc)) includes) @
     [$(""),
-     $("int fun_invocations = 0, steps = 0;"),
      $("")] @
     (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs) @
     [$(""),
@@ -72,9 +71,9 @@ fun outputstatestructbyclass_code (class : DOF.class) =
 			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
 		     in
 			 if size = 1 then
-			     $("CDATAFORMAT " ^ name ^ ";")
+			     $("CDATAFORMAT *" ^ name ^ ";")
 			 else
-			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"];")
+			     $("CDATAFORMAT *" ^ name ^ "["^(i2s size)^"];")
 		     end) diff_eqs_symbols) @
 	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 	      (map 
@@ -150,18 +149,27 @@ fun initbyclass_code class =
     in
 	[$(""),
 	 $("// define state initialization functions"),
-	 $("void init_" ^ (Symbol.name classname) ^ "(struct statedata_"^(Symbol.name classname)^" *states) {"),	 
+	 $("void init_" ^ (Symbol.name classname) ^ "(struct statedata_"^(Symbol.name classname)^" *states, int num_models) {"),
+	 $("  int modelid;"),
 	 SUB($("// states (count="^(i2s (List.length init_eqs))^")")::
-	     (map (fn(sym)=>
+	     (Util.flatmap (fn(sym)=>
 		     let
 			 val size = Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))
 			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs sym)))
 			 val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs sym)
 		     in
 			 if size = 1 then
-			     $("states->" ^ name ^ " = " ^ assigned_value ^ ";")
+			     [$("states->" ^ name ^ " = MALLOCFUN(num_models*sizeof(CDATAFORMAT));"),
+			      $("for(modelid=0; modelid<num_models; modelid++){"),
+			      $("states->" ^ name ^ "[modelid] = " ^ assigned_value ^ ";"),
+			      $("}")]
 			 else (* might have to do something special here or in c_writer_util *)
-			     $("states->" ^ name ^ " = " ^ assigned_value ^ ";")
+			     [$(""),
+			      $("#error FIXME - needs vector of assigned_value in SML"),
+			      $("states->" ^ name ^ " = MALLOCFUN(" ^ (i2s size) ^ "*num_models*sizeof(CDATAFORMAT));"),
+			      $("for(modelid=0; modelid<num_models; modelid++){"),
+			      $("states->" ^ name ^ "[modelid] = " ^ assigned_value ^ ";"),
+			      $("}")]
 		     end) init_eqs) @
 	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 	      (map 
@@ -173,9 +181,9 @@ fun initbyclass_code class =
 				| NONE => 1
 		      in
 			  if size = 1 then
-			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^");")
+			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^", num_models);")
 			  else (* not sure what to do here *)
-			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^");")
+			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^", num_models);")
 		      end)
 		   class_inst_pairs))),
 	 $("};")]
@@ -192,7 +200,7 @@ fun init_code classes =
 
 	val predeclare_statements = 
 	    map
-		(fn(class)=> $("void init_" ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ "(struct statedata_"^(Symbol.name (ClassProcess.class2orig_name class))^" *states);"))
+		(fn(class)=> $("void init_" ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ "(struct statedata_"^(Symbol.name (ClassProcess.class2orig_name class))^" *states, int num_models);"))
 		master_classes
 
     in
@@ -207,7 +215,7 @@ fun class2flow_code (class, top_class) =
 	val header_progs = 
 	    [$(""),
 	     $("int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration) {")]
+	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid) {")]
 
 	val read_memory_progs = []
 
@@ -264,7 +272,7 @@ fun class2flow_code (class, top_class) =
 				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 					  $("// " ^ (CWriterUtil.exp2c_str exp)),
 					  $(inps), $(outs_decl),
-					  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration);")] @
+					  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")] @
 					 let
 					     val symbols = map
 							       (fn(outsym) => Term.sym2curname outsym)
@@ -280,7 +288,7 @@ fun class2flow_code (class, top_class) =
 				    ]
 				end
 			    else
-				DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CWriter.class2flow_code.equ_progs", Logger.INTERNAL)
+				DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CParallelWriter.class2flow_code.equ_progs", Logger.INTERNAL)
 			 )
 			 valid_exps
 	     in
@@ -307,7 +315,7 @@ fun class2flow_code (class, top_class) =
 				val _ = if length contents = 1 then
 					    ()
 					else
-					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
+					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)
 					    
 				val valid_condition = case condition 
 						       of (Exp.TERM (Exp.BOOL v)) => v
@@ -315,7 +323,7 @@ fun class2flow_code (class, top_class) =
 				val _ = if valid_condition then
 					    ()
 					else
-					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(ExpProcess.exp2str condition)^"' when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
+					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(ExpProcess.exp2str condition)^"' when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)
 					    
 			    in
 				case contents of
@@ -323,7 +331,7 @@ fun class2flow_code (class, top_class) =
 				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
 				  | _ => 
 				    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), 
-							       "CWriter.class2flow_code", 
+							       "CParallelWriter.class2flow_code", 
 							       Logger.INTERNAL)
 			    end) (Util.addCount (!(#outputs class))))]
 
@@ -362,7 +370,7 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 				       if isInline class then
 					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
 				       else
-					   $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration);")
+					   $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid);")
 				   end)
 				classes
 	val iterators = CurrentModel.iterators()
@@ -376,8 +384,8 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 						 class2flow_code (c,#name c = #name topclass)) classes)
 
 	val top_level_flow_progs = [$"",
-				    $("int model_flows(CDATAFORMAT t, const void *y, void *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration){"),
-				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, y, dydt, inputs, outputs,first_iteration);")],
+				    $("int model_flows(CDATAFORMAT t, const void *y, void *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid){"),
+				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")],
 				    $("}")]
     in
 	[$("// Flow code function declarations")] @
@@ -398,7 +406,7 @@ fun input_code (class: DOF.class) =
 
 fun output_code (name, location, block) =
     let
-      val filename = location ^ "/" ^ name ^ ".c"
+      val filename = location ^ "/" ^ name ^ "_parallel.c"
       val _ = Logger.log_notice ($("Generating C source file '"^ filename ^"'"))
       val file = TextIO.openOut (filename)
     in
@@ -414,7 +422,7 @@ fun props2solver props =
 					    DOF.CONTINUOUS solver => true
 					  | DOF.DISCRETE => false)) iterators of
 			 SOME (sym, DOF.CONTINUOUS solver) => solver
-		       | _ => DynException.stdException ("Requiring at least one differential equation", "CWriter.buildC", Logger.INTERNAL)
+		       | _ => DynException.stdException ("Requiring at least one differential equation", "CParallelWriter.buildC", Logger.INTERNAL)
     in
 	solver
     end
@@ -424,8 +432,9 @@ fun exec_code (class:DOF.class, props, statespace) =
 	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
     in
 	[$(""),
-	 $("void exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs) {"),
-	 SUB[$("solver_props props;"),
+	 $("void exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, int num_models) {"),
+	 SUB[$("int MODELID = 0;"),
+	     $("solver_props props;"),
 	     $("props.timestep = DT;"),
 	     $("props.abstol = ABSTOL;"),
 	     $("props.reltol = RELTOL;"),
@@ -437,11 +446,12 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.outputs = NULL;"),
 	     $("props.first_iteration = TRUE;"),
 	     $("props.statesize = STATESPACE;"),
+	     $("props.num_models = num_models;"),
 	     $(""),
 	     $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
 	     $("while (*t < t1) {"),
 	     SUB[$("double prev_t = *t;"),
-		 $("int status = INTEGRATION_METHOD(eval)(mem);"),
+		 $("int status = INTEGRATION_METHOD(eval)(mem, MODELID);"),
 		 $("if (status != 0) {"),
 		 SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
 		     $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g\", *t);"),
@@ -450,8 +460,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states) != 0) {"),
 		 SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
 		     $("break;")],
-		 $("}"),		 
-		 $("steps++;")(*,*)
+		 $("}")
 				 (*  $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
 				     (String.concatWith ", " (List.tabulate (statespace, fn(i)=>"model_states["^(i2s i)^"]")))^");")*)
 		],
@@ -470,7 +479,7 @@ fun logoutput_code class =
 							 Exp.SYMBOL (_, props) => (case Property.getScope props of
 										       Property.LOCAL => true
 										     | _ => false)
-						       | _ => DynException.stdException (("Unexpected non symbol"), "CWriter.logoutput_code", Logger.INTERNAL)
+						       | _ => DynException.stdException (("Unexpected non symbol"), "CParallelWriter.logoutput_code", Logger.INTERNAL)
 			       in
 				   if local_scope then
 				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";")
@@ -532,15 +541,16 @@ fun main_code class =
 	 SUB[(*$("FPRINTFUN(stderr,\"Running '"^name^"' model ...\\n\");"),*)
 	     $(""),
 	     $("// Get the simulation time t from the command line"),
+	     $("int NUM_MODELS = 1;"),
 	     $("double t = 0;"),
 	     $("double t1 = atof(argv[1]);"),
 	     $("output_init(); // initialize the outputs"),
-	     $("init_"^name^"((struct statedata_"^orig_name^"*) model_states); // initialize the states"),
+	     $("init_"^name^"((struct statedata_"^orig_name^"*) model_states, NUM_MODELS); // initialize the states"),
 	     $("CDATAFORMAT inputs[INPUTSPACE];"),
 	     $(""),
 	     $("init_inputs(inputs);"),
 	     $(""),
-	     $("exec_loop(&t, t1, inputs);"),
+	     $("exec_loop(&t, t1, inputs, NUM_MODELS);"),
 	     $(""),
 	     $("return 0;")],
 	 $("}")]
@@ -601,6 +611,6 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
     in
 	SUCCESS
     end
-    handle e => DynException.checkpoint "CWriter.buildC" e
+    handle e => DynException.checkpoint "CParallelWriter.buildC" e
 
 end

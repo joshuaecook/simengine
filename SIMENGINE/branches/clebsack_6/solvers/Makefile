@@ -22,15 +22,28 @@ all:
 	@for type in $(DATATYPES); do \
 	  $(MAKE) create-cvode-library TYPE=$$type; \
 	  for method in $(METHODS); do \
-	   $(MAKE) src/$$method\_$$type.o METHOD=$$method TYPE=$$type; \
+	   $(MAKE) src/s$$method\_$$type.o METHOD=$$method TYPE=$$type; \
 	  done; \
 	  $(MAKE) lib/solvers\_$$type.a TYPE=$$type; \
 	 done
+	@for type in $(DATATYPES); do \
+	  $(MAKE) create-cvode-library TYPE=$$type; \
+	  for method in $(METHODS); do \
+	   $(MAKE) src/p$$method\_$$type.o METHOD=$$method TYPE=$$type; \
+	  done; \
+	  $(MAKE) lib/psolvers\_$$type.a TYPE=$$type; \
+	 done
+
+src/p%.o: src/p$(METHOD).c
+	$(GCCLIB) -DCDATAFORMAT=$(TYPE) -o $@ $<
 
 src/%.o: src/$(METHOD).c
 	$(GCCLIB) -DCDATAFORMAT=$(TYPE) -o $@ $<
 
-lib/%.a: src/*$(TYPE).o $(CVODE_OBJS)
+lib/p%.a: src/p*$(TYPE).o $(CVODE_OBJS)
+	$(AR) $@ $?
+
+lib/%.a: src/s*$(TYPE).o $(CVODE_OBJS)
 	$(AR) $@ $?
 
 clean-cvode:

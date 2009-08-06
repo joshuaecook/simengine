@@ -42,6 +42,18 @@ fun std_compile exec args =
 	      val _ = ODEMexWriter.buildODEMex (CurrentModel.getCurrentModel())
 	      val _ = DynException.checkToProceed()
 
+	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel()))
+	      (* code writers for parallel implementation follow ...*)
+	      val _ = if DynamoOptions.isFlagSet "generateC" then
+			  (Logger.log_notice (Printer.$("Generating Debug C Back-end"));
+			  CParallelWriter.buildC (CurrentModel.getCurrentModel()))
+		      else
+			  CParallelWriter.SUCCESS
+	      val _ = DynException.checkToProceed()
+
+	      val _ = MexParallelWriter.buildMex (CurrentModel.getCurrentModel())
+	      val _ = DynException.checkToProceed()
+
 	      val code = System.SUCCESS (*ModelCompileLauncher.compile (name, forest)*)
 	  in 
 	      case code of

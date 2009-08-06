@@ -1,5 +1,5 @@
 
-#include "solvers.h"
+#include "psolvers.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,12 +12,17 @@
 int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
   cvode_mem *mem = userdata;
 
+  // Clear the return values for all models so that only the model
+  // specified by mem->modelid will be updated by CVODE
+  bzero(NV_DATA_S(ydot), mem->props->num_models*mem->props->statesize*sizeof(CDATAFORMAT));
+
   model_flows(t,
 	      NV_DATA_S(y), 
 	      NV_DATA_S(ydot),
 	      mem->props->inputs,
 	      mem->props->outputs,
-	      mem->props->first_iteration);
+	      mem->props->first_iteration,
+	      mem->modelid);
 
   return CV_SUCCESS;
 }
@@ -30,7 +35,7 @@ cvode_mem * cvode_init(solver_props *props){
   mem->props = props;
 
   // Create intial value vector
-  temp = N_VMake_Serial(mem->props->statesize, mem->props->model_states);
+  temp = N_VMake_Serial(mem->props->statesize*mem->props->num_models, mem->props->model_states);
   //temp = N_VNew_Serial(mem->props->statesize);
   mem->y0 = temp;
   // Create data structure for solver
@@ -55,8 +60,11 @@ cvode_mem * cvode_init(solver_props *props){
   return mem;
 }
 
-int cvode_eval(cvode_mem *mem) {
-  if(CVode(mem->cvmem, mem->props->stoptime, ((N_Vector)(mem->y0)), mem->props->time, CV_ONE_STEP) != CV_SUCCESS){
+int cvode_eval(cvode_mem *mem, int modelid) {
+
+  mem->modelid = modelid;
+
+  if(CVode(mem->cvmem, mem->props->stoptime, ((N_Vector)(mem->y0)), &(mem->props->time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
     fprintf(stderr, "CVODE failed to make a step");
     return 1;
   }

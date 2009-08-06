@@ -107,11 +107,18 @@ fun sym2fullstr (s, props) =
 fun sym2c_str (s, props) =
     let
 	val scope = Property.getScope props
+
 	val prefix = case scope of
 			 Property.LOCAL => ""
 		       | Property.READSTATE v => Symbol.name v ^ "->"
 		       | Property.WRITESTATE v => Symbol.name v ^ "->"
 
+
+	val ep_index = Property.useEPIndex props
+	val suffix = if ep_index then
+			 "[modelid]"
+		     else
+			 ""
 	val (order, vars) = case Property.getDerivative props
 			      of SOME (order, iters) => (order, iters)
 			       | NONE => (0, [])
@@ -128,13 +135,13 @@ fun sym2c_str (s, props) =
 	    DynException.stdException(("Can't support integrals ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	else if order = 0 then
 	    (if iters = "[n+1]" then
-		 prefix ^ n
+		 prefix ^ n ^ suffix
 		 (*"next_" ^ n*)
 	     else
-		 prefix ^ n (*^ iters*))
+		 prefix ^ n ^ suffix(*^ iters*))
 	else if order = 1 then
 	    (*"d_" ^ n ^ "_dt"*) (* only support first order derivatives with respect to t *)
-	    prefix ^ n
+	    prefix ^ n ^ suffix
 	else
 	    DynException.stdException(("Can't support higher order derivative terms ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	(*else if order > 3 andalso (same vars) then
@@ -183,6 +190,20 @@ fun isScalar term =
       | Exp.TUPLE _ => false
       | _ => true
 
+fun isReadState term =
+    case term of
+	Exp.SYMBOL (_, props) => (case (Property.getScope props) of
+				      Property.READSTATE v => true
+				    | _ => false)
+      | _ => false
+					  
+fun isWriteState term =
+    case term of
+	Exp.SYMBOL (_, props) => (case (Property.getScope props) of
+				      Property.WRITESTATE v => true
+				    | _ => false)
+      | _ => false
+					  
 fun termCount term =
     case term of
 	Exp.SYMBOL _ => 1 (* this might have to change *)
