@@ -19,7 +19,15 @@ DESTDIR =
 PARTIAL_INSTALL_BUILD_DIR = /usr/local/share/Simatra
 INSTALL_BUILD_DIR = $(DESTDIR)$(PARTIAL_INSTALL_BUILD_DIR)
 INSTALL_BIN_DIR = $(DESTDIR)/usr/local/bin
+
+# Operating system and architecture inspection
 UNAME = $(shell uname -s)
+OSLOWER = $(shell uname -s 2>/dev/null | tr [:upper:] [:lower:])
+DARWIN = $(strip $(findstring darwin, $(OSLOWER)))
+LINUX = $(strip $(findstring linux, $(OSLOWER)))
+ARCH64 = $(strip $(shell arch 2>/dev/null | grep 64))
+
+
 FIND_LATEX = $(shell which latex 2> /dev/null)
 
 ifeq ($(FIND_LATEX),/opt/bin/latex)
@@ -91,27 +99,54 @@ BROWSER = firefox
 COREGEN = $(SETUP_ENV); coregen
 MATLABCMD = matlab -nodisplay -nojvm -r 
 MATLABCMD = octave --eval 
-FIND_MATLAB = $(shell which matlab 2> /dev/null)
-ifeq ($(UNAME), Darwin)
-ifeq ($(FIND_MATLAB),/usr/bin/matlab)
-MATLAB_PATH = /Applications/MATLAB_R2009a.app
-MEX = $(MATLAB_PATH)/bin/mex
-MEXEXT = mexmaci
+
+# Inspects for presence of MATLAB; may be overridden on command line
+MATLAB ?= $(shell which matlab 2>/dev/null)
+ifneq ($(MATLAB),)
+MATLAB_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(MATLAB))))
+MATLAB := $(MATLAB_INSTALL_PATH)/bin/matlab
+MEX := $(MATLAB_INSTALL_PATH)/bin/mex
 endif
-else
-ifeq ($(FIND_MATLAB),/usr/local/bin/matlab)
-MATLAB_PATH = /usr/local/matlab
-MEX = $(MATLAB_PATH)/bin/mex
+
+# Inspects for presence of GNU octave; may be overridden on command line
+OCTAVE ?= $(shell which octave 2>/dev/null)
+ifneq ($(OCTAVE),)
+OCTAVE_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(OCTAVE))))
+OCTAVE := $(OCTAVE_INSTALL_PATH)/bin/octave
+MKOCTFILE := $(OCTAVE_INSTALL_PATH)/bin/mkoctfile --mex
+endif
+
+ifeq ("$(MATLAB)$(OCTAVE)","")
+$(error "Couldn't find MATLAB or GNU octave.")
+endif
+
+# Every possible MEX extension; used for cleaning
+ALL_MEXEXT = mexglx mexa64 mexmaci mexs64 mexw32 mexw64 mex
+
+# Determines the appropriate MEX extension for the current platform.
+# TODO: extensions for other platforms
+ifneq ($(MATLAB),)
+ifneq ($(LINUX),)
+ifneq ($(ARCH64),)
 MEXEXT = mexa64
 else
-MATLAB_PATH = /opt/octave
-MEX = $(MATLAB_PATH)/bin/mkoctfile --mex 
-MEXEXT = mex
+MEXEXT = mexglx
+endif
+else ifneq ($(DARWIN),)
+MEXEXT = mexmaci
 endif
 endif
 
-#MAC_MATLAB = /Applications/MATLAB_R2009a.app
-#MAC_MEX = $(MAC_MATLAB)/bin/mex
+ifneq ($(OCTAVE),)
+MEXEXT += mex
+endif
+
+# Creates a list of "simEngine_wrapper.$mexext" for each available MEX type
+define SIMENGINE_WRAPPER_template
+SIMENGINE_WRAPPER += simEngine_wrapper.$(1)
+endef
+$(foreach ext,$(MEXEXT),$(eval $(call SIMENGINE_WRAPPER_template,$(ext))))
+
 
 # File Names and Locations
 # ==============================================================================================
@@ -476,12 +511,30 @@ $(BUILD_DIR)/src/simEngine_wrapper.c: matlab/simEngine_wrapper.c
 $(BUILD_DIR)/simplot.m: matlab/simplot.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-matlab/simEngine_wrapper.$(MEXEXT): matlab/simEngine_wrapper.c
-	@cd matlab; echo "Creating '$@' from '$<'"
-	@(cd matlab; $(MEX) simEngine_wrapper.c)
+matlab/%.mex: matlab/%.c
+	@echo "Creating '$@' from '$<'"
+	@(cd matlab; $(MKOCTFILE) $(<F))
 
-$(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT): matlab/simEngine_wrapper.$(MEXEXT)
+# TODO: other platforms
+matlab/%.mexa64: matlab/%.c
+	@echo "Creating '$@' from '$<'"
+	@(cd matlab; $(MEX) $(<F))
+
+matlab/%.mexglx: matlab/%.c
+	@echo "Creating '$@' from '$<'"
+	@(cd matlab; $(MEX) $(<F))
+
+matlab/%.mexmaci: matlab/%.c
+	@echo "Creating '$@' from '$<'"
+	@(cd matlab; $(MEX) $(<F))
+
+$(LOCAL_INSTALL)/simEngine_wrapper.mex: matlab/simEngine_wrapper.mex
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(LOCAL_INSTALL)/simEngine_wrapper.mex%: matlab/simEngine_wrapper.mex%
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+
 
 $(BUILD_DIR)/buildEngine.m: matlab/buildEngine.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
@@ -493,6 +546,9 @@ $(BUILD_DIR)/lib/solvers_%.a: solvers/lib/solvers_%.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 $(BUILD_DIR)/lib/psolvers_%.a: solvers/lib/psolvers_%.a
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 $(BUILD_DIR)/include/%solvers.h: solvers/include/%solvers.h
@@ -526,7 +582,7 @@ $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 $(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT) $(LOCAL_INSTALL)/compile_tests.m
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(foreach f,$(SIMENGINE_WRAPPER),$(LOCAL_INSTALL)/$(f)) $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
 # Build type options
@@ -1263,7 +1319,7 @@ clean:
 	$(RMDIR) ../$(RPM_TEMP_DIR)
 	$(RM) ../$(RPM_TAR_GZ)
 	$(RM) install.m
-	$(RM) matlab/simEngine_wrapper.$(MEXEXT)
+	$(RM) $(foreach ext,$(ALL_MEXEXT),matlab/simEngine_wrapper.$(ext))
 	(cd solvers; $(MAKE) clean)
 
 clean-all:
