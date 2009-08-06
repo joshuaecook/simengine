@@ -120,7 +120,6 @@ typedef struct{
   solver_props *props;
   void *cvmem;
   void *y0;
-  int modelid;
 } cvode_mem;
 
 cvode_mem *cvode_init(solver_props *props);

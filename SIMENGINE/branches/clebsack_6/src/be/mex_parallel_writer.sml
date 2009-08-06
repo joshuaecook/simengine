@@ -161,6 +161,7 @@ fun main_code class =
 	     $(""),
 	     $("// model processing"),
 	     $("output_init(); // initialize the outputs"),
+	     $("model_states = MALLOCFUN(NUM_MODELS* STATESPACE*sizeof(CDATAFORMAT));"),
 	     $("init_"^name^"((struct statedata_"^orig_name^"*) model_states, NUM_MODELS); // initialize the states"),
 	     $("CDATAFORMAT inputs[INPUTSPACE];"),
 	     $(""),

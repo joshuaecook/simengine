@@ -70,13 +70,13 @@ fun normalizeParallelModel (model:DOF.model) =
 	(* remap all names into names that can be written into a back-end *)
 	(*val () = app ClassProcess.fixSymbolNames (CurrentModel.classes())*)
 	(* must be put into a different normalizeModel function *)
-	val () = app ClassProcess.addEPIndexToClass (CurrentModel.classes())
+	(* val () = app ClassProcess.addEPIndexToClass (CurrentModel.classes())*)
 	(*val () = app ClassProcess.fixStateSymbolNames (CurrentModel.classes())*)
 
 	val _ = DynException.checkToProceed()
     in
 	model
     end
-    handle e => DynException.checkpoint "ModelProcess.normalizeParallizeModel" e
+    handle e => DynException.checkpoint "ModelProcess.normalizeParallelModel" e
 
 end

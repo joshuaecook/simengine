@@ -28,7 +28,7 @@ fun header (class_name, includes, defpairs) =
      $("")] @
     (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs) @
     [$(""),
-     $("static CDATAFORMAT model_states[STATESPACE];"), (* we need to work on this to make it more flexible *)
+     $("static CDATAFORMAT *model_states;"), (* we need to work on this to make it more flexible *)
      $("")]
 
 fun outputdatastruct_code class =
@@ -71,9 +71,9 @@ fun outputstatestructbyclass_code (class : DOF.class) =
 			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
 		     in
 			 if size = 1 then
-			     $("CDATAFORMAT *" ^ name ^ ";")
+			     $("CDATAFORMAT " ^ name ^ ";")
 			 else
-			     $("CDATAFORMAT *" ^ name ^ "["^(i2s size)^"];")
+			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"];")
 		     end) diff_eqs_symbols) @
 	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 	      (map 
@@ -150,43 +150,37 @@ fun initbyclass_code class =
 	[$(""),
 	 $("// define state initialization functions"),
 	 $("void init_" ^ (Symbol.name classname) ^ "(struct statedata_"^(Symbol.name classname)^" *states, int num_models) {"),
-	 $("  int modelid;"),
-	 SUB($("// states (count="^(i2s (List.length init_eqs))^")")::
-	     (Util.flatmap (fn(sym)=>
-		     let
-			 val size = Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))
-			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs sym)))
-			 val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs sym)
-		     in
-			 if size = 1 then
-			     [$("states->" ^ name ^ " = MALLOCFUN(num_models*sizeof(CDATAFORMAT));"),
-			      $("for(modelid=0; modelid<num_models; modelid++){"),
-			      $("states->" ^ name ^ "[modelid] = " ^ assigned_value ^ ";"),
-			      $("}")]
-			 else (* might have to do something special here or in c_writer_util *)
-			     [$(""),
-			      $("#error FIXME - needs vector of assigned_value in SML"),
-			      $("states->" ^ name ^ " = MALLOCFUN(" ^ (i2s size) ^ "*num_models*sizeof(CDATAFORMAT));"),
-			      $("for(modelid=0; modelid<num_models; modelid++){"),
-			      $("states->" ^ name ^ "[modelid] = " ^ assigned_value ^ ";"),
-			      $("}")]
-		     end) init_eqs) @
-	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
-	      (map 
-		   (fn(classname, instname)=>
-		      let			  
-			  val size = 
-			      case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
-			       of SOME inst' => ExpProcess.instSpatialSize inst'
-				| NONE => 1
-		      in
-			  if size = 1 then
-			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^", num_models);")
-			  else (* not sure what to do here *)
-			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^", num_models);")
-		      end)
-		   class_inst_pairs))),
-	 $("};")]
+	 SUB[$("int modelid;"),
+	     $("for(modelid=0; modelid<num_models; modelid++){"),
+	     SUB($("// states (count="^(i2s (List.length init_eqs))^")")::
+		 (map (fn(sym)=>
+			 let
+			     val size = Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))
+			     val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs sym)))
+			     val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs sym)
+			 in
+			     if size = 1 then
+				 $("states[modelid]." ^ name ^ " = " ^ assigned_value ^ ";")
+			     else (* might have to do something special here or in c_writer_util *)
+				 $("#error FIXME - needs vector of assigned_value in SML")
+			 end) init_eqs) @
+		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
+		  (map 
+		       (fn(classname, instname)=>
+			  let			  
+			      val size = 
+				  case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
+				   of SOME inst' => ExpProcess.instSpatialSize inst'
+				    | NONE => 1
+			  in
+			      if size = 1 then
+				  $("init_" ^ (Symbol.name classname) ^ "(&states[modelid]."^(Symbol.name instname)^", 1);")
+			      else (* not sure what to do here *)
+				  $("init_" ^ (Symbol.name classname) ^ "(&states[modelid]."^(Symbol.name instname)^", 1);")
+			  end)
+		       class_inst_pairs)))],
+	     $("}"),
+	  $("};")]
     end
     
 
@@ -215,7 +209,7 @@ fun class2flow_code (class, top_class) =
 	val header_progs = 
 	    [$(""),
 	     $("int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid) {")]
+	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *py, struct statedata_"^(Symbol.name orig_name)^" *pdydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid) {")]
 
 	val read_memory_progs = []
 
@@ -223,6 +217,8 @@ fun class2flow_code (class, top_class) =
 	    
 	val read_inputs_progs =
 	    [$(""),
+	     $("const struct statedata_"^(Symbol.name orig_name)^" *y = &py[modelid];"),
+	     $("struct statedata_"^(Symbol.name orig_name)^" *dydt = &pdydt[modelid];"),
 	     $("// mapping inputs to variables")] @ 
 	    (map
 		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];"))
@@ -370,7 +366,7 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 				       if isInline class then
 					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
 				       else
-					   $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid);")
+					   $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *py, struct statedata_"^(Symbol.name orig_name)^" *pdydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid);")
 				   end)
 				classes
 	val iterators = CurrentModel.iterators()
@@ -384,8 +380,8 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 						 class2flow_code (c,#name c = #name topclass)) classes)
 
 	val top_level_flow_progs = [$"",
-				    $("int model_flows(CDATAFORMAT t, const void *y, void *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid){"),
-				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")],
+				    $("int model_flows(CDATAFORMAT t, const void *py, void *pdydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid){"),
+				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)py, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)pdydt, inputs, outputs, first_iteration, modelid);")],
 				    $("}")]
     in
 	[$("// Flow code function declarations")] @
@@ -433,7 +429,7 @@ fun exec_code (class:DOF.class, props, statespace) =
     in
 	[$(""),
 	 $("void exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, int num_models) {"),
-	 SUB[$("int MODELID = 0;"),
+	 SUB[$("int modelid = 0;"),
 	     $("solver_props props;"),
 	     $("props.timestep = DT;"),
 	     $("props.abstol = ABSTOL;"),
@@ -449,22 +445,24 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.num_models = num_models;"),
 	     $(""),
 	     $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
-	     $("while (*t < t1) {"),
-	     SUB[$("double prev_t = *t;"),
-		 $("int status = INTEGRATION_METHOD(eval)(mem, MODELID);"),
-		 $("if (status != 0) {"),
-		 SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
-		     $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g\", *t);"),
-		     $("break;")],
+	     $("for(modelid=0; modelid<num_models; modelid++){"),
+	     SUB[$("while (*t < t1) {"),
+		 SUB[$("double prev_t = *t;"),
+		     $("int status = INTEGRATION_METHOD(eval)(mem, modelid);"),
+		     $("if (status != 0) {"),
+		     SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
+			 $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g\", *t);"),
+			 $("break;")],
+		     $("}"),
+		     $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states, modelid) != 0) {"),
+		     SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
+			 $("break;")],
+		     $("}")
+		    (*  $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
+			  (String.concatWith ", " (List.tabulate (statespace, fn(i)=>"model_states["^(i2s i)^"]")))^");")*)
+		    ],
 		 $("}"),
-		 $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states) != 0) {"),
-		 SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
-		     $("break;")],
-		 $("}")
-				 (*  $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
-				     (String.concatWith ", " (List.tabulate (statespace, fn(i)=>"model_states["^(i2s i)^"]")))^");")*)
-		],
-	     $("}"),
+	     $("}")],
 	     $("INTEGRATION_METHOD(free)(mem);")],
 	 $("}")]
     end
@@ -521,7 +519,7 @@ fun logoutput_code class =
 
     in
 	[$(""),
-	 $("int log_outputs(double t, const struct statedata_"^orig_name^" *y) {"),
+	 $("int log_outputs(double t, const struct statedata_"^orig_name^" *y, int modelid) {"),
 	 SUB(sym_decls @
 	     [$("")] @
 	     output_exps @
@@ -545,7 +543,8 @@ fun main_code class =
 	     $("double t = 0;"),
 	     $("double t1 = atof(argv[1]);"),
 	     $("output_init(); // initialize the outputs"),
-	     $("init_"^name^"((struct statedata_"^orig_name^"*) model_states, NUM_MODELS); // initialize the states"),
+	     $("model_states = MALLOCFUN(NUM_MODELS* STATESPACE*sizeof(CDATAFORMAT));"),
+	     $("init_"^name^"((struct statedata_"^orig_name^"**) model_states, NUM_MODELS); // initialize the states"),
 	     $("CDATAFORMAT inputs[INPUTSPACE];"),
 	     $(""),
 	     $("init_inputs(inputs);"),
