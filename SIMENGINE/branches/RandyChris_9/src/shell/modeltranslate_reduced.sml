@@ -238,9 +238,7 @@ fun translate (exec, object) =
 	fun kecexp2dofexp obj =
 	    if istype (obj, "ModelOperation") then
 		let
-		    val name = case exp2str (method "name" obj) of
-				   "branch" => "IF"
-				 | n => n
+		    val name = exp2str (method "name" obj)
 					
 		in
 		    if name = "deriv" then
@@ -542,8 +540,9 @@ fun translate (exec, object) =
 
 		fun buildIterator exp =
 		    {name=(Symbol.symbol o exp2str) (method "name" exp),
-		     low=exp2int (method "low" (method "value" exp)),
-		     high=exp2int (method "high" (method "value" exp))}
+		     low=exp2real (method "low" (method "value" exp)),
+		     step=exp2real (method "step" (method "value" exp)),
+		     high=exp2real (method "high" (method "value" exp))}
 
 	    in
 		({name=name, 

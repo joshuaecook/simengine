@@ -75,7 +75,7 @@ namespace Simulation
     var initialval
     hidden var currentval
     hidden var readval // when an exp is read, replace the var with this if not undefined
-    var eq    
+    hidden var eq    
     hidden var isVisible = false
     hidden var isTunable = false
     hidden var isIterable = false
@@ -377,9 +377,12 @@ namespace Simulation
   overload function operator_add(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
   overload function operator_add(arg1: Number, arg2: GenericIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
    
+
+  overload function operator_subtract(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, -arg2) otherwise}
+
 //  overload function operator_subtract(arg1: IteratorOperation, arg2) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
 //  overload function operator_subtract(arg1, arg2: IteratorOperation) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
-  overload function operator_subtract(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, -arg2) otherwise}
+//  overload function operator_subtract(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, -arg2) otherwise}
 //  overload function operator_subtract(arg1: Number, arg2: SimIterator) = IteratorOperation.new ("sub", 2, operator_subtract, 0, arg2, arg1)
 
 
@@ -1007,7 +1010,7 @@ namespace Simulation
       quantities
     end
 
-    function makeEquation (name, lhs, rhs)
+    function makeEquation (name, dimensions, lhs, rhs)
       /*
         if contains thing named name and is simquantity, then set equation to equation.new(lhs, rhs)
         else if contains thing named name and is not simquantity then error
@@ -1024,6 +1027,12 @@ namespace Simulation
       else
 	var q = Intermediate.new(name)
         self.addConst(name, q)
+	if not (istype (type Vector of SimIterator, dimensions)) then
+	   error "Indexes on an intermediate equation must be iterators"
+        else
+          q.dimensions = [d.name foreach d in dimensions]
+        end
+	
 	self.quantities.push_back (q)
         self.getMember(name).setEquation(Equation.new(lhs q, rhs q))        
       end

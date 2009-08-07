@@ -86,7 +86,7 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
 	 ) (!exps);
      print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (e2s (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (e2s condition)) 
 							 (!outputs))) ^ "\n");
-     print ("  Iterators: " ^ (String.concatWith ", " (map (fn({name,low,high})=>(Symbol.name name) ^ "=" ^ (Int.toString low) ^ ":" ^ (Int.toString high)) iterators)) ^ "\n");
+     print ("  Iterators: " ^ (String.concatWith ", " (map (fn({name,low,step,high})=>(Symbol.name name) ^ "=" ^ (Real.toString low) ^ ":" ^ (Real.toString step) ^ ":" ^ (Real.toString high)) iterators)) ^ "\n");
      print ("  Symbols: {"^(String.concatWith ", " (map Symbol.name (ClassProcess.findSymbols class)))^"}\n"))
     
 

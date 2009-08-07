@@ -1077,7 +1077,17 @@ and trans_action pos action =
 			  | Ast.APPLY {func, args=Ast.TUPLE [Ast.VECTOR _]} 
 			    => findSymbols func
 			       
-			  | _ => nil before print "bottomed\n"
+			  | _ => nil
+
+		    fun findDimensions exp =
+			case exp of
+			    Ast.SYMBOL s => []
+			  | Ast.POS (exp, _) => findDimensions exp
+			  | Ast.APPLY {func=Ast.SYMBOL s, args=Ast.TUPLE [_, e]} 
+			    => findDimensions e
+			  | Ast.APPLY {func, args=Ast.TUPLE [Ast.VECTOR v]} 
+			    => map trans_exp v			       
+			  | _ => nil
 
 		    val syms = findSymbols lhs
 
@@ -1086,9 +1096,12 @@ and trans_action pos action =
 			      | _ =>
 				(error ($"Malformed equation encountered: unexpected number of symbols on left hand side");
 				 raise Skip)
+
+		    val dimensions = findDimensions lhs
 		in
 		    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "makeEquation"),
-										 args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name sym)), 
+										 args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name sym)),
+												 HLEC.VECTOR dimensions,
 												 HLEC.LAMBDA{args=syms, body=trans_exp lhs},
 												 HLEC.LAMBDA{args=syms, body=trans_exp rhs}]}),
 				 pos),
