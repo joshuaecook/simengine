@@ -6,6 +6,8 @@ val r2s = Util.r2s
 val b2s = Util.b2s
 val log = Util.log
 val exp2str = ExpPrinter.exp2str
+val e2s = ExpPrinter.exp2str
+open Printer
 
 fun exp2symbol_names (Exp.FUN (_, exps)) = 
     List.concat (map exp2symbol_names exps)
@@ -77,7 +79,7 @@ fun log_exps (header, exps) =
     (log "";
      log header;
      log ("--------------------------------------");
-     (app (fn(e)=>log (exp2str e)) exps);
+     (app (fn(e)=>log (e2s e)) exps);
      log ("--------------------------------------"))
 
 fun eq2str (lhs, rhs) =
@@ -88,7 +90,7 @@ fun eq2str (lhs, rhs) =
 (* general processing of expression *)
 
 fun error_no_return exp text = 
-    (Logger.log_internalerror (Printer.$("Error when processing '"^(exp2str exp)^"': "^(text)));
+    (Logger.log_internalerror (Printer.$("Error when processing '"^(e2s exp)^"': "^(text)));
      DynException.setErrored())
 
 fun error exp text = (error_no_return exp text; Exp.null)
@@ -162,7 +164,7 @@ fun instSpatialSize inst =
 	      | NONE => 1
 	end	    
     else
-	DynException.stdException(("Passed exp '"^(exp2str inst)^"' that is not an instance"), "Inst.instSpatialSize", Logger.INTERNAL)
+	DynException.stdException(("Passed exp '"^(e2s inst)^"' that is not an instance"), "Inst.instSpatialSize", Logger.INTERNAL)
 
 fun instOrigClassName inst = 
     let
@@ -310,28 +312,38 @@ fun countTerms exp =
 fun countFuns exp =
     length (Match.findRecursive (Match.anyfun "a", exp))
 
+fun assignCorrectScopeOnSymbol exp =
+    if isFirstOrderDifferentialTerm exp then
+	case exp of 
+	    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol "dydt"))))
+	  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+    else if isNextVarDifferenceTerm exp then
+	case exp of 
+	    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol "y_n"))))
+	  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+    else if isCurVarDifferenceTerm exp then
+	case exp of 
+	    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol "x_n"))))
+	  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+    else if isIntermediateTerm exp then
+	case exp of 
+	    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol "y"))))
+	  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+    else if isInitialConditionTerm exp then
+	exp (* this doesn't really apply here ... *)
+    else
+	(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope"));
+	 DynException.setErrored();
+	 exp)
+
+
 fun assignCorrectScope states exp =
     if isSymbol exp then
 	let
 	    val sym = Util.hd (exp2symbols exp)
 	in
 	    if List.exists (fn(sym')=>(sym=sym')) states then
-		if isFirstOrderDifferentialTerm exp then
-		    case exp of 
-			Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol "dydt"))))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-		else if isNextVarDifferenceTerm exp then
-		    case exp of 
-			Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol "y_n"))))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-		else if isCurVarDifferenceTerm exp then
-		    case exp of 
-			Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol "x_n"))))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-		else
-		    case exp of 
-			Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol "y"))))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		assignCorrectScopeOnSymbol exp
 	    else
 		exp
 	end

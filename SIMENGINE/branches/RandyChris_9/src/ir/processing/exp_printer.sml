@@ -34,7 +34,7 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
 		fun replaceIndex str (i,e) = 
 		    Util.repStr(str, "$"^(i2s i), addParen (exp2tersestr e, e))
 	    in
-		foldl (fn((exp, index),str')=>replaceIndex str' (index,exp)) v (Util.addCount exps)
+		foldl (fn((exp, index),str')=>replaceIndex str' (index+1,exp)) v (Util.addCount exps)
 	    end
 			    
     end

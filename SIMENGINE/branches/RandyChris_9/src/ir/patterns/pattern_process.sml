@@ -37,6 +37,30 @@ fun pattern2str ((symbol, (predicate_name, predicate_fun), patcount):
 	name ^ typestr ^ countstr
     end
 
+fun patcount_compatible patcount count =
+    case patcount 
+     of Pattern.ONE => count = 1
+      | Pattern.ONE_OR_MORE => count >= 1
+      | Pattern.ZERO_OR_MORE => count >= 0
+      | Pattern.SPECIFIC_COUNT i => i=count
+      | Pattern.SPECIFIC_RANGE (i1, i2) => i1 <= count andalso count <= i2
+
+fun min_patcount patcount =
+    case patcount 
+     of Pattern.ONE => 1
+      | Pattern.ONE_OR_MORE => 1
+      | Pattern.ZERO_OR_MORE => 0
+      | Pattern.SPECIFIC_COUNT i => i
+      | Pattern.SPECIFIC_RANGE (i1, i2) => i1
+
+fun max_patcount patcount =
+    case patcount 
+     of Pattern.ONE => SOME 1
+      | Pattern.ONE_OR_MORE => NONE
+      | Pattern.ZERO_OR_MORE => NONE
+      | Pattern.SPECIFIC_COUNT i => SOME i
+      | Pattern.SPECIFIC_RANGE (i1, i2) => SOME i2
+
 (* Define common predicates *)
 val predicate_any = ("ANY", fn(x)=>true)
 val predicate_anyfun = ("FUN", fn(x)=>case x of 

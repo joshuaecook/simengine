@@ -181,7 +181,12 @@ val argument_groups =
 		long =SOME "logdof",
 		xmltag="logdof",
 		dyntype=FLAG_T,
-		description=["Enable/disable logging of dof data structure"]}
+		description=["Enable/disable logging of dof data structure"]},
+	       {short=NONE,
+		long =SOME "logrewrites",
+		xmltag="logrewrites",
+		dyntype=FLAG_T,
+		description=["Enable/disable logging of expression rewrites"]}
 
 
 (*,
@@ -190,6 +195,16 @@ val argument_groups =
 		xmltag="logdrt",
 		dyntype=FLAG_T,
 		description=["Enable/disable DRT information logging"]}*)]},
+     {group="Internal Processing",
+      tag="ir",
+      description=["Control the degree of processing within the internal representation"],
+      visible=BuildOptions.allowSWBackend,
+      options=[{short=NONE,
+		long=SOME "TermRewriteLimit",
+		xmltag="termrewritelimit",
+		dyntype=INTEGER_T,
+		description=["Set limit for number of iterations through evaluating one term rewrite"]}]},
+     
 
      {group="Logging Options",
       tag="logging",

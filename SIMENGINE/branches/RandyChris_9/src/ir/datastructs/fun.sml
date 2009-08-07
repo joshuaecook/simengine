@@ -357,7 +357,7 @@ fun op2props optype =
 		   text=(" = ",INFIX),
 		   C=(" = ",INFIX)}
       | GROUP => {name="group",
-		  operands=FIXED 1,
+		  operands=VARIABLE 0,
 		  precedence=1,
 		  commutative=false,
 		  associative=false,
