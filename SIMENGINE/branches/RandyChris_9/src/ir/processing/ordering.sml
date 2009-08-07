@@ -962,6 +962,7 @@ fun orderModel (model:DOF.model)=
 
 		val availSyms = (GeneralUtil.flatten (map (fn(exp) => (ExpProcess.exp2symbols (ExpProcess.lhs exp))) init_exps))
 				@ (map (fn(i) => term2sym (#name i)) (!(#inputs class)))
+				@ (map #name (#iterators class))
 
 
 		val _ = print ("availsyms = " ^ (String.concatWith ", " (map Symbol.name availSyms)) ^ "\n")
