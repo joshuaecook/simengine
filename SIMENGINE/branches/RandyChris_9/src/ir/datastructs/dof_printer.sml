@@ -59,7 +59,7 @@ fun genlist2str data2str [data] =
 val symbollist2str = genlist2str Symbol.name
 val contents2str = genlist2str e2s
 
-fun printClass (class as {name, properties={sourcepos, classform, classtype}, inputs, outputs, exps}) =
+fun printClass (class as {name, properties={sourcepos, classform, classtype}, inputs, outputs, iterators, exps}) =
     (case classtype of
 	 DOF.SLAVE orig_class_name => 
 	 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")
@@ -79,13 +79,14 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
 		let
 		    val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
 		in
-		    print("    " ^ (e2s e) ^ "\n")
+		    print("    [" ^ (String.concatWith ", " (map Symbol.name (#iterators props))) ^ "]: " ^ (e2s e) ^ "\n")
 		end
 	    else
 		print("    " ^ (e2s e) ^ "\n")
 	 ) (!exps);
      print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (e2s (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (e2s condition)) 
 							 (!outputs))) ^ "\n");
+     print ("  Iterators: " ^ (String.concatWith ", " (map (fn({name,low,high})=>(Symbol.name name) ^ "=" ^ (Int.toString low) ^ ":" ^ (Int.toString high)) iterators)) ^ "\n");
      print ("  Symbols: {"^(String.concatWith ", " (map Symbol.name (ClassProcess.findSymbols class)))^"}\n"))
     
 

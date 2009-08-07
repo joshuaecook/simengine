@@ -762,7 +762,7 @@ namespace Simulation
       super(name)
     end 
 
-    function setValue(v)
+    function setValue(v:Interval)
       value = v
     end
     function getValue() = value
@@ -921,11 +921,14 @@ namespace Simulation
   class ModelInstance
     var inputs = []
     var outputs = []
+    var dimensions = []
     constructor ()
 //      println "in modelinstance"
     end
 
     var name
+
+    function getDimensions () = dimensions
 
     function setName(name)
       self.name = name
@@ -959,7 +962,7 @@ namespace Simulation
     var quantities = []
     var iterators = []
     var submodels = []
-    var dimensions = []
+//    var dimensions = []
     var outputs = {}
     hidden var outputDefs = {} // a placeholder to throw outputs into as we compute them.  outputs will be populated by this after the model stms are run
 
@@ -1157,13 +1160,14 @@ namespace Simulation
       submodels
     end
 
-    function instantiateSubModel (mod, name:String, table: Table)
+    function instantiateSubModel (mod, name:String, table: Table, dimensions: Vector)
 //       println ("instantiating " + name + " of type " + mod)
 //       println (mod.members)
       var m = mod.instantiate()
       self.addConst (name, m)
 
       m.setName(name)
+      m.dimensions = dimensions
 
       submodels.push_back (m)
 

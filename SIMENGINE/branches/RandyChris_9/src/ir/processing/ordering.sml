@@ -205,7 +205,7 @@ fun orderModel (model:DOF.model)=
 	      | NONE 
 		=>
 		let
-		    val {name, properties, inputs, outputs, exps} = class
+		    val {name, properties, inputs, outputs, iterators, exps} = class
 
 		    val _ = print ("Adding class to class map: " ^ (Symbol.name name) ^ "\n")
 		    val _ = print ("classes are " ^ (String.concatWith ", " (map (fn(c) => Symbol.name (#name c)) classes)) ^ "\n")
@@ -718,6 +718,7 @@ fun orderModel (model:DOF.model)=
 						#properties oldClass
 					    else (* convert it to a slave of the orignal *)
 						ClassProcess.makeSlaveClassProperties (#properties oldClass),
+				iterators= #iterators oldClass,
 				inputs= ref inputs,
 				outputs=ref outputs,
 				exps=ref exps}

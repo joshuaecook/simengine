@@ -491,9 +491,11 @@ fun translate (exec, object) =
 				  | _ => ()) 
 				    input_exps
 
+			val iterators = map (fn(e) => Symbol.symbol (exp2str (method "name" e))) (vec2list (method "dimensions" object))
+
 			val rhs = Exp.FUN (Fun.INST {classname=name,
 						     instname=objname,
-						     props=Fun.emptyinstprops},
+						     props=Fun.setIterators Fun.emptyinstprops iterators},
 					   map (fn(i) => kecexp2dofexp i) input_exps)
 
 			val exp = ExpBuild.equals (Exp.TERM lhs, rhs)
@@ -538,11 +540,17 @@ fun translate (exec, object) =
 				    {readstates=(if classHasT then [Symbol.symbol "y"] else []) @ (if classHasN then [Symbol.symbol "x_n"] else []),
 				     writestates=(if classHasT then [Symbol.symbol "dydt"] else []) @ (if classHasN then [Symbol.symbol "y_n"] else [])}
 
+		fun buildIterator exp =
+		    {name=(Symbol.symbol o exp2str) (method "name" exp),
+		     low=exp2int (method "low" (method "value" exp)),
+		     high=exp2int (method "high" (method "value" exp))}
+
 	    in
 		({name=name, 
 		  properties={sourcepos=PosLog.NOPOS,classform=classform,classtype=DOF.MASTER name},
 		  inputs=ref (map obj2input(vec2list(method "inputs" object))),
 		  outputs=ref (map obj2output(vec2list(method "contents" (method "outputs" object)))),
+		  iterators=map buildIterator (vec2list (method "iterators" object)),
 		  exps=ref exps},
 		 submodelclasses)
 	    end

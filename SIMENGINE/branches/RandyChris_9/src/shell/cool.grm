@@ -290,7 +290,7 @@ ticks: TICK (1)
 
 (*modelinst: MODEL ID ASSIGN exp (Ast.INSTMODEL {name=Symbol.symbol ID, exp=exp})*)
 
-submodelinst: SUBMODEL ID ID opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable}))
+submodelinst: SUBMODEL ID ID optdimensions opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable, optdimensions=optdimensions}))
 
 modifiers: (nil)
 	 | modifier modifiers (modifier::modifiers)

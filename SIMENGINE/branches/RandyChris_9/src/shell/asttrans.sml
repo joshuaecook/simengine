@@ -303,14 +303,17 @@ and trans_definition definition =
 		    => (internalerror "Unexpected model definition component found";
 			[])
 
-		  | Ast.SUBMODELINST {class, name, opttable}
+		  | Ast.SUBMODELINST {class, name, opttable, optdimensions}
 		    => 
 		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "instantiateSubModel"),
 						      args=HLEC.TUPLE [HLEC.SYMBOL class,
 								       HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name name)),
 								       case opttable of
 									   NONE => HLEC.TABLE []
-									 | SOME table => trans_exp table]}), 
+									 | SOME table => trans_exp table,
+								       HLEC.VECTOR (case optdimensions of
+											NONE => []
+										      | SOME dims => map (fn(s) => HLEC.SYMBOL s) dims)]}), 
 				 PosLog.NOPOS),
 		     
 		     HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.SEND{message=name,

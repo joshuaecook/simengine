@@ -104,7 +104,7 @@ and modelpart =
   | INPUTDEF of {name: Symbol.symbol, settings: exp option}
   | ITERATORDEF of {name: Symbol.symbol, value: exp option, settings: exp option}
   | SUBMODELDEF of definition (* assumed to be DEFMODEL *)
-  | SUBMODELINST of {class: Symbol.symbol, name: Symbol.symbol, opttable: exp option}
+  | SUBMODELINST of {class: Symbol.symbol, name: Symbol.symbol, opttable: exp option, optdimensions: Symbol.symbol list option}
 (*    STATEDEF of {modifiers: simq_modifier list,
 		 name: Symbol.symbol,
 		 precision: exp option,
