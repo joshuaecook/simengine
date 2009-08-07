@@ -21,8 +21,8 @@ int forwardeuler_eval(forwardeuler_mem *mem, int modelid) {
 
   int i;
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->props->model_states[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] + 
-      mem->props->timestep * mem->k1[i*mem->props->num_models + modelid];
+    mem->props->model_states[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+      mem->props->timestep * mem->k1[STATE_INDEX];
   }
 
   mem->props->time[modelid] += mem->props->timestep;

@@ -14,6 +14,7 @@ int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
 
   // Clear the return values for all models so that only the model
   // specified by mem->modelid will be updated by CVODE
+  // WARNING!!!! THIS WON'T WORK FOR THREADED PARALLELISM!
   bzero(NV_DATA_S(ydot), mem->props->num_models*mem->props->statesize*sizeof(CDATAFORMAT));
 
   model_flows(t,

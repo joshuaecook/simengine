@@ -47,52 +47,52 @@ int dormand_prince_eval(dormand_prince_mem *mem, int modelid) {
 
     //fprintf(stderr, "|-> ts=%g", mem->cur_timestep[modelid]);
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(mem->cur_timestep[modelid]/5.0)*mem->k1[i*mem->props->num_models + modelid];
+      mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(mem->cur_timestep[modelid]/5.0)*mem->k1[STATE_INDEX];
     }
     ret |= model_flows(mem->props->time[modelid]+(mem->cur_timestep[modelid]/5.0), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0, modelid);
 
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(3.0*mem->cur_timestep[modelid]/40.0)*mem->k1[i*mem->props->num_models + modelid] +
-	(9.0*mem->cur_timestep[modelid]/40.0)*mem->k2[i*mem->props->num_models + modelid];
+      mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(3.0*mem->cur_timestep[modelid]/40.0)*mem->k1[STATE_INDEX] +
+	(9.0*mem->cur_timestep[modelid]/40.0)*mem->k2[STATE_INDEX];
     }
     ret |= model_flows(mem->props->time[modelid]+(3.0*mem->cur_timestep[modelid]/10.0), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(44.0*mem->cur_timestep[modelid]/45.0)*mem->k1[i*mem->props->num_models + modelid] +
-	(-56.0*mem->cur_timestep[modelid]/15.0)*mem->k2[i*mem->props->num_models + modelid] +
-	(32.0*mem->cur_timestep[modelid]/9.0)*mem->k3[i*mem->props->num_models + modelid];
+      mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(44.0*mem->cur_timestep[modelid]/45.0)*mem->k1[STATE_INDEX] +
+	(-56.0*mem->cur_timestep[modelid]/15.0)*mem->k2[STATE_INDEX] +
+	(32.0*mem->cur_timestep[modelid]/9.0)*mem->k3[STATE_INDEX];
     }
     ret |= model_flows(mem->props->time[modelid]+(4.0*mem->cur_timestep[modelid]/5.0), mem->temp, mem->k4, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(19372.0*mem->cur_timestep[modelid]/6561.0)*mem->k1[i*mem->props->num_models + modelid] +
-	(-25360.0*mem->cur_timestep[modelid]/2187.0)*mem->k2[i*mem->props->num_models + modelid] +
-	(64448.0*mem->cur_timestep[modelid]/6561.0)*mem->k3[i*mem->props->num_models + modelid] +
-	(-212.0*mem->cur_timestep[modelid]/729.0)*mem->k4[i*mem->props->num_models + modelid];
+      mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(19372.0*mem->cur_timestep[modelid]/6561.0)*mem->k1[STATE_INDEX] +
+	(-25360.0*mem->cur_timestep[modelid]/2187.0)*mem->k2[STATE_INDEX] +
+	(64448.0*mem->cur_timestep[modelid]/6561.0)*mem->k3[STATE_INDEX] +
+	(-212.0*mem->cur_timestep[modelid]/729.0)*mem->k4[STATE_INDEX];
     }
     ret |= model_flows(mem->props->time[modelid]+(8.0*mem->cur_timestep[modelid]/9.0), mem->temp, mem->k5, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(9017.0*mem->cur_timestep[modelid]/3168.0)*mem->k1[i*mem->props->num_models + modelid] +
-	(-355.0*mem->cur_timestep[modelid]/33.0)*mem->k2[i*mem->props->num_models + modelid] +
-	(46732.0*mem->cur_timestep[modelid]/5247.0)*mem->k3[i*mem->props->num_models + modelid] +
-	(49.0*mem->cur_timestep[modelid]/176.0)*mem->k4[i*mem->props->num_models + modelid] +
-	(-5103.0*mem->cur_timestep[modelid]/18656.0)*mem->k5[i*mem->props->num_models + modelid];
+      mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(9017.0*mem->cur_timestep[modelid]/3168.0)*mem->k1[STATE_INDEX] +
+	(-355.0*mem->cur_timestep[modelid]/33.0)*mem->k2[STATE_INDEX] +
+	(46732.0*mem->cur_timestep[modelid]/5247.0)*mem->k3[STATE_INDEX] +
+	(49.0*mem->cur_timestep[modelid]/176.0)*mem->k4[STATE_INDEX] +
+	(-5103.0*mem->cur_timestep[modelid]/18656.0)*mem->k5[STATE_INDEX];
     }
     ret |= model_flows(mem->props->time[modelid]+mem->cur_timestep[modelid], mem->temp, mem->k6, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->next_states[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(35.0*mem->cur_timestep[modelid]/384.0)*mem->k1[i*mem->props->num_models + modelid] +
-	(500.0*mem->cur_timestep[modelid]/1113.0)*mem->k3[i*mem->props->num_models + modelid] +
-	(125.0*mem->cur_timestep[modelid]/192.0)*mem->k4[i*mem->props->num_models + modelid] +
-	(-2187.0*mem->cur_timestep[modelid]/6784.0)*mem->k5[i*mem->props->num_models + modelid] +
-	(11.0*mem->cur_timestep[modelid]/84.0)*mem->k6[i*mem->props->num_models + modelid];
+      mem->next_states[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(35.0*mem->cur_timestep[modelid]/384.0)*mem->k1[STATE_INDEX] +
+	(500.0*mem->cur_timestep[modelid]/1113.0)*mem->k3[STATE_INDEX] +
+	(125.0*mem->cur_timestep[modelid]/192.0)*mem->k4[STATE_INDEX] +
+	(-2187.0*mem->cur_timestep[modelid]/6784.0)*mem->k5[STATE_INDEX] +
+	(11.0*mem->cur_timestep[modelid]/84.0)*mem->k6[STATE_INDEX];
     }
     
     // now compute k4 to adapt the step size
@@ -105,16 +105,16 @@ int dormand_prince_eval(dormand_prince_mem *mem, int modelid) {
     CDATAFORMAT E6 = 22.0/525.0;
     CDATAFORMAT E7 = -1.0/40.0;
     for(i=mem->props->statesize-1; i>=0; i--) {
-      //mexPrintf("%d: k1=%g, k2=%g, k3=%g, k4=%g, k5=%g, k6=%g, k7=%g\n", i, mem->k1[i*mem->props->num_models + modelid], mem->k2[i*mem->props->num_models + modelid], mem->k3[i*mem->props->num_models + modelid], mem->k4[i*mem->props->num_models + modelid], mem->k5[i*mem->props->num_models + modelid], mem->k6[i*mem->props->num_models + modelid], mem->k7[i*mem->props->num_models + modelid]);
-      mem->temp[i*mem->props->num_models + modelid] = /*next_states[i*mem->props->num_models + modelid] + */
-	mem->cur_timestep[modelid]*(E1*mem->k1[i*mem->props->num_models + modelid] +
-			       E3*mem->k3[i*mem->props->num_models + modelid] +
-			       E4*mem->k4[i*mem->props->num_models + modelid] +
-			       E5*mem->k5[i*mem->props->num_models + modelid] +
-			       E6*mem->k6[i*mem->props->num_models + modelid] +
-			       E7*mem->k7[i*mem->props->num_models + modelid]);
-      //z_next_states[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] + (71*mem->cur_timestep[modelid]/57600)*k1[i*mem->props->num_models + modelid] + (-71*mem->cur_timestep[modelid]/16695)*k3[i*mem->props->num_models + modelid] + (71*mem->cur_timestep[modelid]/1920)*k4[i*mem->props->num_models + modelid] + (-17253*mem->cur_timestep[modelid]/339200)*k5[i*mem->props->num_models + modelid] + (22*mem->cur_timestep[modelid]/525)*k6[i*mem->props->num_models + modelid] + (-1*mem->cur_timestep[modelid]/40)*k7[i*mem->props->num_models + modelid];
-      //z_next_states[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] + (5179*mem->cur_timestep[modelid]/57600)*k1[i*mem->props->num_models + modelid] + (7571*mem->cur_timestep[modelid]/16695)*k3[i*mem->props->num_models + modelid] + (393*mem->cur_timestep[modelid]/640)*k4[i*mem->props->num_models + modelid] + (-92097*mem->cur_timestep[modelid]/339200)*k5[i*mem->props->num_models + modelid] + (187*mem->cur_timestep[modelid]/2100)*k6[i*mem->props->num_models + modelid] + (1*mem->cur_timestep[modelid]/40)*k7[i*mem->props->num_models + modelid];
+      //mexPrintf("%d: k1=%g, k2=%g, k3=%g, k4=%g, k5=%g, k6=%g, k7=%g\n", i, mem->k1[STATE_INDEX], mem->k2[STATE_INDEX], mem->k3[STATE_INDEX], mem->k4[STATE_INDEX], mem->k5[STATE_INDEX], mem->k6[STATE_INDEX], mem->k7[STATE_INDEX]);
+      mem->temp[STATE_INDEX] = /*next_states[STATE_INDEX] + */
+	mem->cur_timestep[modelid]*(E1*mem->k1[STATE_INDEX] +
+			       E3*mem->k3[STATE_INDEX] +
+			       E4*mem->k4[STATE_INDEX] +
+			       E5*mem->k5[STATE_INDEX] +
+			       E6*mem->k6[STATE_INDEX] +
+			       E7*mem->k7[STATE_INDEX]);
+      //z_next_states[STATE_INDEX] = mem->props->model_states[STATE_INDEX] + (71*mem->cur_timestep[modelid]/57600)*k1[STATE_INDEX] + (-71*mem->cur_timestep[modelid]/16695)*k3[STATE_INDEX] + (71*mem->cur_timestep[modelid]/1920)*k4[STATE_INDEX] + (-17253*mem->cur_timestep[modelid]/339200)*k5[STATE_INDEX] + (22*mem->cur_timestep[modelid]/525)*k6[STATE_INDEX] + (-1*mem->cur_timestep[modelid]/40)*k7[STATE_INDEX];
+      //z_next_states[STATE_INDEX] = mem->props->model_states[STATE_INDEX] + (5179*mem->cur_timestep[modelid]/57600)*k1[STATE_INDEX] + (7571*mem->cur_timestep[modelid]/16695)*k3[STATE_INDEX] + (393*mem->cur_timestep[modelid]/640)*k4[STATE_INDEX] + (-92097*mem->cur_timestep[modelid]/339200)*k5[STATE_INDEX] + (187*mem->cur_timestep[modelid]/2100)*k6[STATE_INDEX] + (1*mem->cur_timestep[modelid]/40)*k7[STATE_INDEX];
     }
 
     // compare the difference
@@ -125,19 +125,19 @@ int dormand_prince_eval(dormand_prince_mem *mem, int modelid) {
     CDATAFORMAT next_timestep;
 
     for(i=mem->props->statesize-1; i>=0; i--) {
-      err = mem->temp[i*mem->props->num_models + modelid];
-      max_allowed_error = mem->props->reltol*MAX(fabs(mem->next_states[i*mem->props->num_models + modelid]),fabs(mem->props->model_states[i*mem->props->num_models + modelid]))+mem->props->abstol;
+      err = mem->temp[STATE_INDEX];
+      max_allowed_error = mem->props->reltol*MAX(fabs(mem->next_states[STATE_INDEX]),fabs(mem->props->model_states[STATE_INDEX]))+mem->props->abstol;
 
 
-      //err = fabs(next_states[i*mem->props->num_models + modelid]-z_next_states[i*mem->props->num_models + modelid]);
-      //max_allowed_error = RELTOL*fabs(next_states[i*mem->props->num_models + modelid])+ABSTOL;
+      //err = fabs(next_states[STATE_INDEX]-z_next_states[STATE_INDEX]);
+      //max_allowed_error = RELTOL*fabs(next_states[STATE_INDEX])+ABSTOL;
             //if (err-max_allowed_error > max_error) max_error = err - max_allowed_error;
 			       
       CDATAFORMAT ratio = (err/max_allowed_error);
       max_error = ratio>max_error ? ratio : max_error;
       err_sum += ratio*ratio;
 
-      //mexPrintf("%d: ratio=%g next_states=%g err=%g max_allowed_error=%g\n ", i, ratio, mem->next_states[i*mem->props->num_models + modelid], err, max_allowed_error);
+      //mexPrintf("%d: ratio=%g next_states=%g err=%g max_allowed_error=%g\n ", i, ratio, mem->next_states[STATE_INDEX], err, max_allowed_error);
     }
     
     //CDATAFORMAT norm = max_error; 
@@ -162,7 +162,7 @@ int dormand_prince_eval(dormand_prince_mem *mem, int modelid) {
 
   // just return back the expected
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->props->model_states[i*mem->props->num_models + modelid] = mem->next_states[i*mem->props->num_models + modelid];
+    mem->props->model_states[STATE_INDEX] = mem->next_states[STATE_INDEX];
   }
   
   return ret;

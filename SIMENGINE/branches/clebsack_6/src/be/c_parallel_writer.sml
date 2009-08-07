@@ -162,7 +162,7 @@ fun initbyclass_code class =
 			     if size = 1 then
 				 $("states[modelid]." ^ name ^ " = " ^ assigned_value ^ ";")
 			     else (* might have to do something special here or in c_writer_util *)
-				 $("#error FIXME - needs vector of assigned_value in SML")
+				 $("#error FIXME - this path is not assigned code in c_parallel_writer.sml")
 			 end) init_eqs) @
 		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 		  (map 
@@ -176,10 +176,10 @@ fun initbyclass_code class =
 			      if size = 1 then
 				  $("init_" ^ (Symbol.name classname) ^ "(&states[modelid]."^(Symbol.name instname)^", 1);")
 			      else (* not sure what to do here *)
-				  $("init_" ^ (Symbol.name classname) ^ "(&states[modelid]."^(Symbol.name instname)^", 1);")
+				  $("#error FIXME - this path is not assigned code in c_parallel_writer.sml")
 			  end)
-		       class_inst_pairs)))],
-	     $("}"),
+		       class_inst_pairs))),
+	     $("}")],
 	  $("};")]
     end
     
@@ -268,7 +268,7 @@ fun class2flow_code (class, top_class) =
 				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 					  $("// " ^ (CWriterUtil.exp2c_str exp)),
 					  $(inps), $(outs_decl),
-					  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")] @
+					  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, 0);")] @
 					 let
 					     val symbols = map
 							       (fn(outsym) => Term.sym2curname outsym)
@@ -446,14 +446,15 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $(""),
 	     $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
 	     $("for(modelid=0; modelid<num_models; modelid++){"),
-	     SUB[$("while (*t < t1) {"),
-		 SUB[$("double prev_t = *t;"),
+	     SUB[$("while (t[modelid] < t1) {"),
+		 SUB[$("CDATAFORMAT prev_t = *t;"),
 		     $("int status = INTEGRATION_METHOD(eval)(mem, modelid);"),
 		     $("if (status != 0) {"),
 		     SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
 			 $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g\", *t);"),
 			 $("break;")],
 		     $("}"),
+		     $("if(modelid == 0)"),
 		     $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states, modelid) != 0) {"),
 		     SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
 			 $("break;")],
@@ -539,9 +540,13 @@ fun main_code class =
 	 SUB[(*$("FPRINTFUN(stderr,\"Running '"^name^"' model ...\\n\");"),*)
 	     $(""),
 	     $("// Get the simulation time t from the command line"),
+	     $("int modelid;"),
 	     $("int NUM_MODELS = 1;"),
-	     $("double t = 0;"),
-	     $("double t1 = atof(argv[1]);"),
+	     $("CDATAFORMAT *t = MALLOCFUN(NUM_MODELS*sizeof(CDATAFORMAT));"),
+	     $("CDATAFORMAT t1 = atof(argv[1]);"),
+	     $("for(modelid=0; modelid<NUM_MODELS; modelid++){"),
+	     SUB[$("t[modelid] = 0;")],
+	     $("}"),
 	     $("output_init(); // initialize the outputs"),
 	     $("model_states = MALLOCFUN(NUM_MODELS* STATESPACE*sizeof(CDATAFORMAT));"),
 	     $("init_"^name^"((struct statedata_"^orig_name^"**) model_states, NUM_MODELS); // initialize the states"),
@@ -549,7 +554,7 @@ fun main_code class =
 	     $(""),
 	     $("init_inputs(inputs);"),
 	     $(""),
-	     $("exec_loop(&t, t1, inputs, NUM_MODELS);"),
+	     $("exec_loop(t, t1, inputs, NUM_MODELS);"),
 	     $(""),
 	     $("return 0;")],
 	 $("}")]

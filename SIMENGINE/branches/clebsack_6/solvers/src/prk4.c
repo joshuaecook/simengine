@@ -25,29 +25,29 @@ int rk4_eval(rk4_mem *mem, int modelid) {
   int ret;
   ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-      (mem->props->timestep/2)*mem->k1[i*mem->props->num_models + modelid];
+    mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+      (mem->props->timestep/2)*mem->k1[STATE_INDEX];
   }
   ret |= model_flows(mem->props->time[modelid]+(mem->props->timestep/2), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0, modelid);
 
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-      (mem->props->timestep/2)*mem->k2[i*mem->props->num_models + modelid];
+    mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+      (mem->props->timestep/2)*mem->k2[STATE_INDEX];
   }
   ret |= model_flows(mem->props->time[modelid]+(mem->props->timestep/2), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0, modelid);
 
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-      mem->props->timestep*mem->k3[i*mem->props->num_models + modelid];
+    mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+      mem->props->timestep*mem->k3[STATE_INDEX];
   }
   ret |= model_flows(mem->props->time[modelid]+mem->props->timestep, mem->temp, mem->k4, mem->props->inputs, mem->props->outputs, 0, modelid);
 
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->props->model_states[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-      (mem->props->timestep/6.0) * (mem->k1[i*mem->props->num_models + modelid] +
-				    2*mem->k2[i*mem->props->num_models + modelid] +
-				    2*mem->k3[i*mem->props->num_models + modelid] +
-				    mem->k4[i*mem->props->num_models + modelid]);
+    mem->props->model_states[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+      (mem->props->timestep/6.0) * (mem->k1[STATE_INDEX] +
+				    2*mem->k2[STATE_INDEX] +
+				    2*mem->k3[STATE_INDEX] +
+				    mem->k4[STATE_INDEX]);
   }
 
   mem->props->time[modelid] += mem->props->timestep;

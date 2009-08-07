@@ -6,9 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-CDATAFORMAT *cur_timestep;
-
 bogacki_shampine_mem *bogacki_shampine_init(solver_props *props) {
+  int i;
   bogacki_shampine_mem *mem = (bogacki_shampine_mem*)malloc(sizeof(bogacki_shampine_mem));
 
   mem->props = props;
@@ -21,15 +20,14 @@ bogacki_shampine_mem *bogacki_shampine_init(solver_props *props) {
   mem->z_next_states = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
 
   // Allocate and initialize timesteps to 0
-  cur_timestep = calloc(props->num_models, sizeof(CDATAFORMAT));
+  mem->cur_timestep = malloc(props->num_models*sizeof(CDATAFORMAT));
+  for(i=0; i<props->num_models; i++)
+    mem->cur_timestep[i] = props->timestep;
 
   return mem;
 }
 
 int bogacki_shampine_eval(bogacki_shampine_mem *mem, int modelid) {
-
-  if (cur_timestep[modelid] == 0) cur_timestep[modelid] = mem->props->timestep;
-		      
   CDATAFORMAT max_timestep = mem->props->timestep*1024;
   CDATAFORMAT min_timestep = mem->props->timestep/1024;
 
@@ -44,35 +42,35 @@ int bogacki_shampine_eval(bogacki_shampine_mem *mem, int modelid) {
 
   while(!appropriate_step) {
 
-    //fprintf(stderr, "|-> ts=%g", cur_timestep[modelid]);
+    //fprintf(stderr, "|-> ts=%g", mem->cur_timestep[modelid]);
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(cur_timestep[modelid]/2)*mem->k1[i*mem->props->num_models + modelid];
+      mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(mem->cur_timestep[modelid]/2)*mem->k1[STATE_INDEX];
     }
-    ret |= model_flows(mem->props->time[modelid]+(cur_timestep[modelid]/2), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+(mem->cur_timestep[modelid]/2), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0, modelid);
 
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->temp[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(3*cur_timestep[modelid]/4)*mem->k2[i*mem->props->num_models + modelid];
+      mem->temp[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(3*mem->cur_timestep[modelid]/4)*mem->k2[STATE_INDEX];
     }
-    ret |= model_flows(mem->props->time[modelid]+(3*cur_timestep[modelid]/4), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+(3*mem->cur_timestep[modelid]/4), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->next_states[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(2.0/9.0)*cur_timestep[modelid]*mem->k1[i*mem->props->num_models + modelid] +
-	(1.0/3.0)*cur_timestep[modelid]*mem->k2[i*mem->props->num_models + modelid] +
-	(4.0/9.0)*cur_timestep[modelid]*mem->k3[i*mem->props->num_models + modelid];
+      mem->next_states[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(2.0/9.0)*mem->cur_timestep[modelid]*mem->k1[STATE_INDEX] +
+	(1.0/3.0)*mem->cur_timestep[modelid]*mem->k2[STATE_INDEX] +
+	(4.0/9.0)*mem->cur_timestep[modelid]*mem->k3[STATE_INDEX];
     }
     
     // now compute k4 to adapt the step size
-    ret |= model_flows(mem->props->time[modelid]+cur_timestep[modelid], mem->next_states, mem->k4, mem->props->inputs, mem->props->outputs, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+mem->cur_timestep[modelid], mem->next_states, mem->k4, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
-      mem->z_next_states[i*mem->props->num_models + modelid] = mem->props->model_states[i*mem->props->num_models + modelid] +
-	(7.0/24.0)*cur_timestep[modelid]*mem->k1[i*mem->props->num_models + modelid] +
-	0.25*cur_timestep[modelid]*mem->k2[i*mem->props->num_models + modelid] +
-	(1.0/3.0)*cur_timestep[modelid]*mem->k3[i*mem->props->num_models + modelid] +
-	0.125*cur_timestep[modelid]*mem->k4[i*mem->props->num_models + modelid];
+      mem->z_next_states[STATE_INDEX] = mem->props->model_states[STATE_INDEX] +
+	(7.0/24.0)*mem->cur_timestep[modelid]*mem->k1[STATE_INDEX] +
+	0.25*mem->cur_timestep[modelid]*mem->k2[STATE_INDEX] +
+	(1.0/3.0)*mem->cur_timestep[modelid]*mem->k3[STATE_INDEX] +
+	0.125*mem->cur_timestep[modelid]*mem->k4[STATE_INDEX];
     }
 
     // compare the difference
@@ -83,40 +81,40 @@ int bogacki_shampine_eval(bogacki_shampine_mem *mem, int modelid) {
     CDATAFORMAT next_timestep;
 
     for(i=mem->props->statesize-1; i>=0; i--) {
-      err = fabs(mem->next_states[i*mem->props->num_models + modelid]-mem->z_next_states[i*mem->props->num_models + modelid]);
-      max_allowed_error = mem->props->reltol*fabs(mem->next_states[i*mem->props->num_models + modelid])+mem->props->abstol;
+      err = fabs(mem->next_states[STATE_INDEX]-mem->z_next_states[STATE_INDEX]);
+      max_allowed_error = mem->props->reltol*fabs(mem->next_states[STATE_INDEX])+mem->props->abstol;
       //if (err-max_allowed_error > max_error) max_error = err - max_allowed_error;
       
       CDATAFORMAT ratio = (err/max_allowed_error);
       max_error = ratio>max_error ? ratio : max_error;
       err_sum += ratio*ratio;
-      //mexPrintf("%g (%g-%g) ", ratio, next_states[i*mem->props->num_models + modelid], z_next_states[i*mem->props->num_models + modelid]);
+      //mexPrintf("%g (%g-%g) ", ratio, next_states[STATE_INDEX], z_next_states[STATE_INDEX]);
 
     }
     
     //CDATAFORMAT norm = max_error;
     CDATAFORMAT norm = sqrt(err_sum/mem->props->statesize);
     appropriate_step = norm <= 1;
-    if (cur_timestep[modelid] == min_timestep) appropriate_step = TRUE;
+    if (mem->cur_timestep[modelid] == min_timestep) appropriate_step = TRUE;
 
     if (appropriate_step)
-      mem->props->time[modelid] += cur_timestep[modelid];
+      mem->props->time[modelid] += mem->cur_timestep[modelid];
 
-    next_timestep = 0.90 * cur_timestep[modelid]*pow(1.0/norm, 1.0/3.0);
-    //mexPrintf("ts: %g -> %g (norm=%g)\n", cur_timestep[modelid], next_timestep, norm);
+    next_timestep = 0.90 * mem->cur_timestep[modelid]*pow(1.0/norm, 1.0/3.0);
+    //mexPrintf("ts: %g -> %g (norm=%g)\n", mem->cur_timestep[modelid], next_timestep, norm);
 
     if ((isnan(next_timestep)) || (next_timestep < min_timestep))
-      cur_timestep[modelid] = min_timestep;
+      mem->cur_timestep[modelid] = min_timestep;
     else if (next_timestep > max_timestep )
-      cur_timestep[modelid] = max_timestep;
+      mem->cur_timestep[modelid] = max_timestep;
     else
-      cur_timestep[modelid] = next_timestep;
+      mem->cur_timestep[modelid] = next_timestep;
 
   }
 
   // just return back the expected
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->props->model_states[i*mem->props->num_models + modelid] = mem->next_states[i*mem->props->num_models + modelid];
+    mem->props->model_states[STATE_INDEX] = mem->next_states[STATE_INDEX];
   }
   
   return ret;

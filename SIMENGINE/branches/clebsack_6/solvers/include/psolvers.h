@@ -4,6 +4,12 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
+// Array of structures indexing
+#define STATE_INDEX (mem->props->statesize*modelid + i)
+
+// Structure of arrays indexing
+//#define STATE_INDEX (i*mem->props->num_models + modelid)
+
 // Common definitions
 #define FALSE 0
 #define TRUE 1
