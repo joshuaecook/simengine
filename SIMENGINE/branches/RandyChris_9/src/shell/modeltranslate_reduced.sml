@@ -321,14 +321,18 @@ fun translate (exec, object) =
 				    if length args > 0 andalso (istype (hd args, "TimeIterator") orelse 
 								(istype (hd args, "ModelOperation") andalso 
 								 List.exists (fn(a) => istype (a, "TimeIterator")) 
-									     (vec2list (method "args" (hd args)))))
+									     (vec2list (method "args" (hd args)))) orelse 
+								(istype (hd args, "RelativeOffset") andalso
+								 istype (method "simIterator" (hd args), "TimeIterator")))
 				    then
 					let
 					    val time = if istype (hd args, "TimeIterator") then
 							   hd args
-						       else
+						       else if istype (hd args, "ModelOperation") then
 							   valOf (List.find (fn(a) => istype (a, "TimeIterator")) 
 									    (vec2list (method "args" (hd args))))
+						       else
+							   method "simIterator" (hd args)
 						
 					in
 					    ((Symbol.symbol o exp2str) (method "name" time)) :: iterators
@@ -452,10 +456,22 @@ fun translate (exec, object) =
 			[ExpBuild.equals (kecexp2dofexp (method "lhs" (method "eq" object))(*ExpBuild.var(exp2str (method "name" object)),*),
 					  kecexp2dofexp (method "rhs" (method "eq" object)))]
 		    else if (istype (object, "State")) then
-			[ExpBuild.equals(ExpBuild.initvar(exp2str (method "name" object)),
-					 kecexp2dofexp (getInitialValue object)),
-			 ExpBuild.equals(kecexp2dofexp (method "lhs" (method "eq" object)),
-					 kecexp2dofexp (method "rhs" (method "eq" object)))]
+			let
+			    val lhs = kecexp2dofexp (method "lhs" (method "eq" object))
+			    val rhs = kecexp2dofexp (method "rhs" (method "eq" object))
+			    val eq = ExpBuild.equals(lhs, rhs)						     
+
+			    val timeiterator = case (ExpProcess.exp2termsymbols lhs) of
+						   [Exp.SYMBOL (sym,props)] => 
+						   (#1(hd (valOf (Property.getIterator props)))
+						    handle _ => error "Malformed left hand side of equation")
+						 | _ => error "Invalid number of symbols on left hand side of equation"
+
+			    val init = ExpBuild.equals(ExpBuild.initavar(exp2str (method "name" object), Symbol.name timeiterator),
+						       kecexp2dofexp (getInitialValue object))
+			in
+			    [init, eq]
+			end
 		    else
 			DynException.stdException ("Unexpected quantity encountered", "ModelTranslate.translate.createClass.quantity2exp", Logger.INTERNAL)			
 		    
