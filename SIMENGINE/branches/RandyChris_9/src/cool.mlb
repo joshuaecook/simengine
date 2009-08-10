@@ -89,6 +89,7 @@ ir/processing/exp_build.sml
 ir/patterns/pattern_process.sml
 ir/processing/exp_printer.sml
 
+ir/datastructs/rewrite.sml
 ir/patterns/exp_equality.sml
 ir/patterns/match.sml
 ir/patterns/rules.sml

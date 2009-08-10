@@ -114,84 +114,86 @@ fun replacePattern assigned_patterns exp =
 	exp
 	assigned_patterns
 
-type rule = (Exp.exp * Exp.exp)
-type action = (Exp.exp * (Exp.exp -> Exp.exp)) (* when finding the first expression, process it through the supplied function *)
-
 fun rule2str (exp1, exp2) =
     (e2s exp1) ^ " -> " ^ (e2s exp2)
 fun rules2str rules =
     "{" ^ (String.concatWith ", " (map (fn(rule)=> rule2str rule) rules)) ^ "}"
 
 (* replaces the pat_exp with repl_exp in the expression, returning the new expression.  This function will operate recursively through the expression data structure. *)
-fun applyRuleExp (rule as (pat_exp, repl_exp) : rule) exp =
+fun applyRewriteExp (rewrite as {find,replace} : Rewrite.rewrite) exp =
     let
-	val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (pat_exp, exp)
+	val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
 	val exp' = if result then
 		       let
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
-			   val repl_exp' = replacePattern assigned_patterns repl_exp
+			   val repl_exp' = case replace of
+					       Rewrite.RULE repl_exp => replacePattern assigned_patterns repl_exp
+					     | Rewrite.ACTION (sym, action_fun) => action_fun exp
 
 			   (* log if desired *)
 			   val _ = if DynamoOptions.isFlagSet "logrewrites" then
-				       Util.log ("Rewriting Rule '"^(e2s pat_exp)^"' -> '"^(e2s repl_exp)^"': changed expression from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")
+				       Util.log ("Rewriting Rule '"^(Rewrite.rewrite2str rewrite)^"': changed expression from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")
 				   else
 				       ()
 				   
 			   (* substitute it back in, but call replaceExp on its arguments *)
-			   val exp' = (head repl_exp') (map (fn(arg)=> applyRuleExp rule arg) (level repl_exp'))
+			   val exp' = (head repl_exp') (map (fn(arg)=> applyRewriteExp rewrite arg) (level repl_exp'))
 		       in
 			   exp'
 		       end
 		   else
-		       (head exp) (map (fn(arg)=> applyRuleExp rule arg) (level exp))
+		       (head exp) (map (fn(arg)=> applyRewriteExp rewrite arg) (level exp))
 		       
     in
 	exp'
     end
 
-fun applyRulesExp (rulelist:rule list) exp = 
+fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp = 
     let
 	val ret = foldl
-		      (fn((pat_exp, repl_exp),ret : ((Symbol.symbol * Exp.exp) list * (Exp.exp * Exp.exp)) option) => 
+		      (fn({find, replace},ret : ((Symbol.symbol * Exp.exp) list * Rewrite.rewrite) option) => 
 			 case ret of 
 			     SOME v => SOME v (* already found a match here so skip the rest*)
 			   | NONE => 
 			     let
-				 val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (pat_exp, exp)
+				 val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
 			     in
 				 if result then
-				     SOME (assigned_patterns, (pat_exp, repl_exp))
+				     SOME (assigned_patterns, {find=find, replace=replace})
 				 else
 				     NONE
 			     end)
 		      NONE
-		      rulelist
+		      rewritelist
 
 	(*val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (pat_exp, exp)*)
 	val exp' = case ret of
-		       SOME (assigned_patterns, rule as (pat_exp, repl_exp)) =>
+		       SOME (assigned_patterns, rewrite as {find,replace}) =>
 		       let
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
-			   val repl_exp' = replacePattern assigned_patterns repl_exp
+			   val repl_exp' = case replace of
+					       Rewrite.RULE repl_exp => replacePattern assigned_patterns repl_exp
+					     | Rewrite.ACTION (sym, action_fun) => action_fun exp
 
 			   (* log if desired *)
 			   val _ = if DynamoOptions.isFlagSet "logrewrites" then
-				       Util.log ("Rewriting Rule '"^(e2s pat_exp)^"' -> '"^(e2s repl_exp)^"': changed expression from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")
+				       Util.log ("Rewriting Rule '"^(Rewrite.rewrite2str rewrite)^"': changed expression from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")
 				   else
 				       ()
 				   
 			   (* substitute it back in, but call replaceExp on its arguments *)
-			   val exp' = (head repl_exp') (map (fn(arg)=> applyRuleExp rule arg) (level repl_exp'))
+			   val exp' = (head repl_exp') (map (fn(arg)=> applyRewritesExp rewritelist arg) (level repl_exp'))
 		       in
 			   exp'
 		       end
 		     | NONE => 
-		       (head exp) (map (fn(arg)=> applyRulesExp rulelist arg) (level exp))
+		       (head exp) (map (fn(arg)=> applyRewritesExp rewritelist arg) (level exp))
 		       
     in
 	exp'
     end
 
+(*
 (* applyActionExp: Search for a pattern, apply an action to it, and return back to the expression *)
 fun applyActionExp (action as (pat_exp, action_fun) : action) exp = 
     let
@@ -260,52 +262,52 @@ fun applyActionsExp (actionlist : action list) exp =
     in
 	exp'
     end
-
+*)
 (* apply rules and repeat *)
-fun repeatApplyRuleExp rule exp =
+fun repeatApplyRewriteExp rewrite exp =
     let
 	val iter_limit = DynamoOptions.getIntegerSetting "termrewritelimit"
 
-	fun repeatApplyRuleExp_helper limit rule exp =
+	fun repeatApplyRewriteExp_helper limit rewrite exp =
 	    if limit = 0 then
 		(Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit)));
 		 exp)
 	    else
 		let
-		    val exp' = applyRuleExp rule exp
+		    val exp' = applyRewriteExp rewrite exp
 		in
 		    if ExpEquality.equiv (exp, exp') then
 			exp
 		    else
-			repeatApplyRuleExp_helper (limit-1) rule exp
+			repeatApplyRewriteExp_helper (limit-1) rewrite exp
 		end
 
     in
-	repeatApplyRuleExp_helper iter_limit rule exp
+	repeatApplyRewriteExp_helper iter_limit rewrite exp
     end
 
-fun repeatApplyRulesExp rules exp =
+fun repeatApplyRewritesExp rewrites exp =
     let
 	val iter_limit = DynamoOptions.getIntegerSetting "termrewritelimit"
 
-	fun repeatApplyRulesExp_helper limit rules exp =
+	fun repeatApplyRewritesExp_helper limit rewrites exp =
 	    if limit = 0 then
 		(Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit)));
 		 exp)
 	    else
 		let
-		    val exp' = applyRulesExp rules exp
+		    val exp' = applyRewritesExp rewrites exp
 		in
 		    if ExpEquality.equiv (exp, exp') then
 			exp
 		    else
-			repeatApplyRulesExp_helper (limit-1) rules exp
+			repeatApplyRewritesExp_helper (limit-1) rewrites exp
 		end
 
     in
-	repeatApplyRulesExp_helper iter_limit rules exp
+	repeatApplyRewritesExp_helper iter_limit rewrites exp
     end
-
+(*
 fun repeatApplyActionExp action exp =
     let
 	val iter_limit = DynamoOptions.getIntegerSetting "termrewritelimit"
@@ -349,5 +351,5 @@ fun repeatApplyActionsExp actions exp =
     in
 	repeatApplyActionsExp_helper iter_limit actions exp
     end
-
+*)
 end

@@ -3,7 +3,7 @@ struct
 
 (*remove line for debugging *)
 fun print x = ()
-(*fun printModel x = DOFPrinter.printModel x *) CurrentModel.setCurrentModel x
+fun printModel x = (* DOFPrinter.printModel x *) CurrentModel.setCurrentModel x
 
 fun printClassMap classMap =
     let

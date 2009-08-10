@@ -178,15 +178,15 @@ fun assignCorrectScope (class: DOF.class) =
 	val derivative_terms = map ExpProcess.lhs differential_equations
 
 	val symbols = Util.flatmap ExpProcess.exp2symbols derivative_terms
-	val actions = map (fn(sym)=>(Match.asym sym, ExpProcess.assignCorrectScopeOnSymbol)) symbols
+	val actions = map (fn(sym)=>{find=Match.asym sym, replace=Rewrite.ACTION (sym, ExpProcess.assignCorrectScopeOnSymbol)}) symbols
 
-	val exps' = map (fn(exp) => Match.applyActionsExp actions exp) exps
+	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
 	(*val exps' = map (fn(exp)=>ExpProcess.assignCorrectScope symbols exp) exps*)
 
 	val outputs = !(#outputs class)
 	val outputs' = map (fn{name, contents, condition}=>{name=name,
-							    contents=map (Match.applyActionsExp actions) contents,
-							    condition=Match.applyActionsExp actions condition}) outputs
+							    contents=map (Match.applyRewritesExp actions) contents,
+							    condition=Match.applyRewritesExp actions condition}) outputs
 		      
     in
 	((#exps class) := exps';
@@ -199,12 +199,12 @@ fun optimizeClass (class: DOF.class) =
 	val exps = !(#exps class)
 
 	(* first, convert all subs to adds and divs to recip *)
-	val exps' = map (fn(exp)=> Match.applyRulesExp [Rules.replaceSubWithNeg,
-							Rules.replaceDivWithRecip] exp) exps
+	val exps' = map (fn(exp)=> Match.applyRewritesExp [Rules.replaceSubWithNeg,
+							   Rules.replaceDivWithRecip] exp) exps
 
 	(* next, aggregate all additions *)
-	val exps'' = map (fn(exp)=> Match.repeatApplyRulesExp [Rules.aggregateSums,
-							       Rules.aggregateProds] exp) exps'
+	val exps'' = map (fn(exp)=> Match.repeatApplyRewritesExp [Rules.aggregateSums,
+								  Rules.aggregateProds] exp) exps'
 
 	val _ = (#exps class) := exps''
     in
