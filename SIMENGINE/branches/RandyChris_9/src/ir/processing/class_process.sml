@@ -178,7 +178,7 @@ fun assignCorrectScope (class: DOF.class) =
 	val derivative_terms = map ExpProcess.lhs differential_equations
 
 	val symbols = Util.flatmap ExpProcess.exp2symbols derivative_terms
-	val actions = map (fn(sym)=>{find=Match.asym sym, replace=Rewrite.ACTION (sym, ExpProcess.assignCorrectScopeOnSymbol)}) symbols
+	val actions = map (fn(sym)=>{find=Match.asym sym, test=NONE, replace=Rewrite.ACTION (sym, ExpProcess.assignCorrectScopeOnSymbol)}) symbols
 
 	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
 	(*val exps' = map (fn(exp)=>ExpProcess.assignCorrectScope symbols exp) exps*)
@@ -203,7 +203,7 @@ fun optimizeClass (class: DOF.class) =
 							   Rules.replaceDivWithRecip] exp) exps
 
 	(* next, aggregate all additions *)
-	val exps'' = map (fn(exp)=> Match.repeatApplyRewritesExp [(* Rules.distributeNeg,*)
+	val exps'' = map (fn(exp)=> Match.repeatApplyRewritesExp [(*Rules.distributeNeg,*)
 								  Rules.aggregateSums,
 								  Rules.aggregateProds] exp) exps'
 

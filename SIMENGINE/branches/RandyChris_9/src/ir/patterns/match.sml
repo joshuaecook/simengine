@@ -120,10 +120,20 @@ fun rules2str rules =
     "{" ^ (String.concatWith ", " (map (fn(rule)=> rule2str rule) rules)) ^ "}"
 
 (* replaces the pat_exp with repl_exp in the expression, returning the new expression.  This function will operate recursively through the expression data structure. *)
-fun applyRewriteExp (rewrite as {find,replace} : Rewrite.rewrite) exp =
+fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
     let
 	val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
-	val exp' = if result then
+	val run_test = case test of SOME v => true | NONE => false
+
+	(* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)
+	fun test_exp() = 
+	    let
+		val test_fun = valOf test
+	    in
+		test_fun (exp, assigned_patterns)
+	    end
+
+	val exp' = if result andalso (not run_test orelse (test_exp())) then
 		       let
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
 			   val repl_exp' = case replace of
@@ -151,15 +161,24 @@ fun applyRewriteExp (rewrite as {find,replace} : Rewrite.rewrite) exp =
 fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp = 
     let
 	val ret = foldl
-		      (fn({find, replace},ret : ((Symbol.symbol * Exp.exp) list * Rewrite.rewrite) option) => 
+		      (fn({find, test, replace},ret : ((Symbol.symbol * Exp.exp) list * Rewrite.rewrite) option) => 
 			 case ret of 
 			     SOME v => SOME v (* already found a match here so skip the rest*)
 			   | NONE => 
 			     let
 				 val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
+				 val run_test = case test of SOME v => true | NONE => false
+										      
+				 (* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)
+				 fun test_exp() = 
+				     let
+					 val test_fun = valOf test
+				     in
+					 test_fun (exp, assigned_patterns)
+				     end
 			     in
-				 if result then
-				     SOME (assigned_patterns, {find=find, replace=replace})
+				 if result andalso (not run_test orelse (test_exp())) then
+				     SOME (assigned_patterns, {find=find, test=test, replace=replace})
 				 else
 				     NONE
 			     end)
@@ -168,7 +187,7 @@ fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp =
 
 	(*val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (pat_exp, exp)*)
 	val exp' = case ret of
-		       SOME (assigned_patterns, rewrite as {find,replace}) =>
+		       SOME (assigned_patterns, rewrite as {find,test,replace}) =>
 		       let
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
 			   val repl_exp' = case replace of
