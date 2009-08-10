@@ -254,7 +254,16 @@ fun translate (exec, object) =
 			in
 			    case sym of
 				Exp.TERM(Exp.SYMBOL(s, props)) =>
-				Exp.TERM(Exp.SYMBOL(s, Property.setDerivative props (order,[Symbol.symbol "t"])))
+				let
+				    val props = case Property.getIterator props of
+						    NONE => Property.setIterator props [(Symbol.symbol "t", Iterator.RELATIVE 0)]
+						  | SOME iters => if List.exists (fn(s,_) => s = (Symbol.symbol "t") orelse s = (Symbol.symbol "n")) iters then
+								      props
+								  else
+								      Property.setIterator props ((Symbol.symbol "t", Iterator.RELATIVE 0) :: iters)
+				in
+				    Exp.TERM(Exp.SYMBOL(s, Property.setDerivative props (order,[Symbol.symbol "t"])))
+				end
 			      | _ => error "Derivatives of expressions is not supported"
 			end
 		    else
@@ -304,9 +313,9 @@ fun translate (exec, object) =
 			if (istype (obj, "OutputBinding")) then		    
 			    ExpBuild.tvar((exp2str (method "instanceName" obj)) ^ "." ^ (exp2str (method "name" obj)))
 			else if (istype (obj, "Intermediate")) then 
-			    ExpBuild.tvar(exp2str (method "name" obj))
-			else if  ((istype (obj, "State")) andalso istype (method "eq" obj, "DifferentialEquation")) then
-			    ExpBuild.tvar_from_state(exp2str (method "name" obj))
+			    ExpBuild.var(exp2str (method "name" obj))
+			(* else if  ((istype (obj, "State")) andalso istype (method "eq" obj, "DifferentialEquation")) then *)
+			(*     ExpBuild.tvar_from_state(exp2str (method "name" obj)) *)
 			else if istype (obj, "IteratorReference") then
 			    let
 				val name = exp2str (method "name" (method "referencedQuantity" obj))
