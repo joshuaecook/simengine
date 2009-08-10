@@ -35,7 +35,7 @@ cvode_mem * cvode_init(solver_props *props){
   // Create data structure for solver
   mem->cvmem = CVodeCreate(CV_BDF, CV_NEWTON);
   // Initialize CVODE
-  if(CVodeInit(mem->cvmem, user_fun_wrapper, 0, ((N_Vector)(mem->y0))) != CV_SUCCESS){
+  if(CVodeInit(mem->cvmem, user_fun_wrapper, mem->props->starttime, ((N_Vector)(mem->y0))) != CV_SUCCESS){
     fprintf(stderr, "Couldn't initialize CVODE");
   }
   // Set solver tolerances
