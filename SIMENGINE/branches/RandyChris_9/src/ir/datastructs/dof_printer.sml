@@ -75,14 +75,19 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
      print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => e2s (Exp.TERM name) ^ (case default of SOME v => (" = "^(e2s v)) | NONE => "")) (!inputs))) ^ "\n");
      print ("  Equations:\n");
      app (fn(e) => 
-	    if ExpProcess.isInstanceEq e then
-		let
-		    val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
-		in
-		    print("    [" ^ (String.concatWith ", " (map Symbol.name (#iterators props))) ^ "]: " ^ (e2s e) ^ "\n")
-		end
-	    else
-		print("    " ^ (e2s e) ^ "\n")
+	    let
+		val size = ExpProcess.exp2size e
+		val prefix = "  (x" ^ (i2s size) ^ ") "
+	    in
+		if ExpProcess.isInstanceEq e then
+		    let
+			val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
+		    in
+			print(prefix ^ "[" ^ (String.concatWith ", " (map Symbol.name (#iterators props))) ^ "]: " ^ (e2s e) ^ "\n")
+		    end
+		else
+		    print(prefix ^ (e2s e) ^ "\n")
+	    end
 	 ) (!exps);
      print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (e2s (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (e2s condition)) 
 							 (!outputs))) ^ "\n");
@@ -120,7 +125,7 @@ fun printModel (model: DOF.model) =
 
 	fun printSystemProperties {iterators,time,precision} =
 	    (print (" time interval: ["^(r2s (#1 time))^","^(r2s (#2 time))^"]\n");
-	     print (" precision: "^(case precision of DOF.SINGLE => "single" | DOF.DOUBLE => "float")^"\n");
+	     print (" precision: "^(case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")^"\n");
 	     app
 		 (fn(sym, itertype)=>
 		    (print (" iterator: " ^ (Symbol.name sym) ^ "\n");

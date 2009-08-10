@@ -1,6 +1,11 @@
 structure ExpEquality =
 struct
 
+val b2s = Util.b2s
+val e2s = ExpPrinter.exp2str
+fun explist2str explist = 
+    "{" ^ (String.concatWith ", " (map e2s explist)) ^ "}"
+
 (* two helper functions that operate the same way as andalso and orelse, 
  just with an extra output argument *)
 fun andcond ((pat1, bool1), (pat2, bool2)) =
@@ -145,8 +150,10 @@ and pattern_list_equivalent assigned_patterns (pat as (sym, (_, pred), patcount)
 	(assigned_patterns, false)
 *)
 
+
 and list_equivalent assigned_patterns (explist1, explist2) =
     let
+
 	fun isExpZeroCompatible ap exp = 
 	    case exp
 	     of Exp.TERM (Exp.NAN) => (ap, true)
@@ -171,6 +178,7 @@ and list_equivalent assigned_patterns (explist1, explist2) =
 	    exp_equivalent assigned_patterns (exp1, exp2)
 	  | list_equiv_helper assigned_patterns (exp1::rest1, explist2) =
 	    let
+		(*val _ = Util.log ("In list_equiv_helper: '"^(explist2str (exp1::rest1))^"' '"^(explist2str explist2)^"'")*)
 		(* remove duplicates in the assigned patterns structure *)
 		fun removeAPduplicates assigned_patterns =
 		    let
@@ -297,6 +305,8 @@ and list_equivalent assigned_patterns (explist1, explist2) =
 		else (* we can't do anything here ... *)
 		    (assigned_patterns, false)*)
 	    end
+
+
     in
 	list_equiv_helper assigned_patterns (explist1, explist2)
     end
@@ -308,7 +318,13 @@ and exp_equivalent assigned_patterns (exp1, exp2) =
       | (Exp.FUN (Fun.BUILTIN fun1, args1), Exp.FUN (Fun.BUILTIN fun2, args2)) => 
 	if fun1 = fun2 then
 	    case #operands (Fun.builtin2props fun1) of
-		Fun.VARIABLE _ => list_equivalent assigned_patterns (args1, args2)
+		Fun.VARIABLE _ => 
+		let
+		    val (ap, ret) = list_equivalent assigned_patterns (args1, args2)
+		    (*val _ = Util.log ("Running list_equivalent on '"^(explist2str args1)^"' and '"^(explist2str args2)^"' and returning "^(b2s ret))*)
+		in
+		    (ap, ret)
+		end
 	      | Fun.FIXED _ => allEquiv exp_equivalent assigned_patterns (args1, args2)
 	else
 	    (assigned_patterns, false)

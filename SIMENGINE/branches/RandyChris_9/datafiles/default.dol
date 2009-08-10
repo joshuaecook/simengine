@@ -23,7 +23,7 @@
 <hwtarget = "ml402">
 <logdof = true>
 <termrewritelimit = 25>
-<logrewrites = true>
+<logrewrites = false>
 <generateC = false>
 <logluts = false>
 <logranges = false>

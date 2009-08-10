@@ -94,7 +94,7 @@ fun times l = Exp.FUN (Fun.BUILTIN Fun.MUL, l);
 fun power (a,b) = Exp.FUN (Fun.BUILTIN Fun.POW, [a, b]);
 fun exp v = power (var "e", v)
 fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
-fun neg v = times [int ~1, v]
+fun neg v = Exp.FUN (Fun.BUILTIN Fun.NEG, [v]) (*times [int ~1, v]*)
 infix equals;
 
 end

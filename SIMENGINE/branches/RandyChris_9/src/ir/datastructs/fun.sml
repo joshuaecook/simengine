@@ -434,28 +434,41 @@ fun name2op sym =
 fun builtin2props f : op_props = 
     op2props f
 
+fun op2name (f: funtype) = 
+    case f
+     of BUILTIN v => #name (op2props v)
+      | INST {classname,...} => Symbol.name classname
+
 fun fun2textstrnotation f =
     case f 
-	 of BUILTIN v => 
-	    let
-		val {text as (str, notation),...} = builtin2props v
-	    in
-		(str, notation)
-	    end
-	  | INST {classname,props,...} => 
-	    case getRealClassName props of
-		SOME sym => ((Symbol.name sym) ^ "<"^(Symbol.name classname)^">", PREFIX)
-	      | NONE => (Symbol.name classname, PREFIX)
+     of BUILTIN v => 
+	let
+	    val {text as (str, notation),...} = builtin2props v
+	in
+	    (str, notation)
+	end
+      | INST {classname,props,...} => 
+	case getRealClassName props of
+	    SOME sym => ((Symbol.name sym) ^ "<"^(Symbol.name classname)^">", PREFIX)
+	  | NONE => (Symbol.name classname, PREFIX)
 
 fun fun2cstrnotation f =
     case f 
-	 of BUILTIN v => 
-	    let
-		val {C as (str, notation),...} = builtin2props v
-	    in
-		(str, notation)
-	    end
-	  | INST {classname,...} => (Symbol.name classname, PREFIX)
+     of BUILTIN v => 
+	let
+	    val {C as (str, notation),...} = builtin2props v
+	in
+	    (str, notation)
+	end
+      | INST {classname,...} => (Symbol.name classname, PREFIX)
+
+fun hasVariableArguments f =
+    case f 
+     of BUILTIN v => 
+	(case #operands (builtin2props v) of
+	     VARIABLE _ => true
+	   | FIXED _ => false)
+      | INST _ => false (* not allowing variable arguments for instances *)
 
 
 (*	

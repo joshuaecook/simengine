@@ -26,7 +26,11 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
 		str
     in
 	case (Fun.fun2textstrnotation str) of
-	    (v, Fun.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2tersestr e),e)) exps)
+	    (v, Fun.INFIX) => 
+	    if Fun.hasVariableArguments str andalso length exps = 1 then
+		(Fun.op2name str) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
+	    else
+		String.concatWith v (map (fn(e)=>addParen ((exp2tersestr e),e)) exps)
 	  | (v, Fun.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
 	  | (v, Fun.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr e),e)) exps)) ^ " " ^ v
 	  | (v, Fun.MATCH) => 
