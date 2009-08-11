@@ -69,20 +69,20 @@
 %
 function [varargout] = simex(varargin)
 if not(exist(getenv('DYNAMO'), 'dir'))
-  error('Simatra:SIMEX:EnvironmentError', ...
+  error('Simatra:SIMEX:environmentError', ...
         'DYNAMO environment variable must be set to the install location.');
 end
 [dslPath dslName modelFile opts] = get_simex_opts(varargin{:})
 
 dllPath = invoke_compiler(dslPath, dslName, modelFile, opts);
 
-userInputs = opts.inputs;
-userStates = opts.states;
-
 interface = simex_helper(dllPath, '-query');
 
+userInputs = vet_user_inputs(interface, opts.inputs);
+userStates = vet_user_states(interface, opts.states);
+
 output = simex_helper(dllPath, opt.startTime, opts.endTime, ...
-		      userInputs, userStates);
+		      userInputs', userStates');
 
 varargout = {opts output};
 end
@@ -121,7 +121,7 @@ for count=3:nargin
   if isstruct(arg)
     opts.inputs = arg;
   elseif isnumeric(arg)
-    opts.states = arg;
+    opts.states = double(arg);
   elseif ~(ischar(arg) || isempty(arg))
     error('Simatra:SIMEX:argumentError', ...
           'All additional arguments must be non-empty strings.');
@@ -165,6 +165,8 @@ end
 % 
 
 function [startTime endTime] = get_time(userTime)
+% GET_TIME returns a 2-element array containing the time limit for
+% a simulation run.
 data = double(userTime);
 
 switch (rows(userTime) * columns(userTime))
@@ -180,4 +182,95 @@ end
 end
 % 
 
+function [userInputs] = vet_user_inputs(interface, inputs)
+% VET_USER_INPUTS verifies that the user-supplied inputs are valid.
+if ~isstruct(inputs)
+  error('Simatra:typeError', ...
+        'Expected INPUTS to be a structure.')
+end
 
+models = 0
+
+fields = interface.input_names;
+for fieldid=[1 length(fields)]
+  fieldname = fieldnames(fieldid);
+  if ~isfield(inputs, fieldname)
+    continue
+  end
+
+  field = inputs.(fieldname);
+  if ~isnumeric(field)
+    error('Simatra:typeError', 'Expected INPUTS.%s to be numeric.', fieldname);
+  elseif issparse(field)
+    error('Simatra:typeError', 'Did not expect INPUTS.%s to be sparse.', fieldname);
+  elseif iscomplex(field)
+    warning('Simatra:warning', 'Ignoring imaginary components of INPUTS.%s.', fieldname);
+  end
+  
+  if ~isscalar(field)
+    [rows cols] = size(field)
+    if 2 < ndims(field)
+      error('Simatra:valueError', 'INPUTS.%s may not have more than 2 dimensions.', fieldname);
+    elseif ~(1 == rows || 1 == cols)
+      error('Simatra:valueError', 'Expected INPUTS.%s to be a vector or scalar.', fieldname);
+    end
+    
+    if 1 < models
+      if models ~= length(field)
+        error('Simatra:valuesError', 'All non-scalar fields must have the same length.');
+      end
+    else
+      models = max(rows, cols)
+    end
+  elseif 0 == models
+    models = 1
+  end
+end
+
+userInputs = zeros(length, interface.num_inputs);
+for fieldid=[1 length(fields)]
+  fieldname = fieldnames(fieldid);
+  if ~isfield(inputs, fieldname)
+    userInputs(1:models, fieldid) = interface.default_inputs(fieldid) * ones(models, 1);
+    continue
+  end
+  
+  field = inputs.(fieldname);
+  if isscalar(field)
+    userInputs(1:models, fieldid) = field * ones(models, 1);
+  else
+    userInputs(1:models, fieldid) = field
+  end
+end
+
+end
+% 
+
+function [userStates] = vet_user_states(interface, inputs, states)
+% VET_USER_STATES verifies that the user-supplied initial states
+% contain valid data.
+if ~isnumeric(states)
+  error('Simatra:typeError', 'Expected Y0 to be numeric.');
+elseif issparse(states)
+  error('Simatra:typeError', 'Did not expect Y0 to be sparse.');
+elseif iscomplex(states)
+  warning('Simatra:warning', 'Ignoring imaginary components of Y0.');
+end
+
+[statesRows statesCols] = size(states);
+userStates = []
+
+if 0 < statesRows
+  if statesCols ~= interface.num_states
+    error('Simatra:SIMEX:argumentError', ...
+          'Y0 must contain %d columns.' interface.num_states);
+  end
+  userStates = states
+end
+
+end
+% 
+
+function [dllPath] = invoke_compiler(dslPath, dslName, modelFile, opts)
+dllPath = 'simengine-dll/libsimengine.so';
+end

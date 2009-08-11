@@ -8,18 +8,13 @@
 
 
 
-
-simengine_alloc allocator = { MALLOC, REALLOC, FREE };
-
-simengine_interface *(*getinterface)(void);
-simengine_output *(*runmodel)(int, int, int, double *, int, double *, simengine_alloc *);
-
 /* Loads the given named dynamic library file.
  * Returns an opaque handle to the library.
  */
 void *load_simengine(const char *name)
     {
     void *simengine;
+
     if (!(simengine = dlopen(name, RTLD_NOW)))
 	{
 	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
@@ -30,20 +25,23 @@ void *load_simengine(const char *name)
     }
 
 /* Retrieves function pointers to the simengine API calls. */
-void *init_simengine(void *simengine)
+simengine_api *init_simengine(void *simengine)
     {
-    getinterface = dlsym(simengine, "simengine_getinterface");
-    runmodel = dlsym(simengine, "simengine_runmodel");
+    simengine_api *api;
+    api = NMALLOC(1, simengine_api);
 
-    return simengine;
+    api->getinterface = dlsym(simengine, "simengine_getinterface");
+    api->runmodel = dlsym(simengine, "simengine_runmodel");
+    api->driver = simengine;
+
+    return api;
     }
 
-/* Releases a library handle. The given handle may no longer be used. */
-int release_simengine(void *simengine)
+/* Releases a library handle. The given handle and associated api may no longer be used. */
+void release_simengine(simengine_api *api)
     {
-    getinterface = 0;
-    runmodel = 0;
-    return dlclose(simengine);
+    dlclose(api->driver);
+    FREE(api);
     }
 
 
@@ -51,18 +49,21 @@ int release_simengine(void *simengine)
  * Includes names and default values for inputs and states.
  * The struct is assigned to the 'interface' pointer.
  */
-void mexSimengineInterface(mxArray **interface)
+void mexSimengineInterface(simengine_interface *iface, mxArray **interface)
     {
-    const char *field_names[] = {"num_inputs", "num_states", "num_outputs",
+    const char *field_names[] = {"version",
+				 "num_inputs", "num_states", "num_outputs",
 				 "input_names", "state_names", "output_names",
-				 "default_inputs", "default_states", "hashcode"};
+				 "default_inputs", "default_states", "metadata"};
+    const char *meta_names[] = {"hashcode", "num_models", "solver", "precision"};
+
+    mxArray *version;
     mxArray *input_names, *state_names, *output_names;
     mxArray *default_inputs, *default_states;
+    mxArray *metadata;
     mxArray *hashcode;
     void *data;
     unsigned int i;
-
-    simengine_interface *iface = getinterface();
 
     // Constructs the payload.
     input_names = mxCreateCellMatrix(1, iface->num_inputs);
@@ -87,13 +88,8 @@ void mexSimengineInterface(mxArray **interface)
     data = mxGetPr(default_states);
     memcpy(data, iface->default_states, iface->num_states * sizeof(double));
     
-    // FIXME is this the correct storage class?
-    hashcode = mxCreateNumericMatrix(1, 1, mxINT64_CLASS, mxREAL);
-    data = mxGetPr(hashcode);
-    memcpy(data, &iface->hashcode, sizeof(long long));
-
     // Creates and initializes the return structure.
-    *interface = mxCreateStructMatrix(1, 1, 9, field_names);
+    *interface = mxCreateStructMatrix(1, 1, 10, field_names);
 
     mxSetField(*interface, 0, "num_inputs", mxCreateDoubleScalar((double)iface->num_inputs));
     mxSetField(*interface, 0, "num_states", mxCreateDoubleScalar((double)iface->num_states));
@@ -105,7 +101,25 @@ void mexSimengineInterface(mxArray **interface)
 
     mxSetField(*interface, 0, "default_inputs", default_inputs);
     mxSetField(*interface, 0, "default_states", default_states);
-    mxSetField(*interface, 0, "hashcode", hashcode);
+
+    // Constructs the metadata
+    version = mxCreateNumericMatrix(1, 1, mxUINT32_CLASS, mxREAL);
+    data = mxGetPr(hashcode);
+    memcpy(data, &iface->version, sizeof(unsigned long));
+    
+    hashcode = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
+    data = mxGetPr(hashcode);
+    memcpy(data, &iface->metadata->hashcode, sizeof(unsigned long long));
+    
+    // Creates and initializes the metadata structure
+    metadata = mxCreateStructMatrix(1, 1, 4, meta_names);
+
+    mxSetField(*interface, 0, "version", version);
+    mxSetField(*interface, 0, "metadata", metadata);
+    mxSetField(metadata, 0, "hashcode", hashcode);
+    mxSetField(metadata, 0, "num_models", mxCreateDoubleScalar((double)iface->metadata->num_models));
+    mxSetField(metadata, 0, "solver", mxCreateString(iface->metadata->solver));
+    mxSetField(metadata, 0, "precision",  mxCreateDoubleScalar((double)iface->metadata->precision));
     }
 
 void usage(void)
@@ -182,16 +196,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	    }
 	
 	void *simengine = load_simengine(name);
-	init_simengine(simengine);
+	simengine_api *api = init_simengine(simengine);
 
-	mexSimengineInterface(plhs);
+	mexSimengineInterface(api->getinterface(), plhs);
 
-	release_simengine(simengine);
+	release_simengine(api);
 	}
     else
 	{
 	simengine_interface *iface;
-	simengine_output *output;
+	simengine_result *result;
 	const mxArray *userInputs = 0, *userStates = 0;
 	double *data;
 	double startTime = 0, stopTime = 0;
@@ -243,9 +257,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	nstates = userStates ? mxGetM(userStates) : 0;
 
 	void *simengine = load_simengine(name);
-	init_simengine(simengine);
-
-	iface = getinterface();
+	simengine_api *api = init_simengine(simengine);
+	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
+ 
+	iface = api->getinterface();
 
 	if (userInputs && mxGetN(userInputs) != iface->num_inputs)
 	    {
@@ -260,9 +275,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		"Y0 should have %d columns.", iface->num_states);
 	    }
 
-	// TODO need to transpose?
-	output = runmodel(startTime, stopTime, ninputs, mxGetData(userInputs), nstates, mxGetData(userStates), &allocator);
+	result = api->runmodel(startTime, stopTime, ninputs, mxGetData(userInputs), mxGetData(userStates), &allocator);
 
-	release_simengine(simengine);
+	release_simengine(api);
 	}
     }

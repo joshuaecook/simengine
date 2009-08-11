@@ -56,17 +56,32 @@ typedef unsigned long counter;
  *
  * Copyright 2009 Simatra Modeling Technologies
  */
+#include <stddef.h>
+
+enum{ SUCCESS, OUT_OF_MEMORY_ERROR, FLOW_COMPUTATION_ERROR };
+
+char *errors[] = {"Success", "Out of memory error", "Flow computation error"};
+
+typedef struct {
+  const unsigned long long hashcode; // Signature of the DSL model file
+  const unsigned int num_models; // Parallel count of models given at compilation
+  const char *solver; // Name of integration method
+  const size_t precision; // Number of bytes in data storage, e.g. 4 = single-precision
+  // TODO maybe include data about the compiler itself, e.g. branch id, build time, etc.
+} simengine_metadata;
 
 typedef struct{
-  unsigned int num_inputs;
-  unsigned int num_states;
-  unsigned int num_outputs;
-  char **input_names;
-  char **state_names;
-  char **output_names;
-  double *default_inputs;
-  double *default_states;
-  long long hashcode;
+  const unsigned long version;
+  const unsigned int num_inputs;
+  const unsigned int num_states;
+  const unsigned int num_outputs;
+  const char **input_names;
+  const char **state_names;
+  const char **output_names;
+  const double *default_inputs;
+  const double *default_states;
+  const char *name;
+  const simengine_metadata *metadata;
 } simengine_interface;
 
 // Josh: variables that track counts should be declared as
@@ -81,10 +96,22 @@ typedef struct{
 } simengine_output;
 
 typedef struct{
+  int status;
+  char *status_message;
+  simengine_output *outputs;
+} simengine_result;
+
+typedef struct{
   void *(*malloc)(size_t);
   void *(*realloc)(void *, size_t);
   void (*free)(void *);
 } simengine_alloc;
+
+typedef struct {
+  simengine_interface *(*getinterface)(void);
+  simengine_result *(*runmodel)(int, int, int, double *, double *, simengine_alloc *);
+  void *driver;
+} simengine_api;
 
 /*
  * simengine_getinterface()
@@ -102,11 +129,8 @@ simengine_interface *simengine_getinterface();
  * inputs:
  *         start_time - time to start simulation
  *         stop_time - time to stop simulation
- *         num_input_sets - dimensionality of inputs value greater than 1 indicates parallel execution of models
- *                          a value of 0 indicates the use of default inputs
+ *         num_models - dimensionality of inputs value greater than 1 indicates parallel execution of models
  *         inputs - array of input values to the simulation (contiguous arrays when num_input_sets > 1)
- *         num_state_sets - dimensionality of states value greater than 1 indicates parallel execution of models
- *                          (num_state_sets and num_imput_sets must be equal or one value must be 1 or 0)
  *         states - array of state initial values to the simulation (contiguous arrays when num_state_sets > 1)
  *         alloc - allocation routines used for simengine_output return data
  *
@@ -114,5 +138,5 @@ simengine_interface *simengine_getinterface();
  *          simengine_output * - returns an array of output structures with the data produced by the models
  *                               outputs from a single model are contiguous
  */
-simengine_output *simengine_runmodel(int start_time, int stop_time, int num_input_sets, double *inputs, int num_state_sets, double *states, simengine_alloc *alloc);
+simengine_result *simengine_runmodel(int start_time, int stop_time, int num_models, double *inputs, double *states, simengine_alloc *alloc);
 
