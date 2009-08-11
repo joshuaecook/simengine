@@ -37,10 +37,10 @@
 
 // The type of simulation quantity values.
 #ifdef SIMENGINE_DOUBLE_STORAGE
-//typedef double CDATAFORMAT;
+typedef double CDATAFORMAT;
 #define FLITERAL(X) X
 #else
-//typedef float CDATAFORMAT;
+typedef float CDATAFORMAT;
 // Ensures that operations involving literal quantities are not promoted to double-precision.
 #define FLITERAL(X) X##f
 #endif
@@ -58,9 +58,9 @@ typedef unsigned long counter;
  */
 #include <stddef.h>
 
-enum{ SUCCESS, OUT_OF_MEMORY_ERROR, FLOW_COMPUTATION_ERROR };
+enum{ SUCCESS, ERRMEM, ERRCOMP, ERRNUMMDL};
 
-char *errors[] = {"Success", "Out of memory error", "Flow computation error"};
+char *errors[] = {"Success", "Out of memory error", "Flow computation error", "Wrong number of models"};
 
 typedef struct {
   const unsigned long long hashcode; // Signature of the DSL model file
@@ -119,7 +119,7 @@ typedef struct {
  * outputs:
  *          simengine_interface * - pointer to a static structure within a model that defines its interface
  */
-simengine_interface *simengine_getinterface();
+const simengine_interface *simengine_getinterface();
 
 
 
