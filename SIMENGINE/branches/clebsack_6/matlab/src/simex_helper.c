@@ -70,13 +70,13 @@ void mexSimengineInterface(simengine_interface *iface, mxArray **interface)
     state_names = mxCreateCellMatrix(1, iface->num_states);
     output_names = mxCreateCellMatrix(1, iface->num_outputs);
 
-    for (i=0; i<iface->num_inputs || i<iface->num_states || i<iface->num_outputs; ++i)
+    for (i = 0; i < iface->num_inputs || i < iface->num_states || i < iface->num_outputs; ++i)
 	{
-	if (i<iface->num_inputs)
+	if (i < iface->num_inputs)
 	    { mxSetCell(input_names, i, mxCreateString(iface->input_names[i])); }
-	if (i<iface->num_states)
+	if (i < iface->num_states)
 	    { mxSetCell(state_names, i, mxCreateString(iface->state_names[i])); }
-	if (i<iface->num_outputs)
+	if (i < iface->num_outputs)
 	    { mxSetCell(output_names, i, mxCreateString(iface->output_names[i])); }
 	}
 
@@ -154,7 +154,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
     char name[2048];
 
-    if (2 > nrhs || 4 < nrhs)
+    if (!(2 == nrhs || 4 == nrhs))
 	{
 	usage();
 	ERROR(Simatra:SIMEX:HELPER:argumentError, 
@@ -195,8 +195,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		"Incorrect number of left-hand side arguments.");
 	    }
 	
-	void *simengine = load_simengine(name);
-	simengine_api *api = init_simengine(simengine);
+	simengine_api *api = init_simengine(load_simengine(name));
 
 	mexSimengineInterface(api->getinterface(), plhs);
 
@@ -209,8 +208,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	const mxArray *userInputs = 0, *userStates = 0;
 	double *data;
 	double startTime = 0, stopTime = 0;
-	unsigned int ninputs, nstates;
+	unsigned int models;
 
+	// TODO switch is unnecessary; this form should ONLY accept 4 rhs arguments.
 	switch (nrhs)
 	    {
 	    case 4:
@@ -253,29 +253,21 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	    }
 
-	ninputs = userInputs ? mxGetM(userInputs) : 0;
-	nstates = userStates ? mxGetM(userStates) : 0;
+	if (!userStates)
+	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "Y0 was not specified."); }
+	if (!userInputs)
+	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS was not specified."); }
 
-	void *simengine = load_simengine(name);
-	simengine_api *api = init_simengine(simengine);
+	models = userStates ? mxGetN(userStates) : 0;
+	if (mxGetN(userInputs) != models)
+	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS and Y0 must be the same length."); }
+	if (1 > models)
+	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "No models can be run."); }
+
+	simengine_api *api = init_simengine(load_simengine(name));
 	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
  
-	iface = api->getinterface();
-
-	if (userInputs && mxGetN(userInputs) != iface->num_inputs)
-	    {
-	    release_simengine(simengine);
-	    ERROR(Simatra:SIMEX:HELPER:argumentError,
-		"INPUTS should have %d columns.", iface->num_inputs);
-	    }
-	if (userStates && mxGetN(userStates) != iface->num_states)
-	    {
-	    release_simengine(simengine);
-	    ERROR(Simatra:SIMEX:HELPER:argumentError,
-		"Y0 should have %d columns.", iface->num_states);
-	    }
-
-	result = api->runmodel(startTime, stopTime, ninputs, mxGetData(userInputs), mxGetData(userStates), &allocator);
+	result = api->runmodel(startTime, stopTime, models, mxGetData(userInputs), mxGetData(userStates), &allocator);
 
 	release_simengine(api);
 	}

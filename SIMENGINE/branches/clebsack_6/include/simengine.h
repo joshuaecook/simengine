@@ -109,7 +109,7 @@ typedef struct{
 
 typedef struct {
   simengine_interface *(*getinterface)(void);
-  simengine_result *(*runmodel)(int, int, int, double *, double *, simengine_alloc *);
+  simengine_result *(*runmodel)(double, double, unsigned int, double *, double *, simengine_alloc *);
   void *driver;
 } simengine_api;
 
@@ -138,5 +138,5 @@ const simengine_interface *simengine_getinterface();
  *          simengine_output * - returns an array of output structures with the data produced by the models
  *                               outputs from a single model are contiguous
  */
-simengine_result *simengine_runmodel(int start_time, int stop_time, int num_models, double *inputs, double *states, simengine_alloc *alloc);
+simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc);
 

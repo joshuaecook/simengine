@@ -72,19 +72,43 @@ if not(exist(getenv('DYNAMO'), 'dir'))
   error('Simatra:SIMEX:environmentError', ...
         'DYNAMO environment variable must be set to the install location.');
 end
-[dslPath dslName modelFile opts] = get_simex_opts(varargin{:})
+[dslPath dslName modelFile opts] = get_simex_opts(varargin{:});
 
 dllPath = invoke_compiler(dslPath, dslName, modelFile, opts);
-
 interface = simex_helper(dllPath, '-query');
 
-userInputs = vet_user_inputs(interface, opts.inputs);
-userStates = vet_user_states(interface, opts.states);
+if nargin == 1
+  varargout = {interface};
+else
+  userInputs = vet_user_inputs(interface, opts.inputs);
+  userStates = vet_user_states(interface, opts.states);
+  
+  [inputsM inputsN] = size(userInputs);
+  [statesM statesN] = size(userStates);
+  models = max(1, inputsM, statesM);
 
-output = simex_helper(dllPath, opt.startTime, opts.endTime, ...
-		      userInputs', userStates');
+  if 1 < inputsM && 1 < statesM && inputsM ~= statesM
+    error('Simatra:SIMEX:argumentError', ...
+          'When INPUTS and Y0 both contain more than 1 row, they must have the same number of rows.');
+  end
+  
+  if 0 == inputsM
+    userInputs = interface.default_inputs * ones(models, interface.num_inputs);
+  elseif 1 == inputsM && models ~= inputsM
+    userInputs = userInputs * ones(models, interface.num_inputs);
+  end
+  
+  if 0 == statesM
+    userStates = interface.default_states * ones(models, interface.num_states);
+  elseif 1 == statesM && models ~= statesM
+    userStates = userStates * ones(models, interface.num_states);
+  end
 
-varargout = {opts output};
+  output = simex_helper(dllPath, opt.startTime, opts.endTime, ...
+                        transpose(userInputs), transpose(userStates));
+
+  varargout = {opts output};
+end
 end
 % 
 
@@ -105,47 +129,49 @@ opts = struct('mode','', 'precision','double', ...
               'startTime',0, 'endTime',0, ...
               'inputs',struct(), 'states',[]);
 
-if 2 > nargin
+if 1 > nargin
   help('simex');
   error('Simatra:SIMEX:argumentError', ...
-        'SIMEX requires an input model file and a run time.');
+        'SIMEX requires an input model file name.');
 end
 
 modelFile = varargin{1};
 [pathName dslName] = fileparts(modelFile);
 
-[opts.startTime opts.endTime] = get_time(varargin{2});
+if 1 < nargin
+  [opts.startTime opts.endTime] = get_time(varargin{2});
 
-for count=3:nargin
-  arg = varargin{count};
-  if isstruct(arg)
-    opts.inputs = arg;
-  elseif isnumeric(arg)
-    opts.states = double(arg);
-  elseif ~(ischar(arg) || isempty(arg))
-    error('Simatra:SIMEX:argumentError', ...
-          'All additional arguments must be non-empty strings.');
-  elseif strcmpi(arg, '-double')
-    opts.precision = 'double';
-  elseif strcmpi(arg, '-single')
-    opts.precision = 'single';
-  elseif strcmpi(arg, '-debug')
-    opts.debug = true;
-  elseif strcmpi(arg, '-profile')
-    opts.profile = true;
-  elseif strcmpi(arg, '-mode')
-    count = count + 1;
-    if count > nargin
+  for count=3:nargin
+    arg = varargin{count};
+    if isstruct(arg)
+      opts.inputs = arg;
+    elseif isnumeric(arg)
+      opts.states = arg;
+    elseif ~(ischar(arg) || isempty(arg))
       error('Simatra:SIMEX:argumentError', ...
-            'The -mode switch must be followed by a mode identifier.');
+            'All additional arguments must be non-empty strings.');
+    elseif strcmpi(arg, '-double')
+      opts.precision = 'double';
+    elseif strcmpi(arg, '-single')
+      opts.precision = 'single';
+    elseif strcmpi(arg, '-debug')
+      opts.debug = true;
+    elseif strcmpi(arg, '-profile')
+      opts.profile = true;
+    elseif strcmpi(arg, '-mode')
+      count = count + 1;
+      if count > nargin
+        error('Simatra:SIMEX:argumentError', ...
+              'The -mode switch must be followed by a mode identifier.');
+      end
+      mode = lower(varargin{count});
+      if ~(ismember(mode, ...
+                    {'ode', 'ode_cuda'}))
+        error('Simatra:SIMEX:argumentError', ...
+              ['The specified mode ' mode ' is not available.']);
+      end
+      opts.mode = mode;
     end
-    mode = lower(varargin{count});
-    if ~(ismember(mode, ...
-                  {'ode', 'ode_cuda'}))
-      error('Simatra:SIMEX:argumentError', ...
-            ['The specified mode ' mode ' is not available.']);
-    end
-    opts.mode = mode;
   end
 end
 
@@ -173,9 +199,17 @@ switch (rows(userTime) * columns(userTime))
  case 1
   startTime = 0;
   endTime = userTime;
+  if userTime < 0
+    error('Simatra:SIMEX:argumentError', ...
+          'TIME must be greater than zero.');
+  end
  case 2
   startTime = userTime(1);
   endTime = userTime(2);
+  if userTime(2) < userTime(1)
+    error('Simatra:SIMEX:argumentError', ...
+          'TIME(2) must be greater than TIME(1).');
+  end
  otherwise
   error(Simatra:argumentError, 'TIME must have length of 1 or 2.');
 end
@@ -184,12 +218,14 @@ end
 
 function [userInputs] = vet_user_inputs(interface, inputs)
 % VET_USER_INPUTS verifies that the user-supplied inputs are valid.
+% Returns a MxN matrix where N is the number of model inputs.
+% M is the number of parallel models.
 if ~isstruct(inputs)
   error('Simatra:typeError', ...
         'Expected INPUTS to be a structure.')
 end
 
-models = 0
+models = 0;
 
 fields = interface.input_names;
 for fieldid=[1 length(fields)]
@@ -208,7 +244,7 @@ for fieldid=[1 length(fields)]
   end
   
   if ~isscalar(field)
-    [rows cols] = size(field)
+    [rows cols] = size(field);
     if 2 < ndims(field)
       error('Simatra:valueError', 'INPUTS.%s may not have more than 2 dimensions.', fieldname);
     elseif ~(1 == rows || 1 == cols)
@@ -217,17 +253,17 @@ for fieldid=[1 length(fields)]
     
     if 1 < models
       if models ~= length(field)
-        error('Simatra:valuesError', 'All non-scalar fields must have the same length.');
+        error('Simatra:valueError', 'All non-scalar fields must have the same length.');
       end
     else
-      models = max(rows, cols)
+      models = max(rows, cols);
     end
   elseif 0 == models
-    models = 1
+    models = 1;
   end
 end
 
-userInputs = zeros(length, interface.num_inputs);
+userInputs = zeros(models, interface.num_inputs);
 for fieldid=[1 length(fields)]
   fieldname = fieldnames(fieldid);
   if ~isfield(inputs, fieldname)
@@ -237,16 +273,18 @@ for fieldid=[1 length(fields)]
   
   field = inputs.(fieldname);
   if isscalar(field)
-    userInputs(1:models, fieldid) = field * ones(models, 1);
+    userInputs(1:models, fieldid) = double(field) * ones(models, 1);
+  elseif models = length(field)
+    userInputs(1:models, fieldid) = double(field);
   else
-    userInputs(1:models, fieldid) = field
+    error('Simatra:valueError', 'Expected INPUTS.%s to have length %d.', fieldname, models);
   end
 end
 
 end
 % 
 
-function [userStates] = vet_user_states(interface, inputs, states)
+function [userStates] = vet_user_states(interface, states)
 % VET_USER_STATES verifies that the user-supplied initial states
 % contain valid data.
 if ~isnumeric(states)
@@ -258,14 +296,14 @@ elseif iscomplex(states)
 end
 
 [statesRows statesCols] = size(states);
-userStates = []
+userStates = [];
 
 if 0 < statesRows
   if statesCols ~= interface.num_states
     error('Simatra:SIMEX:argumentError', ...
-          'Y0 must contain %d columns.' interface.num_states);
+          'Y0 must contain %d columns.', interface.num_states);
   end
-  userStates = states
+  userStates = double(states);
 end
 
 end
