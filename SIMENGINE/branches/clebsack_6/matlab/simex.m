@@ -2,7 +2,7 @@
 %
 %   Usage:
 %       M = SIMEX(MODEL)
-%       Y = SIMEX(MODEL, TIME, INPUTS, Y0, ...)
+%       [OUT Y1] = SIMEX(MODEL, TIME, INPUTS, Y0, ...)
 %
 %   Description:
 %    SIMEX compiles the model defined in the DSL file into a
@@ -88,29 +88,39 @@ else
           'When INPUTS and Y0 both contain more than 1 row, they must have the same number of rows.');
   end
   
+  % User data are transposed before passing in to the simulation.
   if 0 == inputsM
     userInputs = zeros(interface.num_inputs, models);
     for i=[1:interface.num_inputs]
       userInputs(i,:) = interface.default_inputs.(interface.input_names(i)) * ones(1, models);
     end
   elseif 1 == inputsM && models ~= inputsM
-    userInputs = userInputs' * ones(1, models);
+    userInputs = transpose(userInputs) * ones(1, models);
   else
-    userInputs = userInputs';
+    userInputs = transpose(userInputs);
   end
   
   if 0 == statesM
-    userStates = interface.default_states' * ones(1, models);
+    userStates = transpose(interface.default_states) * ones(1, models);
   elseif 1 == statesM && models ~= statesM
-    userStates = userStates' * ones(1, models);
+    userStates = transpose(userStates) * ones(1, models);
   else
-    userStates = userStates';
+    userStates = transpose(userStates);
   end
   
-  output = simex_helper(dllPath, [opts.startTime opts.endTime], ...
+  [output y1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
                         userInputs, userStates);
-
-  varargout = {output};
+  
+  % Output data are transposed before returning.
+  fieldnames = fieldnames(output);
+  for i=[1:length(output)]
+    for f=[1:length(fieldnames)]
+      output(i).(fieldnames{f}) = ...
+          transpose(output(i).(fieldnames{f}));
+    end
+  end
+           
+  varargout = {output transpose(y1)};
 end
 end
 % 

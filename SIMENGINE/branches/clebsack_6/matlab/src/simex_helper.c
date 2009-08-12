@@ -175,7 +175,7 @@ void usage(void)
  *
  * Usage:
  *     M = SIMEX_HELPER(DLL, '-query')
- *     Y = SIMEX_HELPER(DLL, TIME, INPUTS, Y0)
+ *     [OUT Y1] = SIMEX_HELPER(DLL, TIME, INPUTS, Y0)
  *
  *     The first form returns a struct describing the model interface,
  *     including names and default values for inputs and states.
@@ -320,7 +320,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	simengine_interface *iface = api->getinterface();
 	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
 
-	result = api->runmodel(startTime, stopTime, models, mxGetData(userInputs), mxGetData(userStates), &allocator);
+	mxArray *returnStates = mxDuplicateArray(userStates);
+
+	result = api->runmodel(startTime, stopTime, models, mxGetData(userInputs), mxGetData(returnStates), &allocator);
 	switch (result->status)
 	    {
 	    case ERRMEM:
@@ -341,6 +343,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	    }
 
 	mexSimengineResult(iface, plhs, models, result);
+	if (1 < nlhs)
+	    { plhs[1] = returnStates; }
 
 	release_simengine(api);
 	}
