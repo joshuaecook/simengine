@@ -331,7 +331,8 @@ namespace Simulation
     var args
    
     function tostring ()
-      "ModelOperation(name=" + self.name + ", args=" + self.args + ")"
+//      "ModelOperation(name=" + self.name + ", args=" + self.args + ")"
+      LF exp2str (self)
     end
 
     constructor (name: String, numArgs: Number, execFun, precisionMap, args: Vector of _)
@@ -692,12 +693,64 @@ namespace Simulation
 //       end      
 //     end
 
-    function updateHistoryDepth(depth)
-      historyDepth = {depth when depth > historyDepth,
-                      historyDepth otherwise}
-    end 
+    // function updateHistoryDepth(depth)
+    //   historyDepth = {depth when depth > historyDepth,
+    //                   historyDepth otherwise}
+    // end 
 
   end
+
+  class Symbol extends State 
+    constructor (name)
+      super(name)
+    end    
+  end
+
+  class SymbolPattern extends State
+    var min = 1
+    var max = 1
+
+    property one
+      get 
+        min=1
+        max=1
+        self
+      end
+    end
+
+    property some
+      get 
+        min=1
+        max=-1
+        self
+      end
+    end
+
+    property any
+      get 
+        min=0
+        max=-1
+        self
+      end
+    end
+
+    function exactly (num)
+      min=num
+      max=num
+      self
+    end
+
+    function between (range: Interval)
+      min=range.low
+      max=range.high
+      self
+    end
+
+    constructor (name)
+      super(name)
+    end    
+  end
+
 
 
   class IteratorReference extends SimQuantity
@@ -1038,7 +1091,6 @@ namespace Simulation
       end
     end
 
-
 /*    function getQuantities()
       function prune (x) = not ((x.getName() == "t") or (x.getName() == "keep_running") or (x.getName() == "dt"))
 
@@ -1196,6 +1248,7 @@ namespace Simulation
       end
 
     end
+
 /*
     function addSubModel (name, submod: Model)
       submod.domain = domain
@@ -1253,8 +1306,24 @@ namespace Simulation
 
   end
 
+  
+  class Rule 
+      var find
+      var conds
+      var replacement
+      constructor (find, conds, replacement)
+        self.find = find
+        self.conds = conds
+        self.replacement = replacement
+      end      
+  end
+
   import "downsampling.dsl"
 
+  function applyRewriteExp (rule: Rule, exp) = LF applyRewriteExp (rule, exp)
+  function applyRewritesExp (rule: Vector of Rule, exp) = LF applyRewritesExp (rule, exp)
+  function repeatApplyRewriteExp (rule: Rule, exp) = LF repeatApplyRewriteExp (rule, exp)
+  function repeatApplyRewritesExp (rule: Vector of Rule, exp) = LF repeatApplyRewritesExp (rule, exp)
 
 end
 

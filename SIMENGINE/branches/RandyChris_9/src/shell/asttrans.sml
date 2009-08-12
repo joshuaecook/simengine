@@ -176,6 +176,13 @@ and trans_exp (exp : Ast.exp) : HLEC.exp =
 	=>
 	HLEC.LET{vals=[([name], trans_exp exp1)], body=trans_exp exp2}
 
+      | Ast.RULEMATCH {find, conds, replace}
+	=>
+	HLEC.APPLY{func=HLEC.SEND {message=(Symbol.symbol "new"), object=HLEC.SYMBOL (Symbol.symbol "Rule")},
+		   args=HLEC.TUPLE [trans_exp find,
+				    trans_exp conds,
+				    trans_exp replace]}
+
 and trans_interface header =
     case header of
 	Ast.FUNHEADER header

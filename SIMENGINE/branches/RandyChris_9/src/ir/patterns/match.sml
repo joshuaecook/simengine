@@ -96,17 +96,17 @@ fun findRecursive (pattern, target) =
 
 fun replaceSymbol (sym,repl_exp) exp =
     case exp of
-	Exp.TERM (Exp.SYMBOL (sym',_)) => if sym=sym' then
-					      case repl_exp of
-						  Exp.FUN (Fun.BUILTIN Fun.GROUP, args) => args
-						| _ => [repl_exp]
-					  else
-					      [exp]
+	Exp.TERM (Exp.SYMBOL (sym',_)) => 
+	      if sym=sym' then
+		  case repl_exp of
+		      Exp.FUN (Fun.BUILTIN Fun.GROUP, args) => args
+		    | _ => [repl_exp]
+	      else
+		  [exp]
       | Exp.TERM (Exp.LIST (termlist, dimlist)) => [Exp.TERM (Exp.LIST (Util.flatmap (map exp2term o (replaceSymbol (sym, repl_exp)) o Exp.TERM) termlist, dimlist))]
       | Exp.TERM (Exp.TUPLE termlist) => [Exp.TERM (Exp.TUPLE (Util.flatmap (map exp2term o (replaceSymbol (sym, repl_exp)) o Exp.TERM) termlist))]
       | Exp.FUN (funtype, args) => [Exp.FUN (funtype, Util.flatmap (replaceSymbol (sym, repl_exp)) args)]
       | _ => [exp]
-	     
 
 fun replacePattern assigned_patterns exp =
     foldl 
@@ -228,7 +228,7 @@ fun repeatApplyRewriteExp rewrite exp =
 		    if ExpEquality.equiv (exp, exp') then
 			exp
 		    else
-			repeatApplyRewriteExp_helper (limit-1) rewrite exp
+			repeatApplyRewriteExp_helper (limit-1) rewrite exp'
 		end
 
     in
@@ -250,7 +250,7 @@ fun repeatApplyRewritesExp rewrites exp =
 		    if ExpEquality.equiv (exp, exp') then
 			exp
 		    else
-			repeatApplyRewritesExp_helper (limit-1) rewrites exp
+			repeatApplyRewritesExp_helper (limit-1) rewrites exp'
 		end
 
     in

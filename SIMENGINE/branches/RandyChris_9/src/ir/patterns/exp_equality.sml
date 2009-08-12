@@ -45,7 +45,7 @@ fun terms_equivalent assigned_patterns (term1, term2) =
 	(assigned_patterns, 
 	 (a1=a2 andalso b1=b2) (* general case *)
 	 orelse (* otherwise, if they are multiples*)
-	 (Real.==((Real.fromInt(a1))/(Real.fromInt(a2)),(Real.fromInt(a1))/(Real.fromInt(a2))))
+	 (Real.?=((Real.fromInt(a1))/(Real.fromInt(a2)),(Real.fromInt(a1))/(Real.fromInt(a2))))
 	)
       | (Exp.INT a1, Exp.INT a2) => 
 	(assigned_patterns,
@@ -53,7 +53,7 @@ fun terms_equivalent assigned_patterns (term1, term2) =
 	)
       | (Exp.REAL a1, Exp.REAL a2) => 
 	(assigned_patterns,
-	 Real.==(a1, a2)
+	 Real.?=(a1, a2)
 	)
       | (Exp.COMPLEX (r1, i1), Exp.COMPLEX (r2, i2)) => 
 

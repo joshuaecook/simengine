@@ -32,10 +32,10 @@ exception StubbedOut
   | BIN of int * IntInf.int
   | BEGIN_STRING | END_STRING | STRING_EXP
   | TICK | PERIOD | GT | LT | EQ | ASSIGN | LPAREN | RPAREN | STAR | AND | AMPERSAND | ARROW | EQARROW | UNDERSCORE | PLUS | MINUS | UMINUS | SLASH | CARROT | LCBRACE | RCBRACE | ELLIPSIS | GEQUAL | NEQ | LEQUAL
-  | LAMBDAFUN | COMMA | IN | END | LF | LBRACE | RBRACE | UNDERBRACE | PERCENT | WHEN | OTHERWISE | UNDEFINED
+  | LAMBDAFUN | COMMA | IN | END | LF | LBRACE | RBRACE | UNDERBRACE | PERCENT | DOLLAR | AT | WHEN | OTHERWISE | UNDEFINED
   | ASSERT | OR | IF | THEN | ELSE | TRUE | FALSE | ERROR | ELSEIF
   | IMPORT | CLASS | OF | COLON | TO | BY | WITH | STATEFUL | TUNABLE | VISIBLE | OUTPUT | INPUT | MODEL | SUBMODEL | PARAMETER | STATE | HIDDEN | PUBLIC
-  | WHILE | FOREACH | DO | VAR | ITERATOR | CONSTANT | GLOBAL | FUNCTION | OPERATOR | CONSTRUCTOR | NEWLINE | SATISFIES | EXTENDS | INTERFACE | NAMESPACE | REPLACE | OVERLOAD | OPEN | TYPE | ENUMERATION | EQUATION | EQUATIONS | QUANTITY | FORALL | EXISTS | SUCHTHAT | PROPERTY | GET | SET | MULTIFUNCTION | LET 
+  | WHILE | FOREACH | DO | VAR | ITERATOR | CONSTANT | GLOBAL | FUNCTION | OPERATOR | CONSTRUCTOR | NEWLINE | SATISFIES | EXTENDS | INTERFACE | NAMESPACE | REPLACE | OVERLOAD | OPEN | TYPE | ENUMERATION | EQUATION | EQUATIONS | QUANTITY | FORALL | EXISTS | SUCHTHAT | PROPERTY | GET | SET | MULTIFUNCTION | LET | RULEMATCH | WHERE
 
 %nonassoc IMPORT CLASS VAR CONSTANT GLOBAL CONSTRUCTOR OPERATOR FUNCTION MULTIFUNCTION SATISFIES EXTENDS INTERFACE NAMESPACE REPLACE OVERLOAD OPEN ENUMERATION QUANTITY PROPERTY GET SET
 %left LAMBDAFUN TYPE
@@ -43,7 +43,7 @@ exception StubbedOut
 %left IF THEN ELSE ELSEIF
 %nonassoc ASSIGN WHEN OTHERWISE TO BY WITH MODEL SUBMODEL PARAMETER STATE HIDDEN PUBLIC EQARROW ITERATOR 
 %left COMMA
-%left EQUATION EQUATIONS
+%left EQUATION EQUATIONS RULEMATCH WHERE
 %left OR 
 %left AND AMPERSAND
 %left FORALL EXISTS SUCHTHAT
@@ -58,7 +58,7 @@ exception StubbedOut
 %right LPAREN LBRACE LCBRACE UNDERBRACE
 %nonassoc STATEFUL TUNABLE VISIBLE OUTPUT INPUT
 %left PERIOD
-%left REAL INT ID TRUE FALSE NEWLINE UNDERSCORE UNDEFINED HEX BIN OCT TICK PATTERN
+%left REAL INT ID TRUE FALSE NEWLINE UNDERSCORE UNDEFINED HEX BIN OCT TICK PATTERN DOLLAR AT
 %left STRING_CHARS STRING_EXP
 %right BEGIN_STRING END_STRING
 
@@ -450,6 +450,8 @@ lambda: lambdaapp (lambdaapp)
 	 | FORALL ID IN lambda SUCHTHAT lambda  (Ast.FORALL {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
 	 | EXISTS ID IN lambda SUCHTHAT lambda  (Ast.EXISTS {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
 	 | LET ID optlines ASSIGN optlines lambda optlines IN optlines lambda (Ast.LET (Symbol.symbol ID, lambda1, lambda2))
+	 | RULEMATCH lambda optlines ARROW optlines lambda (Ast.RULEMATCH{find=lambda1, conds=Ast.LITERAL(Ast.CONSTBOOL true), replace=lambda2})
+	 | RULEMATCH lambda optlines WHERE optlines lambda optlines ARROW optlines lambda (Ast.RULEMATCH{find=lambda1, conds=lambda2, replace=lambda3})
 
 lambdalist : lambda COMMA optlines lambda ([lambda1, lambda2])
 	   | lambda COMMA optlines lambdalist (lambda :: lambdalist)
@@ -510,6 +512,10 @@ aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
     | LCBRACE conditions RCBRACE (conditions)
     | TYPE typ (Ast.TYPEEXP typ)
     | ASSERT lambda (Ast.ASSERTION lambda)
+    | DOLLAR ID (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "Symbol")},
+			   args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR ID)]})
+    | DOLLAR DOLLAR ID (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "SymbolPattern")},
+				  args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR ID)]})
 
 lambdapatternlist: lambdapattern (lambdapattern :: nil)
 		 | lambdapattern COMMA optlines lambdapatternlist (lambdapattern :: lambdapatternlist)

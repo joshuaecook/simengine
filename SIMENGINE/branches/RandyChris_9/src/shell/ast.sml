@@ -56,6 +56,7 @@ datatype exp =
        | LET       of (Symbol.symbol * exp * exp)
        | NAMEDPATTERN of Symbol.symbol * exp
        | WILDCARD
+       | RULEMATCH of {find:exp, conds: exp, replace: exp}
 
 (*withtype method = {name:string, exp: exp} (* implicitly takes self as first arg *)*)
 and method = 
