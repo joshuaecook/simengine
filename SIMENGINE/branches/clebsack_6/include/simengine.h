@@ -89,14 +89,22 @@ typedef struct{
 // quantities that track the number of samples. Most likely we'd run
 // out of memory before overrunning a 32-bit counter but we could
 // eventually be working with >20GB RAM.
+/* Output data are stored interleaved.
+ * The data of an output with Q quantities over T samples would look like
+ *     [q0t0, q1t0, ... qQt0, q0t1, q1t1, ... qQt1, ... qQtT]
+ */
 typedef struct{
   int num_quantities;
   int num_samples;
   double *data;
 } simengine_output;
 
+/* Model outputs are stored consecutively.
+ * The results of M models with N outputs would look like
+ *     [m0o0, m0o1, ... m0oN, m1o0, m1o1, ... m1oN, ... mMoN]
+ */
 typedef struct{
-  int status;
+  unsigned int status;
   char *status_message;
   simengine_output *outputs;
 } simengine_result;

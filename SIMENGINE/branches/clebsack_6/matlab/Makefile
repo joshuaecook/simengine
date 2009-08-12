@@ -32,10 +32,13 @@ MKOCTFILEFLAGS = $(CWARNINGS) $(INCLUDES) $(LINKAGE)
 ifneq ($(DEBUG),)
 	CCOMMON += -g
 	CFLAGS += -gdwarf-2
+	MEXFLAGS += -g
+	MKOCTFILEFLAGS += -g
 else
 	CCOMMON += -O2
 	CXXFLAGS += -fno-strict-aliasing
 	CFLAGS += -fno-strict-aliasing
+	MEXFLAGS += -O
 endif
 
 # Every possible MEX extension; used for cleaning

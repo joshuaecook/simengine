@@ -68,10 +68,6 @@
 %    For more information, please visit http://www.simatratechnologies.com
 %
 function [varargout] = simex(varargin)
-if not(exist(getenv('DYNAMO'), 'dir'))
-  error('Simatra:SIMEX:environmentError', ...
-        'DYNAMO environment variable must be set to the install location.');
-end
 [dslPath dslName modelFile opts] = get_simex_opts(varargin{:});
 
 dllPath = invoke_compiler(dslPath, dslName, modelFile, opts);
@@ -85,7 +81,7 @@ else
   
   [inputsM inputsN] = size(userInputs);
   [statesM statesN] = size(userStates);
-  models = max(1, inputsM, statesM);
+  models = max([1 inputsM statesM]);
 
   if 1 < inputsM && 1 < statesM && inputsM ~= statesM
     error('Simatra:SIMEX:argumentError', ...
@@ -93,21 +89,28 @@ else
   end
   
   if 0 == inputsM
-    userInputs = interface.default_inputs * ones(models, interface.num_inputs);
+    userInputs = zeros(interface.num_inputs, models);
+    for i=[1:interface.num_inputs]
+      userInputs(i,:) = interface.default_inputs.(interface.input_names(i)) * ones(1, models);
+    end
   elseif 1 == inputsM && models ~= inputsM
-    userInputs = userInputs * ones(models, interface.num_inputs);
+    userInputs = userInputs' * ones(1, models);
+  else
+    userInputs = userInputs';
   end
   
   if 0 == statesM
-    userStates = interface.default_states * ones(models, interface.num_states);
+    userStates = interface.default_states' * ones(1, models);
   elseif 1 == statesM && models ~= statesM
-    userStates = userStates * ones(models, interface.num_states);
+    userStates = userStates' * ones(1, models);
+  else
+    userStates = userStates';
   end
+  
+  output = simex_helper(dllPath, [opts.startTime opts.endTime], ...
+                        userInputs, userStates);
 
-  output = simex_helper(dllPath, opt.startTime, opts.endTime, ...
-                        transpose(userInputs), transpose(userStates));
-
-  varargout = {opts output};
+  varargout = {output};
 end
 end
 % 
@@ -127,10 +130,14 @@ modelFile = '';
 opts = struct('mode','', 'precision','double', ...
               'debug',false, 'profile',false, ...
               'startTime',0, 'endTime',0, ...
-              'inputs',struct(), 'states',[]);
+              'inputs',struct(), 'states',[], ...
+              'simengine','');
+
+[seroot] = fileparts(which('simex'));
+opts.simengine = seroot;
 
 if 1 > nargin
-  help('simex');
+  help('simex')
   error('Simatra:SIMEX:argumentError', ...
         'SIMEX requires an input model file name.');
 end
@@ -227,14 +234,15 @@ end
 
 models = 0;
 
-fields = interface.input_names;
-for fieldid=[1 length(fields)]
-  fieldname = fieldnames(fieldid);
+fieldnames = interface.input_names;
+for fieldid=[1:length(fieldnames)]
+  fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
     continue
   end
 
   field = inputs.(fieldname);
+  
   if ~isnumeric(field)
     error('Simatra:typeError', 'Expected INPUTS.%s to be numeric.', fieldname);
   elseif issparse(field)
@@ -264,17 +272,17 @@ for fieldid=[1 length(fields)]
 end
 
 userInputs = zeros(models, interface.num_inputs);
-for fieldid=[1 length(fields)]
-  fieldname = fieldnames(fieldid);
+for fieldid=[1:length(fieldnames)]
+  fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
-    userInputs(1:models, fieldid) = interface.default_inputs(fieldid) * ones(models, 1);
+    userInputs(1:models, fieldid) = interface.default_inputs.(fieldname) * ones(models, 1);
     continue
   end
   
   field = inputs.(fieldname);
   if isscalar(field)
     userInputs(1:models, fieldid) = double(field) * ones(models, 1);
-  elseif models = length(field)
+  elseif length(field) == models
     userInputs(1:models, fieldid) = double(field);
   else
     error('Simatra:valueError', 'Expected INPUTS.%s to have length %d.', fieldname, models);
@@ -298,7 +306,7 @@ end
 [statesRows statesCols] = size(states);
 userStates = [];
 
-if 0 < statesRows
+if 0 < statesRows && 0 < statesCols
   if statesCols ~= interface.num_states
     error('Simatra:SIMEX:argumentError', ...
           'Y0 must contain %d columns.', interface.num_states);
@@ -310,5 +318,25 @@ end
 % 
 
 function [dllPath] = invoke_compiler(dslPath, dslName, modelFile, opts)
-dllPath = 'simengine-dll/libsimengine.so';
+simengine = fullfile(opts.simengine, 'bin', 'simEngine');
+setenv('SIMENGINE', opts.simengine);
+try 
+  status = simEngine_wrapper(simengine, modelFile, dslName);
+catch
+  error('Simatra:SIMEX:compileError', ...
+        'Failure during compilation.');
 end
+
+if 0 ~= status
+  error('Simatra:SIMEX:compileError', ...
+        'Compilation returned status code %d.', status);
+end
+
+% TODO what is the path of the resultant DLL?
+dllPath = 'simengine-dll/libsimengine.so';
+
+% TODO check the shape of the user inputs and start states, other
+% parameters, and recompile the model if necessary.
+end
+% 
+

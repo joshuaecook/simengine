@@ -580,12 +580,6 @@ $(BUILD_DIR)/include/%solvers.h: solvers/include/%solvers.h
 
 mexinterface: $(SIMEX_HELPER_BUILD)
 
-$(BUILD_DIR)/lib/libmexinterface_%.a: matlab/lib/libmexinterface_%.a
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-$(BUILD_DIR)/include/mexinterface.h: matlab/include/mexinterface.h
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
 matlab/install.m: simEngine.tgz
 	@(cd matlab; $(MATLABCMD) "append_bin_to_file('../simEngine.tgz', 'install_wrapper.m', 'install.m'); exit")
 
@@ -593,17 +587,14 @@ install.m: matlab/install.m
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simex.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/include/psolvers.h $(BUILD_DIR)/include/mexinterface.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a $(BUILD_DIR)/lib/psolvers_double.a $(BUILD_DIR)/lib/psolvers_float.a $(BUILD_DIR)/lib/libmexinterface_float.a $(BUILD_DIR)/lib/libmexinterface_double.a simEngine.tgz install-locally install.m
+MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simex.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/include/psolvers.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a $(BUILD_DIR)/lib/psolvers_double.a $(BUILD_DIR)/lib/psolvers_float.a simEngine.tgz install-locally install.m
 
 solvers/lib/%.a: solvers/src/*.c
 #	(cd solvers; make all)
 	$(MAKE) -C solvers all
 
-matlab/lib/libmexinterface_%.a: matlab/src/mexinterface.c
-	$(MAKE) -C matlab MATLAB_INSTALL_PATH=$(MATLAB_INSTALL_PATH) OCTAVE_INSTALL_PATH=$(OCTAVE_INSTALL_PATH) MEXEXT="$(MEXEXT)" mexinterface
-
 matlab/bin/simex_helper.%: matlab/src/simex_helper.c
-	$(MAKE) -C matlab MATLAB_INSTALL_PATH=$(MATLAB_INSTALL_PATH) OCTAVE_INSTALL_PATH=$(OCTAVE_INSTALL_PATH) MEXEXT="$(MEXEXT)" simex_helper
+	$(MAKE) -C matlab MATLAB_INSTALL_PATH=$(MATLAB_INSTALL_PATH) OCTAVE_INSTALL_PATH=$(OCTAVE_INSTALL_PATH) MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) simex_helper
 
 matlab-installer: $(MATLAB_FILES)
 
