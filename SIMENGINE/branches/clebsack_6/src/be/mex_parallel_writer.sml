@@ -134,8 +134,7 @@ fun main_code class =
 	 $("void mexFunction(int nlhs, mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {"),
 	 SUB[$("int errno;"),
 	     $("int modelid;"),
-	     $("int NUM_MODELS = 2;"),
-	     $("CDATAFORMAT *t = MALLOCFUN(NUM_MODELS*sizeof(CDATAFORMAT));"),
+	     $("CDATAFORMAT t[NUM_MODELS];"),
 	     $("CDATAFORMAT t1;"),
 	     $("double *data;"),
 	     $(""),
@@ -405,6 +404,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 #define ERRORFUN(ID, MESSAGE, ARGS...) (mexErrMsgIdAndText(#ID, MESSAGE, ARGS...))
 *)
 
+	val simengine_interface_progs = CParallelWriter.simengine_interface inst_class
 	val input_progs = CParallelWriter.input_code inst_class
 	val outputdatastruct_progs = CParallelWriter.outputdatastruct_code inst_class
 	val outputstatestruct_progs = CParallelWriter.outputstatestruct_code classes
@@ -420,6 +420,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 
 	(* write the code *)
 	val _ = CParallelWriter.output_code(class_name ^ "_mex", ".", (header_progs @ 
+								       simengine_interface_progs @
 								       outputdatastruct_progs @ 
 								       outputstatestruct_progs @
 								       outputinit_progs @ 

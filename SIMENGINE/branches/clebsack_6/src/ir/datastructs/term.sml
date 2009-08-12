@@ -106,17 +106,20 @@ fun sym2fullstr (s, props) =
 
 fun sym2c_str (s, props) =
     let
+	val ep_index = Property.useEPIndex props
+
 	val scope = Property.getScope props
 
-	val prefix = case scope of
-			 Property.LOCAL => ""
-		       | Property.READSTATE v => Symbol.name v ^ "->"
-		       | Property.WRITESTATE v => Symbol.name v ^ "->"
+	val prefix = 
+	    let val index = if ep_index then "[AS_IDX]." else "->"
+	    in case scope
+		of Property.LOCAL => ""
+		 | Property.READSTATE v => Symbol.name v ^ index
+		 | Property.WRITESTATE v => Symbol.name v ^ index
+	    end
 
-
-	val ep_index = Property.useEPIndex props
 	val suffix = if ep_index then
-			 "[modelid]"
+			 "[SA_IDX]"
 		     else
 			 ""
 	val (order, vars) = case Property.getDerivative props

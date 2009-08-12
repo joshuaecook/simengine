@@ -17,20 +17,98 @@ fun header (class_name, includes, defpairs) =
     [$("// C Execution Engine for top-level model: " ^ class_name),
      $("// " ^ Globals.copyright),
      $(""),
-     $("#include <stdio.h>"),
-     $("#include <stdlib.h>"),
-     $("#include <math.h>"),
-     $("#include <string.h>"),
-     $("#define CDATAFORMAT double"),
-     $("#include <psolvers.h>")] @
+     $("#include <simengine.h>")] @
     (map (fn(inc)=> $("#include "^inc)) includes) @
     [$(""),
      $("")] @
-    (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs) @
-    [$(""),
-     $("static CDATAFORMAT *model_states;"), (* we need to work on this to make it more flexible *)
-     $("")]
+    (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs)
 
+fun simengine_interface class =
+    let
+	val time = Symbol.symbol "t"
+	fun findStatesInitValues basestr (class:DOF.class) = 
+	    let
+		val classname = ClassProcess.class2orig_name class
+		val exps = #exps class
+		val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
+		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
+		fun exp2name exp = 
+		    Term.sym2curname (ExpProcess.exp2term exp)
+		    handle e => DynException.checkpoint ("CParallelWriter.simengine_interface.findStatesInitValues.exp2name ["^(ExpProcess.exp2str exp)^"]") e
+				      
+		val sorted_init_conditions = 
+		    map 
+			(fn(exp)=>
+			   let
+			       val name = exp2name exp
+			   in
+			       case List.find (fn(exp')=> 
+						 name = exp2name (ExpProcess.lhs exp')) init_conditions of
+				   SOME v => v
+				 | NONE => DynException.stdException(("No initial condition found for differential equation: " ^ (ExpProcess.exp2str exp)), "CParallelWriter.simengine_interface.findStatesInitValues", Logger.INTERNAL)
+			   end)
+			diff_eqs_symbols
+		val instances = List.filter ExpProcess.isInstanceEq (!exps)
+		val class_inst_pairs = ClassProcess.class2instnames class
+	    in
+		(StdFun.flatmap (fn(exp)=>
+				   let
+				       val term = ExpProcess.exp2term (ExpProcess.lhs exp)
+				       val rhs = ExpProcess.rhs exp
+				   in
+				       if Term.isInitialValue term time then
+					   [((if basestr = "" then "" else basestr ^ "." ) ^ (Term.sym2name term), CWriterUtil.exp2c_str rhs)]
+				       else 
+					   []
+				   end) init_conditions)
+		@ (StdFun.flatmap
+		       (fn(classname, instname)=>
+			  let
+			      val basestr' = Symbol.name instname
+			  in
+			      findStatesInitValues basestr' (CurrentModel.classname2class classname)
+			  end)
+		       class_inst_pairs)
+	    end
+	    handle e => DynException.checkpoint "CParallelWriter.simengine_interface.findStatesInitValues" e
+	    
+	val (state_names, state_defaults)  = ListPair.unzip (findStatesInitValues "" class)
+	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) (!(#inputs class)))
+	val output_names = map #name (!(#outputs class))
+    in
+	[$("const char *input_names[] = {" ^ (String.concatWith ", " (map (fn (name) => "\"" ^ (Term.sym2name name) ^ "\"") input_names)) ^ "};"),
+	 $("const char *state_names[] = {" ^ (String.concatWith ", " (map (fn (name) => "\"" ^ name ^ "\"") state_names)) ^ "};"),
+	 $("const char *output_names[] = {" ^ (String.concatWith ", " (map (fn (name) => "\"" ^ (Term.sym2name name) ^ "\"") output_names)) ^ "};"),
+	 $("const double default_inputs[] = {" ^ (String.concatWith ", " (map (fn(default)=>
+										 case default of
+										     SOME v => CWriterUtil.exp2c_str v
+										   | NONE => DynException.stdException("Unexpected non-default value for input", "CParallelWriter.simEngineInterface", Logger.INTERNAL))
+									      input_defaults)) ^ "};"),
+	 $("const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
+	 $("const char model_name[] = \"MODEL NAME GOES HERE\";"),
+	 $("const char solver[] = \"SOLVER GOES HERE\";"),
+	 $(""),
+	 $("const simengine_metadata semeta = { 0x0000000000000000ULL, // hashcode"),
+	 SUB[$("NUM_MODELS,"),
+	     $("solver,"),
+	     $("sizeof(CDATAFORMAT)")
+	    ],
+	 $("};"),
+	 $(""),
+	 $("const simengine_interface seint = {0, // Version,"),
+	 SUB[$("INPUTSPACE, // Number of inputs"),
+	     $("STATESPACE, // Number of states"),
+	     $("OUTPUTSPACE, // Number of outputs"),
+	     $("input_names"),
+	     $("state_names"),
+	     $("output_names"),
+	     $("default_states"),
+	     $("model_name"),
+	     $("&semeta")],
+	 $("};"),
+	 $("simengine_alloc se_alloc;")]
+    end
+	
 fun outputdatastruct_code class =
     let
 	val outputs = #outputs class
@@ -71,9 +149,9 @@ fun outputstatestructbyclass_code (class : DOF.class) =
 			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
 		     in
 			 if size = 1 then
-			     $("CDATAFORMAT " ^ name ^ ";")
+			     $("CDATAFORMAT " ^ name ^ "[NUM_MODELS];")
 			 else
-			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"];")
+			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"*NUM_MODELS];")
 		     end) diff_eqs_symbols) @
 	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 	      (map 
@@ -111,6 +189,7 @@ fun outputstatestruct_code classes =
 	List.concat (map outputstatestructbyclass_code master_classes)
     end
 
+(*
 fun outputinit_code class =
     let 
 	val outputs = #outputs class
@@ -138,7 +217,7 @@ fun outputinit_code class =
 	 sym_decls
 
     end
-
+*)
 fun initbyclass_code class =
     let
 	val classname = ClassProcess.class2orig_name class
@@ -150,36 +229,36 @@ fun initbyclass_code class =
 	[$(""),
 	 $("// define state initialization functions"),
 	 $("void init_" ^ (Symbol.name classname) ^ "(struct statedata_"^(Symbol.name classname)^" *states, int num_models) {"),
-	 SUB[$("int modelid;"),
-	     $("for(modelid=0; modelid<num_models; modelid++){"),
-	     SUB($("// states (count="^(i2s (List.length init_eqs))^")")::
-		 (map (fn(sym)=>
-			 let
-			     val size = Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))
-			     val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs sym)))
-			     val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs sym)
-			 in
-			     if size = 1 then
-				 $("states[modelid]." ^ name ^ " = " ^ assigned_value ^ ";")
-			     else (* might have to do something special here or in c_writer_util *)
-				 $("#error FIXME - this path is not assigned code in c_parallel_writer.sml")
-			 end) init_eqs) @
-		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
-		  (map 
-		       (fn(classname, instname)=>
-			  let			  
-			      val size = 
-				  case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
-				   of SOME inst' => ExpProcess.instSpatialSize inst'
-				    | NONE => 1
+	 SUB([$("int modelid;"),
+	      $("// states (count="^(i2s (List.length init_eqs))^")"),
+	      $("for(modelid=0; modelid<num_models; modelid++){"),
+	      SUB((map (fn(sym)=>
+			  let
+			      val size = Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))
+			      val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs sym)))
+			      val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs sym)
 			  in
 			      if size = 1 then
-				  $("init_" ^ (Symbol.name classname) ^ "(&states[modelid]."^(Symbol.name instname)^", 1);")
-			      else (* not sure what to do here *)
+				  $("states[AS_IDX]." ^ name ^ "[SA_IDX] = " ^ assigned_value ^ ";")
+			      else (* might have to do something special here or in c_writer_util *)
 				  $("#error FIXME - this path is not assigned code in c_parallel_writer.sml")
-			  end)
-		       class_inst_pairs))),
-	     $("}")],
+			  end) init_eqs)),
+	      $("}"),
+	      $("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")] @
+	     (map 
+		  (fn(classname, instname)=>
+		     let			  
+			 val size = 
+			     case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
+			      of SOME inst' => ExpProcess.instSpatialSize inst'
+			       | NONE => 1
+		     in
+			 if size = 1 then
+			     $("init_" ^ (Symbol.name classname) ^ "(&states[AS_IDX]."^(Symbol.name instname)^", num_models);")
+			 else (* not sure what to do here *)
+			     $("#error FIXME - this path is not assigned code in c_parallel_writer.sml")
+		     end)
+		  class_inst_pairs)),
 	  $("};")]
     end
     
@@ -209,7 +288,7 @@ fun class2flow_code (class, top_class) =
 	val header_progs = 
 	    [$(""),
 	     $("int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *py, struct statedata_"^(Symbol.name orig_name)^" *pdydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid) {")]
+	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid) {")]
 
 	val read_memory_progs = []
 
@@ -217,8 +296,9 @@ fun class2flow_code (class, top_class) =
 	    
 	val read_inputs_progs =
 	    [$(""),
-	     $("const struct statedata_"^(Symbol.name orig_name)^" *y = &py[modelid];"),
+(*	     $("const struct statedata_"^(Symbol.name orig_name)^" *y = &py[modelid];"),
 	     $("struct statedata_"^(Symbol.name orig_name)^" *dydt = &pdydt[modelid];"),
+*)
 	     $("// mapping inputs to variables")] @ 
 	    (map
 		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];"))
@@ -268,7 +348,7 @@ fun class2flow_code (class, top_class) =
 				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 					  $("// " ^ (CWriterUtil.exp2c_str exp)),
 					  $(inps), $(outs_decl),
-					  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, 0);")] @
+					  $(calling_name ^ "(t, &y[AS_IDX]."^(Symbol.name orig_instname)^", &dydt[AS_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, 0);")] @
 					 let
 					     val symbols = map
 							       (fn(outsym) => Term.sym2curname outsym)
@@ -366,7 +446,7 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 				       if isInline class then
 					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
 				       else
-					   $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *py, struct statedata_"^(Symbol.name orig_name)^" *pdydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid);")
+					   $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid);")
 				   end)
 				classes
 	val iterators = CurrentModel.iterators()
@@ -380,8 +460,8 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 						 class2flow_code (c,#name c = #name topclass)) classes)
 
 	val top_level_flow_progs = [$"",
-				    $("int model_flows(CDATAFORMAT t, const void *py, void *pdydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid){"),
-				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)py, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)pdydt, inputs, outputs, first_iteration, modelid);")],
+				    $("int model_flows(CDATAFORMAT t, const void *y, void *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid){"),
+				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")],
 				    $("}")]
     in
 	[$("// Flow code function declarations")] @
@@ -428,7 +508,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
     in
 	[$(""),
-	 $("void exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, int num_models) {"),
+	 $("int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs) {"),
 	 SUB[$("int modelid = 0;"),
 	     $("solver_props props;"),
 	     $("props.timestep = DT;"),
@@ -442,6 +522,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.outputs = NULL;"),
 	     $("props.first_iteration = TRUE;"),
 	     $("props.statesize = STATESPACE;"),
+	     $("props.inputsize = INPUTSPACE;"),
 	     $("props.num_models = num_models;"),
 	     $(""),
 	     $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
@@ -450,21 +531,16 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 SUB[$("CDATAFORMAT prev_t = *t;"),
 		     $("int status = INTEGRATION_METHOD(eval)(mem, modelid);"),
 		     $("if (status != 0) {"),
-		     SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
-			 $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g\", *t);"),
-			 $("break;")],
+		     SUB[$("return ERRCALC;")],
 		     $("}"),
 		     $("if(modelid == 0)"),
 		     $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states, modelid) != 0) {"),
-		     SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
-			 $("break;")],
-		     $("}")
-		    (*  $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
-			  (String.concatWith ", " (List.tabulate (statespace, fn(i)=>"model_states["^(i2s i)^"]")))^");")*)
-		    ],
-		 $("}"),
-	     $("}")],
+		     SUB[$("return ERRMEM;")],
+		     $("}")],
+		 $("}")],
+	     $("}"),
 	     $("INTEGRATION_METHOD(free)(mem);")],
+	 $("return SUCCESS;"),
 	 $("}")]
     end
 fun logoutput_code class =
@@ -536,28 +612,81 @@ fun main_code class =
 	val name = Symbol.name (#name class)
 	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
     in
-	[$("int main(int argc, char **argv) {"),
-	 SUB[(*$("FPRINTFUN(stderr,\"Running '"^name^"' model ...\\n\");"),*)
-	     $(""),
-	     $("// Get the simulation time t from the command line"),
+	[$("#include<simengine.h>"),
+	 $(""),
+	 $("const simengine_interface *simengine_getinterface(){"),
+	 SUB[$("return &model_interface;")],
+	 $("}"),
+	 $(""),
+	 $("simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc){"),
+	 SUB[$("CDATAFORMAT model_states[NUM_MODELS*STATESPACE];"),
+	     $("CDATAFORMAT parameters[NUM_MODELS*INPUTSPACE];"),
+	     $("CDATAFORMAT t[NUM_MODELS];"),
+	     $("CDATAFORMAT t1 = stop_time;"),
+	     $("int stateid;"),
 	     $("int modelid;"),
-	     $("int NUM_MODELS = 1;"),
-	     $("CDATAFORMAT *t = MALLOCFUN(NUM_MODELS*sizeof(CDATAFORMAT));"),
-	     $("CDATAFORMAT t1 = atof(argv[1]);"),
-	     $("for(modelid=0; modelid<NUM_MODELS; modelid++){"),
-	     SUB[$("t[modelid] = 0;")],
+	     $("int inputid;"),
+	     $(""),
+	     $("// Set up allocation functions"),
+	     $("if(alloc){"),
+	     SUB[$("se_malloc = alloc->malloc;"),
+		 $("se_realloc = alloc->realloc;"),
+		 $("se_free = alloc->free;")],
 	     $("}"),
-	     $("output_init(); // initialize the outputs"),
-	     $("model_states = MALLOCFUN(NUM_MODELS* STATESPACE*sizeof(CDATAFORMAT));"),
-	     $("init_"^name^"((struct statedata_"^orig_name^"**) model_states, NUM_MODELS); // initialize the states"),
-	     $("CDATAFORMAT inputs[INPUTSPACE];"),
+	     $("else{"),
+	     SUB[$("se_malloc = malloc;"),
+		 $("se_realloc = realloc;"),
+		 $("se_free = free;")],
+	     $(" }"),
 	     $(""),
-	     $("init_inputs(inputs);"),
+	     $("// Create result structure"),
+	     $("simengine_result *seresult = (se_malloc)(sizeof(simengine_result));"),
 	     $(""),
-	     $("exec_loop(t, t1, inputs, NUM_MODELS);"),
+	     $("// Couldn't allocate return structure, return NULL"),
+	     $("if(!seresult) return NULL;"),
 	     $(""),
-	     $("return 0;")],
-	 $("}")]
+	     $("// Check that the number of models matches"),
+	     $("if(num_models != semeta.num_models){"),
+	     SUB[$("seresult->status = ERRNUMMDL;"),
+		 $("seresult->status_message = errors[ERRNUMMDL];"),
+		 $("seresult->outputs = NULL;"),
+		 $("return seresult;")],
+	     $("}"),
+	     $(""),
+	     $("// Allocate return structures"),
+	     $("seresult->outputs = (se_malloc)(semeta.num_models * seint.num_outputs * sizeof(simengine_output));"),
+	     $("if(!seresult->outputs){"),
+	     SUB[$("seresult->status = ERRMEM;"),
+		 $("seresult->status_message = errors[ERRMEM];"),
+		 $("seresult->outputs = NULL;"),
+		 $("return seresult;")],
+	     $("}"),
+	     $(""),
+	     $(""),
+	     $("for(modelid=0; modelid<NUM_MODELS; modelid++){"),
+	     SUB[$("t[modelid] = start_time;"),
+		 $("for(stateid=0;stateid<STATESPACE;stateid++){"),
+		 SUB[$("model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)]")],
+		 $("}"),
+		 $("for(inputid=0;inputid<INPUTSPACE;inputid++){"),
+		 SUB[$("parameters[TARGET_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)] = inputs[AS_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)]")],
+		 $("}")],
+	     $("}"),
+	     $(""),
+	     $("// Initialization of output structures"),
+	     $("for(i = 0; i<semeta.num_models*seint.num_outputs; i++){"),
+	     SUB[$("seresult->outputs[i].alloc = START_SIZE;"),
+		 $("seresult->outputs[i].num_quantities = seint.output_num_quantities[i];"),
+		 $("seresult->outputs[i].num_samples = 0;"),
+		 $("seresult->outputs[i].data = (se_malloc)(START_SIZE*seint.output_num_quantities[i]*sizeof(CDATAFORMAT));")],
+	     $("}"),
+	     $(""),
+	     $("seresult->status = exec_loop(t, t1, semeta.num_models, parameters, model_states, seresult->outputs);"),
+	     $("seresult->status_message = error[seresult->status];"),
+	     $("return seresult;")
+	    ],
+	 $("}")
+	]
     end
 
 fun buildC (model: DOF.model as (classes, inst, props)) =
@@ -591,10 +720,11 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				   ("ERRORFUN(ID, MESSAGE, ...)", "(fprintf(stderr, \"Error (%s): \" MESSAGE \"\\n\", #ID, ## __VA_ARGS__))")::
 				   (Solver.solver2params solver))
 
+	val simengine_interface_progs = simengine_interface inst_class
 	val input_progs = input_code inst_class
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = outputstatestruct_code classes
-	val outputinit_progs = outputinit_code inst_class
+(*	val outputinit_progs = outputinit_code inst_class *)
 	val init_progs = init_code classes
 	val flow_progs = flow_code (classes, inst_class)
 	val exec_progs = exec_code (inst_class, props, statespace)
@@ -603,9 +733,10 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @ 
+					      simengine_interface_progs @
 					      outputdatastruct_progs @ 
 					      outputstatestruct_progs @
-					      outputinit_progs @ 
+(*					      outputinit_progs @ *)
 					      input_progs @ 
 					      init_progs @ 
 					      flow_progs @ 

@@ -4,11 +4,17 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
-// Array of structures indexing
-#define STATE_INDEX (mem->props->statesize*modelid + i)
+#define TARGET_IDX AS_IDX
 
-// Structure of arrays indexing
-//#define STATE_INDEX (i*mem->props->num_models + modelid)
+// Structure of Arrays indexing
+inline unsigned int SA_IDX(unsigned int struct_size, unsigned int array_size, unsigned int struct_idx, unsigned int array_idx){
+  return struct_idx * array_size + array_idx;
+}
+
+// Array of Structures indexing
+inline unsigned int AS_IDX(unsigned int struct_size, unsigned int array_size, unsigned int struct_idx, unsigned int array_idx){
+  return array_idx * struct_size + struct_idx;
+}
 
 // Common definitions
 #define FALSE 0
@@ -36,6 +42,7 @@ typedef struct {
   CDATAFORMAT *outputs;
   int first_iteration;
   int statesize;
+  int inputsize;
   int num_models;
 } solver_props;
 
