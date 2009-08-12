@@ -1,61 +1,15 @@
-/*** NOTE some of this is legacy of diesel compiler, may be
- * incompletely integrated. ***/
-#define YES 1
-#define NO 0
-
-#define NMALLOC(NMEM, TYP) ((TYP *)MALLOC((NMEM) * sizeof(TYP)))
-#define NREALLOC(PTR, NMEM, TYP) ((TYP *)REALLOC(PTR, (NMEM) * sizeof(TYP)))
-
-#ifndef MIN
-#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
-#endif
-#ifndef MAX
-#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
-#endif
-
-#ifdef SIMENGINE_MATLAB_CLIENT
-#include <mex.h>
-// The following macros invoke MATLAB API functions.
-#define MALLOC mxMalloc
-#define REALLOC mxRealloc
-#define FREE mxFree
-#define PRINTF mexPrintf
-#define ERROR(ID, MESSAGE, ARG...) mexErrMsgIdAndTxt(#ID, MESSAGE, ##ARG)
-#define WARN(ID, MESSAGE, ARG...) mexWarnMsgIdAndTxt(#ID, MESSAGE, ##ARG)
-#else
-#define MALLOC malloc
-#define REALLOC realloc
-#define FREE free
-#define PRINTF printf
-// NOTE that this macro expands to multiple statements making it
-// potentially dangerous in conditionals if one is in the habit of
-// omitting braces.
-// TODO replace with a single-statement function call?
-#define ERROR(ID, MESSAGE, ARG...) {fprintf(stderr, "ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); exit(-1); }
-#define WARN(ID, MESSAGE, ARG...) fprintf(stderr, "WARNING (%s): " MESSAGE "\n", #ID, ##ARG)
-#endif
-
-// The type of simulation quantity values.
-#ifdef SIMENGINE_DOUBLE_STORAGE
-typedef double CDATAFORMAT;
-#define FLITERAL(X) X
-#else
-typedef float CDATAFORMAT;
-// Ensures that operations involving literal quantities are not promoted to double-precision.
-#define FLITERAL(X) X##f
-#endif
-
-typedef unsigned long counter;
-
-
-/*** Carl's code starts here ***/
 /*
  * simengine.h
  *
- * API interface to the Simatra simEngine model execution.
+ * C API interface to the Simatra simEngine model execution.
  *
  * Copyright 2009 Simatra Modeling Technologies
  */
+
+#ifndef SIMENGINE_H
+#define SIMENGINE_H
+
+#include <simengine_target.h>
 #include <stddef.h>
 
 enum{ SUCCESS, ERRMEM, ERRCOMP, ERRNUMMDL};
@@ -148,3 +102,4 @@ const simengine_interface *simengine_getinterface();
  */
 simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc);
 
+#endif // SIMENGINE_H
