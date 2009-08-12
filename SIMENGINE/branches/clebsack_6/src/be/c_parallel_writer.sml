@@ -108,7 +108,7 @@ fun simengine_interface class =
 	 $("};"),
 	 $("simengine_alloc se_alloc;")]
     end
-	
+(*	
 fun outputdatastruct_code class =
     let
 	val outputs = #outputs class
@@ -189,7 +189,7 @@ fun outputstatestruct_code classes =
 	List.concat (map outputstatestructbyclass_code master_classes)
     end
 
-(*
+
 fun outputinit_code class =
     let 
 	val outputs = #outputs class
@@ -470,6 +470,7 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 	top_level_flow_progs
     end
 
+(*
 fun input_code (class: DOF.class) =
     [$(""),
      $("void init_inputs(double *inputs) {"),
@@ -479,6 +480,7 @@ fun input_code (class: DOF.class) =
 								 | NONE => "(0.0/0.0)")^ "; // " ^ (ExpProcess.exp2str (Exp.TERM name))))
 	     (Util.addCount (!(#inputs class)))),
      $("}")]
+*)
 
 fun output_code (name, location, block) =
     let
@@ -543,6 +545,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 	 $("return SUCCESS;"),
 	 $("}")]
     end
+
 fun logoutput_code class =
     let
 	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
@@ -721,9 +724,9 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				   (Solver.solver2params solver))
 
 	val simengine_interface_progs = simengine_interface inst_class
-	val input_progs = input_code inst_class
-	val outputdatastruct_progs = outputdatastruct_code inst_class
-	val outputstatestruct_progs = outputstatestruct_code classes
+(*	val input_progs = input_code inst_class*)
+(*	val outputdatastruct_progs = outputdatastruct_code inst_class*)
+(*	val outputstatestruct_progs = outputstatestruct_code classes*)
 (*	val outputinit_progs = outputinit_code inst_class *)
 	val init_progs = init_code classes
 	val flow_progs = flow_code (classes, inst_class)
@@ -734,10 +737,10 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @ 
 					      simengine_interface_progs @
-					      outputdatastruct_progs @ 
+(*					      outputdatastruct_progs @ 
 					      outputstatestruct_progs @
-(*					      outputinit_progs @ *)
-					      input_progs @ 
+					      outputinit_progs @
+					      input_progs @ *)
 					      init_progs @ 
 					      flow_progs @ 
 					      logoutput_progs @

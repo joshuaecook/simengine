@@ -405,27 +405,28 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 *)
 
 	val simengine_interface_progs = CParallelWriter.simengine_interface inst_class
-	val input_progs = CParallelWriter.input_code inst_class
+(*	val input_progs = CParallelWriter.input_code inst_class
 	val outputdatastruct_progs = CParallelWriter.outputdatastruct_code inst_class
 	val outputstatestruct_progs = CParallelWriter.outputstatestruct_code classes
 	val outputinit_progs = CParallelWriter.outputinit_code inst_class
 	val init_progs = CParallelWriter.init_code classes
+*)
 	val flow_progs = CParallelWriter.flow_code (classes, inst_class)
 	val exec_progs = CParallelWriter.exec_code (inst_class, props, statespace)
 	val outputstruct_progs = outputstruct_code inst_class
 	val inputstruct_progs = inputstruct_code inst_class
 	val statestruct_progs = stateoverride_code()
-	val main_progs = main_code inst_class
+	val main_progs = CParallelWriter.main_code inst_class
 	val logoutput_progs = CParallelWriter.logoutput_code inst_class
 
 	(* write the code *)
 	val _ = CParallelWriter.output_code(class_name ^ "_mex", ".", (header_progs @ 
 								       simengine_interface_progs @
-								       outputdatastruct_progs @ 
+(*								       outputdatastruct_progs @ 
 								       outputstatestruct_progs @
 								       outputinit_progs @ 
 								       input_progs @ 
-								       init_progs @ 
+								       init_progs @ *)
 								       flow_progs @ 
 								       logoutput_progs @
 								       exec_progs @
