@@ -39,7 +39,7 @@ int runsimEngine (char *simengine, char *file, char *modelname)
   return errored;
 }
 
-void mexFunction(int nlhs, mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {
+void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {
   char simenginecmd[1000], file[1000], modelname[1000];
   if (nrhs != 3)
     {

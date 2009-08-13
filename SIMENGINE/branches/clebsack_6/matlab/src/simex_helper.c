@@ -18,7 +18,7 @@ void *load_simengine(const char *name)
     if (!(simengine = dlopen(name, RTLD_NOW)))
 	{
 	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
-	    "dlopen() failed to load %s", name);
+	    "dlopen() failed to load %s: %s", name, dlerror());
 	}
 
     return simengine;
@@ -28,10 +28,22 @@ void *load_simengine(const char *name)
 simengine_api *init_simengine(void *simengine)
     {
     simengine_api *api;
+    char *msg;
     api = NMALLOC(1, simengine_api);
 
     api->getinterface = dlsym(simengine, "simengine_getinterface");
+    if (0 != (msg = dlerror()))
+	{ 
+	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
+	    "dlsym() failed to load getinterface: %s", msg); 
+	}
     api->runmodel = dlsym(simengine, "simengine_runmodel");
+    if (0 != (msg = dlerror()))
+	{ 
+	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
+	    "dlsym() failed to load runmodel: %s", msg); 
+	}
+
     api->driver = simengine;
 
     return api;
@@ -78,15 +90,17 @@ void mexSimengineResult(simengine_interface *iface, mxArray **output, unsigned i
  */
 void mexSimengineInterface(simengine_interface *iface, mxArray **interface)
     {
-    const char *field_names[] = {"version",
+    const char *field_names[] = {"version", "name",
 				 "num_inputs", "num_states", "num_outputs",
 				 "input_names", "state_names", "output_names",
-				 "default_inputs", "default_states", "metadata"};
+				 "default_inputs", "default_states", 
+				 "output_num_quantities", "metadata"};
     const char *meta_names[] = {"hashcode", "num_models", "solver", "precision"};
 
     mxArray *version;
     mxArray *input_names, *state_names, *output_names;
     mxArray *default_inputs, *default_states;
+    mxArray *output_num_quantities;
     mxArray *metadata;
     mxArray *hashcode;
     void *data;
@@ -95,10 +109,17 @@ void mexSimengineInterface(simengine_interface *iface, mxArray **interface)
     // Constructs the payload.
     default_inputs = mxCreateStructMatrix(1, 1, iface->num_inputs, iface->input_names);
 
+    default_states = mxCreateDoubleMatrix(1, iface->num_states, mxREAL);
+    data = mxGetPr(default_states);
+    memcpy(data, iface->default_states, iface->num_states * sizeof(double));
+
+    output_num_quantities = mxCreateDoubleMatrix(1, iface->num_outputs, mxREAL);
+
     input_names = mxCreateCellMatrix(1, iface->num_inputs);
     state_names = mxCreateCellMatrix(1, iface->num_states);
     output_names = mxCreateCellMatrix(1, iface->num_outputs);
 
+    data = mxGetPr(output_num_quantities);
     for (i = 0; i < iface->num_inputs || i < iface->num_states || i < iface->num_outputs; ++i)
 	{
 	if (i < iface->num_inputs)
@@ -111,16 +132,18 @@ void mexSimengineInterface(simengine_interface *iface, mxArray **interface)
 	if (i < iface->num_states)
 	    { mxSetCell(state_names, i, mxCreateString(iface->state_names[i])); }
 	if (i < iface->num_outputs)
-	    { mxSetCell(output_names, i, mxCreateString(iface->output_names[i])); }
+	    { 
+	    mxSetCell(output_names, i, mxCreateString(iface->output_names[i])); 
+	    ((double *)data)[i] = iface->output_num_quantities[i];
+	    }
 	}
 
-    default_states = mxCreateDoubleMatrix(1, iface->num_states, mxREAL);
-    data = mxGetPr(default_states);
-    memcpy(data, iface->default_states, iface->num_states * sizeof(double));
-    
     // Creates and initializes the return structure.
-    *interface = mxCreateStructMatrix(1, 1, 10, field_names);
+    *interface = mxCreateStructMatrix(1, 1, 12, field_names);
 
+    mxDestroyArray(mxGetField(*interface, 0, "name"));
+    mxSetField(*interface, 0, "name", mxCreateString(iface->name));
+    
     mxDestroyArray(mxGetField(*interface, 0, "num_inputs"));
     mxSetField(*interface, 0, "num_inputs", mxCreateDoubleScalar((double)iface->num_inputs));
     mxDestroyArray(mxGetField(*interface, 0, "num_states"));
@@ -140,11 +163,14 @@ void mexSimengineInterface(simengine_interface *iface, mxArray **interface)
     mxDestroyArray(mxGetField(*interface, 0, "default_states"));
     mxSetField(*interface, 0, "default_states", default_states);
 
+    mxDestroyArray(mxGetField(*interface, 0, "output_num_quantities"));
+    mxSetField(*interface, 0, "output_num_quantities", output_num_quantities);
+
     // Constructs the metadata
     version = mxCreateNumericMatrix(1, 1, mxUINT32_CLASS, mxREAL);
     data = mxGetPr(version);
     memcpy(data, &iface->version, sizeof(unsigned long));
-    
+
     hashcode = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
     data = mxGetPr(hashcode);
     memcpy(data, &iface->metadata->hashcode, sizeof(unsigned long long));
@@ -309,7 +335,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	if (1 > models)
 	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "No models can be run."); }
 
-	if (1 != nlhs)
+	if (2 < nlhs)
 	    {
 	    usage();
 	    ERROR(Simatra:SIMEX:HELPER:argumentError,

@@ -82,19 +82,11 @@ typedef unsigned long counter;
 // TARGET SPECIFIC INDEXING MODES
 //****************************************************************************//
 // Parallel Structure of Arrays indexing
-inline unsigned int SA_IDX(unsigned int struct_size, unsigned int array_size, unsigned int struct_idx, unsigned int array_idx){
-  return struct_idx * array_size + array_idx;
-}
-
+#define SA_IDX(STRUCT_S, ARRAY_S, STRUCT_X, ARRAY_X) ((STRUCT_X) * (ARRAY_S) + (ARRAY_X))
 // Parallel Array of Structures indexing
-inline unsigned int AS_IDX(unsigned int struct_size, unsigned int array_size, unsigned int struct_idx, unsigned int array_idx){
-  return array_idx * struct_size + struct_idx;
-}
-
+#define AS_IDX(STRUCT_S, ARRAY_S, STRUCT_X, ARRAY_X) ((ARRAY_X) * (STRUCT_S) + (STRUCT_X))
 // Serial indexing
-inline unsigned int SER_IDX(unsigned int struct_size, unsigned int array_size, unsigned int struct_idx, unsigned int array_idx){
-  return struct_idx;
-}
+#define SER_IDX(STRUCT_S, ARRAY_S, STRUCT_X, ARRAY_X) ((STRUCT_X))
 //****************************************************************************//
 
 #endif // SIMENGINE_TARGET_H
