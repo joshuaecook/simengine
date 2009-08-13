@@ -44,23 +44,49 @@ endif
 # Every possible MEX extension; used for cleaning
 ALL_MEXEXT = mexglx mexa64 mexmaci mexs64 mexw32 mexw64 mex
 
-define simex_helper_template
-bin/simex_helper.$(1)
+define MEXINTERFACE_CLEAN_template
+bin/simex_helper.$(1) bin/simEngine_wrapper.$(1)
 endef
-define SIMEX_HELPER_OBJ_template
-SIMEX_HELPER_OBJ += bin/simex_helper.$(1)
+define MEXINTERFACE_OBJ_template
+SIMEX_HELPER_OBJ += simex_helper.$(1)
+SIMENGINE_WRAPPER_OBJ += simEngine_wrapper.$(1)
 endef
-$(foreach ext,$(MEXEXT),$(eval $(call SIMEX_HELPER_OBJ_template,$(ext))))
+$(foreach ext,$(MEXEXT),$(eval $(call MEXINTERFACE_OBJ_template,$(ext))))
+
+ALL_TARGETS = simex_helper simEngine_wrapper
 
 # Build targets
-simex_helper: $(SIMEX_HELPER_OBJ)
+.PHONY: all $(ALL_TARGETS)
+all: $(ALL_TARGETS)
+
+simex_helper: $(foreach obj,$(SIMEX_HELPER_OBJ),bin/$(obj))
+
+simEngine_wrapper: $(foreach obj,$(SIMENGINE_WRAPPER_OBJ),bin/$(obj))
+
+bin/simex_helper.%: ../include/simengine.h ../include/simengine_target.h
+
+bin/%.mexglx: src/%.c
+	$(MEX) -glnx86 -outdir bin $(MEXFLAGS) $<
 
 bin/%.mexa64: src/%.c
-	$(MEX) -outdir bin $(MEXFLAGS) $<
+	$(MEX) -glnxa64 -outdir bin $(MEXFLAGS) $<
+
+# TODO maci64?
+bin/%.mexmaci: src/%.c
+	$(MEX) -maci -outdir bin $(MEXFLAGS) $<
+
+bin/%.mexs64: src/%.c
+	$(MEX) -sol64 -outdir bin $(MEXFLAGS) $<
+
+bin/%.mexw32: src/%.c
+	$(MEX) -win32 -outdir bin $(MEXFLAGS) $<
+
+bin/%.mexw64: src/%.c
+	$(MEX) -win64 -outdir bin $(MEXFLAGS) $<
 
 bin/%.mex: src/%.c
 	$(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<
 
 .PHONY: clean
 clean:
-	$(RM) $(foreach ext,$(ALL_MEXEXT),$(call simex_helper_template,$(ext)))
+	$(RM) $(foreach ext,$(ALL_MEXEXT),$(call MEXINTERFACE_CLEAN_template,$(ext)))

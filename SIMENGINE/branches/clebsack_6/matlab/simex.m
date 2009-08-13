@@ -330,20 +330,26 @@ end
 function [dllPath] = invoke_compiler(dslPath, dslName, modelFile, opts)
 simengine = fullfile(opts.simengine, 'bin', 'simEngine');
 setenv('SIMENGINE', opts.simengine);
-try 
-  status = simEngine_wrapper(simengine, modelFile, dslName);
-catch
-  error('Simatra:SIMEX:compileError', ...
-        'Failure during compilation.');
-end
+
+status = simEngine_wrapper(simengine, modelFile, dslName);
 
 if 0 ~= status
   error('Simatra:SIMEX:compileError', ...
         'Compilation returned status code %d.', status);
 end
 
+make = ['make MODEL=' dslName
+        ' SIMENGINE_STORAGE=' opts.precision 
+        ' NUM_MODELS=' num2str(1)];
+status = system(make);
+
+if 0 ~= status
+  error('Simatra:SIMEX:compileError', ...
+        'Make returned status code %d.', status);
+end
+
 % TODO what is the path of the resultant DLL?
-dllPath = 'simengine-dll/libsimengine.so';
+dllPath = fullfile(pwd, 'libsimengine.so')
 
 % TODO check the shape of the user inputs and start states, other
 % parameters, and recompile the model if necessary.
