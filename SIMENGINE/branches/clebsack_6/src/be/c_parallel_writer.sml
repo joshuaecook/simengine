@@ -76,6 +76,7 @@ fun simengine_interface class =
 	val (state_names, state_defaults)  = ListPair.unzip (findStatesInitValues "" class)
 	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) (!(#inputs class)))
 	val output_names = map #name (!(#outputs class))
+	val output_num_quantities = map (i2s o (fn(x) => 1 + x) o List.length o #contents) (!(#outputs class))
     in
 	[$(""),
 	 $("const char *input_names[] = {" ^ (String.concatWith ", " (map (fn (name) => "\"" ^ (Term.sym2name name) ^ "\"") input_names)) ^ "};"),
@@ -87,6 +88,7 @@ fun simengine_interface class =
 										   | NONE => DynException.stdException("Unexpected non-default value for input", "CParallelWriter.simEngineInterface", Logger.INTERNAL))
 									      input_defaults)) ^ "};"),
 	 $("const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
+	 $("const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " output_num_quantities) ^ "};"),
 	 $("const char model_name[] = \"MODEL NAME GOES HERE\";"),
 	 $("const char solver[] = \"SOLVER GOES HERE\";"),
 	 $(""),
@@ -108,6 +110,7 @@ fun simengine_interface class =
 	     $("output_names,"),
 	     $("default_inputs,"),
 	     $("default_states,"),
+	     $("output_num_quantities,"),
 	     $("model_name,"),
 	     $("&semeta")],
 	 $("};"),
@@ -386,7 +389,7 @@ fun class2flow_code (class, top_class) =
 		 $("// writing output variables"),
 		 $("if (first_iteration) {"),
 		 SUB(map
-			 (fn(t,s)=> $("outputsave_" ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+			 (fn(t,s)=> $("//outputsave_" ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
 			 (CWriterUtil.class2uniqueoutputsymbols class)),
 		 $("}")]
 	    else
@@ -607,11 +610,13 @@ fun logoutput_code class =
     in
 	[$(""),
 	 $("int log_outputs(double t, const struct statedata_"^orig_name^" *y, simengine_output *outputs, int modelid) {"),
-	 SUB(sym_decls @
+	 SUB($("/*") ::
+	     sym_decls @
 	     [$("")] @
 	     output_exps @
 	     [$(""),
 	      $("PRINTFUN(\"\\n\");"),
+	      $("*/"),
 	      $("return 0;")]
 	    ),
 	 $("}")]
@@ -658,7 +663,7 @@ fun main_code class =
 	     $("// Check that the number of models matches"),
 	     $("if(num_models != semeta.num_models){"),
 	     SUB[$("seresult->status = ERRNUMMDL;"),
-		 $("seresult->status_message = errors[ERRNUMMDL];"),
+		 $("seresult->status_message = simengine_errors[ERRNUMMDL];"),
 		 $("seresult->outputs = NULL;"),
 		 $("return seresult;")],
 	     $("}"),
@@ -667,7 +672,7 @@ fun main_code class =
 	     $("seresult->outputs = (se_alloc.malloc)(semeta.num_models * seint.num_outputs * sizeof(simengine_output));"),
 	     $("if(!seresult->outputs){"),
 	     SUB[$("seresult->status = ERRMEM;"),
-		 $("seresult->status_message = errors[ERRMEM];"),
+		 $("seresult->status_message = simengine_errors[ERRMEM];"),
 		 $("seresult->outputs = NULL;"),
 		 $("return seresult;")],
 	     $("}"),
