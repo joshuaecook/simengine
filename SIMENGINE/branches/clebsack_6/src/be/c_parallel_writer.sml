@@ -24,7 +24,7 @@ fun header (class_name, includes, defpairs) =
      $("")] @
     (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs)
 
-fun simengine_interface class =
+fun simengine_interface (class_name, class, solver_name) =
     let
 	val time = Symbol.symbol "t"
 	fun findStatesInitValues basestr (class:DOF.class) = 
@@ -89,8 +89,8 @@ fun simengine_interface class =
 									      input_defaults)) ^ "};"),
 	 $("const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
 	 $("const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " output_num_quantities) ^ "};"),
-	 $("const char model_name[] = \"MODEL NAME GOES HERE\";"),
-	 $("const char solver[] = \"SOLVER GOES HERE\";"),
+	 $("const char model_name[] = \"" ^ class_name ^ "\";"),
+	 $("const char solver[] = \"" ^ solver_name ^ "\";"),
 	 $(""),
 	 $("const simengine_metadata semeta = {"),
 	 SUB[$("0x0000000000000000ULL, // hashcode"),
@@ -533,8 +533,8 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.inputs = inputs;"),
 	     $("props.outputs = NULL;"),
 	     $("props.first_iteration = TRUE;"),
-	     $("props.statesize = STATESPACE;"),
-	     $("props.inputsize = INPUTSPACE;"),
+	     $("props.statesize = seint->num_states;"),
+	     $("props.inputsize = seint->num_inputs;"),
 	     $("props.num_models = num_models;"),
 	     $(""),
 	     $("INTEGRATION_MEM *mem = SOLVER(INTEGRATION_METHOD, init, TARGET, SIMENGINE_STORAGE, &props);"),
@@ -633,9 +633,9 @@ fun main_code class =
 	 $("}"),
 	 $(""),
 	 $("simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc){"),
-	 SUB[$("CDATAFORMAT model_states[NUM_MODELS*STATESPACE];"),
-	     $("CDATAFORMAT parameters[NUM_MODELS*INPUTSPACE];"),
-	     $("CDATAFORMAT t[NUM_MODELS];"),
+	 SUB[$("CDATAFORMAT model_states[semeta->num_models*seint->num_states];"),
+	     $("CDATAFORMAT parameters[semeta->num_models*seint->num_inputs];"),
+	     $("CDATAFORMAT t[semeta->num_models];"),
 	     $("CDATAFORMAT t1 = stop_time;"),
 	     $("int stateid;"),
 	     $("int modelid;"),
@@ -677,13 +677,13 @@ fun main_code class =
 		 $("return seresult;")],
 	     $("}"),
 	     $(""),
-	     $(""),
-	     $("for(modelid=0; modelid<NUM_MODELS; modelid++){"),
+	     $("// Copy inputs and state initial values to internal representation"),
+	     $("for(modelid=0; modelid<semeta->num_models; modelid++){"),
 	     SUB[$("t[modelid] = start_time;"),
-		 $("for(stateid=0;stateid<STATESPACE;stateid++){"),
+		 $("for(stateid=0;stateid<seint->num_states;stateid++){"),
 		 SUB[$("model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)];")],
 		 $("}"),
-		 $("for(inputid=0;inputid<INPUTSPACE;inputid++){"),
+		 $("for(inputid=0;inputid<seint->num_inputs;inputid++){"),
 		 SUB[$("parameters[TARGET_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)] = inputs[AS_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)];")],
 		 $("}")],
 	     $("}"),
@@ -698,6 +698,14 @@ fun main_code class =
 	     $(""),
 	     $("seresult->status = exec_loop(t, t1, semeta.num_models, parameters, model_states, seresult->outputs);"),
 	     $("seresult->status_message = simengine_errors[seresult->status];"),
+	     $(""),
+	     $("// Copy state values back to state initial value structure"),
+	     $("for(modelid=0; modelid<semeta->num_models; modelid++){"),
+	     SUB[
+		 $("for(stateid=0;stateid<seint->num_states;stateid++){"),
+		 SUB[$("states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)];")],
+		 $("}"),
+	     $("}"),
 	     $("return seresult;")
 	    ],
 	 $("}")
@@ -714,6 +722,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 
 	val {iterators,precision,...} = props
 	val solver = props2solver props
+	val solver_name = Solver.solver2name solver
 
 	val c_data_format = case precision 
 			     of DOF.SINGLE => "float" 
@@ -725,13 +734,13 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				   ("STATESPACE", i2s statespace)::
 				   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::
 				   ("OUTPUTSPACE", i2s (length (!(#outputs inst_class))))::
-				   ("INTEGRATION_METHOD", (Solver.solver2name solver))::
-				   ("INTEGRATION_MEM", (Solver.solver2name solver) ^ "_mem")::
+				   ("INTEGRATION_METHOD", solver_name)::
+				   ("INTEGRATION_MEM", solver_name ^ "_mem")::
 				   ("START_SIZE", "1000")::
 				   ("MAX_ALLOC_SIZE", "65536000")::
 				   (Solver.solver2params solver))
 
-	val simengine_interface_progs = simengine_interface inst_class
+	val simengine_interface_progs = simengine_interface (class_name, inst_class, solver_name)
 (*	val input_progs = input_code inst_class*)
 (*	val outputdatastruct_progs = outputdatastruct_code inst_class*)
 	val outputstatestruct_progs = outputstatestruct_code classes

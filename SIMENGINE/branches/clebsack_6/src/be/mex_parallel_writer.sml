@@ -377,6 +377,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 
 	val {iterators,precision,...} = props
 	val solver = CParallelWriter.props2solver props
+	val solver_name = Solver.solver2name solver
 
 	val c_data_format = case precision 
 			     of DOF.SINGLE => "float" 
@@ -404,7 +405,7 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 #define ERRORFUN(ID, MESSAGE, ARGS...) (mexErrMsgIdAndText(#ID, MESSAGE, ARGS...))
 *)
 
-	val simengine_interface_progs = CParallelWriter.simengine_interface inst_class
+	val simengine_interface_progs = CParallelWriter.simengine_interface (class_name, inst_class, solver_name)
 (*	val input_progs = CParallelWriter.input_code inst_class
 	val outputdatastruct_progs = CParallelWriter.outputdatastruct_code inst_class
 	val outputstatestruct_progs = CParallelWriter.outputstatestruct_code classes
