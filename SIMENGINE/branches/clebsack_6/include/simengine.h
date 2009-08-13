@@ -14,7 +14,7 @@
 
 enum{ SUCCESS, ERRMEM, ERRCOMP, ERRNUMMDL};
 
-char *errors[] = {"Success", "Out of memory error", "Flow computation error", "Wrong number of models"};
+char *simengine_errors[] = {"Success", "Out of memory error", "Flow computation error", "Wrong number of models"};
 
 typedef struct {
   const unsigned long long hashcode; // Signature of the DSL model file
@@ -34,6 +34,7 @@ typedef struct{
   const char **output_names;
   const double *default_inputs;
   const double *default_states;
+  const unsigned int *output_num_quantities;
   const char *name;
   const simengine_metadata *metadata;
 } simengine_interface;
@@ -48,8 +49,9 @@ typedef struct{
  *     [q0t0, q1t0, ... qQt0, q0t1, q1t1, ... qQt1, ... qQtT]
  */
 typedef struct{
-  int num_quantities;
-  int num_samples;
+  unsigned int alloc;
+  unsigned int num_quantities;
+  unsigned int num_samples;
   double *data;
 } simengine_output;
 

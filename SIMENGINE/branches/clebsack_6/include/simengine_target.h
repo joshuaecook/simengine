@@ -62,12 +62,18 @@ typedef unsigned long counter;
 
 #if TARGET == cpu
 #define TARGET_IDX SER_IDX
+#define STRUCT_IDX 0
+#define ARRAY_IDX 0
 #define __DEVICE__
 #elif TARGET == openmp
 #define TARGET_IDX AS_IDX
+#define STRUCT_IDX modelid
+#define ARRAY_IDX 0
 #define __DEVICE__
 #elif TARGET == gpu
 #define TARGET_IDX SA_IDX // AS_IDX, SA_IDX or SER_IDX
+#define STRUCT_IDX 0
+#define ARRAY_IDX modelid
 #define __DEVICE__ __device__
 #else
 #error TARGET not properly set (cpu, openmp, gpu)

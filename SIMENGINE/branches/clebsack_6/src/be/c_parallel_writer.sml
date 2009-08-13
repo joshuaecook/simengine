@@ -17,7 +17,8 @@ fun header (class_name, includes, defpairs) =
     [$("// C Execution Engine for top-level model: " ^ class_name),
      $("// " ^ Globals.copyright),
      $(""),
-     $("#include <simengine.h>")] @
+     $("#include <simengine.h>"),
+     $("#include <solvers.h>")] @
     (map (fn(inc)=> $("#include "^inc)) includes) @
     [$(""),
      $("")] @
@@ -76,7 +77,8 @@ fun simengine_interface class =
 	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) (!(#inputs class)))
 	val output_names = map #name (!(#outputs class))
     in
-	[$("const char *input_names[] = {" ^ (String.concatWith ", " (map (fn (name) => "\"" ^ (Term.sym2name name) ^ "\"") input_names)) ^ "};"),
+	[$(""),
+	 $("const char *input_names[] = {" ^ (String.concatWith ", " (map (fn (name) => "\"" ^ (Term.sym2name name) ^ "\"") input_names)) ^ "};"),
 	 $("const char *state_names[] = {" ^ (String.concatWith ", " (map (fn (name) => "\"" ^ name ^ "\"") state_names)) ^ "};"),
 	 $("const char *output_names[] = {" ^ (String.concatWith ", " (map (fn (name) => "\"" ^ (Term.sym2name name) ^ "\"") output_names)) ^ "};"),
 	 $("const double default_inputs[] = {" ^ (String.concatWith ", " (map (fn(default)=>
@@ -88,25 +90,30 @@ fun simengine_interface class =
 	 $("const char model_name[] = \"MODEL NAME GOES HERE\";"),
 	 $("const char solver[] = \"SOLVER GOES HERE\";"),
 	 $(""),
-	 $("const simengine_metadata semeta = { 0x0000000000000000ULL, // hashcode"),
-	 SUB[$("NUM_MODELS,"),
+	 $("const simengine_metadata semeta = {"),
+	 SUB[$("0x0000000000000000ULL, // hashcode"),
+	     $("NUM_MODELS,"),
 	     $("solver,"),
 	     $("sizeof(CDATAFORMAT)")
 	    ],
 	 $("};"),
 	 $(""),
-	 $("const simengine_interface seint = {0, // Version,"),
-	 SUB[$("INPUTSPACE, // Number of inputs"),
+	 $("const simengine_interface seint = {"),
+	 SUB[$("0, // Version,"),
+	     $("INPUTSPACE, // Number of inputs"),
 	     $("STATESPACE, // Number of states"),
 	     $("OUTPUTSPACE, // Number of outputs"),
-	     $("input_names"),
-	     $("state_names"),
-	     $("output_names"),
-	     $("default_states"),
-	     $("model_name"),
+	     $("input_names,"),
+	     $("state_names,"),
+	     $("output_names,"),
+	     $("default_inputs,"),
+	     $("default_states,"),
+	     $("model_name,"),
 	     $("&semeta")],
 	 $("};"),
-	 $("simengine_alloc se_alloc;")]
+	 $(""),
+	 $("simengine_alloc se_alloc;"),
+	 $("")]
     end
 (*	
 fun outputdatastruct_code class =
@@ -130,7 +137,7 @@ fun outputdatastruct_code class =
     in
 	List.concat (map output2struct (!outputs))
     end
-
+*)
 fun outputstatestructbyclass_code (class : DOF.class) =
     let
 	val classname = ClassProcess.class2orig_name class
@@ -189,7 +196,7 @@ fun outputstatestruct_code classes =
 	List.concat (map outputstatestructbyclass_code master_classes)
     end
 
-
+(*
 fun outputinit_code class =
     let 
 	val outputs = #outputs class
@@ -217,7 +224,7 @@ fun outputinit_code class =
 	 sym_decls
 
     end
-*)
+
 fun initbyclass_code class =
     let
 	val classname = ClassProcess.class2orig_name class
@@ -280,15 +287,15 @@ fun init_code classes =
 	($("")::($("// Pre-declare state initialization functions"))::predeclare_statements) @
 	List.concat (map initbyclass_code master_classes)
     end
-
+*)
 fun class2flow_code (class, top_class) =
     let
 	val orig_name = ClassProcess.class2orig_name class
 
 	val header_progs = 
 	    [$(""),
-	     $("int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid) {")]
+	     $("__DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
+	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
 
 	val read_memory_progs = []
 
@@ -348,7 +355,7 @@ fun class2flow_code (class, top_class) =
 				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 					  $("// " ^ (CWriterUtil.exp2c_str exp)),
 					  $(inps), $(outs_decl),
-					  $(calling_name ^ "(t, &y[AS_IDX]."^(Symbol.name orig_instname)^", &dydt[AS_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, 0);")] @
+					  $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, 0);")] @
 					 let
 					     val symbols = map
 							       (fn(outsym) => Term.sym2curname outsym)
@@ -446,7 +453,7 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 				       if isInline class then
 					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
 				       else
-					   $("int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid);")
+					   $("__DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
 				   end)
 				classes
 	val iterators = CurrentModel.iterators()
@@ -460,7 +467,7 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 						 class2flow_code (c,#name c = #name topclass)) classes)
 
 	val top_level_flow_progs = [$"",
-				    $("int model_flows(CDATAFORMAT t, const void *y, void *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration, int modelid){"),
+				    $("__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid){"),
 				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")],
 				    $("}")]
     in
@@ -527,21 +534,21 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.inputsize = INPUTSPACE;"),
 	     $("props.num_models = num_models;"),
 	     $(""),
-	     $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
+	     $("INTEGRATION_MEM *mem = SOLVER(INTEGRATION_METHOD, init, TARGET, SIMENGINE_STORAGE, &props);"),
 	     $("for(modelid=0; modelid<num_models; modelid++){"),
 	     SUB[$("while (t[modelid] < t1) {"),
 		 SUB[$("CDATAFORMAT prev_t = *t;"),
-		     $("int status = INTEGRATION_METHOD(eval)(mem, modelid);"),
+		     $("int status = SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
 		     $("if (status != 0) {"),
-		     SUB[$("return ERRCALC;")],
+		     SUB[$("return ERRCOMP;")],
 		     $("}"),
 		     $("if(modelid == 0)"),
-		     $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states, modelid) != 0) {"),
+		     $("if (log_outputs(prev_t, (struct statedata_"^orig_name^"*) model_states, outputs, modelid) != 0) {"),
 		     SUB[$("return ERRMEM;")],
 		     $("}")],
 		 $("}")],
 	     $("}"),
-	     $("INTEGRATION_METHOD(free)(mem);")],
+	     $("SOLVER(INTEGRATION_METHOD, free, TARGET, SIMENGINE_STORAGE, mem);")],
 	 $("return SUCCESS;"),
 	 $("}")]
     end
@@ -599,7 +606,7 @@ fun logoutput_code class =
 
     in
 	[$(""),
-	 $("int log_outputs(double t, const struct statedata_"^orig_name^" *y, int modelid) {"),
+	 $("int log_outputs(double t, const struct statedata_"^orig_name^" *y, simengine_output *outputs, int modelid) {"),
 	 SUB(sym_decls @
 	     [$("")] @
 	     output_exps @
@@ -615,10 +622,9 @@ fun main_code class =
 	val name = Symbol.name (#name class)
 	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
     in
-	[$("#include<simengine.h>"),
-	 $(""),
+	[$(""),
 	 $("const simengine_interface *simengine_getinterface(){"),
-	 SUB[$("return &model_interface;")],
+	 SUB[$("return &seint;")],
 	 $("}"),
 	 $(""),
 	 $("simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc){"),
@@ -629,21 +635,22 @@ fun main_code class =
 	     $("int stateid;"),
 	     $("int modelid;"),
 	     $("int inputid;"),
+	     $("int i;"),
 	     $(""),
 	     $("// Set up allocation functions"),
 	     $("if(alloc){"),
-	     SUB[$("se_malloc = alloc->malloc;"),
-		 $("se_realloc = alloc->realloc;"),
-		 $("se_free = alloc->free;")],
+	     SUB[$("se_alloc.malloc = alloc->malloc;"),
+		 $("se_alloc.realloc = alloc->realloc;"),
+		 $("se_alloc.free = alloc->free;")],
 	     $("}"),
 	     $("else{"),
-	     SUB[$("se_malloc = malloc;"),
-		 $("se_realloc = realloc;"),
-		 $("se_free = free;")],
+	     SUB[$("se_alloc.malloc = malloc;"),
+		 $("se_alloc.realloc = realloc;"),
+		 $("se_alloc.free = free;")],
 	     $(" }"),
 	     $(""),
 	     $("// Create result structure"),
-	     $("simengine_result *seresult = (se_malloc)(sizeof(simengine_result));"),
+	     $("simengine_result *seresult = (se_alloc.malloc)(sizeof(simengine_result));"),
 	     $(""),
 	     $("// Couldn't allocate return structure, return NULL"),
 	     $("if(!seresult) return NULL;"),
@@ -657,7 +664,7 @@ fun main_code class =
 	     $("}"),
 	     $(""),
 	     $("// Allocate return structures"),
-	     $("seresult->outputs = (se_malloc)(semeta.num_models * seint.num_outputs * sizeof(simengine_output));"),
+	     $("seresult->outputs = (se_alloc.malloc)(semeta.num_models * seint.num_outputs * sizeof(simengine_output));"),
 	     $("if(!seresult->outputs){"),
 	     SUB[$("seresult->status = ERRMEM;"),
 		 $("seresult->status_message = errors[ERRMEM];"),
@@ -669,10 +676,10 @@ fun main_code class =
 	     $("for(modelid=0; modelid<NUM_MODELS; modelid++){"),
 	     SUB[$("t[modelid] = start_time;"),
 		 $("for(stateid=0;stateid<STATESPACE;stateid++){"),
-		 SUB[$("model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)]")],
+		 SUB[$("model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)];")],
 		 $("}"),
 		 $("for(inputid=0;inputid<INPUTSPACE;inputid++){"),
-		 SUB[$("parameters[TARGET_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)] = inputs[AS_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)]")],
+		 SUB[$("parameters[TARGET_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)] = inputs[AS_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)];")],
 		 $("}")],
 	     $("}"),
 	     $(""),
@@ -681,11 +688,11 @@ fun main_code class =
 	     SUB[$("seresult->outputs[i].alloc = START_SIZE;"),
 		 $("seresult->outputs[i].num_quantities = seint.output_num_quantities[i];"),
 		 $("seresult->outputs[i].num_samples = 0;"),
-		 $("seresult->outputs[i].data = (se_malloc)(START_SIZE*seint.output_num_quantities[i]*sizeof(CDATAFORMAT));")],
+		 $("seresult->outputs[i].data = (se_alloc.malloc)(START_SIZE*seint.output_num_quantities[i]*sizeof(CDATAFORMAT));")],
 	     $("}"),
 	     $(""),
 	     $("seresult->status = exec_loop(t, t1, semeta.num_models, parameters, model_states, seresult->outputs);"),
-	     $("seresult->status_message = error[seresult->status];"),
+	     $("seresult->status_message = simengine_errors[seresult->status];"),
 	     $("return seresult;")
 	    ],
 	 $("}")
@@ -711,24 +718,20 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				   [], (* no additional includes *)
 				   ("ITERSPACE", i2s (length iterators))::
 				   ("STATESPACE", i2s statespace)::
-				   ("CDATAFORMAT", c_data_format)::
 				   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::
-				   ("INTEGRATION_METHOD(m)", (Solver.solver2name solver) ^ "_ ## m")::
+				   ("OUTPUTSPACE", i2s (length (!(#outputs inst_class))))::
+				   ("INTEGRATION_METHOD", (Solver.solver2name solver))::
+				   ("INTEGRATION_MEM", (Solver.solver2name solver) ^ "_mem")::
 				   ("START_SIZE", "1000")::
 				   ("MAX_ALLOC_SIZE", "65536000")::
-				   ("MALLOCFUN", "malloc")::
-				   ("REALLOCFUN", "realloc")::
-				   ("PRINTFUN", "printf")::
-				   (*("ERRORFUN(id,txt)", "(fprintf(stderr, \"Error (%s): %s\\n\", #id, txt))")*)
-				   ("ERRORFUN(ID, MESSAGE, ...)", "(fprintf(stderr, \"Error (%s): \" MESSAGE \"\\n\", #ID, ## __VA_ARGS__))")::
 				   (Solver.solver2params solver))
 
 	val simengine_interface_progs = simengine_interface inst_class
 (*	val input_progs = input_code inst_class*)
 (*	val outputdatastruct_progs = outputdatastruct_code inst_class*)
-(*	val outputstatestruct_progs = outputstatestruct_code classes*)
+	val outputstatestruct_progs = outputstatestruct_code classes
 (*	val outputinit_progs = outputinit_code inst_class *)
-	val init_progs = init_code classes
+(*	val init_progs = init_code classes *)
 	val flow_progs = flow_code (classes, inst_class)
 	val exec_progs = exec_code (inst_class, props, statespace)
 	val main_progs = main_code inst_class
@@ -737,11 +740,11 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @ 
 					      simengine_interface_progs @
-(*					      outputdatastruct_progs @ 
+(*					      outputdatastruct_progs @ *)
 					      outputstatestruct_progs @
-					      outputinit_progs @
-					      input_progs @ *)
-					      init_progs @ 
+(*					      outputinit_progs @
+					      input_progs @
+					      init_progs @ *)
 					      flow_progs @ 
 					      logoutput_progs @
 					      exec_progs @

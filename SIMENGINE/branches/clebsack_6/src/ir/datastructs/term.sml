@@ -111,7 +111,7 @@ fun sym2c_str (s, props) =
 	val scope = Property.getScope props
 
 	val prefix = 
-	    let val index = if ep_index then "[AS_IDX]." else "->"
+	    let val index = if ep_index then "[STRUCT_IDX]." else "->"
 	    in case scope
 		of Property.LOCAL => ""
 		 | Property.READSTATE v => Symbol.name v ^ index
@@ -119,7 +119,7 @@ fun sym2c_str (s, props) =
 	    end
 
 	val suffix = if ep_index then
-			 "[SA_IDX]"
+			 "[ARRAY_IDX]"
 		     else
 			 ""
 	val (order, vars) = case Property.getDerivative props
