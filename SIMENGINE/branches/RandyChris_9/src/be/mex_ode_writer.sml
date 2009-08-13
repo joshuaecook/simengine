@@ -93,6 +93,10 @@ fun main_code inst_class =
     let
 	val name = Symbol.name (#name inst_class)
 	val orig_name = Symbol.name (ClassProcess.class2orig_name inst_class)
+	val iter_name = case CurrentModel.iterators() of
+			    [(sym, DOF.CONTINUOUS _)] => Symbol.name sym
+			  | _ => DynException.stdException("Unexpected non-continuous iterator passed to ode writer",
+							   "MexODEWriter.main_code", Logger.INTERNAL)
     in
 	[$(""),
 	 $("void mexFunction(int nlhs, mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {"),
@@ -122,7 +126,7 @@ fun main_code inst_class =
 	     $("double *dydt;"),
 	     $("dydt = MALLOCFUN(STATESPACE*sizeof(double));"),
 	     $("CDATAFORMAT *outputs;"),
-	     $("flow_"^name^"(t, (struct statedata_"^orig_name^"*) y, (struct statedata_"^orig_name^"*) dydt, inputs, outputs, FALSE);"),
+	     $("flow_"^iter_name^"(t, y, dydt, inputs, outputs, FALSE);"),
 	     $(""),
 	     $("plhs[0] = mxCreateNumericMatrix(STATESPACE,1, mxDOUBLE_CLASS, mxREAL);"),
 	     $("mxSetData(plhs[0], dydt);"),
@@ -173,18 +177,19 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
 	val statespace = ClassProcess.class2statesize inst_class
 
 	val {iterators,time=(min_time, max_time),precision} = props
-	val solver = CWriter.props2solver props
+	val iter_solver_list = CWriter.props2solvers props
 
 	val c_data_format = case precision 
 			     of DOF.SINGLE => "float" 
 			      | DOF.DOUBLE => "double"
 
-	val header_progs = CWriter.header (class_name, 
+	val header_progs = CWriter.header (model, 
 					   ["<mex.h>"],
 					   ("ITERSPACE", i2s (length iterators))::			   
 					   ("STATESPACE", i2s statespace)::
 					   ("CDATAFORMAT", c_data_format)::
-					   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::
+					   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::nil @
+					   (*(map (fn(sym, solver)=>("INTEGRATION_METHOD_"^(Symbol.name sym)^"(m)", (Solver.solver2name solver) ^ "_ ## m")) iter_solver_list) @*)
 					   ("START_SIZE", "1000")::
 					   ("MAX_ALLOC_SIZE", "65536000")::
 					   ("MALLOCFUN", "mxMalloc")::
@@ -193,7 +198,8 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
 					   ("FPRINTFUN", "fprintf")::
 					   (*("ERRORFUN(id,txt)", "(mexErrMsgIdAndText(#id, txt))")*)
 					   ("ERRORFUN(ID, MESSAGE, ...)", "(mexErrMsgIdAndTxt(#ID, MESSAGE, ## __VA_ARGS__))")::
-					   (Solver.solver2params solver))
+					   nil,
+					   iterators)
 
 (*
 #define ERRORFUN(ID, MESSAGE, ARGS...) (fprintf(stderr, "Error (%s): " message "\n", #ID, ARGS...))
@@ -202,10 +208,10 @@ fun buildODEMex (model: DOF.model as (classes, inst, props)) =
 
 	val input_progs = CWriter.input_code inst_class
 	val outputdatastruct_progs = CWriter.outputdatastruct_code inst_class
-	val outputstatestruct_progs = CWriter.outputstatestruct_code classes
+	val outputstatestruct_progs = CWriter.outputstatestruct_code iterators classes
 	val outputinit_progs = CWriter.outputinit_code inst_class
-	val init_progs = CWriter.init_code classes
-	val flow_progs = CWriter.flow_code (classes, inst_class)
+	val init_progs = CWriter.init_code (classes, inst_class, iterators)
+	val flow_progs = CWriter.flow_code model
 (*	val exec_progs = CWriter.exec_code (inst_class, props, statespace)
 	val outputstruct_progs = outputstruct_code inst_class
 	val inputstruct_progs = inputstruct_code inst_class*)

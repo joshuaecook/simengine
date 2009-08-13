@@ -5,6 +5,8 @@ open Printer
 
 val i2s = Util.i2s
 val r2s = Util.r2s
+val l2s = Util.l2s
+val e2s = ExpPrinter.exp2str
 
 fun outputstruct_code (class: DOF.class) =
     let
@@ -22,6 +24,7 @@ fun outputstruct_code (class: DOF.class) =
 			 val name = CWriterUtil.exp2c_str (Exp.TERM term)
 			 val var = "outputdata_" ^ name
 			 val count = length contents + 1 (* add one for time *)
+			 val iter = TermProcess.symbol2temporaliterator term
 		     in
 			 [$("if ("^var^".length > 0) {"),
 			  SUB[$("memptr = MALLOCFUN("^var^".length*"^(i2s count)^"*sizeof(double));"),
@@ -30,7 +33,9 @@ fun outputstruct_code (class: DOF.class) =
 				  $("return;")],
 			      $("}"),
 			      $("else {"),
-			      SUB($("memcpy(memptr, "^var^".time, "^var^".length*sizeof(CDATAFORMAT));")::
+			      SUB((case iter of 
+				       SOME _ => $("memcpy(memptr, "^var^".time, "^var^".length*sizeof(CDATAFORMAT));") |  
+				       NONE => $("// no time included")) ::
 				  (map
 				      (fn(c, j)=> $("memcpy(memptr+("^(i2s (j+1))^"*"^var^".length), "^var^".vals"^(i2s j)^", "^var^".length*sizeof(CDATAFORMAT));"))
 				      (Util.addCount contents))),
@@ -49,24 +54,43 @@ fun outputstruct_code (class: DOF.class) =
     end
 
 fun stateoverride_code () =
-    [$(""),
-     $("int parseStateInits(const mxArray *arraydata) {"),
-     SUB[$("int m_size = mxGetM(arraydata);"),
-	 $("int n_size = mxGetN(arraydata);"),
-	 $(""),
-	 $("if (m_size != 1 || n_size != STATESPACE) {"),
-	 SUB[$("ERRORFUN(Simatra:inputTypeError, \"The input state array should have dimensions of 1x%d, not %dx%d.\", STATESPACE, m_size, n_size);"),
-	     $("return 1;")],	     
-	 $("}"),
-	 $(""),
-	 $("double *ptr = mxGetData(arraydata);"),
-	 $("int i;"),
-	 $("for (i = STATESPACE-1; i>=0; i--) {"),
-	 SUB[$("model_states[i] = ptr[i];")],
-	 $("}"),
-	 $(""),
-	 $("return 0;")],
-     $("}")]
+    let
+	val model as (classes, inst_class, props) = CurrentModel.getCurrentModel()
+	val iterators = CurrentModel.iterators()
+	val statesizes = map (fn(sym,_)=>ModelProcess.model2statesizebyiterator sym model) iterators
+	val statespace = StdFun.sum statesizes
+	val cumsum = foldl 
+			 (fn(size,sumlist)=>if List.length sumlist = 0 then [size] else (size+Util.hd(sumlist))::sumlist)
+			 []
+			 statesizes
+    in
+	[$(""),
+	 $("int parseStateInits(const mxArray *arraydata) {"),
+	 SUB([$("int m_size = mxGetM(arraydata);"),
+	     $("int n_size = mxGetN(arraydata);"),
+	     $(""),
+	     $("if (m_size != 1 || n_size != "^(i2s statespace)^") {"),
+	     SUB[$("ERRORFUN(Simatra:inputTypeError, \"The input state array should have dimensions of 1x%d, not %dx%d.\", STATESPACE, m_size, n_size);"),
+		 $("return 1;")],	     
+	     $("}"),
+	     $(""),
+	     $("double *ptr = mxGetData(arraydata);"),
+	     $("int i=0, j=0;")] @
+	     (Util.flatmap (fn((sym,_),size,sum)=> 
+			      [$("j=0;"),
+			       $("for (i=i; i < "^(i2s sum)^"; i++) {"),
+			       SUB[$("model_states_"^(Symbol.name sym)^"[j] = ptr[i];"),
+				   $("j++;")],
+			       $("}")]
+			   ) 
+		  (StdFun.zip3 iterators statesizes cumsum)) @
+(*	     $("for (i = STATESPACE-1; i>=0; i--) {"),
+	     SUB[$("model_states[i] = ptr[i];")],
+	     $("}"),*)
+	     [$(""),
+	     $("return 0;")]),
+	 $("}")]
+    end
 
 fun inputstruct_code (class: DOF.class) =
     let
@@ -129,6 +153,14 @@ fun main_code class =
     let
 	val name = Symbol.name (#name class)
 	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
+	val model = CurrentModel.getCurrentModel()
+	val iterators = CurrentModel.iterators()
+	val statesizes = map (fn(sym,_)=>ModelProcess.model2statesizebyiterator sym model) iterators
+	val statespace = StdFun.sum statesizes
+	val cumsum = foldl 
+			 (fn(size,sumlist)=>if List.length sumlist = 0 then [size] else (size+Util.hd(sumlist))::sumlist)
+			 []
+			 statesizes
     in
 	[$(""),
 	 $("void mexFunction(int nlhs, mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {"),
@@ -160,7 +192,7 @@ fun main_code class =
 	     $(""),
 	     $("// model processing"),
 	     $("output_init(); // initialize the outputs"),
-	     $("init_"^name^"((struct statedata_"^orig_name^"*) model_states); // initialize the states"),
+	     $("init_states(); // initialize the states"),
 	     $("CDATAFORMAT inputs[INPUTSPACE];"),
 	     $(""),
 	     $("init_inputs(inputs);"),
@@ -207,22 +239,30 @@ fun main_code class =
 	     $(""),
 	     $("generate_struct(&plhs[0]);"),
 	     $("if (nlhs > 1) {"),
-	     SUB[$("mwSize dims[2];"),
-		 $("dims[0] = 1; dims[1] = STATESPACE;"),
-		 $("plhs[1] = mxCreateNumericArray(2, dims, mxDOUBLE_CLASS, mxREAL);"),
-		 $("double *state_ptr = MALLOCFUN(STATESPACE*sizeof(double));"),
-		 $("int i;"),
-		 $("for (i=STATESPACE-1;i>=0;i--) {"),
+	     SUB([$("mwSize dims[2];"),
+		  $("dims[0] = 1; dims[1] = STATESPACE;"),
+		  $("plhs[1] = mxCreateNumericArray(2, dims, mxDOUBLE_CLASS, mxREAL);"),
+		  $("double *state_ptr = MALLOCFUN(STATESPACE*sizeof(double));"),
+		  $("int i=0, j=0;")] @
+		 (Util.flatmap (fn((sym,_),size,sum)=> 
+				  [$("j=0;"),
+				   $("for (i=i; i < "^(i2s sum)^"; i++) {"),
+				   SUB[$("state_ptr[i] = model_states_"^(Symbol.name sym)^"[j];"),
+				       $("j++;")],
+				   $("}")]
+			       ) 
+			       (StdFun.zip3 iterators statesizes cumsum)) @		 
+		 (*$("for (i=STATESPACE-1;i>=0;i--) {"),
 		 SUB[$("state_ptr[i] = model_states[i];")],
-		 $("}"),
-		 $("mxSetData(plhs[1], state_ptr);"),
-		 $("if (nlhs > 2) {"),
-		 SUB[$("dims[0] = 1; dims[1] = 1;"),
-		     $("plhs[2] = mxCreateNumericArray(2, dims, mxDOUBLE_CLASS, mxREAL);"),
-		     $("double *t_ptr = MALLOCFUN(sizeof(double)); // add more iterators as needed here"),
-		     $("*t_ptr = t;"),
-		     $("mxSetData(plhs[2], t_ptr);")],
-		 $("}")],
+		 $("}"),*)
+		 [$("mxSetData(plhs[1], state_ptr);"),
+		  $("if (nlhs > 2) {"),
+		  SUB[$("dims[0] = 1; dims[1] = 1;"),
+		      $("plhs[2] = mxCreateNumericArray(2, dims, mxDOUBLE_CLASS, mxREAL);"),
+		      $("double *t_ptr = MALLOCFUN(sizeof(double)); // add more iterators as needed here"),
+		      $("*t_ptr = t;"),
+		      $("mxSetData(plhs[2], t_ptr);")],
+		  $("}")]),
 	     $("}"),
 	     $("")],
 	 $("}")]
@@ -237,11 +277,12 @@ fun createExternalStructure props (class: DOF.class) =
 
 	val {precision,...} = props
 
-	fun findStatesInitValues basestr (class:DOF.class) = 
+	fun findStatesInitValues basestr (iter as (itersym, itertype)) (class:DOF.class) = 
 	    let
 		val classname = ClassProcess.class2orig_name class
 		val exps = #exps class
-		val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
+		val state_eqs_symbols = map ExpProcess.lhs (List.filter (ExpProcess.isStateEqOfIter iter) (!exps))
+		(*val _ = Util.log ("in findStatesInitValues: " ^ (l2s (map e2s state_eqs_symbols)))*)
 		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
 		fun exp2name exp = 
 		    Term.sym2curname (ExpProcess.exp2term exp)
@@ -258,7 +299,9 @@ fun createExternalStructure props (class: DOF.class) =
 				   SOME v => v
 				 | NONE => DynException.stdException(("No initial condition found for differential equation: " ^ (ExpProcess.exp2str exp)), "MexWriter.createExternalStructure.findStatesInitValues", Logger.INTERNAL)
 			   end)
-			diff_eqs_symbols
+			state_eqs_symbols
+			
+		(*val _ = Util.log("Sorted initial conditions: " ^ (l2s (map e2s sorted_init_conditions)))*)
 		val instances = List.filter ExpProcess.isInstanceEq (!exps)
 		val class_inst_pairs = ClassProcess.class2instnames class
 	    in
@@ -267,22 +310,22 @@ fun createExternalStructure props (class: DOF.class) =
 				       val term = ExpProcess.exp2term (ExpProcess.lhs exp)
 				       val rhs = ExpProcess.rhs exp
 				   in
-				       if Term.isInitialValue term time then
+				       if Term.isInitialValue term itersym then
 					   [((if basestr = "" then "" else basestr ^ "." ) ^ (Term.sym2name term), CWriterUtil.exp2c_str rhs)]
 				       else 
 					   []
-				   end) init_conditions)
+				   end) sorted_init_conditions)
 		@ (StdFun.flatmap
 		       (fn(classname, instname)=>
 			  let
 			      val basestr' = Symbol.name instname
 			  in
-			      findStatesInitValues basestr' (CurrentModel.classname2class classname)
+			      findStatesInitValues basestr' iter (CurrentModel.classname2class classname)
 			  end)
 		       class_inst_pairs)
 	    end
 	    handle e => DynException.checkpoint "MexWriter.createExternalStructure.findStatesInitValues" e
-	val states = findStatesInitValues "" class
+	val states = List.concat (map (fn(iter)=> findStatesInitValues "" iter class) (CurrentModel.iterators()))
 		     
     in
 	[$("% Generated output data structure for Matlab"),
@@ -299,10 +342,11 @@ fun createExternalStructure props (class: DOF.class) =
 		  " = struct('name', '"^(ExpProcess.exp2str (Exp.TERM name))^
 		  "', 'value', "^(case default of SOME v => CWriterUtil.exp2c_str v | NONE => "nan")^");")*))
 	     (!inputs)) @
-	(map 
+	($("dif.states = [];")::
+	 (map 
 	     (fn((name, init), i)=> $((if i = 0 then "dif.states" else ("dif.states("^(i2s (i+1))^")"))
 				      ^" = struct('name', '"^name^"', 'init', "^init^");"))
-	     (Util.addCount states))
+	     (Util.addCount states)))
 	 
     end
     handle e => DynException.checkpoint "MexWriter.createExternalStructure" e
@@ -370,19 +414,19 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 	val statespace = ClassProcess.class2statesize inst_class
 
 	val {iterators,precision,...} = props
-	val solver = CWriter.props2solver props
+	val iter_solver_list = CWriter.props2solvers props
 
 	val c_data_format = case precision 
 			     of DOF.SINGLE => "float" 
 			      | DOF.DOUBLE => "double"
 
-	val header_progs = CWriter.header (class_name, 
+	val header_progs = CWriter.header (model, 
 					   ["<mex.h>"],
 					   ("ITERSPACE", i2s (length iterators))::			   
 					   ("STATESPACE", i2s statespace)::
 					   ("CDATAFORMAT", c_data_format)::
-					   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::
-					   ("INTEGRATION_METHOD(m)", (Solver.solver2name solver) ^ "_ ## m")::
+					   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::nil @
+					   (map (fn(sym, solver)=>("INTEGRATION_METHOD_"^(Symbol.name sym)^"(m)", (Solver.solver2name solver) ^ "_ ## m")) iter_solver_list) @
 					   ("START_SIZE", "1000")::
 					   ("MAX_ALLOC_SIZE", "65536000")::
 					   ("MALLOCFUN", "mxMalloc")::
@@ -391,7 +435,8 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 					   ("FPRINTFUN", "fprintf")::
 					   (*("ERRORFUN(id,txt)", "(mexErrMsgIdAndText(#id, txt))")*)
 					   ("ERRORFUN(ID, MESSAGE, ...)", "(mexErrMsgIdAndTxt(#ID, MESSAGE, ## __VA_ARGS__))")::
-					   (Solver.solver2params solver))
+					   nil,
+					   iterators)
 
 (*
 #define ERRORFUN(ID, MESSAGE, ARGS...) (fprintf(stderr, "Error (%s): " message "\n", #ID, ARGS...))
@@ -400,10 +445,10 @@ fun buildMex (model: DOF.model as (classes, inst, props)) =
 
 	val input_progs = CWriter.input_code inst_class
 	val outputdatastruct_progs = CWriter.outputdatastruct_code inst_class
-	val outputstatestruct_progs = CWriter.outputstatestruct_code classes
+	val outputstatestruct_progs = CWriter.outputstatestruct_code iterators classes
 	val outputinit_progs = CWriter.outputinit_code inst_class
-	val init_progs = CWriter.init_code classes
-	val flow_progs = CWriter.flow_code (classes, inst_class)
+	val init_progs = CWriter.init_code (classes, inst_class, iterators)
+	val flow_progs = CWriter.flow_code model
 	val exec_progs = CWriter.exec_code (inst_class, props, statespace)
 	val outputstruct_progs = outputstruct_code inst_class
 	val inputstruct_progs = inputstruct_code inst_class

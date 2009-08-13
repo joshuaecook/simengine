@@ -8,6 +8,13 @@ fun model2statesize (model:DOF.model) =
 	ClassProcess.class2statesize (CurrentModel.classname2class classname)
     end
 
+fun model2statesizebyiterator (iter:Symbol.symbol) (model:DOF.model) =
+    let
+	val (_, {name,classname}, _) = model
+    in
+	ClassProcess.class2statesizebyiterator iter (CurrentModel.classname2class classname)
+    end
+
 fun optimizeModel (model:DOF.model) =
     let
 	val _ = DynException.checkToProceed()
@@ -28,7 +35,8 @@ fun normalizeModel (model:DOF.model) =
 	(* TODO, write the checks of the model IR as they are needed *)
 
 	(* assign correct scopes for each symbol *)
-	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
+	val () = ((*Util.log ("Assigning correct scope ...");*)
+		  app ClassProcess.assignCorrectScope (CurrentModel.classes()))
 
 	(* generate all offsets for instances *)
 	(*val () = app ClassProcess.generateOffsets classes*)
@@ -44,12 +52,14 @@ fun normalizeModel (model:DOF.model) =
 			end) 
 		     classes
 	*)
-	val _ = Ordering.orderModel(model)
+	val _ = ((*Util.log("Ordering model ...");*)
+		 Ordering.orderModel(model))
 
 	val _ = DynException.checkToProceed()
 
 	(* remap all names into names that can be written into a back-end *)
-	val () = app ClassProcess.fixSymbolNames (CurrentModel.classes())
+	val () = ((*Util.log("Fixing symbol names");*)
+		  app ClassProcess.fixSymbolNames (CurrentModel.classes()))
 
 	val _ = DynException.checkToProceed()
     in

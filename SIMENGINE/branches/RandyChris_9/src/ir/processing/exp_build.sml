@@ -12,7 +12,7 @@ fun tvar_from_state str = Exp.TERM
 					   Property.setScope 
 					       (Property.setIterator Property.default_symbolproperty 
 								     [(Symbol.symbol "t",Iterator.RELATIVE 0)])
-					       (Property.READSTATE (Symbol.symbol "y"))))
+					       (Property.READSTATE (Symbol.symbol "rd_t"))))
 
 
 
@@ -24,7 +24,7 @@ fun diff str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 						   [(Symbol.symbol "t",Iterator.RELATIVE 0)])
 					      (1, [Symbol.symbol "t"])
 					 )					
-					 (Property.WRITESTATE (Symbol.symbol "dydt"))
+					 (Property.WRITESTATE (Symbol.symbol "wr_t"))
 				    )
 			)
 
@@ -56,7 +56,7 @@ fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					    (Property.setIterator 
 						 Property.default_symbolproperty 
 						 [(Symbol.symbol "n",Iterator.RELATIVE 1)])
-					    (Property.WRITESTATE (Symbol.symbol "y_n"))
+					    (Property.WRITESTATE (Symbol.symbol "wr_n"))
 				       )
 			   )
 
@@ -65,7 +65,7 @@ fun curvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					   (Property.setIterator 
 						Property.default_symbolproperty 
 						[(Symbol.symbol "n",Iterator.RELATIVE 0)])
-					   (Property.READSTATE (Symbol.symbol "x_n"))
+					   (Property.READSTATE (Symbol.symbol "rd_n"))
 				      )
 			  )
 
@@ -89,12 +89,13 @@ fun real r = Exp.TERM (Exp.REAL r);
 fun bool b = Exp.TERM (Exp.BOOL b);
 fun plus l = Exp.FUN (Fun.BUILTIN Fun.ADD, l);
 fun sub (a,b) = Exp.FUN (Fun.BUILTIN Fun.SUB, [a, b]);
+fun neg v = Exp.FUN (Fun.BUILTIN Fun.NEG, [v]) (*times [int ~1, v]*)
 fun divide (a,b) = Exp.FUN (Fun.BUILTIN Fun.DIVIDE, [a, b]);
 fun times l = Exp.FUN (Fun.BUILTIN Fun.MUL, l);
 fun power (a,b) = Exp.FUN (Fun.BUILTIN Fun.POW, [a, b]);
 fun exp v = power (var "e", v)
 fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
-fun neg v = Exp.FUN (Fun.BUILTIN Fun.NEG, [v]) (*times [int ~1, v]*)
 infix equals;
+fun group l = Exp.FUN (Fun.BUILTIN Fun.GROUP, l)
 
 end

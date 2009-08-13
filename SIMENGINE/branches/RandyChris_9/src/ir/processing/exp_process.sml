@@ -190,9 +190,12 @@ fun isFirstOrderDifferentialTerm exp =
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val derivative = Property.getDerivative props
+	    val continuous_iterators = List.filter (fn(sym, itertype)=>case itertype of 
+									   DOF.DISCRETE _ => false
+									 | DOF.CONTINUOUS _ => true) (CurrentModel.iterators())
 	in
 	    case derivative of
-		SOME (order, [iterator]) =>  order = 1 andalso iterator = (Symbol.symbol "t")
+		SOME (order, [iterator]) =>  order = 1 andalso List.exists (fn(sym, _)=> iterator = sym) continuous_iterators
 	      | _ => false
 	end
       | _ => false
@@ -207,12 +210,20 @@ fun isNextVarDifferenceTerm exp =
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
+	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
+									 DOF.DISCRETE _ => true
+								       | DOF.CONTINUOUS _ => false) (CurrentModel.iterators())
 	in
 	    case iterators of
-		SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = (Symbol.symbol "n")
+		SOME ((iterator, Iterator.RELATIVE 1)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
 	      | _ => false
 	end
       | _ => false
+
+(* difference equations must have x[n+1] on the left hand side *)
+fun isDifferenceEq exp =
+    isEquation exp andalso
+    isNextVarDifferenceTerm (lhs exp)
 
 (* difference terms of the form x[n] *)
 fun isCurVarDifferenceTerm exp = 
@@ -220,9 +231,12 @@ fun isCurVarDifferenceTerm exp =
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
+	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
+									 DOF.DISCRETE _ => true
+								       | DOF.CONTINUOUS _ => false) (CurrentModel.iterators())
 	in
 	    case iterators of
-		SOME ((iterator, Iterator.ABSOLUTE 0)::rest) => iterator = (Symbol.symbol "n")
+		SOME ((iterator, Iterator.RELATIVE 0)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
 	      | _ => false
 	end
       | _ => false
@@ -233,9 +247,10 @@ fun isInitialConditionTerm exp =
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
+	    val all_iterators = CurrentModel.iterators()
 	in
 	    case iterators of
-		SOME ((itersym, Iterator.ABSOLUTE 0)::rest) => itersym = (Symbol.symbol "t")
+		SOME ((itersym, Iterator.ABSOLUTE 0)::rest) => List.exists (fn(sym,_)=>sym=itersym) all_iterators
 	      | _ => false
 	end
       | _ => false
@@ -244,6 +259,44 @@ fun isInitialConditionEq exp =
     isEquation exp andalso
     isInitialConditionTerm (lhs exp)
 
+(* look for state equations of a particular iterator type *)
+fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
+    (case exp of
+	 Exp.TERM (Exp.SYMBOL (_, props)) =>
+	 let
+	     val derivative = Property.getDerivative props
+	 in
+	     case derivative of
+		 SOME (order, [iterator]) => order = 1 andalso iterator = name
+	       | _ => false
+	 end
+       | _ => false)
+  | isStateTermOfIter (iter as (name, DOF.DISCRETE _)) exp =
+    (case exp of
+	 Exp.TERM (Exp.SYMBOL (_, props)) =>
+	 let
+	     val iterators = Property.getIterator props
+	 in
+	     case iterators of
+		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	       | _ => false
+	 end
+       | _ => false)
+
+fun isStateEqOfIter iter exp =
+    isEquation exp andalso
+    isStateTermOfIter iter (lhs exp)
+
+fun isStateTerm exp = 
+    let
+	val iterators = CurrentModel.iterators()
+    in
+	List.exists (fn(iter)=>isStateTermOfIter iter exp) iterators
+    end
+fun isStateEq exp =
+    isEquation exp andalso
+    isStateTerm (lhs exp)
+
 (* intermediate equations *)
 fun isIntermediateTerm exp =
     case exp of
@@ -251,11 +304,12 @@ fun isIntermediateTerm exp =
 	let
 	    val derivative = Property.getDerivative props
 	    val iterators = Property.getIterator props
+	    val all_iterators = CurrentModel.iterators()
 	in
 	    case (derivative, iterators) of
 		(SOME _, _) => false
-	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => (itersym <> Symbol.symbol "t") andalso 
-								    (itersym <> Symbol.symbol "n")
+	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
+	      | (_, SOME ((itersym, Iterator.RELATIVE 1)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
 	      | (_, _) => true
 	end
       | _ => false
@@ -275,6 +329,23 @@ fun isNonSupportedEq exp =
 	    (error_no_return exp "Not a supported equation type"; false)
     else
 	(error_no_return exp "Not an equation"; true)
+
+fun doesTermHaveIterator iter exp =
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	(case (Property.getIterator props) of
+	     SOME iters => List.exists (fn(sym,_)=>sym=iter) iters
+	   | NONE => false)
+      | _ => false
+
+fun doesEqHaveIterator iter exp =
+    let 
+	val result =
+	    isEquation exp andalso
+	    doesTermHaveIterator iter (lhs exp)
+    in
+	result
+    end
 
 fun exp2size exp = 
     let
@@ -312,30 +383,74 @@ fun countTerms exp =
 fun countFuns exp =
     length (Match.findRecursive (Match.anyfun "a", exp))
 
-fun assignCorrectScopeOnSymbol exp =
-    if isFirstOrderDifferentialTerm exp then
-	case exp of 
-	    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol "dydt"))))
-	  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-    else if isNextVarDifferenceTerm exp then
-	case exp of 
-	    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol "y_n"))))
-	  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-    else if isCurVarDifferenceTerm exp then
-	case exp of 
-	    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol "x_n"))))
-	  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-    else if isIntermediateTerm exp then
-	case exp of 
-	    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol "y"))))
-	  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-    else if isInitialConditionTerm exp then
-	exp (* this doesn't really apply here ... *)
-    else
-	(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope"));
-	 DynException.setErrored();
-	 exp)
+fun assignIteratorToSymbol (sym, itertype) exp =
+    let
+	val iter = TermProcess.symbol2temporaliterator (exp2term exp)
+    in
+	case iter of
+	    SOME (sym', _) => if sym = sym' then
+				 (* already assigned *)
+				 exp
+			     else
+				 DynException.stdException(
+				 ("Can't assign iterator '"^(Symbol.name sym)^"' over previously defined iterator on expression '"^(e2s exp)^"'"),
+				 "ExpProcess.assignIteratorToSymbol",
+				 Logger.INTERNAL)
+	  | NONE => 
+	    let
+		val (exp_sym, props, iterators) = case (exp2term exp) of
+						      Exp.SYMBOL (exp_sym, props) => 
+						      (exp_sym, props, Property.getIterator props)
+						    | _ => DynException.stdException(("Unexpected non symbol '"^(e2s exp)^"'"),
+										     "ExpProcess.assignIteratorToSymbol", 
+										     Logger.INTERNAL)
 
+		val iterators' = case iterators of
+				     SOME iters => (sym, Iterator.RELATIVE 0)::iters (* prepend the iterator in this case *)
+				   | NONE => [(sym, Iterator.RELATIVE 0)] (* create a new list *)
+
+	    in
+		Exp.TERM (Exp.SYMBOL (exp_sym, Property.setIterator props iterators'))
+	    end
+    end
+
+fun assignCorrectScopeOnSymbol exp =
+    case exp of
+	Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
+	let
+	    val iter = TermProcess.symbol2temporaliterator s
+	in
+	    case iter of
+		SOME (iter_sym, iter_type) => 
+		if isFirstOrderDifferentialTerm exp then
+		    case exp of 
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))))
+		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		else if isNextVarDifferenceTerm exp then
+		    case exp of 
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))))
+		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		else if isCurVarDifferenceTerm exp then
+		    case exp of 
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))))
+		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		else if isIntermediateTerm exp then
+		    case exp of 
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))))
+		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		else if isInitialConditionTerm exp then
+		    exp (* this doesn't really apply here ... *)
+		else
+		    (Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - unknown expression type"));
+		     DynException.setErrored();
+		     exp)
+	      | NONE => (*(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - no temporal iterator"));
+			 DynException.setErrored();*)
+		exp
+	end
+      | _ => (Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - not a symbol"));
+	      DynException.setErrored();
+	      exp)
 
 fun assignCorrectScope states exp =
     if isSymbol exp then

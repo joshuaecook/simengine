@@ -159,58 +159,61 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
     end
 
 fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp = 
-    let
-	val ret = foldl
-		      (fn({find, test, replace},ret : ((Symbol.symbol * Exp.exp) list * Rewrite.rewrite) option) => 
-			 case ret of 
-			     SOME v => SOME v (* already found a match here so skip the rest*)
-			   | NONE => 
-			     let
-				 val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
-				 val run_test = case test of SOME v => true | NONE => false
-										      
-				 (* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)
-				 fun test_exp() = 
-				     let
-					 val test_fun = valOf test
-				     in
-					 test_fun (exp, assigned_patterns)
-				     end
-			     in
-				 if result andalso (not run_test orelse (test_exp())) then
-				     SOME (assigned_patterns, {find=find, test=test, replace=replace})
-				 else
-				     NONE
-			     end)
-		      NONE
-		      rewritelist
-
-	(*val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (pat_exp, exp)*)
-	val exp' = case ret of
-		       SOME (assigned_patterns, rewrite as {find,test,replace}) =>
-		       let
-			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
-			   val repl_exp' = case replace of
-					       Rewrite.RULE repl_exp => replacePattern assigned_patterns repl_exp
-					     | Rewrite.ACTION (sym, action_fun) => action_fun exp
-
-			   (* log if desired *)
-			   val _ = if DynamoOptions.isFlagSet "logrewrites" then
-				       Util.log ("Rewriting Rule '"^(Rewrite.rewrite2str rewrite)^"': changed expression from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")
-				   else
-				       ()
-				   
-			   (* substitute it back in, but call replaceExp on its arguments *)
-			   val exp' = (head repl_exp') (map (fn(arg)=> applyRewritesExp rewritelist arg) (level repl_exp'))
-		       in
-			   exp'
-		       end
-		     | NONE => 
-		       (head exp) (map (fn(arg)=> applyRewritesExp rewritelist arg) (level exp))
+    if List.length rewritelist > 0 then
+	let
+	    val ret = foldl
+			  (fn({find, test, replace},ret : ((Symbol.symbol * Exp.exp) list * Rewrite.rewrite) option) => 
+			     case ret of 
+				 SOME v => SOME v (* already found a match here so skip the rest*)
+			       | NONE => 
+				 let
+				     val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
+				     val run_test = case test of SOME v => true | NONE => false
+											  
+				     (* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)
+				     fun test_exp() = 
+					 let
+					     val test_fun = valOf test
+					 in
+					     test_fun (exp, assigned_patterns)
+					 end
+				 in
+				     if result andalso (not run_test orelse (test_exp())) then
+					 SOME (assigned_patterns, {find=find, test=test, replace=replace})
+				     else
+					 NONE
+				 end)
+			  NONE
+			  rewritelist
+			  
+	    (*val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (pat_exp, exp)*)
+	    val exp' = case ret of
+			   SOME (assigned_patterns, rewrite as {find,test,replace}) =>
+			   let
+			       (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
+			       val repl_exp' = case replace of
+						   Rewrite.RULE repl_exp => replacePattern assigned_patterns repl_exp
+						 | Rewrite.ACTION (sym, action_fun) => action_fun exp
+										       
+			       (* log if desired *)
+			       val _ = if DynamoOptions.isFlagSet "logrewrites" then
+					   Util.log ("Rewriting Rule '"^(Rewrite.rewrite2str rewrite)^"': changed expression from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")
+				       else
+					   ()
+					   
+			       (* substitute it back in, but call replaceExp on its arguments *)
+			       val exp' = (head repl_exp') (map (fn(arg)=> applyRewritesExp rewritelist arg) (level repl_exp'))
+			   in
+			       exp'
+			   end
+			 | NONE => 
+			   (head exp) (map (fn(arg)=> applyRewritesExp rewritelist arg) (level exp))
 		       
-    in
-	exp'
-    end
+	in
+	    exp'
+	end
+    else
+	exp
 
 (* apply rules and repeat *)
 fun repeatApplyRewriteExp rewrite exp =
@@ -236,24 +239,28 @@ fun repeatApplyRewriteExp rewrite exp =
     end
 
 fun repeatApplyRewritesExp rewrites exp =
-    let
-	val iter_limit = DynamoOptions.getIntegerSetting "termrewritelimit"
+    if List.length rewrites > 0 then
+	let
+	    val iter_limit = DynamoOptions.getIntegerSetting "termrewritelimit"
+			     
+	    fun repeatApplyRewritesExp_helper limit rewrites exp =
+		if limit = 0 then
+		    (Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit)));
+		     exp)
+		else
+		    let
+			val exp' = applyRewritesExp rewrites exp
+		    in
+			if ExpEquality.equiv (exp, exp') then
+			    exp
+			else
+			    repeatApplyRewritesExp_helper (limit-1) rewrites exp'
+		    end
+		    
+	in
+	    repeatApplyRewritesExp_helper iter_limit rewrites exp
+	end
+    else
+	exp
 
-	fun repeatApplyRewritesExp_helper limit rewrites exp =
-	    if limit = 0 then
-		(Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit)));
-		 exp)
-	    else
-		let
-		    val exp' = applyRewritesExp rewrites exp
-		in
-		    if ExpEquality.equiv (exp, exp') then
-			exp
-		    else
-			repeatApplyRewritesExp_helper (limit-1) rewrites exp'
-		end
-
-    in
-	repeatApplyRewritesExp_helper iter_limit rewrites exp
-    end
 end

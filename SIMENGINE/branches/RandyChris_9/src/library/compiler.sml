@@ -26,22 +26,36 @@ fun std_compile exec args =
 
 	      val _ = CurrentModel.setCurrentModel forest
 
-	      val _ = CurrentModel.setCurrentModel (ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
-	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
+		      
+	      val _ = if DynamoOptions.isFlagSet "optimize" then
+			  CurrentModel.setCurrentModel (ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
+		      else
+			  ()
+
+	      val _ = ((*Util.log("Normalizing model ...");*)
+		       ModelProcess.normalizeModel (CurrentModel.getCurrentModel()))		       
 
 	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
 	      val _ = if DynamoOptions.isFlagSet "generateC" then
-			  (Logger.log_notice (Printer.$("Generating Debug C Back-end"));
-			  CWriter.buildC (CurrentModel.getCurrentModel()))
+			  ((*Util.log("Generate C Back-end ...");*)
+			   Logger.log_notice (Printer.$("Generating Debug C Back-end"));
+			   CWriter.buildC (CurrentModel.getCurrentModel()))
 		      else
 			  CWriter.SUCCESS
 	      val _ = DynException.checkToProceed()
 
-	      val _ = MexWriter.buildMex (CurrentModel.getCurrentModel())
+	      val _ = ((*Util.log("Generate Mex Back-end ...");*)
+		       MexWriter.buildMex (CurrentModel.getCurrentModel()))
 	      val _ = DynException.checkToProceed()
-	      val _ = ODEMexWriter.buildODEMex (CurrentModel.getCurrentModel())
-	      val _ = DynException.checkToProceed()
+
+	      (* only build ODEMex if it's a model that is a continuous only system with only one iterator *)
+	      val _ = case CurrentModel.iterators() of
+			  [(sym, DOF.CONTINUOUS _)] => 
+			  ((*Util.log("Generate Mex ODE Back-end ...");*)
+			   ODEMexWriter.buildODEMex (CurrentModel.getCurrentModel());
+			   DynException.checkToProceed())
+			| _ => ()
 
 	      val code = System.SUCCESS (*ModelCompileLauncher.compile (name, forest)*)
 	  in 

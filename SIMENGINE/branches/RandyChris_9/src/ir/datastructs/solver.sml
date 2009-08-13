@@ -13,6 +13,8 @@ datatype solver =
 
 val r2s = Util.r2s
 
+val default = ODE45 {dt=0.1, abs_tolerance=(1e~6), rel_tolerance=(1e~3)}
+
 (* these are defined in solvers.c *)
 fun solver2name (FORWARD_EULER _) = "forwardeuler"
   | solver2name (EXPONENTIAL_EULER _) = "exponentialeuler"
@@ -23,32 +25,46 @@ fun solver2name (FORWARD_EULER _) = "forwardeuler"
   | solver2name (ODE45 _) = "dormand_prince"
   | solver2name (CVODE _) = "cvode"
 
-fun solver2params (FORWARD_EULER {dt}) = [("DT", r2s dt),
-					  ("ABSTOL", "0.0"),
-					  ("RELTOL", "0.0")]
-  | solver2params (EXPONENTIAL_EULER {dt}) = [("DT", r2s dt),
-					      ("ABSTOL", "0.0"),
-					      ("RELTOL", "0.0")]
-  | solver2params (RK4 {dt}) = [("DT", r2s dt),
-				("ABSTOL", "0.0"),
-				("RELTOL", "0.0")]
-  | solver2params (MIDPOINT {dt}) = [("DT", r2s dt),
-				     ("ABSTOL", "0.0"),
-				     ("RELTOL", "0.0")]
-  | solver2params (HEUN {dt}) = [("DT", r2s dt),
-				 ("ABSTOL", "0.0"),
-				 ("RELTOL", "0.0")]
-  | solver2params (ODE23 {dt, abs_tolerance, rel_tolerance}) = 
-    [("DT", r2s dt),
-     ("ABSTOL", r2s abs_tolerance),
-     ("RELTOL", r2s rel_tolerance)]
-  | solver2params (ODE45 {dt, abs_tolerance, rel_tolerance}) = 
-    [("DT", r2s dt),
-     ("ABSTOL", r2s abs_tolerance),
-     ("RELTOL", r2s rel_tolerance)]
-  | solver2params (CVODE {dt, abs_tolerance, rel_tolerance}) = 
-    [("DT", r2s dt),
-     ("ABSTOL", r2s abs_tolerance),
-     ("RELTOL", r2s rel_tolerance)]
+fun solver2options (FORWARD_EULER {dt}) = 
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (EXPONENTIAL_EULER {dt}) = 
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (RK4 {dt}) = 
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (MIDPOINT {dt}) =
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (HEUN {dt}) = 
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (ODE23 {dt, abs_tolerance, rel_tolerance}) = 
+    {dt=dt,
+     abstol=abs_tolerance,
+     reltol=abs_tolerance}
+  | solver2options (ODE45 {dt, abs_tolerance, rel_tolerance}) = 
+    {dt=dt,
+     abstol=abs_tolerance,
+     reltol=abs_tolerance}
+  | solver2options (CVODE {dt, abs_tolerance, rel_tolerance}) = 
+    {dt=dt,
+     abstol=abs_tolerance,
+     reltol=abs_tolerance}
+
+fun solver2params solver = 
+    let
+	val {dt, abstol, reltol} = solver2options solver
+    in
+	[("DT", r2s dt),
+	 ("ABSTOL", r2s abstol),
+	 ("RELTOL", r2s reltol)]
+    end
 
 end

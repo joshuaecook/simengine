@@ -12,6 +12,11 @@ end
 structure ModelTranslate : MODELTRANSLATE=
 struct
 
+val e2s = ExpPrinter.exp2str
+val b2s = Util.b2s
+val i2s = Util.i2s
+val r2s = Util.r2s
+
 (* fill in this reference when calling translate/translateExp *)
 val exec = ref (fn(e) => e)
 
@@ -434,8 +439,8 @@ fun createClass classes object =
 	val classHasT = List.exists (expHasIterator (Symbol.symbol "t")) exps
 
 	val classform = DOF.INSTANTIATION 
-			    {readstates=(if classHasT then [Symbol.symbol "y"] else []) @ (if classHasN then [Symbol.symbol "x_n"] else []),
-			     writestates=(if classHasT then [Symbol.symbol "dydt"] else []) @ (if classHasN then [Symbol.symbol "y_n"] else [])}
+			    {readstates=(if classHasT then [Symbol.symbol "t"] else []) @ (if classHasN then [Symbol.symbol "n"] else []),
+			     writestates=(if classHasT then [Symbol.symbol "t"] else []) @ (if classHasN then [Symbol.symbol "n"] else [])}
 
 	fun buildIterator exp =
 	    {name=(Symbol.symbol o exp2str) (method "name" exp),
@@ -499,28 +504,34 @@ fun obj2dofmodel object =
 						  rel_tolerance = exp2real(method "reltol" solverobj)}
 		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
-	fun expHasN exp =
+	fun expHasIter iter exp =
 	    if ExpProcess.isInitialConditionEq exp then
 		case ExpProcess.getLHSSymbol exp of
 		    Exp.SYMBOL (_, props) => 
 		    (case Property.getIterator props of
 			 SOME iters =>
-			 (List.exists (fn(s,p) => s = (Symbol.symbol "n")) iters)
+			 (List.exists (fn(s,p) => s = iter) iters)
 		       | NONE => false)
-		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (ExpProcess.exp2str exp)), "ModelTranslate.translate.expHasN", Logger.INTERNAL)
+		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (ExpProcess.exp2str exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
 	    else
 		false
 
-	fun classHasN ({exps, ...}: DOF.class) =
-	    List.exists expHasN (!exps)
+	fun classHasIter iter ({exps, ...}: DOF.class) =
+	    List.exists (expHasIter iter) (!exps)
 
 	val discrete_iterators = 
-	    if List.exists classHasN classes then
-		[(Symbol.symbol "n", DOF.DISCRETE)]
+	    if List.exists (classHasIter (Symbol.symbol "n")) classes then
+		[(Symbol.symbol "n", DOF.DISCRETE {fs=1.0})]
+	    else
+		[]
+			    
+	val continuous_iterators = 
+	    if List.exists (classHasIter (Symbol.symbol "t")) classes then
+		[(Symbol.symbol "t", DOF.CONTINUOUS solver)]
 	    else
 		[]
 
-	val systemproperties = (*{solver=solver}*){iterators=[(Symbol.symbol "t", DOF.CONTINUOUS solver)] @ discrete_iterators,
+	val systemproperties = (*{solver=solver}*){iterators=continuous_iterators @ discrete_iterators,
 						   time=(exp2real (method "min_t" solverobj), exp2real (method "max_t" solverobj)),
 						   precision=DOF.DOUBLE (* TODO: Make this configurable *)}
     in

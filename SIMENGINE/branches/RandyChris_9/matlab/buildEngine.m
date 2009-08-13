@@ -106,27 +106,39 @@ c_source = fullfile(compileDirectory, ...
                     sprintf('%s_%s.c',basename,mode));
 ode_c_source = fullfile(compileDirectory, ...
                         sprintf('%s_ode%s.c',basename,mode));
+ode_exists = exist(ode_c_source, 'file');
 solverlib = fullfile(dynenv, 'lib', ['solvers_' s.precision '.a']);
 switch computer
  case 'GLNX86'
   mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
       '-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
-      '-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
+  if ode_exists 
+    mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+        '-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ...
+        ode_c_source);
+  end
  case 'GLNXA64'
   mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
       '-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
-      '-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
+  if ode_exists 
+    mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+        '-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
+  end
  case 'MACI'
   mex('-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
-  mex('-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
+  if ode_exists 
+    mex('-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
+  end
  case 'MACI64'
   mex('-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
-  mex('-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
+  if ode_exists 
+    mex('-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
+  end
  case 'i686-pc-linux-gnu'
   mex('--output', [basename '.mex'], ['-I' fullfile(dynenv,'include')], c_source, solverlib);
-  mex('--output', [basename '_ode.mex'], ['-I' fullfile(dynenv,'include')], ode_c_source);  
+  if ode_exists 
+    mex('--output', [basename '_ode.mex'], ['-I' fullfile(dynenv,'include')], ode_c_source);  
+  end
  otherwise
   error('Simatra:PlatformError', 'Unsupported platform');
 end

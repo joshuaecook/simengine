@@ -148,8 +148,8 @@ fun printModel (model: DOF.model) =
 			      print ("  Solver = ODE45 (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ")\n")
 			    | Solver.CVODE {dt, abs_tolerance, rel_tolerance} =>
 			      print ("  Solver = CVode (dt = )" ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ")\n"))
-		       | DOF.DISCRETE => 
-			 print ("  Discrete\n"))
+		       | DOF.DISCRETE {fs} => 
+			 print ("  Discrete with {fs="^(r2s fs)^"}\n"))
 		 )
 		 iterators)
 

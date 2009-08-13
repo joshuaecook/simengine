@@ -11,14 +11,14 @@ datatype classtype = MASTER of Symbol.symbol
 		   | SLAVE of Symbol.symbol
 
 datatype classform = FUNCTIONAL
-		   | INSTANTIATION of {readstates:Symbol.symbol list,
+		   | INSTANTIATION of {readstates: Symbol.symbol list,
 				       writestates: Symbol.symbol list}
 
 
 type classproperties = {sourcepos: PosLog.pos, classform: classform, classtype: classtype}
 
 datatype iteratortype = CONTINUOUS of Solver.solver
-		      | DISCRETE
+		      | DISCRETE of {fs:real} (* sampling frequency *)
 
 datatype precisiontype = SINGLE | DOUBLE
 

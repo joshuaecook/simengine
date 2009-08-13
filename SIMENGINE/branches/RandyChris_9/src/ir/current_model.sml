@@ -5,7 +5,8 @@ struct
 val empty_model:DOF.model
   = ([], 
      {name=NONE,classname=Symbol.symbol "empty"}, 
-     {iterators=nil,time=(0.0,0.0),precision=DOF.DOUBLE})
+     {iterators=[(Symbol.symbol "t", DOF.CONTINUOUS Solver.default),
+		 (Symbol.symbol "n", DOF.DISCRETE {fs=1.0})],time=(0.0,0.0),precision=DOF.DOUBLE})
 
 val current_model = (ref empty_model: DOF.model ref)
 

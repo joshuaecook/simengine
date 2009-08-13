@@ -197,6 +197,14 @@ fun isWriteState term =
 				    | _ => false)
       | _ => false
 					  
+					  
+fun isLocal term =
+    case term of
+	Exp.SYMBOL (_, props) => (case (Property.getScope props) of
+				      Property.LOCAL => true
+				    | _ => false)
+      | _ => false
+					  
 
 fun termCount term =
     case term of
@@ -242,6 +250,7 @@ fun symbolSpatialSize term =
 	  of SOME l => Util.prod l
 	   | NONE => 1)
       | _ => 1
+
 
 (* compute the memory requirements of a term *)
 fun termMemorySize term =
