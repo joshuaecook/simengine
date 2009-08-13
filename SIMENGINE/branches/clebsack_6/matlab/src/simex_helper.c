@@ -62,7 +62,6 @@ void mexSimengineResult(simengine_interface *iface, mxArray **output, unsigned i
     unsigned int modelid, outputid, outputs = iface->num_outputs;
     simengine_output *outp = result->outputs;
     mxArray *outmat;
-    double *data;
 
     // Creates the return structure.
     *output = mxCreateStructMatrix(models, 1, outputs, iface->output_names);
@@ -73,8 +72,8 @@ void mexSimengineResult(simengine_interface *iface, mxArray **output, unsigned i
 	for (outputid = 0; outputid < outputs; ++outputid)
 	    {
 	    outmat = mxCreateDoubleMatrix(outp->num_quantities, outp->num_samples, mxREAL);
-	    data = mxGetData(outmat);
-	    memcpy(data, outp->data, outp->num_quantities * outp->num_samples * sizeof(double));
+	    FREE(mxGetPr(outmat));
+	    mxSetPr(outmat, outp->data);
 
 	    mxDestroyArray(mxGetField(*output, modelid, iface->output_names[outputid]));
 	    mxSetField(*output, modelid, iface->output_names[outputid], outmat);
