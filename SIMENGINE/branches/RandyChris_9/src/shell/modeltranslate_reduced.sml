@@ -129,6 +129,7 @@ fun dofexp2kecexp exp =
 			    | Fun.MUL => "operator_multiply"
 			    | Fun.DIVIDE => "operator_divide"
 			    | Fun.MODULUS => "operator_modulus"
+			    | Fun.POW => "power"
 
 			    | Fun.DERIV => "operator_deriv"
 			    | _ => error "Unsupported dof operation"
@@ -179,43 +180,7 @@ fun kecexp2dofexp obj =
 		Exp.FUN (Fun.BUILTIN (Fun.name2op (Symbol.symbol name)),
 			 map kecexp2dofexp (vec2list(method "args" obj)))
 	end
-    (*	    else if istype (obj, "IteratorReference") then
-		let
-		    val indices = vec2list (method "indices" obj)
-		    val quantity = method "referencedQuantity" obj
-		    val sym = kecexp2dofexp quantity
-
-		    val expected_iterators = 
-
-		    fun buildIterator index =
-			if istype (index, "Wildcard") then
-			    Iterator.ALL
-			else if istype (index, "Interval") then
-			    Iterator.RANGE ()
-			else if istype (index, "Number") then
-			    Iterator.ABSOLUTE ()
-			else if istype (index, "ModelOperation") then
-			    Iterator.RELATIVE ()
-			else if istype (index, "Iterator") then
-			    (, Iterator.RELATIVE (0))
-			else 
-			    error "Invalid index encountered"
-
-		    val iterators = map buildIterator ListPair.zip(indices
-		in
-		    case sym of
-			Exp.TERM(Exp.SYMBOL(s, props)) =>
-			Exp.TERM(Exp.SYMBOL(s, Property.setIterator props iterators))
-		      | _ => error "Indexing performed on invalid quantity"
-		end
-     *)	    else if istype (obj, "SimQuantity") orelse istype (obj, "Input") then
-
-		(*		if exp2bool (send "getIsIntermediate" obj NONE) then
-				    kecexp2dofexp (send "getExp" (send "getEquation" obj NONE) NONE) (*TODO: make this a read of the name with a notation that its an interm *)
-				else 
-				    if (exp2bool (send "getIsConstant" obj NONE))  then
-					kecexp2dofexp (getInitialValue obj)
-				    else*)
+    else if istype (obj, "SimQuantity") orelse istype (obj, "Input") then
 		let
 		    (*TODO: fixme to be a global name *)
 		    val sym = 
@@ -223,8 +188,6 @@ fun kecexp2dofexp obj =
 			    ExpBuild.tvar((exp2str (method "instanceName" obj)) ^ "." ^ (exp2str (method "name" obj)))
 			else if (istype (obj, "Intermediate")) then 
 			    ExpBuild.var(exp2str (method "name" obj))
-			(* else if  ((istype (obj, "State")) andalso istype (method "eq" obj, "DifferentialEquation")) then *)
-			(*     ExpBuild.tvar_from_state(exp2str (method "name" obj)) *)
 			else if istype (obj, "IteratorReference") then
 			    let
 				val name = exp2str (method "name" (method "referencedQuantity" obj))
@@ -291,11 +254,6 @@ fun kecexp2dofexp obj =
 							   Property.default_symbolproperty 
 							   (map buildIndex namedargs))))
 			    end
-			(*			else if istype (obj, "TemporalReference") then
-						    ExpBuild.relvar (Symbol.symbol(exp2str(method "name" (method "internalState" obj))),
-								     Symbol.symbol(exp2str(method "name" (method "iterator" obj))),
-								     Real.floor(exp2real(method "step" obj)))
-			 *)
 			else if (istype (obj, "SymbolPattern")) then
 			    Exp.TERM(Exp.PATTERN (Symbol.symbol (exp2str (method "name" obj)),
 						  PatternProcess.predicate_any,
@@ -318,7 +276,6 @@ fun kecexp2dofexp obj =
 			else
 			    ExpBuild.var(exp2str (method "name" obj))
 		in
-		    (*DOF.SYMBOL (DOF.QUANTITY (Symbol.symbol name), SymbolTable.empty)*)
 		    sym
 		end		    
 	    else 
@@ -337,8 +294,6 @@ fun kecexp2dofexp obj =
 		    in
 			Exp.TERM(Exp.LIST (map kecexp2dofterm list, [length list]))
 		    end
-		  (* FIXME: Is this an acceptable way to handle undefined? *)
-		  (* 		  | KEC.UNDEFINED => ExpTree.LITERAL (ExpTree.CONSTREAL 0.0) *)
 		  | _ => 
 		    raise TypeMismatch ("Unexpected type of expression object; received " ^ (pretty obj))
 
@@ -378,14 +333,6 @@ fun createClass classes object =
 	     default=case exp2realoption (method "default" object) of
 			 SOME r => SOME (ExpBuild.real r)
 		       | NONE => NONE}
-	(*
-	 (Symbol.symbol(exp2str (method "name" object)),
-	  {defaultValue= 
-	   case exp2realoption (method "default" object) of
-	       SOME r => SOME (Exp.REAL r)
-	     | NONE => NONE,
-	   sourcepos=PosLog.NOPOS})
-	 *)
 
 	fun quantity2exp object =
 	    if (istype (object, "Intermediate")) then

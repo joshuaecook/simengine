@@ -7,42 +7,6 @@ namespace Simulation
 
   enumeration Bounds {INCLUSIVE, EXCLUSIVE}
 
-/*
-  class Interval
-    var lowval
-    var lowbound
-    var highval
-    var highbound
-
-    constructor (lowval, lowbound, highval, highbound)
-      self.lowval = lowval
-      self.lowbound = lowbound
-      self.highval = highval
-      self.highbound = highbound
-    end
-
-    function tostring()
-      var str = ""
-
-      if lowbound.name == INCLUSIVE.name then
-        str = str + "["
-      else
-        str = str + "("
-      end
-
-      str = str + lowval + ", " + highval
- 
-      if highbound.name == INCLUSIVE.name then
-        str = str + "]"
-      else
-        str = str + ")"
-      end
-      
-      str
-    end
-  end
-*/
-
   class Precision //TODO: make into an interface
   end
 
@@ -73,56 +37,11 @@ namespace Simulation
     var name
     hidden var precision = InfinitePrecision.new()
     var initialval
-    hidden var currentval
-    hidden var readval // when an exp is read, replace the var with this if not undefined
     hidden var eq    
-    hidden var isVisible = false
-    hidden var isTunable = false
-    hidden var isIterable = false
-    hidden var isIntermediate = false
 
     hidden var dimensions = []
 
-    hidden var h_dslname = ""
-
     var downsampling
-
-    property dslname 
-      get = h_dslname
-      set(v)
-        h_dslname = v
-      end
-    end
-
-    function reset ()
-      currentval = initialval
-      readval = undefined
-    end
-
-    // methods for modifiers
-    function setIsVisible(status)
-      isVisible = status
-    end
-
-    function setIsTunable(status)
-      isTunable = status
-    end
- 
-    hidden function setIsIterable(status)
-      isIterable = status
-    end
-
-    function getIsState()   = isIterable
-    function getIsTunable() = isTunable
-    function getIsVisible() = isVisible
-    function getIsIntermediate()
-      isIntermediate
-    end
-    function getIsConstant() = not isIterable and not isTunable and not (isdefined eq) and isdefined (initialval)
- 
-    function setReadValue(value)
-      readval = value
-    end
 
     function setPrecision (p: Precision)
       precision = p
@@ -146,14 +65,6 @@ namespace Simulation
         0
       else
         self.initialval
-      end
-    end
-
-    function getValue()
-      if isdefined(readval) then
-        readval
-      else
-        currentval
       end
     end
 
@@ -197,8 +108,6 @@ namespace Simulation
       self.name = name
       self.eq = Equation.new(self', 0)
 //      self.eq = DifferentialEquation.new(1, self, 0)
-
-      reset()
     end
   end
 
@@ -221,107 +130,9 @@ namespace Simulation
       self.lhs = lhs
       self.rhs = rhs
     end
-
-    function getState()
-//      function findState(x: State)
-      3
-    end
-    function getReferences() = 0
-    function getOrder() = 0
   end  
 
-/*  class Equation
-    var assigned_state
-    var expression
 
-    function regenerateExp(x: Number) = x
-    overload function regenerateExp (x: Binary) = x
-    overload function regenerateExp (x: Boolean) = x
-    overload function regenerateExp (x: SimQuantity) = x.getValue()
-    overload function regenerateExp (x: ModelOperation) = 
-        LF apply (x.execFun, x.args.map(regenerateExp).totuple())
-
-    function regenerate() = regenerateExp (expression)
-
-    function copyWithNewExp(exp) = Equation.new (assigned_state, exp)
-
-    function getExp() = expression
-    function getState() = assigned_state
-
-    function tostring ()
-      var str = self.class.name + "("
-      // cannot rely on the + operator for string coersion because it is overloaded to return a ModelOperation
-      str = str + "assigned_state=" + self.assigned_state.tostring()
-      str + ")"
-    end
-
-    constructor (assigned_state: SimQuantity, expression)
-      self.assigned_state = assigned_state
-      self.expression = expression
-    end
-  end
-
-  class DifferenceEquation extends Equation
-    var temporalRef
-
-    constructor (temporalRef, assigned_state: SimQuantity, expression)
-      super (assigned_state, expression)
-
-
-       if istype (type SimIterator, temporalRef) then
-         self.temporalRef = IteratorReference.new(assigned_state, temporalRef, 0)
-       else
-         self.temporalRef = temporalRef
-       end
-    end    
-  end
-
-  class DifferentialEquation extends Equation
-    var degree
-
-    constructor (degree: Number, assigned_state: SimQuantity, expression)
-      super (assigned_state, expression)
-
-//      println ("  differential equation for " + (assigned_state.name) + " has degree " + degree + " with expression " + (expression.tostring()))
-
-      self.degree = degree
-    end    
-  end
-*/
-  
-
-  function addIntermediateEquation (destination, name, exp)
-    // check if dest id exists
-    function contains (vector, element)
-      if vector.isempty() then
-	false
-      elseif vector.first() == element then
-        true 
-      else
-        contains (vector.rest(), element)
-      end
-    end
-
-    function isIntermediate (x) = false
-    overload function isIntermediate(q:SimQuantity) = q.getIsIntermediate()
-    
-
-    if contains(destination.members, name) and not(isIntermediate(destination.getMember name)) then
-      error ("Cannot replace " + name + " with algebraic equation")
-    else
-      if not (contains(destination.members, name)) then
-        destination.addConst(name, Intermediate.new(name))
-      end
-      destination.getMember(name).setEquation(Equation.new(destination.getMember(name), operator_noop exp))
-    end
-  end
-
-  function makeIntermediate(name, exp)
-    var i = Intermediate.new(name)
-//    println("making intermediate for " + name)
-    i.setEquation(Equation.new(i, /*operator_noop*/ exp))
-    i
-  end
 
   class ModelOperation
     var name
@@ -345,17 +156,6 @@ namespace Simulation
 
   end
 
-  class IteratorOperation extends ModelOperation
-    var simIterator
-    var step
-
-    constructor (simIterator: SimIterator, step: Number)
-      super("add", 2, operator_add, 0, [simIterator, step])      
-      self.simIterator = simIterator
-      self.step = step
-    end
-  end
-
   overload function not(b: ModelOperation) = ModelOperation.new ("not", 1, not, 0, [b])
   overload function not(b: SimQuantity) = ModelOperation.new ("not", 1, not, 0, [b])
 
@@ -367,24 +167,16 @@ namespace Simulation
   overload function operator_neg(arg: ModelOperation) = ModelOperation.new ("neg", 1, operator_neg, 0, [arg])
   overload function operator_neg(arg: SimQuantity) =    ModelOperation.new ("neg", 1, operator_neg, 0, [arg])
 
-//  overload function operator_subtract(arg1, arg2) = arg1 + (-arg2)
   overload function operator_subtract(arg1: ModelOperation, arg2) = {arg1 when arg2 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   overload function operator_subtract(arg1, arg2: ModelOperation) = {-arg2 when arg1 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   overload function operator_subtract(arg1: SimQuantity, arg2) = {arg1 when arg2 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   overload function operator_subtract(arg1, arg2: SimQuantity) = {-arg2 when arg1 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   
-//  overload function operator_add(arg1: IteratorOperation, arg2) = IteratorOperation.new ("add", 2, operator_add, 0, [arg1, arg2])
-//  overload function operator_add(arg1, arg2: IteratorOperation) = IteratorOperation.new ("add", 2, operator_add, 0, [arg1, arg2])
   overload function operator_add(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
   overload function operator_add(arg1: Number, arg2: GenericIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
    
 
   overload function operator_subtract(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, -arg2) otherwise}
-
-//  overload function operator_subtract(arg1: IteratorOperation, arg2) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
-//  overload function operator_subtract(arg1, arg2: IteratorOperation) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
-//  overload function operator_subtract(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, -arg2) otherwise}
-//  overload function operator_subtract(arg1: Number, arg2: SimIterator) = IteratorOperation.new ("sub", 2, operator_subtract, 0, arg2, arg1)
 
 
   overload function operator_multiply(arg1: ModelOperation, arg2) = {arg2 when arg2 == 0,
@@ -406,8 +198,6 @@ namespace Simulation
                                                                   arg2 when arg1 == 1, 
 								  -arg2 when arg1 == -1,
                                                                   ModelOperation.new ("mul", 2, operator_multiply, 0, [arg1, arg2]) otherwise}
-
-//  overload function operator_divide(arg1, arg2) = arg1 * (arg2^-1)
 
   overload function operator_divide(arg1: ModelOperation, arg2) = {arg1 when arg2 == 1, 
                                                                    -arg1 when arg2 == -1,
@@ -445,9 +235,6 @@ namespace Simulation
 
   overload function ln(arg: ModelOperation) = ModelOperation.new ("log", 1, ln, 0, [arg])
   overload function ln(arg: SimQuantity) = ModelOperation.new ("log", 1, ln, 0, [arg])
-
-//redefine this to catch new model extensions of exp and ln
-//function power (x, y) = exp(y * ln(x))
 
   overload function log10(arg: ModelOperation) = ModelOperation.new ("log10", 1, log10, 0, [arg])
   overload function log10(arg: SimQuantity) = ModelOperation.new ("log10", 1, log10, 0, [arg])
@@ -631,31 +418,11 @@ namespace Simulation
 
     constructor (name: String)
       super(name)
-      self.isIntermediate = true
-      self.isIterable = false
-      self.isTunable = false
     end
 
     overload operator () (arg: Vector)
       IteratorReference.new(self, arg)
     end
-
-//     overload operator () (arg: Vector of SimIterator)
-//       if (arg.length() <> 1) then
-//         error "Temporal indexing must be 1 dimensional"
-//       else
-//         self
-// //        TemporalReference.new(self, arg(1), 0)
-//       end
-//     end
-
-//     overload operator () (arg: Vector of IteratorOperation)
-//       if (arg.length() <> 1) then
-//         error "Temporal indexing must be 1 dimensional"
-//       else
-//         TemporalReference.new(self, arg(1).simIterator, arg(1).step)
-//       end      
-//     end
   end
 
   class State extends SimQuantity
@@ -669,34 +436,11 @@ namespace Simulation
 
     constructor (name: String)
       super(name)
-      self.isIterable = true
     end
 
     overload operator () (arg: Vector)
       IteratorReference.new(self, arg)
     end
-//     overload operator () (arg: Vector of SimIterator)
-//       if (arg.length() <> 1) then
-//         error "Temporal indexing must be 1 dimensional"
-//       else
-//         self
-// //        TemporalReference.new(self, arg(1), 0)
-
-//       end
-//     end
-
-//     overload operator () (arg: Vector of IteratorOperation)
-//       if (arg.length() <> 1) then
-//         error "Temporal indexing must be 1 dimensional"
-//       else
-//         TemporalReference.new(self, arg[1].simIterator, arg[1].step)
-//       end      
-//     end
-
-    // function updateHistoryDepth(depth)
-    //   historyDepth = {depth when depth > historyDepth,
-    //                   historyDepth otherwise}
-    // end 
 
   end
 
@@ -763,26 +507,7 @@ namespace Simulation
     end
     function getName() = referencedQuantity.getName() + indices
   end
-/*
-  class SpatialReference extends State
-    var internalState
-    var indices
 
-    constructor (s: State, indices: Vector of Number)
-      internalState = s
-      self.isIterable=true
-      self.indices = indices
-    end
-
-    function tostring () = (internalState.tostring()) + "[" + (", ".join indices) + "]"
-    
-    property dslname 
-      get = internalState.dslname + "[" + (", ".join indices) + "]"
-    end
-
-    //TODO: map internalstate into s
-  end
-*/
   class RelativeOffset
     var simIterator
     var step
@@ -791,18 +516,6 @@ namespace Simulation
       self.simIterator = simIterator
       self.step = step
     end    
-  end
-
-  class Parameter extends SimQuantity
-    function setIsVisible (status)
-      // do nothing: parameters cannot be visible
-    end
-
-    constructor (name: String)
-      super(name)
-      self.isIterable = false
-      self.isTunable = true
-    end 
   end
 
   class GenericIterator extends SimQuantity
@@ -833,71 +546,6 @@ namespace Simulation
     end 
 
   end
-
-/*  class SimIterator extends State
-    hidden var step
-    hidden var maxduration
-    hidden var overrideSimIterator
-    constructor (name: String)
-      super(name)
-      self.isIterable = true
-      self.initialval = 0
-    end    
-
-    hidden function simIteratorStep2rangeStep(step) = 2^(-(LF num2fixpt step).frac)
-
-    function setStep(step)
-      self.step = step     
-      self.eq = Equation.new(self, self + (step))
-      if isdefined step then
-        if isdefined maxduration then
-          self.setPrecision(Range.new(0, maxduration, simIteratorStep2rangeStep step))
-        else
-          self.setPrecision(Range.new(0, 2^32*(simIteratorStep2rangeStep step) - 1, simIteratorStep2rangeStep step))
-        end
-      end
-    end
-
-    function setMaxDuration (maxduration)
-      self.maxduration = maxduration
-      if isdefined step and isdefined maxduration then
-        self.setPrecision(Range.new(0, maxduration, simIteratorStep2rangeStep step))
-      end
-    end
-
-    function getStep()
-      if isOverridden() then
-        overrideSimIterator.getStep()
-      else
-        step
-      end
-    end
-
-    function override(it: SimIterator)
-      overrideSimIterator = it
-    end
-
-    function getEquation()
-      if isdefined overrideSimIterator then
-        overrideSimIterator.getEquation()
-      else
-        eq
-      end
-    end
-
-    function isOverridden() = isdefined overrideSimIterator
-  end  
-*/
-//   class IterationDomain
-//     var continuous
-//     var discrete
-
-//     constructor(continuous:SimIterator, discrete:SimIterator)
-//       self.continuous = continuous
-//       self.discrete = discrete
-//     end
-//   end
-
 
   class Output
     var name
@@ -954,7 +602,6 @@ namespace Simulation
     var defaultValue
 
     constructor (name)
-//      println ("Creating an input named " + name)
       self.name = name
       defaultValue = NaN
     end
@@ -979,7 +626,6 @@ namespace Simulation
     var outputs = []
     var dimensions = []
     constructor ()
-//      println "in modelinstance"
     end
 
     var name
@@ -1018,7 +664,6 @@ namespace Simulation
     var quantities = []
     var iterators = []
     var submodels = []
-//    var dimensions = []
     var outputs = {}
     hidden var outputDefs = {} // a placeholder to throw outputs into as we compute them.  outputs will be populated by this after the model stms are run
 
@@ -1037,24 +682,10 @@ namespace Simulation
     //initialization
     var t
     var n
-//    var domain
-
-//    var keep_running = State.new ("keep_running")
 
     constructor ()
-  //    println "in model.new"
       t = TimeIterator.new("t", true)
       n = TimeIterator.new("n", false)
-//      domain = IterationDomain.new(t,n)
-
-//      t.setPrecision(InfinitePrecision.new())
-//      n.setPrecision(InfinitePrecision.new())
-
-//       keep_running.setPrecision(Range.new(0,1,1))
-//       keep_running.setInitialValue 1
-//      equation keep_running[n+1] = 1
-
-//      quantities.push_back(keep_running)
     end
 
     // helper functions
@@ -1064,12 +695,6 @@ namespace Simulation
     end
 
     function makeEquation (name, dimensions, lhs, rhs)
-      /*
-        if contains thing named name and is simquantity, then set equation to equation.new(lhs, rhs)
-        else if contains thing named name and is not simquantity then error
-        else
-          add simquantity named name and set equation bla blabla
-      */
       if objectContains(self, name) then
         var q = self.getMember name
         if istype(type SimQuantity, q) then
@@ -1091,139 +716,11 @@ namespace Simulation
       end
     end
 
-/*    function getQuantities()
-      function prune (x) = not ((x.getName() == "t") or (x.getName() == "keep_running") or (x.getName() == "dt"))
-
-      var subquantities = [mod.getQuantities() foreach mod in flatten [subm 2 foreach subm in submodels]]
-      
-      (getLocalQuantities()) + [q foreach q in subquantities when prune q]
-    end
-  */    
-
-   
-
-/*      
-    hidden function getFlattenedMembers()
-      function unVector (member) = [member]
-      overload function unVector (member: Vector) = flatten (member.map unVector)
-      overload function unVector (name, mod) = [(name, mod)] //this is to catch the submodels field
-
-      flatten(self.members.map(self.getMember).map(unVector))
-    end
-   
-
-    function getLocalQuantities() 
-      function isQuantity(x) = false
-      overload function isQuantity(x: SimQuantity) = true
-      
-
-      filter (isQuantity, getFlattenedMembers())
-    end
-*/
-/*
-    function setVisible (patt: Pattern)
-      // turn on locals
-      foreach q in getQuantities() do
-        if patt.match (q.getName()) then
-          q.setIsVisible (true)
-        end
-      end
-    end
-
-    function setInvisible (patt: Pattern)
-      foreach q in getQuantities() do
-        if patt.match (q.getName()) then
-          q.setIsVisible (false)
-        end
-      end
-    end
-*/
-/*    function setTunable (patt: Pattern)
-      foreach q in getQuantities() do
-        if patt.match (q.getName()) then
-          q.setIsTunable (true)
-        end
-      end
-    end
-*/
-/*
-    hidden multifunction
-      flattenSubModel(n,m) = [m]
-      flattenSubModel(n, m: Vector of _) = flatten (m.map (flattenSubModel))
-      flattenSubModel(m) = [m]
-      flattenSubModel(m: Vector of _) = flatten (m.map (flattenSubModel))
-    end
-*/
-
-    
-/*
-    function getQuantities()
-      function prune (x) = not ((x.getName() == "t") or (x.getName() == "keep_running")/* or (x.getName() == "dt")* /)
-
-      var subquantities = [mod.getQuantities() foreach mod in flatten [subm 2 foreach subm in submodels]]
-      
-      (getLocalQuantities()) + [q foreach q in subquantities when prune q]
-    end
-
-    function getVisibleQuantities()
-      function isVisible (q)
-        var vis = q.getIsVisible()
-        (istype(type ModelOperation,vis) or istype(type SimQuantity,vis) or (istype(type Boolean,vis) and vis))
-      end
-      
-      filter(isVisible, getQuantities())
-    end
-
-    function getLocalStates()
-      function isState(x) = false
-      overload function isState(x:SimQuantity) = x.getIsState()
-      overload function isState(x:SimIterator) = not (x.isOverridden())
-
-      //filter(isState, getFlattenedMembers())
-      [q foreach q in quantities when isState q]
-    end
-
-    function getStates()
-      function prune (x) = not (x.getName() == "keep_running")
-
-      (getLocalStates()) + (filter (prune, [mod.getStates() foreach mod in flatten [subm 2 foreach subm in submodels]]))
-    end
-
-  
-    function getLocalIntermediates ()
-      function isIntermediate (x) = false
-      overload function isIntermediate (x: SimQuantity) = x.getIsIntermediate()
-    
-      //filter(isIntermediate, getFlattenedMembers())
-      [i foreach i in quantities when isIntermediate i]
-    end
-
-    function getIntermediates ()
-      getLocalIntermediates() + [mod.getLocalIntermediates() foreach mod in flatten [sub 2 foreach sub in submodels]]
-    end
-
-
-    function getLocalParameters()
-      function isParameter(x) = false
-      overload function isParameter(x:SimQuantity) = x.getIsTunable() and (not (x.getIsState()))
-
-      //filter(isParameter, getFlattenedMembers())
-      [p foreach p in quantities when isParameter p]
-    end
-
-    function getParameters()
-      //function prune (x) = not (x.getName() == "dt")
-
-      getLocalParameters() + [mod.getParameters() foreach mod in flatten [subm 2 foreach subm in submodels]]
-    end
-*/
     function getSubModels()
       submodels
     end
 
     function instantiateSubModel (mod, name:String, table: Table, dimensions: Vector)
-//       println ("instantiating " + name + " of type " + mod)
-//       println (mod.members)
       var m = mod.instantiate()
       self.addConst (name, m)
 
@@ -1246,66 +743,8 @@ namespace Simulation
           end
         end
       end
-
     end
-
-/*
-    function addSubModel (name, submod: Model)
-      submod.domain = domain
-
-      if istype(type SimIterator, submod.t) then
-        submod.t.override(domain.continuous)
-      end
-
-      if istype(type SimIterator, submod.n) then
-        submod.n.override(domain.discrete)        
-      end
-
-      var sub = (name, submod)
-      submodels.push_front (sub)
-      addConst (name, submod)      
-    end*/
-/*    overload function addSubModel (name, submods: Vector of _)
-      var i = 1
-      foreach m in submods do
-        addSubModel(name + "[" + i +"]", m)
-        i = i + 1
-      end
-    end
-*/
-
-    /* Returns a vector containing the equations of the model. */
-/*    function getLocalEquations()
-      function isEquation(x) = false
-
-      overload function isEquation(x: SimQuantity)
-        if x.getIsState() or x.getIsIntermediate() then
-          var q = x.getEquation()
-          if not(isdefined(q)) then
-            error("equation for " + x.getName() + " in " + self.class.name + " is not defined")
-            false
-          else true
-          end
-        else false
-        end
-      end
-      overload function isEquation(x: SimIterator)
-        not (x.isOverridden()) and isdefined (x.getEquation())
-      end
-
-      (filter(isEquation, getFlattenedMembers())).map(lambdafun (m) = m.getEquation())
-    end
-
-    // Returns a vector containing the equations of the model and all submodels. 
-    function getEquations() 
-      function prune (x) = not ((x.assigned_state.getName() == "t") or (x.assigned_state.getName() == "keep_running"))
-
-      getLocalEquations() + (filter (prune, [mod.getEquations() foreach mod in flatten [subm 2 foreach subm in submodels]]))
-    end
-  */ 
-
   end
-
   
   class Rule 
       var find
