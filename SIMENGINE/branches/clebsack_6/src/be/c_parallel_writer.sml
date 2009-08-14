@@ -142,9 +142,9 @@ fun initbyclass_code (class as {exps, ...}) =
 			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
 		     in
 			 if size = 1 then
-			     $("CDATAFORMAT " ^ name ^ "[NUM_MODELS];")
+			     $("CDATAFORMAT " ^ name ^ "[ARRAY_SIZE];")
 			 else
-			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"*NUM_MODELS];")
+			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"*ARRAY_SIZE];")
 		     end) diff_eqs_symbols) @
 	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 	      (map 
@@ -170,8 +170,8 @@ local
 	    val size = Term.symbolSpatialSize (ExpProcess.exp2term sym)
 	    val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
 	in
-	    if size = 1 then ("CDATAFORMAT " ^ name ^ "[NUM_MODELS];")
-	    else ("CDATAFORMAT " ^ name ^ "["^(i2s size)^" * NUM_MODLS];")
+	    if size = 1 then ("CDATAFORMAT " ^ name ^ "[ARRAY_SIZE];")
+	    else ("CDATAFORMAT " ^ name ^ "["^(i2s size)^" * ARRAY_SIZE];")
 	end
 
     fun instanceNamed instname inst =
@@ -625,7 +625,6 @@ fun main_code class =
 	     $("unsigned int modelid;"),
 	     $("unsigned int inputid;"),
 	     $("unsigned int outputid;"),
-	     $("unsigned int i;"),
 	     $(""),
 	     $("// Set up allocation functions"),
 	     $("if(alloc){"),
