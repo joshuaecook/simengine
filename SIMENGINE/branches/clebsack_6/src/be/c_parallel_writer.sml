@@ -120,6 +120,18 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $("")]
     end
 
+fun outputdatastruct_code class =
+    let
+	val outputs = #outputs class
+	fun output2struct (out as {name, contents, condition}) = 
+	    map (fn (exp) =>
+		    $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")) contents
+    in
+	[$("typedef struct {"),
+	 SUB(List.concat (map output2struct (!outputs))),
+	 $("} output_data;")]
+    end
+
 fun initbyclass_code (class as {exps, ...}) =
     let
 	val classname = ClassProcess.class2orig_name class
@@ -319,9 +331,11 @@ fun class2flow_code (class, top_class) =
 		[$(""),
 		 $("// writing output variables"),
 		 $("if (first_iteration) {"),
+		 $("output_data od;"),
 		 SUB(map
-			 (fn(t,s)=> $("//outputsave_" ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+			 (fn(t,s)=> $("od." ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
 			 (CWriterUtil.class2uniqueoutputsymbols class)),
+		 $("buffer_outputs(t, &od, modelid);"),
 		 $("}")]
 	    else
 		[$(""),
@@ -467,8 +481,10 @@ fun exec_code (class:DOF.class, props, statespace) =
 		     $("}"),
 		     $("unsigned int ndata = 0;"),
 		     $("void *data = 0;"),
-		     $("if (0 != log_outputs(ndata, data, &outputs[modelid * OUTPUTSPACE]))"),
-		     SUB[$("{ return ERRMEM; }")]],
+		     $("if (OB.full){"),
+		     SUB[$("if(0 != log_outputs(ob, outputs, modelid))"),
+			 SUB[$("{ return ERRMEM; }")]],
+		     $("}")],
 		 $("}")],
 	     $("}"),
 	     $("SOLVER(INTEGRATION_METHOD, free, TARGET, SIMENGINE_STORAGE, mem);")],
@@ -477,8 +493,75 @@ fun exec_code (class:DOF.class, props, statespace) =
     end
 
 fun logoutput_code class =
-    []
-
+    let
+	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
+	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
+	val sym_decls = map
+			    (fn(term, sym)=> 
+			       let
+				   val local_scope = case term of
+							 Exp.SYMBOL (_, props) => (case Property.getScope props of
+										       Property.LOCAL => true
+										     | _ => false)
+						       | _ => DynException.stdException (("Unexpected non symbol"), "CParallelWriter.logoutput_code", Logger.INTERNAL)
+			       in
+				   if local_scope then
+				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";")
+				   else
+				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")
+			       end)
+			    dependent_symbols
+	val output_exps =Util.flatmap
+			      (fn(out as ({condition, contents, name}, output_index))=> 
+				 [$("{ // Generating output for symbol " ^ (ExpProcess.exp2str (Exp.TERM name))),
+				  SUB[$("int cond = " ^ (CWriterUtil.exp2c_str condition) ^ ";"),
+				      $("if (cond) {"),
+				      SUB([$("((unsigned int*)ob->ptr[modelid])[0] = " ^ (i2s output_index) ^ ";"),
+					   $("((unsigned int*)ob->ptr[modelid])[1] = " ^ (i2s (1 + (List.length contents))) ^ ";"),
+					   $("ob->ptr[modelid] += 2*sizeof(unsigned int);"),
+					   $("*((CDATAFORMAT*)ob->ptr[modelid]) = t;"),
+					   $("ob->ptr[modelid] += sizeof(CDATAFORMAT);")] @
+					  (Util.flatmap
+					       (fn(exp)=> 
+						  [$("*((CDATAFORMAT*)ob->ptr[modelid]) = od->"^(CWriterUtil.exp2c_str exp)^";"),
+						   $("ob->ptr[modelid] += sizeof(CDATAFORMAT);")])
+					       (contents)) @
+					  [$("ob->count[modelid]++;"),
+					   $("if(ob->end - ob->ptr < MAX_OUTPUT_SIZE) return 1;")]),
+				      $("}")],
+				  $("}")]
+			      )
+			      (Util.addCount(!(#outputs class)))
+    in
+	[$(""),
+	 $("#define MAX_OUTPUT_SIZE (2*sizeof(int) + " ^ (i2s (1 + (List.foldl Int.max 0 (map (List.length o #contents) (!(#outputs class))))))  ^ "*sizeof(CDATAFORMAT)) //size in bytes"),
+	 $(""),
+	 $("typedef struct{"),
+	 SUB[$("unsigned int full;"),
+	     $("unsigned int count[NUM_MODELS];"),
+	     $("CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];"),
+	     $("void *ptr[NUM_MODELS];"),
+	     $("void *end[NUM_MODELS];")],
+	 $("} output_buffer;"),
+	 $(""),
+	 $("output_buffer OB;"),
+	 $("output_buffer *ob = &OB;"),
+	 $(""),
+	 $("void init_output_buffer(unsigned int modelid){"),
+	 SUB[$("if(0 == modelid) ob->full = 0;"),
+	     $("ob->count[modelid] = 0;"),
+	     $("ob->ptr[modelid] = &ob->buffer[modelid*BUFFER_LEN];"),
+	     $("ob->end[modelid] = &ob->buffer[(modelid+1)*BUFFER_LEN];")],
+	 $("}"),
+	 $(""),
+	 $("void buffer_outputs(double t, output_data *od, unsigned int modelid) {"),
+	 SUB([$("")] @
+	     output_exps @
+	     [$(""),
+	      $("return 0;")]
+	    ),
+	 $("}")]
+    end
 
 
 fun main_code class =
@@ -596,6 +679,7 @@ fun main_code class =
 		 $("seresult->outputs[i].data = (se_alloc.malloc)(START_SIZE*seint.output_num_quantities[i]*sizeof(CDATAFORMAT));")],
 	     $("}"),
 	     $(""),
+	     $("// Run the model"),
 	     $("seresult->status = exec_loop(t, t1, semeta.num_models, parameters, model_states, seresult->outputs);"),
 	     $("seresult->status_message = simengine_errors[seresult->status];"),
 	     $(""),
@@ -604,8 +688,8 @@ fun main_code class =
 	     SUB[
 		 $("for(stateid=0;stateid<seint.num_states;stateid++){"),
 		 SUB[$("states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)];")],
-		 $("}"),
-	     $("}")],
+		 $("}")],
+	     $("}"),
 	     $("return seresult;")
 	    ],
 	 $("}")
@@ -637,12 +721,13 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				   ("INTEGRATION_METHOD", solver_name)::
 				   ("INTEGRATION_MEM", solver_name ^ "_mem")::
 				   ("START_SIZE", "1000")::
+				   ("BUFFER_LEN", "8000")::
 				   ("MAX_ALLOC_SIZE", "65536000")::
 				   (Solver.solver2params solver))
 
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, solver_name)
 (*	val input_progs = input_code inst_class*)
-(*	val outputdatastruct_progs = outputdatastruct_code inst_class*)
+	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = outputstatestruct_code classes
 (*	val outputinit_progs = outputinit_code inst_class *)
 (*	val init_progs = init_code classes *)
@@ -654,13 +739,13 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @ 
 					      simengine_interface_progs @
-(*					      outputdatastruct_progs @ *)
+					      outputdatastruct_progs @
 					      outputstatestruct_progs @
+					      logoutput_progs @
 (*					      outputinit_progs @
 					      input_progs @
 					      init_progs @ *)
 					      flow_progs @ 
-					      logoutput_progs @
 					      exec_progs @
 					      main_progs))
     in
