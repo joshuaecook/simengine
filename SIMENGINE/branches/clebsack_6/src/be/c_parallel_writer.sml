@@ -457,15 +457,19 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $(""),
 	     $("INTEGRATION_MEM *mem = SOLVER(INTEGRATION_METHOD, init, TARGET, SIMENGINE_STORAGE, &props);"),
 	     $("for(modelid=0; modelid<num_models; modelid++){"),
+	     SUB[$("init_output_buffer(modelid);")],
+	     $("}"),
+	     $("for(modelid=0; modelid<num_models; modelid++){"),
 	     SUB[$("while (t[modelid] < t1) {"),
-		 SUB[$("CDATAFORMAT prev_t = *t;"),
-		     $("int status = SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
+		 SUB[$("int status = SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
 		     $("if (status != 0) {"),
 		     SUB[$("return ERRCOMP;")],
 		     $("}"),
 		     $("if (OB.full){"),
 		     SUB[$("if(0 != log_outputs(ob, outputs, modelid))"),
-			 SUB[$("{ return ERRMEM; }")]],
+			 SUB[$("{ return ERRMEM; }")],
+			 $("init_output_buffer(modelid);")
+			],
 		     $("}")],
 		 $("}")],
 	     $("}"),
@@ -509,7 +513,7 @@ fun logoutput_code class =
 						   $("ob->ptr[modelid] += sizeof(CDATAFORMAT);")])
 					       (contents)) @
 					  [$("ob->count[modelid]++;"),
-					   $("if(ob->end - ob->ptr < MAX_OUTPUT_SIZE) return 1;")]),
+					   $("if(ob->end - ob->ptr < MAX_OUTPUT_SIZE) ob->full = 1;")]),
 				      $("}")],
 				  $("}")]
 			      )
@@ -552,8 +556,7 @@ fun logoutput_code class =
 	 $("void buffer_outputs(double t, output_data *od, unsigned int modelid) {"),
 	 SUB([$("")] @
 	     output_exps @
-	     [$(""),
-	      $("return 0;")]
+	     [$("")]
 	    ),
 	 $("}")]
     end
