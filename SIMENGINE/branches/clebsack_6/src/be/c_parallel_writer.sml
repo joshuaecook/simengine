@@ -109,8 +109,14 @@ fun simengine_interface (class_name, class, solver_name) =
 
 local
     fun output2struct (out as {name, contents, condition}) = 
-	map (fn (exp) =>
-		$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")) contents
+
+	(map ((fn (sym) =>
+		  $("CDATAFORMAT " ^ (Symbol.name sym) ^ ";"))
+	      o Term.sym2curname)
+	     (Util.flatmap ExpProcess.exp2termsymbols contents))
+
+
+
 in
 fun outputdatastruct_code {outputs, ...} =
     [$("typedef struct {"),
@@ -507,11 +513,11 @@ fun logoutput_code class =
 					   $("ob->ptr[modelid] += 2*sizeof(unsigned int);"),
 					   $("*((CDATAFORMAT*)ob->ptr[modelid]) = t;"),
 					   $("ob->ptr[modelid] += sizeof(CDATAFORMAT);")] @
-					  (Util.flatmap
-					       (fn(exp)=> 
-						  [$("*((CDATAFORMAT*)ob->ptr[modelid]) = od->"^(CWriterUtil.exp2c_str exp)^";"),
-						   $("ob->ptr[modelid] += sizeof(CDATAFORMAT);")])
-					       (contents)) @
+					  (Util.flatmap ((fn (sym) =>
+							     [$("*((CDATAFORMAT*)ob->ptr[modelid]) = od->"^(Symbol.name sym)^";"),
+							      $("ob->ptr[modelid] += sizeof(CDATAFORMAT);")])
+		  					 o Term.sym2curname)
+							(Util.flatmap ExpProcess.exp2termsymbols contents)) @
 					  [$("ob->count[modelid]++;"),
 					   $("if(ob->end - ob->ptr < MAX_OUTPUT_SIZE) ob->full = 1;")]),
 				      $("}")],
