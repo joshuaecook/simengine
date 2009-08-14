@@ -508,13 +508,19 @@ namespace Simulation
     function getName() = referencedQuantity.getName() + indices
   end
 
-  class RelativeOffset
+  class RelativeOffset extends ModelOperation
     var simIterator
     var step
     
     constructor (simIterator: GenericIterator, step: Number)
       self.simIterator = simIterator
       self.step = step
+
+      self.name = "add"
+      self.numArgs = 2
+      self.execFun = operator_add
+      self.precisionMap = 0
+      self.args = [simIterator, step]
     end    
   end
 

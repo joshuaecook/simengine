@@ -93,7 +93,7 @@ fun expandprogs2parallelfor (class: DOF.class) (exp, progs) =
 		    in
 			[$("for (iterator_"^i^" = 0; iterator_"^i^" < "^(i2s size)^"; iterator_"^i^"++) {"),
 			 SUB($(Symbol.name (ClassProcess.sym2codegensym sym) ^ " = " ^
-			       "((CDATAFORMAT)iterator_"^i^"/"^(i2s size)^")*((CDATAFORMAT)"^(r2s step)^")+"^(r2s low)^";")
+			       "((CDATAFORMAT)iterator_"^i^")*((CDATAFORMAT)"^(r2s step)^")+"^(r2s low)^";")
 			     ::progs),
 			 $("}")]
 		    end)
