@@ -349,13 +349,16 @@ fun createClass classes object =
 		    val rhs = kecexp2dofexp (method "rhs" (method "eq" object))
 		    val eq = ExpBuild.equals(lhs, rhs)						     
 
-		    val timeiterator = case (ExpProcess.exp2termsymbols lhs) of
-					   [Exp.SYMBOL (sym,props)] => 
-					   (#1(hd (valOf (Property.getIterator props)))
-					    handle _ => error "Malformed left hand side of equation")
-					 | _ => error "Invalid number of symbols on left hand side of equation"
+		    val (timeiterator, spatialiterators) = case (ExpProcess.exp2termsymbols lhs) of
+							       [Exp.SYMBOL (sym,props)] => 
+							       ((Symbol.name (#1(hd (valOf (Property.getIterator props)))),
+								map (Symbol.name o #1) (tl (valOf (Property.getIterator props))))
+								handle _ => error "Malformed left hand side of equation")
+							     | _ => error "Invalid number of symbols on left hand side of equation"
 
-		    val init = ExpBuild.equals(ExpBuild.initavar(exp2str (method "name" object), Symbol.name timeiterator),
+		    val init = ExpBuild.equals(ExpBuild.initavar(exp2str (method "name" object), 
+								 timeiterator,
+								 spatialiterators),
 					       kecexp2dofexp (getInitialValue object))
 		in
 		    [init, eq]

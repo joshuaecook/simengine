@@ -347,7 +347,22 @@ fun doesEqHaveIterator iter exp =
 	result
     end
 
-fun exp2size exp = 
+fun equation2rewrite exp = 
+    if isEquation exp then
+	let
+	    val lhs = lhs exp
+	    val rhs = rhs exp
+	in
+	    {find=lhs,
+	     test=NONE,
+	     replace=Rewrite.RULE rhs}
+	end
+    else
+	DynException.stdException(("Can't write a rewrite around an expression '"^(e2s exp)^"' that is not already an equation"),
+				  "ExpProcess.equation2rewrite",
+				  Logger.INTERNAL)
+
+fun exp2size iterator_list exp = 
     let
 	fun combineSizes (size1, size2) = 
 	    if (size1 = size2) then size1
@@ -361,13 +376,44 @@ fun exp2size exp =
 		       if Term.isNumeric t then
 			   Term.termCount t
 		       else if Term.isScalar t andalso Term.isSymbol t then
-			   Term.symbolSpatialSize t
+			   let
+			       val spatial_iterators = TermProcess.symbol2spatialiterators t
+			       (*val _ = Util.log ("Returned spatial iterators: " ^ (Util.symlist2s (map #1 spatial_iterators)))*)
+			       fun lookupsize itersym = 
+				   case List.find (fn{name,...}=>name=itersym) iterator_list of
+					    SOME {name, low, high, step} => Real.ceil((high-low)/step + 1.0)
+					  | _ => DynException.stdException(
+						 ("Iterator '"^(Symbol.name itersym)^"' not defined for exp '"^(e2s exp)^"'"), 
+						 "ExpProcess.exp2size.lookupsize", 
+						 Logger.INTERNAL)
+
+			       fun iterator2size (itersym, itertype) = 
+				   case itertype of
+				       Iterator.ABSOLUTE _ => 1
+				     | Iterator.RELATIVE _ => lookupsize itersym
+				     | Iterator.RANGE (a, b) => b-a + 1 (* inclusive *)
+				     | Iterator.LIST l => List.length l
+				     | Iterator.ALL => lookupsize itersym				       
+				       
+			   in
+			       (*Term.symbolSpatialSize t*)
+			       Util.prod (map iterator2size spatial_iterators)
+			   end
 		       else 
-			   1 (* out of default - need to do something better here *)
-		     | Exp.FUN (f, args) => foldl combineSizes 1 (map exp2size args)
+			       1 (* out of default - need to do something better here *)
+		     | Exp.FUN (f, args) => foldl combineSizes 1 (map (exp2size iterator_list) args)
     in
 	size
     end
+
+fun exp2spatialiterators exp = 
+    if isEquation exp then
+	exp2spatialiterators (lhs exp)
+    else
+	case exp of 
+	    Exp.TERM (term as (Exp.SYMBOL (sym, props))) => TermProcess.symbol2spatialiterators term
+	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (StdFun.flatmap (exp2spatialiterators o Exp.TERM) termlist)
+	  | _ => []
 
 fun getLHSSymbol exp = 
     case exp2term (lhs exp) of
@@ -383,20 +429,33 @@ fun countTerms exp =
 fun countFuns exp =
     length (Match.findRecursive (Match.anyfun "a", exp))
 
-fun assignIteratorToSymbol (sym, itertype) exp =
+datatype p = PREPEND | APPEND
+
+fun assignIteratorToSymbol (sym, itertype, p) exp =
     let
 	val iter = TermProcess.symbol2temporaliterator (exp2term exp)
+	val spatial_iterators = TermProcess.symbol2spatialiterators (exp2term exp)
+	val temporal_iterators = CurrentModel.iterators()
+	val isTemporal = List.exists (fn(sym',_)=>sym=sym') temporal_iterators
+
+	val isAssigned = if isTemporal then
+			     case iter of
+				 SOME (sym', _) => if sym = sym' then
+					      (* already assigned *)
+						       true
+						   else
+						       DynException.stdException(
+						       ("Can't assign iterator '"^(Symbol.name sym)^"' over previously defined iterator on expression '"^(e2s exp)^"'"),
+						       "ExpProcess.assignIteratorToSymbol",
+						       Logger.INTERNAL)
+			       | NONE => false
+			 else
+			     List.exists (fn(sym',_)=>sym=sym') (spatial_iterators)
+
     in
-	case iter of
-	    SOME (sym', _) => if sym = sym' then
-				 (* already assigned *)
-				 exp
-			     else
-				 DynException.stdException(
-				 ("Can't assign iterator '"^(Symbol.name sym)^"' over previously defined iterator on expression '"^(e2s exp)^"'"),
-				 "ExpProcess.assignIteratorToSymbol",
-				 Logger.INTERNAL)
-	  | NONE => 
+	if isAssigned then
+	    exp
+	else
 	    let
 		val (exp_sym, props, iterators) = case (exp2term exp) of
 						      Exp.SYMBOL (exp_sym, props) => 
@@ -405,14 +464,23 @@ fun assignIteratorToSymbol (sym, itertype) exp =
 										     "ExpProcess.assignIteratorToSymbol", 
 										     Logger.INTERNAL)
 
-		val iterators' = case iterators of
-				     SOME iters => (sym, Iterator.RELATIVE 0)::iters (* prepend the iterator in this case *)
-				   | NONE => [(sym, Iterator.RELATIVE 0)] (* create a new list *)
+		val iterators' = 
+		    case p of
+			PREPEND => (case iterators of
+					SOME iters => (sym, Iterator.RELATIVE 0)::iters (* prepend the iterator in this case *)
+				      | NONE => [(sym, Iterator.RELATIVE 0)]) (* create a new list *)
+		      | APPEND => (case iterators of
+				       SOME iters => iters @ [(sym, Iterator.RELATIVE 0)] (* prepend the iterator in this case *)
+				     | NONE => [(sym, Iterator.RELATIVE 0)]) (* create a new list *)
 
 	    in
 		Exp.TERM (Exp.SYMBOL (exp_sym, Property.setIterator props iterators'))
 	    end
     end
+    handle e => DynException.checkpoint "ExpProcess.assignIteratorToSymbol" e
+ 
+fun prependIteratorToSymbol (sym, itertype) exp = assignIteratorToSymbol (sym, itertype, PREPEND) exp
+fun appendIteratorToSymbol (sym, itertype) exp = assignIteratorToSymbol (sym, itertype, APPEND) exp
 
 fun assignCorrectScopeOnSymbol exp =
     case exp of

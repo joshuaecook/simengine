@@ -3,6 +3,7 @@ struct
 
 open Printer
 
+val e2s = ExpPrinter.exp2str
 val i2s = Util.i2s
 val r2s = Util.r2s
 val log = Util.log
@@ -51,13 +52,88 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 			   else exp2c_str (FUN (Symbol.symbol "PLUS", [Exp.TERM t1, FUN (Symbol.symbol "TIMES", [Exp.TERM t2, Exp.TERM (SYMBOL (Symbol.symbol "i",[]))])]))	*)
       (*| LIST (l,_) => "[" ^ (String.concatWith ", " (map (fn(t)=>exp2c_str (Exp.TERM t)) l)) ^ "]"*)
       | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2c_str (Exp.TERM t)) l))^")"
-      | Exp.SYMBOL (s, props) => Term.sym2c_str (s, props)
+      | Exp.SYMBOL (s, props) => 
+	let
+	    val base_str = Term.sym2c_str (s, props)
+	    val spatial_iterators = TermProcess.symbol2spatialiterators term
+	    val iter_strs = List.filter (fn(str)=> str <> "") (map Iterator.iterator2c_str spatial_iterators)
+	in
+	    base_str ^ (if List.length iter_strs > 0 then "["^(String.concatWith ", " iter_strs)^"]" else "")
+	end
       | Exp.DONTCARE => "0"
       (*| INFINITY => "Inf"
       | NAN => "NaN"
       | PATTERN p => pattern2str p*)
       | _ => DynException.stdException (("Can't write out term '"^(ExpProcess.exp2str (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
 
+fun iter2range class (itersym, itertype) = 
+    case List.find (fn{name,...}=> name=itersym) (#iterators class) of
+	SOME v => v
+      | NONE => DynException.stdException(("Iterator '"^(Symbol.name itersym)^
+					   "' not found in class '"^
+					   (Symbol.name (#name class))^"'"), 
+					  "CWriterUtil.iter2range",
+					  Logger.INTERNAL)
+						
+
+fun expandprogs2parallelfor (class: DOF.class) (exp, progs) = 
+    let
+	val size = ExpProcess.exp2size (#iterators class) exp
+	val spatial_iterators = ExpProcess.exp2spatialiterators exp
+    in
+	[$("{"),
+	 SUB(Util.flatmap (fn(sym, _)=> [$("int iterator_" ^ (Symbol.name sym) ^ ";"),
+					 $("CDATAFORMAT "^(Symbol.name (ClassProcess.sym2codegensym sym))^";")]) spatial_iterators),
+	 SUB(foldl
+		 (fn(iter as (sym, _) , progs)=>
+		    let 
+			val i = Symbol.name sym
+			val {name,high,low,step} = iter2range class iter
+			val size = Real.ceil ((high-low)/step) + 1
+		    in
+			[$("for (iterator_"^i^" = 0; iterator_"^i^" < "^(i2s size)^"; iterator_"^i^"++) {"),
+			 SUB($(Symbol.name (ClassProcess.sym2codegensym sym) ^ " = " ^
+			       "((CDATAFORMAT)iterator_"^i^"/"^(i2s size)^")*((CDATAFORMAT)"^(r2s step)^")+"^(r2s low)^";")
+			     ::progs),
+			 $("}")]
+		    end)
+		 progs
+		 spatial_iterators),
+	 $("}")]
+    end
+
+fun exp2parallelfor (class:DOF.class) exp = 
+    let
+	val base_stm = $(exp2c_str exp ^ ";")
+    in
+	expandprogs2parallelfor class (exp, [base_stm])
+    end
+
+fun expsym2parts class exp = 
+    case exp of 
+	Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
+	let
+	    val scope = Property.getScope props
+	    val prefix = case scope of
+			 Property.LOCAL => ""
+		       | Property.READSTATE v => Symbol.name v
+		       | Property.WRITESTATE v => Symbol.name v
+
+	    (*val (order, vars) = case Property.getDerivative props
+				 of SOME (order, iters) => (order, iters)
+				  | NONE => (0, [])*)
+					    
+	    val spatial_iterators = ExpProcess.exp2spatialiterators exp
+	    val n = Symbol.name sym
+
+	in
+	    {prefix=prefix,
+	     identifier=n,
+	     iterators=Iterator.iterators2c_str spatial_iterators}
+	end
+      | _ => DynException.stdException(("Can't extract parts from non symbol expression '"^(e2s exp)^"'"),
+				       "CWriterUtil.expsym2parts",
+				       Logger.INTERNAL)
 
 fun log_c_exps (header, exps) = 
     (log "";

@@ -43,11 +43,12 @@ fun initnvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					)
 			   )
 
-fun initavar (str, iter) = 
+fun initavar (str, temporal_iterator, spatial_iterators) = 
     Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 			  (Property.setIterator 
 			       Property.default_symbolproperty 
-			       [(Symbol.symbol iter,Iterator.ABSOLUTE 0)])
+			       ((Symbol.symbol temporal_iterator,Iterator.ABSOLUTE 0)::
+				(map (fn(iter)=>(Symbol.symbol iter, Iterator.RELATIVE 0)) spatial_iterators)))
 			 )
 	     )
 

@@ -76,7 +76,7 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
      print ("  Equations:\n");
      app (fn(e) => 
 	    let
-		val size = ExpProcess.exp2size e
+		val size = ExpProcess.exp2size iterators e
 		val prefix = "  (x" ^ (i2s size) ^ ") "
 	    in
 		if ExpProcess.isInstanceEq e then

@@ -74,8 +74,9 @@ fun outputdatastruct_code class =
 	val outputs = #outputs class
 	fun output2struct (out as {name, contents, condition}) = 
 	    let
-		val struct_name = "output_" ^ (CWriterUtil.exp2c_str (Exp.TERM name))
-		val struct_inst = "outputdata_" ^ (CWriterUtil.exp2c_str (Exp.TERM name))
+		val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (Exp.TERM name)
+		val struct_name = "output_" ^ identifier
+		val struct_inst = "outputdata_" ^ identifier
 		val iter = TermProcess.symbol2temporaliterator name
 	    in
 		[$(""),
@@ -107,10 +108,10 @@ fun outputstatestructbyclass_code iter (class : DOF.class) =
 	 $("// define state structures"),
 	 $("struct statedata_" ^ (Symbol.name classname) ^ "_" ^ iter_name ^ " {"),	 
 	 SUB($("// states (count="^(i2s (List.length state_eqs_symbols))^")")::
-	     (map (fn(sym)=>
+	     (map (fn(exp)=>
 		     let
-			 val size = Term.symbolSpatialSize (ExpProcess.exp2term sym)
-			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
+			 val size = (*Term.symbolSpatialSize (ExpProcess.exp2term sym)*) ExpProcess.exp2size (#iterators class) exp
+			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term exp))
 		     in
 			 if size = 1 then
 			     $("CDATAFORMAT " ^ name ^ ";")
@@ -159,15 +160,26 @@ fun outputinit_code class =
 	val outputs = #outputs class
 	fun output2progs (out as {name, contents, condition}) = 
 	    let
-		val var = "outputdata_" ^ (CWriterUtil.exp2c_str (Exp.TERM name))
+		val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (Exp.TERM name)
+		val var = "outputdata_" ^ identifier
 		val iter = TermProcess.symbol2temporaliterator name
+		val spatial_iterators = TermProcess.symbol2spatialiterators name
+
+		fun iter2size iter = 
+		    let
+			val {name,high,low,step} = CWriterUtil.iter2range class iter
+		    in
+			Real.ceil((high-low)/step) + 1
+		    end
+		    
+		val total_size = ExpProcess.exp2size (#iterators class) (Exp.TERM name)
 	    in
 		[$(var ^ ".length = 0;"),
 		 $(var ^ ".alloc_size = START_SIZE;")] @
 		(case iter of
 		     SOME (sym, _) => [$(var ^ ".time = MALLOCFUN(START_SIZE*sizeof(CDATAFORMAT)); // iterator '"^(Symbol.name sym)^"'")]
 		   | NONE => []) @
-		(map (fn(c,i)=> $(var ^ ".vals" ^ (i2s i) ^ " = MALLOCFUN(START_SIZE*sizeof(CDATAFORMAT));")) (Util.addCount contents))
+		(map (fn(c,i)=> $(var ^ ".vals" ^ (i2s i) ^ " = MALLOCFUN(START_SIZE*"^(i2s total_size)^"*sizeof(CDATAFORMAT));")) (Util.addCount contents))
 	    end
 
 	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
@@ -206,16 +218,20 @@ fun initbyclass_code iter class =
 	 $("// define state initialization functions"),
 	 $("void init_" ^ (Symbol.name classname) ^ "_" ^ iter_name ^ "(struct statedata_"^(Symbol.name classname)^"_"^iter_name^" *states) {"),	 
 	 SUB($("// states (count="^(i2s (List.length init_eqs))^")")::
-	     (map (fn(sym)=>
+	     (Util.flatmap (fn(exp)=>
 		     let
-			 val size = Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))
-			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs sym)))
-			 val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs sym)
+			 val size = (*Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))*)
+			     ExpProcess.exp2size (#iterators class) exp
+			 val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (ExpProcess.lhs exp)
+			 (*val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs exp)))*)
+			 val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs exp)
 		     in
 			 if size = 1 then
-			     $("states->" ^ name ^ " = " ^ assigned_value ^ ";")
-			 else (* might have to do something special here or in c_writer_util *)
-			     $("states->" ^ name ^ " = " ^ assigned_value ^ ";")
+			     [$("states->" ^ identifier ^ " = " ^ assigned_value ^ ";")]
+			 else (* might have to do something special here or in c_writer_util - add the foreach code...*)
+			     CWriterUtil.expandprogs2parallelfor 
+				 class 
+				 (exp, [$("states->" ^ identifier ^ iterators ^" = " ^ assigned_value ^ ";")])
 		     end) init_eqs') @
 	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
 	      (map 
@@ -317,58 +333,81 @@ fun class2flow_code (class, top_class) =
 		 val progs =
 		     Util.flatmap
 			 (fn(exp)=>
-			    if (ExpProcess.isIntermediateEq exp) then
- 				[$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
-			    else if (ExpProcess.isStateEq exp) then
- 				[$((CWriterUtil.exp2c_str exp) ^ ";")]
-			    else if (ExpProcess.isInstanceEq exp) then
-				let
-				    val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
-				    val orig_instname = case Fun.getRealInstName props of
-							     SOME v => v
-							   | NONE => instname
+			    let
+				val size = ExpProcess.exp2size (#iterators class) exp
+				val spatial_iterators = ExpProcess.exp2spatialiterators exp
+				fun exp2lhssymname exp = Symbol.name (Term.sym2curname (ExpProcess.getLHSSymbol exp))
+			    in
+				if (ExpProcess.isIntermediateEq exp) then
+				    if size > 1 then					
+					if (ExpProcess.isTerm (ExpProcess.rhs exp)) andalso 
+					   (Term.isNumeric (ExpProcess.exp2term (ExpProcess.rhs exp))) then
+					    if (Term.isScalar (ExpProcess.exp2term (ExpProcess.rhs exp))) then
+						(* duplicate each element as it is assigned *)
+						[$("CDATAFORMAT "^(exp2lhssymname exp)^"["^(i2s size)^"] = "^
+						   "{"^(String.concatWith ", " (List.tabulate (size, fn(x)=>(CWriterUtil.exp2c_str (ExpProcess.rhs exp)))))^"};")]
+					    else
+						(* assign as a vector*)
+						[$("CDATAFORMAT "^(exp2lhssymname exp)^"["^(i2s size)^"] = "^
+						   (CWriterUtil.exp2c_str (ExpProcess.rhs exp))^"};")]
+					else
+ 					    [$("CDATAFORMAT " ^ (exp2lhssymname exp) ^ "["^(i2s size)^"];")] @ 
+					    (CWriterUtil.exp2parallelfor class exp)
+				    else
+ 					[$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
+				else if (ExpProcess.isStateEq exp) then
+				    if size > 1 then
+					CWriterUtil.exp2parallelfor class exp
+				    else
+ 					[$((CWriterUtil.exp2c_str exp) ^ ";")]
+				else if (ExpProcess.isInstanceEq exp) then
+				    let
+					val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
+					val orig_instname = case Fun.getRealInstName props of
+								SOME v => v
+							      | NONE => instname
 
-				    val class = CurrentModel.classname2class classname
-				    val {properties={classform,...},...} = class
+					val class = CurrentModel.classname2class classname
+					val {properties={classform,...},...} = class
 
-				    val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
-				    val statereads = map
-							 (fn(sym)=> "&rd_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")
-							 iterators
-						     
-				    val statewrites = map
-							  (fn(sym)=> "&wr_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")
-							  iterators
+					val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
+					val statereads = map
+							     (fn(sym)=> "&rd_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")
+							     iterators
+							     
+					val statewrites = map
+							      (fn(sym)=> "&wr_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")
+							      iterators
 
-				    val calling_name = "flow_" ^ (Symbol.name classname)
+					val calling_name = "flow_" ^ (Symbol.name classname)
 
-				    val inpvar = Unique.unique "inputdata"
-				    val outvar = Unique.unique "outputdata"
+					val inpvar = Unique.unique "inputdata"
+					val outvar = Unique.unique "outputdata"
 
-				    val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str inpargs)) ^ "};"
-				    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
-				in
-				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-					  $("// " ^ (CWriterUtil.exp2c_str exp)),
-					  $(inps), $(outs_decl),
-					  $(calling_name ^ "("^(String.concat (map (fn(sym)=>Symbol.name sym ^ ", ") iterators))^(String.concat statereads) ^ (String.concat statewrites) ^ inpvar^", "^outvar^", first_iteration);")] @
-					 let
-					     val symbols = map
-							       (fn(outsym) => Term.sym2curname outsym)
-							       outargs
-					 in
-					     map
-						 (fn((sym, {name, contents, condition}),i')=> 
-						    $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^
-						      "["^(i2s i')^"]; // Mapped to "^(Symbol.name classname)^": "^(ExpProcess.exp2str (List.hd (contents)))))
-						 (Util.addCount (ListPair.zip (symbols, !(#outputs class))))
-					 end)
+					val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str inpargs)) ^ "};"
+					val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
+				    in
+					[SUB([$("// Calling instance class " ^ (Symbol.name classname)),
+					      $("// " ^ (CWriterUtil.exp2c_str exp)),
+					      $(inps), $(outs_decl),
+					      $(calling_name ^ "("^(String.concat (map (fn(sym)=>Symbol.name sym ^ ", ") iterators))^(String.concat statereads) ^ (String.concat statewrites) ^ inpvar^", "^outvar^", first_iteration);")] @
+					     let
+						 val symbols = map
+								   (fn(outsym) => Term.sym2curname outsym)
+								   outargs
+					     in
+						 map
+						     (fn((sym, {name, contents, condition}),i')=> 
+							$("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^
+							  "["^(i2s i')^"]; // Mapped to "^(Symbol.name classname)^": "^(ExpProcess.exp2str (List.hd (contents)))))
+						     (Util.addCount (ListPair.zip (symbols, !(#outputs class))))
+					     end)
 
-				    ]
-				end
-			    else
-				DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CWriter.class2flow_code.equ_progs", Logger.INTERNAL)
-			 )
+					]
+				    end
+				else
+				    DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CWriter.class2flow_code.equ_progs", Logger.INTERNAL)
+			    end)
 			 valid_exps
 	     in
 		 progs
@@ -684,7 +723,9 @@ fun logoutput_code class =
 	val output_exps =Util.flatmap
 			      (fn(out as {condition, contents, name})=> 
 				 let
-				     val var = "outputdata_" ^ (CWriterUtil.exp2c_str (Exp.TERM name))
+				     val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (Exp.TERM name)
+				     val size = ExpProcess.exp2size (#iterators class) (Exp.TERM name)
+				     val var = "outputdata_" ^ identifier
 				     val iter = TermProcess.symbol2temporaliterator name
 				 in
 				     [$("{ // Generating output for symbol " ^ (ExpProcess.exp2str (Exp.TERM name))),
@@ -697,7 +738,7 @@ fun logoutput_code class =
 									  $(var ^ ".time = new_ptr;")]
 						      | NONE => [$("CDATAFORMAT *new_ptr;")]) @
 						   (Util.flatmap 
-							(fn(_, i)=> [$("new_ptr = REALLOCFUN("^var^".vals"^(i2s i)^", "^var^".alloc_size*2*sizeof(CDATAFORMAT));"),
+							(fn(_, i)=> [$("new_ptr = REALLOCFUN("^var^".vals"^(i2s i)^", "^var^".alloc_size*2*"^(i2s size)^"*sizeof(CDATAFORMAT));"),
 								     $("if (NULL == new_ptr) return 1;"),
 								     $(var^".vals"^(i2s i)^" = new_ptr;")])
 							(Util.addCount contents)) @

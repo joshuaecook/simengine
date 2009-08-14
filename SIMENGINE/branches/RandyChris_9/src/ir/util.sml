@@ -32,6 +32,10 @@ fun b2s x =
 fun l2s (l: string list) =
     "[" ^ (String.concatWith ", " l) ^ "]"
 
+fun symlist2s (l: Symbol.symbol list) =
+    "[" ^ (String.concatWith ", " (map Symbol.name l)) ^ "]"
+
+
 fun sum l = foldl (op +) 0 l
 fun prod l = foldl (op *) 1 l
 

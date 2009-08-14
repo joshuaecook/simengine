@@ -32,6 +32,26 @@ fun iterators2str iterators =
     "[" ^ (String.concatWith "," (map iterator2str iterators)) ^ "]"
 
 
+fun iterator2c_str (iterator as (sym, i)) =
+    let
+	val str = "iterator_" ^ (Symbol.name sym)
+    in
+	case i of
+	    ALL => ""
+	  | ABSOLUTE i => (i2s i)
+	  | RELATIVE i => str ^ (if i = 0 then "" else "+" ^ (i2s i))
+	  | RANGE _ => DynException.stdException("Currently, an iterator range can't be specified.  Instead, use one or more symbols with absolute indices.", "Iterator.iterator2c_str", Logger.INTERNAL)
+	  | LIST _ => DynException.stdException("Currently, an iterator list can't be specified.  Instead, use one or more symbols with absolute indices.", "Iterator.iterator2c_str", Logger.INTERNAL)
+    end
+
+fun iterators2c_str iterators =
+    if List.length iterators > 0 then
+	"[" ^ (String.concatWith "," (map iterator2c_str iterators)) ^ "]"
+    else
+	""
+
+
+
 fun iter_equiv (i1 as (s1, t1), i2 as (s2, t2)) =
     (* check the symbol *)
     s1 = s2
