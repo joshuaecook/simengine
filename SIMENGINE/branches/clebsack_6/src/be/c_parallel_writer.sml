@@ -90,9 +90,9 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $(""),
 	 $("const simengine_interface seint = {"),
 	 SUB[$("0, // Version,"),
-	     $("INPUTSPACE, // Number of inputs"),
-	     $("STATESPACE, // Number of states"),
-	     $("OUTPUTSPACE, // Number of outputs"),
+	     $((i2s (List.length input_names)) ^ ", // Number of inputs"),
+	     $((i2s (List.length state_names)) ^ ", // Number of states"),
+	     $((i2s (List.length output_names)) ^ ", // Number of outputs"),
 	     $("input_names,"),
 	     $("state_names,"),
 	     $("output_names,"),
@@ -591,7 +591,7 @@ fun main_code class =
 		 $("nquantities = ((unsigned int *)data)[1];"),
 		 $("data += 2 * sizeof(unsigned int);"),
 		 $(""),
-		 $("output = &outputs[modelid * OUTPUTSPACE + tag];"),
+		 $("output = &outputs[modelid * seint.num_outputs + tag];"),
 		 $(""),
 		 $("if (output->num_samples == output->alloc) {"),
 		 SUB[$("output->alloc *= 2;"),
@@ -716,9 +716,9 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val header_progs = header (class_name, 
 				   [], (* no additional includes *)
 				   ("ITERSPACE", i2s (length iterators))::
-				   ("STATESPACE", i2s statespace)::
+(*				   ("STATESPACE", i2s statespace)::
 				   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::
-				   ("OUTPUTSPACE", i2s (length (!(#outputs inst_class))))::
+				   ("OUTPUTSPACE", i2s (length (!(#outputs inst_class)))):: *)
 				   ("INTEGRATION_METHOD", solver_name)::
 				   ("INTEGRATION_MEM", solver_name ^ "_mem")::
 				   ("START_SIZE", "1000")::
