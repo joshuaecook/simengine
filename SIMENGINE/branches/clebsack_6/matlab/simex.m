@@ -112,11 +112,11 @@ else
                         userInputs, userStates);
   
   % Output data are transposed before returning.
-  fieldnames = fieldnames(output);
+  fnames = fieldnames(output);
   for i=[1:length(output)]
-    for f=[1:length(fieldnames)]
-      output(i).(fieldnames{f}) = ...
-          transpose(output(i).(fieldnames{f}));
+    for f=[1:length(fnames)]
+      output(i).(fnames{f}) = ...
+          transpose(output(i).(fnames{f}));
     end
   end
            
@@ -212,7 +212,9 @@ function [startTime endTime] = get_time(userTime)
 % a simulation run.
 data = double(userTime);
 
-switch (rows(userTime) * columns(userTime))
+[rows cols] = size(userTime);
+
+switch (rows * cols)
  case 1
   startTime = 0;
   endTime = userTime;
@@ -309,8 +311,8 @@ if ~isnumeric(states)
   error('Simatra:typeError', 'Expected Y0 to be numeric.');
 elseif issparse(states)
   error('Simatra:typeError', 'Did not expect Y0 to be sparse.');
-elseif iscomplex(states)
-  warning('Simatra:warning', 'Ignoring imaginary components of Y0.');
+%elseif iscomplex(states)
+%  warning('Simatra:warning', 'Ignoring imaginary components of Y0.');
 end
 
 [statesRows statesCols] = size(states);
@@ -338,9 +340,20 @@ if 0 ~= status
         'Compilation returned status code %d.', status);
 end
 
-make = ['make MODEL=' dslName
-        ' SIMENGINE_STORAGE=' opts.precision 
-        ' NUM_MODELS=' num2str(1)];
+inputsSize = size(opts.inputs);
+statesSize = size(opts.states);
+models = max([1 inputsSize(1) statesSize(1)]);
+
+if 1 == models
+  target = 'cpu';
+else
+  target = 'openmp';
+end
+
+make = ['make MODEL=' dslName ...
+        ' TARGET=' target ...
+        ' SIMENGINE_STORAGE=' opts.precision ...
+        ' NUM_MODELS=' num2str(models)];
 status = system(make);
 
 if 0 ~= status
@@ -349,7 +362,7 @@ if 0 ~= status
 end
 
 % TODO what is the path of the resultant DLL?
-dllPath = fullfile(pwd, 'libsimengine.so')
+dllPath = fullfile(pwd, 'libsimengine.so');
 
 % TODO check the shape of the user inputs and start states, other
 % parameters, and recompile the model if necessary.
