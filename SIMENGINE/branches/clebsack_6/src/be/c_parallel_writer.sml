@@ -519,7 +519,7 @@ fun logoutput_code class =
 		  					 o Term.sym2curname)
 							(Util.flatmap ExpProcess.exp2termsymbols contents)) @
 					  [$("ob->count[modelid]++;"),
-					   $("if(ob->end - ob->ptr < MAX_OUTPUT_SIZE) ob->full = 1;")]),
+					   $("ob->full = MAX_OUTPUT_SIZE > (ob->end[modelid] - ob->ptr[modelid]);")]),
 				      $("}")],
 				  $("}")]
 			      )
