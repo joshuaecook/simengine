@@ -595,7 +595,7 @@ fun main_code class =
 		 $(""),
 		 $("if (output->num_samples == output->alloc) {"),
 		 SUB[$("output->alloc *= 2;"),
-		     $("if (!(output->data = se_alloc.realloc(output->data, outputs->alloc * sizeof(CDATAFORMAT))))"),
+		     $("if (!(output->data = se_alloc.realloc(output->data, output->num_quantities * output->alloc * sizeof(CDATAFORMAT))))"),
 		     SUB[$("{ return 1; }")]],
 		 $("}"),
 		 $(""),
