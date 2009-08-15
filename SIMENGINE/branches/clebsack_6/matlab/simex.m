@@ -259,8 +259,8 @@ for fieldid=[1:length(fieldnames)]
     error('Simatra:typeError', 'Expected INPUTS.%s to be numeric.', fieldname);
   elseif issparse(field)
     error('Simatra:typeError', 'Did not expect INPUTS.%s to be sparse.', fieldname);
-  elseif iscomplex(field)
-    warning('Simatra:warning', 'Ignoring imaginary components of INPUTS.%s.', fieldname);
+%  elseif iscomplex(field)
+%    warning('Simatra:warning', 'Ignoring imaginary components of INPUTS.%s.', fieldname);
   end
   
   if ~isscalar(field)
@@ -340,9 +340,11 @@ if 0 ~= status
         'Compilation returned status code %d.', status);
 end
 
-inputsSize = size(opts.inputs);
-statesSize = size(opts.states);
-models = max([1 inputsSize(1) statesSize(1)]);
+models = max(1, size(opts.states,1));
+fnames = fieldnames(opts.inputs);
+for fid = 1:size(fnames)
+  models = max([models size(opts.inputs.(fnames{fid}))]);
+end
 
 if 1 == models
   target = 'CPU';
@@ -350,7 +352,7 @@ else
   target = 'OPENMP';
 end
 
-make = ['make MODEL=' dslName ...
+make = ['make remake MODEL=' dslName ...
         ' TARGET=' target ...
         ' SIMENGINE_STORAGE=' opts.precision ...
         ' NUM_MODELS=' num2str(models)];
