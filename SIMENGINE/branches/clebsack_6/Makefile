@@ -1321,7 +1321,7 @@ mostlyclean:
 
 
 solvers_clean:
-	$(MAKE) -c solvers clean
+	$(MAKE) -C solvers clean
 
 mexinterface_clean:
 	$(MAKE) -C matlab MATLAB_INSTALL_PATH=$(MATLAB_INSTALL_PATH) OCTAVE_INSTALL_PATH=$(OCTAVE_INSTALL_PATH) MEXEXT="$(MEXEXT)" clean

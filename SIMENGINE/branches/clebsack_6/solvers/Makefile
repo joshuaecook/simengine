@@ -14,7 +14,7 @@
 	$(CVODE_PATH)/sundials/.libs/sundials_nvector.o 
 
 METHODS = forwardeuler rk4 bogacki_shampine dormand_prince #cvode
-TARGETS = cpu openmp
+TARGETS = CPU OPENMP
 DATATYPES = float double
 GCCLIB = gcc -g -fPIC -c -Wall -Iinclude -I$(SUNDIALS_BUILD_PATH)/include -I../include
 AR = ar rs
@@ -31,7 +31,7 @@ all:
 	$(MAKE) lib/libsolvers.a
 
 src/$(METHOD)_$(TARGET)_$(TYPE).o: src/$(METHOD).c include/solvers.h
-	$(GCCLIB) -DTARGET=$(TARGET) -DSIMENGINE_STORAGE=$(TYPE) -o $@ $<
+	$(GCCLIB) -DTARGET_$(TARGET) -DSIMENGINE_STORAGE=$(TYPE) -o $@ $<
 
 lib/libsolvers.a: src/*.o #$(CVODE_OBJS)
 	$(AR) $@ $?

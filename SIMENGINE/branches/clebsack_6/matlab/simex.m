@@ -345,9 +345,9 @@ statesSize = size(opts.states);
 models = max([1 inputsSize(1) statesSize(1)]);
 
 if 1 == models
-  target = 'cpu';
+  target = 'CPU';
 else
-  target = 'openmp';
+  target = 'OPENMP';
 end
 
 make = ['make MODEL=' dslName ...

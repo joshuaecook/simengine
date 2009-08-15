@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 
 #define SIMENGINE_MATLAB_CLIENT
+#define TARGET_CPU
 #include "simengine.h"
 
 
