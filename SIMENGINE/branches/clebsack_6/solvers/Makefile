@@ -14,13 +14,23 @@
 	$(CVODE_PATH)/sundials/.libs/sundials_nvector.o 
 
 METHODS = forwardeuler rk4 bogacki_shampine dormand_prince #cvode
+GPU_METHODS = forwardeuler rk4 bogacki_shampine dormand_prince
 TARGETS = CPU OPENMP
 DATATYPES = float double
 GCCLIB = gcc -g -fPIC -c -Wall -Iinclude -I$(SUNDIALS_BUILD_PATH)/include -I../include
+NVCCLIB = nvcc -g -c -Xcompiler -fPIC -arch=sm_13 -Iinclude -I../include -I/opt64/NVIDIA_CUDA_SDK/common/inc/ -DTARGET_GPU
 AR = ar rs
 
 all:
 #	$(MAKE) create-cvode-library TYPE=$$type
+# Make GPU solvers
+	@for type in $(DATATYPES); do\
+	  $(NVCCLIB) -DSIMENGINE_STORAGE_$$type -o src/solver_gpu_$$type.o src/solver_gpu.cu; \
+	  for method in $(GPU_METHODS); do \
+	    cp src/$$method.c src/$$method.cu; $(NVCCLIB) -DSIMENGINE_STORAGE_$$type -o src/$$method\_GPU\_$$type.o src/$$method.cu; \
+	  done; \
+	done
+# Make CPU and OPENMP solvers
 	@for type in $(DATATYPES); do \
 	  for target in $(TARGETS); do \
 	    for method in $(METHODS); do \
@@ -31,7 +41,7 @@ all:
 	$(MAKE) lib/libsolvers.a
 
 src/$(METHOD)_$(TARGET)_$(TYPE).o: src/$(METHOD).c include/solvers.h
-	$(GCCLIB) -DTARGET_$(TARGET) -DSIMENGINE_STORAGE_$(TYPE) -o $@ $<
+	@$(GCCLIB) -DTARGET_$(TARGET) -DSIMENGINE_STORAGE_$(TYPE) -o $@ $<
 
 lib/libsolvers.a: src/*.o #$(CVODE_OBJS)
 	$(AR) $@ $?
@@ -40,7 +50,7 @@ lib/libsolvers.a: src/*.o #$(CVODE_OBJS)
 #	rm -rf $(SUNDIALS_BUILD_PATH)
 
 clean:
-	rm -f src/*.o lib/*.a
+	rm -f src/*.o *.linkinfo lib/*.a
 #	@for type in $(DATATYPES); do \
 	  $(MAKE) clean-cvode TYPE=$$type; \
 	 done

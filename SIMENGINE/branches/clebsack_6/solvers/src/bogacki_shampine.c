@@ -4,6 +4,44 @@
 
 bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
   int i;
+#if defined TARGET_GPU
+  GPU_ENTRY(init, SIMENGINE_STORAGE);
+
+  // Temporary CPU copies of GPU datastructures
+  bogacki_shampine_mem tmem;
+  // GPU datastructures
+  bogacki_shampine_mem *dmem;
+
+  CDATAFORMAT *temp_cur_timestep;
+  
+  // Allocate GPU space for mem and pointer fields of mem (other than props)
+  cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(bogacki_shampine_mem)));
+  tmem.props = GPU_ENTRY(init_props, SIMENGINE_STORAGE, props);;
+  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k4, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.next_states, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.z_next_states, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.cur_timestep, props->num_models*sizeof(CDATAFORMAT)));
+
+  // Create a local copy of the initial timestep and initialize
+  temp_cur_timestep = (CDATAFORMAT*)malloc(props->num_models*sizeof(CDATAFORMAT));
+  for(i=0; i<props->num_models; i++)
+    temp_cur_timestep[i] = props->timestep;
+
+  // Copy mem structure to GPU
+  cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(bogacki_shampine_mem), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(tmem.cur_timestep, &temp_cur_timestep, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+
+  // Free temporary
+  free(temp_cur_timestep);
+
+  return dmem;
+  
+#else // Used for CPU and OPENMP targets
+
   bogacki_shampine_mem *mem = (bogacki_shampine_mem*)malloc(sizeof(bogacki_shampine_mem));
 
   mem->props = props;
@@ -21,6 +59,7 @@ bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, 
     mem->cur_timestep[i] = props->timestep;
 
   return mem;
+#endif
 }
 
 __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, unsigned int modelid) {
@@ -117,6 +156,27 @@ __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki
 }
 
 void SOLVER(bogacki_shampine, free, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem) {
+#if defined TARGET_GPU
+  bogacki_shampine_mem tmem;
+
+  cutilSafeCall(cudaMemcpy(&tmem, mem, sizeof(bogacki_shampine_mem), cudaMemcpyDeviceToHost));
+
+  GPU_ENTRY(free_props, SIMENGINE_STORAGE, tmem.props);
+
+  cutilSafeCall(cudaFree(tmem.k1));
+  cutilSafeCall(cudaFree(tmem.k2));
+  cutilSafeCall(cudaFree(tmem.k3));
+  cutilSafeCall(cudaFree(tmem.k4));
+  cutilSafeCall(cudaFree(tmem.temp));
+  cutilSafeCall(cudaFree(tmem.next_states));
+  cutilSafeCall(cudaFree(tmem.z_next_states));
+  cutilSafeCall(cudaFree(tmem.cur_timestep));
+  cutilSafeCall(cudaFree(mem));
+
+  GPU_ENTRY(exit, SIMENGINE_STORAGE);
+
+#else // Used for CPU and OPENMP targets
+
   free(mem->k1);
   free(mem->k2);
   free(mem->k3);
@@ -126,4 +186,5 @@ void SOLVER(bogacki_shampine, free, TARGET, SIMENGINE_STORAGE, bogacki_shampine_
   free(mem->z_next_states);
   free(mem->cur_timestep);
   free(mem);
+#endif
 }

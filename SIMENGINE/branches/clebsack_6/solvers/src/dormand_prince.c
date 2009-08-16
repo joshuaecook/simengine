@@ -3,8 +3,49 @@
 #include "solvers.h"
 
 dormand_prince_mem *SOLVER(dormand_prince, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
-  dormand_prince_mem *mem = (dormand_prince_mem*)malloc(sizeof(dormand_prince_mem));
   int i;
+#if defined TARGET_GPU
+  GPU_ENTRY(init, SIMENGINE_STORAGE);
+
+  // Temporary CPU copies of GPU datastructures
+  dormand_prince_mem tmem;
+  // GPU datastructures
+  dormand_prince_mem *dmem;
+
+  CDATAFORMAT *temp_cur_timestep;
+  
+  // Allocate GPU space for mem and pointer fields of mem (other than props)
+  cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(dormand_prince_mem)));
+  tmem.props = GPU_ENTRY(init_props, SIMENGINE_STORAGE, props);;
+  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k4, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k5, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k6, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k7, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.next_states, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.z_next_states, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.cur_timestep, props->num_models*sizeof(CDATAFORMAT)));
+
+  // Create a local copy of the initial timestep and initialize
+  temp_cur_timestep = (CDATAFORMAT*)malloc(props->num_models*sizeof(CDATAFORMAT));
+  for(i=0; i<props->num_models; i++)
+    temp_cur_timestep[i] = props->timestep;
+
+  // Copy mem structure to GPU
+  cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(dormand_prince_mem), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(tmem.cur_timestep, &temp_cur_timestep, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+
+  // Free temporary
+  free(temp_cur_timestep);
+
+  return dmem;
+  
+#else // Used for CPU and OPENMP targets
+
+  dormand_prince_mem *mem = (dormand_prince_mem*)malloc(sizeof(dormand_prince_mem));
 
   mem->props = props;
   mem->k1 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
@@ -24,6 +65,7 @@ dormand_prince_mem *SOLVER(dormand_prince, init, TARGET, SIMENGINE_STORAGE, solv
     mem->cur_timestep[i] = props->timestep;
 
   return mem;
+#endif
 }
 
 __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_prince_mem *mem, unsigned int modelid) {
@@ -165,6 +207,30 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
 }
 
 void SOLVER(dormand_prince, free, TARGET, SIMENGINE_STORAGE, dormand_prince_mem *mem) {
+#if defined TARGET_GPU
+  dormand_prince_mem tmem;
+
+  cutilSafeCall(cudaMemcpy(&tmem, mem, sizeof(dormand_prince_mem), cudaMemcpyDeviceToHost));
+
+  GPU_ENTRY(free_props, SIMENGINE_STORAGE, tmem.props);
+
+  cutilSafeCall(cudaFree(tmem.k1));
+  cutilSafeCall(cudaFree(tmem.k2));
+  cutilSafeCall(cudaFree(tmem.k3));
+  cutilSafeCall(cudaFree(tmem.k4));
+  cutilSafeCall(cudaFree(tmem.k5));
+  cutilSafeCall(cudaFree(tmem.k6));
+  cutilSafeCall(cudaFree(tmem.k7));
+  cutilSafeCall(cudaFree(tmem.temp));
+  cutilSafeCall(cudaFree(tmem.next_states));
+  cutilSafeCall(cudaFree(tmem.z_next_states));
+  cutilSafeCall(cudaFree(tmem.cur_timestep));
+  cutilSafeCall(cudaFree(mem));
+
+  GPU_ENTRY(exit, SIMENGINE_STORAGE);
+
+#else // Used for CPU and OPENMP targets
+
   free(mem->k1);
   free(mem->k2);
   free(mem->k3);
@@ -177,4 +243,5 @@ void SOLVER(dormand_prince, free, TARGET, SIMENGINE_STORAGE, dormand_prince_mem 
   free(mem->z_next_states);
   free(mem->cur_timestep);
   free(mem);
+#endif
 }

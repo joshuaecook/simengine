@@ -3,13 +3,34 @@
 #include "solvers.h"
 
 forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
-  // Change to target specific allocation!
+#if defined TARGET_GPU
+  GPU_ENTRY(init, SIMENGINE_STORAGE);
+
+  // Temporary CPU copies of GPU datastructures
+  forwardeuler_mem tmem;
+  // GPU datastructures
+  forwardeuler_mem *dmem;
+  
+  // Allocate GPU space for mem and pointer fields of mem (other than props)
+  cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(forwardeuler_mem)));
+  tmem.props = GPU_ENTRY(init_props, SIMENGINE_STORAGE, props);;
+  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+
+  // Copy mem structure to GPU
+  cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(forwardeuler_mem), cudaMemcpyHostToDevice));
+
+  return dmem;
+  
+#else // Used for CPU and OPENMP targets
+
   forwardeuler_mem *mem = (forwardeuler_mem*)malloc(sizeof(forwardeuler_mem));
 
   mem->props = props;
   mem->k1 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
 
   return mem;
+
+#endif // defined TARGET_GPU
 }
 
 __DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, unsigned int modelid) {
@@ -28,7 +49,22 @@ __DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeule
 }
 
 void SOLVER(forwardeuler, free, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem) {
-  // Change to target specific deallocation!
+#if defined TARGET_GPU
+  forwardeuler_mem tmem;
+
+  cutilSafeCall(cudaMemcpy(&tmem, mem, sizeof(forwardeuler_mem), cudaMemcpyDeviceToHost));
+
+  GPU_ENTRY(free_props, SIMENGINE_STORAGE, tmem.props);
+
+  cutilSafeCall(cudaFree(tmem.k1));
+  cutilSafeCall(cudaFree(mem));
+
+  GPU_ENTRY(exit, SIMENGINE_STORAGE);
+
+#else // Used for CPU and OPENMP targets
+
   free(mem->k1);
   free(mem);
+
+#endif // defined TARGET_GPU
 }

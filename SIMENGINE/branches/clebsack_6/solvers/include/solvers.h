@@ -7,8 +7,10 @@
 #include <simengine_target.h>
 #include <stdlib.h>
 #include <math.h>
-//#include <stdio.h>
-//#include <string.h>
+
+#if defined TARGET_GPU
+#include <cutil_inline.h>
+#endif
 
 // Defines a solver entry point
 #define SOLVER(solver, entry, target, type, args...)  \
@@ -39,6 +41,7 @@ typedef struct {
   unsigned int statesize;
   unsigned int inputsize;
   unsigned int num_models;
+  unsigned int ob_size;
   void *ob;
 } solver_props;
 
@@ -137,5 +140,21 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int modelid);
 
 void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem);
+
+
+// GPU Specific functions
+
+#if defined TARGET_GPU
+
+#define GPU_ENTRY(entry, type, args...) JOIN3(gpu, entry, type)(args)
+#define JOIN3(a,b,c) a##_##b##_##c
+
+void GPU_ENTRY(init, SIMENGINE_STORAGE);
+void GPU_ENTRY(exit, SIMENGINE_STORAGE);
+
+solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props);
+void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props);
+
+#endif
 
 #endif // SOLVERS_H
