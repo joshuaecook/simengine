@@ -45,28 +45,37 @@
 
 
 // The type of simulation quantity values.
-#if SIMENGINE_STORAGE == double
+#if defined SIMENGINE_STORAGE_double
+#define SIMENGINE_STORAGE double
 typedef double CDATAFORMAT;
 #define FLITERAL(X) X
-#elif SIMENGINE_STORAGE == float
+#elif defined SIMENGINE_STORAGE_float
+#define SIMENGINE_STORAGE float
 typedef float CDATAFORMAT;
 // Ensures that operations involving literal quantities are not promoted to double-precision.
 #define FLITERAL(X) X##f
 #else
-#error SIMENGINE_STORAGE not set properly (float, double)
+#error SIMENGINE_STORAGE either not set or not supported, please use SIMENGINE_FLOAT or SIMENGINE_DOUBLE
 #endif
 
 typedef unsigned long counter;
 
-//#define TARGET cpu // cpu, openmp, gpu
-
+// Target backends
+// Target backends reference memory in different layouts
+// TARGET_CPU allows for only a single model to be executed and uses a single structure to hold data
 #if defined TARGET_CPU
+#if NUM_MODELS > 1
+#error Only one model is supported for CPU target
+#endif
 #define TARGET CPU
 #define TARGET_IDX SER_IDX
 #define STRUCT_IDX 0
 #define ARRAY_IDX 0
 #define ARRAY_SIZE 1
 #define __DEVICE__
+#define __HOST__
+
+// TARGET_OPENMP allows multiple models to be executed on the CPU and uses an array of structures to hold data (prevents false sharing in cache between threads)
 #elif defined TARGET_OPENMP
 #define TARGET OPENMP
 #define TARGET_IDX AS_IDX
@@ -74,6 +83,9 @@ typedef unsigned long counter;
 #define ARRAY_IDX 0
 #define ARRAY_SIZE 1
 #define __DEVICE__
+#define __HOST__
+
+// TARGET_GPU allows multiple models to be executed on the GPU and uses a structure of arrays to hold data (allows for coallescing of reads/and writes across threads)
 #elif defined TARGET_GPU
 #define TARGET GPU
 #define TARGET_IDX SA_IDX // AS_IDX, SA_IDX or SER_IDX
@@ -81,8 +93,11 @@ typedef unsigned long counter;
 #define ARRAY_IDX modelid
 #define ARRAY_SIZE (semeta->num_models)
 #define __DEVICE__ __device__
+#define __HOST__ __host__
+
+// Other targets are not yet supported
 #else
-#error TARGET not properly set (cpu, openmp, gpu)
+#error TARGET either not set or not supported, please use TARGET_CPU, TARGET_OPENMP or TARGET_GPU
 #endif
 
 // TARGET SPECIFIC INDEXING MODES

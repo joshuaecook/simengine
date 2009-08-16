@@ -31,7 +31,7 @@ all:
 	$(MAKE) lib/libsolvers.a
 
 src/$(METHOD)_$(TARGET)_$(TYPE).o: src/$(METHOD).c include/solvers.h
-	$(GCCLIB) -DTARGET_$(TARGET) -DSIMENGINE_STORAGE=$(TYPE) -o $@ $<
+	$(GCCLIB) -DTARGET_$(TARGET) -DSIMENGINE_STORAGE_$(TYPE) -o $@ $<
 
 lib/libsolvers.a: src/*.o #$(CVODE_OBJS)
 	$(AR) $@ $?

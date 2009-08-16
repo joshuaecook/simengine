@@ -20,7 +20,7 @@
 #define STATE_IDX TARGET_IDX(mem->props->statesize, mem->props->num_models, i, modelid)
 
 // Pre-declaration of model_flows, the interface between the solver and the model
-__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);
+__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, void *ob, unsigned int first_iteration, unsigned int modelid);
 
 // Properties data structure
 // ============================================================================================================
@@ -39,6 +39,7 @@ typedef struct {
   unsigned int statesize;
   unsigned int inputsize;
   unsigned int num_models;
+  void *ob;
 } solver_props;
 
 // Forward Euler data structures and function declarations
