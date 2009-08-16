@@ -246,7 +246,7 @@ fun class2flow_code (class, top_class) =
 *)
 	     $("// mapping inputs to variables")] @ 
 	    (map
-		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];"))
+		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(seint.num_inputs, semeta.num_models, " ^ (i2s i) ^ ", modelid)];"))
 		 (Util.addCount (!(#inputs class))))
 
 
