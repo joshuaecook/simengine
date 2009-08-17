@@ -144,7 +144,7 @@ void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem);
 
 // GPU Specific functions
 
-#if defined TARGET_GPU
+#if defined (TARGET_GPU)
 
 #define GPU_ENTRY(entry, type, args...) JOIN3(gpu, entry, type)(args)
 #define JOIN3(a,b,c) a##_##b##_##c
