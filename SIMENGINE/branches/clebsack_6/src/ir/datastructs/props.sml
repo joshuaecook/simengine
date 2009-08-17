@@ -9,6 +9,8 @@ datatype scopetype = LOCAL
 		   | WRITESTATE of Symbol.symbol (* needs to be written back to output structure *)
 
 
+datatype ep_index_type = STRUCT_OF_ARRAYS | ARRAY
+
 type symbolproperty = 
      {dim: dimlist option,
       iterator: Iterator.iterator list option,
@@ -16,7 +18,7 @@ type symbolproperty =
       sourcepos: PosLog.pos option,
       realname: Symbol.symbol option,
       scope: scopetype,
-      ep_index: bool}
+      ep_index: ep_index_type option}
 
 val default_symbolproperty = 
     {dim=NONE,
@@ -25,7 +27,7 @@ val default_symbolproperty =
      sourcepos=NONE,
      realname=NONE,
      scope=LOCAL,
-     ep_index=false}
+     ep_index=NONE}
 
 fun getDim (props:symbolproperty) = #dim props
 
@@ -44,7 +46,7 @@ fun getRealName (props:symbolproperty) = #realname props
 
 fun getScope (props:symbolproperty) = #scope props
 
-fun useEPIndex (props:symbolproperty) = #ep_index props
+fun getEPIndex (props:symbolproperty) = #ep_index props
 
 fun setDim props p = 
     {dim=SOME p,
@@ -53,7 +55,7 @@ fun setDim props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
-     ep_index=useEPIndex props}
+     ep_index=getEPIndex props}
 	
 fun setIterator props p = 
     {dim=getDim props,
@@ -62,7 +64,7 @@ fun setIterator props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
-     ep_index=useEPIndex props}
+     ep_index=getEPIndex props}
 	
 fun setDerivative props p = 
     {dim=getDim props,
@@ -71,7 +73,7 @@ fun setDerivative props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
-     ep_index=useEPIndex props}
+     ep_index=getEPIndex props}
 	
 fun setSourcePos props p = 
     {dim=getDim props,
@@ -80,7 +82,7 @@ fun setSourcePos props p =
      sourcepos=SOME p,
      realname=getRealName props,
      scope=getScope props,
-     ep_index=useEPIndex props}
+     ep_index=getEPIndex props}
 	
 fun setRealName props p = 
     {dim=getDim props,
@@ -89,7 +91,7 @@ fun setRealName props p =
      sourcepos=getSourcePos props,
      realname=SOME p,
      scope=getScope props,
-     ep_index=useEPIndex props}	
+     ep_index=getEPIndex props}	
 
 fun setScope props p = 
     {dim=getDim props,
@@ -98,7 +100,7 @@ fun setScope props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=p,
-     ep_index=useEPIndex props}	
+     ep_index=getEPIndex props}	
 
 fun setEPIndex props p = 
     {dim=getDim props,

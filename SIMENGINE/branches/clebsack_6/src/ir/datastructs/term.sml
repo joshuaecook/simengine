@@ -106,22 +106,24 @@ fun sym2fullstr (s, props) =
 
 fun sym2c_str (s, props) =
     let
-	val ep_index = Property.useEPIndex props
+	val ep_index = Property.getEPIndex props
 
 	val scope = Property.getScope props
 
 	val prefix = 
-	    let val index = if ep_index then "[STRUCT_IDX]." else "->"
+	    let val index = case ep_index
+			     of SOME Property.STRUCT_OF_ARRAYS => "[STRUCT_IDX]."
+			      | _ => "->"
 	    in case scope
 		of Property.LOCAL => ""
 		 | Property.READSTATE v => Symbol.name v ^ index
 		 | Property.WRITESTATE v => Symbol.name v ^ index
 	    end
 
-	val suffix = if ep_index then
-			 "[ARRAY_IDX]"
-		     else
-			 ""
+	val suffix = case ep_index 
+		      of SOME _ => "[ARRAY_IDX]"
+		       | NONE => ""
+
 	val (order, vars) = case Property.getDerivative props
 			      of SOME (order, iters) => (order, iters)
 			       | NONE => (0, [])

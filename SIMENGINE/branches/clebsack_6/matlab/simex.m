@@ -40,17 +40,21 @@
 %
 %      '-double'
 %        Constructs a simulation engine that computes in
-%        double-precision floating point. (NOT CURRENTLY SUPPORTED
-%        for CUDA mode.)
+%        double-precision floating point.
 %
 %      '-single'
 %        Constructs a simulation engine that computes in
 %        single-precision floating point.
 %
-%      '-mode'
-%        The next parameter must be a mode identifier.
-%        Currently only 'ode' and 'ode_cuda' are supported.
-%        The default is 'ode_cuda.'
+%      '-cpu'
+%        Constructs a serialized cpu-based simulation engine.
+%
+%      '-openmp'
+%        Constructs a multiprocessor cpu-based simulation engine.
+%
+%      '-gpu'
+%        Constructs a massively parallel gpu-based simulation
+%        engine for CUDA-compatible Nvidia devices.
 %
 %      '-debug'
 %        Enables the compiler to produce extra debugging
@@ -59,6 +63,10 @@
 %      '-profile'
 %        Enables the compiler to produce extra profiling
 %        information.
+%
+%      '-emulate'
+%        Constructs a simulation engine that executes in GPU
+%        emulation. (ONLY VALID FOR GPU TARGET.)
 %
 %    M = SIMEX(MODEL) compiles MODEL as above and returns a
 %    model description structure M containing information
@@ -92,7 +100,7 @@ else
   if 0 == inputsM
     userInputs = zeros(interface.num_inputs, models);
     for i=[1:interface.num_inputs]
-      userInputs(i,:) = interface.default_inputs.(interface.input_names{i}) * ones(1, models);
+      userInputs(i,:) = interface.default_inputs.(interface.input_names(i)) * ones(1, models);
     end
   elseif 1 == inputsM && models ~= inputsM
     userInputs = transpose(userInputs) * ones(1, models);
@@ -137,8 +145,8 @@ function [dslPath dslName modelFile opts] = get_simex_opts(varargin)
 dslPath = '';
 dslName = '';
 modelFile = '';
-opts = struct('mode','', 'precision','double', ...
-              'debug',false, 'profile',false, ...
+opts = struct('models',1, 'target','', 'precision','double', ...
+              'debug',false, 'profile',false, 'emulate',false, ...
               'startTime',0, 'endTime',0, ...
               'inputs',struct(), 'states',[], ...
               'simengine','');
@@ -171,24 +179,33 @@ if 1 < nargin
       opts.precision = 'double';
     elseif strcmpi(arg, '-single')
       opts.precision = 'float';
+    elseif strcmpi(arg, '-cpu')
+      opts.target = 'CPU';
+    elseif strcmpi(arg, '-gpu')
+      opts.target = 'GPU';
+    elseif strcmpi(arg, '-openmp')
+      opts.target = 'OPENMP';
     elseif strcmpi(arg, '-debug')
       opts.debug = true;
+    elseif strcmpi(arg, '-emulate')
+      opts.emulate = true;
     elseif strcmpi(arg, '-profile')
       opts.profile = true;
-    elseif strcmpi(arg, '-mode')
-      count = count + 1;
-      if count > nargin
-        error('Simatra:SIMEX:argumentError', ...
-              'The -mode switch must be followed by a mode identifier.');
-      end
-      mode = lower(varargin{count});
-      if ~(ismember(mode, ...
-                    {'ode', 'ode_cuda'}))
-        error('Simatra:SIMEX:argumentError', ...
-              ['The specified mode ' mode ' is not available.']);
-      end
-      opts.mode = mode;
     end
+  end
+  
+  models = max(1, size(opts.states,1));
+  fnames = fieldnames(opts.inputs);
+  for fid = 1:size(fnames)
+    models = max([models size(opts.inputs.(fnames{fid}))]);
+  end
+  opts.models = models;
+end
+
+if strcmpi(opts.target, '')
+  opts.target = 'CPU';
+  if 1 < opts.models
+    opts.target = 'GPU';
   end
 end
 
@@ -230,7 +247,7 @@ switch (rows * cols)
           'TIME(2) must be greater than TIME(1).');
   end
  otherwise
-  error(Simatra:argumentError, 'TIME must have length of 1 or 2.');
+  error('Simatra:argumentError', 'TIME must have length of 1 or 2.');
 end
 end
 % 
@@ -340,22 +357,19 @@ if 0 ~= status
         'Compilation returned status code %d.', status);
 end
 
-models = max(1, size(opts.states,1));
-fnames = fieldnames(opts.inputs);
-for fid = 1:size(fnames)
-  models = max([models size(opts.inputs.(fnames{fid}))]);
-end
-
-if 1 == models
-  target = 'CPU';
-else
-  target = 'GPU';
-end
-
 make = ['make MODEL=' dslName ...
-        ' TARGET=' target ...
+        ' TARGET=' opts.target ...
         ' SIMENGINE_STORAGE=' opts.precision ...
-        ' NUM_MODELS=' num2str(models)];
+        ' NUM_MODELS=' num2str(opts.models)];
+if opts.debug
+  make = [make ' DEBUG=1'];
+end
+if opts.emulate
+  make = [make ' EMULATE=1'];
+end
+if opts.profile
+  make = [make ' PROFILE=1'];
+end
 status = system(make);
 
 if 0 ~= status

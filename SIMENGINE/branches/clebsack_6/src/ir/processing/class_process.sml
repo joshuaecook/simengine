@@ -138,18 +138,18 @@ fun class2orig_name (class : DOF.class) =
 	  | DOF.SLAVE c => c
     end
 
-fun addEPIndexToClass (class: DOF.class) =
+fun addEPIndexToClass is_top (class: DOF.class) =
     let
 	val master_class = CurrentModel.classname2class (class2orig_name class)
 	val states = findStateSymbols master_class
 	val exps = !(#exps class)
-	val exps' = map (ExpProcess.enableEPIndex states) exps
+	val exps' = map (ExpProcess.enableEPIndex is_top states) exps
 
 	val outputs = !(#outputs class)
 	val outputs' = map (fn({name, contents, condition})=>
 			      {name=name,
-			       contents=map (fn(exp)=>ExpProcess.enableEPIndex states exp) contents,
-			       condition=ExpProcess.enableEPIndex states condition}
+			       contents=map (fn(exp)=>ExpProcess.enableEPIndex is_top states exp) contents,
+			       condition=ExpProcess.enableEPIndex is_top states condition}
 			   ) outputs
     in
 	((#exps class) := exps';

@@ -378,16 +378,16 @@ fun getLHSSymbol exp =
 	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
 
 (* function to add EP_index property to all state symbols *)
-fun enableEPIndex states exp = 
+fun enableEPIndex is_top states exp = 
     case exp of
-	Exp.FUN (funtype, args) => Exp.FUN (funtype, map (enableEPIndex states) args)
+	Exp.FUN (funtype, args) => Exp.FUN (funtype, map (enableEPIndex is_top states) args)
       | Exp.TERM (Exp.SYMBOL (sym, props)) => 
 	if List.exists (fn(sym')=>sym=sym') states then
-	    Exp.TERM (Exp.SYMBOL (sym, Property.setEPIndex props true))
+	    Exp.TERM (Exp.SYMBOL (sym, Property.setEPIndex props (SOME (if is_top then Property.STRUCT_OF_ARRAYS else Property.ARRAY))))
 	else
 	    exp
-      | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o (enableEPIndex states) o Exp.TERM) termlist, dimlist))
-      | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o (enableEPIndex states) o Exp.TERM) termlist))
+      | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist, dimlist))
+      | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist))
       | _ => exp
 
 end
