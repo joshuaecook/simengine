@@ -20,12 +20,16 @@ fun header (class_name, includes, defpairs) =
     [$("// C Execution Engine for top-level model: " ^ class_name),
      $("// " ^ Globals.copyright),
      $(""),
+     $("#if defined TARGET_GPU"),
+     $("#include <cutil_inline.h>"),
+     $("#endif"),
      $("#include <simengine.h>"),
      $("#include <solvers.h>")] @
     (map (fn(inc)=> $("#include "^inc)) includes) @
     [$(""),
      $("")] @
     (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs)
+
 
 fun simengine_interface (class_name, class, solver_name) =
     let
@@ -79,16 +83,26 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $("const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " output_num_quantities) ^ "};"),
 	 $("const char model_name[] = \"" ^ class_name ^ "\";"),
 	 $("const char solver[] = \"" ^ solver_name ^ "\";"),
+	 $("#if defined TARGET_CPU"),
+	 $("const char target[] = \"cpu\";"),
+	 $("#elif defined TARGET_OPENMP"),
+	 $("const char target[] = \"openmp\";"),
+	 $("#elif defined TARGET_GPU"),
+	 $("const char target[] = \"gpu\";"),
+	 $("#endif"),
 	 $(""),
-	 $("__DEVICE__ __HOST__ const simengine_metadata semeta = {"),
+	 $("const simengine_metadata semeta = {"),
 	 SUB[$("0x0000000000000000ULL, // hashcode"),
 	     $("NUM_MODELS,"),
 	     $("solver,"),
+	     $("target,"),
 	     $("sizeof(CDATAFORMAT)")
 	    ],
 	 $("};"),
 	 $(""),
-	 $("__DEVICE__ __HOST__ const simengine_interface seint = {"),
+	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
+	 $(""),
+	 $("const simengine_interface seint = {"),
 	 SUB[$("0, // Version,"),
 	     $((i2s (List.length input_names)) ^ ", // Number of inputs"),
 	     $((i2s (List.length state_names)) ^ ", // Number of states"),
@@ -246,7 +260,7 @@ fun class2flow_code (class, top_class) =
 *)
 	     $("// mapping inputs to variables")] @ 
 	    (map
-		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(seint.num_inputs, semeta.num_models, " ^ (i2s i) ^ ", modelid)];"))
+		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, NUM_MODELS, " ^ (i2s i) ^ ", modelid)];"))
 		 (Util.addCount (!(#inputs class))))
 
 
@@ -444,6 +458,58 @@ fun exec_code (class:DOF.class, props, statespace) =
 	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
     in
 	[$(""),
+	 $("__DEVICE__ unsigned int Stop;"),
+	 $(""),
+	 $("__GLOBAL__ void clearStop(void) {"),
+	 SUB[$("Stop = 0;")],
+	 $("}"),
+	 $(""),
+	 $("#if defined TARGET_GPU"),
+	 $("__GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){"),
+	 SUB[$("const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;"),
+	     $(""),
+	     $("unsigned int num_iterations;"),
+	     $(""),
+	     $("init_output_buffer((output_buffer*)(mem->props->ob), modelid);"),
+	     $(""),
+	     $("for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++){"),
+	     SUB[$("SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
+		 $(""),
+		 $("// Check if simulation is complete"),
+		 $("if(mem->props->time[modelid] >= mem->props->stoptime){"),
+		 SUB[$("atomicDec(&((output_buffer*)(mem->props->ob))->active_models, mem->props->num_models);"),
+		     $("break;")],
+		 $("}"),
+		 $(""),
+		 $("// Check if buffer is full - may not be needed"),
+		 $("atomicOr(&Stop, ((output_buffer*)(mem->props->ob))->full[modelid]);"),
+		 $("// Break if any buffer is full"),
+		 $("if(Stop) { break; }")],
+	     $("}")],
+	 $("}"),
+	 $("#endif"),
+	 $(""),
+	 $("#if defined TARGET_OPENMP"),
+	 $("void exec_kernel_openmp(INTEGRATION_MEM *mem, unsigned int modelid){"),
+	 SUB[$("unsigned int num_iterations;"),
+	     $(""),
+	     $("init_output_buffer((output_buffer*)(mem->props->ob), modelid);"),
+	     $(""),
+	     $("for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++){"),
+	     SUB[$("SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
+		 $(""),
+		 $("if (mem->props->time[modelid] >= mem->props->stoptime) {"),
+		 SUB[$("// FIXME not thread safe"),
+		     $("--((output_buffer*)(mem->props->ob))->active_models;"),
+		     $("break;")],
+		 $("}"),
+		 $(""),
+		 $("if (((output_buffer *)(mem->props->ob))->full[modelid])"),
+		 SUB[$("{ break; }")]],
+	     $("}")],
+	 $("}"),
+	 $("#endif"),
+	 $(""),
 	 $("int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs) {"),
 	 SUB[$("unsigned int modelid = 0;"),
 	     $("solver_props props;"),
@@ -460,26 +526,54 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.statesize = seint.num_states;"),
 	     $("props.inputsize = seint.num_inputs;"),
 	     $("props.num_models = semeta.num_models;"),
+	     $("props.ob_size = sizeof(OB);"),
 	     $("props.ob = &OB; // FIXME - switch to dynamic allocation don't forget to free!"),
+	     $("OB.active_models = NUM_MODELS;"),
 	     $(""),
 	     $("INTEGRATION_MEM *mem = SOLVER(INTEGRATION_METHOD, init, TARGET, SIMENGINE_STORAGE, &props);"),
+	     $(""),
+	     $(""),
+	     $(""),
+	     $("while (1) {"),
+	     $("#if defined TARGET_OPENMP"),
 	     $("for(modelid=0; modelid<semeta.num_models; modelid++){"),
-	     SUB[$("init_output_buffer(&OB, modelid);")],
-	     SUB[$("while (t[modelid] < t1) {"),
-		 SUB[$("int status = SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
-		     $("if (status != 0) {"),
-		     SUB[$("return ERRCOMP;")],
-		     $("}"),
-		     $("if (OB.full[modelid]){"),
-		     SUB[$("if(0 != log_outputs(&OB, outputs, modelid))"),
-			 SUB[$("{ return ERRMEM; }")],
-			 $("init_output_buffer(&OB, modelid);")
-			],
-		     $("}")],
+	     SUB[$("exec_kernel_openmp(mem, modelid);"),
+		 $("if(0 != log_outputs((output_buffer*)(mem->props->ob), outputs, modelid))"),
+		 SUB[$("{ return ERRMEM; }")]],
+	     $("}"),
+	     $("#elif defined TARGET_GPU"),
+	     $("clearStop<<<1,1>>>();"),
+	     $("exec_kernel_gpu<<<2, NUM_MODELS/2>>>(mem);"),
+	     $("cutilSafeCall(cudaMemcpy(&OB, props.ob, sizeof(OB), cudaMemcpyDeviceToHost));"),
+	     $("for (modelid = 0; modelid < semeta.num_models; ++modelid) {"),
+	     SUB[$("if (0 != log_outputs(&OB, outputs, modelid))"),
+		 SUB[$("{ return ERRMEM; }")]],
+	     $("}"),
+	     $("#else"),
+	     $("if (0 == ((output_buffer*)(mem->props->ob))->active_models)"),
+	     SUB[$("{ break; }")],
+	     $("init_output_buffer((output_buffer*)(mem->props->ob), 0);"),
+	     $("while (t[0] < t1) {"),
+	     SUB[$("int status = SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, 0);"),
+		 $("if (status != 0) {"),
+		 SUB[$("return ERRCOMP;")],
+		 $("}"),
+		 $("if (OB.full[0]){"),
+		 SUB[$("if(0 != log_outputs((output_buffer*)(mem->props->ob), outputs, 0))"),
+		     SUB[$("{ return ERRMEM; }")],
+		     $("init_output_buffer((output_buffer*)(mem->props->ob), 0);")
+		    ],
 		 $("}")],
+	     $("}"),
 	     $("if(0 != log_outputs(&OB, outputs, modelid))"),
 	     SUB[$("{ return ERRMEM; }")],
+	     $("#endif"),
+	     $("if (0 == OB.active_models)"),
+	     SUB[$("{ break; }")],
 	     $("}"),
+	     $(""),
+	     $(""),
+	     $(""),
 	     $("SOLVER(INTEGRATION_METHOD, free, TARGET, SIMENGINE_STORAGE, mem);")],
 	 $("return SUCCESS;"),
 	 $("}")]
@@ -511,16 +605,16 @@ fun logoutput_code class =
 				      $("if (cond) {"),
 				      SUB([$("((unsigned int*)(ob->ptr[modelid]))[0] = " ^ (i2s output_index) ^ ";"),
 					   $("((unsigned int*)(ob->ptr[modelid]))[1] = " ^ (i2s (inc (List.length contents))) ^ ";"),
-					   $("ob->ptr[modelid] += 2*sizeof(unsigned int);"),
+					   $("ob->ptr[modelid] = &((unsigned int*)(ob->ptr[modelid]))[2];"),
 					   $("*((CDATAFORMAT*)(ob->ptr[modelid])) = t;"),
-					   $("ob->ptr[modelid] += sizeof(CDATAFORMAT);")] @
+					   $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")] @
 					  (Util.flatmap ((fn (sym) =>
 							     [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = od->"^(Symbol.name sym)^";"),
-							      $("ob->ptr[modelid] += sizeof(CDATAFORMAT);")])
+							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])
 		  					 o Term.sym2curname)
 							(Util.flatmap ExpProcess.exp2termsymbols contents)) @
 					  [$("ob->count[modelid]++;"),
-					   $("ob->full[modelid] = MAX_OUTPUT_SIZE > (ob->end[modelid] - ob->ptr[modelid]);")]),
+					   $("ob->full[modelid] = MAX_OUTPUT_SIZE > ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid]));")]),
 				      $("}")],
 				  $("}")]
 			      )
@@ -543,7 +637,8 @@ fun logoutput_code class =
 	 $(" * The 'ptr' and 'end' pointers are references to positions within 'buffer.'"),
 	 $(" */"),
 	 $("typedef struct{"),
-	 SUB[$("unsigned int full[NUM_MODELS];"),
+	 SUB[$("unsigned int active_models;"),
+	     $("unsigned int full[NUM_MODELS];"),
 	     $("unsigned int count[NUM_MODELS];"),
 	     $("CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];"),
 	     $("void *ptr[NUM_MODELS];"),
@@ -552,14 +647,16 @@ fun logoutput_code class =
 	 $(""),
 	 $("output_buffer OB;"),
 	 $(""),
-	 $("void init_output_buffer(output_buffer *ob, unsigned int modelid){"),
+	 $("int log_outputs(output_buffer *, simengine_output *, unsigned int);"),
+	 $(""),
+	 $("__DEVICE__ void init_output_buffer(output_buffer *ob, unsigned int modelid){"),
 	 SUB[$("ob->full[modelid] = 0;"),
 	     $("ob->count[modelid] = 0;"),
 	     $("ob->ptr[modelid] = &ob->buffer[modelid*BUFFER_LEN];"),
 	     $("ob->end[modelid] = &ob->buffer[(modelid+1)*BUFFER_LEN];")],
 	 $("}"),
 	 $(""),
-	 $("void buffer_outputs(double t, output_data *od, output_buffer *ob, unsigned int modelid) {"),
+	 $("__DEVICE__ void buffer_outputs(double t, output_data *od, output_buffer *ob, unsigned int modelid) {"),
 	 SUB([$("")] @
 	     output_exps @
 	     [$("")]
@@ -587,13 +684,17 @@ fun main_code class =
 	     $("for (dataid = 0; dataid < ndata; ++dataid) {"),
 	     SUB[$("outputid = ((unsigned int *)data)[0];"),
 		 $("nquantities = ((unsigned int *)data)[1];"),
-		 $("data += 2 * sizeof(unsigned int);"),
+		 $("data = &((unsigned int*)data)[2];"),
+		 $(""),
+		 $("// TODO an error code for invalid data?"),
+		 $("if (outputid > seint.num_outputs) { return 1; }"),
+		 $("if (seint.output_num_quantities[outputid] != nquantities) { return 1; }"),
 		 $(""),
 		 $("output = &outputs[AS_IDX(seint.num_outputs,semeta.num_models,outputid,modelid)];"),
 		 $(""),
 		 $("if (output->num_samples == output->alloc) {"),
 		 SUB[$("output->alloc *= 2;"),
-		     $("if (!(output->data = se_alloc.realloc(output->data, output->num_quantities * output->alloc * sizeof(CDATAFORMAT))))"),
+		     $("if (!(output->data = (CDATAFORMAT*)se_alloc.realloc(output->data, output->num_quantities * output->alloc * sizeof(CDATAFORMAT))))"),
 		     SUB[$("{ return 1; }")]],
 		 $("}"),
 		 $(""),
@@ -601,7 +702,7 @@ fun main_code class =
 		 $(""),
 		 $("for (quantityid = 0; quantityid < nquantities; ++quantityid) {"),
 		 SUB[$("odata[quantityid] = *((double *)data);"),
-		     $("data += sizeof(CDATAFORMAT);")],
+		     $("data = &((CDATAFORMAT*)data)[1];")],
 		 $("}"),
 		 $(""),
 		 $("++output->num_samples;")],
@@ -610,10 +711,12 @@ fun main_code class =
 	     $("return 0;")],
 	 $("}"),
 	 $(""),
+	 $("EXTERN_C"),
 	 $("const simengine_interface *simengine_getinterface(){"),
 	 SUB[$("return &seint;")],
 	 $("}"),
 	 $(""),
+	 $("EXTERN_C"),
 	 $("simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc){"),
 	 SUB[$("CDATAFORMAT model_states[semeta.num_models*seint.num_states];"),
 	     $("CDATAFORMAT parameters[semeta.num_models*seint.num_inputs];"),
@@ -637,7 +740,7 @@ fun main_code class =
 	     $(" }"),
 	     $(""),
 	     $("// Create result structure"),
-	     $("simengine_result *seresult = (se_alloc.malloc)(sizeof(simengine_result));"),
+	     $("simengine_result *seresult = (simengine_result*)se_alloc.malloc(sizeof(simengine_result));"),
 	     $(""),
 	     $("// Couldn't allocate return structure, return NULL"),
 	     $("if(!seresult) return NULL;"),
@@ -651,7 +754,7 @@ fun main_code class =
 	     $("}"),
 	     $(""),
 	     $("// Allocate return structures"),
-	     $("seresult->outputs = (se_alloc.malloc)(semeta.num_models * seint.num_outputs * sizeof(simengine_output));"),
+	     $("seresult->outputs = (simengine_output*)se_alloc.malloc(semeta.num_models * seint.num_outputs * sizeof(simengine_output));"),
 	     $("if(!seresult->outputs){"),
 	     SUB[$("seresult->status = ERRMEM;"),
 		 $("seresult->status_message = simengine_errors[ERRMEM];"),
@@ -676,7 +779,7 @@ fun main_code class =
 		 SUB[$("seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].alloc = START_SIZE;"),
 		     $("seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].num_quantities = seint.output_num_quantities[outputid];"),
 		     $("seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].num_samples = 0;"),
-		     $("seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].data = (se_alloc.malloc)(START_SIZE*seint.output_num_quantities[outputid]*sizeof(CDATAFORMAT));")],
+		     $("seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].data = (CDATAFORMAT*)se_alloc.malloc(START_SIZE*seint.output_num_quantities[outputid]*sizeof(CDATAFORMAT));")],
 		 $("}")],
 	     $("}"),
 	     $(""),
@@ -693,8 +796,7 @@ fun main_code class =
 	     $("}"),
 	     $("return seresult;")
 	    ],
-	 $("}")
-	]
+	 $("}")]
     end
 
 fun buildC (model: DOF.model as (classes, inst, props)) =
@@ -714,7 +816,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 			      | DOF.DOUBLE => "double"
 
 	val header_progs = header (class_name, 
-				   [], (* no additional includes *)
+				   ["\"../solvers/src/"^solver_name^".cu\""], (* no additional includes *)
 				   ("ITERSPACE", i2s (length iterators))::
 (*				   ("STATESPACE", i2s statespace)::
 				   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::
@@ -724,6 +826,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				   ("START_SIZE", "1000")::
 				   ("BUFFER_LEN", "8000")::
 				   ("MAX_ALLOC_SIZE", "65536000")::
+				   ("MAX_ITERATIONS", "1000")::
 				   (Solver.solver2params solver))
 
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, solver_name)

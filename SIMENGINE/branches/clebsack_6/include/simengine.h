@@ -20,6 +20,7 @@ typedef struct {
   const unsigned long long hashcode; // Signature of the DSL model file
   const unsigned int num_models; // Parallel count of models given at compilation
   const char *solver; // Name of integration method
+  const char *target; // Name of compute target
   const size_t precision; // Number of bytes in data storage, e.g. 4 = single-precision
   // TODO maybe include data about the compiler itself, e.g. branch id, build time, etc.
 } simengine_metadata;
@@ -83,7 +84,7 @@ typedef struct {
  * outputs:
  *          simengine_interface * - pointer to a static structure within a model that defines its interface
  */
-const simengine_interface *simengine_getinterface();
+EXTERN_C const simengine_interface *simengine_getinterface();
 
 
 
@@ -102,6 +103,6 @@ const simengine_interface *simengine_getinterface();
  *          simengine_output * - returns an array of output structures with the data produced by the models
  *                               outputs from a single model are contiguous
  */
-simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc);
+EXTERN_C simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc);
 
 #endif // SIMENGINE_H

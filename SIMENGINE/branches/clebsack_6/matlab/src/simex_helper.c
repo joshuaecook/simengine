@@ -4,6 +4,9 @@
 #include <dlfcn.h>
 
 #define SIMENGINE_MATLAB_CLIENT
+// Need to define a storage class even though this code will not be
+// manipulating device storage.
+#define SIMENGINE_STORAGE_double
 #define TARGET_CPU
 #include "simengine.h"
 

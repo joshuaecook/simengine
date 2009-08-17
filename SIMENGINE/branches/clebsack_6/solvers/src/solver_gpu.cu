@@ -35,6 +35,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   cutilSafeCall(cudaMemcpy(tprops.inputs, props->inputs, props->num_models*props->inputsize, cudaMemcpyHostToDevice));
   cutilSafeCall(cudaMemcpy(tprops.ob, props->ob, tprops.ob_size, cudaMemcpyHostToDevice));
 
+  props->ob = tprops.ob;
   return dprops;
 }
 

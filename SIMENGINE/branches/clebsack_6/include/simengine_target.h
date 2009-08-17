@@ -74,6 +74,8 @@ typedef unsigned long counter;
 #define ARRAY_SIZE 1
 #define __DEVICE__
 #define __HOST__
+#define __GLOBAL__
+#define EXTERN_C
 
 // TARGET_OPENMP allows multiple models to be executed on the CPU and uses an array of structures to hold data (prevents false sharing in cache between threads)
 #elif defined TARGET_OPENMP
@@ -84,6 +86,8 @@ typedef unsigned long counter;
 #define ARRAY_SIZE 1
 #define __DEVICE__
 #define __HOST__
+#define __GLOBAL__
+#define EXTERN_C
 
 // TARGET_GPU allows multiple models to be executed on the GPU and uses a structure of arrays to hold data (allows for coallescing of reads/and writes across threads)
 #elif defined TARGET_GPU
@@ -91,9 +95,11 @@ typedef unsigned long counter;
 #define TARGET_IDX SA_IDX // AS_IDX, SA_IDX or SER_IDX
 #define STRUCT_IDX 0
 #define ARRAY_IDX modelid
-#define ARRAY_SIZE (semeta->num_models)
+#define ARRAY_SIZE NUM_MODELS
 #define __DEVICE__ __device__
 #define __HOST__ __host__
+#define __GLOBAL__ __global__
+#define EXTERN_C extern "C"
 
 // Other targets are not yet supported
 #else
