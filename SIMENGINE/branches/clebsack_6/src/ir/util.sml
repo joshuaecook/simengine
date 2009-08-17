@@ -6,24 +6,19 @@ exception InternalError
 fun log s = 
     print (s ^ "\n")
 
-fun r2s x = 
-    let
-	fun tilde2minus #"~" = #"-"
-	  | tilde2minus c = c
 
-    in
-	String.implode (map tilde2minus (String.explode (Real.toString x)))
-    end
+local 
+fun tilde2minus #"~" = "-"
+  | tilde2minus c = String.str c
 
+val tr = String.translate tilde2minus
+val exact = Real.fmt StringCvt.EXACT
+in
 
-fun i2s x = 
-    let
-	fun tilde2minus #"~" = #"-"
-	  | tilde2minus c = c
+val r2s = tr o exact
+val i2s = tr o Int.toString
 
-    in
-	String.implode (map tilde2minus (String.explode (Int.toString x)))
-    end
+end
 
 fun b2s x =
     if x then "true"
