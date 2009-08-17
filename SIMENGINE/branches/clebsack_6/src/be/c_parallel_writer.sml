@@ -22,6 +22,7 @@ fun header (class_name, includes, defpairs) =
      $(""),
      $("#if defined TARGET_GPU"),
      $("#include <cutil_inline.h>"),
+     $("#define BLOCK_SIZE 192"),
      $("#endif"),
      $("#include <simengine.h>"),
      $("#include <solvers.h>")] @
@@ -118,7 +119,7 @@ fun simengine_interface (class_name, class, solver_name) =
 	     $("&semeta")],
 	 $("};"),
 	 $(""),
-	 $("simengine_alloc se_alloc;"),
+	 $("simengine_alloc se_alloc = { malloc, realloc, free };"),
 	 $("")]
     end
 
@@ -464,6 +465,8 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $(""),
 	     $("unsigned int num_iterations;"),
 	     $(""),
+	     $("if (modelid < NUM_MODELS) {"),
+	     $(""),
 	     $("init_output_buffer((output_buffer*)(mem->props->ob), modelid);"),
 	     $(""),
 	     $("for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++){"),
@@ -479,6 +482,8 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 $("atomicOr(&Stop, ((output_buffer*)(mem->props->ob))->full[modelid]);"),
 		 $("// Break if any buffer is full"),
 		 $("if(Stop) { break; }")],
+	     $("}"),
+	     $(""),
 	     $("}")],
 	 $("}"),
 	 $("#endif"),
@@ -520,7 +525,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.statesize = seint.num_states;"),
 	     $("props.inputsize = seint.num_inputs;"),
 	     $("props.num_models = semeta.num_models;"),
-	     $("props.ob_size = sizeof(OB);"),
+	     $("props.ob_size = sizeof(output_buffer);"),
 	     $("props.ob = &OB; // FIXME - switch to dynamic allocation don't forget to free!"),
 	     $("OB.active_models = NUM_MODELS;"),
 	     $(""),
@@ -536,9 +541,13 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 SUB[$("{ return ERRMEM; }")]],
 	     $("}"),
 	     $("#elif defined TARGET_GPU"),
+	     $("unsigned int nthreads, nblocks;"),
+	     $("nthreads = BLOCK_SIZE < NUM_MODELS ? BLOCK_SIZE : NUM_MODELS;"),
+	     $("nblocks = (NUM_MODELS + BLOCK_SIZE - 1) / BLOCK_SIZE;"),
+	     $(""),
 	     $("clearStop<<<1,1>>>();"),
-	     $("exec_kernel_gpu<<<2, NUM_MODELS/2>>>(mem);"),
-	     $("cutilSafeCall(cudaMemcpy(&OB, props.ob, sizeof(OB), cudaMemcpyDeviceToHost));"),
+	     $("exec_kernel_gpu<<<nblocks, nthreads>>>(mem);"),
+	     $("cutilSafeCall(cudaMemcpy(&OB, props.ob, props.ob_size, cudaMemcpyDeviceToHost));"),
 	     $("for (modelid = 0; modelid < semeta.num_models; ++modelid) {"),
 	     SUB[$("if (0 != log_outputs(&OB, outputs, modelid))"),
 		 SUB[$("{ return ERRMEM; }")]],
@@ -553,7 +562,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 $("if (OB.full[0]){"),
 		 SUB[$("if(0 != log_outputs(&OB, outputs, 0))"),
 		     SUB[$("{ return ERRMEM; }")],
-		     $("init_output_buffer((output_buffer*)(mem->props->ob), 0);")
+		     $("init_output_buffer(&OB, 0);")
 		    ],
 		 $("}")],
 	     $("}"),
@@ -723,11 +732,13 @@ fun main_code class =
 		 $("se_alloc.realloc = alloc->realloc;"),
 		 $("se_alloc.free = alloc->free;")],
 	     $("}"),
+	     (*
 	     $("else{"),
 	     SUB[$("se_alloc.malloc = malloc;"),
 		 $("se_alloc.realloc = realloc;"),
 		 $("se_alloc.free = free;")],
 	     $(" }"),
+	     *)
 	     $(""),
 	     $("// Create result structure"),
 	     $("simengine_result *seresult = (simengine_result*)se_alloc.malloc(sizeof(simengine_result));"),
