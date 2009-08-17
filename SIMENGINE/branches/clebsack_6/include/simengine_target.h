@@ -70,6 +70,7 @@ typedef unsigned long counter;
 #define TARGET CPU
 #define TARGET_IDX SER_IDX
 #define STRUCT_IDX 0
+#define STRUCT_SIZE 1
 #define ARRAY_IDX 0
 #define ARRAY_SIZE 1
 #define __DEVICE__
@@ -82,6 +83,7 @@ typedef unsigned long counter;
 #define TARGET OPENMP
 #define TARGET_IDX AS_IDX
 #define STRUCT_IDX modelid
+#define STRUCT_SIZE NUM_MODELS
 #define ARRAY_IDX 0
 #define ARRAY_SIZE 1
 #define __DEVICE__
@@ -91,9 +93,14 @@ typedef unsigned long counter;
 
 // TARGET_GPU allows multiple models to be executed on the GPU and uses a structure of arrays to hold data (allows for coallescing of reads/and writes across threads)
 #elif defined TARGET_GPU
+#if defined (__DEVICE_EMULATION__)
+#define TARGET EMUGPU
+#else
 #define TARGET GPU
+#endif
 #define TARGET_IDX SA_IDX // AS_IDX, SA_IDX or SER_IDX
 #define STRUCT_IDX 0
+#define STRUCT_SIZE 1
 #define ARRAY_IDX modelid
 #define ARRAY_SIZE NUM_MODELS
 #define __DEVICE__ __device__
