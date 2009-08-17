@@ -145,8 +145,11 @@ void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem);
 // GPU Specific functions
 
 #if defined (TARGET_GPU)
-
+#if defined (__DEVICE_EMULATION__)
+#define GPU_ENTRY(entry, type, args...) JOIN3(emugpu, entry, type)(args)
+#else
 #define GPU_ENTRY(entry, type, args...) JOIN3(gpu, entry, type)(args)
+#endif
 #define JOIN3(a,b,c) a##_##b##_##c
 
 void GPU_ENTRY(init, SIMENGINE_STORAGE);
