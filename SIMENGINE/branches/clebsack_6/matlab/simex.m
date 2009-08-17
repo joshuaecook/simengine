@@ -170,7 +170,7 @@ if 1 < nargin
     elseif strcmpi(arg, '-double')
       opts.precision = 'double';
     elseif strcmpi(arg, '-single')
-      opts.precision = 'single';
+      opts.precision = 'float';
     elseif strcmpi(arg, '-debug')
       opts.debug = true;
     elseif strcmpi(arg, '-profile')
