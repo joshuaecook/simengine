@@ -227,6 +227,12 @@ namespace Simulation
   overload function power(arg1: SimQuantity, arg2) = ModelOperation.new ("pow", 2, power, 0, [arg1, arg2])
   overload function power(arg1, arg2: SimQuantity) = ModelOperation.new ("pow", 2, power, 0, [arg1, arg2])
 
+  overload function sum(arg: ModelOperation) = ModelOperation.new ("reduction_add", 1, sum, 0, [arg])
+  overload function sum(arg: SimQuantity) =    ModelOperation.new ("reduction_add", 1, sum, 0, [arg])
+
+  overload function prod(arg: ModelOperation) = ModelOperation.new ("reduction_mul", 1, prod, 0, [arg])
+  overload function prod(arg: SimQuantity) =    ModelOperation.new ("reduction_mul", 1, prod, 0, [arg])
+
   overload function exp(arg: ModelOperation) = ModelOperation.new ("exp", 1, exp, 0, [arg])
   overload function exp(arg: SimQuantity) =    ModelOperation.new ("exp", 1, exp, 0, [arg])
 

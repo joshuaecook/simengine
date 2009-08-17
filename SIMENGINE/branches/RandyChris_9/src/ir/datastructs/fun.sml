@@ -163,7 +163,35 @@ type op_props = {name: string,
 		 commutative: bool,
 		 associative: bool,
 		 text: (string * fix),
-		 C: (string * fix)}
+		 C: (string * fix),
+		 codomain: int list list -> int list}
+
+
+fun vectorizedCodomain (nil: int list list) : int list = nil
+  | vectorizedCodomain (first::rest) =
+    let
+	fun combineSizes (size1, size2) = 
+	    if (size1 = size2) then size1
+	    else if (size1 = 1) then size2
+	    else if (size2 = 1) then size1
+	    else
+		(Logger.log_internalerror (Printer.$("Arguments have mismatched sizes ("^(Int.toString size1)^","^(Int.toString size2)^")"));
+		 DynException.setErrored(); 
+		 1)
+
+    in
+	foldl (fn(a,b) => map combineSizes
+			      (ListPair.zip(a,b))) 
+	      first 
+	      rest
+    end
+
+fun safeTail nil = nil
+  | safeTail (a::rest) = rest
+
+fun codomainReduction (nil: int list list) : int list = nil
+  | codomainReduction args =
+    safeTail(vectorizedCodomain(args))
 
 
 fun unaryfun2props name : op_props =
@@ -173,8 +201,8 @@ fun unaryfun2props name : op_props =
      commutative=false,
      associative=false,
      text=(name, PREFIX),
-     C=(name, PREFIX)}
-
+     C=(name, PREFIX),
+     codomain = vectorizedCodomain}
 
 fun op2props optype = 
     case optype of
@@ -184,49 +212,56 @@ fun op2props optype =
 		commutative=true,
 		associative=true,
 		text=("+",INFIX),
-		C=("+",INFIX)}
+		C=("+",INFIX),
+		codomain= vectorizedCodomain}
       | SUB => {name="sub",
 		operands=FIXED 2,
 		precedence=6,
 		commutative=false,
 		associative=false,
 		text=("-",INFIX),
-		C=("-",INFIX)}
+		C=("-",INFIX),
+		codomain= vectorizedCodomain}
       | NEG => {name="neg",
 		operands=FIXED 1,
 		precedence=6,
 		commutative=false,
 		associative=false,
 		text=("-",PREFIX),
-		C=("-",PREFIX)}
+		C=("-",PREFIX),
+		codomain= vectorizedCodomain}
       | MUL => {name="mul",
 		operands=VARIABLE 1,
 		precedence=5,
 		commutative=true,
 		associative=true,
 		text=("*",INFIX),
-		C=("*",INFIX)}
+		C=("*",INFIX),
+		codomain= vectorizedCodomain}
       | DIVIDE => {name="divide",
 		   operands=FIXED 2,
 		   precedence=5,
 		   commutative=false,
 		   associative=false,
 		   text=("/",INFIX),
-		   C=("/",INFIX)}
+		   C=("/",INFIX),
+		   codomain= vectorizedCodomain}
       | MODULUS => {name="modulus",
 		    operands=FIXED 2,
 		    precedence=5,
 		    commutative=false,
 		    associative=false,
 		    text=("%",INFIX),
-		    C=("%",INFIX)}
+		    C=("%",INFIX),
+		    codomain= vectorizedCodomain}
       | POW => {name="pow",
 		operands=FIXED 2,
 		precedence=4,
 		commutative=false,
 		associative=false,
 		text=("^",INFIX),
-		C=("pow($1,$2)",MATCH)}
+		C=("pow($1,$2)",MATCH),
+		codomain= vectorizedCodomain}
       | ABS => unaryfun2props "abs"
       | SQRT => unaryfun2props "sqrt"
       | DEG2RAD => unaryfun2props "deg2rad"
@@ -237,7 +272,8 @@ fun op2props optype =
 		 commutative=false,
 		 associative=false,
 		 text=("log_$1($2)",MATCH),
-		 C=("(log($1)/log($2))",MATCH)}
+		 C=("(log($1)/log($2))",MATCH),
+		 codomain= vectorizedCodomain}
       | EXP => unaryfun2props "exp"
       | LOG => unaryfun2props "log"
       | LOG10 => unaryfun2props "log10"
@@ -256,7 +292,8 @@ fun op2props optype =
 		  commutative=false,
 		  associative=false,
 		  text=("atan2",PREFIX),
-		  C=("atan2",PREFIX)}
+		  C=("atan2",PREFIX),
+		  codomain= vectorizedCodomain}
       | ACSC => unaryfun2props "acsch"
       | ASEC => unaryfun2props "asech"
       | ACOT => unaryfun2props "acoth"
@@ -278,126 +315,144 @@ fun op2props optype =
 		commutative=false,
 		associative=false,
 		text=("!",PREFIX),
-		C=("!",PREFIX)}
+		C=("!",PREFIX),
+		codomain= vectorizedCodomain}
       | AND => {name="and",
 		operands=VARIABLE 1,
 		precedence=13,
 		commutative=false,
 		associative=false,
 		text=("&&",INFIX),
-		C=("&&",INFIX)}
+		C=("&&",INFIX),
+		codomain= vectorizedCodomain}
       | OR => {name="or",
 	       operands=VARIABLE 0,
 	       precedence=14,
 	       commutative=false,
 	       associative=false,
 	       text=("||",INFIX),
-	       C=("||",INFIX)}
+	       C=("||",INFIX),
+	       codomain= vectorizedCodomain}
       | GT => {name="gt",
 	       operands=FIXED 2,
 	       precedence=8,
 	       commutative=false,
 	       associative=false,
 	       text=(">",INFIX),
-	       C=(">",INFIX)}
+	       C=(">",INFIX),
+	       codomain= vectorizedCodomain}
       | LT => {name="lt",
-	      operands=FIXED 2,
-	      precedence=8,
-	      commutative=false,
-	      associative=false,
-	      text=("<",INFIX),
-	      C=("<",INFIX)}
+	       operands=FIXED 2,
+	       precedence=8,
+	       commutative=false,
+	       associative=false,
+	       text=("<",INFIX),
+	       C=("<",INFIX),
+	       codomain= vectorizedCodomain}
       | GE => {name="ge",
 	       operands=FIXED 2,
 	       precedence=8,
 	       commutative=false,
 	       associative=false,
 	       text=(">=",INFIX),
-	       C=(">=",INFIX)}
+	       C=(">=",INFIX),
+	       codomain= vectorizedCodomain}
       | LE => {name="le",
 	       operands=FIXED 2,
 	       precedence=8,
 	       commutative=false,
 	       associative=false,
-	      text=(">=",INFIX),
-	       C=(">=",INFIX)}
+	       text=(">=",INFIX),
+	       C=(">=",INFIX),
+	       codomain= vectorizedCodomain}
       | EQ => {name="eq",
-	      operands=FIXED 2,
-	      precedence=9,
-	      commutative=false,
-	      associative=false,
-	      text=("==",INFIX),
-	      C=("==",INFIX)}
+	       operands=FIXED 2,
+	       precedence=9,
+	       commutative=false,
+	       associative=false,
+	       text=("==",INFIX),
+	       C=("==",INFIX),
+	       codomain= vectorizedCodomain}
       | NEQ => {name="neq",
 		operands=FIXED 2,
 		precedence=9,
 		commutative=false,
 		associative=false,
 		text=("<>",INFIX),
-		C=("!=",INFIX)}
+		C=("!=",INFIX),
+		codomain= vectorizedCodomain}
       | DERIV => {name="deriv",
 		  operands=FIXED 2,
 		  precedence=1,
 		  commutative=false,
 		  associative=false,
 		  text=("D",PREFIX),
-		  C=("Derivative",PREFIX)}
+		  C=("Derivative",PREFIX),
+		  codomain= vectorizedCodomain}
       | IF => {name="if",
 	       operands=FIXED 3,
 	       precedence=15,
 	       commutative=false,
 	       associative=false,
 	       text=("If $1 then $2 else $3", MATCH),
-	       C=("$1 ? $2 : $3",MATCH)}
+	       C=("$1 ? $2 : $3",MATCH),
+	       codomain= vectorizedCodomain}
       | ASSIGN => {name="assign",
 		   operands=FIXED 2,
 		   precedence=16,
 		   commutative=false,
 		   associative=false,
 		   text=(" = ",INFIX),
-		   C=(" = ",INFIX)}
+		   C=(" = ",INFIX),
+		   codomain= vectorizedCodomain}
       | GROUP => {name="group",
 		  operands=VARIABLE 0,
 		  precedence=1,
 		  commutative=false,
 		  associative=false,
 		  text=("",PREFIX),
-		  C=("",PREFIX)}
+		  C=("",PREFIX),
+		  codomain= vectorizedCodomain}
       | NULL => {name="nullfun",
-		  operands=FIXED 0,
-		  precedence=1,
-		  commutative=false,
-		  associative=false,
-		  text=("NULL",PREFIX),
-		  C=("",PREFIX)}
+		 operands=FIXED 0,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("NULL",PREFIX),
+		 C=("",PREFIX),
+		 codomain= vectorizedCodomain}
       | RADD => {name="reduction_add",
 		 operands=FIXED 1,
 		 precedence=6,
 		 commutative=true,
 		 associative=true,
-		 text=("radd",INFIX),
-		 C=("simEngine_library_radd",INFIX)}
+		 text=("radd",PREFIX),
+		 C=("simEngine_library_radd",PREFIX),
+		 codomain=codomainReduction}
       | RMUL => {name="reduction_mul",
 		 operands=FIXED 1,
 		 precedence=5,
 		 commutative=true,
 		 associative=true,
-		 text=("rmul",INFIX),
-		 C=("simEngine_library_rmul",INFIX)}
-      | RAND => {name="reduction_add",
+		 text=("rmul",PREFIX),
+		 C=("simEngine_library_rmul",PREFIX),
+		 codomain=codomainReduction}
+      | RAND => {name="reduction_and",
 		 operands=FIXED 1,
 		 precedence=13,
 		 commutative=true,
 		 associative=true,
-		 text=("rand",INFIX),
-		 C=("simEngine_library_rand",INFIX)}
-      | ROR => {name="reduction_add",
-		 operands=FIXED 1,
-		 precedence=14,
-		 commutative=true,
-		 associative=true,
-		 text=("ror",INFIX),
-		 C=("simEngine_library_ror",INFIX)}
+		 text=("rand",PREFIX),
+		 C=("simEngine_library_rand",PREFIX),
+		 codomain=codomainReduction}
+      | ROR => {name="reduction_or",
+		operands=FIXED 1,
+		precedence=14,
+		commutative=true,
+		associative=true,
+		text=("ror",PREFIX),
+		C=("simEngine_library_ror",PREFIX),
+		codomain=codomainReduction}
 
 
 

@@ -14,7 +14,12 @@ val replaceDivWithRecip : Rewrite.rewrite =
 val distributeNeg : Rewrite.rewrite =
     {find=ExpBuild.neg (ExpBuild.plus[Match.some "a"]),
      test=SOME (fn(exp, assigned_patterns)=>not (List.exists (fn(sym, _)=>sym = (Symbol.symbol "a")) assigned_patterns)),
-     replace=Rewrite.RULE (ExpBuild.plus [ExpBuild.neg (Match.some "a")])}
+     replace=Rewrite.RULE (ExpBuild.plus [ExpBuild.neg (ExpBuild.var "a")])}
+
+val factorNegAddition : Rewrite.rewrite =
+    {find=ExpBuild.plus [ExpBuild.neg (Match.any "a"), ExpBuild.neg (Match.any "b")],
+     test=NONE,
+     replace=Rewrite.RULE (ExpBuild.neg (ExpBuild.plus [ExpBuild.var "a", ExpBuild.var "b"]))}
 
 val aggregateSums : Rewrite.rewrite =
     {find=ExpBuild.plus [Match.any "a", ExpBuild.plus [Match.some "b"], Match.any "c"],

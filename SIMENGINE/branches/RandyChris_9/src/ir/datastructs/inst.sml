@@ -22,7 +22,8 @@ fun inst2props f : Fun.op_props =
 								     commutative=false,
 								     associative=false,
 								     text=(Symbol.name f, Fun.PREFIX),
-								     C=(Symbol.name f, Fun.PREFIX)}
+								     C=(Symbol.name f, Fun.PREFIX),
+								     codomain=fn(_) => [1]} (*TODO: ??? *)
 	  | NONE => (Logger.log_internalerror (Printer.$("Can't handle operation '" ^ (Symbol.name f) ^ ". Doesn't exist in current classes: "
 							 ^(String.concatWith ", " (map (fn{name,...}=>Symbol.name name) classes))^ "}"));
 		     DynException.setErrored();
@@ -32,7 +33,8 @@ fun inst2props f : Fun.op_props =
 		      commutative=false,
 		      associative=false,
 		      text=("<?" ^ (Symbol.name f) ^ ">", Fun.PREFIX),
-		      C=("<?" ^ (Symbol.name f) ^ ">", Fun.PREFIX)})
+		      C=("<?" ^ (Symbol.name f) ^ ">", Fun.PREFIX),
+		      codomain=(fn(_) => [1])})
     end
     handle e => DynException.checkpoint "Inst.inst2props" e
 

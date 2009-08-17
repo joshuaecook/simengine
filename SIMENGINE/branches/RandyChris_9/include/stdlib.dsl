@@ -43,6 +43,8 @@ function logn (x: Number, y: Number) = {ln(x) when y == e,
 
 function power (x: Number, y: Number) = exp(y * ln(x))
 
+function sum (x: Vector of Number) = foldl (lambdafun(a,b) = a + b) 0 x
+function prod (x: Vector of Number) = foldl (lambdafun(a,b) = a * b) 1 x
 
 function deg2rad (x: Number) = x / (180 / pi)
 function rad2deg (x: Number) = x * (180 / pi)

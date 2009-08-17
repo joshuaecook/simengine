@@ -207,7 +207,7 @@ val argument_groups =
 	       {short=SOME #"O",
 		long=SOME "Optimiziation",
 		xmltag="optimize",
-		dyntype=INTEGER_T,
+		dyntype=FLAG_T,
 		description=["Enable/disable optimizations"]}]},
      
 

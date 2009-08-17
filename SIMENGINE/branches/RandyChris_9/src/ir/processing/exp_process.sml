@@ -362,7 +362,7 @@ fun equation2rewrite exp =
 				  "ExpProcess.equation2rewrite",
 				  Logger.INTERNAL)
 
-fun exp2size iterator_list exp = 
+fun exp2size iterator_list exp : int = 
     let
 	fun combineSizes (size1, size2) = 
 	    if (size1 = size2) then size1
@@ -401,7 +401,15 @@ fun exp2size iterator_list exp =
 			   end
 		       else 
 			       1 (* out of default - need to do something better here *)
-		     | Exp.FUN (f, args) => foldl combineSizes 1 (map (exp2size iterator_list) args)
+		     | Exp.FUN (Fun.BUILTIN f, args) => 
+		       let
+			   val codomain = #codomain (Fun.op2props f)
+		       in
+			   Util.prod(codomain (map (fn(a) => [exp2size iterator_list a]) args))
+(*		       foldl combineSizes 1 (map (exp2size iterator_list) args)*)
+		       end
+		     | Exp.FUN (Fun.INST _, args) => 1 (*TODO: ???? *)
+
     in
 	size
     end

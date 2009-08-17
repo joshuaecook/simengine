@@ -95,6 +95,9 @@ fun findRecursive (pattern, target) =
 	 (level target))
 
 fun replaceSymbol (sym,repl_exp) exp =
+    let
+	val _ = print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression " ^ (e2s repl_exp) ^ " in " ^ (e2s exp) ^ "\n")
+    in
     case exp of
 	Exp.TERM (Exp.SYMBOL (sym',_)) => 
 	      if sym=sym' then
@@ -107,7 +110,7 @@ fun replaceSymbol (sym,repl_exp) exp =
       | Exp.TERM (Exp.TUPLE termlist) => [Exp.TERM (Exp.TUPLE (Util.flatmap (map exp2term o (replaceSymbol (sym, repl_exp)) o Exp.TERM) termlist))]
       | Exp.FUN (funtype, args) => [Exp.FUN (funtype, Util.flatmap (replaceSymbol (sym, repl_exp)) args)]
       | _ => [exp]
-
+    end
 fun replacePattern assigned_patterns exp =
     foldl 
 	(fn(pattern,exp) => Util.hd (replaceSymbol pattern exp))
@@ -123,6 +126,9 @@ fun rules2str rules =
 fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
     let
 	val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
+
+	val _ = print ("Assigned patterns: \n")
+	val _ = app (fn(sym, repl_exp) => print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression" ^ (e2s repl_exp) ^ "\n")) assigned_patterns
 	val run_test = case test of SOME v => true | NONE => false
 
 	(* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)

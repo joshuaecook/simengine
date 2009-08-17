@@ -178,7 +178,7 @@ and list_equivalent assigned_patterns (explist1, explist2) =
 	    exp_equivalent assigned_patterns (exp1, exp2)
 	  | list_equiv_helper assigned_patterns (exp1::rest1, explist2) =
 	    let
-		(*val _ = Util.log ("In list_equiv_helper: '"^(explist2str (exp1::rest1))^"' '"^(explist2str explist2)^"'")*)
+		val _ = Util.log ("In list_equiv_helper: '"^(explist2str (exp1::rest1))^"' '"^(explist2str explist2)^"'")
 		(* remove duplicates in the assigned patterns structure *)
 		fun removeAPduplicates assigned_patterns =
 		    let
@@ -210,7 +210,7 @@ and list_equivalent assigned_patterns (explist1, explist2) =
 		    in
 			if ret then
 			    let
-				val ((assigned_patterns'',ret'),explist) = gobble assigned_patterns (exp1, rest)
+				val ((assigned_patterns'',ret'),explist) = gobble assigned_patterns' (exp1, rest)
 			    in
 				if ret' then
 				    ((assigned_patterns'',ret'),explist)
@@ -274,6 +274,10 @@ and list_equivalent assigned_patterns (explist1, explist2) =
 
 		val remaining_exps = list1 @ list2
 		val matched_exps = Util.take (explist2, length explist2 - (length remaining_exps))
+
+		val _ = Util.log ("IN list_equivalent_helper with remaining exps = " ^ (String.concatWith ", " (map e2s remaining_exps)))
+		val _ = Util.log ("  matched_exps = " ^ (String.concatWith ", " (map e2s matched_exps)))
+
 	    in
 		(assigned_patterns', ret)
 (*
@@ -321,7 +325,8 @@ and exp_equivalent assigned_patterns (exp1, exp2) =
 		Fun.VARIABLE _ => 
 		let
 		    val (ap, ret) = list_equivalent assigned_patterns (args1, args2)
-		    (*val _ = Util.log ("Running list_equivalent on '"^(explist2str args1)^"' and '"^(explist2str args2)^"' and returning "^(b2s ret))*)
+		    val _ = Util.log ("Running list_equivalent on '"^(explist2str args1)^"' and '"^(explist2str args2)^"' and returning "^(b2s ret))
+		    val _ = Util.log ("  assigned patterns = " ^ (String.concatWith ", " (map (fn(sym, repl_exp) => (Symbol.name sym) ^ "=" ^ (e2s repl_exp)) ap)))
 		in
 		    (ap, ret)
 		end
