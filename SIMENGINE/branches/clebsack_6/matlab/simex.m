@@ -92,7 +92,7 @@ else
   if 0 == inputsM
     userInputs = zeros(interface.num_inputs, models);
     for i=[1:interface.num_inputs]
-      userInputs(i,:) = interface.default_inputs.(interface.input_names(i)) * ones(1, models);
+      userInputs(i,:) = interface.default_inputs.(interface.input_names{i}) * ones(1, models);
     end
   elseif 1 == inputsM && models ~= inputsM
     userInputs = transpose(userInputs) * ones(1, models);

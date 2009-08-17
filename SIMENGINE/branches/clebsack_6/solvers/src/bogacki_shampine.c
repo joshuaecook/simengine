@@ -53,7 +53,7 @@ bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, 
   mem->next_states = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->z_next_states = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
 
-  // Allocate and initialize timesteps to 0
+  // Allocate and initialize timesteps
   mem->cur_timestep = malloc(props->num_models*sizeof(CDATAFORMAT));
   for(i=0; i<props->num_models; i++)
     mem->cur_timestep[i] = props->timestep;

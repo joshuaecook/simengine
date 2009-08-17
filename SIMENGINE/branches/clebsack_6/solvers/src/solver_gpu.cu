@@ -6,7 +6,7 @@ void GPU_ENTRY(init, SIMENGINE_STORAGE){
   cudaSetDevice(cutGetMaxGflopsDeviceId());
 }
 
-void GPU_ENTRY(exit, GPU, SIMENGINE_STORAGE){
+void GPU_ENTRY(exit, SIMENGINE_STORAGE){
   cudaThreadExit();
 }
 
