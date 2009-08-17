@@ -103,6 +103,7 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $(""),
 	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
 	 $("#define NUM_STATES "^(i2s (List.length state_names))),
+	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
 	 $(""),
 	 $("const simengine_interface seint = {"),
 	 SUB[$("0, // Version,"),
@@ -623,9 +624,13 @@ fun logoutput_code class =
 				  $("}")]
 			      )
 			      (Util.addCount(!(#outputs class)))
+
+	val total_output_quantities =
+	    List.foldr op+ 0 (map (List.length o #contents) (!(#outputs class)))
+
     in
 	[$(""),
-	 $("#define MAX_OUTPUT_SIZE (2*sizeof(int) + " ^ (i2s (inc (List.foldl Int.max 0 (map (List.length o #contents) (!(#outputs class))))))  ^ "*sizeof(CDATAFORMAT)) //size in bytes"),
+	 $("#define MAX_OUTPUT_SIZE (NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT)) //size in bytes"),
 	 $(""),
 	 $("/* An internal data structure that maintains a buffer of output data."),
 	 $(" *"),
