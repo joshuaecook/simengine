@@ -25,7 +25,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   cutilSafeCall(cudaMalloc((void**)&dprops, sizeof(solver_props)));
   cutilSafeCall(cudaMalloc((void**)&tprops.time, props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tprops.model_states, props->num_models*props->statesize*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tprops.inputs, props->inputsize*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tprops.inputs, props->num_models*props->inputsize*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tprops.ob, tprops.ob_size));
 
   // Copy props to GPU
