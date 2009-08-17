@@ -360,7 +360,8 @@ end
 make = ['make MODEL=' dslName ...
         ' TARGET=' opts.target ...
         ' SIMENGINE_STORAGE=' opts.precision ...
-        ' NUM_MODELS=' num2str(opts.models)];
+        ' NUM_MODELS=' num2str(models) ...
+        ' &>simex_make.log'];
 if opts.debug
   make = [make ' DEBUG=1'];
 end
@@ -370,6 +371,7 @@ end
 if opts.profile
   make = [make ' PROFILE=1'];
 end
+
 status = system(make);
 
 if 0 ~= status
