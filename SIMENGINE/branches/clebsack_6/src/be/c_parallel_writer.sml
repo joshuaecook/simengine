@@ -101,6 +101,7 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $("};"),
 	 $(""),
 	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
+	 $("#define NUM_STATES "^(i2s (List.length state_names))),
 	 $(""),
 	 $("const simengine_interface seint = {"),
 	 SUB[$("0, // Version,"),
@@ -122,19 +123,12 @@ fun simengine_interface (class_name, class, solver_name) =
     end
 
 local
-    fun output2struct (out as {name, contents, condition}) = 
-
-	(map ((fn (sym) =>
-		  $("CDATAFORMAT " ^ (Symbol.name sym) ^ ";"))
-	      o Term.sym2curname)
-	     (Util.flatmap ExpProcess.exp2termsymbols contents))
-
-
-
+    fun output2struct (term,sym) =
+	$("CDATAFORMAT " ^(Symbol.name sym)^";")
 in
-fun outputdatastruct_code {outputs, ...} =
+fun outputdatastruct_code class =
     [$("typedef struct {"),
-     SUB(List.concat (map output2struct (!outputs))),
+     SUB(map output2struct (CWriterUtil.class2uniqueoutputsymbols class)),
      $("} output_data;")]
 end
 
@@ -314,7 +308,7 @@ fun class2flow_code (class, top_class) =
 				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 					  $("// " ^ (CWriterUtil.exp2c_str exp)),
 					  $(inps), $(outs_decl),
-					  $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, 0);")] @
+					  $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", ob, first_iteration, modelid);")] @
 					 map ($ o inst_output)
 					     (Util.addCount (ListPair.zip (symbols, !(#outputs class)))))
 
@@ -714,9 +708,9 @@ fun main_code class =
 	 $(""),
 	 $("EXTERN_C"),
 	 $("simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc){"),
-	 SUB[$("CDATAFORMAT model_states[semeta.num_models*seint.num_states];"),
-	     $("CDATAFORMAT parameters[semeta.num_models*seint.num_inputs];"),
-	     $("CDATAFORMAT t[semeta.num_models];"),
+	 SUB[$("CDATAFORMAT model_states[NUM_MODELS * NUM_STATES];"),
+	     $("CDATAFORMAT parameters[NUM_MODELS * NUM_INPUTS];"),
+	     $("CDATAFORMAT t[NUM_MODELS];"),
 	     $("CDATAFORMAT t1 = stop_time;"),
 	     $("unsigned int stateid;"),
 	     $("unsigned int modelid;"),
