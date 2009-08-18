@@ -72,8 +72,8 @@
 %    model description structure M containing information
 %    which describes the model states, parameters, and outputs.
 %
-%    Copyright 2009 Simatra Modeling Technologies, L.L.C.
-%    For more information, please visit http://www.simatratechnologies.com
+% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% For more information, please visit http://www.simatratechnologies.com
 %
 function [varargout] = simex(varargin)
 [dslPath dslName modelFile opts] = get_simex_opts(varargin{:});
@@ -366,11 +366,14 @@ if 0 ~= status
         'Compilation returned status code %d.', status);
 end
 
+tic;
 make = ['make MODEL=' dslName ...
         ' TARGET=' opts.target ...
         ' SIMENGINE_STORAGE=' opts.precision ...
         ' NUM_MODELS=' num2str(opts.models) ...
-        ' &>simex_make.log'];
+        ' &!> simex_make.log'];
+elapsed = toc;
+disp([opts.target ' compiler completed in ' num2str(elapsed) ' seconds.']);
 
 if opts.debug
   make = [make ' DEBUG=1'];
