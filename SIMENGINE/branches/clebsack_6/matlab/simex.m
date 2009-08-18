@@ -42,7 +42,7 @@
 %        Constructs a simulation engine that computes in
 %        double-precision floating point.
 %
-%      '-single'
+%      '-single' '-float'
 %        Constructs a simulation engine that computes in
 %        single-precision floating point.
 %
@@ -116,9 +116,13 @@ else
     userStates = transpose(userStates);
   end
   
+  tic;
   [output y1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
                         userInputs, userStates);
+  elapsed = toc;
+  disp([dslName ' simulation completed in ' num2str(elapsed) ' seconds.']);
   
+
   % Output data are transposed before returning.
   fnames = fieldnames(output);
   for i=[1:length(output)]
@@ -178,6 +182,8 @@ if 1 < nargin
     elseif strcmpi(arg, '-double')
       opts.precision = 'double';
     elseif strcmpi(arg, '-single')
+      opts.precision = 'float';
+    elseif strcmpi(arg, '-float')
       opts.precision = 'float';
     elseif strcmpi(arg, '-cpu')
       opts.target = 'CPU';
@@ -350,7 +356,10 @@ function [dllPath] = invoke_compiler(dslPath, dslName, modelFile, opts)
 simengine = fullfile(opts.simengine, 'bin', 'simEngine');
 setenv('SIMENGINE', opts.simengine);
 
+tic;
 status = simEngine_wrapper(simengine, modelFile, dslName);
+elapsed = toc;
+disp(['simEngine compiler completed in ' num2str(elapsed) ' seconds.']);
 
 if 0 ~= status
   error('Simatra:SIMEX:compileError', ...
