@@ -33,7 +33,7 @@ bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, 
 
   // Copy mem structure to GPU
   cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(bogacki_shampine_mem), cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpy(tmem.cur_timestep, &temp_cur_timestep, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(tmem.cur_timestep, temp_cur_timestep, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 
   // Free temporary
   free(temp_cur_timestep);
@@ -66,7 +66,7 @@ __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki
   CDATAFORMAT max_timestep = mem->props->timestep*1024;
   CDATAFORMAT min_timestep = mem->props->timestep/1024;
 
-  //fprintf(stderr, "ts=%g\n", cur_timestep[modelid]);
+  //fprintf(stderr, "ts=%g\n", mem->cur_timestep[modelid]);
 
   int i;
   int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, mem->props->ob, 1, modelid);
@@ -136,7 +136,9 @@ __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki
       mem->props->time[modelid] += mem->cur_timestep[modelid];
 
     next_timestep = 0.90 * mem->cur_timestep[modelid]*pow(1.0/norm, 1.0/3.0);
-    //mexPrintf("ts: %g -> %g (norm=%g)\n", mem->cur_timestep[modelid], next_timestep, norm);
+#if defined __DEVICE_EMULATION__
+    //fprintf(stderr,"model: %d ts: %g -> %g (norm=%g)\n", modelid, mem->cur_timestep[modelid], next_timestep, norm);
+#endif
 
     if ((isnan(next_timestep)) || (next_timestep < min_timestep))
       mem->cur_timestep[modelid] = min_timestep;

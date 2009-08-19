@@ -36,7 +36,7 @@ dormand_prince_mem *SOLVER(dormand_prince, init, TARGET, SIMENGINE_STORAGE, solv
 
   // Copy mem structure to GPU
   cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(dormand_prince_mem), cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpy(tmem.cur_timestep, &temp_cur_timestep, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(tmem.cur_timestep, temp_cur_timestep, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 
   // Free temporary
   free(temp_cur_timestep);
