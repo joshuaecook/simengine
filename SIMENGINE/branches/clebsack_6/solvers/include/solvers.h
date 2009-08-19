@@ -133,11 +133,12 @@ typedef struct{
   solver_props *props;
   void *cvmem;
   void *y0;
+  unsigned int modelid;
 } cvode_mem;
 
 cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-__DEVICE__ int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int modelid);
+int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int modelid);
 
 void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem);
 
