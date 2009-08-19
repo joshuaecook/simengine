@@ -15,8 +15,14 @@
 # Copyright 2009 Simatra Modeling Technologies, L.L.C.
 # For more information, please visit http://www.simatratechnologies.com
 
-# The name of the model.
-MODEL ?= split_fn
+include common.make
+
+# The name of the model must be specified when invoking make.
+ifeq ($(MODEL),)
+$(error A model name must be specified. Invoke make with 'MODEL=mymodel')
+endif
+DSL_MODEL = $(basename $(notdir $(MODEL)))
+
 # The total number of models to be simulated.
 NUM_MODELS ?= 1
 # The hardware platform: one of {CPU, OPENMP, GPU}
@@ -33,12 +39,6 @@ PROFILE ?=
 # Only meaningful when TARGET=GPU.
 EMULATE ?=
 
-CC := gcc
-GRIND := valgrind
-# Inspects for presence of GNU octave; may be overridden on command line
-OCTAVE ?= $(shell which octave 2>/dev/null)
-LINK := g++
-
 INCLUDES := -Iinclude
 COMMON = -W -Wall -fPIC
 CPPFLAGS := -DNUM_MODELS=$(NUM_MODELS) -DTARGET_$(TARGET) -DSIMENGINE_STORAGE_$(SIMENGINE_STORAGE)
@@ -46,15 +46,16 @@ CFLAGS = $(COMMON) $(INCLUDES)
 CXXFLAGS = $(COMMON) $(INCLUDES)
 
 LDFLAGS = -Llib 
+VPATH += lib
 LDLIBS = -lsolvers -ldl -lm
 
 ifeq ($(TARGET),GPU)
-NVCC ?= $(shell which nvcc 2>/dev/null)
 PTXASFLAGS = -v
 NVCCFLAGS = -arch=sm_13 --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" $(INCLUDES)
-INCLUDES += -I/usr/local/cuda/include -I/opt64/NVIDIA_CUDA_SDK/common/inc
-LDFLAGS += -L/usr/local/cuda/lib -L/opt64/NVIDIA_CUDA_SDK/lib -L/opt64/NVIDIA_CUDA_SDK/common/lib/linux
-LDLIBS += -lcudart -lcutil
+INCLUDES += $(CUDA_INCLUDES)
+LDFLAGS += $(CUDA_LDFLAGS)
+LDLIBS += $(CUDA_LDLIBS)
+
 ifneq ($(EMULATE),)
 	NVCCFLAGS += -deviceemu
 	CXXFLAGS += -D__DEVICE_EMULATION__
@@ -76,32 +77,34 @@ endif
 
 # ---
 
+.PREFIXES:
+
 .PHONY: all clean remake grind real-clean
 all: libsimengine.so
 
 clean:
-	$(RM) $(MODEL)_parallel.o libsimengine.so grind_simengine
+	$(RM) $(DSL_MODEL)_parallel.o libsimengine.so grind_simengine
 
 real-clean: clean
-	$(RM) $(MODEL)*.c $(MODEL).m $(MODEL)*.cu
+	$(RM) $(DSL_MODEL)*.c $(DSL_MODEL)*.m $(DSL_MODEL)*.cu
 
 remake: clean all
 
 grind: libsimengine.so grind_simengine
 	$(GRIND) ./grind_simengine
 
-libsimengine.so: $(MODEL)_parallel.o
-	$(LINK.c) -shared -Wl,-soname,libsimengine.so -o libsimengine.so $< $(LDLIBS)
+libsimengine.so: $(DSL_MODEL)_parallel.o
+	$(LINK.c) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)
 
-ifeq ($(TARGET),GPU)
-$(MODEL)_parallel.cu: $(MODEL)_parallel.c
-	cp $< $@
+ifeq (GPU,$(TARGET))
+$(DSL_MODEL)_parallel.cu: $(DSL_MODEL)_parallel.c
+	$(LN) $< $@
 
-$(MODEL)_parallel.o: override CXX = $(NVCC)
-$(MODEL)_parallel.o: override CXXFLAGS = $(NVCCFLAGS)
-$(MODEL)_parallel.o: $(MODEL)_parallel.cu
+$(DSL_MODEL)_parallel.o: override CXX = $(NVCC)
+$(DSL_MODEL)_parallel.o: override CXXFLAGS = $(NVCCFLAGS)
+$(DSL_MODEL)_parallel.o: $(DSL_MODEL)_parallel.cu
 	$(COMPILE.cpp) -o $@ $<
 endif
 
-$(MODEL)_parallel.c: examples/$(MODEL).dsl bin/simEngine
+$(DSL_MODEL)_parallel.c: $(MODEL) bin/simEngine
 	$(OCTAVE) -q --eval "path('bin',path);simex('$<');"

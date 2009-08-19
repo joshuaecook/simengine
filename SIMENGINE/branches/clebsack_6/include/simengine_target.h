@@ -76,7 +76,6 @@ typedef unsigned long counter;
 #define __DEVICE__
 #define __HOST__
 #define __GLOBAL__
-#define EXTERN_C
 
 // TARGET_OPENMP allows multiple models to be executed on the CPU and uses an array of structures to hold data (prevents false sharing in cache between threads)
 #elif defined TARGET_OPENMP
@@ -89,7 +88,6 @@ typedef unsigned long counter;
 #define __DEVICE__
 #define __HOST__
 #define __GLOBAL__
-#define EXTERN_C
 
 // TARGET_GPU allows multiple models to be executed on the GPU and uses a structure of arrays to hold data (allows for coallescing of reads/and writes across threads)
 #elif defined TARGET_GPU
@@ -106,11 +104,18 @@ typedef unsigned long counter;
 #define __DEVICE__ __device__
 #define __HOST__ __host__
 #define __GLOBAL__ __global__
-#define EXTERN_C extern "C"
 
 // Other targets are not yet supported
 #else
 #error TARGET either not set or not supported, please use TARGET_CPU, TARGET_OPENMP or TARGET_GPU
+#endif
+
+#ifndef EXTERN_C
+#ifdef __cplusplus
+#define EXTERN_C extern "C"
+#else
+#define EXTERN_C extern
+#endif
 #endif
 
 // TARGET SPECIFIC INDEXING MODES

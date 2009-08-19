@@ -1,57 +1,35 @@
-# Compilers
-GRIND := valgrind
-CXX := g++
-CC := gcc
-LINK := $(CC) -fPIC
-AR := ar rs
-
-ifneq ($(MATLAB_INSTALL_PATH),)
-	INCLUDES += -I$(MATLAB_INSTALL_PATH)/extern/include
-	MEX := $(MATLAB_INSTALL_PATH)/bin/mex
-endif
-ifneq ($(OCTAVE_INSTALL_PATH),)
-	INCLUDES += -I$(OCTAVE_INSTALL_PATH)/include/octave-3.03/octave
-	MKOCTFILE := $(OCTAVE_INSTALL_PATH)/bin/mkoctfile --mex
-endif
+include ../share/common.make
 
 ifeq ("$(MEX)$(MKOCTFILE)","")
 $(error "Couldn't find MEX or MKOCTFILE.")
 endif
 
 INCLUDES += -Iinclude -I../include
-LINKAGE = -ldl
+LDLIBS = -ldl
 
 CWARNINGS = -W -Wall
 
-CCOMMON = $(INCLUDES) -fPIC
-CFLAGS = $(CWARNINGS) $(CCOMMON) -std=gnu99
-CXXFLAGS = $(CXXWARNINGS) $(CCOMMON)
-MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99" $(INCLUDES) $(LINKAGE)
-MKOCTFILEFLAGS = $(CWARNINGS) $(INCLUDES) $(LINKAGE)
+COMMON = $(INCLUDES) -fPIC
+CFLAGS = $(CWARNINGS) $(COMMON) -std=gnu99
+MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99" $(INCLUDES) $(LDLIBS)
+MKOCTFILEFLAGS = $(CWARNINGS) $(INCLUDES) $(LDLIBS)
 
 ifneq ($(DEBUG),)
-	CCOMMON += -g
+	COMMON += -g
 	CFLAGS += -gdwarf-2
 	MEXFLAGS += -g
 	MKOCTFILEFLAGS += -g
 else
-	CCOMMON += -O2
-	CXXFLAGS += -fno-strict-aliasing
+	COMMON += -O2
 	CFLAGS += -fno-strict-aliasing
 	MEXFLAGS += -O
 endif
 
 # Every possible MEX extension; used for cleaning
-ALL_MEXEXT = mexglx mexa64 mexmaci mexs64 mexw32 mexw64 mex
+ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
 
-define MEXINTERFACE_CLEAN_template
-bin/simex_helper.$(1) bin/simEngine_wrapper.$(1)
-endef
-define MEXINTERFACE_OBJ_template
-SIMEX_HELPER_OBJ += simex_helper.$(1)
-SIMENGINE_WRAPPER_OBJ += simEngine_wrapper.$(1)
-endef
-$(foreach ext,$(MEXEXT),$(eval $(call MEXINTERFACE_OBJ_template,$(ext))))
+SIMEX_HELPER_OBJ = $(addprefix simex_helper,$(MEXEXT))
+SIMENGINE_WRAPPER_OBJ = $(addprefix simEngine_wrapper,$(MEXEXT))
 
 ALL_TARGETS = simex_helper simEngine_wrapper
 
@@ -59,9 +37,9 @@ ALL_TARGETS = simex_helper simEngine_wrapper
 .PHONY: all $(ALL_TARGETS)
 all: $(ALL_TARGETS)
 
-simex_helper: $(foreach obj,$(SIMEX_HELPER_OBJ),bin/$(obj))
+simex_helper: $(addprefix bin/,$(SIMEX_HELPER_OBJ))
 
-simEngine_wrapper: $(foreach obj,$(SIMENGINE_WRAPPER_OBJ),bin/$(obj))
+simEngine_wrapper: $(addprefix bin/,$(SIMENGINE_WRAPPER_OBJ))
 
 bin/simex_helper.%: ../include/simengine.h ../include/simengine_target.h
 
@@ -89,4 +67,4 @@ bin/%.mex: src/%.c
 
 .PHONY: clean
 clean:
-	$(RM) $(foreach ext,$(ALL_MEXEXT),$(call MEXINTERFACE_CLEAN_template,$(ext)))
+	$(RM) $(addprefix bin/simex_helper,$(ALL_MEXEXT)) $(addprefix bin/simEngine_wrapper,$(ALL_MEXEXT))

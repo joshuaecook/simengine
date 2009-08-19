@@ -834,19 +834,22 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 			     of DOF.SINGLE => "float" 
 			      | DOF.DOUBLE => "double"
 
-	val header_progs = header (class_name, 
-				   ["\"../solvers/src/"^solver_name^".cu\""], (* no additional includes *)
-				   ("ITERSPACE", i2s (length iterators))::
-(*				   ("STATESPACE", i2s statespace)::
-				   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::
-				   ("OUTPUTSPACE", i2s (length (!(#outputs inst_class)))):: *)
-				   ("INTEGRATION_METHOD", solver_name)::
-				   ("INTEGRATION_MEM", solver_name ^ "_mem")::
-				   ("START_SIZE", "1000")::
-				   ("BUFFER_LEN", "8000")::
-				   ("MAX_ALLOC_SIZE", "65536000")::
-				   ("MAX_ITERATIONS", "1000")::
-				   (Solver.solver2params solver))
+	val header_progs = (header (class_name, 
+				    [], (* no additional includes *)
+				    ("ITERSPACE", i2s (length iterators))::
+				    (*				   ("STATESPACE", i2s statespace)::
+				     ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::
+				     ("OUTPUTSPACE", i2s (length (!(#outputs inst_class)))):: *)
+				    ("INTEGRATION_METHOD", solver_name)::
+				    ("INTEGRATION_MEM", solver_name ^ "_mem")::
+				    ("START_SIZE", "1000")::
+				    ("BUFFER_LEN", "8000")::
+				    ("MAX_ALLOC_SIZE", "65536000")::
+				    ("MAX_ITERATIONS", "1000")::
+				    (Solver.solver2params solver))) @
+			   [$("#ifdef TARGET_GPU"),
+			    $("#include \"solvers/"^solver_name^".cu\""),
+			    $("#endif")]
 
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, solver_name)
 (*	val input_progs = input_code inst_class*)

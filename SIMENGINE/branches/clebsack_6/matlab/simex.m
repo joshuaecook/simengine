@@ -135,8 +135,8 @@ else
   varargout = {output transpose(y1)};
 end
 end
-% 
 
+%% 
 function [dslPath dslName modelFile opts] = get_simex_opts(varargin)
 %
 % GET_SIMEX_OPTS parses the options from the command
@@ -155,7 +155,7 @@ opts = struct('models',1, 'target','', 'precision','double', ...
               'inputs',struct(), 'states',[], ...
               'simengine','');
 
-[seroot] = fileparts(which('simex'));
+[seroot] = fileparts(fileparts(which('simex')));
 opts.simengine = seroot;
 
 if 1 > nargin
@@ -164,7 +164,7 @@ if 1 > nargin
         'SIMEX requires an input model file name.');
 end
 
-modelFile = varargin{1};
+modelFile = realpath(varargin{1});
 [pathName dslName] = fileparts(modelFile);
 
 if 1 < nargin
@@ -222,14 +222,14 @@ elseif 7 ~= exist(dslPath, 'dir')
         'The destination directory %s does not exist.', mexPath);
 end
 
-if ~exist(modelFile, 'file')
-  error('Simatra:SIMEX:fileNotFoundError', ...
-        'The input model file %s does not exist.', modelFile);
-end
+% if 2 ~=  exist(modelFile, 'file')
+%   error('Simatra:SIMEX:fileNotFoundError', ...
+%         'The input model file %s does not exist.', modelFile);
+% end
 
 end
-% 
 
+%% 
 function [startTime endTime] = get_time(userTime)
 % GET_TIME returns a 2-element array containing the time limit for
 % a simulation run.
@@ -256,8 +256,8 @@ switch (rows * cols)
   error('Simatra:argumentError', 'TIME must have length of 1 or 2.');
 end
 end
-% 
 
+%% 
 function [userInputs] = vet_user_inputs(interface, inputs)
 % VET_USER_INPUTS verifies that the user-supplied inputs are valid.
 % Returns a MxN matrix where N is the number of model inputs.
@@ -325,8 +325,8 @@ for fieldid=[1:length(fieldnames)]
 end
 
 end
-% 
 
+%% 
 function [userStates] = vet_user_states(interface, states)
 % VET_USER_STATES verifies that the user-supplied initial states
 % contain valid data.
@@ -350,8 +350,8 @@ if 0 < statesRows && 0 < statesCols
 end
 
 end
-% 
 
+%% 
 function [dllPath] = invoke_compiler(dslPath, dslName, modelFile, opts)
 simengine = fullfile(opts.simengine, 'bin', 'simEngine');
 setenv('SIMENGINE', opts.simengine);
@@ -367,11 +367,12 @@ if 0 ~= status
 end
 
 tic;
-make = ['make MODEL=' dslName ...
+make = ['make -Iinclude -fshare/simEngine/Makefile' ...
+        ' MODEL=' modelFile ...
         ' TARGET=' opts.target ...
         ' SIMENGINE_STORAGE=' opts.precision ...
         ' NUM_MODELS=' num2str(opts.models) ...
-        ' &!> simex_make.log'];
+        ' &> simex_make.log'];
 elapsed = toc;
 disp([opts.target ' compiler completed in ' num2str(elapsed) ' seconds.']);
 
@@ -384,7 +385,7 @@ end
 if opts.profile
   make = [make ' PROFILE=1'];
 end
-
+disp(make);
 status = system(make);
 
 if 0 ~= status
@@ -398,5 +399,20 @@ dllPath = fullfile(pwd, 'libsimengine.so');
 % TODO check the shape of the user inputs and start states, other
 % parameters, and recompile the model if necessary.
 end
-% 
+
+%%
+function [abspath] = realpath(relpath, root)
+% REALPATH returns a fully-qualified absolute path for a given
+% relative path. The ROOT parameter is optional. If given, RELPATH
+% is taken as relative to ROOT. If omitted, RELPATH is treated as
+% relative to the current working directory.
+[dir file ext ver] = fileparts(relpath);
+command = ['cd ' dir ';'...
+           ' echo $(pwd)/' file ext ver ';'];
+if nargin > 1
+  command = ['cd ' root '; ' command];
+end
+[status, abspath] = system(command);
+abspath = strtrim(abspath);
+end
 

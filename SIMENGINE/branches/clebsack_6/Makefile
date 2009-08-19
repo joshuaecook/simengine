@@ -132,17 +132,17 @@ $(error "Couldn't find MATLAB or GNU octave.")
 endif
 
 # Every possible MEX extension
-ALL_MEXEXT = mexglx mexa64 mexmaci mexs64 mexw32 mexw64 mex
-MATLAB_TARGETS = $(foreach ext,$(ALL_MEXEXT),matlab/bin/%.$(ext))
+ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
+MATLAB_TARGETS = $(addprefix matlab/bin/%,$(ALL_MEXEXT))
 
 # Determines the appropriate MEX extension for the current platform.
 # TODO: extensions for other platforms
 ifneq ($(MATLAB),)
-MEXEXT = $(shell $(MATLAB_INSTALL_PATH)/bin/mexext)
+MEXEXT = .$(shell $(MATLAB_INSTALL_PATH)/bin/mexext)
 endif
 
 ifneq ($(OCTAVE),)
-MEXEXT += mex
+MEXEXT += .mex
 endif
 
 
@@ -204,12 +204,10 @@ endif
 endif
 
 # Creates lists of MATLAB/Octave targets for each available MEX type
-define MEXINTERFACE_template
-SIMENGINE_WRAPPER += simEngine_wrapper.$(1)
-SIMEX_HELPER += simex_helper.$(1)
-SIMEX_HELPER_BUILD += $(BUILD_DIR)/bin/simex_helper.$(1)
-endef
-$(foreach ext,$(MEXEXT),$(eval $(call MEXINTERFACE_template,$(ext))))
+SIMENGINE_WRAPPER = $(addprefix simEngine_wrapper,$(MEXEXT))
+SIMEX_HELPER = $(addprefix simex_helper,$(MEXEXT))
+SIMEX_HELPER_BUILD = $(addprefix $(BUILD_DIR)/bin/,$(SIMEX_HELPER))
+
 
 # Branching Related Parameters
 # ==============================================================================================
@@ -397,7 +395,7 @@ VERILOG_SIM_FILES = $(BUILD_DIR)/data/sim/top_level_model_tb.v $(BUILD_DIR)/data
 FACTORY_FILES = 
 
 #COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/lib/core.h $(BUILD_DIR)/lib/swbe_main.c $(BUILD_DIR)/lib/llc_defs.h $(BUILD_DIR)/lib/llc_protocol.c $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/bin/settings.csh $(BUILD_DIR)/bin/settings.sh $(BUILD_DIR)/README build-examples build-packages build-octave $(FILENAME) idynamo ../idynamo build_includes $(DOCUMENTATION_BUILD_FILES) $(ITEST) ../$(ITEST) $(BUILD_DIR)/$(DSLC) $(BUILD_DIR)/$(DSLC)/dslc.so
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol build-examples $(FILENAME) build_includes $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
 
 FIXEDPT_BUILD_FILES =  $(BUILD_DIR)/lib/fixpt.h $(BUILD_DIR)/lib/floatpt.h $(BUILD_DIR)/bin/fixpt_report.pl $(BUILD_DIR)/bin/compare_backends.pl $(BUILD_DIR)/bin/compare_sims.pl $(BUILD_DIR)/bin/create_table.pl
 HARDWARE_BUILD_FILES = $(BUILD_DIR)/bin/verify_xflow.pl $(VERILOG_IMPL_FILES) $(VERILOG_SIM_FILES) $(FACTORY_FILES)
@@ -519,14 +517,13 @@ debug-files: $(DEBUG_FILES)
 # ==============================================================================================
 
 
-$(BUILD_DIR)/simplot.m: matlab/simplot.m
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
 $(BUILD_DIR)/bin/%: matlab/bin/%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
+$(BUILD_DIR)/bin/simplot.m: matlab/simplot.m
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/simex.m: matlab/simex.m
+$(BUILD_DIR)/bin/simex.m: matlab/simex.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 #$(BUILD_DIR)/lib/solvers.c: matlab/solvers.c
@@ -538,7 +535,7 @@ $(BUILD_DIR)/lib/libsolvers.a: solvers/lib/libsolvers.a
 $(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-MEXINTERFACE_PREREQS = $(foreach obj,$(SIMEX_HELPER),matlab/bin/$(obj)) $(foreach obj,$(SIMENGINE_WRAPPER),matlab/bin/$(obj))
+MEXINTERFACE_PREREQS = $(addprefix matlab/bin/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 .PHONY: mexinterface
 mexinterface: $(MEXINTERFACE_PREREQS)
 
@@ -549,15 +546,18 @@ install.m: matlab/install.m
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/simex.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a simEngine.tgz install.m
-MATLAB_FILES += $(foreach obj,$(SIMEX_HELPER),$(BUILD_DIR)/bin/$(obj))
-MATLAB_FILES += $(foreach obj,$(SIMENGINE_WRAPPER),$(BUILD_DIR)/bin/$(obj))
+MATLAB_FILES = $(BUILD_DIR)/bin/simex.m $(BUILD_DIR)/bin/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a simEngine.tgz install.m
+MATLAB_FILES += $(addprefix $(BUILD_DIR)/bin/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/%.a: solvers/src/*.c
 	$(MAKE) -C solvers all
 
+.PHONY: solvers
+solvers:
+	$(MAKE) -C solvers all
+
 $(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
-	$(MAKE) -C matlab MATLAB_INSTALL_PATH=$(MATLAB_INSTALL_PATH) OCTAVE_INSTALL_PATH=$(OCTAVE_INSTALL_PATH) MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
+	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
 
 matlab-installer: $(MATLAB_FILES)
 
@@ -575,7 +575,7 @@ $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 $(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(foreach f,$(SIMENGINE_WRAPPER),$(LOCAL_INSTALL)/bin/$(f)) $(LOCAL_INSTALL)/compile_tests.m
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/bin/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
 # Build type options
@@ -682,8 +682,15 @@ $(BUILD_DIR)/lib/llc_defs.h: ../dslc/llc_defs.h
 $(BUILD_DIR)/lib/llc_protocol.c: ../dslc/llc_protocol.c
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-build_includes: include/*
-	@echo "Populating standard includes ..."; $(CP) $^ $(BUILD_DIR)/include/
+build_includes: include/* solvers
+	@echo "Populating standard includes ..."
+	@$(CP) include/* $(BUILD_DIR)/include/
+	@$(MKDIR) $(BUILD_DIR)/include/solvers/
+	@$(CP) -L solvers/target_GPU/*.cu $(BUILD_DIR)/include/solvers/
+
+build_shared: share/*
+	@echo "Populating shared files..."
+	$(CP) $^ $(BUILD_DIR)/share/
 
 $(BUILD_DIR)/data/default.dol: datafiles/default.dol
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
@@ -949,7 +956,7 @@ endif
 
 #COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/bin $(BUILD_DIR)/bin/src $(BUILD_DIR)/data $(BUILD_DIR)/examples $(BUILD_DIR)/include $(BUILD_DIR)/lib $(BUILD_DIR)/man $(BUILD_DIR)/packages $(DEBUG_DIRECTORY) $(BUILD_DIR)/octave $(BUILD_DIR)/doc
 
-COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/lib $(BUILD_DIR)/doc
+COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/share $(BUILD_DIR)/lib $(BUILD_DIR)/doc
 
 FULL_DIRECTORIES = $(COMMON_DIRECTORIES) $(BUILD_DIR)/data/impl $(BUILD_DIR)/data/sim  $(BUILD_DIR)/factory
 
@@ -989,6 +996,9 @@ $(BUILD_DIR)/src: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/include: $(BUILD_DIR)
+	@if test ! -d $@ ; then $(MKDIR) $@; fi
+
+$(BUILD_DIR)/share: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/lib: $(BUILD_DIR)
@@ -1324,7 +1334,7 @@ solvers_clean:
 	$(MAKE) -C solvers clean
 
 mexinterface_clean:
-	$(MAKE) -C matlab MATLAB_INSTALL_PATH=$(MATLAB_INSTALL_PATH) OCTAVE_INSTALL_PATH=$(OCTAVE_INSTALL_PATH) MEXEXT="$(MEXEXT)" clean
+	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" clean
 
 clean-all:
 	$(MAKE) clean BUILD_TYPE=software
