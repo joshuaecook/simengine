@@ -4,7 +4,7 @@
 # in MATLAB or GNU octave.
 #
 # The product of compilation is a shared library object called
-# 'libsimengine.so'. Additionally, a 'grind_simengine' executable may
+# 'libsimengine.so'. Additionally, a 'grind_simEngine' executable may
 # be produced which links to the shared library and can be used to
 # exercise or inspect the simulation, e.g. with valgrind or gdb.
 #
@@ -83,15 +83,19 @@ endif
 all: libsimengine.so
 
 clean:
-	$(RM) $(DSL_MODEL)_parallel.o libsimengine.so grind_simengine
+	$(RM) $(DSL_MODEL)_parallel.o libsimengine.so grind_simEngine
 
 real-clean: clean
 	$(RM) $(DSL_MODEL)*.c $(DSL_MODEL)*.m $(DSL_MODEL)*.cu
 
 remake: clean all
 
-grind: libsimengine.so grind_simengine
-	$(GRIND) ./grind_simengine
+grind: clean libsimengine.so grind_simEngine
+	$(GRIND) ./grind_simEngine
+
+grind_simEngine: share/simEngine/grind_simEngine.cpp
+	$(COMPILE.cpp) -o $@.o $<
+	$(LINK.cpp) $(LDFLAGS) -o $@ $@.o $(LDLIBS)
 
 libsimengine.so: $(DSL_MODEL)_parallel.o
 	$(LINK.c) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)

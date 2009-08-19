@@ -579,7 +579,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 $("}")],
 	     $("}"),
 	     $("OB.active_models--;"),
-	     $("if(0 != log_outputs(&OB, outputs, modelid))"),
+	     $("if(0 != log_outputs(&OB, outputs, 0))"),
 	     SUB[$("{ return ERRMEM; }")],
 	     $("#endif"),
 	     $("}"),

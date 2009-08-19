@@ -4,6 +4,8 @@ ifeq ("$(MEX)$(MKOCTFILE)","")
 $(error "Couldn't find MEX or MKOCTFILE.")
 endif
 
+DEBUG=1
+
 INCLUDES += -Iinclude -I../include
 LDLIBS = -ldl
 

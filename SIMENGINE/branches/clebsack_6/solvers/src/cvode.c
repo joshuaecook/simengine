@@ -35,7 +35,7 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
     // Create intial value vector
     // This is overkill, creating a copy of all states for all models for every single model
     // This is done to avoid having the change the internal indexing within the flows and for the output_buffer
-    mem[modelid].y0 = N_VMake_Serial(props->num_models*props->statesize, props->model_states));
+    mem[modelid].y0 = N_VMake_Serial(props->num_models*props->statesize, props->model_states);
     // Create data structure for solver
     mem[modelid].cvmem = CVodeCreate(CV_BDF, CV_NEWTON);
     // Initialize CVODE

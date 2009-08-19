@@ -385,7 +385,6 @@ end
 if opts.profile
   make = [make ' PROFILE=1'];
 end
-disp(make);
 status = system(make);
 
 if 0 ~= status

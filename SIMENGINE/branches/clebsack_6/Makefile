@@ -686,7 +686,7 @@ build_includes: include/* solvers
 	@echo "Populating standard includes ..."
 	@$(CP) include/* $(BUILD_DIR)/include/
 	@$(MKDIR) $(BUILD_DIR)/include/solvers/
-	@$(CP) -L solvers/target_GPU/*.cu $(BUILD_DIR)/include/solvers/
+	@$(CP) -L solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
 
 build_shared: share/*
 	@echo "Populating shared files..."

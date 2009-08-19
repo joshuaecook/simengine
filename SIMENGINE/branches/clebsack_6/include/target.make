@@ -21,7 +21,7 @@ Makefile: ;
 
 # Matches anything, causing the target build directories to be created
 # and make to be recursively reinvoked within each target directory.
-% :: $(TARGETS)
+% :: $(MAKE_TARGETS_PREREQS) $(TARGETS)
 	@+$(MAKE_TARGET_CALLBACK)
 
 .PHONY: clean
