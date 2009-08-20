@@ -75,7 +75,7 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
   //fprintf(stderr, "ts=%g\n", mem->cur_timestep[modelid]);
 
   int i;
-  int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, mem->props->ob, 1, modelid);
+  int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
 
   int appropriate_step = FALSE;
 
@@ -88,14 +88,14 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
       mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
 	(mem->cur_timestep[modelid]/5.0)*mem->k1[STATE_IDX];
     }
-    ret |= model_flows(mem->props->time[modelid]+(mem->cur_timestep[modelid]/5.0), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, mem->props->ob, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+(mem->cur_timestep[modelid]/5.0), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0, modelid);
 
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
 	(3.0*mem->cur_timestep[modelid]/40.0)*mem->k1[STATE_IDX] +
 	(9.0*mem->cur_timestep[modelid]/40.0)*mem->k2[STATE_IDX];
     }
-    ret |= model_flows(mem->props->time[modelid]+(3.0*mem->cur_timestep[modelid]/10.0), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, mem->props->ob, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+(3.0*mem->cur_timestep[modelid]/10.0), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
@@ -103,7 +103,7 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
 	(-56.0*mem->cur_timestep[modelid]/15.0)*mem->k2[STATE_IDX] +
 	(32.0*mem->cur_timestep[modelid]/9.0)*mem->k3[STATE_IDX];
     }
-    ret |= model_flows(mem->props->time[modelid]+(4.0*mem->cur_timestep[modelid]/5.0), mem->temp, mem->k4, mem->props->inputs, mem->props->outputs, mem->props->ob, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+(4.0*mem->cur_timestep[modelid]/5.0), mem->temp, mem->k4, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
@@ -112,7 +112,7 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
 	(64448.0*mem->cur_timestep[modelid]/6561.0)*mem->k3[STATE_IDX] +
 	(-212.0*mem->cur_timestep[modelid]/729.0)*mem->k4[STATE_IDX];
     }
-    ret |= model_flows(mem->props->time[modelid]+(8.0*mem->cur_timestep[modelid]/9.0), mem->temp, mem->k5, mem->props->inputs, mem->props->outputs, mem->props->ob, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+(8.0*mem->cur_timestep[modelid]/9.0), mem->temp, mem->k5, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
@@ -122,7 +122,7 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
 	(49.0*mem->cur_timestep[modelid]/176.0)*mem->k4[STATE_IDX] +
 	(-5103.0*mem->cur_timestep[modelid]/18656.0)*mem->k5[STATE_IDX];
     }
-    ret |= model_flows(mem->props->time[modelid]+mem->cur_timestep[modelid], mem->temp, mem->k6, mem->props->inputs, mem->props->outputs, mem->props->ob, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+mem->cur_timestep[modelid], mem->temp, mem->k6, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->next_states[STATE_IDX] = mem->props->model_states[STATE_IDX] +
@@ -134,7 +134,7 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
     }
     
     // now compute k4 to adapt the step size
-    ret |= model_flows(mem->props->time[modelid]+mem->cur_timestep[modelid], mem->next_states, mem->k7, mem->props->inputs, mem->props->outputs, mem->props->ob, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+mem->cur_timestep[modelid], mem->next_states, mem->k7, mem->props->inputs, mem->props->outputs, 0, modelid);
     
     CDATAFORMAT E1 = 71.0/57600.0;
     CDATAFORMAT E3 = -71.0/16695.0;

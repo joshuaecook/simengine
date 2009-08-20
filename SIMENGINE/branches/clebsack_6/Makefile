@@ -532,6 +532,9 @@ $(BUILD_DIR)/bin/simex.m: matlab/simex.m
 $(BUILD_DIR)/lib/libsolvers.a: solvers/lib/libsolvers.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
+$(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
 $(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
@@ -546,7 +549,7 @@ install.m: matlab/install.m
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/bin/simex.m $(BUILD_DIR)/bin/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a simEngine.tgz install.m
+MATLAB_FILES = $(BUILD_DIR)/bin/simex.m $(BUILD_DIR)/bin/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install.m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/bin/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/%.a: solvers/src/*.c

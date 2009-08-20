@@ -107,9 +107,9 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $(""),
 	 $("const simengine_interface seint = {"),
 	 SUB[$("0, // Version,"),
-	     $((i2s (List.length input_names)) ^ ", // Number of inputs"),
-	     $((i2s (List.length state_names)) ^ ", // Number of states"),
-	     $((i2s (List.length output_names)) ^ ", // Number of outputs"),
+	     $("NUM_INPUTS, // Number of inputs"),
+	     $("NUM_STATES, // Number of states"),
+	     $("NUM_OUTPUTS, // Number of outputs"),
 	     $("input_names,"),
 	     $("state_names,"),
 	     $("output_names,"),
@@ -131,7 +131,10 @@ in
 fun outputdatastruct_code class =
     [$("typedef struct {"),
      SUB(map output2struct (CWriterUtil.class2uniqueoutputsymbols class)),
-     $("} output_data;")]
+     $("} output_data;"),
+     $(""),
+     $("output_data OD[NUM_MODELS];")
+    ]
 end
 
 fun initbyclass_code (class as {exps, ...}) =
@@ -243,7 +246,7 @@ fun class2flow_code (class, top_class) =
 	val header_progs = 
 	    [$(""),
 	     $("__DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, output_buffer *ob, unsigned int first_iteration, unsigned int modelid) {")]
+	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
 
 	val read_memory_progs = []
 
@@ -335,11 +338,10 @@ fun class2flow_code (class, top_class) =
 		[$(""),
 		 $("// writing output variables"),
 		 $("if (first_iteration) {"),
-		 SUB($("output_data od;")::
+		 SUB($("output_data *od = (output_data*)outputs;")::
 		     (map
-			  (fn(t,s)=> $("od." ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-			  (CWriterUtil.class2uniqueoutputsymbols class)) @
-		     [$("buffer_outputs(t, &od, ob, modelid);")]),
+			  (fn(t,s)=> $("od[modelid]." ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+			  (CWriterUtil.class2uniqueoutputsymbols class))),
 		 $("}")]
 	    else
 		[$(""),
@@ -405,7 +407,7 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 				       if isInline class then
 					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
 				       else
-					   $("__DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, output_buffer *ob, unsigned int first_iteration, unsigned int modelid);")
+					   $("__DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
 				   end)
 				classes
 	val iterators = CurrentModel.iterators()
@@ -419,8 +421,8 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 						 class2flow_code (c,#name c = #name topclass)) classes)
 
 	val top_level_flow_progs = [$"",
-				    $("__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, void *ob, unsigned int first_iteration, unsigned int modelid){"),
-				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, (output_buffer *)ob, first_iteration, modelid);")],
+				    $("__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid){"),
+				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")],
 				    $("}")]
     in
 	[$("// Flow code function declarations")] @
@@ -486,6 +488,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 $("}"),
 		 $(""),
 		 $("SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
+		 $("buffer_outputs(mem->props->time[modelid], (output_data*)mem->props->outputs, (output_buffer*)mem->props->ob, modelid);"),
 		 $(""),
 		 $("// Check if buffer is full - may not be needed"),
 		 $("atomicOr(&Stop, ((output_buffer*)(mem->props->ob))->full[modelid]);"),
@@ -504,13 +507,19 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("init_output_buffer((output_buffer*)(mem->props->ob), modelid);"),
 	     $(""),
 	     $("for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++){"),
-	     SUB[$("SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
-		 $(""),
-		 $("if (mem->props->time[modelid] >= mem->props->stoptime) {"),
-		 SUB[$("// FIXME not thread safe"),
+	     SUB[$("// Check if simulation is complete"),
+		 $("if(((output_buffer*)(mem->props->ob))->finished[modelid]){"),
+		 SUB[$("break;")],
+		 $("}"),
+		 $("if(mem->props->time[modelid] >= mem->props->stoptime){"),
+		 SUB[$("((output_buffer*)(mem->props->ob))->finished[modelid] = 1;"),
+		     $("// FIXME not thread safe"),
 		     $("--((output_buffer*)(mem->props->ob))->active_models;"),
 		     $("break;")],
 		 $("}"),
+		 $(""),
+		 $("SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);"),
+		 $("buffer_outputs(mem->props->time[modelid], OD, ((output_buffer*)mem->props->ob), modelid);"),
 		 $(""),
 		 $("if (((output_buffer *)(mem->props->ob))->full[modelid])"),
 		 SUB[$("{ break; }")]],
@@ -529,10 +538,11 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.time = t;"),
 	     $("props.model_states = model_states;"),
 	     $("props.inputs = inputs;"),
-	     $("props.outputs = NULL;"),
+	     $("props.outputs = (CDATAFORMAT*)OD;"),
 	     $("props.first_iteration = TRUE;"),
 	     $("props.statesize = seint.num_states;"),
 	     $("props.inputsize = seint.num_inputs;"),
+	     $("props.outputsize = sizeof(output_data)/sizeof(CDATAFORMAT); // This is the size of the information needed to produce outputs, not just the number of named outputs"),
 	     $("props.num_models = semeta.num_models;"),
 	     $("props.ob_size = sizeof(output_buffer);"),
 	     $("props.ob = &OB; // FIXME - switch to dynamic allocation don't forget to free!"),
@@ -568,6 +578,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("init_output_buffer(&OB, 0);"),
 	     $("while (t[0] < t1) {"),
 	     SUB[$("int status = SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, 0);"),
+		 $("buffer_outputs(mem->props->time[0], OD, ((output_buffer*)mem->props->ob), 0);"),
 		 $("if (status != 0) {"),
 		 SUB[$("return ERRCOMP;")],
 		 $("}"),
@@ -621,12 +632,12 @@ fun logoutput_code class =
 					   $("*((CDATAFORMAT*)(ob->ptr[modelid])) = t;"),
 					   $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")] @
 					  (Util.flatmap ((fn (sym) =>
-							     [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = od->"^(Symbol.name sym)^";"),
+							     [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = od[modelid]."^(Symbol.name sym)^";"),
 							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])
 		  					 o Term.sym2curname)
 							(Util.flatmap ExpProcess.exp2termsymbols contents)) @
 					  [$("ob->count[modelid]++;"),
-					   $("ob->full[modelid] = MAX_OUTPUT_SIZE > ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid]));")]),
+					   $("ob->full[modelid] |= MAX_OUTPUT_SIZE >= ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid]));")]),
 				      $("}")],
 				  $("}")]
 			      )
@@ -657,9 +668,9 @@ fun logoutput_code class =
 	     $("unsigned int finished[NUM_MODELS];"),
 	     $("unsigned int full[NUM_MODELS];"),
 	     $("unsigned int count[NUM_MODELS];"),
-	     $("CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];"),
 	     $("void *ptr[NUM_MODELS];"),
-	     $("void *end[NUM_MODELS];")],
+	     $("void *end[NUM_MODELS];"),
+	     $("CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];")],
 	 $("} output_buffer;"),
 	 $(""),
 	 $("output_buffer OB;"),

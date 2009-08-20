@@ -12,13 +12,16 @@ int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
   cvode_mem *mem = userdata;
 
   model_flows(t,
-	      NV_DATA_S(y), 
-	      NV_DATA_S(ydot),
-	      mem->props->inputs,
-	      mem->props->outputs,
-	      mem->props->ob,
+	      NV_DATA_S(y), // 'y' has already been partitioned on a per model basis
+	      NV_DATA_S(ydot), // 'ydot' is storage created by CVODE for the return value
+	      &(mem->props->inputs[mem->modelid*mem->props->inputsize]),
+	      &(mem->props->outputs[mem->modelid*mem->props->outputsize]),
 	      mem->props->first_iteration,
-	      mem->modelid);
+	      0 // 0 is passed to modelid to prevent flow from indexing model_states, 
+	         // which is already indexed by having a separate mem structure per model
+	      );
+
+  mem->props->first_iteration = FALSE;
 
   return CV_SUCCESS;
 }
@@ -35,7 +38,7 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
     // Create intial value vector
     // This is overkill, creating a copy of all states for all models for every single model
     // This is done to avoid having the change the internal indexing within the flows and for the output_buffer
-    mem[modelid].y0 = N_VMake_Serial(props->num_models*props->statesize, props->model_states);
+    mem[modelid].y0 = N_VMake_Serial(props->statesize, &(props->model_states[modelid*props->statesize]));
     // Create data structure for solver
     mem[modelid].cvmem = CVodeCreate(CV_BDF, CV_NEWTON);
     // Initialize CVODE
@@ -60,6 +63,7 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
 }
 
 int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int modelid) {
+  mem->props->first_iteration = TRUE;
   if(CVode(mem[modelid].cvmem, mem[modelid].props->stoptime, ((N_Vector)(mem[modelid].y0)), &(mem[modelid].props->time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
     fprintf(stderr, "CVODE failed to make a step in model %d.\n", modelid);
     return 1;

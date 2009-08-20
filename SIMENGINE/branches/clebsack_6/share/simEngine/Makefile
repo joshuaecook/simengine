@@ -49,6 +49,12 @@ LDFLAGS = -Llib
 VPATH += lib
 LDLIBS = -lsolvers -ldl -lm
 
+ifeq ($(SIMENGINE_STORAGE),float)
+LDLIBS += -lcvode_float
+else
+LDLIBS += -lcvode_double
+endif
+
 ifeq ($(TARGET),GPU)
 PTXASFLAGS = -v
 NVCCFLAGS = -arch=sm_13 --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" $(INCLUDES)
