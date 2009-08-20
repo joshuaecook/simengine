@@ -350,7 +350,7 @@ fun orderModel (model:DOF.model)=
 		val rhs' = Exp.FUN (Fun.INST {classname= #name class, 
 					      instname=instName,
 					      props=
-					      Fun.setRealInstName (Fun.setRealClassName Fun.emptyinstprops orig_class_name) orig_inst_name},
+					      InstProps.setRealInstName (InstProps.setRealClassName InstProps.emptyinstprops orig_class_name) orig_inst_name},
 				    inputs)
 
 		val exp' = ExpBuild.equals (Exp.TERM lhs', rhs')

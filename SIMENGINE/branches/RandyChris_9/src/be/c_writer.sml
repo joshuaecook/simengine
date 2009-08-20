@@ -110,6 +110,7 @@ fun outputstatestructbyclass_code iter (class : DOF.class) =
 	 SUB($("// states (count="^(i2s (List.length state_eqs_symbols))^")")::
 	     (map (fn(exp)=>
 		     let
+			 (* TODO - size must be a list of sizes *)
 			 val size = (*Term.symbolSpatialSize (ExpProcess.exp2term sym)*) ExpProcess.exp2size (#iterators class) exp
 			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term exp))
 		     in
@@ -184,8 +185,26 @@ fun outputinit_code class =
 
 	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
 	val sym_decls = map
-			    (fn(term, sym)=> $("CDATAFORMAT outputsave_" ^ (Symbol.name sym) ^ ";"))
+			    (fn(term, sym)=> 
+			       if (ExpProcess.exp2size (#iterators class) (Exp.TERM term)) > 1 then
+				   $("CDATAFORMAT *outputsave_" ^ (Symbol.name sym) ^ ";")
+			       else
+				   $("CDATAFORMAT outputsave_" ^ (Symbol.name sym) ^ ";")
+			    )
 			    dependent_symbols
+
+	val init_outputsaves = List.mapPartial 
+				   (fn(term, sym)=> 
+				      let
+					  val size = ExpProcess.exp2size (#iterators class) (Exp.TERM term)
+				      in
+					  if size > 1 then
+					      SOME ($("outputsave_" ^ (Symbol.name sym) ^ " = MALLOCFUN("^(i2s size)^" * sizeof(CDATAFORMAT));"))
+					  else
+					      NONE
+				      end
+				   ) dependent_symbols
+
     in
 	[$(""),
 	 $("void output_init() {"),
@@ -193,7 +212,11 @@ fun outputinit_code class =
 	 $("}"),
 	 $(""),
 	 $("// declaring variables to store for computing outputs")] @
-	 sym_decls
+	 sym_decls @ 
+	[$(""),
+	 $("void outputsave_init() {"),
+	 SUB(init_outputsaves),
+	 $("}")]
 
     end
 
@@ -363,7 +386,7 @@ fun class2flow_code (class, top_class) =
 				else if (ExpProcess.isInstanceEq exp) then
 				    let
 					val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
-					val orig_instname = case Fun.getRealInstName props of
+					val orig_instname = case InstProps.getRealInstName props of
 								SOME v => v
 							      | NONE => instname
 
@@ -421,7 +444,17 @@ fun class2flow_code (class, top_class) =
 		 $("// writing output variables"),
 		 $("if (first_iteration) {"),
 		 SUB(map
-			 (fn(t,s)=> $("outputsave_" ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+			 (fn(t,s)=> 
+			    let
+				val size = ExpProcess.exp2size (#iterators class) (Exp.TERM t)
+				val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (Exp.TERM t)
+			    in
+				if size > 1 then
+				    $("memcpy(outputsave_"^(Symbol.name s)^", &("^prefix^"->"^identifier^"), "^(i2s size)^" * sizeof(CDATAFORMAT));")
+				else
+				    $("outputsave_" ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";")
+			    end
+			 )
 			 (CWriterUtil.class2uniqueoutputsymbols class)),
 		 $("}")]
 	    else
@@ -713,11 +746,15 @@ fun logoutput_code class =
 										       Property.LOCAL => true
 										     | _ => false)
 						       | _ => DynException.stdException (("Unexpected non symbol"), "CWriter.logoutput_code", Logger.INTERNAL)
+				   val size = ExpProcess.exp2size (#iterators class) (Exp.TERM term)
 			       in
-				   if local_scope then
-				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";")
+				   (*if local_scope then*)
+				   if size > 1 then
+				       $("CDATAFORMAT *" ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";")
 				   else
-				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")
+				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";")
+				  (* else
+				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")*)
 			       end)
 			    dependent_symbols
 	val output_exps =Util.flatmap
@@ -749,8 +786,15 @@ fun logoutput_code class =
 								    $("PRINTFUN(\"%g \", "^(Symbol.name sym)^");")]
 						 | NONE => []) @
 					      (Util.flatmap
-						   (fn(exp,i)=> [$(var^".vals"^(i2s i)^"["^var^".length] = "^(CWriterUtil.exp2c_str exp)^";"), 
-								 $("PRINTFUN(\"%g \", "^var^".vals"^(i2s i)^"["^var^".length]);")])
+						   (fn(exp,i)=> 
+						      let
+							  val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class exp
+						      in
+							  CWriterUtil.expandprogs2parallelfor
+							      class
+							      (exp, [$(var^".vals"^(i2s i)^"["^var^".length] = "^identifier^iterators^";"), 
+								     $("PRINTFUN(\"%g \", "^var^".vals"^(i2s i)^"["^var^".length]);")])
+						      end)
 						   (Util.addCount contents)) @
 					      [$(var^".length++;")]),
 					  $("}")
@@ -792,6 +836,7 @@ fun main_code class =
 	     $("double t = 0;"),
 	     $("double t1 = atof(argv[1]);"),
 	     $("output_init(); // initialize the outputs"),
+	     $("outputsave_init(); // initialize temporary memory used for outputs"),
 	     $("init_states(); // initialize the states"),
 	     $("CDATAFORMAT inputs[INPUTSPACE];"),
 	     $(""),

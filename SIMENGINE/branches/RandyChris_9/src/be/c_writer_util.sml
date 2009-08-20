@@ -27,11 +27,11 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	    else
 		str
     in
-	case (Fun.fun2cstrnotation str) of
-	    (v, Fun.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2c_str e),e)) exps)
-	  | (v, Fun.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2c_str e,e))) exps)) ^ ")"
-	  | (v, Fun.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2c_str e),e)) exps)) ^ " " ^ v
-	  | (v, Fun.MATCH) => 
+	case (FunProps.fun2cstrnotation str) of
+	    (v, FunProps.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2c_str e),e)) exps)
+	  | (v, FunProps.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2c_str e,e))) exps)) ^ ")"
+	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2c_str e),e)) exps)) ^ " " ^ v
+	  | (v, FunProps.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
 		    Util.repStr(str, "$"^(i2s i), addParen (exp2c_str e, e))

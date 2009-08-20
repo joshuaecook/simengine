@@ -88,15 +88,43 @@ fun relvar (sym, itersym, offset) =
 fun int i = Exp.TERM (Exp.INT i);
 fun real r = Exp.TERM (Exp.REAL r);
 fun bool b = Exp.TERM (Exp.BOOL b);
+fun frac (n,d) = Exp.TERM (Exp.RATIONAL (n, d))
 fun plus l = Exp.FUN (Fun.BUILTIN Fun.ADD, l);
 fun sub (a,b) = Exp.FUN (Fun.BUILTIN Fun.SUB, [a, b]);
 fun neg v = Exp.FUN (Fun.BUILTIN Fun.NEG, [v]) (*times [int ~1, v]*)
 fun divide (a,b) = Exp.FUN (Fun.BUILTIN Fun.DIVIDE, [a, b]);
 fun times l = Exp.FUN (Fun.BUILTIN Fun.MUL, l);
 fun power (a,b) = Exp.FUN (Fun.BUILTIN Fun.POW, [a, b]);
+fun sqrt a = Exp.FUN (Fun.BUILTIN Fun.SQRT, [a])
+fun square a = power (a, int 2)
+fun norm l = sqrt (plus (map square l))
 fun exp v = power (var "e", v)
 fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
 infix equals;
 fun group l = Exp.FUN (Fun.BUILTIN Fun.GROUP, l)
-
+fun atan2 (a,b) = Exp.FUN (Fun.BUILTIN Fun.ATAN2, [a,b])
+fun re z = Exp.FUN (Fun.BUILTIN Fun.RE, [z])
+fun im z = Exp.FUN (Fun.BUILTIN Fun.IM, [z])
+fun arg z = atan2 (re z, im z)
+fun cos x = Exp.FUN (Fun.BUILTIN Fun.COS, [x])
+fun sin x = Exp.FUN (Fun.BUILTIN Fun.SIN, [x])
+fun log x = Exp.FUN (Fun.BUILTIN Fun.LOG, [x])
+fun logn (b, x) = Exp.FUN (Fun.BUILTIN Fun.LOG, [b, x])
+fun complex (a,b) = Exp.TERM (Exp.COMPLEX (a,b))
+fun complex_fun (a,b) = Exp.FUN (Fun.BUILTIN Fun.COMPLEX, [a,b])
+fun complex_logn (b, z) = 
+    let
+	val r = re z
+	val i = im z
+    in
+	complex_fun 
+	    (plus [divide (times [arg b, arg z],
+			   plus [arg (square b), times [frac(1,4), square (log (square b))]]), 
+		   divide (times [log (square b), log (plus [square i, square r])], 
+			   times [int 4, plus [square (arg b), times [frac(1,4), square (log (square b))]]])],
+	     sub (divide (times [arg z, log (square b)],
+			  times [int 2, plus [square (arg b), times [frac(1,4), square (log (square b))]]]),
+		  divide (times [arg b, log (plus [square i, square r])],
+			  times [int 2, plus [square (arg b), times [frac(1,4), square (log (square b))]]])))
+    end
 end

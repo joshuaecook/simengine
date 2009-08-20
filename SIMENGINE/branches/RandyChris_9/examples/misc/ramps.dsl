@@ -5,6 +5,6 @@ state y[i] = i
 equation x[i] = i
 equation y[i]' = x[i]
 
-solver=forwardeuler {dt=1}
+solver=forwardeuler {dt=1.0}
 
 end

@@ -192,6 +192,7 @@ fun main_code class =
 	     $(""),
 	     $("// model processing"),
 	     $("output_init(); // initialize the outputs"),
+	     $("outputsave_init(); // initialize temporary memory used for outputs"),
 	     $("init_states(); // initialize the states"),
 	     $("CDATAFORMAT inputs[INPUTSPACE];"),
 	     $(""),

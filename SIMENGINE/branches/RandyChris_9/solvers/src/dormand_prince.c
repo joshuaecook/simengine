@@ -83,10 +83,7 @@ int dormand_prince_eval(dormand_prince_mem *mem) {
     CDATAFORMAT E6 = 22.0/525.0;
     CDATAFORMAT E7 = -1.0/40.0;
     for(i=mem->props->statesize-1; i>=0; i--) {
-      //mexPrintf("%d: k1=%g, k2=%g, k3=%g, k4=%g, k5=%g, k6=%g, k7=%g\n", i, mem->k1[i], mem->k2[i], mem->k3[i], mem->k4[i], mem->k5[i], mem->k6[i], mem->k7[i]);
-      mem->temp[i] = /*next_states[i] + */cur_timestep*(E1*mem->k1[i] + E3*mem->k3[i] + E4*mem->k4[i] + E5*mem->k5[i] + E6*mem->k6[i] + E7*mem->k7[i]);
-      //z_next_states[i] = mem->props->model_states[i] + (71*cur_timestep/57600)*k1[i] + (-71*cur_timestep/16695)*k3[i] + (71*cur_timestep/1920)*k4[i] + (-17253*cur_timestep/339200)*k5[i] + (22*cur_timestep/525)*k6[i] + (-1*cur_timestep/40)*k7[i];
-      //z_next_states[i] = mem->props->model_states[i] + (5179*cur_timestep/57600)*k1[i] + (7571*cur_timestep/16695)*k3[i] + (393*cur_timestep/640)*k4[i] + (-92097*cur_timestep/339200)*k5[i] + (187*cur_timestep/2100)*k6[i] + (1*cur_timestep/40)*k7[i];
+      mem->temp[i] =cur_timestep*(E1*mem->k1[i] + E3*mem->k3[i] + E4*mem->k4[i] + E5*mem->k5[i] + E6*mem->k6[i] + E7*mem->k7[i]);
     }
 
     // compare the difference

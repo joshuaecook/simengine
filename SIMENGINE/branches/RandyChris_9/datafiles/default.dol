@@ -24,7 +24,7 @@
 <logdof = true>
 <termrewritelimit = 25>
 <optimize = false>
-<logrewrites = false>
+<logrewrites = true>
 <generateC = true>
 <logluts = false>
 <logranges = false>

@@ -71,10 +71,14 @@ ir/util.sml
 ir/datastructs/iterator.sml
 ir/datastructs/props.sml
 ir/datastructs/pattern.sml
+ir/processing/inst_properties.sml
 ir/datastructs/fun.sml
 ir/datastructs/exp.sml
+(*ir/datastructs/eval.sml*)
 ir/datastructs/term.sml
 ir/datastructs/solver.sml
+ir/processing/exp_build.sml
+ir/processing/fun_properties.sml
 
 (*ir/processing/exp_util.sml*)
 
@@ -83,10 +87,10 @@ ir/datastructs/dof.sml
 ir/current_model.sml
 ir/datastructs/inst.sml
 
+
 ir/processing/fun_process.sml
 ir/processing/term_process.sml
 
-ir/processing/exp_build.sml
 ir/patterns/pattern_process.sml
 ir/processing/exp_printer.sml
 

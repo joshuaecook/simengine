@@ -158,6 +158,16 @@ fun isZero term =
       | Exp.TUPLE l => List.all isZero l
       | _ => false
 
+fun isOne term =
+    case term of
+	Exp.RATIONAL (n, d) => (n = d) andalso (d <> 0)
+      | Exp.INT v => (v = 1)
+      | Exp.REAL v => (Real.==(v, 1.0))
+      | Exp.COMPLEX (a,b) => (isOne a) andalso (isZero b)
+      | Exp.LIST (l,_) => List.all isOne l
+      | Exp.TUPLE l => List.all isOne l
+      | _ => false
+
 fun isNumeric term = 
     case term of
 	Exp.RATIONAL _ => true
@@ -292,5 +302,118 @@ fun termSizeByIterator iter term =
 	    absolute
 	end
       | _ => 0
+
+fun makeInteger t = 
+    case t of
+	Exp.INT i => t
+      | Exp.BOOL true => Exp.INT 1
+      | Exp.BOOL false => Exp.INT 0
+      | _ => DynException.stdException(("Invalid input"), "Term.makeInteger", Logger.INTERNAL)
+
+and makeReal t =
+    case t of
+	Exp.REAL _ => t
+      | Exp.INT i => Exp.REAL (Real.fromInt i)
+      | Exp.BOOL _ => makeReal (makeInteger t)
+      | Exp.INFINITY => Exp.REAL (Real.posInf)
+      | Exp.NAN => Exp.REAL (0.0/0.0)
+      | _ => DynException.stdException(("Invalid input"), "Term.makeReal", Logger.INTERNAL)
+
+and makeList (t, dimlist) =
+    let
+	val size = Util.prod dimlist
+    in
+	Exp.LIST (List.tabulate (size, fn(x)=>t), dimlist)
+    end
+    
+and makeRange t =
+    case t of 
+	Exp.RANGE _ => DynException.stdException(("Invalid range input"), "Term.makeRange", Logger.INTERNAL)
+      | Exp.COMPLEX _ => DynException.stdException(("Invalid complex input"), "Term.makeRange", Logger.INTERNAL)
+      | _ => Exp.RANGE {low=t, high=t, step=t}
+
+and makeComplex t = 
+    case t of 
+	Exp.COMPLEX (t1, t2) => Exp.COMPLEX (t1, t2)
+      | _ => Exp.COMPLEX (makeCommensurable (t, Exp.INT 0))
+
+(* make commensurable will attempt to transform dissimilar terms into similar terms for the purposes of evaluation *)
+and makeCommensurable (t1, t2) = 
+    case (t1, t2) of 
+	(Exp.BOOL _, Exp.BOOL _) => (t1, t2)
+      | (Exp.INT _, Exp.INT _) => (t1, t2)
+      | (Exp.REAL _, Exp.REAL _) => (t1, t2)
+      | (Exp.COMPLEX (a1,b1), Exp.COMPLEX (a2, b2)) =>
+	let
+	    val (a1', b1') = makeCommensurable (a1, b1)
+	    val (a2', b2') = makeCommensurable (a2, b2)
+	    val (a1'', a2'') = makeCommensurable (a1', a2')
+	    val (b1'', b2'') = makeCommensurable (b1', b2')
+	in
+	    (Exp.COMPLEX (a1'', b1''), Exp.COMPLEX (a2'', b2''))
+	end
+      | (Exp.LIST (l1, d1), Exp.LIST (l2, d2)) => 
+	if (List.length l1) = (List.length l2) then
+	    let
+		val (l1', l2') = ListPair.unzip (map makeCommensurable (ListPair.zip (l1, l2)))
+	    in
+		(Exp.LIST (l1', d1), Exp.LIST (l2', d2))
+	    end
+ 	else 
+	    DynException.stdException(("Invalid lists"), "Term.makeCommensurable [List,List]", Logger.INTERNAL)	    
+      | (Exp.TUPLE l1, Exp.TUPLE l2) => 
+	if (List.length l1) = (List.length l2) then
+	    let
+		val (l1', l2') = ListPair.unzip (map makeCommensurable (ListPair.zip (l1, l2)))
+	    in
+		(Exp.TUPLE l1', Exp.TUPLE l2')
+	    end
+ 	else 
+	    DynException.stdException(("Invalid tuples"), "Term.makeCommensurable [Tuple,Tuple]", Logger.INTERNAL)
+      | (Exp.RANGE _, Exp.RANGE _) => (t1, t2)
+      | (Exp.NAN, Exp.NAN) => (t1, t2)
+      | (Exp.INFINITY, Exp.INFINITY) => (t1, t2)
+      | (Exp.DONTCARE, _) => (t2, t2)
+      | (_, Exp.DONTCARE) => (t1, t1)
+      | (Exp.INT _, Exp.BOOL _) => (t1, makeInteger t2)
+      | (Exp.BOOL _, Exp.INT _) => (makeInteger t1, t2)
+      | (Exp.REAL _, Exp.INT _) => (t1, makeReal t2)
+      | (Exp.INT _, Exp.REAL _) => (makeReal t1, t2)
+      | (Exp.REAL _, Exp.BOOL _) => (t1, makeReal t2)
+      | (Exp.BOOL _, Exp.REAL _) => (makeReal t1, t2)
+      | (Exp.COMPLEX _, Exp.BOOL _) => makeCommensurable (t1, makeComplex t2)
+      | (Exp.BOOL _, Exp.COMPLEX _) => makeCommensurable (makeReal t1, t2)
+      | (Exp.COMPLEX _, Exp.INT _) => makeCommensurable (t1, makeComplex t2)
+      | (Exp.INT _, Exp.COMPLEX _) => makeCommensurable (makeReal t1, t2)
+      | (Exp.COMPLEX _, Exp.REAL _) => makeCommensurable (t1, makeComplex t2)
+      | (Exp.REAL _, Exp.COMPLEX _) => makeCommensurable (makeReal t1, t2)
+      | (Exp.NAN, _) => makeCommensurable (makeReal t1, t2)
+      | (_, Exp.NAN) => makeCommensurable (t1, makeReal t2)
+      | (Exp.INFINITY, _) => makeCommensurable (makeReal t1, t2)
+      | (_, Exp.INFINITY) => makeCommensurable (t1, makeReal t2)
+      | (Exp.LIST (l1, d1), _) => makeCommensurable (t1, makeList (t2, d1))			     
+      | (_, Exp.LIST (l2, d2)) => makeCommensurable (makeList (t1, d2), t2)
+      | (Exp.TUPLE l1, _) => makeCommensurable (t1, Exp.TUPLE [t2])
+      | (_, Exp.TUPLE l2) => makeCommensurable (Exp.TUPLE [t1], t2)
+      | _ => (t1, t2)
+
+fun isCommensurable (t1, t2) =
+    case (t1, t2) of
+	(Exp.BOOL _, Exp.BOOL _) => true
+      | (Exp.INT _, Exp.INT _) => true
+      | (Exp.REAL _, Exp.REAL _) => true
+      | (Exp.COMPLEX (r1, i1), Exp.COMPLEX (r2, i2)) => 
+	(isCommensurable (r1, i1) andalso (isCommensurable (r2, i2)) andalso
+	 isCommensurable (r1, r2) andalso (isCommensurable (i1, i2)))
+      | (Exp.LIST (l1,_), Exp.LIST (l2,_)) => 
+	(List.length l1) = (List.length l2) andalso
+	(List.all isCommensurable (ListPair.zip (l1, l2)))
+      | (Exp.TUPLE l1, Exp.TUPLE l2) => 
+	(List.length l1) = (List.length l2) andalso
+	(List.all isCommensurable (ListPair.zip (l1, l2)))
+      | (Exp.INFINITY, Exp.INFINITY) => true
+      | (Exp.NAN, Exp.NAN) => true
+      | (Exp.DONTCARE, Exp.DONTCARE) => true
+      | _ => false
 
 end

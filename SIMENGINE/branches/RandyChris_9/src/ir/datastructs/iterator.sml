@@ -46,7 +46,8 @@ fun iterator2c_str (iterator as (sym, i)) =
 
 fun iterators2c_str iterators =
     if List.length iterators > 0 then
-	"[" ^ (String.concatWith "," (map iterator2c_str iterators)) ^ "]"
+	String.concat (map (fn(iter)=> "[" ^ (iterator2c_str iter) ^ "]") iterators)
+	(*"[" ^ (String.concatWith "," (map iterator2c_str iterators)) ^ "]"*)
     else
 	""
 

@@ -25,15 +25,15 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
 	    else
 		str
     in
-	case (Fun.fun2textstrnotation str) of
-	    (v, Fun.INFIX) => 
-	    if Fun.hasVariableArguments str andalso length exps = 1 then
-		(Fun.op2name str) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
+	case (FunProps.fun2textstrnotation str) of
+	    (v, FunProps.INFIX) => 
+	    if FunProps.hasVariableArguments str andalso length exps = 1 then
+		(FunProps.op2name str) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
 	    else
 		String.concatWith v (map (fn(e)=>addParen ((exp2tersestr e),e)) exps)
-	  | (v, Fun.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
-	  | (v, Fun.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr e),e)) exps)) ^ " " ^ v
-	  | (v, Fun.MATCH) => 
+	  | (v, FunProps.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
+	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr e),e)) exps)) ^ " " ^ v
+	  | (v, FunProps.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
 		    Util.repStr(str, "$"^(i2s i), addParen (exp2tersestr e, e))
@@ -54,6 +54,11 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
 			   else exp2tersestr (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
       | Exp.LIST (l,_) => "[" ^ (String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l)) ^ "]"
       | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l))^")"
+      | Exp.RANGE {low, high, step} => 
+	if Term.isOne step then
+	    (exp2tersestr (Exp.TERM low)) ^ ":" ^ (exp2tersestr (Exp.TERM high))
+	else
+	    (exp2tersestr (Exp.TERM low)) ^ ":" ^ (exp2tersestr (Exp.TERM step)) ^ ":" ^ (exp2tersestr (Exp.TERM high))
       | Exp.SYMBOL (s, props) => Term.sym2str (s, props)
       | Exp.DONTCARE => "?"
       | Exp.INFINITY => "Inf"
@@ -83,11 +88,11 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
     in
 	Symbol.name (FunProcess.fun2name str) ^ "(" ^ (String.concatWith "," (map exp2fullstr exps)) ^")"
     (*
-	case (Fun.fun2textstrnotation str) of
-	    (v, Fun.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2str e),e)) exps)
-	  | (v, Fun.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2str e,e))) exps)) ^ ")"
-	  | (v, Fun.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2fullstr e),e)) exps)) ^ " " ^ v
-	  | (v, Fun.MATCH) => 
+	case (FunProps.fun2textstrnotation str) of
+	    (v, FunProps.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2str e),e)) exps)
+	  | (v, FunProps.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2str e,e))) exps)) ^ ")"
+	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2fullstr e),e)) exps)) ^ " " ^ v
+	  | (v, FunProps.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
 		    Util.repStr(str, "$"^(i2s i), addParen (exp2str e, e))
@@ -109,6 +114,7 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
 			   else exp2fullstr (Exp.FUN (Symbol.symbol "PLUS", [Exp.TERM t1, Exp.FUN (Symbol.symbol "TIMES", [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))])]))	*)
       | Exp.LIST (l,_) => "List(" ^ (String.concatWith "," (map (fn(t)=>exp2fullstr (Exp.TERM t)) l)) ^ ")"
       | Exp.TUPLE l => "Tuple("^(String.concatWith ", " (map (fn(t)=>exp2fullstr (Exp.TERM t)) l))^")"
+      | Exp.RANGE {low, high, step} => "Range("^(exp2fullstr (Exp.TERM low))^":"^(exp2fullstr (Exp.TERM step))^":"^(exp2fullstr (Exp.TERM high))^")"
       | Exp.SYMBOL (s, props) => Term.sym2fullstr (s, props)
       | Exp.DONTCARE => "?"
       | Exp.INFINITY => "Inf"

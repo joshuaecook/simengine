@@ -182,7 +182,7 @@ fun kecexp2dofexp obj =
 		      | _ => error "Derivatives of expressions is not supported"
 		end
 	    else
-		Exp.FUN (Fun.BUILTIN (Fun.name2op (Symbol.symbol name)),
+		Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol name)),
 			 map kecexp2dofexp (vec2list(method "args" obj)))
 	end
     else if istype (obj, "SimQuantity") orelse istype (obj, "Input") then
@@ -400,7 +400,7 @@ fun createClass classes object =
 
 		val rhs = Exp.FUN (Fun.INST {classname=name,
 					     instname=objname,
-					     props=Fun.setIterators Fun.emptyinstprops iterators},
+					     props=InstProps.setIterators InstProps.emptyinstprops iterators},
 				   map (fn(i) => kecexp2dofexp i) input_exps)
 
 		val exp = ExpBuild.equals (Exp.TERM lhs, rhs)

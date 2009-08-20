@@ -123,7 +123,7 @@ fun isEquation exp =
 fun isInstanceEq exp = 
     (case exp of 
 	 Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, Exp.FUN (Fun.INST {props,...}, _)]) => 
-	 not (Fun.isInline props)
+	 not (InstProps.isInline props)
        | _ => false)
     handle e => DynException.checkpoint "ExpProcess.isInstanceEq" e
 	     
@@ -141,7 +141,7 @@ fun deconstructInst exp =
     let
 	val empty_return = {classname=Symbol.symbol "NULL", 
 			    instname=Symbol.symbol "NULL", 
-			    props=Fun.emptyinstprops, 
+			    props=InstProps.emptyinstprops, 
 			    inpargs=[], 
 			    outargs=[]}
     in
@@ -159,7 +159,7 @@ fun instSpatialSize inst =
 	let
 	    val {props,...} = deconstructInst inst
 	in
-	    case Fun.getDim props  
+	    case InstProps.getDim props  
 	     of SOME l => Util.prod l
 	      | NONE => 1
 	end	    
@@ -170,7 +170,7 @@ fun instOrigClassName inst =
     let
 	val {classname, instname, props, inpargs, outargs} = deconstructInst inst
     in
-	case Fun.getRealClassName props 
+	case InstProps.getRealClassName props 
 	 of SOME v => v
 	  | NONE => classname
     end
@@ -179,7 +179,7 @@ fun instOrigInstName inst =
     let
 	val {classname, instname, props, inpargs, outargs} = deconstructInst inst
     in
-	case Fun.getRealInstName props 
+	case InstProps.getRealInstName props 
 	 of SOME v => v
 	  | NONE => instname
     end
@@ -403,7 +403,7 @@ fun exp2size iterator_list exp : int =
 			       1 (* out of default - need to do something better here *)
 		     | Exp.FUN (Fun.BUILTIN f, args) => 
 		       let
-			   val codomain = #codomain (Fun.op2props f)
+			   val codomain = #codomain (FunProps.op2props f)
 		       in
 			   Util.prod(codomain (map (fn(a) => [exp2size iterator_list a]) args))
 (*		       foldl combineSizes 1 (map (exp2size iterator_list) args)*)

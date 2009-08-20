@@ -297,14 +297,62 @@ fun propagateIterators (class: DOF.class) =
     let
 	val assigned_symbols = (map (fn{name,...}=>Exp.TERM name) (!(#inputs class))) @
 			       (Util.flatmap (fn(exp)=>
-						case (ExpProcess.lhs exp) of
-						    Exp.TERM (Exp.SYMBOL _) => [exp]
-						  | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
-						  | _ => DynException.stdException(("Unexpected lhs of equation '"^(e2s exp)^"'"),
-										   "ClassProcess.propagateIterators",
-										   Logger.INTERNAL)) (!(#exps class)))
+						if ExpProcess.isInitialConditionEq exp then
+						    []
+						else
+						    case (ExpProcess.lhs exp) of
+							Exp.TERM (Exp.SYMBOL _) => [ExpProcess.lhs exp]
+						      | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
+						      | _ => DynException.stdException(("Unexpected lhs of equation '"^(e2s exp)^"'"),
+										       "ClassProcess.propagateIterators",
+										       Logger.INTERNAL)) (!(#exps class)))
+
+	fun create_rewrite_action expsym =
+	    let
+		
+		val spatial_iterators = TermProcess.symbol2spatialiterators (ExpProcess.exp2term expsym)
+
+		val noSpatialIteratorsPredicate = (("is:"^(e2s expsym)), 
+						fn(sym)=> 
+						  case sym of 
+						      Exp.TERM (s as (Exp.SYMBOL (sym', props))) => 
+						      sym' = (Term.sym2curname (ExpProcess.exp2term expsym)) andalso
+						      (List.length (TermProcess.symbol2spatialiterators s) = 0)
+						    | _ => false)
+
+		val pattern = Match.anysym_with_predlist [noSpatialIteratorsPredicate] (Symbol.symbol "a")
+
+		val action = (fn(exp)=>
+				case exp of
+				    Exp.TERM (s as (Exp.SYMBOL (sym, props))) =>
+				    let
+					val temporal_iterator = case TermProcess.symbol2temporaliterator s of
+								    SOME v => [v]
+								  | NONE => []
+									      
+					val iterators = temporal_iterator @ spatial_iterators
+				    in
+					Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props iterators))
+				    end
+				  | _ => exp)
+
+		val rewrite = {find=pattern,
+			       test=NONE,
+			       replace=Rewrite.ACTION (Symbol.symbol ("AddIterTo:"^(e2s expsym)), action)}
+
+	    in
+		rewrite
+	    end
+
+	val rewrites = map create_rewrite_action assigned_symbols
+	val exps' = map (Match.applyRewritesExp rewrites) (!(#exps class))
+	val outputs' = map (fn{name, contents, condition}=>
+			     {name=ExpProcess.exp2term (Match.applyRewritesExp rewrites (Exp.TERM name)),
+			      condition=Match.applyRewritesExp rewrites condition,
+			      contents=map (Match.applyRewritesExp rewrites) contents}) (!(#outputs class))
     in
-	()
+	(#exps class := exps';
+	 #outputs class := outputs')
     end
 
 fun assignCorrectScope (class: DOF.class) =
@@ -336,46 +384,6 @@ fun assignCorrectScope (class: DOF.class) =
 				  (*val _ = Util.log ("Processing output '"^(e2s (Exp.TERM name))^"'")*)
 				  (* this line will add the appropriate scope to each symbol and will add the correct temporal iterator*)
 				  val contents' = map (Match.applyRewritesExp actions) contents
-
-				  (* the next step would be to add spatial iterators *)
-						  (*
-				  val contents'' = 
-				      map 
-					  (fn(exp)=>
-					     let
-						 val flat_exp = flattenExp class exp
-						 val symbols = ExpProcess.exp2termsymbols flat_exp
-							       
-						 val spatial_iterators = 
-						     Util.uniquify_by_fun (fn((a,_),(a',_)) => a = a')
-									  (Util.flatmap 
-									       TermProcess.symbol2spatialiterators 
-									       symbols)
-						     
-						 (* create a set of actions to update the spatial iterators *)
-						 val actions = 
-						     map 
-							 (fn(sym, iter)=>
-							    {find=Match.asym sym, 
-							     test=NONE, 
-							     replace=Rewrite.ACTION 
-									 (sym, 
-									  (fn(exp)=>
-									     ExpProcess.assignCorrectScopeOnSymbol 
-										 (ExpProcess.appendIteratorToSymbol iter exp)))
-							    }
-							 )
-							 (ListPair.zip (symbols))
-						     
-						 (* now add the spatial iterators *)
-						 val exp' = foldl (fn(iter,exp')=>
-								     ExpProcess.appendIteratorToSymbol iter exp') 
-								  (exp)
-								  spatial_iterators
-					     in
-					     end)
-					  contents'
-*)
 				  val condition' = Match.applyRewritesExp actions condition
 
 			      (* TODO: The iterator for the name should be defined in modeltranslate.  If it exists,
