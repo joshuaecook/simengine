@@ -9,7 +9,7 @@
 #endif
 
 int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
-  cvode_mem *mem = userdata;
+  cvode_mem *mem = (cvode_mem*)userdata;
 
   model_flows(t,
 	      NV_DATA_S(y), // 'y' has already been partitioned on a per model basis

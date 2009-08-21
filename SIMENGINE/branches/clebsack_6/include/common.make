@@ -10,7 +10,11 @@ ARCH64 = $(strip $(shell arch|grep 64))
 # Compilers and commands
 GRIND := valgrind
 CXX := g++
+ifeq ($(OSLOWER), darwin)
+CC := g++
+else
 CC := gcc
+endif
 AR := ar rs
 LN := ln -s
 MKDIR := mkdir -p

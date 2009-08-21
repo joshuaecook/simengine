@@ -211,7 +211,12 @@ end
 if strcmpi(opts.target, '')
   opts.target = 'CPU';
   if 1 < opts.models
-    opts.target = 'GPU';
+    switch computer
+     case {'MACI','MACI64'}
+      opts.target = 'OPENMP';
+     otherwise
+      opts.target = 'GPU';
+    end
   end
 end
 

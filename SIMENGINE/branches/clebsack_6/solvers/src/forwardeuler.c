@@ -26,7 +26,7 @@ forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_p
   forwardeuler_mem *mem = (forwardeuler_mem*)malloc(sizeof(forwardeuler_mem));
 
   mem->props = props;
-  mem->k1 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
 
   return mem;
 

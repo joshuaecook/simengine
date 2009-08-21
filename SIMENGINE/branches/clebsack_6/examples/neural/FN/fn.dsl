@@ -12,6 +12,6 @@ model (u,w) = fn
     w' = e * (b0 + b1 * u - w)
   end
 
-  solver = rk4
+  solver = ode45
   solver.dt = 0.1
 end

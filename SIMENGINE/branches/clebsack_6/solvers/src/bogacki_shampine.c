@@ -45,16 +45,16 @@ bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, 
   bogacki_shampine_mem *mem = (bogacki_shampine_mem*)malloc(sizeof(bogacki_shampine_mem));
 
   mem->props = props;
-  mem->k1 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k2 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k3 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k4 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->temp = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->next_states = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->z_next_states = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k2 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k3 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k4 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->z_next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
 
   // Allocate and initialize timesteps
-  mem->cur_timestep = malloc(props->num_models*sizeof(CDATAFORMAT));
+  mem->cur_timestep = (CDATAFORMAT*)malloc(props->num_models*sizeof(CDATAFORMAT));
   for(i=0; i<props->num_models; i++)
     mem->cur_timestep[i] = props->timestep;
 

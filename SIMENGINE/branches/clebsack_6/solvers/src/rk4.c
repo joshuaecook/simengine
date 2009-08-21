@@ -30,11 +30,11 @@ rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
   rk4_mem *mem = (rk4_mem*)malloc(sizeof(rk4_mem));
 
   mem->props = props;
-  mem->k1 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k2 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k3 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k4 = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->temp = malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k2 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k3 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k4 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
 
   return mem;
 #endif
