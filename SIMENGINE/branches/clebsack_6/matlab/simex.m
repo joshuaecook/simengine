@@ -155,7 +155,7 @@ opts = struct('models',1, 'target','', 'precision','double', ...
               'inputs',struct(), 'states',[], ...
               'simengine','');
 
-[seroot] = fileparts(fileparts(which('simex')));
+[seroot] = fileparts(which('simex'));
 opts.simengine = seroot;
 
 if 1 > nargin
@@ -356,6 +356,9 @@ function [dllPath] = invoke_compiler(dslPath, dslName, modelFile, opts)
 simengine = fullfile(opts.simengine, 'bin', 'simEngine');
 setenv('SIMENGINE', opts.simengine);
 
+disp(['simEngine: ' simengine ', modelFile: ' modelFile ', dslName: ' ...
+       dslName])
+
 tic;
 status = simEngine_wrapper(simengine, modelFile, dslName);
 elapsed = toc;
@@ -367,7 +370,9 @@ if 0 ~= status
 end
 
 tic;
-make = ['make -Iinclude -fshare/simEngine/Makefile' ...
+make = ['make -I' fullfile(opts.simengine, 'include ') ...
+        ['-f' fullfile(opts.simengine, 'share/simEngine/Makefile')] ...
+        ' SIMENGINEDIR=' opts.simengine ...
         ' MODEL=' modelFile ...
         ' TARGET=' opts.target ...
         ' SIMENGINE_STORAGE=' opts.precision ...
@@ -393,7 +398,12 @@ if 0 ~= status
 end
 
 % TODO what is the path of the resultant DLL?
-dllPath = fullfile(pwd, 'libsimengine.so');
+switch computer
+  case {'MACI', 'MACI64'}
+   dllPath = fullfile(pwd, 'libsimengine.dylib');
+ otherwise
+   dllPath = fullfile(pwd, 'libsimengine.so');
+end  
 
 % TODO check the shape of the user inputs and start states, other
 % parameters, and recompile the model if necessary.

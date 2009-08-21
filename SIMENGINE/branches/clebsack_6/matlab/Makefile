@@ -32,62 +32,61 @@ ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
 
 SIMEX_HELPER_OBJ = $(addprefix simex_helper,$(MEXEXT))
 SIMENGINE_WRAPPER_OBJ = $(addprefix simEngine_wrapper,$(MEXEXT))
-
 ALL_TARGETS = simex_helper simEngine_wrapper
 
 # Build targets
 .PHONY: all $(ALL_TARGETS)
 all: $(ALL_TARGETS)
 
-simex_helper: $(addprefix bin/,$(SIMEX_HELPER_OBJ))
+simex_helper: $(SIMEX_HELPER_OBJ) # $(addprefix bin/,$(SIMEX_HELPER_OBJ))
 
-simEngine_wrapper: $(addprefix bin/,$(SIMENGINE_WRAPPER_OBJ))
+simEngine_wrapper: $(SIMENGINE_WRAPPER_OBJ) # $(addprefix bin/,$(SIMENGINE_WRAPPER_OBJ))
 
 #bin/simex_helper.%: ../include/simengine.h ../include/simengine_target.h
 
-bin/%.mexglx: src/%.cpp
-	$(MEX) -glnx86 -outdir bin $(MEXFLAGS) $<
+%.mexglx: src/%.cpp
+	$(MEX) -glnx86 -outdir . $(MEXFLAGS) $<
 
-bin/%.mexglx: src/%.c
-	$(MEX) -glnx86 -outdir bin $(MEXFLAGS) $<
+%.mexglx: src/%.c
+	$(MEX) -glnx86 -outdir . $(MEXFLAGS) $<
 
-bin/%.mexa64: src/%.cpp
-	$(MEX) -glnxa64 -outdir bin $(MEXFLAGS) $<
+%.mexa64: src/%.cpp
+	$(MEX) -glnxa64 -outdir . $(MEXFLAGS) $<
 
-bin/%.mexa64: src/%.c
-	$(MEX) -glnxa64 -outdir bin $(MEXFLAGS) $<
+%.mexa64: src/%.c
+	$(MEX) -glnxa64 -outdir . $(MEXFLAGS) $<
 
 # TODO maci64?
-bin/%.mexmaci: src/%.cpp
-	$(MEX) -maci -outdir bin $(MEXFLAGS) $<
+%.mexmaci: src/%.cpp
+	$(MEX) -maci -outdir . $(MEXFLAGS) $<
 
-bin/%.mexmaci: src/%.c
-	$(MEX) -maci -outdir bin $(MEXFLAGS) $<
+%.mexmaci: src/%.c
+	$(MEX) -maci -outdir . $(MEXFLAGS) $<
 
-bin/%.mexs64: src/%.cpp
-	$(MEX) -sol64 -outdir bin $(MEXFLAGS) $<
+%.mexs64: src/%.cpp
+	$(MEX) -sol64 -outdir . $(MEXFLAGS) $<
 
-bin/%.mexs64: src/%.c
-	$(MEX) -sol64 -outdir bin $(MEXFLAGS) $<
+%.mexs64: src/%.c
+	$(MEX) -sol64 -outdir . $(MEXFLAGS) $<
 
-bin/%.mexw32: src/%.cpp
-	$(MEX) -win32 -outdir bin $(MEXFLAGS) $<
+%.mexw32: src/%.cpp
+	$(MEX) -win32 -outdir . $(MEXFLAGS) $<
 
-bin/%.mexw32: src/%.c
-	$(MEX) -win32 -outdir bin $(MEXFLAGS) $<
+%.mexw32: src/%.c
+	$(MEX) -win32 -outdir . $(MEXFLAGS) $<
 
-bin/%.mexw64: src/%.cpp
-	$(MEX) -win64 -outdir bin $(MEXFLAGS) $<
+%.mexw64: src/%.cpp
+	$(MEX) -win64 -outdir . $(MEXFLAGS) $<
 
-bin/%.mexw64: src/%.c
-	$(MEX) -win64 -outdir bin $(MEXFLAGS) $<
+%.mexw64: src/%.c
+	$(MEX) -win64 -outdir . $(MEXFLAGS) $<
 
-bin/%.mex: src/%.cpp
+%.mex: src/%.cpp
 	$(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<
 
-bin/%.mex: src/%.c
+%.mex: src/%.c
 	 $(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<
 
 .PHONY: clean
 clean:
-	$(RM) $(addprefix bin/simex_helper,$(ALL_MEXEXT)) $(addprefix bin/simEngine_wrapper,$(ALL_MEXEXT))
+	$(RM) $(addprefix simex_helper,$(ALL_MEXEXT)) $(addprefix simEngine_wrapper,$(ALL_MEXEXT))

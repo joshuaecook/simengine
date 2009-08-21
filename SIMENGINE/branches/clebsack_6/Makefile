@@ -156,7 +156,7 @@ SVNWEBSRV = http://www.hosted-projects.com/trac/simatra/simEngine
 SVNTRUNK = $(SVNSRV)/trunk
 SRC = src/
 BUILD = build
-RM = rm -f
+RM = rm -rf
 ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -const 'Exn.keepHistory true' -verbose 1
 SIMPLE_ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -verbose 1
 CC = gcc
@@ -209,7 +209,7 @@ endif
 
 # Every possible MEX extension
 ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
-MATLAB_TARGETS = $(addprefix matlab/bin/%,$(ALL_MEXEXT))
+MATLAB_TARGETS = $(addprefix matlab/%,$(ALL_MEXEXT))
 
 # Determines the appropriate MEX extension for the current platform.
 # TODO: extensions for other platforms
@@ -282,7 +282,7 @@ endif
 # Creates lists of MATLAB/Octave targets for each available MEX type
 SIMENGINE_WRAPPER = $(addprefix simEngine_wrapper,$(MEXEXT))
 SIMEX_HELPER = $(addprefix simex_helper,$(MEXEXT))
-SIMEX_HELPER_BUILD = $(addprefix $(BUILD_DIR)/bin/,$(SIMEX_HELPER))
+SIMEX_HELPER_BUILD = $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER))
 
 
 # Branching Related Parameters
@@ -522,10 +522,16 @@ debug-files: $(DEBUG_FILES)
 $(BUILD_DIR)/bin/%: matlab/bin/%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/bin/simplot.m: matlab/simplot.m
+$(BUILD_DIR)/src/simEngine_wrapper.c: matlab/src/simEngine_wrapper.c
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/bin/simex.m: matlab/simex.m
+$(BUILD_DIR)/src/simex_helper.c: matlab/src/simex_helper.c
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/simplot.m: matlab/simplot.m
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/simex.m: matlab/simex.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 #$(BUILD_DIR)/lib/solvers.c: matlab/solvers.c
@@ -540,7 +546,7 @@ $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 $(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-MEXINTERFACE_PREREQS = $(addprefix matlab/bin/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
+MEXINTERFACE_PREREQS = $(addprefix matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 .PHONY: mexinterface
 mexinterface: $(MEXINTERFACE_PREREQS)
 
@@ -551,8 +557,8 @@ install.m: matlab/install.m
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/bin/simex.m $(BUILD_DIR)/bin/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install.m
-MATLAB_FILES += $(addprefix $(BUILD_DIR)/bin/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
+MATLAB_FILES = $(BUILD_DIR)/simex.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install.m
+MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/%.a: solvers/src/*.c
 	$(MAKE) -C solvers all
@@ -561,6 +567,12 @@ solvers/lib/%.a: solvers/src/*.c
 solvers:
 	$(MAKE) -C solvers all
 
+
+$(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/simEngine_wrapper.%: matlab/simEngine_wrapper.%
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 $(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
 	@echo "Generating Matlab target $@"
@@ -582,7 +594,11 @@ $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 $(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/bin/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m
+$(LOCAL_INSTALL)/simex.m: matlab/simex.m
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
 #install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
@@ -1300,6 +1316,7 @@ install: system
 .PHONY: clean
 clean: mostlyclean solvers_clean mexinterface_clean
 	$(RM) *~
+	$(RM) $(LOCAL_INSTALL)
 	$(RM) examples/*~
 	$(RM) src/*~
 	$(RM) src/dyn_fe/*~

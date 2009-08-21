@@ -15,7 +15,7 @@
 # Copyright 2009 Simatra Modeling Technologies, L.L.C.
 # For more information, please visit http://www.simatratechnologies.com
 
-include common.make
+include $(SIMENGINEDIR)/include/common.make
 
 # The name of the model must be specified when invoking make.
 ifeq ($(MODEL),)
@@ -39,13 +39,13 @@ PROFILE ?=
 # Only meaningful when TARGET=GPU.
 EMULATE ?=
 
-INCLUDES := -Iinclude
+INCLUDES := -I$(SIMENGINEDIR)/include
 COMMON = -W -Wall -fPIC
 CPPFLAGS := -DNUM_MODELS=$(NUM_MODELS) -DTARGET_$(TARGET) -DSIMENGINE_STORAGE_$(SIMENGINE_STORAGE)
 CFLAGS = $(COMMON) $(INCLUDES)
 CXXFLAGS = $(COMMON) $(INCLUDES)
 
-LDFLAGS = -Llib 
+LDFLAGS = -L$(SIMENGINEDIR)/lib 
 VPATH += lib
 LDLIBS = -lsolvers -ldl -lm
 
@@ -86,24 +86,35 @@ endif
 .PREFIXES:
 
 .PHONY: all clean remake grind real-clean
-all: libsimengine.so
+
+ifeq ($(OSLOWER),darwin)
+LIBSIMENGINE = libsimengine.dylib
+else
+LIBSIMENGINE = libsimengine.so
+endif
+
+all: $(LIBSIMENGINE)
 
 clean:
-	$(RM) $(DSL_MODEL)_parallel.o libsimengine.so grind_simEngine
+	$(RM) $(DSL_MODEL)_parallel.o $(LIBSIMENGINE) grind_simEngine
 
 real-clean: clean
 	$(RM) $(DSL_MODEL)*.c $(DSL_MODEL)*.m $(DSL_MODEL)*.cu
 
 remake: clean all
 
-grind: clean libsimengine.so grind_simEngine
+grind: clean $(LIBSIMENGINE) grind_simEngine
 	$(GRIND) ./grind_simEngine
 
-grind_simEngine: share/simEngine/grind_simEngine.cpp
+grind_simEngine: $(SIMENGINEDIR)/share/simEngine/grind_simEngine.cpp
 	$(COMPILE.cpp) -o $@.o $<
 	$(LINK.cpp) $(LDFLAGS) -o $@ $@.o $(LDLIBS)
 
+libsimengine.dylib: $(DSL_MODEL)_parallel.o
+	$(LINK.c) $(LDFLAGS) -dynamiclib -Wl,-install_name,$@ -o $@ $< $(LDLIBS)
+
 libsimengine.so: $(DSL_MODEL)_parallel.o
+	@echo "Creating $@"
 	$(LINK.c) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)
 
 ifeq (GPU,$(TARGET))
@@ -116,5 +127,5 @@ $(DSL_MODEL)_parallel.o: $(DSL_MODEL)_parallel.cu
 	$(COMPILE.cpp) -o $@ $<
 endif
 
-$(DSL_MODEL)_parallel.c: $(MODEL) bin/simEngine
+$(DSL_MODEL)_parallel.c: $(MODEL) $(SIMENGINEDIR)/bin/simEngine
 	$(OCTAVE) -q --eval "path('bin',path);simex('$<');"

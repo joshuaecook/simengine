@@ -314,9 +314,9 @@ fun class2flow_code (class, top_class) =
 					  $("// " ^ (CWriterUtil.exp2c_str exp)),
 					  $(inps), $(outs_decl),
 					  if top_class then
-					      $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", ob, first_iteration, modelid);")
+					      $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
 					  else
-					      $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", ob, first_iteration, modelid);")
+					      $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
 					 ] @
 					 map ($ o inst_output)
 					     (Util.addCount (ListPair.zip (symbols, !(#outputs class)))))

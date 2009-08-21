@@ -36,7 +36,11 @@ endif
 CUDA_LDLIBS = -lcudart
 endif
 
+ifeq ($(OSLOWER), darwin)
+CUDA_SDK_PATH ?= /Developer/CUDA
+else
 CUDA_SDK_PATH ?= /opt64/NVIDIA_CUDA_SDK
+endif
 CUDA_INCLUDES += -I$(CUDA_SDK_PATH)/common/inc 
 CUDA_LDFLAGS += -L$(CUDA_SDK_PATH)/lib -L$(CUDA_SDK_PATH)/common/lib/$(OSLOWER)
 #VPATH := $(CUDA_SDK_PATH)/lib $(CUDA_SDK_PATH)/common/lib/$(OSLOWER) $(VPATH)
@@ -47,7 +51,7 @@ endif
 CUDA_LDLIBS += -lcutil
 
 # Inspects for presence of MATLAB; may be overridden on command line
-MATLAB ?= $(shell which matlab 2>/dev/null)
+MATLAB = $(shell which matlab 2>/dev/null)
 ifneq ($(MATLAB),)
 MATLAB_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(MATLAB))))
 MATLAB := $(MATLAB_INSTALL_PATH)/bin/matlab
@@ -55,7 +59,7 @@ MEX := $(MATLAB_INSTALL_PATH)/bin/mex
 endif
 
 # Inspects for presence of GNU octave; may be overridden on command line
-OCTAVE ?= $(shell which octave 2>/dev/null)
+OCTAVE = $(shell which octave 2>/dev/null)
 ifneq ($(OCTAVE),)
 OCTAVE_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(OCTAVE))))
 OCTAVE := $(OCTAVE_INSTALL_PATH)/bin/octave

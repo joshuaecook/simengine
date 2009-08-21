@@ -83,24 +83,13 @@ untar(tgz_file, installdir);
 
 % build the simEngine_wrapper (ANSI-C so no options required)
 disp('Building architecture specific mex wrappers ...')
+include_dir = fullfile(installdir, 'include');
 src_file = fullfile(installdir, 'src', 'simEngine_wrapper.c');
 mex_file = fullfile(installdir, 'simEngine_wrapper');
-switch computer
- case 'GLNX86'
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
-      '-output', mex_file, src_file);
- case 'GLNXA64'
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
-      '-output', mex_file, src_file);
- case 'MACI'
-  mex('-output', mex_file, src_file);
- case 'MACI64'
-  mex('-output', mex_file, src_file);
- case 'i686-pc-linux-gnu'
-  mex('--output', [mex_file '.mex'], src_file);
- otherwise
-  error('Simatra:PlatformError', 'Unsupported platform');
-end
+compile_mex(src_file, mex_file, include_dir);
+src_file = fullfile(installdir, 'src', 'simex_helper.c');
+mex_file = fullfile(installdir, 'simex_helper');
+compile_mex(src_file, mex_file, include_dir);
 
 % now add to the path
 if ask_yn('Add functions to the default search path')
@@ -128,6 +117,30 @@ disp(['Find example models in ' target_dir '/examples'])
 disp(' ')
 
 end
+
+% compile mex files from source to destination
+function compile_mex(src_file, mex_file, include_dir)
+
+switch computer
+ case 'GLNX86'
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+      '-output', mex_file, ['-I' include_dir], src_file);
+ case 'GLNXA64'
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+      '-output', mex_file, ['-I' include_dir], src_file);
+ case 'MACI'
+  mex('-output', mex_file, ['-I' include_dir], src_file);
+ case 'MACI64'
+  mex('-output', mex_file, ['-I' include_dir], src_file);
+ case 'i686-pc-linux-gnu'
+  mex('--output', [mex_file '.mex'], ['-I' include_dir], src_file);
+ otherwise
+  error('Simatra:PlatformError', 'Unsupported platform');
+end
+
+
+end
+
 
 % check if in octave
 function y = in_octave
