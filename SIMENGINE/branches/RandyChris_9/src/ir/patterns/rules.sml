@@ -21,6 +21,26 @@ val factorNegAddition : Rewrite.rewrite =
      test=NONE,
      replace=Rewrite.RULE (ExpBuild.neg (ExpBuild.plus [ExpBuild.var "a", ExpBuild.var "b"]))}
 
+val aggregateSums1 : Rewrite.rewrite =
+    {find=ExpBuild.plus [Match.any "a", ExpBuild.plus [Match.any "b", Match.any "c"]],
+     test=NONE,
+     replace=Rewrite.RULE (ExpBuild.plus [ExpBuild.var "a", ExpBuild.var "b", ExpBuild.var "c"])}
+
+val aggregateSums2 : Rewrite.rewrite =
+    {find=ExpBuild.plus [ExpBuild.plus [Match.any "a", Match.any "b"], Match.any "c"],
+     test=NONE,
+     replace=Rewrite.RULE (ExpBuild.plus [ExpBuild.var "a", ExpBuild.var "b", ExpBuild.var "c"])}
+
+val aggregateProds1 : Rewrite.rewrite =
+    {find=ExpBuild.times [Match.any "a", ExpBuild.times [Match.any "b", Match.any "c"]],
+     test=NONE,
+     replace=Rewrite.RULE (ExpBuild.times [ExpBuild.var "a", ExpBuild.var "b", ExpBuild.var "c"])}
+
+val aggregateProds2 : Rewrite.rewrite =
+    {find=ExpBuild.times [ExpBuild.times [Match.any "a", Match.any "b"], Match.any "c"],
+     test=NONE,
+     replace=Rewrite.RULE (ExpBuild.times [ExpBuild.var "a", ExpBuild.var "b", ExpBuild.var "c"])}
+
 val aggregateSums : Rewrite.rewrite =
     {find=ExpBuild.plus [Match.any "a", ExpBuild.plus [Match.some "b"], Match.any "c"],
      test=NONE,

@@ -1,4 +1,4 @@
-function append_bin_to_file(binfile, mfile, new_file)
+function append_bin_to_file(binfile, mfile, new_file, functionname)
 
 datastr = encode_hex(binfile);
 
@@ -12,7 +12,7 @@ restored_file = ['restored_' filename ext];
 
 fprintf(fid, '\n');
 fprintf(fid, '%% appending bin to file\n');
-fprintf(fid, 'function filename = saveBinaryFile()\n');
+fprintf(fid, 'function filename = %s()\n', functionname);
 fprintf(fid, 'filename = ''%s'';\n', restored_file);
 strdata = ['strdata = ''', datastr, ''';\n'];
 fprintf(fid, strdata);

@@ -27,6 +27,27 @@ if not(ret)
   return
 end
 
+key_file = savePublicKey();
+licensefile = ask_file('Enter the license file location');
+if not(licensefile)
+  disp('You must enter a valid license file')
+  return
+end
+
+serial = ask_serial('Enter your serial number');
+
+if not(serial)
+  disp ('You must enter a valid serial number')
+  return
+end
+
+key = load(key_file, 'publickey');
+
+if not(verify(licensefile, str2num(serial), key.publickey))
+  disp('License and serial do not match.  Please contact Simatra.')
+  return
+end
+
 % check for installation path
 disp(['By default, the simEngine platform is installed as a toolbox ' ...
       'within Matlab.'])
@@ -76,7 +97,7 @@ end
 
 % pull out encapsulated tgz file
 disp('Installing simEngine files ...');
-tgz_file = saveBinaryFile();
+tgz_file = saveInstaller();
 installdir = sprintf('%s/%s', dir, topinstalldir);
 untar(tgz_file, installdir);
 
@@ -208,6 +229,22 @@ end
 
 end
 
+function answer = ask_serial(str)
+
+input_str = sprintf('%s? ', str);
+
+while(1),
+  answer = input(input_str,'s');
+  if strcmp(answer,'')
+    disp('Please enter a valid serial number');
+  else
+    break;
+  end
+end
+
+end
+
+
 % determine the absolute path if there is a relative path
 function full = abspath(p)
 
@@ -273,6 +310,23 @@ while(1),
      break;
    end
    disp('Please respond <yes> or <no>');
+end
+
+end
+
+function [isValid] = verify(licensefilename, serial, publickey)
+try
+  sig = java.security.Signature.getInstance('SHA1withRSA'); 
+  sig.initVerify(publickey);
+  
+  license = load(licensefilename, 'license');
+
+  
+  sig.update(serial);
+  
+  isValid = sig.verify(license.license);
+catch
+  isValid = 0;
 end
 
 end

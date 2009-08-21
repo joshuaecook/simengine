@@ -230,6 +230,10 @@ namespace Simulation
   overload function sum(arg: ModelOperation) = ModelOperation.new ("reduction_add", 1, sum, 0, [arg])
   overload function sum(arg: SimQuantity) =    ModelOperation.new ("reduction_add", 1, sum, 0, [arg])
 
+  function plus(args: Vector) = ModelOperation.new ("add", args.length(), plus, 0, args)
+
+  function times(args: Vector) = ModelOperation.new ("mul", args.length(), times, 0, args)
+
   overload function prod(arg: ModelOperation) = ModelOperation.new ("reduction_mul", 1, prod, 0, [arg])
   overload function prod(arg: SimQuantity) =    ModelOperation.new ("reduction_mul", 1, prod, 0, [arg])
 

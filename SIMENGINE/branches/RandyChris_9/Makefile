@@ -90,7 +90,7 @@ MAKE = make --no-print-directory
 BROWSER = firefox
 COREGEN = $(SETUP_ENV); coregen
 MATLABCMD = matlab -nodisplay -nojvm -r 
-MATLABCMD = octave --eval 
+OCTAVECMD = octave --eval 
 FIND_MATLAB = $(shell which matlab 2> /dev/null)
 ifeq ($(UNAME), Darwin)
 ifeq ($(FIND_MATLAB),/usr/bin/matlab)
@@ -495,14 +495,20 @@ $(BUILD_DIR)/lib/solvers_%.a: solvers/lib/solvers_%.a
 $(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-matlab/install.m: simEngine.tgz
-	@(cd matlab; $(MATLABCMD) "append_bin_to_file('../simEngine.tgz', 'install_wrapper.m', 'install.m'); exit")
+matlab/install.m: simEngine.tgz datafiles/simatrapublickey.mat
+	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../simEngine.tgz', 'install_temp.m', 'install.m', 'saveInstaller'); exit") 
 
-install.m: matlab/install.m	
+matlab/install.p: matlab/install.m
+	@(cd matlab; $(MATLABCMD) "pcode install.m; exit")
+
+
+install.p: matlab/install.p
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a simEngine.tgz install-locally install.m
+pcode: install.p
+
+MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a simEngine.tgz install-locally matlab/install.m
 
 solvers/lib/%.a: solvers/src/*.c
 	(cd solvers; make all)
@@ -1260,6 +1266,7 @@ clean:
 	$(RMDIR) ../$(RPM_TEMP_DIR)
 	$(RM) ../$(RPM_TAR_GZ)
 	$(RM) install.m
+	$(RM) install.p
 	$(RM) matlab/simEngine_wrapper.$(MEXEXT)
 	(cd solvers; $(MAKE) clean)
 

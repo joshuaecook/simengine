@@ -1,6 +1,9 @@
 structure Match =
 struct
 
+fun print (s) = ()
+
+
 val i2s = Util.i2s
 val r2s = Util.r2s
 val b2s = Util.b2s

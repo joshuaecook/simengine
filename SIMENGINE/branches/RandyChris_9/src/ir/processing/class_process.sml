@@ -459,7 +459,10 @@ fun optimizeClass (class: DOF.class) =
 	val _ = print "Round 2!\n"
 	(* next, aggregate all additions *)
 	val exps'' = map (fn(exp)=> Match.repeatApplyRewritesExp [Rules.distributeNeg,
-								  Rules.aggregateSums,
+								  Rules.aggregateSums1,
+								  Rules.aggregateSums2,
+								  Rules.aggregateProds1,
+								  Rules.aggregateProds2,
 								  Rules.aggregateProds] exp) exps'
 
 	val _ = (#exps class) := exps''
