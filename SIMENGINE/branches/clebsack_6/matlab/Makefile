@@ -86,7 +86,7 @@ bin/%.mex: src/%.cpp
 	$(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<
 
 bin/%.mex: src/%.c
-	 CFLAGS="-std=gnu99 -phony" $(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<
+	 $(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<
 
 .PHONY: clean
 clean:

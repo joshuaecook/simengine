@@ -319,7 +319,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			"TIME must contain 2 elements.");
 		    }
 
-		data = (double*)mxGetData(prhs[1]);
+		data = (double*)mxGetPr(prhs[1]);
 		startTime = data[0];
 		stopTime = data[1];
 		break;
@@ -351,7 +351,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	mxArray *returnStates = mxDuplicateArray(userStates);
 
-	result = api->runmodel(startTime, stopTime, models, (double*)mxGetData(userInputs), (double*)mxGetData(returnStates), &allocator);
+	result = api->runmodel(startTime, stopTime, models, mxGetPr(userInputs), mxGetPr(returnStates), &allocator);
 	switch (result->status)
 	    {
 	    case ERRMEM:
