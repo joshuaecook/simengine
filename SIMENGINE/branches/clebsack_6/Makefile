@@ -63,6 +63,82 @@ else
 PKGS = ruby/rgplot-2.2.tar.gz ruby/rubygems-1.0.1.tgz ruby/ruby-prof-0.6.0.gem
 endif
 
+# Help Screen
+# ==============================================================================================
+
+
+help:
+	@echo " "
+	@echo "**********************************************************"
+	@echo "****        Simatra simEngine Compiler Makefile       ****"
+	@echo "**********************************************************"
+	@echo "****                                                  ****"
+	@echo "****  There are two user definable parameters:        ****"
+	@echo "****                                                  ****"
+	@echo "****    BUILD_TYPE - one of three options             ****"
+	@echo "****      BUILD_TYPE=software                         ****"
+	@echo "****      BUILD_TYPE=enhanced                         ****"
+	@echo "****      BUILD_TYPE=full                             ****"
+	@echo "****                                                  ****"
+	@echo "****    DEBUG - set to true to enable                 ****"
+	@echo "****      When DEBUG is set to true, all testing code ****"
+	@echo "****      is generated                                ****"
+	@echo "****                                                  ****"
+	@echo "**********************************************************"
+	@echo "****                                                  ****"
+	@echo "****  make help - display this message                ****"
+	@echo "****                                                  ****"
+	@echo "****  make software - Builds the software-only        ****"
+	@echo "****                  simEngine compiler              ****"
+	@echo "****                                                  ****"
+#	@echo "****  make enhanced - Builds the software+fixpt       ****"
+#	@echo "****                  Dynamo compiler                 ****"
+#	@echo "****                                                  ****"
+#	@echo "****  make full - Builds the full Dynamo Compiler     ****"
+#	@echo "****                                                  ****"
+	@echo "****  make compiler - Just build the compiler         ****"
+	@echo "****                  in accordance with BUILD_TYPE   ****"
+	@echo "****                                                  ****"
+#	@echo "****  make coregen - Builds the FIFO used in the      ****"
+#	@echo "****                 Verilog model description        ****"
+#	@echo "****                                                  ****"
+	@echo "****  make installer - Generates an install tar file  ****"
+	@echo "****                                                  ****"
+	@echo "****  make build-release - Adds the install file to   ****"
+	@echo "****                       the build directory        ****"
+	@echo "****                                                  ****"
+	@echo "****  make build-all - Adds the install file to the   ****"
+	@echo "****                   build directory for all types  ****"
+	@echo "****                                                  ****"
+	@echo "****  make profiling-tools - Builds the profiling     ****"
+	@echo "****                         tools                    ****"
+	@echo "****                                                  ****"
+	@echo "****  make system-test - perform a system test of     ****"
+	@echo "****                     all suites or just one suite ****"
+	@echo "****                                                  ****"
+	@echo "****  make install - installs the files in the        ****"
+	@echo "****                 default location                 ****"
+	@echo "****                                                  ****"
+	@echo "****  make rpm - builds RPM files                     ****"
+	@echo "****                                                  ****"
+ifeq ($(BRANCH),1)
+	@echo "****  make update-from-trunk - merges trunk changes   ****"
+	@echo "****                           into branch            ****"
+	@echo "****                                                  ****"
+	@echo "****  make show-changes - run browser and show svn    ****"
+	@echo "****                      changes from branch         ****"
+	@echo "****                                                  ****"
+endif
+	@echo "****  make clean - removes the compiled code          ****"
+	@echo "****                                                  ****"
+	@echo "****  make clean-all - removes the compiled code and  ****"
+	@echo "****                   all ml403 generated files      ****"
+	@echo "****                                                  ****"
+	@echo "**********************************************************"
+	@echo " "
+
+
+
 # Adjustable Parameters
 # ==============================================================================================
 
@@ -249,80 +325,6 @@ endif
 
 INSTALL_DIR = $(TOP_LEVEL)/build/$(PLATFORM)
 LOCAL_INSTALL = local-install
-
-# Help Screen
-# ==============================================================================================
-
-
-help:
-	@echo " "
-	@echo "**********************************************************"
-	@echo "****        Simatra simEngine Compiler Makefile       ****"
-	@echo "**********************************************************"
-	@echo "****                                                  ****"
-	@echo "****  There are two user definable parameters:        ****"
-	@echo "****                                                  ****"
-	@echo "****    BUILD_TYPE - one of three options             ****"
-	@echo "****      BUILD_TYPE=software                         ****"
-	@echo "****      BUILD_TYPE=enhanced                         ****"
-	@echo "****      BUILD_TYPE=full                             ****"
-	@echo "****                                                  ****"
-	@echo "****    DEBUG - set to true to enable                 ****"
-	@echo "****      When DEBUG is set to true, all testing code ****"
-	@echo "****      is generated                                ****"
-	@echo "****                                                  ****"
-	@echo "**********************************************************"
-	@echo "****                                                  ****"
-	@echo "****  make help - display this message                ****"
-	@echo "****                                                  ****"
-	@echo "****  make software - Builds the software-only        ****"
-	@echo "****                  simEngine compiler              ****"
-	@echo "****                                                  ****"
-#	@echo "****  make enhanced - Builds the software+fixpt       ****"
-#	@echo "****                  Dynamo compiler                 ****"
-#	@echo "****                                                  ****"
-#	@echo "****  make full - Builds the full Dynamo Compiler     ****"
-#	@echo "****                                                  ****"
-	@echo "****  make compiler - Just build the compiler         ****"
-	@echo "****                  in accordance with BUILD_TYPE   ****"
-	@echo "****                                                  ****"
-#	@echo "****  make coregen - Builds the FIFO used in the      ****"
-#	@echo "****                 Verilog model description        ****"
-#	@echo "****                                                  ****"
-	@echo "****  make installer - Generates an install tar file  ****"
-	@echo "****                                                  ****"
-	@echo "****  make build-release - Adds the install file to   ****"
-	@echo "****                       the build directory        ****"
-	@echo "****                                                  ****"
-	@echo "****  make build-all - Adds the install file to the   ****"
-	@echo "****                   build directory for all types  ****"
-	@echo "****                                                  ****"
-	@echo "****  make profiling-tools - Builds the profiling     ****"
-	@echo "****                         tools                    ****"
-	@echo "****                                                  ****"
-	@echo "****  make system-test - perform a system test of     ****"
-	@echo "****                     all suites or just one suite ****"
-	@echo "****                                                  ****"
-	@echo "****  make install - installs the files in the        ****"
-	@echo "****                 default location                 ****"
-	@echo "****                                                  ****"
-	@echo "****  make rpm - builds RPM files                     ****"
-	@echo "****                                                  ****"
-ifeq ($(BRANCH),1)
-	@echo "****  make update-from-trunk - merges trunk changes   ****"
-	@echo "****                           into branch            ****"
-	@echo "****                                                  ****"
-	@echo "****  make show-changes - run browser and show svn    ****"
-	@echo "****                      changes from branch         ****"
-	@echo "****                                                  ****"
-endif
-	@echo "****  make clean - removes the compiled code          ****"
-	@echo "****                                                  ****"
-	@echo "****  make clean-all - removes the compiled code and  ****"
-	@echo "****                   all ml403 generated files      ****"
-	@echo "****                                                  ****"
-	@echo "**********************************************************"
-	@echo " "
 
 
 # Standard Build Options
@@ -559,7 +561,9 @@ solvers/lib/%.a: solvers/src/*.c
 solvers:
 	$(MAKE) -C solvers all
 
+
 $(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
+	@echo "Generating Matlab target $@"
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
 
 matlab-installer: $(MATLAB_FILES)
@@ -579,6 +583,7 @@ $(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/bin/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m
+#install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
 # Build type options
@@ -689,7 +694,7 @@ build_includes: include/* solvers
 	@echo "Populating standard includes ..."
 	@$(CP) include/* $(BUILD_DIR)/include/
 	@$(MKDIR) $(BUILD_DIR)/include/solvers/
-	@$(CP) -L solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
+	@cp -fL solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
 
 build_shared: share/*
 	@echo "Populating shared files..."

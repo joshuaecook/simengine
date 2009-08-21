@@ -1,4 +1,4 @@
-include ../share/common.make
+include ../include/common.make
 
 ifeq ("$(MEX)$(MKOCTFILE)","")
 $(error "Couldn't find MEX or MKOCTFILE.")
@@ -43,29 +43,50 @@ simex_helper: $(addprefix bin/,$(SIMEX_HELPER_OBJ))
 
 simEngine_wrapper: $(addprefix bin/,$(SIMENGINE_WRAPPER_OBJ))
 
-bin/simex_helper.%: ../include/simengine.h ../include/simengine_target.h
+#bin/simex_helper.%: ../include/simengine.h ../include/simengine_target.h
+
+bin/%.mexglx: src/%.cpp
+	$(MEX) -glnx86 -outdir bin $(MEXFLAGS) $<
 
 bin/%.mexglx: src/%.c
 	$(MEX) -glnx86 -outdir bin $(MEXFLAGS) $<
+
+bin/%.mexa64: src/%.cpp
+	$(MEX) -glnxa64 -outdir bin $(MEXFLAGS) $<
 
 bin/%.mexa64: src/%.c
 	$(MEX) -glnxa64 -outdir bin $(MEXFLAGS) $<
 
 # TODO maci64?
+bin/%.mexmaci: src/%.cpp
+	$(MEX) -maci -outdir bin $(MEXFLAGS) $<
+
 bin/%.mexmaci: src/%.c
 	$(MEX) -maci -outdir bin $(MEXFLAGS) $<
+
+bin/%.mexs64: src/%.cpp
+	$(MEX) -sol64 -outdir bin $(MEXFLAGS) $<
 
 bin/%.mexs64: src/%.c
 	$(MEX) -sol64 -outdir bin $(MEXFLAGS) $<
 
+bin/%.mexw32: src/%.cpp
+	$(MEX) -win32 -outdir bin $(MEXFLAGS) $<
+
 bin/%.mexw32: src/%.c
 	$(MEX) -win32 -outdir bin $(MEXFLAGS) $<
+
+bin/%.mexw64: src/%.cpp
+	$(MEX) -win64 -outdir bin $(MEXFLAGS) $<
 
 bin/%.mexw64: src/%.c
 	$(MEX) -win64 -outdir bin $(MEXFLAGS) $<
 
-bin/%.mex: src/%.c
+bin/%.mex: src/%.cpp
 	$(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<
+
+bin/%.mex: src/%.c
+	 CFLAGS="-std=gnu99 -phony" $(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<
 
 .PHONY: clean
 clean:

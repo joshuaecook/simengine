@@ -1,14 +1,14 @@
-#include <stdio.h>
-#include <string.h>
-#include <strings.h>
-#include <dlfcn.h>
-
 #define SIMENGINE_MATLAB_CLIENT
 // Need to define a storage class even though this code will not be
 // manipulating device storage.
 #define SIMENGINE_STORAGE_double
 #define TARGET_CPU
 #include "simengine.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <strings.h>
+#include <dlfcn.h>
 
 
 
@@ -35,13 +35,13 @@ simengine_api *init_simengine(void *simengine)
     char *msg;
     api = NMALLOC(1, simengine_api);
 
-    api->getinterface = dlsym(simengine, "simengine_getinterface");
+    api->getinterface = (simengine_interface*(*)())dlsym(simengine, "simengine_getinterface");
     if (0 != (msg = dlerror()))
 	{ 
 	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
 	    "dlsym() failed to load getinterface: %s", msg); 
 	}
-    api->runmodel = dlsym(simengine, "simengine_runmodel");
+    api->runmodel = (simengine_result* (*)(double, double, unsigned int, double*, double*, simengine_alloc*))dlsym(simengine, "simengine_runmodel");
     if (0 != (msg = dlerror()))
 	{ 
 	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
@@ -319,7 +319,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 			"TIME must contain 2 elements.");
 		    }
 
-		data = mxGetData(prhs[1]);
+		data = (double*)mxGetData(prhs[1]);
 		startTime = data[0];
 		stopTime = data[1];
 		break;
@@ -351,7 +351,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	mxArray *returnStates = mxDuplicateArray(userStates);
 
-	result = api->runmodel(startTime, stopTime, models, mxGetData(userInputs), mxGetData(returnStates), &allocator);
+	result = api->runmodel(startTime, stopTime, models, (double*)mxGetData(userInputs), (double*)mxGetData(returnStates), &allocator);
 	switch (result->status)
 	    {
 	    case ERRMEM:
