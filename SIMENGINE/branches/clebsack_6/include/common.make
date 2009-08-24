@@ -40,6 +40,8 @@ endif
 CUDA_LDLIBS = -lcudart
 endif
 
+OPENMP_LDLIBS = -lgomp
+
 ifeq ($(OSLOWER), darwin)
 CUDA_SDK_PATH ?= /Developer/CUDA
 else

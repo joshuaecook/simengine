@@ -69,6 +69,11 @@ ifneq ($(EMULATE),)
 endif
 endif
 
+ifeq ($(TARGET),OPENMP)
+LDLIBS += $(OPENMP_LDLIBS)
+CFLAGS += -fopenmp
+endif
+
 ifneq ($(DEBUG),)
 	COMMON += -g
 	CFLAGS += -gdwarf-2

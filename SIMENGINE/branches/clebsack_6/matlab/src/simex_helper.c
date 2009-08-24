@@ -9,7 +9,7 @@
 #include <string.h>
 #include <strings.h>
 #include <dlfcn.h>
-
+#include <omp.h>
 
 
 /* Loads the given named dynamic library file.
@@ -351,7 +351,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	mxArray *returnStates = mxDuplicateArray(userStates);
 
+	omp_set_num_threads(omp_get_num_procs());
+
 	result = api->runmodel(startTime, stopTime, models, mxGetPr(userInputs), mxGetPr(returnStates), &allocator);
+
 	switch (result->status)
 	    {
 	    case ERRMEM:

@@ -30,6 +30,7 @@ fun std_compile exec args =
 
 	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
+(* Old writers are now deprecated - Carl
 	      val _ = if DynamoOptions.isFlagSet "generateC" then
 			  (Logger.log_notice (Printer.$("Generating Debug C Back-end"));
 			  CWriter.buildC (CurrentModel.getCurrentModel()))
@@ -41,7 +42,7 @@ fun std_compile exec args =
 	      val _ = DynException.checkToProceed()
 	      val _ = ODEMexWriter.buildODEMex (CurrentModel.getCurrentModel())
 	      val _ = DynException.checkToProceed()
-
+*)
 	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel()))
 	      (* code writers for parallel implementation follow ...*)
 	      val _ = if DynamoOptions.isFlagSet "generateC" then
@@ -49,9 +50,6 @@ fun std_compile exec args =
 			  CParallelWriter.buildC (CurrentModel.getCurrentModel()))
 		      else
 			  CParallelWriter.SUCCESS
-	      val _ = DynException.checkToProceed()
-
-	      val _ = MexParallelWriter.buildMex (CurrentModel.getCurrentModel())
 	      val _ = DynException.checkToProceed()
 
 	      val code = System.SUCCESS (*ModelCompileLauncher.compile (name, forest)*)

@@ -7,13 +7,13 @@ endif
 DEBUG=1
 
 INCLUDES += -Iinclude -I../include
-LDLIBS = -ldl
+LDLIBS = -ldl -lgomp
 
 CWARNINGS = -W -Wall
 
 COMMON = $(INCLUDES) -fPIC
 CFLAGS = $(CWARNINGS) $(COMMON) -std=gnu99
-MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99" $(INCLUDES) $(LDLIBS)
+MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99 -fopenmp" $(INCLUDES) $(LDLIBS)
 MKOCTFILEFLAGS = $(CWARNINGS) $(INCLUDES) $(LDLIBS)
 
 ifneq ($(DEBUG),)
