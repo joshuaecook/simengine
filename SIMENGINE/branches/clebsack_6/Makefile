@@ -534,6 +534,12 @@ $(BUILD_DIR)/simplot.m: matlab/simplot.m
 $(BUILD_DIR)/simSensitivity.m: matlab/simSensitivity.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
+$(BUILD_DIR)/simview.m: matlab/simview.m
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/simview.fig: matlab/simview.fig
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
 $(BUILD_DIR)/simex.m: matlab/simex.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
@@ -560,7 +566,7 @@ install.m: matlab/install.m
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/simex.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/simSensitivity.m $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install.m
+MATLAB_FILES = $(BUILD_DIR)/simex.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/simSensitivity.m $(BUILD_DIR)/simview.m $(BUILD_DIR)/simview.fig $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install.m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/%.a: solvers/src/*.c
