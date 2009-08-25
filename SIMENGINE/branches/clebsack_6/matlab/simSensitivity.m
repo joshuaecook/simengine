@@ -1,4 +1,73 @@
-%% simSensitivity - run a sensitivity analysis around a given dsl file
+% SIMSENSITIVITY   Runs a sensitivity analysis around a given dsl file.
+%
+%   Usage:
+%       s = SIMSENSITIVITY(MODEL, TIME [, OPTIONS ...])
+%
+%   Description:
+%    SIMSENSITIVITY computes a sensitivity analysis around a given DSL
+%    file.  This functionality allows the user to see how a given set of
+%    inputs affects outputs.  There are two modes of inputs and two modes
+%    of outputs.
+%
+%    Input modes:
+%      SIMSENSITIVITY(MODEL, TIME, 'input_mode', 'inputs', ...) will vary
+%      the inputs by a perturbation in two directions.  By default, each 
+%      input will be varied by 1% above its value, 1% above its value, and 
+%      run using its canonical parameter value.
+%
+%      SIMSENSITIVITY(MODEL, TIME, 'input_mode', 'states', ...) will vary 
+%      the states by a perturbation in two directions.  By default, each 
+%      state will be varied by 1% above its value,s 1% above its value, and
+%      run using its canonical parameter value.
+%
+%    Output modes:
+%      SIMSENSITIVITY(MODEL, TIME, 'output_mode', 'final_state', ...) will 
+%      compare the inputs specified in the input mode to the final state 
+%      values after completing a simulation.  The simulation is assumed to 
+%      be at steady state at the completion of the simulation, however no
+%      explicit check is performed.
+%
+%      SIMSENSITIVITY(MODEL, TIME, 'output_mode', 'metrics', 'metric_funs', 
+%      {@fun1, @fun2, ...}, ...) evaluates each of the metric_funs over the 
+%      output structure of the model evaluation.  It is expected that each 
+%      metric function handle takes in an output structure and returns a 
+%      scalar numeric quantity.
+%
+%    Additional arguments:
+%      SIMSENSITIVITY(MODEL, TIME, TARGET, ...) where TARGET can be either 
+%      'openmp' or 'gpu'. 
+%      
+%      SIMSENSITIVITY(MODEL, TIME, '-precision', PRECISION, ...) where 
+%      PRECISION can be either 'single' or 'double'.
+%
+%      SIMSENSITIVITY(MODEL, TIME, '-emulation', EMULATION, ...) where 
+%      EMULATION can be either true or false to designate running the GPU 
+%      in an emulation mode.
+%
+%      SIMSENSITIVITY(MODEL, TIME, '-inputs', INPUTS, ...) where INPUTS 
+%      consists of the initial input structure.  Only inputs that are 
+%      changed from their canonical values need to be specified here.
+%
+%      SIMSENSITIVITY(MODEL, TIME, '-states', STATES, ...) where STATES 
+%      consists of the initial state vector.  All state initial values must
+%      be specified here.  If STATES is not specified, the initial values
+%      are taken from the DSL model.
+% 
+%      SIMSENSITIVITY(MODEL, TIME, '-perturbation', VALUE, ...) where VALUE
+%      is a percentage specifying the perturbation amount for each
+%      input/state.  The default is 1, or 1%.
+%
+%    Output:
+%      s = SIMSENSITIVITY(...) returns a matrix where the rows corresponds
+%      to the inputs (x) and the columns (y) correspond to the outputs.
+%      The value is an approximation of ∂x/∂y taken at three points, the
+%      canonical value, the values with a 1% perturbation up and a the
+%      values with a 1% perturbation down.  The output matrix can be fed
+%      into surf(s) or contour(s) for visualization.
+%
+% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% For more information, please visit http://www.simatratechnologies.com
+%
 function s = simSensitivity(dslfile, varargin)
 
 % Parse all the arguments, returning a parse structure
@@ -29,7 +98,8 @@ p.addParamValue('states', [], @isnumeric)
 p.addParamValue('perturbation', 1, @isnumeric)
 p.addParamValue('input_mode', 'states', @(x)any(strcmpi(x,{'states','inputs'})))
 p.addParamValue('output_mode', 'final_state', @(x)any(strcmpi(x,{'final_state','metrics'})))
-p.addParamValue('metrics', {}, @iscell)
+p.addParamValue('metric_funs', {}, @iscell)
+p.addParamValue('emulation', false, @(x)(x==true || x==false))
 
 p.parse(dslfile, args{:});
 
@@ -91,8 +161,12 @@ elseif strcmpi(args.input_mode,'states')
 end
 
 % execute simex to perform the parallel computation
-[o, final_states] = simex(args.dslfile, args.time, ['-' args.target], ['-' args.precision], inputs, states);
-
+if args.emulation 
+    [o, final_states] = simex(args.dslfile, args.time, ['-' args.target], ['-' args.precision],'-emulate', inputs, states);
+else
+    [o, final_states] = simex(args.dslfile, args.time, ['-' args.target], ['-' args.precision], inputs, states);
+end
+    
 % generate the output sensitivities
 if strcmpi(args.output_mode, 'final_state')
     s = computeFinalStateSensitivities(args, final_states);
