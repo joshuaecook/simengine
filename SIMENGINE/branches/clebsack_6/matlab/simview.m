@@ -312,8 +312,6 @@ if isfield(handles, 'o')
     for i=1:steps
         d = handles.o(i).(output);
         s(i, :) = spline(d(:,1), d(:,2), x1);
-        plot(x1, s(i,:));
-        pause(0.05);
     end
     maxy = max(max(s));
     miny = min(min(s));
@@ -328,7 +326,6 @@ if isfield(handles, 'o')
         pause(0.05);
     end
 
-    %surf(s, 'EdgeAlpha', 0);
 end
 
 

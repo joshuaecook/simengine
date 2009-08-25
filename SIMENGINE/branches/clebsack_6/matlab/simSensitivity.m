@@ -91,7 +91,7 @@ function p = parseArgs(dslfile, args)
 p = inputParser; % Create an instance of the inputParser
 p.addRequired('dslfile', @ischar);
 p.addRequired('time', @isnumeric);
-p.addOptional('target', 'openmp', @(x)any(strcmpi(x,{'openmp','gpu'})))
+p.addOptional('target', 'openmp', @(x)any(strcmpi(x,{'cpu','openmp','gpu'})))
 p.addParamValue('precision', 'single', @(x)any(strcmpi(x,{'single','float','double'})))
 p.addParamValue('inputs', struct(), @isstruct)
 p.addParamValue('states', [], @isnumeric)
