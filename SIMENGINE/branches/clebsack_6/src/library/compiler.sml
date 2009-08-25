@@ -45,18 +45,18 @@ fun std_compile exec args =
 *)
 	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel()))
 	      (* code writers for parallel implementation follow ...*)
-	      val _ = if DynamoOptions.isFlagSet "generateC" then
-			  (Logger.log_notice (Printer.$("Generating Debug C Back-end"));
-			  CParallelWriter.buildC (CurrentModel.getCurrentModel()))
-		      else
-			  CParallelWriter.SUCCESS
+	      val code = (*if DynamoOptions.isFlagSet "generateC" then
+			  (Logger.log_notice (Printer.$("Generating Debug C Back-end"));*)
+			  CParallelWriter.buildC (CurrentModel.getCurrentModel())
+(*		      else
+			  CParallelWriter.SUCCESS*)
 	      val _ = DynException.checkToProceed()
 
-	      val code = System.SUCCESS (*ModelCompileLauncher.compile (name, forest)*)
+	      (*val code = System.SUCCESS*) (*ModelCompileLauncher.compile (name, forest)*)
 	  in 
 	      case code of
-		  System.SUCCESS => KEC.LITERAL(KEC.CONSTSTR "\nCompilation Finished Successfully\n")
-		| System.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
+		  CParallelWriter.SUCCESS => KEC.LITERAL(KEC.CONSTSTR "\nCompilation Finished Successfully\n")
+		| CParallelWriter.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
 	  end 
 	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n")))
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
