@@ -8,10 +8,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-#if defined TARGET_GPU
-#include <cutil_inline.h>
-#endif
-
 // Defines a solver entry point
 #define SOLVER(solver, entry, target, type, args...)  \
   JOIN4(solver, entry, target, type)(args)

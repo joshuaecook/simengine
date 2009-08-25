@@ -64,13 +64,16 @@ typedef unsigned long counter;
 // Target backends reference memory in different layouts
 // TARGET_CPU allows for only a single model to be executed and uses a single structure to hold data
 #if defined TARGET_CPU
-#if NUM_MODELS > 1
-#error Only one model is supported for CPU target
-#endif
+//#if NUM_MODELS > 1
+//#error Only one model is supported for CPU target
+//#endif
 #define TARGET CPU
-#define TARGET_IDX SER_IDX
-#define STRUCT_IDX 0
-#define STRUCT_SIZE 1
+//#define TARGET_IDX SER_IDX
+//#define STRUCT_IDX 0
+//#define STRUCT_SIZE 1
+#define TARGET_IDX AS_IDX
+#define STRUCT_IDX modelid
+#define STRUCT_SIZE NUM_MODELS
 #define ARRAY_IDX 0
 #define ARRAY_SIZE 1
 #define __DEVICE__
@@ -79,6 +82,7 @@ typedef unsigned long counter;
 
 // TARGET_OPENMP allows multiple models to be executed on the CPU and uses an array of structures to hold data (prevents false sharing in cache between threads)
 #elif defined TARGET_OPENMP
+#include <omp.h>
 #define TARGET OPENMP
 #define TARGET_IDX AS_IDX
 #define STRUCT_IDX modelid
@@ -91,6 +95,7 @@ typedef unsigned long counter;
 
 // TARGET_GPU allows multiple models to be executed on the GPU and uses a structure of arrays to hold data (allows for coallescing of reads/and writes across threads)
 #elif defined TARGET_GPU
+#include <cutil_inline.h>
 #if defined (__DEVICE_EMULATION__)
 #define TARGET EMUGPU
 #else
