@@ -22,7 +22,7 @@ function varargout = simview(varargin)
 
 % Edit the above text to modify the response to help simview
 
-% Last Modified by GUIDE v2.5 25-Aug-2009 15:52:36
+% Last Modified by GUIDE v2.5 25-Aug-2009 18:18:52
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -228,6 +228,24 @@ function RunButton_Callback(hObject, eventdata, handles)
 
 setStatus(handles, 'Running ...');
 
+targetnum = get(handles.TargetMenu, 'Value');
+switch targetnum
+    case 1
+        target = '-cpu';
+    case 2
+        target = '-openmp';
+    case 3
+        target = '-gpu';
+end
+
+precisionnum = get(handles.DoubleButton, 'Value');
+switch precisionnum
+    case 1
+        precision = '-double';
+    case 0
+        precision = '-single';
+end
+
 starttime = str2double(get(handles.StartTimeEdit, 'String'));
 stoptime = str2double(get(handles.StopTimeEdit, 'String'));
 steps = str2double(get(handles.StepsEdit, 'String'));
@@ -240,7 +258,7 @@ for i=1:length(inputs)
    new_inputs.(inputs{i}) = linspace(low, high, steps);
 end
 t = tic;
-o = simex(get(handles.FileEdit, 'String'), [starttime stoptime], new_inputs);
+o = simex(get(handles.FileEdit, 'String'), [starttime stoptime], target, precision, new_inputs);
 stoptime = toc(t);
 setStatus(handles, sprintf('Finished simulation in %g seconds', stoptime));
 handles.o = o;
@@ -334,3 +352,43 @@ function setStatus(handles, str)
 
 set(handles.StatusBar, 'String', ['Status: ' str]);
 
+
+% --- Executes on selection change in TargetMenu.
+function TargetMenu_Callback(hObject, eventdata, handles)
+% hObject    handle to TargetMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = get(hObject,'String') returns TargetMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from TargetMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function TargetMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to TargetMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in PrecisionButton.
+function PrecisionButton_Callback(hObject, eventdata, handles)
+% hObject    handle to PrecisionButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of PrecisionButton
+
+
+% --- Executes on button press in DoubleButton.
+function DoubleButton_Callback(hObject, eventdata, handles)
+% hObject    handle to DoubleButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of DoubleButton
