@@ -1,5 +1,4 @@
 #include"solvers.h"
-#include<cutil_inline.h>
 
 void GPU_ENTRY(init, SIMENGINE_STORAGE){
   // FIXME Add more checking of capabilities and devices available!
