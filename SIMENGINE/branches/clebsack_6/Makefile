@@ -358,6 +358,7 @@ compiler:
 	@$(MAKE) build-directories
 	@$(MAKE) links
 	@$(MAKE) build-system
+	@$(MAKE) matlab-files
 	@$(MAKE) install-locally
 	@$(MAKE) matlab-installer
 	@$(MAKE) instructions
@@ -432,7 +433,7 @@ COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/processing
 
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCE) src/shell/cool.lex.sml src/shell/cool.grm.sig src/shell/cool.grm.sml src/shell/cool.lex src/shell/cool.grm src/util/registry/registry.lex.sml src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml src/util/registry/registry.lex src/util/registry/registry.grm
 
-COMPILER_PREREQS := check-build-type build-directories links build-system matlab-installer instructions
+COMPILER_PREREQS := check-build-type build-directories links build-system matlab-files matlab-installer instructions
 
 # Dynamo Compilation Targets
 # ==============================================================================================
@@ -575,8 +576,8 @@ install.m: matlab/install.m
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweep simsweepdemo))
-MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simSensitivity simsweep simsweepdemo))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install.m
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simSensitivity simsweep simsweepdemo demo_models))
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers/src/*.c
@@ -602,7 +603,9 @@ $(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
 	@echo "Generating Matlab target $@"
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
 
-matlab-installer: $(MATLAB_FILES)
+matlab-files: $(MATLAB_FILES)
+
+matlab-installer: install.m
 
 simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
 	@echo "Creating $@ for packaging"
