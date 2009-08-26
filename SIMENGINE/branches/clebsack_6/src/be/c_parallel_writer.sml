@@ -21,7 +21,6 @@ fun header (class_name, includes, defpairs) =
      $("// " ^ Globals.copyright),
      $(""),
      $("#if defined TARGET_GPU"),
-     $("#include <cutil_inline.h>"),
      $("#define BLOCK_SIZE 192"),
      $("#endif"),
      $(""),

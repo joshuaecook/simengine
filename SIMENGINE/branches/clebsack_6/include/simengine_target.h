@@ -95,7 +95,6 @@ typedef unsigned long counter;
 
 // TARGET_GPU allows multiple models to be executed on the GPU and uses a structure of arrays to hold data (allows for coallescing of reads/and writes across threads)
 #elif defined TARGET_GPU
-#include <cutil_inline.h>
 #if defined (__DEVICE_EMULATION__)
 #define TARGET EMUGPU
 #else
@@ -132,5 +131,27 @@ typedef unsigned long counter;
 // Serial indexing
 #define SER_IDX(STRUCT_S, ARRAY_S, STRUCT_X, ARRAY_X) ((STRUCT_X))
 //****************************************************************************//
+
+
+#ifdef TARGET_GPU
+// Wrapper to debug failing GPU API calls
+//****************************************************************************//
+//  These routines were copied and modified from the nVidia Cuda SDK cutil_inline_runtime.h
+//  This was modified to have a return value instead of calling exit() which will close Matlab when running simEngine as a plugin to Matlab.
+
+#include<stdio.h>
+
+#define cutilSafeCall(err) __cudaSafeCall(err, __FILE__, __LINE__)
+
+inline int __cudaSafeCall( cudaError err, const char *file, const int line )
+{
+    if( cudaSuccess != err) {
+        fprintf(stderr, "cudaSafeCall() Runtime API error in file <%s>, line %i : %s.\n",
+                file, line, cudaGetErrorString( err) );
+        return 1;
+    }
+    return 0;
+}
+#endif
 
 #endif // SIMENGINE_TARGET_H

@@ -32,29 +32,13 @@ NVCC := $(CUDA_INSTALL_PATH)/bin/nvcc
 CUDA_RELEASE_VERSION = $(shell $(NVCC) --version | grep release | sed 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/')
 CUDA_INCLUDES = -I$(CUDA_INSTALL_PATH)/include
 CUDA_LDFLAGS = -L$(CUDA_INSTALL_PATH)/lib 
-#VPATH += $(CUDA_INSTALL_PATH)/lib
 ifneq ($(ARCH64),)
 CUDA_LDFLAGS := -L$(CUDA_INSTALL_PATH)/lib64 $(CUDA_LDFLAGS)
-#VPATH := $(CUDA_INSTALL_PATH)/lib64 $(VPATH)
 endif
 CUDA_LDLIBS = -lcudart
 endif
 
 OPENMP_LDLIBS = -lgomp
-
-ifeq ($(OSLOWER), darwin)
-CUDA_SDK_PATH ?= /Developer/CUDA
-else
-CUDA_SDK_PATH ?= /opt64/NVIDIA_CUDA_SDK
-endif
-CUDA_INCLUDES += -I$(CUDA_SDK_PATH)/common/inc 
-CUDA_LDFLAGS += -L$(CUDA_SDK_PATH)/lib -L$(CUDA_SDK_PATH)/common/lib/$(OSLOWER)
-#VPATH := $(CUDA_SDK_PATH)/lib $(CUDA_SDK_PATH)/common/lib/$(OSLOWER) $(VPATH)
-ifneq ($(ARCH64),)
-CUDA_LDFLAGS := -L$(CUDA_SDK_PATH)/lib64 -L$(CUDA_SDK_PATH)/common/lib64/$(OSLOWER) $(CUDA_LDFLAGS)
-#VPATH := $(CUDA_SDK_PATH)/lib64 $(CUDA_SDK_PATH)/common/lib64/$(OSLOWER) $(VPATH)
-endif
-CUDA_LDLIBS += -lcutil
 
 # Inspects for presence of MATLAB; may be overridden on command line
 MATLAB = $(shell which matlab 2>/dev/null)
