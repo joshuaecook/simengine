@@ -1,8 +1,9 @@
-model (u,w) = fn
-  constant b0 = 2
-  constant b1 = 1.5
-  constant e = 0.1
-  constant I = 2
+model (u,w) = fn(b0, b1, e, I)
+
+  input b0 with {default=2}
+  input b1 with {default=1.5}
+  input e with {default=0.1}
+  input I with {default=2}
   
   state u = 0
   state w = 0
@@ -13,5 +14,7 @@ model (u,w) = fn
   end
 
   solver = ode45
+//  solver.abstol = 1e-8
+  solver.reltol = 1e-5
   solver.dt = 0.1
 end
