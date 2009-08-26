@@ -344,6 +344,8 @@ elseif issparse(states)
   error('Simatra:typeError', 'Did not expect Y0 to be sparse.');
 %elseif iscomplex(states)
 %  warning('Simatra:warning', 'Ignoring imaginary components of Y0.');
+elseif any(isnan(states))
+  error('Simatra:valueError', 'Y0 may not contain NaN values.');
 end
 
 [statesRows statesCols] = size(states);
