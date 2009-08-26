@@ -64,6 +64,8 @@ typedef struct{
   unsigned int status;
   char *status_message;
   simengine_output *outputs;
+  double *final_states;
+  double *final_time;
 } simengine_result;
 
 typedef struct{
