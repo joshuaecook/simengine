@@ -124,16 +124,16 @@ function compile_mex(src_file, mex_file, include_dir)
 switch computer
  case 'GLNX86'
   mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
-      '-output', mex_file, ['-I' include_dir], src_file);
+      '-ldl', '-lgomp', '-output', mex_file, ['-I' include_dir], src_file);
  case 'GLNXA64'
   mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
-      '-output', mex_file, ['-I' include_dir], src_file);
+      '-ldl', '-lgomp', '-output', mex_file, ['-I' include_dir], src_file);
  case 'MACI'
-  mex('-output', mex_file, ['-I' include_dir], src_file);
+  mex('-ldl', '-lgomp', '-output', mex_file, ['-I' include_dir], src_file);
  case 'MACI64'
-  mex('-output', mex_file, ['-I' include_dir], src_file);
+  mex('-ldl', '-lgomp', '-output', mex_file, ['-I' include_dir], src_file);
  case 'i686-pc-linux-gnu'
-  mex('--output', [mex_file '.mex'], ['-I' include_dir], src_file);
+  mex('-ldl', '-lgomp', '--output', [mex_file '.mex'], ['-I' include_dir], src_file);
  otherwise
   error('Simatra:PlatformError', 'Unsupported platform');
 end
