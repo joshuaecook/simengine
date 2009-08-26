@@ -326,7 +326,7 @@ if isfield(handles, 'o')
     x1 = linspace(starttime, stoptime, num_points);
     for i=1:steps
         d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
+        s(i, :) = resample(d(:,1), d(:,2), x1);
     end
     surf(s, 'EdgeAlpha', 0);
 end
@@ -350,7 +350,7 @@ if isfield(handles, 'o')
     x1 = linspace(starttime, stoptime, num_points);
     for i=1:steps
         d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
+        s(i, :) = resample(d(:,1), d(:,2), x1);
     end
     maxy = max(max(s));
     miny = min(min(s));
@@ -358,8 +358,6 @@ if isfield(handles, 'o')
     plotmin = miny - (range * 0.1);
     plotmax = maxy + (range * 0.1);
     for i=1:steps
-        d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
         plot(x1, s(i,:));
         axis([starttime stoptime plotmin plotmax]);
         pause(0.05);
@@ -518,3 +516,19 @@ set(handles.InputTable, 'Data', data);
 setStatus(handles, ['Loaded model <' m.name '>']);
 
 guidata(hObject, handles);
+
+
+% --- Resample
+function y1 = resample(x, y, x1)
+
+y1 = zeros(1,length(x1));
+try
+    y1 = spline(x, y, x1);
+catch me
+    me
+    disp('Spline creation failed');
+    find(x(diff(x)==0))
+    x'
+    y'
+end
+    
