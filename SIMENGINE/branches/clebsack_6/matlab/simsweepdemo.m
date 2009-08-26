@@ -505,7 +505,6 @@ function [x, y, M] = getDataMatrix(handles)
 
 num_points = 1000;
 if isfield(handles, 'o')
-    figure;
     steps = length(handles.o);
     x = 1:steps;
     M = zeros(steps, num_points);
