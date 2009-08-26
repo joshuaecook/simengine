@@ -276,6 +276,9 @@ fieldnames = interface.input_names;
 for fieldid=1:length(fieldnames)
   fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
+    if isnan(interface.default_inputs.(fieldname))
+      error('Simatra:valueError', 'INPUTS.%s has no default value and must be specified.', fieldname);
+    end
     continue
   end
 
@@ -287,6 +290,8 @@ for fieldid=1:length(fieldnames)
     error('Simatra:typeError', 'Did not expect INPUTS.%s to be sparse.', fieldname);
 %  elseif iscomplex(field)
 %    warning('Simatra:warning', 'Ignoring imaginary components of INPUTS.%s.', fieldname);
+  elseif any(isnan(field))
+    error('Simatra:valueError', 'INPUTS.%s may not contain NaN values.', fieldname);
   end
   
   if ~isscalar(field)
