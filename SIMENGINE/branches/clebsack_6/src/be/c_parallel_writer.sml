@@ -803,7 +803,7 @@ fun main_code class =
 	     $(""),
 	     $("// Allocate return structures"),
 	     $("seresult->outputs = (simengine_output*)se_alloc.malloc(semeta.num_models * seint.num_outputs * sizeof(simengine_output));"),
-	     $("seresult->final_time = (simengine_output*)se_alloc.malloc(semeta.num_models * sizeof(double));"),
+	     $("seresult->final_time = (double*)se_alloc.malloc(semeta.num_models * sizeof(double));"),
 	     $("if(!seresult->outputs || !seresult->final_time){"),
 	     SUB[$("seresult->status = ERRMEM;"),
 		 $("seresult->status_message = simengine_errors[ERRMEM];"),
