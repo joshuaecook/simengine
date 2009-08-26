@@ -74,9 +74,15 @@ typedef struct{
   void (*free)(void *);
 } simengine_alloc;
 
+// The types of the simengine API functions
+typedef const simengine_interface *(*simengine_getinterface_f)(void);
+typedef simengine_result *(*simengine_runmodel_f)(double, double, unsigned int, double *, double *, simengine_alloc *);
+//typedef void (*simengine_register_vertex_buffer)(float4 *);
+
 typedef struct {
-  simengine_interface *(*getinterface)(void);
-  simengine_result *(*runmodel)(double, double, unsigned int, double *, double *, simengine_alloc *);
+  simengine_getinterface_f getinterface;
+  simengine_runmodel_f runmodel;
+  //  simengine_register_vertex_buffer register_vertex_buffer;
   void *driver;
 } simengine_api;
 
@@ -86,7 +92,7 @@ typedef struct {
  * outputs:
  *          simengine_interface * - pointer to a static structure within a model that defines its interface
  */
-EXTERN_C const simengine_interface *simengine_getinterface();
+/* EXTERN_C const simengine_interface *simengine_getinterface(); */
 
 
 
@@ -105,6 +111,6 @@ EXTERN_C const simengine_interface *simengine_getinterface();
  *          simengine_output * - returns an array of output structures with the data produced by the models
  *                               outputs from a single model are contiguous
  */
-EXTERN_C simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc);
+/* EXTERN_C simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc); */
 
 #endif // SIMENGINE_H

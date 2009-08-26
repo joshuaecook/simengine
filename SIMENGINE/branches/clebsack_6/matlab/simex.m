@@ -2,7 +2,7 @@
 %
 %   Usage:
 %       M = SIMEX(MODEL)
-%       [OUT Y1] = SIMEX(MODEL, TIME, INPUTS, Y0, ...)
+%       [OUT Y1 T1] = SIMEX(MODEL, TIME, INPUTS, Y0, ...)
 %
 %   Description:
 %    SIMEX compiles the model defined in the DSL file into a
@@ -87,8 +87,8 @@ else
   userInputs = vet_user_inputs(interface, opts.inputs);
   userStates = vet_user_states(interface, opts.states);
   
-  [inputsM inputsN] = size(userInputs);
-  [statesM statesN] = size(userStates);
+  inputsM = size(userInputs,1);
+  statesM = size(userStates,1);
   models = max([1 inputsM statesM]);
 
   if 1 < inputsM && 1 < statesM && inputsM ~= statesM
@@ -99,7 +99,7 @@ else
   % User data are transposed before passing in to the simulation.
   if 0 == inputsM
     userInputs = zeros(interface.num_inputs, models);
-    for i=[1:interface.num_inputs]
+    for i=1:interface.num_inputs
       userInputs(i,:) = interface.default_inputs.(interface.input_names{i}) * ones(1, models);
     end
   elseif 1 == inputsM && models ~= inputsM
@@ -117,7 +117,7 @@ else
   end
   
   tic;
-  [output y1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
+  [output y1 t1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
                         userInputs, userStates);
   elapsed = toc;
   disp([dslName ' simulation completed in ' num2str(elapsed) ' seconds.']);
@@ -125,14 +125,14 @@ else
 
   % Output data are transposed before returning.
   fnames = fieldnames(output);
-  for i=[1:length(output)]
-    for f=[1:length(fnames)]
+  for i=1:length(output)
+    for f=1:length(fnames)
       output(i).(fnames{f}) = ...
           transpose(output(i).(fnames{f}));
     end
   end
            
-  varargout = {output transpose(y1)};
+  varargout = {output transpose(y1) t1};
 end
 end
 
@@ -238,22 +238,20 @@ end
 function [startTime endTime] = get_time(userTime)
 % GET_TIME returns a 2-element array containing the time limit for
 % a simulation run.
-data = double(userTime);
-
 [rows cols] = size(userTime);
 
 switch (rows * cols)
  case 1
   startTime = 0;
-  endTime = userTime;
+  endTime = double(userTime);
   if userTime < 0
     error('Simatra:SIMEX:argumentError', ...
           'TIME must be greater than zero.');
   end
  case 2
-  startTime = userTime(1);
-  endTime = userTime(2);
-  if userTime(2) < userTime(1)
+  startTime = double(userTime(1));
+  endTime = double(userTime(2));
+  if endTime < startTime
     error('Simatra:SIMEX:argumentError', ...
           'TIME(2) must be greater than TIME(1).');
   end
@@ -275,7 +273,7 @@ end
 models = 0;
 
 fieldnames = interface.input_names;
-for fieldid=[1:length(fieldnames)]
+for fieldid=1:length(fieldnames)
   fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
     continue
@@ -312,7 +310,7 @@ for fieldid=[1:length(fieldnames)]
 end
 
 userInputs = zeros(models, interface.num_inputs);
-for fieldid=[1:length(fieldnames)]
+for fieldid=1:length(fieldnames)
   fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
     userInputs(1:models, fieldid) = interface.default_inputs.(fieldname) * ones(models, 1);
@@ -374,17 +372,14 @@ if 0 ~= status
         'Compilation returned status code %d.', status);
 end
 
-tic;
-make = ['make remake -I' fullfile(opts.simengine, 'include ') ...
-        ['-f' fullfile(opts.simengine, 'share/simEngine/Makefile')] ...
+make = ['make remake' ...
+        ' -f' fullfile(opts.simengine, 'share/simEngine/Makefile') ...
         ' SIMENGINEDIR=' opts.simengine ...
         ' MODEL=' modelFile ...
         ' TARGET=' opts.target ...
         ' SIMENGINE_STORAGE=' opts.precision ...
         ' NUM_MODELS=' num2str(opts.models) ...
         ' &> simex_make.log'];
-elapsed = toc;
-disp([opts.target ' compiler completed in ' num2str(elapsed) ' seconds.']);
 
 if opts.debug
   make = [make ' DEBUG=1'];
@@ -395,12 +390,16 @@ end
 if opts.profile
   make = [make ' PROFILE=1'];
 end
+
+tic;
 status = system(make);
+elapsed = toc;
 
 if 0 ~= status
   error('Simatra:SIMEX:compileError', ...
         'Make returned status code %d.', status);
 end
+disp([opts.target ' compiler completed in ' num2str(elapsed) ' seconds.']);
 
 % TODO what is the path of the resultant DLL?
 switch computer

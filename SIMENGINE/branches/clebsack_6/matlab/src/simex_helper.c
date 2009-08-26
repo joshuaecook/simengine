@@ -3,7 +3,7 @@
 // manipulating device storage.
 #define SIMENGINE_STORAGE_double
 #define TARGET_CPU
-#include "simengine.h"
+#include <simengine.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -35,13 +35,13 @@ simengine_api *init_simengine(void *simengine)
     char *msg;
     api = NMALLOC(1, simengine_api);
 
-    api->getinterface = (simengine_interface*(*)())dlsym(simengine, "simengine_getinterface");
+    api->getinterface = (simengine_getinterface_f)dlsym(simengine, "simengine_getinterface");
     if (0 != (msg = dlerror()))
 	{ 
 	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
 	    "dlsym() failed to load getinterface: %s", msg); 
 	}
-    api->runmodel = (simengine_result* (*)(double, double, unsigned int, double*, double*, simengine_alloc*))dlsym(simengine, "simengine_runmodel");
+    api->runmodel = (simengine_runmodel_f)dlsym(simengine, "simengine_runmodel");
     if (0 != (msg = dlerror()))
 	{ 
 	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
@@ -61,14 +61,14 @@ void release_simengine(simengine_api *api)
     }
 
 
-void mexSimengineResult(simengine_interface *iface, mxArray **output, unsigned int models, simengine_result *result)
+void mexSimengineResult(const simengine_interface *iface, int noutput, mxArray **output, unsigned int models, simengine_result *result)
     {
     unsigned int modelid, outputid, outputs = iface->num_outputs;
     simengine_output *outp = result->outputs;
     mxArray *outmat;
 
     // Creates the return structure.
-    *output = mxCreateStructMatrix(models, 1, outputs, iface->output_names);
+    output[0] = mxCreateStructMatrix(models, 1, outputs, iface->output_names);
     
     // Initializes the fields for each named output.
     for (modelid = 0; modelid < models; ++modelid)
@@ -76,7 +76,7 @@ void mexSimengineResult(simengine_interface *iface, mxArray **output, unsigned i
 	for (outputid = 0; outputid < outputs; ++outputid)
 	    {
 	    outmat = mxCreateDoubleMatrix(outp->num_quantities, outp->num_samples, mxREAL);
-	    FREE(mxGetPr(outmat));
+	    mxFree(mxGetPr(outmat));
 	    mxSetPr(outmat, outp->data);
 
 	    mxDestroyArray(mxGetField(*output, modelid, iface->output_names[outputid]));
@@ -85,13 +85,28 @@ void mexSimengineResult(simengine_interface *iface, mxArray **output, unsigned i
 	    ++outp;
 	    }
 	}
+
+    if (1 < noutput)
+	{ 
+	outmat = mxCreateDoubleMatrix(iface->num_states, models, mxREAL);
+	mxFree(mxGetPr(outmat));
+	mxSetPr(outmat, result->final_states);
+	output[1] = outmat;
+	}
+    if (2 < noutput)
+	{
+	outmat = mxCreateDoubleMatrix(1, models, mxREAL);
+	mxFree(mxGetPr(outmat));
+	mxSetPr(outmat, result->final_time);
+	output[2] = outmat; 
+	}
     }
 
 /* Constructs a MATLAB struct comprising the model interface.
  * Includes names and default values for inputs and states.
  * The struct is assigned to the 'interface' pointer.
  */
-void mexSimengineInterface(simengine_interface *iface, mxArray **interface)
+void mexSimengineInterface(const simengine_interface *iface, mxArray **interface)
     {
     const char *field_names[] = {"version", "name",
 				 "num_inputs", "num_states", "num_outputs",
@@ -269,7 +284,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	    }
 	
 	simengine_api *api = init_simengine(load_simengine(name));
-	simengine_interface *iface = api->getinterface();
+	const simengine_interface *iface = api->getinterface();
 
 	mexSimengineInterface(iface, plhs);
 
@@ -338,7 +353,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	if (1 > models)
 	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "No models can be run."); }
 
-	if (2 < nlhs)
+	if (3 < nlhs)
 	    {
 	    usage();
 	    ERROR(Simatra:SIMEX:HELPER:argumentError,
@@ -346,7 +361,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	    }
 
 	simengine_api *api = init_simengine(load_simengine(name));
-	simengine_interface *iface = api->getinterface();
+	const simengine_interface *iface = api->getinterface();
 	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
 
 	mxArray *returnStates = mxDuplicateArray(userStates);
@@ -374,9 +389,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		break;
 	    }
 
-	mexSimengineResult(iface, plhs, models, result);
-	if (1 < nlhs)
-	    { plhs[1] = returnStates; }
+	mexSimengineResult(iface, nlhs, plhs, models, result);
 
 	release_simengine(api);
 	}
