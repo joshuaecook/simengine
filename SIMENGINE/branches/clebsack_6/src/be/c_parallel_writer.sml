@@ -260,7 +260,10 @@ fun class2flow_code (class, top_class) =
 *)
 	     $("// mapping inputs to variables")] @ 
 	    (map
-		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, NUM_MODELS, " ^ (i2s i) ^ ", modelid)];"))
+		 (if top_class then
+		     (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, NUM_MODELS, " ^ (i2s i) ^ ", modelid)];"))
+		 else
+		     (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")))
 		 (Util.addCount (!(#inputs class))))
 
 
@@ -301,7 +304,9 @@ fun class2flow_code (class, top_class) =
 				    val inpvar = Unique.unique "inputdata"
 				    val outvar = Unique.unique "outputdata"
 
-				    val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str inpargs)) ^ "};"
+(*				    val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str inpargs)) ^ "};"*)
+				    val inps = "CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];"
+				    val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";"))(Util.addCount inpargs)
 				    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
 
 				    val symbols = map Term.sym2curname outargs
@@ -313,7 +318,7 @@ fun class2flow_code (class, top_class) =
 				in
 				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 					  $("// " ^ (CWriterUtil.exp2c_str exp)),
-					  $(inps), $(outs_decl),
+					  $(inps)] @ inps_init @ [$(outs_decl),
 					  if top_class then
 					      $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
 					  else
