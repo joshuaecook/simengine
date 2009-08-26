@@ -339,7 +339,7 @@ if isfield(handles, 'o')
   range = maxy-miny;
   plotmin = miny - (range * 0.1);
   plotmax = maxy + (range * 0.1);
-  for i=1:steps
+  for i=1:length(x)
     plot(y, M(i,:));
     axis([starttime stoptime plotmin plotmax]);
     pause(0.05);
