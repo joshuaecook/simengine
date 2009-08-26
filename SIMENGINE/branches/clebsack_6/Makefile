@@ -358,8 +358,8 @@ compiler:
 	@$(MAKE) build-directories
 	@$(MAKE) links
 	@$(MAKE) build-system
-	@$(MAKE) matlab-installer
 	@$(MAKE) install-locally
+	@$(MAKE) matlab-installer
 	@$(MAKE) instructions
 
 
@@ -574,16 +574,21 @@ install.m: matlab/install.m
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweep))
-MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simSensitivity simsweep))
+MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweep simsweepdemo))
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simSensitivity simsweep simsweepdemo))
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install.m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
+solvers/lib/libcvode_%.a: solvers/src/*.c
+	$(MAKE) -C solvers/thirdparty/cvode TYPE=$* libcvode_$*.a
+
 solvers/lib/%.a: solvers/src/*.c
+	@echo "Running solvers all on $@"
 	$(MAKE) -C solvers all
 
 .PHONY: solvers
 solvers:
+	@echo "Running target solvers"
 	$(MAKE) -C solvers all
 
 
@@ -616,6 +621,26 @@ $(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
 $(LOCAL_INSTALL)/simex.m: matlab/simex.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
+$(LOCAL_INSTALL)/%.mexmaci: matlab/%.mexmaci
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mex: matlab/%.mex
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexglx: matlab/%.mexglx
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexa64: matlab/%.mexa64
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexs64: matlab/%.mexs64
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexw32: matlab/%.mexw32
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexw64: matlab/%.mexw64
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
 install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
 #install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/compile_tests.m
