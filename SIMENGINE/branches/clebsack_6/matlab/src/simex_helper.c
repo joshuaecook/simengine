@@ -364,11 +364,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	const simengine_interface *iface = api->getinterface();
 	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
 
-	mxArray *returnStates = mxDuplicateArray(userStates);
-
 	omp_set_num_threads(omp_get_num_procs());
 
-	result = api->runmodel(startTime, stopTime, models, mxGetPr(userInputs), mxGetPr(returnStates), &allocator);
+	result = api->runmodel(startTime, stopTime, models, mxGetPr(userInputs), mxGetPr(userStates), &allocator);
 
 	switch (result->status)
 	    {
