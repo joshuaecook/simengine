@@ -140,8 +140,7 @@ typedef unsigned long counter;
 //  This was modified to have a return value instead of calling exit() which will close Matlab when running simEngine as a plugin to Matlab.
 
 #include<stdio.h>
-//#include<cuda.h>
-//#include<cuda_runtime_api.h>
+#include<cuda_runtime_api.h>
 
 #define cutilSafeCall(err) __cudaSafeCall(err, __FILE__, __LINE__)
 

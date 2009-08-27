@@ -497,6 +497,7 @@ fun exec_code (class:DOF.class, props, statespace) =
 		 $(""),
 		 $("// Check if buffer is full - may not be needed"),
 		 $("atomicOr(&Stop, ((output_buffer*)(mem->props->ob))->full[modelid]);"),
+		 $("if(((output_buffer*)(mem->props->ob))->full[modelid]) { break; }"),
 		 $("// Break if any buffer is full"),
 		 $("if(Stop) { break; }")],
 	     $("}"),
