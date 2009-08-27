@@ -60,6 +60,9 @@
 %        Enables the compiler to produce extra debugging
 %        information.
 %
+%      '-dontrecompile'
+%        Tells the compiler to not recompile the model
+%
 %      '-profile'
 %        Enables the compiler to produce extra profiling
 %        information.
@@ -151,7 +154,7 @@ dslName = '';
 modelFile = '';
 opts = struct('models',1, 'target','', 'precision','double', ...
               'debug',false, 'profile',false, 'emulate',false, ...
-              'startTime',0, 'endTime',0, ...
+              'recompile',true,'startTime',0, 'endTime',0, ...
               'inputs',struct(), 'states',[], ...
               'simengine','');
 
@@ -197,6 +200,8 @@ if 1 < nargin
       opts.emulate = true;
     elseif strcmpi(arg, '-profile')
       opts.profile = true;
+    elseif strcmpi(arg, '-dontrecompile')
+      opts.recompile = false;
     end
   end
   
@@ -366,19 +371,20 @@ function [dllPath] = invoke_compiler(dslPath, dslName, modelFile, opts)
 simengine = fullfile(opts.simengine, 'bin', 'simEngine');
 setenv('SIMENGINE', opts.simengine);
 
-disp(['simEngine: ' simengine ', modelFile: ' modelFile ', dslName: ' ...
-       dslName])
+%disp(['simEngine: ' simengine ', modelFile: ' modelFile ', dslName: ' ...
+%       dslName])
 
-tic;
-status = simEngine_wrapper(simengine, modelFile, dslName);
-elapsed = toc;
-disp(['simEngine compiler completed in ' num2str(elapsed) ' seconds.']);
+if opts.recompile
+  tic;
+    status = simEngine_wrapper(simengine, modelFile, dslName);
+  elapsed = toc;
+  disp(['simEngine compiler completed in ' num2str(elapsed) ' seconds.']);
 
-if 0 ~= status
-  error('Simatra:SIMEX:compileError', ...
-        'Compilation returned status code %d.', status);
-end
-
+  if 0 ~= status
+      error('Simatra:SIMEX:compileError', ...
+            'Compilation returned status code %d.', status);
+  end
+  
 make = ['make remake' ...
         ' -f' fullfile(opts.simengine, 'share/simEngine/Makefile') ...
         ' SIMENGINEDIR=' opts.simengine ...
@@ -407,6 +413,7 @@ if 0 ~= status
         'Make returned status code %d.', status);
 end
 disp([opts.target ' compiler completed in ' num2str(elapsed) ' seconds.']);
+end % end if recompile
 
 % TODO what is the path of the resultant DLL?
 switch computer
