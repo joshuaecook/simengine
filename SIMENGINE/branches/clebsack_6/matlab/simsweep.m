@@ -224,7 +224,7 @@ switch targetnum
     case 1
         target = '-cpu';
     case 2
-        target = '-openmp';
+        target = '-parallel-cpu';
     case 3
         target = '-gpu';
 end

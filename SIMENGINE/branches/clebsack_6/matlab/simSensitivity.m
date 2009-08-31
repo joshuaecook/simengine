@@ -27,33 +27,33 @@
 %      be at steady state at the completion of the simulation, however no
 %      explicit check is performed.
 %
-%      SIMSENSITIVITY(MODEL, TIME, 'output_mode', 'metrics', 'metric_funs', 
+%      SIMSENSITIVITY(MODEL, TIME, 'output_mode', 'metrics', 'metric_funs',
 %      {@fun1, @fun2, ...}, ...) evaluates each of the metric_funs over the 
 %      output structure of the model evaluation.  It is expected that each 
 %      metric function handle takes in an output structure and returns a 
 %      scalar numeric quantity.
 %
 %    Additional arguments:
-%      SIMSENSITIVITY(MODEL, TIME, TARGET, ...) where TARGET can be either 
-%      'openmp' or 'gpu'. 
+%      SIMSENSITIVITY(MODEL, TIME, 'target', TARGET, ...) where
+%      TARGET can be either 'cpu', 'parallel-cpu' or 'gpu'. 
 %      
-%      SIMSENSITIVITY(MODEL, TIME, '-precision', PRECISION, ...) where 
+%      SIMSENSITIVITY(MODEL, TIME, 'precision', PRECISION, ...) where 
 %      PRECISION can be either 'single' or 'double'.
 %
-%      SIMSENSITIVITY(MODEL, TIME, '-emulation', EMULATION, ...) where 
+%      SIMSENSITIVITY(MODEL, TIME, 'emulation', EMULATION, ...) where 
 %      EMULATION can be either true or false to designate running the GPU 
 %      in an emulation mode.
 %
-%      SIMSENSITIVITY(MODEL, TIME, '-inputs', INPUTS, ...) where INPUTS 
+%      SIMSENSITIVITY(MODEL, TIME, 'inputs', INPUTS, ...) where INPUTS 
 %      consists of the initial input structure.  Only inputs that are 
 %      changed from their canonical values need to be specified here.
 %
-%      SIMSENSITIVITY(MODEL, TIME, '-states', STATES, ...) where STATES 
+%      SIMSENSITIVITY(MODEL, TIME, 'states', STATES, ...) where STATES 
 %      consists of the initial state vector.  All state initial values must
 %      be specified here.  If STATES is not specified, the initial values
 %      are taken from the DSL model.
 % 
-%      SIMSENSITIVITY(MODEL, TIME, '-perturbation', VALUE, ...) where VALUE
+%      SIMSENSITIVITY(MODEL, TIME, 'perturbation', VALUE, ...) where VALUE
 %      is a percentage specifying the perturbation amount for each
 %      input/state.  The default is 1, or 1%.
 %
@@ -91,7 +91,7 @@ function p = parseArgs(dslfile, args)
 p = inputParser; % Create an instance of the inputParser
 p.addRequired('dslfile', @ischar);
 p.addRequired('time', @isnumeric);
-p.addOptional('target', 'openmp', @(x)any(strcmpi(x,{'cpu','openmp','gpu'})))
+p.addParamValue('target', 'parallel-cpu', @(x)any(strcmpi(x,{'cpu','parallel-cpu','gpu'})))
 p.addParamValue('precision', 'single', @(x)any(strcmpi(x,{'single','float','double'})))
 p.addParamValue('inputs', struct(), @isstruct)
 p.addParamValue('states', [], @isnumeric)
@@ -104,9 +104,9 @@ p.addParamValue('emulation', false, @(x)(x==true || x==false))
 p.parse(dslfile, args{:});
 
 % Display all arguments.
-disp ' '
-disp 'List of all arguments:'
-disp(p.Results)
+%disp ' '
+%disp 'List of all arguments:'
+%disp(p.Results)
 
 end
 
@@ -170,8 +170,20 @@ end
 % generate the output sensitivities
 if strcmpi(args.output_mode, 'final_state')
     s = computeFinalStateSensitivities(args, final_states);
-else
-    s = [];
+else % we are going to do an evaluation of the metrics
+  metrics = zeros(length(o), length(args.metric_funs));
+  for i=1:length(o)
+    for j=1:length(args.metric_funs)
+      try
+        metrics(i,j) = feval(args.metric_funs{j}, o(i));
+      catch
+        disp(['Error when executing ' func2str(args.metric_funs{j})])
+        metrics(i,j)=0;
+      end
+    end  
+  end
+  metrics
+  s = computeFinalStateSensitivities(args, metrics);
 end
 
 end
@@ -237,21 +249,29 @@ if statemode
        x = [args.states(i)*(1.00-perturb) args.states(i) args.states(i)*(1.00+perturb)];
        for j=1:length(args.states)
            y = [final_states(2+2*(j-1),i) final_states(count,i) final_states(1+2*(j-1),i)];
-           p = polyfit(x,y,1);
-           %disp(sprintf('(%d, %d): x=[%g,%g,%g],y=[%g,%g,%g], line=%g * x + %g]\n', i, j, x(1), x(2), x(3), y(1), y(2), y(3), p(1), p(2)));
-           s(i,j)=p(1);
+           if diff(diff(x)) == 0
+             s(i, j) = 0;
+           else
+             p = polyfit(x,y,1);
+             %disp(sprintf('(%d, %d): x=[%g,%g,%g],y=[%g,%g,%g], line=%g * x + %g]\n', i, j, x(1), x(2), x(3), y(1), y(2), y(3), p(1), p(2)));
+             s(i,j)=p(1);
+           end
        end
    end
 else
-    fields = fieldnames(args.params);
+    fields = fieldnames(args.inputs);
     for i=1:length(fields)
-        val = args.params.(fields{i});
+        val = args.inputs.(fields{i});
         x = [val*(1.00-perturb) val val*(1.00+perturb)];
-       for j=1:length(args.states)
-           y = [final_states(2+2*(j-1),i) final_states(count,i) final_states(1+2*(j-1),i)];
-           p = polyfit(x,y,1);
-           %disp(sprintf('(%d, %d): x=[%g,%g,%g],y=[%g,%g,%g], line=%g * x + %g]\n', i, j, x(1), x(2), x(3), y(1), y(2), y(3), p(1), p(2)));
-           s(i,j)=p(1);
+       for j=1:size(final_states,2)
+           y = [final_states(2+2*(i-1),j) final_states(count,j) final_states(1+2*(i-1),j)];
+           if diff(diff(x)) == 0
+             s(i, j) = 0;
+           else
+             p = polyfit(x,y,1);
+             %disp(sprintf('(%d, %d): x=[%g,%g,%g],y=[%g,%g,%g], line=%g * x + %g]\n', i, j, x(1), x(2), x(3), y(1), y(2), y(3), p(1), p(2)));
+             s(i,j)=p(1);
+           end
        end
    end
 end

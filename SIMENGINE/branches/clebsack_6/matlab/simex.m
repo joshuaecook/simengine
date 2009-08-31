@@ -50,7 +50,7 @@
 %      '-cpu'
 %        Constructs a serialized cpu-based simulation engine.
 %
-%      '-openmp'
+%      '-parallel-cpu'
 %        Constructs a multiprocessor cpu-based simulation engine.
 %
 %      '-gpu'
@@ -222,8 +222,8 @@ if 1 < nargin
       opts.target = 'CPU';
     elseif strcmpi(arg, '-gpu')
       opts.target = 'GPU';
-    elseif strcmpi(arg, '-openmp')
-      opts.target = 'OPENMP';
+    elseif strcmpi(arg, '-parallel-pcu')
+      opts.target = 'PARALLELCPU';
     elseif strcmpi(arg, '-debug')
       opts.debug = true;
     elseif strcmpi(arg, '-emulate')
@@ -254,7 +254,7 @@ if strcmpi(opts.target, '')
   if 1 < opts.models
     switch computer
      case {'MACI','MACI64'}
-      opts.target = 'OPENMP';
+      opts.target = 'PARALLELCPU';
      otherwise
       opts.target = 'GPU';
     end
@@ -421,11 +421,16 @@ if opts.recompile
             'Compilation returned status code %d.', status);
   end
   
-make = ['make remake' ...
+  target = opts.target;
+if strcmp(opts.target, 'PARALLELCPU')
+  target = 'OPENMP';
+end
+
+  make = ['make remake' ...
         ' -f' fullfile(opts.simengine, 'share/simEngine/Makefile') ...
         ' SIMENGINEDIR=' opts.simengine ...
         ' MODEL=' modelFile ...
-        ' TARGET=' opts.target ...
+        ' TARGET=' target ...
         ' SIMENGINE_STORAGE=' opts.precision ...
         ' NUM_MODELS=' num2str(opts.models) ...
         ' &> simex_make.log'];

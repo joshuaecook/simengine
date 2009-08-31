@@ -600,7 +600,7 @@ install.p: matlab/install.p
 pcode: install.p
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweep simsweepdemo simex_gui))
-MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simSensitivity simsweep simsweepdemo demo_models simex_gui))
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simSensitivity simsweep simsweepdemo demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes))
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/install.m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
