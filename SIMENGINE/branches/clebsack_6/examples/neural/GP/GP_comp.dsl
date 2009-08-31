@@ -2,7 +2,7 @@ import "GP_chans.dsl"
 import "Ca_Concen.dsl"
 
 /***********************************************************************************************/
-model (Vm) = GP_comp (I_inject, V_cmd,  V_cmd_rdy, length, diameter, surf_area, shell_vol, RA, RM, CM,
+model (Vm, Ichnls) = GP_comp (I_inject, V_cmd,  V_cmd_rdy, length, diameter, surf_area, shell_vol, RA, RM, CM,
       		 E_LEAK,
 			 E_REST,
 			 E_Na,
@@ -18,6 +18,33 @@ model (Vm) = GP_comp (I_inject, V_cmd,  V_cmd_rdy, length, diameter, surf_area, 
 			 G_mult_HCN,
 			 Ca_Buff_B,
 			 I_axial)
+
+input I_inject with {default=0}
+input V_cmd with {default=-60}
+input V_cmd_rdy with {default=0}
+input length with {default=0}
+input diameter with {default=13.4e-6}
+input surf_area with {default=5.64104e-10}
+input shell_vol with {default=1.12484e-17}
+input RM with {default=2.8555e9}
+input RA with {default=197637}
+input CM with {default=2.24514e-11}
+input E_LEAK with {default=-0.06}
+input E_REST with {default=-0.06}
+input E_Na with {default=0.05}
+input E_K with {default=-0.09}
+input E_H with {default=-0.03}
+input G_mult with {default=1}
+input G_mult_Na with {default=21.2746}
+input G_mult_Kdr with {default=21.629}
+input G_mult_KA with {default=3.2682}
+input G_mult_KCNQ with {default=1.8021}
+input G_mult_SK with {default=30.2618}
+input G_mult_Ca with {default=1.9494}
+input G_mult_HCN with {default=1}
+input Ca_Buff_B with {default=3.439612723e10}
+input I_axial with {default=0}
+
 
 state V = -0.06 //V
 //state Vm = -0.06 //V
@@ -80,6 +107,8 @@ submodel chan_SK K_ahp_GP with {G_SK=surf_area*G_K_ahp_GP*G_mult_SK, E_K=E_K, Ca
        V' = (1/(CM))*((E_LEAK-V)/(RM) + Im)
   end
 
+  output Ichnls = (Na_Fast_GP.I, Na_Slow_GP.I, Kv2_GP.I, Kv3_GP.I, Kv4f_GP.I, Kv4s_GP.I, KCNQ_GP.I, h_HCN_GP.I, h_HCN2_GP.I, CaHVA_GP.I, K_ahp_GP.I, I_axial)
+
   Na_Fast_GP.V = Vm
   Na_Slow_GP.V = Vm
   Kv2_GP.V = Vm
@@ -91,6 +120,8 @@ submodel chan_SK K_ahp_GP with {G_SK=surf_area*G_K_ahp_GP*G_mult_SK, E_K=E_K, Ca
   h_HCN2_GP.V = Vm
   CaHVA_GP.V = Vm
   K_ahp_GP.V = Vm
+
+solver=forwardeuler{dt=1e-5}
 
 end
 /***********************************************************************************************/

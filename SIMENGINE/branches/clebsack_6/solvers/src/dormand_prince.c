@@ -1,6 +1,7 @@
 // Dormand-Prince (ode45) Integration Method
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
 #include "solvers.h"
+#include "stdio.h"
 
 dormand_prince_mem *SOLVER(dormand_prince, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
   int i;
@@ -187,6 +188,7 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
       mem->props->time[modelid] += mem->cur_timestep[modelid];
 
     next_timestep = 0.9 * mem->cur_timestep[modelid]*pow(1.0/norm, 1.0/5.0);
+    //fprintf(stderr,"ts: %g -> %g (norm=%g) appropriate_step=%d\n", mem->cur_timestep[modelid], next_timestep, norm, appropriate_step);
     //mexPrintf("ts: %g -> %g (norm=%g)\n", mem->cur_timestep[modelid], next_timestep, norm);
 			  
     if ((isnan(next_timestep)) || (next_timestep < min_timestep))

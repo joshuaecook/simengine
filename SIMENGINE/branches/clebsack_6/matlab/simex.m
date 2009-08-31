@@ -71,6 +71,10 @@
 %        Constructs a simulation engine that executes in GPU
 %        emulation. (ONLY VALID FOR GPU TARGET.)
 %
+%      '-solver=MATLABODE'
+%        Utilize a particular solver builtin to MATLAB, such as
+%        ode15s, ode23t, and ode45.
+%
 %    M = SIMEX(MODEL) compiles MODEL as above and returns a
 %    model description structure M containing information
 %    which describes the model states, parameters, and outputs.
@@ -120,8 +124,25 @@ else
   end
   
   tic;
-  [output y1 t1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
-                        userInputs, userStates);
+    if opts.solver % use a MATLAB ODE solver
+      flow_fun = @(t, y0)(simex_helper(dllPath,t, y0, ...
+                                      userInputs, '-evalflow'));
+      try
+        [t, y] = feval(opts.solver, flow_fun, [opts.startTime opts.endTime], ...
+                       userStates);
+      catch me
+        me
+      end
+      clear flow_fun
+      varargout = {t, y};
+      elapsed = toc;
+      disp([dslName ' simulation using ' opts.solver ' completed in ' num2str(elapsed) ' ' ...
+                          'seconds.']);
+      return;
+    else
+      [output y1 t1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
+                                    userInputs, userStates);
+    end
   elapsed = toc;
   disp([dslName ' simulation completed in ' num2str(elapsed) ' seconds.']);
   
@@ -156,7 +177,7 @@ opts = struct('models',1, 'target','', 'precision','double', ...
               'debug',false, 'profile',false, 'emulate',false, ...
               'recompile',true,'startTime',0, 'endTime',0, ...
               'inputs',struct(), 'states',[], ...
-              'simengine','');
+              'simengine','', 'solver', []);
 
 [seroot] = fileparts(which('simex'));
 opts.simengine = seroot;
@@ -202,6 +223,12 @@ if 1 < nargin
       opts.profile = true;
     elseif strcmpi(arg, '-dontrecompile')
       opts.recompile = false;
+    elseif length(arg) > 8 && strcmpi(arg(1:8), '-solver=')
+      opts.solver = arg(9:end);
+      if not(exist(opts.solver)) 
+        error('Simatra:SIMEX:argumentError', ...
+              '%s is not a valid matlab ode solver', opts.solver);
+      end
     end
   end
   

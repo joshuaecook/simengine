@@ -77,11 +77,13 @@ typedef struct{
 // The types of the simengine API functions
 typedef const simengine_interface *(*simengine_getinterface_f)(void);
 typedef simengine_result *(*simengine_runmodel_f)(double, double, unsigned int, double *, double *, simengine_alloc *);
+typedef int (*simengine_evalflow_f)(double, double *, double *, double *);
 //typedef void (*simengine_register_vertex_buffer)(float4 *);
 
 typedef struct {
   simengine_getinterface_f getinterface;
   simengine_runmodel_f runmodel;
+  simengine_evalflow_f evalflow;
   //  simengine_register_vertex_buffer register_vertex_buffer;
   void *driver;
 } simengine_api;

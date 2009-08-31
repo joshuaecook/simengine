@@ -8,21 +8,21 @@ function cube (x) = x * x * x
 function sqr (x) = x * x
 
 //*****************************************STG***********************************************//
-model (Vm)=stg_spiker(gNa, gCaT, gCaS, gA, gKCa, gKd, gh, gleak)
+model (Vm)=stg_burster(gNa, gCaT, gCaS, gA, gKCa, gKd, gh, gleak)
 
 //Membrane properties
 constant Amem = 0.6283e-3 //cm^2
 constant Cmem = 0.0006283 //nF 
 
 //Maximal conductances in mS/cm^2
-input gNa with {default=200}
-input gCaT with {default=10}
+input gNa with {default=100}
+input gCaT with {default=0}
 input gCaS with {default=10}
-input gA with {default=0}
-input gKCa with {default=0}
-input gKd with {default=25}
-input gh with {default=0.01}
-input gleak with {default=0.05}
+input gA with {default=40}
+input gKCa with {default=25}
+input gKd with {default=75}
+input gh with {default=0.02}
+input gleak with {default=0.03}
 constant Vclamp = -60
 constant clampOn = 0
 

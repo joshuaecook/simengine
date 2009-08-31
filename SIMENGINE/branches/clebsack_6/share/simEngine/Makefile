@@ -57,7 +57,11 @@ endif
 
 ifeq ($(TARGET),GPU)
 PTXASFLAGS = -v
+ifeq ($(OSLOWER),darwin)
+NVCCFLAGS = -arch=sm_11 --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" $(INCLUDES)
+else
 NVCCFLAGS = -arch=sm_13 --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" $(INCLUDES)
+endif
 INCLUDES += $(CUDA_INCLUDES)
 LDFLAGS += $(CUDA_LDFLAGS)
 LDLIBS += $(CUDA_LDLIBS)
@@ -84,7 +88,6 @@ else
 	CXXFLAGS += -fno-strict-aliasing
 	CFLAGS += -fno-strict-aliasing
 endif
-
 
 # ---
 
@@ -132,5 +135,5 @@ $(DSL_MODEL)_parallel.o: $(DSL_MODEL)_parallel.cu
 	$(COMPILE.cpp) -o $@ $<
 endif
 
-$(DSL_MODEL)_parallel.c: $(MODEL) $(SIMENGINEDIR)/bin/simEngine
-	$(OCTAVE) -q --eval "path('bin',path);simex('$<');"
+#$(DSL_MODEL)_parallel.c: $(MODEL) $(SIMENGINEDIR)/bin/simEngine
+#	$(OCTAVE) -q --eval "path('bin',path);simex('$<');"

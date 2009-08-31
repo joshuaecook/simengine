@@ -425,10 +425,19 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 					     else
 						 class2flow_code (c,#name c = #name topclass)) classes)
 
-	val top_level_flow_progs = [$"",
-				    $("__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid){"),
-				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")],
-				    $("}")]
+	val top_level_flow_progs = 
+	    [$"",
+	     $("__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid){"),
+	     SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")],
+	     $("}"),
+	     $(""),
+	     $("EXTERN_C"),
+	     $("int simengine_evalflow(double t, double *y, double *dydt, double *inputs) {"),
+	     SUB[$("CDATAFORMAT *outputs; // should never be written to here since first_iteration is zero"),
+		 $("int first_iteration = 0;"),
+		 $("int modelid = 0;"),
+		 $("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, (CDATAFORMAT*) inputs, outputs, first_iteration, modelid);")],
+	     $("}")]
     in
 	[$("// Flow code function declarations")] @
 	fundecl_progs @

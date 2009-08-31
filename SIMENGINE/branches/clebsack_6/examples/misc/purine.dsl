@@ -105,7 +105,7 @@ equations
     // X18: Pi
 end
 
-solver=rk4
+solver=cvode
 
 
 end

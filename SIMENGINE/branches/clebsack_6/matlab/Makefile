@@ -26,6 +26,15 @@ else
 	CFLAGS += -fno-strict-aliasing
 	MEXFLAGS += -O
 endif
+ifeq ($(OSLOWER),darwin)
+	LD = "/opt/local/bin/gcc-mp-4.4"
+	CC = "/opt/local/bin/gcc-mp-4.4"
+	CXX = "/opt/local/bin/g++-mp-4.4"
+	LOCATIONS=LD=$(LD) CC=$(CC) CXX=$(CXX)
+else
+	LOCATIONS=
+endif
+MEXFLAGS += $(LOCATIONS)
 
 # Every possible MEX extension; used for cleaning
 ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex

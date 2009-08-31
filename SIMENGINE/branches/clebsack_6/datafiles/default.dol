@@ -22,7 +22,7 @@
 <normalizeprecision = true>
 <hwtarget = "ml402">
 <logdof = false>
-<generateC = true>
+<generateC = false>
 <logluts = false>
 <logranges = false>
 <logprecision = false>
