@@ -85,6 +85,7 @@ function FileEdit_Callback(hObject, eventdata, handles)
 setStatus(handles, 'Compiling ...');
 m = simex(get(hObject, 'String'))
 handles.m = m;
+set(handles.OutputMenu, 'Value', 1);
 set(handles.OutputMenu, 'String', m.output_names);
 set(handles.InputTable, 'RowName', m.input_names);
 data = cell(length(m.input_names),3);
@@ -195,16 +196,6 @@ function OutputMenu_Callback(hObject, eventdata, handles)
 
 % Hints: contents = get(hObject,'String') returns OutputMenu contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from OutputMenu
-
-outputnames = get(hObject, 'String');
-outputname = outputnames{get(hObject, 'Value')};
-
-if isfield(handles, 'o')
-   if isfield(handles.o, outputname) 
-       figure(handles.figure1);
-       simplot(handles.o.(outputname));
-   end
-end
 
 
 % --- Executes during object creation, after setting all properties.

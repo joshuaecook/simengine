@@ -83,10 +83,18 @@
 % For more information, please visit http://www.simatratechnologies.com
 %
 function [varargout] = simex(varargin)
+
+if nargin == 0
+  simex_gui
+  return;
+end
+
+
 [dslPath dslName modelFile opts] = get_simex_opts(varargin{:});
 
 dllPath = invoke_compiler(dslPath, dslName, modelFile, opts);
 interface = simex_helper(dllPath, '-query');
+
 
 if nargin == 1
   varargout = {interface};

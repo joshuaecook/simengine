@@ -1,35 +1,35 @@
-function varargout = simsweepdemo(varargin)
-% SIMSWEEPDEMO M-file for simsweepdemo.fig
-%      SIMSWEEPDEMO, by itself, creates a new SIMSWEEPDEMO or raises the existing
+function varargout = simex_gui(varargin)
+% SIMEX_GUI M-file for simex_gui.fig
+%      SIMEX_GUI, by itself, creates a new SIMEX_GUI or raises the existing
 %      singleton*.
 %
-%      H = SIMSWEEPDEMO returns the handle to a new SIMSWEEPDEMO or the handle to
+%      H = SIMEX_GUI returns the handle to a new SIMEX_GUI or the handle to
 %      the existing singleton*.
 %
-%      SIMSWEEPDEMO('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in SIMSWEEPDEMO.M with the given input arguments.
+%      SIMEX_GUI('CALLBACK',hObject,eventData,handles,...) calls the local
+%      function named CALLBACK in SIMEX_GUI.M with the given input arguments.
 %
-%      SIMSWEEPDEMO('Property','Value',...) creates a new SIMSWEEPDEMO or raises the
+%      SIMEX_GUI('Property','Value',...) creates a new SIMEX_GUI or raises the
 %      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before simsweepdemo_OpeningFcn gets called.  An
+%      applied to the GUI before simex_gui_OpeningFcn gets called.  An
 %      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to simsweepdemo_OpeningFcn via varargin.
+%      stop.  All inputs are passed to simex_gui_OpeningFcn via varargin.
 %
 %      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
 %      instance to run (singleton)".
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
-% Edit the above text to modify the response to help simsweepdemo
+% Edit the above text to modify the response to help simex_gui
 
-% Last Modified by GUIDE v2.5 26-Aug-2009 12:14:13
+% Last Modified by GUIDE v2.5 31-Aug-2009 13:46:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @simsweepdemo_OpeningFcn, ...
-                   'gui_OutputFcn',  @simsweepdemo_OutputFcn, ...
+                   'gui_OpeningFcn', @simex_gui_OpeningFcn, ...
+                   'gui_OutputFcn',  @simex_gui_OutputFcn, ...
                    'gui_LayoutFcn',  [] , ...
                    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
@@ -44,54 +44,33 @@ end
 % End initialization code - DO NOT EDIT
 
 
-% --- Executes just before simsweepdemo is made visible.
-function simsweepdemo_OpeningFcn(hObject, eventdata, handles, varargin)
+% --- Executes just before simex_gui is made visible.
+function simex_gui_OpeningFcn(hObject, eventdata, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to simsweepdemo (see VARARGIN)
+% varargin   command line arguments to simex_gui (see VARARGIN)
 
-% Choose default command line output for simsweepdemo
+% Choose default command line output for simex_gui
 handles.output = hObject;
 
 % Update handles structure
 guidata(hObject, handles);
 
-% UIWAIT makes simsweepdemo wait for user response (see UIRESUME)
+% UIWAIT makes simex_gui wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
-
-if length(varargin) == 1 
-    handles.demo = varargin{1};
-    guidata(hObject, handles);
-    
-    demo_list = cell(1, length(handles.demo));
-
-    for i=1:length(handles.demo)
-        demo_list{i} = handles.demo(i).title;
-    end
-
-    set(handles.DemoMenu, 'String', demo_list);
-    DemoMenu_Callback(handles.DemoMenu, eventdata, handles);
-else
-    disp('Usage: simsweepdemo(DEMOs)');
-    disp('');
-    delete(handles.figure1);
-end
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = simsweepdemo_OutputFcn(hObject, eventdata, handles) 
+function varargout = simex_gui_OutputFcn(hObject, eventdata, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 % Get default command line output from handles structure
-try
-    varargout{1} = handles.output;
-catch
-end
+varargout{1} = handles.output;
 
 
 
@@ -104,20 +83,43 @@ function FileEdit_Callback(hObject, eventdata, handles)
 %        str2double(get(hObject,'String')) returns contents of FileEdit as a double
 
 setStatus(handles, 'Compiling ...');
-m = simex(get(hObject, 'String'))
+filename = get(hObject, 'String');
+if not(exist(filename, 'file'))
+  setStatus(handles, ['No such file with the name ' filename])
+  return;
+end
+  
+m = simex(filename);
 handles.m = m;
-set(handles.OutputMenu, 'Value', 1;
+set(handles.OutputMenu, 'Value', 1);
 set(handles.OutputMenu, 'String', m.output_names);
+% Update Input Table
 set(handles.InputTable, 'RowName', m.input_names);
-data = cell(length(m.input_names),3);
+data = cell(length(m.input_names),2);
 for i=1:length(m.input_names)
     input = m.input_names{i};
     val = m.default_inputs.(input);
     data{i,1} = val;
     data{i,2} = val;
-    data{i,3} = val;
 end
 set(handles.InputTable, 'Data', data);
+
+% Update State Init Table
+set(handles.StateTable, 'RowName', m.state_names);
+data = cell(length(m.state_names), 2);
+for i=1:length(m.state_names)
+  val = m.default_states(i);
+  data{i,1} = val;
+  data{i,2} = val;
+end
+set(handles.StateTable, 'Data', data);
+
+% Update Solver
+set(handles.ODESolver, 'Value', 1);
+solver_choices = get(handles.ODESolver, 'String');
+solver_choices{1} = ['Model Specified (' m.metadata.solver ')'];
+set(handles.ODESolver, 'String', solver_choices);
+
 setStatus(handles, ['Loaded model <' m.name '>']);
 
 
@@ -218,6 +220,10 @@ function OutputMenu_Callback(hObject, eventdata, handles)
 % Hints: contents = get(hObject,'String') returns OutputMenu contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from OutputMenu
 
+outputnames = get(hObject, 'String');
+outputname = outputnames{get(hObject, 'Value')};
+
+
 
 % --- Executes during object creation, after setting all properties.
 function OutputMenu_CreateFcn(hObject, eventdata, handles)
@@ -240,15 +246,7 @@ function RunButton_Callback(hObject, eventdata, handles)
 
 setStatus(handles, 'Running ...');
 
-targetnum = get(handles.TargetMenu, 'Value');
-switch targetnum
-    case 1
-        target = '-cpu';
-    case 2
-        target = '-openmp';
-    case 3
-        target = '-gpu';
-end
+target = '-cpu';
 
 precisionnum = get(handles.DoubleButton, 'Value');
 switch precisionnum
@@ -260,20 +258,53 @@ end
 
 starttime = str2double(get(handles.StartTimeEdit, 'String'));
 stoptime = str2double(get(handles.StopTimeEdit, 'String'));
-steps = str2double(get(handles.StepsEdit, 'String'));
+
 inputs = handles.m.input_names;
 input_data = get(handles.InputTable, 'Data');
+state_data = get(handles.StateTable, 'Data');
+
 new_inputs = struct();
 for i=1:length(inputs)
-   low = input_data{i,2};
-   high = input_data{i,3};
-   new_inputs.(inputs{i}) = linspace(low, high, steps);
+   new_inputs.(inputs{i}) = input_data{i,2};
 end
-t = tic;
-o = simex(handles.filename, [starttime stoptime], target, precision, new_inputs);
-stoptime = toc(t);
-setStatus(handles, sprintf('Finished simulation in %g seconds', stoptime));
-handles.o = o;
+new_states = zeros(1,length(handles.m.default_states));
+for i=1:length(new_states);
+  new_states(i) = state_data{i,2};
+end
+
+solver_num=get(handles.ODESolver, 'Value');
+
+if solver_num == 1
+  start = tic;
+    [o, yf, tf] = simex(get(handles.FileEdit, 'String'), [starttime stoptime], ...
+                        target, precision, new_inputs, new_states);
+    stop = toc(start);
+    if isfield(handles, 't')
+      set(handles.OutputMenu, 'Value', 1);
+      rmfield(handles, 't');
+    end
+    if isfield(handles, 'y')
+      rmfield(handles, 'y');
+    end
+    handles.o = o;
+    set(handles.OutputMenu, 'String', handles.m.output_names);
+else
+  all_solvers = get(handles.ODESolver, 'String');
+  cur_solver = all_solvers{solver_num};  
+  start = tic;
+    [t, y] = simex(get(handles.FileEdit, 'String'), [starttime stoptime], ...
+                   target, precision, new_inputs, new_states, ['-solver=' ...
+                        cur_solver]);
+    stop = toc(start);    
+    if isfield(handles, 'o')
+      set(handles.OutputMenu, 'Value', 1);
+      rmfield(handles, 'o');
+    end
+    handles.t = t;
+    handles.y = y;
+    set(handles.OutputMenu, 'String', handles.m.state_names);
+end
+setStatus(handles, sprintf('Finished simulation in %g seconds', stop));
 guidata(hObject, handles);
 
 
@@ -299,45 +330,34 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in SurfaceButton.
-function SurfaceButton_Callback(hObject, eventdata, handles)
-% hObject    handle to SurfaceButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-if isfield(handles, 'o')
-  [x, y, M] = getDataMatrix(handles);
-  figure;
-  surf(y, x, M, 'EdgeAlpha', 0);
-end
-
-
-
-% --- Executes on button press in CycleButton.
-function CycleButton_Callback(hObject, eventdata, handles)
-% hObject    handle to CycleButton (see GCBO)
+% --- Executes on button press in PlotButton.
+function PlotButton_Callback(hObject, eventdata, handles)
+% hObject    handle to PlotButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 num_points = 1000;
+% if get(handles.AddToPlotBox, 'Value') 
+%   hold on;
+% else
+%   hold off;
+%   figure;
+% end
+    
 if isfield(handles, 'o')
-  [x, y, M] = getDataMatrix(handles);
   figure;
-  starttime = min(y);
-  stoptime = max(y);
-  maxy = max(max(M));
-  miny = min(min(M));
-  range = maxy-miny;
-  plotmin = miny - (range * 0.1);
-  plotmax = maxy + (range * 0.1);
-  for i=1:length(x)
-    plot(y, M(i,:));
-    axis([starttime stoptime plotmin plotmax]);
-    pause(0.05);
-  end
-
+  outputnames = get(handles.OutputMenu, 'String');
+  output = outputnames{get(handles.OutputMenu, 'Value')};
+  simplot(handles.o.(output));
+  title(['Plot of trace ' output ' in model ' handles.m.name]);
+elseif isfield(handles, 't')
+  figure;
+  statenames = get(handles.OutputMenu, 'String');
+  statenum = get(handles.OutputMenu, 'Value');
+  state = statenames{statenum};
+  plot(handles.t, handles.y(:,statenum));
+  title(['Plot of trace ' state ' in model ' handles.m.name]);
 end
-
 
 % --- Set status
 function setStatus(handles, str)
@@ -386,80 +406,63 @@ function DoubleButton_Callback(hObject, eventdata, handles)
 % Hint: get(hObject,'Value') returns toggle state of DoubleButton
 
 
-% --- Executes when user attempts to close figure1.
-function figure1_CloseRequestFcn(hObject, eventdata, handles)
-% hObject    handle to figure1 (see GCBO)
+
+function OutputNameEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to OutputNameEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hint: delete(hObject) closes the figure
-delete(hObject);
-
-
-% --- Executes on selection change in DemoMenu.
-function DemoMenu_Callback(hObject, eventdata, handles)
-% hObject    handle to DemoMenu (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns DemoMenu contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from DemoMenu
-
-index = get(hObject, 'Value');
-demo = handles.demo(index);
-filename = demo.file;
-handles.filename = filename;
-loadDSL(hObject, handles, filename);
-handles = guidata(hObject);
-
-set(handles.StartTimeEdit, 'String', num2str(demo.starttime));
-set(handles.StopTimeEdit, 'String', num2str(demo.stoptime));
-set(handles.StepsEdit, 'String', num2str(demo.steps));
-target = lower(demo.target);
-precision = lower(demo.precision);
-switch target
-    case 'cpu'
-        set(handles.TargetMenu, 'Value', 1);
-    case 'parallel-cpu'
-        set(handles.TargetMenu, 'Value', 2);
-    case 'parallel-gpu'
-        set(handles.TargetMenu, 'Value', 3);
-    otherwise
-        disp(sprintf('Unexpected target value of %s', target));
-end
-switch precision
-    case 'single'
-        set(handles.DoubleButton, 'Value', 0)
-    case 'double'
-        set(handles.DoubleButton, 'Value', 1)
-    otherwise
-        disp(sprintf('Unexpected precision value of %s', precision));
-end
-% now update inputs
-inputs = handles.m.input_names;
-input_data = get(handles.InputTable, 'Data');
-load_inputs = fieldnames(demo.inputs);
-for i=1:length(inputs)
-    for j=1:length(load_inputs)
-        if strcmpi(load_inputs{j},inputs{i})
-            val = demo.inputs.(load_inputs{j});
-            if length(val) == 1
-                input_data{i,2} = val;
-                input_data{i,3} = val;
-            else
-                input_data{i,2} = val(1);
-                input_data{i,3} = val(2);
-            end
-        end
-    end
-end
-set(handles.InputTable, 'Data',input_data);
-RunButton_Callback(handles.RunButton, eventdata, handles);
+% Hints: get(hObject,'String') returns contents of OutputNameEdit as text
+%        str2double(get(hObject,'String')) returns contents of OutputNameEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function DemoMenu_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to DemoMenu (see GCBO)
+function OutputNameEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to OutputNameEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in SaveWSButton.
+function SaveWSButton_Callback(hObject, eventdata, handles)
+% hObject    handle to SaveWSButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+if isfield(handles, 'o')
+  variable = get(handles.OutputNameEdit, 'String');
+  assignin('base', variable, handles.o);
+  setStatus(handles, ['Wrote output data to ''' variable '''']);
+elseif isfield(handles, 'y')
+  variable = get(handles.OutputNameEdit, 'String');
+  odeoutput.t = handles.t;
+  odeoutput.y = handles.y;
+  assignin('base', variable, odeoutput);
+  setStatus(handles, ['Wrote output data to ''' variable '''']);
+else
+  setStatus(handles, ['Can''t plot because there is no simulation ' ...
+                      'data available']);
+end
+
+% --- Executes on selection change in ODESolver.
+function ODESolver_Callback(hObject, eventdata, handles)
+% hObject    handle to ODESolver (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = get(hObject,'String') returns ODESolver contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from ODESolver
+
+
+% --- Executes during object creation, after setting all properties.
+function ODESolver_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ODESolver (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -469,72 +472,11 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-% Load DSL file into memory
-function loadDSL(hObject, handles, filename)
 
-setStatus(handles, 'Compiling ...');
-m = simex(filename);
-handles.m = m;
-set(handles.OutputMenu, 'String', m.output_names);
-set(handles.InputTable, 'RowName', m.input_names);
-data = cell(length(m.input_names),3);
-for i=1:length(m.input_names)
-    input = m.input_names{i};
-    val = m.default_inputs.(input);
-    data{i,1} = val;
-    data{i,2} = val;
-    data{i,3} = val;
-end
-set(handles.InputTable, 'Data', data);
-setStatus(handles, ['Loaded model <' m.name '>']);
+% --- Executes on button press in AddToPlotBox.
+function AddToPlotBox_Callback(hObject, eventdata, handles)
+% hObject    handle to AddToPlotBox (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
 
-guidata(hObject, handles);
-
-
-% --- getDataMatrix
-function [x, y, M] = getDataMatrix(handles)
-
-num_points = 1000;
-if isfield(handles, 'o')
-    steps = length(handles.o);
-    x = 1:steps;
-    M = zeros(steps, num_points);
-    outputnames = get(handles.OutputMenu, 'String');
-    output = outputnames{get(handles.OutputMenu, 'Value')};
-    starttime = str2double(get(handles.StartTimeEdit, 'String'));
-    stoptime = str2double(get(handles.StopTimeEdit, 'String'));
-    y = linspace(starttime, stoptime, num_points);
-    for i=1:steps
-        d = handles.o(i).(output);
-        try
-          M(i, :) = spline(d(:,1), d(:,2), y);
-        catch me
-          me
-          disp('Spline creation failed');
-          d1 = d(:,1);
-          d2 = d(:,2);
-          disp(sprintf(' -> index: %d', i));
-          disp(sprintf(' -> length (x/y): (%d/%d)',length(d1), ...
-                       length(d(:,2))));
-          common = d1(find(diff(d1)==0));
-          disp(sprintf(' -> number of duplicates: %d, first: %g', ...
-                       length(common), common(1)));
-          M(i,:) = zeros(1,length(y));
-        end
-    end
-end
-
-
-% --- Resample
-function y1 = resample(x, y, x1)
-
-y1 = zeros(1,length(x1));
-try
-    y1 = spline(x, y, x1);
-catch me
-    me
-    disp('Spline creation failed');
-    index = find(diff(x)==0)
-    x(index)
-end
-    
+% Hint: get(hObject,'Value') returns toggle state of AddToPlotBox
