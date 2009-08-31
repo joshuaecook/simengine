@@ -33,7 +33,7 @@ clean:
 	  $(MAKE) clean-cvode TYPE=$$type; \
 	 done
 
-$(SUNDIALS_BUILD_PATH): $(SUNDIALS_PATH)
+$(SUNDIALS_BUILD_PATH): # $(SUNDIALS_PATH)
 	cd $(SUNDIALS_BASE_PATH); tar xvzf $(SUNDIALS_PATH)
 
 $(CVODE_OBJS): $(SUNDIALS_BUILD_PATH)

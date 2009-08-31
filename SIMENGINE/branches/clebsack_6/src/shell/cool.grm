@@ -208,7 +208,7 @@ modeldef: MODEL modelheader newlines modelparts END (Ast.DEFMODEL {header=modelh
 
 
 modelheader: ID optargs ({name=Symbol.symbol ID, args=optargs, returns=NONE})
-	   | LPAREN args RPAREN ASSIGN ID optargs ({name=Symbol.symbol ID, args=optargs, returns=SOME args})
+	   | LPAREN args RPAREN optlines ASSIGN optlines ID optargs ({name=Symbol.symbol ID, args=optargs, returns=SOME args})
 (*modelheader: ID ({name=Symbol.symbol ID, args=[], returns=NONE})*)
 (*modelheader: returnheader (returnheader) 
 	   | LPAREN args RPAREN ASSIGN optlines ID ({name=Symbol.symbol ID, args=[], returns=SOME args}) 

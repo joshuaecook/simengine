@@ -281,10 +281,10 @@ if solver_num == 1
     stop = toc(start);
     if isfield(handles, 't')
       set(handles.OutputMenu, 'Value', 1);
-      rmfield(handles, 't');
+      handles=rmfield(handles, 't');
     end
     if isfield(handles, 'y')
-      rmfield(handles, 'y');
+      handles=rmfield(handles, 'y');
     end
     handles.o = o;
     set(handles.OutputMenu, 'String', handles.m.output_names);
@@ -298,7 +298,7 @@ else
     stop = toc(start);    
     if isfield(handles, 'o')
       set(handles.OutputMenu, 'Value', 1);
-      rmfield(handles, 'o');
+      handles=rmfield(handles, 'o');            
     end
     handles.t = t;
     handles.y = y;
@@ -336,14 +336,8 @@ function PlotButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-num_points = 1000;
-% if get(handles.AddToPlotBox, 'Value') 
-%   hold on;
-% else
-%   hold off;
-%   figure;
-% end
-    
+handles
+
 if isfield(handles, 'o')
   figure;
   outputnames = get(handles.OutputMenu, 'String');
