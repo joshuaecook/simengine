@@ -90,12 +90,15 @@ if nargin == 0
   return;
 end
 
-
 [dslPath dslName modelFile opts] = get_simex_opts(varargin{:});
 
-dllPath = invoke_compiler(dslPath, dslName, modelFile, opts);
-interface = simex_helper(dllPath, '-query');
-
+if exist(modelFile, 'file')
+  dllPath = invoke_compiler(dslPath, dslName, modelFile, opts);
+  interface = simex_helper(dllPath, '-query');
+else
+  error('Simatra:SIMEX:rgumentError', ['File ''' modelFile ''' does ' ...
+                      'not exist'])
+end
 
 if nargin == 1
   varargout = {interface};

@@ -1,385 +1,143 @@
-function varargout = simsweep(varargin)
-% SIMSWEEP M-file for simsweep.fig
-%      SIMSWEEP, by itself, creates a new SIMSWEEP or raises the existing
-%      singleton*.
+%SIMSWEEP   Executes a sweep of one or more parameters using the
+%           SIMENGINE compiler
 %
-%      H = SIMSWEEP returns the handle to a new SIMSWEEP or the handle to
-%      the existing singleton*.
+%  Usage:
+%      SIMSWEEP // runs the GUI
+%      [OUT Y1 T1] = SIMSWEEP(MODEL, TIME [, OPTIONS ...])
 %
-%      SIMSWEEP('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in SIMSWEEP.M with the given input arguments.
+%  Description:
+%   SIMSWEEP creates a linear mapping between parameter/state
+%   ranges and evaluates the intermediate points, running the
+%   simulations in parallel.  Running without arguments invokes the
+%   GUI interface.
 %
-%      SIMSWEEP('Property','Value',...) creates a new SIMSWEEP or raises the
-%      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before simsweep_OpeningFcn gets called.  An
-%      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to simsweep_OpeningFcn via varargin.
+%      MODEL is a full pathname to a DSL model file.
 %
-%      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
-%      instance to run (singleton)".
+%      TIME is the simulation time limit. If scalar, it specifies a
+%      simulation starting at T=0 proceeding to T=TIME. TIME must be
+%      greater than zero. Otherwise, TIME may be a 2-element array
+%      specifying a simulation starting at T=TIME(1) proceeding to
+%      T=TIME(2). TIME(2) must be greater than TIME(1).
 %
-% See also: GUIDE, GUIDATA, GUIHANDLES
+%      Additional optional parameters may follow:
+%
+%      'inputs'
+%        Specifies the desired inputs as a structure of name-value
+%        pairs.  Each value can either be a constant, a vector of
+%        two values (signifying the beginning and end of a range),
+%        or not specified to use the default value.
+%
+%      'states'
+%        Specifies the initial state vector
+%
+%      'target'
+%        Specifies the desired target (one of 'cpu',
+%        'parallel-cpu', or 'gpu')
+%
+%      'precision'
+%        Specifies the desired precision (one of 'single' or 'double')
+%
+%      'steps'
+%        Specifies the number of steps to take in the linear sweep
+%
+%
+% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% For more information, please visit http://www.simatratechnologies.com
+%
+function varargout = simsweep(dslfile, varargin)
 
-% Edit the above text to modify the response to help simsweep
-
-% Last Modified by GUIDE v2.5 26-Aug-2009 10:26:03
-
-% Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
-gui_State = struct('gui_Name',       mfilename, ...
-                   'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @simsweep_OpeningFcn, ...
-                   'gui_OutputFcn',  @simsweep_OutputFcn, ...
-                   'gui_LayoutFcn',  [] , ...
-                   'gui_Callback',   []);
-if nargin && ischar(varargin{1})
-    gui_State.gui_Callback = str2func(varargin{1});
+if nargin == 0
+  simsweep_gui
+  return;
 end
 
-if nargout
-    [varargout{1:nargout}] = gui_mainfcn(gui_State, varargin{:});
+% Parse all the arguments
+p = parseArgs(dslfile, varargin);
+
+% Get model information
+m = simex(dslfile);
+
+% Create the input space
+input_space = createInputSpace(m, p.Results);
+
+% Create the output space
+if length(p.Results.states) == 0
+  state_space = m.default_states;
 else
-    gui_mainfcn(gui_State, varargin{:});
-end
-% End initialization code - DO NOT EDIT
+  state_space = p.Results.states;
+end  
 
+% Run the simulation
+prec = ['-' p.Results.precision];
+target = ['-' p.Results.target];
+[o, final_states, tf] = simex(dslfile, p.Results.time, prec, target, input_space, state_space);
 
-% --- Executes just before simsweep is made visible.
-function simsweep_OpeningFcn(hObject, eventdata, handles, varargin)
-% This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to simsweep (see VARARGIN)
+% Return output arguments
+switch nargout
+ case 3,
+  varargout = {o, final_states, tf};
+ case 2,
+  varargout = {o, final_states};
+ case {0,1},
+  varargout = {o};
+  varargout = {o};
+ otherwise
+  error('Simatra:SIMEX:outputArgumentError', ...
+        'More than three output arguments were specified')
+end  
 
-% Choose default command line output for simsweep
-handles.output = hObject;
-
-% Update handles structure
-guidata(hObject, handles);
-
-% UIWAIT makes simsweep wait for user response (see UIRESUME)
-% uiwait(handles.figure1);
-
-
-% --- Outputs from this function are returned to the command line.
-function varargout = simsweep_OutputFcn(hObject, eventdata, handles) 
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Get default command line output from handles structure
-varargout{1} = handles.output;
-
-
-
-function FileEdit_Callback(hObject, eventdata, handles)
-% hObject    handle to FileEdit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of FileEdit as text
-%        str2double(get(hObject,'String')) returns contents of FileEdit as a double
-
-setStatus(handles, 'Compiling ...');
-m = simex(get(hObject, 'String'))
-handles.m = m;
-set(handles.OutputMenu, 'Value', 1);
-set(handles.OutputMenu, 'String', m.output_names);
-set(handles.InputTable, 'RowName', m.input_names);
-data = cell(length(m.input_names),3);
-for i=1:length(m.input_names)
-    input = m.input_names{i};
-    val = m.default_inputs.(input);
-    data{i,1} = val;
-    data{i,2} = val;
-    data{i,3} = val;
-end
-set(handles.InputTable, 'Data', data);
-setStatus(handles, ['Loaded model <' m.name '>']);
-
-
-%starttime = str2double(get(handles.StartTimeEdit, 'String'));
-%stoptime = str2double(get(handles.StopTimeEdit, 'String'));
-%o = simex(get(hObject, 'String'), [starttime stoptime]);
-%handles.o = o;
-%figure(handles.figure1);
-%outputnames = get(handles.OutputMenu, 'String');
-%outputname = outputnames{get(handles.OutputMenu, 'Value')};
-%simplot(o.(outputname));
-
-% save the date back
-guidata(hObject, handles);
-
-
-% --- Executes during object creation, after setting all properties.
-function FileEdit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to FileEdit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-% --- Executes on button press in FileBrowseButton.
-function FileBrowseButton_Callback(hObject, eventdata, handles)
-% hObject    handle to FileBrowseButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-[filename, pathname] = uigetfile({'*.dsl','Diesel Files (*.dsl)'}, 'Choose DSL Model File');
-file = fullfile(pathname, filename);
-if exist(file,'file')
-    set(handles.FileEdit, 'String', file);
-    FileEdit_Callback(handles.FileEdit, eventdata, handles);
-end
-
-
-function StartTimeEdit_Callback(hObject, eventdata, handles)
-% hObject    handle to StartTimeEdit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of StartTimeEdit as text
-%        str2double(get(hObject,'String')) returns contents of StartTimeEdit as a double
-
-
-
-
-% --- Executes during object creation, after setting all properties.
-function StartTimeEdit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to StartTimeEdit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
 end
 
 
 
-function StopTimeEdit_Callback(hObject, eventdata, handles)
-% hObject    handle to StopTimeEdit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+%% parseArgs - parse all the arguments to the function
+function p = parseArgs(dslfile, args)
 
-% Hints: get(hObject,'String') returns contents of StopTimeEdit as text
-%        str2double(get(hObject,'String')) returns contents of StopTimeEdit as a double
+p = inputParser; % Create an instance of the inputParser
+p.addRequired('dslfile', @ischar);
+p.addRequired('time', @(x)(isnumeric(x) && (length(x)==1 || (length(x)==2 ...
+                                                  && x(1) < x(2)))));
+p.addParamValue('target', 'parallel-cpu', @(x)any(strcmpi(x,{'cpu','parallel-cpu','gpu'})))
+p.addParamValue('precision', 'single', @(x)any(strcmpi(x,{'single','float','double'})))
+p.addParamValue('inputs', struct(), @isstruct)
+p.addParamValue('states', [], @isnumeric)
+p.addParamValue('steps', 100, @isnumeric)
 
+p.parse(dslfile, args{:});
 
+% Display all arguments.
+%disp ' '
+%disp 'List of all arguments:'
+%disp(p.Results)
 
-% --- Executes during object creation, after setting all properties.
-function StopTimeEdit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to StopTimeEdit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
 end
 
+%% createInputSpace - creates a linear input space structure
+function input_data = createInputSpace(m, args)
 
-% --- Executes on selection change in OutputMenu.
-function OutputMenu_Callback(hObject, eventdata, handles)
-% hObject    handle to OutputMenu (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns OutputMenu contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from OutputMenu
-
-
-% --- Executes during object creation, after setting all properties.
-function OutputMenu_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to OutputMenu (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: popupmenu controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
+if length(args.time) == 1
+  starttime = 0;
+  stoptime = args.time;
+else
+  starttime = args.time(1);
+  stoptime = args.time(2);
 end
-
-
-% --- Executes on button press in RunButton.
-function RunButton_Callback(hObject, eventdata, handles)
-% hObject    handle to RunButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-setStatus(handles, 'Running ...');
-
-targetnum = get(handles.TargetMenu, 'Value');
-switch targetnum
-    case 1
-        target = '-cpu';
-    case 2
-        target = '-parallel-cpu';
-    case 3
-        target = '-gpu';
-end
-
-precisionnum = get(handles.DoubleButton, 'Value');
-switch precisionnum
-    case 1
-        precision = '-double';
-    case 0
-        precision = '-single';
-end
-
-starttime = str2double(get(handles.StartTimeEdit, 'String'));
-stoptime = str2double(get(handles.StopTimeEdit, 'String'));
-steps = str2double(get(handles.StepsEdit, 'String'));
-inputs = handles.m.input_names;
-input_data = get(handles.InputTable, 'Data');
-new_inputs = struct();
-for i=1:length(inputs)
-   low = input_data{i,2};
-   high = input_data{i,3};
-   new_inputs.(inputs{i}) = linspace(low, high, steps);
-end
-t = tic;
-o = simex(get(handles.FileEdit, 'String'), [starttime stoptime], target, precision, new_inputs);
-stoptime = toc(t);
-setStatus(handles, sprintf('Finished simulation in %g seconds', stoptime));
-handles.o = o;
-guidata(hObject, handles);
-
-
-function StepsEdit_Callback(hObject, eventdata, handles)
-% hObject    handle to StepsEdit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of StepsEdit as text
-%        str2double(get(hObject,'String')) returns contents of StepsEdit as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function StepsEdit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to StepsEdit (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-% --- Executes on button press in SurfaceButton.
-function SurfaceButton_Callback(hObject, eventdata, handles)
-% hObject    handle to SurfaceButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-num_points = 1000;
-if isfield(handles, 'o')
-    figure;
-    steps = length(handles.o);
-    s = zeros(steps, num_points);
-    outputnames = get(handles.OutputMenu, 'String');
-    output = outputnames{get(handles.OutputMenu, 'Value')};
-    starttime = str2double(get(handles.StartTimeEdit, 'String'));
-    stoptime = str2double(get(handles.StopTimeEdit, 'String'));
-    x1 = linspace(starttime, stoptime, num_points);
-    for i=1:steps
-        d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
+steps = args.steps;
+inputs = m.input_names;
+input_data = m.default_inputs;
+fields = fieldnames(args.inputs);
+for i=1:length(fields)
+  if any(strcmpi(inputs, fields{i}))
+    val = args.inputs.(fields{i});
+    if length(val) == 2
+      input_data.(fields{i}) = linspace(val(1), val(2), steps);
+    else
+      input_data.(fields{i}) = val;
     end
-    surf(s, 'EdgeAlpha', 0);
+  else
+    warning('Simatra:SIMSWEEP:argumentError', ['Invalid input with '...
+                        'name ' fields{i}]);
+  end
 end
 
-
-% --- Executes on button press in CycleButton.
-function CycleButton_Callback(hObject, eventdata, handles)
-% hObject    handle to CycleButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-num_points = 1000;
-if isfield(handles, 'o')
-    figure;
-    steps = length(handles.o);
-    s = zeros(steps, num_points);
-    outputnames = get(handles.OutputMenu, 'String');
-    output = outputnames{get(handles.OutputMenu, 'Value')};
-    starttime = str2double(get(handles.StartTimeEdit, 'String'));
-    stoptime = str2double(get(handles.StopTimeEdit, 'String'));
-    x1 = linspace(starttime, stoptime, num_points);
-    for i=1:steps
-        d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
-    end
-    maxy = max(max(s));
-    miny = min(min(s));
-    range = maxy-miny;
-    plotmin = miny - (range * 0.1);
-    plotmax = maxy + (range * 0.1);
-    for i=1:steps
-        d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
-        plot(x1, s(i,:));
-        axis([starttime stoptime plotmin plotmax]);
-        pause(0.05);
-    end
-
 end
-
-
-% --- Set status
-function setStatus(handles, str)
-
-set(handles.StatusBar, 'String', ['Status: ' str]);
-
-
-% --- Executes on selection change in TargetMenu.
-function TargetMenu_Callback(hObject, eventdata, handles)
-% hObject    handle to TargetMenu (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns TargetMenu contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from TargetMenu
-
-
-% --- Executes during object creation, after setting all properties.
-function TargetMenu_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to TargetMenu (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: popupmenu controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-% --- Executes on button press in PrecisionButton.
-function PrecisionButton_Callback(hObject, eventdata, handles)
-% hObject    handle to PrecisionButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hint: get(hObject,'Value') returns toggle state of PrecisionButton
-
-
-% --- Executes on button press in DoubleButton.
-function DoubleButton_Callback(hObject, eventdata, handles)
-% hObject    handle to DoubleButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hint: get(hObject,'Value') returns toggle state of DoubleButton
