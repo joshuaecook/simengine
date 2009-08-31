@@ -245,6 +245,7 @@ function RunButton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 setStatus(handles, 'Running ...');
+pause(0.05);
 
 target = '-cpu';
 
