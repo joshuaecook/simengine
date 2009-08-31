@@ -27,6 +27,27 @@ if not(ret)
   return
 end
 
+key_file = savePublicKey();
+licensefile = ask_file('Enter the license file location');
+if not(licensefile)
+  disp('You must enter a valid license file')
+  return
+end
+
+serial = ask_serial('Enter your serial number');
+
+if not(serial)
+  disp ('You must enter a valid serial number')
+  return
+end
+
+key = load(key_file, 'publickey');
+
+if not(verify(licensefile, str2num(serial), key.publickey))
+  disp('License and serial do not match.  Please contact Simatra.')
+  return
+end
+
 % check for installation path
 disp(['By default, the simEngine platform is installed as a toolbox ' ...
       'within Matlab.'])
@@ -76,20 +97,31 @@ end
 
 % pull out encapsulated tgz file
 disp('Installing simEngine files ...');
-tgz_file = saveBinaryFile();
+tgz_file = saveInstaller();
 installdir = sprintf('%s/%s', dir, topinstalldir);
 untar(tgz_file, installdir);
 
 
 % build the simEngine_wrapper (ANSI-C so no options required)
 disp('Building architecture specific mex wrappers ...')
-include_dir = fullfile(installdir, 'include');
 src_file = fullfile(installdir, 'src', 'simEngine_wrapper.c');
 mex_file = fullfile(installdir, 'simEngine_wrapper');
-compile_mex(src_file, mex_file, include_dir);
-src_file = fullfile(installdir, 'src', 'simex_helper.c');
-mex_file = fullfile(installdir, 'simex_helper');
-compile_mex(src_file, mex_file, include_dir);
+switch computer
+ case 'GLNX86'
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+      '-output', mex_file, src_file);
+ case 'GLNXA64'
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+      '-output', mex_file, src_file);
+ case 'MACI'
+  mex('-output', mex_file, src_file);
+ case 'MACI64'
+  mex('-output', mex_file, src_file);
+ case 'i686-pc-linux-gnu'
+  mex('--output', [mex_file '.mex'], src_file);
+ otherwise
+  error('Simatra:PlatformError', 'Unsupported platform');
+end
 
 % now add to the path
 if ask_yn('Add functions to the default search path')
@@ -117,30 +149,6 @@ disp(['Find example models in ' target_dir '/examples'])
 disp(' ')
 
 end
-
-% compile mex files from source to destination
-function compile_mex(src_file, mex_file, include_dir)
-
-switch computer
- case 'GLNX86'
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
-      '-ldl', '-lgomp', '-output', mex_file, ['-I' include_dir], src_file);
- case 'GLNXA64'
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
-      '-ldl', '-lgomp', '-output', mex_file, ['-I' include_dir], src_file);
- case 'MACI'
-  mex('-ldl', '-lgomp', '-output', mex_file, ['-I' include_dir], src_file);
- case 'MACI64'
-  mex('-ldl', '-lgomp', '-output', mex_file, ['-I' include_dir], src_file);
- case 'i686-pc-linux-gnu'
-  mex('-ldl', '-lgomp', '--output', [mex_file '.mex'], ['-I' include_dir], src_file);
- otherwise
-  error('Simatra:PlatformError', 'Unsupported platform');
-end
-
-
-end
-
 
 % check if in octave
 function y = in_octave
@@ -221,6 +229,22 @@ end
 
 end
 
+function answer = ask_serial(str)
+
+input_str = sprintf('%s? ', str);
+
+while(1),
+  answer = input(input_str,'s');
+  if strcmp(answer,'')
+    disp('Please enter a valid serial number');
+  else
+    break;
+  end
+end
+
+end
+
+
 % determine the absolute path if there is a relative path
 function full = abspath(p)
 
@@ -286,6 +310,23 @@ while(1),
      break;
    end
    disp('Please respond <yes> or <no>');
+end
+
+end
+
+function [isValid] = verify(licensefilename, serial, publickey)
+try
+  sig = java.security.Signature.getInstance('SHA1withRSA'); 
+  sig.initVerify(publickey);
+  
+  license = load(licensefilename, 'license');
+
+  
+  sig.update(serial);
+  
+  isValid = sig.verify(license.license);
+catch
+  isValid = 0;
 end
 
 end

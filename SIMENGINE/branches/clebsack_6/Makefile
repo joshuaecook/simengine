@@ -157,7 +157,7 @@ SVNTRUNK = $(SVNSRV)/trunk
 SRC = src/
 BUILD = build
 RM = rm -rf
-ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -const 'Exn.keepHistory true' -verbose 1
+ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -const 'Exn.keepHistory true' -verbose 1 #-target-cc-opt x86 -march=pentium4 -target-cc-opt x86 -m32
 SIMPLE_ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -verbose 1
 CC = gcc
 CP = cp -rf
@@ -183,7 +183,26 @@ MAKE = make --no-print-directory
 BROWSER = firefox
 COREGEN = $(SETUP_ENV); coregen
 MATLABCMD = matlab -nodisplay -nojvm -r 
-MATLABCMD = octave --eval 
+
+OCTAVECMD = octave --eval 
+FIND_MATLAB = $(shell which matlab 2> /dev/null)
+ifeq ($(UNAME), Darwin)
+ifeq ($(FIND_MATLAB),/usr/bin/matlab)
+MATLAB_PATH = /Applications/MATLAB_R2009a.app
+MEX = $(MATLAB_PATH)/bin/mex
+MEXEXT = mexmaci
+endif
+else
+ifeq ($(FIND_MATLAB),/usr/local/bin/matlab)
+MATLAB_PATH = /usr/local/matlab
+MEX = $(MATLAB_PATH)/bin/mex
+MEXEXT = mexa64
+else
+MATLAB_PATH = /opt/octave
+MEX = $(MATLAB_PATH)/bin/mkoctfile --mex 
+MEXEXT = mex
+endif
+endif
 
 # Inspects for presence of MATLAB; may be overridden on command line
 MATLAB ?= $(shell which matlab 2>/dev/null)
@@ -568,16 +587,21 @@ MEXINTERFACE_PREREQS = $(addprefix matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 .PHONY: mexinterface
 mexinterface: $(MEXINTERFACE_PREREQS)
 
-matlab/install.m: simEngine.tgz
-	@(cd matlab; $(MATLABCMD) "append_bin_to_file('../simEngine.tgz', 'install_wrapper.m', 'install.m'); exit")
+matlab/install.m: simEngine.tgz datafiles/simatrapublickey.mat
+	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../simEngine.tgz', 'install_temp.m', 'install.m', 'saveInstaller'); exit") 
 
-install.m: matlab/install.m	
+matlab/install.p: matlab/install.m
+	@(cd matlab; $(MATLABCMD) "pcode install.m; exit")
+
+install.p: matlab/install.p
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
+pcode: install.p
+
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweep simsweepdemo simex_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simSensitivity simsweep simsweepdemo demo_models simex_gui))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/install.m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers/src/*.c
@@ -605,7 +629,7 @@ $(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
 
 matlab-files: $(MATLAB_FILES)
 
-matlab-installer: install.m
+matlab-installer: $(MATLAB_FILES)
 
 simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
 	@echo "Creating $@ for packaging"
@@ -1389,6 +1413,7 @@ clean: mostlyclean solvers_clean mexinterface_clean
 	$(RMDIR) ../$(RPM_TEMP_DIR)
 	$(RM) ../$(RPM_TAR_GZ)
 	$(RM) install.m
+	$(RM) install.p
 
 mostlyclean:
 	$(RM) $(FILENAME)
