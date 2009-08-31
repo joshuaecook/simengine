@@ -22,7 +22,7 @@ function varargout = simex_gui(varargin)
 
 % Edit the above text to modify the response to help simex_gui
 
-% Last Modified by GUIDE v2.5 31-Aug-2009 13:46:51
+% Last Modified by GUIDE v2.5 31-Aug-2009 15:49:35
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -82,6 +82,10 @@ function FileEdit_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of FileEdit as text
 %        str2double(get(hObject,'String')) returns contents of FileEdit as a double
 
+% disable the plotter
+set(handles.PlotButton, 'Enable', 'off')
+set(handles.SaveWSButton, 'Enable', 'off')
+
 setStatus(handles, 'Compiling ...');
 filename = get(hObject, 'String');
 if not(exist(filename, 'file'))
@@ -117,7 +121,7 @@ set(handles.StateTable, 'Data', data);
 % Update Solver
 set(handles.ODESolver, 'Value', 1);
 solver_choices = get(handles.ODESolver, 'String');
-solver_choices{1} = ['Model Specified (' m.metadata.solver ')'];
+solver_choices{1} = ['simEngine ' m.metadata.solver];
 set(handles.ODESolver, 'String', solver_choices);
 
 setStatus(handles, ['Loaded model <' m.name '>']);
@@ -171,6 +175,10 @@ function StartTimeEdit_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of StartTimeEdit as text
 %        str2double(get(hObject,'String')) returns contents of StartTimeEdit as a double
 
+% disable the plotter
+set(handles.PlotButton, 'Enable', 'off')
+set(handles.SaveWSButton, 'Enable', 'off')
+
 
 
 
@@ -195,6 +203,10 @@ function StopTimeEdit_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of StopTimeEdit as text
 %        str2double(get(hObject,'String')) returns contents of StopTimeEdit as a double
+
+% disable the plotter
+set(handles.PlotButton, 'Enable', 'off')
+set(handles.SaveWSButton, 'Enable', 'off')
 
 
 
@@ -249,13 +261,20 @@ pause(0.05);
 
 target = '-cpu';
 
-precisionnum = get(handles.DoubleButton, 'Value');
-switch precisionnum
-    case 1
-        precision = '-double';
-    case 0
-        precision = '-single';
+selected_obj = get(handles.PrecisionButtonGroup, 'SelectedObject');
+if selected_obj == handles.SingleButton
+  precision = '-single';
+else
+  precision = '-double';
 end
+
+%precisionnum = get(handles.DoubleButton, 'Value');
+%switch precisionnum
+%    case 1
+%        precision = '-double';
+%    case 0
+%        precision = '-single';
+%end
 
 starttime = str2double(get(handles.StartTimeEdit, 'String'));
 stoptime = str2double(get(handles.StopTimeEdit, 'String'));
@@ -292,6 +311,7 @@ if solver_num == 1
 else
   all_solvers = get(handles.ODESolver, 'String');
   cur_solver = all_solvers{solver_num};  
+  cur_solver=cur_solver(8:end);
   start = tic;
     [t, y] = simex(get(handles.FileEdit, 'String'), [starttime stoptime], ...
                    target, precision, new_inputs, new_states, ['-solver=' ...
@@ -308,6 +328,9 @@ end
 setStatus(handles, sprintf('Finished simulation in %g seconds', stop));
 guidata(hObject, handles);
 
+% enable the plotter
+set(handles.PlotButton, 'Enable', 'on')
+set(handles.SaveWSButton, 'Enable', 'on')
 
 function StepsEdit_Callback(hObject, eventdata, handles)
 % hObject    handle to StepsEdit (see GCBO)
@@ -336,8 +359,6 @@ function PlotButton_Callback(hObject, eventdata, handles)
 % hObject    handle to PlotButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
-handles
 
 if isfield(handles, 'o')
   figure;
@@ -400,6 +421,9 @@ function DoubleButton_Callback(hObject, eventdata, handles)
 
 % Hint: get(hObject,'Value') returns toggle state of DoubleButton
 
+% disable the plotter and the saveWS button
+set(handles.PlotButton, 'Enable', 'off')
+set(handles.SaveWSButton, 'Enable', 'off')
 
 
 function OutputNameEdit_Callback(hObject, eventdata, handles)
@@ -454,6 +478,9 @@ function ODESolver_Callback(hObject, eventdata, handles)
 % Hints: contents = get(hObject,'String') returns ODESolver contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from ODESolver
 
+% disable the plotter and the saveWS button
+set(handles.PlotButton, 'Enable', 'off')
+set(handles.SaveWSButton, 'Enable', 'off')
 
 % --- Executes during object creation, after setting all properties.
 function ODESolver_CreateFcn(hObject, eventdata, handles)
@@ -475,3 +502,48 @@ function AddToPlotBox_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of AddToPlotBox
+
+
+% --- Executes when entered data in editable cell(s) in InputTable.
+function InputTable_CellEditCallback(hObject, eventdata, handles)
+% hObject    handle to InputTable (see GCBO)
+% eventdata  structure with the following fields (see UITABLE)
+%	Indices: row and column indices of the cell(s) edited
+%	PreviousData: previous data for the cell(s) edited
+%	EditData: string(s) entered by the user
+%	NewData: EditData or its converted form set on the Data property. Empty if Data was not changed
+%	Error: error string when failed to convert EditData to appropriate value for Data
+% handles    structure with handles and user data (see GUIDATA)
+
+% disable the plotter and the saveWS button
+set(handles.PlotButton, 'Enable', 'off')
+set(handles.SaveWSButton, 'Enable', 'off')
+
+
+% --- Executes when entered data in editable cell(s) in StateTable.
+function StateTable_CellEditCallback(hObject, eventdata, handles)
+% hObject    handle to StateTable (see GCBO)
+% eventdata  structure with the following fields (see UITABLE)
+%	Indices: row and column indices of the cell(s) edited
+%	PreviousData: previous data for the cell(s) edited
+%	EditData: string(s) entered by the user
+%	NewData: EditData or its converted form set on the Data property. Empty if Data was not changed
+%	Error: error string when failed to convert EditData to appropriate value for Data
+% handles    structure with handles and user data (see GUIDATA)
+
+% disable the plotter and the saveWS button
+set(handles.PlotButton, 'Enable', 'off')
+set(handles.SaveWSButton, 'Enable', 'off')
+
+
+% --- Executes on button press in SingleButton.
+function SingleButton_Callback(hObject, eventdata, handles)
+% hObject    handle to SingleButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of SingleButton
+
+% disable the plotter and the saveWS button
+set(handles.PlotButton, 'Enable', 'off')
+set(handles.SaveWSButton, 'Enable', 'off')

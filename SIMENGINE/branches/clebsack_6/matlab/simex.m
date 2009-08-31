@@ -3,6 +3,7 @@
 %   Usage:
 %       M = SIMEX(MODEL)
 %       [OUT Y1 T1] = SIMEX(MODEL, TIME, INPUTS, Y0, ...)
+%       [T Y] = SIMEX(MODEL, TIME, INPUTS, Y0, '-solver=MATLABODE')
 %
 %   Description:
 %    SIMEX compiles the model defined in the DSL file into a
