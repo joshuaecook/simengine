@@ -225,7 +225,7 @@ if 1 < nargin
       opts.target = 'CPU';
     elseif strcmpi(arg, '-gpu')
       opts.target = 'GPU';
-    elseif strcmpi(arg, '-parallel-pcu')
+    elseif strcmpi(arg, '-parallel-cpu')
       opts.target = 'PARALLELCPU';
     elseif strcmpi(arg, '-debug')
       opts.debug = true;
@@ -259,7 +259,8 @@ if strcmpi(opts.target, '')
      case {'MACI','MACI64'}
       opts.target = 'PARALLELCPU';
      otherwise
-      opts.target = 'GPU';
+      opts.target = 'PARALLELCPU';
+      %      opts.target = 'GPU';
     end
   end
 end
@@ -425,9 +426,9 @@ if opts.recompile
   end
   
   target = opts.target;
-if strcmp(opts.target, 'PARALLELCPU')
-  target = 'OPENMP';
-end
+  if strcmp(opts.target, 'PARALLELCPU')
+    target = 'OPENMP';
+  end
 
   make = ['make remake' ...
         ' -f' fullfile(opts.simengine, 'share/simEngine/Makefile') ...
