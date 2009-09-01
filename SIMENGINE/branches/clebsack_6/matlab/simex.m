@@ -137,15 +137,14 @@ else
   
   tic;
     if opts.solver % use a MATLAB ODE solver
-      flow_fun = @(t, y0)(simex_helper(dllPath,t, y0, ...
-                                      userInputs, '-evalflow'));
+      simex_helper(dllPath, userInputs); % Initialize evalflow DLL
       try
-        [t, y] = feval(opts.solver, flow_fun, [opts.startTime opts.endTime], ...
+        [t, y] = feval(opts.solver, @simex_helper, [opts.startTime opts.endTime], ...
                        userStates);
       catch me
         me
       end
-      clear flow_fun
+      simex_helper(dllPath, userInputs); % Cleanup evalflow DLL
       varargout = {t, y};
       elapsed = toc;
       disp([dslName ' simulation using ' opts.solver ' completed in ' num2str(elapsed) ' ' ...
