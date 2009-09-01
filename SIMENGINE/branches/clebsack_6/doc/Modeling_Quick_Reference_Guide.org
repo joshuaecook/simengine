@@ -120,11 +120,12 @@ DSL Modeling Quick Reference
   the line. Multi-line comments begin with =/*= and end
   with =*/=. Multi-line comments may not be nested.
 * Model Simulation with SIMEX
-  =M = SIMEX(MODEL)= \\
+  =M= = =SIMEX(MODEL)= \\
   Compiles a model and returns a model description structure. =MODEL=
   is the name of the DSL file containing the model declaration.
 
-  =[OUT Y1 T1] = SIMEX(MODEL, TIME, INPUTS, Y0, ...)= \\
+
+  =[OUT Y1 T1]= = =SIMEX(MODEL, TIME, INPUTS, Y0, ...)= \\
   Compiles and executes a model and returns a model output structure, a matrix of
   final states, and a vector of final times. =TIME= is a scalar
   specifying final time or a 2-element array specifying start and end
@@ -132,11 +133,17 @@ DSL Modeling Quick Reference
   values. =Y0= is a matrix of initial state values.
 
 #+CAPTION: Additional SIMEX Options
+  | option      | value                           |
+  |-------------+---------------------------------|
   | precision   | =-double= =-single= =-float=    |
   | target      | =-cpu= =-parallel-cpu= =-gpu=   |
   | compilation | =-dontrecompile=                |
   | etc.        | =-debug= =-profile= =-emulate=  |
 * Plotting with SIMPLOT
+
+ =SIMPLOT(STRUCTURED_OUTPUT)= \\
+ Using similar syntax as the plot command, =SIMPLOT= displays the structured time-value pair
+ from =SIMEX=.
 
 #+BEGIN_SRC dsl
 simplot(o)
@@ -145,6 +152,12 @@ simplot(o.V, 'r+')
 simplot(o.V, 'r+', 1:10, (1:10)^2)
 #+END_SRC dsl
 * Sweeping Input Signals with SIMSWEEP
+
+  =[OUT Y1 T1]= = =SIMSWEEP(MODEL, TIME, ...)= \\
+  Provides a convenient interfaces for generating multiple simulations through
+  a sweep of an input set.  Running =SIMSWEEP= without options will bring up
+  a helpful GUI to guide the simulation of an input sweep.
+
 * Sensitivity Analysis with SIMSENSITIVITY
   =OUT = SIMSENSITIVITY(MODEL, TIME)= \\
 

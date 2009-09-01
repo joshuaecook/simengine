@@ -112,9 +112,9 @@ p.addParamValue('scaling', false, @(x)(x==true || x==false))
 p.parse(dslfile, args{:});
 
 % Display all arguments.
-%disp ' '
-%disp 'List of all arguments:'
-%disp(p.Results)
+% disp ' '
+% disp 'List of all arguments:'
+% disp(p.Results)
 
 end
 
@@ -174,7 +174,7 @@ if args.emulation
 else
     [o, final_states] = simex(args.dslfile, args.time, ['-' args.target], ['-' args.precision], inputs, states);
 end
-    
+
 % generate the output sensitivities
 if strcmpi(args.output_mode, 'final_state')
     s = computeFinalStateSensitivities(args, final_states);
@@ -255,12 +255,13 @@ if statemode
    for i=1:length(args.states)
        x = [args.states(i)*(1.00-perturb) args.states(i) args.states(i)*(1.00+perturb)];
        for j=1:length(args.states)
-           y = [final_states(2+2*(j-1),i) final_states(count,i) final_states(1+2*(j-1),i)];
-           if diff(diff(x)) == 0
+           %y = [final_states(2+2*(j-1),i) final_states(count,i) final_states(1+2*(j-1),i)];
+           y = [final_states(2+2*(i-1),j) final_states(count,j) final_states(1+2*(i-1),j)];
+           if x(1) == x(3)
              s(i, j) = 0;
            else
              p = polyfit(x,y,1);
-             %disp(sprintf('(%d, %d): x=[%g,%g,%g],y=[%g,%g,%g], line=%g * x + %g]\n', i, j, x(1), x(2), x(3), y(1), y(2), y(3), p(1), p(2)));
+             %disp(sprintf('(%d, %d): x=[%g,%g,%g],y=[%g,%g,%g], line=%g * x + %g', i, j, x(1), x(2), x(3), y(1), y(2), y(3), p(1), p(2)));
              s(i,j)=p(1);
            end
        end
@@ -272,7 +273,7 @@ else
         x = [val*(1.00-perturb) val val*(1.00+perturb)];
        for j=1:size(final_states,2)
            y = [final_states(2+2*(i-1),j) final_states(count,j) final_states(1+2*(i-1),j)];
-           if diff(diff(x)) == 0
+           if x(1) == x(3)
              s(i, j) = 0;
            else
              p = polyfit(x,y,1);
