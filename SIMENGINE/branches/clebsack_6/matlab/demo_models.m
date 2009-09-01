@@ -26,6 +26,18 @@ demo(i).precision = 'single';
 demo(i).target = 'parallel-cpu';
 
 i = i + 1;
+% next, try pBc
+demo(i).title = 'pBc - preBotzinger Complex Persistant Na Sweep';
+demo(i).file = 'examples/pbc.dsl';
+demo(i).starttime = 0;
+demo(i).stoptime = 2;
+demo(i).inputs.Iext = 8;
+demo(i).inputs.gNaP = [2.5 3];
+demo(i).steps = 100;
+demo(i).precision = 'single';
+demo(i).target = 'parallel-cpu';
+
+i = i + 1;
 % next, try FN
 demo(i).title = 'FN - Sweep Current';
 demo(i).file = 'examples/fn.dsl';
