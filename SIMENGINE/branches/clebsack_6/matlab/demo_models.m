@@ -17,7 +17,7 @@ demo(i).target = 'parallel-cpu';
 i = i + 1;
 % next, go to stg
 demo(i).title = 'STG - Adjust Sodium';
-demo(i).file = 'examples/stg.dsl';
+demo(i).file = 'examples/stg_burster.dsl';
 demo(i).starttime = 0;
 demo(i).stoptime = 500;
 demo(i).inputs.gNa = [0 200];

@@ -285,21 +285,10 @@ function SurfaceButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-num_points = 1000;
 if isfield(handles, 'o')
-    figure;
-    steps = length(handles.o);
-    s = zeros(steps, num_points);
-    outputnames = get(handles.OutputMenu, 'String');
-    output = outputnames{get(handles.OutputMenu, 'Value')};
-    starttime = str2double(get(handles.StartTimeEdit, 'String'));
-    stoptime = str2double(get(handles.StopTimeEdit, 'String'));
-    x1 = linspace(starttime, stoptime, num_points);
-    for i=1:steps
-        d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
-    end
-    surf(s, 'EdgeAlpha', 0);
+  [x, y, M] = getDataMatrix(handles);
+  figure;
+  surf(y, x, M, 'EdgeAlpha', 0);
 end
 
 
@@ -311,30 +300,20 @@ function CycleButton_Callback(hObject, eventdata, handles)
 
 num_points = 1000;
 if isfield(handles, 'o')
-    figure;
-    steps = length(handles.o);
-    s = zeros(steps, num_points);
-    outputnames = get(handles.OutputMenu, 'String');
-    output = outputnames{get(handles.OutputMenu, 'Value')};
-    starttime = str2double(get(handles.StartTimeEdit, 'String'));
-    stoptime = str2double(get(handles.StopTimeEdit, 'String'));
-    x1 = linspace(starttime, stoptime, num_points);
-    for i=1:steps
-        d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
-    end
-    maxy = max(max(s));
-    miny = min(min(s));
-    range = maxy-miny;
-    plotmin = miny - (range * 0.1);
-    plotmax = maxy + (range * 0.1);
-    for i=1:steps
-        d = handles.o(i).(output);
-        s(i, :) = spline(d(:,1), d(:,2), x1);
-        plot(x1, s(i,:));
-        axis([starttime stoptime plotmin plotmax]);
-        pause(0.05);
-    end
+  [x, y, M] = getDataMatrix(handles);
+  figure;
+  starttime = min(y);
+  stoptime = max(y);
+  maxy = max(max(M));
+  miny = min(min(M));
+  range = maxy-miny;
+  plotmin = miny - (range * 0.1);
+  plotmax = maxy + (range * 0.1);
+  for i=1:length(x)
+    plot(y, M(i,:));
+    axis([starttime stoptime plotmin plotmax]);
+    pause(0.05);
+  end
 
 end
 
@@ -384,3 +363,37 @@ function DoubleButton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of DoubleButton
+
+% --- getDataMatrix
+function [x, y, M] = getDataMatrix(handles)
+
+num_points = 1000;
+if isfield(handles, 'o')
+    steps = length(handles.o);
+    x = 1:steps;
+    M = zeros(steps, num_points);
+    outputnames = get(handles.OutputMenu, 'String');
+    output = outputnames{get(handles.OutputMenu, 'Value')};
+    starttime = str2double(get(handles.StartTimeEdit, 'String'));
+    stoptime = str2double(get(handles.StopTimeEdit, 'String'));
+    y = linspace(starttime, stoptime, num_points);
+    for i=1:steps
+        d = handles.o(i).(output);
+        try
+          M(i, :) = spline(d(:,1), d(:,2), y);
+        catch me
+          me
+          disp('Spline creation failed');
+          d1 = d(:,1);
+          d2 = d(:,2);
+          disp(sprintf(' -> index: %d', i));
+          disp(sprintf(' -> length (x/y): (%d/%d)',length(d1), ...
+                       length(d(:,2))));
+          common = d1(find(diff(d1)==0));
+          disp(sprintf(' -> number of duplicates: %d, first: %g', ...
+                       length(common), common(1)));
+          M(i,:) = zeros(1,length(y));
+        end
+    end
+end
+

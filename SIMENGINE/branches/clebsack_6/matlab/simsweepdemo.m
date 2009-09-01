@@ -106,7 +106,7 @@ function FileEdit_Callback(hObject, eventdata, handles)
 setStatus(handles, 'Compiling ...');
 m = simex(get(hObject, 'String'))
 handles.m = m;
-set(handles.OutputMenu, 'Value', 1;
+set(handles.OutputMenu, 'Value', 1);
 set(handles.OutputMenu, 'String', m.output_names);
 set(handles.InputTable, 'RowName', m.input_names);
 data = cell(length(m.input_names),3);

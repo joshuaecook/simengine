@@ -57,6 +57,10 @@
 %      is a percentage specifying the perturbation amount for each
 %      input/state.  The default is 1, or 1%.
 %
+%      SIMSENSITIVITY(MODEL, TIME, 'scaling', FLAG, ...) where FLAG
+%      can be true of false to indicate that each sensitivity
+%      output should be scaled between -1 and 1.  The default is false.
+%
 %    Output:
 %      s = SIMSENSITIVITY(...) returns a matrix where the rows corresponds
 %      to the inputs (x) and the columns (y) correspond to the outputs.
@@ -80,7 +84,10 @@ m = runSimex(dslfile);
 args = verifyArgs(m, p.Results);
 
 % Run the sensitivity analysis over the final states or metrics
-s = runSensitivity(args);
+s_pre = runSensitivity(args);
+
+% Now scale if necessary
+s = scaleSensitivities(s_pre, args);
 
 end
 
@@ -100,6 +107,7 @@ p.addParamValue('input_mode', 'states', @(x)any(strcmpi(x,{'states','inputs'})))
 p.addParamValue('output_mode', 'final_state', @(x)any(strcmpi(x,{'final_state','metrics'})))
 p.addParamValue('metric_funs', {}, @iscell)
 p.addParamValue('emulation', false, @(x)(x==true || x==false))
+p.addParamValue('scaling', false, @(x)(x==true || x==false))
 
 p.parse(dslfile, args{:});
 
@@ -182,7 +190,6 @@ else % we are going to do an evaluation of the metrics
       end
     end  
   end
-  metrics
   s = computeFinalStateSensitivities(args, metrics);
 end
 
@@ -276,9 +283,27 @@ else
    end
 end
 
-
 end
 
+%% Scale Sensitivities
+function scaled_s = scaleSensitivities(s, args)
+
+if args.scaling
+  max_vec = max(s);
+  min_vec = min(s);
+  scaling_vec = zeros(length(max_vec), 2);
+  factor = 2./(max_vec - min_vec);
+  scaling_vec(:,1) = factor;
+  scaling_vec(:,2) = (1-factor.*max_vec);
+  scaled_s = zeros(size(s,1),size(s,2));
+  for j=1:size(s,2)
+    scaled_s(:,j) = polyval(scaling_vec(j,:), s(:,j));
+  end
+else
+  scaled_s = s;
+end
+
+end
 
 
 
