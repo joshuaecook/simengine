@@ -54,7 +54,8 @@ JTAG_LIB = /opt/lib/libusb-driver.so
 #EXAMPLES = release/tutorial release/pBc release/HN release/HH release/FN release/BRK
 # In the oodlc, examples are in the tests directory under models
 # EXAMPLES = models/*.dsl
-EXAMPLES = ../examples/misc/*.dsl ../examples/neural/*/*.dsl
+#EXAMPLES = ../examples/misc/*.dsl ../examples/neural/*/*.dsl
+EXAMPLES = `cat ../examples/release_list`
 # There are certain files required that must be installed on the host system. These packages are defined as PKGS
 # All of these PKGS have to be in the scripts directory
 ifeq ($(UNAME), Linux)
@@ -388,7 +389,7 @@ compiler:
 
 build-examples: $(BUILD_DIR)/examples
 	@echo "Building examples"
-	@cd tests; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
+	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
 ifdef $(DYN)
 	@cd tests; $(CP) $(DYN) ../$(BUILD_DIR)/examples
 endif

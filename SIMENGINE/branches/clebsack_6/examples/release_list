@@ -1,0 +1,9 @@
+neural/BRK/brk.dsl
+neural/HH/hh.dsl
+neural/HN/timingNetwork.dsl
+neural/HN/hn34.dsl
+neural/HN/hn12.dsl
+neural/HN/synapse.dsl
+neural/STG/stg_burster.dsl
+neural/FN/fn.dsl
+misc/lorenz.dsl
