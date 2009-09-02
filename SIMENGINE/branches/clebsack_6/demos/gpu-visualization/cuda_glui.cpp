@@ -20,10 +20,12 @@
 
 const unsigned int WINDOW_WIDTH = 512;
 const unsigned int WINDOW_HEIGHT = 512;
-const unsigned int FRAME_LIMIT = 64;
+const unsigned int FRAME_LIMIT = 8;
+const unsigned int COMPUTE_LIMIT = 256;
 
 #define _QUOTE(X) #X
 #define QUOTE(X) _QUOTE(X)
+
 
 const size_t VBO_SIZE = NUM_MODELS * MAX_ITERATIONS * 4 * sizeof(CDATAFORMAT);
 
@@ -31,28 +33,48 @@ static struct
     {
     int2 mouse;
     int mouseButtons;
+
     float3 rotation;
     float3 translation;
     float3 scale;
     float3 cameraPosition;
-    unsigned int cameraCounter;
+
     unsigned int frameCounter;
-    unsigned int frameTimer;
-    unsigned int firstFrame;
     float frameRate;
+
+    unsigned int firstCompute;
+    unsigned int computeCounter;
+    cudaEvent_t computeStart;
+    cudaEvent_t computeFinish;
+    float computeRate;
     } glui_data = 
 	{
-	{0,0}, 0, {0.0f,-90.0f,0.0f}, {0.0f,0.0f,0.0f}, {0.01f, 0.5f, 1.0f}, {1.0f,sqrt(1.0f/2.0f),0.0f}, 0, 0, 0, 1, 0.0f
+	{0,0},
+	0, 
+
+	{0.0f,-90.0f,0.0f}, 
+	{0.0f,0.0f,0.0f}, 
+	{0.01f, 0.5f, 10.0f}, 
+	{1.0f,sqrt(1.0f/2.0f),0.0f}, 
+
+	0, 0.0f,
+
+	1, 0, 0, 0, 0.0f
 	};
 
-// OpenGL vertex buffers
-GLuint vbo[FRAME_LIMIT];
-GLuint cbo[FRAME_LIMIT];
-unsigned int vbo_count[NUM_MODELS][FRAME_LIMIT];
+static float computeElapsed[COMPUTE_LIMIT];
+static unsigned long long frameElapsed[FRAME_LIMIT];
 
-simengine_api *simengine;
-const simengine_interface *iface;
-simengine_alloc simemory = { MALLOC, REALLOC, FREE };
+static unsigned int framesPerCompute = 1;
+
+// OpenGL vertex buffers
+GLuint vbo[COMPUTE_LIMIT];
+GLuint cbo[COMPUTE_LIMIT];
+unsigned int vbo_count[NUM_MODELS][COMPUTE_LIMIT];
+
+static simengine_api *simengine;
+static const simengine_interface *iface;
+static simengine_alloc simemory = { MALLOC, REALLOC, FREE };
 
 // Initializes the OpenGL runtime.
 int initGL(int argc, char **argv);
@@ -61,9 +83,12 @@ void makeGLBuffer(GLuint *vbo, size_t size);
 // Deletes an OpenGL buffer and removes its registration from the CUDA runtime.
 void destroyGLBuffer(GLuint *vbo);
 void computeFrameRate(void);
+void computeComputeRate(void);
+void computeTranslation(void);
 void computeCameraPosition(void);
 void computeTask();
 void initSimulation(unsigned int);
+void cleanSimulation(void);
 
 #pragma mark OpenGL callbacks
 // Invoked by every iteration of the OpenGL main loop
@@ -82,15 +107,20 @@ void *loadSimEngine(const char *name);
 simengine_api *initSimEngine(void *simEngine);
 void releaseSimEngine(simengine_api *api);
 
-static simengine_alloc alloc = {malloc, realloc, free};
+
+unsigned long long getnanos(void);
+
+
 static CDATAFORMAT *model_inputs, *model_states;
 double *states = 0, *rgbs = 0;
 static float4 *clut;
 static CDATAFORMAT t[NUM_MODELS];
 float max_t = 0.0f;
 float min_t = 0.0f;
+float med_t = 0.0f;
+float delta_t = 0.0f;
 static CDATAFORMAT t0 = 0.0;
-static CDATAFORMAT t1 = 10000.0;
+static CDATAFORMAT t1 = 20000.0;
 static solver_props *props;
 static void *mem;
 static simengine_result *result;
@@ -108,7 +138,8 @@ output_buffer *OB;
 unsigned int num_rgbs;
 int main(int argc, char** argv)
     {
-    unsigned int num_states;
+    cudaError_t cue;
+    unsigned int num_states, frameid, modelid;
 
     if (argc < 2) 
 	{
@@ -118,11 +149,9 @@ int main(int argc, char** argv)
 	
     nsimulations = argc - 1;
     inputsfiles = NMALLOC(nsimulations, char*);
-    for (simulationid = 0; simulationid < nsimulations; ++simulationid)
-	{
-	inputsfiles[simulationid] = argv[1 + simulationid];
-	}
-    simulationid = 0;
+    memcpy(inputsfiles, &argv[1], nsimulations * sizeof(char*));
+
+
 
     simengine = initSimEngine(loadSimEngine(QUOTE(LIBSIMENGINE)));
     iface = simengine->getinterface();
@@ -131,19 +160,17 @@ int main(int argc, char** argv)
 
     initGL(argc, argv);
 
-    cutilCheckError(cutCreateTimer(&glui_data.frameTimer));
-
 
     if (!cutReadFiled("states.dat", &states, &num_states, YES))
 	{ ERROR(Simatra:error, "Failed to read file %s\n", "states.dat"); exit(1); }
-//    PRINTF("read %d states from %s\n", num_states, "states.dat");
+    PRINTF("read %d states from %s\n", num_states, "states.dat");
 
     model_states = (CDATAFORMAT *)malloc(iface->num_states * NUM_MODELS * sizeof(CDATAFORMAT));
 
 
     if (!cutReadFiled("clut.dat", &rgbs, &num_rgbs, YES))
 	{ ERROR(Simatra:error, "Failed to read file %s\n", "clut.dat");  exit(1);}
-//    PRINTF("read %d rgbs from %s\n", num_rgbs, "clut.dat");
+    PRINTF("read %d rgbs from %s\n", num_rgbs, "clut.dat");
 
     clut = (float4 *)malloc(num_rgbs / 3 * sizeof(float4));
 
@@ -153,59 +180,84 @@ int main(int argc, char** argv)
 	}
 
 
+    for (frameid = 0; frameid < COMPUTE_LIMIT; ++frameid)
+    	{ 
+    	makeGLBuffer(&vbo[frameid], VBO_SIZE); 
+    	makeGLBuffer(&cbo[frameid], VBO_SIZE);
+	for (modelid = 0; modelid < NUM_MODELS; ++modelid)
+	    { vbo_count[modelid][frameid] = 0; }
+	computeElapsed[frameid] = -1.0f;
+    	}
+    for (frameid = 0; frameid < FRAME_LIMIT; ++frameid)
+	{ frameElapsed[frameid] = 0ULL; }
+
+    PRINTF("initialized %d vertex and colour buffers\n", COMPUTE_LIMIT);
+
+
+    cue = cudaEventCreate(&glui_data.computeStart);
+    if (cudaSuccess != cue)
+	{
+	ERROR(Simatra:error, "Failed while creating start event: %s\n", 
+	    cudaGetErrorString(cue));
+	exit(cue);
+	}
+    cue = cudaEventCreate(&glui_data.computeFinish);
+    if (cudaSuccess != cue)
+	{
+	ERROR(Simatra:error, "Failed while creating finish event: %s\n", 
+	    cudaGetErrorString(cue));
+	exit(cue);
+	}
+    
+
 
     initSimulation(simulationid);
-
 
 
     glutMainLoop();
  
     }
 
-void initSimulation(unsigned int id)
+void initSimulation(unsigned int simulationid)
     {
+    cudaError_t cue;
     unsigned int num_inputs;
     unsigned int frameid, modelid;
     double *inputs = 0;
 
     if (!cutReadFiled(inputsfiles[simulationid], &inputs, &num_inputs, YES)) 
-	{ ERROR(Simatra:error, "Failed to read file %s\n", inputsfiles[1]);  exit(1);}
-//    PRINTF("read %d inputs from %s\n", num_inputs, inputsfiles[1]);
+	{ ERROR(Simatra:error, "Failed while reading file %s\n", inputsfiles[simulationid]);  exit(1);}
+    PRINTF("read %d inputs from %s\n", num_inputs, inputsfiles[simulationid]);
 
-    model_inputs = (CDATAFORMAT *)malloc(iface->num_inputs * NUM_MODELS * sizeof(CDATAFORMAT));
+    model_inputs = NMALLOC(iface->num_inputs * NUM_MODELS, CDATAFORMAT);
 
-    result = simengine->init(NUM_MODELS, t0, t, t1, inputs, model_inputs, states, model_states, &alloc, &props, &mem);
+    result = simengine->init(NUM_MODELS, t0, t, t1, inputs, model_inputs, states, model_states, &simemory, &props, &mem);
     OB = (output_buffer *)simengine->getoutputs();
 
-    for (frameid = 0; frameid < FRAME_LIMIT; ++frameid)
-	{ 
-	makeGLBuffer(&vbo[frameid], VBO_SIZE); 
-	makeGLBuffer(&cbo[frameid], VBO_SIZE);
-	for (modelid = 0; modelid < NUM_MODELS; ++modelid)
-	    { vbo_count[modelid][frameid] = 0; }
-	}
-
     simengine->register_clut(clut, num_rgbs/3);
+
 
     }
 
 
 void computeTask()
     {
+    cudaError_t cue;
+
     if (!OB->active_models)
 	{
-	if (nsimulations == ++simulationid)
-	    { simulationid = 0; }
+	simulationid = (1 + simulationid) % nsimulations;
+	PRINTF("Resetting computation; next simulation is %d\n", simulationid);
 
-	cleanup();
+	cleanSimulation();
 	initSimulation(simulationid);
-	glui_data.firstFrame = 1;
+	glui_data.firstCompute = 1;
 	}
 
     unsigned int modelid;
     float4 *verts, *colors;
 
-    if (!glui_data.firstFrame)
+    if (!glui_data.firstCompute)
 	{
 	if (cudaSuccess != cudaStreamQuery(0))
 	    { return; }
@@ -215,11 +267,11 @@ void computeTask()
 
 	    cutilSafeCall(cudaMemcpy(t, props->time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
 
-	    cutilSafeCall(cudaGLUnmapBufferObject(vbo[glui_data.frameCounter]));
-	    cutilSafeCall(cudaGLUnmapBufferObject(cbo[glui_data.frameCounter]));
+	    cutilSafeCall(cudaGLUnmapBufferObject(vbo[glui_data.computeCounter]));
+	    cutilSafeCall(cudaGLUnmapBufferObject(cbo[glui_data.computeCounter]));
 
-	    float prev_max_t = max_t;
-	    float prev_min_t = min_t;
+	    // float prev_max_t = max_t;
+	    // float prev_min_t = min_t;
 	    for (modelid = 0; modelid < NUM_MODELS; ++modelid)
 		{
 		if (max_t < t[modelid]) {
@@ -227,10 +279,13 @@ void computeTask()
 		    }
 
 
-		vbo_count[modelid][glui_data.frameCounter] = 
+		vbo_count[modelid][glui_data.computeCounter] = 
 		    OB->vb_count[modelid];
 		}
 	    
+	    float last_min_t = min_t;
+	    float last_med_t = med_t;
+
 	    min_t = max_t;
 	    for (modelid = 0; modelid < NUM_MODELS; ++modelid)
 		{
@@ -240,34 +295,58 @@ void computeTask()
 		    }
 		}
 
-	    // PRINTF("d_max_t %.4f, d_min_t %.4f\n",
-	    // max_t - prev_max_t, min_t - prev_min_t);
-	    // PRINTF("max_t %.4f, min_t %.4f\n",
-	    // max_t, min_t);
+	    med_t = min_t + ((max_t - min_t) / 2.0f);
+	    delta_t = med_t - last_med_t;
 
-	    glui_data.translation.x = -1.0 * min_t;
-	    //glui_data.scale.x = 1.0f / sqrt(max_t - min_t);
+	    cue = cudaEventRecord(glui_data.computeFinish, 0);
+	    if (cudaSuccess != cue)
+		{
+		ERROR(Simatra:error, "Failed while recording finish event: %s\n", 
+		    cudaGetErrorString(cue));
+		exit(cue);
+		}
+	    cue = cudaEventSynchronize(glui_data.computeFinish);
 
-	    if (FRAME_LIMIT == ++glui_data.frameCounter)
-		{ glui_data.frameCounter = 0; }
+
+	    cue = cudaEventElapsedTime(&computeElapsed[glui_data.computeCounter], glui_data.computeStart, glui_data.computeFinish);
+	    if (cudaSuccess != cue)
+		{
+		ERROR(Simatra:error, "Failed while determining elapsed computation time: %s\n", 
+		    cudaGetErrorString(cue));
+		exit(cue);
+		}
+
+	    computeComputeRate();
+
+	    glui_data.computeCounter = (1 + glui_data.computeCounter) % COMPUTE_LIMIT;
+	    framesPerCompute = 1;
 	    }
 	}
     else
-	{ glui_data.firstFrame = 0; }
+	{ glui_data.firstCompute = 0; }
 
+
+    cue = cudaEventRecord(glui_data.computeStart, 0);
+    if (cudaSuccess != cue)
+	{
+	ERROR(Simatra:error, "Failed while recording start event: %s\n", 
+	    cudaGetErrorString(cue));
+	exit(cue);
+	}
 
     for (modelid = 0; modelid < NUM_MODELS; ++modelid)
 	{
-	vbo_count[modelid][glui_data.frameCounter] = 0;
+	vbo_count[modelid][glui_data.computeCounter] = 0;
 	}
 
     cutilSafeCall(cudaGLMapBufferObject((void **)&verts, 
-	    vbo[glui_data.frameCounter]));
+	    vbo[glui_data.computeCounter]));
     cutilSafeCall(cudaGLMapBufferObject((void **)&colors, 
-	    cbo[glui_data.frameCounter]));
+	    cbo[glui_data.computeCounter]));
 
     simengine->register_vertex_buffer(verts, colors);
 
+    
     simengine->async_invoke_kernel(mem, props);
     }
 
@@ -275,11 +354,13 @@ void display(void)
     {
     unsigned int modelid, frameid;
     //char title[24];
+    unsigned long long start, finish;
 
-    cutilCheckError(cutStartTimer(glui_data.frameTimer));
+    start = getnanos();
 
     computeTask();
-    computeCameraPosition();    
+    computeCameraPosition();
+    computeTranslation();
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -309,7 +390,10 @@ void display(void)
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     glColor4f(1.0f, 0.0f, 0.0f, 0.5f);
-    for (frameid=0; frameid<FRAME_LIMIT; ++frameid)
+
+    ++framesPerCompute;
+
+    for (frameid=0; frameid<COMPUTE_LIMIT; ++frameid)
 	{
 	glBindBuffer(GL_ARRAY_BUFFER, vbo[frameid]);
 	glVertexPointer(4, GL_FLOAT, 0, 0);
@@ -320,10 +404,22 @@ void display(void)
 	    {
 	    if (!vbo_count[modelid][frameid])
 		{continue;}
+	    if (frameid == glui_data.computeCounter)
+		{continue;}
 
-//	    PRINTF("rendering %d vertices of frame %d for model %d\n", vbo_count[modelid][frameid], frameid, modelid);
+	    unsigned int vertices = vbo_count[modelid][frameid];
+	    if (glui_data.computeRate && 
+		    (frameid + 1 == glui_data.computeCounter || 
+		    (0 == glui_data.computeCounter && frameid + 1 == COMPUTE_LIMIT)))
+		{
+		// Partial rendering of last compute frame
+		float portion = framesPerCompute * glui_data.computeRate / glui_data.frameRate;
+		vertices = MIN(vertices, (unsigned int)ceilf(portion * vertices));
+		}
 
-	    glDrawArrays(GL_LINE_STRIP, modelid * MAX_ITERATIONS, vbo_count[modelid][frameid]);
+	    glDrawArrays(GL_LINE_STRIP, modelid * MAX_ITERATIONS, vertices);
+
+
 	    }
 	}
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -334,21 +430,48 @@ void display(void)
     glutSwapBuffers();
     glutPostRedisplay();
 
-    cutilCheckError(cutStopTimer(glui_data.frameTimer));  
-
+    finish = getnanos();
+    frameElapsed[glui_data.frameCounter] = finish - start;
+//    PRINTF("frameElapsed[%lld] = %lld - %lld = %lld\n", glui_data.frameCounter, finish, start, frameElapsed[glui_data.frameCounter]);
     computeFrameRate();
-//    sprintf(title, "%3.4f fps", glui_data.frameRate);
-//    glutSetWindowTitle(title);
+
+    char title[256];
+    sprintf(title, "%3.4f fps (%3.4f kernels/s)", glui_data.frameRate, glui_data.computeRate);
+    glutSetWindowTitle(title);
     }
 
 void computeFrameRate(void)
     {
-    if (FRAME_LIMIT == glui_data.frameCounter)
+    unsigned int frameid;
+    float total;
+
+    if (FRAME_LIMIT > ++glui_data.frameCounter)
+	{ return; }
+
+    glui_data.frameCounter = 0;
+
+    for (frameid = 0; frameid < FRAME_LIMIT; ++frameid)
 	{
-	glui_data.frameRate = 1.0f / cutGetAverageTimerValue(glui_data.frameTimer);
-	glui_data.frameCounter = 0;
-	cutilCheckError(cutResetTimer(glui_data.frameTimer));
+	total += frameElapsed[frameid] / 1000000000.0f;
 	}
+
+    glui_data.frameRate = FRAME_LIMIT / total;
+    }
+
+void computeComputeRate(void)
+    {
+    unsigned int frameid, valid = 0;
+    float total;
+
+    for (frameid = 0; frameid < COMPUTE_LIMIT; ++frameid)
+	{
+	if (0.0f >= computeElapsed[frameid]) { continue; }
+	total += computeElapsed[frameid];
+	++valid;
+	}
+
+    if (valid)
+	{ glui_data.computeRate = 1000.0f * valid / total; }
     }
 
 
@@ -365,6 +488,22 @@ float get_cycle_angle(float cycle_time){
   return 2*M_PI*now;
 }
 
+void computeTranslation(void)
+    {
+    float translation = -1.0f * med_t;
+
+    if (glui_data.computeRate) 
+	{
+	float portion = 1.0f - (framesPerCompute * glui_data.computeRate / glui_data.frameRate);
+
+
+
+	translation = MAX(translation,
+	    -1.0f * (med_t - (portion * delta_t)));
+	}
+
+    glui_data.translation.x = translation;
+    }
 
 void computeCameraPosition(void)
     {
@@ -377,26 +516,32 @@ void computeCameraPosition(void)
     glui_data.cameraPosition.z = r * sin(t);
     }
 
-void cleanup(void)
+void cleanSimulation(void)
     {
-//    PRINTF("cleanup!\n");
-    unsigned int frameid;
+    cudaError_t cue;
+
     simengine->register_clut(0, 0);
 
-    if (model_inputs)
-	{ free(model_inputs); }
+    simengine->free_solver(mem, props);
+    simengine->release_result(result);
 
-    for (frameid = 0; frameid < FRAME_LIMIT; ++frameid)
+    if (model_inputs)
+	{ FREE(model_inputs); }
+    }
+
+void cleanup(void)
+    {
+    unsigned int frameid;
+//    PRINTF("cleanup!\n");
+    cleanSimulation();
+    for (frameid = 0; frameid < COMPUTE_LIMIT; ++frameid)
     	{ 
 	destroyGLBuffer(&vbo[frameid]); 
 	destroyGLBuffer(&cbo[frameid]);
 	}
-
-    simengine->free_solver(mem, props);
-    simengine->release_result(result);
     }
 
-void keyboard(unsigned char key, int x, int y)
+void keyboard(unsigned char key, int, int)
     {
     switch (key)
 	{
@@ -443,6 +588,8 @@ int initGL(int argc, char **argv)
 
 void makeGLBuffer(GLuint *vbo, size_t size)
     {
+    cudaError_t cue;
+
     // create buffer object
     glGenBuffers(1, vbo);
     glBindBuffer(GL_ARRAY_BUFFER, *vbo);
@@ -453,17 +600,30 @@ void makeGLBuffer(GLuint *vbo, size_t size)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // register buffer object with CUDA
-    cutilSafeCall(cudaGLRegisterBufferObject(*vbo));
+    cue = cudaGLRegisterBufferObject(*vbo);
+    if (cudaSuccess != cue)
+	{
+	ERROR(Simatra:error, "Failed to register OpenGL buffer: %s\n", 
+	    cudaGetErrorString(cue));
+	exit(cue);
+	}
 
     CUT_CHECK_ERROR_GL();
     }
 
 void destroyGLBuffer(GLuint *vbo)
     {
+    cudaError_t cue;
+
     glBindBuffer(1, *vbo);
     glDeleteBuffers(1, vbo);
 
-    cutilSafeCall(cudaGLUnregisterBufferObject(*vbo));
+    cue = cudaGLUnregisterBufferObject(*vbo);
+    if (cudaSuccess != cue)
+	{
+	ERROR(Simatra:error, "Failed to unregister OpenGL buffer: %s\n", 
+	    cudaGetErrorString(cue));
+	}
 
     *vbo = 0;
     }
