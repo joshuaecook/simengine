@@ -190,17 +190,17 @@ ifeq ($(UNAME), Darwin)
 ifeq ($(FIND_MATLAB),/usr/bin/matlab)
 MATLAB_PATH = /Applications/MATLAB_R2009a.app
 MEX = $(MATLAB_PATH)/bin/mex
-MEXEXT = mexmaci
+MEXEXT = .mexmaci
 endif
 else
 ifeq ($(FIND_MATLAB),/usr/local/bin/matlab)
 MATLAB_PATH = /usr/local/matlab
 MEX = $(MATLAB_PATH)/bin/mex
-MEXEXT = mexa64
+MEXEXT = .mexa64
 else
 MATLAB_PATH = /opt/octave
 MEX = $(MATLAB_PATH)/bin/mkoctfile --mex 
-MEXEXT = mex
+MEXEXT = .mex
 endif
 endif
 
