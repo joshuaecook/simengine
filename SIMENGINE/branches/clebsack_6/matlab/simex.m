@@ -7,13 +7,13 @@
 %
 %   Description:
 %    SIMEX compiles the model defined in the DSL file into a
-%    high-performance software simulation engine. SIMEX automatically
-%    chooses the best available computing platform for the model and
-%    executes the simulation with the given parameters. (I hope hope hope.)
+%    high-performance software simulation engine. SIMEX generates a
+%    specially tuned executable version of the model for the selected computing
+%    platform and executes the simulation with the given parameters.
 %
 %    SIMEX(MODEL, TIME, INPUTS, Y0, ...) accepts the following options, all
-%    of which are optional except for the file name of the DSL model and
-%    the simulation time limit.
+%    of which are optional except for the file name of the DSL model and the
+%    time to execute the simulation.
 %
 %      MODEL is a full pathname to a DSL model file.
 %
@@ -36,12 +36,11 @@
 %
 %      '-outdir'
 %        The next parameter must be a path which specifies the
-%        directory in which the compiled model will be saved. (?Not
-%        supported in Octave?)
+%        directory in which the compiled model will be saved.
 %
 %      '-double'
 %        Constructs a simulation engine that computes in
-%        double-precision floating point.
+%        double-precision floating point. (This is the default.)
 %
 %      '-single' '-float'
 %        Constructs a simulation engine that computes in
@@ -49,6 +48,7 @@
 %
 %      '-cpu'
 %        Constructs a serialized cpu-based simulation engine.
+%        (This is the default.)
 %
 %      '-parallel-cpu'
 %        Constructs a multiprocessor cpu-based simulation engine.
@@ -62,7 +62,7 @@
 %        information.
 %
 %      '-dontrecompile'
-%        Tells the compiler to not recompile the model
+%        Tells the compiler to not recompile the model.
 %
 %      '-profile'
 %        Enables the compiler to produce extra profiling
