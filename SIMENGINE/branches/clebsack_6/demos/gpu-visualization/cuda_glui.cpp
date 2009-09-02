@@ -120,7 +120,7 @@ float min_t = 0.0f;
 float med_t = 0.0f;
 float delta_t = 0.0f;
 static CDATAFORMAT t0 = 0.0;
-static CDATAFORMAT t1 = 20000.0;
+static CDATAFORMAT t1 = 10000.0;
 static solver_props *props;
 static void *mem;
 static simengine_result *result;
@@ -151,8 +151,6 @@ int main(int argc, char** argv)
     inputsfiles = NMALLOC(nsimulations, char*);
     memcpy(inputsfiles, &argv[1], nsimulations * sizeof(char*));
 
-
-
     simengine = initSimEngine(loadSimEngine(QUOTE(LIBSIMENGINE)));
     iface = simengine->getinterface();
 
@@ -180,19 +178,44 @@ int main(int argc, char** argv)
 	}
 
 
-    for (frameid = 0; frameid < COMPUTE_LIMIT; ++frameid)
-    	{ 
-    	makeGLBuffer(&vbo[frameid], VBO_SIZE); 
-    	makeGLBuffer(&cbo[frameid], VBO_SIZE);
-	for (modelid = 0; modelid < NUM_MODELS; ++modelid)
-	    { vbo_count[modelid][frameid] = 0; }
-	computeElapsed[frameid] = -1.0f;
-    	}
-    for (frameid = 0; frameid < FRAME_LIMIT; ++frameid)
-	{ frameElapsed[frameid] = 0ULL; }
 
-    PRINTF("initialized %d vertex and colour buffers\n", COMPUTE_LIMIT);
 
+
+    initSimulation(simulationid);
+
+
+    glutMainLoop();
+ 
+    }
+
+void initSimulation(unsigned int simulationid)
+    {
+    PRINTF("initSimulation\n");
+
+    cudaError_t cue;
+    unsigned int num_inputs;
+    unsigned int frameid, modelid;
+    double *inputs = 0;
+
+    glui_data.translation.x = 0.0f;
+    glui_data.firstCompute = 1;
+    
+    max_t = 0.0f;
+    min_t = 0.0f;
+    med_t = 0.0f;
+    delta_t = 0.0f;
+	
+    if (!cutReadFiled(inputsfiles[simulationid], &inputs, &num_inputs, YES)) 
+	{ ERROR(Simatra:error, "Failed while reading file %s\n", inputsfiles[simulationid]);  exit(1);}
+    PRINTF("read %d inputs from %s\n", num_inputs, inputsfiles[simulationid]);
+
+    model_inputs = NMALLOC(iface->num_inputs * NUM_MODELS, CDATAFORMAT);
+
+    result = simengine->init(NUM_MODELS, t0, t, t1, inputs, model_inputs, states, model_states, &simemory, &props, &mem);
+
+    OB = (output_buffer *)simengine->getoutputs();
+
+    simengine->register_clut(clut, num_rgbs/3);
 
     cue = cudaEventCreate(&glui_data.computeStart);
     if (cudaSuccess != cue)
@@ -208,34 +231,17 @@ int main(int argc, char** argv)
 	    cudaGetErrorString(cue));
 	exit(cue);
 	}
-    
 
-
-    initSimulation(simulationid);
-
-
-    glutMainLoop();
- 
-    }
-
-void initSimulation(unsigned int simulationid)
-    {
-    cudaError_t cue;
-    unsigned int num_inputs;
-    unsigned int frameid, modelid;
-    double *inputs = 0;
-
-    if (!cutReadFiled(inputsfiles[simulationid], &inputs, &num_inputs, YES)) 
-	{ ERROR(Simatra:error, "Failed while reading file %s\n", inputsfiles[simulationid]);  exit(1);}
-    PRINTF("read %d inputs from %s\n", num_inputs, inputsfiles[simulationid]);
-
-    model_inputs = NMALLOC(iface->num_inputs * NUM_MODELS, CDATAFORMAT);
-
-    result = simengine->init(NUM_MODELS, t0, t, t1, inputs, model_inputs, states, model_states, &simemory, &props, &mem);
-    OB = (output_buffer *)simengine->getoutputs();
-
-    simengine->register_clut(clut, num_rgbs/3);
-
+    for (frameid = 0; frameid < COMPUTE_LIMIT; ++frameid)
+    	{ 
+    	makeGLBuffer(&vbo[frameid], VBO_SIZE); 
+    	makeGLBuffer(&cbo[frameid], VBO_SIZE);
+	for (modelid = 0; modelid < NUM_MODELS; ++modelid)
+	    { vbo_count[modelid][frameid] = 0; }
+	computeElapsed[frameid] = -1.0f;
+    	}
+    for (frameid = 0; frameid < FRAME_LIMIT; ++frameid)
+	{ frameElapsed[frameid] = 0ULL; }
 
     }
 
@@ -251,7 +257,6 @@ void computeTask()
 
 	cleanSimulation();
 	initSimulation(simulationid);
-	glui_data.firstCompute = 1;
 	}
 
     unsigned int modelid;
@@ -518,27 +523,45 @@ void computeCameraPosition(void)
 
 void cleanSimulation(void)
     {
+    PRINTF("cleanSimulation\n");
+    
+    unsigned int frameid;
     cudaError_t cue;
 
     simengine->register_clut(0, 0);
+
+    for (frameid = 0; frameid < COMPUTE_LIMIT; ++frameid)
+    	{ 
+	destroyGLBuffer(&vbo[frameid]); 
+	destroyGLBuffer(&cbo[frameid]);
+	}
+
+
+    cue = cudaEventDestroy(glui_data.computeStart);
+    if (cudaSuccess != cue)
+	{
+	ERROR(Simatra:error, "Error while destroying start event: %s\n", 
+	    cudaGetErrorString(cue));
+	}
+    cue = cudaEventDestroy(glui_data.computeFinish);
+    if (cudaSuccess != cue)
+	{
+	ERROR(Simatra:error, "Error while destroying finish event: %s\n", 
+	    cudaGetErrorString(cue));
+	}
 
     simengine->free_solver(mem, props);
     simengine->release_result(result);
 
     if (model_inputs)
 	{ FREE(model_inputs); }
+
     }
 
 void cleanup(void)
     {
-    unsigned int frameid;
 //    PRINTF("cleanup!\n");
     cleanSimulation();
-    for (frameid = 0; frameid < COMPUTE_LIMIT; ++frameid)
-    	{ 
-	destroyGLBuffer(&vbo[frameid]); 
-	destroyGLBuffer(&cbo[frameid]);
-	}
     }
 
 void keyboard(unsigned char key, int, int)
