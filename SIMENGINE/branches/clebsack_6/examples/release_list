@@ -7,3 +7,6 @@ neural/HN/synapse.dsl
 neural/STG/stg_burster.dsl
 neural/FN/fn.dsl
 misc/lorenz.dsl
+misc/yeast.dsl
+misc/purine.dsl
+misc/vdpex.dsl
