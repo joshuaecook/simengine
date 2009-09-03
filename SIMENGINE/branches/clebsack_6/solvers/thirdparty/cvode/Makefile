@@ -28,7 +28,7 @@ clean-cvode:
 	rm -rf $(SUNDIALS_BUILD_PATH)
 
 clean:
-	rm -f src/*.o *.linkinfo lib/*.a
+	rm -f src/*.o *.linkinfo *.a
 	@for type in $(DATATYPES); do \
 	  $(MAKE) clean-cvode TYPE=$$type; \
 	 done
