@@ -18,7 +18,7 @@
 * Constants
   | constant | definition                                     |
   |----------+------------------------------------------------|
-  | pi       | ratio of circuference and diameter of a circle |
+  | pi       | ratio of circumference and diameter of a circle |
   | e        | base of natural logarithm                      |
 
 * Operators
@@ -61,7 +61,7 @@
   | exp(x)     | exponentiation    |
   | ln(x)      | natural logarithm |
   | log10(x)   | base 10 logarithm |
-  | logn(x)    | base n logarithm  |
+  | logn(x,n)  | base n logarithm  |
   
 
 #+CAPTION: Trigonometric and related functions
