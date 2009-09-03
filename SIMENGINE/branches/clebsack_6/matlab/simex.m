@@ -255,7 +255,7 @@ if strcmpi(opts.target, '')
   opts.target = 'CPU';
   if 1 < opts.models
     switch computer
-     case {'MACI','MACI64'}
+     case {'MACI','MACI64','i386-apple-darwin9.8.0'}
       opts.target = 'PARALLELCPU';
      otherwise
       opts.target = 'PARALLELCPU';
@@ -461,7 +461,7 @@ end % end if recompile
 
 % TODO what is the path of the resultant DLL?
 switch computer
-  case {'MACI', 'MACI64'}
+  case {'MACI', 'MACI64','i386-apple-darwin9.8.0'}
    dllPath = fullfile(pwd, 'libsimengine.dylib');
  otherwise
    dllPath = fullfile(pwd, 'libsimengine.so');
