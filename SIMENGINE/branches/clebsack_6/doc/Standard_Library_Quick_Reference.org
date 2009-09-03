@@ -21,6 +21,36 @@
   | pi       | ratio of circuference and diameter of a circle |
   | e        | base of natural logarithm                      |
 
+* Operators
+  | operator   | definition        |
+  |------------+-------------------|
+  | x + y      | addition          |
+  | x - y      | subtraction       |
+  | x * y      | multiplication    |
+  | x / y      | division          |
+  | x % y      | modulus           |
+  | x ^ y      | exponentiation    |
+  | x and y    | logical and       |
+  | x or y     | logical or        |
+  | not x      | logical not       |
+  | x > y      | greater than      |
+  | x >= y     | greater than or equal |
+  | x < y      | less than         |
+  | x <= y     | less than or equal|
+  | x == y     | equality          |
+  | x <> y     | non-equality      |
+
+* Conditionals
+  Conditionals test an ordered sequence of boolean conditions, returning the corresponding value of the first match.
+
+  Format:
+  {value1 when condition1, value2 when condition 2, ..., valueN otherwise}
+
+  Example: 
+#+BEGIN_SRC dsl
+    equation x = {y when y > 0, 0 otherwise}
+#+END_SRC
+
 * Functions
   | function   | definition        |
   |------------+-------------------|
