@@ -7,7 +7,7 @@ endif
 DEBUG=1
 
 INCLUDES += -Iinclude -I../include
-LDLIBS = -ldl -lgomp
+LDLIBS = -ldl $(LGOMP)
 
 CWARNINGS = -W -Wall
 
@@ -31,7 +31,9 @@ ifeq ($(OSLOWER),darwin)
 	CC = "/opt/local/bin/gcc-mp-4.4"
 	CXX = "/opt/local/bin/g++-mp-4.4"
 	LOCATIONS=LD=$(LD) CC=$(CC) CXX=$(CXX)
+	LGOMP=/opt/local/lib/gcc44/libgomp.a
 else
+	LGOMP=-lgomp
 	LOCATIONS=
 endif
 MEXFLAGS += $(LOCATIONS)
