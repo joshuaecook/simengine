@@ -11,11 +11,11 @@ ARCH64 = $(strip $(shell arch|grep 64))
 GRIND := valgrind
 CXX := g++
 ifeq ($(OSLOWER), darwin)
-GXXVERSION = `g++ -v 2>&1 | tail -1 | cut -d' ' -f 3`
-GXXMAJOR = `echo $GXXVERSION | cut -d. -f 1`
-GXXMINOR = `echo $GXXVERSION | cut -d. -f 2`
+GXXVERSION = $(shell g++ -v 2>&1 | tail -1 | cut -d' ' -f 3)
+GXXMAJOR = $(shell echo $(GXXVERSION) | cut -d. -f 1)
+GXXMINOR = $(shell echo $(GXXVERSION) | cut -d. -f 2)
 
-CC=$(CC=g++; if [[ 4 -ge $GXXMAJOR ]]; then if [[ 2 -gt $GXXMINOR ]]; then CC=g++-4.2; fi; fi; echo $CC)
+CC=$(shell (export CC=g++; if [[ 4 -ge $GXXMAJOR ]]; then if [[ 2 -gt $GXXMINOR ]]; then export CC=g++-4.2; fi; fi; echo $$CC))
 else
 CC := gcc
 endif
