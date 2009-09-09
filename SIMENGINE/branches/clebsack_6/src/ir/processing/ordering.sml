@@ -772,7 +772,7 @@ fun orderModel (model:DOF.model)=
 			  | SOME exp => 
 			    if ExpProcess.isInstanceEq exp then
 				SOME (#instname (ExpProcess.deconstructInst exp))
-			    else				
+			    else			
 				DynException.stdException ("non-instance eq encountered",
 							   "Ordering.orderModel.processinstance.depoutput2instance",
 							   Logger.INTERNAL)
@@ -791,19 +791,8 @@ fun orderModel (model:DOF.model)=
 
 		if List.exists (fn(os) => SymbolSet.member (instanceDeps, os)) outputSyms orelse mutuallyRecursiveInstances then
 		    let
-			fun orderParts unsatisfiedParts =
-			    if (null unsatisfiedParts) then
-				nil
-			    else
-				let
-				    val (readyParts, remainingParts) = 
-					List.partition (fn(p) => SymbolSet.isEmpty (SymbolSet.intersection (SymbolSet.fromList unsatisfiedParts,
-													    valOf(SymbolTable.look(expMap, p)))))
-						       unsatisfiedParts
-						       
-				in
-				    readyParts :: (orderParts remainingParts)
-				end
+			fun orderParts syms =
+			    map (fn(s) => [s]) syms
 			    
 			val orderedParts = 
 			    if mutuallyRecursiveInstances then
@@ -912,7 +901,7 @@ fun orderModel (model:DOF.model)=
 		val _ = print ("Satisfied deps for " ^ (String.concatWith ", " (map Symbol.name (GeneralUtil.flatten (map getLHSSyms satisfied_exps)))) ^ "\n")
 		val _ = print ("  deps are  " ^ (String.concatWith "\n    " (map expanddep2str (satisfied_exps))) ^ "\n")
 		val _ = print ("  satisfiedDeps' = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems satisfiedDeps'))) ^ "\n")
-		val _ = print ("UnSatisfied deps for " ^ (String.concatWith ", " (map Symbol.name (GeneralUtil.flatten (map getLHSSyms unsatisfied_exps)))) ^ "\n\n")
+		val _ = print ("UnSatisfied deps for " ^ (String.concatWith ", " (map (fn(d,e) => "(" ^ (String.concatWith ", " (map Symbol.name ((ExpProcess.exp2symbols (ExpProcess.lhs e))))) ^ ")<-[" ^ (String.concatWith ", " (map Symbol.name (GeneralUtil.flatten(map SymbolSet.listItems (d))))) ^ "]") unsatisfied_exps)) ^ "\n\n")
 		val _ = print ("  deps are  " ^ (String.concatWith "\n    " (map expanddep2str (unsatisfied_exps))) ^ "\n")
 
 		val satisfied_exps = map (fn(_,exp) => exp) satisfied_exps
