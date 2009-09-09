@@ -231,7 +231,7 @@ fun outputstatestruct_code classes =
 
 	val predeclare_statements = 
 	    map
-		(fn(class)=> $("struct " ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ ";"))
+		(fn(class)=> $("struct statedata_" ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ ";"))
 		master_classes
 
     in
