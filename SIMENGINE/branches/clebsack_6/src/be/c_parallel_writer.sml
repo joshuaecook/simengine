@@ -679,18 +679,17 @@ fun logoutput_code class =
 	val output_exps =Util.flatmap
 			      (fn(out as ({condition, contents, name}, output_index))=> 
 				 [$("{ // Generating output for symbol " ^ (ExpProcess.exp2str (Exp.TERM name))),
-				  SUB[$("int cond = " ^ (CWriterUtil.exp2c_str condition) ^ ";"),
+				  SUB[$("int cond = " ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ";"),
 				      $("if (cond) {"),
 				      SUB([$("((unsigned int*)(ob->ptr[modelid]))[0] = " ^ (i2s output_index) ^ ";"),
 					   $("((unsigned int*)(ob->ptr[modelid]))[1] = " ^ (i2s (inc (List.length contents))) ^ ";"),
 					   $("ob->ptr[modelid] = &((unsigned int*)(ob->ptr[modelid]))[2];"),
 					   $("*((CDATAFORMAT*)(ob->ptr[modelid])) = t;"),
 					   $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")] @
-					  (Util.flatmap ((fn (sym) =>
-							     [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = od[modelid]."^(Symbol.name sym)^";"),
+					  (Util.flatmap (fn (exp) =>
+							    [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = "^(CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp))^";"),
 							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])
-		  					 o Term.sym2curname)
-							(Util.flatmap ExpProcess.exp2termsymbols contents)) @
+							contents) @
 					  [$("ob->count[modelid]++;"),
 					   $("ob->full[modelid] |= MAX_OUTPUT_SIZE >= ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid]));")]),
 				      $("}")],
