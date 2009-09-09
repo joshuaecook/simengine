@@ -12,7 +12,7 @@ BUILD_TYPE = software
 #DEBUG = true
 
 # Version # for RPM
-VERSION_NUMBER = 0.8
+VERSION_NUMBER = 0.9a
 BUILD_DATE = $(shell date)
 
 DESTDIR = 
@@ -315,7 +315,7 @@ TAG=$(shell pwd | grep -c tag)
 ifeq ($(BRANCH),1)
 RELEASE = "branch"
 BUILDREV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
-REV = $(shell pwd | sed -e 's/.*\/branches\/\(.*\)\/oodlc/\1/')
+REV = $(shell pwd | sed -e 's/.*\/branches\/\(.*\)/\1/')
 INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
 VERSION = "BRANCH_$(REV)_$(BUILD_TYPE):$(BUILDREV)"
 TOP_LEVEL=../..
@@ -330,7 +330,7 @@ TOP_LEVEL=..
 else	
 ifeq ($(TAG),1)
 RELEASE = "tag"
-REV = $(shell pwd | sed -e 's/.*\/tags\/\(.*\)\/oodlc/\1/')
+REV = $(shell pwd | sed -e 's/.*\/tags\/\(.*\)/\1/')
 INSTALL_FILENAME = "$(FILENAME)_release_$(REV)_$(BUILD_TYPE).tar.gz"
 VERSION = "$(REV)_$(BUILD_TYPE)"
 TOP_LEVEL=../..
