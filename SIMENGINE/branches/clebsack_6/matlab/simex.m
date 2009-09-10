@@ -478,6 +478,9 @@ function [abspath] = realpath(relpath, root)
 % is taken as relative to ROOT. If omitted, RELPATH is treated as
 % relative to the current working directory.
 [dir file ext ver] = fileparts(relpath);
+if isempty(dir)
+    dir = '.'
+end 
 command = ['cd ' dir ';'...
            ' echo $(pwd)/' file ext ver ';'];
 if nargin > 1
