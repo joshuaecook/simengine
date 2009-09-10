@@ -1,6 +1,7 @@
-/*  Lobster STG pacing neuron model
+/*
+    Lobster STG pacing neuron model
     Derived from Prinz et al, J Neurophysiol, December 2003
-    Copyright 2008 Simatra Modeling Technolgies
+    Copyright 2008-2009 Simatra Modeling Technolgies
 */
 function xinf(a, b, V) = 1/(1 + exp((V + a)/b))
 function taux(a, b, c, e, V) = c + e / (1 + exp((V + a)/b))

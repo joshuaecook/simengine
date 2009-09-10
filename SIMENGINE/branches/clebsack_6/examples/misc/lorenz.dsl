@@ -1,4 +1,6 @@
-// Lorenz Attractor
+// Lorenz Attractor (see Lorenz, E.N., 1963)
+// Copyright 2009 Simatra Modeling Technologies
+
 model (x, y, z) = 
       lorenz(sigma, rho, beta)
 

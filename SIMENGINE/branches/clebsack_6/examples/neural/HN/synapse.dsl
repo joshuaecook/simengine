@@ -1,3 +1,10 @@
+/* 
+    Leech heartbeat timing network model (Synapse model)
+    From Hill et al, 2001, J. Comp. Neuro
+    Copyright 2007-2008 Simatra Modeling Technolgies
+    Additional Info at (http://calabreselx.biology.emory.edu/INTRO/INDEX.HTML)
+*/
+
 function taux(a, b, c, e, V) = c + e / (1 + exp(a * (V + b)))
 
 model (ISyn) = synapse(Vpre, Vpost, gSyn, tRise, tFall)

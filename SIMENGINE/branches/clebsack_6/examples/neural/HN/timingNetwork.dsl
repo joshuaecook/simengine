@@ -1,3 +1,10 @@
+/*  
+    Leech heartbeat timing network model (timing network model)
+    From Hill et al, 2001, J. Comp. Neuro
+    Copyright 2007-2009 Simatra Modeling Technolgies
+    Additional Info at (http://calabreselx.biology.emory.edu/INTRO/INDEX.HTML)
+*/
+
 import "hn34.dsl"
 import "hn12.dsl"
 import "synapse.dsl"

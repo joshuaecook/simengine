@@ -1,12 +1,13 @@
 function demo = demo_models
 
 
+
 i = 1; % index for the demos
 demo = struct();
 
 % start with a brk model
 demo(i).title = 'BRK - Spike Train';
-demo(i).file = 'examples/brk.dsl';
+demo(i).file = [simexamplepath '/brk.dsl'];
 demo(i).starttime = 0;
 demo(i).stoptime = 100;
 demo(i).inputs.Iext = [0 40];
@@ -17,7 +18,7 @@ demo(i).target = 'parallel-cpu';
 i = i + 1;
 % next, go to stg
 demo(i).title = 'STG - Adjust Sodium';
-demo(i).file = 'examples/stg_burster.dsl';
+demo(i).file = [simexamplepath '/stg_burster.dsl'];
 demo(i).starttime = 0;
 demo(i).stoptime = 500;
 demo(i).inputs.gNa = [0 200];
@@ -28,7 +29,7 @@ demo(i).target = 'parallel-cpu';
 i = i + 1;
 % next, try pBc
 demo(i).title = 'pBc - preBotzinger Complex Persistant Na Sweep';
-demo(i).file = 'examples/pbc.dsl';
+demo(i).file = [simexamplepath '/pbc.dsl'];
 demo(i).starttime = 0;
 demo(i).stoptime = 2;
 demo(i).inputs.Iext = 8;
@@ -40,7 +41,7 @@ demo(i).target = 'parallel-cpu';
 i = i + 1;
 % next, try FN
 demo(i).title = 'FN - Sweep Current';
-demo(i).file = 'examples/fn.dsl';
+demo(i).file = [simexamplepath 'examples/fn.dsl'];
 demo(i).starttime = 0;
 demo(i).stoptime = 100;
 demo(i).inputs.I = [0 4];
