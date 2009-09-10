@@ -1,3 +1,4 @@
+# List of models to add
 neural/BRK/brk.dsl
 neural/PBC/pbc.dsl
 neural/HH/hh.dsl
@@ -7,8 +8,11 @@ neural/HN/hn12.dsl
 neural/HN/synapse.dsl
 neural/STG/stg_burster.dsl
 neural/FN/fn.dsl
-neural/simpleNeuron/twoCellNetwork.dsl
-neural/simpleNeuron/neuron.dsl
+
+# Don't add tutorial models just yet
+#neural/simpleNeuron/twoCellNetwork.dsl
+#neural/simpleNeuron/neuron.dsl
+
 misc/lorenz.dsl
 misc/yeast.dsl
 misc/purine.dsl

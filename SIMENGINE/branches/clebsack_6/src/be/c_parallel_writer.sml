@@ -139,7 +139,7 @@ end
 
 fun initbyclass_code (class as {exps, ...}) =
     let
-	val classname = ClassProcess.class2orig_name class
+	val classname = (*ClassProcess.class2orig_name class*) ClassProcess.class2classname class
 	val exps = #exps class
 	val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
@@ -205,7 +205,7 @@ local
 in
 fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
     let
-	val classname = ClassProcess.class2orig_name class
+	val classname = (*ClassProcess.class2orig_name class*) ClassProcess.class2classname class
 	val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
 	val class_inst_pairs = ClassProcess.class2instnames class
@@ -231,7 +231,7 @@ fun outputstatestruct_code classes =
 
 	val predeclare_statements = 
 	    map
-		(fn(class)=> $("struct statedata_" ^ (Symbol.name (ClassProcess.class2orig_name class)) ^ ";"))
+		(fn(class)=> $("struct statedata_" ^ (Symbol.name ((*ClassProcess.class2orig_name*) ClassProcess.class2classname class)) ^ ";"))
 		master_classes
 
     in

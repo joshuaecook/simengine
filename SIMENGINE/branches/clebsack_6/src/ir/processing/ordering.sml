@@ -118,12 +118,14 @@ fun orderModel (model:DOF.model)=
 		    val _ = print ("in add exp to exp map looking for class " ^ (Symbol.name classname) ^ "\n")
 		    val _ = print ("classmap keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap))) ^ "\n")
 		    val _ = print ("classes are " ^ (String.concatWith ", " (map (fn(c) => Symbol.name (#name c)) classes)) ^ "\n")
-		    val class = valOf( List.find (fn(c) => #name c = classname) classes)
+		    val class = (valOf( List.find (fn(c) => #name c = classname) classes))
+				handle e => DynException.checkpoint "Ordering.orderModel.addExpToExpMap.class" e
 		    val _ = print ("    got it\n")
 
 		    val (classMap', classIOMap') = addClassToClassMap classes (class, (classMap, classIOMap))
 
-		    val ioMap = valOf (SymbolTable.look (classIOMap', classname)) 
+		    val ioMap = (valOf (SymbolTable.look (classIOMap', classname)))
+				handle e => DynException.checkpoint "Ordering.orderModel.addExpToExpMap.ioMap" e
 
 		    fun inp2sym {name, ...} =
 			case ExpProcess.exp2symbols (Exp.TERM (name)) of
@@ -174,6 +176,7 @@ fun orderModel (model:DOF.model)=
 			in
 			    SymbolTable.enter (expMap, instanceOutput, instanceInputs)
 			end
+			handle e => DynException.checkpoint "Ordering.orderModel.addExpToExpMap.buildOutputMapping" e
 
 		    val expMap = SymbolTable.enter (expMap, name, classInputDeps2instanceInputDeps(map inp2sym (!(#inputs class))))
 
@@ -239,6 +242,7 @@ fun orderModel (model:DOF.model)=
 			in
 			    ()
 			end
+			handle e => DynException.checkpoint "Ordering.order_model.addClassToClassMap.evolveExp" e
 
 		    val _ = 
 			while !changed do
@@ -374,7 +378,8 @@ fun orderModel (model:DOF.model)=
 		val outputs = List.filter (not o isMainInstance) partGroup
 		val mainInstance = List.find isMainInstance partGroup
 
-		val candidateClasses = valOf(SymbolTable.look (splitMap, classname))
+		val candidateClasses = (valOf(SymbolTable.look (splitMap, classname)))
+				       handle e => DynException.checkpoint "Ordering.orderModel.buildSplit.candidateClasses" e
 
 		fun outsym2pos newout =
 		    let
@@ -432,7 +437,8 @@ fun orderModel (model:DOF.model)=
 	    let
 		val newname = Symbol.symbol ((Symbol.name (#name oldClass)) ^ (Int.toString (Unique.genid())))
 
-		val expMap = valOf(SymbolTable.look(classMap, #name oldClass))
+		val expMap = (valOf(SymbolTable.look(classMap, #name oldClass)))
+			     handle e => DynException.checkpoint "Ordering.orderModel.buildClass.expMap" e
 
 
 		(* compute new outputs *)
@@ -457,7 +463,7 @@ fun orderModel (model:DOF.model)=
 		fun depsOfUsedSym (sym:Symbol.symbol): SymbolSet.set =
 		    case (SymbolTable.look(expMap, sym)) of
 			SOME set => SymbolSet.add(set, sym)
-		      | NONE => SymbolSet.empty
+		      | NONE => (*SymbolSet.empty*) SymbolSet.singleton(sym)
 
 		fun output2deps output =
 		    let
@@ -617,7 +623,8 @@ fun orderModel (model:DOF.model)=
 					val key = classUsage2key true completeOutputMap
 						  
 					val _ = print ("looking for classname " ^ (Symbol.name classname) ^ " with key " ^ (Symbol.name key) ^ "\n")
-					val candidateClasses = valOf(SymbolTable.look (splitMap, classname))
+					val candidateClasses = (valOf(SymbolTable.look (splitMap, classname)))
+							       handle e => DynException.checkpoint "Ordering.orderModel.buildClass.dep2exp.candidateClasses" e
 							       
 					val (instanceClass, inputMap) =  valOf(SymbolTable.look(candidateClasses, key))
 									 
@@ -629,7 +636,9 @@ fun orderModel (model:DOF.model)=
 					val generatedInstances' = SymbolSet.add(generatedInstances, name)
 				    in
 					((splitMap', classMap', classIOMap', generatedInstances'), exps)
-				    end			    
+				    end	
+				    handle e => DynException.checkpoint "Ordering.orderModel.buildClass.dep2exp [not member]" e	
+	    
 			    end
 			else if ExpProcess.isIntermediateEq exp then
 			    (maps, exp :: exps)
@@ -964,7 +973,7 @@ fun orderModel (model:DOF.model)=
 		()
 	    end
 	    handle e => DynException.checkpoint "Ordering.orderModel.orderClass" e
-
+(*
 	fun reachableClasses classes name =
 	    let
 		fun exp2reachableclasses (exp, set) = 
@@ -984,10 +993,28 @@ fun orderModel (model:DOF.model)=
 	    end
 	    handle e => DynException.checkpoint "Ordering.orderModel.reachableClasses" e
 
+	fun referencedMaster classes classname =
+	    let
+		val class = valOf (List.find(fn(c) => #name c = classname) classes)
+	    in
+		case #classtype(#properties class) of
+		    DOF.MASTER name =>
+		    SOME name
+		  | DOF.SLAVE _ => NONE
+	    end
+	    handle e => DynException.checkpoint ("Ordering.orderModel.referencedMaster [classname="^(Symbol.name classname)^"]") e
+				   
 	(* prune out dead classes *)
 	val liveclasses = reachableClasses classes' (#classname topInstance)
-	val classes'' = List.filter (fn(c) => SymbolSet.member (liveclasses, #name c)) classes'
+	val liveclasses' = SymbolSet.union(SymbolSet.fromList(List.mapPartial (referencedMaster classes') (SymbolSet.listItems liveclasses)),
+					   liveclasses)
 
+	val _ = print ("Original classes are: " ^ (String.concatWith ", " (map Symbol.name (map #name classes'))) ^ "\n")
+	val _ = print ("Reachable classes are: " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems liveclasses'))) ^ "\n")
+
+	val classes'' = List.filter (fn(c) => SymbolSet.member (liveclasses', #name c)) classes'
+*)
+	val classes'' = classes' (* removed pruning for now *)
 			
 	val _ = print ("splitting performed\n==========\n\n")	    
 	val _ = printClassMap classMap

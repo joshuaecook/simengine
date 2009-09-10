@@ -1,4 +1,4 @@
-settings.debug.logdof.setValue(true)
+// Copyright 2009 Simatra Modeling Technologies
 
 import "neuron.dsl"
 

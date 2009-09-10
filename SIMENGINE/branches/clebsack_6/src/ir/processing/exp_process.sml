@@ -80,7 +80,7 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
 	  | (v, Fun.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
-		    Util.repStr(str, "$"^(i2s i), addParen (exp2tersestr e, e))
+		    Util.repStr(str, "$"^(i2s (i+1)), addParen (exp2tersestr e, e))
 	    in
 		foldl (fn((exp, index),str')=>replaceIndex str' (index,exp)) v (Util.addCount exps)
 	    end
@@ -134,7 +134,7 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
 	  | (v, Fun.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
-		    Util.repStr(str, "$"^(i2s i), addParen (exp2str e, e))
+		    Util.repStr(str, "$"^(i2s (i+1)), addParen (exp2str e, e))
 	    in
 		foldl (fn((exp, index),str')=>replaceIndex str' (index,exp)) v (Util.addCount exps)
 	    end*)
