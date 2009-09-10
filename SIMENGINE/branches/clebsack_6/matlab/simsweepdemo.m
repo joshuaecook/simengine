@@ -46,6 +46,12 @@ handles.output = hObject;
 % Update handles structure
 guidata(hObject, handles);
 
+enable_gpu = false;
+if not(enable_gpu)
+    set(handles.TargetMenu, 'String', {'CPU', 'PARALLEL-CPU'});
+end
+
+
 % UIWAIT makes simsweepdemo wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 

@@ -44,6 +44,8 @@ end
 % End initialization code - DO NOT EDIT
 
 
+
+
 % --- Executes just before simsweep_gui is made visible.
 function simsweep_gui_OpeningFcn(hObject, eventdata, handles, varargin)
 % This function has no output args, see OutputFcn.
@@ -60,7 +62,10 @@ guidata(hObject, handles);
 
 % UIWAIT makes simsweep_gui wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
-
+enable_gpu = false;
+if not(enable_gpu)
+    set(handles.TargetMenu, 'String', {'CPU', 'PARALLEL-CPU'});
+end
 
 % --- Outputs from this function are returned to the command line.
 function varargout = simsweep_gui_OutputFcn(hObject, eventdata, handles) 
@@ -221,6 +226,8 @@ setStatus(handles, 'Running ...');
 pause(0.05);
 
 targetnum = get(handles.TargetMenu, 'Value');
+
+
 switch targetnum
     case 1
         target = '-cpu';
