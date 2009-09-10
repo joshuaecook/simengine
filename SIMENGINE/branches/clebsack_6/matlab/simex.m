@@ -479,7 +479,7 @@ function [abspath] = realpath(relpath, root)
 % relative to the current working directory.
 [dir file ext ver] = fileparts(relpath);
 if isempty(dir)
-    dir = '.'
+    dir = '.';
 end 
 command = ['cd ' dir ';'...
            ' echo $(pwd)/' file ext ver ';'];
