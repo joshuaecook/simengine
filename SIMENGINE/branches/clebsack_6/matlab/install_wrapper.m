@@ -232,6 +232,7 @@ end
 
 % clean up the generated files
 delete(tgz_file);
+delete(key_file);
 
 % complete
 disp(' ')
