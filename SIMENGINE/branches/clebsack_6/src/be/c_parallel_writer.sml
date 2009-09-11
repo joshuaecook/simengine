@@ -137,7 +137,7 @@ fun outputdatastruct_code class =
     ]
 end
 
-fun initbyclass_code (class as {exps, ...}) =
+(*fun initbyclass_code (class as {exps, ...}) =
     let
 	val classname = (*ClassProcess.class2orig_name class*) ClassProcess.class2classname class
 	val exps = #exps class
@@ -175,7 +175,7 @@ fun initbyclass_code (class as {exps, ...}) =
 		      end)
 		   class_inst_pairs))),
 	 $("};")]
-    end
+    end*)
 
 local
     fun state2member (sym) =
@@ -209,6 +209,13 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
 	val class_inst_pairs = ClassProcess.class2instnames class
+	val class_inst_pairs_non_empty = 
+	    List.filter
+		(fn(classname,instname)=>
+		   ClassProcess.class2statesize (CurrentModel.classname2class classname) > 0
+		)
+		class_inst_pairs
+					 
     in
 	[$(""),
 	 $("// define state structures"),
@@ -216,7 +223,7 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	 SUB($("// states (count="^(i2s (List.length diff_eqs_symbols))^")") ::
 	     (map ($ o state2member) diff_eqs_symbols) @
 	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")") ::
-	      (map ($ o instance2member instances) class_inst_pairs))),
+	      (map ($ o instance2member instances) class_inst_pairs_non_empty))),
 	 $("};")]
     end
 end
@@ -243,10 +250,18 @@ fun class2flow_code (class, top_class) =
     let
 	val orig_name = ClassProcess.class2orig_name class
 
+	val has_states = ClassProcess.class2statesize class > 0
+
 	val header_progs = 
-	    [$(""),
-	     $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
+	    if has_states then
+		[$(""),
+		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
+		   ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
+	    else
+		[$(""),
+		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
+		   ^ "(CDATAFORMAT t, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
+
 
 	val read_memory_progs = []
 
@@ -298,6 +313,8 @@ fun class2flow_code (class, top_class) =
 
 				    val class = CurrentModel.classname2class classname
 
+				    val class_has_states = ClassProcess.class2statesize class > 0
+
 				    val calling_name = "flow_" ^ (Symbol.name classname)
 
 				    val inpvar = Unique.unique "inputdata"
@@ -319,9 +336,15 @@ fun class2flow_code (class, top_class) =
 					  $("// " ^ (CWriterUtil.exp2c_str exp)),
 					  $(inps)] @ inps_init @ [$(outs_decl),
 					  if top_class then
-					      $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
+					      if class_has_states then
+						  $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
+					      else
+						  $(calling_name ^ "(t, "^inpvar^", "^outvar^", first_iteration, modelid);")						  
 					  else
-					      $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
+					      if class_has_states then
+						  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
+					      else
+						  $(calling_name ^ "(t, "^inpvar^", "^outvar^", first_iteration, modelid);")
 					 ] @
 					 map ($ o inst_output)
 					     (Util.addCount (ListPair.zip (symbols, !(#outputs class)))))
@@ -408,11 +431,15 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 				(fn(class) => 
 				   let
 				       val orig_name = ClassProcess.class2orig_name class
+				       val class_has_states = ClassProcess.class2statesize class > 0
 				   in
 				       if isInline class then
 					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
 				       else
-					   $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
+					   if class_has_states then
+					       $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
+					   else
+					       $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")					       
 				   end)
 				classes
 	val iterators = CurrentModel.iterators()
