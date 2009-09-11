@@ -12,7 +12,7 @@
 #include <omp.h>
 
 static simengine_api *api = NULL;
-static const double *inputs = NULL;
+static double *inputs = NULL;
 
 //#define ERROR(ID, MESSAGE, ARG...) {mexPrintf("ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); return; }
 
@@ -400,7 +400,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	const simengine_interface *iface = api->getinterface();
 	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
 
-	omp_set_num_threads(omp_get_num_procs());
+        // These openmp calls are not used currently, but openmp may be used in the future to move data back to
+        // Matlab.  For some reason, if omp_set_num_threads is called without querying the omp environment first
+        // this code fails to compile and link properly on Mac OS X 10.5.
+	int nt = omp_get_num_threads(); // this call in particular is needed
+	int np = omp_get_num_procs();
+	omp_set_num_threads(np);
 
 	result = api->runmodel(startTime, stopTime, models, mxGetPr(userInputs), mxGetPr(userStates), &allocator);
 

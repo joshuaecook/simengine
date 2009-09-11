@@ -41,7 +41,7 @@ demo(i).target = 'parallel-cpu';
 i = i + 1;
 % next, try FN
 demo(i).title = 'FN - Sweep Current';
-demo(i).file = [simexamplepath 'examples/fn.dsl'];
+demo(i).file = [simexamplepath '/fn.dsl'];
 demo(i).starttime = 0;
 demo(i).stoptime = 100;
 demo(i).inputs.I = [0 4];
