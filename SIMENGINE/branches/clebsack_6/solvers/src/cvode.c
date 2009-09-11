@@ -42,7 +42,7 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
     // Create data structure for solver
     mem[modelid].cvmem = CVodeCreate(CV_BDF, CV_NEWTON);
     // Initialize CVODE
-    if(CVodeInit(mem[modelid].cvmem, user_fun_wrapper, 0, ((N_Vector)(mem[modelid].y0))) != CV_SUCCESS){
+    if(CVodeInit(mem[modelid].cvmem, user_fun_wrapper, props->starttime, ((N_Vector)(mem[modelid].y0))) != CV_SUCCESS){
       fprintf(stderr, "Couldn't initialize CVODE");
     }
     // Set solver tolerances
