@@ -78,7 +78,6 @@ start of Ast.stm
 | returnheader of Ast.header 
 | args of Ast.typedname list 
 | optargs of Ast.typedname list
-(*| optreturn of Ast.typedname list option*)
 | arg of Ast.typedname 
 | opttyp of Ast.typepattern option
 | typs of Ast.typepattern list
@@ -114,8 +113,6 @@ start of Ast.stm
 | equation of Ast.equation
 | equations of Ast.equation list
 | equationsdef of Ast.action
-(*| leftinterval of Ast.exp
-| rightinterval of Ast.exp*)
 | number of Ast.exp
 | elsechain of Ast.stm list
 | function of Ast.definition
@@ -133,7 +130,6 @@ start of Ast.stm
 | temporary of Ast.modelpart
 | modelpart of Ast.modelpart
 | modelparts of Ast.modelpart list
-(*| modelinst of Ast.definition*)
 | submodelinst of Ast.modelpart
 | quantitytype of Ast.quantitytype
 | quantitydef of Ast.modelpart
@@ -178,10 +174,10 @@ start: stm (stm)
      | (Ast.ACTION(Ast.EXP(Ast.SYMBOL (Symbol.symbol "###EMPTY")), defaultPos)) (* these are removed in ast translation *)
 
 stm: programmatic_stm (programmatic_stm)
-(*   | modelinst (Ast.DEFINITION (modelinst, modelinstleft)) *)
+
 
 namespacestm: optvisibility programmatic_stm (optvisibility, programmatic_stm)
-(*   | optvisibility modelinst (optvisibility, Ast.DEFINITION (modelinst, modelinstleft)) *)
+
 
 
 programmatic_stm: definition (Ast.DEFINITION (definition, definitionleft))
@@ -203,49 +199,25 @@ enumarg: ID ((Symbol.symbol ID, NONE))
        | ID EQ INT ((Symbol.symbol ID, SOME INT))
 
 
-(*modeldef: MODEL ID optheaderargs modelparts END (Ast.DEFMODEL {name=Symbol.symbol ID, header=optheaderargs, parts=modelparts})*)
 modeldef: MODEL modelheader newlines modelparts END (Ast.DEFMODEL {header=modelheader, parts=modelparts}) 
 
 
 modelheader: ID optargs ({name=Symbol.symbol ID, args=optargs, returns=NONE})
 	   | LPAREN args RPAREN optlines ASSIGN optlines ID optargs ({name=Symbol.symbol ID, args=optargs, returns=SOME args})
-(*modelheader: ID ({name=Symbol.symbol ID, args=[], returns=NONE})*)
-(*modelheader: returnheader (returnheader) 
-	   | LPAREN args RPAREN ASSIGN optlines ID ({name=Symbol.symbol ID, args=[], returns=SOME args}) 
-	   | ID ({name=Symbol.symbol ID, args=[], returns=NONE}) 
-*)
 
-(*optreturn: (NONE)
-	 | LPAREN args RPAREN ASSIGN (SOME args)
-*)
 optargs: ([])
        | LPAREN args RPAREN (args)
 
 modelparts: (nil)
 	  | modelpart modelparts (modelpart :: modelparts)
 
-modelpart: (*statedef newlines (statedef)
-	 | paramdef newlines (paramdef)
-         | *)quantitydef newlines (quantitydef)	  	
-(*	 | equationsdef newlines (Ast.EQUATIONSDEF (equationsdef))*)
-(*	 | input newlines (input)
-	 | externalinput newlines (externalinput)
-	 | externaloutput newlines (externaloutput)*)
-(*	 | runnable newlines (runnable)*)
+modelpart: quantitydef newlines (quantitydef)	  	
 	 | submodelinst newlines (submodelinst)
-(*	 | modelstm newlines (Ast.MODELSTM modelstm)*)
 	 | programmatic_stm newlines (Ast.STM programmatic_stm)
-(*	 | temporary newlines (temporary)*)
 	 | outputdef newlines (outputdef)
 	 | inputdef newlines (inputdef)
 	 | iteratordef newlines (iteratordef)
 
-(*temporary: LET ID ASSIGN exp (Ast.TEMPORARY (ID, exp))
-
-statedef: modifiers STATE ID precinfoopt ASSIGN exp (Ast.STATEDEF {modifiers=modifiers, name=ID, precision=precinfoopt, exp=exp})
-
-paramdef: modifiers PARAMETER ID precinfoopt ASSIGN exp (Ast.PARAMDEF {modifiers=modifiers, name=ID, precision=precinfoopt, exp=exp})
-*)
 
 quantitydef: modifiers quantitytype ID optdimensions precinfoopt optassignment opttable(Ast.QUANTITYDEF {modifiers=modifiers, basetype=quantitytype, name=Symbol.symbol ID, precision=precinfoopt, exp=optassignment, settingstable = opttable, dimensions=optdimensions})
 	   | modifiers PARAMETER ID optdimensions precinfoopt ASSIGN exp opttable (Ast.STM (Ast.DEFINITION (Ast.DEFCONST (Symbol.symbol ID, NONE, exp), PARAMETERleft)) before error_at_pos PARAMETERleft "The parameter keyword has been removed.  Please use inputs for all tunable quantities or set as a constant.")
@@ -265,15 +237,12 @@ iteratordef: ITERATOR ID optassignment opttable (Ast.ITERATORDEF {name=Symbol.sy
 
 optdimensions: (NONE)
 	     | LBRACE someidslist RBRACE (SOME someidslist)
-(*	     | LBRACE lambda RBRACE (SOME [lambda])
-	     | LBRACE lambdalist RBRACE (SOME lambdalist)
-*)
+
 opttable: (NONE)
 	| WITH LCBRACE tableentries RCBRACE (SOME (Ast.TABLE tableentries))
 
 quantitytype: QUANTITY (Ast.GENERIC_QUANTITY)
 	 | STATE (Ast.STATE_QUANTITY)
-(*	 | PARAMETER (Ast.PARAMETER_QUANTITY)*)
 
 equationsdef: EQUATION equation (Ast.EQUATIONS ([equation]))
 	    | EQUATIONS optlines equations END (Ast.EQUATIONS(equations))
@@ -287,8 +256,6 @@ equation: exp EQARROW exp (Ast.MATHFUNCTION (exp1, exp2))
 
 ticks: TICK (1)
      | ticks TICK (1 + ticks)
-
-(*modelinst: MODEL ID ASSIGN exp (Ast.INSTMODEL {name=Symbol.symbol ID, exp=exp})*)
 
 submodelinst: SUBMODEL ID ID opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable}))
 
@@ -411,7 +378,6 @@ methods: (nil)
        | method optlines methods (method::methods)
 
 method: optvisibility definition (Ast.METHODDEF(optvisibility, definition))
-(*      | optvisibility VAR ID optassignment (Ast.METHODDEF(optvisibility, Ast.DEFLOCAL (Symbol.symbol ID, SOME Ast.DONTCARE, optassignment)))*)
       | optvisibility vardef (Ast.METHODDEF(optvisibility, vardef))
       | optvisibility runnablemod OPERATOR LPAREN RPAREN LPAREN args RPAREN optlines stms END (Ast.METHODDEF (optvisibility, Ast.DEFFUN (runnablemod, [({name=Symbol.symbol "()", args=args, returns=NONE}, stms)])))
       | optvisibility PROPERTY ID optlines optgetset END (Ast.METHODDEF(optvisibility, Ast.DEFPROPERTY{name=Symbol.symbol ID, io=optgetset}))
@@ -463,20 +429,20 @@ lambdaapp : lambdaapp aexp (Ast.POS(Ast.APPLY {func=lambdaapp,
 	  | lambdaapp PERIOD CLASS (Ast.SEND {message=Symbol.symbol "class", object=lambdaapp})
 	  | aexp (aexp)
 	  | LF ID aexp (Ast.LIBFUN (Symbol.symbol ID, aexp))
-	  | lambdaapp PLUS lambdaapp (callfun("operator_add", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp ELLIPSIS lambdaapp (callfun("operator_tabulate", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp MINUS lambdaapp (callfun("operator_subtract", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp STAR lambdaapp (callfun("operator_multiply", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp SLASH lambdaapp (callfun("operator_divide", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp CARROT lambdaapp (callfun("power", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp PERCENT lambdaapp (callfun("operator_modulus", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp LT lambdaapp (callfun("operator_lt", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp LEQUAL lambdaapp (callfun("operator_le", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp GT lambdaapp (callfun("operator_gt", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp GEQUAL lambdaapp (callfun("operator_ge", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp EQ lambdaapp (callfun("operator_eq", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp NEQ lambdaapp (callfun("operator_ne", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp PLUS optlines lambdaapp (callfun("operator_add", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp MINUS optlines lambdaapp (callfun("operator_subtract", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp STAR optlines lambdaapp (callfun("operator_multiply", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp SLASH optlines lambdaapp (callfun("operator_divide", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp CARROT optlines lambdaapp (callfun("power", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp PERCENT optlines lambdaapp (callfun("operator_modulus", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp LT optlines lambdaapp (callfun("operator_lt", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp LEQUAL optlines lambdaapp (callfun("operator_le", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp GT optlines lambdaapp (callfun("operator_gt", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp GEQUAL optlines lambdaapp (callfun("operator_ge", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp EQ optlines lambdaapp (callfun("operator_eq", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp NEQ optlines lambdaapp (callfun("operator_ne", [lambdaapp1, lambdaapp2]))
 	  | MINUS lambdaapp %prec UMINUS(callfun("operator_neg", [lambdaapp]))
+	  | lambdaapp ELLIPSIS lambdaapp (callfun("operator_tabulate", [lambdaapp1, lambdaapp2]))
 	  | lambdaapp ticks (callfun("operator_deriv", [Ast.LITERAL(Ast.CONSTREAL (Real.fromInt ticks)), lambdaapp]))
 	  | aexp COLON aexp COLON aexp (callfun ("operator_tabulate", [aexp1, aexp2, aexp3]))
 	  | aexp COLON aexp (callfun ("operator_tabulate", [aexp1, aexp2]))

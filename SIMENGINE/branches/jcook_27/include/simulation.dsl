@@ -7,42 +7,6 @@ namespace Simulation
 
   enumeration Bounds {INCLUSIVE, EXCLUSIVE}
 
-/*
-  class Interval
-    var lowval
-    var lowbound
-    var highval
-    var highbound
-
-    constructor (lowval, lowbound, highval, highbound)
-      self.lowval = lowval
-      self.lowbound = lowbound
-      self.highval = highval
-      self.highbound = highbound
-    end
-
-    function tostring()
-      var str = ""
-
-      if lowbound.name == INCLUSIVE.name then
-        str = str + "["
-      else
-        str = str + "("
-      end
-
-      str = str + lowval + ", " + highval
- 
-      if highbound.name == INCLUSIVE.name then
-        str = str + "]"
-      else
-        str = str + ")"
-      end
-      
-      str
-    end
-  end
-*/
-
   class Precision //TODO: make into an interface
   end
 
@@ -131,12 +95,6 @@ namespace Simulation
     function getPrecision() = self.precision
 
     function setInitialValue (v)
-/*      function checkDimensions (v: Number, dim) = dim.length() == 0
-      overload function checkDimensions (v: Vector, dim) = dim(1) == v.length() and forall elem in v suchthat checkDimensions (elem, dim.rest())
-
-      if not (checkDimensions (v, dimensions)) then
-        error ("Vector/Matrix dimensions of initial value for " + name + " do not match value of those given for this quantity")
-      end*/
       initialval = v
     end
 
@@ -158,7 +116,6 @@ namespace Simulation
     end
 
     function getEquation()
-//      println ("get equation for " + name)
       self.eq
     end
 
@@ -354,15 +311,10 @@ namespace Simulation
   overload function operator_subtract(arg1: SimQuantity, arg2) = {arg1 when arg2 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   overload function operator_subtract(arg1, arg2: SimQuantity) = {-arg2 when arg1 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   
-//  overload function operator_add(arg1: IteratorOperation, arg2) = IteratorOperation.new ("add", 2, operator_add, 0, [arg1, arg2])
-//  overload function operator_add(arg1, arg2: IteratorOperation) = IteratorOperation.new ("add", 2, operator_add, 0, [arg1, arg2])
   overload function operator_add(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
   overload function operator_add(arg1: Number, arg2: SimIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
    
-//  overload function operator_subtract(arg1: IteratorOperation, arg2) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
-//  overload function operator_subtract(arg1, arg2: IteratorOperation) = IteratorOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2])
   overload function operator_subtract(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, -arg2) otherwise}
-//  overload function operator_subtract(arg1: Number, arg2: SimIterator) = IteratorOperation.new ("sub", 2, operator_subtract, 0, arg2, arg1)
 
 
   overload function operator_multiply(arg1: ModelOperation, arg2) = {arg2 when arg2 == 0,
@@ -618,22 +570,6 @@ namespace Simulation
       IteratorReference.new(self, arg)
     end
 
-//     overload operator () (arg: Vector of SimIterator)
-//       if (arg.length() <> 1) then
-//         error "Temporal indexing must be 1 dimensional"
-//       else
-//         self
-// //        TemporalReference.new(self, arg(1), 0)
-//       end
-//     end
-
-//     overload operator () (arg: Vector of IteratorOperation)
-//       if (arg.length() <> 1) then
-//         error "Temporal indexing must be 1 dimensional"
-//       else
-//         TemporalReference.new(self, arg(1).simIterator, arg(1).step)
-//       end      
-//     end
   end
 
   class State extends SimQuantity
@@ -653,23 +589,6 @@ namespace Simulation
     overload operator () (arg: Vector)
       IteratorReference.new(self, arg)
     end
-//     overload operator () (arg: Vector of SimIterator)
-//       if (arg.length() <> 1) then
-//         error "Temporal indexing must be 1 dimensional"
-//       else
-//         self
-// //        TemporalReference.new(self, arg(1), 0)
-
-//       end
-//     end
-
-//     overload operator () (arg: Vector of IteratorOperation)
-//       if (arg.length() <> 1) then
-//         error "Temporal indexing must be 1 dimensional"
-//       else
-//         TemporalReference.new(self, arg[1].simIterator, arg[1].step)
-//       end      
-//     end
 
     function updateHistoryDepth(depth)
       historyDepth = {depth when depth > historyDepth,
@@ -689,26 +608,7 @@ namespace Simulation
     end
     function getName() = referencedQuantity.getName() + indices
   end
-/*
-  class SpatialReference extends State
-    var internalState
-    var indices
 
-    constructor (s: State, indices: Vector of Number)
-      internalState = s
-      self.isIterable=true
-      self.indices = indices
-    end
-
-    function tostring () = (internalState.tostring()) + "[" + (", ".join indices) + "]"
-    
-    property dslname 
-      get = internalState.dslname + "[" + (", ".join indices) + "]"
-    end
-
-    //TODO: map internalstate into s
-  end
-*/
   class RelativeOffset
     var simIterator
     var step
@@ -753,70 +653,6 @@ namespace Simulation
     end 
 
   end
-
-/*  class SimIterator extends State
-    hidden var step
-    hidden var maxduration
-    hidden var overrideSimIterator
-    constructor (name: String)
-      super(name)
-      self.isIterable = true
-      self.initialval = 0
-    end    
-
-    hidden function simIteratorStep2rangeStep(step) = 2^(-(LF num2fixpt step).frac)
-
-    function setStep(step)
-      self.step = step     
-      self.eq = Equation.new(self, self + (step))
-      if isdefined step then
-        if isdefined maxduration then
-          self.setPrecision(Range.new(0, maxduration, simIteratorStep2rangeStep step))
-        else
-          self.setPrecision(Range.new(0, 2^32*(simIteratorStep2rangeStep step) - 1, simIteratorStep2rangeStep step))
-        end
-      end
-    end
-
-    function setMaxDuration (maxduration)
-      self.maxduration = maxduration
-      if isdefined step and isdefined maxduration then
-        self.setPrecision(Range.new(0, maxduration, simIteratorStep2rangeStep step))
-      end
-    end
-
-    function getStep()
-      if isOverridden() then
-        overrideSimIterator.getStep()
-      else
-        step
-      end
-    end
-
-    function override(it: SimIterator)
-      overrideSimIterator = it
-    end
-
-    function getEquation()
-      if isdefined overrideSimIterator then
-        overrideSimIterator.getEquation()
-      else
-        eq
-      end
-    end
-
-    function isOverridden() = isdefined overrideSimIterator
-  end  
-*/
-//   class IterationDomain
-//     var continuous
-//     var discrete
-
-//     constructor(continuous:SimIterator, discrete:SimIterator)
-//       self.continuous = continuous
-//       self.discrete = discrete
-//     end
-//   end
 
 
   class Output
@@ -867,6 +703,14 @@ namespace Simulation
     function setInputVal(val)
       inputVal = val
     end
+
+    function tostring ()
+      var str = self.class.name + "("
+      str = str + "name=" + self.inputDef.getName()
+      str = str + ", value=" + self.inputVal
+      str + ")"
+    end
+
   end
 
   class Input extends SimQuantity
@@ -874,7 +718,6 @@ namespace Simulation
     var defaultValue
 
     constructor (name)
-//      println ("Creating an input named " + name)
       self.name = name
       defaultValue = NaN
     end
@@ -980,139 +823,13 @@ namespace Simulation
       quantities
     end
 
-/*    function getQuantities()
-      function prune (x) = not ((x.getName() == "t") or (x.getName() == "keep_running") or (x.getName() == "dt"))
-
-      var subquantities = [mod.getQuantities() foreach mod in flatten [subm 2 foreach subm in submodels]]
-      
-      (getLocalQuantities()) + [q foreach q in subquantities when prune q]
-    end
-  */    
 
    
-
-/*      
-    hidden function getFlattenedMembers()
-      function unVector (member) = [member]
-      overload function unVector (member: Vector) = flatten (member.map unVector)
-      overload function unVector (name, mod) = [(name, mod)] //this is to catch the submodels field
-
-      flatten(self.members.map(self.getMember).map(unVector))
-    end
-   
-
-    function getLocalQuantities() 
-      function isQuantity(x) = false
-      overload function isQuantity(x: SimQuantity) = true
-      
-
-      filter (isQuantity, getFlattenedMembers())
-    end
-*/
-/*
-    function setVisible (patt: Pattern)
-      // turn on locals
-      foreach q in getQuantities() do
-        if patt.match (q.getName()) then
-          q.setIsVisible (true)
-        end
-      end
-    end
-
-    function setInvisible (patt: Pattern)
-      foreach q in getQuantities() do
-        if patt.match (q.getName()) then
-          q.setIsVisible (false)
-        end
-      end
-    end
-*/
-/*    function setTunable (patt: Pattern)
-      foreach q in getQuantities() do
-        if patt.match (q.getName()) then
-          q.setIsTunable (true)
-        end
-      end
-    end
-*/
-/*
-    hidden multifunction
-      flattenSubModel(n,m) = [m]
-      flattenSubModel(n, m: Vector of _) = flatten (m.map (flattenSubModel))
-      flattenSubModel(m) = [m]
-      flattenSubModel(m: Vector of _) = flatten (m.map (flattenSubModel))
-    end
-*/
-
-    
-/*
-    function getQuantities()
-      function prune (x) = not ((x.getName() == "t") or (x.getName() == "keep_running")/* or (x.getName() == "dt")* /)
-
-      var subquantities = [mod.getQuantities() foreach mod in flatten [subm 2 foreach subm in submodels]]
-      
-      (getLocalQuantities()) + [q foreach q in subquantities when prune q]
-    end
-
-    function getVisibleQuantities()
-      function isVisible (q)
-        var vis = q.getIsVisible()
-        (istype(type ModelOperation,vis) or istype(type SimQuantity,vis) or (istype(type Boolean,vis) and vis))
-      end
-      
-      filter(isVisible, getQuantities())
-    end
-
-    function getLocalStates()
-      function isState(x) = false
-      overload function isState(x:SimQuantity) = x.getIsState()
-      overload function isState(x:SimIterator) = not (x.isOverridden())
-
-      //filter(isState, getFlattenedMembers())
-      [q foreach q in quantities when isState q]
-    end
-
-    function getStates()
-      function prune (x) = not (x.getName() == "keep_running")
-
-      (getLocalStates()) + (filter (prune, [mod.getStates() foreach mod in flatten [subm 2 foreach subm in submodels]]))
-    end
-
-  
-    function getLocalIntermediates ()
-      function isIntermediate (x) = false
-      overload function isIntermediate (x: SimQuantity) = x.getIsIntermediate()
-    
-      //filter(isIntermediate, getFlattenedMembers())
-      [i foreach i in quantities when isIntermediate i]
-    end
-
-    function getIntermediates ()
-      getLocalIntermediates() + [mod.getLocalIntermediates() foreach mod in flatten [sub 2 foreach sub in submodels]]
-    end
-
-
-    function getLocalParameters()
-      function isParameter(x) = false
-      overload function isParameter(x:SimQuantity) = x.getIsTunable() and (not (x.getIsState()))
-
-      //filter(isParameter, getFlattenedMembers())
-      [p foreach p in quantities when isParameter p]
-    end
-
-    function getParameters()
-      //function prune (x) = not (x.getName() == "dt")
-
-      getLocalParameters() + [mod.getParameters() foreach mod in flatten [subm 2 foreach subm in submodels]]
-    end
-*/
     function getSubModels()
       submodels
     end
 
     function instantiateSubModel (mod, name:String, table: Table)
-//       println ("instantiating " + name + " of type " + mod)
-//       println (mod.members)
       var m = mod.instantiate()
       self.addConst (name, m)
 
@@ -1136,61 +853,6 @@ namespace Simulation
       end
 
     end
-/*
-    function addSubModel (name, submod: Model)
-      submod.domain = domain
-
-      if istype(type SimIterator, submod.t) then
-        submod.t.override(domain.continuous)
-      end
-
-      if istype(type SimIterator, submod.n) then
-        submod.n.override(domain.discrete)        
-      end
-
-      var sub = (name, submod)
-      submodels.push_front (sub)
-      addConst (name, submod)      
-    end*/
-/*    overload function addSubModel (name, submods: Vector of _)
-      var i = 1
-      foreach m in submods do
-        addSubModel(name + "[" + i +"]", m)
-        i = i + 1
-      end
-    end
-*/
-
-    /* Returns a vector containing the equations of the model. */
-/*    function getLocalEquations()
-      function isEquation(x) = false
-
-      overload function isEquation(x: SimQuantity)
-        if x.getIsState() or x.getIsIntermediate() then
-          var q = x.getEquation()
-          if not(isdefined(q)) then
-            error("equation for " + x.getName() + " in " + self.class.name + " is not defined")
-            false
-          else true
-          end
-        else false
-        end
-      end
-      overload function isEquation(x: SimIterator)
-        not (x.isOverridden()) and isdefined (x.getEquation())
-      end
-
-      (filter(isEquation, getFlattenedMembers())).map(lambdafun (m) = m.getEquation())
-    end
-
-    // Returns a vector containing the equations of the model and all submodels. 
-    function getEquations() 
-      function prune (x) = not ((x.assigned_state.getName() == "t") or (x.assigned_state.getName() == "keep_running"))
-
-      getLocalEquations() + (filter (prune, [mod.getEquations() foreach mod in flatten [subm 2 foreach subm in submodels]]))
-    end
-  */ 
-
   end
 
   import "downsampling.dsl"

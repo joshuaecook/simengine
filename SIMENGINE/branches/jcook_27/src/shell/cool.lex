@@ -28,86 +28,92 @@ fun genpos (yypos) =
 
 
 (* List of keywords, followed by a list of the corresponding token type generators.  *) 
-val keyword_table = [("function",         fn(x) => Tokens.FUNCTION(genpos x, genpos (x+8))),
-		     ("multifunction",    fn(x) => Tokens.MULTIFUNCTION(genpos x, genpos (x+13))),
-		     ("while",            fn(x) => Tokens.WHILE(genpos x, genpos (x+5))),
-		     ("foreach",          fn(x) => Tokens.FOREACH(genpos x, genpos (x+7))),
-		     ("forall",           fn(x) => Tokens.FORALL(genpos x, genpos (x+6))),
-		     ("exists",           fn(x) => Tokens.EXISTS(genpos x, genpos (x+6))),
-		     ("suchthat",         fn(x) => Tokens.SUCHTHAT(genpos x, genpos (x+8))),
+val keyword_table = [("function",         Tokens.FUNCTION),
+		     ("multifunction",    Tokens.MULTIFUNCTION),
+		     ("while",            Tokens.WHILE),
+		     ("foreach",          Tokens.FOREACH),
+		     ("forall",           Tokens.FORALL),
+		     ("exists",           Tokens.EXISTS),
+		     ("suchthat",         Tokens.SUCHTHAT),
 
-		     ("property",         fn(x) => Tokens.PROPERTY(genpos x, genpos (x+8))),
- 		     ("get",              fn(x) => Tokens.GET(genpos x, genpos (x+3))),
-		     ("set",              fn(x) => Tokens.SET(genpos x, genpos (x+3))),
-		     ("let",              fn(x) => Tokens.LET(genpos x, genpos (x+3))),
+		     ("property",         Tokens.PROPERTY),
+ 		     ("get",              Tokens.GET),
+		     ("set",              Tokens.SET),
+		     ("let",              Tokens.LET),
 
-		     ("do",               fn(x) => Tokens.DO(genpos x, genpos (x+2))),
-		     ("in",               fn(x) => Tokens.IN(genpos x, genpos (x+2))),
-		     ("end",              fn(x) => Tokens.END(genpos x, genpos (x+3))),
-		     ("error",            fn(x) => Tokens.ERROR(genpos x, genpos (x+5))),
-		     ("var",              fn(x) => Tokens.VAR(genpos x, genpos (x+3))),
-		     ("constant",         fn(x) => Tokens.CONSTANT(genpos x, genpos (x+8))),
-		     ("global",           fn(x) => Tokens.GLOBAL(genpos x, genpos (x+6))),
-		     ("operator",         fn(x) => Tokens.OPERATOR(genpos x, genpos (x+8))),
-		     ("constructor",      fn(x) => Tokens.CONSTRUCTOR(genpos x, genpos (x+11))),
-		     ("satisfies",        fn(x) => Tokens.SATISFIES(genpos x, genpos (x+9))),
-		     ("interface",        fn(x) => Tokens.INTERFACE(genpos x, genpos (x+9))),
-		     ("namespace",        fn(x) => Tokens.NAMESPACE(genpos x, genpos (x+9))),
-		     ("extends",          fn(x) => Tokens.EXTENDS(genpos x, genpos (x+7))),
-		     ("of",               fn(x) => Tokens.OF(genpos x, genpos (x+2))),
-		     ("overload",         fn(x) => Tokens.OVERLOAD(genpos x, genpos (x+8))),
-		     ("open",             fn(x) => Tokens.OPEN(genpos x, genpos (x+4))),
-		     ("type",             fn(x) => Tokens.TYPE(genpos x, genpos (x+4))),
-		     ("undefined",        fn(x) => Tokens.UNDEFINED(genpos x, genpos(x+9))),
+		     ("do",               Tokens.DO),
+		     ("in",               Tokens.IN),
+		     ("end",              Tokens.END),
+		     ("error",            Tokens.ERROR),
+		     ("var",              Tokens.VAR),
+		     ("constant",         Tokens.CONSTANT),
+		     ("global",           Tokens.GLOBAL),
+		     ("operator",         Tokens.OPERATOR),
+		     ("constructor",      Tokens.CONSTRUCTOR),
+		     ("satisfies",        Tokens.SATISFIES),
+		     ("interface",        Tokens.INTERFACE),
+		     ("namespace",        Tokens.NAMESPACE),
+		     ("extends",          Tokens.EXTENDS),
+		     ("of",               Tokens.OF),
+		     ("overload",         Tokens.OVERLOAD),
+		     ("open",             Tokens.OPEN),
+		     ("type",             Tokens.TYPE),
+		     ("undefined",        Tokens.UNDEFINED),
 		     
-		     ("to",               fn(x) => Tokens.TO(genpos x, genpos (x+2))),
-		     ("by",               fn(x) => Tokens.BY(genpos x, genpos (x+2))),
-		     ("with",             fn(x) => Tokens.WITH(genpos x, genpos(x+4))),
-		     ("stateful",         fn(x) => Tokens.STATEFUL(genpos x, genpos (x+8))),
-		     ("tunable",          fn(x) => Tokens.TUNABLE(genpos x, genpos (x+7))),
-		     ("visible",          fn(x) => Tokens.VISIBLE(genpos x, genpos (x+7))),
-		     ("output",           fn(x) => Tokens.OUTPUT(genpos x, genpos (x+6))),
-		     ("input",            fn(x) => Tokens.INPUT(genpos x, genpos (x+5))),
-		     ("iterator",         fn(x) => Tokens.ITERATOR(genpos x, genpos (x+8))),
-		     ("model",            fn(x) => Tokens.MODEL(genpos x, genpos (x+5))),
-		     ("submodel",         fn(x) => Tokens.SUBMODEL(genpos x, genpos (x+8))),
-		     ("parameter",        fn(x) => Tokens.PARAMETER(genpos x, genpos (x+9))),
-		     ("quantity",         fn(x) => Tokens.QUANTITY(genpos x, genpos (x+8))),
-		     ("state",            fn(x) => Tokens.STATE(genpos x, genpos (x+5))),
-		     ("hidden",           fn(x) => Tokens.HIDDEN(genpos x, genpos (x+6))),
-		     ("public",           fn(x) => Tokens.PUBLIC(genpos x, genpos (x+6))),
+		     ("to",               Tokens.TO),
+		     ("by",               Tokens.BY),
+		     ("with",             Tokens.WITH),
+		     ("stateful",         Tokens.STATEFUL),
+		     ("tunable",          Tokens.TUNABLE),
+		     ("visible",          Tokens.VISIBLE),
+		     ("output",           Tokens.OUTPUT),
+		     ("input",            Tokens.INPUT),
+		     ("iterator",         Tokens.ITERATOR),
+		     ("model",            Tokens.MODEL),
+		     ("submodel",         Tokens.SUBMODEL),
+		     ("parameter",        Tokens.PARAMETER),
+		     ("quantity",         Tokens.QUANTITY),
+		     ("state",            Tokens.STATE),
+		     ("hidden",           Tokens.HIDDEN),
+		     ("public",           Tokens.PUBLIC),
 
-		     ("when",             fn(x) => Tokens.WHEN(genpos x, genpos (x+4))),
-		     ("otherwise",        fn(x) => Tokens.OTHERWISE(genpos x, genpos (x+9))),
-		     ("lambdafun",        fn(x) => Tokens.LAMBDAFUN(genpos x, genpos (x+9))),
+		     ("when",             Tokens.WHEN),
+		     ("otherwise",        Tokens.OTHERWISE),
+		     ("lambdafun",        Tokens.LAMBDAFUN),
 
-		     ("enumeration",      fn(x) => Tokens.ENUMERATION(genpos x, genpos (x+11))),
-		     ("equation",         fn(x) => Tokens.EQUATION(genpos x, genpos (x+8))),
-		     ("equations",        fn(x) => Tokens.EQUATIONS(genpos x, genpos (x+9))),
+		     ("enumeration",      Tokens.ENUMERATION),
+		     ("equation",         Tokens.EQUATION),
+		     ("equations",        Tokens.EQUATIONS),
 
-		     ("LF",               fn(x) => Tokens.LF(genpos x, genpos (x+2))),
-		     ("or",               fn(x) => Tokens.OR(genpos x, genpos (x+2))),
-		     ("and",              fn(x) => Tokens.AND(genpos x, genpos (x+3))),
+		     ("LF",               Tokens.LF),
+		     ("or",               Tokens.OR),
+		     ("and",              Tokens.AND),
 
-		     ("assert",           fn(x) => Tokens.ASSERT(genpos x, genpos (x+6))),
-		     ("if",               fn(x) => Tokens.IF(genpos x, genpos (x+2))),
-		     ("then",             fn(x) => Tokens.THEN(genpos x, genpos (x+4))),
-		     ("else",             fn(x) => Tokens.ELSE(genpos x, genpos (x+4))),
-		     ("elseif",           fn(x) => Tokens.ELSEIF(genpos x, genpos (x+6))),
-		     ("class",            fn(x) => Tokens.CLASS(genpos x, genpos (x+5))),
-		     ("import",           fn(x) => Tokens.IMPORT(genpos x, genpos (x+6))),
-		     ("true",             fn(x) => Tokens.TRUE(genpos x, genpos (x+4))),
-		     ("false",            fn(x) => Tokens.FALSE(genpos x, genpos (x+5)))]
+		     ("assert",           Tokens.ASSERT),
+		     ("if",               Tokens.IF),
+		     ("then",             Tokens.THEN),
+		     ("else",             Tokens.ELSE),
+		     ("elseif",           Tokens.ELSEIF),
+		     ("class",            Tokens.CLASS),
+		     ("import",           Tokens.IMPORT),
+		     ("true",             Tokens.TRUE),
+		     ("false",            Tokens.FALSE)]
+
+(* fun lookup ([], keyword) = NONE *)
+(*   | lookup ((key,constructor)::t, keyword) =  *)
+(*     (case (String.compare(keyword, key)) of *)
+(* 	 EQUAL =>  *)
+(* 	 SOME (fn (pos) => constructor(genpos pos, genpos(pos + (String.size key)))) *)
+(*        | _ => lookup (t, keyword)) *)
+    
 
 (* finds a keyword in the table, and returns a generating function to make a Token for it *)
-fun lookup ([], keyword) = NONE
-  | lookup ((key,value)::t, keyword) = 
-    (case (String.compare(keyword, key)) of
-	 EQUAL => 
-	 SOME value
-       | _     => 
-	 lookup (t, keyword))
-    
+fun lookup keyword =
+    case List.find (fn (key, _) => key = keyword) keyword_table
+     of SOME (_, constructor) =>
+	SOME (fn (pos) => constructor(genpos pos, genpos(pos + (String.size keyword))))
+      | NONE => NONE
+
 
 fun removeUnderbars str =
     let
@@ -201,7 +207,7 @@ WS      = [\012\ \t];
 <INITIAL>{KEYWORD} => ((* looks up a keyword in the keyword table and
 			  returns it *)
 		       let 
-			 val tok = (case lookup(keyword_table, yytext) of
+			 val tok = (case lookup yytext of
 					NONE   => Tokens.ID(yytext, genpos yypos, genpos (yypos + (size yytext)))
 				      | SOME t => t yypos)
 		       in
