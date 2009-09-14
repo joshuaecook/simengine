@@ -1,17 +1,14 @@
-function s = ReleaseCompileTests
+function s = InternalCompileTests
 
-% grab the buildEngine path
-buildenginepath = which('simex');
-[installpath,filename,ext] = fileparts(buildenginepath);
 
 % determine the example path
-examplepath = fullfile(installpath, 'examples');
+examplepath = '../examples';
 
-dsl_files_str = ls(fullfile(examplepath,'/*/*.dsl'));
+dsl_files_str = [ls('-1',fullfile(examplepath,'/*/*.dsl')) ls('-1',fullfile(examplepath,'/*/*/*.dsl'))];
 dsl_files = strread(dsl_files_str, '%s', 'delimiter', sprintf('\n'));
 
 % create a suite of tests
-s = Suite('ReleaseCompileTests');
+s = Suite('InternalCompileTests');
 
 % add each of the dsl files to a run script
 for i=1:length(dsl_files)
