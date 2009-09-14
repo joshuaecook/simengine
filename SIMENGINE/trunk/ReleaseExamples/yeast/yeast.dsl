@@ -1,7 +1,5 @@
 // Anaerobic Fermentation Pathway in Saccharomyces Cerevisiae (Yeast)
 // Voit, E., Computational Analyses of Biochemical Systems, 2000, pp. 277
-settings.debug.logdof.setValue(true)
-settings.debug.generateC.setValue(true)
 model (X) = yeast
 
 state X1 = .0345209

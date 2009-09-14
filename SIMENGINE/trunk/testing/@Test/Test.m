@@ -96,7 +96,7 @@ classdef Test < handle
                         t.Mode = t.NOTERROR;
                     case '-equal'
                         t.Mode = t.EQUAL;
-                        if nargin == 4 && isnumeric(varargin{2})
+                        if nargin == 4
                             t.CompareOptions = varargin{2};
                         else
                             error('Test:ArgumentError', 'When using the -equal option, there should be a fourth required option')
@@ -153,7 +153,13 @@ classdef Test < handle
                             t.Result = t.PASSED;
                         else
                             t.Result = t.FAILED;
-                            t.Message = ['Returned ''' num2str(t.Return) ''' instead'];
+                            if isnumeric(t.Return)
+                                t.Message = ['Returned ''' num2str(t.Return) ''' instead'];
+                            elseif isstruct(t.Return)
+                                t.Message = ['Returned a different structure instead'];
+                            else
+                                t.Message = ['Returned a different quantity instead'];
+                            end
                         end
                     case t.APPROXEQUAL
                         if isnumeric(t.Return) && length(t.Return) == 1
@@ -187,6 +193,7 @@ classdef Test < handle
                         error('Test:ExecuteError', 'Unknown mode encountered');
                 end
             catch me
+                t.Time = toc(localtime);
                 t.Return = me;
                 if t.Mode == t.NOTERROR
                     t.Result = t.FAILED;
