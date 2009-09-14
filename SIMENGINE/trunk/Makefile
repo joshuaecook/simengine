@@ -389,7 +389,8 @@ compiler:
 
 build-examples: $(BUILD_DIR)/examples
 	@echo "Building examples"
-	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
+#	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
+	@cd ReleaseExamples; $(CP) * ../$(BUILD_DIR)/examples
 ifdef $(DYN)
 	@cd tests; $(CP) $(DYN) ../$(BUILD_DIR)/examples
 endif

@@ -1,4 +1,4 @@
-function s = CompileTests
+function s = ReleaseCompileTests
 
 % grab the buildEngine path
 buildenginepath = which('simex');
@@ -7,16 +7,17 @@ buildenginepath = which('simex');
 % determine the example path
 examplepath = fullfile(installpath, 'examples');
 
-dsl_files = dir(fullfile(examplepath,'*.dsl'));
+dsl_files_str = ls(fullfile(examplepath,'/*/*.dsl'));
+dsl_files = strread(dsl_files_str, '%s', 'delimiter', sprintf('\n'));
 
 % create a suite of tests
 s = Suite('CompileTests');
 
 % add each of the dsl files to a run script
 for i=1:length(dsl_files)
-    [path, name, ext] = fileparts(dsl_files(i).name);
+    [path, name, ext] = fileparts(dsl_files{i});
     if name(1) ~= '.'
-        filename = fullfile(examplepath, [name ext]);
+        filename = fullfile(path, [name ext]);
         s.add(Test(['Model ' name], @()(simex(filename)), '-withouterror'));
     end
 end
