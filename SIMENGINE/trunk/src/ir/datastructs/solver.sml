@@ -19,9 +19,19 @@ fun solver2name (FORWARD_EULER _) = "forwardeuler"
   | solver2name (RK4 _) = "rk4"
   | solver2name (MIDPOINT _) = "midpoint"
   | solver2name (HEUN _) = "heun"
-  | solver2name (ODE23 _) = "bogacki_shampine"
-  | solver2name (ODE45 _) = "dormand_prince"
+  | solver2name (ODE23 _) = (*"ode23"*) "bogacki_shampine"
+  | solver2name (ODE45 _) = (*"ode45"*) "dormand_prince"
   | solver2name (CVODE _) = "cvode"
+
+(* these are defined in solvers.c *)
+fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
+  | solver2shortname (EXPONENTIAL_EULER _) = "exponentialeuler"
+  | solver2shortname (RK4 _) = "rk4"
+  | solver2shortname (MIDPOINT _) = "midpoint"
+  | solver2shortname (HEUN _) = "heun"
+  | solver2shortname (ODE23 _) = "ode23" (*"bogacki_shampine"*)
+  | solver2shortname (ODE45 _) = "ode45" (*"dormand_prince"*)
+  | solver2shortname (CVODE _) = "cvode"
 
 fun solver2params (FORWARD_EULER {dt}) = [("DT", r2s dt),
 					  ("ABSTOL", "0.0"),

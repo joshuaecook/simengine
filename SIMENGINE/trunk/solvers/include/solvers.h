@@ -4,17 +4,24 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
-// Common definitions
-#define FALSE 0
-#define TRUE 1
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
+#include <simengine_target.h>
+#include <stdlib.h>
+#include <math.h>
 
+// Defines a solver entry point
+#define SOLVER(solver, entry, target, type, args...)  \
+  JOIN4(solver, entry, target, type)(args)
+// Helper macro to allow nested macro expansion of arguments to INTEGRATION_METHOD
+#define JOIN4(w, x, y, z) w##_##x##_##y##_##z
+
+// Solver indexing mode for states
+#define STATE_IDX TARGET_IDX(mem->props->statesize, mem->props->num_models, i, modelid)
+
+// Pre-declaration of model_flows, the interface between the solver and the model
+__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);
 
 // Properties data structure
 // ============================================================================================================
-
-typedef int (*flowptr)(CDATAFORMAT t, const CDATAFORMAT*, CDATAFORMAT*, CDATAFORMAT*, CDATAFORMAT* , int);
 
 typedef struct {
   CDATAFORMAT timestep;
@@ -26,9 +33,12 @@ typedef struct {
   CDATAFORMAT *model_states;
   CDATAFORMAT *inputs;
   CDATAFORMAT *outputs;
-  int first_iteration;
-  int statesize;
-  flowptr fun;
+  unsigned int inputsize;
+  unsigned int statesize;
+  unsigned int outputsize;
+  unsigned int num_models;
+  unsigned int ob_size;
+  void *ob;
 } solver_props;
 
 // Forward Euler data structures and function declarations
@@ -39,11 +49,11 @@ typedef struct {
   CDATAFORMAT *k1;
 } forwardeuler_mem;
 
-forwardeuler_mem *forwardeuler_init(solver_props *props);
+forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-int forwardeuler_eval(forwardeuler_mem *mem);
+__DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, unsigned int modelid);
 
-void forwardeuler_free(forwardeuler_mem *mem);
+void SOLVER(forwardeuler, free, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem);
 
 
 // Runga-Kutta (4th order) data structures and function declarations
@@ -58,11 +68,11 @@ typedef struct {
   CDATAFORMAT *temp;
 } rk4_mem;
 
-rk4_mem *rk4_init(solver_props *props);
+rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-int rk4_eval(rk4_mem *mem);
+__DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int modelid);
 
-void rk4_free(rk4_mem *mem);
+void SOLVER(rk4, free, TARGET, SIMENGINE_STORAGE, rk4_mem *mem);
 
 
 // Bogacki-Shampine (ode23) data structures and function declarations
@@ -77,13 +87,14 @@ typedef struct {
   CDATAFORMAT *temp;
   CDATAFORMAT *next_states;
   CDATAFORMAT *z_next_states;
+  CDATAFORMAT *cur_timestep;
 } bogacki_shampine_mem;
 
-bogacki_shampine_mem *bogacki_shampine_init(solver_props *props);
+bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-int bogacki_shampine_eval(bogacki_shampine_mem *mem);
+__DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, unsigned int modelid);
 
-void bogacki_shampine_free(bogacki_shampine_mem *mem);
+void SOLVER(bogacki_shampine, free, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem);
 
 
 // Dormand-Prince (ode45) data structures and function declarations
@@ -101,13 +112,14 @@ typedef struct {
   CDATAFORMAT *temp;
   CDATAFORMAT *next_states;
   CDATAFORMAT *z_next_states;
+  CDATAFORMAT *cur_timestep;
 } dormand_prince_mem;
 
-dormand_prince_mem *dormand_prince_init(solver_props *props);
+dormand_prince_mem *SOLVER(dormand_prince, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-int dormand_prince_eval(dormand_prince_mem *mem);
+__DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_prince_mem *mem, unsigned int modelid);
 
-void dormand_prince_free(dormand_prince_mem *mem);
+void SOLVER(dormand_prince, free, TARGET, SIMENGINE_STORAGE, dormand_prince_mem *mem);
 
 
 // CVODE data structures and function declarations
@@ -117,12 +129,33 @@ typedef struct{
   solver_props *props;
   void *cvmem;
   void *y0;
+  unsigned int modelid;
+  unsigned int first_iteration;
 } cvode_mem;
 
-cvode_mem * cvode_init(solver_props *props);
+cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-int cvode_eval(cvode_mem *mem);
+int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int modelid);
 
-void cvode_free(cvode_mem *mem);
+void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem);
+
+
+// GPU Specific functions
+
+#if defined (TARGET_GPU)
+#if defined (__DEVICE_EMULATION__)
+#define GPU_ENTRY(entry, type, args...) JOIN3(emugpu, entry, type)(args)
+#else
+#define GPU_ENTRY(entry, type, args...) JOIN3(gpu, entry, type)(args)
+#endif
+#define JOIN3(a,b,c) a##_##b##_##c
+
+void GPU_ENTRY(init, SIMENGINE_STORAGE);
+void GPU_ENTRY(exit, SIMENGINE_STORAGE);
+
+solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props);
+void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props);
+
+#endif
 
 #endif // SOLVERS_H

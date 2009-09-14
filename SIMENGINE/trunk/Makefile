@@ -19,7 +19,15 @@ DESTDIR =
 PARTIAL_INSTALL_BUILD_DIR = /usr/local/share/Simatra
 INSTALL_BUILD_DIR = $(DESTDIR)$(PARTIAL_INSTALL_BUILD_DIR)
 INSTALL_BIN_DIR = $(DESTDIR)/usr/local/bin
+
+# Operating system and architecture inspection
 UNAME = $(shell uname -s)
+OSLOWER = $(shell uname -s 2>/dev/null | tr [:upper:] [:lower:])
+DARWIN = $(strip $(findstring darwin, $(OSLOWER)))
+LINUX = $(strip $(findstring linux, $(OSLOWER)))
+ARCH64 = $(strip $(shell arch 2>/dev/null | grep 64))
+
+
 FIND_LATEX = $(shell which latex 2> /dev/null)
 
 ifeq ($(FIND_LATEX),/opt/bin/latex)
@@ -46,7 +54,8 @@ JTAG_LIB = /opt/lib/libusb-driver.so
 #EXAMPLES = release/tutorial release/pBc release/HN release/HH release/FN release/BRK
 # In the oodlc, examples are in the tests directory under models
 # EXAMPLES = models/*.dsl
-EXAMPLES = ../examples/misc/*.dsl ../examples/neural/*/*.dsl
+#EXAMPLES = ../examples/misc/*.dsl ../examples/neural/*/*.dsl
+EXAMPLES = `cat ../examples/release_list | sed -e 's/\#.*//' | grep -v '^ *$$' `
 # There are certain files required that must be installed on the host system. These packages are defined as PKGS
 # All of these PKGS have to be in the scripts directory
 ifeq ($(UNAME), Linux)
@@ -54,155 +63,6 @@ PKGS =
 else
 PKGS = ruby/rgplot-2.2.tar.gz ruby/rubygems-1.0.1.tgz ruby/ruby-prof-0.6.0.gem
 endif
-
-# Adjustable Parameters
-# ==============================================================================================
-
-SVNSRV = https://svn1.hosted-projects.com/simatra/simEngine
-SVNWEBSRV = http://www.hosted-projects.com/trac/simatra/simEngine
-SVNTRUNK = $(SVNSRV)/trunk
-SRC = src/
-BUILD = build
-RM = rm -f
-ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -const 'Exn.keepHistory true' -verbose 1
-SIMPLE_ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -verbose 1
-CC = gcc
-CP = cp -rf
-ifeq ($(UNAME), MINGW32_NT-5.1)
-MLTON = mlton
-else
-MLTON = time nice mlton
-endif
-ifeq ($(UNAME), Darwin)
-ENV = /usr/bin/env
-else
-ENV = /bin/env
-endif
-RUBY = $(ENV) ruby
-RMDIR = rm -rf
-MKDIR = mkdir -p
-SYSTESTDIR = ../testing/frameworks/system
-SYSTEST = systest
-ITEST = itest
-DSLC = dslc
-ITEST_NIGHTLY_OUTPUT_DIR = /shared/QA_Results/nightly
-MAKE = make --no-print-directory
-BROWSER = firefox
-COREGEN = $(SETUP_ENV); coregen
-MATLABCMD = matlab -nodisplay -nojvm -r 
-MATLABCMD = octave --eval 
-FIND_MATLAB = $(shell which matlab 2> /dev/null)
-ifeq ($(UNAME), Darwin)
-ifeq ($(FIND_MATLAB),/usr/bin/matlab)
-MATLAB_PATH = /Applications/MATLAB_R2009a.app
-MEX = $(MATLAB_PATH)/bin/mex
-MEXEXT = mexmaci
-endif
-else
-ifeq ($(FIND_MATLAB),/usr/local/bin/matlab)
-MATLAB_PATH = /usr/local/matlab
-MEX = $(MATLAB_PATH)/bin/mex
-MEXEXT = mexa64
-else
-MATLAB_PATH = /opt/octave
-MEX = $(MATLAB_PATH)/bin/mkoctfile --mex 
-MEXEXT = mex
-endif
-endif
-
-#MAC_MATLAB = /Applications/MATLAB_R2009a.app
-#MAC_MEX = $(MAC_MATLAB)/bin/mex
-
-# File Names and Locations
-# ==============================================================================================
-
-FILENAME = simEngine
-OUTPUT_FILE = $(BUILD_DIR)/bin/$(FILENAME)
-
-# Platform Specific Parameters
-# ==============================================================================================
-
-# This is to handle shared libraries on a Mac vs. Linux
-ifeq ($(UNAME), Darwin)
-SHARED_FLAG=-dynamiclib -Wl,-single_module
-else
-SHARED_FLAG=-shared
-endif
-
-ifeq ($(UNAME), CYGWIN_NT-5.1)
-LINKING_FLAG=
-else
-ifeq ($(UNAME), MINGW32_NT-5.1)
-LINKING_FLAG=
-else
-LINKING_FLAG=-lm -fPIC
-endif
-endif
-
-
-ifeq ($(UNAME), CYGWIN_NT-5.1)
-BUILD_DIR=$(BUILD)_cyg_$(BUILD_TYPE)
-PLATFORM=cyg
-else
-ifeq ($(UNAME), MINGW32_NT-5.1)
-BUILD_DIR=$(BUILD)_mingw_$(BUILD_TYPE)
-PLATFORM=mingw
-else
-ifeq ($(UNAME), Darwin)
-BUILD_DIR=$(BUILD)_mac_$(BUILD_TYPE)
-PLATFORM=mac
-else
-ifeq ($(UNAME), Linux)
-BUILD_DIR=$(BUILD)_lin_$(BUILD_TYPE)
-PLATFORM=lin
-else
-BUILD_DIR=$(BUILD)_unknown
-PLATFORM=unknown
-endif
-endif
-endif
-endif
-
-# Branching Related Parameters
-# ==============================================================================================
-
-BRANCH=$(shell pwd | grep -c branches)
-TRUNK=$(shell pwd | grep -c trunk)
-TAG=$(shell pwd | grep -c tag)
-
-ifeq ($(BRANCH),1)
-RELEASE = "branch"
-BUILDREV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
-REV = $(shell pwd | sed -e 's/.*\/branches\/\(.*\)\/oodlc/\1/')
-INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
-VERSION = "BRANCH_$(REV)_$(BUILD_TYPE):$(BUILDREV)"
-TOP_LEVEL=../..
-DEBUG=true
-else	
-ifeq ($(TRUNK),1)		
-RELEASE = "trunk"
-REV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
-INSTALL_FILENAME = "$(FILENAME)_devbuild_$(REV)_$(BUILD_TYPE).tar.gz"
-VERSION = "BUILD_$(REV)_$(BUILD_TYPE)"
-TOP_LEVEL=..
-else	
-ifeq ($(TAG),1)
-RELEASE = "tag"
-REV = $(shell pwd | sed -e 's/.*\/tags\/\(.*\)\/oodlc/\1/')
-INSTALL_FILENAME = "$(FILENAME)_release_$(REV)_$(BUILD_TYPE).tar.gz"
-VERSION = "$(REV)_$(BUILD_TYPE)"
-TOP_LEVEL=../..
-else	
-RELEASE = "unknown"
-INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
-TOP_LEVEL=unknown
-VERSION = "unknown"
-endif
-endif	
-endif	
-
-INSTALL_DIR = $(TOP_LEVEL)/build/$(PLATFORM)
-LOCAL_INSTALL = local-install
 
 # Help Screen
 # ==============================================================================================
@@ -279,6 +139,214 @@ endif
 	@echo " "
 
 
+
+# Adjustable Parameters
+# ==============================================================================================
+
+# Compilers
+GRIND := valgrind
+CXX := g++
+CC := gcc
+LINK := $(CC) -fPIC
+AR := ar rs
+
+
+
+SVNSRV = https://svn1.hosted-projects.com/simatra/simEngine
+SVNWEBSRV = http://www.hosted-projects.com/trac/simatra/simEngine
+SVNTRUNK = $(SVNSRV)/trunk
+SRC = src/
+BUILD = build
+RM = rm -rf
+ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -const 'Exn.keepHistory true' -verbose 1 #-target-cc-opt x86 -march=pentium4 -target-cc-opt x86 -m32
+SIMPLE_ARGS = -default-ann 'allowFFI true' -target-link-opt linux -ldl -verbose 1
+CC = gcc
+CP = cp -rf
+ifeq ($(UNAME), MINGW32_NT-5.1)
+MLTON = mlton
+else
+MLTON = time nice mlton
+endif
+ifeq ($(UNAME), Darwin)
+ENV = /usr/bin/env
+else
+ENV = /bin/env
+endif
+RUBY = $(ENV) ruby
+RMDIR = rm -rf
+MKDIR = mkdir -p
+SYSTESTDIR = ../testing/frameworks/system
+SYSTEST = systest
+ITEST = itest
+DSLC = dslc
+ITEST_NIGHTLY_OUTPUT_DIR = /shared/QA_Results/nightly
+MAKE = make --no-print-directory
+BROWSER = firefox
+COREGEN = $(SETUP_ENV); coregen
+MATLABCMD = matlab -nodisplay -nojvm -r 
+
+OCTAVECMD = octave --eval 
+FIND_MATLAB = $(shell which matlab 2> /dev/null)
+ifeq ($(UNAME), Darwin)
+ifeq ($(FIND_MATLAB),/usr/bin/matlab)
+MATLAB_PATH = /Applications/MATLAB_R2009a.app
+MEX = $(MATLAB_PATH)/bin/mex
+MEXEXT = .mexmaci
+endif
+else
+ifeq ($(FIND_MATLAB),/usr/local/bin/matlab)
+MATLAB_PATH = /usr/local/matlab
+MEX = $(MATLAB_PATH)/bin/mex
+MEXEXT = .mexa64
+else
+MATLAB_PATH = /opt/octave
+MEX = $(MATLAB_PATH)/bin/mkoctfile --mex 
+MEXEXT = .mex
+endif
+endif
+
+# Inspects for presence of MATLAB; may be overridden on command line
+MATLAB ?= $(shell which matlab 2>/dev/null)
+ifneq ($(MATLAB),)
+MATLAB_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(MATLAB))))
+MATLAB := $(MATLAB_INSTALL_PATH)/bin/matlab
+MEX := $(MATLAB_INSTALL_PATH)/bin/mex
+@echo "Found a MATLAB installation here: $(MATLAB)"
+endif
+
+# Inspects for presence of GNU octave; may be overridden on command line
+OCTAVE ?= $(shell which octave 2>/dev/null)
+ifneq ($(OCTAVE),)
+OCTAVE_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(OCTAVE))))
+OCTAVE := $(OCTAVE_INSTALL_PATH)/bin/octave
+MKOCTFILE := $(OCTAVE_INSTALL_PATH)/bin/mkoctfile --mex
+@echo "Found a GNU octave installation here: $(OCTAVE)"
+endif
+
+ifeq ("$(MATLAB)$(OCTAVE)","")
+$(error "Couldn't find MATLAB or GNU octave.")
+endif
+
+# Every possible MEX extension
+ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
+MATLAB_TARGETS = $(addprefix matlab/%,$(ALL_MEXEXT))
+
+# Determines the appropriate MEX extension for the current platform.
+# TODO: extensions for other platforms
+ifneq ($(MATLAB),)
+MEXEXT = .$(shell $(MATLAB_INSTALL_PATH)/bin/mexext)
+endif
+
+ifneq ($(OCTAVE),)
+MEXEXT += .mex
+endif
+
+
+CXXWARNINGS = -W -Wall -Wimplicit -Wswitch -Wformat -Wchar-subscripts \
+	-Wparentheses -Wmultichar -Wtrigraphs -Wpointer-arith -Wcast-align \
+	-Wreturn-type -Wno-unused-function
+CWARNINGS = -Wstrict-prototypes -Wmissing-prototypes \
+	-Wmissing-declarations -Wnested-externs -Wmain $(CXXWARNINGS)
+
+
+# File Names and Locations
+# ==============================================================================================
+
+FILENAME = simEngine
+OUTPUT_FILE = $(BUILD_DIR)/bin/$(FILENAME)
+
+# Platform Specific Parameters
+# ==============================================================================================
+
+# This is to handle shared libraries on a Mac vs. Linux
+ifeq ($(UNAME), Darwin)
+SHARED_FLAG=-dynamiclib -Wl,-single_module
+else
+SHARED_FLAG=-shared
+endif
+
+ifeq ($(UNAME), CYGWIN_NT-5.1)
+LINKING_FLAG=
+else
+ifeq ($(UNAME), MINGW32_NT-5.1)
+LINKING_FLAG=
+else
+LINKING_FLAG=-lm -fPIC
+endif
+endif
+
+
+ifeq ($(UNAME), CYGWIN_NT-5.1)
+BUILD_DIR=$(BUILD)_cyg_$(BUILD_TYPE)
+PLATFORM=cyg
+else
+ifeq ($(UNAME), MINGW32_NT-5.1)
+BUILD_DIR=$(BUILD)_mingw_$(BUILD_TYPE)
+PLATFORM=mingw
+else
+ifeq ($(UNAME), Darwin)
+BUILD_DIR=$(BUILD)_mac_$(BUILD_TYPE)
+PLATFORM=mac
+else
+ifeq ($(UNAME), Linux)
+BUILD_DIR=$(BUILD)_lin_$(BUILD_TYPE)
+PLATFORM=lin
+else
+BUILD_DIR=$(BUILD)_unknown
+PLATFORM=unknown
+endif
+endif
+endif
+endif
+
+# Creates lists of MATLAB/Octave targets for each available MEX type
+SIMENGINE_WRAPPER = $(addprefix simEngine_wrapper,$(MEXEXT))
+SIMEX_HELPER = $(addprefix simex_helper,$(MEXEXT))
+SIMEX_HELPER_BUILD = $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER))
+
+
+# Branching Related Parameters
+# ==============================================================================================
+
+BRANCH=$(shell pwd | grep -c branches)
+TRUNK=$(shell pwd | grep -c trunk)
+TAG=$(shell pwd | grep -c tag)
+
+ifeq ($(BRANCH),1)
+RELEASE = "branch"
+BUILDREV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
+REV = $(shell pwd | sed -e 's/.*\/branches\/\(.*\)/\1/')
+INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
+VERSION = "BRANCH_$(REV)_$(BUILD_TYPE):$(BUILDREV)"
+TOP_LEVEL=../..
+DEBUG=true
+else	
+ifeq ($(TRUNK),1)		
+RELEASE = "trunk"
+REV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
+INSTALL_FILENAME = "$(FILENAME)_devbuild_$(REV)_$(BUILD_TYPE).tar.gz"
+VERSION = "BUILD_$(REV)_$(BUILD_TYPE)"
+TOP_LEVEL=..
+else	
+ifeq ($(TAG),1)
+RELEASE = "tag"
+REV = $(shell pwd | sed -e 's/.*\/tags\/\(.*\)/\1/')
+INSTALL_FILENAME = "$(FILENAME)_release_$(REV)_$(BUILD_TYPE).tar.gz"
+VERSION = "$(REV)_$(BUILD_TYPE)"
+TOP_LEVEL=../..
+else	
+RELEASE = "unknown"
+INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
+TOP_LEVEL=unknown
+VERSION = "unknown"
+endif
+endif	
+endif	
+
+INSTALL_DIR = $(TOP_LEVEL)/build/$(PLATFORM)
+LOCAL_INSTALL = local-install
+
+
 # Standard Build Options
 # ==============================================================================================
 
@@ -304,14 +372,15 @@ ifneq ($(DEBUG),)
 endif
 	@$(MAKE) instructions
 
-compiler:
+.PHONY: compiler
+compiler: 
 	@$(MAKE) check-build-type
 	@$(MAKE) build-directories
 	@$(MAKE) links
 	@$(MAKE) build-system
-#ifeq ($(UNAME), Darwin)	
+	@$(MAKE) matlab-files
+	@$(MAKE) install-locally
 	@$(MAKE) matlab-installer
-#endif
 	@$(MAKE) instructions
 
 
@@ -320,7 +389,7 @@ compiler:
 
 build-examples: $(BUILD_DIR)/examples
 	@echo "Building examples"
-	@cd tests; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
+	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
 ifdef $(DYN)
 	@cd tests; $(CP) $(DYN) ../$(BUILD_DIR)/examples
 endif
@@ -349,7 +418,7 @@ VERILOG_SIM_FILES = $(BUILD_DIR)/data/sim/top_level_model_tb.v $(BUILD_DIR)/data
 FACTORY_FILES = 
 
 #COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/lib/core.h $(BUILD_DIR)/lib/swbe_main.c $(BUILD_DIR)/lib/llc_defs.h $(BUILD_DIR)/lib/llc_protocol.c $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/bin/settings.csh $(BUILD_DIR)/bin/settings.sh $(BUILD_DIR)/README build-examples build-packages build-octave $(FILENAME) idynamo ../idynamo build_includes $(DOCUMENTATION_BUILD_FILES) $(ITEST) ../$(ITEST) $(BUILD_DIR)/$(DSLC) $(BUILD_DIR)/$(DSLC)/dslc.so
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol build-examples $(FILENAME) build_includes $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
 
 FIXEDPT_BUILD_FILES =  $(BUILD_DIR)/lib/fixpt.h $(BUILD_DIR)/lib/floatpt.h $(BUILD_DIR)/bin/fixpt_report.pl $(BUILD_DIR)/bin/compare_backends.pl $(BUILD_DIR)/bin/compare_sims.pl $(BUILD_DIR)/bin/create_table.pl
 HARDWARE_BUILD_FILES = $(BUILD_DIR)/bin/verify_xflow.pl $(VERILOG_IMPL_FILES) $(VERILOG_SIM_FILES) $(FACTORY_FILES)
@@ -384,6 +453,7 @@ COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/processing
 
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCE) src/shell/cool.lex.sml src/shell/cool.grm.sig src/shell/cool.grm.sml src/shell/cool.lex src/shell/cool.grm src/util/registry/registry.lex.sml src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml src/util/registry/registry.lex src/util/registry/registry.grm
 
+COMPILER_PREREQS := check-build-type build-directories links build-system matlab-files matlab-installer instructions
 
 # Dynamo Compilation Targets
 # ==============================================================================================
@@ -470,42 +540,95 @@ debug-files: $(DEBUG_FILES)
 # ==============================================================================================
 
 
-$(BUILD_DIR)/src/simEngine_wrapper.c: matlab/simEngine_wrapper.c
+$(BUILD_DIR)/bin/%: matlab/bin/%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/simplot.m: matlab/simplot.m
+$(BUILD_DIR)/src/simEngine_wrapper.c: matlab/src/simEngine_wrapper.c
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-matlab/simEngine_wrapper.$(MEXEXT): matlab/simEngine_wrapper.c
-	@cd matlab; echo "Creating '$@' from '$<'"
-	@(cd matlab; $(MEX) simEngine_wrapper.c)
-
-$(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT): matlab/simEngine_wrapper.$(MEXEXT)
+$(BUILD_DIR)/src/simex_helper.c: matlab/src/simex_helper.c
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/buildEngine.m: matlab/buildEngine.m
+$(BUILD_DIR)/%.m: matlab/%.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+$(BUILD_DIR)/%.fig: matlab/%.fig
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+# $(BUILD_DIR)/simplot.m: matlab/simplot.m
+# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+# $(BUILD_DIR)/simSensitivity.m: matlab/simSensitivity.m
+# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+# $(BUILD_DIR)/simview.m: matlab/simview.m
+# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+# $(BUILD_DIR)/simview.fig: matlab/simview.fig
+# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+# $(BUILD_DIR)/simsweep.%: matlab/simsweep.%
+# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+# $(BUILD_DIR)/simex.m: matlab/simex.m
+# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 #$(BUILD_DIR)/lib/solvers.c: matlab/solvers.c
 #	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/lib/solvers_%.a: solvers/lib/solvers_%.a
+$(BUILD_DIR)/lib/libsolvers.a: solvers/lib/libsolvers.a
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 $(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-matlab/install.m: simEngine.tgz
-	@(cd matlab; $(MATLABCMD) "append_bin_to_file('../simEngine.tgz', 'install_wrapper.m', 'install.m'); exit")
+MEXINTERFACE_PREREQS = $(addprefix matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
+.PHONY: mexinterface
+mexinterface: $(MEXINTERFACE_PREREQS)
 
-install.m: matlab/install.m	
+matlab/install.m: simEngine.tgz datafiles/simatrapublickey.mat
+	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../simEngine.tgz', 'install_temp.m', 'install.m', 'saveInstaller'); exit") 
+
+matlab/install.p: matlab/install.m
+	@(cd matlab; $(MATLABCMD) "pcode install.m; exit")
+
+install.p: matlab/install.p
 	@echo "Copying '$<' to '$@' ..."
 	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-MATLAB_FILES = $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/buildEngine.m $(BUILD_DIR)/simplot.m $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/solvers_double.a $(BUILD_DIR)/lib/solvers_float.a simEngine.tgz install-locally install.m
+pcode: install.p
+
+MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/install.m
+MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
+
+solvers/lib/libcvode_%.a: solvers/src/*.c
+	$(MAKE) -C solvers/thirdparty/cvode TYPE=$* libcvode_$*.a
 
 solvers/lib/%.a: solvers/src/*.c
-	(cd solvers; make all)
+	@echo "Running solvers all on $@"
+	$(MAKE) -C solvers all
+
+.PHONY: solvers
+solvers:
+	@echo "Running target solvers"
+	$(MAKE) -C solvers all
+
+
+$(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/simEngine_wrapper.%: matlab/simEngine_wrapper.%
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
+	@echo "Generating Matlab target $@"
+	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
+
+matlab-files: $(MATLAB_FILES)
 
 matlab-installer: $(MATLAB_FILES)
 
@@ -523,13 +646,39 @@ $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 $(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/simEngine_wrapper.$(MEXEXT) $(LOCAL_INSTALL)/compile_tests.m
+$(LOCAL_INSTALL)/simex.m: matlab/simex.m
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(LOCAL_INSTALL)/%.mexmaci: matlab/%.mexmaci
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mex: matlab/%.mex
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexglx: matlab/%.mexglx
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexa64: matlab/%.mexa64
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexs64: matlab/%.mexs64
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexw32: matlab/%.mexw32
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexw64: matlab/%.mexw64
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
+#install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
 # Build type options
 # ==============================================================================================
 
 
+.PHONY: check-build-type
 check-build-type:
 	@echo " "
 ifeq ($(BUILD_TYPE), software)
@@ -629,8 +778,15 @@ $(BUILD_DIR)/lib/llc_defs.h: ../dslc/llc_defs.h
 $(BUILD_DIR)/lib/llc_protocol.c: ../dslc/llc_protocol.c
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-build_includes: include/*.dsl
-	@echo "Populating standard includes ..."; $(CP) $^ $(BUILD_DIR)/include/
+build_includes: include/* solvers
+	@echo "Populating standard includes ..."
+	@$(CP) include/* $(BUILD_DIR)/include/
+	@$(MKDIR) $(BUILD_DIR)/include/solvers/
+	@cp -fL solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
+
+build_shared: share/*
+	@echo "Populating shared files..."
+	$(CP) $^ $(BUILD_DIR)/share/
 
 $(BUILD_DIR)/data/default.dol: datafiles/default.dol
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
@@ -895,7 +1051,9 @@ DEBUG_DIRECTORY =
 endif
 
 #COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/bin $(BUILD_DIR)/bin/src $(BUILD_DIR)/data $(BUILD_DIR)/examples $(BUILD_DIR)/include $(BUILD_DIR)/lib $(BUILD_DIR)/man $(BUILD_DIR)/packages $(DEBUG_DIRECTORY) $(BUILD_DIR)/octave $(BUILD_DIR)/doc
-COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/lib $(BUILD_DIR)/doc
+
+COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/share $(BUILD_DIR)/lib $(BUILD_DIR)/doc
+
 FULL_DIRECTORIES = $(COMMON_DIRECTORIES) $(BUILD_DIR)/data/impl $(BUILD_DIR)/data/sim  $(BUILD_DIR)/factory
 
 ifeq ($(BUILD_TYPE),full)
@@ -934,6 +1092,9 @@ $(BUILD_DIR)/src: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/include: $(BUILD_DIR)
+	@if test ! -d $@ ; then $(MKDIR) $@; fi
+
+$(BUILD_DIR)/share: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/lib: $(BUILD_DIR)
@@ -1225,8 +1386,9 @@ install: system
 
 
 .PHONY: clean
-clean:
+clean: mostlyclean solvers_clean mexinterface_clean
 	$(RM) *~
+	$(RM) $(LOCAL_INSTALL)
 	$(RM) examples/*~
 	$(RM) src/*~
 	$(RM) src/dyn_fe/*~
@@ -1236,15 +1398,7 @@ clean:
 	$(RM) src/be/hwgen/*~
 	$(RM) src/be/swgen/*~
 	$(RM) src/be/core/*~
-	$(RM) src/dyn_fe/dynamo.lex.sml
-	$(RM) src/dyn_fe/dynamo.grm.sig
-	$(RM) src/dyn_fe/dynamo.grm.sml
-	$(RM) src/dyn_fe/dynamo.grm.desc
 	$(RM) src/lib_fe/*~
-	$(RM) src/lib_fe/dynlib.lex.sml
-	$(RM) src/lib_fe/dynlib.grm.sig
-	$(RM) src/lib_fe/dynlib.grm.sml
-	$(RM) src/lib_fe/dynlib.grm.desc
 	$(RM) src/dll/*.o
 	$(RM) src/dll/*.so
 	$(RM) $(BUILD_OPTS) datafiles/*build_options.sml
@@ -1260,8 +1414,25 @@ clean:
 	$(RMDIR) ../$(RPM_TEMP_DIR)
 	$(RM) ../$(RPM_TAR_GZ)
 	$(RM) install.m
-	$(RM) matlab/simEngine_wrapper.$(MEXEXT)
-	(cd solvers; $(MAKE) clean)
+	$(RM) install.p
+
+mostlyclean:
+	$(RM) $(FILENAME)
+	$(RM) src/dyn_fe/dynamo.lex.sml
+	$(RM) src/dyn_fe/dynamo.grm.sig
+	$(RM) src/dyn_fe/dynamo.grm.sml
+	$(RM) src/dyn_fe/dynamo.grm.desc
+	$(RM) src/lib_fe/dynlib.lex.sml
+	$(RM) src/lib_fe/dynlib.grm.sig
+	$(RM) src/lib_fe/dynlib.grm.sml
+	$(RM) src/lib_fe/dynlib.grm.desc
+
+
+solvers_clean:
+	$(MAKE) -C solvers clean
+
+mexinterface_clean:
+	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" clean
 
 clean-all:
 	$(MAKE) clean BUILD_TYPE=software

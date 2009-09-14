@@ -85,6 +85,6 @@ equations
    V' = (1/Cmem)*(-INa-ICaT-ICaS-IA-IKCa-IKd-Ih-Ileak)
 end
 
-solver = ode45 {dt=0.05}
+solver = ode23 {dt=0.05}
 
 end

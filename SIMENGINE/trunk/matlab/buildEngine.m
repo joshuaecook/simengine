@@ -71,9 +71,9 @@ curdir = pwd;
 cd(compileDirectory);
 try
   status = simEngine_wrapper(simEngine, filename, basename);
-catch me
+catch %me
   cd(curdir);
-  me
+ % me
   error('Simatra:CompileError', ['Can not invoke simEngine compiler. '...
                        'Please verify installation.'])
   return;
@@ -109,14 +109,19 @@ ode_c_source = fullfile(compileDirectory, ...
 solverlib = fullfile(dynenv, 'lib', ['solvers_' s.precision '.a']);
 switch computer
  case 'GLNX86'
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64 -g', ...
       '-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m32 -fexceptions -D_FILE_OFFSET_BITS=64 -g', ...
       '-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
  case 'GLNXA64'
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64 -g', ...
       '-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
-  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64', ...
+  c_source = fullfile(compileDirectory, ...
+                    sprintf('%s_%s_parallel.c',basename,mode));
+  solverlib = fullfile(dynenv, 'lib', ['psolvers_' s.precision '.a']);
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64 -g', ...
+      '-output', ['p' basename], ['-I' fullfile(dynenv,'include')], c_source, solverlib);
+  mex('CFLAGS=-std=gnu99 -D_GNU_SOURCE -fPIC -pthread -m64 -fexceptions -D_FILE_OFFSET_BITS=64 -g', ...
       '-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
  case 'MACI'
   mex('-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
@@ -125,6 +130,9 @@ switch computer
   mex('-output', basename, ['-I' fullfile(dynenv,'include')], c_source, solverlib);
   mex('-output', [basename '_ode'], ['-I' fullfile(dynenv,'include')], ode_c_source);
  case 'i686-pc-linux-gnu'
+  mex('--output', [basename '.mex'], ['-I' fullfile(dynenv,'include')], c_source, solverlib);
+  mex('--output', [basename '_ode.mex'], ['-I' fullfile(dynenv,'include')], ode_c_source);  
+ case 'x86_64-unknown-linux-gnu'
   mex('--output', [basename '.mex'], ['-I' fullfile(dynenv,'include')], c_source, solverlib);
   mex('--output', [basename '_ode.mex'], ['-I' fullfile(dynenv,'include')], ode_c_source);  
  otherwise

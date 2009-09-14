@@ -1,36 +1,70 @@
 // Forward Euler Integration Method
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
 #include "solvers.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-forwardeuler_mem *forwardeuler_init(solver_props *props) {
+forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
+#if defined TARGET_GPU
+  GPU_ENTRY(init, SIMENGINE_STORAGE);
+
+  // Temporary CPU copies of GPU datastructures
+  forwardeuler_mem tmem;
+  // GPU datastructures
+  forwardeuler_mem *dmem;
+  
+  // Allocate GPU space for mem and pointer fields of mem (other than props)
+  cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(forwardeuler_mem)));
+  tmem.props = GPU_ENTRY(init_props, SIMENGINE_STORAGE, props);;
+  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+
+  // Copy mem structure to GPU
+  cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(forwardeuler_mem), cudaMemcpyHostToDevice));
+
+  return dmem;
+  
+#else // Used for CPU and OPENMP targets
+
   forwardeuler_mem *mem = (forwardeuler_mem*)malloc(sizeof(forwardeuler_mem));
 
   mem->props = props;
-  mem->k1 = malloc(props->statesize*sizeof(CDATAFORMAT));
+  mem->k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
 
   return mem;
+
+#endif // defined TARGET_GPU
 }
 
-int forwardeuler_eval(forwardeuler_mem *mem) {
+__DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, unsigned int modelid) {
 
-  int ret = (mem->props->fun)(*(mem->props->time), mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1);
+  int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
 
   int i;
   for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->props->model_states[i] = mem->props->model_states[i] + mem->props->timestep * mem->k1[i];
+    mem->props->model_states[STATE_IDX] = mem->props->model_states[STATE_IDX] +
+      mem->props->timestep * mem->k1[STATE_IDX];
   }
 
-  *(mem->props->time) += mem->props->timestep;
+  mem->props->time[modelid] += mem->props->timestep;
 
   return ret;
 }
 
-void forwardeuler_free(forwardeuler_mem *mem) {
+void SOLVER(forwardeuler, free, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem) {
+#if defined TARGET_GPU
+  forwardeuler_mem tmem;
+
+  cutilSafeCall(cudaMemcpy(&tmem, mem, sizeof(forwardeuler_mem), cudaMemcpyDeviceToHost));
+
+  GPU_ENTRY(free_props, SIMENGINE_STORAGE, tmem.props);
+
+  cutilSafeCall(cudaFree(tmem.k1));
+  cutilSafeCall(cudaFree(mem));
+
+  GPU_ENTRY(exit, SIMENGINE_STORAGE);
+
+#else // Used for CPU and OPENMP targets
+
   free(mem->k1);
   free(mem);
-  mem = NULL;
+
+#endif // defined TARGET_GPU
 }

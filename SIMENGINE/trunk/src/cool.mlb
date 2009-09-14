@@ -100,9 +100,12 @@ ir/processing/ordering.sml
 ir/processing/model_process.sml
 
 be/c_writer_util.sml
+(* deprecated writers
 be/c_writer.sml
 be/mex_writer.sml
 be/mex_ode_writer.sml
+*)
+be/c_parallel_writer.sml
 
 (*
 

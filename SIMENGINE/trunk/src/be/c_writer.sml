@@ -374,10 +374,16 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 						  [])
 					     else
 						 class2flow_code (c,#name c = #name topclass)) classes)
+
+	val top_level_flow_progs = [$"",
+				    $("int model_flows(CDATAFORMAT t, const void *y, void *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration){"),
+				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, y, dydt, inputs, outputs,first_iteration);")],
+				    $("}")]
     in
 	[$("// Flow code function declarations")] @
 	fundecl_progs @
-	flow_progs
+	flow_progs @
+	top_level_flow_progs
     end
 
 fun input_code (class: DOF.class) =
@@ -431,7 +437,6 @@ fun exec_code (class:DOF.class, props, statespace) =
 	     $("props.outputs = NULL;"),
 	     $("props.first_iteration = TRUE;"),
 	     $("props.statesize = STATESPACE;"),
-	     $("props.fun = &flow_"^(Symbol.name (#name class))^";"),
 	     $(""),
 	     $("INTEGRATION_METHOD(mem) *mem = INTEGRATION_METHOD(init)(&props);"),
 	     $("while (*t < t1) {"),

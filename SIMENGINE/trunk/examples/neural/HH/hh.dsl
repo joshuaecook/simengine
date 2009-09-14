@@ -1,3 +1,8 @@
+// Hodgkin & Huxley Giant Squid Axon Model (J Physiol, 1952)
+//
+// Adapted for use with simEngine
+// Copyright 2009 Simatra Modeling Technologies, L.L.C.
+//
 // model definition
 
 model (Vm) = hh(I_app, g_Na, g_K, g_L)
