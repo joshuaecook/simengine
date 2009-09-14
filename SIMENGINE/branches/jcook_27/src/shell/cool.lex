@@ -99,14 +99,6 @@ val keyword_table = [("function",         Tokens.FUNCTION),
 		     ("true",             Tokens.TRUE),
 		     ("false",            Tokens.FALSE)]
 
-(* fun lookup ([], keyword) = NONE *)
-(*   | lookup ((key,constructor)::t, keyword) =  *)
-(*     (case (String.compare(keyword, key)) of *)
-(* 	 EQUAL =>  *)
-(* 	 SOME (fn (pos) => constructor(genpos pos, genpos(pos + (String.size key)))) *)
-(*        | _ => lookup (t, keyword)) *)
-    
-
 (* finds a keyword in the table, and returns a generating function to make a Token for it *)
 fun lookup keyword =
     case List.find (fn (key, _) => key = keyword) keyword_table
@@ -115,12 +107,7 @@ fun lookup keyword =
       | NONE => NONE
 
 
-fun removeUnderbars str =
-    let
-	val trSep = fn #"_" => "" | c => (Char.toString c)
-    in
-	String.translate trSep str
-    end
+val removeUnderbars = String.translate (fn #"_" => "" | c => Char.toString c)
 
 exception IllegalChar of char
 
@@ -160,18 +147,19 @@ fun popLexState () =
     lexStateStack := tl (!lexStateStack)
 
 fun lexState () =
-    case !lexStateStack of
-	nil => NONE
-      | s :: _ => SOME s
+    case !lexStateStack 
+     of s :: _ => SOME s
+      | nil => NONE
 
 (* Mandatory error and end-of-file handlers. *)
 
-  fun error pos text = (Logger.log_usererror [pos] text; 
-			DynException.setErrored())
+fun error pos text = 
+    (Logger.log_usererror [pos] text; 
+     DynException.setErrored())
 
 fun eof () =
-(Globals.eof_encountered := true;
- Tokens.EOF(PosLog.NOPOS,PosLog.NOPOS))
+    (Globals.eof_encountered := true;
+     Tokens.EOF(PosLog.NOPOS,PosLog.NOPOS))
 
 %%
 
@@ -406,14 +394,20 @@ WS      = [\012\ \t];
 <INITIAL>{EOL} => ((* Rule to match new line. *)
 		     ParserSettings.nextLine ();
 		     lastline_yypos := yypos;
-		     Tokens.NEWLINE(genpos yypos, genpos (yypos)));
+		     (* Does not produce a newline token if the lexer state indicates we are inside parens. *)
+		     case lexState ()
+		      of NONE => Tokens.NEWLINE(genpos yypos, genpos (yypos))
+		       | _ => continue());
 
 <INITIAL>{WS}+ => ((* Rule to match whitespace. *)
 		   continue());
 
 <INITIAL>"//".*{EOL}  =>  (ParserSettings.nextLine ();
 			   lastline_yypos := yypos;
-			   Tokens.NEWLINE(genpos yypos, genpos (yypos)));
+			   (* Does not produce a newline token if the lexer state indicates we are inside parens. *)
+			   case lexState ()
+			    of NONE => Tokens.NEWLINE(genpos yypos, genpos (yypos))
+			     | _ => continue());
 
 <INITIAL>"/*"             =>  (YYBEGIN(COMMENT); 
 			       continue());
