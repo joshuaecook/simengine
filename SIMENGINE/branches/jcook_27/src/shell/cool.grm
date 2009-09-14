@@ -220,7 +220,7 @@ modelpart: quantitydef newlines (quantitydef)
 
 
 quantitydef: modifiers quantitytype ID optdimensions precinfoopt optassignment opttable(Ast.QUANTITYDEF {modifiers=modifiers, basetype=quantitytype, name=Symbol.symbol ID, precision=precinfoopt, exp=optassignment, settingstable = opttable, dimensions=optdimensions})
-	   | modifiers PARAMETER ID optdimensions precinfoopt ASSIGN exp opttable (Ast.STM (Ast.DEFINITION (Ast.DEFCONST (Symbol.symbol ID, NONE, exp), PARAMETERleft)) before error_at_pos PARAMETERleft "The parameter keyword has been removed.  Please use inputs for all tunable quantities or set as a constant.")
+	   | modifiers PARAMETER ID optdimensions precinfoopt ASSIGN optlines exp opttable (Ast.STM (Ast.DEFINITION (Ast.DEFCONST (Symbol.symbol ID, NONE, exp), PARAMETERleft)) before error_at_pos PARAMETERleft "The parameter keyword has been removed.  Please use inputs for all tunable quantities or set as a constant.")
 
 outputdef: OUTPUT ID optassignment opttable (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
 	                                                    quantity=(case optassignment 
@@ -245,13 +245,14 @@ quantitytype: QUANTITY (Ast.GENERIC_QUANTITY)
 	 | STATE (Ast.STATE_QUANTITY)
 
 equationsdef: EQUATION equation (Ast.EQUATIONS ([equation]))
-	    | EQUATIONS optlines equations END (Ast.EQUATIONS(equations))
+	    | EQUATION (Ast.EQUATIONS nil before error_at_pos EQUATIONleft "EQUATION keyword must be followed by an expression. Use an EQUATIONS block to define more than one equation.")
+	    | EQUATIONS newlines equations END (Ast.EQUATIONS(equations))
 
 equations: (nil)
-	 | equation optlines equations (equation :: equations)
+	 | equation newlines equations (equation :: equations)
 
-equation: exp EQARROW exp (Ast.MATHFUNCTION (exp1, exp2))
-	| exp ASSIGN exp (Ast.EQUATION (exp1, exp2))
+equation: exp EQARROW optlines exp (Ast.MATHFUNCTION (exp1, exp2))
+	| exp ASSIGN optlines exp (Ast.EQUATION (exp1, exp2))
 
 
 ticks: TICK (1)
@@ -281,12 +282,12 @@ namespacestms: (nil)
     | namespacestm newlines namespacestms (namespacestm :: namespacestms)
 
 definition: function (function)
-	  | CLASS ID classheader optlines methods END (Ast.DEFCLASS {name=Symbol.symbol ID, classheader=classheader, methods=methods})
-	  | NAMESPACE ID optlines namespacestms END (Ast.DEFNAMESPACE {name=Symbol.symbol ID, stms=namespacestms})
-	  | INTERFACE ID optlines interfaceheaders END (Ast.DEFINTERFACE {name=Symbol.symbol ID, headers=interfaceheaders})
+	  | CLASS ID classheader newlines methods END (Ast.DEFCLASS {name=Symbol.symbol ID, classheader=classheader, methods=methods})
+	  | NAMESPACE ID newlines namespacestms END (Ast.DEFNAMESPACE {name=Symbol.symbol ID, stms=namespacestms})
+	  | INTERFACE ID newlines interfaceheaders END (Ast.DEFINTERFACE {name=Symbol.symbol ID, headers=interfaceheaders})
 
 function: runnablemod FUNCTION singlefunction (Ast.DEFFUN (runnablemod, [singlefunction]))
-	| runnablemod MULTIFUNCTION optlines multiplefunctions END (Ast.DEFFUN (runnablemod, rev multiplefunctions))
+	| runnablemod MULTIFUNCTION newlines multiplefunctions END (Ast.DEFFUN (runnablemod, rev multiplefunctions))
 
 multiplefunctions: singlefunction optlines ([singlefunction])
 		 | singlefunction newlines multiplefunctions (singlefunction :: multiplefunctions)
@@ -294,9 +295,9 @@ multiplefunctions: singlefunction optlines ([singlefunction])
 singlefunction: header ASSIGN optlines exp(header, [Ast.ACTION(Ast.EXP exp, expleft)])
 	      | returnheader optlines stms END (returnheader, stms)
 	 
-header: ID LPAREN optlines args optlines RPAREN ({name=Symbol.symbol ID, args=args, returns=NONE}) 
+header: ID LPAREN args RPAREN ({name=Symbol.symbol ID, args=args, returns=NONE}) 
 	   
-returnheader: LPAREN optlines args optlines RPAREN ASSIGN optlines ID LPAREN optlines args optlines RPAREN ({name=Symbol.symbol ID, args=args2, returns=SOME args1}) 
+returnheader: LPAREN args RPAREN ASSIGN optlines ID LPAREN args RPAREN ({name=Symbol.symbol ID, args=args2, returns=SOME args1}) 
 	    | header (header) 
 
 runnablemod: (SOME Ast.REPLACE)
@@ -310,10 +311,10 @@ interfaceheader: FUNCTION header newlines (Ast.FUNHEADER header)
 
 vardef: GLOBAL VAR ID opttyp optassignment (Ast.DEFGLOBAL (Symbol.symbol ID, opttyp, optassignment))
       | VAR ID opttyp optassignment (Ast.DEFLOCAL (Symbol.symbol ID, opttyp, optassignment))
-      | CONSTANT ID opttyp ASSIGN exp (Ast.DEFCONST (Symbol.symbol ID, opttyp, exp))
+      | CONSTANT ID opttyp ASSIGN optlines exp (Ast.DEFCONST (Symbol.symbol ID, opttyp, exp))
 
 optassignment: (NONE)
-	     | ASSIGN exp (SOME exp)
+	     | ASSIGN optlines exp (SOME exp)
 
 
 elsechain: ELSE optlines stms END (stms)
@@ -339,7 +340,7 @@ action: exp (Ast.EXP exp)
 	       (case string of
 		    Ast.LITERAL (Ast.CONSTSTR s) => Ast.IMPORT s
 		  | _ => raise StubbedOut)
-      | exp ASSIGN exp (Ast.ASSIGN (exp1, exp2))
+      | exp ASSIGN optlines exp (Ast.ASSIGN (exp1, exp2))
       | IF exp optlines THEN optlines stms elsechain (Ast.COND {cond=exp, ift=stms, iff=elsechain})
       | WHILE exp optlines DO optlines stms END (Ast.WHILE {cond=exp, stms=stms})
       | FOREACH ID optlines IN optlines exp optlines DO optlines stms END(Ast.FOR {var=Symbol.symbol ID, collection=exp, stms=stms})
@@ -356,7 +357,7 @@ interfaces: (nil)
 
 args: (nil)
     | arg (arg :: nil)
-    | arg COMMA optlines args (arg :: args)
+    | arg COMMA args (arg :: args)
 
 arg: ID opttyp (Symbol.symbol ID, opttyp)
 
@@ -375,12 +376,12 @@ typ: ID OF typ (Ast.COMPOUNDTYPE (Symbol.symbol ID, typ))
    | typ ARROW typ (Ast.ARROW(typ1, typ2))
 
 methods: (nil)
-       | method optlines methods (method::methods)
+       | method newlines methods (method::methods)
 
 method: optvisibility definition (Ast.METHODDEF(optvisibility, definition))
       | optvisibility vardef (Ast.METHODDEF(optvisibility, vardef))
-      | optvisibility runnablemod OPERATOR LPAREN RPAREN LPAREN args RPAREN optlines stms END (Ast.METHODDEF (optvisibility, Ast.DEFFUN (runnablemod, [({name=Symbol.symbol "()", args=args, returns=NONE}, stms)])))
-      | optvisibility PROPERTY ID optlines optgetset END (Ast.METHODDEF(optvisibility, Ast.DEFPROPERTY{name=Symbol.symbol ID, io=optgetset}))
+      | optvisibility runnablemod OPERATOR LPAREN RPAREN LPAREN args RPAREN newlines stms END (Ast.METHODDEF (optvisibility, Ast.DEFFUN (runnablemod, [({name=Symbol.symbol "()", args=args, returns=NONE}, stms)])))
+      | optvisibility PROPERTY ID newlines optgetset END (Ast.METHODDEF(optvisibility, Ast.DEFPROPERTY{name=Symbol.symbol ID, io=optgetset}))
       | constructor (constructor)
 
 optgetset: ({read=NONE, write=NONE})
@@ -401,7 +402,7 @@ optvisibility: (NONE)
  	     | PUBLIC (SOME Ast.PUBLIC)
 
 
-constructor: CONSTRUCTOR LPAREN optlines args RPAREN optlines stms END (Ast.CONSTRUCTOR{args=args, body=stms})
+constructor: CONSTRUCTOR LPAREN args RPAREN newlines stms END (Ast.CONSTRUCTOR{args=args, body=stms})
 
 exp: lambda (lambda)
 
@@ -417,8 +418,8 @@ lambda: lambdaapp (lambdaapp)
 	 | EXISTS ID IN lambda SUCHTHAT lambda  (Ast.EXISTS {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
 	 | LET ID optlines ASSIGN optlines lambda optlines IN optlines lambda (Ast.LET (Symbol.symbol ID, lambda1, lambda2))
 
-lambdalist : lambda COMMA optlines lambda ([lambda1, lambda2])
-	   | lambda COMMA optlines lambdalist (lambda :: lambdalist)
+lambdalist : lambda COMMA lambda ([lambda1, lambda2])
+	   | lambda COMMA lambdalist (lambda :: lambdalist)
 
 lambdaapp : lambdaapp aexp (Ast.POS(Ast.APPLY {func=lambdaapp, 
 						   args=case aexp of Ast.TUPLE _ => aexp 
@@ -485,7 +486,7 @@ lambdapattern: lambda (lambda)
 
 tableentries: (nil)
 	     | tableentry (tableentry::nil)
-	     | tableentry COMMA optlines tableentries (tableentry :: tableentries)
+	     | tableentry COMMA tableentries (tableentry :: tableentries)
 
 tableentry: ID ((Symbol.symbol ID, Ast.LITERAL(Ast.CONSTBOOL true)))
     | ID ASSIGN lambda ((Symbol.symbol ID, lambda))

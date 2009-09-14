@@ -131,11 +131,13 @@ fun newLexerState _ = ()
 datatype lexState = COMMENT_STATE
 		  | STRING_STATE
 		  | PAREN_STATE
+		  | BRACE_STATE
 		  | CBRACE_STATE
 
 fun lexStateToString COMMENT_STATE = "comment"
   | lexStateToString STRING_STATE = "string"
   | lexStateToString PAREN_STATE = "parentheses"
+  | lexStateToString BRACE_STATE = "square brackets"
   | lexStateToString CBRACE_STATE = "curly braces"
 
 val lexStateStack : lexState list ref = ref nil;
@@ -243,8 +245,19 @@ WS      = [\012\ \t];
 		       => (error (genpos yypos) ($"Illegal nil state stack at RPAREN");
 			   continue ()));
 
-<INITIAL>"["   => (Tokens.LBRACE(genpos yypos, genpos (yypos + 1)));
-<INITIAL>"]"   => (Tokens.RBRACE(genpos yypos, genpos (yypos + 1)));
+<INITIAL>"["   => (pushLexState BRACE_STATE;
+		   Tokens.LBRACE(genpos yypos, genpos (yypos + 1)));
+<INITIAL>"]"   => (case lexState () of
+		       SOME BRACE_STATE
+		       => (popLexState ();
+			   Tokens.RBRACE(genpos yypos, genpos (yypos + 1)))
+		     | SOME s
+		       => (error (genpos yypos) ($("Illegal state "^(lexStateToString s)^" at RBRACE"));
+			   continue ())
+		     | NONE
+		       => (error (genpos yypos) ($"Illegal nil state stack at RBRACE");
+			   continue ()));
+
 
 <INITIAL>"{"   => (pushLexState CBRACE_STATE;
 		   Tokens.LCBRACE(genpos yypos, genpos (yypos + 1)));
@@ -256,10 +269,10 @@ WS      = [\012\ \t];
 			      | _ => ());
 			   Tokens.RCBRACE(genpos yypos, genpos (yypos + 1)))
 		     | SOME s
-		       => (error (genpos yypos) ($("Illegal state "^(lexStateToString s)^" at RPAREN"));
+		       => (error (genpos yypos) ($("Illegal state "^(lexStateToString s)^" at RCBRACE"));
 			   continue ())
 		     | NONE
-		       => (error (genpos yypos) ($"Illegal nil state stack at RPAREN");
+		       => (error (genpos yypos) ($"Illegal nil state stack at RCBRACE");
 			   continue ()));
 
 <INITIAL>"^"   => (Tokens.CARROT(genpos yypos, genpos (yypos+1)));
