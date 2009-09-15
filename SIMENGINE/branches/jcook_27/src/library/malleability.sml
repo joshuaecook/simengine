@@ -319,6 +319,9 @@ fun std_deepclone exec args =
 		  | KEC.DEFINITION(KEC.DEFLOCAL  (r,s,t,exp), pos)
 		    => KEC.DEFINITION(KEC.DEFLOCAL  (r,s,t,cloneExp exp), pos)
 
+		  | KEC.DEFINITION(KEC.DEFCONST  (r,s,t,exp), pos)
+		    => KEC.DEFINITION(KEC.DEFCONST  (r,s,t,cloneExp exp), pos)
+
 		  | KEC.ACTION(KEC.EXP exp, pos)
 		    => KEC.ACTION (KEC.EXP (cloneExp exp), pos)
 

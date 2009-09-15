@@ -92,6 +92,9 @@ fun system_lookup printer (globalenv, localenv as (first, restUnion), poslog) sy
 		     SOME x => SOME x
 		   | NONE => lookup (!globalenv) sym)
 
+fun top_local_lookup printer (globalenv, localenv as (first, rest), poslog) sym =
+    lookup first sym
+
 type 'a env = 'a SymbolTable.table
 
 

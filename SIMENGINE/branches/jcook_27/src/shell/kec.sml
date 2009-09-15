@@ -75,6 +75,7 @@ and exp =
 and definition =
     DEFGLOBAL of replacement * Symbol.symbol * typepattern * exp
   | DEFLOCAL of replacement * Symbol.symbol * typepattern * exp
+  | DEFCONST of replacement * Symbol.symbol * typepattern * exp
 
 and action = 
     EXP of exp
