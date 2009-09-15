@@ -239,7 +239,7 @@ optdimensions: (NONE)
 	     | LBRACE someidslist RBRACE (SOME someidslist)
 
 opttable: (NONE)
-	| WITH LCBRACE tableentries RCBRACE (SOME (Ast.TABLE tableentries))
+	| WITH optlines LCBRACE tableentries RCBRACE (SOME (Ast.TABLE tableentries))
 
 quantitytype: QUANTITY (Ast.GENERIC_QUANTITY)
 	 | STATE (Ast.STATE_QUANTITY)
