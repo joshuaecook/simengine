@@ -53,7 +53,7 @@ for i=1:length(testInfos)
                 o = simex(info.model, info.time, info.inputs, info.states);
             end
             figure;
-            simplot(o);
+            simplot(reduceDataSet(o));
             title(sprintf('Plot of ''%s''',info.name));
         case CREATE,
             if isempty(info.states)
@@ -61,15 +61,16 @@ for i=1:length(testInfos)
             else
                 o = simex(info.model, info.time, info.inputs, info.states);
             end
+            o_reduced = reduceDataSet(o);
             matfile = fullfile(templatedir, [info.name '_exp.mat']);
-            save(matfile, '-struct', 'o');
+            save(matfile, '-struct', 'o_reduced');
             disp(['Created expected results for model ' info.name ' in ' matfile]);
         case RUNTESTS,
             % create function handle to run simulation
             if isempty(info.states)
-                f = @()(simex(info.model, info.time, info.inputs));
+                f = @()(reduceDataSet(simex(info.model, info.time, info.inputs)));
             else
-                f = @()(simex(info.model, info.time, info.inputs, info.states));
+                f = @()(reduceDataSet(simex(info.model, info.time, info.inputs, info.states)));
             end
             matfile = fullfile(templatedir, [info.name '_exp.mat']);            
             s.add(Test(info.name, f, '-equal', matfile));
@@ -183,5 +184,33 @@ t(i).inputs = struct();
 t(i).states = [];
 t(i).time = 1;
 
+
+end
+
+
+function reduced = reduceDataSet(dataset)
+
+num_points = 100;
+fields = fieldnames(dataset);
+reduced = struct();
+for i=1:length(fields)
+    data_mat = dataset.(fields{i});
+    if size(data_mat,1) > num_points
+        if size(data_mat,2) == 1
+            reduced.(fields{i}) = interp1(1:size(data_mat,1),data_mat,1:num_points);
+        else
+            min_t = data_mat(1,1);
+            max_t = data_mat(end,1);
+            new_data_mat = zeros(num_points,size(data_mat,2));
+            new_data_mat(:,1) = linspace(min_t,max_t,num_points);
+            for j=2:(size(data_mat,2))
+                new_data_mat(:,j) = interp1(data_mat(:,1),data_mat(:,j),new_data_mat(:,1));
+            end
+            reduced.(fields{i}) = new_data_mat;
+        end
+    else
+        reduced.(fields{i}) = dataset.(fields{i});
+    end
+end
 
 end
