@@ -29,7 +29,7 @@ if isnumeric(a) && isnumeric(b)
         if size(a) == size(b)
             a_max = a.*(1+tol/100);
             a_min = a.*(1-tol/100);
-            if all(a_max >= b && a_min <= b)
+            if all((a_max >= b & a_min <= b) | (a_max <= b & a_min >= b))
                 e = true;
             end
         end
