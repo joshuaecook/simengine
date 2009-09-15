@@ -43,6 +43,7 @@ classdef Test < handle
         Function
         Dir
         Mode
+        ExpectFail = false
     end
     
     % enumeration for the Result
@@ -203,6 +204,18 @@ classdef Test < handle
                     t.Message = me.message;
                 end
             end
+            
+            % Check if expected fail
+            if t.ExpectFail
+                if t.Result == t.PASSED 
+                    t.Result = t.FAILED;
+                    t.Message = [t.Message ' (Expected to FAIL)'];
+                elseif t.Result == t.FAILED
+                    t.Result = t.PASSED;
+                    t.Message = [t.Message ' (Expected to FAIL)'];
+                end
+            end 
+            
             cd(curDir);
         end
         

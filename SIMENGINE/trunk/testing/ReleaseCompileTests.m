@@ -11,7 +11,7 @@ dsl_files_str = ls(fullfile(examplepath,'/*/*.dsl'));
 dsl_files = strread(dsl_files_str, '%s', 'delimiter', sprintf('\n'));
 
 % create a suite of tests
-s = Suite('ReleaseCompileTests');
+s = Suite('Release Compile Tests');
 
 % add each of the dsl files to a run script
 for i=1:length(dsl_files)

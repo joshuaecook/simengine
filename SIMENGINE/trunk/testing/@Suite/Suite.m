@@ -229,6 +229,27 @@ classdef Suite < handle
             end
         end
         
+        % more accessors
+        function list = getTests(s)
+            list = cell(length(s.Tests),1);
+            for i=1:length(s.Tests)
+                list{i} = s.Tests{i}.Name;
+            end
+        end
+        
+        function t = getTest(s, name)
+            for i=1:length(s.Tests)
+                if strcmpi(s.Tests{i}.Name, name)
+                    t = s.Tests{i};
+                    return;
+                end
+            end
+            disp(['All tests in suite ''' s.Name ''':'])
+            disp(getTests(s));
+            error('Simatra:Suite:TestNotFound', 'Can''t find test with name ''%s''',name);
+        end
+        
+        
     end % end methods
     
 end % end classdef Suite
