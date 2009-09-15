@@ -73,7 +73,7 @@ for i=1:length(testInfos)
                 f = @()(reduceDataSet(simex(info.model, info.time, info.inputs, info.states)));
             end
             matfile = fullfile(templatedir, [info.name '_exp.mat']);            
-            s.add(Test(info.name, f, '-equal', matfile));
+            s.add(Test(info.name, f, '-approxequal', matfile, 1));
     end
 end
 

@@ -104,9 +104,9 @@ classdef Test < handle
                         end
                     case '-approxequal'
                         t.Mode = t.APPROXEQUAL;
-                        if nargin == 4 && isnumeric(varargin{2})
+                        if nargin == 4
                             t.CompareOptions = [varargin{2} 1]; % by default, stay within one percent
-                        elseif nargin == 5 && isnumeric(varargin{2}) && isnumeric(varargin{3})
+                        elseif nargin == 5 && isnumeric(varargin{3})
                             t.CompareOptions = [varargin{2} varargin{3}]; % by default, stay within one percent
                         else
                             error('Test:ArgumentError', 'When using the -approxequal option, there should be a fourth required option and a fifth optional argument')
@@ -163,10 +163,8 @@ classdef Test < handle
                             end
                         end
                     case t.APPROXEQUAL
-                        if isnumeric(t.Return) && length(t.Return) == 1
-                            l = t.CompareOptions(1)*(100-t.CompareOptions(2))/100;
-                            h = t.CompareOptions(1)*(100+t.CompareOptions(2))/100;  
-                            if t.Return <= h && t.Return >= l
+                        if isnumeric(t.Return)
+                            if approx_equiv(t.CompareOptions(1), t.Return, t.CompareOptions(2))
                                 t.Result = t.PASSED;
                             else
                                 t.Result = t.FAILED;
