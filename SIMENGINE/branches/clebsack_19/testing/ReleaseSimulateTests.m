@@ -1,0 +1,216 @@
+% RELEASESIMULATETESTS runs a simulation battery of tests
+% 
+% Usage
+%   RELEASESIMULATETESTS('-plot') will output all the results as plots
+%   RELEASESIMULATETESTS('-create') will create template mat files
+%   s = RELEASESIMULATETESTS will return the test suite
+%
+% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+%
+function s = ReleaseSimulateTests(varargin)
+
+suitename = 'Release Simulate Tests';
+templatedir = 'ReleaseSimTestsExp';
+
+RUNTESTS = 0;
+PLOT = 1;
+CREATE = 2;
+
+% Create the return argument
+s = Suite(suitename);
+
+
+% Process arguments
+if nargin == 0 
+    mode = RUNTESTS;
+elseif strcmpi(varargin{1}, '-plot')
+    mode = PLOT;
+elseif strcmpi(varargin{1}, '-create')
+    mode = CREATE;
+else
+    error('simEngine:ReleaseSimulateTests', 'Unexpected argument, expecting none, -plot, or -create');
+end
+
+% Create template directory if it doesn't exist
+if not(exist(templatedir, 'dir'))
+    mkdir(templatedir);
+end
+
+% Create test list
+testInfos = createTestList;
+
+% Run the tests
+for i=1:length(testInfos)
+    info = testInfos(i);
+
+    % do different tasks depending on the mode
+    switch mode
+        case PLOT,
+            disp(['Simulating and plotting ' info.name]);
+            if isempty(info.states)
+                o = simex(info.model, info.time, info.inputs);
+            else
+                o = simex(info.model, info.time, info.inputs, info.states);
+            end
+            figure;
+            simplot(reduceDataSet(o));
+            title(sprintf('Plot of ''%s''',info.name));
+        case CREATE,
+            if isempty(info.states)
+                o = simex(info.model, info.time, info.inputs);
+            else
+                o = simex(info.model, info.time, info.inputs, info.states);
+            end
+            o_reduced = reduceDataSet(o);
+            matfile = fullfile(templatedir, [info.name '_exp.mat']);
+            save(matfile, '-struct', 'o_reduced');
+            disp(['Created expected results for model ' info.name ' in ' matfile]);
+        case RUNTESTS,
+            % create function handle to run simulation
+            if isempty(info.states)
+                f = @()(reduceDataSet(simex(info.model, info.time, info.inputs)));
+            else
+                f = @()(reduceDataSet(simex(info.model, info.time, info.inputs, info.states)));
+            end
+            matfile = fullfile(templatedir, [info.name '_exp.mat']);            
+            s.add(Test(info.name, f, '-equal', matfile));
+    end
+end
+
+
+
+end
+
+
+% Create a list of tests to run through the system
+function t = createTestList()
+
+i = 0;
+
+% FN Model
+i = i + 1;
+t(i) = struct();
+t(i).name = 'FN';
+t(i).model = fullfile(simexamplepath, 'FN/fn.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 100;
+
+% HH Model
+i = i + 1;
+t(i).name = 'HH';
+t(i).model = fullfile(simexamplepath, 'HH/hh.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 100;
+
+% BRK Model Iext = 10
+i = i + 1;
+t(i).name = 'BRK_I10';
+t(i).model = fullfile(simexamplepath, 'BRK/brk.dsl');
+t(i).inputs = struct('Iext', 10);
+t(i).states = [];
+t(i).time = 100;
+
+% BRK Model Iext = 30
+i = i + 1;
+t(i).name = 'BRK_I30';
+t(i).model = fullfile(simexamplepath, 'BRK/brk.dsl');
+t(i).inputs = struct('Iext', 30);
+t(i).states = [];
+t(i).time = 100;
+
+% STG Model
+i = i + 1;
+t(i).name = 'PD';
+t(i).model = fullfile(simexamplepath, 'PD/pd.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 1500;
+
+% Timing Network Model (HN)
+i = i + 1;
+t(i).name = 'HN';
+t(i).model = fullfile(simexamplepath, 'HN/timingNetwork.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 20;
+
+% Leaky Membrane
+i = i + 1;
+t(i).name = 'Leaky Membrane';
+t(i).model = fullfile(simexamplepath, 'tutorial/leakyMembrane.dsl');
+t(i).inputs = struct('Iext',0);
+t(i).states = [];
+t(i).time = 1;
+
+% Two Cell Network (Tutorial)
+i = i + 1;
+t(i).name = 'Two Cell Network';
+t(i).model = fullfile(simexamplepath, 'tutorial/twoCellNetwork.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 100;
+
+% Van der Pol
+i = i + 1;
+t(i).name = 'Van der Pol';
+t(i).model = fullfile(simexamplepath, 'VDP/vdpex.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 5000;
+
+% Lorenz
+i = i + 1;
+t(i).name = 'Lorenz';
+t(i).model = fullfile(simexamplepath, 'lorenz/lorenz.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 100;
+
+% Purine
+i = i + 1;
+t(i).name = 'Purine';
+t(i).model = fullfile(simexamplepath, 'purine/purine.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 1;
+
+% Yeast
+i = i + 1;
+t(i).name = 'Yeast';
+t(i).model = fullfile(simexamplepath, 'yeast/yeast.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).time = 1;
+
+
+end
+
+
+function reduced = reduceDataSet(dataset)
+
+num_points = 100;
+fields = fieldnames(dataset);
+reduced = struct();
+for i=1:length(fields)
+    data_mat = dataset.(fields{i});
+    if size(data_mat,1) > num_points
+        if size(data_mat,2) == 1
+            reduced.(fields{i}) = interp1(1:size(data_mat,1),data_mat,1:num_points);
+        else
+            min_t = data_mat(1,1);
+            max_t = data_mat(end,1);
+            new_data_mat = zeros(num_points,size(data_mat,2));
+            new_data_mat(:,1) = linspace(min_t,max_t,num_points);
+            for j=2:(size(data_mat,2))
+                new_data_mat(:,j) = interp1(data_mat(:,1),data_mat(:,j),new_data_mat(:,1));
+            end
+            reduced.(fields{i}) = new_data_mat;
+        end
+    else
+        reduced.(fields{i}) = dataset.(fields{i});
+    end
+end
+
+end

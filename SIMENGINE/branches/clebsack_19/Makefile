@@ -389,7 +389,8 @@ compiler:
 
 build-examples: $(BUILD_DIR)/examples
 	@echo "Building examples"
-	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
+#	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
+	@cd ReleaseExamples; $(CP) * ../$(BUILD_DIR)/examples
 ifdef $(DYN)
 	@cd tests; $(CP) $(DYN) ../$(BUILD_DIR)/examples
 endif
@@ -624,7 +625,7 @@ $(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
 $(BUILD_DIR)/simEngine_wrapper.%: matlab/simEngine_wrapper.%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
+$(MATLAB_TARGETS): matlab/src/%.c include/simengine_api.h include/simengine_target.h
 	@echo "Generating Matlab target $@"
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
 

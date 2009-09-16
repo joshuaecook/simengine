@@ -23,6 +23,13 @@ __DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dyd
 // Properties data structure
 // ============================================================================================================
 
+// Pointers to GPU device memory, used only on the Host for transfers
+typedef struct {
+  CDATAFORMAT *time;
+  CDATAFORMAT *model_states;
+  void *ob;
+} gpu_data;
+
 typedef struct {
   CDATAFORMAT timestep;
   CDATAFORMAT abstol;
@@ -39,6 +46,7 @@ typedef struct {
   unsigned int num_models;
   unsigned int ob_size;
   void *ob;
+  gpu_data gpu;
 } solver_props;
 
 // Forward Euler data structures and function declarations

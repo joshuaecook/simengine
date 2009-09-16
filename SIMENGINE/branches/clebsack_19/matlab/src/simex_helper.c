@@ -3,7 +3,7 @@
 // manipulating device storage.
 #define SIMENGINE_STORAGE_double
 #define TARGET_CPU
-#include <simengine.h>
+#include <simengine_api.h>
 
 #include <stdio.h>
 #include <string.h>

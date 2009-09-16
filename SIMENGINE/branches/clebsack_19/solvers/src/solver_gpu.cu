@@ -35,10 +35,10 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   cutilSafeCall(cudaMemcpy(tprops.inputs, props->inputs, props->num_models*props->inputsize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
   cutilSafeCall(cudaMemcpy(tprops.ob, props->ob, props->ob_size, cudaMemcpyHostToDevice));
 
-  // Change props fields to hold pointers to GPU memory for data we need to be able to retrieve
-  props->ob = tprops.ob;
-  props->time = tprops.time;
-  props->model_states = tprops.model_states;
+  // Store pointers to GPU memory for data we need to be able to retrieve
+  props->gpu.ob = tprops.ob;
+  props->gpu.time = tprops.time;
+  props->gpu.model_states = tprops.model_states;
   return dprops;
 }
 
