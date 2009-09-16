@@ -17,10 +17,8 @@ switch lower(mode_str)
 end
 
 % first, set the path
-p = mfilename('fullpath')
-[path, file, ext] = fileparts(p)
-pwd
-ls
+p = mfilename('fullpath');
+[path, file, ext] = fileparts(p);
 cd([path '/local-install'])
 addpath(pwd)
 
