@@ -114,8 +114,11 @@ help:
 	@echo "****  make profiling-tools - Builds the profiling     ****"
 	@echo "****                         tools                    ****"
 	@echo "****                                                  ****"
-	@echo "****  make system-test - perform a system test of     ****"
-	@echo "****                     all suites or just one suite ****"
+	@echo "****  make matlab-release-test - perform a system     ****"
+	@echo "****                             'release' test       ****"
+	@echo "****                                                  ****"
+	@echo "****  make matlab-internal-test - perform a system    ****"
+	@echo "****                              'internal' test     ****"
 	@echo "****                                                  ****"
 	@echo "****  make install - installs the files in the        ****"
 	@echo "****                 default location                 ****"
@@ -1224,6 +1227,14 @@ endif
 
 # System Test
 # ==============================================================================================
+
+matlab-release-test: compiler
+	@echo "Executing the MATLAB release test framework"
+	@matlab -nosplash -nodesktop -r "matlab_test_script('-release')"
+
+matlab-internal-test: compiler
+	@echo "Executing the MATLAB internal test framework"
+	@matlab -nosplash -nodesktop -r "matlab_test_script('-internal')"
 
 system-test:
 	@echo "Executing the system-test framework"

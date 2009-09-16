@@ -98,23 +98,23 @@ classdef Test < handle
                     case '-equal'
                         t.Mode = t.EQUAL;
                         if nargin == 4
-                            t.CompareOptions = varargin{2};
+                            t.CompareOptions = varargin(2);
                         else
                             error('Test:ArgumentError', 'When using the -equal option, there should be a fourth required option')
                         end
                     case '-approxequal'
                         t.Mode = t.APPROXEQUAL;
-                        if nargin == 4 && isnumeric(varargin{2})
-                            t.CompareOptions = [varargin{2} 1]; % by default, stay within one percent
-                        elseif nargin == 5 && isnumeric(varargin{2}) && isnumeric(varargin{3})
-                            t.CompareOptions = [varargin{2} varargin{3}]; % by default, stay within one percent
+                        if nargin == 4
+                            t.CompareOptions = {varargin{2}, 1}; % by default, stay within one percent
+                        elseif nargin == 5 && isnumeric(varargin{3})
+                            t.CompareOptions = {varargin{2}, varargin{3}}; % by default, stay within one percent
                         else
                             error('Test:ArgumentError', 'When using the -approxequal option, there should be a fourth required option and a fifth optional argument')
                         end
                     case '-range'
                         t.Mode = t.RANGE;
                         if nargin == 4 && length(varargin{2}) == 2 && isnumeric(varargin{2})
-                            t.CompareOptions = varargin{2};
+                            t.CompareOptions = varargin(2);
                         else
                             error('Test:ArgumentError', 'When using the -equal option, there should be a fourth required option')
                         end                        
@@ -150,7 +150,7 @@ classdef Test < handle
                             t.Result = t.FAILED;
                         end
                     case t.EQUAL
-                        if equiv(t.Return, t.CompareOptions)
+                        if equiv(t.Return, t.CompareOptions{1})
                             t.Result = t.PASSED;
                         else
                             t.Result = t.FAILED;
@@ -163,28 +163,29 @@ classdef Test < handle
                             end
                         end
                     case t.APPROXEQUAL
-                        if isnumeric(t.Return) && length(t.Return) == 1
-                            l = t.CompareOptions(1)*(100-t.CompareOptions(2))/100;
-                            h = t.CompareOptions(1)*(100+t.CompareOptions(2))/100;  
-                            if t.Return <= h && t.Return >= l
-                                t.Result = t.PASSED;
-                            else
-                                t.Result = t.FAILED;
-                                t.Message = sprintf('Returned ''%s'' instead, which is not +/- %g%% of %g', num2str(t.Return), t.CompareOptions(2), t.CompareOptions(1));
-                            end
+                        if approx_equiv(t.CompareOptions{1}, t.Return, t.CompareOptions{2})
+                            t.Result = t.PASSED;
                         else
-                            t.Message = ['Unexpected return value ''' num2str(t.Return) ''''];
-                            error('Test:ExecuteError:ApproxEqual', 'Return value ''%s'' not numeric or does not have length of one', num2str(t.Return));
+                            t.Result = t.FAILED;
+                            %t.Message = sprintf('Returned ''%s'' instead, which is not +/- %g%% of %g', num2str(t.Return), t.CompareOptions(2), t.CompareOptions(1));
+                            if isnumeric(t.Return)
+                                t.Message = ['Returned ''' num2str(t.Return) ''' instead'];
+                            elseif isstruct(t.Return)
+                                t.Message = ['Returned a different structure instead'];
+                            else
+                                t.Message = ['Returned a different quantity instead'];
+                                %error('Test:ExecuteError:ApproxEqual', 'Return value ''%s'' not numeric or does not have length of one', num2str(t.Return));
+                            end
                         end
                     case t.RANGE
                        if isnumeric(t.Return) && length(t.Return) == 1
-                            l = t.CompareOptions(1);
-                            h = t.CompareOptions(2);  
+                            l = t.CompareOptions{1};
+                            h = t.CompareOptions{2};  
                             if t.Return <= h && t.Return >= l
                                 t.Result = t.PASSED;
                             else
                                 t.Result = t.FAILED;
-                                t.Message = sprintf('Returned ''%s'' instead, which is not within [%g,%g]', num2str(t.Return), t.CompareOptions(1), t.CompareOptions(2));
+                                t.Message = sprintf('Returned ''%s'' instead, which is not within [%g,%g]', num2str(t.Return), t.CompareOptions{1}, t.CompareOptions{2});
                             end
                         else
                             t.Message = ['Unexpected return value ''' num2str(t.Return) ''''];
@@ -209,7 +210,7 @@ classdef Test < handle
             if t.ExpectFail
                 if t.Result == t.PASSED 
                     t.Result = t.FAILED;
-                    t.Message = [t.Message ' (Expected to FAIL)'];
+                    t.Message = [t.Message '(Test passed, but expected to FAIL)'];
                 elseif t.Result == t.FAILED
                     t.Result = t.PASSED;
                     t.Message = [t.Message ' (Expected to FAIL)'];

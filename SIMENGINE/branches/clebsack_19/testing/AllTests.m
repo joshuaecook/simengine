@@ -30,10 +30,19 @@ s.add(ReleaseCompileTests)
 % file name.  This is expected
 s.getTest('Release Compile Tests').getTest('Model neuronWithSynapse').ExpectFail = true;
 
+% Add full simulation tests
 s.add(ReleaseSimulateTests)
 
+% Additional compilation tests for internal use
 if mode == INTERNAL
     s.add(InternalCompileTests)
+end
+
+% Add feature tests
+if mode == INTERNAL
+    s.add(FeatureTests);
+else
+    s.add(FeatureTests('-release'));
 end
 
 end
