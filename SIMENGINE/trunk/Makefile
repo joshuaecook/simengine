@@ -1228,11 +1228,11 @@ endif
 # System Test
 # ==============================================================================================
 
-matlab-release-test:
+matlab-release-test: compiler
 	@echo "Executing the MATLAB release test framework"
 	@matlab -nosplash -nodesktop -r "matlab_test_script('-release')"
 
-matlab-internal-test:
+matlab-internal-test: compiler
 	@echo "Executing the MATLAB internal test framework"
 	@matlab -nosplash -nodesktop -r "matlab_test_script('-internal')"
 
