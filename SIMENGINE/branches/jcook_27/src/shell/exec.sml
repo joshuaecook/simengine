@@ -231,7 +231,7 @@ and exec_stm parse (stm, env as (globalenv, localenv, poslog)) =
 	    handle DynException.TypeMismatch reason
 		   => error (PosLog.addSystemPos (env, pos)) ($("Type mismatch: " ^ reason))
 		 | DynException.NameError name
-		   => error (PosLog.addSystemPos (env, pos)) ($("Constant " ^ name ^ " is already defined.")))
+		   => error (PosLog.addSystemPos (env, pos)) ($("Identifier " ^ name ^ " is already defined.")))
 
       | KEC.ACTION(KEC.OPEN {obj, excludes, include_privates}, pos)
 	=> (execOpenStatement parse env (obj, excludes, include_privates) pos

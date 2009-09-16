@@ -123,7 +123,6 @@ namespace Simulation
 
     function setEquation(eq)
       //TODO: perform error checking here, ie if its a param, DONT allow this
-//      println ("setting equation for "+ name + " to " + (eq.getExp().tostring()))      
       self.eq = eq
     end
 
@@ -152,7 +151,6 @@ namespace Simulation
 
     constructor (name: String)
       self.name = name
-      self.eq = DifferentialEquation.new(1, self, 0)
 
       reset()
     end
