@@ -17,7 +17,11 @@ switch lower(mode_str)
 end
 
 % first, set the path
-cd local-install
+p = mfilename('fullpath')
+[path, file, ext] = fileparts(p)
+pwd
+ls
+cd([path '/local-install'])
 addpath(pwd)
 
 % next, go into testing directory
