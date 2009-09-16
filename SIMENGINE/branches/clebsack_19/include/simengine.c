@@ -74,18 +74,25 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
 // Run a single model to completion on a single processor core
 int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int modelid){
   // Run simulation to completion
-  while(mem->props->time[modelid] < mem->props->stoptime){
+//  while(mem->props->time[modelid] < mem->props->stoptime){
+  while(mem->props->running[modelid]){
     // Initialize a temporary output buffer
     init_output_buffer((output_buffer*)(mem->props->ob), modelid);
  
     // Run a set of iterations until the output buffer is full
     while(0 == ((output_buffer *)(mem->props->ob))->full[modelid]){
       // Check if simulation is complete
-      if(mem->props->time[modelid] >= mem->props->stoptime){
+//      if(mem->props->time[modelid] >= mem->props->stoptime){
+      if(!mem->props->running[modelid]){
 	((output_buffer*)(mem->props->ob))->finished[modelid] = 1;
 	// The CPU kernel is used within the Parallel CPU kernel
 #pragma omp critical
 	--((output_buffer*)(mem->props->ob))->active_models;
+	// Log output values for final timestep
+	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
+	model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
+	// Buffer the last values
+	buffer_outputs(mem->props->time[modelid],((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
 	break;
       }
 		 
@@ -107,6 +114,7 @@ int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int model
       return ERRMEM;
     }
   }
+  
   return SUCCESS;
 }
 
@@ -190,9 +198,15 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){
 	break;
       }
       // Check if the simulation just finished
-      if(mem->props->time[modelid] >= mem->props->stoptime){
+//      if(mem->props->time[modelid] >= mem->props->stoptime){
+      if(!mem->props->running[modelid]){
 	((output_buffer*)(mem->props->ob))->finished[modelid] = 1;
 	atomicDec(&((output_buffer*)(mem->props->ob))->active_models, NUM_MODELS);
+	// Log output values for final timestep
+	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
+	model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
+	// Buffer the last values
+	buffer_outputs(mem->props->time[modelid],((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
 	break;
       }
       
@@ -292,6 +306,7 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   unsigned int status = SUCCESS;
   output_data *od = (output_data*)malloc(NUM_MODELS*sizeof(output_data));
   output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));
+  int *running = (int*)malloc(NUM_MODELS*sizeof(int));
   solver_props props;
   props.timestep = DT;
   props.abstol = ABSTOL;
@@ -310,9 +325,12 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   props.num_models = NUM_MODELS;
   props.ob_size = sizeof(output_buffer);
   props.ob = ob;
-	     
+  props.running = running;
+  
+  // Initialize run status flags
   for(modelid=0;modelid<NUM_MODELS;modelid++){
     ob->finished[modelid] = 0;
+    running[modelid] = 1;
   }
   ob->active_models = NUM_MODELS;
 	     
@@ -332,5 +350,6 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   SOLVER(INTEGRATION_METHOD, free, TARGET, SIMENGINE_STORAGE, mem);
   free(ob);
   free(od);
+  free(running);
   return status;
 }

@@ -30,6 +30,10 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
   cvode_mem *mem = (cvode_mem*) malloc(props->num_models*sizeof(cvode_mem));
   unsigned int modelid;
 
+  // Only need to create this buffer in the first memory space as we are using this only for scratch
+  // and outside of the CVODE solver to compute the last outputs
+  mem[0].k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+
   for(modelid=0; modelid<props->num_models; modelid++){
     // Set the modelid on a per memory structure basis
     mem[modelid].modelid = modelid;
@@ -68,6 +72,8 @@ int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int 
     return 1;
   }
 
+  mem->props->running[modelid] = mem->props->time[modelid] < mem->props->stoptime;
+
   return 0;
 }
 
@@ -91,5 +97,6 @@ void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem){
     N_VDestroy_Serial(((N_Vector)(mem[modelid].y0)));
     CVodeFree(&(mem[modelid].cvmem));
   }
+  free(mem[0].k1);
   free(mem);
 }

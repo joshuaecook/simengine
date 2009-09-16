@@ -27,6 +27,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   cutilSafeCall(cudaMalloc((void**)&tprops.inputs, props->num_models*props->inputsize*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tprops.ob, props->ob_size));
   cutilSafeCall(cudaMalloc((void**)&tprops.outputs, props->num_models*props->outputsize*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tprops.running, props->num_models*sizeof(CDATAFORMAT)));
 
   // Copy props to GPU
   cutilSafeCall(cudaMemcpy(dprops, &tprops, sizeof(solver_props), cudaMemcpyHostToDevice));
@@ -34,6 +35,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   cutilSafeCall(cudaMemcpy(tprops.model_states, props->model_states, props->num_models*props->statesize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
   cutilSafeCall(cudaMemcpy(tprops.inputs, props->inputs, props->num_models*props->inputsize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
   cutilSafeCall(cudaMemcpy(tprops.ob, props->ob, props->ob_size, cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(tprops.running, props->running, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 
   // Store pointers to GPU memory for data we need to be able to retrieve
   props->gpu.ob = tprops.ob;
@@ -53,5 +55,6 @@ void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props){
   cutilSafeCall(cudaFree(tprops.inputs));
   cutilSafeCall(cudaFree(tprops.ob));
   cutilSafeCall(cudaFree(tprops.outputs));
+  cutilSafeCall(cudaFree(tprops.running));
   cutilSafeCall(cudaFree(props));
 }

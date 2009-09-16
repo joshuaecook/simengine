@@ -72,6 +72,9 @@ __DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsign
 
   mem->props->time[modelid] += mem->props->timestep;
 
+  // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
+  mem->props->running[modelid] = mem->props->time[modelid] + mem->props->timestep <= mem->props->stoptime;
+
   return ret;
 }
 

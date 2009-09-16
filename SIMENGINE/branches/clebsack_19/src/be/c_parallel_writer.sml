@@ -474,7 +474,7 @@ fun logoutput_code class =
 							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])
 							contents) @
 					  [$("ob->count[modelid]++;"),
-					   $("ob->full[modelid] |= MAX_OUTPUT_SIZE >= ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid]));")]),
+					   $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid])));")]),
 				      $("}")],
 				  $("}")]
 			      )

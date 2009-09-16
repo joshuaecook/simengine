@@ -132,15 +132,20 @@ __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki
     appropriate_step = norm <= 1;
     if (mem->cur_timestep[modelid] == min_timestep) appropriate_step = TRUE;
 
-    if (appropriate_step)
+    if (appropriate_step){
       mem->props->time[modelid] += mem->cur_timestep[modelid];
+      mem->props->running[modelid] = mem->props->time[modelid] < mem->props->stoptime;
+    }
 
     next_timestep = 0.90 * mem->cur_timestep[modelid]*pow(1.0/norm, 1.0/3.0);
 #if defined __DEVICE_EMULATION__
     //fprintf(stderr,"model: %d ts: %g -> %g (norm=%g)\n", modelid, mem->cur_timestep[modelid], next_timestep, norm);
 #endif
 
-    if ((isnan(next_timestep)) || (next_timestep < min_timestep))
+    // Try to hit the stoptime exactly
+    if (next_timestep > mem->props->stoptime - mem->props->time[modelid])
+      mem->cur_timestep[modelid] = mem->props->stoptime - mem->props->time[modelid];
+    else if ((isnan(next_timestep)) || (next_timestep < min_timestep))
       mem->cur_timestep[modelid] = min_timestep;
     else if (next_timestep > max_timestep )
       mem->cur_timestep[modelid] = max_timestep;
