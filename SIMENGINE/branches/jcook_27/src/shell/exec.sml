@@ -230,7 +230,7 @@ and exec_stm parse (stm, env as (globalenv, localenv, poslog)) =
 	=> (execConstantDefinition parse env (replacement, name, typepattern, exp) pos
 	    handle DynException.TypeMismatch reason
 		   => error (PosLog.addSystemPos (env, pos)) ($("Type mismatch: " ^ reason))
-		 | DynException.NameError name
+		 | DynException.NameConflictError name
 		   => error (PosLog.addSystemPos (env, pos)) ($("Identifier " ^ name ^ " is already defined.")))
 
       | KEC.ACTION(KEC.OPEN {obj, excludes, include_privates}, pos)
@@ -479,7 +479,7 @@ and execConstantDefinition parse env (replace, name, typepattern, exp) pos =
 	    case Env.top_local_lookup pretty env name
 	     of NONE => Env.local_add pretty ((name, exp'), env)
 	      (* It is an error to redefine a constant within the same scope. *)
-	      | _ => raise DynException.NameError (Symbol.name name)
+	      | _ => raise DynException.NameConflictError (Symbol.name name)
     in
 	if TypeLib.check (decell o exec) (typepattern, decell exp') then (KEC.UNIT, env')
 	else raise DynException.TypeMismatch ("Cannot define " ^ (Symbol.name name) ^ " locally, expected type: " ^ (PrettyPrint.typepattern2str typepattern) ^ " and received expression: " ^ (pretty (decell exp')))

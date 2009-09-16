@@ -3,6 +3,7 @@ struct
 
 val TypeMismatch = DynException.TypeMismatch
 and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
+and NameConflictError = DynException.NameConflictError
 
 exception Aborted
 

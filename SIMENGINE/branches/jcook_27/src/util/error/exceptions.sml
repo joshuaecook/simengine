@@ -33,6 +33,10 @@ exception IncorrectNumberOfArguments of {expected: int, actual: int}
    The associated string is the symbolic name. *)
 exception NameError of string
 
+(* Raised when an identifier conflicts with a previously-bound name.
+ * The associated string is the symbolic name. *)
+exception NameConflictError of string
+
 (* Raised when import cannot find a file.
    The associated string is the file name.
    The associated list of strings contains the search paths. *)
