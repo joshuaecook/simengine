@@ -210,7 +210,7 @@ classdef Test < handle
             if t.ExpectFail
                 if t.Result == t.PASSED 
                     t.Result = t.FAILED;
-                    t.Message = [t.Message ' (Expected to FAIL)'];
+                    t.Message = [t.Message '(Test passed, but expected to FAIL)'];
                 elseif t.Result == t.FAILED
                     t.Result = t.PASSED;
                     t.Message = [t.Message ' (Expected to FAIL)'];

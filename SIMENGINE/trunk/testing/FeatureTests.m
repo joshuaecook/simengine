@@ -45,6 +45,10 @@ s.add(Test('OutputGroups',@()(simex('models_FeatureTests/OutputTest3.dsl', 10)),
 s.add(Test('OutputCondition',@()(simex('models_FeatureTests/OutputTest4.dsl', 10)), '-equal', struct('y', [5:10; 5:10]')));
 s.add(Test('OutputTwoValues',@()(simex('models_FeatureTests/OutputTest5.dsl', 10)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:2:20]')));
 
+% This is a critical defect where the below test causes MATLAB to crash.
+% I'm adding a dummy placeholder failure in its place
+%s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10)), '-equal', struct()));
+s.add(Test('OutputNoValues (DUMMY)', @()(false)));
 
 end
 
@@ -93,6 +97,8 @@ s.add(Test('TestFinalStates', @TestFinalStates));
         y = equiv(tf, 10);
     end
 s.add(Test('TestFinalTime', @TestFinalTime));
+s.add(Test('StateWithoutEquation', @()(simex('models_FeatureTests/StateTest2.dsl', 10)), '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 5*ones(1,11)]')));
+
 
 end
 
@@ -111,12 +117,31 @@ function s = ConstantFeatureTests
 s = Suite('Constant Feature Tests');
 
 s.add(Test('OneConstant',@()(simex('models_FeatureTests/ConstantTest1.dsl', 10)), '-equal', struct('y', [0:10; 0:10]')));
+t = Test('TwoConstants',@()(simex('models_FeatureTests/ConstantTest2.dsl', 10)), '-withouterror');
+t.ExpectFail = true; % there are two constants in this file, so it should produce an error
+s.add(t);
+t = Test('Constant+Intermediate',@()(simex('models_FeatureTests/ConstantTest3.dsl', 10)), '-withouterror');
+t.ExpectFail = true; % there is one constant overwritten by an intermediate in this file, so it should produce an error
+s.add(t);
+t = Test('Constant+State',@()(simex('models_FeatureTests/ConstantTest4.dsl', 10)), '-withouterror');
+t.ExpectFail = true; % there is one constant overwritten by a state in this file, so it should produce an error
+s.add(t);
+
+    function y = InternalConstants
+        o = simex('models_FeatureTests/ConstantTest5.dsl', 1);
+        y = approx_equiv(o.e_const(end,2), exp(1), 1e-5) && approx_equiv(o.pi_const(end,2), pi, 1e-5);
+    end
+s.add(Test('InternalConstants',@InternalConstants));
 
 end
 
 function s = IntermediateFeatureTests
 
 s = Suite('Intermediate Feature Tests');
+s.add(Test('Intermediate=State', @()(simex('models_FeatureTests/IntermediateTest1.dsl', 10)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:10]')));
+s.add(Test('Intermediate=Input', @()(simex('models_FeatureTests/IntermediateTest2.dsl', 10)), '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
+s.add(Test('InputToOutput', @()(simex('models_FeatureTests/IntermediateTest3.dsl', 10)), '-equal', struct('s', [0:10; 0:10]', 'x', [0:10; ones(1,11)]')));
+s.add(Test('Intermediate=Derivative', @()(simex('models_FeatureTests/IntermediateTest4.dsl', 10)), '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
 
 end
 
