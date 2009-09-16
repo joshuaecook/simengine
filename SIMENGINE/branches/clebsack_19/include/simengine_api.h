@@ -104,6 +104,7 @@ typedef struct {
  *
  * The 'ptr' and 'end' pointers are references to positions within 'buffer.'
  */
+#define NUM_MODELS 1  // Shouldn't need once this is moved appropriately
 #define BUFFER_LEN 8000
 typedef struct{
   unsigned int active_models;
