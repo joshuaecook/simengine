@@ -7,6 +7,13 @@ and NameConflictError = DynException.NameConflictError
 
 exception Aborted
 
+fun name_of_member (KEC.METHOD (name,_,_)) = SOME name
+  | name_of_member (KEC.CONSTRUCTOR {name,...}) = name
+  | name_of_member (KEC.VAR {name,...}) = SOME name
+  | name_of_member (KEC.CONSTANT (name,_,_)) = SOME name
+  | name_of_member (KEC.PROPERTY (_,{name,...})) = SOME name
+
+
 fun std_addvar exec args =
     case args of
 	 [KEC.OBJECT {members, allPublic}, KEC.LITERAL (KEC.CONSTSTR name)] => 
@@ -43,13 +50,18 @@ fun std_addconst exec args =
     case args of
 	 [KEC.OBJECT {members, allPublic}, KEC.LITERAL (KEC.CONSTSTR name), exp] => 
 	 let
-	     val _ = members := (KEC.CONSTANT (Symbol.symbol name, KEC.PUBLIC, exp)) :: (!members)
+	     val id = Symbol.symbol name
+	     val _ = case List.find (fn (n) => id = n) (List.mapPartial name_of_member (! members))
+		      of SOME _ => raise NameConflictError name
+		       | _ => ()
+	     val _ = members := (KEC.CONSTANT (id, KEC.PUBLIC, exp)) :: (!members)
 	 in  
 	     KEC.UNIT
 	 end	 
        | [a, b, c] 
 	 => raise TypeMismatch ("expected an object, a string, and a value but received " ^ (PrettyPrint.kecexp2nickname a) ^ ", " ^ (PrettyPrint.kecexp2nickname b) ^ ", and " ^ (PrettyPrint.kecexp2nickname c))
        | _ => raise IncorrectNumberOfArguments {expected=3, actual=(length args)}
+
 
 
 fun std_addmethod exec args =

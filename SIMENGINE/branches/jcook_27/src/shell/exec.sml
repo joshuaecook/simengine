@@ -109,6 +109,8 @@ fun exec_exp parse (depth_count, isLHS) (env(*: (KEC.exp Env.env ref * KEC.exp E
 		 => (execLibraryFunction (decell o exec) env name (decell (exec arg))
 		     handle DynException.IncorrectNumberOfArguments {expected, actual}
 			    => error env ($("Incorrect number of arguments for " ^ (Symbol.name name) ^ "; received " ^ (Int.toString actual) ^ " and expected " ^ (Int.toString expected)))
+			  | DynException.NameConflictError name
+			    => error env ($("Identifier " ^ name ^ " is already defined."))
 			  | DynException.TypeMismatch reason
 			    => error env ($("Type mismatch in " ^ (Symbol.name name) ^ ": " ^ reason)))
 			       
