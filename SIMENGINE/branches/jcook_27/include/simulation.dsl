@@ -40,6 +40,7 @@ namespace Simulation
     hidden var currentval
     hidden var readval // when an exp is read, replace the var with this if not undefined
     var eq    
+    hidden var hasEq = false
     hidden var isVisible = false
     hidden var isTunable = false
     hidden var isIterable = false
@@ -119,11 +120,12 @@ namespace Simulation
       self.eq
     end
 
-    function hasEquation() = isdefined(getEquation())
+    function hasEquation() = hasEq
 
     function setEquation(eq)
       //TODO: perform error checking here, ie if its a param, DONT allow this
       self.eq = eq
+      self.hasEq = isdefined(eq)
     end
 
     function setDimensions (dimensions: Vector)
@@ -151,6 +153,7 @@ namespace Simulation
 
     constructor (name: String)
       self.name = name
+      self.eq = DifferentialEquation.new(1, self, 0) 
 
       reset()
     end
@@ -771,7 +774,15 @@ namespace Simulation
       end
     end
 
-    
+    hidden var userMembers = []
+    overload function addConst (name: String, value)
+      if exists m in userMembers suchthat m == name then
+        error ("Model member " + name + " has already been defined.")
+      else
+        LF addconst (self, name, value)
+	userMembers.push_back(name)
+      end
+    end
 
     var quantities = []
     var iterators = []

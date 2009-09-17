@@ -65,6 +65,8 @@ fun trans_visibility (NONE) = HLEC.PUBLIC
   | trans_visibility (SOME Ast.PUBLIC) = HLEC.PUBLIC
   | trans_visibility (SOME Ast.HIDDEN) = HLEC.HIDDEN
 
+
+
 fun trans_method method =
     case method of
 	Ast.METHODDEF (v, def)
@@ -497,8 +499,7 @@ and trans_definition definition =
 
 	    val templateconstructor = 
 		HLEC.CONSTRUCTOR {args=(*map (fn(arg, patt) => (arg, trans_optpattern patt)) (#args header)*)[], 
-	    			  body= (HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "super"),
-	    								    args=HLEC.UNIT}), PosLog.NOPOS))
+	    			  body= (HLEC.ACTION (HLEC.EXP (apply (sym "super", nil)), PosLog.NOPOS))
 	    				:: (template_constructor_stms)}
 
 	    val templatename = Symbol.symbol ((Symbol.name name) ^ "Template")
@@ -511,8 +512,7 @@ and trans_definition definition =
 				PosLog.NOPOS)
 
 	    val hiddenModelTemplate = 
-		HLEC.DEFINITION(HLEC.DEFLOCAL (Symbol.symbol "template", HLEC.DONTCARE, HLEC.APPLY {func=HLEC.SEND{message=Symbol.symbol "new", object=HLEC.SYMBOL templatename},
-												    args=HLEC.UNIT}),
+		HLEC.DEFINITION(HLEC.DEFLOCAL (Symbol.symbol "template", HLEC.DONTCARE, apply (send "new" (HLEC.SYMBOL templatename), nil)),
 				PosLog.NOPOS)
 
 
@@ -528,18 +528,15 @@ and trans_definition definition =
 		let
 		    fun makeProperty (sym, typepattern) =
 			let
-			    val varsym = Symbol.symbol ((Symbol.name sym) ^ "_var")
+			    val id = (Symbol.name sym) ^ "_var"
+			    val var = send id self
 			in
-			    [HLEC.METHODDEF (HLEC.HIDDEN, HLEC.DEFLOCAL(varsym, HLEC.DONTCARE, HLEC.UNDEFINED)),
+			    [HLEC.METHODDEF (HLEC.HIDDEN, HLEC.DEFLOCAL(Symbol.symbol id, HLEC.DONTCARE, HLEC.UNDEFINED)),
 			     HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFPROPERTY {name=sym,
-									    read=SOME [HLEC.ACTION(HLEC.EXP(HLEC.SEND{message=varsym, object=HLEC.SYMBOL(Symbol.symbol "self")}), 
-												   PosLog.NOPOS)],
+									    read=SOME [HLEC.ACTION (HLEC.EXP var, PosLog.NOPOS)],
 									    write=SOME (Symbol.symbol "arg", 
-											[HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "setInputVal", 
-																	 object=HLEC.SEND {message=varsym, 
-																			   object=HLEC.SYMBOL (Symbol.symbol "self")}},
-															 args=HLEC.TUPLE [HLEC.SYMBOL (Symbol.symbol "arg")]}), 
-												     PosLog.NOPOS)])})
+											[HLEC.ACTION (HLEC.EXP (apply (send "setInputVal" var, [HLEC.SYMBOL (Symbol.symbol "arg")])), 
+												      PosLog.NOPOS)])})
 			    ]
 			end
 			 

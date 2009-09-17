@@ -199,6 +199,8 @@ fun classinstance env name members parent =
  		           return=KEC.DONTCARE,  
  		           stms=exp2stms (KEC.LIBFUN (Symbol.symbol "addandsetvar", KEC.TUPLE [KEC.SYMBOL (Symbol.symbol "self"), KEC.SYMBOL (Symbol.symbol "name"), KEC.SYMBOL (Symbol.symbol "value")])),  
  		           closure=Env.new()}]),
+
+
 	     method "addConst" [(Symbol.symbol "name", KEC.TYPE (Symbol.symbol "String")),
 				(Symbol.symbol "exp", KEC.DONTCARE)]
 		    (KEC.LIBFUN (Symbol.symbol "addconst",
@@ -230,7 +232,7 @@ fun classinstance env name members parent =
  						 
 				 
 	val object = List.filter (not o isConstructor) 
-				 (prune_redundancy (malleability_methods @ (foldl fold_member parent_instance_members members')))
+				 (prune_redundancy ((foldl fold_member parent_instance_members members') @ malleability_methods))
 
 	(* Reconciles the dummy reference to "super" in a constructors. *)
 	fun inject_super_constructor (KEC.CONSTRUCTOR {init_methods, ...}) =

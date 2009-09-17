@@ -51,9 +51,11 @@ fun std_addconst exec args =
 	 [KEC.OBJECT {members, allPublic}, KEC.LITERAL (KEC.CONSTSTR name), exp] => 
 	 let
 	     val id = Symbol.symbol name
+(*
 	     val _ = case List.find (fn (n) => id = n) (List.mapPartial name_of_member (! members))
 		      of SOME _ => raise NameConflictError name
 		       | _ => ()
+*)
 	     val _ = members := (KEC.CONSTANT (id, KEC.PUBLIC, exp)) :: (!members)
 	 in  
 	     KEC.UNIT
