@@ -84,7 +84,7 @@ s = Suite('State Feature Tests');
 
 s.add(Test('VerifyDefaultStateInits', @VerifyDefaultStateInits))
 s.add(Test('EvalDefaultStateInits', @()(simex('models_FeatureTests/StateTest1.dsl', 10)), '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 0:2:20]')));
-new_states = [1 0];
+new_states = [0 1];
 s.add(Test('ModifyStateInits', @()(simex('models_FeatureTests/StateTest1.dsl', 10, new_states)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 1:2:21]')));
 
     function y = TestFinalStates
