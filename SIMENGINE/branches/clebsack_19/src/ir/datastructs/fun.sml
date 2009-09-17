@@ -203,7 +203,7 @@ fun op2props optype =
 		    commutative=false,
 		    associative=false,
 		    text=("%",INFIX),
-		    C=("%",INFIX)}
+		    C=("fmod($1,$2)",MATCH)}
       | POW => {name="pow",
 		operands=FIXED 2,
 		precedence=4,
@@ -228,12 +228,30 @@ fun op2props optype =
       | SIN => unaryfun2props "sin"
       | COS => unaryfun2props "cos"
       | TAN => unaryfun2props "tan"
-      | CSC => unaryfun2props "csc"
-      | SEC => unaryfun2props "sec"
-      | COT => unaryfun2props "cot"
-      | ASIN => unaryfun2props "asinh"
-      | ACOS => unaryfun2props "acosh"
-      | ATAN => unaryfun2props "atanh"
+      | CSC => {name="csc",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("csc",MATCH),
+		 C=("(1/sin($1))",MATCH)}
+      | SEC => {name="sec",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("sec",MATCH),
+		 C=("(1/cos($1))",MATCH)}
+      | COT => {name="cot",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("cot",MATCH),
+		 C=("(1/tan($1))",MATCH)}
+      | ASIN => unaryfun2props "asin"
+      | ACOS => unaryfun2props "acos"
+      | ATAN => unaryfun2props "atan"
       | ATAN2 => {name="atan2",
 		  operands=FIXED 2,
 		  precedence=1,
@@ -241,21 +259,93 @@ fun op2props optype =
 		  associative=false,
 		  text=("atan2",PREFIX),
 		  C=("atan2",PREFIX)}
-      | ACSC => unaryfun2props "acsch"
-      | ASEC => unaryfun2props "asech"
-      | ACOT => unaryfun2props "acoth"
+      | ACSC => {name="acsc",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("acsc",MATCH),
+		 C=("asin(1/$1)",MATCH)}
+      | ASEC => {name="asec",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("asec",MATCH),
+		 C=("acos(1/$1)",MATCH)}
+      | ACOT => {name="acot",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("acot",MATCH),
+		 C=("atan(1/$1)",MATCH)}
       | SINH => unaryfun2props "sinh"
       | COSH => unaryfun2props "cosh"
       | TANH => unaryfun2props "tanh"
-      | CSCH => unaryfun2props "csch"
-      | SECH => unaryfun2props "sech"
-      | COTH => unaryfun2props "coth"
-      | ASINH => unaryfun2props "asinh"
-      | ACOSH => unaryfun2props "acosh"
-      | ATANH => unaryfun2props "atanh"
-      | ACSCH => unaryfun2props "acsch"
-      | ASECH => unaryfun2props "asech"
-      | ACOTH => unaryfun2props "acoth"
+      | CSCH => {name="csch",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("csch",MATCH),
+		 C=("(1/sinh($1))",MATCH)}
+      | SECH => {name="sech",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("sech",MATCH),
+		 C=("(1/cosh($1))",MATCH)}
+      | COTH => {name="coth",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("coth",MATCH),
+		 C=("(1/tanh($1))",MATCH)}
+      | ASINH => {name="asinh",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("asinh",MATCH),
+		 C=("log($1 + sqrt($1*$1+1))",MATCH)}
+      | ACOSH => {name="acosh",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("acosh",MATCH),
+		 C=("log($1 + sqrt($1*$1-1))",MATCH)}
+      | ATANH => {name="atanh",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("atanh",MATCH),
+		 C=("(log((1+$1)/(1-$1))/2)",MATCH)}
+      | ACSCH => {name="acsch",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("acsch",MATCH),
+		 C=("log(1/$1 + sqrt($1*$1+1)/abs($1))",MATCH)}
+      | ASECH => {name="asech",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("asech",MATCH),
+		 C=("log(($1 + sqrt(1-$1*$1))/$1)",MATCH)}
+      | ACOTH => {name="acoth",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		 text=("acoth",MATCH),
+		 C=("(log(($1+1)/($1-1))/2)",MATCH)}
       | NOT => {name="not",
 		operands=FIXED 1,
 		precedence=3,
