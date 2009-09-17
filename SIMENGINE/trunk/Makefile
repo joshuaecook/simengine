@@ -231,7 +231,7 @@ $(error "Couldn't find MATLAB or GNU octave.")
 endif
 
 # Every possible MEX extension
-ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
+ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex
 MATLAB_TARGETS = $(addprefix matlab/%,$(ALL_MEXEXT))
 
 # Determines the appropriate MEX extension for the current platform.
@@ -654,6 +654,9 @@ $(LOCAL_INSTALL)/simex.m: matlab/simex.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 $(LOCAL_INSTALL)/%.mexmaci: matlab/%.mexmaci
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexmaci64: matlab/%.mexmaci64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mex: matlab/%.mex
