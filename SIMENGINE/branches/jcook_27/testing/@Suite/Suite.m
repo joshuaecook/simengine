@@ -62,7 +62,7 @@ classdef Suite < handle
         
         % execute tests
         function Execute(s, varargin)
-            if nargin == 2 && isstr(varargin{1})
+            if nargin == 2 && ischar(varargin{1})
                 switch lower(varargin{1})
                     case '-all'
                         execute_helper(s, 0, true, true);
@@ -106,6 +106,7 @@ classdef Suite < handle
                     end
                     
                     if cont && run_test
+                        disp(['Executing test ' t.Name])
                         t.Execute();
                         switch t.Result
                             case t.PASSED
