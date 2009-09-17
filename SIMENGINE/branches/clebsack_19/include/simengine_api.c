@@ -106,7 +106,7 @@ int simengine_evalflow(double t, double *y, double *dydt, double *inputs) {
   int modelid = 0;
 
   // This should only ever be used when the backend is compiled in double precision
-#if defined(SIMENGINE_STORAGE_double)
+#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1
   return model_flows(t, y, dydt, inputs, outputs, first_iteration, modelid);
 #else
   return -1;

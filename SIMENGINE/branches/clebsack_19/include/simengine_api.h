@@ -104,7 +104,7 @@ typedef struct {
  *
  * The 'ptr' and 'end' pointers are references to positions within 'buffer.'
  */
-#define NUM_MODELS 1  // Shouldn't need once this is moved appropriately
+#ifdef NUM_MODELS
 #define BUFFER_LEN 8000
 typedef struct{
   unsigned int active_models;
@@ -115,6 +115,7 @@ typedef struct{
   void *end[NUM_MODELS];
   CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];
 } output_buffer;
+#endif
 
 
 /*

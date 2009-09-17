@@ -73,10 +73,10 @@ ifneq ($(EMULATE),)
 endif
 endif
 
-ifeq ($(TARGET),OPENMP)
+#ifeq ($(TARGET),OPENMP)
 LDLIBS += $(OPENMP_LDLIBS)
 CFLAGS += -fopenmp
-endif
+#endif
 
 ifneq ($(DEBUG),)
 	COMMON += -g

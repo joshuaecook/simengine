@@ -70,7 +70,7 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
  * CPU serial and parallel execution routines
  *
  ************************************************************************************/
-
+#ifndef TARGET_GPU
 // Run a single model to completion on a single processor core
 int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int modelid){
   // Run simulation to completion
@@ -170,6 +170,7 @@ int exec_serial_cpu(INTEGRATION_MEM *mem, simengine_output *outputs){
   }
   return ret;
 }
+#endif // ndef TARGET_GPU
 
 /*************************************************************************************
  *
@@ -231,7 +232,7 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){
   }
 }
 
-int exec_parallel_gpu(INTEGRATION *mem, solver_props *props, simengine_output *outputs){
+int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
   int ret = SUCCESS;
   unsigned int num_gpu_threads;
   unsigned int num_gpu_blocks;
@@ -252,13 +253,13 @@ int exec_parallel_gpu(INTEGRATION *mem, solver_props *props, simengine_output *o
     unsigned int models_per_thread = NUM_MODELS/num_threads;
     unsigned int extra_models = NUM_MODELS%num_threads;
 		 
-    while(SUCCESS == ret && ob->active_models){
+    while(SUCCESS == ret && ((output_buffer*)props->ob)->active_models){
       // Only Host thread 0 can interact with the GPU
       if(0 == thread_num){
 	// Execute models on the GPU
 	exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem);
 	// Copy data back to the host
-	cutilSafeCall(cudaMemcpy(props.ob, props.gpu.ob, props.ob_size, cudaMemcpyDeviceToHost));
+	cutilSafeCall(cudaMemcpy(props->ob, props->gpu.ob, props->ob_size, cudaMemcpyDeviceToHost));
       }
 
       // Make sure all threads wait for GPU to produce data
@@ -266,9 +267,10 @@ int exec_parallel_gpu(INTEGRATION *mem, solver_props *props, simengine_output *o
 
       // Copy data in parallel to external api interface
       for(modelid = thread_num*models_per_thread; modelid < (thread_num+1)*models_per_thread; modelid++){
-	status = log_outputs(ob, outputs, modelid);
+	status = log_outputs((output_buffer*)props->ob, outputs, modelid);
 	if(SUCCESS != status){
 	  ret = ERRMEM;
+ret = 9;
 	  break;
 	}
       }
@@ -280,6 +282,7 @@ int exec_parallel_gpu(INTEGRATION *mem, solver_props *props, simengine_output *o
 	  status = log_outputs((output_buffer*)props->ob, outputs, modelid);
 	  if (SUCCESS != status){
 	    ret = ERRMEM;
+ret = 20;
 	    break;
 	  }
 	}
@@ -287,8 +290,8 @@ int exec_parallel_gpu(INTEGRATION *mem, solver_props *props, simengine_output *o
     } // Host threads implicitly join here
   }
   // Copy final times ans states from GPU
-  cutilSafeCall(cudaMemcpy(props.time, props.gpu.time, props.num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
-  cutilSafeCall(cudaMemcpy(props.model_states, props.gpu.model_states, props.statesize*props.num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(props->model_states, props->gpu.model_states, props->statesize*props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
 
   return ret;
 }
@@ -342,7 +345,7 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
 #elif defined(TARGET_OPENMP)
   status = exec_parallel_cpu(mem, outputs);
 #elif defined(TARGET_GPU)
-  status = exec_parallel_gpu(mem, props, outputs);
+  status = exec_parallel_gpu(mem, &props, outputs);
 #else
 #error Invalid target
 #endif
