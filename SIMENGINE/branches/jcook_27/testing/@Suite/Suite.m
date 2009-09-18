@@ -185,7 +185,7 @@ classdef Suite < handle
             disp('Suite Summary')
             disp('--------------------------')
             if nargin == 2
-                if isstr(varargin{1}) 
+                if ischar(varargin{1}) 
                     if strcmpi(varargin{1},'-detailed')
                         summary_helper(s, 0, true, true);
                     elseif strcmpi(varargin{1},'-short')
@@ -229,6 +229,27 @@ classdef Suite < handle
                 end
             end
         end
+        
+        % more accessors
+        function list = getTests(s)
+            list = cell(length(s.Tests),1);
+            for i=1:length(s.Tests)
+                list{i} = s.Tests{i}.Name;
+            end
+        end
+        
+        function t = getTest(s, name)
+            for i=1:length(s.Tests)
+                if strcmpi(s.Tests{i}.Name, name)
+                    t = s.Tests{i};
+                    return;
+                end
+            end
+            disp(['All tests in suite ''' s.Name ''':'])
+            disp(getTests(s));
+            error('Simatra:Suite:TestNotFound', 'Can''t find test with name ''%s''',name);
+        end
+        
         
     end % end methods
     

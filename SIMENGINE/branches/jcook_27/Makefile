@@ -114,8 +114,11 @@ help:
 	@echo "****  make profiling-tools - Builds the profiling     ****"
 	@echo "****                         tools                    ****"
 	@echo "****                                                  ****"
-	@echo "****  make system-test - perform a system test of     ****"
-	@echo "****                     all suites or just one suite ****"
+	@echo "****  make matlab-release-test - perform a system     ****"
+	@echo "****                             'release' test       ****"
+	@echo "****                                                  ****"
+	@echo "****  make matlab-internal-test - perform a system    ****"
+	@echo "****                              'internal' test     ****"
 	@echo "****                                                  ****"
 	@echo "****  make install - installs the files in the        ****"
 	@echo "****                 default location                 ****"
@@ -228,7 +231,7 @@ $(error "Couldn't find MATLAB or GNU octave.")
 endif
 
 # Every possible MEX extension
-ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
+ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex
 MATLAB_TARGETS = $(addprefix matlab/%,$(ALL_MEXEXT))
 
 # Determines the appropriate MEX extension for the current platform.
@@ -389,7 +392,8 @@ compiler:
 
 build-examples: $(BUILD_DIR)/examples
 	@echo "Building examples"
-	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
+#	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
+	@cd ReleaseExamples; $(CP) * ../$(BUILD_DIR)/examples
 ifdef $(DYN)
 	@cd tests; $(CP) $(DYN) ../$(BUILD_DIR)/examples
 endif
@@ -650,6 +654,9 @@ $(LOCAL_INSTALL)/simex.m: matlab/simex.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 $(LOCAL_INSTALL)/%.mexmaci: matlab/%.mexmaci
+	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+
+$(LOCAL_INSTALL)/%.mexmaci64: matlab/%.mexmaci64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mex: matlab/%.mex
@@ -1223,6 +1230,14 @@ endif
 
 # System Test
 # ==============================================================================================
+
+matlab-release-test: compiler
+	@echo "Executing the MATLAB release test framework"
+	@matlab -nosplash -nodesktop -r "matlab_test_script('-release')"
+
+matlab-internal-test: compiler
+	@echo "Executing the MATLAB internal test framework"
+	@matlab -nosplash -nodesktop -r "matlab_test_script('-internal')"
 
 system-test:
 	@echo "Executing the system-test framework"

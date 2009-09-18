@@ -170,15 +170,18 @@ fun classinstance env name members parent =
 
 	fun prune_redundancy members =
 	    let
+		fun sameName a b = PrettyPrint.member2name a = PrettyPrint.member2name b
+
 		fun filter_if_found_later nil = nil
 		  | filter_if_found_later (member :: rest) =
-		    if List.exists (fn(mem) => PrettyPrint.member2name mem = PrettyPrint.member2name member) rest then
+		    if List.exists (sameName member) rest then
 			filter_if_found_later rest
 		    else
 			member :: (filter_if_found_later rest)
 	    in
 		rev (filter_if_found_later (rev members))
 	    end
+
 
 	val self = KEC.SYMBOL (Symbol.symbol "self")
 	val interfaces = KEC.list2kecvector []

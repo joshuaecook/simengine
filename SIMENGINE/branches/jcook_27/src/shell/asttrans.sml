@@ -324,11 +324,11 @@ and trans_definition definition =
 		  | Ast.SUBMODELINST {class, name, opttable}
 		    => let val table = case opttable of SOME table => trans_exp table | _ => HLEC.TABLE nil
 		       in
-			   [HLEC.ACTION (HLEC.EXP (apply (sym "instantiateSubModel",
-							  [HLEC.SYMBOL class,
-							   sym2strlit name,
-							   table])),
-					 PosLog.NOPOS)]
+			   [HLEC.ACTION (HLEC.EXP (apply (sym "instantiateSubModel", [HLEC.SYMBOL class, sym2strlit name, table])),
+					 PosLog.NOPOS),
+			    HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, HLEC.SEND {message=name, object=self}),
+					     PosLog.NOPOS)
+			   ]
 		       end
 
 		  | Ast.OUTPUTDEF {name, quantity, settings} 

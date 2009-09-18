@@ -37,7 +37,7 @@ endif
 MEXFLAGS += $(LOCATIONS)
 
 # Every possible MEX extension; used for cleaning
-ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
+ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex
 
 SIMEX_HELPER_OBJ = $(addprefix simex_helper,$(MEXEXT))
 SIMENGINE_WRAPPER_OBJ = $(addprefix simEngine_wrapper,$(MEXEXT))
@@ -65,12 +65,17 @@ simEngine_wrapper: $(SIMENGINE_WRAPPER_OBJ) # $(addprefix bin/,$(SIMENGINE_WRAPP
 %.mexa64: src/%.c
 	$(MEX) -glnxa64 -outdir . $(MEXFLAGS) $<
 
-# TODO maci64?
 %.mexmaci: src/%.cpp
 	$(MEX) -maci -outdir . $(MEXFLAGS) $<
 
 %.mexmaci: src/%.c
 	$(MEX) -maci -outdir . $(MEXFLAGS) $<
+
+%.mexmaci64: src/%.cpp
+	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
+
+%.mexmaci64: src/%.c
+	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
 
 %.mexs64: src/%.cpp
 	$(MEX) -sol64 -outdir . $(MEXFLAGS) $<
