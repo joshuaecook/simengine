@@ -1,3 +1,4 @@
+$(info ARCH64 is defined as $(ARCH64))
 DATATYPES = float double
 SUNDIALS = sundials-2.4.0
 SUNDIALS_PATH = /shared/simEngine_support/$(SUNDIALS).tar.gz
@@ -130,13 +131,13 @@ $(SUNDIALS_BUILD_PATH): # $(SUNDIALS_PATH)
 
 # define a special architecture if ARCH64 is defined
 ifneq ($(ARCH64),)
-CFLAG64 = CFLAGS=-"arch x86_64"
+CFLAG64 = CFLAGS="-arch x86_64"
 endif
 
 # This might be cleaned up a little but it compiles only the objects that we need for our archive
 $(CVODE_OBJS): $(SUNDIALS_BUILD_PATH)
 	if [[ $(TYPE) == double ]]; then \
-	 cd $(SUNDIALS_BUILD_PATH); ./configure --disable-static --enable-shared --with-precision=double $() $(CFLAG64); \
+	 cd $(SUNDIALS_BUILD_PATH); ./configure --disable-static --enable-shared --with-precision=double $(CFLAG64); \
 	 cd src/cvode; $(MAKE) cvode_dense.lo cvode_direct.lo cvode_io.lo cvode.lo; \
 	 cd ../nvec_ser; $(MAKE) nvector_serial.lo; \
 	 cd ../sundials; $(MAKE) sundials_dense.lo sundials_direct.lo sundials_math.lo sundials_nvector.lo; \

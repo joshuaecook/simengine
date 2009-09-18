@@ -79,7 +79,7 @@ simEngine_wrapper: $(SIMENGINE_WRAPPER_OBJ) # $(addprefix bin/,$(SIMENGINE_WRAPP
 	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
 
 %.mexmaci64: src/%.c
-	$(MEX) -v -maci64 -outdir . $(MEXFLAGS) $<
+	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
 
 %.mexs64: src/%.cpp
 	$(MEX) -sol64 -outdir . $(MEXFLAGS) $<
