@@ -131,7 +131,7 @@ $(SUNDIALS_BUILD_PATH): # $(SUNDIALS_PATH)
 
 # define a special architecture if ARCH64 is defined
 ifneq ($(ARCH64),)
-CFLAG64 = CFLAGS="-arch x86_64"
+CFLAG64 = --with-cflags="-arch x86_64"
 endif
 
 # This might be cleaned up a little but it compiles only the objects that we need for our archive
