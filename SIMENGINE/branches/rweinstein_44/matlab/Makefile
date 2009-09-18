@@ -13,7 +13,11 @@ CWARNINGS = -W -Wall
 
 COMMON = $(INCLUDES) -fPIC
 CFLAGS = $(CWARNINGS) $(COMMON) -std=gnu99
-MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99 -fopenmp" $(INCLUDES) $(LDLIBS)
+ifneq ($(ARCH64),)
+$(info ARCH64 is defined to be $(ARCH64))
+ARCH64_FLAG = -arch x86_64
+endif
+MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99 -fopenmp $(ARCH64_FLAG)" $(INCLUDES) $(LDLIBS)
 MKOCTFILEFLAGS = $(CWARNINGS) $(INCLUDES) $(LDLIBS)
 
 ifneq ($(DEBUG),)
@@ -75,7 +79,7 @@ simEngine_wrapper: $(SIMENGINE_WRAPPER_OBJ) # $(addprefix bin/,$(SIMENGINE_WRAPP
 	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
 
 %.mexmaci64: src/%.c
-	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
+	$(MEX) -v -maci64 -outdir . $(MEXFLAGS) $<
 
 %.mexs64: src/%.cpp
 	$(MEX) -sol64 -outdir . $(MEXFLAGS) $<

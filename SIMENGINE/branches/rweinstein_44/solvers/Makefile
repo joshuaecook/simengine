@@ -36,14 +36,19 @@ define MAKE_TARGET_CALLBACK
 @$(MAKE) --no-print-directory -C lib all
 endef
 define MAKE_TARGET_CLEAN_CALLBACK 
+@$(MAKE) --no-print-directory -C src clean
 @$(MAKE) --no-print-directory -C lib clean
 @$(MAKE) --no-print-directory -C thirdparty/cvode clean
 endef
 include $(base)../include/target.make
 
+ifneq ($(ARCH64),)
+ARCH64_FLAG = ARCH64=$(ARCH64)
+endif
+
 .PHONY: thirdparty/cvode
 thirdparty/cvode:
-	$(MAKE) --no-print-directory -C $@ all
+	$(MAKE) --no-print-directory -C $@ all $(ARCH64_FLAG)
 
 else
 #$(info In build directory $(CURDIR))
@@ -95,6 +100,13 @@ endif
 endif
 # end of target-specific compiler options
 
+# add OS Specifc flags
+ifneq ($(ARCH64),)
+NVCC64 = -m 64
+NVCCFLAGS += $(NVCC64)
+CFLAGS += -arch x86_64
+endif
+
 .SUFFIXES:
 .PHONY: all clean
 
@@ -106,7 +118,7 @@ all: solver_gpu.o
 endif
 
 solver_gpu.o: solver_gpu.cu $(base)include/solvers.h
-	@$(COMPILE.cpp) -o $@ $<
+	@$(COMPILE.cpp) $(NVCC64) -o $@ $<
 
 .PRECIOUS: %.cu
 %.cu: %.c
