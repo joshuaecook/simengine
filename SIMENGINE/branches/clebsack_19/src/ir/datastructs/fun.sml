@@ -331,14 +331,14 @@ fun op2props optype =
 		 commutative=false,
 		 associative=false,
 		 text=("acsch",MATCH),
-		 C=("log(1/$1 + sqrt($1*$1+1)/abs($1))",MATCH)}
+		 C=("log(1/$1 + sqrt($1*$1+1)/fabs($1))",MATCH)}
       | ASECH => {name="asech",
 		 operands=FIXED 1,
 		 precedence=1,
 		 commutative=false,
 		 associative=false,
 		 text=("asech",MATCH),
-		 C=("log(($1 + sqrt(1-$1*$1))/$1)",MATCH)}
+		 C=("log((1 + sqrt(1-$1*$1))/$1)",MATCH)}
       | ACOTH => {name="acoth",
 		 operands=FIXED 1,
 		 precedence=1,

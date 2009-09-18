@@ -105,9 +105,6 @@ int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int model
       if (mem->props->time[modelid] > prev_time) {
 	buffer_outputs(prev_time, ((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
       }
-      else {
-	break;
-      }
     }
     // Log outputs from buffer to external api interface
     if(0 != log_outputs((output_buffer*)mem->props->ob, outputs, modelid)){
@@ -219,9 +216,6 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){
       // Store a set of outputs only if the sovler made a step
       if (mem->props->time[modelid] > prev_time) {
 	buffer_outputs(prev_time, (output_data*)mem->props->outputs, (output_buffer*)mem->props->ob, modelid);
-      }
-      else {
-	break;
       }
       
       // Stop if the output buffer is full

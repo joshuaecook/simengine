@@ -75,6 +75,11 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
 
   //fprintf(stderr, "ts=%g\n", mem->cur_timestep[modelid]);
 
+  // Stop the solver if we have reached the stoptime
+  mem->props->running[modelid] = mem->props->time[modelid] < mem->props->stoptime;
+  if(!mem->props->running[modelid])
+    return 0;
+
   int i;
   int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
 
@@ -186,7 +191,6 @@ __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_p
 
     if (appropriate_step){
       mem->props->time[modelid] += mem->cur_timestep[modelid];
-      mem->props->running[modelid] = mem->props->time[modelid] < mem->props->stoptime;
     }
 
     next_timestep = 0.9 * mem->cur_timestep[modelid]*pow(1.0/norm, 1.0/5.0);

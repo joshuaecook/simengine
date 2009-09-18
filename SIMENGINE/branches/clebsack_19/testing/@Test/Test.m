@@ -217,6 +217,14 @@ classdef Test < handle
                 end
             end 
             
+            % Show result of this test
+            if t.Result == t.PASSED
+              status = 'Passed';
+            else
+              status = 'FAILED';
+            end
+            disp([t.Name ': ' status])
+            
             cd(curDir);
         end
         

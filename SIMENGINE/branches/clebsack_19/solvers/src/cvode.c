@@ -66,13 +66,16 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
 }
 
 int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int modelid) {
+  // Stop the solver if the stop time has been reached
+  mem->props->running[modelid] = mem->props->time[modelid] < mem->props->stoptime;
+  if(!mem->props->running[modelid])
+    return 0;
+
   mem[modelid].first_iteration = TRUE;
   if(CVode(mem[modelid].cvmem, mem[modelid].props->stoptime, ((N_Vector)(mem[modelid].y0)), &(mem[modelid].props->time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
     fprintf(stderr, "CVODE failed to make a step in model %d.\n", modelid);
     return 1;
   }
-
-  mem->props->running[modelid] = mem->props->time[modelid] < mem->props->stoptime;
 
   return 0;
 }
