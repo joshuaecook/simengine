@@ -92,6 +92,9 @@ fun system_lookup printer (globalenv, localenv as (first, restUnion), poslog) sy
 		     SOME x => SOME x
 		   | NONE => lookup (!globalenv) sym)
 
+fun top_local_lookup printer (globalenv, localenv as (first, rest), poslog) sym =
+    lookup first sym
+
 type 'a env = 'a SymbolTable.table
 
 
@@ -106,8 +109,9 @@ fun top_local_keys env =
 fun keys env =
     SymbolTable.listKeys env
 
-fun show_env (globalenv, localenv, _) =
+fun show_env (globalenv, localenv as (first, restUnion), _) =
     (print ("Global env: " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys (!globalenv)))) ^ "\n");
-     print ("Local env: " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys localenv))) ^ "\n"))
+     print ("Local env: " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys first))) ^ "\n");
+     print ("           " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys restUnion))) ^ "\n"))
 
 end

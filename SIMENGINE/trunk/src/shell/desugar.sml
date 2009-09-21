@@ -271,7 +271,7 @@ and desugar_def (definition, pos) =
 	end
 
       | HLEC.DEFCONST (name, typepattern, exp)
-	=> KEC.DEFINITION (KEC.DEFLOCAL(KEC.REPLACE, name, desugar_typepattern typepattern, desugar_exp exp), pos)
+	=> KEC.DEFINITION (KEC.DEFCONST(KEC.REPLACE, name, desugar_typepattern typepattern, desugar_exp exp), pos)
 
       | HLEC.DEFPROPERTY (property as {name, read, write})
 	=> KEC.DEFINITION (KEC.DEFLOCAL(KEC.REPLACE, name, 

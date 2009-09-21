@@ -137,45 +137,6 @@ fun outputdatastruct_code class =
     ]
 end
 
-(*fun initbyclass_code (class as {exps, ...}) =
-    let
-	val classname = (*ClassProcess.class2orig_name class*) ClassProcess.class2classname class
-	val exps = #exps class
-	val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
-	val instances = List.filter ExpProcess.isInstanceEq (!exps)
-	val class_inst_pairs = ClassProcess.class2instnames class
-    in
-	[$(""),
-	 $("// define state structures"),
-	 $("struct statedata_" ^ (Symbol.name classname) ^ " {"),	 
-	 SUB($("// states (count="^(i2s (List.length diff_eqs_symbols))^")")::
-	     (map (fn(sym)=>
-		     let
-			 val size = Term.symbolSpatialSize (ExpProcess.exp2term sym)
-			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
-		     in
-			 if size = 1 then
-			     $("CDATAFORMAT " ^ name ^ "[ARRAY_SIZE];")
-			 else
-			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"*ARRAY_SIZE];")
-		     end) diff_eqs_symbols) @
-	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
-	      (map 
-		   (fn(classname, instname)=>
-		      let			  
-			  val size = 
-			      case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
-			       of SOME inst' => ExpProcess.instSpatialSize inst'
-				| NONE => 1
-		      in
-			  if size = 1 then
-			      $("struct statedata_" ^ (Symbol.name classname) ^ " "^(Symbol.name instname)^";")
-			  else
-			      $("struct statedata_" ^ (Symbol.name classname) ^ " "^(Symbol.name instname)^"["^(i2s size)^"];")
-		      end)
-		   class_inst_pairs))),
-	 $("};")]
-    end*)
 
 local
     fun state2member (sym) =
@@ -283,9 +244,9 @@ fun class2flow_code (class, top_class) =
 
 	(* filter out all the unneeded expressions *)
 	val (initvalue_exps, rest_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
-	val (valid_exps, rest_exps) = List.partition (fn(exp)=>(ExpProcess.isIntermediateEq exp) orelse
-							     (ExpProcess.isInstanceEq exp) orelse
-							     (ExpProcess.isFirstOrderDifferentialEq exp)) rest_exps
+	val (valid_exps, rest_exps) = List.partition (fn(exp)=> ExpProcess.isIntermediateEq exp orelse
+							        ExpProcess.isInstanceEq exp orelse
+							        ExpProcess.isFirstOrderDifferentialEq exp) rest_exps
 	val _ = if (List.length rest_exps > 0) then
 		    (Logger.log_error($("Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class))));
 		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (ExpProcess.exp2str exp))) rest_exps;
@@ -293,71 +254,77 @@ fun class2flow_code (class, top_class) =
 		else
 		    ()
 
+	local
+	    fun exp2prog exp =
+		if (ExpProcess.isIntermediateEq exp) then
+		    intermediateeq2prog exp
+		else if (ExpProcess.isFirstOrderDifferentialEq exp) then
+		    firstorderdiffeq2prog exp
+		else if (ExpProcess.isInstanceEq exp) then
+		    instanceeq2prog exp
+		else
+		    DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CParallelWriter.class2flow_code.equ_progs", Logger.INTERNAL)
+
+	    and intermediateeq2prog exp =
+ 		[$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
+	    and firstorderdiffeq2prog exp =
+ 		[$((CWriterUtil.exp2c_str exp) ^ ";")]
+	    and instanceeq2prog exp =
+		let
+		    val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
+		    val orig_instname = case Fun.getRealInstName props of
+					    SOME v => v
+					  | NONE => instname
+
+		    val class = CurrentModel.classname2class classname
+
+		    val class_has_states = ClassProcess.class2statesize class > 0
+
+		    val calling_name = "flow_" ^ (Symbol.name classname)
+
+		    val inpvar = Unique.unique "inputdata"
+		    val outvar = Unique.unique "outputdata"
+
+		    (*				    val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str inpargs)) ^ "};"*)
+		    val inps = "CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];"
+		    val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";"))(Util.addCount inpargs)
+		    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
+
+		    val symbols = map Term.sym2curname outargs
+
+		    fun inst_output ((sym, {name, contents, condition}), idx) =
+			"CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
+			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (ExpProcess.exp2str (List.hd (contents)))
+
+		in
+		    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
+			  $("// " ^ (CWriterUtil.exp2c_str exp)),
+			  $(inps)] @ inps_init @ [$(outs_decl),
+						  if top_class then
+						      if class_has_states then
+							  $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
+						      else
+							  $(calling_name ^ "(t, "^inpvar^", "^outvar^", first_iteration, modelid);")						  
+						  else
+						      if class_has_states then
+							  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
+						      else
+							  $(calling_name ^ "(t, "^inpvar^", "^outvar^", first_iteration, modelid);")
+						 ] @
+			 map ($ o inst_output)
+			     (Util.addCount (ListPair.zip (symbols, !(#outputs class)))))
+
+		    ]
+		end
+
+
+
+	in
 	val equ_progs = 
 	    [$(""),
 	     $("// writing all intermediate, instance, and differential equation expressions")] @
-	    (let
-		 val progs =
-		     Util.flatmap
-			 (fn(exp)=>
-			    if (ExpProcess.isIntermediateEq exp) then
- 				[$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
-			    else if (ExpProcess.isFirstOrderDifferentialEq exp) then
- 				[$((CWriterUtil.exp2c_str exp) ^ ";")]
-			    else if (ExpProcess.isInstanceEq exp) then
-				let
-				    val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
-				    val orig_instname = case Fun.getRealInstName props of
-							     SOME v => v
-							   | NONE => instname
-
-				    val class = CurrentModel.classname2class classname
-
-				    val class_has_states = ClassProcess.class2statesize class > 0
-
-				    val calling_name = "flow_" ^ (Symbol.name classname)
-
-				    val inpvar = Unique.unique "inputdata"
-				    val outvar = Unique.unique "outputdata"
-
-(*				    val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str inpargs)) ^ "};"*)
-				    val inps = "CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];"
-				    val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";"))(Util.addCount inpargs)
-				    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
-
-				    val symbols = map Term.sym2curname outargs
-
-				    fun inst_output ((sym, {name, contents, condition}), idx) =
-					"CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
-					" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (ExpProcess.exp2str (List.hd (contents)))
-
-				in
-				    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-					  $("// " ^ (CWriterUtil.exp2c_str exp)),
-					  $(inps)] @ inps_init @ [$(outs_decl),
-					  if top_class then
-					      if class_has_states then
-						  $(calling_name ^ "(t, &y[STRUCT_IDX]."^(Symbol.name orig_instname)^", &dydt[STRUCT_IDX]."^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
-					      else
-						  $(calling_name ^ "(t, "^inpvar^", "^outvar^", first_iteration, modelid);")						  
-					  else
-					      if class_has_states then
-						  $(calling_name ^ "(t, &y->"^(Symbol.name orig_instname)^", &dydt->"^(Symbol.name orig_instname)^", "^inpvar^", "^outvar^", first_iteration, modelid);")
-					      else
-						  $(calling_name ^ "(t, "^inpvar^", "^outvar^", first_iteration, modelid);")
-					 ] @
-					 map ($ o inst_output)
-					     (Util.addCount (ListPair.zip (symbols, !(#outputs class)))))
-
-				    ]
-				end
-			    else
-				DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CParallelWriter.class2flow_code.equ_progs", Logger.INTERNAL)
-			 )
-			 valid_exps
-	     in
-		 progs
-	     end)
+	    (Util.flatmap exp2prog valid_exps)
+	end
 	    
 	val state_progs = []
 

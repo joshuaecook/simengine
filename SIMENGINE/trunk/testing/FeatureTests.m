@@ -98,6 +98,7 @@ s.add(Test('TestFinalStates', @TestFinalStates));
     end
 s.add(Test('TestFinalTime', @TestFinalTime));
 s.add(Test('StateWithoutEquation', @()(simex('models_FeatureTests/StateTest2.dsl', 10)), '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 5*ones(1,11)]')));
+s.add(Test('MultilineEquations', @()(simex('models_FeatureTests/StateTest3.dsl', 10)), '-withouterror'))
 
 
 end
@@ -116,7 +117,7 @@ function s = ConstantFeatureTests
 
 s = Suite('Constant Feature Tests');
 
-s.add(Test('OneConstant',@()(simex('models_FeatureTests/ConstantTest1.dsl', 10)), '-equal', struct('y', [0:10; 0:10]')));
+s.add(Test('OneConstant',@()(simex('models_FeatureTests/ConstantTest1.dsl', 10)), '-equal', struct('y', [1:10; 0:9]')));
 t = Test('TwoConstants',@()(simex('models_FeatureTests/ConstantTest2.dsl', 10)), '-withouterror');
 t.ExpectFail = true; % there are two constants in this file, so it should produce an error
 s.add(t);

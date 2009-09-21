@@ -89,7 +89,7 @@ classdef Test < handle
             else
                 error('Test:ArgumentError', 'Wrong number of arguments');
             end
-            if nargin >= 3 && isstr(varargin{1})
+            if nargin >= 3 && ischar(varargin{1})
                 switch lower(varargin{1})
                     case '-boolean'
                         t.Mode = t.BOOLEAN;
@@ -121,7 +121,7 @@ classdef Test < handle
                     otherwise
                         error('Test:ArgumentError','Unexpected third argument to Test')
                 end
-            elseif nargin >= 3 && not(isstr(varargin{1}))
+            elseif nargin >= 3 && not(ischar(varargin{1}))
                 error('Test:ArgumentError', 'Expected string as third argument')
             end
         end
@@ -131,7 +131,7 @@ classdef Test < handle
             try
                 cd(t.Dir);
                 localtime = tic;
-                if isstr(t.Function)
+                if ischar(t.Function)
                     t.Return = feval(t.Function);
                 else
                     finfo = functions(t.Function);
