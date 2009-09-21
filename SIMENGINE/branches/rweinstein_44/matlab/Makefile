@@ -14,8 +14,11 @@ CWARNINGS = -W -Wall
 COMMON = $(INCLUDES) -fPIC
 CFLAGS = $(CWARNINGS) $(COMMON) -std=gnu99
 ifneq ($(ARCH64),)
-$(info ARCH64 is defined to be $(ARCH64))
+ifeq ($(OSLOWER),darwin)
 ARCH64_FLAG = -arch x86_64
+else
+ARCH64_FLAG = -m64
+endif
 endif
 MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99 -fopenmp $(ARCH64_FLAG)" $(INCLUDES) $(LDLIBS)
 MKOCTFILEFLAGS = $(CWARNINGS) $(INCLUDES) $(LDLIBS)
