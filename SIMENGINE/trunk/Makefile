@@ -12,7 +12,7 @@ BUILD_TYPE = software
 #DEBUG = true
 
 # Version # for RPM
-VERSION_NUMBER = 0.8
+VERSION_NUMBER = 0.91
 BUILD_DATE = $(shell date)
 
 DESTDIR = 
@@ -25,8 +25,15 @@ UNAME = $(shell uname -s)
 OSLOWER = $(shell uname -s 2>/dev/null | tr [:upper:] [:lower:])
 DARWIN = $(strip $(findstring darwin, $(OSLOWER)))
 LINUX = $(strip $(findstring linux, $(OSLOWER)))
-ARCH64 = $(strip $(shell arch 2>/dev/null | grep 64))
+ARCH64 ?= $(strip $(shell arch 2>/dev/null | grep 64))
 
+# Cross compiling flag for Leopard to Snow Leopard
+ifneq ($(ARCH64),)
+ARCH64_FLAG = ARCH64=$(ARCH64)
+ARCH = $(ARCH64)
+else
+ARCH = $(shell arch 2>/dev/null)
+endif
 
 FIND_LATEX = $(shell which latex 2> /dev/null)
 
@@ -74,24 +81,24 @@ help:
 	@echo "****        Simatra simEngine Compiler Makefile       ****"
 	@echo "**********************************************************"
 	@echo "****                                                  ****"
-	@echo "****  There are two user definable parameters:        ****"
-	@echo "****                                                  ****"
-	@echo "****    BUILD_TYPE - one of three options             ****"
-	@echo "****      BUILD_TYPE=software                         ****"
-	@echo "****      BUILD_TYPE=enhanced                         ****"
-	@echo "****      BUILD_TYPE=full                             ****"
-	@echo "****                                                  ****"
-	@echo "****    DEBUG - set to true to enable                 ****"
-	@echo "****      When DEBUG is set to true, all testing code ****"
-	@echo "****      is generated                                ****"
-	@echo "****                                                  ****"
-	@echo "**********************************************************"
-	@echo "****                                                  ****"
+#	@echo "****  There are two user definable parameters:        ****"
+#	@echo "****                                                  ****"
+#	@echo "****    BUILD_TYPE - one of three options             ****"
+#	@echo "****      BUILD_TYPE=software                         ****"
+#	@echo "****      BUILD_TYPE=enhanced                         ****"
+#	@echo "****      BUILD_TYPE=full                             ****"
+#	@echo "****                                                  ****"
+#	@echo "****    DEBUG - set to true to enable                 ****"
+#	@echo "****      When DEBUG is set to true, all testing code ****"
+#	@echo "****      is generated                                ****"
+#	@echo "****                                                  ****"
+#	@echo "**********************************************************"
+#	@echo "****                                                  ****"
 	@echo "****  make help - display this message                ****"
 	@echo "****                                                  ****"
-	@echo "****  make software - Builds the software-only        ****"
-	@echo "****                  simEngine compiler              ****"
-	@echo "****                                                  ****"
+#	@echo "****  make software - Builds the software-only        ****"
+#	@echo "****                  simEngine compiler              ****"
+#	@echo "****                                                  ****"
 #	@echo "****  make enhanced - Builds the software+fixpt       ****"
 #	@echo "****                  Dynamo compiler                 ****"
 #	@echo "****                                                  ****"
@@ -100,17 +107,24 @@ help:
 	@echo "****  make compiler - Just build the compiler         ****"
 	@echo "****                  in accordance with BUILD_TYPE   ****"
 	@echo "****                                                  ****"
+	@echo "****  make compiler-64 - Build the compiler with libs ****"
+	@echo "****                     in 64-bit                    ****"
+	@echo "****                                                  ****"
+	@echo "****  make pcode - Build a pcode installer            ****"
+	@echo "****                                                  ****"
+	@echo "****  make pcode-64 - Build a 64-bit pcode installer  ****"
+	@echo "****                                                  ****"
 #	@echo "****  make coregen - Builds the FIFO used in the      ****"
 #	@echo "****                 Verilog model description        ****"
 #	@echo "****                                                  ****"
-	@echo "****  make installer - Generates an install tar file  ****"
-	@echo "****                                                  ****"
-	@echo "****  make build-release - Adds the install file to   ****"
-	@echo "****                       the build directory        ****"
-	@echo "****                                                  ****"
-	@echo "****  make build-all - Adds the install file to the   ****"
-	@echo "****                   build directory for all types  ****"
-	@echo "****                                                  ****"
+#	@echo "****  make installer - Generates an install tar file  ****"
+#	@echo "****                                                  ****"
+#	@echo "****  make build-release - Adds the install file to   ****"
+#	@echo "****                       the build directory        ****"
+#	@echo "****                                                  ****"
+#	@echo "****  make build-all - Adds the install file to the   ****"
+#	@echo "****                   build directory for all types  ****"
+#	@echo "****                                                  ****"
 	@echo "****  make profiling-tools - Builds the profiling     ****"
 	@echo "****                         tools                    ****"
 	@echo "****                                                  ****"
@@ -120,11 +134,11 @@ help:
 	@echo "****  make matlab-internal-test - perform a system    ****"
 	@echo "****                              'internal' test     ****"
 	@echo "****                                                  ****"
-	@echo "****  make install - installs the files in the        ****"
-	@echo "****                 default location                 ****"
-	@echo "****                                                  ****"
-	@echo "****  make rpm - builds RPM files                     ****"
-	@echo "****                                                  ****"
+#	@echo "****  make install - installs the files in the        ****"
+#	@echo "****                 default location                 ****"
+#	@echo "****                                                  ****"
+#	@echo "****  make rpm - builds RPM files                     ****"
+#	@echo "****                                                  ****"
 ifeq ($(BRANCH),1)
 	@echo "****  make update-from-trunk - merges trunk changes   ****"
 	@echo "****                           into branch            ****"
@@ -192,7 +206,6 @@ OCTAVECMD = octave --eval
 FIND_MATLAB = $(shell which matlab 2> /dev/null)
 ifeq ($(UNAME), Darwin)
 ifeq ($(FIND_MATLAB),/usr/bin/matlab)
-MATLAB_PATH = /Applications/MATLAB_R2009a.app
 MEX = $(MATLAB_PATH)/bin/mex
 MEXEXT = .mexmaci
 endif
@@ -211,7 +224,15 @@ endif
 # Inspects for presence of MATLAB; may be overridden on command line
 MATLAB ?= $(shell which matlab 2>/dev/null)
 ifneq ($(MATLAB),)
+ifneq ($(DARWIN),)
+ifneq ($(ARCH64),)
+MATLAB_INSTALL_PATH = /Applications/MATLAB_R2009b_64.app
+else
 MATLAB_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(MATLAB))))
+endif
+else
+MATLAB_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(MATLAB))))
+endif
 MATLAB := $(MATLAB_INSTALL_PATH)/bin/matlab
 MEX := $(MATLAB_INSTALL_PATH)/bin/mex
 @echo "Found a MATLAB installation here: $(MATLAB)"
@@ -236,12 +257,20 @@ MATLAB_TARGETS = $(addprefix matlab/%,$(ALL_MEXEXT))
 
 # Determines the appropriate MEX extension for the current platform.
 # TODO: extensions for other platforms
+
 ifneq ($(MATLAB),)
 MEXEXT = .$(shell $(MATLAB_INSTALL_PATH)/bin/mexext)
 endif
 
 ifneq ($(OCTAVE),)
 MEXEXT += .mex
+endif
+
+# Add the Mac 64-bit version if required
+ifneq ($(DARWIN),)
+ifneq ($(ARCH64),)
+MEXEXT += .mexmaci64
+endif
 endif
 
 
@@ -319,27 +348,31 @@ ifeq ($(BRANCH),1)
 RELEASE = "branch"
 BUILDREV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 REV = $(shell pwd | sed -e 's/.*\/branches\/\(.*\)/\1/')
-INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
-VERSION = "BRANCH_$(REV)_$(BUILD_TYPE):$(BUILDREV)"
+#INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
+VERSION = "BRANCH_$(REV)_$(BUILDREV)"
+INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=../..
 DEBUG=true
 else	
 ifeq ($(TRUNK),1)		
 RELEASE = "trunk"
 REV = $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
-INSTALL_FILENAME = "$(FILENAME)_devbuild_$(REV)_$(BUILD_TYPE).tar.gz"
-VERSION = "BUILD_$(REV)_$(BUILD_TYPE)"
+#INSTALL_FILENAME = "$(FILENAME)_devbuild_$(REV)_$(BUILD_TYPE).tar.gz"
+VERSION = "BUILD_$(REV)"
+INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=..
 else	
 ifeq ($(TAG),1)
 RELEASE = "tag"
 REV = $(shell pwd | sed -e 's/.*\/tags\/\(.*\)/\1/')
-INSTALL_FILENAME = "$(FILENAME)_release_$(REV)_$(BUILD_TYPE).tar.gz"
+#INSTALL_FILENAME = "$(FILENAME)_release_$(REV)_$(BUILD_TYPE).tar.gz"
+INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 VERSION = "$(REV)_$(BUILD_TYPE)"
 TOP_LEVEL=../..
 else	
 RELEASE = "unknown"
-INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
+#INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
+INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 TOP_LEVEL=unknown
 VERSION = "unknown"
 endif
@@ -347,8 +380,11 @@ endif
 endif	
 
 INSTALL_DIR = $(TOP_LEVEL)/build/$(PLATFORM)
+ifneq ($(ARCH64),)
+LOCAL_INSTALL = local-install-64
+else
 LOCAL_INSTALL = local-install
-
+endif
 
 # Standard Build Options
 # ==============================================================================================
@@ -375,17 +411,22 @@ ifneq ($(DEBUG),)
 endif
 	@$(MAKE) instructions
 
-.PHONY: compiler
+.PHONY: compiler compiler-snow-leopard
 compiler: 
 	@$(MAKE) check-build-type
 	@$(MAKE) build-directories
 	@$(MAKE) links
 	@$(MAKE) build-system
 	@$(MAKE) matlab-files
-	@$(MAKE) install-locally
-	@$(MAKE) matlab-installer
+#	@$(MAKE) install-locally
+#	@$(MAKE) matlab-installer
 	@$(MAKE) instructions
 
+compiler-64:
+	@$(MAKE) compiler ARCH64=x86_64
+
+pcode-64:
+	@$(MAKE) pcode ARCH64=x86_64
 
 # Build Directory per Build Type
 # ==============================================================================================
@@ -592,34 +633,34 @@ MEXINTERFACE_PREREQS = $(addprefix matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 .PHONY: mexinterface
 mexinterface: $(MEXINTERFACE_PREREQS)
 
-matlab/install.m: simEngine.tgz datafiles/simatrapublickey.mat
-	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../simEngine.tgz', 'install_temp.m', 'install.m', 'saveInstaller'); exit") 
+matlab/$(INSTALL_FILENAME).m: simEngine.tgz datafiles/simatrapublickey.mat
+	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../simEngine.tgz', 'install_temp.m', '$(INSTALL_FILENAME).m', 'saveInstaller'); exit") 
 
-matlab/install.p: matlab/install.m
-	@(cd matlab; $(MATLABCMD) "pcode install.m; exit")
+%.p: matlab/%.m
+	@($(MATLABCMD) "pcode $<; exit")
 
-install.p: matlab/install.p
-	@echo "Copying '$<' to '$@' ..."
-	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
+#install.p: matlab/install.p
+#	@echo "Copying '$<' to '$@' ..."
+#	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
-pcode: install.p
+pcode: $(INSTALL_FILENAME).p
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/install.m
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/$(INSTALL_FILENAME).m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers/src/*.c
-	$(MAKE) -C solvers/thirdparty/cvode TYPE=$* libcvode_$*.a
+	$(MAKE) -C solvers/thirdparty/cvode TYPE=$* libcvode_$*.a $(ARCH64_FLAG)
 
 solvers/lib/%.a: solvers/src/*.c
 	@echo "Running solvers all on $@"
-	$(MAKE) -C solvers all
+	$(MAKE) -C solvers all $(ARCH64_FLAG)
 
 .PHONY: solvers
 solvers:
 	@echo "Running target solvers"
-	$(MAKE) -C solvers all
+	$(MAKE) -C solvers all $(ARCH64_FLAG)
 
 
 $(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
@@ -630,13 +671,17 @@ $(BUILD_DIR)/simEngine_wrapper.%: matlab/simEngine_wrapper.%
 
 $(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
 	@echo "Generating Matlab target $@"
+ifneq ($(ARCH64),)
+	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) MEX=$(MEX) $(ARCH64_FLAG) $(*F)
+else
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
+endif
 
 matlab-files: $(MATLAB_FILES)
 
 matlab-installer: $(MATLAB_FILES)
 
-simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
+simEngine.tgz: $(OUTPUT_FILE) #build/* build/*/*
 	@echo "Creating $@ for packaging"
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)
 
@@ -677,7 +722,7 @@ $(LOCAL_INSTALL)/%.mexw32: matlab/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: matlab/%.mexw64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
 #install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
@@ -1403,7 +1448,7 @@ install: system
 .PHONY: clean
 clean: mostlyclean solvers_clean mexinterface_clean
 	$(RM) *~
-	$(RM) $(LOCAL_INSTALL)
+#	$(RM) $(LOCAL_INSTALL)
 	$(RM) examples/*~
 	$(RM) src/*~
 	$(RM) src/dyn_fe/*~
@@ -1428,8 +1473,8 @@ clean: mostlyclean solvers_clean mexinterface_clean
 	$(RM) $(SPEC)
 	$(RMDIR) ../$(RPM_TEMP_DIR)
 	$(RM) ../$(RPM_TAR_GZ)
-	$(RM) install.m
-	$(RM) install.p
+	$(RM) install_*.m
+#	$(RM) install_*.p
 
 mostlyclean:
 	$(RM) $(FILENAME)
@@ -1450,8 +1495,8 @@ mexinterface_clean:
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" clean
 
 clean-all:
-	$(MAKE) clean BUILD_TYPE=software
-	$(MAKE) clean BUILD_TYPE=full
-	$(MAKE) clean BUILD_TYPE=enhanced
+	$(MAKE) clean
+	$(RM) local-install local-install-64
+	$(RM) install_*.p
 
 
