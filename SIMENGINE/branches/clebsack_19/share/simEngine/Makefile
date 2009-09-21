@@ -89,6 +89,17 @@ else
 	CFLAGS += -fno-strict-aliasing
 endif
 
+ifeq ($(ARCH),x86_64)
+	NVCCFLAGS += -m 64
+ifeq ($(OSLOWER),darwin)
+	CXXFLAGS += -arch x86_64
+	CFLAGS += -arch x86_64
+else
+	CXXFLAGS += -m64
+	CFLAGS += -m64
+endif
+endif
+
 # ---
 
 .PREFIXES:

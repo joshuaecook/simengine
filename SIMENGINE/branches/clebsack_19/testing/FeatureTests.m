@@ -98,6 +98,7 @@ s.add(Test('TestFinalStates', @TestFinalStates));
     end
 s.add(Test('TestFinalTime', @TestFinalTime));
 s.add(Test('StateWithoutEquation', @()(simex('models_FeatureTests/StateTest2.dsl', 10)), '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 5*ones(1,11)]')));
+s.add(Test('MultilineEquations', @()(simex('models_FeatureTests/StateTest3.dsl', 10)), '-withouterror'))
 
 
 end

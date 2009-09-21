@@ -23,7 +23,7 @@ input gKCa with {default=25}
 input gKd with {default=75}
 input gh with {default=0.02}
 input gleak with {default=0.03}
-constant Vclamp = -60
+//constant Vclamp = -60
 constant clampOn = 0
 
 constant ENa = 50 //mV

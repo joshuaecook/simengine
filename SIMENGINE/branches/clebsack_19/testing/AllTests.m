@@ -33,6 +33,9 @@ s.getTest('Release Compile Tests').getTest('Model neuronWithSynapse').ExpectFail
 % Add full simulation tests
 s.add(ReleaseSimulateTests)
 
+% Add tests for each solver
+s.add(SolverTests)
+
 % Additional compilation tests for internal use
 if mode == INTERNAL
     s.add(InternalCompileTests)
