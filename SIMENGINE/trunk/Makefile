@@ -681,7 +681,7 @@ matlab-files: $(MATLAB_FILES)
 
 matlab-installer: $(MATLAB_FILES)
 
-simEngine.tgz: $(OUTPUT_FILE) #build/* build/*/*
+simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
 	@echo "Creating $@ for packaging"
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)
 
