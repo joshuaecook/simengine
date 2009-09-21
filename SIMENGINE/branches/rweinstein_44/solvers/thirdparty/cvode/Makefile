@@ -1,4 +1,5 @@
-$(info ARCH64 is defined as $(ARCH64))
+OSLOWER = $(shell uname -s 2>/dev/null | tr [:upper:] [:lower:])
+
 DATATYPES = float double
 SUNDIALS = sundials-2.4.0
 SUNDIALS_PATH = /shared/simEngine_support/$(SUNDIALS).tar.gz
@@ -131,7 +132,11 @@ $(SUNDIALS_BUILD_PATH): # $(SUNDIALS_PATH)
 
 # define a special architecture if ARCH64 is defined
 ifneq ($(ARCH64),)
+ifeq ($(OSLOWER),darwin)
 CFLAG64 = --with-cflags="-arch x86_64"
+else
+CFLAG64 = --with-cflags="-m64"
+endif
 endif
 
 # This might be cleaned up a little but it compiles only the objects that we need for our archive

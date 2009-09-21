@@ -104,7 +104,11 @@ endif
 ifneq ($(ARCH64),)
 NVCC64 = -m 64
 NVCCFLAGS += $(NVCC64)
+ifneq ($(DARWIN),)
 CFLAGS += -arch x86_64
+else
+CFLAGS += -m64
+endif
 endif
 
 .SUFFIXES:
