@@ -711,7 +711,7 @@ and trans_action pos action =
 		    val eq = apply (send "new" (sym "MathFunction"), [sym2strlit name, fun_lambda])
 		in
 		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, eq), pos),
-		     HLEC.ACTION (HLEC.EXP (apply (addConst, [HLEC.SYMBOL name])), pos)]
+		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), pos)]
 		end
 
 	      | trans_eq (Ast.EQUATION (Ast.SYMBOL name, exp)) =
