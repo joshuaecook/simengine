@@ -47,8 +47,8 @@ s.add(Test('OutputTwoValues',@()(simex('models_FeatureTests/OutputTest5.dsl', 10
 
 % This is a critical defect where the below test causes MATLAB to crash.
 % I'm adding a dummy placeholder failure in its place
-%s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10)), '-equal', struct()));
-s.add(Test('OutputNoValues (DUMMY)', @()(false)));
+s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10)), '-equal', struct()));
+%s.add(Test('OutputNoValues (DUMMY)', @()(false)));
 
 end
 
@@ -84,7 +84,7 @@ s = Suite('State Feature Tests');
 
 s.add(Test('VerifyDefaultStateInits', @VerifyDefaultStateInits))
 s.add(Test('EvalDefaultStateInits', @()(simex('models_FeatureTests/StateTest1.dsl', 10)), '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 0:2:20]')));
-new_states = [1 0];
+new_states = [0 1];
 s.add(Test('ModifyStateInits', @()(simex('models_FeatureTests/StateTest1.dsl', 10, new_states)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 1:2:21]')));
 
     function y = TestFinalStates
@@ -117,7 +117,7 @@ function s = ConstantFeatureTests
 
 s = Suite('Constant Feature Tests');
 
-s.add(Test('OneConstant',@()(simex('models_FeatureTests/ConstantTest1.dsl', 10)), '-equal', struct('y', [1:10; 0:9]')));
+s.add(Test('OneConstant',@()(simex('models_FeatureTests/ConstantTest1.dsl', 10)), '-equal', struct('y', [0:10; 0:10]')));
 t = Test('TwoConstants',@()(simex('models_FeatureTests/ConstantTest2.dsl', 10)), '-withouterror');
 t.ExpectFail = true; % there are two constants in this file, so it should produce an error
 s.add(t);
@@ -150,49 +150,74 @@ function s = FunctionFeatureTests
 
 s = Suite('Function Feature Tests');
 
-s.add(Test('FunctionModulus', @()(simex('models_FeatureTests/FunctionTestModulus.dsl', 10)), '-equal', struct('y', [0:2:10, 0:2:10]')))
+s.add(Test('FunctionModulus', @()(simex(['models_FeatureTests/' ...
+                    'FunctionTestModulus.dsl'], 10)), '-equal', ...
+           struct('y', [0:10; 0 1 0 1 0 1 0 1 0 1 0]')))
     function y = FunctionTrig
-        o = simex('models_FeatureTests/FunctionTestTrig1.dsl', 10);
+        i.low = -pi;
+        i.high = pi;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
         tol = 1e-3;
-        y = approx_equiv(sin(o.Y(:,1)),o.Y(:,2),tol) && ...
-            approx_equiv(cos(o.Y(:,1)),o.Y(:,3),tol) && ...
-            approx_equiv(tan(o.Y(:,1)),o.Y(:,4),tol) && ...
-            approx_equiv(csc(o.Y(:,1)),o.Y(:,5),tol) && ...
-            approx_equiv(sec(o.Y(:,1)),o.Y(:,6),tol) && ...
-            approx_equiv(cot(o.Y(:,1)),o.Y(:,7),tol);
+        y = approx_equiv(sin(o.y(:,2)),o.y(:,3),tol) && ...
+            approx_equiv(cos(o.y(:,2)),o.y(:,4),tol) && ...
+            approx_equiv(tan(o.y(:,2)),o.y(:,5),tol) && ...
+            approx_equiv(csc(o.y(:,2)),o.y(:,6),tol) && ...
+            approx_equiv(sec(o.y(:,2)),o.y(:,7),tol) && ...
+            approx_equiv(cot(o.y(:,2)),o.y(:,8),tol);
     end
 s.add(Test('FunctionTrig', @FunctionTrig));
     function y = FunctionInverseTrig
-        o = simex('models_FeatureTests/FunctionTestTrig2.dsl', 10);
+        i.low = -0.999999;
+        i.high = 0.999999;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
         tol = 1e-3;
-        y = approx_equiv(asin(o.Y(:,1)),o.Y(:,2),tol) && ...
-            approx_equiv(acos(o.Y(:,1)),o.Y(:,3),tol) && ...
-            approx_equiv(atan(o.Y(:,1)),o.Y(:,4),tol) && ...
-            approx_equiv(acsc(o.Y(:,1)),o.Y(:,5),tol) && ...
-            approx_equiv(asec(o.Y(:,1)),o.Y(:,6),tol) && ...
-            approx_equiv(acot(o.Y(:,1)),o.Y(:,7),tol);
+        y = approx_equiv(asin(o.ay(:,2)),o.ay(:,3),tol) && ...
+            approx_equiv(acos(o.ay(:,2)),o.ay(:,4),tol) && ...
+            approx_equiv(atan(o.ay(:,2)),o.ay(:,5),tol);
+        i.low = 1.0001;
+        i.high = 2;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
+        y = y && approx_equiv(acsc(o.ay(:,2)),o.ay(:,6),tol) && ...
+            approx_equiv(asec(o.ay(:,2)),o.ay(:,7),tol) && ...
+            approx_equiv(acot(o.ay(:,2)),o.ay(:,8),tol);
     end
 s.add(Test('FunctionInverseTrig', @FunctionInverseTrig));
     function y = FunctionHyperbolicTrig
-        o = simex('models_FeatureTests/FunctionTestTrig3.dsl', 10);
+        i.low = -pi;
+        i.high = pi;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
         tol = 1e-3;
-        y = approx_equiv(sinh(o.Y(:,1)),o.Y(:,2),tol) && ...
-            approx_equiv(cosh(o.Y(:,1)),o.Y(:,3),tol) && ...
-            approx_equiv(tanh(o.Y(:,1)),o.Y(:,4),tol) && ...
-            approx_equiv(csch(o.Y(:,1)),o.Y(:,5),tol) && ...
-            approx_equiv(sech(o.Y(:,1)),o.Y(:,6),tol) && ...
-            approx_equiv(coth(o.Y(:,1)),o.Y(:,7),tol);
+        y = approx_equiv(sinh(o.yh(:,2)),o.yh(:,3),tol) && ...
+            approx_equiv(cosh(o.yh(:,2)),o.yh(:,4),tol) && ...
+            approx_equiv(tanh(o.yh(:,2)),o.yh(:,5),tol) && ...
+            approx_equiv(csch(o.yh(:,2)),o.yh(:,6),tol) && ...
+            approx_equiv(sech(o.yh(:,2)),o.yh(:,7),tol) && ...
+            approx_equiv(coth(o.yh(:,2)),o.yh(:,8),tol);
     end
 s.add(Test('FunctionHyperbolicTrig', @FunctionHyperbolicTrig));
     function y = FunctionInverseHyperbolicTrig
-        o = simex('models_FeatureTests/FunctionTestTrig4.dsl', 10);
+        i.low = -pi;
+        i.high = pi;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
         tol = 1e-3;
-        y = approx_equiv(asinh(o.Y(:,1)),o.Y(:,2),tol) && ...
-            approx_equiv(acosh(o.Y(:,1)),o.Y(:,3),tol) && ...
-            approx_equiv(atanh(o.Y(:,1)),o.Y(:,4),tol) && ...
-            approx_equiv(acsch(o.Y(:,1)),o.Y(:,5),tol) && ...
-            approx_equiv(asech(o.Y(:,1)),o.Y(:,6),tol) && ...
-            approx_equiv(acoth(o.Y(:,1)),o.Y(:,7),tol);
+        y = approx_equiv(asinh(o.ayh(:,2)),o.ayh(:,3),tol);
+        i.low = 1;
+        i.high = 2;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
+        y = y && approx_equiv(acosh(o.ayh(:,2)),o.ayh(:,4),tol);
+        i.low = -0.999999;
+        i.high = 0.999999;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
+        y = y && approx_equiv(atanh(o.ayh(:,2)),o.ayh(:,5),tol);
+        i.low = 0.000001;
+        i.high = 0.999999;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
+        y = y && approx_equiv(acsch(o.ayh(:,2)),o.ayh(:,6),tol) && ...
+            approx_equiv(asech(o.ayh(:,2)),o.ayh(:,7),tol);
+        i.low = 1.0001;
+        i.high = 2;
+        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
+        y = y && approx_equiv(acoth(o.ayh(:,2)),o.ayh(:,8),tol);
     end
 s.add(Test('FunctionInverseHyperbolicTrig', @FunctionInverseHyperbolicTrig));
 
