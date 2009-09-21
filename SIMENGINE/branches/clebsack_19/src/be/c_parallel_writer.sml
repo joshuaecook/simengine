@@ -125,9 +125,11 @@ local
 	$("CDATAFORMAT " ^(Symbol.name sym)^";")
 in
 fun outputdatastruct_code class =
-    [$("typedef struct {"),
+    [$("#if NUM_OUTPUTS > 0"),
+     $("typedef struct {"),
      SUB(map output2struct (CWriterUtil.class2uniqueoutputsymbols class)),
      $("} output_data;"),
+     $("#endif"),
      $("")]
 end
 
@@ -316,12 +318,14 @@ fun class2flow_code (class, top_class) =
 	    if top_class then
 		[$(""),
 		 $("// writing output variables"),
+                 $("#if NUM_OUTPUTS > 0"),
 		 $("if (first_iteration) {"),
 		 SUB($("output_data *od = (output_data*)outputs;")::
 		     (map
 			  (fn(t,s)=> $("od[modelid]." ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
 			  (CWriterUtil.class2uniqueoutputsymbols class))),
-		 $("}")]
+		 $("}"),
+                 $("#endif")]
 	    else
 		[$(""),
 		 $("// writing output data "),
@@ -406,7 +410,11 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 	val top_level_flow_progs = 
 	    [$"",
 	     $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid){"),
-	     SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")],
+             SUB[if ClassProcess.class2statesize topclass > 0 then
+	       $("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")
+             else
+	       $("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, inputs, outputs, first_iteration, modelid);")
+             ],
 	     $("}"),
 	     $("")]
     in
@@ -484,6 +492,7 @@ fun logoutput_code class =
 	    List.foldr op+ 0 (map (List.length o #contents) (!(#outputs class)))
 
     in
+        if total_output_quantities > 0 then
 	[$(""),
 	 $("#define MAX_OUTPUT_SIZE (NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT)) //size in bytes"),
 	 $(""),
@@ -492,6 +501,8 @@ fun logoutput_code class =
 	 $("}"),
 	 $(""),
 	 $("#include<simengine.c>")]
+         else
+	 [$("#include<simengine.c>")]
     end
 
 

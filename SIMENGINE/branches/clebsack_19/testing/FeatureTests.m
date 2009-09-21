@@ -47,8 +47,8 @@ s.add(Test('OutputTwoValues',@()(simex('models_FeatureTests/OutputTest5.dsl', 10
 
 % This is a critical defect where the below test causes MATLAB to crash.
 % I'm adding a dummy placeholder failure in its place
-%s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10)), '-equal', struct()));
-s.add(Test('OutputNoValues (DUMMY)', @()(false)));
+s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10)), '-equal', struct()));
+%s.add(Test('OutputNoValues (DUMMY)', @()(false)));
 
 end
 

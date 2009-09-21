@@ -81,18 +81,20 @@ int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int model
  
     // Run a set of iterations until the output buffer is full
     while(0 == ((output_buffer *)(mem->props->ob))->full[modelid]){
-      // Check if simulation is complete
-//      if(mem->props->time[modelid] >= mem->props->stoptime){
-      if(!mem->props->running[modelid]){
+      // Check if simulation is complete (or produce only a single output if there are no states)
+      if(!mem->props->running[modelid] || mem->props->statesize == 0){
+	mem->props->running[modelid] = 0;
 	((output_buffer*)(mem->props->ob))->finished[modelid] = 1;
 	// The CPU kernel is used within the Parallel CPU kernel
 #pragma omp critical
 	--((output_buffer*)(mem->props->ob))->active_models;
+#if NUM_OUTPUTS > 0
 	// Log output values for final timestep
 	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
 	model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
 	// Buffer the last values
 	buffer_outputs(mem->props->time[modelid],((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
+#endif
 	break;
       }
 		 
@@ -101,10 +103,12 @@ int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int model
       // Execute solver for one timestep
       SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);
 
+#if NUM_OUTPUTS > 0
       // Store a set of outputs only if the sovler made a step
       if (mem->props->time[modelid] > prev_time) {
 	buffer_outputs(prev_time, ((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
       }
+#endif
     }
     // Log outputs from buffer to external api interface
     if(0 != log_outputs((output_buffer*)mem->props->ob, outputs, modelid)){
@@ -195,16 +199,18 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){
 	// same time with variable timestep solvers)
 	break;
       }
-      // Check if the simulation just finished
-//      if(mem->props->time[modelid] >= mem->props->stoptime){
-      if(!mem->props->running[modelid]){
+      // Check if the simulation just finished (or if there are no states)
+      if(!mem->props->running[modelid] || mem->props->statesize == 0){
+	mem->props->running[modelid] = 0;
 	((output_buffer*)(mem->props->ob))->finished[modelid] = 1;
 	atomicDec(&((output_buffer*)(mem->props->ob))->active_models, NUM_MODELS);
+#if NUM_OUTPUTS > 0
 	// Log output values for final timestep
 	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
 	model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
 	// Buffer the last values
 	buffer_outputs(mem->props->time[modelid],((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
+#endif
 	break;
       }
       
@@ -213,10 +219,12 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){
       // Execute solver for one timestep
       SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);
 
+#if NUM_OUTPUTS > 0
       // Store a set of outputs only if the sovler made a step
       if (mem->props->time[modelid] > prev_time) {
 	buffer_outputs(prev_time, (output_data*)mem->props->outputs, (output_buffer*)mem->props->ob, modelid);
       }
+#endif
       
       // Stop if the output buffer is full
       if(((output_buffer*)(mem->props->ob))->full[modelid]) { 
@@ -301,8 +309,14 @@ ret = 20;
 int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs) {
   unsigned int modelid = 0;
   unsigned int status = SUCCESS;
-  output_data *od = (output_data*)malloc(NUM_MODELS*sizeof(output_data));
   output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));
+#if NUM_OUTPUTS > 0
+  output_data *od = (output_data*)malloc(NUM_MODELS*sizeof(output_data));
+  unsigned int outputsize = sizeof(output_data)/sizeof(CDATAFORMAT);
+#else
+  void *od = NULL;
+  unsigned int outputsize = 0;
+#endif
   int *running = (int*)malloc(NUM_MODELS*sizeof(int));
   solver_props props;
   props.timestep = DT;
@@ -318,7 +332,7 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   props.inputsize = NUM_INPUTS;
   // This is the number of values needed to produce outputs including
   // values used in conditionals, not just the number of named outputs
-  props.outputsize = sizeof(output_data)/sizeof(CDATAFORMAT);
+  props.outputsize = outputsize;
   props.num_models = NUM_MODELS;
   props.ob_size = sizeof(output_buffer);
   props.ob = ob;
@@ -346,7 +360,7 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
 	     
   SOLVER(INTEGRATION_METHOD, free, TARGET, SIMENGINE_STORAGE, mem);
   free(ob);
-  free(od);
+  if(od) free(od);
   free(running);
   return status;
 }
