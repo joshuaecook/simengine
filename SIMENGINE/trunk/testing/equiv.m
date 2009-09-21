@@ -35,6 +35,11 @@ elseif isstruct(a) && isstruct(b)
     afields = fieldnames(a);
     bfields = fieldnames(b);
     if length(afields) == length(bfields)
+        % Two empty structs are equivalent
+        if length(afields) == 0
+          e = true;
+          return;
+        end
         for i=1:length(afields)
             if isfield(b, afields{i}) 
                 e = equiv(a.(afields{i}), b.(afields{i}));

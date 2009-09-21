@@ -75,7 +75,7 @@ classdef Suite < handle
         
         function execute_helper(s, level, runall, runfailures)
             spaces = blanks(level*2);
-            disp(sprintf('%sRunning Suite ''%s'' (Total of %d tests)', spaces, s.Name, s.Total));
+            disp(sprintf('\n%sRunning Suite ''%s'' (Total of %d tests)', spaces, s.Name, s.Total));
             localtime = tic;
             cont = true;
             for i=1:length(s.Tests)
@@ -106,7 +106,7 @@ classdef Suite < handle
                     end
                     
                     if cont && run_test
-                        disp(['Executing test ' t.Name])
+                        %disp(['Executing test ' t.Name])
                         t.Execute();
                         switch t.Result
                             case t.PASSED

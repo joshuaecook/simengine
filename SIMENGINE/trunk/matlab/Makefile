@@ -58,8 +58,6 @@ simex_helper: $(SIMEX_HELPER_OBJ) # $(addprefix bin/,$(SIMEX_HELPER_OBJ))
 
 simEngine_wrapper: $(SIMENGINE_WRAPPER_OBJ) # $(addprefix bin/,$(SIMENGINE_WRAPPER_OBJ))
 
-#bin/simex_helper.%: ../include/simengine.h ../include/simengine_target.h
-
 %.mexglx: src/%.cpp
 	$(MEX) -glnx86 -outdir . $(MEXFLAGS) $<
 

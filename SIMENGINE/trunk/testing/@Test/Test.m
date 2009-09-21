@@ -217,6 +217,17 @@ classdef Test < handle
                 end
             end 
             
+            % Show result of this test
+            if t.Result == t.PASSED
+              status = 'Passed';
+            elseif t.Result == t.FAILED
+              status = 'FAILED <----';
+            else
+              status = 'ERRORED <----';
+            end
+            s = sprintf('%40s:\t%s', t.Name, status);
+            disp(s)
+            
             cd(curDir);
         end
         

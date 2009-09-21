@@ -669,7 +669,7 @@ $(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
 $(BUILD_DIR)/simEngine_wrapper.%: matlab/simEngine_wrapper.%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(MATLAB_TARGETS): matlab/src/%.c include/simengine.h include/simengine_target.h
+$(MATLAB_TARGETS): matlab/src/%.c include/simengine_api.h include/simengine_target.h
 	@echo "Generating Matlab target $@"
 ifneq ($(ARCH64),)
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) MEX=$(MEX) $(ARCH64_FLAG) $(*F)
