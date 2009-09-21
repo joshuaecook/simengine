@@ -147,15 +147,17 @@ else
       simex_helper(dllPath, userInputs); % Cleanup evalflow DLL
       varargout = {t, y};
       elapsed = toc;
-      disp([dslName ' simulation using ' opts.solver ' completed in ' num2str(elapsed) ' ' ...
-                          'seconds.']);
+      verbose_out([dslName ' simulation using ' opts.solver ' completed in ' num2str(elapsed) ' ' ...
+            'seconds.'], opts);
       return;
     else
       [output y1 t1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
                                     userInputs, userStates);
     end
   elapsed = toc;
-  disp([dslName ' simulation completed in ' num2str(elapsed) ' seconds.']);
+  
+  verbose_out([dslName ' simulation completed in ' num2str(elapsed) ...
+               ' seconds.'], opts);
   
 
   % Output data are transposed before returning.
@@ -185,9 +187,9 @@ dslPath = '';
 dslName = '';
 modelFile = '';
 opts = struct('models',1, 'target','', 'precision','double', ...
-              'debug',false, 'profile',false, 'emulate',false, ...
-              'recompile',true,'startTime',0, 'endTime',0, ...
-              'inputs',struct(), 'states',[], ...
+              'verbose',false, 'debug',false, 'profile',false, ...
+              'emulate',false, 'recompile',true,'startTime',0, ...
+              'endTime',0, 'inputs',struct(), 'states',[], ...
               'simengine','', 'solver', []);
 
 [seroot] = fileparts(which('simex'));
@@ -226,6 +228,8 @@ if 1 < nargin
       opts.target = 'GPU';
     elseif strcmpi(arg, '-parallel-cpu')
       opts.target = 'PARALLELCPU';
+    elseif strcmpi(arg, '-v')
+      opts.verbose = true;
     elseif strcmpi(arg, '-debug')
       opts.debug = true;
     elseif strcmpi(arg, '-emulate')
@@ -415,9 +419,15 @@ setenv('SIMENGINE', opts.simengine);
 
 if opts.recompile
   tic;
-    status = simEngine_wrapper(simengine, modelFile, dslName);
+    if opts.verbose
+      status = simEngine_wrapper(simengine, modelFile, dslName, ['-' ...
+                          'v']);
+    else
+      status = simEngine_wrapper(simengine, modelFile, dslName);
+    end
   elapsed = toc;
-  disp(['simEngine compiler completed in ' num2str(elapsed) ' seconds.']);
+  verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
+                        'seconds.'], opts);
 
   if 0 ~= status
       error('Simatra:SIMEX:compileError', ...
@@ -451,14 +461,15 @@ if opts.recompile
         ' NUM_MODELS=' num2str(opts.models) ...
         ' &> simex_make.log'];
 
-if opts.debug
-  make = [make ' DEBUG=1'];
-end
 if opts.emulate
   make = [make ' EMULATE=1'];
 end
 if opts.profile
   make = [make ' PROFILE=1'];
+end
+if opts.debug
+  make = [make ' DEBUG=1'];
+  disp(make)
 end
 
 tic;
@@ -468,8 +479,17 @@ elapsed = toc;
 if 0 ~= status
   error('Simatra:SIMEX:compileError', ...
         'Make returned status code %d.', status);
+  type simex_make.log
 end
-disp([opts.target ' compiler completed in ' num2str(elapsed) ' seconds.']);
+verbose_out([opts.target ' compiler completed in ' num2str(elapsed) ' ' ...
+                    'seconds.'], opts);
+
+if opts.debug == false
+% clean up generated files
+  delete simex_make.log
+  [igpath fileprefix igext] = fileparts(modelFile);
+  delete([fileprefix '_parallel.*'])
+end
 end % end if recompile
 
 % TODO what is the path of the resultant DLL?
@@ -503,3 +523,9 @@ end
 abspath = strtrim(abspath);
 end
 
+%%
+function [] = verbose_out(x, opts)
+  if opts.verbose
+    disp(x)
+  end
+end
