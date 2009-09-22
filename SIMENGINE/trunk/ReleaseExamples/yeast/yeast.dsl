@@ -1,5 +1,11 @@
-// Anaerobic Fermentation Pathway in Saccharomyces Cerevisiae (Yeast)
-// Voit, E., Computational Analyses of Biochemical Systems, 2000, pp. 277
+/*
+ *   Anaerobic Fermentation Pathway in Saccharomyces Cerevisiae (Yeast)
+ *   Voit, E., Computational Analyses of Biochemical Systems, 2000, pp. 277
+ *
+ * Adapted for use with simEngine
+ * Copyright 2009 Simatra Modeling Technologies, L.L.C.
+ */
+
 model (X) = yeast
 
 state X1 = .0345209

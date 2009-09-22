@@ -1,6 +1,12 @@
+/*
+ *   Purine with definable HGPRT (GMA-System)
+ *   Converted from PurineGHGPRT.plc
+ *   Voit, E., Computational Analyses of Biochemical Systems, 2000, pp. 277
+ *
+ *   Adapted for use with simEngine
+ *   Copyright 2009 Simatra Modeling Technologies, L.L.C.
+ */
 
-// Purine with definable HGPRT (GMA-System)
-// Converted from PurineGHGPRT.plc
 model (X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, X14, X15, X16, X17, X18) = purine(D)
 
     // D = deficiency factor in HGPRT (between 0 (no deficiency) and 1 (total deficiency))

@@ -1,5 +1,13 @@
-// model definition
+/*
+ * Booth, Rinzel, & Kiehn Motoneuron Model (J Neurophysiol 78:3371-3384, 1997)
+ * Publication: Compartmental Model of Vertebrate Motoneurons for Ca2+-Dependent Spiking
+ *              and Plateau Potentials Under Pharmacological Treatment
+ *
+ * Adapted for use with simEngine
+ * Copyright 2009 Simatra Modeling Technologies, L.L.C.
+ */
 
+// model definition
 model (Vs, Vd, V) = brk(Iext)
    // Conductances (mS/cm^2)
   constant GNa = 120

@@ -1,5 +1,8 @@
-//Fitzhugh-Nagumo model of neural excitability
-
+/*
+ *   FitzHugh-Nagumo model of a simplified Hodgkin-Huxley neuron model
+ *   Derived from FitzHugh R. (1955, 1961) and Nagumo J., et al. (1962)
+ *   Copyright 2007-2009 Simatra Modeling Technolgies
+ */
 model (u,w) = fn(b0, b1, e, I)
 
   input b0 with {default=2}

@@ -1,3 +1,9 @@
+/* 
+ *   Tutorial DSL Models
+ *   neuron: Hodgkin-Huxley variety neuron model
+ *   Copyright 2009 Simatra Modeling Technologies, L.L.C.
+ */
+
 model (Vm) = neuron(Iext)
    input Iext with {default = 0}
 

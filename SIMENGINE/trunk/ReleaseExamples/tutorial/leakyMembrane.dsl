@@ -1,3 +1,9 @@
+/* 
+ *   Tutorial DSL Models
+ *   leakyMembrane: RC circuit model of a neuron without active conductances
+ *   Copyright 2009 Simatra Modeling Technologies, L.L.C.
+ */
+
 model (Vm) = leakyMembrane(Iext)
    input Iext
    

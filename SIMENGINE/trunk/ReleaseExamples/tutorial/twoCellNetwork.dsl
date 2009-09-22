@@ -1,3 +1,9 @@
+/* 
+ *   Tutorial DSL Models
+ *   twoCellNetwork: Two Hodgkin-Huxley variety neuron models coupled by an inhibitory synapse
+ *   Copyright 2009 Simatra Modeling Technologies, L.L.C.
+ */
+
 import "neuronWithSynapse.dsl"
 
 model (Vm1, Vm2) = twoCellNetwork(IStim)

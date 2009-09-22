@@ -1,8 +1,9 @@
-/*  Leech heartbeat timing network model
-    From Hill et al, 2001, J. Comp. Neuro
-    Copyright 2007-2008 Simatra Modeling Technolgies
-    Additional Info at (http://calabreselx.biology.emory.edu/INTRO/INDEX.HTML)
-*/
+/*  
+ *   Leech heartbeat timing network model (timing network model)
+ *   From Hill et al, 2001, J. Comp. Neuro
+ *   Copyright 2007-2009 Simatra Modeling Technolgies
+ *   Additional Info at (http://calabreselx.biology.emory.edu/INTRO/INDEX.HTML)
+ */
 
 function xinf(a, b, V) = 1/(1 + exp(a * (V + b)))
 function taux(a, b, c, e, V) = c + e / (1 + exp(a * (V + b)))
