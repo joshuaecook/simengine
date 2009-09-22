@@ -16,10 +16,21 @@ switch lower(mode_str)
   error('Simatra:matlab_test_script', 'Argument Error');
 end
 
+% determine architecture
+switch computer
+ case {'PCWIN', 'GLNX86', 'MACI'}
+  local_install = '/local-install';
+ case {'PCWIN64', 'GLNXA64', 'SOL64', 'MACI64'}
+  local_install = '/local-install-64';
+ otherwise
+  warning('Simatra:matlab_test_script', ['Architecture is not officially '...
+                      'supported'])
+end  
+
 % first, set the path
 p = mfilename('fullpath');
 [path, file, ext] = fileparts(p);
-cd([path '/local-install'])
+cd([path local_install])
 addpath(pwd)
 
 % next, go into testing directory
