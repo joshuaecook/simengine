@@ -155,8 +155,8 @@ s.add(Test('FunctionModulus', @()(simex(['models_FeatureTests/' ...
                     'FunctionTestModulus.dsl'], 10)), '-equal', ...
            struct('y', [0:10; 0 1 0 1 0 1 0 1 0 1 0]')))
     function y = FunctionTrig
-        i.low = -pi;
-        i.high = pi;
+        i.low = -0.99*pi;
+        i.high = 0.99*pi;
         o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i);
         tol = 1e-3;
         y = approx_equiv(sin(o.y(:,2)),o.y(:,3),tol) && ...
