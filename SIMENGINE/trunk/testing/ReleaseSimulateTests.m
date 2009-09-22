@@ -129,12 +129,14 @@ t(i).states = [];
 t(i).time = 1500;
 
 % Timing Network Model (HN)
-i = i + 1;
-t(i).name = 'HN';
-t(i).model = fullfile(simexamplepath, 'HN/timingNetwork.dsl');
-t(i).inputs = struct();
-t(i).states = [];
-t(i).time = 10;
+% Have to remove this test - it's just too sensitive to variations
+% across processors
+%i = i + 1;
+%t(i).name = 'HN';
+%t(i).model = fullfile(simexamplepath, 'HN/timingNetwork.dsl');
+%t(i).inputs = struct();
+%t(i).states = [];
+%t(i).time = 10;
 
 % Leaky Membrane
 i = i + 1;
