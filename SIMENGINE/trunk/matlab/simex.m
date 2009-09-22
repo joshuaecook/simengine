@@ -76,6 +76,9 @@
 %        Utilize a particular solver builtin to MATLAB, such as
 %        ode15s, ode23t, and ode45.
 %
+%      '-v'
+%        Generate verbose output from the simEngine compiler
+%
 %    M = SIMEX(MODEL) compiles MODEL as above and returns a
 %    model description structure M containing information
 %    which describes the model states, parameters, and outputs.
