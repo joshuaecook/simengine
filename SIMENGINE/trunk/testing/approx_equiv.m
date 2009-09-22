@@ -1,7 +1,8 @@
 % Approx Equivalency function
 % e = approx_equiv(a, b, tol)
 %   a,b: number, string, or .mat file
-%   tol: percent above and below 'a'
+%   tol: percent above and below 'a' (treat not an a per element
+%   basis but instead base it on the global mins/maxes
 function e = approx_equiv(a, b, tol)
 
 % if a or b are .mat files, use the data inside them
@@ -27,8 +28,16 @@ e = false;
 if isnumeric(a) && isnumeric(b)
     if ndims(a) == ndims(b)
         if size(a) == size(b)
-            a_max = a.*(1+tol/100);
-            a_min = a.*(1-tol/100);
+          overall_max = max(a);
+          overall_min = min(a);
+          allowed_error = (overall_max-overall_min)*tol/100;
+          % if there is only one value, the allowed_error will be
+          % zero, therefore, take tol as a relative percentage.
+          allowed_error(find(allowed_error==0)) = ...
+              a(find(allowed_error==0))*tol/100;
+          accepted_error = ones(length(a),1)*allowed_error;
+          a_max = a+accepted_error;
+            a_min = a-accepted_error;
             if all((a_max >= b & a_min <= b) | (a_max <= b & a_min >= b))
                 e = true;
             end

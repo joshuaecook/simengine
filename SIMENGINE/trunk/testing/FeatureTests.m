@@ -29,7 +29,7 @@ s.add(InputFeatureTests);
 s.add(StateFeatureTests);
 s.add(InlineFunctionFeatureTests);
 s.add(ConstantFeatureTests);
-s.add(IntermediateFeatureTests);
+s.add(IntermediateFeatureTests(mode));
 s.add(FunctionFeatureTests);
 
 end
@@ -44,11 +44,7 @@ s.add(Test('OutputIntermediateDirectly',@()(simex('models_FeatureTests/OutputTes
 s.add(Test('OutputGroups',@()(simex('models_FeatureTests/OutputTest3.dsl', 10)), '-equal', struct('y', [0:10; 0:10; -(0:10)]')));
 s.add(Test('OutputCondition',@()(simex('models_FeatureTests/OutputTest4.dsl', 10)), '-equal', struct('y', [5:10; 5:10]')));
 s.add(Test('OutputTwoValues',@()(simex('models_FeatureTests/OutputTest5.dsl', 10)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:2:20]')));
-
-% This is a critical defect where the below test causes MATLAB to crash.
-% I'm adding a dummy placeholder failure in its place
 s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10)), '-equal', struct()));
-%s.add(Test('OutputNoValues (DUMMY)', @()(false)));
 
 end
 
@@ -136,13 +132,18 @@ s.add(Test('InternalConstants',@InternalConstants));
 
 end
 
-function s = IntermediateFeatureTests
+function s = IntermediateFeatureTests(mode)
+INTERNAL = 0; RELEASE = 1;
 
 s = Suite('Intermediate Feature Tests');
 s.add(Test('Intermediate=State', @()(simex('models_FeatureTests/IntermediateTest1.dsl', 10)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:10]')));
 s.add(Test('Intermediate=Input', @()(simex('models_FeatureTests/IntermediateTest2.dsl', 10)), '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
 s.add(Test('InputToOutput', @()(simex('models_FeatureTests/IntermediateTest3.dsl', 10)), '-equal', struct('s', [0:10; 0:10]', 'x', [0:10; ones(1,11)]')));
-s.add(Test('Intermediate=Derivative', @()(simex('models_FeatureTests/IntermediateTest4.dsl', 10)), '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
+
+% We want to add derivative suport soon
+if mode == INTERNAL
+  s.add(Test('Intermediate=Derivative', @()(simex('models_FeatureTests/IntermediateTest4.dsl', 10)), '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
+end
 
 end
 

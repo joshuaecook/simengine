@@ -65,7 +65,7 @@ for i=1:length(solvers)
                 % create function handle to run simulation
                 f = @()(reduceDataSet(simex(model, time, ['-' precision])));
                 matfile = fullfile(templatedir, [name '_exp.mat']);
-                s.add(Test(name, f, '-approxequal', matfile, 1));
+                s.add(Test(name, f, '-approxequal', matfile, 5));
         end
     end
 

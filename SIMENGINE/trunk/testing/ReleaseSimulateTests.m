@@ -73,7 +73,7 @@ for i=1:length(testInfos)
                 f = @()(reduceDataSet(simex(info.model, info.time, info.inputs, info.states)));
             end
             matfile = fullfile(templatedir, [info.name '_exp.mat']);            
-            s.add(Test(info.name, f, '-approxequal', matfile, 1));
+            s.add(Test(info.name, f, '-approxequal', matfile, 5));
     end
 end
 
@@ -134,7 +134,7 @@ t(i).name = 'HN';
 t(i).model = fullfile(simexamplepath, 'HN/timingNetwork.dsl');
 t(i).inputs = struct();
 t(i).states = [];
-t(i).time = 20;
+t(i).time = 10;
 
 % Leaky Membrane
 i = i + 1;
@@ -158,7 +158,7 @@ t(i).name = 'Van der Pol';
 t(i).model = fullfile(simexamplepath, 'VDP/vdpex.dsl');
 t(i).inputs = struct();
 t(i).states = [];
-t(i).time = 5000;
+t(i).time = 3000;
 
 % Lorenz
 i = i + 1;
@@ -166,7 +166,7 @@ t(i).name = 'Lorenz';
 t(i).model = fullfile(simexamplepath, 'lorenz/lorenz.dsl');
 t(i).inputs = struct();
 t(i).states = [];
-t(i).time = 100;
+t(i).time = 25;
 
 % Purine
 i = i + 1;
