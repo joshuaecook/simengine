@@ -9,7 +9,7 @@ fun getfullpath file =
     in
 	SOME file'
     end
-    handle _ => NONE
+    handle OS.SysErr (s, _) => NONE
 
 fun find file =
     if OS.Path.isAbsolute file then

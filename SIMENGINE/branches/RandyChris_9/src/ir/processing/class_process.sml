@@ -138,6 +138,26 @@ fun findSymbols (class: DOF.class) =
 		       Util.uniquify ((Util.flatmap exp2symbols exps)))
     end
 
+fun findStateSymbols (class: DOF.class) =
+    let
+	val exps = !(#exps class)
+
+	fun exp2symbols exp =
+	    let
+		val terms = ExpProcess.exp2termsymbols exp
+		val state_terms = List.filter 
+				      (fn(t)=>Term.isReadState t orelse
+					      Term.isWriteState t)
+				      terms
+		val state_exps = map Exp.TERM state_terms
+	    in
+		Util.flatmap ExpProcess.exp2symbols state_exps
+	    end
+	    
+    in
+	Util.uniquify ((Util.flatmap exp2symbols exps))
+    end
+
 fun renameSym (orig_sym, new_sym) (class: DOF.class) =
     let
 	(*val eqs = !(#eqs class)*)
@@ -163,6 +183,7 @@ fun renameSym (orig_sym, new_sym) (class: DOF.class) =
     end
 
 val commonPrefix = "mdlvar__"
+val parallelSuffix = "[modelid]"
 
 fun removePrefix str = 
     if String.isPrefix commonPrefix str then
@@ -210,13 +231,6 @@ fun fixSymbolNames (class: DOF.class) =
 	    symbols
     end
 
-fun class2instances class = 
-    let
-	val exps = !(#exps class)
-    in
-	List.filter ExpProcess.isInstanceEq exps
-    end
-
 fun class2orig_name (class : DOF.class) =
     let
 	val {properties={classtype,...},...} = class
@@ -224,6 +238,38 @@ fun class2orig_name (class : DOF.class) =
 	case classtype of
 	    DOF.MASTER c => c
 	  | DOF.SLAVE c => c
+    end
+
+fun class2classname (class : DOF.class) =
+    let
+	val {name, ...} = class
+    in
+	name
+    end
+
+fun addEPIndexToClass is_top (class: DOF.class) =
+    let
+	val master_class = CurrentModel.classname2class (class2orig_name class)
+	val states = findStateSymbols master_class
+	val exps = !(#exps class)
+	val exps' = map (ExpProcess.enableEPIndex is_top states) exps
+
+	val outputs = !(#outputs class)
+	val outputs' = map (fn({name, contents, condition})=>
+			      {name=name,
+			       contents=map (fn(exp)=>ExpProcess.enableEPIndex is_top states exp) contents,
+			       condition=ExpProcess.enableEPIndex is_top states condition}
+			   ) outputs
+    in
+	((#exps class) := exps';
+	 (#outputs class) := outputs')
+    end
+
+fun class2instances class = 
+    let
+	val exps = !(#exps class)
+    in
+	List.filter ExpProcess.isInstanceEq exps
     end
 
 fun class2instnames (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list =

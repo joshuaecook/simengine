@@ -1,3 +1,10 @@
+/*  
+    Leech heartbeat timing network model (timing network model)
+    From Hill et al, 2001, J. Comp. Neuro
+    Copyright 2007-2009 Simatra Modeling Technolgies
+    Additional Info at (http://calabreselx.biology.emory.edu/INTRO/INDEX.HTML)
+*/
+
 import "hn34.dsl"
 import "hn12.dsl"
 import "synapse.dsl"
@@ -47,6 +54,6 @@ model (VmL3, VmR3, VmL4, VmR4, VmL1, VmR1) = timingNetwork(stimR4)
 	  output VmL1 = HNL1.Vm
 	  output VmR1 = HNR1.Vm
 	 
-	  solver = ode23//forwardeuler
+	  solver = cvode//forwardeuler//ode23//forwardeuler
 	  solver.dt = 1e-4
 end

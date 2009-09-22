@@ -37,7 +37,15 @@ namespace Simulation
     var name
     hidden var precision = InfinitePrecision.new()
     var initialval
-    hidden var eq    
+    //hidden var eq    
+    hidden var currentval
+    hidden var readval // when an exp is read, replace the var with this if not undefined
+    var eq    
+    hidden var hasEq = false
+    hidden var isVisible = false
+    hidden var isTunable = false
+    hidden var isIterable = false
+    hidden var isIntermediate = false
 
     hidden var dimensions = []
 
@@ -50,12 +58,6 @@ namespace Simulation
     function getPrecision() = self.precision
 
     function setInitialValue (v)
-/*      function checkDimensions (v: Number, dim) = dim.length() == 0
-      overload function checkDimensions (v: Vector, dim) = dim(1) == v.length() and forall elem in v suchthat checkDimensions (elem, dim.rest())
-
-      if not (checkDimensions (v, dimensions)) then
-        error ("Vector/Matrix dimensions of initial value for " + name + " do not match value of those given for this quantity")
-      end*/
       initialval = v
     end
 
@@ -69,16 +71,15 @@ namespace Simulation
     end
 
     function getEquation()
-//      println ("get equation for " + name)
       self.eq
     end
 
-    function hasEquation() = isdefined(getEquation())
+    function hasEquation() = hasEq
 
     function setEquation(eq)
       //TODO: perform error checking here, ie if its a param, DONT allow this
-//      println ("setting equation for "+ name + " to " + (eq.getExp().tostring()))      
       self.eq = eq
+      self.hasEq = isdefined(eq)
     end
 
     function setDimensions (dimensions: Vector)
@@ -106,8 +107,10 @@ namespace Simulation
 
     constructor (name: String)
       self.name = name
-      self.eq = Equation.new(self', 0)
-//      self.eq = DifferentialEquation.new(1, self, 0)
+//      self.eq = Equation.new(self', 0)
+      self.eq = DifferentialEquation.new(1, self, 0) 
+
+      reset()
     end
   end
 
@@ -174,8 +177,10 @@ namespace Simulation
   
   overload function operator_add(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
   overload function operator_add(arg1: Number, arg2: GenericIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
+  overload function operator_add(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
+  overload function operator_add(arg1: Number, arg2: SimIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
    
-
+  overload function operator_subtract(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, -arg2) otherwise}
   overload function operator_subtract(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, -arg2) otherwise}
 
 
@@ -611,6 +616,14 @@ namespace Simulation
     function setInputVal(val)
       inputVal = val
     end
+
+    function tostring ()
+      var str = self.class.name + "("
+      str = str + "name=" + self.inputDef.getName()
+      str = str + ", value=" + self.inputVal
+      str + ")"
+    end
+
   end
 
   class Input extends SimQuantity
@@ -675,7 +688,15 @@ namespace Simulation
       end
     end
 
-    
+    hidden var userMembers = []
+    overload function addConst (name: String, value)
+      if exists m in userMembers suchthat m == name then
+        error ("Model member " + name + " has already been defined.")
+      else
+        LF addconst (self, name, value)
+	userMembers.push_back(name)
+      end
+    end
 
     var quantities = []
     var iterators = []

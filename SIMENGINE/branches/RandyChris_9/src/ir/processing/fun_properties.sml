@@ -282,9 +282,33 @@ fun op2props optype =
       | SIN => unaryfun2props ("sin", empty_unary)
       | COS => unaryfun2props ("cos", empty_unary)
       | TAN => unaryfun2props ("tan", empty_unary)
-      | CSC => unaryfun2props ("csc", empty_unary)
-      | SEC => unaryfun2props ("sec", empty_unary)
-      | COT => unaryfun2props ("cot", empty_unary)
+      | CSC => {name="csc",
+		operands=FIXED 1,
+		precedence=1,
+		commutative=false,
+		associative=false,
+		eval=empty_unary,
+		text=("csc",PREFIX),
+		C=("(1/sin($1))",MATCH),
+		codomain= vectorizedCodomain}
+      | SEC => {name="sec",
+		operands=FIXED 1,
+		precedence=1,
+		commutative=false,
+		associative=false,
+		eval=empty_unary,
+		text=("sec",PREFIX),
+		C=("(1/cos($1))",MATCH),
+		codomain= vectorizedCodomain}
+      | COT => {name="cot",
+		operands=FIXED 1,
+		precedence=1,
+		commutative=false,
+		associative=false,
+		eval=empty_unary,
+		text=("cot",PREFIX),
+		C=("(1/tan($1))",MATCH),
+		codomain= vectorizedCodomain}
       | ASIN => unaryfun2props ("asin", empty_unary)
       | ACOS => unaryfun2props ("acos", empty_unary)
       | ATAN => unaryfun2props ("atan", empty_unary)
@@ -297,21 +321,117 @@ fun op2props optype =
 		  text=("atan2",PREFIX),
 		  C=("atan2",PREFIX),
 		  codomain= vectorizedCodomain}
-      | ACSC => unaryfun2props ("acsch", empty_unary)
-      | ASEC => unaryfun2props ("asech", empty_unary)
-      | ACOT => unaryfun2props ("acoth", empty_unary)
+      | ACSC => {name="acsc",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("acsc",MATCH),
+		 C=("asin(1/$1)",MATCH),
+		codomain= vectorizedCodomain}
+      | ASEC => {name="asec",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("asec",MATCH),
+		 C=("acos(1/$1)",MATCH),
+		codomain= vectorizedCodomain}
+      | ACOT => {name="acot",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("acot",MATCH),
+		 C=("atan(1/$1)",MATCH),
+		codomain= vectorizedCodomain}
       | SINH => unaryfun2props ("sinh", empty_unary)
       | COSH => unaryfun2props ("cosh", empty_unary)
       | TANH => unaryfun2props ("tanh", empty_unary)
-      | CSCH => unaryfun2props ("csch", empty_unary)
-      | SECH => unaryfun2props ("sech", empty_unary)
-      | COTH => unaryfun2props ("coth", empty_unary)
-      | ASINH => unaryfun2props ("asinh", empty_unary)
-      | ACOSH => unaryfun2props ("acosh", empty_unary)
-      | ATANH => unaryfun2props ("atanh", empty_unary)
-      | ACSCH => unaryfun2props ("acsch", empty_unary)
-      | ASECH => unaryfun2props ("asech", empty_unary)
-      | ACOTH => unaryfun2props ("acoth", empty_unary)
+      | CSCH => {name="csch",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("csch",PREFIX),
+		 C=("(1/sinh($1))",MATCH),
+		codomain= vectorizedCodomain}
+      | SECH => {name="sech",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("sech",PREFIX),
+		 C=("(1/cosh($1))",MATCH),
+		codomain= vectorizedCodomain}
+      | COTH => {name="coth",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("coth",PREFIX),
+		 C=("(1/tanh($1))",MATCH),
+		codomain= vectorizedCodomain}
+      | ASINH => {name="asinh",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("asinh",PREFIX),
+		 C=("log($1 + sqrt($1*$1+1))",MATCH),
+		codomain= vectorizedCodomain}
+      | ACOSH => {name="acosh",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("acosh",PREFIX),
+		 C=("log($1 + sqrt($1*$1-1))",MATCH),
+		codomain= vectorizedCodomain}
+      | ATANH => {name="atanh",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("atanh",PREFIX),
+		 C=("(log((1+$1)/(1-$1))/2)",MATCH),
+		codomain= vectorizedCodomain}
+      | ACSCH => {name="acsch",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("acsch",PREFIX),
+		 C=("log(1/$1 + sqrt($1*$1+1)/fabs($1))",MATCH),
+		codomain= vectorizedCodomain}
+      | ASECH => {name="asech",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("asech",PREFIX),
+		 C=("log((1 + sqrt(1-$1*$1))/$1)",MATCH),
+		codomain= vectorizedCodomain}
+      | ACOTH => {name="acoth",
+		 operands=FIXED 1,
+		 precedence=1,
+		 commutative=false,
+		 associative=false,
+		eval=empty_unary,
+		 text=("acoth",PREFIX),
+		 C=("(log(($1+1)/($1-1))/2)",MATCH),
+		codomain= vectorizedCodomain}
       | NOT => {name="not",
 		operands=FIXED 1,
 		precedence=3,

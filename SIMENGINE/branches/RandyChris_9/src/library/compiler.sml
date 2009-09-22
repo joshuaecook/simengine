@@ -37,31 +37,15 @@ fun std_compile exec args =
 
 	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
-	      val _ = if DynamoOptions.isFlagSet "generateC" then
-			  ((*Util.log("Generate C Back-end ...");*)
-			   Logger.log_notice (Printer.$("Generating Debug C Back-end"));
-			   CWriter.buildC (CurrentModel.getCurrentModel()))
-		      else
-			  CWriter.SUCCESS
+	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel()))
+
+	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
+
 	      val _ = DynException.checkToProceed()
-
-	      val _ = ((*Util.log("Generate Mex Back-end ...");*)
-		       MexWriter.buildMex (CurrentModel.getCurrentModel()))
-	      val _ = DynException.checkToProceed()
-
-	      (* only build ODEMex if it's a model that is a continuous only system with only one iterator *)
-	      val _ = case CurrentModel.iterators() of
-			  [(sym, DOF.CONTINUOUS _)] => 
-			  ((*Util.log("Generate Mex ODE Back-end ...");*)
-			   ODEMexWriter.buildODEMex (CurrentModel.getCurrentModel());
-			   DynException.checkToProceed())
-			| _ => ()
-
-	      val code = System.SUCCESS (*ModelCompileLauncher.compile (name, forest)*)
 	  in 
 	      case code of
-		  System.SUCCESS => KEC.LITERAL(KEC.CONSTSTR "\nCompilation Finished Successfully\n")
-		| System.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
+		  CParallelWriter.SUCCESS => KEC.LITERAL(KEC.CONSTSTR "\nCompilation Finished Successfully\n")
+		| CParallelWriter.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
 	  end 
 	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n")))
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})

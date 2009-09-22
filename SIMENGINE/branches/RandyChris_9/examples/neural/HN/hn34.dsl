@@ -1,4 +1,5 @@
-/*  Leech heartbeat timing network model
+/*  
+    Leech heartbeat timing network model (hn34 model)
     From Hill et al, 2001, J. Comp. Neuro
     Copyright 2007-2008 Simatra Modeling Technolgies
     Additional Info at (http://calabreselx.biology.emory.edu/INTRO/INDEX.HTML)

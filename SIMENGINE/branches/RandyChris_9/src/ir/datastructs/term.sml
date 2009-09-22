@@ -106,11 +106,33 @@ fun sym2fullstr (s, props) =
 
 fun sym2c_str (s, props) =
     let
+	val ep_index = Property.getEPIndex props
+
 	val scope = Property.getScope props
-	val prefix = case scope of
-			 Property.LOCAL => ""
-		       | Property.READSTATE v => Symbol.name v ^ "->"
-		       | Property.WRITESTATE v => Symbol.name v ^ "->"
+
+	val useOutputBuffer = Property.isOutputBuffer props
+
+	val prefix = 
+	    if useOutputBuffer then
+		"od[modelid]."
+	    else
+		let 
+		    val index = case ep_index
+				 of SOME Property.STRUCT_OF_ARRAYS => "[STRUCT_IDX]."
+				  | _ => "->"
+		in 
+		    case scope
+		     of Property.LOCAL => ""
+		      | Property.READSTATE v => Symbol.name v ^ index
+		      | Property.WRITESTATE v => Symbol.name v ^ index
+		end
+
+	val suffix = if useOutputBuffer then
+			 ""
+		     else
+			 case ep_index 
+			  of SOME _ => "[ARRAY_IDX]"
+			   | NONE => ""
 
 	val (order, vars) = case Property.getDerivative props
 			      of SOME (order, iters) => (order, iters)
@@ -128,13 +150,13 @@ fun sym2c_str (s, props) =
 	    DynException.stdException(("Can't support integrals ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	else if order = 0 then
 	    (if iters = "[n+1]" then
-		 prefix ^ n
+		 prefix ^ n ^ suffix
 		 (*"next_" ^ n*)
 	     else
-		 prefix ^ n (*^ iters*))
+		 prefix ^ n ^ suffix(*^ iters*))
 	else if order = 1 then
 	    (*"d_" ^ n ^ "_dt"*) (* only support first order derivatives with respect to t *)
-	    prefix ^ n
+	    prefix ^ n ^ suffix
 	else
 	    DynException.stdException(("Can't support higher order derivative terms ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	(*else if order > 3 andalso (same vars) then
