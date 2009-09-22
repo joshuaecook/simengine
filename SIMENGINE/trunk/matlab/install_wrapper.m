@@ -112,7 +112,14 @@ disp(' ');
 disp('16.     If you acquired this Product in the United States, this EULA is');
 disp('governed by the laws of the State of Georgia.');
 disp(' ');
-disp(' ')
+disp(' ');
+disp('All uses of the SUNDIALS suite is ');
+disp('Copyright 2002, The Regents of the University of California.');
+disp('Produced at the Lawrence Livermore National Laboratory.');
+disp('All rights reserved.');
+disp(' ');
+disp(' ');
+
 
 ret = ask_yn('Accept license agreement');
 if not(ret)
