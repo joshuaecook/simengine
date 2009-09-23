@@ -63,7 +63,7 @@ for i=1:length(solvers)
                 disp(['Created expected results for model ' name ' in ' matfile]);
             case RUNTESTS,
                 % create function handle to run simulation
-                f = @()(reduceDataSet(simex(model, time, ['-' precision])));
+                f = @()(reduceDataSet(simex(model, time, ['-' precision],'-quiet')));
                 matfile = fullfile(templatedir, [name '_exp.mat']);
                 s.add(Test(name, f, '-approxequal', matfile, 5));
         end
