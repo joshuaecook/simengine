@@ -103,7 +103,9 @@ else
                       'not exist'])
 end
 
-if nargin == 1
+if nargin == 1 || isstr(varargin{2}) % alternative is that you
+                                     % supply a flag as a second
+                                     % arg (not a time)
   varargout = {interface};
 else
   userInputs = vet_user_inputs(interface, opts.inputs);
@@ -208,9 +210,14 @@ modelFile = realpath(varargin{1});
 [pathName dslName] = fileparts(modelFile);
 
 if 1 < nargin
-  [opts.startTime opts.endTime] = get_time(varargin{2});
+  if isnumeric(varargin{2})
+    [opts.startTime opts.endTime] = get_time(varargin{2});
+    start_index = 3;
+  else
+    start_index = 2;
+  end
 
-  for count=3:nargin
+  for count=start_index:nargin
     arg = varargin{count};
     if isstruct(arg)
       opts.inputs = arg;
