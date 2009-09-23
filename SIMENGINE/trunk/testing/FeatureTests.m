@@ -59,7 +59,7 @@ input = struct('x',5);
 s.add(Test('PassedInputToState', @()(simex('models_FeatureTests/InputTest1.dsl', 10, input,'-quiet')), '-equal', struct('y', [0:10; 0:5:50]')));
 
     function y = VerifyDefaultInputs
-        m = simex('models_FeatureTests/InputTest2.dsl');
+        m = simex('models_FeatureTests/InputTest2.dsl','-quiet');
         y = equiv(m.default_inputs, struct('x',3));
     end
 
@@ -74,7 +74,7 @@ function s = StateFeatureTests
 s = Suite('State Feature Tests');
 
     function y = VerifyDefaultStateInits
-        m = simex('models_FeatureTests/StateTest1.dsl');
+        m = simex('models_FeatureTests/StateTest1.dsl','-quiet');
         y = all(m.default_states == [1 0]);
     end
 
