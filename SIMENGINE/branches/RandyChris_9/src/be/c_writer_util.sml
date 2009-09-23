@@ -30,17 +30,17 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	fun replaceIndex str (i,e) = 
 	    Util.repStr(str, "$"^(i2s i), addParen (exp2c_str e, e))
 
-	fun notation2c_str (v, Fun.INFIX) = 
+	fun notation2c_str (v, FunProps.INFIX) = 
 	    String.concatWith v (map (fn(e)=>addParen ((exp2c_str e),e)) exps)
-	  | notation2c_str (v, Fun.PREFIX) = 
+	  | notation2c_str (v, FunProps.PREFIX) = 
 	    v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2c_str e,e))) exps)) ^ ")"
-	  | notation2c_str (v, Fun.POSTFIX) = 
+	  | notation2c_str (v, FunProps.POSTFIX) = 
 	    (String.concatWith " " (map (fn(e)=> addParen ((exp2c_str e),e)) exps)) ^ " " ^ v
-	  | notation2c_str (v, Fun.MATCH) = 
+	  | notation2c_str (v, FunProps.MATCH) = 
 	    foldl (fn((exp, index),str')=>replaceIndex str' (index+1,exp)) v (Util.addCount exps)
 
     in
-	notation2c_str (Fun.fun2cstrnotation str)
+	notation2c_str (FunProps.fun2cstrnotation str)
     end
   | exp2c_str (Exp.TERM term) = term2c_str term
 
@@ -49,7 +49,7 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
   | term2c_str (Exp.REAL v) = if Real.isNan v then "(FLITERAL(0.0)/FLITERAL(0.0))" else ("FLITERAL("^(r2s v)^")")
   | term2c_str (Exp.BOOL v) = if v then "1" else "0"
   | term2c_str (Exp.TUPLE l) = "("^(String.concatWith ", " (map (fn(t)=>exp2c_str (Exp.TERM t)) l))^")"
-  | term2c_str (Exp.SYMBOL (s, props)) = (*Term.sym2c_str (s, props)*)
+  | term2c_str (term as (Exp.SYMBOL (s, props))) = (*Term.sym2c_str (s, props)*)
 	let
 	    val base_str = Term.sym2c_str (s, props)
 	    val spatial_iterators = TermProcess.symbol2spatialiterators term

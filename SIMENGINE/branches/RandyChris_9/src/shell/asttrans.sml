@@ -749,12 +749,6 @@ and trans_action pos action =
 			       
 			  | _ => nil
 		    val eq = apply (sym "makeIntermediate", [sym2strlit name, trans_exp exp])
-		in
-		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, eq), pos),
-		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), pos),
-		     HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "quantities"), [HLEC.SYMBOL name])), pos)]
-		end
-
 		    fun findDimensions exp =
 			case exp of
 			    Ast.SYMBOL s => []
@@ -765,7 +759,7 @@ and trans_action pos action =
 			    => map trans_exp v			       
 			  | _ => nil
 
-		    val syms = findSymbols lhs
+(*		    val syms = findSymbols lhs
 
 		    val sym = case syms of
 				[sym] => sym
@@ -773,16 +767,19 @@ and trans_action pos action =
 				(error ($"Malformed equation encountered: unexpected number of symbols on left hand side");
 				 raise Skip)
 
-		    val dimensions = findDimensions lhs
+		    val dimensions = findDimensions lhs*)
 		in
-		    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "makeEquation"),
+		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, eq), pos),
+		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), pos),
+		     HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "quantities"), [HLEC.SYMBOL name])), pos)]
+		(*    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "makeEquation"),
 										 args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name sym)),
 												 HLEC.VECTOR dimensions,
 												 HLEC.LAMBDA{args=syms, body=trans_exp lhs},
 												 HLEC.LAMBDA{args=syms, body=trans_exp rhs}]}),
 				 pos),
 		     HLEC.DEFINITION(HLEC.DEFCONST(sym, HLEC.DONTCARE, HLEC.SEND {object=HLEC.SYMBOL(Symbol.symbol "self"), message=sym}),
-				     pos)]
+				     pos)]*)
 		end
 	      | trans_eq (Ast.EQUATION (Ast.APPLY {func=state, args=Ast.TUPLE args}, exp)) =
 		let
@@ -797,9 +794,13 @@ and trans_action pos action =
 			     let
 				 val state = trans_exp state
 				 val name = case state of HLEC.SYMBOL name => Symbol.name name | _ => "unknown state"
-
+				 val degree = trans_exp degree
+										
 				 val has_eq = apply (send "hasEquation" state, nil)
-				 val make_eq = apply (send "new" (sym "DifferentialEquation"), [degree, state, trans_exp exp])
+				 val make_eq = apply (send "new" (sym "DifferentialEquation"), 
+						      [degree, 
+						       state, 
+						       trans_exp exp])
 				 val set_eq = apply (send "setEquation" state, [make_eq])
 				 val flunk = HLEC.ERROR (HLEC.LITERAL (HLEC.CONSTSTR ("Equation for " ^name^" has already been defined.")))
 			     in
@@ -874,7 +875,7 @@ and trans_action pos action =
 	      | trans_eq (Ast.EQUATION (Ast.POS (exp1, pos), exp2)) =
 		trans_eq (Ast.EQUATION (exp1,exp2))
 
-	      | trans_eq eq =		
+	      | trans_eq eq =
 		(error ($"Malformed equation encountered");
 		 raise Skip)
 		

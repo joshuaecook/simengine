@@ -7,11 +7,6 @@ end = struct
 
 exception SortFailed
 
-type eq = {eq_type: DOF.eq_type,
-	   sourcepos: PosLog.pos,
-	   lhs: Exp.term,
-	   rhs: DOF.expression}
-
 (*remove line for debugging *)
 fun print x = ()
 fun printModel x =  (*DOFPrinter.printModel x*) CurrentModel.setCurrentModel x 
@@ -152,7 +147,7 @@ fun buildInstance (class, outputs, inputMap, original_instance_exp) : Exp.exp =
 	val rhs' = Exp.FUN (Fun.INST {classname= #name class, 
 				      instname=instName,
 				      props=
-				      Fun.setRealInstName (Fun.setRealClassName Fun.emptyinstprops orig_class_name) orig_inst_name},
+				      InstProps.setRealInstName (InstProps.setRealClassName InstProps.emptyinstprops orig_class_name) orig_inst_name},
 			    inputs)
 
 	val exp' = ExpBuild.equals (Exp.TERM lhs', rhs')

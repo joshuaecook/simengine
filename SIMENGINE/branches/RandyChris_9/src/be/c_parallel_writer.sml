@@ -265,7 +265,7 @@ fun class2flow_code (class, top_class) =
 	    and instanceeq2prog exp =
 		let
 		    val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
-		    val orig_instname = case Fun.getRealInstName props of
+		    val orig_instname = case InstProps.getRealInstName props of
 					    SOME v => v
 					  | NONE => instname
 
@@ -448,7 +448,7 @@ fun props2solver props =
 	val solver = case List.find (fn(sym, itertype) => 
 				       (case itertype of
 					    DOF.CONTINUOUS solver => true
-					  | DOF.DISCRETE => false)) iterators of
+					  | DOF.DISCRETE {fs} => false)) iterators of
 			 SOME (sym, DOF.CONTINUOUS solver) => solver
 		       | _ => DynException.stdException ("Requiring at least one differential equation", "CParallelWriter.buildC", Logger.INTERNAL)
     in

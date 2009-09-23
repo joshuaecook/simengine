@@ -13,6 +13,8 @@ datatype solver =
 
 val r2s = Util.r2s
 
+val default = ODE45 {dt=0.1, abs_tolerance=(1e~6), rel_tolerance=(1e~3)}
+
 (* these are defined in solvers.c *)
 fun solver2name (FORWARD_EULER _) = "forwardeuler"
   | solver2name (EXPONENTIAL_EULER _) = "exponentialeuler"
