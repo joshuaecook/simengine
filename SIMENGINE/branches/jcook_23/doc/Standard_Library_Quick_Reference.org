@@ -1,0 +1,54 @@
+# See [[http://orgmode.org/manual/]] for information on how to edit this
+# file in Emacs
+#
+#+TITLE:     DSL Standard Library Quick Reference
+#+AUTHOR:    Simatra Modeling Technologies
+#+DATE:      2009-08-31 Mon
+#+LANGUAGE:  en
+#+OPTIONS:   H:3 num:nil toc:nil \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
+#+OPTIONS:   TeX:t LaTeX:nil skip:t d:nil todo:t pri:nil tags:not-in-toc
+#+OPTIONS:   author:nil timestamp:nil
+#+INFOJS_OPT: view:nil toc:nil ltoc:t mouse:underline buttons:0 path:http://orgmode.org/org-info.js
+#+EXPORT_SELECT_TAGS: export
+#+EXPORT_EXCLUDE_TAGS: noexport
+#+LINK_UP:   
+#+LINK_HOME:
+
+
+* Constants
+| constant | definition                                     |
+|----------+------------------------------------------------|
+| pi       | ratio of circuference and diameter of a circle |
+| e        | base of natural logarithm                      |
+
+* Functions
+| function   | definition        |
+|------------+-------------------|
+| invert(x)  | reciprocal        |
+| abs(x)     | absolute value    |
+| power(x,y) | x to the y power  |
+| sqrt(x)    | square root       |
+| exp(x)     | exponentiation    |
+| ln(x)      | natural logarithm |
+| log10(x)   | base 10 logarithm |
+| logn(x)    | base n logarithm  |
+  
+
+#+CAPTION: Trigonometric and related functions
+| function                     | definition                             |
+|------------------------------+----------------------------------------|
+| deg2rad(x), rad2deg(x)       | conversion between radians and degrees |
+|------------------------------+----------------------------------------|
+| sin(x), cos(x), tan(x)       | trigonometric functions                |
+| csc(x), sec(x), cot(x)       | reciprocal trig functions              |
+|------------------------------+----------------------------------------|
+| sinh(x), cosh(x), tanh(x)    | hyperbolic functions                   |
+| csch(x), sech(x), coth(x)    |                                        |
+|------------------------------+----------------------------------------|
+| asin(x), acos(x), atan(x)    | inverse trig functions                 |
+| acsc(x), asec(x), acot(x)    |                                        |
+|------------------------------+----------------------------------------|
+| asinh(x), acosh(x), atanh(x) | inverse hyperbolic functions           |
+| acsch(x), asech(x), acoth(x) |                                        |
+
+  
