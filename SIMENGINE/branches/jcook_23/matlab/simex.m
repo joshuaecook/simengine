@@ -76,6 +76,9 @@
 %        Utilize a particular solver builtin to MATLAB, such as
 %        ode15s, ode23t, and ode45.
 %
+%      '-quiet'
+%        Do not display output from the simEngine compiler
+%
 %    M = SIMEX(MODEL) compiles MODEL as above and returns a
 %    model description structure M containing information
 %    which describes the model states, parameters, and outputs.
@@ -100,7 +103,9 @@ else
                       'not exist'])
 end
 
-if nargin == 1
+if nargin == 1 || isstr(varargin{2}) % alternative is that you
+                                     % supply a flag as a second
+                                     % arg (not a time)
   varargout = {interface};
 else
   userInputs = vet_user_inputs(interface, opts.inputs);
@@ -186,9 +191,9 @@ dslPath = '';
 dslName = '';
 modelFile = '';
 opts = struct('models',1, 'target','', 'precision','double', ...
-              'debug',false, 'profile',false, 'emulate',false, ...
-              'recompile',true,'startTime',0, 'endTime',0, ...
-              'inputs',struct(), 'states',[], ...
+              'verbose',true, 'debug',false, 'profile',false, ...
+              'emulate',false, 'recompile',true,'startTime',0, ...
+              'endTime',0, 'inputs',struct(), 'states',[], ...
               'simengine','', 'solver', []);
 
 [seroot] = fileparts(which('simex'));
@@ -204,9 +209,14 @@ modelFile = realpath(varargin{1});
 [pathName dslName] = fileparts(modelFile);
 
 if 1 < nargin
-  [opts.startTime opts.endTime] = get_time(varargin{2});
+  if isnumeric(varargin{2})
+    [opts.startTime opts.endTime] = get_time(varargin{2});
+    start_index = 3;
+  else
+    start_index = 2;
+  end
 
-  for count=3:nargin
+  for count=start_index:nargin
     arg = varargin{count};
     if isstruct(arg)
       opts.inputs = arg;
@@ -227,6 +237,8 @@ if 1 < nargin
       opts.target = 'GPU';
     elseif strcmpi(arg, '-parallel-pcu')
       opts.target = 'PARALLELCPU';
+    elseif strcmpi(arg, '-quiet')
+      opts.verbose = false;
     elseif strcmpi(arg, '-debug')
       opts.debug = true;
     elseif strcmpi(arg, '-emulate')
