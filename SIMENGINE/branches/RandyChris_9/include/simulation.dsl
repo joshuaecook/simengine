@@ -51,11 +51,6 @@ namespace Simulation
 
     var downsampling
 
-    function reset ()
-      currentval = initialval
-      readval = undefined
-    end
-
     function setPrecision (p: Precision)
       precision = p
     end
@@ -130,67 +125,7 @@ namespace Simulation
   end  
 
 
-
   class Equation
-    var assigned_state
-    var expression
-
-    function regenerateExp(x: Number) = x
-    overload function regenerateExp (x: Binary) = x
-    overload function regenerateExp (x: Boolean) = x
-    overload function regenerateExp (x: SimQuantity) = x.getValue()
-    overload function regenerateExp (x: ModelOperation) = 
-        LF apply (x.execFun, x.args.map(regenerateExp).totuple())
-
-    function regenerate() = regenerateExp (expression)
-
-    function copyWithNewExp(exp) = Equation.new (assigned_state, exp)
-
-    function getExp() = expression
-    function getState() = assigned_state
-
-    function tostring ()
-      var str = self.class.name + "("
-      // cannot rely on the + operator for string coersion because it is overloaded to return a ModelOperation
-      str = str + "assigned_state=" + self.assigned_state.tostring()
-      str + ")"
-    end
-
-    constructor (assigned_state: SimQuantity, expression)
-      self.assigned_state = assigned_state
-      self.expression = expression
-    end
-  end
-
-  class DifferenceEquation extends Equation
-    var temporalRef
-
-    constructor (temporalRef, assigned_state: SimQuantity, expression)
-      super (assigned_state, expression)
-
-
-       if istype (type SimIterator, temporalRef) then
-         self.temporalRef = IteratorReference.new(assigned_state, temporalRef, 0)
-       else
-         self.temporalRef = temporalRef
-       end
-    end    
-  end
-
-  class DifferentialEquation extends Equation
-    var degree
-
-    constructor (degree: Number, assigned_state: SimQuantity, expression)
-      super (assigned_state, expression)
-
-//      println ("  differential equation for " + (assigned_state.name) + " has degree " + degree + " with expression " + (expression.tostring()))
-
-      self.degree = degree
-    end    
-  end
-
-  
-/*  class Equation
     var lhs
     var rhs
 
@@ -199,7 +134,7 @@ namespace Simulation
       self.rhs = rhs
     end
   end  
-*/
+
 
 
   class ModelOperation
