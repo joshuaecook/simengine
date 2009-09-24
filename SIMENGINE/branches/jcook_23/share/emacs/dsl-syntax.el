@@ -36,7 +36,7 @@
 
 
 (defvar dsl-id-pattern
-  "\\w+")
+  "\\_<\\w+\\_>")
 
 
 ;; Cf. Section 35.6.3 Parser State from GNU Emacs Lisp Reference Manual

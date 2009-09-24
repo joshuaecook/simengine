@@ -41,7 +41,8 @@ DSL Modeling Quick Reference
 #+END_SRC
 * Inputs
   Define default input values with the =input= keyword and the
-  =default= entry in a table.
+  =default= entry in a table.  If no default value is given, an input
+  value will be required when the model is instantiated.
 
 #+BEGIN_SRC dsl
   input I with {default=2}
@@ -50,7 +51,7 @@ DSL Modeling Quick Reference
   Outputs defined in the model declaration line are automatically
   assigned to model quantities of the same name.
 
-  Alias or group output quantities with the =output= keyword. Limit
+  The =output= keyword is used to alias or group output quantities. Limit
   the frequency of output data with the =condition= entry in a table.
 
 #+BEGIN_SRC dsl
@@ -81,7 +82,7 @@ DSL Modeling Quick Reference
   end
 #+END_SRC
 * Solvers
-  Select a numerical solver by seting the =solver= model
+  Select a numerical solver by setting the =solver= model
   variable. Set the solver attributes with an optional table.
 
 #+BEGIN_SRC dsl
@@ -132,21 +133,40 @@ DSL Modeling Quick Reference
   values. =Y0= is a matrix of initial state values.
 
 #+CAPTION: Additional SIMEX Options
+  | option      | value                           |
+  |-------------+---------------------------------|
   | precision   | =-double= =-single= =-float=    |
   | target      | =-cpu= =-parallel-cpu= =-gpu=   |
   | compilation | =-dontrecompile=                |
   | etc.        | =-debug= =-profile= =-emulate=  |
+
+* Simulation Analysis Tools
+
 * Plotting with SIMPLOT
 
+ =SIMPLOT(STRUCTURED_OUTPUT)= \\
+ Using similar syntax as the plot command, =SIMPLOT= displays the structured time-value pair
+ from =SIMEX=.
+
 #+BEGIN_SRC dsl
+o = simex('mymodel.dsl', 100, '-cpu', '-double')
 simplot(o)
 simplot(o.V)
 simplot(o.V, 'r+')
 simplot(o.V, 'r+', 1:10, (1:10)^2)
 #+END_SRC dsl
+
 * Sweeping Input Signals with SIMSWEEP
+
+  =[OUT Y1 T1]= = =SIMSWEEP(MODEL, TIME, ...)= \\
+  Provides a convenient interfaces for generating multiple simulations through
+  a sweep of an input set.  Running =SIMSWEEP= without options will bring up
+  a helpful GUI to guide the simulation of an input sweep.
+
 * Sensitivity Analysis with SIMSENSITIVITY
   =OUT = SIMSENSITIVITY(MODEL, TIME)= \\
+
+Analyze the effects of input or state initial value changes on outputs.
 
 #+CAPTION: Additional SIMSENSITIVITY Options
   | option          | value                                                   |

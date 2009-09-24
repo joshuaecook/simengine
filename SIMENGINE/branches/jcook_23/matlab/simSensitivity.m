@@ -57,6 +57,10 @@
 %      is a percentage specifying the perturbation amount for each
 %      input/state.  The default is 1, or 1%.
 %
+%      SIMSENSITIVITY(MODEL, TIME, 'scaling', FLAG, ...) where FLAG
+%      can be true of false to indicate that each sensitivity
+%      output should be scaled between -1 and 1.  The default is false.
+%
 %    Output:
 %      s = SIMSENSITIVITY(...) returns a matrix where the rows corresponds
 %      to the inputs (x) and the columns (y) correspond to the outputs.
@@ -80,7 +84,10 @@ m = runSimex(dslfile);
 args = verifyArgs(m, p.Results);
 
 % Run the sensitivity analysis over the final states or metrics
-s = runSensitivity(args);
+s_pre = runSensitivity(args);
+
+% Now scale if necessary
+s = scaleSensitivities(s_pre, args);
 
 end
 
@@ -100,13 +107,14 @@ p.addParamValue('input_mode', 'states', @(x)any(strcmpi(x,{'states','inputs'})))
 p.addParamValue('output_mode', 'final_state', @(x)any(strcmpi(x,{'final_state','metrics'})))
 p.addParamValue('metric_funs', {}, @iscell)
 p.addParamValue('emulation', false, @(x)(x==true || x==false))
+p.addParamValue('scaling', false, @(x)(x==true || x==false))
 
 p.parse(dslfile, args{:});
 
 % Display all arguments.
-%disp ' '
-%disp 'List of all arguments:'
-%disp(p.Results)
+% disp ' '
+% disp 'List of all arguments:'
+% disp(p.Results)
 
 end
 
@@ -182,7 +190,6 @@ else % we are going to do an evaluation of the metrics
       end
     end  
   end
-  metrics
   s = computeFinalStateSensitivities(args, metrics);
 end
 
@@ -248,12 +255,13 @@ if statemode
    for i=1:length(args.states)
        x = [args.states(i)*(1.00-perturb) args.states(i) args.states(i)*(1.00+perturb)];
        for j=1:length(args.states)
-           y = [final_states(2+2*(j-1),i) final_states(count,i) final_states(1+2*(j-1),i)];
-           if diff(diff(x)) == 0
+           %y = [final_states(2+2*(j-1),i) final_states(count,i) final_states(1+2*(j-1),i)];
+           y = [final_states(2+2*(i-1),j) final_states(count,j) final_states(1+2*(i-1),j)];
+           if x(1) == x(3)
              s(i, j) = 0;
            else
              p = polyfit(x,y,1);
-             %disp(sprintf('(%d, %d): x=[%g,%g,%g],y=[%g,%g,%g], line=%g * x + %g]\n', i, j, x(1), x(2), x(3), y(1), y(2), y(3), p(1), p(2)));
+             %disp(sprintf('(%d, %d): x=[%g,%g,%g],y=[%g,%g,%g], line=%g * x + %g', i, j, x(1), x(2), x(3), y(1), y(2), y(3), p(1), p(2)));
              s(i,j)=p(1);
            end
        end
@@ -265,7 +273,7 @@ else
         x = [val*(1.00-perturb) val val*(1.00+perturb)];
        for j=1:size(final_states,2)
            y = [final_states(2+2*(i-1),j) final_states(count,j) final_states(1+2*(i-1),j)];
-           if diff(diff(x)) == 0
+           if x(1) == x(3)
              s(i, j) = 0;
            else
              p = polyfit(x,y,1);
@@ -276,9 +284,27 @@ else
    end
 end
 
-
 end
 
+%% Scale Sensitivities
+function scaled_s = scaleSensitivities(s, args)
+
+if args.scaling
+  max_vec = max(s);
+  min_vec = min(s);
+  scaling_vec = zeros(length(max_vec), 2);
+  factor = 2./(max_vec - min_vec);
+  scaling_vec(:,1) = factor;
+  scaling_vec(:,2) = (1-factor.*max_vec);
+  scaled_s = zeros(size(s,1),size(s,2));
+  for j=1:size(s,2)
+    scaled_s(:,j) = polyval(scaling_vec(j,:), s(:,j));
+  end
+else
+  scaled_s = s;
+end
+
+end
 
 
 

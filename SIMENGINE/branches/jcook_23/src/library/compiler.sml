@@ -34,15 +34,6 @@ fun std_compile exec args =
 
 	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
 
-	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel()))
-	      (* code writers for parallel implementation follow ...*)
-	      val code = (*if DynamoOptions.isFlagSet "generateC" then
-			  (Logger.log_notice (Printer.$("Generating Debug C Back-end"));*)
-			  CParallelWriter.buildC (CurrentModel.getCurrentModel())
-(*		      else
-			  CParallelWriter.SUCCESS*)
-	      val _ = DynException.checkToProceed()
-
 	      val _ = DynException.checkToProceed()
 	  in 
 	      case code of

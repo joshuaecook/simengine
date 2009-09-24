@@ -32,29 +32,53 @@
 	  (regexp-opt (mapcar 'symbol-name syms) t)
 	  "\\_>"))
 
-(defun dsl-enumerate-subexp-highlighter (items &optional start)
+(defun dsl-enumerate (items &optional start)
   (unless start (setq start 0))
-  (if (not items) nil
-    (cons (list start (car items) t)
-	  (dsl-enumerate-subexp-highlighter (cdr items) (+ 1 start)))))
+  (if items (cons (list start (car items))
+		  (dsl-enumerate (cdr items) (+ 1 start)))
+    nil))
 
 (defun dsl-definition-spec-to-font-lock-keywords (spec)
    (if (or (symbolp spec) (not (cdr spec)))
        `(,(concat "\\_<" (symbol-name spec) "\\_>") 
 	 (0 font-lock-keyword-face))
-     (let ((ids (dsl-enumerate-subexp-highlighter (cdr spec) 2)))
-       `(,(concat "\\(" (symbol-name (car spec)) "\\)\\s-+"
+     (let ((ids (dsl-enumerate (cdr spec) 2)))
+       `(,(concat "\\(\\_<" (symbol-name (car spec)) "\\_>\\)\\s-+"
 		  (mapconcat 
 		   (lambda (_) (concat "\\(" dsl-id-pattern "\\)"))
-		   ids "\\s-+")) 
+		   ids "\s+")) 
+	 (1 font-lock-keyword-face)
 	 ,@ids))))
-
 
 (defvar dsl-mode-font-lock-keywords nil)
 (eval-when-compile
   (unless dsl-mode-font-lock-keywords
     (setq dsl-mode-font-lock-keywords
 	  `(
+;; 	    ,@(mapcar 'dsl-definition-spec-to-font-lock-keywords
+;;  		      '(
+;;  			(function font-lock-function-name-face)
+;;  			(namespace dsl-namespace-name-face)
+;;  			(class font-lock-type-face)
+;;  			(constant font-lock-constant-face)
+;;  			(var font-lock-variable-face)
+;;  			(state font-lock-variable-face)
+;;  			(input font-lock-variable-face)
+;;  			(output font-lock-variable-face)
+;;  			(submodel font-lock-type-face font-lock-variable-face)
+;;  			))
+
+	    ("\\(model\\)\\s-+(\\w+\\(?:\\s-*,\\s-*\\w+\\)*)\\s-*=\\s-*\\(\\w+\\)"
+	     (1 font-lock-keyword-face)
+	     (2 font-lock-type-face))
+
+;;	    ("\\<\\(state\\)\\>\\s-*\\(\\w+\\)"
+;;	     (1 font-lock-keyword-face)
+;;	     (2 font-lock-variable-face))
+
+	    ("\\(\\-?\\<[0-9.]+\\>\\)"
+	     (1 font-lock-constant-face))
+
 	    (,(dsl-mode-make-optimized-symbol-pattern dsl-keyword-symbols) 
 	     (0 font-lock-keyword-face))
 
@@ -63,26 +87,9 @@
 
 	    (,(dsl-mode-make-optimized-symbol-pattern dsl-type-symbols) 
 	     (0 font-lock-type-face))
+	    ))
 
-
-	    ("\\(model\\)\\s-+(\\w+\\(?:\\s-*,\\s-*\\w+\\)*)\\s-*=\\s-*\\(\\w+\\)"
-	     (2 font-lock-type-face))
-
-
-	    ,@(mapcar 'dsl-definition-spec-to-font-lock-keywords
-	    	      '(
-	    		(function font-lock-function-name-face)
-	    		(namespace dsl-namespace-name-face)
-	    		(class font-lock-type-face)
-	    		(constant font-lock-constant-face)
-	    		(var font-lock-variable-face)
-	    		(state font-lock-variable-face)
-	    		(input font-lock-variable-face)
-	    		(output font-lock-variable-face)
-	    		(submodel font-lock-type-face font-lock-variable-face)
-	    		))
-	    ))))
-
+))
 
 
 

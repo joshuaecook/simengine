@@ -11,62 +11,53 @@
 #include <dlfcn.h>
 #include <omp.h>
 
-#define ERROR(ID, MESSAGE, ARG...) {mexPrintf("ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); return; }
+static simengine_api *api = NULL;
+static double *inputs = NULL;
 
+//#define ERROR(ID, MESSAGE, ARG...) {mexPrintf("ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); return; }
 
 /* Loads the given named dynamic library file.
- * Returns an opaque handle to the library.
- */
-void *load_simengine(const char *name)
-    {
-    void *simengine;
+   Retrieves function pointers to the simengine API calls. */
+void init_simengine(const char *name)
+{
+  char *msg;
+  api = NMALLOC(1, simengine_api);
+  mexMakeMemoryPersistent(api);
 
-    if (!(simengine = dlopen(name, RTLD_NOW)))
-	{
-	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
+  api->driver = dlopen(name, RTLD_NOW);
+  if(!api->driver)
+    {
+      ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
 	    "dlopen() failed to load %s: %s", name, dlerror());
-	}
-
-    return simengine;
     }
 
-/* Retrieves function pointers to the simengine API calls. */
-simengine_api *init_simengine(void *simengine)
-    {
-    simengine_api *api;
-    char *msg;
-    api = NMALLOC(1, simengine_api);
-
-    api->getinterface = (simengine_getinterface_f)dlsym(simengine, "simengine_getinterface");
-    if (0 != (msg = dlerror()))
-	{ 
-	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
+  api->getinterface = (simengine_getinterface_f)dlsym(api->driver, "simengine_getinterface");
+  if (0 != (msg = dlerror()))
+    { 
+      ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
 	    "dlsym() failed to load getinterface: %s", msg); 
-	}
-    api->runmodel = (simengine_runmodel_f)dlsym(simengine, "simengine_runmodel");
-    if (0 != (msg = dlerror()))
-	{ 
-	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
-	    "dlsym() failed to load runmodel: %s", msg); 
-	}
-    api->evalflow = (simengine_evalflow_f)dlsym(simengine, "simengine_evalflow");
-    if (0 != (msg = dlerror()))
-	{ 
-	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
-	    "dlsym() failed to load runmodel: %s", msg); 
-	}
-
-    api->driver = simengine;
-
-    return api;
     }
+  api->runmodel = (simengine_runmodel_f)dlsym(api->driver, "simengine_runmodel");
+  if (0 != (msg = dlerror()))
+    { 
+      ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
+	    "dlsym() failed to load runmodel: %s", msg); 
+    }
+  api->evalflow = (simengine_evalflow_f)dlsym(api->driver, "simengine_evalflow");
+  if (0 != (msg = dlerror()))
+    { 
+      ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
+	    "dlsym() failed to load evalflow: %s", msg); 
+    }
+}
 
 /* Releases a library handle. The given handle and associated api may no longer be used. */
-void release_simengine(simengine_api *api)
-    {
-    dlclose(api->driver);
-    FREE(api);
-    }
+void release_simengine()
+{
+  dlclose(api->driver);
+  FREE(api);
+  api = NULL;
+}
 
 void mexSimengineResult(const simengine_interface *iface, int noutput, mxArray **output, unsigned int models, simengine_result *result)
     {
@@ -219,7 +210,7 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 
 void usage(void)
     {
-      PRINTF("Usage: SIMEX_HELPER(DLL, '-query')\n       SIMEX_HELPER(DLL,T,INPUTS,Y0)\n       SIMEX_HELPER(DLL,T,Y0,INPUTS, '-evalflow')\n");
+      PRINTF("Usage:\tSIMEX_HELPER(DLL, '-query')\n\tSIMEX_HELPER(DLL,T,INPUTS,Y0)\n\tSIMEX_HELPER(DLL,INPUTS)\n\tSIMEX_HELPER(T,Y0)\n");
     }
 
 /* MATLAB entry point.
@@ -227,7 +218,8 @@ void usage(void)
  * Usage:
  *     M = SIMEX_HELPER(DLL, '-query')
  *     [OUT Y1] = SIMEX_HELPER(DLL, TIME, INPUTS, Y0)
- *     Y1 = SIMEX_HELPER(DLL, TIME, INPUTS, Y0, '-evalflow')
+ *     SIMEX_HELPER(DLL, INPUTS)
+ *     Y1 = SIMEX_HELPER(TIME, Y0)
  *
  *     The first form returns a struct describing the model interface,
  *     including names and default values for inputs and states.
@@ -250,6 +242,27 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
     char name[2048];
 
+    // Fast entry to evalflow
+    // Check for two parameters where the first is not the name of the DLL
+    if(2 == nrhs && mxCHAR_CLASS != mxGetClassID(prhs[0])){
+      if(api == NULL)
+	{
+	  ERROR(Simatra:SIMEX:HELPER:InitializationError,
+		"simex_helper.mex was not initialized with a dynamic library to load.");
+	}
+      double t = mxGetScalar(prhs[0]);
+      const mxArray *y0 = prhs[1];
+      plhs[0] = mxCreateDoubleMatrix(mxGetM(y0), 1, mxREAL);
+      double *y1 = mxGetPr(plhs[0]);
+      int ret = api->evalflow(t, mxGetPr(y0), y1, inputs);
+      if (0 != ret)
+	{
+	  ERROR(Simatra:SIMEX:HELPER:RunTimeError,
+		"Evaluation of flows failed at time=%g", t);
+	}
+      return;
+    }
+
     if (!(2 == nrhs || 4 == nrhs || 5 == nrhs))
 	{
 	usage();
@@ -268,6 +281,21 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	ERROR(Simatra:SIMEX:HELPER:argumentError,
 	    "DLL exceeds maximum acceptable length of %d.", 2048);
 	}
+
+    // Initialize or remove the DLL for the ODE interface to evalflow
+    if (0 == nlhs && 2 == nrhs) 
+      {
+	if(api == NULL){
+	  init_simengine(name);
+	  inputs = mxGetPr(prhs[1]);
+	}
+	else
+	  {
+	    release_simengine();
+	    inputs = NULL;
+	  }
+	return;
+      }
 
     if (mxCHAR_CLASS == mxGetClassID(prhs[1]))
 	{
@@ -290,57 +318,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		"Incorrect number of left-hand side arguments.");
 	    }
 	
-	simengine_api *api = init_simengine(load_simengine(name));
+	init_simengine(name);
 	const simengine_interface *iface = api->getinterface();
 
 	mexSimengineInterface(iface, plhs);
 
-	release_simengine(api);
+	release_simengine();
 	}
     
-    else if (5 == nrhs && mxCHAR_CLASS == mxGetClassID(prhs[4])) 
-      {
-	char flag[48];
-	if (0 != mxGetString(prhs[4], flag, 48))
-	    {
-	    ERROR(Simatra:SIMEX:HELPER:argumentError,
-		"Second argument exceeds maximum acceptable length of %d.", 48);
-	    }
-	if (0 != strncasecmp("-evalflow", flag, 10))
-	    {
-	    usage();
-	    ERROR(Simatra:SIMEX:HELPER:argumentError,
-		"Unrecognized argument %s.", flag);
-	    }
-	else 
-	  {
-	    if (1 != nlhs)
-	      {
-		usage();
-		ERROR(Simatra:SIMEX:HELPER:argumentError, 
-		      "Incorrect number of return arguments.");
-	      }
-	    double t = mxGetScalar(prhs[1]);
-	    const mxArray *y0 = prhs[2];
-	    const mxArray *inputs = prhs[3];
-	    if (mxGetN(y0) != 1 || mxGetN(inputs) > 1)
-	      {
-		ERROR(Simatra:SIMEX:HELPER:argumentError,
-		      "Only one model can be evaluated at a time when using the -evalflow option");
-	      }
-	    plhs[0] = mxCreateDoubleMatrix(mxGetM(y0), 1, mxREAL);
-	    double *y1 = mxGetPr(plhs[0]);
-
-	    simengine_api *api = init_simengine(load_simengine(name));
-	    int ret = api->evalflow(t, mxGetPr(y0), y1, mxGetPr(inputs));
-	    if (0 != ret)
-	      {
-		ERROR(Simatra:SIMEX:HELPER:RunTimeError,
-		      "Evaluation of flows failed at time=%g", t);
-	      }
-	    release_simengine(api);
-	  }
-      }
     else
       {
 	simengine_result *result;
@@ -411,35 +396,40 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		"Incorrect number of left-hand side arguments.");
 	    }
 
-	simengine_api *api = init_simengine(load_simengine(name));
+	init_simengine(name);
 	const simengine_interface *iface = api->getinterface();
 	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
 
-	omp_set_num_threads(omp_get_num_procs());
+        // These openmp calls are not used currently, but openmp may be used in the future to move data back to
+        // Matlab.  For some reason, if omp_set_num_threads is called without querying the omp environment first
+        // this code fails to compile and link properly on Mac OS X 10.5.
+	int nt = omp_get_num_threads(); // this call in particular is needed
+	int np = omp_get_num_procs();
+	omp_set_num_threads(np);
 
 	result = api->runmodel(startTime, stopTime, models, mxGetPr(userInputs), mxGetPr(userStates), &allocator);
 
 	switch (result->status)
 	    {
 	    case ERRMEM:
-		release_simengine(api);
-		ERROR(Simatra:SIMEX:HELPER:memoryError, "A memory error occurred during simulation.");
+		release_simengine();
+		ERROR(Simatra:SIMEX:HELPER:memoryError, "Ran out of memory during simulation.");
 		break;
 
 	    case ERRCOMP:
-		release_simengine(api);
+		release_simengine();
 		ERROR(Simatra:SIMEX:HELPER:runtimeError, "An error occurred during simulation computation.");
 		break;
 
 	    case ERRNUMMDL:
 		expected = iface->metadata->num_models;
-		release_simengine(api);
+		release_simengine();
 		ERROR(Simatra:SIMEX:HELPER:valueError, "Expected to run %d parallel models but received %d.", expected, models);
 		break;
 	    }
 
 	mexSimengineResult(iface, nlhs, plhs, models, result);
 
-	release_simengine(api);
+	release_simengine();
       }
     }

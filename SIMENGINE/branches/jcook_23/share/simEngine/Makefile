@@ -73,10 +73,10 @@ ifneq ($(EMULATE),)
 endif
 endif
 
-ifeq ($(TARGET),OPENMP)
+#ifeq ($(TARGET),OPENMP)
 LDLIBS += $(OPENMP_LDLIBS)
 CFLAGS += -fopenmp
-endif
+#endif
 
 ifneq ($(DEBUG),)
 	COMMON += -g
@@ -87,6 +87,17 @@ else
 	NVCCFLAGS += --compiler-options -fno-strict-aliasing
 	CXXFLAGS += -fno-strict-aliasing
 	CFLAGS += -fno-strict-aliasing
+endif
+
+ifeq ($(ARCH),x86_64)
+	NVCCFLAGS += -m 64
+ifeq ($(OSLOWER),darwin)
+	CXXFLAGS += -arch x86_64
+	CFLAGS += -arch x86_64
+else
+	CXXFLAGS += -m64
+	CFLAGS += -m64
+endif
 endif
 
 # ---

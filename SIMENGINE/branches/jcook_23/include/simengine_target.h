@@ -64,7 +64,7 @@ typedef unsigned long counter;
 
 // Target backends
 // Target backends reference memory in different layouts
-// TARGET_CPU allows for only a single model to be executed and uses a single structure to hold data
+// TARGET_CPU allows multiple models to be executed serially and uses an array of structures to hold data
 #if defined TARGET_CPU
 //#if NUM_MODELS > 1
 //#error Only one model is supported for CPU target
@@ -84,7 +84,6 @@ typedef unsigned long counter;
 
 // TARGET_OPENMP allows multiple models to be executed on the CPU and uses an array of structures to hold data (prevents false sharing in cache between threads)
 #elif defined TARGET_OPENMP
-#include <omp.h>
 #define TARGET OPENMP
 #define TARGET_IDX AS_IDX
 #define STRUCT_IDX modelid

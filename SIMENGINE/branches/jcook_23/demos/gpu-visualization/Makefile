@@ -15,7 +15,7 @@
 # Copyright 2009 Simatra Modeling Technologies, L.L.C.
 # For more information, please visit http://www.simatratechnologies.com
 
-base = /home/jcook/SourceCode/simEngine/branches/clebsack_6/local-install/
+base = /usr/local/share/Simatra
 include $(base)include/common.make
 
 
@@ -124,7 +124,7 @@ grind_simEngine: grind_simEngine.o $(base)share/simEngine/grind_simEngine.cpp
 	$(LINK.cpp) $(LDFLAGS) -o $@ $< $(LDLIBS)
 
 cuda_glui: CPPFLAGS += -DLIBSIMENGINE=$(realpath libsimengine.so)
-cuda_glui: cuda_glui.o libsimengine.so $(DSL_MODEL).h simengine.h
+cuda_glui: cuda_glui.o libsimengine.so # simengine.h
 	$(LINK.cpp) $(LDFLAGS) -o $@ $< $(LDLIBS) $(GLLIBS) $(GLUTLIBS)
 
 libsimengine.so: $(DSL_MODEL)_parallel.o

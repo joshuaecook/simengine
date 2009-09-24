@@ -1,24 +1,12 @@
 function varargout = simsweepdemo(varargin)
-% SIMSWEEPDEMO M-file for simsweepdemo.fig
-%      SIMSWEEPDEMO, by itself, creates a new SIMSWEEPDEMO or raises the existing
-%      singleton*.
+% SIMSWEEPDEMO - demonstrates the simsweep capabilities for four
+% example models
 %
-%      H = SIMSWEEPDEMO returns the handle to a new SIMSWEEPDEMO or the handle to
-%      the existing singleton*.
+%      Usage:
+%         SIMSWEEPDEMO(DEMO_MODELS) to see four neural models in
+%         action
 %
-%      SIMSWEEPDEMO('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in SIMSWEEPDEMO.M with the given input arguments.
-%
-%      SIMSWEEPDEMO('Property','Value',...) creates a new SIMSWEEPDEMO or raises the
-%      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before simsweepdemo_OpeningFcn gets called.  An
-%      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to simsweepdemo_OpeningFcn via varargin.
-%
-%      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
-%      instance to run (singleton)".
-%
-% See also: GUIDE, GUIDATA, GUIHANDLES
+% See also: SIMEX, SIMSWEEP
 
 % Edit the above text to modify the response to help simsweepdemo
 
@@ -57,6 +45,12 @@ handles.output = hObject;
 
 % Update handles structure
 guidata(hObject, handles);
+
+enable_gpu = false;
+if not(enable_gpu)
+    set(handles.TargetMenu, 'String', {'CPU', 'PARALLEL-CPU'});
+end
+
 
 % UIWAIT makes simsweepdemo wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
@@ -106,7 +100,7 @@ function FileEdit_Callback(hObject, eventdata, handles)
 setStatus(handles, 'Compiling ...');
 m = simex(get(hObject, 'String'))
 handles.m = m;
-set(handles.OutputMenu, 'Value', 1;
+set(handles.OutputMenu, 'Value', 1);
 set(handles.OutputMenu, 'String', m.output_names);
 set(handles.InputTable, 'RowName', m.input_names);
 data = cell(length(m.input_names),3);

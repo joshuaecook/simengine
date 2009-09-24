@@ -170,6 +170,6 @@ model (VmS, VmA) = hn(Istim, Vpre)
 	join1(synaptic, neurite2)
 
 	//solver = ode23 {abstol=1e-5, reltol=1e-9}
-	solver = cvode//ode23//forwardeuler
+	solver = forwardeuler
 	solver.dt = 1e-5
 end

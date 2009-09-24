@@ -11,7 +11,11 @@ ARCH64 = $(strip $(shell arch|grep 64))
 GRIND := valgrind
 CXX := g++
 ifeq ($(OSLOWER), darwin)
-CC := g++
+GXXVERSION = $(shell g++ -v 2>&1 | tail -1 | cut -d' ' -f 3)
+GXXMAJOR = $(shell echo $(GXXVERSION) | cut -d. -f 1)
+GXXMINOR = $(shell echo $(GXXVERSION) | cut -d. -f 2)
+
+CC=$(shell (export CC=g++; if [[ 4 -ge $GXXMAJOR ]]; then if [[ 2 -gt $GXXMINOR ]]; then export CC=g++-4.2; fi; fi; echo $$CC))
 else
 CC := gcc
 endif
@@ -57,7 +61,7 @@ MKOCTFILE := $(OCTAVE_INSTALL_PATH)/bin/mkoctfile --mex
 endif
 
 # Every possible MEX extension
-ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexs64 .mexw32 .mexw64 .mex
+ALL_MEXEXT = mexglx mexa64 mexmaci mexs64 mexw32 mexw64 mex
 
 # Inspects operating system and architecture
 OSLOWER = $(shell uname -s|tr [:upper:] [:lower:])

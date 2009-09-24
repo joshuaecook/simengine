@@ -7,13 +7,13 @@
 %
 %   Description:
 %    SIMEX compiles the model defined in the DSL file into a
-%    high-performance software simulation engine. SIMEX automatically
-%    chooses the best available computing platform for the model and
-%    executes the simulation with the given parameters. (I hope hope hope.)
+%    high-performance software simulation engine. SIMEX generates a
+%    specially tuned executable version of the model for the selected computing
+%    platform and executes the simulation with the given parameters.
 %
 %    SIMEX(MODEL, TIME, INPUTS, Y0, ...) accepts the following options, all
-%    of which are optional except for the file name of the DSL model and
-%    the simulation time limit.
+%    of which are optional except for the file name of the DSL model and the
+%    time to execute the simulation.
 %
 %      MODEL is a full pathname to a DSL model file.
 %
@@ -36,12 +36,11 @@
 %
 %      '-outdir'
 %        The next parameter must be a path which specifies the
-%        directory in which the compiled model will be saved. (?Not
-%        supported in Octave?)
+%        directory in which the compiled model will be saved.
 %
 %      '-double'
 %        Constructs a simulation engine that computes in
-%        double-precision floating point.
+%        double-precision floating point. (This is the default.)
 %
 %      '-single' '-float'
 %        Constructs a simulation engine that computes in
@@ -49,6 +48,7 @@
 %
 %      '-cpu'
 %        Constructs a serialized cpu-based simulation engine.
+%        (This is the default.)
 %
 %      '-parallel-cpu'
 %        Constructs a multiprocessor cpu-based simulation engine.
@@ -62,7 +62,7 @@
 %        information.
 %
 %      '-dontrecompile'
-%        Tells the compiler to not recompile the model
+%        Tells the compiler to not recompile the model.
 %
 %      '-profile'
 %        Enables the compiler to produce extra profiling
@@ -142,26 +142,27 @@ else
   
   tic;
     if opts.solver % use a MATLAB ODE solver
-      flow_fun = @(t, y0)(simex_helper(dllPath,t, y0, ...
-                                      userInputs, '-evalflow'));
+      simex_helper(dllPath, userInputs); % Initialize evalflow DLL
       try
-        [t, y] = feval(opts.solver, flow_fun, [opts.startTime opts.endTime], ...
+        [t, y] = feval(opts.solver, @simex_helper, [opts.startTime opts.endTime], ...
                        userStates);
       catch me
         me
       end
-      clear flow_fun
+      simex_helper(dllPath, userInputs); % Cleanup evalflow DLL
       varargout = {t, y};
       elapsed = toc;
-      disp([dslName ' simulation using ' opts.solver ' completed in ' num2str(elapsed) ' ' ...
-                          'seconds.']);
+      verbose_out([dslName ' simulation using ' opts.solver ' completed in ' num2str(elapsed) ' ' ...
+            'seconds.'], opts);
       return;
     else
       [output y1 t1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
                                     userInputs, userStates);
     end
   elapsed = toc;
-  disp([dslName ' simulation completed in ' num2str(elapsed) ' seconds.']);
+  
+  verbose_out([dslName ' simulation completed in ' num2str(elapsed) ...
+               ' seconds.'], opts);
   
 
   % Output data are transposed before returning.
@@ -235,8 +236,10 @@ if 1 < nargin
       opts.target = 'CPU';
     elseif strcmpi(arg, '-gpu')
       opts.target = 'GPU';
-    elseif strcmpi(arg, '-parallel-pcu')
+    elseif strcmpi(arg, '-parallel-cpu')
       opts.target = 'PARALLELCPU';
+    elseif strcmpi(arg, '-v')
+      opts.verbose = true;
     elseif strcmpi(arg, '-quiet')
       opts.verbose = false;
     elseif strcmpi(arg, '-debug')
@@ -427,9 +430,15 @@ setenv('SIMENGINE', opts.simengine);
 
 if opts.recompile
   tic;
-    status = simEngine_wrapper(simengine, modelFile, dslName);
+    if opts.verbose
+      status = simEngine_wrapper(simengine, modelFile, dslName, ['-' ...
+                          'v']);
+    else
+      status = simEngine_wrapper(simengine, modelFile, dslName);
+    end
   elapsed = toc;
-  disp(['simEngine compiler completed in ' num2str(elapsed) ' seconds.']);
+  verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
+                        'seconds.'], opts);
 
   if 0 ~= status
       error('Simatra:SIMEX:compileError', ...
@@ -437,30 +446,43 @@ if opts.recompile
   end
   
   target = opts.target;
-if strcmp(opts.target, 'PARALLELCPU')
-  target = 'OPENMP';
-end
+  if strcmp(opts.target, 'PARALLELCPU')
+    target = 'OPENMP';
+  end
 
+  % determine architecture
+  switch computer
+   case {'PCWIN', 'GLNX86', 'MACI'}
+    arch = 'i386';
+   case {'PCWIN64', 'GLNXA64', 'SOL64', 'MACI64'}
+    arch = 'x86_64';
+   otherwise
+    warning('Simatra:simEngine:simex', ['Architecture is not officially '...
+            'supported'])
+  end  
+
+  
   make = ['make remake' ...
         ' -f' fullfile(opts.simengine, 'share/simEngine/Makefile') ...
         ' SIMENGINEDIR=' opts.simengine ...
         ' MODEL=' modelFile ...
         ' TARGET=' target ...
+        ' ARCH=' arch ...
         ' SIMENGINE_STORAGE=' opts.precision ...
         ' NUM_MODELS=' num2str(opts.models) ...
         ' &> simex_make.log'];
 
-if opts.debug
-  make = [make ' DEBUG=1'];
-end
 if opts.emulate
   make = [make ' EMULATE=1'];
 end
 if opts.profile
   make = [make ' PROFILE=1'];
 end
+if opts.debug
+  make = [make ' DEBUG=1'];
+  disp(make)
+end
 
-disp(make);
 tic;
 status = system(make);
 elapsed = toc;
@@ -468,13 +490,22 @@ elapsed = toc;
 if 0 ~= status
   error('Simatra:SIMEX:compileError', ...
         'Make returned status code %d.', status);
+  type simex_make.log
 end
-disp([opts.target ' compiler completed in ' num2str(elapsed) ' seconds.']);
+verbose_out([opts.target ' compiler completed in ' num2str(elapsed) ' ' ...
+                    'seconds.'], opts);
+
+if opts.debug == false
+% clean up generated files
+  delete simex_make.log
+  [igpath fileprefix igext] = fileparts(modelFile);
+  delete([fileprefix '_parallel.*'])
+end
 end % end if recompile
 
 % TODO what is the path of the resultant DLL?
 switch computer
-  case {'MACI', 'MACI64'}
+  case {'MACI', 'MACI64','i386-apple-darwin9.8.0','i386-apple-darwin8.9.1'}
    dllPath = fullfile(pwd, 'libsimengine.dylib');
  otherwise
    dllPath = fullfile(pwd, 'libsimengine.so');
@@ -491,6 +522,9 @@ function [abspath] = realpath(relpath, root)
 % is taken as relative to ROOT. If omitted, RELPATH is treated as
 % relative to the current working directory.
 [dir file ext ver] = fileparts(relpath);
+if isempty(dir)
+    dir = '.';
+end 
 command = ['cd ' dir ';'...
            ' echo $(pwd)/' file ext ver ';'];
 if nargin > 1
@@ -500,3 +534,9 @@ end
 abspath = strtrim(abspath);
 end
 
+%%
+function [] = verbose_out(x, opts)
+  if opts.verbose
+    disp(x)
+  end
+end

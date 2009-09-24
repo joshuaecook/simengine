@@ -2,7 +2,7 @@
 #include <string.h>
 #include <mex.h>
 
-int runsimEngine (char *simengine, char *file, char *modelname)
+int runsimEngine (char *simengine, char *file, char *modelname, int verbose)
 {
   FILE *fp;
   char readbuffer[1000];
@@ -31,10 +31,11 @@ int runsimEngine (char *simengine, char *file, char *modelname)
 	{
 	  errored = 0;
 	}
-
-      mexPrintf("%s", readbuffer);
+      if(verbose)
+	mexPrintf("%s", readbuffer);
     }
-  mexPrintf("\n");
+  if(verbose)
+    mexPrintf("\n");
   pclose(fp);
 
   return errored;
@@ -42,9 +43,11 @@ int runsimEngine (char *simengine, char *file, char *modelname)
 
 void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {
   char simenginecmd[1000], file[1000], modelname[1000];
-  if (nrhs != 3)
+  char verboseflag[3];
+  int verbose;
+  if (nrhs < 3 || nrhs > 4)
     {
-      mexErrMsgIdAndTxt("Simatra:argumentError", "Arguments are (simEnginecmd, file, modelname)");
+      mexErrMsgIdAndTxt("Simatra:argumentError", "Arguments are (simEnginecmd, file, modelname [, '-v'])");
     }
 
   if (mxGetString(prhs[0], simenginecmd, 1000))
@@ -62,7 +65,13 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
       mexErrMsgIdAndTxt("Simatra:argumentError", "Model name argument is not a string");
     }
 
-  plhs[0] = mxCreateDoubleScalar(runsimEngine(simenginecmd, file, modelname));
+  if (nrhs == 4 && (mxGetString(prhs[3], verboseflag, 3) || strncmp(verboseflag, "-v", 2)))
+    {
+      mexErrMsgIdAndTxt("Simatra:argumentError", "Fourth parameter is not optional flag, '-v'");
+    }
+  verbose = nrhs == 4;
+
+  plhs[0] = mxCreateDoubleScalar(runsimEngine(simenginecmd, file, modelname, verbose));
   
 }
 /*

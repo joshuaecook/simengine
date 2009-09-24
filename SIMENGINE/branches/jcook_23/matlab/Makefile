@@ -13,7 +13,14 @@ CWARNINGS = -W -Wall
 
 COMMON = $(INCLUDES) -fPIC
 CFLAGS = $(CWARNINGS) $(COMMON) -std=gnu99
-MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99 -fopenmp" $(INCLUDES) $(LDLIBS)
+ifneq ($(ARCH64),)
+ifeq ($(OSLOWER),darwin)
+ARCH64_FLAG = -arch x86_64
+else
+ARCH64_FLAG = -m64
+endif
+endif
+MEXFLAGS = CFLAGS="$(CWARNINGS) -fPIC -std=gnu99 -fopenmp $(ARCH64_FLAG)" $(INCLUDES) $(LDLIBS)
 MKOCTFILEFLAGS = $(CWARNINGS) $(INCLUDES) $(LDLIBS)
 
 ifneq ($(DEBUG),)
@@ -27,14 +34,17 @@ else
 	MEXFLAGS += -O
 endif
 ifeq ($(OSLOWER),darwin)
-	LD = "/opt/local/bin/gcc-mp-4.4"
-	CC = "/opt/local/bin/gcc-mp-4.4"
-	CXX = "/opt/local/bin/g++-mp-4.4"
-	LOCATIONS=LD=$(LD) CC=$(CC) CXX=$(CXX)
+	LD = "/usr/bin/gcc-4.2"  
+	CC = "/usr/bin/gcc-4.2"  
+	CXX = "/usr/bin/g++-4.2"  
+	LOCATIONS=LD=$(LD) CC=$(CC) CXX=$(CXX)  
 else
 	LOCATIONS=
 endif
 MEXFLAGS += $(LOCATIONS)
+
+# Every possible MEX extension; used for cleaning
+ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex
 
 SIMEX_HELPER_OBJ = $(addprefix simex_helper,$(MEXEXT))
 SIMENGINE_WRAPPER_OBJ = $(addprefix simEngine_wrapper,$(MEXEXT))
@@ -48,8 +58,6 @@ simex_helper: $(SIMEX_HELPER_OBJ) # $(addprefix bin/,$(SIMEX_HELPER_OBJ))
 
 simEngine_wrapper: $(SIMENGINE_WRAPPER_OBJ) # $(addprefix bin/,$(SIMENGINE_WRAPPER_OBJ))
 
-#bin/simex_helper.%: ../include/simengine.h ../include/simengine_target.h
-
 %.mexglx: src/%.cpp
 	$(MEX) -glnx86 -outdir . $(MEXFLAGS) $<
 
@@ -62,12 +70,17 @@ simEngine_wrapper: $(SIMENGINE_WRAPPER_OBJ) # $(addprefix bin/,$(SIMENGINE_WRAPP
 %.mexa64: src/%.c
 	$(MEX) -glnxa64 -outdir . $(MEXFLAGS) $<
 
-# TODO maci64?
 %.mexmaci: src/%.cpp
 	$(MEX) -maci -outdir . $(MEXFLAGS) $<
 
 %.mexmaci: src/%.c
 	$(MEX) -maci -outdir . $(MEXFLAGS) $<
+
+%.mexmaci64: src/%.cpp
+	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
+
+%.mexmaci64: src/%.c
+	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
 
 %.mexs64: src/%.cpp
 	$(MEX) -sol64 -outdir . $(MEXFLAGS) $<
