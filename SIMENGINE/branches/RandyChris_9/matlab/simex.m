@@ -76,8 +76,8 @@
 %        Utilize a particular solver builtin to MATLAB, such as
 %        ode15s, ode23t, and ode45.
 %
-%      '-v'
-%        Generate verbose output from the simEngine compiler
+%      '-quiet'
+%        Do not display output from the simEngine compiler
 %
 %    M = SIMEX(MODEL) compiles MODEL as above and returns a
 %    model description structure M containing information
@@ -192,7 +192,7 @@ dslPath = '';
 dslName = '';
 modelFile = '';
 opts = struct('models',1, 'target','', 'precision','double', ...
-              'verbose',false, 'debug',false, 'profile',false, ...
+              'verbose',true, 'debug',false, 'profile',false, ...
               'emulate',false, 'recompile',true,'startTime',0, ...
               'endTime',0, 'inputs',struct(), 'states',[], ...
               'simengine','', 'solver', []);
@@ -240,6 +240,8 @@ if 1 < nargin
       opts.target = 'PARALLELCPU';
     elseif strcmpi(arg, '-v')
       opts.verbose = true;
+    elseif strcmpi(arg, '-quiet')
+      opts.verbose = false;
     elseif strcmpi(arg, '-debug')
       opts.debug = true;
     elseif strcmpi(arg, '-emulate')
