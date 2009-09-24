@@ -342,7 +342,7 @@ and trans_definition definition =
 								     | SOME dims => map (fn(s) => HLEC.SYMBOL s) dims)])), 
 				     PosLog.NOPOS),
 			 
-			 HLEC.DEFINITION(HLEC.DEFLOCAL (name, HLEC.DONTCARE, HLEC.SEND{message=name,
+			 HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.SEND{message=name,
 										       object=self}),
 					 PosLog.NOPOS)]
 		    end
@@ -420,19 +420,6 @@ and trans_definition definition =
 					  | Ast.STATE_QUANTITY => "State"
 					  | Ast.PARAMETER_QUANTITY => "Parameter"
 
-			fun set_modifier modifier =
-			    let val message = case modifier
-					       of Ast.VISIBLE => "setIsVisible"
-						| Ast.TUNABLE => "setIsTunable"
-						| Ast.STATEFUL => "setIsIterable"
-			    in
-				HLEC.ACTION (HLEC.EXP (apply (send message (HLEC.SYMBOL name), [HLEC.LITERAL (HLEC.CONSTBOOL true)])), PosLog.NOPOS)
-			    end
-
-			val prec = case precision
-				    of SOME prec => trans_exp prec
-				     | NONE => apply (send "new" (sym "InfinitePrecision"), nil)
-
 			val dims = case dimensions
 				    of SOME dims => trans_exp (Ast.VECTOR (map (Ast.LITERAL o Ast.CONSTSTR o Symbol.name) dims))
 				     | NONE => HLEC.VECTOR nil
@@ -447,13 +434,11 @@ and trans_definition definition =
 			[HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, quantity), PosLog.NOPOS),
 			 HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
 			 HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "quantities"), [HLEC.SEND {message=name, object=self}])), PosLog.NOPOS)] @
-			(map set_modifier modifiers) @
 			(case exp 
 			  of SOME exp => 
 			     [HLEC.ACTION (HLEC.EXP (apply (send "setInitialValue" (HLEC.SYMBOL name), [trans_exp exp])), PosLog.NOPOS)]
 			   | NONE => []) @
-			[HLEC.ACTION (HLEC.EXP (apply (send "setPrecision" (HLEC.SYMBOL name), [prec])), PosLog.NOPOS),
-			 HLEC.ACTION (HLEC.EXP (apply (send "setDimensions" (HLEC.SYMBOL name), [dims])), PosLog.NOPOS),
+			[HLEC.ACTION (HLEC.EXP (apply (send "setDimensions" (HLEC.SYMBOL name), [dims])), PosLog.NOPOS),
 			 HLEC.ACTION (HLEC.EXP (apply (HLEC.SYMBOL name, [table])), PosLog.NOPOS)]
 		    end
 		    
@@ -731,8 +716,54 @@ and trans_action pos action =
 		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), pos)]
 		end
 
-	     (* | trans_eq (Ast.EQUATION (lhs, rhs)) =*)
-	      | trans_eq (Ast.EQUATION (Ast.SYMBOL name, exp)) =
+	     | trans_eq (Ast.EQUATION (lhs, rhs)) =
+	       let
+		    fun findSymbols exp =
+			case exp of
+			    Ast.SYMBOL s => [s]
+			  | Ast.POS (exp, _) => findSymbols exp
+			  | Ast.APPLY {func=Ast.SYMBOL s, args=Ast.TUPLE [_, e]} 
+			    => if s = (Symbol.symbol "operator_deriv") then
+				   findSymbols e
+			       else
+				   findSymbols Ast.UNDEFINED
+			  | Ast.APPLY {func, args=Ast.TUPLE [Ast.VECTOR _]} 
+			    => findSymbols func
+			       
+			  | _ => nil
+
+		    fun findDimensions exp =
+			case exp of
+			    Ast.SYMBOL s => []
+			  | Ast.POS (exp, _) => findDimensions exp
+			  | Ast.APPLY {func=Ast.SYMBOL s, args=Ast.TUPLE [_, e]} 
+			    => findDimensions e
+			  | Ast.APPLY {func, args=Ast.TUPLE [Ast.VECTOR v]} 
+			    => map trans_exp v			       
+			  | _ => nil
+
+		    val syms = findSymbols lhs
+
+		    val sym = case syms of
+				[sym] => sym
+			      | _ =>
+				(error ($"Malformed equation encountered: unexpected number of symbols on left hand side");
+				 raise Skip)
+
+		    val dimensions = findDimensions lhs
+		in
+		    [HLEC.ACTION(HLEC.EXP(apply(HLEC.SYMBOL (Symbol.symbol "makeEquation"),
+						[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name sym)),
+						 HLEC.VECTOR dimensions,
+						 HLEC.LAMBDA{args=syms, body=trans_exp lhs},
+						 HLEC.LAMBDA{args=syms, body=trans_exp rhs}])),
+				 pos),
+		     HLEC.DEFINITION(HLEC.DEFLOCAL(sym, HLEC.DONTCARE, 
+						   HLEC.SEND {object=HLEC.SYMBOL(Symbol.symbol "self"), message=sym}),
+				     pos)]
+		end
+
+	     (* | trans_eq (Ast.EQUATION (Ast.SYMBOL name, exp)) =
 		(* equation x = exp *)
 		let
 		    fun findSymbols exp =
@@ -878,7 +909,7 @@ and trans_action pos action =
 	      | trans_eq eq =
 		(error ($"Malformed equation encountered");
 		 raise Skip)
-		
+		*)
 
 	    fun safe_trans_eq default eq =
 		trans_eq eq

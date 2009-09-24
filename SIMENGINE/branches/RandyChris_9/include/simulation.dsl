@@ -107,10 +107,10 @@ namespace Simulation
 
     constructor (name: String)
       self.name = name
-//      self.eq = Equation.new(self', 0)
-      self.eq = DifferentialEquation.new(1, self, 0) 
+      self.eq = Equation.new(self', 0)
+//      self.eq = DifferentialEquation.new(1, self, 0) 
 
-      reset()
+//      reset()
     end
   end
 
@@ -735,11 +735,13 @@ namespace Simulation
       if objectContains(self, name) then
         var q = self.getMember name
         if istype(type SimQuantity, q) then
+	  println ("Found quantity for: " + name)
       	  q.setEquation (Equation.new(lhs q, rhs q))
         else
           error "Cannot create equation for non-quantity: " + name
         end
       else
+        println ("Adding a new equation for: " + name)
 	var q = Intermediate.new(name)
         self.addConst(name, q)
 	if not (istype (type Vector of SimIterator, dimensions)) then
