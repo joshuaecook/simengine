@@ -110,19 +110,29 @@ fun sym2c_str (s, props) =
 
 	val scope = Property.getScope props
 
-	val prefix = 
-	    let val index = case ep_index
-			     of SOME Property.STRUCT_OF_ARRAYS => "[STRUCT_IDX]."
-			      | _ => "->"
-	    in case scope
-		of Property.LOCAL => ""
-		 | Property.READSTATE v => Symbol.name v ^ index
-		 | Property.WRITESTATE v => Symbol.name v ^ index
-	    end
+	val useOutputBuffer = Property.isOutputBuffer props
 
-	val suffix = case ep_index 
-		      of SOME _ => "[ARRAY_IDX]"
-		       | NONE => ""
+	val prefix = 
+	    if useOutputBuffer then
+		"od[modelid]."
+	    else
+		let 
+		    val index = case ep_index
+				 of SOME Property.STRUCT_OF_ARRAYS => "[STRUCT_IDX]."
+				  | _ => "->"
+		in 
+		    case scope
+		     of Property.LOCAL => ""
+		      | Property.READSTATE v => Symbol.name v ^ index
+		      | Property.WRITESTATE v => Symbol.name v ^ index
+		end
+
+	val suffix = if useOutputBuffer then
+			 ""
+		     else
+			 case ep_index 
+			  of SOME _ => "[ARRAY_IDX]"
+			   | NONE => ""
 
 	val (order, vars) = case Property.getDerivative props
 			      of SOME (order, iters) => (order, iters)

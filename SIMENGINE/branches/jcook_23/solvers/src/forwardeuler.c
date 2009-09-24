@@ -37,6 +37,11 @@ forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_p
 
 __DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, unsigned int modelid) {
 
+  // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
+  mem->props->running[modelid] = mem->props->time[modelid] + mem->props->timestep <= mem->props->stoptime;
+  if(!mem->props->running[modelid])
+    return 0;
+
   int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
 
   int i;

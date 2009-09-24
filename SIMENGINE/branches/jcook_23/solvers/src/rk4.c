@@ -43,6 +43,12 @@ rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
 __DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int modelid) {
   int i;
   int ret;
+
+  // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
+  mem->props->running[modelid] = mem->props->time[modelid] + mem->props->timestep <= mem->props->stoptime;
+  if(!mem->props->running[modelid])
+    return 0;
+
   ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
   for(i=mem->props->statesize-1; i>=0; i--) {
     mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +

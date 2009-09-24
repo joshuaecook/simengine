@@ -8,9 +8,30 @@ fun flatten x = foldr (op @) nil x
 fun error msg =
     (Logger.log_usererror (PosLog.new()) msg;
      DynException.setErrored())
-
 fun internalerror msg =
     (Logger.log_failure (Printer.$ msg))
+
+
+(* Returns a SYMBOL expression with a given name. *)
+val sym = HLEC.SYMBOL o Symbol.symbol
+
+(* Returns a LITERAL string representation of a given symbol. *)
+val sym2strlit = HLEC.LITERAL o HLEC.CONSTSTR o Symbol.name
+	    
+(* Returns an object instance method or attribute. *)
+fun send name object =    
+    HLEC.SEND {message=Symbol.symbol name, object=object}
+
+(* Returns a function application. *)
+fun apply (f, nil) = HLEC.APPLY {func=f, args=HLEC.UNIT}
+  | apply (f, a) = HLEC.APPLY {func=f, args=HLEC.TUPLE a}
+
+
+(* Common shortcut functions *)
+val self = sym "self"
+val addConst = send "addConst" self
+val addMethod = send "addMethod" self
+val addVar = send "addVar" self
 
 
 fun trans_pattern patt = 
@@ -43,6 +64,8 @@ fun trans_header {name, args, returns} =
 fun trans_visibility (NONE) = HLEC.PUBLIC
   | trans_visibility (SOME Ast.PUBLIC) = HLEC.PUBLIC
   | trans_visibility (SOME Ast.HIDDEN) = HLEC.HIDDEN
+
+
 
 fun trans_method method =
     case method of
@@ -263,9 +286,8 @@ and trans_definition definition =
 
 	    fun build_enum_def ((name, NONE), (index, defs)) =
 		(index+1, 
-		 defs @ [HLEC.DEFLOCAL (name, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "new", 
-											object=HLEC.SYMBOL (Symbol.symbol "Enum")},
-									args=HLEC.TUPLE [str (Symbol.name name), str (Symbol.name enumname), num index]})])
+		 defs @ 
+		 [HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (send "new" (sym "Enum"), [sym2strlit name, sym2strlit enumname, num index]))])
 	      | build_enum_def ((name, SOME i), (index, defs)) =
 		if i < index then
 		    (index+1,
@@ -273,9 +295,8 @@ and trans_definition definition =
 		    before error ($("Indices in enumeration " ^ (Symbol.name enumname) ^ " at " ^ (Symbol.name name) ^ " must have increasing index.  Previous was " ^ (Int.toString index)))
 		else
 		    (i+1,
-		     defs @ [HLEC.DEFLOCAL (name, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "new", 
-											    object=HLEC.SYMBOL (Symbol.symbol "Enum")},
-									    args=HLEC.TUPLE [str (Symbol.name name), str (Symbol.name enumname), num i]})])
+		     defs @ 
+		     [HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (send "new" (sym "Enum"), [sym2strlit name, sym2strlit enumname, num i]))])
 	in
 	    (* for each arg, define it*)
 	    (#2 (foldl build_enum_def (0, nil) args))
@@ -291,12 +312,9 @@ and trans_definition definition =
 	    fun build_stm part =
 		case part of
 		    Ast.SUBMODELDEF (def as Ast.DEFMODEL {header={name, ...}, ...})
-		    => 
-		    (map (fn(d) => HLEC.DEFINITION (d, PosLog.NOPOS)) (trans_definition def))
-		    @ [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "self"), message=Symbol.symbol "addConst"},  
-								     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-										      HLEC.SYMBOL (name)]}),
-				   PosLog.NOPOS)]
+		    => (map (fn(d) => HLEC.DEFINITION (d, PosLog.NOPOS)) (trans_definition def)) @ 
+		       [HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])),
+				     PosLog.NOPOS)]
 			
 
 		  | Ast.SUBMODELDEF _
@@ -304,41 +322,17 @@ and trans_definition definition =
 			[])
 
 		  | Ast.SUBMODELINST {class, name, opttable}
-		    => 
-		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "instantiateSubModel"),
-						      args=HLEC.TUPLE [HLEC.SYMBOL class,
-								       HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name name)),
-								       case opttable of
-									   NONE => HLEC.TABLE []
-									 | SOME table => trans_exp table]}), 
-				 PosLog.NOPOS),
-		     
-		     HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.SEND{message=name,
-										   object=HLEC.SYMBOL (Symbol.symbol "self")}),
-				     PosLog.NOPOS)](*,
-		     HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "self"), message=(Symbol.symbol "addConst")},  
-								    args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-								    		    HLEC.SYMBOL name]}),
-				  PosLog.NOPOS),
-		     HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "push_back",
-								    object=HLEC.SYMBOL (Symbol.symbol "submodels")}, 
-						     args=HLEC.TUPLE[HLEC.SYMBOL name]}), 
-				 PosLog.NOPOS)]
-		    @ (case optdimensions of 
-			   NONE => nil
-			 | SOME dims => [HLEC.ACTION(HLEC.ASSIGN(HLEC.SEND{message=Symbol.symbol "dimensions",
-									   object=HLEC.SYMBOL name},
-								 HLEC.VECTOR (map trans_exp dims)), 
-						     PosLog.NOPOS)])
-		    @ [
-		     
-		    (*,
-		     HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL(Symbol.symbol "addSubModel"),
-							args=HLEC.TUPLE [HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name name)), HLEC.SYMBOL name]}),
-				  PosLog.NOPOS)*)]*)
+		    => let val table = case opttable of SOME table => trans_exp table | _ => HLEC.TABLE nil
+		       in
+			   [HLEC.ACTION (HLEC.EXP (apply (sym "instantiateSubModel", [HLEC.SYMBOL class, sym2strlit name, table])),
+					 PosLog.NOPOS),
+			    HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, HLEC.SEND {message=name, object=self}),
+					     PosLog.NOPOS)
+			   ]
+		       end
 
 		  | Ast.OUTPUTDEF {name, quantity, settings} 
- 		    =>  
+ 		    =>
 		    let 
 			fun outerror () =
 			    error ($("Output " ^ (Symbol.name name) ^ " does not appear as a returned quantity in the model header"))
@@ -350,33 +344,18 @@ and trans_definition definition =
 						 else
 						     ()
 
-			val obj = HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "Output"),
-							    message=Symbol.symbol "new"},
-					     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), 
-							      trans_exp quantity]}
+			val obj = apply (send "new" (sym "Output"), [sym2strlit name, trans_exp quantity])
 
-			val obj = case settings of
-				      NONE => obj
-				    | SOME settings =>
-				      HLEC.APPLY{func=obj,
-						 args=HLEC.TUPLE[trans_exp settings]}
+			val obj = case settings 
+				   of SOME table => apply (obj, [trans_exp table])
+				    | _ => obj
 		    in
-			[HLEC.ACTION(HLEC.EXP (HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "add",
-									 object=HLEC.SYMBOL (Symbol.symbol "outputDefs")},
-							  args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), 
-									   HLEC.LAMBDA{args=[], body=obj}]}),
-				     PosLog.NOPOS)] (*@
-			(case settings of
-			     NONE => []
-			   | SOME settings =>
-			     [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{message=name, object=HLEC.SYMBOL (Symbol.symbol "outputDefs")},
-							       args=HLEC.TUPLE[trans_exp settings]}),
-					   PosLog.NOPOS)])*)(*,
-			 
-			 HLEC.ACTION(HLEC.EXP (HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "push_back",
-									 object=HLEC.SYMBOL (Symbol.symbol "quantities")}, 
-							  args=HLEC.TUPLE[HLEC.SYMBOL name]}), PosLog.NOPOS)*)
+			[HLEC.ACTION (HLEC.EXP (apply (send "add" (sym "outputDefs"),
+						       [sym2strlit name, HLEC.LAMBDA {args=nil, body=obj}])),
+				      PosLog.NOPOS)]
+
 		    end
+		    
 		  | Ast.INPUTDEF {name, settings} 
  		    =>  
 		    let 
@@ -388,219 +367,118 @@ and trans_definition definition =
 				else
 				    ()
 		    in
-			(case settings of
-			     NONE => []
-			   | SOME settings =>
-			     let
-			     (*TODO: add check that name is actually an input in this system*)
-			     in
-				 [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL name,
-								     args=HLEC.TUPLE[trans_exp settings]}),
-					       PosLog.NOPOS)]
-			     end)
+			case settings
+			 of SOME table =>
+			    [HLEC.ACTION (HLEC.EXP (apply (HLEC.SYMBOL name, [trans_exp table])), PosLog.NOPOS)]
+			  | _ => nil
 		    end
 
 		  | Ast.ITERATORDEF {name, value, settings} 
  		    =>  
-		    [HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "SimIterator"),
-												   message=Symbol.symbol "new"},
-										    args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))]}),
-				     PosLog.NOPOS),
-		     HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  
-						      args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									  HLEC.SYMBOL name]}),
-				  PosLog.NOPOS),
-		     HLEC.ACTION(HLEC.EXP (HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "push_back",
-								     object=HLEC.SYMBOL (Symbol.symbol "iterators")}, 
-						      args=HLEC.TUPLE[HLEC.SYMBOL name]}), PosLog.NOPOS)]
-		    @ (case value of
-			  SOME value => 
-			  [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(name), message=Symbol.symbol "setValue"},  
-							   args=HLEC.TUPLE[trans_exp value]}),
-				       PosLog.NOPOS)]
-			| NONE => [])
-		    @ (case settings of
-			     NONE => []
-			   | SOME settings =>
-			     [HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL name,
-								 args=HLEC.TUPLE[trans_exp settings]}),
-					   PosLog.NOPOS)])
+		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (send "new" (sym "SimIterator"), [sym2strlit name])), PosLog.NOPOS),
+		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
+		     HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "iterators"), [HLEC.SYMBOL name])), PosLog.NOPOS)] @ 
+		    (case value
+		      of SOME value => 
+			 [HLEC.ACTION (HLEC.EXP (apply (send "setValue" (HLEC.SYMBOL name), [trans_exp value])), PosLog.NOPOS)]
+		       | NONE => []) @ 
+		    (case settings
+		      of SOME table =>
+			 [HLEC.ACTION (HLEC.EXP (apply (HLEC.SYMBOL name, [trans_exp table])), PosLog.NOPOS)]
+		       | NONE => [])
 
 		  | Ast.QUANTITYDEF {modifiers, basetype, name, precision, exp, settingstable, dimensions}
 		    => 
-		    (* create quantity *)
 		    let 
-		    (* set basetype *)
-			val baseclass = case basetype of
-					    Ast.GENERIC_QUANTITY => "SimQuantity"
+			val baseclass = case basetype 
+					 of Ast.GENERIC_QUANTITY => "SimQuantity"
 					  | Ast.STATE_QUANTITY => "State"
 					  | Ast.PARAMETER_QUANTITY => "Parameter"
-		    in
-			[HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol baseclass),
-												       message=Symbol.symbol "new"},
-											args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))]}),
-					 PosLog.NOPOS),
-			 HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  
-							  args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									  HLEC.SYMBOL name]}),
-				      PosLog.NOPOS),
-			 
-			 HLEC.ACTION(HLEC.EXP (HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "push_back",
-									 object=HLEC.SYMBOL (Symbol.symbol "quantities")}, 
-							  args=HLEC.TUPLE[HLEC.SYMBOL name]}), PosLog.NOPOS)]
-		    end
-		    
-		    (* set modifiers*)
-		    @ 
-		    let
-			fun set_modifier modifier =
-			    case modifier of
-				Ast.VISIBLE => 
-				HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=(Symbol.symbol "setIsVisible")}, 
-								 args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTBOOL true)]}), 
-					     PosLog.NOPOS)
-			      | Ast.TUNABLE =>
-				HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=(Symbol.symbol "setIsTunable")}, 
-								 args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTBOOL true)]}), 
-					     PosLog.NOPOS)
-			      | Ast.STATEFUL =>
-				HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=(Symbol.symbol "setIsIterable")}, 
-								 args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTBOOL true)]}), 
-					     PosLog.NOPOS)
-		    in
-			map set_modifier modifiers
-		    end
-		    (* set precision*)
-		    @ (case precision of
-			   NONE =>
-			   [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setPrecision"}, 
-							     args=HLEC.TUPLE [HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "InfinitePrecision"), message=Symbol.symbol "new"}, args=HLEC.UNIT}]}), 
-					 PosLog.NOPOS)]
-			 | SOME exp =>
-			   [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setPrecision"}, 
-							     args=HLEC.TUPLE [trans_exp exp]}), 
-					 PosLog.NOPOS)])
-		  (* set dimensions *)
-		    @ (case dimensions of
-			   NONE => []
-			 | SOME dims => [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setDimensions"},
-									  args=HLEC.TUPLE [trans_exp (Ast.VECTOR (map (fn(s) => Ast.LITERAL (Ast.CONSTSTR (Symbol.name s))) dims))]}),
-						      PosLog.NOPOS)])		  (* set initial value exp *)
-		    @ (case exp of
-			   NONE => []
-			 | SOME exp => [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setInitialValue"}, 
-									 args=HLEC.TUPLE [trans_exp exp]}), 
-						     PosLog.NOPOS)])
 
-		  (* apply table *)
-		    @ (case settingstable of
-			   NONE => []
-			 | SOME table => [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SYMBOL name,
-									   args=HLEC.TUPLE [trans_exp table]}),
-						       PosLog.NOPOS)])
+			fun set_modifier modifier =
+			    let val message = case modifier
+					       of Ast.VISIBLE => "setIsVisible"
+						| Ast.TUNABLE => "setIsTunable"
+						| Ast.STATEFUL => "setIsIterable"
+			    in
+				HLEC.ACTION (HLEC.EXP (apply (send message (HLEC.SYMBOL name), [HLEC.LITERAL (HLEC.CONSTBOOL true)])), PosLog.NOPOS)
+			    end
+
+			val prec = case precision
+				    of SOME prec => trans_exp prec
+				     | NONE => apply (send "new" (sym "InfinitePrecision"), nil)
+
+			val dims = case dimensions
+				    of SOME dims => trans_exp (Ast.VECTOR (map (Ast.LITERAL o Ast.CONSTSTR o Symbol.name) dims))
+				     | NONE => HLEC.VECTOR nil
+
+			val table = case settingstable
+				     of SOME table => trans_exp table
+				      | NONE => HLEC.TABLE nil
+
+			val quantity = apply (send "new" (sym baseclass), [sym2strlit name])
+
+		    in
+			[HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, quantity), PosLog.NOPOS),
+			 HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
+			 HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "quantities"), [HLEC.SEND {message=name, object=self}])), PosLog.NOPOS)] @
+			(map set_modifier modifiers) @
+			(case exp 
+			  of SOME exp => 
+			     [HLEC.ACTION (HLEC.EXP (apply (send "setInitialValue" (HLEC.SYMBOL name), [trans_exp exp])), PosLog.NOPOS)]
+			   | NONE => []) @
+			[HLEC.ACTION (HLEC.EXP (apply (send "setPrecision" (HLEC.SYMBOL name), [prec])), PosLog.NOPOS),
+			 HLEC.ACTION (HLEC.EXP (apply (send "setDimensions" (HLEC.SYMBOL name), [dims])), PosLog.NOPOS),
+			 HLEC.ACTION (HLEC.EXP (apply (HLEC.SYMBOL name, [table])), PosLog.NOPOS)]
+		    end
 		    
 
 		  | Ast.STM (stm)
-		    => (trans_stm stm)
-		    (* if it is a definition, add it to the object *)
-		    @
-		    let
-			fun def2nameAndStorage (Ast.DEFFUN (_, (({name, ...}, _)::_))) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "self"), message=(Symbol.symbol "addMethod")},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-			  | def2nameAndStorage (Ast.DEFFUN (_, nil)) =
-			    DynException.stdException ("empty function definition encountered", "AstTrans.trans_definition.model.STM.def2nameAndStorage.DEFFUN", Logger.INTERNAL)
-			  | def2nameAndStorage (Ast.DEFPROTOCOL (_, {name, ...}, _)) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addMethod"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-			  | def2nameAndStorage (Ast.DEFCLASS {name, ...}) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-			  | def2nameAndStorage (Ast.DEFNAMESPACE {name, ...}) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-			  | def2nameAndStorage (Ast.DEFINTERFACE {name, ...}) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-			  | def2nameAndStorage (Ast.DEFGLOBAL (name, _, _)) = [] (*TODO: what does this mean? is this an error? *)
-			  | def2nameAndStorage (Ast.DEFLOCAL (name, _, _)) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addVar"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))]}),
-					 PosLog.NOPOS),
-			     HLEC.ACTION (HLEC.ASSIGN (HLEC.SEND {object=HLEC.SYMBOL (Symbol.symbol "self"), message=name}, HLEC.SYMBOL name),
- 					  PosLog.NOPOS)
-			    ]
-			  | def2nameAndStorage (Ast.DEFENUM {name, ...}) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-			  | def2nameAndStorage (Ast.DEFCONST (name, _, _)) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-			  | def2nameAndStorage (Ast.DEFMODEL {header={name, ...}, ...}) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-			  | def2nameAndStorage (Ast.INSTMODEL {name, ...}) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-
-			  | def2nameAndStorage (Ast.DEFPROPERTY {name, ...}) =
-			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-									      HLEC.SYMBOL name]}),
-					 PosLog.NOPOS)]
-
-		    in
-			case stm of
-			    Ast.ACTION _ => []
-			  | Ast.DEFINITION (def, _) => def2nameAndStorage def
-										    
-		    end	
+		    => (trans_stm stm) @
+		       let
+			   fun def2nameAndStorage def =
+			       let val (func, name) = 
+				       case def
+					of Ast.DEFPROTOCOL (_, {name, ...}, _) => (addMethod, name)
+					 | Ast.DEFFUN (_, ({name, ...}, _)::_) => (addMethod, name)
+					 | Ast.DEFCONST (name, _, _) => (addConst, name)
+					 | Ast.DEFCLASS {name, ...} => (addConst, name)
+					 | Ast.DEFMODEL {header={name, ...}, ...} => (addConst, name)
+					 | Ast.INSTMODEL {name, ...} => (addConst, name)
+					 | Ast.DEFNAMESPACE {name, ...} => (addConst, name)
+					 | Ast.DEFINTERFACE {name, ...} => (addConst, name)
+					 | Ast.DEFENUM {name, ...} => (addConst, name)
+					 | Ast.DEFPROPERTY {name, ...} => (addConst, name)
+					 | Ast.DEFLOCAL (name, _, _) => (addVar, name)
+					 | Ast.DEFFUN (_, nil) => 
+					   DynException.stdException ("empty function definition encountered", 
+								      "AstTrans.trans_definition.model.STM.def2nameAndStorage.DEFFUN", Logger.INTERNAL)
+					 | Ast.DEFGLOBAL _ => 
+					   DynException.stdException ("cannot define a global within a model", 
+								      "AstTrans.trans_definition.model.STM.def2nameAndStorage.DEFGLOBAL", Logger.INTERNAL)
+					   
+			       in 
+				   [HLEC.ACTION (HLEC.EXP (apply (func, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS)]
+			       end
+		       in
+			   case stm of
+			       Ast.ACTION _ => []
+			     | Ast.DEFINITION (def, _) => def2nameAndStorage def
+							  
+		       end	
 
 	    fun build_input (name, pattern) =
-		[HLEC.DEFINITION (HLEC.DEFLOCAL(name, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "new", object=HLEC.SYMBOL(Symbol.symbol "Input")},
-										args=HLEC.TUPLE[HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name name))]}),
+		[HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (send "new" (sym "Input"), [sym2strlit name])),
 				  PosLog.NOPOS),
-		 HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-						 args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)),
-								  HLEC.SYMBOL name]}),
-			     PosLog.NOPOS),
-		 HLEC.ACTION (HLEC.EXP (HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "push_back",
-								  object=HLEC.SYMBOL(Symbol.symbol "inputs")},
-						   args=HLEC.TUPLE[HLEC.SYMBOL (name)]}),
+		 HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])),
+			      PosLog.NOPOS),
+		 HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "inputs"), [HLEC.SYMBOL name])),
 			      PosLog.NOPOS)]
 	
 	    fun build_output (name, pattern) =
-		HLEC.ACTION (HLEC.EXP (HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "buildOutput"),
-						  args=HLEC.TUPLE [HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name name))]}),
+		HLEC.ACTION (HLEC.EXP (apply (sym "buildOutput", [sym2strlit name])),
 			     PosLog.NOPOS)
-(*		HLEC.ACTION (HLEC.COND {cond=HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "isdefined"),
-							args=HLEC.TUPLE [HLEC.SYMBOL(name)]},
-					ift=[HLEC.ACTION (HLEC.EXP (HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "push_back",
-											       object=HLEC.SYMBOL (Symbol.symbol "outputs")},
-									       args=HLEC.TUPLE[HLEC.VECTOR[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), 
-													   HLEC.SEND{message=name, object=HLEC.SYMBOL(Symbol.symbol "outputDefs")}]]}),
-							  PosLog.NOPOS)],
-					iff=[HLEC.ACTION (HLEC.EXP (HLEC.ERROR (HLEC.LITERAL (HLEC.CONSTSTR ("No quantity found matching output in header: " ^ (Symbol.name name))))), PosLog.NOPOS)]},
-			     PosLog.NOPOS)				
-*)
+
 	    val modelstms = 
 		(* set name *)
 		HLEC.METHODDEF(HLEC.PUBLIC, HLEC.DEFLOCAL(Symbol.symbol "name", HLEC.DONTCARE, HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))))
@@ -621,8 +499,7 @@ and trans_definition definition =
 
 	    val templateconstructor = 
 		HLEC.CONSTRUCTOR {args=(*map (fn(arg, patt) => (arg, trans_optpattern patt)) (#args header)*)[], 
-	    			  body= (HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "super"),
-	    								   args=HLEC.UNIT}), PosLog.NOPOS))
+	    			  body= (HLEC.ACTION (HLEC.EXP (apply (sym "super", nil)), PosLog.NOPOS))
 	    				:: (template_constructor_stms)}
 
 	    val templatename = Symbol.symbol ((Symbol.name name) ^ "Template")
@@ -635,8 +512,7 @@ and trans_definition definition =
 				PosLog.NOPOS)
 
 	    val hiddenModelTemplate = 
-		HLEC.DEFINITION(HLEC.DEFLOCAL (Symbol.symbol "template", HLEC.DONTCARE, HLEC.APPLY {func=HLEC.SEND{message=Symbol.symbol "new", object=HLEC.SYMBOL templatename},
-												    args=HLEC.UNIT}),
+		HLEC.DEFINITION(HLEC.DEFLOCAL (Symbol.symbol "template", HLEC.DONTCARE, apply (send "new" (HLEC.SYMBOL templatename), nil)),
 				PosLog.NOPOS)
 
 
@@ -652,18 +528,15 @@ and trans_definition definition =
 		let
 		    fun makeProperty (sym, typepattern) =
 			let
-			    val varsym = Symbol.symbol ((Symbol.name sym) ^ "_var")
+			    val id = (Symbol.name sym) ^ "_var"
+			    val var = send id self
 			in
-			    [HLEC.METHODDEF (HLEC.HIDDEN, HLEC.DEFLOCAL(varsym, HLEC.DONTCARE, HLEC.UNDEFINED)),
+			    [HLEC.METHODDEF (HLEC.HIDDEN, HLEC.DEFLOCAL(Symbol.symbol id, HLEC.DONTCARE, HLEC.UNDEFINED)),
 			     HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFPROPERTY {name=sym,
-									    read=SOME [HLEC.ACTION(HLEC.EXP(HLEC.SEND{message=varsym, object=HLEC.SYMBOL(Symbol.symbol "self")}), 
-												   PosLog.NOPOS)],
+									    read=SOME [HLEC.ACTION (HLEC.EXP var, PosLog.NOPOS)],
 									    write=SOME (Symbol.symbol "arg", 
-											[HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "setInputVal", 
-																	 object=HLEC.SEND {message=varsym, 
-																			   object=HLEC.SYMBOL (Symbol.symbol "self")}},
-															 args=HLEC.TUPLE [HLEC.SYMBOL (Symbol.symbol "arg")]}), 
-												     PosLog.NOPOS)])})
+											[HLEC.ACTION (HLEC.EXP (apply (send "setInputVal" var, [HLEC.SYMBOL (Symbol.symbol "arg")])), 
+												      PosLog.NOPOS)])})
 			    ]
 			end
 			 
@@ -698,7 +571,7 @@ and trans_definition definition =
 				     [HLEC.ACTION (HLEC.ASSIGN (HLEC.SEND{message=arg, object=HLEC.SYMBOL (Symbol.symbol "self")},
 								HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "new",
 											  object=HLEC.SYMBOL (Symbol.symbol "OutputBinding")},
-									   args=HLEC.TUPLE[HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name arg)),
+									   args=HLEC.TUPLE[sym2strlit arg,
 											   HLEC.SEND{message=arg, object=HLEC.SEND{message=Symbol.symbol "outputs", object=HLEC.SYMBOL(Symbol.symbol "modeltemplate")}}]}),
 						   PosLog.NOPOS),
 				      HLEC.ACTION (HLEC.EXP (HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "push_back",
@@ -728,16 +601,14 @@ and trans_definition definition =
 		in
 		    [HLEC.DEFINITION(HLEC.DEFLOCAL (Symbol.symbol "model",
 						    HLEC.DONTCARE,
-						    HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "new", 
-									      object=HLEC.SYMBOL name},
-							       args=HLEC.UNIT}), PosLog.NOPOS)] @
+						    apply (send "new" (HLEC.SYMBOL name), nil)), PosLog.NOPOS)] @
 		    (map (fn(name, patt) => HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "setInputVal",
 											   object=HLEC.SEND{message=name,
 													    object=HLEC.SYMBOL (Symbol.symbol "model")}},
 									    args=HLEC.TUPLE [HLEC.SYMBOL (name)]}), 
 							PosLog.NOPOS))
-			 (#args header))
-		    @ [HLEC.ACTION(HLEC.EXP (HLEC.SYMBOL (Symbol.symbol "model")), PosLog.NOPOS)]
+			 (#args header)) @ 
+		    [HLEC.ACTION(HLEC.EXP (HLEC.SYMBOL (Symbol.symbol "model")), PosLog.NOPOS)]
 		end
 
 	    val fakeConstructorStms2 =
@@ -745,9 +616,7 @@ and trans_definition definition =
 		    fun buildArg (sym, patt) =
 			HLEC.SYMBOL sym
 		in
-		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "new", 
-								     object=HLEC.SYMBOL name},
-						      args=HLEC.UNIT}), PosLog.NOPOS)]
+		    [HLEC.ACTION (HLEC.EXP (apply (send "new" (HLEC.SYMBOL name), nil)), PosLog.NOPOS)]
 		end
 
 	    val fakeconstructor1 = HLEC.DEFINITION(HLEC.DEFFUN(HLEC.REPLACE, 
@@ -774,211 +643,6 @@ and trans_definition definition =
 				     nil}]
 	end
 
-(*       | Ast.DEFMODEL {name, header, parts} *)
-(* 	=>  *)
-(* 	let *)
-(* 	    fun make_member value var = *)
-(* 		HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFLOCAL (Symbol.symbol var, HLEC.DONTCARE, value)) *)
-
-(* 	    val clonedVector = HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "clone", *)
-(* 							 object=HLEC.VECTOR []}, *)
-(* 					  args=HLEC.UNIT} *)
-
-(* 	    (* 3) add basic types (param list, etc) to member list *) *)
-(* 	    val members = (make_member clonedVector "parameters") ::  *)
-(* 			  (make_member clonedVector "states") ::  *)
-(* 			  (make_member clonedVector "eqs") ::  *)
-(* 			  (make_member clonedVector "quantities") :: nil *)
-
-(* 	    (* 4) Iterate through parts, creating stms in constructor *) *)
-(* 	    fun build_stm part = *)
-(* 		case part of *)
-(* 		    Ast.SUBMODELDEF (def as Ast.DEFMODEL {name, ...}) *)
-(* 		    =>  *)
-(* 			(map (fn(d) => HLEC.DEFINITION (d, PosLog.NOPOS)) (trans_definition def)) *)
-(* 			@ [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							   args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									    HLEC.SYMBOL (name)]}),  *)
-(* 				       PosLog.NOPOS)] *)
-
-(* 		  | Ast.SUBMODELDEF _ *)
-(* 		    => (internalerror "Unexpected model definition component found"; *)
-(* 			[]) *)
-
-(* 		  | Ast.SUBMODELINST (name, exp) *)
-(* 		    =>  *)
-(* 		    [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "self"), message=(Symbol.symbol "addConst")},  *)
-(* 						      args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 								      trans_exp exp]}),  *)
-(* 				  PosLog.NOPOS), *)
-(* 		     HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "self"), message=name}), *)
-(* 				     PosLog.NOPOS), *)
-(* 		     HLEC.ACTION (HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL(Symbol.symbol "addSubModel"), *)
-(* 							args=HLEC.TUPLE [HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name name)), HLEC.SYMBOL name]}), *)
-(* 				  PosLog.NOPOS)] *)
-
-(* 		  | Ast.QUANTITYDEF {modifiers, basetype, name, precision, exp, settingstable, dimensions} *)
-(* 		    =>  *)
-(* 		    (* create quantity *) *)
-(* 		    let  *)
-(* 		    (* set basetype *) *)
-(* 			val baseclass = case basetype of *)
-(* 					    Ast.GENERIC_QUANTITY => "SimQuantity" *)
-(* 					  | Ast.STATE_QUANTITY => "State" *)
-(* 					  | Ast.PARAMETER_QUANTITY => "Parameter" *)
-(* 		    in *)
-(* 			[HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							  args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									  HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol baseclass), *)
-(* 												    message=Symbol.symbol "new"}, *)
-(* 										     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))]}]}),  *)
-(* 				      PosLog.NOPOS), *)
-(* 			 HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=name}), *)
-(* 					 PosLog.NOPOS) *)
-(* 			] *)
-(* 		    end *)
-		    
-(* 		    (* set modifiers*) *)
-(* 		    @  *)
-(* 		    let *)
-(* 			fun set_modifier modifier = *)
-(* 			    case modifier of *)
-(* 				Ast.VISIBLE =>  *)
-(* 				HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=(Symbol.symbol "setIsVisible")},  *)
-(* 								 args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTBOOL true)]}),  *)
-(* 					     PosLog.NOPOS) *)
-(* 			      | Ast.TUNABLE => *)
-(* 				HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=(Symbol.symbol "setIsTunable")},  *)
-(* 								 args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTBOOL true)]}),  *)
-(* 					     PosLog.NOPOS) *)
-(* 			      | Ast.STATEFUL => *)
-(* 				HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=(Symbol.symbol "setIsIterable")},  *)
-(* 								 args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTBOOL true)]}),  *)
-(* 					     PosLog.NOPOS) *)
-(* 		    in *)
-(* 			map set_modifier modifiers *)
-(* 		    end *)
-(* 		    (* set precision*) *)
-(* 		    @ (case precision of *)
-(* 			   NONE => *)
-(* 			   [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setPrecision"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "InfinitePrecision"), message=Symbol.symbol "new"}, args=HLEC.UNIT}]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			 | SOME exp => *)
-(* 			   [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setPrecision"},  *)
-(* 							     args=HLEC.TUPLE [trans_exp exp]}),  *)
-(* 					 PosLog.NOPOS)]) *)
-(* 		  (* set dimensions *) *)
-(* 		    @ (case dimensions of *)
-(* 			   NONE => [] *)
-(* 			 | SOME dims => [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setDimensions"}, *)
-(* 									  args=HLEC.TUPLE [trans_exp (Ast.VECTOR dims)]}), *)
-(* 						      PosLog.NOPOS)])		  (* set initial value exp *) *)
-(* 		    @ (case exp of *)
-(* 			   NONE => [] *)
-(* 			 | SOME exp => [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL name, message=Symbol.symbol "setInitialValue"},  *)
-(* 									 args=HLEC.TUPLE [trans_exp exp]}),  *)
-(* 						     PosLog.NOPOS)]) *)
-
-(* 		  (* apply table *) *)
-(* 		    @ (case settingstable of *)
-(* 			   NONE => [] *)
-(* 			 | SOME table => [HLEC.ACTION (HLEC.EXP(HLEC.APPLY{func=HLEC.SYMBOL name, *)
-(* 									   args=HLEC.TUPLE [trans_exp table]}), *)
-(* 						       PosLog.NOPOS)]) *)
-		    
-
-(* 		  | Ast.STM (stm) *)
-(* 		    =>  *)
-(* 		    (* run the stm *) *)
-(* 		    (trans_stm stm) *)
-(* 		    (* if it is a definition, add it to the object *) *)
-(* 		    @  *)
-(* 		    let *)
-(* 			fun def2nameAndStorage (Ast.DEFFUN (_, (({name, ...}, _)::_))) =  *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL (Symbol.symbol "self"), message=(Symbol.symbol "addMethod")},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			  | def2nameAndStorage (Ast.DEFFUN (_, nil)) = *)
-(* 			    DynException.stdException ("empty function definition encountered", "AstTrans.trans_definition.model.STM.def2nameAndStorage.DEFFUN", Logger.INTERNAL) *)
-(* 			  | def2nameAndStorage (Ast.DEFPROTOCOL (_, {name, ...}, _)) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addMethod"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			  | def2nameAndStorage (Ast.DEFCLASS {name, ...}) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			  | def2nameAndStorage (Ast.DEFNAMESPACE {name, ...}) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			  | def2nameAndStorage (Ast.DEFINTERFACE {name, ...}) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			  | def2nameAndStorage (Ast.DEFGLOBAL (name, _, _)) = [] (*TODO: what does this mean? is this an error? *) *)
-(* 			  | def2nameAndStorage (Ast.DEFLOCAL (name, _, _)) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addVar"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))]}),  *)
-(* 					 PosLog.NOPOS), *)
-(* 			     HLEC.ACTION (HLEC.ASSIGN (HLEC.SEND {object=HLEC.SYMBOL (Symbol.symbol "self"), message=name}, HLEC.SYMBOL name),  *)
-(*  					  PosLog.NOPOS) *)
-(* 			    ] *)
-(* 			  | def2nameAndStorage (Ast.DEFENUM {name, ...}) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			  | def2nameAndStorage (Ast.DEFCONST (name, _, _)) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			  | def2nameAndStorage (Ast.DEFMODEL {name, ...}) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-(* 			  | def2nameAndStorage (Ast.INSTMODEL {name, ...}) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-
-(* 			  | def2nameAndStorage (Ast.DEFPROPERTY {name, ...}) = *)
-(* 			    [HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},  *)
-(* 							     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), *)
-(* 									      HLEC.SYMBOL name]}),  *)
-(* 					 PosLog.NOPOS)] *)
-
-(* 		    in  *)
-(* 			case stm of *)
-(* 			    Ast.ACTION _ => [] *)
-(* 			  | Ast.DEFINITION (def, _) => def2nameAndStorage def *)
-										    
-(* 		    end *)
-			   
-		    
-
-
-
-(* 	    val constructor = HLEC.CONSTRUCTOR {args=map (fn(arg, patt) => (arg, trans_optpattern patt)) header, *)
-(* 						body= (HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "super"), *)
-(* 											 args=HLEC.UNIT}), PosLog.NOPOS)) *)
-(* 						      :: (flatten(map build_stm parts))} *)
-
-(* 	in *)
-(* 	    [HLEC.DEFCLASS {name=name, *)
-(* 			    classheader={inheritance=SOME (HLEC.SYMBOL (Symbol.symbol "Model")),  *)
-(* 					 interfaces=[]}, *)
-(* 			    methods=constructor :: members}] *)
-(* 	end *)
 
       | Ast.INSTMODEL {name, exp} 
 	=>
@@ -1033,9 +697,6 @@ and trans_action pos action =
 			  | Ast.POS(Ast.APPLY{func=Ast.SYMBOL name,
 					      args=Ast.TUPLE args}, pos)
 			    => (name, args)
-(* 			  | Ast.POS(Ast.APPLY{func=Ast.SYMBOL name, *)
-(* 					      args=arg},pos) *)
-(* 			    => (name, [arg]) *)
 			  | _ => (error ($"Error creating mathematical function: Invalid function header");
 				  raise Skip)
 
@@ -1045,61 +706,24 @@ and trans_action pos action =
 			(error ($"Invalid argument in mathematical function definition");
 			 raise Skip)
 
-		    val fun_name = HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name name))
 		    val fun_lambda = HLEC.LAMBDA {args=map exp2sym args, body=trans_exp bodyexp}
 
-		    val new_fun = HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "MathFunction")}
-		    val funobj = HLEC.APPLY {func=new_fun, args=HLEC.TUPLE [fun_name, fun_lambda]}
+		    val eq = apply (send "new" (sym "MathFunction"), [sym2strlit name, fun_lambda])
 		in
-(*		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "addConst"),
-						       args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name)), funobj]}),
-				 pos),
-		     HLEC.DEFINITION(HLEC.DEFCONST(name, HLEC.DONTCARE, HLEC.SEND{message=name, object=HLEC.SYMBOL (Symbol.symbol "self")}),
-				     pos)]*)
-		    [HLEC.DEFINITION(HLEC.DEFCONST(name, HLEC.DONTCARE, funobj),
-				     pos)]
+		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, eq), pos),
+		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), pos)]
 		end
 
-	      | trans_eq (Ast.EQUATION (Ast.SYMBOL id, exp)) =
+	      | trans_eq (Ast.EQUATION (Ast.SYMBOL name, exp)) =
 		(* equation x = exp *)
 		let
-		    val self = HLEC.SYMBOL (Symbol.symbol "self")
+		    val eq = apply (sym "makeIntermediate", [sym2strlit name, trans_exp exp])
 		in
-(*		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "addIntermediateEquation"),
-						       args=HLEC.TUPLE [self, 
-									HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)), 
-									trans_exp exp]}),
-				 pos),
-		     HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.SEND{message=id, object=self}),
-				     pos)]*)
-		    [HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.APPLY{func=HLEC.SYMBOL (Symbol.symbol "makeIntermediate"),
-										 args=HLEC.TUPLE[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)), 
-												 trans_exp exp]}),
-				     pos),
-		     HLEC.ACTION(HLEC.EXP(HLEC.APPLY{func=HLEC.SEND{object=HLEC.SYMBOL(Symbol.symbol "self"), message=Symbol.symbol "addConst"},
-						     args=HLEC.TUPLE [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)),
-								      HLEC.SYMBOL id]})
-			       , pos),
-		     HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SEND{message=Symbol.symbol "push_back",
-								      object=HLEC.SYMBOL (Symbol.symbol "quantities")},
-						       args=HLEC.TUPLE[HLEC.SYMBOL id]}),
-				 pos)]
+		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, eq), pos),
+		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), pos),
+		     HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "quantities"), [HLEC.SYMBOL name])), pos)]
 		end
 
-(*	      | trans_eq (Ast.EQUATION (Ast.SEND {message=id, object=object}, exp)) =
-		(* equation x.y = exp *)
-		let
-		    val self = trans_exp object
-		in
-		    [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "addIntermediateEquation"),
-						       args=HLEC.TUPLE [self, 
-									HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name id)), 
-									trans_exp exp]}),
-				 pos),
-		     HLEC.DEFINITION(HLEC.DEFCONST(id, HLEC.DONTCARE, HLEC.SEND{message=id, object=self}),
-				     pos)]
-		end
-*)
 	      | trans_eq (Ast.EQUATION (Ast.APPLY {func=state, args=Ast.TUPLE args}, exp)) =
 		let
 		    val state = trans_exp state
@@ -1112,15 +736,19 @@ and trans_action pos action =
 			  of degree :: state :: nil =>
 			     let
 				 val state = trans_exp state
+				 val name = case state of HLEC.SYMBOL name => Symbol.name name | _ => "unknown state"
 
 				 val degree = trans_exp degree
 
-				 val new_eq = HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "DifferentialEquation")}
-				 val make_eq = HLEC.APPLY {func=new_eq, args=HLEC.TUPLE [degree, state, trans_exp exp]}
-				 val set_eq = HLEC.SEND {object=state, message=(Symbol.symbol "setEquation")}
+
+				 val has_eq = apply (send "hasEquation" state, nil)
+				 val make_eq = apply (send "new" (sym "DifferentialEquation"), [degree, state, trans_exp exp])
+				 val set_eq = apply (send "setEquation" state, [make_eq])
+				 val flunk = HLEC.ERROR (HLEC.LITERAL (HLEC.CONSTSTR ("Equation for " ^name^" has already been defined.")))
 			     in
-				 [HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=set_eq, args=HLEC.TUPLE [make_eq]}),
-					      pos)]
+				 [HLEC.ACTION(HLEC.COND {cond=has_eq, 
+							 ift=[HLEC.ACTION (HLEC.EXP flunk, PosLog.NOPOS)], 
+							 iff=[HLEC.ACTION (HLEC.EXP set_eq, PosLog.NOPOS)]}, pos)]
 			     end
 
 			   | _ => (error ($"Malformed differential equation encountered"); raise Skip))

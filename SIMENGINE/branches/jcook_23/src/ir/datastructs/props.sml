@@ -18,6 +18,7 @@ type symbolproperty =
       sourcepos: PosLog.pos option,
       realname: Symbol.symbol option,
       scope: scopetype,
+      outputbuffer: bool,
       ep_index: ep_index_type option}
 
 val default_symbolproperty = 
@@ -27,6 +28,7 @@ val default_symbolproperty =
      sourcepos=NONE,
      realname=NONE,
      scope=LOCAL,
+     outputbuffer=false,
      ep_index=NONE}
 
 fun getDim (props:symbolproperty) = #dim props
@@ -46,6 +48,8 @@ fun getRealName (props:symbolproperty) = #realname props
 
 fun getScope (props:symbolproperty) = #scope props
 
+fun isOutputBuffer (props:symbolproperty) = #outputbuffer props
+
 fun getEPIndex (props:symbolproperty) = #ep_index props
 
 fun setDim props p = 
@@ -55,6 +59,7 @@ fun setDim props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
 fun setIterator props p = 
@@ -64,6 +69,7 @@ fun setIterator props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
 fun setDerivative props p = 
@@ -73,6 +79,7 @@ fun setDerivative props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
 fun setSourcePos props p = 
@@ -82,6 +89,7 @@ fun setSourcePos props p =
      sourcepos=SOME p,
      realname=getRealName props,
      scope=getScope props,
+     outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
 fun setRealName props p = 
@@ -91,6 +99,7 @@ fun setRealName props p =
      sourcepos=getSourcePos props,
      realname=SOME p,
      scope=getScope props,
+     outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}	
 
 fun setScope props p = 
@@ -100,6 +109,17 @@ fun setScope props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=p,
+     outputbuffer=isOutputBuffer props,
+     ep_index=getEPIndex props}	
+
+fun setOutputBuffer props p = 
+    {dim=getDim props,
+     iterator=getIterator props,
+     derivative=getDerivative props,
+     sourcepos=getSourcePos props,
+     realname=getRealName props,
+     scope=getScope props,
+     outputbuffer=p,
      ep_index=getEPIndex props}	
 
 fun setEPIndex props p = 
@@ -109,6 +129,7 @@ fun setEPIndex props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     outputbuffer=isOutputBuffer props,
      ep_index=p}	
 
 fun getCodeLocStr (props:symbolproperty) = 

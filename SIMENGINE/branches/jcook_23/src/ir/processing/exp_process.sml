@@ -80,7 +80,7 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
 	  | (v, Fun.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
-		    Util.repStr(str, "$"^(i2s i), addParen (exp2tersestr e, e))
+		    Util.repStr(str, "$"^(i2s (i+1)), addParen (exp2tersestr e, e))
 	    in
 		foldl (fn((exp, index),str')=>replaceIndex str' (index,exp)) v (Util.addCount exps)
 	    end
@@ -134,7 +134,7 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
 	  | (v, Fun.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
-		    Util.repStr(str, "$"^(i2s i), addParen (exp2str e, e))
+		    Util.repStr(str, "$"^(i2s (i+1)), addParen (exp2str e, e))
 	    in
 		foldl (fn((exp, index),str')=>replaceIndex str' (index,exp)) v (Util.addCount exps)
 	    end*)
@@ -389,5 +389,17 @@ fun enableEPIndex is_top states exp =
       | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist, dimlist))
       | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist))
       | _ => exp
+
+
+(* find symbols and assign to output buffer *)
+fun assignToOutputBuffer exp =
+    case exp of
+	Exp.FUN (funtype, args) => Exp.FUN (funtype, map assignToOutputBuffer args)
+      | Exp.TERM (Exp.SYMBOL (sym, props)) => 
+	Exp.TERM (Exp.SYMBOL (sym, Property.setOutputBuffer props true))
+      | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist, dimlist))
+      | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist))
+      | _ => exp
+
 
 end

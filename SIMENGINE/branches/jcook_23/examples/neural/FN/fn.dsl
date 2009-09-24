@@ -1,3 +1,9 @@
+/*
+    FitzHugh-Nagumo model of a simplified Hodgkin-Huxley neuron model
+    Derived from FitzHugh R. (1955, 1961) and Nagumo J., et al. (1962)
+    Copyright 2007-2009 Simatra Modeling Technolgies
+*/
+
 model (u,w) = fn(b0, b1, e, I)
 
   input b0 with {default=2}
@@ -14,7 +20,6 @@ model (u,w) = fn(b0, b1, e, I)
   end
 
   solver = ode45
-//  solver.abstol = 1e-8
   solver.reltol = 1e-5
   solver.dt = 0.1
 end

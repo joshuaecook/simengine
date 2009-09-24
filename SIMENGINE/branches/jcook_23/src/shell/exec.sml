@@ -109,6 +109,8 @@ fun exec_exp parse (depth_count, isLHS) (env(*: (KEC.exp Env.env ref * KEC.exp E
 		 => (execLibraryFunction (decell o exec) env name (decell (exec arg))
 		     handle DynException.IncorrectNumberOfArguments {expected, actual}
 			    => error env ($("Incorrect number of arguments for " ^ (Symbol.name name) ^ "; received " ^ (Int.toString actual) ^ " and expected " ^ (Int.toString expected)))
+			  | DynException.NameConflictError name
+			    => error env ($("Identifier " ^ name ^ " is already defined."))
 			  | DynException.TypeMismatch reason
 			    => error env ($("Type mismatch in " ^ (Symbol.name name) ^ ": " ^ reason)))
 			       
@@ -225,6 +227,13 @@ and exec_stm parse (stm, env as (globalenv, localenv, poslog)) =
 		   => error (PosLog.addSystemPos (env, pos)) ($("Type mismatch: " ^ reason))
 		 | DynException.NameError name
 		   => error (PosLog.addSystemPos (env, pos)) ($("Unknown identifier encountered: " ^ name)))
+
+      | KEC.DEFINITION(KEC.DEFCONST (replacement, name, typepattern, exp), pos)
+	=> (execConstantDefinition parse env (replacement, name, typepattern, exp) pos
+	    handle DynException.TypeMismatch reason
+		   => error (PosLog.addSystemPos (env, pos)) ($("Type mismatch: " ^ reason))
+		 | DynException.NameConflictError name
+		   => error (PosLog.addSystemPos (env, pos)) ($("Identifier " ^ name ^ " is already defined.")))
 
       | KEC.ACTION(KEC.OPEN {obj, excludes, include_privates}, pos)
 	=> (execOpenStatement parse env (obj, excludes, include_privates) pos
@@ -454,6 +463,25 @@ and execLocalDefinition parse env (replace, name, typepattern, exp) pos =
 		in
 		    Env.local_add pretty ((name, new), env)
 		end
+    in
+	if TypeLib.check (decell o exec) (typepattern, decell exp') then (KEC.UNIT, env')
+	else raise DynException.TypeMismatch ("Cannot define " ^ (Symbol.name name) ^ " locally, expected type: " ^ (PrettyPrint.typepattern2str typepattern) ^ " and received expression: " ^ (pretty (decell exp')))
+    end
+
+(* Executes a local constant definition.
+   Returns (unit,env) *)
+and execConstantDefinition parse env (replace, name, typepattern, exp) pos =
+    let
+	fun exec exp = exec_exp parse (0, false) (PosLog.addSystemPos (env, pos), exp)
+	val pretty = PrettyPrint.kecexp2prettystr (decell o exec)
+
+	val exp' = exec exp
+
+	val env' =
+	    case Env.top_local_lookup pretty env name
+	     of NONE => Env.local_add pretty ((name, exp'), env)
+	      (* It is an error to redefine a constant within the same scope. *)
+	      | _ => raise DynException.NameConflictError (Symbol.name name)
     in
 	if TypeLib.check (decell o exec) (typepattern, decell exp') then (KEC.UNIT, env')
 	else raise DynException.TypeMismatch ("Cannot define " ^ (Symbol.name name) ^ " locally, expected type: " ^ (PrettyPrint.typepattern2str typepattern) ^ " and received expression: " ^ (pretty (decell exp')))

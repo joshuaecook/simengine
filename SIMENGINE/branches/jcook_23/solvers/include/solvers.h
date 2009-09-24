@@ -23,6 +23,13 @@ __DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dyd
 // Properties data structure
 // ============================================================================================================
 
+// Pointers to GPU device memory, used only on the Host for transfers
+typedef struct {
+  CDATAFORMAT *time;
+  CDATAFORMAT *model_states;
+  void *ob;
+} gpu_data;
+
 typedef struct {
   CDATAFORMAT timestep;
   CDATAFORMAT abstol;
@@ -33,13 +40,14 @@ typedef struct {
   CDATAFORMAT *model_states;
   CDATAFORMAT *inputs;
   CDATAFORMAT *outputs;
-  unsigned int first_iteration;
   unsigned int inputsize;
   unsigned int statesize;
   unsigned int outputsize;
   unsigned int num_models;
   unsigned int ob_size;
   void *ob;
+  gpu_data gpu;
+  int *running;
 } solver_props;
 
 // Forward Euler data structures and function declarations
@@ -118,6 +126,8 @@ typedef struct {
 
 dormand_prince_mem *SOLVER(dormand_prince, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
+__DEVICE__ int SOLVER(dormand_prince, running, TARGET, SIMENGINE_STORAGE);
+
 __DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_prince_mem *mem, unsigned int modelid);
 
 void SOLVER(dormand_prince, free, TARGET, SIMENGINE_STORAGE, dormand_prince_mem *mem);
@@ -128,9 +138,11 @@ void SOLVER(dormand_prince, free, TARGET, SIMENGINE_STORAGE, dormand_prince_mem 
 
 typedef struct{
   solver_props *props;
+  CDATAFORMAT *k1; // Used only to produce last output values
   void *cvmem;
   void *y0;
   unsigned int modelid;
+  unsigned int first_iteration;
 } cvode_mem;
 
 cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props);

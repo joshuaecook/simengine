@@ -138,6 +138,13 @@ fun class2orig_name (class : DOF.class) =
 	  | DOF.SLAVE c => c
     end
 
+fun class2classname (class : DOF.class) =
+    let
+	val {name, ...} = class
+    in
+	name
+    end
+
 fun addEPIndexToClass is_top (class: DOF.class) =
     let
 	val master_class = CurrentModel.classname2class (class2orig_name class)

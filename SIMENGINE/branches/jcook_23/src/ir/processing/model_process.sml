@@ -1,5 +1,10 @@
-structure ModelProcess =
-struct
+structure ModelProcess : sig
+(* TODO document these signatures. *)
+
+val normalizeModel : DOF.model -> DOF.model
+val normalizeParallelModel : DOF.model -> DOF.model
+
+end = struct
 
 fun model2statesize (model:DOF.model) =
     let

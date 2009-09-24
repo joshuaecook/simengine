@@ -89,11 +89,13 @@ fun apply exec env lambda args =
 	    (* we may have already gone over this, but we may not *)
 	    val args_list = map (fn (a) => exec (env,a)) args_list
 	    val arg_bindings = ListPair.zip (lamargs, args_list)
-	    val (_, localenv, _) = env
+
+	    val env' = Env.system_union (env, closure)
+	    val env' = foldl (Env.local_add pretty) (Env.push_local env') arg_bindings
 
 (*	    val _ = print ("Lambda args = " ^ (String.concatWith ", " (lamargs)) ^ "\n")*)
 	in
-	    exec ((foldl (Env.local_add pretty) (Env.system_union (Env.create_local env, closure)) arg_bindings), body)
+	    exec (env', body)
 (*	    exec (foldl (Env.local_add pretty) (Env.replace_local (env, closure)) (arg_bindings), body)*)
 	end
 

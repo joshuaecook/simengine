@@ -170,15 +170,18 @@ fun classinstance env name members parent =
 
 	fun prune_redundancy members =
 	    let
+		fun sameName a b = PrettyPrint.member2name a = PrettyPrint.member2name b
+
 		fun filter_if_found_later nil = nil
 		  | filter_if_found_later (member :: rest) =
-		    if List.exists (fn(mem) => PrettyPrint.member2name mem = PrettyPrint.member2name member) rest then
+		    if List.exists (sameName member) rest then
 			filter_if_found_later rest
 		    else
 			member :: (filter_if_found_later rest)
 	    in
 		rev (filter_if_found_later (rev members))
 	    end
+
 
 	val self = KEC.SYMBOL (Symbol.symbol "self")
 	val interfaces = KEC.list2kecvector []
@@ -199,6 +202,8 @@ fun classinstance env name members parent =
  		           return=KEC.DONTCARE,  
  		           stms=exp2stms (KEC.LIBFUN (Symbol.symbol "addandsetvar", KEC.TUPLE [KEC.SYMBOL (Symbol.symbol "self"), KEC.SYMBOL (Symbol.symbol "name"), KEC.SYMBOL (Symbol.symbol "value")])),  
  		           closure=Env.new()}]),
+
+
 	     method "addConst" [(Symbol.symbol "name", KEC.TYPE (Symbol.symbol "String")),
 				(Symbol.symbol "exp", KEC.DONTCARE)]
 		    (KEC.LIBFUN (Symbol.symbol "addconst",
@@ -230,7 +235,7 @@ fun classinstance env name members parent =
  						 
 				 
 	val object = List.filter (not o isConstructor) 
-				 (prune_redundancy (malleability_methods @ (foldl fold_member parent_instance_members members')))
+				 (prune_redundancy ((foldl fold_member parent_instance_members members') @ malleability_methods))
 
 	(* Reconciles the dummy reference to "super" in a constructors. *)
 	fun inject_super_constructor (KEC.CONSTRUCTOR {init_methods, ...}) =
