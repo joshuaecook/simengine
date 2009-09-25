@@ -35,6 +35,7 @@ fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
   | solver2shortname (ODE45 _) = "ode45" (*"dormand_prince"*)
   | solver2shortname (CVODE _) = "cvode"
 
+(*
 fun solver2params (FORWARD_EULER {dt}) = [("DT", r2s dt),
 					  ("ABSTOL", "0.0"),
 					  ("RELTOL", "0.0")]
@@ -62,5 +63,60 @@ fun solver2params (FORWARD_EULER {dt}) = [("DT", r2s dt),
     [("DT", r2s dt),
      ("ABSTOL", r2s abs_tolerance),
      ("RELTOL", r2s rel_tolerance)]
+
+fun solver2options solver = 
+    let
+	val param_list = solver2params solver
+	fun getItem tag = 
+	    case List.find (fn(a,b)=>a = tag) param_list
+	     of SOME (a,b) => b
+	      | NONE => DynException.stdException (("Can't get item '"^tag^"' from param list"), "Solver.solver2options.getItem", Logger.INTERNAL)
+    in
+	{dt=getItem "DT",
+	 abstol=getItem "ABSTOL",
+	 reltol=getItem "RELTOL"}
+    end
+*)
+fun solver2options (FORWARD_EULER {dt}) = 
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (EXPONENTIAL_EULER {dt}) = 
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (RK4 {dt}) = 
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (MIDPOINT {dt}) =
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (HEUN {dt}) = 
+    {dt=dt,
+     abstol=0.0,
+     reltol=0.0}
+  | solver2options (ODE23 {dt, abs_tolerance, rel_tolerance}) = 
+    {dt=dt,
+     abstol=abs_tolerance,
+     reltol=abs_tolerance}
+  | solver2options (ODE45 {dt, abs_tolerance, rel_tolerance}) = 
+    {dt=dt,
+     abstol=abs_tolerance,
+     reltol=abs_tolerance}
+  | solver2options (CVODE {dt, abs_tolerance, rel_tolerance}) = 
+    {dt=dt,
+     abstol=abs_tolerance,
+     reltol=abs_tolerance}
+
+fun solver2params solver = 
+    let
+	val {dt, abstol, reltol} = solver2options solver
+    in
+	[("DT", r2s dt),
+	 ("ABSTOL", r2s abstol),
+	 ("RELTOL", r2s reltol)]
+    end
 
 end

@@ -1,6 +1,7 @@
 structure ModelProcess : sig
 (* TODO document these signatures. *)
 
+val model2statesizebyiterator : Symbol.symbol -> DOF.model -> int
 val optimizeModel : DOF.model -> DOF.model
 val normalizeModel : DOF.model -> DOF.model
 val normalizeParallelModel : DOF.model -> DOF.model

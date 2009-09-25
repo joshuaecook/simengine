@@ -28,7 +28,7 @@ fun header ((model: DOF.model), includes, defpairs, iterators) =
 	 $("#include <stdlib.h>"),
 	 $("#include <math.h>"),
 	 $("#include <string.h>"),
-	 $("#define CDATAFORMAT double"),
+	 (*$("#define CDATAFORMAT double"),*)
 	 $("#include <solvers.h>")] @
 	(map (fn(inc)=> $("#include "^inc)) includes) @
 	[$(""),
@@ -578,10 +578,10 @@ fun flow_code (model: DOF.model) =
 					     else
 						 class2flow_code (c,#name c = #name inst_class)) classes)
 
-	val top_level_flow_progs = [$"",
+	(*val top_level_flow_progs = [$"",
 				    $("int model_flows(CDATAFORMAT t, const void *y, void *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration){"),
 				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, y, dydt, inputs, outputs,first_iteration);")],
-				    $("}")]
+				    $("}")]*)
     in
 	[$("// Flow code function declarations")] @
 	fundecl_progs @
