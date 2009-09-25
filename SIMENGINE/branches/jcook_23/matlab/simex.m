@@ -469,8 +469,7 @@ if opts.recompile
         ' TARGET=' target ...
         ' ARCH=' arch ...
         ' SIMENGINE_STORAGE=' opts.precision ...
-        ' NUM_MODELS=' num2str(opts.models) ...
-        ' &> simex_make.log'];
+        ' NUM_MODELS=' num2str(opts.models)];
 
 if opts.emulate
   make = [make ' EMULATE=1'];
@@ -484,7 +483,7 @@ if opts.debug
 end
 
 tic;
-status = system(make);
+status = system([make ' &> simex_make.log']);
 elapsed = toc;
 
 if 0 ~= status

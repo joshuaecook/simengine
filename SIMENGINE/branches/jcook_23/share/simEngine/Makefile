@@ -115,7 +115,7 @@ endif
 all: $(LIBSIMENGINE)
 
 clean:
-	$(RM) $(DSL_MODEL)_parallel.o $(DSL_MODEL)_parallel.cu $(LIBSIMENGINE) grind_simEngine
+	$(RM) $(DSL_MODEL)_parallel.o $(DSL_MODEL)_parallel.cu $(LIBSIMENGINE) grind_simEngine grind_simEngine.o
 
 real-clean: clean
 	$(RM) $(DSL_MODEL)*.c $(DSL_MODEL)*.m $(DSL_MODEL)*.cu
@@ -123,7 +123,7 @@ real-clean: clean
 remake: clean all
 
 grind: clean $(LIBSIMENGINE) grind_simEngine
-	$(GRIND) ./grind_simEngine $(fullpath $(LIBSIMENGINE))
+	$(GRIND) ./grind_simEngine $(LIBSIMENGINE)
 
 grind_simEngine: $(SIMENGINEDIR)/share/simEngine/grind_simEngine.cpp
 	$(COMPILE.cpp) -o $@.o $<
@@ -133,7 +133,6 @@ libsimengine.dylib: $(DSL_MODEL)_parallel.o
 	$(LINK.c) $(LDFLAGS) -dynamiclib -Wl,-install_name,$@ -o $@ $< $(LDLIBS)
 
 libsimengine.so: $(DSL_MODEL)_parallel.o
-	@echo "Creating $@"
 	$(LINK.c) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)
 
 ifeq (GPU,$(TARGET))
