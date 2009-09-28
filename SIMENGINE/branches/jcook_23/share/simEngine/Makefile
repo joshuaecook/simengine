@@ -47,7 +47,7 @@ CXXFLAGS = $(COMMON) $(INCLUDES)
 
 LDFLAGS = -L$(SIMENGINEDIR)/lib 
 VPATH += lib
-LDLIBS = -lsolvers -ldl -lm
+LDLIBS = -ldl -lm -lsolvers 
 
 ifeq ($(SIMENGINE_STORAGE),float)
 LDLIBS += -lcvode_float
@@ -145,5 +145,5 @@ $(DSL_MODEL)_parallel.o: $(DSL_MODEL)_parallel.cu
 	$(COMPILE.cpp) -o $@ $<
 endif
 
-#$(DSL_MODEL)_parallel.c: $(MODEL) $(SIMENGINEDIR)/bin/simEngine
-#	$(OCTAVE) -q --eval "path('bin',path);simex('$<');"
+$(DSL_MODEL)_parallel.c: $(MODEL) $(SIMENGINEDIR)/bin/simEngine
+	$(OCTAVE) -q --eval "simex('$<');"

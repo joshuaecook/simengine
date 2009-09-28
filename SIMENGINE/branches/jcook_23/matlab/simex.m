@@ -457,8 +457,13 @@ if opts.recompile
    case {'PCWIN64', 'GLNXA64', 'SOL64', 'MACI64'}
     arch = 'x86_64';
    otherwise
-    warning('Simatra:simEngine:simex', ['Architecture is not officially '...
-            'supported'])
+    if regexp(computer, 'x86_64')
+      arch = 'x86_64';
+    else
+      warning('Simatra:simEngine:simex', ...
+              ['Architecture is not officially '...
+               'supported']);
+    end
   end  
 
   

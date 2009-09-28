@@ -482,16 +482,14 @@ fun logoutput_code class =
 				 [$("{ // Generating output for symbol " ^ (ExpProcess.exp2str (Exp.TERM name))),
 				  SUB[$("int cond = " ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ";"),
 				      $("if (cond) {"),
-				      SUB([$("((unsigned int*)(ob->ptr[modelid]))[0] = " ^ (i2s output_index) ^ ";"),
-					   $("((unsigned int*)(ob->ptr[modelid]))[1] = " ^ (i2s (inc (List.length contents))) ^ ";"),
-					   $("ob->ptr[modelid] = &((unsigned int*)(ob->ptr[modelid]))[2];"),
-					   $("*((CDATAFORMAT*)(ob->ptr[modelid])) = t;"),
-					   $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")] @
-					  (Util.flatmap (fn (exp) =>
-							    [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = "^(CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp))^";"),
-							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])
-							contents) @
-					  [$("ob->count[modelid]++;"),
+				      SUB([$("ob_data *obd = (ob_data *)(ob->ptr[modelid]);"),
+					   $("obd->outputid = " ^ (i2s output_index) ^ ";"),
+					   $("obd->nquantities = " ^ (i2s (inc (List.length contents))) ^ ";"),
+					   $("obd->data[0] = t;")] @
+					  (map (fn (exp, i) => $("obd->data["^(i2s (inc i))^"] = " ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp)) ^ ";"))
+					       (Util.addCount contents)) @
+					  [$("ob->ptr[modelid] = &((CDATAFORMAT *)(obd->data))["^(i2s (inc (List.length contents)))^"];"),
+					   $("ob->count[modelid]++;"),
 					   $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid])));")]),
 				      $("}")],
 				  $("}")]

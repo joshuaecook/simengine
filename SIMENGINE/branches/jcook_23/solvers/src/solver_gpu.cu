@@ -41,8 +41,11 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
       PRINTF("Initializing solver props with zero-copy output buffers.\n");
       cutilSafeCall(cudaHostAlloc(&ob, props->ob_size, cudaHostAllocMapped | cudaHostAllocPortable));
       memcpy(ob, props->ob, props->ob_size);
+
       if (0 != cutilSafeCall(cudaHostGetDevicePointer(&tprops.ob, ob, 0))) 
 	  { return 0; }
+
+      props->ob = ob;
       }
   else
       { 
@@ -76,18 +79,19 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
 }
 
 // Frees a GPU solver props structure
-void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props){
+void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *dprops){
   solver_props tprops;
 
-  cutilSafeCall(cudaMemcpy(&tprops, props, sizeof(solver_props), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(&tprops, dprops, sizeof(solver_props), cudaMemcpyDeviceToHost));
 
-  if (props->gpu.ob)
+  if (tprops.ob && !(tprops.gpu.ob_mapped))
       {
-      if (props->gpu.ob_mapped)
-	  { cutilSafeCall(cudaFreeHost(props->gpu.ob)); }
-      else
-	  { cutilSafeCall(cudaFree(props->gpu.ob)); }
+      cutilSafeCall(cudaFree(tprops.ob));
       }
+  // else if (tprops.gpu.ob && tprops.gpu.ob_mapped)
+  //     {
+  //     cutilSafeCall(cudaFreeHost(tprops.gpu.ob));
+  //     }
 
   if (tprops.time)
     { cutilSafeCall(cudaFree(tprops.time)); }
@@ -99,6 +103,6 @@ void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props){
     { cutilSafeCall(cudaFree(tprops.outputs)); }
   if (tprops.running)
     { cutilSafeCall(cudaFree(tprops.running)); }
-  if (props)
-    { cutilSafeCall(cudaFree(props)); }
+  if (dprops)
+    { cutilSafeCall(cudaFree(dprops)); }
 }

@@ -27,9 +27,15 @@ __DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dyd
 typedef struct {
   CDATAFORMAT *time;
   CDATAFORMAT *model_states;
-  int ob_mapped; // 1 if the output buffers are mapped for zero-copy
+  int ob_mapped; // 1 if the output buffers are mapped for zero-copy.
   void *ob; // output buffers; may be memory-mapped on capable devices
 } gpu_data;
+
+typedef struct {
+  unsigned int outputid;
+  unsigned int nquantities;
+  CDATAFORMAT data[];
+} ob_data;
 
 typedef struct {
   CDATAFORMAT timestep;
