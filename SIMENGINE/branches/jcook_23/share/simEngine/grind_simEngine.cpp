@@ -22,6 +22,46 @@ void *load_simengine(const char *name)
     return simengine;
     }
 
+void analyze_result(const simengine_interface *iface, simengine_result *result)
+    {
+    unsigned int modelid, outputid, sampleid, quantityid;
+    simengine_output *output = result->outputs;
+
+    for (modelid = 0; modelid < NUM_MODELS; ++modelid)
+	{
+	if (0 == modelid) { continue; }
+
+	double errorNorm = 0.0;
+
+	for (outputid = 0; outputid < iface->num_outputs; ++outputid)
+	    {
+	    simengine_output *op0 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid-1)];
+	    simengine_output *op1 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid)];
+
+	    PRINTF("%d samples in model %d output %d\n", op1->num_samples, modelid, outputid);
+	    if (op1->num_samples != op0->num_samples)
+		{
+		PRINTF("difference of sample count from %d to %d: %d\n", modelid-1, modelid, op1->num_samples - op0->num_samples);
+		continue;
+		}
+
+	    for (sampleid = 0; sampleid < op1->num_samples; ++sampleid)
+		{
+		for (quantityid = 0; quantityid < op1->num_quantities; ++quantityid)
+		    {
+		    double d0 = op0->data[AS_IDX(op1->num_quantities, op1->num_samples, quantityid, sampleid)];
+		    double d1 = op1->data[AS_IDX(op1->num_quantities, op1->num_samples, quantityid, sampleid)];
+
+		    double diff = d1 - d0;
+		    errorNorm += diff * diff;
+		    }
+		}
+	    }
+
+	PRINTF("error from %d to %d: %0.8f\n", modelid-1, modelid, errorNorm);
+	}
+    }
+
 /* Retrieves function pointers to the simengine API calls. */
 simengine_api *init_simengine(void *simengine)
     {
@@ -91,47 +131,13 @@ int main(int argc, char **argv)
 
     simengine_result *result = api->runmodel(0, stop_time, models, inputs, states, &allocator);
 
-    if (0 != result->status)
+    if (SUCCESS != result->status)
 	{
 	ERROR(Simatra:error, "runmodel returned non-zero status %d: %s", result->status, result->status_message);
 	}
 
-    simengine_output *output = result->outputs;
-    for (unsigned int modelid = 0; modelid < models; ++modelid)
-	{
-	if (modelid > 0)
-	    {
+    analyze_result(iface, result);
 
-	    double errorNorm = 0.0;
-
-	    for (unsigned int outputid = 0; outputid < iface->num_outputs; ++outputid)
-		{
-		simengine_output *op0 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid-1)];
-		simengine_output *op1 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid)];
-
-		PRINTF("%d samples in model %d\n", op1->num_samples, modelid);
-		if (op1->num_samples != op0->num_samples)
-		    {
-		    PRINTF("difference of sample count from %d to %d: %d\n", modelid-1, modelid, op1->num_samples - op0->num_samples);
-		    continue;
-		    }
-
-		for (unsigned int sampleid = 0; sampleid < op1->num_samples; ++sampleid)
-		    {
-		    for (unsigned int quantityid = 0; quantityid < op1->num_quantities; ++quantityid)
-			{
-			double d0 = op0->data[AS_IDX(op1->num_quantities, op1->num_samples, quantityid, sampleid)];
-			double d1 = op1->data[AS_IDX(op1->num_quantities, op1->num_samples, quantityid, sampleid)];
-
-			double diff = d1 - d0;
-			errorNorm += diff * diff;
-			}
-		    }
-		}
-	    
-	    PRINTF("error from %d to %d: %0.8f\n", modelid-1, modelid, errorNorm);
-	    }
-	}
 
     FREE(inputs);
     FREE(states);

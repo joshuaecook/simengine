@@ -20,13 +20,6 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
 
   void *ob;
 
-  //  cutilSafeCall(cudaMalloc((void**)&tprops.ob, props->ob_size));
-  cutilSafeCall(cudaHostAlloc(&ob, props->ob_size, cudaHostAllocMapped | cudaHostAllocPortable));
-  memcpy(ob, props->ob, props->ob_size);
-  props->gpu.ob = ob;
-
-  
-
   // Copy the properties to local temporary
   memcpy(&tprops, props, sizeof(solver_props));
 
@@ -43,23 +36,40 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   }
   else { tprops.inputs = 0; }
 
+  if (props->gpu.ob_mapped)
+      {
+      PRINTF("Initializing solver props with zero-copy output buffers.\n");
+      cutilSafeCall(cudaHostAlloc(&ob, props->ob_size, cudaHostAllocMapped | cudaHostAllocPortable));
+      memcpy(ob, props->ob, props->ob_size);
+      if (0 != cutilSafeCall(cudaHostGetDevicePointer(&tprops.ob, ob, 0))) 
+	  { return 0; }
+      }
+  else
+      { 
+      cutilSafeCall(cudaMalloc((void**)&tprops.ob, props->ob_size));
+      }
+
   if (props->outputsize) {
     cutilSafeCall(cudaMalloc((void**)&tprops.outputs, props->num_models*props->outputsize*sizeof(CDATAFORMAT)));
   }
   else { tprops.outputs = 0; }
 
-  if (0 != cutilSafeCall(cudaHostGetDevicePointer(&tprops.ob, ob, 0))) {
-      return 0;
-      }
+  cutilSafeCall(cudaMalloc((void**)&tprops.running, props->num_models*sizeof(CDATAFORMAT)));
+
 
   // Copy props to GPU
   cutilSafeCall(cudaMemcpy(dprops, &tprops, sizeof(solver_props), cudaMemcpyHostToDevice));
   cutilSafeCall(cudaMemcpy(tprops.time, props->time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpy(tprops.model_states, props->model_states, props->num_models*props->statesize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpy(tprops.inputs, props->inputs, props->num_models*props->inputsize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  if (tprops.model_states)
+      { cutilSafeCall(cudaMemcpy(tprops.model_states, props->model_states, props->num_models*props->statesize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice)); }
+  if (tprops.inputs)
+      { cutilSafeCall(cudaMemcpy(tprops.inputs, props->inputs, props->num_models*props->inputsize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice)); }
+  cutilSafeCall(cudaMemcpy(tprops.running, props->running, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+
 
 
   // Pointers to GPU memory for data we need to be able to retrieve
+  props->gpu.ob = ob;
   props->gpu.time = tprops.time;
   props->gpu.model_states = tprops.model_states;
   return dprops;
@@ -70,6 +80,14 @@ void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props){
   solver_props tprops;
 
   cutilSafeCall(cudaMemcpy(&tprops, props, sizeof(solver_props), cudaMemcpyDeviceToHost));
+
+  if (props->gpu.ob)
+      {
+      if (props->gpu.ob_mapped)
+	  { cutilSafeCall(cudaFreeHost(props->gpu.ob)); }
+      else
+	  { cutilSafeCall(cudaFree(props->gpu.ob)); }
+      }
 
   if (tprops.time)
     { cutilSafeCall(cudaFree(tprops.time)); }

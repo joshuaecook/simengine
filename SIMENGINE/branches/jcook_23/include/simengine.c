@@ -31,6 +31,8 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
   unsigned int ndata = ob->count[modelid];
   void *data = &(ob->buffer[modelid * BUFFER_LEN]);
 	     
+  fprintf(stderr, "logging %d data for model %d\n", ndata, modelid);
+
   for (dataid = 0; dataid < ndata; ++dataid) {
     outputid = ((unsigned int *)data)[0];
     nquantities = ((unsigned int *)data)[1];
@@ -41,16 +43,18 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
     if (seint.output_num_quantities[outputid] != nquantities) { return 1; }
 		 
     output = &outputs[AS_IDX(seint.num_outputs,semeta.num_models,outputid,modelid)];
-		 
-    if (output->num_samples == output->alloc) {
-      output->alloc *= 2;
+    if (output->num_samples >= output->alloc)
+	{
+	output->alloc *= 2;
 #pragma omp critical
-      {
-	output->data = (double*)se_alloc.realloc(output->data, output->num_quantities * output->alloc * sizeof(double));
-      }
-      if (!output->data)
-	{ return 1; }
-    }
+	    {
+	    PRINTF("reallocating for %d data for model %d output %d\n", output->alloc, modelid, outputid);
+	    output->data = (double*)se_alloc.realloc(output->data, output->num_quantities * output->alloc * sizeof(double));
+	    }
+	if (!output->data)
+	    { return ERRMEM; }
+	}
+
 		 
     odata = &output->data[AS_IDX(nquantities, output->num_samples, 0, output->num_samples)];
 		 
@@ -235,10 +239,14 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
 
   unsigned int active_models = NUM_MODELS;
 
+  // Using 2 copies of the output buffer, capable devices may execute
+  // a kernel while concurrently logging a previous result.
   output_buffer *ob = (output_buffer *)mem->props->ob;
   unsigned int ob_id = 0;
-  unsigned int aflight = 0; // number of kernels in flight
-  cudaEvent_t checkpoint[2]; // no more than 2 events in queue
+  unsigned int aflight = 0; // Number of kernels in flight
+  cudaEvent_t checkpoint[2]; // No more than 2 events in queue
+  // These events signal a kernel completion. After logging, we sync
+  // on the next event to await more results.
   cutilSafeCall(cudaEventCreate(&checkpoint[0]));
   cutilSafeCall(cudaEventCreate(&checkpoint[1]));
 	     
@@ -321,7 +329,7 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
       }
       else if (active_models) {
 	// No kernels active; launch one
-	if (0 == thread_num) {
+	if (thread0) {
 	  exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem, ob_id);
 	  cutilSafeCall(cudaEventRecord(checkpoint[ob_id], 0));
 	  ++aflight;
@@ -375,7 +383,11 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   props.outputsize = outputsize;
   props.num_models = NUM_MODELS;
 #if defined(TARGET_GPU)
-  props.ob_size = 2 * sizeof(output_buffer);
+  props.gpu.ob_mapped = 1;
+  if (props.gpu.ob_mapped)
+      { props.ob_size = 2 * sizeof(output_buffer); }
+  else
+      { props.ob_size = sizeof(output_buffer); }
 #else
   props.ob_size = sizeof(output_buffer);
 #endif

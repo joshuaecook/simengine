@@ -1,5 +1,6 @@
 // simengine_target.h
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
+#include<stdio.h>
 
 #ifndef SIMENGINE_TARGET_H
 #define SIMENGINE_TARGET_H
@@ -140,7 +141,6 @@ typedef unsigned long counter;
 //  These routines were copied and modified from the nVidia Cuda SDK cutil_inline_runtime.h
 //  This was modified to have a return value instead of calling exit() which will close Matlab when running simEngine as a plugin to Matlab.
 
-#include<stdio.h>
 #include<cuda_runtime_api.h>
 
 #define cutilSafeCall(err) __cudaSafeCall(err, __FILE__, __LINE__)

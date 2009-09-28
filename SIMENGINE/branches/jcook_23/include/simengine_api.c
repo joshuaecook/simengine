@@ -54,12 +54,14 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   else{
     seresult->outputs = NULL;
   }
+
   if(seint.num_states){
     seresult->final_states = (double*)se_alloc.malloc(semeta.num_models * seint.num_states * sizeof(double));
   }
   else{
     seresult->final_states = NULL;
   }
+
   seresult->final_time = (double*)se_alloc.malloc(semeta.num_models * sizeof(double));
   if((seint.num_outputs && !seresult->outputs) || (seint.num_states && !seresult->final_states) ||!seresult->final_time){
     seresult->status = ERRMEM;
