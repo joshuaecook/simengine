@@ -388,7 +388,7 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
 	if (thread0) 
 	    {
 	    exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem,0);
-	    cutilSafeCall(cudaMemcpy(props->ob, mem->props->ob, props->ob_size, cudaMemcpyDeviceToHost));
+	    cutilSafeCall(cudaMemcpy(ob, props->gpu.ob, props->ob_size, cudaMemcpyDeviceToHost));
 	    }
 
 #pragma omp barrier
@@ -496,6 +496,7 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
 #elif defined(TARGET_OPENMP)
   status = exec_parallel_cpu(mem, outputs);
 #elif defined(TARGET_GPU)
+  PRINTF("executing on GPU\n");
   if (props.gpu.ob_mapped)
       { status = exec_parallel_gpu_mapped(mem, &props, outputs); }
   else

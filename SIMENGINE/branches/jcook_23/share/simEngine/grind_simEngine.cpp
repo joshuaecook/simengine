@@ -4,7 +4,7 @@
 #include <strings.h>
 #include <dlfcn.h>
 
-#include "simengine.h"
+#include "simengine_api.h"
 
 /* Loads the given named dynamic library file.
  * Returns an opaque handle to the library.
