@@ -29,14 +29,15 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
   double *odata;
 	     
   unsigned int ndata = ob->count[modelid];
-  void *data = &(ob->buffer[modelid * BUFFER_LEN]);
+  ob_data *obd = (ob_data*)(&(ob->buffer[modelid * BUFFER_LEN]));
+  CDATAFORMAT *data;
 	     
   fprintf(stderr, "logging %d data for model %d\n", ndata, modelid);
 
   for (dataid = 0; dataid < ndata; ++dataid) {
-    outputid = ((unsigned int *)data)[0];
-    nquantities = ((unsigned int *)data)[1];
-    data = &((unsigned int*)data)[2];
+    outputid = obd->outputid;
+    nquantities = obd->nquantities;
+    data = obd->data;
 		 
     // TODO an error code for invalid data?
     if (outputid > seint.num_outputs) { return 1; }
@@ -57,12 +58,10 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
 
 		 
     odata = &output->data[AS_IDX(nquantities, output->num_samples, 0, output->num_samples)];
-		 
-    for (quantityid = 0; quantityid < nquantities; ++quantityid) {
-      odata[quantityid] = *((CDATAFORMAT*)data);
-      data = &((CDATAFORMAT*)data)[1];
-    }
-		 
+
+    memcpy(odata, obd->data, nquantities * sizeof(CDATAFORMAT));
+
+    obd = (ob_data*)(&(obd->data[nquantities]));
     ++output->num_samples;
   }
 	     
@@ -188,7 +187,8 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
   unsigned int num_iterations;
 	     
   if (modelid < NUM_MODELS) {
-    output_buffer *ob = &(((output_buffer *)(mem->props->ob))[ob_id]);
+    output_buffer *ob = (output_buffer *)mem->props->ob;
+    if (ob_id) { ob = &(ob[ob_id]); }
 
     // Initialize output buffer to store output data
     init_output_buffer(ob, modelid);
@@ -387,6 +387,7 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
 	{
 	if (thread0) 
 	    {
+	    PRINTF("launching next kernel with %d active_models\n", active_models);
 	    exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem,0);
 	    cutilSafeCall(cudaMemcpy(ob, props->gpu.ob, props->ob_size, cudaMemcpyDeviceToHost));
 	    }
