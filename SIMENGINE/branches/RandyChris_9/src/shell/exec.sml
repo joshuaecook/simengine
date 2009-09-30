@@ -400,11 +400,9 @@ and execImportStatement parse env file pos =
 	val _ = Logger.log_notice ($("Reading source file '" ^ (fullpath)^ "'"))
 	val eof_encountered = !Globals.eof_encountered
 
-	val _ = OOLCParse.push_buffer()
     in
 	parse instream env
 	before (TextIO.closeIn instream;
-		OOLCParse.pop_buffer();
 		Globals.eof_encountered := eof_encountered;
 		ParserSettings.restoreSettings oldsettings)
 	handle _ => 

@@ -38,14 +38,14 @@ namespace Simulation
     hidden var precision = InfinitePrecision.new()
     var initialval
     //hidden var eq    
-    hidden var currentval
-    hidden var readval // when an exp is read, replace the var with this if not undefined
-    var eq    
-    hidden var hasEq = false
-    hidden var isVisible = false
-    hidden var isTunable = false
-    hidden var isIterable = false
-    hidden var isIntermediate = false
+    // hidden var currentval
+    // hidden var readval // when an exp is read, replace the var with this if not undefined
+    // var eq    
+    // hidden var hasEq = false
+    // hidden var isVisible = false
+    // hidden var isTunable = false
+    // hidden var isIterable = false
+    // hidden var isIntermediate = false
 
     hidden var dimensions = []
 
