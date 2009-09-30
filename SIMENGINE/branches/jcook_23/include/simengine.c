@@ -30,26 +30,21 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
 	     
   unsigned int ndata = ob->count[modelid];
   ob_data *obd = (ob_data*)(&(ob->buffer[modelid * BUFFER_LEN]));
-  CDATAFORMAT *data;
 	     
   fprintf(stderr, "logging %d data for model %d\n", ndata, modelid);
 
   for (dataid = 0; dataid < ndata; ++dataid) {
-    outputid = obd->outputid;
-    nquantities = obd->nquantities;
-    data = obd->data;
-		 
     // TODO an error code for invalid data?
-    if (outputid > seint.num_outputs) { return 1; }
-    if (seint.output_num_quantities[outputid] != nquantities) { return 1; }
+    if (obd->outputid > seint.num_outputs) { return 1; }
+    if (seint.output_num_quantities[obd->outputid] != obd->nquantities) { return 1; }
 		 
-    output = &outputs[AS_IDX(seint.num_outputs,semeta.num_models,outputid,modelid)];
+    output = &outputs[AS_IDX(seint.num_outputs,semeta.num_models,obd->outputid,modelid)];
     if (output->num_samples >= output->alloc)
 	{
 	output->alloc *= 2;
 #pragma omp critical
 	    {
-	    PRINTF("reallocating for %d data for model %d output %d\n", output->alloc, modelid, outputid);
+	    PRINTF("reallocating for %d data for model %d output %d\n", output->alloc, modelid, obd->outputid);
 	    output->data = (double*)se_alloc.realloc(output->data, output->num_quantities * output->alloc * sizeof(double));
 	    }
 	if (!output->data)
@@ -57,11 +52,14 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
 	}
 
 		 
-    odata = &output->data[AS_IDX(nquantities, output->num_samples, 0, output->num_samples)];
+    odata = &output->data[AS_IDX(obd->nquantities, output->num_samples, 0, output->num_samples)];
 
-    memcpy(odata, obd->data, nquantities * sizeof(CDATAFORMAT));
+    // Data are copied in a loop rather than using memcpy() because
+    // the source may be float or double but the destination must be double.
+    for (quantityid=0; quantityid<obd->nquantities; ++quantityid)
+      { odata[quantityid] = obd->data[quantityid]; }
 
-    obd = (ob_data*)(&(obd->data[nquantities]));
+    obd = (ob_data*)(&(obd->data[obd->nquantities]));
     ++output->num_samples;
   }
 	     

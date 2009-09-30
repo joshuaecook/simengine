@@ -459,6 +459,8 @@ if opts.recompile
    otherwise
     if regexp(computer, 'x86_64')
       arch = 'x86_64';
+    elseif regexp(computer, 'i.86')
+      arch = 'i386'
     else
       warning('Simatra:simEngine:simex', ...
               ['Architecture is not officially '...

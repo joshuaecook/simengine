@@ -462,6 +462,7 @@ fun logoutput_code class =
     let
 	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
 	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
+	val outputs = #outputs class
 	val sym_decls = map
 			    (fn(term, sym)=> 
 			       let
@@ -490,19 +491,19 @@ fun logoutput_code class =
 					       (Util.addCount contents)) @
 					  [$("ob->ptr[modelid] = &((CDATAFORMAT *)(obd->data))["^(i2s (inc (List.length contents)))^"];"),
 					   $("ob->count[modelid]++;"),
-					   $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid])));")]),
+					   $("ob->full[modelid] |= (MAX_OUTPUT_SIZE > ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid])));")]),
 				      $("}")],
 				  $("}")]
 			      )
-			      (Util.addCount(!(#outputs class)))
+			      (Util.addCount(!outputs))
 
 	val total_output_quantities =
-	    List.foldr op+ 0 (map (List.length o #contents) (!(#outputs class)))
+	    List.foldr op+ 0 (map (List.length o #contents) (!outputs))
 
     in
         if total_output_quantities > 0 then
 	[$(""),
-	 $("#define MAX_OUTPUT_SIZE (NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT)) //size in bytes"),
+	 $("#define MAX_OUTPUT_SIZE (NUM_OUTPUTS*2*sizeof(unsigned int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT)) //size in bytes"),
 	 $(""),
 	 $("__DEVICE__ void buffer_outputs(double t, output_data *od, output_buffer *ob, unsigned int modelid) {"),
 	 SUB(output_exps),

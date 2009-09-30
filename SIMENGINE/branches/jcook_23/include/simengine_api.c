@@ -111,16 +111,16 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 //
 //    evaluates the model flows for a given state space and inputs
 //    used for interfacing an external solver
+// This should only ever be used when the backend is compiled in double precision
 EXTERN_C
+#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1
 int simengine_evalflow(double t, double *y, double *dydt, double *inputs) {
   CDATAFORMAT *outputs = NULL;  // Should not be written to as first_iteration is 0
   int first_iteration = 0;
   int modelid = 0;
 
-  // This should only ever be used when the backend is compiled in double precision
-#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1
   return model_flows(t, y, dydt, inputs, outputs, first_iteration, modelid);
-#else
-  return -1;
-#endif
 }
+#else
+int simengine_evalflow(double t, double *y, double *dydt, double *inputs) { return -1; }
+#endif

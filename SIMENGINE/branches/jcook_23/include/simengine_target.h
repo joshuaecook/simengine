@@ -1,6 +1,7 @@
 // simengine_target.h
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
 #include<stdio.h>
+#include<string.h>
 
 #ifndef SIMENGINE_TARGET_H
 #define SIMENGINE_TARGET_H
