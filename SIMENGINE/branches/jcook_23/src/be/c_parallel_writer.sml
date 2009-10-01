@@ -213,11 +213,11 @@ fun class2flow_code (class, top_class) =
 	    if has_states then
 		[$(""),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
+		   ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, output_data *outputs, unsigned int first_iteration, unsigned int modelid) {")]
 	    else
 		[$(""),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "(CDATAFORMAT t, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
+		   ^ "(CDATAFORMAT t, CDATAFORMAT *inputs, output_data *outputs, unsigned int first_iteration, unsigned int modelid) {")]
 
 
 	val read_memory_progs = []
@@ -327,10 +327,8 @@ fun class2flow_code (class, top_class) =
 		 $("// writing output variables"),
                  $("#if NUM_OUTPUTS > 0"),
 		 $("if (first_iteration) {"),
-		 SUB($("output_data *od = (output_data*)outputs;")::
-		     (map
-			  (fn(t,s)=> $("od[modelid]." ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-			  (CWriterUtil.class2uniqueoutputsymbols class))),
+		 SUB(map (fn(t,s)=> $("outputs[modelid]." ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+			 (CWriterUtil.class2uniqueoutputsymbols class)),
 		 $("}"),
                  $("#endif")]
 	    else
@@ -400,9 +398,9 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
 				       else
 					   if class_has_states then
-					       $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
+					       $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, output_data *outputs, unsigned int first_iteration, unsigned int modelid);")
 					   else
-					       $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")					       
+					       $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, CDATAFORMAT *inputs, output_data *outputs, unsigned int first_iteration, unsigned int modelid);")					       
 				   end)
 				classes
 	val iterators = CurrentModel.iterators()
@@ -419,9 +417,9 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 	    [$"",
 	     $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid){"),
              SUB[if ClassProcess.class2statesize topclass > 0 then
-	       $("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, outputs, first_iteration, modelid);")
+	       $("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, (const struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)y, (struct statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"*)dydt, inputs, (output_data*)outputs, first_iteration, modelid);")
              else
-	       $("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, inputs, outputs, first_iteration, modelid);")
+	       $("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, inputs, (output_data*)outputs, first_iteration, modelid);")
              ],
 	     $("}"),
 	     $("")]
@@ -478,6 +476,10 @@ fun logoutput_code class =
 				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")
 			       end)
 			    dependent_symbols
+
+	fun buffer_output (exp, ix) =
+	    $("obd->data["^(i2s (inc ix))^"] = " ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp)) ^ ";")
+
 	val output_exps =Util.flatmap
 			      (fn(out as ({condition, contents, name}, output_index))=> 
 				 [$("{ // Generating output for symbol " ^ (ExpProcess.exp2str (Exp.TERM name))),
@@ -487,9 +489,8 @@ fun logoutput_code class =
 					   $("obd->outputid = " ^ (i2s output_index) ^ ";"),
 					   $("obd->nquantities = " ^ (i2s (inc (List.length contents))) ^ ";"),
 					   $("obd->data[0] = t;")] @
-					  (map (fn (exp, i) => $("obd->data["^(i2s (inc i))^"] = " ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp)) ^ ";"))
-					       (Util.addCount contents)) @
-					  [$("ob->ptr[modelid] = &((CDATAFORMAT *)(obd->data))["^(i2s (inc (List.length contents)))^"];"),
+					  (map buffer_output (Util.addCount contents)) @
+					  [$("ob->ptr[modelid] = &obd->data["^(i2s (inc (List.length contents)))^"];"),
 					   $("ob->count[modelid]++;"),
 					   $("ob->full[modelid] |= (MAX_OUTPUT_SIZE > ((unsigned long long)(ob->end[modelid]) - (unsigned long long)(ob->ptr[modelid])));")]),
 				      $("}")],

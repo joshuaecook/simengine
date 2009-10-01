@@ -122,5 +122,6 @@ int simengine_evalflow(double t, double *y, double *dydt, double *inputs) {
   return model_flows(t, y, dydt, inputs, outputs, first_iteration, modelid);
 }
 #else
-int simengine_evalflow(double t, double *y, double *dydt, double *inputs) { return -1; }
+int simengine_evalflow(double t __attribute__ ((unused)), double *y __attribute__ ((unused)), double *dydt __attribute__ ((unused)), double *inputs __attribute__ ((unused))) 
+{ return -1; }
 #endif

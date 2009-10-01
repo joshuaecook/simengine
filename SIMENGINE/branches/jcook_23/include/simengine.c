@@ -22,9 +22,10 @@ __DEVICE__ void init_output_buffer(output_buffer *ob, unsigned int modelid){
 
 /* Transmutes the internal data buffer into the structured output
  * which may be retured to the client.
+ * Nb. This function must be thread-safe.
  */
 int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int modelid) {
-  unsigned int outputid, nquantities, dataid, quantityid;
+  unsigned int dataid, quantityid;
   simengine_output *output;
   double *odata;
 	     
@@ -186,7 +187,7 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
 	     
   if (modelid < NUM_MODELS) {
     output_buffer *ob = (output_buffer *)mem->props->ob;
-    if (ob_id) { ob = &(ob[ob_id]); }
+    if (0 != ob_id) { ob = &(ob[ob_id]); }
 
     // Initialize output buffer to store output data
     init_output_buffer(ob, modelid);
@@ -228,9 +229,79 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
   }
 }
 
-
-
 int exec_parallel_gpu_mapped(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
+  int ret = SUCCESS;
+  unsigned int num_gpu_threads;
+  unsigned int num_gpu_blocks;
+  num_gpu_threads = GPU_BLOCK_SIZE < NUM_MODELS ? GPU_BLOCK_SIZE : NUM_MODELS;
+  num_gpu_blocks = (NUM_MODELS + GPU_BLOCK_SIZE - 1) / GPU_BLOCK_SIZE;
+
+  unsigned int active_models = NUM_MODELS;
+  unsigned int modelid;
+
+  // Using 2 copies of the output buffer, capable devices may execute
+  // a kernel while concurrently logging a previous result.
+  output_buffer *ob = (output_buffer *)props->ob;
+  unsigned int ob_id = 0;
+  unsigned int aflight = 0; // Number of kernels in flight
+  cudaEvent_t checkpoint[2]; // No more than 2 events in queue
+  // These events signal a kernel completion. After logging, we sync
+  // on the next event to await more results.
+  cutilSafeCall(cudaEventCreate(&checkpoint[0]));
+  cutilSafeCall(cudaEventCreate(&checkpoint[1]));
+
+
+  while(SUCCESS == ret && active_models){
+
+      if (aflight) {
+	// A kernel is executing; wait for it to complete
+	cutilSafeCall(cudaEventSynchronize(checkpoint[ob_id]));
+	--aflight;
+
+	// Copies important data between output buffers
+	for(modelid = 0; modelid < NUM_MODELS; modelid++) {
+	  ob[1^ob_id].finished[modelid] = ob[ob_id].finished[modelid];
+	  if (ob[ob_id].finished[modelid]) {
+	    { --active_models; }
+	  }
+	}
+
+	ob_id ^= 1;
+	// Launches the next kernel
+	if (active_models) {
+	  PRINTF("launching next kernel with %d active_models (ob %d)\n", active_models, ob_id);
+	  exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem, ob_id);
+	  cutilSafeCall(cudaEventRecord(checkpoint[ob_id], 0));
+	  ++aflight;
+	}
+
+	  // Copies data in parallel to external API data structures
+	for(modelid = 0; modelid < NUM_MODELS; modelid++) {
+	  if (SUCCESS != log_outputs(&(ob[1^ob_id]), outputs, modelid)) {
+	    ret = ERRMEM;
+	    break;
+	  }
+	}
+      }
+      else if (active_models) {
+	// No kernels active; launch one
+	PRINTF("launching first kernel with %d active_models (ob %d)\n", active_models, ob_id);
+	exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem, ob_id);
+	cutilSafeCall(cudaEventRecord(checkpoint[ob_id], 0));
+	++aflight;
+      }
+  }
+
+
+  // Copy final times and states from GPU
+  cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(props->model_states, props->gpu.model_states, props->statesize*props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+
+  return ret;
+}
+
+/*
+int exec_parallel_gpu_mapped_omp(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
   int ret = SUCCESS;
   unsigned int num_gpu_threads;
   unsigned int num_gpu_blocks;
@@ -351,9 +422,46 @@ int exec_parallel_gpu_mapped(INTEGRATION_MEM *mem, solver_props *props, simengin
 
   return ret;
 }
-
+*/
 
 int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
+  int ret = SUCCESS;
+  unsigned int num_gpu_threads;
+  unsigned int num_gpu_blocks;
+  num_gpu_threads = GPU_BLOCK_SIZE < NUM_MODELS ? GPU_BLOCK_SIZE : NUM_MODELS;
+  num_gpu_blocks = (NUM_MODELS + GPU_BLOCK_SIZE - 1) / GPU_BLOCK_SIZE;
+
+  unsigned int active_models = NUM_MODELS;
+  unsigned int modelid;
+
+  output_buffer *ob = (output_buffer *)props->ob;
+
+  while(SUCCESS == ret && active_models)
+    {
+      PRINTF("launching next kernel with %d active_models\n", active_models);
+      exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem,0);
+      cutilSafeCall(cudaMemcpy(ob, props->gpu.ob, props->ob_size, cudaMemcpyDeviceToHost));
+
+      // Copies data in parallel to external API data structures
+      for(modelid = 0; modelid < NUM_MODELS; modelid++) {
+	if (SUCCESS != log_outputs(ob, outputs, modelid)) {
+	  ret = ERRMEM;
+	  break;
+	}
+	if (ob->finished[modelid]) 
+	  {--active_models;}
+      }
+    }
+
+  // Copy final times and states from GPU
+  cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(props->model_states, props->gpu.model_states, props->statesize*props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+
+  return ret;
+}
+
+/*
+int exec_parallel_gpu_omp(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
   int ret = SUCCESS;
   unsigned int num_gpu_threads;
   unsigned int num_gpu_blocks;
@@ -401,7 +509,7 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
 	    if (ob->finished[modelid]) 
 		{
 #pragma omp critical
-		--active_models;
+		  {--active_models;}
 		}
 	  }
 	  // If the number of models is not an even multiple of the number of cores
@@ -416,7 +524,7 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
 	    if (ob->finished[modelid]) 
 		{
 #pragma omp critical
-		--active_models;
+		  {--active_models;}
 		}
 	  }
 
@@ -429,6 +537,7 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
 
   return ret;
 }
+*/
 #endif // defined(TARGET_GPU)
 
 
@@ -468,7 +577,7 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   props.outputsize = outputsize;
   props.num_models = NUM_MODELS;
 #if defined(TARGET_GPU)
-  props.gpu.ob_mapped = 1;
+  props.gpu.ob_mapped = 0;
   if (props.gpu.ob_mapped)
       { props.ob_size = 2 * sizeof(output_buffer); }
   else

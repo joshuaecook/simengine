@@ -101,9 +101,10 @@ endif
 # end of target-specific compiler options
 
 ifneq ($(DEBUG),)
-	COMMON += -g
-	CFLAGS += -ggdb
-	NVCCFLAGS += -D_DEBUG
+	COMMON += -g -ggdb
+	NVCCFLAGS += -g -D_DEBUG
+else
+	COMMON += -O2 -fno-strict-aliasing
 endif
 
 # add OS Specifc flags

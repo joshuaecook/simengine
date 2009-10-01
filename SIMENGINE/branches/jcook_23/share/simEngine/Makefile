@@ -58,10 +58,11 @@ endif
 ifeq ($(TARGET),GPU)
 PTXASFLAGS = -v
 ifeq ($(OSLOWER),darwin)
-NVCCFLAGS = -arch=sm_11 --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" $(INCLUDES)
+CUDA_ARCH = -arch=sm_11
 else
-NVCCFLAGS = -arch=sm_13 --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" $(INCLUDES)
+CUDA_ARCH = -arch=sm_13
 endif
+NVCCFLAGS = $(CUDA_ARCH) --host-compilation C --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" $(INCLUDES)
 INCLUDES += $(CUDA_INCLUDES)
 LDFLAGS += $(CUDA_LDFLAGS)
 LDLIBS += $(CUDA_LDLIBS)
@@ -75,18 +76,14 @@ endif
 
 #ifeq ($(TARGET),OPENMP)
 LDLIBS += $(OPENMP_LDLIBS)
-CFLAGS += -fopenmp
+COMMON += -fopenmp
 #endif
 
 ifneq ($(DEBUG),)
-	COMMON += -g
-	CFLAGS += -ggdb
-	NVCCFLAGS += -D_DEBUG
+	COMMON += -g -ggdb
+	NVCCFLAGS += -g -D_DEBUG
 else
-	COMMON += -O2
-	NVCCFLAGS += --compiler-options -fno-strict-aliasing
-	CXXFLAGS += -fno-strict-aliasing
-	CFLAGS += -fno-strict-aliasing
+	COMMON += -O2 -fno-strict-aliasing
 endif
 
 ifeq ($(ARCH),x86_64)
