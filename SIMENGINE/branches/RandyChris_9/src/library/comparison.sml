@@ -25,6 +25,8 @@ fun eq _ args =
 	KEC.LITERAL(KEC.CONSTBOOL (b1 = b2))
       | [KEC.OBJECT {members=members1, ...}, KEC.OBJECT {members=members2, ...}]
 	=> KEC.LITERAL(KEC.CONSTBOOL(members1 = members2))
+      | [KEC.UNIT, KEC.UNIT]
+	=> KEC.LITERAL(KEC.CONSTBOOL(true))
       | [arg1, arg2]
 	=> KEC.LITERAL(KEC.CONSTBOOL(false))
       | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)}
@@ -39,6 +41,8 @@ fun ne _ args =
 	KEC.LITERAL(KEC.CONSTBOOL (size1 <> size2 orelse val1 <> val2))
       |	[KEC.LITERAL(KEC.CONSTBOOL b1), KEC.LITERAL(KEC.CONSTBOOL b2)] =>
 	KEC.LITERAL(KEC.CONSTBOOL (b1 <> b2))
+      | [KEC.UNIT, KEC.UNIT]
+	=> KEC.LITERAL(KEC.CONSTBOOL(false))
       | [KEC.OBJECT {members=members1, ...}, KEC.OBJECT {members=members2, ...}]
 	=> KEC.LITERAL(KEC.CONSTBOOL(members1 <> members2))
       | [arg1, arg2]

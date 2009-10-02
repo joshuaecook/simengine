@@ -52,12 +52,12 @@ fun setShowStackTrace(bool) =
 open Printer
 
 fun log_stack e () =
-    if (!showStackTrace) then
+(*    if (!showStackTrace) then*)
 	[$"  Exception stack trace:",
 	 (SUB (map (fn(s) => $s) (MLton.Exn.history e)))]
-    else
+(*    else
 	[]
-				  
+*)				  
 fun log handlelocation (e as InternalError {message, severity, characterization, location}) =
     (Logger.log characterization severity 
 		(Printer.$("Exception caught at " ^ handlelocation 
@@ -68,7 +68,7 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
   | log handlelocation e = 
     (Logger.log Logger.OTHER Logger.FAILURE 
 		($("Unknown exception caught at " ^ handlelocation));
-     Logger.log_information (log_stack e) Logger.NOGROUP)
+     Logger.log_error (Printer.SUB(log_stack e ())))
 
 fun checkpoint handlelocation e =
     (log handlelocation e;

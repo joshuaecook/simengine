@@ -466,6 +466,30 @@ namespace Relational
   function operator_ne (a, b) = LF neq(a,b)
 end
 
+namespace Process
+  function readline (process) = LF preadline (process)	
+  
+  function read (process)
+    var x = []
+    var line = LF preadline (process)
+
+    while line <> () do
+      x.push_back line
+      line = LF preadline (process)
+    end
+
+    x
+  end
+
+  function write (process, text) = LF pwrite (process, text)
+
+  function run (name: String, args: Vector) = LF popen (name, args)
+  overload function run (name: String) = LF popen (name, [])
+
+
+  function reap (process) = LF preap (process)
+end
+
 open Operations
 open Relational
 open Text

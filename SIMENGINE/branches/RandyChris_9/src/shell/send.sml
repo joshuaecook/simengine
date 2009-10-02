@@ -262,6 +262,13 @@ fun send isLHS exec env message object =
 		   | _ => methodNotFound(message)
 		)
 
+	      | KEC.PROCESS (p, file, args) =>
+		(case Symbol.name message of
+		     "members" => strlist ["members", "tostring"]
+		   | "tostring" => method message (KEC.LITERAL (KEC.CONSTSTR (pretty object)))
+		   | _ => methodNotFound(message)
+		)
+
 	      | KEC.LITERAL(KEC.CONSTREAL r) =>
 		(case Symbol.name message of
 		     "members" => strlist ["abs", "ceil", "floor", "members", "round", "tostring"]
