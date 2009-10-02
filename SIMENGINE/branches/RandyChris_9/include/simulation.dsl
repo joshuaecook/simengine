@@ -98,8 +98,9 @@ namespace Simulation
       end
     end
 
+    function tostring() = eq.tostring()
 
-    function tostring ()
+    function debugtostring ()
       var str = self.class.name + "("
       str = str + "name=" + self.getName()
       str + ")"
@@ -133,6 +134,8 @@ namespace Simulation
       self.lhs = lhs
       self.rhs = rhs
     end
+
+    function tostring() = lhs.tostring() + " = " + rhs.tostring()
   end  
 
 
@@ -670,6 +673,21 @@ namespace Simulation
   end
 
   class Model
+
+    function tostring()
+      var s = "Model " + name + "\n"
+      s = s + "  Submodels:\n"
+      foreach s in submodels do
+        s = s + s.tostring() + "\n"
+      end      
+      s = s + "  Equations:\n"
+      foreach q in quantities do
+        s = s + "    " + q.tostring() + "\n"
+      end
+      
+      s = s + "end model " + name + "\n"
+      s
+    end
 
     hidden var solver_obj
 
