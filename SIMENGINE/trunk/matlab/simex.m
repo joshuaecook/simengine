@@ -76,6 +76,9 @@
 %        Utilize a particular solver builtin to MATLAB, such as
 %        ode15s, ode23t, and ode45.
 %
+%      '-outputfun=FUNNAME'
+%        Execute a function on the outputs and return an array of results
+%
 %      '-quiet'
 %        Do not display output from the simEngine compiler
 %
@@ -141,43 +144,52 @@ else
   end
   
   tic;
-    if opts.solver % use a MATLAB ODE solver
+  if opts.solver % use a MATLAB ODE solver
+      if opts.outputfun
+          error('Simatra:simex:argumentError', 'Output functions not supported for MATLAB ODE solvers');
+      end
       simex_helper(dllPath, userInputs); % Initialize evalflow DLL
       try
-        [t, y] = feval(opts.solver, @simex_helper, [opts.startTime opts.endTime], ...
-                       userStates);
+          [t, y] = feval(opts.solver, @simex_helper, [opts.startTime opts.endTime], ...
+              userStates);
       catch me
-        me
+          me
       end
       simex_helper(dllPath, userInputs); % Cleanup evalflow DLL
       varargout = {t, y};
       elapsed = toc;
       verbose_out([dslName ' simulation using ' opts.solver ' completed in ' num2str(elapsed) ' ' ...
-            'seconds.'], opts);
+          'seconds.'], opts);
       return;
-    else
+  else
       [output y1 t1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
-                                    userInputs, userStates);
-    end
-  elapsed = toc;
-  
-  verbose_out([dslName ' simulation completed in ' num2str(elapsed) ...
-               ' seconds.'], opts);
-  
-
-  % Output data are transposed before returning.
-  fnames = fieldnames(output);
-  for i=1:length(output)
-    for f=1:length(fnames)
-      output(i).(fnames{f}) = ...
-          transpose(output(i).(fnames{f}));
-    end
+          userInputs, userStates);
+      elapsed = toc;
+      
+      verbose_out([dslName ' simulation completed in ' num2str(elapsed) ...
+          ' seconds.'], opts);
+      
+      
+      % Output data are transposed before returning.
+      fnames = fieldnames(output);
+      for i=1:length(output)
+          for f=1:length(fnames)
+              output(i).(fnames{f}) = ...
+                  transpose(output(i).(fnames{f}));
+          end
+      end
+      if opts.outputfun
+          len = length(output);
+          metrics = zeros(len,1);
+          for i=1:len
+              metrics(i) = feval(opts.outputfun, output(i));
+          end
+          output = metrics;
+      end
+      varargout = {output transpose(y1) t1};
   end
-           
-  varargout = {output transpose(y1) t1};
 end
 end
-
 %% 
 function [dslPath dslName modelFile opts] = get_simex_opts(varargin)
 %
@@ -195,7 +207,7 @@ opts = struct('models',1, 'target','', 'precision','double', ...
               'verbose',true, 'debug',false, 'profile',false, ...
               'emulate',false, 'recompile',true,'startTime',0, ...
               'endTime',0, 'inputs',struct(), 'states',[], ...
-              'simengine','', 'solver', []);
+              'simengine','', 'solver', [], 'outputfun', false);
 
 [seroot] = fileparts(which('simex'));
 opts.simengine = seroot;
@@ -255,6 +267,12 @@ if 1 < nargin
       if not(exist(opts.solver)) 
         error('Simatra:SIMEX:argumentError', ...
               '%s is not a valid matlab ode solver', opts.solver);
+      end
+    elseif length(arg) > 11 && strcmpi(arg(1:11), '-outputfun=')
+      opts.outputfun = arg(12:end);
+      if not(exist(opts.outputfun)) 
+        error('Simatra:SIMEX:argumentError', ...
+              '%s is not a valid matlab function solver', opts.outputfun);
       end
     end
   end

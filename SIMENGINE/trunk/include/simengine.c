@@ -337,7 +337,37 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   props.ob_size = sizeof(output_buffer);
   props.ob = ob;
   props.running = running;
-  
+
+  // for CVODE
+#ifdef CVODE_LMM
+  props.cvode.lmm = CVODE_LMM;
+#endif
+#ifdef CVODE_ITER
+  props.cvode.iter = CVODE_ITER;
+#endif
+#ifdef CVODE_SOLV
+  props.cvode.solv = CVODE_SOLV;
+  switch (CVODE_SOLV) {
+  case CVODE_BAND:
+#ifdef CVODE_UPPERHALFBW
+#ifdef CVODE_LOWERHALFBW
+    {
+      int opts[] = {CVODE_UPPERHALFBW, CVODE_LOWERHALFBW};
+      props.cvode.solv_opts = opts;
+    }
+#else
+    {
+      int opts[] = {1,1};
+      props.cvode.solv_opts = opts;
+    }
+#endif
+   break;       
+#endif
+  default:
+    props.cvode.solv_opts = NULL;       
+  }
+#endif
+
   // Initialize run status flags
   for(modelid=0;modelid<NUM_MODELS;modelid++){
     ob->finished[modelid] = 0;

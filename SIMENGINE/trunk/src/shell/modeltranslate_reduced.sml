@@ -546,7 +546,21 @@ fun translate (exec, object) =
 							  rel_tolerance = exp2real(method "reltol" solverobj)}
 			       | "cvode" => Solver.CVODE {dt = exp2real(method "dt" solverobj),
 							  abs_tolerance = exp2real(method "abstol" solverobj),
-							  rel_tolerance = exp2real(method "reltol" solverobj)}
+							  rel_tolerance = exp2real(method "reltol" solverobj),
+							  lmm = case exp2str (method "cv_lmm" solverobj) of
+								    "CV_BDF" => Solver.CV_BDF
+								  | "CV_ADAMS" => Solver.CV_ADAMS
+								  | s => (Logger.log_warning (Printer.$("Invalid linear method '"^s^"' chosen: Valid options are CV_BDF or CV_ADAMS.  Defaulting to CV_BDF"));Solver.CV_BDF),
+							  iter = case exp2str (method "cv_iter" solverobj) of
+								    "CV_FUNCTIONAL" => Solver.CV_FUNCTIONAL
+								  | "CV_NEWTON" => Solver.CV_NEWTON
+								  | s => (Logger.log_warning (Printer.$("Invalid iteration method '"^s^"' chosen: Valid options are CV_FUNCTIONAL or CV_NEWTON.  Defaulting to CV_NEWTON"));Solver.CV_NEWTON),
+							  solv = case exp2str (method "cv_solv" solverobj) of
+								     "CVDENSE" => Solver.CVDENSE
+								   | "CVDIAG" => Solver.CVDIAG
+								   | "CVBAND" => Solver.CVBAND {upperhalfbw=exp2int (method "cv_upperhalfbw" solverobj),
+												lowerhalfbw=exp2int (method "cv_lowerhalfbw" solverobj)}
+							 }
 			       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
 		fun expHasN exp =

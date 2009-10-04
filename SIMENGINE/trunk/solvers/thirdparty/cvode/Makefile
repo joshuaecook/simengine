@@ -14,7 +14,10 @@ CVODE_OBJS = $(CVODE_PATH)/cvode/.libs/cvode_dense.o \
 	$(CVODE_PATH)/sundials/.libs/sundials_dense.o \
 	$(CVODE_PATH)/sundials/.libs/sundials_direct.o \
 	$(CVODE_PATH)/sundials/.libs/sundials_math.o \
-	$(CVODE_PATH)/sundials/.libs/sundials_nvector.o 
+	$(CVODE_PATH)/sundials/.libs/sundials_nvector.o \
+        $(CVODE_PATH)/cvode/.libs/cvode_diag.o \
+        $(CVODE_PATH)/cvode/.libs/cvode_band.o \
+	$(CVODE_PATH)/sundials/.libs/sundials_band.o \
 
 # Not all of the following are needed, but this is a good start to trimming closer to what we do need
 BUILD_DEPENDENCIES = $(SUNDIALS)/Makefile.in \
@@ -143,13 +146,13 @@ endif
 $(CVODE_OBJS): $(SUNDIALS_BUILD_PATH)
 	if [[ $(TYPE) == double ]]; then \
 	 cd $(SUNDIALS_BUILD_PATH); ./configure --disable-static --enable-shared --with-precision=double $(CFLAG64); \
-	 cd src/cvode; $(MAKE) cvode_dense.lo cvode_direct.lo cvode_io.lo cvode.lo; \
+	 cd src/cvode; $(MAKE) cvode_dense.lo cvode_diag.lo cvode_band.lo cvode_direct.lo cvode_io.lo cvode.lo; \
 	 cd ../nvec_ser; $(MAKE) nvector_serial.lo; \
-	 cd ../sundials; $(MAKE) sundials_dense.lo sundials_direct.lo sundials_math.lo sundials_nvector.lo; \
+	 cd ../sundials; $(MAKE) sundials_dense.lo sundials_band.lo sundials_direct.lo sundials_math.lo sundials_nvector.lo; \
 	elif  [[ $(TYPE) == float ]]; then \
 	 cd $(SUNDIALS_BUILD_PATH); ./configure --disable-static --enable-shared --with-precision=single $(CFLAG64); \
-	 cd src/cvode; $(MAKE) cvode_dense.lo cvode_direct.lo cvode_io.lo cvode.lo; \
+	 cd src/cvode; $(MAKE) cvode_dense.lo cvode_diag.lo cvode_band.lo cvode_direct.lo cvode_io.lo cvode.lo; \
 	 cd ../nvec_ser; $(MAKE) nvector_serial.lo; \
-	 cd ../sundials; $(MAKE) sundials_dense.lo sundials_direct.lo sundials_math.lo sundials_nvector.lo; \
+	 cd ../sundials; $(MAKE) sundials_dense.lo sundials_band.lo sundials_direct.lo sundials_math.lo sundials_nvector.lo; \
 	fi
 

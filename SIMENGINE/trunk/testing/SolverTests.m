@@ -37,7 +37,8 @@ if not(exist(templatedir, 'dir'))
 end
 
 % Run just one model, FN, across each of the solvers
-solvers = {'forwardeuler', 'rk4', 'ode23', 'ode45', 'cvode'};
+solvers = {'forwardeuler', 'rk4', 'ode23', 'ode45', 'cvode', ...
+           'cvode_stiff', 'cvode_nonstiff', 'cvode_diag', 'cvode_tridiag'};
 precisions = {'single', 'double'};
 for i=1:length(solvers)
     solver = solvers{i};
