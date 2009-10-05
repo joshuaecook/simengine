@@ -363,6 +363,14 @@ fun createClass classes object =
 		in
 		    [init, eq]
 		end
+	    else if istype (object, "Event") then
+		let
+		    val name = ExpBuild.event (exp2str (method "name" object))
+		    val condition = kecexp2dofexp (method "condition" object)
+		    val _ = print ("Handling event: " ^ (exp2str (method "name" object)) ^ "\n")
+		in
+		    [ExpBuild.equals (name, condition)]
+		end
 	    else
 		DynException.stdException ("Unexpected quantity encountered", "ModelTranslate.translate.createClass.quantity2exp", Logger.INTERNAL)			
 		

@@ -222,12 +222,12 @@ modelpart: quantitydef newlines (quantitydef)
 quantitydef: modifiers quantitytype ID optdimensions precinfoopt optassignment opttable(Ast.QUANTITYDEF {modifiers=modifiers, basetype=quantitytype, name=Symbol.symbol ID, precision=precinfoopt, exp=optassignment, settingstable = opttable, dimensions=optdimensions})
 	   | modifiers PARAMETER ID optdimensions precinfoopt ASSIGN optlines exp opttable (Ast.STM (Ast.DEFINITION (Ast.DEFCONST (Symbol.symbol ID, NONE, exp), PARAMETERleft)) before error_at_pos PARAMETERleft "The parameter keyword has been removed.  Please use inputs for all tunable quantities or set as a constant.")
 
-outputdef: OUTPUT ID optassignment opttable (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
-	                                                    quantity=(case optassignment 
-	                                                               of NONE => Ast.SYMBOL (Symbol.symbol ID) 
-	                                                                | SOME exp => exp), 
-	                                                    settings=opttable}) 
-
+outputdef: OUTPUT ID optassignment opttable optwhen (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
+								    quantity=(case optassignment 
+									       of NONE => Ast.SYMBOL (Symbol.symbol ID) 
+										| SOME exp => exp), 
+								    settings=opttable,
+								    condition=optwhen}) 
 inputdef: INPUT ID opttable (Ast.INPUTDEF {name=Symbol.symbol ID,
 					   settings=opttable})
 
@@ -253,6 +253,7 @@ equations: (nil)
 
 equation: exp EQARROW optlines exp (Ast.MATHFUNCTION (exp1, exp2))
 	| exp ASSIGN optlines exp (Ast.EQUATION (exp1, exp2))
+	| ID WHEN exp (Ast.EVENT (Symbol.symbol ID, exp))
 
 
 ticks: TICK (1)

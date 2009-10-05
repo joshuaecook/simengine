@@ -355,7 +355,7 @@ and trans_definition definition =
 			   ]
 		       end*)
 
-		  | Ast.OUTPUTDEF {name, quantity, settings} 
+		  | Ast.OUTPUTDEF {name, quantity, settings, condition} 
  		    =>
 		    let 
 			fun outerror () =
@@ -372,6 +372,10 @@ and trans_definition definition =
 
 			val obj = case settings 
 				   of SOME table => apply (obj, [trans_exp table])
+				    | _ => obj
+
+			val obj = case condition
+				   of SOME cond => apply (obj, [HLEC.TABLE [(Symbol.symbol "condition", trans_exp cond)]])
 				    | _ => obj
 		    in
 			[HLEC.ACTION(HLEC.EXP (apply (HLEC.SEND{message=Symbol.symbol "add",
@@ -710,14 +714,26 @@ and trans_action pos action =
 
 		    val eq = apply (send "new" (sym "MathFunction"), [sym2strlit name, fun_lambda])
 		in
-(*		    [HLEC.DEFINITION(HLEC.DEFCONST(name, HLEC.DONTCARE, funobj),
-				     pos)]*)
+		    (*		    [HLEC.DEFINITION(HLEC.DEFCONST(name, HLEC.DONTCARE, funobj),
+						     pos)]*)
 		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, eq), pos),
 		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), pos)]
 		end
 
-	     | trans_eq (Ast.EQUATION (lhs, rhs)) =
-	       let
+	      | trans_eq (Ast.EVENT (name, cond)) =
+		let
+		    val eq = apply (send "new" (sym "Event"), [sym2strlit name, trans_exp cond])
+		in
+		    (*		    [HLEC.DEFINITION(HLEC.DEFCONST(name, HLEC.DONTCARE, funobj),
+						     pos)]*)
+		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, eq), pos),
+		     HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "quantities"), [HLEC.SYMBOL name])), PosLog.NOPOS),
+		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), pos)]
+		end
+
+
+	      | trans_eq (Ast.EQUATION (lhs, rhs)) =
+		let
 		    fun findSymbols exp =
 			case exp of
 			    Ast.SYMBOL s => [s]
@@ -745,10 +761,10 @@ and trans_action pos action =
 		    val syms = findSymbols lhs
 
 		    val sym = case syms of
-				[sym] => sym
-			      | _ =>
-				(error ($"Malformed equation encountered: unexpected number of symbols on left hand side");
-				 raise Skip)
+				  [sym] => sym
+				| _ =>
+				  (error ($"Malformed equation encountered: unexpected number of symbols on left hand side");
+				   raise Skip)
 
 		    val dimensions = findDimensions lhs
 		in

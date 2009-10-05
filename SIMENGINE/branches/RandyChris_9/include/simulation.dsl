@@ -125,6 +125,18 @@ namespace Simulation
     end    
   end  
 
+  class Event extends SimQuantity
+    var name
+    var condition
+
+    constructor (name: String, condition)
+      self.name = name
+      self.condition = condition
+    end    
+
+    function tostring() = name + " when " + condition.tostring()
+  end  
+
 
   class Equation
     var lhs

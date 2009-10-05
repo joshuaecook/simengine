@@ -15,6 +15,7 @@ type symbolproperty =
      {dim: dimlist option,
       iterator: Iterator.iterator list option,
       derivative: (int * Symbol.symbol list) option,
+      isevent: bool,
       sourcepos: PosLog.pos option,
       realname: Symbol.symbol option,
       scope: scopetype,
@@ -28,6 +29,7 @@ val default_symbolproperty =
      sourcepos=NONE,
      realname=NONE,
      scope=LOCAL,
+     isevent=false,
      outputbuffer=false,
      ep_index=NONE}
 
@@ -48,6 +50,8 @@ fun getRealName (props:symbolproperty) = #realname props
 
 fun getScope (props:symbolproperty) = #scope props
 
+fun getIsEvent (props:symbolproperty) = #isevent props
+
 fun isOutputBuffer (props:symbolproperty) = #outputbuffer props
 
 fun getEPIndex (props:symbolproperty) = #ep_index props
@@ -59,6 +63,18 @@ fun setDim props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     isevent=getIsEvent props,
+     outputbuffer=isOutputBuffer props,
+     ep_index=getEPIndex props}
+
+fun setIsEvent props flag = 
+    {dim=getDim props,
+     iterator=getIterator props,
+     derivative=getDerivative props,
+     sourcepos=getSourcePos props,
+     realname=getRealName props,
+     scope=getScope props,
+     isevent=flag,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
@@ -69,6 +85,7 @@ fun setIterator props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     isevent=getIsEvent props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
@@ -79,6 +96,7 @@ fun setDerivative props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     isevent=getIsEvent props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
@@ -89,6 +107,7 @@ fun setSourcePos props p =
      sourcepos=SOME p,
      realname=getRealName props,
      scope=getScope props,
+     isevent=getIsEvent props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
@@ -99,6 +118,7 @@ fun setRealName props p =
      sourcepos=getSourcePos props,
      realname=SOME p,
      scope=getScope props,
+     isevent=getIsEvent props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}	
 
@@ -109,6 +129,7 @@ fun setScope props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=p,
+     isevent=getIsEvent props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}	
 
@@ -119,6 +140,7 @@ fun setOutputBuffer props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     isevent=getIsEvent props,
      outputbuffer=p,
      ep_index=getEPIndex props}	
 
@@ -129,6 +151,7 @@ fun setEPIndex props p =
      sourcepos=getSourcePos props,
      realname=getRealName props,
      scope=getScope props,
+     isevent=getIsEvent props,
      outputbuffer=isOutputBuffer props,
      ep_index=p}	
 

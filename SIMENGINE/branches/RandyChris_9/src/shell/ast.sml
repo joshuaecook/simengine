@@ -101,7 +101,7 @@ and quantitytype =
 and modelpart =
     STM of stm
   | QUANTITYDEF of {modifiers: simq_modifier list, basetype: quantitytype, name: Symbol.symbol, precision: exp option, exp: exp option, settingstable: exp option, dimensions: Symbol.symbol list option}
-  | OUTPUTDEF of {name: Symbol.symbol, quantity: exp, settings: exp option}
+  | OUTPUTDEF of {name: Symbol.symbol, quantity: exp, settings: exp option, condition: exp option}
   | INPUTDEF of {name: Symbol.symbol, settings: exp option}
   | ITERATORDEF of {name: Symbol.symbol, value: exp option, settings: exp option}
   | SUBMODELDEF of definition (* assumed to be DEFMODEL *)
@@ -151,6 +151,7 @@ and stm =
 and equation =
     EQUATION of exp * exp
   | MATHFUNCTION of exp * exp
+  | EVENT of Symbol.symbol * exp
 	      
 
 end

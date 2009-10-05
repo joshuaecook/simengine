@@ -14,7 +14,7 @@ fun tvar_from_state str = Exp.TERM
 								     [(Symbol.symbol "t",Iterator.RELATIVE 0)])
 					       (Property.READSTATE (Symbol.symbol "rd_t"))))
 
-
+fun event str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, Property.setIsEvent Property.default_symbolproperty true))
 
 fun diff str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 				     Property.setScope
