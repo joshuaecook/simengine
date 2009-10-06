@@ -6,7 +6,7 @@ INCLUDES = $(CUDA_INCLUDES)
 CPPFLAGS = $(INCLUDES) -g 
 
 bandwidth_test.o: override CXX = $(NVCC)
-bandwidth_test.o: override CXXFLAGS = $(NVCCFLAGS) -Xcompiler -ggdb
+bandwidth_test.o: override CXXFLAGS = $(NVCCFLAGS) -Xcompiler -ggdb --ptxas-options=-v
 
 %.o: %.cu
 	$(COMPILE.cpp) -o $@ $<

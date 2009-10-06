@@ -6,9 +6,9 @@
 #include <cuda_runtime_api.h>
 
 
-const int num_threads = 192;
-const int len = num_threads * 4096;
-const int stride = 8;
+const int num_threads = 128;
+const int len = 30720 * 240;//2949120;
+const int stride = 16;
 int nIters = 500;
 
 
@@ -61,6 +61,35 @@ __global__ void read_and_write_states(states *y0, states *y1)
     }
 
 
+typedef struct {
+    float2 ab[stride];
+    float2 cd[stride];
+    float2 ef[stride];
+    float2 gh[stride];
+    } states4;
+    
+__global__ void read_and_write_states4(states4 *y0, states4 *y1)
+    {
+    // x-axis threads are contiguous (?)
+    const unsigned int modelx = threadIdx.x + blockIdx.x * blockDim.x;
+    const unsigned int modely = threadIdx.y + blockIdx.y * blockDim.y;
+    float2 ab = y0[modely].ab[modelx];
+    float2 cd = y0[modely].cd[modelx];
+    float2 ef = y0[modely].ef[modelx];
+    float2 gh = y0[modely].gh[modelx];
+
+    ab.x = 1.0f * modelx;
+    ab.y = 1.0f * modely;
+    ef.x = -1.0f * modelx;
+    ef.y = -1.0f * modely;
+
+    y1[modely].ab[modelx] = ab;
+    y1[modely].cd[modelx] = cd;
+    y1[modely].ef[modelx] = ef;
+    y1[modely].gh[modelx] = gh;
+    }
+
+
 // This is the way we are arranging device memory currently.
 typedef struct {
     float a[len];
@@ -86,9 +115,9 @@ __global__ void read_and_write_states2(states2 *y0, states2 *y1)
     float h = y0->h[model];
 
     a = 1.0f * model;
-    b = 1.0f;
+    b = 1.0f * model;
     g = -1.0f * model;
-    h = -1.0;
+    h = -1.0 * model;
 
     y1->a[model] = a;
     y1->b[model] = b;
@@ -101,7 +130,7 @@ __global__ void read_and_write_states2(states2 *y0, states2 *y1)
     }
 
 
-int main()
+int main1()
     {
     CUDA_SAFE_CALL( cudaSetDevice(0) );
     int num_models = len;
@@ -138,7 +167,46 @@ int main()
     return 0;
     }
 
-int main2()
+
+int main4()
+    {
+    CUDA_SAFE_CALL( cudaSetDevice(0) );
+    int num_models = len;
+    float runTime;
+
+    states4 *d_idata, *d_odata;
+    CUDA_SAFE_CALL( cudaMalloc((void**)&d_idata, (num_models/stride)*sizeof(states4)) );
+    CUDA_SAFE_CALL( cudaMalloc((void**)&d_odata, (num_models/stride)*sizeof(states4)) );
+
+
+    dim3  threads(stride, num_threads/stride, 1);
+    dim3  grid(1, num_models/stride/threads.y, 1);
+
+    cudaEvent_t start, end;
+    CUDA_SAFE_CALL( cudaEventCreate(&start) );
+    CUDA_SAFE_CALL( cudaEventCreate(&end) );
+    CUDA_SAFE_CALL( cudaEventRecord(start, 0) );
+
+    for (int i=0; i < nIters; ++i)
+	{
+	read_and_write_states4<<< grid, threads >>>(d_idata, d_odata);
+	}
+
+    CUDA_SAFE_CALL( cudaEventRecord(end, 0) );
+    CUDA_SAFE_CALL( cudaEventSynchronize(end) );
+
+    CUDA_SAFE_CALL( cudaEventElapsedTime(&runTime, start, end) );
+
+    runTime /= float(nIters);
+    float bandwidth = (2 * (num_models/stride)*sizeof(states4)) / (runTime * 1.0e-3 * (1<<30));
+    printf("Average time:% 13.4f ms\n", runTime);
+    printf("Bandwidth:% 16.4f GiB/s\n\n", bandwidth);
+
+    return 0;
+    }
+
+
+int main()
     {
     CUDA_SAFE_CALL( cudaSetDevice(0) );
     int num_models = len;
