@@ -6,8 +6,8 @@
 #include <cuda_runtime_api.h>
 
 
-const int num_threads = 128;
-const int len = 30720 * 240;//2949120;
+const int num_threads = 64;
+const int len = 30720 * 128;//2949120;
 const int stride = 16;
 int nIters = 500;
 
