@@ -6,8 +6,9 @@
 #include <cuda_runtime_api.h>
 
 
-const int len = 1 << 18;
 const int num_threads = 192;
+const int len = num_threads * 4096;
+const int stride = 8;
 int nIters = 500;
 
 
@@ -38,24 +39,25 @@ int nIters = 500;
 // This is a proposed new arrangement: array of structs of arrays of structs
 // (ASAS.)
 typedef struct {
-    float4 abcd[num_threads];
-    float4 efgh[num_threads];
+    float4 abcd[stride];
+    float4 efgh[stride];
     } states;
     
 __global__ void read_and_write_states(states *y0, states *y1)
     {
+    // x-axis threads are contiguous (?)
     const unsigned int modelx = threadIdx.x + blockIdx.x * blockDim.x;
     const unsigned int modely = threadIdx.y + blockIdx.y * blockDim.y;
-    float4 abcd = y0[modelx].abcd[modely];
-    float4 efgh = y0[modelx].efgh[modely];
+    float4 abcd = y0[modely].abcd[modelx];
+    float4 efgh = y0[modely].efgh[modelx];
 
     abcd.x = 1.0f * modelx;
     abcd.y = 1.0f * modely;
     efgh.z = -1.0f * modelx;
     efgh.w = -1.0f * modely;
 
-    y1[modelx].abcd[modely] = abcd;
-    y1[modelx].efgh[modely] = efgh;
+    y1[modely].abcd[modelx] = abcd;
+    y1[modely].efgh[modelx] = efgh;
     }
 
 
@@ -106,12 +108,12 @@ int main()
     float runTime;
 
     states *d_idata, *d_odata;
-    CUDA_SAFE_CALL( cudaMalloc((void**)&d_idata, (num_models/16)*sizeof(states)) );
-    CUDA_SAFE_CALL( cudaMalloc((void**)&d_odata, (num_models/16)*sizeof(states)) );
+    CUDA_SAFE_CALL( cudaMalloc((void**)&d_idata, (num_models/stride)*sizeof(states)) );
+    CUDA_SAFE_CALL( cudaMalloc((void**)&d_odata, (num_models/stride)*sizeof(states)) );
 
 
-    dim3  threads(num_threads/16, 16, 1);
-    dim3  grid(num_models/16/threads.x, 1, 1);
+    dim3  threads(stride, num_threads/stride, 1);
+    dim3  grid(1, num_models/stride/threads.y, 1);
 
     cudaEvent_t start, end;
     CUDA_SAFE_CALL( cudaEventCreate(&start) );
@@ -129,9 +131,9 @@ int main()
     CUDA_SAFE_CALL( cudaEventElapsedTime(&runTime, start, end) );
 
     runTime /= float(nIters);
-    float bandwidth = (2 * (num_models/16)*sizeof(states)) / (runTime * 1.0e-3 * (1<<30));
-    printf("Average time:% 2.4f ms\n", runTime);
-    printf("Bandwidth:    %.4f GiB/s\n\n", bandwidth);
+    float bandwidth = (2 * (num_models/stride)*sizeof(states)) / (runTime * 1.0e-3 * (1<<30));
+    printf("Average time:% 13.4f ms\n", runTime);
+    printf("Bandwidth:% 16.4f GiB/s\n\n", bandwidth);
 
     return 0;
     }
@@ -167,8 +169,8 @@ int main2()
 
     runTime /= float(nIters);
     float bandwidth = (2 * sizeof(states2)) / (runTime * 1.0e-3 * (1<<30));
-    printf("Average time:% 2.4f ms\n", runTime);
-    printf("Bandwidth:    %.4f GiB/s\n\n", bandwidth);
+    printf("Average time:% 13.4f ms\n", runTime);
+    printf("Bandwidth:% 16.4f GiB/s\n\n", bandwidth);
 
     return 0;
     }
