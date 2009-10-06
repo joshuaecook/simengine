@@ -1,12 +1,19 @@
 include ../../include/common.make
 
-device_props: override LDLIBS = $(CUDA_LDLIBS)
-device_props: override LDFLAGS = $(CUDA_LDFLAGS)
-device_props: override INCLUDES = $(CUDA_INCLUDES)
-device_props: override CPPFLAGS = $(INCLUDES)
+LDLIBS = $(CUDA_LDLIBS)
+LDFLAGS = $(CUDA_LDFLAGS)
+INCLUDES = $(CUDA_INCLUDES)
+CPPFLAGS = $(INCLUDES) -g 
+
+bandwidth_test.o: override CXX = $(NVCC)
+bandwidth_test.o: override CXXFLAGS = $(NVCCFLAGS) -Xcompiler -ggdb
+
+%.o: %.cu
+	$(COMPILE.cpp) -o $@ $<
 
 .PHONY: all clean
-all: device_props
+all: device_props bandwidth_test
 clean:
-	$(RM) device_props
+	$(RM) *.o *.linkinfo
+	$(RM) device_props bandwidth_test
 
