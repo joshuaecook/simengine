@@ -463,7 +463,7 @@ VERILOG_SIM_FILES = $(BUILD_DIR)/data/sim/top_level_model_tb.v $(BUILD_DIR)/data
 FACTORY_FILES = 
 
 #COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/lib/core.h $(BUILD_DIR)/lib/swbe_main.c $(BUILD_DIR)/lib/llc_defs.h $(BUILD_DIR)/lib/llc_protocol.c $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/bin/settings.csh $(BUILD_DIR)/bin/settings.sh $(BUILD_DIR)/README build-examples build-packages build-octave $(FILENAME) idynamo ../idynamo build_includes $(DOCUMENTATION_BUILD_FILES) $(ITEST) ../$(ITEST) $(BUILD_DIR)/$(DSLC) $(BUILD_DIR)/$(DSLC)/dslc.so
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/bin/simlib $(BUILD_DIR)/lib/libcodegen.sim $(MATLAB_BUILD_FILES)
 
 FIXEDPT_BUILD_FILES =  $(BUILD_DIR)/lib/fixpt.h $(BUILD_DIR)/lib/floatpt.h $(BUILD_DIR)/bin/fixpt_report.pl $(BUILD_DIR)/bin/compare_backends.pl $(BUILD_DIR)/bin/compare_sims.pl $(BUILD_DIR)/bin/create_table.pl
 HARDWARE_BUILD_FILES = $(BUILD_DIR)/bin/verify_xflow.pl $(VERILOG_IMPL_FILES) $(VERILOG_SIM_FILES) $(FACTORY_FILES)
@@ -622,6 +622,10 @@ $(BUILD_DIR)/%.fig: matlab/%.fig
 
 $(BUILD_DIR)/lib/libsolvers.a: solvers/lib/libsolvers.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+
+$(BUILD_DIR)/lib/libcodegen.sim:
+	@$(MAKE) -C codegen codegen
+	@echo "Copying 'codegen/lib/libcodegen.sim' to '$@' ..."; $(CP) codegen/lib/libcodegen.sim $@
 
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
@@ -842,6 +846,10 @@ build_shared: share/*
 
 $(BUILD_DIR)/data/default.dol: datafiles/default.dol
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
+
+$(BUILD_DIR)/bin/simlib:
+	@$(MAKE) -C codegen simlib/simlib
+	@echo "Copying 'codegen/simlib/simlib' to '$@' ..."; $(CP) codegen/simlib/simlib $@ 
 
 # Run scripts
 # ==============================================================================================

@@ -11,13 +11,16 @@ exception InternalError
 val i2s = Util.i2s
 val r2s = Util.r2s
 
+val testme = Archive.get "simengine/delme"
+
 fun cstring str = "\"" ^ str ^ "\""
 fun inc x = 1 + x
 
 (* ====================  HEADER  ==================== *)
 
 fun header (class_name, includes, defpairs) = 
-    [$("// C Execution Engine for top-level model: " ^ class_name),
+    [$(testme),
+     $("// C Execution Engine for top-level model: " ^ class_name),
      $("// " ^ Globals.copyright),
      $("#include<simengine_api.h>"),
      $("#include<solvers.h>"),

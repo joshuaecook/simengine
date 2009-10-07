@@ -1,0 +1,71 @@
+signature ARCHIVE = 
+sig
+    (* Returns the contents of an archived file given the name *)
+    val get: string -> string
+    (* Returns the contents of multiple files given their names *)
+    val mget: string list -> string list
+    (* Puts the contents of a named file into an archivable object and returns the object name *)
+    val put: string -> string
+    (* Puts the contents of all named fiels into archivable objects and returns the object names *)
+    val mput: string list -> string list
+end
+
+structure Archive : ARCHIVE =
+struct
+
+val simengine = 
+    case (OS.Process.getEnv "SIMENGINE") of
+	SOME x => x
+      | NONE => "./"
+
+val bin_path = simengine ^ "/bin/"
+val lib_path = simengine ^ "/lib/"
+val simlib = bin_path ^ "simlib"
+
+fun readfileString pipein =
+    case (TextIO.inputLine pipein) of
+		SOME x => x ^ (readfileString pipein)
+	      | NONE => ""
+
+fun readfileList pipein =
+    case (TextIO.inputLine pipein) of
+		SOME x => x :: (readfileList pipein)
+	      | NONE => []
+
+fun get fname =
+    let
+	val clargs = ["SiMagic", "get", lib_path ^ "libcodegen.sim", fname]
+	val proc = 
+	    MLton.Process.create{args = clargs,
+				 env = NONE,
+				 path = simlib,
+				 stderr = MLton.Process.Param.null,
+				 stdin = MLton.Process.Param.null,
+				 stdout = MLton.Process.Param.pipe}
+	val pipein = MLton.Process.Child.textIn (MLton.Process.getStdout proc)
+    in
+	readfileString pipein
+    end
+
+fun mget fnames =
+    map get fnames
+
+fun mput fnames =
+    let
+	val clargs = ["SiMagic", "put", lib_path ^ "libcodegen.*"] @ fnames
+	val proc = 
+	    MLton.Process.create{args = clargs,
+				 env = NONE,
+				 path = simlib,
+				 stderr = MLton.Process.Param.null,
+				 stdin = MLton.Process.Param.null,
+				 stdout = MLton.Process.Param.pipe}
+	val pipein = MLton.Process.Child.textIn (MLton.Process.getStdout proc)
+    in
+	readfileList pipein
+    end
+
+fun put fname =
+    List.hd (mput [fname])
+
+end

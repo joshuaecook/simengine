@@ -105,6 +105,7 @@ be/c_writer.sml
 be/mex_writer.sml
 be/mex_ode_writer.sml
 *)
+be/archive.sml
 be/c_parallel_writer.sml
 
 (*
