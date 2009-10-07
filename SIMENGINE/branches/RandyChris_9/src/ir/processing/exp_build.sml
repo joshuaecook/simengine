@@ -95,6 +95,7 @@ fun neg v = Exp.FUN (Fun.BUILTIN Fun.NEG, [v]) (*times [int ~1, v]*)
 fun divide (a,b) = Exp.FUN (Fun.BUILTIN Fun.DIVIDE, [a, b]);
 fun times l = Exp.FUN (Fun.BUILTIN Fun.MUL, l);
 fun power (a,b) = Exp.FUN (Fun.BUILTIN Fun.POW, [a, b]);
+fun recip a = power (a, int (~1))
 fun sqrt a = Exp.FUN (Fun.BUILTIN Fun.SQRT, [a])
 fun square a = power (a, int 2)
 fun norm l = sqrt (plus (map square l))

@@ -96,6 +96,13 @@ val real = ExpBuild.real
 val bool = ExpBuild.bool
 val frac = ExpBuild.frac
 val complex = ExpBuild.complex_fun
+val plus = ExpBuild.plus
+val sub = ExpBuild.sub
+val neg = ExpBuild.neg
+val times = ExpBuild.times
+val divide = ExpBuild.divide
+val power = ExpBuild.power
+val t2e = Exp.TERM
 
 fun op2props optype = 
     case optype of
@@ -107,8 +114,8 @@ fun op2props optype =
 		eval=BINARY {bool=NONE,
 			     int=SOME (fn(i1,i2)=> int (i1+i2)),
 			     real=SOME (fn(r1,r2)=> real (r1+r2)),
-			     complex=SOME (fn((r1,i1),(r2,i2)) => eval (complex (ExpBuild.plus [Exp.TERM r1, Exp.TERM r2],
-										 ExpBuild.plus [Exp.TERM i1, Exp.TERM i2]))),
+			     complex=SOME (fn((r1,i1),(r2,i2)) => eval (complex (plus [t2e r1, t2e r2],
+										 plus [t2e i1, t2e i2]))),
 			     collection=NONE,
 			     rational=SOME (fn((n1,d1),(n2,d2))=>if d1=d2 then 
 								     frac (n1+n2,d1) 
@@ -122,7 +129,16 @@ fun op2props optype =
 		precedence=6,
 		commutative=false,
 		associative=false,
-		eval=empty_binary,
+		eval=BINARY {bool=NONE,
+			     int=SOME (fn(i1,i2)=> int (i1-i2)),
+			     real=SOME (fn(r1,r2)=> real (r1-r2)),
+			     complex=SOME (fn((r1,i1),(r2,i2)) => eval (complex (sub (t2e r1, t2e r2),
+										 sub (t2e i1, t2e i2)))),
+			     collection=NONE,
+			     rational=SOME (fn((n1,d1),(n2,d2))=>if d1=d2 then 
+								     frac (n1-n2,d1) 
+								 else
+								     frac (n1*d2 - n2*d1, d1*d2))},
 		text=("-",INFIX),
 		C=("-",INFIX),
 		codomain= vectorizedCodomain}
@@ -131,7 +147,13 @@ fun op2props optype =
 		precedence=6,
 		commutative=false,
 		associative=false,
-		eval=empty_unary,
+		eval=UNARY {bool=NONE,
+			    int=SOME (fn(i)=> int (~i)),
+			    real=SOME (fn(r)=> real (~r)),
+			    complex=SOME (fn(r,i)=> eval( complex (neg (t2e r),
+								   neg (t2e i)))),
+			    rational=SOME (fn(n,d)=>frac (~n, d)),
+			    collection=NONE},
 		text=("-",PREFIX),
 		C=("-",PREFIX),
 		codomain= vectorizedCodomain}
@@ -140,7 +162,21 @@ fun op2props optype =
 		precedence=5,
 		commutative=true,
 		associative=true,
-		eval=empty_binary,
+		eval=BINARY {bool=NONE,
+			     int=SOME (fn(i1,i2)=> int (i1*i2)),
+			     real=SOME (fn(r1,r2)=> real (r1*r2)),
+			     complex=SOME (fn((r1,i1),(r2,i2)) => 
+					     let
+						 val r1 = t2e r1
+						 val i1 = t2e i1
+						 val r2 = t2e r2
+						 val i2 = t2e i2	
+					     in
+						 eval (complex (sub (times [r1, r2], times [i1, i2]),
+								plus [times [r1, i2], times [r2, i1]]))
+					     end),
+			     collection=NONE,
+			     rational=SOME (fn((n1,d1),(n2,d2))=>frac (n1*n2, d1*d2))},
 		text=("*",INFIX),
 		C=("*",INFIX),
 		codomain= vectorizedCodomain}
@@ -149,7 +185,25 @@ fun op2props optype =
 		   precedence=5,
 		   commutative=false,
 		   associative=false,
-		   eval=empty_binary,
+		   eval=BINARY {bool=NONE,
+				int=SOME (fn(i1,i2)=> 
+					    let 
+						val int_div = Int.div (i1, i2)
+						val real_div = (Real.fromInt i1)/
+							       (Real.fromInt i2)
+					    in
+						if int_div = (Real.floor real_div) then
+						    int int_div
+						else
+						    real real_div
+					    end),		 
+				real=SOME (fn(r1,r2)=> real (r1/r2)),
+				complex=
+				(* this can be more complicated - ComplexExpand[(r1 + i1 I)/(r2 + i2 I)] in Mathematica *)
+				SOME (fn((r1,i1),(r2,i2)) => divide (complex (t2e r1, t2e i1),
+									     complex (t2e r2, t2e i2))),
+				collection=NONE,
+				rational=SOME (fn((n1,d1),(n2,d2))=> frac (n1*d2, n2*d1))},
 		   text=("/",INFIX),
 		   C=("/",INFIX),
 		   codomain= vectorizedCodomain}
@@ -158,7 +212,12 @@ fun op2props optype =
 		    precedence=5,
 		    commutative=false,
 		    associative=false,
-		    eval=empty_binary,
+		    eval=BINARY {bool=NONE,
+				 int=SOME (fn(i1,i2)=> int (Int.mod (i1, i2))),
+				 real=SOME (fn(r1,r2)=> real (r1-r2*Real.fromInt (Real.floor(r1/r2)))),
+				 complex=NONE,
+				 collection=NONE,
+				 rational=NONE},
 		    text=("%",INFIX),
 		    C=("%",INFIX),
 		    codomain= vectorizedCodomain}
@@ -167,7 +226,28 @@ fun op2props optype =
 		precedence=4,
 		commutative=false,
 		associative=false,
-		eval=empty_binary,
+		eval=BINARY {bool=NONE,
+			     int=SOME (fn(i1,i2)=>
+					 if i2 = 0 then
+					     int 1
+					 else if i2 < 0 then
+					     eval (ExpBuild.recip (power (int i1, int (~i2))))
+					 else
+					     int (foldl (fn(a,b)=> a*b) i1 (List.tabulate (i2, fn(x)=>i2)))),
+			     real=SOME (fn(r1,r2)=>
+					  if Real.?=(r2, 0.0) then
+					      int 1
+					  else 
+					      real (Math.pow (r1, r2))),
+			     complex=NONE, (* this can be more complicated - ComplexExpand[(r1 + i1 I)^(r2 + i2 I)] in Mathematica *)
+			     collection=NONE,
+			     rational=SOME (fn((n1,d1),(n2,d2))=> 
+						  if d2 = 1 then (* this is the only one that we can really handle *)
+						      eval (divide (power(int n1, int n2),
+								    power(int d1, int n2)))
+						  else (* can't do a whole lot, return the original... *)
+						      power (frac(n1, d1),
+							     frac(n2, d2)))},
 		text=("^",INFIX),
 		C=("pow($1,$2)",MATCH),
 		codomain= vectorizedCodomain}
@@ -183,19 +263,19 @@ fun op2props optype =
       | RE => unaryfun2props ("re", UNARY {bool=NONE,
 					   int=NONE,
 					   real=NONE,
-					   complex=SOME (fn(r, i)=> Exp.TERM r),
+					   complex=SOME (fn(r, i)=> t2e r),
 					   rational=NONE,
 					   collection=NONE})
       | IM => unaryfun2props ("im", UNARY {bool=NONE,
 					   int=NONE,
 					   real=NONE,
-					   complex=SOME (fn(r, i)=> Exp.TERM i),
+					   complex=SOME (fn(r, i)=> t2e i),
 					   rational=NONE,
 					   collection=NONE})
       | ABS => unaryfun2props ("abs", UNARY {bool=NONE,
 					     int=SOME (int o r2i o abs o i2r),
 					     real=SOME (real o abs),
-					     complex=SOME (fn(r,i)=>complex (ExpBuild.norm [Exp.TERM r, Exp.TERM i],
+					     complex=SOME (fn(r,i)=>complex (ExpBuild.norm [t2e r, t2e i],
 									     int 0)),
 					     rational=SOME (fn(n,d)=>frac (r2i (abs (i2r n)),
 									   r2i (abs (i2r d)))),
@@ -203,7 +283,7 @@ fun op2props optype =
       | ARG => unaryfun2props ("arg", UNARY {bool=NONE,
 					     int=SOME (fn(r)=> int 0),
 					     real=SOME (fn(r)=> real 0.0),
-					     complex=SOME (fn(r, i)=> ExpBuild.atan2(Exp.TERM r,Exp.TERM i)),
+					     complex=SOME (fn(r, i)=> ExpBuild.atan2(t2e r,t2e i)),
 					     rational=NONE,
 					     collection=NONE})
       | CONJ => {name="conj",
@@ -214,8 +294,8 @@ fun op2props optype =
 		 eval=UNARY {bool=NONE,
 			     int=NONE,
 			     real=NONE,
-			     complex=SOME (fn(r,i)=> eval (complex (Exp.TERM r,
-								    ExpBuild.neg (Exp.TERM i)))),
+			     complex=SOME (fn(r,i)=> eval (complex (t2e r,
+								    neg (t2e i)))),
 			     rational=NONE,
 			     collection=NONE},
 		 text=("log_$1($2)",MATCH),
@@ -232,13 +312,13 @@ fun op2props optype =
 				       complex=SOME (fn(r,i)=>
 						       let
 							   val z = Exp.COMPLEX (r,i)
-							   val factor = ExpBuild.power (ExpBuild.plus [ExpBuild.square (Exp.TERM r),
-												       ExpBuild.square (Exp.TERM i)], 
-											ExpBuild.frac (1,4))
-							   val inner = ExpBuild.times [ExpBuild.frac (1,2), ExpBuild.arg (Exp.TERM z)]
+							   val factor = ExpBuild.power (plus [ExpBuild.square (t2e r),
+												       ExpBuild.square (t2e i)], 
+											frac (1,4))
+							   val inner = times [frac (1,2), ExpBuild.arg (t2e z)]
 						       in
-							   complex (ExpBuild.times [factor, ExpBuild.cos inner],
-								    ExpBuild.times [factor, ExpBuild.sin inner])
+							   complex (times [factor, ExpBuild.cos inner],
+								    times [factor, ExpBuild.sin inner])
 						       end),
 				       rational=NONE,
 				       collection=NONE})
