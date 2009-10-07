@@ -30,6 +30,7 @@ fun std_popen exec args =
 			 stderr = Param.pipe,
 			 stdin = Param.pipe,
 			 stdout = Param.pipe}
+		 handle e => raise ValueError ("Error opening process "^str)
 	 in
 	     KEC.PROCESS (proc, valOf file, args)
 	 end

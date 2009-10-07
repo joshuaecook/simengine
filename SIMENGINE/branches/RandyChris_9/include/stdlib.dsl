@@ -1,5 +1,3 @@
-import "sys.dsl"
-
 namespace Text
 function print (s) = LF print (s.tostring())
 function println (s) = print (s.tostring() + "\n")
@@ -495,3 +493,7 @@ open Relational
 open Text
 
 open Types
+
+import "sys.dsl"
+import "environment.dsl"
+import "devices.dsl"

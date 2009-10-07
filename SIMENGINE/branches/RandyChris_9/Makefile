@@ -662,6 +662,11 @@ solvers:
 	@echo "Running target solvers"
 	$(MAKE) -C solvers all $(ARCH64_FLAG)
 
+.PHONY: share_cuda
+share_cuda:
+	@echo "Running target cuda_utils"
+	$(MAKE) -C share/cuda all $(ARCH64_FLAG) DEBUG=$(DEBUG) PROFILE=$(PROFILE)
+
 
 $(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
@@ -838,7 +843,9 @@ build_includes: include/* solvers
 
 build_shared: share/*
 	@echo "Populating shared files..."
+	@$(MAKE) share_cuda
 	$(CP) $^ $(BUILD_DIR)/share/
+	$(CP) share/cuda/device_props $(BUILD_DIR)/bin/
 
 $(BUILD_DIR)/data/default.dol: datafiles/default.dol
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
@@ -1446,7 +1453,7 @@ install: system
 
 
 .PHONY: clean
-clean: mostlyclean solvers_clean mexinterface_clean
+clean: mostlyclean solvers_clean mexinterface_clean share_cuda_clean
 	$(RM) *~
 #	$(RM) $(LOCAL_INSTALL)
 	$(RM) examples/*~
@@ -1493,6 +1500,9 @@ solvers_clean:
 
 mexinterface_clean:
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" clean
+
+share_cuda_clean:
+	$(MAKE) -C share/cuda clean
 
 clean-all:
 	$(MAKE) clean
