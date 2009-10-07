@@ -11,7 +11,8 @@ enum status {
 int main(int argc, char **argv)
     {
     cudaError_t cuErr;
-    unsigned int ndevices, deviceid;
+    int ndevices;
+    unsigned int deviceid;
     struct cudaDeviceProp props;
 
     if (cudaSuccess != cudaGetDeviceCount(&ndevices))
