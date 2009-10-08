@@ -1,7 +1,22 @@
-structure ExpEquality =
+signature EXPEQUALITY =
+sig
+
+(* these are all the assigned patterns that have already been matched [(Symbol.symbol 'a', Expression (x+y*z))] *)
+type patterns_matched = (Symbol.symbol * Exp.exp) list 
+
+(* matching functions *)
+val equiv : (Exp.exp * Exp.exp) -> bool (* are two expressions equivalent? *)
+val termEquiv : (Exp.term * Exp.term) -> bool (* are two terminals equivalent? *)
+val exp_equivalent : patterns_matched -> (Exp.exp * Exp.exp) -> (patterns_matched * bool) (* same as above, but add in the matched patterns *)
+val findMatches : (Exp.exp * Exp.exp) -> patterns_matched (* just return matched patterns *)
+
+end
+structure ExpEquality : EXPEQUALITY =
 struct
 
 fun print (s) = ()
+
+type patterns_matched = (Symbol.symbol * Exp.exp) list
 
 val b2s = Util.b2s
 val e2s = ExpPrinter.exp2str
@@ -329,7 +344,7 @@ and exp_equivalent assigned_patterns (exp1, exp2) =
 	(Exp.TERM t1, Exp.TERM t2) => terms_equivalent assigned_patterns (t1, t2) before print "where1\n"
       | (Exp.FUN (Fun.BUILTIN fun1, args1), Exp.FUN (Fun.BUILTIN fun2, args2)) => 
 	if fun1 = fun2 then
-	    case #operands (FunProps.builtin2props fun1) of
+	    case #operands (FunProps.op2props fun1) of
 		FunProps.VARIABLE _ => 
 		let
 		    val (ap, ret) = list_equivalent assigned_patterns (args1, args2)

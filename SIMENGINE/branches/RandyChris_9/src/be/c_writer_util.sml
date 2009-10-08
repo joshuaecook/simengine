@@ -59,7 +59,7 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
 	end
   | term2c_str Exp.DONTCARE = "0"
   | term2c_str term =
-    DynException.stdException (("Can't write out term '"^(ExpProcess.exp2str (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
+    DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
 
 fun iter2range class (itersym, itertype) = 
     case List.find (fn{name,...}=> name=itersym) (#iterators class) of

@@ -1,4 +1,28 @@
-structure Solver =
+signature SOLVER =
+sig
+
+    (* Solver data type *)
+    datatype solver =
+	     FORWARD_EULER of {dt:real}
+	   | EXPONENTIAL_EULER of {dt:real}
+	   | RK4 of {dt:real}
+	   | MIDPOINT of {dt:real}
+	   | HEUN of {dt:real}
+	   | ODE23 of {dt:real, abs_tolerance: real, rel_tolerance: real}
+	   | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
+	   | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real}
+		      
+    (* Solver accessor methods *)
+    val solver2name : solver -> string (* name of the solver *)
+    val solver2shortname : solver -> string (* simpler, shorter name *)
+    val solver2options : solver -> {dt: real, abstol: real, reltol: real}		     
+    val solver2params : solver -> (string * string) list (* this function is used when generating #define's in C *)
+
+    (* Get the default solver if none was specified *)
+    val default : solver
+
+end
+structure Solver : SOLVER =
 struct
 
 datatype solver =

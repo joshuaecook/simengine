@@ -18,6 +18,7 @@ datatype exp = FUN of (Fun.funtype * exp list)
 	       | PATTERN of (Symbol.symbol * predicate * Pattern.patterncount)
 
 withtype predicate = (string * (exp -> bool))
+type pattern = (Symbol.symbol * predicate * Pattern.patterncount)
 
 val null = FUN (Fun.BUILTIN Fun.NULL, [])
 

@@ -1,4 +1,28 @@
-structure PatternProcess =
+signature PATTERNPROCESS =
+sig
+    
+    (* Predicate type - includes a string name and a function that takes an expression and resolves to a boolean to indicate that it matched *)
+    type predicate = (string * (Exp.exp -> bool))
+
+    (* useful functions *)
+    val pattern2str : Exp.pattern -> string
+    val patcount_compatible : Pattern.patterncount -> int -> bool
+    val min_patcount : Pattern.patterncount -> int
+    val max_patcount : Pattern.patterncount -> int option
+    val combine_preds : predicate list -> predicate (* reduction predicate list *)
+    val notpred : predicate -> predicate (* invert a predicate *)
+
+    (* common predicates *)
+    val predicate_any : predicate
+    val predicate_anyfun : predicate
+    val predicate_anyterm : predicate
+    val predicate_anynumeric : predicate
+    val predicate_anysymbol : predicate
+    val predicate_anydiffterm : predicate
+    val gen_predicate_from_symbol : Symbol.symbol -> predicate (* create a predicate that matches a symbol by name *)
+
+end
+structure PatternProcess : PATTERNPROCESS =
 struct
 
 val i2s = Util.i2s

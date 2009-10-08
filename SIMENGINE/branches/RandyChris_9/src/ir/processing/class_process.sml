@@ -1,4 +1,27 @@
-structure ClassProcess = 
+signature CLASSPROCESS =
+sig
+
+    (* Optimization method - primary method used to call optimizations that get executed across a class. *)
+    (* Note: All class optimizations work on expressions that are references, therefore most methods don't have a return value *)
+    val optimizeClass : DOF.class -> unit
+
+    (* Accessor methods *)    
+    val class2instnames : DOF.class -> (Symbol.symbol * Symbol.symbol) list (* return a list of instances within the class as classname/instname tuples *)
+    val class2orig_name : DOF.class -> Symbol.symbol (* the name of the class before it was renamed, for example during ordering *)
+    val findSymbols : DOF.class -> Symbol.symbol list (* return a list of every unique symbol name used in the class - helpful for global renaming *)
+    val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
+    val class2statesizebyiterator : Symbol.symbol -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
+
+    (* Functions to modify class properties, usually recursively through the expressions *)
+    val propagateIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
+    val assignCorrectScope : DOF.class -> unit (* sets read state or write state properties on symbols *)
+    val addEPIndexToClass : bool -> DOF.class -> unit (* sets the embarrassingly parallel property on symbols in all but the top level class *)
+    val makeSlaveClassProperties : DOF.classproperties -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
+    val fixSymbolNames : DOF.class -> unit (* makes all symbol names C-compliant *)
+    val sym2codegensym : Symbol.symbol -> Symbol.symbol (* helper function used by fixSymbolNames to update just one symbol *)
+
+end
+structure ClassProcess : CLASSPROCESS = 
 struct
 
 val i2s = Util.i2s

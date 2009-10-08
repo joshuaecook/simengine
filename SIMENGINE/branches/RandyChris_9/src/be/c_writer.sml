@@ -8,6 +8,7 @@ datatype status =
 open Printer
 exception InternalError
 
+val e2s = ExpPrinter.exp2str
 val i2s = Util.i2s
 val r2s = Util.r2s
 val l2s = Util.l2s
@@ -87,7 +88,7 @@ fun outputdatastruct_code class =
 			  SOME (sym, _) => $("CDATAFORMAT *time; // equivalent to iterator " ^ (Symbol.name sym))
 			| NONE => $("// no temporal iterator")),
 		     $("// output data: "),
-		     SUB(map (fn(exp,i)=> $("CDATAFORMAT *vals" ^ (i2s i) ^ "; // " ^ (ExpProcess.exp2str exp))) (Util.addCount contents))],
+		     SUB(map (fn(exp,i)=> $("CDATAFORMAT *vals" ^ (i2s i) ^ "; // " ^ (e2s exp))) (Util.addCount contents))],
 		 $("};"),
 		 $("struct " ^ struct_name ^ " " ^ struct_inst ^ ";")]
 	    end
@@ -344,7 +345,7 @@ fun class2flow_code (class, top_class) =
 							     (ExpProcess.isStateEq exp)) rest_exps
 	val _ = if (List.length rest_exps > 0) then
 		    (Logger.log_error($("Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class))));
-		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (ExpProcess.exp2str exp))) rest_exps;
+		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (e2s exp))) rest_exps;
 		     DynException.setErrored())
 		else
 		    ()
@@ -422,14 +423,14 @@ fun class2flow_code (class, top_class) =
 						 map
 						     (fn((sym, {name, contents, condition}),i')=> 
 							$("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^
-							  "["^(i2s i')^"]; // Mapped to "^(Symbol.name classname)^": "^(ExpProcess.exp2str (List.hd (contents)))))
+							  "["^(i2s i')^"]; // Mapped to "^(Symbol.name classname)^": "^(e2s (List.hd (contents)))))
 						     (Util.addCount (ListPair.zip (symbols, !(#outputs class))))
 					     end)
 
 					]
 				    end
 				else
-				    DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CWriter.class2flow_code.equ_progs", Logger.INTERNAL)
+				    DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CWriter.class2flow_code.equ_progs", Logger.INTERNAL)
 			    end)
 			 valid_exps
 	     in
@@ -466,7 +467,7 @@ fun class2flow_code (class, top_class) =
 				val _ = if length contents = 1 then
 					    ()
 					else
-					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
+					    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
 					    
 				val valid_condition = case condition 
 						       of (Exp.TERM (Exp.BOOL v)) => v
@@ -474,14 +475,14 @@ fun class2flow_code (class, top_class) =
 				val _ = if valid_condition then
 					    ()
 					else
-					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(ExpProcess.exp2str condition)^"' when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
+					    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(e2s condition)^"' when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
 					    
 			    in
 				case contents of
 				    [content] =>
 				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
 				  | _ => 
-				    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), 
+				    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), 
 							       "CWriter.class2flow_code", 
 							       Logger.INTERNAL)
 			    end) (Util.addCount (!(#outputs class))))]
@@ -595,7 +596,7 @@ fun input_code (class: DOF.class) =
      SUB(map 
 	     (fn({name,default},i)=> $("inputs["^(i2s i)^"] = " ^(case default 
 								of SOME t => CWriterUtil.exp2c_str t
-								 | NONE => "(0.0/0.0)")^ "; // " ^ (ExpProcess.exp2str (Exp.TERM name))))
+								 | NONE => "(0.0/0.0)")^ "; // " ^ (e2s (Exp.TERM name))))
 	     (Util.addCount (!(#inputs class)))),
      $("}")]
 
@@ -770,7 +771,7 @@ fun logoutput_code class =
 				     val var = "outputdata_" ^ identifier
 				     val iter = TermProcess.symbol2temporaliterator name
 				 in
-				     [$("{ // Generating output for symbol " ^ (ExpProcess.exp2str (Exp.TERM name))),
+				     [$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
 				      SUB[$("int cond = " ^ (CWriterUtil.exp2c_str condition) ^ ";"),
 					  $("if (cond) {"),
 					  SUB([$("if ("^var^".length == "^var^".alloc_size) {"),

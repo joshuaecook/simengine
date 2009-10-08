@@ -1,3 +1,10 @@
+signature EXPPRINTER =
+sig
+ 
+(* will print in a full form or a terse form depending on the setting of "usefullform" in the options *)
+val exp2str : Exp.exp -> string
+
+end
 structure ExpPrinter =
 struct
 

@@ -1,4 +1,58 @@
-structure FunProps =
+signature FUNPROPS =
+sig
+
+(* Duplicate the data types *)
+datatype fix = INFIX | PREFIX | POSTFIX | MATCH
+datatype operands = FIXED of int (* the required number of arguments *)
+		  | VARIABLE of Exp.term (* the default value *)
+datatype computationtype = UNARY of {bool: (bool -> Exp.exp) option,
+				     int: (int -> Exp.exp) option,
+				     real: (real -> Exp.exp) option,
+				     complex: ((Exp.term * Exp.term) -> Exp.exp) option,
+				     (* NONE in collection means that it is parallelizable *)
+				     collection: (Exp.term -> Exp.exp) option, (* cumsum, diff, uniquify, concat, intersection, etc. *)
+				     rational: ((int * int) -> Exp.exp) option}
+			 | BINARY of {bool: (bool * bool -> Exp.exp) option,
+				      int: (int * int -> Exp.exp) option,
+				      real: (real * real -> Exp.exp) option,
+				      complex: ((Exp.term * Exp.term) * (Exp.term * Exp.term) -> Exp.exp) option,
+				      collection: (Exp.term * Exp.term -> Exp.exp) option,
+				      rational: ((int * int) * (int * int) -> Exp.exp) option}
+			 | IF_FUN of {bool: (bool * bool * bool -> Exp.exp) option,
+				      int: (bool * int * int -> Exp.exp) option,
+				      real: (bool * real * real -> Exp.exp) option,
+				      complex: (bool * (Exp.term * Exp.term) * (Exp.term * Exp.term) -> Exp.exp) option,
+				      collection: (bool * Exp.term * Exp.term -> Exp.exp) option,
+				      rational: (bool * (int * int) * (int * int) -> Exp.exp) option}
+			 | INSTANCE
+
+(* Every operation and instance will have a data structure with each of these properties *)
+type op_props = {name: string,
+		 operands: operands,
+		 precedence: int,
+		 commutative: bool,
+		 associative: bool,
+		 eval: computationtype,
+		 text: (string * fix),
+		 C: (string * fix),
+		 expcost: int,
+		 codomain: int list list -> int list}
+
+
+(* standard operation functions *)
+val op2props : Fun.operation -> op_props (* returns the operation properties for a given function *)
+val eval : Exp.exp -> Exp.exp (* will simplify and evaluate expressions - not fully implemented yet *)
+
+(* return information about operations *)
+val op2name : Fun.funtype -> string (* return the name of an operation as a string *)
+val name2op : Symbol.symbol -> Fun.operation (* Given a symbol, return the operation *)
+val fun2textstrnotation : Fun.funtype -> (string * fix) (* accessor to determine how to display op as text *)
+val fun2cstrnotation : Fun.funtype -> (string * fix) (* accessor to determine how to display op as C code *)
+val hasVariableArguments : Fun.funtype -> bool (* operations like ADD and MUL can allow arbitrary numbers of operands *)
+
+end
+
+structure FunProps : FUNPROPS =
 struct
 
 open Fun
@@ -43,8 +97,13 @@ type op_props = {name: string,
 		 eval: computationtype,
 		 text: (string * fix),
 		 C: (string * fix),
+		 expcost: int,
 		 codomain: int list list -> int list}
 
+
+(* define default expression costs *)
+val basicOpCost = 1
+val transcendentalOpCost = 20
 
 fun vectorizedCodomain (nil: int list list) : int list = nil
   | vectorizedCodomain (first::rest) =
@@ -73,7 +132,7 @@ fun codomainReduction (nil: int list list) : int list = nil
     safeTail(vectorizedCodomain(args))
 
 
-fun unaryfun2props (name, eval) : op_props =
+fun unaryfun2props (name, eval, cost) : op_props =
     {name=name,
      operands=FIXED 1,
      precedence=1,
@@ -82,6 +141,7 @@ fun unaryfun2props (name, eval) : op_props =
      eval=eval,
      text=(name, PREFIX),
      C=(name, PREFIX),
+     expcost=case cost of SOME v => v | NONE => transcendentalOpCost,
      codomain = vectorizedCodomain}
 
 exception UnsupportedType of Exp.term
@@ -123,6 +183,7 @@ fun op2props optype =
 								     frac (n1*d2 + n2*d1, d1*d2))},
 		text=("+",INFIX),
 		C=("+",INFIX),
+		expcost=basicOpCost,
 		codomain= vectorizedCodomain}
       | SUB => {name="sub",
 		operands=FIXED 2,
@@ -141,6 +202,7 @@ fun op2props optype =
 								     frac (n1*d2 - n2*d1, d1*d2))},
 		text=("-",INFIX),
 		C=("-",INFIX),
+		expcost=basicOpCost,
 		codomain= vectorizedCodomain}
       | NEG => {name="neg",
 		operands=FIXED 1,
@@ -156,6 +218,7 @@ fun op2props optype =
 			    collection=NONE},
 		text=("-",PREFIX),
 		C=("-",PREFIX),
+		expcost=basicOpCost,
 		codomain= vectorizedCodomain}
       | MUL => {name="mul",
 		operands=VARIABLE (Exp.INT 1),
@@ -179,6 +242,7 @@ fun op2props optype =
 			     rational=SOME (fn((n1,d1),(n2,d2))=>frac (n1*n2, d1*d2))},
 		text=("*",INFIX),
 		C=("*",INFIX),
+		expcost=basicOpCost,
 		codomain= vectorizedCodomain}
       | DIVIDE => {name="divide",
 		   operands=FIXED 2,
@@ -206,6 +270,7 @@ fun op2props optype =
 				rational=SOME (fn((n1,d1),(n2,d2))=> frac (n1*d2, n2*d1))},
 		   text=("/",INFIX),
 		   C=("/",INFIX),
+		   expcost=basicOpCost * 2,
 		   codomain= vectorizedCodomain}
       | MODULUS => {name="modulus",
 		    operands=FIXED 2,
@@ -220,6 +285,7 @@ fun op2props optype =
 				 rational=NONE},
 		    text=("%",INFIX),
 		    C=("%",INFIX),
+		    expcost=basicOpCost * 2,
 		    codomain= vectorizedCodomain}
       | POW => {name="pow",
 		operands=FIXED 2,
@@ -250,6 +316,7 @@ fun op2props optype =
 							     frac(n2, d2)))},
 		text=("^",INFIX),
 		C=("pow($1,$2)",MATCH),
+		expcost=basicOpCost * 4,
 		codomain= vectorizedCodomain}
       | COMPLEX => {name="complex",
 		    operands=FIXED 2,
@@ -259,19 +326,20 @@ fun op2props optype =
 		    eval=empty_binary,
 		    text=("complex",INFIX),
 		    C=("complex",PREFIX),
+		    expcost=0,
 		    codomain= vectorizedCodomain}
       | RE => unaryfun2props ("re", UNARY {bool=NONE,
 					   int=NONE,
 					   real=NONE,
 					   complex=SOME (fn(r, i)=> t2e r),
 					   rational=NONE,
-					   collection=NONE})
+					   collection=NONE}, SOME 0)
       | IM => unaryfun2props ("im", UNARY {bool=NONE,
 					   int=NONE,
 					   real=NONE,
 					   complex=SOME (fn(r, i)=> t2e i),
 					   rational=NONE,
-					   collection=NONE})
+					   collection=NONE}, SOME 0)
       | ABS => unaryfun2props ("abs", UNARY {bool=NONE,
 					     int=SOME (int o r2i o abs o i2r),
 					     real=SOME (real o abs),
@@ -279,13 +347,13 @@ fun op2props optype =
 									     int 0)),
 					     rational=SOME (fn(n,d)=>frac (r2i (abs (i2r n)),
 									   r2i (abs (i2r d)))),
-					     collection=NONE})
+					     collection=NONE}, SOME basicOpCost)
       | ARG => unaryfun2props ("arg", UNARY {bool=NONE,
 					     int=SOME (fn(r)=> int 0),
 					     real=SOME (fn(r)=> real 0.0),
 					     complex=SOME (fn(r, i)=> ExpBuild.atan2(t2e r,t2e i)),
 					     rational=NONE,
-					     collection=NONE})
+					     collection=NONE}, SOME transcendentalOpCost)
       | CONJ => {name="conj",
 		 operands=FIXED 1,
 		 precedence=1,
@@ -298,8 +366,9 @@ fun op2props optype =
 								    neg (t2e i)))),
 			     rational=NONE,
 			     collection=NONE},
-		 text=("log_$1($2)",MATCH),
-		 C=("(log($1)/log($2))",MATCH),
+		 text=("conj",PREFIX),
+		 C=("conj",PREFIX),
+		 expcost=basicOpCost,
 		 codomain= vectorizedCodomain}
       | SQRT => unaryfun2props ("sqrt", 
 				UNARY {bool=NONE,
@@ -321,21 +390,21 @@ fun op2props optype =
 								    times [factor, ExpBuild.sin inner])
 						       end),
 				       rational=NONE,
-				       collection=NONE})
+				       collection=NONE}, NONE)
       | DEG2RAD => unaryfun2props ("deg2rad",
 				   UNARY {bool=NONE,
 					  int=NONE,
 					  real=SOME (fn(r)=> real (r * Math.pi / 180.0)),
 					  complex=NONE,
 					  rational=NONE,
-					  collection=NONE})
+					  collection=NONE}, SOME (basicOpCost * 3))
       | RAD2DEG => unaryfun2props ("rad2deg",
 				   UNARY {bool=NONE,
 					  int=NONE,
 					  real=SOME (fn(r)=> real (r * 180.0 / Math.pi)),
 					  complex=NONE,
 					  rational=NONE,
-					  collection=NONE})
+					  collection=NONE}, SOME (basicOpCost * 3))
       | LOGN => {name="logn",
 		 operands=FIXED 2,
 		 precedence=1,
@@ -355,13 +424,14 @@ fun op2props optype =
 			      collection=NONE},
 		 text=("log_$1($2)",MATCH),
 		 C=("(log($1)/log($2))",MATCH),
+		 expcost=transcendentalOpCost,
 		 codomain= vectorizedCodomain}
-      | EXP => unaryfun2props ("exp", empty_unary)
-      | LOG => unaryfun2props ("log", empty_unary)
-      | LOG10 => unaryfun2props ("log10", empty_unary)
-      | SIN => unaryfun2props ("sin", empty_unary)
-      | COS => unaryfun2props ("cos", empty_unary)
-      | TAN => unaryfun2props ("tan", empty_unary)
+      | EXP => unaryfun2props ("exp", empty_unary, NONE)
+      | LOG => unaryfun2props ("log", empty_unary, NONE)
+      | LOG10 => unaryfun2props ("log10", empty_unary, NONE)
+      | SIN => unaryfun2props ("sin", empty_unary, NONE)
+      | COS => unaryfun2props ("cos", empty_unary, NONE)
+      | TAN => unaryfun2props ("tan", empty_unary, NONE)
       | CSC => {name="csc",
 		operands=FIXED 1,
 		precedence=1,
@@ -370,6 +440,7 @@ fun op2props optype =
 		eval=empty_unary,
 		text=("csc",PREFIX),
 		C=("(1/sin($1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | SEC => {name="sec",
 		operands=FIXED 1,
@@ -379,6 +450,7 @@ fun op2props optype =
 		eval=empty_unary,
 		text=("sec",PREFIX),
 		C=("(1/cos($1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | COT => {name="cot",
 		operands=FIXED 1,
@@ -388,10 +460,11 @@ fun op2props optype =
 		eval=empty_unary,
 		text=("cot",PREFIX),
 		C=("(1/tan($1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
-      | ASIN => unaryfun2props ("asin", empty_unary)
-      | ACOS => unaryfun2props ("acos", empty_unary)
-      | ATAN => unaryfun2props ("atan", empty_unary)
+      | ASIN => unaryfun2props ("asin", empty_unary, NONE)
+      | ACOS => unaryfun2props ("acos", empty_unary, NONE)
+      | ATAN => unaryfun2props ("atan", empty_unary, NONE)
       | ATAN2 => {name="atan2",
 		  operands=FIXED 2,
 		  precedence=1,
@@ -400,6 +473,7 @@ fun op2props optype =
 		  eval=empty_binary,
 		  text=("atan2",PREFIX),
 		  C=("atan2",PREFIX),
+		expcost=transcendentalOpCost,
 		  codomain= vectorizedCodomain}
       | ACSC => {name="acsc",
 		 operands=FIXED 1,
@@ -409,6 +483,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("acsc",MATCH),
 		 C=("asin(1/$1)",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | ASEC => {name="asec",
 		 operands=FIXED 1,
@@ -418,6 +493,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("asec",MATCH),
 		 C=("acos(1/$1)",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | ACOT => {name="acot",
 		 operands=FIXED 1,
@@ -427,10 +503,11 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("acot",MATCH),
 		 C=("atan(1/$1)",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
-      | SINH => unaryfun2props ("sinh", empty_unary)
-      | COSH => unaryfun2props ("cosh", empty_unary)
-      | TANH => unaryfun2props ("tanh", empty_unary)
+      | SINH => unaryfun2props ("sinh", empty_unary, NONE)
+      | COSH => unaryfun2props ("cosh", empty_unary, NONE)
+      | TANH => unaryfun2props ("tanh", empty_unary, NONE)
       | CSCH => {name="csch",
 		 operands=FIXED 1,
 		 precedence=1,
@@ -439,6 +516,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("csch",PREFIX),
 		 C=("(1/sinh($1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | SECH => {name="sech",
 		 operands=FIXED 1,
@@ -448,6 +526,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("sech",PREFIX),
 		 C=("(1/cosh($1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | COTH => {name="coth",
 		 operands=FIXED 1,
@@ -457,6 +536,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("coth",PREFIX),
 		 C=("(1/tanh($1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | ASINH => {name="asinh",
 		 operands=FIXED 1,
@@ -466,6 +546,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("asinh",PREFIX),
 		 C=("log($1 + sqrt($1*$1+1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | ACOSH => {name="acosh",
 		 operands=FIXED 1,
@@ -475,6 +556,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("acosh",PREFIX),
 		 C=("log($1 + sqrt($1*$1-1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | ATANH => {name="atanh",
 		 operands=FIXED 1,
@@ -484,6 +566,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("atanh",PREFIX),
 		 C=("(log((1+$1)/(1-$1))/2)",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | ACSCH => {name="acsch",
 		 operands=FIXED 1,
@@ -493,6 +576,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("acsch",PREFIX),
 		 C=("log(1/$1 + sqrt($1*$1+1)/fabs($1))",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | ASECH => {name="asech",
 		 operands=FIXED 1,
@@ -502,6 +586,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("asech",PREFIX),
 		 C=("log((1 + sqrt(1-$1*$1))/$1)",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | ACOTH => {name="acoth",
 		 operands=FIXED 1,
@@ -511,6 +596,7 @@ fun op2props optype =
 		eval=empty_unary,
 		 text=("acoth",PREFIX),
 		 C=("(log(($1+1)/($1-1))/2)",MATCH),
+		expcost=transcendentalOpCost,
 		codomain= vectorizedCodomain}
       | NOT => {name="not",
 		operands=FIXED 1,
@@ -520,6 +606,7 @@ fun op2props optype =
 		eval=empty_unary,
 		text=("!",PREFIX),
 		C=("!",PREFIX),
+		expcost=basicOpCost,
 		codomain= vectorizedCodomain}
       | AND => {name="and",
 		operands=VARIABLE (Exp.BOOL true),
@@ -529,6 +616,7 @@ fun op2props optype =
 		  eval=empty_binary,
 		text=("&&",INFIX),
 		C=("&&",INFIX),
+		expcost=basicOpCost,
 		codomain= vectorizedCodomain}
       | OR => {name="or",
 	       operands=VARIABLE (Exp.BOOL false),
@@ -538,6 +626,7 @@ fun op2props optype =
 		  eval=empty_binary,
 	       text=("||",INFIX),
 	       C=("||",INFIX),
+		expcost=basicOpCost,
 	       codomain= vectorizedCodomain}
       | GT => {name="gt",
 	       operands=FIXED 2,
@@ -547,6 +636,7 @@ fun op2props optype =
 		  eval=empty_binary,
 	       text=(">",INFIX),
 	       C=(">",INFIX),
+		expcost=basicOpCost,
 	       codomain= vectorizedCodomain}
       | LT => {name="lt",
 	       operands=FIXED 2,
@@ -556,6 +646,7 @@ fun op2props optype =
 		  eval=empty_binary,
 	       text=("<",INFIX),
 	       C=("<",INFIX),
+		expcost=basicOpCost,
 	       codomain= vectorizedCodomain}
       | GE => {name="ge",
 	       operands=FIXED 2,
@@ -565,6 +656,7 @@ fun op2props optype =
 		  eval=empty_binary,
 	       text=(">=",INFIX),
 	       C=(">=",INFIX),
+		expcost=basicOpCost,
 	       codomain= vectorizedCodomain}
       | LE => {name="le",
 	       operands=FIXED 2,
@@ -574,6 +666,7 @@ fun op2props optype =
 		  eval=empty_binary,
 	       text=(">=",INFIX),
 	       C=(">=",INFIX),
+	       expcost=basicOpCost,
 	       codomain= vectorizedCodomain}
       | EQ => {name="eq",
 	       operands=FIXED 2,
@@ -583,6 +676,7 @@ fun op2props optype =
 		  eval=empty_binary,
 	       text=("==",INFIX),
 	       C=("==",INFIX),
+		expcost=basicOpCost,
 	       codomain= vectorizedCodomain}
       | NEQ => {name="neq",
 		operands=FIXED 2,
@@ -592,6 +686,7 @@ fun op2props optype =
 		 eval=empty_unary,
 		text=("<>",INFIX),
 		C=("!=",INFIX),
+		expcost=basicOpCost,
 		codomain= vectorizedCodomain}
       | DERIV => {name="deriv",
 		  operands=FIXED 2,
@@ -601,6 +696,7 @@ fun op2props optype =
 		  eval=empty_binary,
 		  text=("D",PREFIX),
 		  C=("Derivative",PREFIX),
+		  expcost=0,
 		  codomain= vectorizedCodomain}
       | IF => {name="if",
 	       operands=FIXED 3,
@@ -610,6 +706,7 @@ fun op2props optype =
 		  eval=empty_if_fun,
 	       text=("If $1 then $2 else $3", MATCH),
 	       C=("$1 ? $2 : $3",MATCH),
+	       expcost=basicOpCost,
 	       codomain= vectorizedCodomain}
       | ASSIGN => {name="assign",
 		   operands=FIXED 2,
@@ -619,6 +716,7 @@ fun op2props optype =
 		  eval=empty_binary,
 		   text=(" = ",INFIX),
 		   C=(" = ",INFIX),
+		   expcost=basicOpCost,
 		   codomain= vectorizedCodomain}
       | GROUP => {name="group",
 		  operands=VARIABLE (Exp.LIST ([],[])),
@@ -628,6 +726,7 @@ fun op2props optype =
 		  eval=empty_binary,
 		  text=("",PREFIX),
 		  C=("",PREFIX),
+		  expcost=0,
 		  codomain= vectorizedCodomain}
       | NULL => {name="nullfun",
 		 operands=FIXED 0,
@@ -637,6 +736,7 @@ fun op2props optype =
 		  eval=empty_binary,
 		 text=("NULL",PREFIX),
 		 C=("",PREFIX),
+		 expcost=0,
 		 codomain= vectorizedCodomain}
       | RADD => {name="reduction_add",
 		 operands=FIXED 1,
@@ -646,6 +746,7 @@ fun op2props optype =
 		 eval=empty_unary,
 		 text=("radd",PREFIX),
 		 C=("simEngine_library_radd",PREFIX),
+		 expcost=basicOpCost,
 		 codomain=codomainReduction}
       | RMUL => {name="reduction_mul",
 		 operands=FIXED 1,
@@ -655,6 +756,7 @@ fun op2props optype =
 		 eval=empty_unary,
 		 text=("rmul",PREFIX),
 		 C=("simEngine_library_rmul",PREFIX),
+		 expcost=basicOpCost,
 		 codomain=codomainReduction}
       | RAND => {name="reduction_and",
 		 operands=FIXED 1,
@@ -664,6 +766,7 @@ fun op2props optype =
 		 eval=empty_unary,
 		 text=("rand",PREFIX),
 		 C=("simEngine_library_rand",PREFIX),
+		 expcost=basicOpCost,
 		 codomain=codomainReduction}
       | ROR => {name="reduction_or",
 		operands=FIXED 1,
@@ -673,6 +776,7 @@ fun op2props optype =
 		 eval=empty_unary,
 		text=("ror",PREFIX),
 		C=("simEngine_library_ror",PREFIX),
+		expcost=basicOpCost,
 		codomain=codomainReduction}
 
 and eval exp = exp
@@ -713,9 +817,6 @@ fun name2op sym =
 		 DynException.setErrored();
 		 NULL)
 
-fun builtin2props f : op_props = 
-    op2props f
-
 fun op2name (f: funtype) = 
     case f
      of BUILTIN v => #name (op2props v)
@@ -725,7 +826,7 @@ fun fun2textstrnotation f =
     case f 
      of BUILTIN v => 
 	let
-	    val {text as (str, notation),...} = builtin2props v
+	    val {text as (str, notation),...} = op2props v
 	in
 	    (str, notation)
 	end
@@ -738,7 +839,7 @@ fun fun2cstrnotation f =
     case f 
      of BUILTIN v => 
 	let
-	    val {C as (str, notation),...} = builtin2props v
+	    val {C as (str, notation),...} = op2props v
 	in
 	    (str, notation)
 	end
@@ -747,7 +848,7 @@ fun fun2cstrnotation f =
 fun hasVariableArguments f =
     case f 
      of BUILTIN v => 
-	(case #operands (builtin2props v) of
+	(case #operands (op2props v) of
 	     VARIABLE _ => true
 	   | FIXED _ => false)
       | INST _ => false (* not allowing variable arguments for instances *)

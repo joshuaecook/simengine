@@ -1,10 +1,20 @@
 structure ModelProcess : sig
-(* TODO document these signatures. *)
 
-val model2statesizebyiterator : Symbol.symbol -> DOF.model -> int
-val optimizeModel : DOF.model -> DOF.model
-val normalizeModel : DOF.model -> DOF.model
-val normalizeParallelModel : DOF.model -> DOF.model
+    (* Primary functions to execute optimizations and commands across all classes within a model *)
+
+    (* optimizeModel: algebraic and performance optimizations all occur in this function.  All transformations
+      performed here should be independent of back-end.  If the data structure is to be saved prior to writing 
+      a particular back-end, the data structure returned from optimizeModel would be a good one to save.  *)
+    val optimizeModel : DOF.model -> DOF.model 
+
+    (* normalizeModel and normalizeParallelModel: a normalization step for writing into a C back-end.  This 
+      function performs transformations that are used solely for fitting within a back-end.  This
+      can include renaming symbols to fit within compiler rules or adding code generation flags. *)
+    val normalizeModel : DOF.model -> DOF.model 
+    val normalizeParallelModel : DOF.model -> DOF.model
+
+    (* model2statesizebyiterator: Computes the total state space of the model on a per iterator basis *)
+    val model2statesizebyiterator : Symbol.symbol -> DOF.model -> int
 
 end = struct
 

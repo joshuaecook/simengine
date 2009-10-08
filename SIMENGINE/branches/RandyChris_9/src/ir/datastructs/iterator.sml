@@ -1,4 +1,25 @@
-structure Iterator =
+signature ITERATOR =
+sig
+
+    (* Iterator datatypes *)
+    datatype iteratortype = ALL
+			  | ABSOLUTE of int
+			  | RELATIVE of int
+			  | RANGE of (int * int)
+			  | LIST of int list
+				    
+    type iterator = (Symbol.symbol * iteratortype)
+
+    (* Useful functions *)
+    val iterator2str : iterator -> string
+    val iterators2str : iterator list -> string
+    val iterator2c_str : iterator -> string (* C writer for iterator *)
+    val iterators2c_str : iterator list -> string (* C writer for multiple iterator *)
+    val iter_equiv : (iterator * iterator) -> bool
+
+
+end
+structure Iterator : ITERATOR =
 struct
 
 val i2s = Util.i2s

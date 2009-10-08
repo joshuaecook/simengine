@@ -1,4 +1,9 @@
-structure DOFPrinter =
+signature DOFPRINTER =
+sig
+    val printModel : DOF.model -> unit
+    val printClass : DOF.class -> unit
+end
+structure DOFPrinter : DOFPRINTER =
 struct 
 
 val i2s = Util.i2s

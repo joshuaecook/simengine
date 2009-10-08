@@ -1,4 +1,61 @@
-structure ExpProcess =
+signature EXPPROCESS =
+sig
+
+(* Commonly used functions *)
+val exp2term : Exp.exp -> Exp.term (* must be of term expression, otherwise this fails *)
+val term2exp : Exp.term -> Exp.exp
+
+(* Basic extraction functions *)
+val lhs : Exp.exp -> Exp.exp
+val rhs : Exp.exp -> Exp.exp
+val deconstructInst : Exp.exp -> {classname: Symbol.symbol,
+				  instname: Symbol.symbol,
+				  props: InstProps.instproperties,
+				  inpargs: Exp.exp list,
+				  outargs: Exp.term list}
+
+(* Classification functions *)
+val isTerm : Exp.exp -> bool
+val isStateEq : Exp.exp -> bool
+val isInitialConditionEq : Exp.exp -> bool
+val isInstanceEq : Exp.exp -> bool
+val isFirstOrderDifferentialEq : Exp.exp -> bool
+val isDifferenceEq : Exp.exp -> bool
+val isIntermediateEq : Exp.exp -> bool
+
+(* Iterator related functions *)
+val doesEqHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol on the lhs, returns if the iterator is assigned to that symbol *)
+val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool (* like doesEqHaveIterator, put also ensures that eq is a state equation *)
+val prependIteratorToSymbol : Iterator.iterator -> Exp.exp -> Exp.exp
+val appendIteratorToSymbol : Iterator.iterator -> Exp.exp -> Exp.exp
+val exp2spatialiterators : Exp.exp -> Iterator.iterator list
+
+(* Rewriter related functions *)
+val equation2rewrite : Exp.exp -> Rewrite.rewrite (* if a == b, then make a -> b *)
+
+(* Expression manipulation functions - get/set differing properties *)
+val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
+val exp2size : DOF.classiterator list -> Exp.exp -> int
+val enableEPIndex : bool -> (Symbol.symbol list) -> Exp.exp -> Exp.exp (* Add an EP index property when running an embarrassingly parallel simulation *)
+val assignCorrectScopeOnSymbol: Exp.exp -> Exp.exp (* addes the read and write state attributes based on found derivatives or differential terms *)
+val instOrigClassName : Exp.exp -> Symbol.symbol (* returns original class name, assumes that the expression is an instance equation *)
+val instOrigInstName : Exp.exp -> Symbol.symbol (* returns original instance name, assumes that the expression is an instance equation *)
+val instSpatialSize : Exp.exp -> int (* returns the assigned dimension of an instance *)
+
+(* Extract symbols from expressions in different forms *)
+val exp2symbol_names : Exp.exp -> string list
+val exp2symbols : Exp.exp -> Symbol.symbol list
+val exp2termsymbols : Exp.exp -> Exp.term list
+val getLHSSymbol : Exp.exp -> Exp.term (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
+
+(* pull out all the function names that are present *)
+val exp2fun_names : Exp.exp -> Symbol.symbol list
+
+(* useful helper functions *)
+val uniq : Symbol.symbol -> Symbol.symbol (* given a sym, create a unique sym name *)
+
+end
+structure ExpProcess : EXPPROCESS =
 struct
 
 val i2s = Util.i2s
@@ -54,6 +111,7 @@ fun uniq(sym) =
 
 fun exp2term (Exp.TERM t) = t
   | exp2term _ = Exp.NAN
+fun term2exp t = Exp.TERM t
 
 (*fun sort_explist *)
 
@@ -228,9 +286,9 @@ fun isSymbol exp =
       | _ => false*)
 
 fun isEquation exp = 
-    Match.equiv (exp,
-		 ExpBuild.equals (Match.any "a",
-				  Match.any "b"))
+    ExpEquality.equiv (exp,
+		       ExpBuild.equals (Match.any "a",
+					Match.any "b"))
 
 fun isInstanceEq exp = 
     (case exp of 

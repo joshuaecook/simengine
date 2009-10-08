@@ -16,16 +16,17 @@ fun inst2props f : FunProps.op_props =
 	val classes = CurrentModel.classes()
     in
 	case (List.find (fn({name,...}:DOF.class)=>name=f) classes)
-	 of SOME {name,properties,inputs,outputs,iterators,exps} => {name=Symbol.name f,
-								     operands=FunProps.FIXED (length (!inputs)),
-								     precedence=1,
-								     commutative=false,
-								     associative=false,
-								     eval=FunProps.INSTANCE,
-								     text=(Symbol.name f, FunProps.PREFIX),
-								     C=(Symbol.name f, FunProps.PREFIX),
-								     codomain=fn(_) => [1]} (*TODO: ??? *)
-	  | NONE => (Logger.log_internalerror (Printer.$("Can't handle operation '" ^ (Symbol.name f) ^ ". Doesn't exist in current classes: "
+	 of SOME (c as {name,properties,inputs,outputs,iterators,exps}) => {name=Symbol.name f,
+									    operands=FunProps.FIXED (length (!inputs)),
+									    precedence=1,
+									    commutative=false,
+									    associative=false,
+									    eval=FunProps.INSTANCE,
+									    text=(Symbol.name f, FunProps.PREFIX),
+									    C=(Symbol.name f, FunProps.PREFIX),
+									    expcost=0, (* need to work on this ... *)
+									    codomain=fn(_) => [1]} (*TODO: ??? *)
+	  | NONE => (Logger.log_internalerror (Printer.$("Can't handle operation '" ^ (Symbol.name f) ^ "'. Doesn't exist in current classes: {"
 							 ^(String.concatWith ", " (map (fn{name,...}=>Symbol.name name) classes))^ "}"));
 		     DynException.setErrored();
 		     {name=Symbol.name f,
@@ -36,6 +37,7 @@ fun inst2props f : FunProps.op_props =
 		      eval=FunProps.INSTANCE,
 		      text=("<?" ^ (Symbol.name f) ^ ">", FunProps.PREFIX),
 		      C=("<?" ^ (Symbol.name f) ^ ">", FunProps.PREFIX),
+		      expcost=0,
 		      codomain=(fn(_) => [1])})
     end
     handle e => DynException.checkpoint "Inst.inst2props" e

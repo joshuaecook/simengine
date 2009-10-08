@@ -1,4 +1,21 @@
-structure CurrentModel =
+(* CurrentModel: Stores one DOF.model definition in memory *)
+signature CURRENTMODEL =
+sig
+
+   (* Primary accessor and modifier *) 
+    val getCurrentModel: unit -> DOF.model
+    val setCurrentModel: DOF.model -> unit
+
+    (* Additional useful accessors *)
+    val classes: unit -> DOF.class list
+    val iterators: unit -> DOF.systemiterator list (* returns temporal iterators of the model *)
+    val top_inst: unit -> DOF.instance
+
+    (* Useful functions *)
+    val classname2class: Symbol.symbol -> DOF.class (* Searches for a class with the given name in the current model *)
+
+end
+structure CurrentModel : CURRENTMODEL =
 struct
 
 (* current model *)

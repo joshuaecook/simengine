@@ -104,7 +104,7 @@ fun term2sym term =
 
 fun termexp2sym exp = (case ExpProcess.lhs exp of
 			   Exp.TERM t => term2sym t
-			 | _ => DynException.stdException(("Unexpected non term on lhs of exp: " ^ (ExpProcess.exp2str exp)), "Ordering.termexp2sym", Logger.INTERNAL))
+			 | _ => DynException.stdException(("Unexpected non term on lhs of exp: " ^ (ExpPrinter.exp2str exp)), "Ordering.termexp2sym", Logger.INTERNAL))
     handle e => DynException.checkpoint "Ordering.termexp2sym" e
 
 fun classUsage2key mainexpsFlag outputNums =
@@ -364,7 +364,7 @@ fun orderModel (model:DOF.model)=
 		     (expMap', classMap, classIOMap)
 		 end
 	     else
-		 DynException.stdException(("Non instance or intermediate expression received: " ^ (ExpProcess.exp2str exp)), "Ordering.orderModel.addExpToExpMap", Logger.INTERNAL))
+		 DynException.stdException(("Non instance or intermediate expression received: " ^ (ExpPrinter.exp2str exp)), "Ordering.orderModel.addExpToExpMap", Logger.INTERNAL))
 	    handle e => DynException.checkpoint "Ordering.addExpToExpMap" e
 
 	and addClassToClassMap classes (class, (classMap, classIOMap)) =
@@ -644,7 +644,7 @@ fun orderModel (model:DOF.model)=
 		val mainExps = List.filter (fn(exp)=> (ExpProcess.isFirstOrderDifferentialEq exp) orelse
 						      (ExpProcess.isDifferenceEq exp))
 					   (!(#exps oldClass))
-		(*val _ = app (fn(exp)=>Util.log ("mainExps: " ^ (ExpProcess.exp2str exp))) mainExps*)
+		(*val _ = app (fn(exp)=>Util.log ("mainExps: " ^ (ExpPrinter.exp2str exp))) mainExps*)
 
 		val instances = List.filter ExpProcess.isInstanceEq (!(#exps oldClass))
 

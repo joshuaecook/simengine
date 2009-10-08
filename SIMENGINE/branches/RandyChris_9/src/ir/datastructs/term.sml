@@ -1,4 +1,28 @@
-structure Term =
+signature TERM =
+sig
+
+(* Access properties of terminals *)
+val isNumeric: Exp.term -> bool
+val isZero: Exp.term -> bool
+val isOne: Exp.term -> bool
+val isSymbol: Exp.term -> bool
+val isScalar: Exp.term -> bool
+val isLocal: Exp.term -> bool (* is this a local symbol, as opposed to being stored in a state vector *)
+val isReadState: Exp.term -> bool (* not a local symbol, but rather read in as a state *)
+val isWriteState: Exp.term -> bool (* not a local symbol, but rather written to a state *)
+val termCount : Exp.term -> int (* count the elements of a symbol, list, or tuple *)
+
+(* When accessing symbols, these methods will return the name in varying different ways *)
+val sym2str : (Symbol.symbol * Property.symbolproperty) -> string (* used for pretty printing *)
+val sym2fullstr : (Symbol.symbol * Property.symbolproperty) -> string (* used for pretty printing when not using the default terse output *)
+val sym2c_str : (Symbol.symbol * Property.symbolproperty) -> string (* this is the call to produce a valid c representation of a symbol (works for locals, read states, and write states) *)
+(* these accessors require a term that can only be a symbol *)
+val sym2curname : Exp.term -> Symbol.symbol (* returns the name as stored directly in symbol (this name can be changed as it is processed while the "realname" property is always the original) *)
+val sym2symname : Exp.term -> Symbol.symbol (* returns the name after checking the "realname" property *)
+val sym2name : Exp.term -> string (* This is equiv to (Symbol.name o sym2symname) *)
+
+end
+structure Term : TERM =
 struct
 
 val i2s = Util.i2s

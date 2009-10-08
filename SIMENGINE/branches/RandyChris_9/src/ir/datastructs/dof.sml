@@ -15,16 +15,25 @@ datatype classform = FUNCTIONAL
 				       writestates: Symbol.symbol list}
 
 
-type classproperties = {sourcepos: PosLog.pos, classform: classform, classtype: classtype}
+type classproperties = {sourcepos: PosLog.pos,
+			classform: classform,
+			classtype: classtype}
 
 datatype iteratortype = CONTINUOUS of Solver.solver
 		      | DISCRETE of {fs:real} (* sampling frequency *)
 
 datatype precisiontype = SINGLE | DOUBLE
 
-type systemproperties = {iterators: (Symbol.symbol * iteratortype) list, 
+type systemiterator = (Symbol.symbol * iteratortype)
+
+type systemproperties = {iterators: systemiterator list, 
 			 time: (real * real),
 			 precision: precisiontype}
+
+type classiterator = {name: Symbol.symbol,
+		      low: real,
+		      step: real,
+		      high: real}
 
 type class = {name:Symbol.symbol,
 	      properties:classproperties,
@@ -33,10 +42,7 @@ type class = {name:Symbol.symbol,
 	      outputs: {name: Exp.term, 
 			contents: expression list, 
 			condition: expression} list ref,
-	      iterators: {name: Symbol.symbol,
-			  low: real,
-			  step: real,
-			  high: real} list,
+	      iterators: classiterator list,
 	      exps: expression list ref}
 	     
 type instance = {name: Symbol.symbol option,

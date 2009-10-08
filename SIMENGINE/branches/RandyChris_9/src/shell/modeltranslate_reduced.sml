@@ -442,7 +442,7 @@ fun createClass classes object =
 			 SOME iters =>
 			 (List.exists (fn(s,p) => s = iter) iters)
 		       | NONE => false)
-		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (ExpProcess.exp2str exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
+		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (e2s exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
 	    else
 		false
 
@@ -523,7 +523,7 @@ fun obj2dofmodel object =
 			 SOME iters =>
 			 (List.exists (fn(s,p) => s = iter) iters)
 		       | NONE => false)
-		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (ExpProcess.exp2str exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
+		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (e2s exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
 	    else
 		false
 

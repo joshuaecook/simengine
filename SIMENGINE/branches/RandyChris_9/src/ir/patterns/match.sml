@@ -1,4 +1,34 @@
-structure Match =
+signature MATCH =
+sig
+
+(* Primary rule rewrite commands *)
+val applyRewriteExp : Rewrite.rewrite -> Exp.exp -> Exp.exp
+val applyRewritesExp : Rewrite.rewrite list -> Exp.exp -> Exp.exp
+(* The following ones will repeat after finding a rewrite - useful for recursive rewrites *)
+val repeatApplyRewriteExp : Rewrite.rewrite -> Exp.exp -> Exp.exp
+val repeatApplyRewritesExp : Rewrite.rewrite list -> Exp.exp -> Exp.exp
+
+(* Helper functions to build up pattern expressions - pull out more defined below as necessary *)
+val any : string -> Exp.exp (* zero or more of anything *)
+val some : string -> Exp.exp (* one or more of anything *)
+val one : string -> Exp.exp (* just match one only *)
+val anyterm : string -> Exp.exp (* match one or more terms *)
+val anyfun : string -> Exp.exp (* match one or more functions *)
+val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
+val asym : Symbol.symbol -> Exp.exp (* match a particular symbol by name - ex. I want to find 'Vm' - asym (Symbol.name "Vm") *)
+
+(* Matching functions *)
+val findRecursive : (Exp.exp * Exp.exp) -> Exp.exp list (* Recursively search and find all matching expressions (search for the 1st exp in the 2nd exp) *)
+
+(* Utility functions - similar to Mathematica's Head[] and Level[] *)
+val head : Exp.exp -> (Exp.exp list -> Exp.exp) (* returns a function that will reapply the top function of the expression *)
+val level : Exp.exp -> Exp.exp list (* returns the argument of the function *)
+(* These can be combined together to quickly traverse through an expression - notice that exp == (head exp)(level exp) *)
+
+end
+
+
+structure Match : MATCH =
 struct
 
 fun print (s) = ()
@@ -54,16 +84,8 @@ fun head (exp) =
 (* level and head are identity functions *)
 (* exp == (head exp) (level exp)*)
 
-fun equiv (exp1, exp2) = 
-    let
-	val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (exp1, exp2)
-	(*val _ = Util.log ("Comparing '"^(e2s exp1)^"' with '"^(e2s exp2)^"': result=" ^ (b2s result))*)
-    in
-	result
-    end
-
 fun findOnce (pattern, target) =
-    if equiv (pattern, target) then
+    if ExpEquality.equiv (pattern, target) then
 	SOME target
     else 
 	foldl (fn(a,b)=> case b of 
@@ -87,7 +109,7 @@ fun findOnceWithPatterns (pattern, target) =
     end
     
 fun findRecursive (pattern, target) = 
-    (if equiv (pattern, target) then
+    (if ExpEquality.equiv (pattern, target) then
 	 [target]
      else
 	 [])
