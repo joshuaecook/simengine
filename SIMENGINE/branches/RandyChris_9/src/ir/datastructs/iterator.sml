@@ -2,13 +2,13 @@ signature ITERATOR =
 sig
 
     (* Iterator datatypes *)
-    datatype iteratortype = ALL
-			  | ABSOLUTE of int
-			  | RELATIVE of int
-			  | RANGE of (int * int)
-			  | LIST of int list
-				    
-    type iterator = (Symbol.symbol * iteratortype)
+    datatype iteratorindex = ALL
+			   | ABSOLUTE of int
+			   | RELATIVE of int
+			   | RANGE of (int * int)
+			   | LIST of int list
+				     
+    type iterator = (Symbol.symbol * iteratorindex)
 
     (* Useful functions *)
     val iterator2str : iterator -> string
@@ -24,13 +24,13 @@ struct
 
 val i2s = Util.i2s
 
-datatype iteratortype = ALL
-		      | ABSOLUTE of int
-		      | RELATIVE of int
-		      | RANGE of (int * int)
-		      | LIST of int list
+datatype iteratorindex = ALL
+		       | ABSOLUTE of int
+		       | RELATIVE of int
+		       | RANGE of (int * int)
+		       | LIST of int list
 
-type iterator = (Symbol.symbol * iteratortype)
+type iterator = (Symbol.symbol * iteratorindex)
 
 fun iterator2str (iterator as (sym, i))= 
     let

@@ -85,6 +85,9 @@ ir/processing/fun_properties.sml
 ir/datastructs/dof.sml
 
 ir/current_model.sml
+
+ir/processing/cost.sml
+
 ir/datastructs/inst.sml
 
 

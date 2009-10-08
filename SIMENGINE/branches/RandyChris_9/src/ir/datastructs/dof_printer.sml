@@ -77,12 +77,14 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
 	  print (" |-> Functional class\n")
 	| DOF.INSTANTIATION {readstates, writestates} => 
 	  print (" |-> States read: "^ (symbollist2str readstates) ^ ", States written: " ^(symbollist2str writestates)^ "\n"));
+     print(" |-> Class cost: " ^ (i2s (Cost.class2cost class)) ^ "\n");
      print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => e2s (Exp.TERM name) ^ (case default of SOME v => (" = "^(e2s v)) | NONE => "")) (!inputs))) ^ "\n");
      print ("  Equations:\n");
      app (fn(e) => 
 	    let
 		val size = ExpProcess.exp2size iterators e
-		val prefix = "  (x" ^ (i2s size) ^ ") "
+		val cost = Cost.exp2cost e
+		val prefix = "  (x" ^ (i2s size) ^ ", cost="^(i2s cost)^") "
 	    in
 		if ExpProcess.isInstanceEq e then
 		    let
@@ -125,7 +127,8 @@ fun printModel (model: DOF.model) =
 		(print ("  Name: " ^ (case name of SOME name => Symbol.name name | NONE => "NONE") ^ "\n");
 		 print ("  Class: " ^ (Symbol.name classname) ^ "\n");
 		 print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,...} => e2s (Exp.TERM name)) (!(#inputs class)))) ^ "\n");
-		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => e2s (Exp.TERM name)) (!(#outputs class)))) ^ "\n"))
+		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => e2s (Exp.TERM name)) (!(#outputs class)))) ^ "\n");
+		 print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n"))
 	    end
 
 	fun printSystemProperties {iterators,time,precision} =
