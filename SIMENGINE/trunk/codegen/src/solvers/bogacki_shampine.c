@@ -1,6 +1,5 @@
 // Bogacki-Shampine (ode23) Integration Method
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
-#include "solvers.h"
 
 bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
   int i;

@@ -4,10 +4,9 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
-#include <simengine_target.h>
 #include <stdlib.h>
 #include <math.h>
-#include <cvode/cvode.h>
+//#include <cvode/cvode.h>
 
 // Defines a solver entry point
 #define SOLVER(solver, entry, target, type, args...)  \
