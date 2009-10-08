@@ -315,6 +315,11 @@ class Solver
   var reltol
   var min_t
   var max_t
+  var cv_lmm
+  var cv_iter
+  var cv_solv
+  var cv_upperhalfbw
+  var cv_lowerhalfbw
 
   constructor(name, dt, abs_tolerance, rel_tolerance, min_t, max_t)
     self.name = name
@@ -323,7 +328,16 @@ class Solver
     self.reltol = rel_tolerance
     self.min_t = min_t
     self.max_t = max_t
+    self.cv_lmm = "CV_BDF" // lmm = linear multistep method (can be CV_BDF or CV_ADAMS)
+    self.cv_iter = "CV_NEWTON" // iter = nunlinear solver iteration (can be CV_NEWTON or CV_FUNCTIONAL)
+    self.cv_solv = "CVDENSE" // solv = specify the type of solver and how they compute the Jacobian
+                             // (can be CVDENSE, CVBAND, CVDIAG, CVSPGMR, CVSPBCG, CVSPTFQMR) 
+    self.cv_upperhalfbw = 1 // upper and lower half bandwidths for use only with CVBAND 
+    self.cv_lowerhalfbw = 1
   end
+
+  
+
 end
 
 class Integrators
@@ -353,6 +367,21 @@ class Integrators
     property cvode
       get = Solver.new("cvode", 0.1, 1e-6, 1e-6, 0, 100)
     end
+    property cvode_stiff
+      get = Solver.new("cvode", 0.1, 1e-6, 1e-6, 0, 100) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON"}
+    end
+    property cvode_diag
+      get = Solver.new("cvode", 0.1, 1e-6, 1e-6, 0, 100) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON", cv_solv="CVDIAG"}
+    end
+    property cvode_tridiag
+      get = Solver.new("cvode", 0.1, 1e-6, 1e-6, 0, 100) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON", cv_solv="CVBAND", cv_upperhalfbw=1, cv_lowerhalfbw=1}
+    end
+    property cvode_nonstiff
+      get = Solver.new("cvode", 0.1, 1e-6, 1e-6, 0, 100) {cv_lmm = "CV_ADAMS", cv_iter = "CV_FUNCTIONAL"}
+    end
+//    property mycvode
+//      get = Solver.new (yada) {cvode_var1 = blabla}
+//    end
 end
 open (Integrators.new())
 //end

@@ -2,6 +2,14 @@ signature SOLVER =
 sig
 
     (* Solver data type *)
+    datatype cvode_lmm = CV_ADAMS | CV_BDF
+    datatype cvode_iter = CV_NEWTON | CV_FUNCTIONAL
+
+    datatype cvode_solver = 
+	     CVDENSE
+	   | CVDIAG
+	   | CVBAND of {upperhalfbw:int, lowerhalfbw:int}
+
     datatype solver =
 	     FORWARD_EULER of {dt:real}
 	   | EXPONENTIAL_EULER of {dt:real}
@@ -10,12 +18,12 @@ sig
 	   | HEUN of {dt:real}
 	   | ODE23 of {dt:real, abs_tolerance: real, rel_tolerance: real}
 	   | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
-	   | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real}
+	   | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
+		       lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver}
 		      
     (* Solver accessor methods *)
     val solver2name : solver -> string (* name of the solver *)
     val solver2shortname : solver -> string (* simpler, shorter name *)
-    val solver2options : solver -> {dt: real, abstol: real, reltol: real}		     
     val solver2params : solver -> (string * string) list (* this function is used when generating #define's in C *)
 
     (* Get the default solver if none was specified *)
@@ -25,6 +33,14 @@ end
 structure Solver : SOLVER =
 struct
 
+datatype cvode_lmm = CV_ADAMS | CV_BDF
+datatype cvode_iter = CV_NEWTON | CV_FUNCTIONAL
+
+datatype cvode_solver = 
+	 CVDENSE
+       | CVDIAG
+       | CVBAND of {upperhalfbw:int, lowerhalfbw:int}
+
 datatype solver =
 	 FORWARD_EULER of {dt:real}
        | EXPONENTIAL_EULER of {dt:real}
@@ -33,8 +49,10 @@ datatype solver =
        | HEUN of {dt:real}
        | ODE23 of {dt:real, abs_tolerance: real, rel_tolerance: real}
        | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
-       | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real}
+       | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
+		   lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver}
 
+val i2s = Util.i2s
 val r2s = Util.r2s
 
 val default = ODE45 {dt=0.1, abs_tolerance=(1e~6), rel_tolerance=(1e~3)}
@@ -59,7 +77,13 @@ fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
   | solver2shortname (ODE45 _) = "ode45" (*"dormand_prince"*)
   | solver2shortname (CVODE _) = "cvode"
 
-(*
+fun cvode_solver2params CVDENSE = [("CVODE_SOLV", "CVODE_DENSE")]
+  | cvode_solver2params CVDIAG = [("CVODE_SOLV", "CVODE_DIAG")]
+  | cvode_solver2params (CVBAND {upperhalfbw, lowerhalfbw}) = 
+    [("CVODE_SOLV", "CVODE_BAND"),
+     ("CVODE_UPPERHALFBW", i2s upperhalfbw),
+     ("CVODE_LOWERHALFBW", i2s lowerhalfbw)]
+
 fun solver2params (FORWARD_EULER {dt}) = [("DT", r2s dt),
 					  ("ABSTOL", "0.0"),
 					  ("RELTOL", "0.0")]
@@ -83,11 +107,15 @@ fun solver2params (FORWARD_EULER {dt}) = [("DT", r2s dt),
     [("DT", r2s dt),
      ("ABSTOL", r2s abs_tolerance),
      ("RELTOL", r2s rel_tolerance)]
-  | solver2params (CVODE {dt, abs_tolerance, rel_tolerance}) = 
+  | solver2params (CVODE {dt, abs_tolerance, rel_tolerance, lmm, iter, solv}) = 
     [("DT", r2s dt),
      ("ABSTOL", r2s abs_tolerance),
-     ("RELTOL", r2s rel_tolerance)]
+     ("RELTOL", r2s rel_tolerance),
+     ("CVODE_LMM", case lmm of CV_ADAMS => "CV_ADAMS" | CV_BDF => "CV_BDF"),
+     ("CVODE_ITER", case iter of CV_FUNCTIONAL => "CV_FUNCTIONAL" | CV_NEWTON => "CV_NEWTON")] @ 
+    cvode_solver2params solv
 
+(*
 fun solver2options solver = 
     let
 	val param_list = solver2params solver
@@ -100,7 +128,6 @@ fun solver2options solver =
 	 abstol=getItem "ABSTOL",
 	 reltol=getItem "RELTOL"}
     end
-*)
 fun solver2options (FORWARD_EULER {dt}) = 
     {dt=dt,
      abstol=0.0,
@@ -142,5 +169,6 @@ fun solver2params solver =
 	 ("ABSTOL", r2s abstol),
 	 ("RELTOL", r2s reltol)]
     end
+*)
 
 end

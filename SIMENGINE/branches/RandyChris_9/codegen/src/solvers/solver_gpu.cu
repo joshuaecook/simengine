@@ -1,5 +1,4 @@
-#include"solvers.h"
-
+#ifdef TARGET_GPU
 void GPU_ENTRY(init, SIMENGINE_STORAGE){
   // FIXME Add more checking of capabilities and devices available!
   cudaSetDevice(cutGetMaxGflopsDeviceId());
@@ -73,3 +72,4 @@ void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props){
   cutilSafeCall(cudaFree(tprops.running));
   cutilSafeCall(cudaFree(props));
 }
+#endif // #ifdef TARGET_GPU

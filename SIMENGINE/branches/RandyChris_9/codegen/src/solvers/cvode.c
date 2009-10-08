@@ -1,8 +1,9 @@
 
-#include "solvers.h"
 #include <cvode/cvode.h>
 #include <nvector/nvector_serial.h>
 #include <cvode/cvode_dense.h>
+#include <cvode/cvode_diag.h>
+#include <cvode/cvode_band.h>
 
 #if defined (TARGET_GPU) || defined (TARGET_EMUGPU)
 #error CVODE not supported on the GPU
@@ -43,7 +44,9 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
     // This is done to avoid having the change the internal indexing within the flows and for the output_buffer
     mem[modelid].y0 = N_VMake_Serial(props->statesize, &(props->model_states[modelid*props->statesize]));
     // Create data structure for solver
-    mem[modelid].cvmem = CVodeCreate(CV_BDF, CV_NEWTON);
+    //    mem[modelid].cvmem = CVodeCreate(CV_BDF, CV_NEWTON);
+    mem[modelid].cvmem = CVodeCreate(props->cvode.lmm, props->cvode.iter);
+    
     // Initialize CVODE
     if(CVodeInit(mem[modelid].cvmem, user_fun_wrapper, props->starttime, ((N_Vector)(mem[modelid].y0))) != CV_SUCCESS){
       fprintf(stderr, "Couldn't initialize CVODE");
@@ -53,9 +56,26 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
       fprintf(stderr, "Could not set CVODE tolerances");
     }
     // Set linear solver
-    if(CVDense(mem[modelid].cvmem, mem[modelid].props->statesize) != CV_SUCCESS){
-      fprintf(stderr, "Could not set CVODE linear solver");
-    }
+    switch (mem[modelid].props->cvode.solv) {
+    case CVODE_DENSE:
+      if(CVDense(mem[modelid].cvmem, mem[modelid].props->statesize) != CV_SUCCESS){
+	fprintf(stderr, "Could not set CVODE DENSE linear solver");
+      }
+      break;
+    case CVODE_DIAG:
+      if(CVDiag(mem[modelid].cvmem) != CV_SUCCESS){
+	fprintf(stderr, "Could not set CVODE DIAG linear solver");
+      }
+      break;
+    case CVODE_BAND:
+      if(CVBand(mem[modelid].cvmem, mem[modelid].props->statesize, ((int*)mem[modelid].props->cvode.solv_opts)[0], ((int*)mem[modelid].props->cvode.solv_opts)[1]) != CV_SUCCESS){
+	fprintf(stderr, "Could not set CVODE BAND linear solver");
+      }
+      break;
+    default:
+      fprintf(stderr, "No valid CVODE solver passed");
+      }
+
     // Set user data to contain pointer to memory structure for use in model_flows
     if(CVodeSetUserData(mem[modelid].cvmem, &mem[modelid]) != CV_SUCCESS){
       fprintf(stderr, "CVODE failed to initialize user data");

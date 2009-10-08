@@ -271,11 +271,10 @@ if strcmpi(opts.target, '')
   opts.target = 'CPU';
   if 1 < opts.models
     switch computer
-     case {'MACI','MACI64','i386-apple-darwin9.8.0','i386-apple-darwin8.9.1'}
+     case {'MACI','MACI64'}
       opts.target = 'PARALLELCPU';
      otherwise
-      opts.target = 'PARALLELCPU';
-      %      opts.target = 'GPU';
+      opts.target = 'GPU';
     end
   end
 end
@@ -458,8 +457,15 @@ if opts.recompile
    case {'PCWIN64', 'GLNXA64', 'SOL64', 'MACI64'}
     arch = 'x86_64';
    otherwise
-    warning('Simatra:simEngine:simex', ['Architecture is not officially '...
-            'supported'])
+    if regexp(computer, 'x86_64')
+      arch = 'x86_64';
+    elseif regexp(computer, 'i.86')
+      arch = 'i386'
+    else
+      warning('Simatra:simEngine:simex', ...
+              ['Architecture is not officially '...
+               'supported']);
+    end
   end  
 
   
@@ -470,8 +476,7 @@ if opts.recompile
         ' TARGET=' target ...
         ' ARCH=' arch ...
         ' SIMENGINE_STORAGE=' opts.precision ...
-        ' NUM_MODELS=' num2str(opts.models) ...
-        ' &> simex_make.log'];
+        ' NUM_MODELS=' num2str(opts.models)];
 
 if opts.emulate
   make = [make ' EMULATE=1'];
@@ -485,7 +490,7 @@ if opts.debug
 end
 
 tic;
-status = system(make);
+status = system([make ' &> simex_make.log']);
 elapsed = toc;
 
 if 0 ~= status

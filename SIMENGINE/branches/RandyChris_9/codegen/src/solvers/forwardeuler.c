@@ -1,6 +1,5 @@
 // Forward Euler Integration Method
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
-#include "solvers.h"
 
 forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
 #if defined TARGET_GPU

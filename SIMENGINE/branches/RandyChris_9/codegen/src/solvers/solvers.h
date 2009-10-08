@@ -4,9 +4,9 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
-#include <simengine_target.h>
 #include <stdlib.h>
 #include <math.h>
+//#include <cvode/cvode.h>
 
 // Defines a solver entry point
 #define SOLVER(solver, entry, target, type, args...)  \
@@ -30,6 +30,18 @@ typedef struct {
   void *ob;
 } gpu_data;
 
+// Additional CVODE specific options
+typedef struct {
+  int lmm;
+  int iter;
+  int solv;
+  void *solv_opts;
+} cvode_opts;
+// CVODE solver types
+#define CVODE_DENSE 0
+#define CVODE_DIAG 1
+#define CVODE_BAND 2
+
 typedef struct {
   CDATAFORMAT timestep;
   CDATAFORMAT abstol;
@@ -47,6 +59,7 @@ typedef struct {
   unsigned int ob_size;
   void *ob;
   gpu_data gpu;
+  cvode_opts cvode;
   int *running;
 } solver_props;
 

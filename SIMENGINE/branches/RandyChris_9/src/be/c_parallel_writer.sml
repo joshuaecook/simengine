@@ -10,6 +10,7 @@ exception InternalError
 
 val i2s = Util.i2s
 val r2s = Util.r2s
+val e2s = ExpPrinter.exp2str
 
 fun cstring str = "\"" ^ str ^ "\""
 fun inc x = 1 + x
@@ -19,14 +20,11 @@ fun inc x = 1 + x
 fun header (class_name, includes, defpairs) = 
     [$("// C Execution Engine for top-level model: " ^ class_name),
      $("// " ^ Globals.copyright),
-     $("#include<simengine_api.h>"),
-     $("#include<solvers.h>"),
      $("")] @
     (map (fn(inc)=> $("#include "^inc)) includes) @
     [$(""),
      $("")] @
     (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs)
-
 
 fun simengine_interface (class_name, class, solver_name) =
     let
@@ -48,7 +46,7 @@ fun simengine_interface (class_name, class, solver_name) =
 		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
 		fun exp2name exp = 
 		    Term.sym2curname (ExpProcess.exp2term exp)
-		    handle e => DynException.checkpoint ("CParallelWriter.simengine_interface.findStatesInitValues.exp2name ["^(ExpProcess.exp2str exp)^"]") e
+		    handle e => DynException.checkpoint ("CParallelWriter.simengine_interface.findStatesInitValues.exp2name ["^(e2s exp)^"]") e
 				      
 		val instances = List.filter ExpProcess.isInstanceEq (!exps)
 		val class_inst_pairs = ClassProcess.class2instnames class
@@ -80,7 +78,7 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $("const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " output_num_quantities) ^ "};"),
 	 $("const char model_name[] = \"" ^ class_name ^ "\";"),
 	 $("const char solver[] = \"" ^ solver_name ^ "\";"),
-	 $("#if defined TARGET_CPU"),
+	 $("#if defined TARGET_CPU"),  (* These #if statements should be converted to sml conditionals based on compiler options *)
 	 $("const char target[] = \"cpu\";"),
 	 $("#elif defined TARGET_OPENMP"),
 	 $("const char target[] = \"openmp\";"),
@@ -88,35 +86,12 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $("const char target[] = \"gpu\";"),
 	 $("#endif"),
 	 $(""),
-	 $("const simengine_metadata semeta = {"),
-	 SUB[$("0x0000000000000000ULL, // hashcode"),
-	     $("NUM_MODELS,"),
-	     $("solver,"),
-	     $("target,"),
-	     $("sizeof(CDATAFORMAT)")
-	    ],
-	 $("};"),
 	 $(""),
 	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
 	 $("#define NUM_STATES "^(i2s (List.length state_names))),
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
-	 $(""),
-	 $("const simengine_interface seint = {"),
-	 SUB[$("0, // Version,"),
-	     $("NUM_INPUTS, // Number of inputs"),
-	     $("NUM_STATES, // Number of states"),
-	     $("NUM_OUTPUTS, // Number of outputs"),
-	     $("input_names,"),
-	     $("state_names,"),
-	     $("output_names,"),
-	     $("default_inputs,"),
-	     $("default_states,"),
-	     $("output_num_quantities,"),
-	     $("model_name,"),
-	     $("&semeta")],
-	 $("};"),
-	 $(""),
-	 $("simengine_alloc se_alloc = { malloc, realloc, free };"),
+	 $("#define HASHCODE (0x0000000000000000ULL)"),
+	 $("#define VERSION (0)"),
 	 $("")]
     end
 
@@ -242,7 +217,7 @@ fun class2flow_code (class, top_class) =
 							        ExpProcess.isFirstOrderDifferentialEq exp) rest_exps
 	val _ = if (List.length rest_exps > 0) then
 		    (Logger.log_error($("Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class))));
-		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (ExpProcess.exp2str exp))) rest_exps;
+		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (e2s exp))) rest_exps;
 		     DynException.setErrored())
 		else
 		    ()
@@ -256,7 +231,7 @@ fun class2flow_code (class, top_class) =
 		else if (ExpProcess.isInstanceEq exp) then
 		    instanceeq2prog exp
 		else
-		    DynException.stdException(("Unexpected expression '"^(ExpProcess.exp2str exp)^"'"), "CParallelWriter.class2flow_code.equ_progs", Logger.INTERNAL)
+		    DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.class2flow_code.equ_progs", Logger.INTERNAL)
 
 	    and intermediateeq2prog exp =
  		[$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
@@ -287,7 +262,7 @@ fun class2flow_code (class, top_class) =
 
 		    fun inst_output ((sym, {name, contents, condition}), idx) =
 			"CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
-			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (ExpProcess.exp2str (List.hd (contents)))
+			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
 
 		in
 		    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
@@ -342,7 +317,7 @@ fun class2flow_code (class, top_class) =
 				val _ = if length contents = 1 then
 					    ()
 					else
-					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)
+					    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)
 					    
 				val valid_condition = case condition 
 						       of (Exp.TERM (Exp.BOOL v)) => v
@@ -350,14 +325,14 @@ fun class2flow_code (class, top_class) =
 				val _ = if valid_condition then
 					    ()
 					else
-					    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(ExpProcess.exp2str condition)^"' when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)
+					    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(e2s condition)^"' when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)
 					    
 			    in
 				case contents of
 				    [content] =>
 				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
 				  | _ => 
-				    DynException.stdException (("Output '"^(ExpProcess.exp2str (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map ExpProcess.exp2str contents))^"} when used as a submodel"), 
+				    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), 
 							       "CParallelWriter.class2flow_code", 
 							       Logger.INTERNAL)
 			    end) (Util.addCount (!(#outputs class))))]
@@ -476,7 +451,7 @@ fun logoutput_code class =
 			    dependent_symbols
 	val output_exps =Util.flatmap
 			      (fn(out as ({condition, contents, name}, output_index))=> 
-				 [$("{ // Generating output for symbol " ^ (ExpProcess.exp2str (Exp.TERM name))),
+				 [$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
 				  SUB[$("int cond = " ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ";"),
 				      $("if (cond) {"),
 				      SUB([$("((unsigned int*)(ob->ptr[modelid]))[0] = " ^ (i2s output_index) ^ ";"),
@@ -506,10 +481,9 @@ fun logoutput_code class =
 	 $("__DEVICE__ void buffer_outputs(double t, output_data *od, output_buffer *ob, unsigned int modelid) {"),
 	 SUB(output_exps),
 	 $("}"),
-	 $(""),
-	 $("#include<simengine.c>")]
+	 $("")]
          else
-	 [$("#include<simengine.c>")]
+	 []
     end
 
 
@@ -534,24 +508,55 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				    ("ITERSPACE", i2s (length iterators))::
 				    ("INTEGRATION_METHOD", solver_name)::
 				    ("INTEGRATION_MEM", solver_name ^ "_mem")::
-				    (Solver.solver2params solver))) @
-			   [$("#ifdef TARGET_GPU"),
-			    $("#include \"solvers/"^solver_name^".cu\""),
-			    $("#endif")]
+				    (Solver.solver2params solver)))
 
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, solver_name)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = outputstatestruct_code classes
 	val flow_progs = flow_code (classes, inst_class)
 	val logoutput_progs = logoutput_code inst_class
+	val simengine_target_h = $(Archive.getC "simengine/simengine_target.h")
+	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
+	val solvers_h = $(Archive.getC "solvers/solvers.h")
+	val solver_gpu_cu = $(Archive.getC ("solvers/solver_gpu.cu"))
+	val solver_c = $(Archive.getC ("solvers/"^solver_name^".c"))
+	val simengine_api_c = $(Archive.getC "simengine/simengine_api.c")
+	val defines_h = $(Archive.getC "simengine/defines.h")
+	val semeta_seint_h = $(Archive.getC "simengine/semeta_seint.h")
+	val output_buffer_h = $(Archive.getC "simengine/output_buffer.h")
+	val init_output_buffer_c = $(Archive.getC "simengine/init_output_buffer.c")
+	val log_outputs_c = $(Archive.getC "simengine/log_outputs.c")
+	val exec_cpu_c = $(Archive.getC "simengine/exec_cpu.c")
+	val exec_parallel_cpu_c = $(Archive.getC "simengine/exec_parallel_cpu.c")
+	val exec_serial_cpu_c = $(Archive.getC "simengine/exec_serial_cpu.c")
+	val exec_kernel_gpu_cu = $(Archive.getC "simengine/exec_kernel_gpu.c")
+	val exec_parallel_gpu_cu = $(Archive.getC "simengine/exec_parallel_gpu.cu")
+	val exec_loop_c = $(Archive.getC "simengine/exec_loop.c")
 
 	(* write the code *)
-	val _ = output_code(class_name, ".", (header_progs @ 
+	val _ = output_code(class_name, ".", (header_progs @
+					      [simengine_target_h] @
+					      [simengine_api_h] @
+					      [solvers_h] @
+					      [defines_h] @
+					      [solver_gpu_cu] @
+					      [solver_c] @
 					      simengine_interface_progs @
+					      [semeta_seint_h] @
 					      outputdatastruct_progs @
 					      outputstatestruct_progs @
+					      [output_buffer_h] @
+					      [init_output_buffer_c] @
 					      logoutput_progs @
-					      flow_progs))
+					      [simengine_api_c] @
+					      [log_outputs_c] @
+					      [exec_cpu_c] @
+					      [exec_parallel_cpu_c] @
+					      [exec_serial_cpu_c] @
+					      [exec_kernel_gpu_cu] @
+					      [exec_parallel_gpu_cu] @
+					      flow_progs @
+					      [exec_loop_c]))
     in
 	SUCCESS
     end

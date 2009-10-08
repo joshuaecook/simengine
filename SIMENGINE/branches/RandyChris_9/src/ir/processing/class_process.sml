@@ -8,6 +8,7 @@ sig
     (* Accessor methods *)    
     val class2instnames : DOF.class -> (Symbol.symbol * Symbol.symbol) list (* return a list of instances within the class as classname/instname tuples *)
     val class2orig_name : DOF.class -> Symbol.symbol (* the name of the class before it was renamed, for example during ordering *)
+    val class2classname : DOF.class -> Symbol.symbol (* returns the class name as stored in the structure, not the "realclassname" *)
     val findSymbols : DOF.class -> Symbol.symbol list (* return a list of every unique symbol name used in the class - helpful for global renaming *)
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
     val class2statesizebyiterator : Symbol.symbol -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)

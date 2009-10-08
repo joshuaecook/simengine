@@ -484,7 +484,6 @@ and getClass (object, classes) =
 	    end
     end
 
-
 fun obj2modelinstance object =
     let
 	val classes = []
@@ -495,11 +494,13 @@ fun obj2modelinstance object =
 		   classname=(#name class)})
     end
 
+
+
 fun obj2dofmodel object =
     let
 	val (classes, topinstance) = obj2modelinstance (object)
 	val solverobj = method "solver" (method "modeltemplate" object)
-	val solver = case exp2str(method "name" solverobj) of
+(*	val solver = case exp2str(method "name" solverobj) of
 			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
 		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
 		       (* | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
@@ -513,6 +514,36 @@ fun obj2dofmodel object =
 		       | "cvode" => Solver.CVODE {dt = exp2real(method "dt" solverobj),
 						  abs_tolerance = exp2real(method "abstol" solverobj),
 						  rel_tolerance = exp2real(method "reltol" solverobj)}
+		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)*)
+	val solver = case exp2str(method "name" solverobj) of
+			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
+		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
+		       (* | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
+		       | "heun" => Solver.HEUN {dt = exp2real(method "dt" solverobj)}*)
+		       | "ode23" => Solver.ODE23 {dt = exp2real(method "dt" solverobj),
+						  abs_tolerance = exp2real(method "abstol" solverobj),
+						  rel_tolerance = exp2real(method "reltol" solverobj)}
+		       | "ode45" => Solver.ODE45 {dt = exp2real(method "dt" solverobj),
+						  abs_tolerance = exp2real(method "abstol" solverobj),
+						  rel_tolerance = exp2real(method "reltol" solverobj)}
+		       | "cvode" => Solver.CVODE {dt = exp2real(method "dt" solverobj),
+						  abs_tolerance = exp2real(method "abstol" solverobj),
+						  rel_tolerance = exp2real(method "reltol" solverobj),
+						  lmm = case exp2str (method "cv_lmm" solverobj) of
+							    "CV_BDF" => Solver.CV_BDF
+							  | "CV_ADAMS" => Solver.CV_ADAMS
+							  | s => (Logger.log_warning (Printer.$("Invalid linear method '"^s^"' chosen: Valid options are CV_BDF or CV_ADAMS.  Defaulting to CV_BDF"));Solver.CV_BDF),
+						  iter = case exp2str (method "cv_iter" solverobj) of
+							     "CV_FUNCTIONAL" => Solver.CV_FUNCTIONAL
+							   | "CV_NEWTON" => Solver.CV_NEWTON
+							   | s => (Logger.log_warning (Printer.$("Invalid iteration method '"^s^"' chosen: Valid options are CV_FUNCTIONAL or CV_NEWTON.  Defaulting to CV_NEWTON"));Solver.CV_NEWTON),
+						  solv = case exp2str (method "cv_solv" solverobj) of
+							     "CVDENSE" => Solver.CVDENSE
+							   | "CVDIAG" => Solver.CVDIAG
+							   | "CVBAND" => Solver.CVBAND {upperhalfbw=exp2int (method "cv_upperhalfbw" solverobj),
+											lowerhalfbw=exp2int (method "cv_lowerhalfbw" solverobj)}
+							   | s => (Logger.log_warning (Printer.$("Invalid solver method '"^s^"' chosen: Valid options are CVDENSE, CVDIAG or CVBAND.  Defaulting to CVDENSE"));Solver.CVDENSE)
+							 }
 		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
 	fun expHasIter iter exp =

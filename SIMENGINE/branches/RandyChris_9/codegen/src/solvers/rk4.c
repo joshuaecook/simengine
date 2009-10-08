@@ -1,6 +1,5 @@
 // Runga-Kutta (4th order) Integration Method
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
-#include "solvers.h"
 
 rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
 #if defined TARGET_GPU

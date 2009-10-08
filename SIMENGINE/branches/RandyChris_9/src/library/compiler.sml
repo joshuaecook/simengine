@@ -37,17 +37,17 @@ fun std_compile exec args =
 
 	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
-(*	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel()))*)
-	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeModel (CurrentModel.getCurrentModel()))
+	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel()))
+(*	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeModel (CurrentModel.getCurrentModel()))*)
 
-(*	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())*)
-	      val code = CWriter.buildC(CurrentModel.getCurrentModel())
+	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
+(*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
 
 	      val _ = DynException.checkToProceed()
 	  in 
 	      case code of
-		  CWriter.SUCCESS => KEC.LITERAL(KEC.CONSTSTR "\nCompilation Finished Successfully\n")
-		| CWriter.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
+		  CParallelWriter.SUCCESS => KEC.LITERAL(KEC.CONSTSTR "\nCompilation Finished Successfully\n")
+		| CParallelWriter.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
 	  end 
 	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n")))
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})

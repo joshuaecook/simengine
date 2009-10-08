@@ -37,7 +37,8 @@ val equation2rewrite : Exp.exp -> Rewrite.rewrite (* if a == b, then make a -> b
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
 val exp2size : DOF.classiterator list -> Exp.exp -> int
 val enableEPIndex : bool -> (Symbol.symbol list) -> Exp.exp -> Exp.exp (* Add an EP index property when running an embarrassingly parallel simulation *)
-val assignCorrectScopeOnSymbol: Exp.exp -> Exp.exp (* addes the read and write state attributes based on found derivatives or differential terms *)
+val assignCorrectScopeOnSymbol : Exp.exp -> Exp.exp (* addes the read and write state attributes based on found derivatives or differential terms *)
+val assignToOutputBuffer : Exp.exp -> Exp.exp (* sets an output buffer flag - only run in the code generator which reformulates the expression for generating the output logger *)
 val instOrigClassName : Exp.exp -> Symbol.symbol (* returns original class name, assumes that the expression is an instance equation *)
 val instOrigInstName : Exp.exp -> Symbol.symbol (* returns original instance name, assumes that the expression is an instance equation *)
 val instSpatialSize : Exp.exp -> int (* returns the assigned dimension of an instance *)
