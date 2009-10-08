@@ -11,25 +11,26 @@ exception InternalError
 val i2s = Util.i2s
 val r2s = Util.r2s
 
-val testme = Archive.get "simengine/delme"
-
 fun cstring str = "\"" ^ str ^ "\""
 fun inc x = 1 + x
 
 (* ====================  HEADER  ==================== *)
 
 fun header (class_name, includes, defpairs) = 
-    [$(testme),
-     $("// C Execution Engine for top-level model: " ^ class_name),
-     $("// " ^ Globals.copyright),
-     $("#include<simengine_api.h>"),
-     $("#include<solvers.h>"),
-     $("")] @
-    (map (fn(inc)=> $("#include "^inc)) includes) @
-    [$(""),
-     $("")] @
-    (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs)
-
+    let
+	val simengine_api_h = Archive.get "simengine/simengine_api.h"
+	val solvers_h = Archive.get "solvers/solvers.h"
+    in
+	[$("// C Execution Engine for top-level model: " ^ class_name),
+	 $("// " ^ Globals.copyright),
+	 $(simengine_api_h),
+	 $(solvers_h),
+	 $("")] @
+	(map (fn(inc)=> $("#include "^inc)) includes) @
+	[$(""),
+	 $("")] @
+	(map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs)
+    end
 
 fun simengine_interface (class_name, class, solver_name) =
     let
@@ -74,6 +75,7 @@ fun simengine_interface (class_name, class, solver_name) =
 	val output_names = map #name (!(#outputs class))
 	val output_num_quantities = map (i2s o inc o List.length o #contents) (!(#outputs class))
 	val default_inputs = map default2c_str input_defaults
+	val semeta_seint_h = Archive.get "simengine/semeta_seint.h"
     in
 	[$("const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
 	 $("const char *state_names[] = {" ^ (String.concatWith ", " (map cstring state_names)) ^ "};"),
@@ -83,7 +85,7 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $("const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " output_num_quantities) ^ "};"),
 	 $("const char model_name[] = \"" ^ class_name ^ "\";"),
 	 $("const char solver[] = \"" ^ solver_name ^ "\";"),
-	 $("#if defined TARGET_CPU"),
+	 $("#if defined TARGET_CPU"),  (* These #if statements should be converted to sml conditionals based on compiler options *)
 	 $("const char target[] = \"cpu\";"),
 	 $("#elif defined TARGET_OPENMP"),
 	 $("const char target[] = \"openmp\";"),
@@ -91,36 +93,14 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $("const char target[] = \"gpu\";"),
 	 $("#endif"),
 	 $(""),
-	 $("const simengine_metadata semeta = {"),
-	 SUB[$("0x0000000000000000ULL, // hashcode"),
-	     $("NUM_MODELS,"),
-	     $("solver,"),
-	     $("target,"),
-	     $("sizeof(CDATAFORMAT)")
-	    ],
-	 $("};"),
 	 $(""),
 	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
 	 $("#define NUM_STATES "^(i2s (List.length state_names))),
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
+	 $("#define HASHCODE (0x0000000000000000ULL)"),
+	 $("#define VERSION (0)"),
 	 $(""),
-	 $("const simengine_interface seint = {"),
-	 SUB[$("0, // Version,"),
-	     $("NUM_INPUTS, // Number of inputs"),
-	     $("NUM_STATES, // Number of states"),
-	     $("NUM_OUTPUTS, // Number of outputs"),
-	     $("input_names,"),
-	     $("state_names,"),
-	     $("output_names,"),
-	     $("default_inputs,"),
-	     $("default_states,"),
-	     $("output_num_quantities,"),
-	     $("model_name,"),
-	     $("&semeta")],
-	 $("};"),
-	 $(""),
-	 $("simengine_alloc se_alloc = { malloc, realloc, free };"),
-	 $("")]
+	 $(semeta_seint_h)]
     end
 
 local
@@ -509,10 +489,9 @@ fun logoutput_code class =
 	 $("__DEVICE__ void buffer_outputs(double t, output_data *od, output_buffer *ob, unsigned int modelid) {"),
 	 SUB(output_exps),
 	 $("}"),
-	 $(""),
-	 $("#include<simengine.c>")]
+	 $("")]
          else
-	 [$("#include<simengine.c>")]
+	 []
     end
 
 
@@ -546,15 +525,37 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = outputstatestruct_code classes
 	val flow_progs = flow_code (classes, inst_class)
+	val output_buffer_h = $(Archive.get "simengine/output_buffer.h")
 	val logoutput_progs = logoutput_code inst_class
+	val simengine_api_c = $(Archive.get "simengine/simengine_api.c")
+	val defines_h = $(Archive.get "simengine/defines.h")
+	val init_output_buffer_c = $(Archive.get "simengine/init_output_buffer.c")
+	val log_outputs_c = $(Archive.get "simengine/log_outputs.c")
+	val exec_cpu_c = $(Archive.get "simengine/exec_cpu.c")
+	val exec_parallel_cpu_c = $(Archive.get "simengine/exec_parallel_cpu.c")
+	val exec_serial_cpu_c = $(Archive.get "simengine/exec_serial_cpu.c")
+	val exec_kernel_gpu_cu = $(Archive.get "simengine/exec_kernel_gpu.c")
+	val exec_parallel_gpu_cu = $(Archive.get "simengine/exec_parallel_gpu.cu")
+	val exec_loop_c = $(Archive.get "simengine/exec_loop.c")
 
 	(* write the code *)
-	val _ = output_code(class_name, ".", (header_progs @ 
+	val _ = output_code(class_name, ".", (header_progs @
+					      [defines_h] @
 					      simengine_interface_progs @
 					      outputdatastruct_progs @
 					      outputstatestruct_progs @
+					      [output_buffer_h] @
+					      [init_output_buffer_c] @
 					      logoutput_progs @
-					      flow_progs))
+					      [simengine_api_c] @
+					      [log_outputs_c] @
+					      [exec_cpu_c] @
+					      [exec_parallel_cpu_c] @
+					      [exec_serial_cpu_c] @
+					      [exec_kernel_gpu_cu] @
+					      [exec_parallel_gpu_cu] @
+					      flow_progs @
+					      [exec_loop_c]))
     in
 	SUCCESS
     end
