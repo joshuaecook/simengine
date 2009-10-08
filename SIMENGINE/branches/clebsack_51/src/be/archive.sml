@@ -4,6 +4,8 @@ sig
     val get: string -> string
     (* Returns the contents of multiple files given their names *)
     val mget: string list -> string list
+    (* Wrapper version of get that supplies the retrieved name in a comment and wraps the code nicely to help debugging *)
+    val getC: string -> string
     (* Puts the contents of a named file into an archivable object and returns the object name *)
     val put: string -> string
     (* Puts the contents of all named fiels into archivable objects and returns the object names *)
@@ -21,6 +23,8 @@ val simengine =
 val bin_path = simengine ^ "/bin/"
 val lib_path = simengine ^ "/lib/"
 val simlib = bin_path ^ "simlib"
+
+val wrapper = "/******************************************************************************/\n"
 
 fun readfileString pipein =
     case (TextIO.inputLine pipein) of
@@ -49,6 +53,8 @@ fun get fname =
 
 fun mget fnames =
     map get fnames
+
+fun getC fname = "/* " ^ fname ^ " */\n" ^ wrapper ^ (get fname) ^ wrapper
 
 fun mput fnames =
     let

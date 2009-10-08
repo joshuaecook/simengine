@@ -1,5 +1,3 @@
-// exec_parallel_gpu.cu
-/**********************************************************************/
 #if defined(TARGET_GPU)
 int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
   int ret = SUCCESS;
@@ -65,4 +63,3 @@ ret = 20;
   return ret;
 }
 #endif // defined(TARGET_GPU)
-/**********************************************************************/

@@ -1,5 +1,3 @@
-// semeta_seint.h
-/**********************************************************************/
 const simengine_metadata semeta = {
   HASHCODE,
   NUM_MODELS,
@@ -24,4 +22,3 @@ const simengine_interface seint = {
 };
 
 simengine_alloc se_alloc = { malloc, realloc, free };
-/**********************************************************************/

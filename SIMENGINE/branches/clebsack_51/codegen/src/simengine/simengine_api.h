@@ -9,7 +9,6 @@
 #ifndef SIMENGINE_API_H
 #define SIMENGINE_API_H
 
-#include <simengine_target.h>
 #include <stddef.h>
 #include <omp.h>
 

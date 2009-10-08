@@ -1,5 +1,3 @@
-// exec_parallel_cpu.c
-/**********************************************************************/
 #ifndef TARGET_GPU
 // Run all models in parallel batches on all available processor cores
 int exec_parallel_cpu(INTEGRATION_MEM *mem, simengine_output *outputs){
@@ -40,4 +38,3 @@ int exec_parallel_cpu(INTEGRATION_MEM *mem, simengine_output *outputs){
   return ret;
 }
 #endif
-/**********************************************************************/

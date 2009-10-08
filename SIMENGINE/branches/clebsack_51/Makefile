@@ -620,8 +620,8 @@ $(BUILD_DIR)/%.fig: matlab/%.fig
 #$(BUILD_DIR)/lib/solvers.c: matlab/solvers.c
 #	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/lib/libsolvers.a: solvers/lib/libsolvers.a
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+#$(BUILD_DIR)/lib/libsolvers.a: solvers/lib/libsolvers.a
+#	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 $(BUILD_DIR)/lib/libcodegen.sim:
 	@$(MAKE) -C codegen codegen
@@ -630,8 +630,8 @@ $(BUILD_DIR)/lib/libcodegen.sim:
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+#$(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
+#	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 MEXINTERFACE_PREREQS = $(addprefix matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 .PHONY: mexinterface
@@ -651,20 +651,14 @@ pcode: $(INSTALL_FILENAME).p
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/include/solvers.h $(BUILD_DIR)/lib/libsolvers.a $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/$(INSTALL_FILENAME).m
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/$(INSTALL_FILENAME).m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
-solvers/lib/libcvode_%.a: solvers/src/*.c
-	$(MAKE) -C solvers/thirdparty/cvode TYPE=$* libcvode_$*.a $(ARCH64_FLAG)
-
-solvers/lib/%.a: solvers/src/*.c
-	@echo "Running solvers all on $@"
-	$(MAKE) -C solvers all $(ARCH64_FLAG)
+solvers/lib/libcvode_%.a: solvers
 
 .PHONY: solvers
 solvers:
-	@echo "Running target solvers"
-	$(MAKE) -C solvers all $(ARCH64_FLAG)
+	$(MAKE) -C solvers/cvode $(ARCH64_FLAG)
 
 
 $(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
@@ -673,7 +667,7 @@ $(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
 $(BUILD_DIR)/simEngine_wrapper.%: matlab/simEngine_wrapper.%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(MATLAB_TARGETS): matlab/src/%.c include/simengine_api.h include/simengine_target.h
+$(MATLAB_TARGETS): matlab/src/%.c
 	@echo "Generating Matlab target $@"
 ifneq ($(ARCH64),)
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) MEX=$(MEX) $(ARCH64_FLAG) $(*F)
@@ -837,8 +831,9 @@ $(BUILD_DIR)/lib/llc_protocol.c: ../dslc/llc_protocol.c
 build_includes: include/* solvers
 	@echo "Populating standard includes ..."
 	@$(CP) include/* $(BUILD_DIR)/include/
-	@$(MKDIR) $(BUILD_DIR)/include/solvers/
-	@cp -fL solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
+	@$(CP) -r solvers/include/* $(BUILD_DIR)/include
+#	@$(MKDIR) $(BUILD_DIR)/include/solvers/
+#	@cp -fL solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
 
 build_shared: share/*
 	@echo "Populating shared files..."
@@ -1454,7 +1449,7 @@ install: system
 
 
 .PHONY: clean
-clean: mostlyclean solvers_clean mexinterface_clean
+clean: mostlyclean solvers_clean codegen_clean mexinterface_clean
 	$(RM) *~
 #	$(RM) $(LOCAL_INSTALL)
 	$(RM) examples/*~
@@ -1497,7 +1492,10 @@ mostlyclean:
 
 
 solvers_clean:
-	$(MAKE) -C solvers clean
+	$(MAKE) -C solvers/cvode clean
+
+codegen_clean:
+	$(MAKE) -C codegen clean
 
 mexinterface_clean:
 	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" clean

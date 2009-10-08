@@ -1,5 +1,3 @@
-// exec_serial_cpu.c
-/**********************************************************************/
 #ifndef TARGET_GPU
 // Run all models serially on a single cpu core
 int exec_serial_cpu(INTEGRATION_MEM *mem, simengine_output *outputs){
@@ -15,4 +13,3 @@ int exec_serial_cpu(INTEGRATION_MEM *mem, simengine_output *outputs){
   return ret;
 }
 #endif // ndef TARGET_GPU
-/**********************************************************************/

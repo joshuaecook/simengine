@@ -1,5 +1,3 @@
-// exec_kernel_gpu.cu 
-/**********************************************************************/
 #if defined(TARGET_GPU)
 // GPU execution kernel that runs each model instance for a number of iterations or until the buffer fills
 __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){
@@ -55,4 +53,3 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){
   }
 }
 #endif
-/**********************************************************************/

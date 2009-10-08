@@ -1,5 +1,3 @@
-// output_buffer.h
-/**********************************************************************/
 /* An internal data structure that maintains a buffer of output data.
  *
  * The 'count' array tracks the number of data produced for each model.
@@ -25,4 +23,3 @@ typedef struct{
   CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];
 } output_buffer;
 #endif
-/**********************************************************************/

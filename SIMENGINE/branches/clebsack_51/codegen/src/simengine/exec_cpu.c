@@ -1,5 +1,3 @@
-// exec_cpu.c
-/**********************************************************************/
 #ifndef TARGET_GPU
 // Run a single model to completion on a single processor core
 int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int modelid){
@@ -49,4 +47,3 @@ int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int model
   return SUCCESS;
 }
 #endif
-/**********************************************************************/

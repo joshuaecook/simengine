@@ -10,13 +10,13 @@ CVODE_OBJS = $(CVODE_PATH)/cvode/.libs/cvode_dense.o \
 	$(CVODE_PATH)/cvode/.libs/cvode_direct.o \
 	$(CVODE_PATH)/cvode/.libs/cvode_io.o \
 	$(CVODE_PATH)/cvode/.libs/cvode.o \
+        $(CVODE_PATH)/cvode/.libs/cvode_diag.o \
+        $(CVODE_PATH)/cvode/.libs/cvode_band.o \
 	$(CVODE_PATH)/nvec_ser/.libs/nvector_serial.o \
 	$(CVODE_PATH)/sundials/.libs/sundials_dense.o \
 	$(CVODE_PATH)/sundials/.libs/sundials_direct.o \
 	$(CVODE_PATH)/sundials/.libs/sundials_math.o \
 	$(CVODE_PATH)/sundials/.libs/sundials_nvector.o \
-        $(CVODE_PATH)/cvode/.libs/cvode_diag.o \
-        $(CVODE_PATH)/cvode/.libs/cvode_band.o \
 	$(CVODE_PATH)/sundials/.libs/sundials_band.o \
 
 # Not all of the following are needed, but this is a good start to trimming closer to what we do need
@@ -115,17 +115,26 @@ AR = ar -rs
 
 all:
 	for type in $(DATATYPES); do \
-	  $(MAKE) TYPE=$$type libcvode_$$type\.a; \
+	  $(MAKE) TYPE=$$type ../lib/libcvode_$$type\.a; \
 	done
 
-libcvode_$(TYPE).a: $(CVODE_OBJS)
+includes: ../include/$(TYPE)/cvode ../include/$(TYPE)/nvector ../include/$(TYPE)/sundials
+	cp $(SUNDIALS_BUILD_PATH)/include/cvode/*.h ../include/$(TYPE)/cvode
+	cp $(SUNDIALS_BUILD_PATH)/include/nvector/nvector_serial.h ../include/$(TYPE)/nvector
+	cp $(SUNDIALS_BUILD_PATH)/include/sundials/*.h ../include/$(TYPE)/sundials
+
+../include/%:
+	mkdir -p $@
+
+../lib/libcvode_$(TYPE).a: $(CVODE_OBJS)
 	$(AR) $@ $?
 
 clean-cvode:
 	rm -rf $(SUNDIALS_BUILD_PATH)
 
 clean:
-	rm -f src/*.o *.linkinfo *.a
+	rm -rf ../lib/libcvode_*.a
+	rm -rf ../include/*
 	@for type in $(DATATYPES); do \
 	  $(MAKE) clean-cvode TYPE=$$type; \
 	 done
@@ -155,4 +164,5 @@ $(CVODE_OBJS): $(SUNDIALS_BUILD_PATH)
 	 cd ../nvec_ser; $(MAKE) nvector_serial.lo; \
 	 cd ../sundials; $(MAKE) sundials_dense.lo sundials_band.lo sundials_direct.lo sundials_math.lo sundials_nvector.lo; \
 	fi
+	$(MAKE) includes
 

@@ -6,7 +6,7 @@ endif
 
 DEBUG=1
 
-INCLUDES += -Iinclude -I../include
+INCLUDES += -Iinclude -I../codegen/src/simengine
 LDLIBS = -ldl -lgomp
 
 CWARNINGS = -W -Wall

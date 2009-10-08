@@ -1,5 +1,3 @@
-// exec_loop.c
-/**********************************************************************/
 int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs) {
   unsigned int modelid = 0;
   unsigned int status = SUCCESS;
@@ -88,4 +86,3 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   free(running);
   return status;
 }
-/**********************************************************************/

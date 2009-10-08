@@ -1,5 +1,3 @@
-// log_outputs.c
-/**********************************************************************/
 /* Transmutes the internal data buffer into the structured output
  * which may be retured to the client.
  */
@@ -44,4 +42,3 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
 	     
   return 0;
 }
-/**********************************************************************/

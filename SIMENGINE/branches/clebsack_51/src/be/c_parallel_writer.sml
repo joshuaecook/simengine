@@ -17,20 +17,13 @@ fun inc x = 1 + x
 (* ====================  HEADER  ==================== *)
 
 fun header (class_name, includes, defpairs) = 
-    let
-	val simengine_api_h = Archive.get "simengine/simengine_api.h"
-	val solvers_h = Archive.get "solvers/solvers.h"
-    in
-	[$("// C Execution Engine for top-level model: " ^ class_name),
-	 $("// " ^ Globals.copyright),
-	 $(simengine_api_h),
-	 $(solvers_h),
-	 $("")] @
-	(map (fn(inc)=> $("#include "^inc)) includes) @
-	[$(""),
-	 $("")] @
-	(map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs)
-    end
+    [$("// C Execution Engine for top-level model: " ^ class_name),
+     $("// " ^ Globals.copyright),
+     $("")] @
+    (map (fn(inc)=> $("#include "^inc)) includes) @
+    [$(""),
+     $("")] @
+    (map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs)
 
 fun simengine_interface (class_name, class, solver_name) =
     let
@@ -75,7 +68,6 @@ fun simengine_interface (class_name, class, solver_name) =
 	val output_names = map #name (!(#outputs class))
 	val output_num_quantities = map (i2s o inc o List.length o #contents) (!(#outputs class))
 	val default_inputs = map default2c_str input_defaults
-	val semeta_seint_h = Archive.get "simengine/semeta_seint.h"
     in
 	[$("const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
 	 $("const char *state_names[] = {" ^ (String.concatWith ", " (map cstring state_names)) ^ "};"),
@@ -99,8 +91,7 @@ fun simengine_interface (class_name, class, solver_name) =
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
 	 $("#define HASHCODE (0x0000000000000000ULL)"),
 	 $("#define VERSION (0)"),
-	 $(""),
-	 $(semeta_seint_h)]
+	 $("")]
     end
 
 local
@@ -516,32 +507,41 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				    ("ITERSPACE", i2s (length iterators))::
 				    ("INTEGRATION_METHOD", solver_name)::
 				    ("INTEGRATION_MEM", solver_name ^ "_mem")::
-				    (Solver.solver2params solver))) @
-			   [$("#ifdef TARGET_GPU"),
-			    $("#include \"solvers/"^solver_name^".cu\""),
-			    $("#endif")]
+				    (Solver.solver2params solver)))
 
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, solver_name)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = outputstatestruct_code classes
 	val flow_progs = flow_code (classes, inst_class)
-	val output_buffer_h = $(Archive.get "simengine/output_buffer.h")
 	val logoutput_progs = logoutput_code inst_class
-	val simengine_api_c = $(Archive.get "simengine/simengine_api.c")
-	val defines_h = $(Archive.get "simengine/defines.h")
-	val init_output_buffer_c = $(Archive.get "simengine/init_output_buffer.c")
-	val log_outputs_c = $(Archive.get "simengine/log_outputs.c")
-	val exec_cpu_c = $(Archive.get "simengine/exec_cpu.c")
-	val exec_parallel_cpu_c = $(Archive.get "simengine/exec_parallel_cpu.c")
-	val exec_serial_cpu_c = $(Archive.get "simengine/exec_serial_cpu.c")
-	val exec_kernel_gpu_cu = $(Archive.get "simengine/exec_kernel_gpu.c")
-	val exec_parallel_gpu_cu = $(Archive.get "simengine/exec_parallel_gpu.cu")
-	val exec_loop_c = $(Archive.get "simengine/exec_loop.c")
+	val simengine_target_h = $(Archive.getC "simengine/simengine_target.h")
+	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
+	val solvers_h = $(Archive.getC "solvers/solvers.h")
+	val solver_gpu_cu = $(Archive.getC ("solvers/solver_gpu.cu"))
+	val solver_c = $(Archive.getC ("solvers/"^solver_name^".c"))
+	val simengine_api_c = $(Archive.getC "simengine/simengine_api.c")
+	val defines_h = $(Archive.getC "simengine/defines.h")
+	val semeta_seint_h = $(Archive.getC "simengine/semeta_seint.h")
+	val output_buffer_h = $(Archive.getC "simengine/output_buffer.h")
+	val init_output_buffer_c = $(Archive.getC "simengine/init_output_buffer.c")
+	val log_outputs_c = $(Archive.getC "simengine/log_outputs.c")
+	val exec_cpu_c = $(Archive.getC "simengine/exec_cpu.c")
+	val exec_parallel_cpu_c = $(Archive.getC "simengine/exec_parallel_cpu.c")
+	val exec_serial_cpu_c = $(Archive.getC "simengine/exec_serial_cpu.c")
+	val exec_kernel_gpu_cu = $(Archive.getC "simengine/exec_kernel_gpu.c")
+	val exec_parallel_gpu_cu = $(Archive.getC "simengine/exec_parallel_gpu.cu")
+	val exec_loop_c = $(Archive.getC "simengine/exec_loop.c")
 
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @
+					      [simengine_target_h] @
+					      [simengine_api_h] @
+					      [solvers_h] @
 					      [defines_h] @
+					      [solver_gpu_cu] @
+					      [solver_c] @
 					      simengine_interface_progs @
+					      [semeta_seint_h] @
 					      outputdatastruct_progs @
 					      outputstatestruct_progs @
 					      [output_buffer_h] @

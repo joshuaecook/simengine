@@ -4,7 +4,6 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
-#include <simengine_target.h>
 #include <stdlib.h>
 #include <math.h>
 //#include <cvode/cvode.h>
