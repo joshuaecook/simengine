@@ -66,6 +66,8 @@ __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki
   CDATAFORMAT max_timestep = mem->props->timestep*1024;
   CDATAFORMAT min_timestep = mem->props->timestep/1024;
 
+  uint threadid = 0;
+
   //fprintf(stderr, "ts=%g\n", mem->cur_timestep[modelid]);
 
   // Stop the solver if we have reached the stoptime
@@ -74,7 +76,7 @@ __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki
     return 0;
 
   int i;
-  int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
+  int ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid, threadid, mem->props);
 
   int appropriate_step = FALSE;
 
@@ -87,13 +89,13 @@ __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki
       mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
 	(mem->cur_timestep[modelid]/2)*mem->k1[STATE_IDX];
     }
-    ret |= model_flows(mem->props->time[modelid]+(mem->cur_timestep[modelid]/2), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+(mem->cur_timestep[modelid]/2), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0, modelid, threadid, mem->props);
 
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
 	(3*mem->cur_timestep[modelid]/4)*mem->k2[STATE_IDX];
     }
-    ret |= model_flows(mem->props->time[modelid]+(3*mem->cur_timestep[modelid]/4), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+(3*mem->cur_timestep[modelid]/4), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0, modelid, threadid, mem->props);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->next_states[STATE_IDX] = mem->props->model_states[STATE_IDX] +
@@ -103,7 +105,7 @@ __DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki
     }
     
     // now compute k4 to adapt the step size
-    ret |= model_flows(mem->props->time[modelid]+mem->cur_timestep[modelid], mem->next_states, mem->k4, mem->props->inputs, mem->props->outputs, 0, modelid);
+    ret |= model_flows(mem->props->time[modelid]+mem->cur_timestep[modelid], mem->next_states, mem->k4, mem->props->inputs, mem->props->outputs, 0, modelid, threadid, mem->props);
     
     for(i=mem->props->statesize-1; i>=0; i--) {
       mem->z_next_states[STATE_IDX] = mem->props->model_states[STATE_IDX] +

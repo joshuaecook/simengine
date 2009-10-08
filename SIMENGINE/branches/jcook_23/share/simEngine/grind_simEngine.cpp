@@ -104,15 +104,8 @@ int main(int argc, char **argv)
     char *name = argv[1];
 
     unsigned int models = NUM_MODELS, modelid;
-#if defined TARGET_GPU
-    #if defined __DEVICE_EMULATION__
-    double stop_time = 1000.0;
-    #else
-    double stop_time = 8765.0;
-    #endif
-#else
-    double stop_time = 1000.0;
-#endif
+
+    double stop_time = 100.0;
 
     simengine_api *api = init_simengine(load_simengine(name));
     const simengine_interface *iface = api->getinterface();

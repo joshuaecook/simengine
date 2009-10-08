@@ -17,16 +17,20 @@
 // Solver indexing mode for states
 #define STATE_IDX TARGET_IDX(mem->props->statesize, mem->props->num_models, i, modelid)
 
-// Pre-declaration of model_flows, the interface between the solver and the model
-__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);
-
 // Properties data structure
 // ============================================================================================================
 
-// Pointers to GPU device memory, used only on the Host for transfers
 typedef struct {
+  // Pointers to GPU device memory, used only on the Host for transfers
   CDATAFORMAT *time;
   CDATAFORMAT *model_states;
+  uint blockx; // kernel geometry
+  uint blocky;
+  uint blockz;
+  uint gridx;
+  uint gridy;
+  uint gridz;
+  size_t shmem_per_block;
   int ob_mapped; // 1 if the output buffers are mapped for zero-copy.
   void *ob; // output buffers; may be memory-mapped on capable devices
 } gpu_data;
@@ -57,6 +61,11 @@ typedef struct {
   int *running;
 } solver_props;
 
+
+// Pre-declaration of model_flows, the interface between the solver and the model
+__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid, unsigned int threadid, solver_props *props);
+
+
 // Forward Euler data structures and function declarations
 // ============================================================================================================
 
@@ -86,7 +95,9 @@ typedef struct {
 
 rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-__DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int modelid);
+__DEVICE__ void SOLVER(rk4, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int threadid, unsigned int blocksize);
+__DEVICE__ void SOLVER(rk4, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int threadid, unsigned int blocksize);
+__DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int modelid, unsigned int threadid);
 
 void SOLVER(rk4, free, TARGET, SIMENGINE_STORAGE, rk4_mem *mem);
 

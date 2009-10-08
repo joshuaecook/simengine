@@ -33,7 +33,7 @@ ifeq (,$(filter target_%,$(notdir $(CURDIR))))
 MAKE_TARGETS_PREREQS = thirdparty/cvode
 define MAKE_TARGET_CALLBACK
 #@$(MAKE) --no-print-directory -C thirdparty/cvode all
-@$(MAKE) --no-print-directory -C lib all
+@$(MAKE) --no-print-directory -C lib all DEBUG=$(DEBUG) PROFILE=$(PROFILE)
 endef
 define MAKE_TARGET_CLEAN_CALLBACK 
 @$(MAKE) --no-print-directory -C src clean
@@ -48,7 +48,7 @@ endif
 
 .PHONY: thirdparty/cvode
 thirdparty/cvode:
-	$(MAKE) --no-print-directory -C $@ all $(ARCH64_FLAG)
+	$(MAKE) --no-print-directory -C $@ all $(ARCH64_FLAG) DEBUG=$(DEBUG) PROFILE=$(PROFILE)
 
 else
 #$(info In build directory $(CURDIR))

@@ -7,7 +7,8 @@
 # A command for recursively invoking make to build a target
 MAKE_TARGET = $(MAKE) --no-print-directory -C $@ \
 		-f $(realpath $(firstword $(MAKEFILE_LIST))) \
-		SOURCES=$(CURDIR)/src $(MAKECMDGOALS)
+		SOURCES=$(CURDIR)/src $(MAKECMDGOALS) \
+		DEBUG=$(DEBUG) PROFILE=$(PROFILE)
 
 # Creates and relocates to a target build directory.
 .PHONY: $(TARGETS)

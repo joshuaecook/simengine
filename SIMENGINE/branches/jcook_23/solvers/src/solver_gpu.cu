@@ -24,6 +24,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   memcpy(&tprops, props, sizeof(solver_props));
 
   // Allocate GPU space for props and all pointer fields of props
+  PRINTF("Allocating %zd bytes on GPU for solver properties.\n", sizeof(solver_props));
   cutilSafeCall(cudaMalloc((void**)&dprops, sizeof(solver_props)));
   cutilSafeCall(cudaMalloc((void**)&tprops.time, props->num_models*sizeof(CDATAFORMAT)));
   if (props->statesize) {
@@ -40,7 +41,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
       {
       PRINTF("Initializing solver props with zero-copy output buffers.\n");
       cutilSafeCall(cudaHostAlloc(&ob, props->ob_size, cudaHostAllocMapped | cudaHostAllocPortable));
-      memcpy(ob, props->ob, props->ob_size);
+      memset(ob, 0, props->ob_size);
 
       if (0 != cutilSafeCall(cudaHostGetDevicePointer(&tprops.ob, ob, 0))) 
 	  { return 0; }
@@ -50,6 +51,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   else
       { 
       cutilSafeCall(cudaMalloc((void**)&tprops.ob, props->ob_size));
+      cutilSafeCall(cudaMemset(tprops.ob, 0, props->ob_size));
       }
 
   if (props->outputsize) {
@@ -68,7 +70,9 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
       props->ob = ob;
       }
   else
-      { props->gpu.ob = tprops.ob; }
+      { 
+      props->gpu.ob = tprops.ob; 
+      }
   props->gpu.time = tprops.time;
   props->gpu.model_states = tprops.model_states;
 

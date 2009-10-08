@@ -17,7 +17,7 @@ int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
 	      &(mem->props->inputs[mem->modelid*mem->props->inputsize]),
 	      &(mem->props->outputs[mem->modelid*mem->props->outputsize]),
 	      mem->first_iteration,
-	      0 // 0 is passed to modelid to prevent flow from indexing model_states, 
+	      0,0,0 // 0 is passed to modelid to prevent flow from indexing model_states, 
 	         // which is already indexed by having a separate mem structure per model
 	      );
 
