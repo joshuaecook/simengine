@@ -20,6 +20,8 @@ sig
     val unknownName : Symbol.symbol
     val unknownEvent : Symbol.symbol
 
+    val eventOf : string -> Symbol.symbol   
+
 end
 structure Iterator : ITERATOR =
 struct
@@ -28,6 +30,8 @@ val i2s = Util.i2s
 
 val unknownName  = Symbol.symbol "?"
 val unknownEvent = Symbol.symbol "event[?]"
+
+fun eventOf iter = Symbol.symbol ("event[" ^ iter ^ "]")
 
 datatype iteratorindex = ALL
 		       | ABSOLUTE of int
