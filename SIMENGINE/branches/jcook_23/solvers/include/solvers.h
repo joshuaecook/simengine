@@ -76,7 +76,9 @@ typedef struct {
 
 forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-__DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, unsigned int modelid);
+__DEVICE__ void SOLVER(forwardeuler, stage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(forwardeuler, destage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid);
 
 void SOLVER(forwardeuler, free, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem);
 

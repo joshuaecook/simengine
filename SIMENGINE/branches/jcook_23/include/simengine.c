@@ -260,6 +260,12 @@ int exec_parallel_gpu_mapped(INTEGRATION_MEM *mem, solver_props *props, simengin
   dim3 block(props->gpu.blockx, props->gpu.blocky, props->gpu.blockz);
   dim3 grid(props->gpu.gridx, props->gpu.gridy, props->gpu.gridz);
 
+  PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%d>>>\n",
+	 grid.x, grid.y, grid.z,
+	 block.x, block.y, block.z,
+	 props->gpu.shmem_per_block);
+
+
 
   while(SUCCESS == ret && active_models){
 
@@ -454,6 +460,11 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
   dim3 block(props->gpu.blockx, props->gpu.blocky, props->gpu.blockz);
   dim3 grid(props->gpu.gridx, props->gpu.gridy, props->gpu.gridz);
 
+
+  PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%d>>>\n",
+	 grid.x, grid.y, grid.z,
+	 block.x, block.y, block.z,
+	 props->gpu.shmem_per_block);
 
   while(SUCCESS == ret && active_models)
     {
