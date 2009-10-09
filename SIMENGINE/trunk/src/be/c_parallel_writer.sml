@@ -528,7 +528,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val exec_cpu_c = $(Archive.getC "simengine/exec_cpu.c")
 	val exec_parallel_cpu_c = $(Archive.getC "simengine/exec_parallel_cpu.c")
 	val exec_serial_cpu_c = $(Archive.getC "simengine/exec_serial_cpu.c")
-	val exec_kernel_gpu_cu = $(Archive.getC "simengine/exec_kernel_gpu.c")
+	val exec_kernel_gpu_cu = $(Archive.getC "simengine/exec_kernel_gpu.cu")
 	val exec_parallel_gpu_cu = $(Archive.getC "simengine/exec_parallel_gpu.cu")
 	val exec_loop_c = $(Archive.getC "simengine/exec_loop.c")
 
