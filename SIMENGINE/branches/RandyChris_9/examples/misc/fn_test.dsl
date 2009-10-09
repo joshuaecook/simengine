@@ -12,11 +12,11 @@ model (u,w,I) = fn_test(b0, b1, e)
   
   state u = 0
   state w = 0
-  state I = 0
+  state I = 0 with {iter=n}
 
   equations
     I[n+1] = I[n] + 0.5
-    u' = u - u*u*u / 3 - w + 2
+    u' = u - u*u*u / 3 - w + I[n]
     w' = e * (b0 + b1 * u - w)
   end
 

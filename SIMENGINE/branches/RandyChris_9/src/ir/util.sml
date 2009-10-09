@@ -15,7 +15,8 @@ val tr = String.translate tilde2minus
 val exact = Real.fmt StringCvt.EXACT
 in
 
-val r2s = tr o exact
+val r2s = tr o Real.toString
+val real2exact_str = tr o exact
 val i2s = tr o Int.toString
 
 end

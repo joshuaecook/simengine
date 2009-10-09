@@ -9,7 +9,7 @@ exception SortFailed
 
 (*remove line for debugging *)
 fun print x = ()
-fun printModel x =  (*DOFPrinter.printModel x*) CurrentModel.setCurrentModel x 
+fun printModel x =  (*DOFPrinter.printModel x*)()(* CurrentModel.setCurrentModel x *)
 
 fun valOf (SOME thing) = thing
   | valOf NONE =
@@ -1030,10 +1030,15 @@ fun orderModel (model:DOF.model)=
 	val _ = print ("splitting performed\n==========\n\n")	    
 	val _ = printClassMap classMap
 	val _ = printClassIOMap classIOMap
-	val _ = printModel (classes', topInstance, props)
+
+	val model' = (classes', topInstance, props)
+	val _ = CurrentModel.setCurrentModel(model')
+	val _ = printModel model'
 
 	val _ = print ("pruning performed\n=====================\n\n")
-	val _ = printModel (classes'', topInstance, props)
+	val model'' = (classes'', topInstance, props)
+	val _ = CurrentModel.setCurrentModel(model'')
+	val _ = printModel model''
 
 	val _ = app (orderClass classMap) classes''
 		
@@ -1043,12 +1048,11 @@ fun orderModel (model:DOF.model)=
 		else
 		    print("ordering performed\n==============\n\n")
 
-	val _ = printModel (classes'', topInstance, props)
-
-
-	val model' = (classes'', topInstance, props)
+	val model'' = (classes'', topInstance, props)
+	val _ = CurrentModel.setCurrentModel(model'')
+	val _ = printModel model''
     in
-	model' 
+	model''
 	handle SortFailed => model before (DynException.checkToProceed())
     end
     handle e => model before 

@@ -538,7 +538,9 @@ fun props2solver props =
 	val solver = case List.find (fn(sym, itertype) => 
 				       (case itertype of
 					    DOF.CONTINUOUS solver => true
-					  | DOF.DISCRETE {fs} => false)) iterators of
+					  | DOF.DISCRETE {fs} => false
+					  | DOF.EVENT itersym => false
+					  | DOF.UNKNOWN => false)) iterators of
 			 SOME (sym, DOF.CONTINUOUS solver) => solver
 		       | _ => DynException.stdException ("Requiring at least one differential equation", "CParallelWriter.buildC", Logger.INTERNAL)
     in

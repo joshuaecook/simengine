@@ -28,18 +28,19 @@ fun std_compile exec args =
 
 		      
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
-			  CurrentModel.setCurrentModel (ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
+			  (Util.log ("Optimizing model ...");
+			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
 		      else
 			  ()
 
-	      val _ = ((*Util.log("Normalizing model ...");*)
-		       ModelProcess.normalizeModel (CurrentModel.getCurrentModel()))		       
+	      val _ = Util.log("Normalizing model ...")
+	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
 
+	      val _ = Util.log("Normalizing parallel model ...")
+	      val _ = ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel())
+
+	      val _ = Util.log("Ready to build the following DOF ...")
 	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
-
-	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel()))
-(*	      val _ = CurrentModel.setCurrentModel (ModelProcess.normalizeModel (CurrentModel.getCurrentModel()))*)
-
 	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
 

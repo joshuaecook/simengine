@@ -5,7 +5,7 @@ open Printer
 
 val e2s = ExpPrinter.exp2str
 val i2s = Util.i2s
-val r2s = Util.r2s
+val r2s = Util.real2exact_str
 val log = Util.log
 
 fun exp2c_str (Exp.FUN (str, exps)) =
