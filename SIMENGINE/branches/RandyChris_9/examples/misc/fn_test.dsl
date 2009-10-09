@@ -4,7 +4,7 @@
     Copyright 2007-2009 Simatra Modeling Technolgies
 */
 
-model (u,w,I,fake) = fn_test(b0, b1, e)
+model (u,w,I) = fn_test(b0, b1, e)
 
   input b0 with {default=2}
   input b1 with {default=1.5}
