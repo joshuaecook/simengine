@@ -3,6 +3,7 @@
 #include <string.h>
 #include <strings.h>
 #include <dlfcn.h>
+#include <math.h>
 
 #include "simengine_api.h"
 
@@ -38,7 +39,7 @@ void analyze_result(const simengine_interface *iface, simengine_result *result)
 	    simengine_output *op0 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid-1)];
 	    simengine_output *op1 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid)];
 
-	    PRINTF("%d samples in model %d output %d\n", op1->num_samples, modelid, outputid);
+//	    PRINTF("%d samples in model %d output %d\n", op1->num_samples, modelid, outputid);
 	    if (op1->num_samples != op0->num_samples)
 		{
 		PRINTF("difference of sample count from %d to %d: %d\n", modelid-1, modelid, op1->num_samples - op0->num_samples);
@@ -58,7 +59,8 @@ void analyze_result(const simengine_interface *iface, simengine_result *result)
 		}
 	    }
 
-	PRINTF("error from %d to %d: %0.8f\n", modelid-1, modelid, errorNorm);
+	if (1.0e-6 < fabs(errorNorm - 0.0))
+	    { PRINTF("Error from %d to %d: %0.8f\n", modelid-1, modelid, errorNorm); }
 	}
     }
 

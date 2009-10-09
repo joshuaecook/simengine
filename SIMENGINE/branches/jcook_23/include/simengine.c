@@ -195,7 +195,7 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
     init_output_buffer(ob, modelid);
 
     // Stage data into shared memory
-    SOLVER(INTEGRATION_METHOD, stage, TARGET, SIMENGINE_STORAGE, mem, threadid, blocksize);
+    SOLVER(INTEGRATION_METHOD, stage, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid, blocksize);
     
     // Run up to MAX_ITERATIONS for each model
     for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++) {
@@ -236,7 +236,7 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
     PRINTF("Ran model %d up to time %f\n", modelid, mem->props->time[modelid]);
 #endif
 
-    SOLVER(INTEGRATION_METHOD, destage, TARGET, SIMENGINE_STORAGE, mem, threadid, blocksize);
+    SOLVER(INTEGRATION_METHOD, destage, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid, blocksize);
   }
 }
 
@@ -279,11 +279,11 @@ int exec_parallel_gpu_mapped(INTEGRATION_MEM *mem, solver_props *props, simengin
 	ob_id ^= 1;
 	// Launches the next kernel
 	if (active_models) {
-	  PRINTF("launching next kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (ob %d)\n",
-		 grid.x, grid.y, grid.z,
-		 block.x, block.y, block.z,
-		 props->gpu.shmem_per_block, 
-		 active_models, ob_id);
+	  /* PRINTF("launching next kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (ob %d)\n", */
+	  /* 	 grid.x, grid.y, grid.z, */
+	  /* 	 block.x, block.y, block.z, */
+	  /* 	 props->gpu.shmem_per_block,  */
+	  /* 	 active_models, ob_id); */
 	  exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block >>>(mem, ob_id);
 	  cutilSafeCall(cudaEventRecord(checkpoint[ob_id], 0));
 	  ++aflight;
@@ -299,11 +299,11 @@ int exec_parallel_gpu_mapped(INTEGRATION_MEM *mem, solver_props *props, simengin
       }
       else if (active_models) {
 	// No kernels active; launch one
-	PRINTF("launching first kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (ob %d)\n",
-	       grid.x, grid.y, grid.z,
-	       block.x, block.y, block.z,
-	       props->gpu.shmem_per_block, 
-	       active_models, ob_id);
+	/* PRINTF("launching first kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (ob %d)\n", */
+	/*        grid.x, grid.y, grid.z, */
+	/*        block.x, block.y, block.z, */
+	/*        props->gpu.shmem_per_block,  */
+	/*        active_models, ob_id); */
 	exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block >>>(mem, ob_id);
 	cutilSafeCall(cudaEventRecord(checkpoint[ob_id], 0));
 	++aflight;
@@ -457,11 +457,11 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
 
   while(SUCCESS == ret && active_models)
     {
-      PRINTF("launching kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (ob 0)\n",
-	     grid.x, grid.y, grid.z,
-	     block.x, block.y, block.z,
-	     props->gpu.shmem_per_block, 
-	     active_models);
+      /* PRINTF("launching kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (ob 0)\n", */
+      /* 	     grid.x, grid.y, grid.z, */
+      /* 	     block.x, block.y, block.z, */
+      /* 	     props->gpu.shmem_per_block,  */
+      /* 	     active_models); */
 
       exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block >>>(mem,0);
       cutilSafeCall(cudaMemcpy(ob, props->gpu.ob, props->ob_size, cudaMemcpyDeviceToHost));

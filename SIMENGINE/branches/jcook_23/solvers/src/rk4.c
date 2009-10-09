@@ -22,7 +22,13 @@ rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
   uint num_gpu_threads;
   uint num_gpu_blocks;
 
+  // shared space for model states and solver overhead
   shmem_per_thread = sizeof(CDATAFORMAT) * props->statesize * 6; // 6 = magic for rk4
+  // shared space for a vector of time
+  shmem_per_thread += sizeof(CDATAFORMAT);
+  // shared space for a vector of `running' flags
+  shmem_per_thread += sizeof(int);
+
   
   threads_per_block = total_shmem / shmem_per_thread;
   threads_per_block = warp_size * (threads_per_block / warp_size);
@@ -44,11 +50,13 @@ rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
   tmem.props = GPU_ENTRY(init_props, SIMENGINE_STORAGE, props);
 
   cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+
+/*// No need to alloc these when using shared memory
   cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k4, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-
+*/
 
   // Copy mem structure to GPU
   cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(rk4_mem), cudaMemcpyHostToDevice));
@@ -70,28 +78,38 @@ rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
 #endif
 }
 
-__DEVICE__ void SOLVER(rk4, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int threadid, unsigned int blocksize)
+__DEVICE__ void SOLVER(rk4, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize)
     {
 #if defined TARGET_GPU
     CDATAFORMAT *global_states = mem->props->model_states;
     CDATAFORMAT *shared_states = shmem;
+    CDATAFORMAT *shared_time = shmem + 6 * blocksize * mem->props->statesize;
 
     for (int i = 0; i < mem->props->statesize; i++)
 	{
-	shared_states[threadid + i * blocksize] = global_states[threadid + i * ARRAY_SIZE];
+	shared_states[threadid + i * blocksize] = global_states[STATE_IDX];
 	}
+
+    shared_time[threadid] = mem->props->time[modelid];
+
+    __syncthreads();
 #endif
     }
 
-__DEVICE__ void SOLVER(rk4, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int threadid, unsigned int blocksize)
+__DEVICE__ void SOLVER(rk4, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize)
     {
 #if defined TARGET_GPU
     CDATAFORMAT *global_states = mem->props->model_states;
     CDATAFORMAT *shared_states = shmem;
+    CDATAFORMAT *shared_time = shmem + 6 * blocksize * mem->props->statesize;
+
+    __syncthreads();
+
+//    mem->props->time[modelid] = shared_time[threadid];
 
     for (int i = 0; i < mem->props->statesize; i++)
 	{
-	global_states[threadid + i * ARRAY_SIZE] = shared_states[threadid + i * blocksize];
+	global_states[STATE_IDX] = shared_states[threadid + i * blocksize];
 	}
 #endif
     }
@@ -106,13 +124,14 @@ __DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsign
 #if defined TARGET_GPU
   CDATAFORMAT	*model_states = shmem;
 
-  CDATAFORMAT	*k1	      = model_states + 1 * blocksize * statesize;
-  CDATAFORMAT	*k2	      = model_states + 2 * blocksize * statesize;
-  CDATAFORMAT	*k3	      = model_states + 3 * blocksize * statesize;
-  CDATAFORMAT	*k4	      = model_states + 4 * blocksize * statesize;
-  CDATAFORMAT	*temp	      = model_states + 5 * blocksize * statesize;
+  CDATAFORMAT	*k1	      = model_states + blocksize * statesize;
+  CDATAFORMAT	*k2	      = k1 + blocksize * statesize;
+  CDATAFORMAT	*k3	      = k2 + blocksize * statesize;
+  CDATAFORMAT	*k4	      = k3 + blocksize * statesize;
+  CDATAFORMAT	*temp	      = k4 + blocksize * statesize;
 
   CDATAFORMAT	*time	      = mem->props->time;
+//  CDATAFORMAT	*time	      = temp + blocksize * statesize;
   CDATAFORMAT   *inputs       = mem->props->inputs;
   CDATAFORMAT   *outputs      = mem->props->outputs;
 
@@ -181,11 +200,12 @@ void SOLVER(rk4, free, TARGET, SIMENGINE_STORAGE, rk4_mem *mem) {
 
 
   cutilSafeCall(cudaFree(tmem.k1));
+/*
   cutilSafeCall(cudaFree(tmem.k2));
   cutilSafeCall(cudaFree(tmem.k3));
   cutilSafeCall(cudaFree(tmem.k4));
   cutilSafeCall(cudaFree(tmem.temp));
-
+*/
   cutilSafeCall(cudaFree(mem));
 
   GPU_ENTRY(exit, SIMENGINE_STORAGE);

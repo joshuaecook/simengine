@@ -41,14 +41,19 @@ typedef struct{
   const simengine_metadata *metadata;
 } simengine_interface;
 
-// Josh: variables that track counts should be declared as
-// unsigned long. We should also be bounds-checking, especially
+// Variables that track counts should be declared as
+// size_t. We should also be bounds-checking, especially
 // quantities that track the number of samples. Most likely we'd run
 // out of memory before overrunning a 32-bit counter but we could
 // eventually be working with >20GB RAM.
-/* Output data are stored interleaved.
+
+/* Output quantities data are stored adjacently (array of structs.)
  * The data of an output with Q quantities over T samples would look like
  *     [q0t0, q1t0, ... qQt0, q0t1, q1t1, ... qQt1, ... qQtT]
+ * The first quantity for every output is usually a timestamp, therefore
+ * most outputs have at least two quantities.
+ * TODO add a `type' field to this structure? indicating e.g. time series
+ * v. event v. counter, etc.
  */
 typedef struct{
   unsigned int alloc;
