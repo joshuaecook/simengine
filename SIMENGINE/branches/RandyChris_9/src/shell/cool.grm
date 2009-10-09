@@ -252,7 +252,7 @@ equations: (nil)
 	 | equation newlines equations (equation :: equations)
 
 equation: exp EQARROW optlines exp (Ast.MATHFUNCTION (exp1, exp2))
-	| exp ASSIGN optlines exp (Ast.EQUATION (exp1, exp2))
+	| exp ASSIGN optlines exp optwhen (Ast.EQUATION (exp1, exp2, optwhen))
 	| ID WHEN exp (Ast.EVENT (Symbol.symbol ID, exp))
 
 

@@ -52,6 +52,7 @@ fun initavar (str, temporal_iterator, spatial_iterators) =
 			 )
 	     )
 
+
 fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 					Property.setScope
 					    (Property.setIterator 

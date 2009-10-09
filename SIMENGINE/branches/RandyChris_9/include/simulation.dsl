@@ -38,6 +38,7 @@ namespace Simulation
     hidden var precision = InfinitePrecision.new()
     var initialval
     hidden var eq    
+    hidden var condEqs = []
     // hidden var currentval
     // hidden var readval // when an exp is read, replace the var with this if not undefined
     // var eq    
@@ -74,12 +75,22 @@ namespace Simulation
       self.eq
     end
 
+    function getCondEqs()
+      self.condEqs
+    end
+
     function hasEquation() = hasEq
 
-    function setEquation(eq)
+    function setEquation(eq: Equation)
       //TODO: perform error checking here, ie if its a param, DONT allow this
+      println("adding eq to " + name)
       self.eq = eq
-      self.hasEq = isdefined(eq)
+      self.hasEq = true
+    end
+    overload function setEquation(eq: EventDrivenEquation)
+      println("adding conditional eq to " + name)
+      self.condEqs.push_front (eq)
+      self.hasEq = true
     end
 
     function setDimensions (dimensions: Vector)
@@ -98,9 +109,9 @@ namespace Simulation
       end
     end
 
-    function tostring() = eq.tostring()
+//    function tostring() = eq.tostring()
 
-    function debugtostring ()
+    function tostring ()
       var str = self.class.name + "("
       str = str + "name=" + self.getName()
       str + ")"
@@ -150,6 +161,17 @@ namespace Simulation
     function tostring() = lhs.tostring() + " = " + rhs.tostring()
   end  
 
+  class EventDrivenEquation extends Equation
+    var cond
+
+    constructor (lhs, rhs, cond)
+      super(lhs, rhs)
+      self.cond = cond
+    end
+
+    function tostring() = lhs.tostring() + " = " + rhs.tostring() + " when " + cond.tostring()
+  end
+
 
 
   class ModelOperation
@@ -160,8 +182,8 @@ namespace Simulation
     var args
    
     function tostring ()
-//      "ModelOperation(name=" + self.name + ", args=" + self.args + ")"
-      LF exp2str (self)
+      "ModelOperation(name=" + self.name + ", args=" + self.args + ")"
+      //LF exp2str (self)
     end
 
     constructor (name: String, numArgs: Number, execFun, precisionMap, args: Vector of _)
@@ -457,6 +479,7 @@ namespace Simulation
 
   class State extends SimQuantity
     var downsampling
+    var iter
 
     property output_frequency
       set (frequency)
@@ -582,6 +605,22 @@ namespace Simulation
     end 
 
   end
+
+  class PreviousTimeIterator extends TimeIterator
+    var timeIterator
+    var index
+
+    constructor (titer, indices: Vector of Number)
+      self.timeIterator = rquant
+      if indices.length() <> 1 then
+        error "References to previous values of Temporal Iterator " + timeIterator + " must be 1 dimensional"
+      else
+        self.index = indices[1]
+      end
+    end
+    function getName() = timeIterator.getName() + "[" + index + "]"
+  end
+
 
   class Output
     var name
@@ -761,12 +800,16 @@ namespace Simulation
       quantities
     end
 
-    function makeEquation (name, dimensions, lhs, rhs)
+    function makeEquation (name, dimensions, lhs, rhs, cond, condvalid)
       if objectContains(self, name) then
         var q = self.getMember name
         if istype(type SimQuantity, q) then
-	  println ("Found quantity for: " + name)
-      	  q.setEquation (Equation.new(lhs q, rhs q))
+//	  println ("  it's optcond = " + optcond)
+	  if not condvalid then
+       	    q.setEquation (Equation.new(lhs q, rhs q))
+          else
+	    q.setEquation (EventDrivenEquation.new(lhs q, rhs q, cond))
+          end
         else
           error "Cannot create equation for non-quantity: " + name
         end
@@ -781,9 +824,22 @@ namespace Simulation
         end
 	
 	self.quantities.push_back (q)
-        self.getMember(name).setEquation(Equation.new(lhs q, rhs q))        
+	if not condvalid then
+          self.getMember(name).setEquation(Equation.new(lhs q, rhs q))        
+        else
+  	  self.getMember(name).setEquation(EventDrivenEquation.new(lhs q, rhs q, cond))        
+        end
       end
     end
+
+    overload function makeEquation (name, dimensions, lhs, rhs, cond)
+      makeEquation (name, dimensions, lhs, rhs, cond, true)
+    end
+
+    overload function makeEquation (name, dimensions, lhs, rhs)
+      makeEquation (name, dimensions, lhs, rhs, (), false)
+    end
+
 
     function getSubModels()
       submodels

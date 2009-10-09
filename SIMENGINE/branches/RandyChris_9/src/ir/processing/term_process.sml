@@ -4,6 +4,7 @@ struct
 fun symbol2temporaliterator term = 
     let
 	val iterators = CurrentModel.iterators()
+
     in
 	case term of
 	    Exp.SYMBOL (sym, props) => 
@@ -28,7 +29,6 @@ fun symbol2spatialiterators term =
 			  SOME iters => iters
 			| NONE => [])
 		   | _ => [])
-
 
 
 end

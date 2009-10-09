@@ -347,21 +347,44 @@ fun createClass classes object =
 		let
 		    val lhs = kecexp2dofexp (method "lhs" (method "eq" object))
 		    val rhs = kecexp2dofexp (method "rhs" (method "eq" object))
-		    val eq = ExpBuild.equals(lhs, rhs)						     
+		    val eq = ExpBuild.equals(lhs, rhs)			
+		    val keccondeqs = vec2list (method "condEqs" object)
+		    val condeqs = case keccondeqs of
+				      nil => nil
+				    | keccondeqs => 
+				      let
+					  val lhs = ExpProcess.appendIteratorToSymbol (Iterator.unknownEvent, Iterator.RELATIVE 0) lhs
+
+					  fun buildIf (condeq, exp) =
+					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),
+						       [kecexp2dofexp (method "cond" condeq), kecexp2dofexp (method "rhs" condeq), exp])
+
+					  val condexp = foldl buildIf lhs keccondeqs
+				      in
+					  [ExpBuild.equals (lhs, condexp)]
+				      end
 
 		    val (timeiterator, spatialiterators) = case (ExpProcess.exp2termsymbols lhs) of
 							       [Exp.SYMBOL (sym,props)] => 
-							       ((Symbol.name (#1(hd (valOf (Property.getIterator props)))),
-								map (Symbol.name o #1) (tl (valOf (Property.getIterator props))))
-								handle _ => error "Malformed left hand side of equation")
+							       let
+								   val name = case Property.getIterator props of
+										  SOME ((name, _)::_) => name
+										| _ => Iterator.unknownName
+							       in
+								   ((Symbol.name (name),
+								     map (Symbol.name o #1) (tl (valOf (Property.getIterator props))))
+							       handle _ => error ("Malformed left hand side of equation: " ^ (ExpPrinter.exp2fullstr lhs)))
+							       end
 							     | _ => error "Invalid number of symbols on left hand side of equation"
+
+		    val timeiterator = (exp2str (method "name" (method "iter" object)))
 
 		    val init = ExpBuild.equals(ExpBuild.initavar(exp2str (method "name" object), 
 								 timeiterator,
 								 spatialiterators),
 					       kecexp2dofexp (getInitialValue object))
 		in
-		    [init, eq]
+		    [init, eq] @ condeqs
 		end
 	    else if istype (object, "Event") then
 		let
@@ -547,7 +570,7 @@ fun obj2dofmodel object =
 		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
 	fun expHasIter iter exp =
-	    if ExpProcess.isInitialConditionEq exp then
+(*	    if ExpProcess.isInitialConditionEq exp then*)
 		case ExpProcess.getLHSSymbol exp of
 		    Exp.SYMBOL (_, props) => 
 		    (case Property.getIterator props of
@@ -555,25 +578,34 @@ fun obj2dofmodel object =
 			 (List.exists (fn(s,p) => s = iter) iters)
 		       | NONE => false)
 		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (e2s exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
-	    else
-		false
+(*	    else
+		false*)
 
 	fun classHasIter iter ({exps, ...}: DOF.class) =
 	    List.exists (expHasIter iter) (!exps)
 
 	val discrete_iterators = 
 	    if List.exists (classHasIter (Symbol.symbol "n")) classes then
-		[(Symbol.symbol "n", DOF.DISCRETE {fs=1.0})]
+		[(Symbol.symbol "n", DOF.DISCRETE {fs=1.0}),
+		 (Symbol.symbol "event[n]", DOF.EVENT (Symbol.symbol "n"))]
 	    else
 		[]
 			    
 	val continuous_iterators = 
 	    if List.exists (classHasIter (Symbol.symbol "t")) classes then
-		[(Symbol.symbol "t", DOF.CONTINUOUS solver)]
+		[(Symbol.symbol "t", DOF.CONTINUOUS solver),
+		 (Symbol.symbol "event[t]", DOF.EVENT (Symbol.symbol "t"))]
 	    else
 		[]
 
-	val systemproperties = (*{solver=solver}*){iterators=continuous_iterators @ discrete_iterators,
+	val unknown_iterators = 
+(*	    if List.exists (classHasIter (Iterator.unknownName)) classes then*)
+		[(Iterator.unknownName, DOF.UNKNOWN),
+		 (Iterator.unknownEvent, DOF.EVENT (Iterator.unknownName))]
+(*	    else
+		[]*)
+
+	val systemproperties = (*{solver=solver}*){iterators=continuous_iterators @ discrete_iterators @ unknown_iterators,
 						   time=(exp2real (method "min_t" solverobj), exp2real (method "max_t" solverobj)),
 						   precision=DOF.DOUBLE (* TODO: Make this configurable *)}
     in

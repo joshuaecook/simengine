@@ -248,8 +248,8 @@ fun isFirstOrderDifferentialTerm exp =
 	let
 	    val derivative = Property.getDerivative props
 	    val continuous_iterators = List.filter (fn(sym, itertype)=>case itertype of 
-									   DOF.DISCRETE _ => false
-									 | DOF.CONTINUOUS _ => true) (CurrentModel.iterators())
+									   DOF.CONTINUOUS _ => true
+									 | _ => false) (CurrentModel.iterators())
 	in
 	    case derivative of
 		SOME (order, [iterator]) =>  order = 1 andalso List.exists (fn(sym, _)=> iterator = sym) continuous_iterators
@@ -269,7 +269,7 @@ fun isNextVarDifferenceTerm exp =
 	    val iterators = Property.getIterator props
 	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
 									 DOF.DISCRETE _ => true
-								       | DOF.CONTINUOUS _ => false) (CurrentModel.iterators())
+								       | _ => false) (CurrentModel.iterators())
 	in
 	    case iterators of
 		SOME ((iterator, Iterator.RELATIVE 1)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
@@ -290,7 +290,7 @@ fun isCurVarDifferenceTerm exp =
 	    val iterators = Property.getIterator props
 	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
 									 DOF.DISCRETE _ => true
-								       | DOF.CONTINUOUS _ => false) (CurrentModel.iterators())
+								       | _ => false) (CurrentModel.iterators())
 	in
 	    case iterators of
 		SOME ((iterator, Iterator.RELATIVE 0)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
@@ -339,6 +339,18 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	       | _ => false
 	 end
        | _ => false)
+  | isStateTermOfIter (iter as (name, _)) exp =
+    (case exp of
+	 Exp.TERM (Exp.SYMBOL (_, props)) =>
+	 let
+	     val iterators = Property.getIterator props
+	 in
+	     case iterators of
+		 SOME ((iterator, _)::rest) => iterator = name
+	       | _ => false
+	 end
+       | _ => false)
+    
 
 fun isStateEqOfIter iter exp =
     isEquation exp andalso

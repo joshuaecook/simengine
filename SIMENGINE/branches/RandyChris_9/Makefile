@@ -663,7 +663,7 @@ solvers:
 .PHONY: share_cuda
 share_cuda:
 	@echo "Running target cuda_utils"
-	$(MAKE) -C share/cuda all $(ARCH64_FLAG) DEBUG=$(DEBUG) PROFILE=$(PROFILE)
+	-$(MAKE) -C share/cuda all $(ARCH64_FLAG) DEBUG=$(DEBUG) PROFILE=$(PROFILE)
 
 
 $(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
@@ -844,7 +844,7 @@ build_shared: share/*
 	@echo "Populating shared files..."
 	@$(MAKE) share_cuda
 	$(CP) $^ $(BUILD_DIR)/share/
-	$(CP) share/cuda/device_props $(BUILD_DIR)/bin/
+	-$(CP) share/cuda/device_props $(BUILD_DIR)/bin/
 
 $(BUILD_DIR)/data/default.dol: datafiles/default.dol
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 

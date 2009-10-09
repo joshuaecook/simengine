@@ -240,7 +240,7 @@ fun orderClass classMap (class:DOF.class) =
 	val mapping = valOf (SymbolTable.look (classMap, #name class))
 
 	val init_exps = List.filter ExpProcess.isInitialConditionEq exps
-	val state_exps = List.filter (*ExpProcess.isFirstOrderDifferentialEq*)ExpProcess.isStateEq exps
+	val state_exps = List.filter ExpProcess.isStateEq exps
 	(*val state_eqs = (EqUtil.getDerivativeEqs eqs) @ (EqUtil.getDifferenceEqs eqs)*)
 	val other_exps = List.filter (fn(exp)=> (ExpProcess.isInstanceEq exp) orelse
 						(ExpProcess.isIntermediateEq exp)) exps

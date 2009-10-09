@@ -149,7 +149,7 @@ and stm =
 
 (* model/simulation related data structures *)
 and equation =
-    EQUATION of exp * exp
+    EQUATION of exp * exp * exp option
   | MATHFUNCTION of exp * exp
   | EVENT of Symbol.symbol * exp
 	      

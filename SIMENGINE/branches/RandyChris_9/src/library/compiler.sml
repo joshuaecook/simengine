@@ -93,11 +93,16 @@ fun std_repeatApplyRewritesExp exec args =
     handle e => DynException.checkpoint "CompilerLib.std_repeatApplyRewritesExp" e
 
 fun std_exp2str exec args =
+    let
+	val _ = print ("in exp2str\n")
+    in
     (case args of
 	 [object] => KEC.LITERAL(KEC.CONSTSTR (ExpPrinter.exp2str (valOf (ModelTranslate.translateExp(exec, object)))))
 
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
-    handle e => DynException.checkpoint "CompilerLib.std_exp2str" e
+    handle e => DynException.checkpoint "CompilerLib.std_exp2str" e 
+    end
+    before print ("out of exp2str\n")
     
 
 val library = [{name="compile", operation=std_compile},

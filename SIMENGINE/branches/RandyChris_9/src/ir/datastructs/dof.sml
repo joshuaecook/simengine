@@ -21,6 +21,8 @@ type classproperties = {sourcepos: PosLog.pos,
 
 datatype iteratortype = CONTINUOUS of Solver.solver
 		      | DISCRETE of {fs:real} (* sampling frequency *)
+		      | EVENT of Symbol.symbol
+		      | UNKNOWN
 
 datatype precisiontype = SINGLE | DOUBLE
 

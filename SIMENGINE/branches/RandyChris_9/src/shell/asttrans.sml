@@ -436,6 +436,7 @@ and trans_definition definition =
 
 		    in
 			[HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, quantity), PosLog.NOPOS),
+			 HLEC.ACTION (HLEC.ASSIGN (send "iter" (HLEC.SYMBOL name), HLEC.SYMBOL (Symbol.symbol "t")), PosLog.NOPOS),
 			 HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
 			 HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "quantities"), [HLEC.SEND {message=name, object=self}])), PosLog.NOPOS)] @
 			(case exp 
@@ -732,7 +733,7 @@ and trans_action pos action =
 		end
 
 
-	      | trans_eq (Ast.EQUATION (lhs, rhs)) =
+	      | trans_eq (Ast.EQUATION (lhs, rhs, optcond)) =
 		let
 		    fun findSymbols exp =
 			case exp of
@@ -772,7 +773,10 @@ and trans_action pos action =
 						[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name sym)),
 						 HLEC.VECTOR dimensions,
 						 HLEC.LAMBDA{args=syms, body=trans_exp lhs},
-						 HLEC.LAMBDA{args=syms, body=trans_exp rhs}])),
+						 HLEC.LAMBDA{args=syms, body=trans_exp rhs}] @ 
+						(case optcond of
+						     NONE => []
+						   | SOME c => [trans_exp c]))),
 				 pos),
 		     HLEC.DEFINITION(HLEC.DEFLOCAL(sym, HLEC.DONTCARE, 
 						   HLEC.SEND {object=HLEC.SYMBOL(Symbol.symbol "self"), message=sym}),
