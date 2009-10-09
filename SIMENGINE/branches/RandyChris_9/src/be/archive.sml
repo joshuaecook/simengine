@@ -10,6 +10,10 @@ sig
     val put: string -> string
     (* Puts the contents of all named fiels into archivable objects and returns the object names *)
     val mput: string list -> string list
+
+    (* Argument processing - replace key value pairs in output of get or getC *)
+    val apply_args: (string * string) list -> string -> string
+
 end
 
 structure Archive : ARCHIVE =
@@ -73,5 +77,8 @@ fun mput fnames =
 
 fun put fname =
     List.hd (mput [fname])
+
+fun apply_args replace_rules str =
+    foldl (fn((from, to),str')=> Util.repStr(str', from, to)) str replace_rules
 
 end

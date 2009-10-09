@@ -52,6 +52,7 @@ typedef struct {
   CDATAFORMAT *model_states;
   CDATAFORMAT *inputs;
   CDATAFORMAT *outputs;
+  unsigned int iter_index;
   unsigned int inputsize;
   unsigned int statesize;
   unsigned int outputsize;

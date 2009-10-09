@@ -14,7 +14,7 @@
 
 enum{ SUCCESS, ERRMEM, ERRCOMP, ERRNUMMDL};
 
-char *simengine_errors[] = {"Success", "Out of memory error", "Flow computation error", "Wrong number of models"};
+const char *simengine_errors[] = {"Success", "Out of memory error", "Flow computation error", "Wrong number of models"};
 
 typedef struct {
   const unsigned long long hashcode; // Signature of the DSL model file

@@ -623,7 +623,7 @@ $(BUILD_DIR)/%.fig: matlab/%.fig
 #$(BUILD_DIR)/lib/libsolvers.a: solvers/lib/libsolvers.a
 #	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/lib/libcodegen.sim:
+$(BUILD_DIR)/lib/libcodegen.sim: codegen/src/* codegen/src/*/*
 	@$(MAKE) -C codegen codegen
 	@echo "Copying 'codegen/lib/libcodegen.sim' to '$@' ..."; $(CP) codegen/lib/libcodegen.sim $@
 

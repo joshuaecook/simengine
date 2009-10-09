@@ -40,7 +40,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   // Check that the number of models matches
   if(num_models != semeta.num_models){
     seresult->status = ERRNUMMDL;
-    seresult->status_message = simengine_errors[ERRNUMMDL];
+    seresult->status_message = (char*) simengine_errors[ERRNUMMDL];
     seresult->outputs = NULL;
     seresult->final_states = NULL;
     seresult->final_time = NULL;
@@ -63,7 +63,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   seresult->final_time = (double*)se_alloc.malloc(semeta.num_models * sizeof(double));
   if((seint.num_outputs && !seresult->outputs) || (seint.num_states && !seresult->final_states) ||!seresult->final_time){
     seresult->status = ERRMEM;
-    seresult->status_message = simengine_errors[ERRMEM];
+    seresult->status_message = (char*) simengine_errors[ERRMEM];
     seresult->outputs = NULL;
     seresult->final_states = NULL;
     seresult->final_time = NULL;
@@ -93,7 +93,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 	     
   // Run the model
   seresult->status = exec_loop(time, stop_time, parameters, model_states, seresult->outputs);
-  seresult->status_message = simengine_errors[seresult->status];
+  seresult->status_message = (char*) simengine_errors[seresult->status];
 	     
   // Copy state values back to state initial value structure
   for(modelid=0; modelid<semeta.num_models; modelid++){

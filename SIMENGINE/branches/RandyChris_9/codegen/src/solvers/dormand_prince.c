@@ -1,9 +1,10 @@
 // Dormand-Prince (ode45) Integration Method
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
+//
 //#include "stdio.h"
 
 dormand_prince_mem *SOLVER(dormand_prince, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
-  int i;
+  unsigned int i;
 #if defined TARGET_GPU
   GPU_ENTRY(init, SIMENGINE_STORAGE);
 

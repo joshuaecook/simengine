@@ -487,6 +487,7 @@ end
 if opts.debug
   make = [make ' DEBUG=1'];
   disp(make)
+  assignin('base', 'remake', @()(system(make)));
 end
 
 tic;
@@ -494,9 +495,9 @@ status = system([make ' &> simex_make.log']);
 elapsed = toc;
 
 if 0 ~= status
+  type simex_make.log
   error('Simatra:SIMEX:compileError', ...
         'Make returned status code %d.', status);
-  type simex_make.log
 end
 verbose_out([opts.target ' compiler completed in ' num2str(elapsed) ' ' ...
                     'seconds.'], opts);
