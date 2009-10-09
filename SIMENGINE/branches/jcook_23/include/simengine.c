@@ -240,6 +240,117 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
   }
 }
 
+int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs)
+    {
+    int ret = SUCCESS;
+
+    uint active_models = NUM_MODELS;
+    uint modelid;
+
+    output_buffer *device_ob = (output_buffer *)props->gpu.ob;
+    output_buffer *pinned_ob;
+    cutilSafeCall( cudaHostAlloc((void **)&pinned_ob, sizeof(output_buffer), cudaHostAllocPortable) );
+
+    uint kid = 0; // Kernel id
+    uint aflight = NO;
+
+    cudaStream_t stream[2];
+    cutilSafeCall( cudaStreamCreate(&stream[0]) );
+    cutilSafeCall( cudaStreamCreate(&stream[1]) );
+
+    cudaEvent_t checkpoint[2]; // No more than 2 events in queue
+    // These events signal a kernel completion. After logging, we sync
+    // on the next event to await more results.
+    cutilSafeCall( cudaEventCreate(&checkpoint[0]) );
+    cutilSafeCall( cudaEventCreate(&checkpoint[1]) );
+
+    dim3 block(props->gpu.blockx, props->gpu.blocky, props->gpu.blockz);
+    dim3 grid(props->gpu.gridx, props->gpu.gridy, props->gpu.gridz);
+
+
+    PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%d>>>\n",
+	grid.x, grid.y, grid.z,
+	block.x, block.y, block.z,
+	props->gpu.shmem_per_block);
+
+    while(SUCCESS == ret && active_models)
+	{
+	if (aflight) 
+	    { // A kernel is executing; wait for it to complete.
+	    cutilSafeCall( cudaStreamSynchronize(stream[kid]) );
+	    aflight = NO;
+
+	    // Synchronously copies the `finished' flags between device buffers.
+	    cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
+	    cutilSafeCall( cudaMemcpy(device_ob + (1^kid), device_ob + kid, props->num_models * sizeof(unsigned int), cudaMemcpyDeviceToDevice) );
+	    cutilSafeCall( cudaStreamSynchronize(0) );
+
+	    // Asynchronously copies the filled output buffers back to the host.
+	    cutilSafeCall( cudaMemcpyAsync(pinned_ob, device_ob + kid, sizeof(output_buffer), cudaMemcpyDeviceToHost, stream[kid]) );
+
+	    // Launches another kernel.
+	    // At this point, all models may be finished, so the last kernel launch is wasted.
+	    kid ^= 1;
+	    PRINTF("launching next kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (id %d)\n",
+		grid.x, grid.y, grid.z,
+		block.x, block.y, block.z,
+		props->gpu.shmem_per_block,
+		active_models, kid);
+	    exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block, stream[kid] >>>(mem, kid);
+	    aflight = YES;
+
+	    // Waits for the asyc copy to complete and
+	    // copies output data to external API data structures.
+	    cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
+	    for(modelid = 0; modelid < NUM_MODELS; modelid++) 
+		{
+		if (pinned_ob->finished[modelid]) { active_models--; }
+
+		if (SUCCESS != log_outputs(pinned_ob, outputs, modelid)) 
+		    {
+		    ret = ERRMEM;
+		    break;
+		    }
+		}
+	    }
+	else if (active_models)
+	    { // No active kernels; launch one.
+	    PRINTF("launching first kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (id %d)\n",
+		grid.x, grid.y, grid.z,
+		block.x, block.y, block.z,
+		props->gpu.shmem_per_block,
+		active_models, kid);
+	    exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block, stream[kid] >>>(mem, kid);
+	    aflight = YES;
+	    }
+	}
+    if (aflight)
+	{ // Awaits the ultimate kernel completion.
+	cutilSafeCall( cudaStreamSynchronize(stream[kid]) );
+	aflight = NO;
+	cutilSafeCall( cudaMemcpy(pinned_ob, device_ob + kid, sizeof(output_buffer), cudaMemcpyDeviceToHost) );
+	for(modelid = 0; modelid < NUM_MODELS; modelid++) 
+	    {
+	    if (SUCCESS != log_outputs(pinned_ob, outputs, modelid)) 
+		{
+		ret = ERRMEM;
+		break;
+		}
+	    }
+	}
+
+    cutilSafeCall( cudaStreamDestroy(stream[0]) );
+    cutilSafeCall( cudaStreamDestroy(stream[1]) );
+
+    // Copy final times and states from GPU
+    cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+    cutilSafeCall(cudaMemcpy(props->model_states, props->gpu.model_states, props->statesize*props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+
+    cutilSafeCall( cudaFreeHost(pinned_ob) );
+
+    return ret;
+    }
+
 int exec_parallel_gpu_mapped(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
   int ret = SUCCESS;
 
@@ -594,6 +705,7 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   unsigned int outputsize = 0;
 #endif
   int *running = (int*)malloc(NUM_MODELS*sizeof(int));
+  memset(running, 1, NUM_MODELS*sizeof(int));
 
   solver_props props;
   props.timestep = DT;
@@ -613,7 +725,8 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   props.num_models = NUM_MODELS;
 #if defined(TARGET_GPU)
   props.gpu.ob_mapped = 0;
-  if (props.gpu.ob_mapped)
+  props.gpu.async = 1;
+  if (props.gpu.ob_mapped || props.gpu.async)
       { props.ob_size = 2 * sizeof(output_buffer); }
   else
       { props.ob_size = sizeof(output_buffer); }
@@ -624,11 +737,6 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   props.ob = ob;
   props.running = running;
   
-  // Initialize run status flags
-  for(modelid=0;modelid<NUM_MODELS;modelid++){
-    //ob->finished[modelid] = 0;
-    running[modelid] = 1;
-  }
 
   INTEGRATION_MEM *mem = SOLVER(INTEGRATION_METHOD, init, TARGET, SIMENGINE_STORAGE, &props);
 
@@ -642,6 +750,8 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   //  PRINTF("executing on GPU\n");
   if (props.gpu.ob_mapped)
       { status = exec_parallel_gpu_mapped(mem, &props, outputs); }
+  else if (props.gpu.async)
+      { status = exec_parallel_gpu_async(mem, &props, outputs); }
   else
       { status = exec_parallel_gpu(mem, &props, outputs); }
 #else

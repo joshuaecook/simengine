@@ -48,8 +48,11 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
 
       props->ob = ob;
       }
-  else
-      { 
+  else 
+      {
+      if (props->gpu.async)
+	  { PRINTF("Initializing solver props for asyncronous execution.\n"); }
+
       cutilSafeCall(cudaMalloc((void**)&tprops.ob, props->ob_size));
       cutilSafeCall(cudaMemset(tprops.ob, 0, props->ob_size));
       }

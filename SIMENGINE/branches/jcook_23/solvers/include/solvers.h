@@ -32,6 +32,7 @@ typedef struct {
   uint gridz;
   size_t shmem_per_block;
   int ob_mapped; // 1 if the output buffers are mapped for zero-copy.
+  int async; // 1 if executing asyncronously
   void *ob; // output buffers; may be memory-mapped on capable devices
 } gpu_data;
 
