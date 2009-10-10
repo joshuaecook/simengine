@@ -82,8 +82,11 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
      print ("  Equations:\n");
      app (fn(e) => 
 	    let
-		val size = ExpProcess.exp2size iterators e
-		val cost = Cost.exp2cost e
+		val size = (ExpProcess.exp2size iterators e)
+			   handle _ => (~1)
+
+		val cost = (Cost.exp2cost e)
+			   handle _ => (~1)
 		val prefix = "  (x" ^ (i2s size) ^ ", cost="^(i2s cost)^") "
 	    in
 		if ExpProcess.isInstanceEq e then
@@ -114,7 +117,7 @@ fun printModel (model: DOF.model) =
 		val _ = Util.log ("")
 		val _ = Util.log ("Top Level Model: " ^ (Symbol.name (#classname topinstance)))
 		val _ = Util.log ("Class List: {"^(String.concatWith ", " (map (fn{name,...}=> Symbol.name name) classes)^"}"))
-		val _ = Util.log ("")
+		val _ = Util.log ("Iterator list: {"^(String.concatWith ", " (map (fn(itersym,_)=>Symbol.name itersym) (#iterators systemproperties))) ^ "}")
 	    in
 		()
 	    end
