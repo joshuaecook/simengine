@@ -10,8 +10,11 @@ sig
     val class2orig_name : DOF.class -> Symbol.symbol (* the name of the class before it was renamed, for example during ordering *)
     val class2classname : DOF.class -> Symbol.symbol (* returns the class name as stored in the structure, not the "realclassname" *)
     val findSymbols : DOF.class -> Symbol.symbol list (* return a list of every unique symbol name used in the class - helpful for global renaming *)
+    val class2states : DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
     val class2statesizebyiterator : Symbol.symbol -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
+    val symbol2exps : DOF.class -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
+    val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
 
     (* Functions to modify class properties, usually recursively through the expressions *)
     val propagateIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
@@ -269,6 +272,46 @@ fun class2classname (class : DOF.class) =
 	val {name, ...} = class
     in
 	name
+    end
+
+fun class2states (class : DOF.class) =
+    let
+	val exps = !(#exps class)
+	val init_cond_states = map ExpProcess.getLHSSymbolSym (List.filter ExpProcess.isInitialConditionEq exps)
+	val dynamic_states = map ExpProcess.getLHSSymbolSym (List.filter ExpProcess.isStateEq exps)
+    in
+	Util.uniquify (init_cond_states @ dynamic_states)
+    end
+
+(* match all the expressions that have that symbol on the lhs *)
+fun symbol2exps (class: DOF.class) sym =
+    List.filter (fn(exp)=>ExpProcess.getLHSSymbolSym exp = sym) (!(#exps class))
+
+(* return those states that update the value of a state that already has a dynamic equation *)
+fun class2update_states (class : DOF.class) =
+    let
+	val states = class2states class
+
+	fun hasInitEq exps =
+	    List.exists ExpProcess.isInitialConditionEq exps
+
+	fun hasStateEq exps =
+	    List.exists ExpProcess.isStateEq exps
+
+	fun hasUpdateEq exps =
+	    List.exists ExpProcess.isIntermediateEq exps
+
+	(* let's assume that they have an init eq, a state eq, and possibly an update eq *)
+	(* really, it's ok if it just has an init eq and an update eq - that means it's an event state *)
+	val states_with_updates = 
+	    List.filter
+		(fn(sym)=>
+		   let val exps' = symbol2exps class sym
+		   in (hasInitEq exps') andalso (hasStateEq exps') andalso (hasUpdateEq exps')
+		   end)
+		states
+    in
+	states_with_updates
     end
 
 fun addEPIndexToClass is_top (class: DOF.class) =

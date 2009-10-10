@@ -48,6 +48,7 @@ val exp2symbol_names : Exp.exp -> string list
 val exp2symbols : Exp.exp -> Symbol.symbol list
 val exp2termsymbols : Exp.exp -> Exp.term list
 val getLHSSymbol : Exp.exp -> Exp.term (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
+val getLHSSymbolSym : Exp.exp -> Symbol.symbol (* assuming exp is an equation, pulls out the symbol as just a symbol name *)
 
 (* pull out all the function names that are present *)
 val exp2fun_names : Exp.exp -> Symbol.symbol list
@@ -498,6 +499,12 @@ fun getLHSSymbol exp =
 	Exp.SYMBOL s => Exp.SYMBOL s
       | _ => (error_no_return exp ("No valid symbol found on LHS");
 	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
+
+fun getLHSSymbolSym exp = 
+    case exp2term (lhs exp) of
+	Exp.SYMBOL (sym,_) => sym
+      | _ => (error_no_return exp ("No valid symbol found on LHS");
+	      Symbol.symbol "???")
 
 
 
