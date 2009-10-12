@@ -77,8 +77,12 @@ typedef struct {
 
 forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-__DEVICE__ void SOLVER(forwardeuler, stage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize);
-__DEVICE__ void SOLVER(forwardeuler, destage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(forwardeuler, pre_eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(forwardeuler, post_eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize);
+#if defined TARGET_GPU
+__DEVICE__ void SOLVER(forwardeuler, stage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, CDATAFORMAT *s_states, CDATAFORMAT *g_states, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(forwardeuler, destage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, CDATAFORMAT *g_states, CDATAFORMAT *s_states, uint modelid, uint threadid, uint blocksize);
+#endif
 __DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid);
 
 void SOLVER(forwardeuler, free, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem);
@@ -126,7 +130,14 @@ typedef struct {
 
 bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-__DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, unsigned int modelid);
+__DEVICE__ void SOLVER(bogacki_shampine, pre_eval, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(bogacki_shampine, post_eval, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, uint modelid, uint threadid, uint blocksize);
+#if defined TARGET_GPU
+__DEVICE__ void SOLVER(bogacki_shampine, stage, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, CDATAFORMAT *s_states, CDATAFORMAT *g_states, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(bogacki_shampine, destage, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, CDATAFORMAT *g_states, CDATAFORMAT *s_states, uint modelid, uint threadid, uint blocksize);
+#endif
+
+__DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, unsigned int modelid, unsigned int threadid);
 
 void SOLVER(bogacki_shampine, free, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem);
 

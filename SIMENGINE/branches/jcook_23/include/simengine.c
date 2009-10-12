@@ -194,8 +194,8 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
     CDATAFORMAT	*model_states = time + blocksize;;
     CDATAFORMAT	*k1	      = model_states + blocksize * mem->props->statesize;
 
-    output_buffer *ob = (output_buffer *)mem->props->ob;
-    if (0 != ob_id) { ob = &(ob[ob_id]); }
+    output_buffer *ob = (output_buffer *)mem->props->ob + ob_id;
+//    if (0 != ob_id) { ob = &(ob[ob_id]); }
 
     // Initialize output buffer to store output data
     init_output_buffer(ob, modelid);
@@ -208,13 +208,13 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
       // Stop if simulation finished previously or if the output buffer is full.
       // Threads are launched in batches on the GPU and not all will complete at the
       // same time with variable timestep solvers.
-      if(ob->finished[threadid] || ob->full[modelid]){
+      if(ob->finished[modelid] || ob->full[modelid]){
 	break;
       }
       // Check if the simulation just finished (or if there are no states)
       if(!running[threadid] || mem->props->statesize == 0) {
 	running[threadid] = NO;
-	ob->finished[modelid] = 1;
+	ob->finished[modelid] = YES;
 #if NUM_OUTPUTS > 0
 	// Log output values for final timestep
 	// Run the model flows to ensure that all intermediates are computed, k1 is borrowed from the solver as scratch for ignored dydt values
@@ -240,7 +240,7 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
 
     SOLVER(INTEGRATION_METHOD, post_eval, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid, blocksize);
 #   if defined __DEVICE_EMULATION__
-    PRINTF("Ran model %d up to time %f\n", modelid, mem->props->time[modelid]);
+//    PRINTF("Ran model %d up to time %f\n", modelid, mem->props->time[modelid]);
 #   endif
 
   }
@@ -311,11 +311,8 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
 	    active_models = NUM_MODELS;
 	    for(modelid = 0; modelid < NUM_MODELS; modelid++) 
 		{
-		if (!pinned_ob->finished[modelid]) 
-		    { 
-		    PRINTF("model %d is finished\n", modelid);
-		    active_models--; 
-		    }
+		if (pinned_ob->finished[modelid]) 
+		    { active_models--; }
 
 		if (SUCCESS != log_outputs(pinned_ob, outputs, modelid)) 
 		    {

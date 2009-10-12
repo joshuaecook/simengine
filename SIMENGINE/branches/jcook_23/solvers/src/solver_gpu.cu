@@ -23,8 +23,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   // Copy the properties to local temporary
   memcpy(&tprops, props, sizeof(solver_props));
 
-  // Allocate GPU space for props and all pointer fields of props
-  PRINTF("Allocating %zd bytes on GPU for solver properties.\n", sizeof(solver_props));
+  // Allocates GPU space for props and all pointer fields of props
   cutilSafeCall(cudaMalloc((void**)&dprops, sizeof(solver_props)));
   cutilSafeCall(cudaMalloc((void**)&tprops.time, props->num_models*sizeof(CDATAFORMAT)));
   if (props->statesize) {

@@ -68,67 +68,94 @@ forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_p
 #endif // defined TARGET_GPU
 }
 
-__DEVICE__ void SOLVER(forwardeuler, stage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize)
+__DEVICE__ void SOLVER(forwardeuler, pre_eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize)
     {
 #if defined TARGET_GPU
-    CDATAFORMAT *global_states = mem->props->model_states;
-    CDATAFORMAT *shared_states = shmem;
+    int *shared_running = (int*)shmem;
+    CDATAFORMAT *shared_time = (CDATAFORMAT*)(shared_running + blocksize);
+    CDATAFORMAT *shared_states = shared_time + blocksize;
 
-    for (int i = 0; i < mem->props->statesize; i++)
-	{
-	shared_states[threadid + i * blocksize] = global_states[STATE_IDX];
-	}
+    SOLVER(forwardeuler, stage, TARGET, SIMENGINE_STORAGE, mem, shared_states, mem->props->model_states, modelid, threadid, blocksize);
+
+    shared_time[threadid] = mem->props->time[modelid];
+    shared_running[threadid] = mem->props->running[modelid];
 
     __syncthreads();
 #endif
     }
 
-__DEVICE__ void SOLVER(forwardeuler, destage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize)
+__DEVICE__ void SOLVER(forwardeuler, post_eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid, uint blocksize)
     {
 #if defined TARGET_GPU
-    CDATAFORMAT *global_states = mem->props->model_states;
-    CDATAFORMAT *shared_states = shmem;
+    int *shared_running = (int*)shmem;
+    CDATAFORMAT *shared_time = (CDATAFORMAT*)(shared_running + blocksize);
+    CDATAFORMAT *shared_states = shared_time + blocksize;
 
     __syncthreads();
 
-    for (int i = 0; i < mem->props->statesize; i++)
-	{
-	global_states[STATE_IDX] = shared_states[threadid + i * blocksize];
-	}
+    mem->props->running[modelid] = shared_running[threadid];
+    mem->props->time[modelid] = shared_time[threadid];
+
+    SOLVER(forwardeuler, destage, TARGET, SIMENGINE_STORAGE, mem, mem->props->model_states, shared_states, modelid, threadid, blocksize);
 #endif
     }
+
+#if defined TARGET_GPU
+__DEVICE__ void SOLVER(forwardeuler, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, CDATAFORMAT *s_states, CDATAFORMAT *g_states, uint modelid, uint threadid, uint blocksize)
+    {
+    uint i;
+    for (i = 0; i < mem->props->statesize; i++)
+	{ s_states[threadid + i * blocksize] = g_states[STATE_IDX]; }
+    }
+
+__DEVICE__ void SOLVER(forwardeuler, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, CDATAFORMAT *g_states, CDATAFORMAT *s_states, uint modelid, uint threadid, uint blocksize)
+    {
+    uint i;
+    for (i = 0; i < mem->props->statesize; i++)
+	{ g_states[STATE_IDX] = s_states[threadid + i * blocksize]; }
+    }
+#endif
 
 __DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, uint modelid, uint threadid) {
   int ret, i;
   uint blocksize = mem->props->gpu.blockx * mem->props->gpu.blocky * mem->props->gpu.blockz;
   uint statesize = mem->props->statesize;
-  CDATAFORMAT timestep = mem->props->timestep;
+  CDATAFORMAT dt = mem->props->timestep;
 
 #if defined TARGET_GPU
-  CDATAFORMAT	*model_states = shmem;
+  int		*running = (int*)shmem;
+  CDATAFORMAT	*time	 = (CDATAFORMAT*)(running + blocksize);
+  CDATAFORMAT	 t       = time[threadid];
+
+  CDATAFORMAT	*model_states = time + blocksize;;
   CDATAFORMAT	*k1	      = model_states + blocksize * statesize;
+
+  CDATAFORMAT   *inputs	 = mem->props->inputs;
+  CDATAFORMAT   *outputs = mem->props->outputs;
 #else
+  int		*running = mem->props->running;
+  CDATAFORMAT	*time	 = mem->props->time;
+  CDATAFORMAT	 t       = time[threadid];
+
   CDATAFORMAT	*model_states = mem->props->model_states;
   CDATAFORMAT	*k1	      = mem->k1;
-#endif
-  CDATAFORMAT	*time	      = mem->props->time;
-  CDATAFORMAT   *inputs       = mem->props->inputs;
-  CDATAFORMAT   *outputs      = mem->props->outputs;
 
-  int		*running      = mem->props->running;
+  CDATAFORMAT   *inputs	 = mem->props->inputs;
+  CDATAFORMAT   *outputs = mem->props->outputs;
+#endif
 
   // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
-  running[modelid] = time[modelid] + timestep <= mem->props->stoptime;
-  if(!running[modelid]) { return 0; }
+  running[threadid] = t + dt <= mem->props->stoptime;
+  if(!running[threadid]) { return 0; }
 
-  ret = model_flows(time[modelid], model_states, k1, inputs, outputs, 1, modelid, threadid, mem->props);
+  ret = model_flows(t, model_states, k1, inputs, outputs, 1, modelid, threadid, mem->props);
 
   for(i=statesize-1; i>=0; i--) {
     model_states[threadid + i * blocksize] = model_states[threadid + i * blocksize] +
-      timestep * k1[threadid + i * blocksize];
+      dt * k1[threadid + i * blocksize];
   }
 
-  time[modelid] += timestep;
+  time[threadid] += dt;
 
   return ret;
 }

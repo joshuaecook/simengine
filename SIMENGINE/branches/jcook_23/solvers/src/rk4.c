@@ -217,12 +217,10 @@ void SOLVER(rk4, free, TARGET, SIMENGINE_STORAGE, rk4_mem *mem) {
 
 
   cutilSafeCall(cudaFree(tmem.k1));
-/*
   cutilSafeCall(cudaFree(tmem.k2));
   cutilSafeCall(cudaFree(tmem.k3));
   cutilSafeCall(cudaFree(tmem.k4));
   cutilSafeCall(cudaFree(tmem.temp));
-*/
   cutilSafeCall(cudaFree(mem));
 
   GPU_ENTRY(exit, SIMENGINE_STORAGE);
