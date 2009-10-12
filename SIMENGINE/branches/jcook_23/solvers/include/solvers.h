@@ -98,8 +98,12 @@ typedef struct {
 
 rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
 
-__DEVICE__ void SOLVER(rk4, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize);
-__DEVICE__ void SOLVER(rk4, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(rk4, pre_eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(rk4, post_eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize);
+#if defined TARGET_GPU
+__DEVICE__ void SOLVER(rk4, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, CDATAFORMAT *s_states, CDATAFORMAT *g_states, uint modelid, uint threadid, uint blocksize);
+__DEVICE__ void SOLVER(rk4, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, CDATAFORMAT *g_states, CDATAFORMAT *s_states, uint modelid, uint threadid, uint blocksize);
+#endif
 __DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int modelid, unsigned int threadid);
 
 void SOLVER(rk4, free, TARGET, SIMENGINE_STORAGE, rk4_mem *mem);

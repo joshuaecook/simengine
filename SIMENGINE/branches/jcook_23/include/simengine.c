@@ -85,7 +85,7 @@ int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int model
     while(0 == ((output_buffer *)(mem->props->ob))->full[modelid]){
       // Check if simulation is complete (or produce only a single output if there are no states)
       if(!mem->props->running[modelid] || mem->props->statesize == 0){
-	mem->props->running[modelid] = 0;
+	mem->props->running[modelid] = NO;
 	((output_buffer*)(mem->props->ob))->finished[modelid] = 1;
 #if NUM_OUTPUTS > 0
 	// Log output values for final timestep
@@ -181,62 +181,68 @@ int exec_serial_cpu(INTEGRATION_MEM *mem, simengine_output *outputs){
 #if defined(TARGET_GPU)
 // GPU execution kernel that runs each model instance for a number of iterations or until the buffer fills
 __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
-  const unsigned int threadid = threadIdx.x + (threadIdx.y * blockDim.x) + (threadIdx.z * blockDim.y);
-  const unsigned int blocksize = blockDim.x * blockDim.y * blockDim.z;
-  const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;
+  const uint threadid = threadIdx.x + (threadIdx.y * blockDim.x) + (threadIdx.z * blockDim.y);
+  const uint blocksize = blockDim.x * blockDim.y * blockDim.z;
+  const uint blockid = blockIdx.x + (blockIdx.y * gridDim.x) + (blockIdx.z * gridDim.y);
+  const uint modelid = threadid + (blockid * blocksize);
   
   unsigned int num_iterations;
 	     
   if (modelid < NUM_MODELS) {
+    int		*running      = (int*)shmem;
+    CDATAFORMAT *time	      = (CDATAFORMAT*)(running + blocksize);
+    CDATAFORMAT	*model_states = time + blocksize;;
+    CDATAFORMAT	*k1	      = model_states + blocksize * mem->props->statesize;
+
     output_buffer *ob = (output_buffer *)mem->props->ob;
     if (0 != ob_id) { ob = &(ob[ob_id]); }
 
     // Initialize output buffer to store output data
     init_output_buffer(ob, modelid);
 
-    // Stage data into shared memory
-    SOLVER(INTEGRATION_METHOD, stage, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid, blocksize);
+    // Stages data into shared memory
+    SOLVER(INTEGRATION_METHOD, pre_eval, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid, blocksize);
     
-    // Run up to MAX_ITERATIONS for each model
+    // Runs up to MAX_ITERATIONS for each model
     for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++) {
       // Stop if simulation finished previously or if the output buffer is full.
       // Threads are launched in batches on the GPU and not all will complete at the
       // same time with variable timestep solvers.
-      if(ob->finished[modelid] || ob->full[modelid]){
+      if(ob->finished[threadid] || ob->full[modelid]){
 	break;
       }
       // Check if the simulation just finished (or if there are no states)
-      if(!mem->props->running[modelid] || mem->props->statesize == 0) {
-	mem->props->running[modelid] = 0;
+      if(!running[threadid] || mem->props->statesize == 0) {
+	running[threadid] = NO;
 	ob->finished[modelid] = 1;
 #if NUM_OUTPUTS > 0
 	// Log output values for final timestep
-	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
-	model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid, threadid, mem->props);
+	// Run the model flows to ensure that all intermediates are computed, k1 is borrowed from the solver as scratch for ignored dydt values
+	model_flows(time[threadid], model_states, k1, mem->props->inputs, mem->props->outputs, 1, modelid, threadid, mem->props);
 	// Buffer the last values
-	buffer_outputs(mem->props->time[modelid],(output_data*)mem->props->outputs, ob, modelid);
+	buffer_outputs(time[threadid],(output_data*)mem->props->outputs, ob, modelid);
 #endif
 	break;
       }
       
-      CDATAFORMAT prev_time = mem->props->time[modelid];
+      CDATAFORMAT prev_time = time[threadid];
 
       // Execute solver for one timestep
       SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid);
 
 #if NUM_OUTPUTS > 0
       // Store a set of outputs only if the solver made a step
-      if (mem->props->time[modelid] > prev_time) {
+      if (time[threadid] > prev_time) {
 	buffer_outputs(prev_time, (output_data*)mem->props->outputs, ob, modelid);
       }
 #endif
     }
 
-#if defined __DEVICE_EMULATION__
+    SOLVER(INTEGRATION_METHOD, post_eval, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid, blocksize);
+#   if defined __DEVICE_EMULATION__
     PRINTF("Ran model %d up to time %f\n", modelid, mem->props->time[modelid]);
-#endif
+#   endif
 
-    SOLVER(INTEGRATION_METHOD, destage, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid, blocksize);
   }
 }
 
@@ -302,9 +308,14 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
 	    // Waits for the asyc copy to complete and
 	    // copies output data to external API data structures.
 	    cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
+	    active_models = NUM_MODELS;
 	    for(modelid = 0; modelid < NUM_MODELS; modelid++) 
 		{
-		if (pinned_ob->finished[modelid]) { active_models--; }
+		if (!pinned_ob->finished[modelid]) 
+		    { 
+		    PRINTF("model %d is finished\n", modelid);
+		    active_models--; 
+		    }
 
 		if (SUCCESS != log_outputs(pinned_ob, outputs, modelid)) 
 		    {
@@ -705,7 +716,8 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   unsigned int outputsize = 0;
 #endif
   int *running = (int*)malloc(NUM_MODELS*sizeof(int));
-  memset(running, 1, NUM_MODELS*sizeof(int));
+  for (modelid=0; modelid<NUM_MODELS; modelid++)
+    { running[modelid] = YES; }
 
   solver_props props;
   props.timestep = DT;

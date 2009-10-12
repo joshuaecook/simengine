@@ -62,8 +62,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   }
   else { tprops.outputs = 0; }
 
-  cutilSafeCall(cudaMalloc((void**)&tprops.running, props->num_models*sizeof(CDATAFORMAT)));
-
+  cutilSafeCall(cudaMalloc((void**)&tprops.running, props->num_models*sizeof(int)));
 
 
   // Pointers to GPU memory for data we need to be able to retrieve
@@ -88,7 +87,7 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
       { cutilSafeCall(cudaMemcpy(tprops.model_states, props->model_states, props->num_models*props->statesize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice)); }
   if (tprops.inputs)
       { cutilSafeCall(cudaMemcpy(tprops.inputs, props->inputs, props->num_models*props->inputsize*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice)); }
-  cutilSafeCall(cudaMemcpy(tprops.running, props->running, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(tprops.running, props->running, props->num_models*sizeof(int), cudaMemcpyHostToDevice));
 
   return dprops;
 }

@@ -51,12 +51,10 @@ rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
 
   cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
 
-/*// No need to alloc these when using shared memory
   cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k4, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-*/
 
   // Copy mem structure to GPU
   cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(rk4_mem), cudaMemcpyHostToDevice));
@@ -78,64 +76,78 @@ rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
 #endif
 }
 
-__DEVICE__ void SOLVER(rk4, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize)
+__DEVICE__ void SOLVER(rk4, pre_eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize)
     {
 #if defined TARGET_GPU
-    CDATAFORMAT *global_states = mem->props->model_states;
-    CDATAFORMAT *shared_states = shmem;
-    CDATAFORMAT *shared_time = shmem + 6 * blocksize * mem->props->statesize;
+    int *shared_running = (int*)shmem;
+    CDATAFORMAT *shared_time = (CDATAFORMAT*)(shared_running + blocksize);
+    CDATAFORMAT *shared_states = shared_time + blocksize;
 
-    for (int i = 0; i < mem->props->statesize; i++)
-	{
-	shared_states[threadid + i * blocksize] = global_states[STATE_IDX];
-	}
+    SOLVER(rk4, stage, TARGET, SIMENGINE_STORAGE, mem, shared_states, mem->props->model_states, modelid, threadid, blocksize);
 
     shared_time[threadid] = mem->props->time[modelid];
+    shared_running[threadid] = mem->props->running[modelid];
 
     __syncthreads();
 #endif
     }
 
-__DEVICE__ void SOLVER(rk4, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize)
+__DEVICE__ void SOLVER(rk4, post_eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, uint modelid, uint threadid, uint blocksize)
     {
 #if defined TARGET_GPU
-    CDATAFORMAT *global_states = mem->props->model_states;
-    CDATAFORMAT *shared_states = shmem;
-    CDATAFORMAT *shared_time = shmem + 6 * blocksize * mem->props->statesize;
+    int *shared_running = (int*)shmem;
+    CDATAFORMAT *shared_time = (CDATAFORMAT*)(shared_running + blocksize);
+    CDATAFORMAT *shared_states = shared_time + blocksize;
 
     __syncthreads();
 
-//    mem->props->time[modelid] = shared_time[threadid];
+    mem->props->running[modelid] = shared_running[threadid];
+    mem->props->time[modelid] = shared_time[threadid];
 
-    for (int i = 0; i < mem->props->statesize; i++)
-	{
-	global_states[STATE_IDX] = shared_states[threadid + i * blocksize];
-	}
+    SOLVER(rk4, destage, TARGET, SIMENGINE_STORAGE, mem, mem->props->model_states, shared_states, modelid, threadid, blocksize);
 #endif
     }
+
+#if defined TARGET_GPU
+__DEVICE__ void SOLVER(rk4, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, CDATAFORMAT *s_states, CDATAFORMAT *g_states, uint modelid, uint threadid, uint blocksize)
+    {
+    uint i;
+    for (i = 0; i < mem->props->statesize; i++)
+	{ s_states[threadid + i * blocksize] = g_states[STATE_IDX]; }
+    }
+
+__DEVICE__ void SOLVER(rk4, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, CDATAFORMAT *g_states, CDATAFORMAT *s_states, uint modelid, uint threadid, uint blocksize)
+    {
+    uint i;
+    for (i = 0; i < mem->props->statesize; i++)
+	{ g_states[STATE_IDX] = s_states[threadid + i * blocksize]; }
+    }
+#endif
+
 
 __DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int modelid, unsigned int threadid) {
   int i;
   int ret;
   uint blocksize = mem->props->gpu.blockx * mem->props->gpu.blocky * mem->props->gpu.blockz;
   uint statesize = mem->props->statesize;
-  CDATAFORMAT timestep = mem->props->timestep;
+  CDATAFORMAT dt = mem->props->timestep;
 
 #if defined TARGET_GPU
-  CDATAFORMAT	*model_states = shmem;
+  int		*running = (int*)shmem;
+  CDATAFORMAT	*time	 = (CDATAFORMAT*)((int*)shmem + blocksize);
+  CDATAFORMAT   t        = time[threadid];
 
-  CDATAFORMAT	*k1	      = model_states + blocksize * statesize;
-  CDATAFORMAT	*k2	      = k1 + blocksize * statesize;
-  CDATAFORMAT	*k3	      = k2 + blocksize * statesize;
-  CDATAFORMAT	*k4	      = k3 + blocksize * statesize;
-  CDATAFORMAT	*temp	      = k4 + blocksize * statesize;
+  CDATAFORMAT	*model_states = time + blocksize;;
 
-  CDATAFORMAT	*time	      = mem->props->time;
-//  CDATAFORMAT	*time	      = temp + blocksize * statesize;
-  CDATAFORMAT   *inputs       = mem->props->inputs;
-  CDATAFORMAT   *outputs      = mem->props->outputs;
+  CDATAFORMAT	*k1   = model_states + blocksize * statesize;
+  CDATAFORMAT	*k2   = k1 + blocksize * statesize;
+  CDATAFORMAT	*k3   = k2 + blocksize * statesize;
+  CDATAFORMAT	*k4   = k3 + blocksize * statesize;
+  CDATAFORMAT	*temp = k4 + blocksize * statesize;
 
-  int		*running      = mem->props->running;
+  CDATAFORMAT   *inputs	 = mem->props->inputs;
+  CDATAFORMAT   *outputs = mem->props->outputs;
+
 #else
   CDATAFORMAT	*model_states = mem->props->model_states;
 
@@ -146,6 +158,7 @@ __DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsign
   CDATAFORMAT	*temp	      = mem->temp;
 
   CDATAFORMAT	*time	      = mem->props->time;
+  CDATAFORMAT   t             = time[modelid];
   CDATAFORMAT   *inputs       = mem->props->inputs;
   CDATAFORMAT   *outputs      = mem->props->outputs;
 
@@ -154,38 +167,42 @@ __DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsign
 
 
   // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
-  running[modelid] = time[modelid] + timestep <= mem->props->stoptime;
-  if(!running[modelid]) { return 0; }
+  running[threadid] = t + dt <= mem->props->stoptime;
+  if(!running[threadid]) { return 0; }
 
-  ret = model_flows(time[modelid], model_states, k1, inputs, outputs, 1, modelid, threadid, mem->props);
-  for(i=statesize-1; i>=0; i--) {
-    temp[threadid + i * blocksize] = model_states[threadid + i * blocksize] +
-      (timestep/2) * k1[threadid + i * blocksize];
-  }
-  ret |= model_flows(time[modelid]+(timestep/2), temp, k2, inputs, outputs, 0, modelid, threadid, mem->props);
+  ret = model_flows(t, model_states, k1, inputs, outputs, 1, modelid, threadid, mem->props);
 
   for(i=statesize-1; i>=0; i--) {
     temp[threadid + i * blocksize] = model_states[threadid + i * blocksize] +
-      (timestep/2) * k2[threadid + i * blocksize];
+      (dt/FLITERAL(2.0)) * k1[threadid + i * blocksize];
   }
-  ret |= model_flows(time[modelid]+(timestep/2), temp, k3, inputs, outputs, 0, modelid, threadid, mem->props);
+
+  ret |= model_flows(t+(dt/FLITERAL(2.0)), temp, k2, inputs, outputs, 0, modelid, threadid, mem->props);
 
   for(i=statesize-1; i>=0; i--) {
     temp[threadid + i * blocksize] = model_states[threadid + i * blocksize] +
-	timestep * k3[threadid + i * blocksize];
+      (dt/FLITERAL(2.0)) * k2[threadid + i * blocksize];
   }
-  ret |= model_flows(time[modelid] + timestep, temp, k4, inputs, outputs, 0, modelid, threadid, mem->props);
+
+  ret |= model_flows(t+(dt/FLITERAL(2.0)), temp, k3, inputs, outputs, 0, modelid, threadid, mem->props);
+
+  for(i=statesize-1; i>=0; i--) {
+    temp[threadid + i * blocksize] = model_states[threadid + i * blocksize] +
+	dt * k3[threadid + i * blocksize];
+  }
+
+  ret |= model_flows(t + dt, temp, k4, inputs, outputs, 0, modelid, threadid, mem->props);
 
   for(i=statesize-1; i>=0; i--) {
     model_states[threadid + i * blocksize] = model_states[threadid + i * blocksize] +
-        (timestep/FLITERAL(6.0)) * 
-	(1 * k1[threadid + i * blocksize] +
-	 2 * k2[threadid + i * blocksize] +
-	 2 * k3[threadid + i * blocksize] +
-	 1 * k4[threadid + i * blocksize]);
+      (dt/FLITERAL(6.0)) * 
+      (FLITERAL(1.0) * k1[threadid + i * blocksize] +
+       FLITERAL(2.0) * k2[threadid + i * blocksize] +
+       FLITERAL(2.0) * k3[threadid + i * blocksize] +
+       FLITERAL(1.0) * k4[threadid + i * blocksize]);
   }
 
-  time[modelid] += timestep;
+  time[threadid] += dt;
 
   return ret;
 }
