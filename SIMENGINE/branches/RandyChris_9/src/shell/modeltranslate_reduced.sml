@@ -348,21 +348,6 @@ fun createClass classes object =
 		    val lhs = kecexp2dofexp (method "lhs" (method "eq" object))
 		    val rhs = kecexp2dofexp (method "rhs" (method "eq" object))
 		    val eq = ExpBuild.equals(lhs, rhs)			
-		    val keccondeqs = vec2list (method "condEqs" object)
-		    val condeqs = case keccondeqs of
-				      nil => nil
-				    | keccondeqs => 
-				      let
-					  val lhs = ExpProcess.appendIteratorToSymbol (Iterator.eventOf (exp2str(method "name" (method "iter" object))), Iterator.RELATIVE 0) lhs
-
-					  fun buildIf (condeq, exp) =
-					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),
-						       [kecexp2dofexp (method "cond" condeq), kecexp2dofexp (method "rhs" condeq), exp])
-
-					  val condexp = foldl buildIf lhs keccondeqs
-				      in
-					  [ExpBuild.equals (lhs, condexp)]
-				      end
 
 		    val (timeiterator, spatialiterators) = case (ExpProcess.exp2termsymbols lhs) of
 							       [Exp.SYMBOL (sym,props)] => 
@@ -379,10 +364,34 @@ fun createClass classes object =
 
 		    val timeiterator = (exp2str (method "name" (method "iter" object)))
 
-		    val init = ExpBuild.equals(ExpBuild.initavar(exp2str (method "name" object), 
-								 timeiterator,
-								 spatialiterators),
+		    val name = exp2str (method "name" object)
+		    val initlhs = ExpBuild.initavar(name, 
+						    timeiterator,
+						    spatialiterators)
+
+		    val init = ExpBuild.equals(initlhs,
 					       kecexp2dofexp (getInitialValue object))
+
+		    val keccondeqs = vec2list (method "condEqs" object)
+
+		    val sym = ExpBuild.avar name timeiterator
+
+		    val condeqs = case keccondeqs of
+				      nil => nil
+				    | keccondeqs => 
+				      let
+(*					  val lhs = ExpProcess.appendIteratorToSymbol (Iterator.eventOf (exp2str(method "name" (method "iter" object))), Iterator.RELATIVE 0) sym*)
+					  val lhs = sym
+
+					  fun buildIf (condeq, exp) =
+					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),
+						       [kecexp2dofexp (method "cond" condeq), kecexp2dofexp (method "rhs" condeq), exp])
+
+					  val condexp = foldl buildIf lhs keccondeqs
+				      in
+					  [ExpBuild.equals (lhs, condexp)]
+				      end
+
 		in
 		    [init, eq] @ condeqs
 		end

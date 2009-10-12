@@ -626,6 +626,7 @@ namespace Simulation
     var name
     var contents
     var condition
+    var iter = ()
     constructor (name, contents/*, condition*/)
       self.name = name  
       self.contents = contents

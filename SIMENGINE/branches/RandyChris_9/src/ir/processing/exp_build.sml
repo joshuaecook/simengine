@@ -7,6 +7,11 @@ fun tvar str = Exp.TERM
 				Property.setIterator Property.default_symbolproperty 
 						     [(Symbol.symbol "t",Iterator.RELATIVE 0)]))
 
+fun avar str temporal_iterator = Exp.TERM 
+		   (Exp.SYMBOL (Symbol.symbol str, 
+				Property.setIterator Property.default_symbolproperty 
+						     [(Symbol.symbol temporal_iterator, Iterator.RELATIVE 0)]))
+
 fun tvar_from_state str = Exp.TERM 
 			      (Exp.SYMBOL (Symbol.symbol str, 
 					   Property.setScope 
