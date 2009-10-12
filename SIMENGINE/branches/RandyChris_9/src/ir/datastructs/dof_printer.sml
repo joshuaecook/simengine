@@ -108,6 +108,7 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
 
 fun printModel (model: DOF.model) =
     let
+	val prevModel = CurrentModel.getCurrentModel()
 	val _ = CurrentModel.setCurrentModel model
 
 	val (classes, topinstance, systemproperties) = model
@@ -161,25 +162,29 @@ fun printModel (model: DOF.model) =
 			      print ("  Solver = CVode (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ", lmm = "^(case lmm of Solver.CV_ADAMS => "CV_ADAMS" | Solver.CV_BDF => "CV_BDF")^", iter = "^(case iter of Solver.CV_NEWTON => "CV_NEWTON" | Solver.CV_FUNCTIONAL => "CV_FUNCTIONAL")^", solv = " ^ (case solv of Solver.CVDENSE => "CVDENSE" | Solver.CVDIAG => "CVDIAG" | Solver.CVBAND {upperhalfbw, lowerhalfbw} => "CVBAND("^(i2s lowerhalfbw)^","^(i2s upperhalfbw)^")") ^ ")\n"))
 		       | DOF.DISCRETE {fs} => 
 			 print ("  Discrete with {fs="^(r2s fs)^"}\n")
-		       | DOF.EVENT iter =>
-			 print ("  Event iterator of " ^ (Symbol.name iter) ^ "\n")
+		       | DOF.POSTPROCESS iter =>
+			 print ("  Post processing iterator of " ^ (Symbol.name iter) ^ "\n")
+		       | DOF.UPDATE iter =>
+			 print ("  Updating iterator of " ^ (Symbol.name iter) ^ "\n")
 		       | DOF.UNKNOWN =>
 			 print ("  Unknown iterator\n"))
 		 )
 		 iterators)
 
     in
-	if DynamoOptions.isFlagSet "logdof" then
-	    (header2str();	 
-	     print("CLASSES:\n");
-	     app printClass classes;
-	     print("\n\n");
-	     print("TOP LEVEL INSTANCE:\n");
-	     printTopInstance topinstance;
-	     print("\n");
-	     printSystemProperties systemproperties)
-	else
-	    ()
+	(if DynamoOptions.isFlagSet "logdof" then
+	     (header2str();	 
+	      print("CLASSES:\n");
+	      app printClass classes;
+	      print("\n\n");
+	      print("TOP LEVEL INSTANCE:\n");
+	      printTopInstance topinstance;
+	      print("\n");
+	      printSystemProperties systemproperties;
+	      print("\n"))
+	 else
+	     ();
+	 CurrentModel.setCurrentModel(prevModel))
     end
     handle e => DynException.checkpoint "DOFPrinter.printModel" e
 (*

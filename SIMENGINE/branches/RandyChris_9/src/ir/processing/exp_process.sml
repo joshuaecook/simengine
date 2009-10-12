@@ -24,6 +24,7 @@ val isDifferenceEq : Exp.exp -> bool
 val isIntermediateEq : Exp.exp -> bool
 
 (* Iterator related functions *)
+val doesTermHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol in the expression, returns if the iterator is assigned to that symbol *)
 val doesEqHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol on the lhs, returns if the iterator is assigned to that symbol *)
 val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool (* like doesEqHaveIterator, put also ensures that eq is a state equation *)
 val prependIteratorToSymbol : Iterator.iterator -> Exp.exp -> Exp.exp
@@ -35,6 +36,7 @@ val equation2rewrite : Exp.exp -> Rewrite.rewrite (* if a == b, then make a -> b
 
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
+val renameInst : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, updating instance names *)
 val exp2size : DOF.classiterator list -> Exp.exp -> int
 val enableEPIndex : bool -> (Symbol.symbol list) -> Exp.exp -> Exp.exp (* Add an EP index property when running an embarrassingly parallel simulation *)
 val assignCorrectScopeOnSymbol : Exp.exp -> Exp.exp (* addes the read and write state attributes based on found derivatives or differential terms *)
@@ -47,8 +49,9 @@ val instSpatialSize : Exp.exp -> int (* returns the assigned dimension of an ins
 val exp2symbol_names : Exp.exp -> string list
 val exp2symbols : Exp.exp -> Symbol.symbol list
 val exp2termsymbols : Exp.exp -> Exp.term list
-val getLHSSymbol : Exp.exp -> Exp.term (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
-val getLHSSymbolSym : Exp.exp -> Symbol.symbol (* assuming exp is an equation, pulls out the symbol as just a symbol name *)
+val getLHSTerm : Exp.exp -> Exp.term (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
+val getLHSSymbol : Exp.exp -> Symbol.symbol (* assuming exp is an equation, pulls out the symbol as just a symbol name *)
+val getLHSSymbols : Exp.exp -> Symbol.symbol list (* Grab them as a list, since the lhs can be a tuple *)
 
 (* pull out all the function names that are present *)
 val exp2fun_names : Exp.exp -> Symbol.symbol list
@@ -131,6 +134,17 @@ fun renameSym (orig_sym, new_sym) exp =
 	    Exp.TERM (Exp.TUPLE (new_terms))
 
 	end
+      | _ => exp
+
+fun renameInst (orig_sym, new_sym) exp =
+    case exp of
+	Exp.FUN (Fun.INST (inst as {classname,instname,props}), args) =>
+	if classname=orig_sym then
+	    Exp.FUN (Fun.INST {classname=new_sym,instname=instname,props=props}, 
+		     map (renameInst (orig_sym, new_sym)) args)
+	else
+	    Exp.FUN (Fun.INST inst, map (renameInst (orig_sym, new_sym)) args)
+      | Exp.FUN (f, args) => Exp.FUN (f, map (renameInst (orig_sym, new_sym)) args)
       | _ => exp
 
 fun log_exps (header, exps) = 
@@ -494,19 +508,28 @@ fun exp2spatialiterators exp =
 	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (StdFun.flatmap (exp2spatialiterators o Exp.TERM) termlist)
 	  | _ => []
 
-fun getLHSSymbol exp = 
+fun getLHSTerm exp = 
     case exp2term (lhs exp) of
 	Exp.SYMBOL s => Exp.SYMBOL s
       | _ => (error_no_return exp ("No valid symbol found on LHS");
 	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
 
-fun getLHSSymbolSym exp = 
-    case exp2term (lhs exp) of
+
+fun term2sym term = 
+    case term of 
 	Exp.SYMBOL (sym,_) => sym
-      | _ => (error_no_return exp ("No valid symbol found on LHS");
+      | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
 	      Symbol.symbol "???")
 
-
+fun getLHSSymbol exp = 
+    term2sym(exp2term (lhs exp))
+	
+fun getLHSSymbols exp = 
+    case exp2term (lhs exp) of
+	Exp.SYMBOL (sym,_) => [sym]
+      | Exp.TUPLE terms => map term2sym terms
+      | _ => (error_no_return exp ("No valid symbol found on LHS");
+	      [Symbol.symbol "???"])
 
 fun countTerms exp =
     length (Match.findRecursive (Match.anyterm "a", exp))

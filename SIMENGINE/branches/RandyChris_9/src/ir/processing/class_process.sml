@@ -11,18 +11,22 @@ sig
     val class2classname : DOF.class -> Symbol.symbol (* returns the class name as stored in the structure, not the "realclassname" *)
     val findSymbols : DOF.class -> Symbol.symbol list (* return a list of every unique symbol name used in the class - helpful for global renaming *)
     val class2states : DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
+    val class2statesbyiterator : Symbol.symbol -> DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
     val class2statesizebyiterator : Symbol.symbol -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
     val symbol2exps : DOF.class -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
 
     (* Functions to modify class properties, usually recursively through the expressions *)
+    val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
+    val pruneClass : DOF.systemiterator option -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
     val propagateIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
     val assignCorrectScope : DOF.class -> unit (* sets read state or write state properties on symbols *)
     val addEPIndexToClass : bool -> DOF.class -> unit (* sets the embarrassingly parallel property on symbols in all but the top level class *)
     val makeSlaveClassProperties : DOF.classproperties -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
     val fixSymbolNames : DOF.class -> unit (* makes all symbol names C-compliant *)
     val sym2codegensym : Symbol.symbol -> Symbol.symbol (* helper function used by fixSymbolNames to update just one symbol *)
+    val renameInsts : (Symbol.symbol * Symbol.symbol) -> DOF.class -> unit (* change all instance names in a class *)
 
 end
 structure ClassProcess : CLASSPROCESS = 
@@ -31,7 +35,7 @@ struct
 val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
 
-fun duplicate_class (class: DOF.class) new_name =
+fun duplicateClass (class: DOF.class) new_name =
     let
 	val {name, properties, inputs, outputs, exps, iterators} = class						       
     in
@@ -41,6 +45,23 @@ fun duplicate_class (class: DOF.class) new_name =
 	 inputs=ref (!inputs),
 	 outputs=ref (!outputs),
 	 exps=ref (!exps)}
+    end
+
+fun renameInsts (orig_name, new_name) (class: DOF.class) =
+    let	
+	val exps = !(#exps class)
+	val outputs = !(#outputs class)
+
+	val rename = ExpProcess.renameInst (orig_name, new_name)
+	val exps' = map rename exps
+	val outputs' = map
+			   (fn{name,condition,contents}=>{name=name,
+							  condition=rename condition,
+							  contents=map rename contents})
+			   outputs
+    in
+	(#exps class := exps';
+	 #outputs class := outputs')
     end
 
 fun getStates (class:DOF.class) =
@@ -277,15 +298,24 @@ fun class2classname (class : DOF.class) =
 fun class2states (class : DOF.class) =
     let
 	val exps = !(#exps class)
-	val init_cond_states = map ExpProcess.getLHSSymbolSym (List.filter ExpProcess.isInitialConditionEq exps)
-	val dynamic_states = map ExpProcess.getLHSSymbolSym (List.filter ExpProcess.isStateEq exps)
+	val init_cond_states = map ExpProcess.getLHSSymbol (List.filter ExpProcess.isInitialConditionEq exps)
+	val dynamic_states = map ExpProcess.getLHSSymbol (List.filter ExpProcess.isStateEq exps)
+    in
+	Util.uniquify (init_cond_states @ dynamic_states)
+    end
+
+fun class2statesbyiterator iter_sym (class : DOF.class) =
+    let
+	val exps = !(#exps class)
+	val init_cond_states = map ExpProcess.getLHSSymbol (List.filter (ExpProcess.doesEqHaveIterator iter_sym) (List.filter ExpProcess.isInitialConditionEq exps))
+	val dynamic_states = map ExpProcess.getLHSSymbol (List.filter (ExpProcess.doesEqHaveIterator iter_sym) (List.filter ExpProcess.isStateEq exps))
     in
 	Util.uniquify (init_cond_states @ dynamic_states)
     end
 
 (* match all the expressions that have that symbol on the lhs *)
 fun symbol2exps (class: DOF.class) sym =
-    List.filter (fn(exp)=>ExpProcess.getLHSSymbolSym exp = sym) (!(#exps class))
+    List.filter (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) (!(#exps class))
 
 (* return those states that update the value of a state that already has a dynamic equation *)
 fun class2update_states (class : DOF.class) =
@@ -313,6 +343,55 @@ fun class2update_states (class : DOF.class) =
     in
 	states_with_updates
     end
+
+fun class2postprocess_states (class: DOF.class) = 
+    let
+	val states = class2states class
+
+	fun hasInitEq exps =
+	    List.exists ExpProcess.isInitialConditionEq exps
+
+	fun hasStateEq exps =
+	    List.exists ExpProcess.isStateEq exps
+
+	fun hasUpdateEq exps =
+	    List.exists ExpProcess.isIntermediateEq exps
+
+	(* the only difference between a post process state and an update state is that the post process state does not have a state equation *)
+	val post_process_states = 
+	    List.filter
+		(fn(sym)=>
+		   let val exps' = symbol2exps class sym
+		   in (hasInitEq exps') andalso (not (hasStateEq exps')) andalso (hasUpdateEq exps')
+		   end)
+		states
+    in
+	post_process_states
+    end
+(*
+fun createEventIterators (class: DOF.class)
+    let
+	val exp = !(#exps class)
+	val outputs = !(#outputs class)
+
+	fun update_exp exp = 
+	    case exp of 
+		Exp.TERM (Exp.SYMBOL (sym, props)) => 
+		case Propert.getIterator props of
+		    SOME (itersym,iterindex)::rest => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Symbol.symbol ("update[" ^(Symbol.name itersym) ^ "]"),iterindex)::rest)))
+		  | _ => exp
+	fun pp_exp exp = 
+	    case exp of 
+		Exp.TERM (Exp.SYMBOL (sym, props)) => 
+		case Propert.getIterator props of
+		    SOME (itersym,iterindex)::rest => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Symbol.symbol ("pp[" ^(Symbol.name itersym) ^ "]"),iterindex)::rest)))
+		  | _ => exp
+								    
+	val update_rules = {find=(ExpBuild.equals (Match.asym "a", Match.any "b")),
+			    test=NONE,
+			    replace=Rewrite.RULE ()}
+    in
+    end*)
 
 fun addEPIndexToClass is_top (class: DOF.class) =
     let
@@ -577,6 +656,117 @@ fun assignCorrectScope (class: DOF.class) =
     end
     handle e => DynException.checkpoint "ClassProcess.assignCorrectScope" e
 
+fun pruneClass iter_option (class: DOF.class) = 
+    let
+	(* pull out useful quantities *)
+	val name = class2orig_name class
+	val inputs = !(#inputs class)
+	val input_syms = map (Term.sym2symname o #name) inputs (* grab the inputs just as symbols *)
+	val outputs = !(#outputs class)
+	val outputs' = case iter_option of
+			   SOME (iter_sym,_) => List.filter (fn{name,...}=>ExpProcess.doesTermHaveIterator iter_sym (ExpProcess.term2exp name)) outputs
+			 | NONE => outputs
+	val output_symbols = Util.flatmap ExpProcess.exp2symbols (map #condition outputs' @ 
+								  (Util.flatmap #contents outputs'))
+	val exps = !(#exps class)
+
+	(* starting dependency list - union of the outputs and possibly the states *)
+	val dependency_list = SymbolSet.fromList output_symbols
+	val state_list = case iter_option of
+			     SOME (iter_sym,_) => class2statesbyiterator iter_sym class
+			   | NONE => (*class2states class*)[]
+	val dependency_list = SymbolSet.addList (dependency_list, state_list)
+
+	(* do some magic here ... *)
+	fun findDependencies dep_list = 
+	    let
+		val dep_list' = SymbolSet.fromList (Util.flatmap ExpProcess.exp2symbols (Util.flatmap (fn(sym)=> symbol2exps class sym) (SymbolSet.listItems dep_list)))
+		(*val _ = Util.log("In class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))*)
+	    in
+		if SymbolSet.equal (dep_list, dep_list') then
+		    dep_list (* dep_list hasn't changed, so we are done *)
+		else
+		    findDependencies (SymbolSet.union (dep_list, dep_list'))
+	    end
+
+	(* find all the dependencies *)
+	val dependency_list = findDependencies dependency_list
+
+	(* create a new set of expressions that filter out those that are not needed *)
+	fun isStateEq exp = ExpProcess.isStateEq exp
+	fun isStateEqOfValidIterator iter exp = ExpProcess.isStateEqOfIter iter exp
+	fun isInitialConditionEq exp = ExpProcess.isInitialConditionEq exp
+	fun isInitialConditionEqOfValidIterator (itersym,_) exp = (isInitialConditionEq exp) andalso (ExpProcess.doesEqHaveIterator itersym exp)
+	val exps' = case iter_option of
+			SOME iter => List.filter
+					 (fn(exp)=> ((isStateEq exp) andalso (isStateEqOfValidIterator iter exp)) (* pull out all the exps that are state equations for that state with that iterator *)
+						    orelse (* if it's not a state eq, check to see if the lhs defines what you are looking for ... *)
+						    (isInitialConditionEqOfValidIterator iter exp)
+						    orelse
+						    ((not (isStateEq exp)) andalso (not (isInitialConditionEq exp)) andalso (SymbolSet.exists (fn(sym)=>List.exists (fn(sym')=> sym=sym') (ExpProcess.getLHSSymbols exp)) dependency_list)))
+					 exps
+		      | NONE => List.filter 
+				    (fn(exp)=> SymbolSet.exists (fn(sym)=>List.exists (fn(sym')=> sym=sym') (ExpProcess.getLHSSymbols exp)) dependency_list) 
+				    exps
+		    
+	(* check the inputs to see if any of them are not in the dependency list *)
+	val _ = case iter_option of 
+		    SOME _ => () (* don't worry about it here, it's really only important for the full pruning step *)
+		  | NONE => 
+		    let
+			val input_sym_set = SymbolSet.fromList input_syms
+			val dependencies_plus_inputs = SymbolSet.union (dependency_list, input_sym_set)
+		    in
+			if (SymbolSet.numItems (dependencies_plus_inputs)) > (SymbolSet.numItems dependency_list) then
+			    Logger.log_warning (Printer.$("In class '"^(Symbol.name name)^"', one or more inputs are not used: " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems (SymbolSet.difference (dependency_list, dependencies_plus_inputs)))))))
+			else
+			    ()
+		    end	       
+
+    in
+	((#exps class) := exps';
+	 (#outputs class) := outputs')
+    end
+
+(*
+fun pruneClassHelper keepstates prunedClasses (class: DOF.class)) = 
+    let	
+	val kept_symbols = outputs @ (if keepstates then states else [])
+	val dependency_list = SymbolSet.fromList kept_symbols
+
+	fun find_dependencies exps depList =
+	    
+
+	fun exp2data exp = 
+	    (exp, lhs_symbols exp, rhs_symbols exp)
+	val exp_data = map exp2data exps
+	fun findSource sym = exp
+	fun findDependencies exp = sym list
+
+	(* assuming we have the dependencies, filter out those equations without them *)
+	fun keep_exp_data (exp, lhs, rhs) = List.length (Util.intersection (lhs, required_syms)) > 0
+	val (kept_exps, removed_exps) = List.partition keep_exp_data exp_data
+
+	(* find required inputs *)
+	fun keep_input input = List.exists (fn(sym)=>sym=input) required_syms
+	val (kept_inputs, removed_inputs) = List.partition keep_input inputs
+
+	(* find all instances that are left, and propagate through them *)
+	val kept_insts = List.filter isInst kept_exps
+	val kept_classes = Util.uniquify inst2class kept_insts
+	val finished_classes = map (pruneClassHelper keepstates prunedClasses) kept_classes
+	(*val finished_classes = foldl (fn(c, (classlist, prunedClassList))=> 
+					  let
+					      val name = #name class
+					      val (class', prunedClasses') = pruneClassHelper keepstates prunedClasses c
+					  in
+					      (class'
+					  end) [] kept_classes*)
+
+    in
+	(*return the new class*)
+	class'
+    end*)
 
 fun optimizeClass (class: DOF.class) =
     let

@@ -468,7 +468,7 @@ fun createClass classes object =
 
 	fun expHasIterator iter exp =
 	    if ExpProcess.isInitialConditionEq exp then
-		case ExpProcess.getLHSSymbol exp of
+		case ExpProcess.getLHSTerm exp of
 		    Exp.SYMBOL (_, props) => 
 		    (case Property.getIterator props of
 			 SOME iters =>
@@ -580,7 +580,7 @@ fun obj2dofmodel object =
 
 	fun expHasIter iter exp =
 (*	    if ExpProcess.isInitialConditionEq exp then*)
-		case ExpProcess.getLHSSymbol exp of
+		case ExpProcess.getLHSTerm exp of
 		    Exp.SYMBOL (_, props) => 
 		    (case Property.getIterator props of
 			 SOME iters =>
@@ -596,21 +596,24 @@ fun obj2dofmodel object =
 	val discrete_iterators = 
 	    if List.exists (classHasIter (Symbol.symbol "n")) classes then
 		[(Symbol.symbol "n", DOF.DISCRETE {fs=1.0}),
-		 (Iterator.eventOf "n", DOF.EVENT (Symbol.symbol "n"))]
+		 (Iterator.postProcessOf "n", DOF.POSTPROCESS (Symbol.symbol "n")),
+		 (Iterator.updateOf "n", DOF.UPDATE (Symbol.symbol "n"))]
 	    else
 		[]
 			    
 	val continuous_iterators = 
 	    if List.exists (classHasIter (Symbol.symbol "t")) classes then
 		[(Symbol.symbol "t", DOF.CONTINUOUS solver),
-		 (Iterator.eventOf "t", DOF.EVENT (Symbol.symbol "t"))]
+		 (Iterator.postProcessOf "t", DOF.POSTPROCESS (Symbol.symbol "t")),
+		 (Iterator.updateOf "t", DOF.UPDATE (Symbol.symbol "t"))]
 	    else
 		[]
 
 	val unknown_iterators = 
 (*	    if List.exists (classHasIter (Iterator.unknownName)) classes then*)
 		[(Iterator.unknownName, DOF.UNKNOWN),
-		 (Iterator.unknownEvent, DOF.EVENT (Iterator.unknownName))]
+		 (Iterator.postProcessOf "?", DOF.POSTPROCESS (Symbol.symbol "?")),
+		 (Iterator.updateOf "?", DOF.UPDATE (Symbol.symbol "?"))]
 (*	    else
 		[]*)
 

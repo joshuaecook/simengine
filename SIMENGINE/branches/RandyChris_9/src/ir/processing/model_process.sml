@@ -16,7 +16,64 @@ structure ModelProcess : sig
     (* model2statesizebyiterator: Computes the total state space of the model on a per iterator basis *)
     val model2statesizebyiterator : Symbol.symbol -> DOF.model -> int
 
+    (* model processing commands *)
+    val duplicateModel : DOF.model -> (Symbol.symbol -> Symbol.symbol) -> DOF.model
+    val pruneModel : (DOF.systemiterator option) -> DOF.model -> unit
+	
 end = struct
+
+fun pruneModel iter_sym_opt model = 
+    let
+	val prevModel = CurrentModel.getCurrentModel()
+	val _ = CurrentModel.setCurrentModel(model)
+	val (classes, top_inst, props) = model
+	val () = app (ClassProcess.pruneClass iter_sym_opt) classes
+    in
+	(CurrentModel.setCurrentModel(prevModel))
+    end
+
+fun duplicateClasses classes namechangefun = 
+    let
+	(* create name mapping *)
+	val name_mapping = map (fn{name,...}=> (name, namechangefun name)) classes
+
+	(* duplicate the classes *)
+	val new_classes = 
+	    map (fn((c as {name,...},(_,new_name)))=> ClassProcess.duplicateClass c new_name) (ListPair.zip (classes, name_mapping))
+
+	(* update all the references in instances - this is O(n^2) - check for performance issues... *)
+	val _ = app
+		    (fn(orig_name, new_name)=> app (fn(c as {name,...}) => ClassProcess.renameInsts (orig_name, new_name) c) new_classes)
+		    name_mapping
+    in
+	new_classes
+    end
+
+fun duplicateModel model namechangefun = 
+    let
+	val (classes, top_inst as {name, classname}, props) = model
+	val classes' = duplicateClasses classes namechangefun
+	val classname' = namechangefun classname
+	val top_inst' =  {name=name, classname=classname'}
+    in
+	(classes', top_inst', props)
+    end
+	
+
+(* TODO: this should really be called at the end right before code gen so we don't create too many classes.  I still need to add the pruning step... *)
+
+(* duplicate all classes by iterator and then remove the original classes *)
+fun duplicateByIterator (model:DOF.model as (orig_classes, top_inst, props)) =
+    let
+	val iterators = CurrentModel.iterators()
+
+	val new_classes_by_iterator = 
+	    Util.flatmap
+		(fn(iter_sym, _)=> duplicateClasses orig_classes (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym))))
+		iterators
+    in
+	(new_classes_by_iterator, top_inst, props)
+    end
 
 fun model2statesize (model:DOF.model) =
     let
@@ -143,6 +200,19 @@ fun normalizeParallelModel (model:DOF.model) =
 
 	(*val () = app ClassProcess.fixStateSymbolNames (CurrentModel.classes())*)
 
+	(* Just some debug code ...*)
+	val iterators = CurrentModel.iterators()
+	fun namechangefun iter_sym = (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym)))
+	val _ = app
+		    (fn(iter as (iter_sym, _))=> 
+		       let
+			   val model' = duplicateModel model (namechangefun iter_sym)
+			   val () = pruneModel (SOME iter) model'
+		       in
+			   (Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' =====================");
+			    DOFPrinter.printModel model')
+		       end)
+		    iterators
 	val _ = DynException.checkToProceed()
     in
 	()

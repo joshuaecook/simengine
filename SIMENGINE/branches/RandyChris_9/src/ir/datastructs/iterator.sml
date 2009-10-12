@@ -20,7 +20,8 @@ sig
     val unknownName : Symbol.symbol
     val unknownEvent : Symbol.symbol
 
-    val eventOf : string -> Symbol.symbol   
+    val postProcessOf : string -> Symbol.symbol   
+    val updateOf : string -> Symbol.symbol   
 
 end
 structure Iterator : ITERATOR =
@@ -32,6 +33,8 @@ val unknownName  = Symbol.symbol "?"
 val unknownEvent = Symbol.symbol "event[?]"
 
 fun eventOf iter = Symbol.symbol ("event[" ^ iter ^ "]")
+fun postProcessOf iter = Symbol.symbol ("pp[" ^ iter ^ "]")
+fun updateOf iter = Symbol.symbol ("update[" ^ iter ^ "]")
 
 datatype iteratorindex = ALL
 		       | ABSOLUTE of int
