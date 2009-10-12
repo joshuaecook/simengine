@@ -118,7 +118,7 @@ namespace Simulation
     end
 
     constructor (name: String)
-      self.name = name
+      self.name = name      
       self.eq = Equation.new(self', 0)
 //      self.eq = DifferentialEquation.new(1, self, 0) 
 
@@ -479,7 +479,19 @@ namespace Simulation
 
   class State extends SimQuantity
     var downsampling
-    var iter
+    hidden var h_iter
+
+    property iter
+      get = h_iter
+      set (i)
+        h_iter = i
+	if h_iter.isContinuous then
+	  self.eq = Equation.new(self', 0)
+	else
+	  self.eq = Equation.new(self[h_iter], self[h_iter-1])
+	end
+      end
+    end
 
     property output_frequency
       set (frequency)
