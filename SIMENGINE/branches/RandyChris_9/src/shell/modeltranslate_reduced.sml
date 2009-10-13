@@ -305,6 +305,20 @@ fun kecexp2dofexp obj =
 fun vecIndex (vec, index) =
     send "at" vec (SOME [int2exp index])
 
+
+fun expHasIterator iter exp =
+    List.exists 
+	(fn(exp')=>
+	   case exp' of
+	       Exp.SYMBOL (_, props) => 
+	       (case Property.getIterator props of
+		    SOME iters =>
+		    (List.exists (fn(s,p) => s = iter) iters)
+		  | NONE => false)
+	     | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (e2s exp)), "ModelTranslate.expHasIterator", Logger.INTERNAL))
+	(ExpProcess.getLHSTerms exp)
+
+
 fun createClass classes object =
     let
 	val name =Symbol.symbol (exp2str (method "name" object))
@@ -466,20 +480,8 @@ fun createClass classes object =
 
 	val exps = quant_exps @ submodel_exps
 
-	fun expHasIterator iter exp =
-	    if ExpProcess.isInitialConditionEq exp then
-		case ExpProcess.getLHSTerm exp of
-		    Exp.SYMBOL (_, props) => 
-		    (case Property.getIterator props of
-			 SOME iters =>
-			 (List.exists (fn(s,p) => s = iter) iters)
-		       | NONE => false)
-		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (e2s exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
-	    else
-		false
-
-	val classHasN = List.exists (expHasIterator (Symbol.symbol "n")) exps
-	val classHasT = List.exists (expHasIterator (Symbol.symbol "t")) exps
+	val classHasN = List.exists (expHasIterator (Symbol.symbol "n")) (List.filter ExpProcess.isInitialConditionEq exps)
+	val classHasT = List.exists (expHasIterator (Symbol.symbol "t")) (List.filter ExpProcess.isInitialConditionEq exps)
 
 	val classform = DOF.INSTANTIATION 
 			    {readstates=(if classHasT then [Symbol.symbol "t"] else []) @ (if classHasN then [Symbol.symbol "n"] else []),
@@ -578,20 +580,8 @@ fun obj2dofmodel object =
 							 }
 		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
-	fun expHasIter iter exp =
-(*	    if ExpProcess.isInitialConditionEq exp then*)
-		case ExpProcess.getLHSTerm exp of
-		    Exp.SYMBOL (_, props) => 
-		    (case Property.getIterator props of
-			 SOME iters =>
-			 (List.exists (fn(s,p) => s = iter) iters)
-		       | NONE => false)
-		  | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (e2s exp)), "ModelTranslate.translate.expHasIter", Logger.INTERNAL)
-(*	    else
-		false*)
-
 	fun classHasIter iter ({exps, ...}: DOF.class) =
-	    List.exists (expHasIter iter) (!exps)
+	    List.exists (expHasIterator iter) (!exps)
 
 	val discrete_iterators = 
 	    if List.exists (classHasIter (Symbol.symbol "n")) classes then

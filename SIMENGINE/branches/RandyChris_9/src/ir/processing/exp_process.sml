@@ -50,6 +50,7 @@ val exp2symbol_names : Exp.exp -> string list
 val exp2symbols : Exp.exp -> Symbol.symbol list
 val exp2termsymbols : Exp.exp -> Exp.term list
 val getLHSTerm : Exp.exp -> Exp.term (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
+val getLHSTerms : Exp.exp -> Exp.term list (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
 val getLHSSymbol : Exp.exp -> Symbol.symbol (* assuming exp is an equation, pulls out the symbol as just a symbol name *)
 val getLHSSymbols : Exp.exp -> Symbol.symbol list (* Grab them as a list, since the lhs can be a tuple *)
 
@@ -161,11 +162,21 @@ fun eq2str (lhs, rhs) =
 
 (* general processing of expression *)
 
+val raiseExceptions = true
+
 fun error_no_return exp text = 
     (Logger.log_internalerror (Printer.$("Error when processing '"^(e2s exp)^"': "^(text)));
-     DynException.setErrored())
+     DynException.setErrored();
+     if raiseExceptions then
+	 DynException.stdException("Expression error", "ExpProcess.error_no_return", Logger.INTERNAL)
+     else
+	 ())
 
-fun error exp text = (error_no_return exp text; Exp.null)
+fun error exp text = (error_no_return exp text; 
+		      if raiseExceptions then
+			  DynException.stdException("Expression error", "ExpProcess.error", Logger.INTERNAL)
+		      else
+			  Exp.null)
 
 fun isFun exp = 
     case exp of
@@ -508,11 +519,21 @@ fun exp2spatialiterators exp =
 	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (StdFun.flatmap (exp2spatialiterators o Exp.TERM) termlist)
 	  | _ => []
 
-fun getLHSTerm exp = 
-    case exp2term (lhs exp) of
+fun symterm2symterm term = 
+    case term of 
 	Exp.SYMBOL s => Exp.SYMBOL s
-      | _ => (error_no_return exp ("No valid symbol found on LHS");
+      | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
 	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
+
+fun getLHSTerm exp = 
+    symterm2symterm (exp2term (lhs exp))
+
+fun getLHSTerms exp = 
+    case exp2term (lhs exp) of
+	Exp.SYMBOL s => [Exp.SYMBOL s]
+      | Exp.TUPLE terms => map symterm2symterm terms
+      | _ => (error_no_return exp ("No valid symbols found on LHS");
+	      [Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty)])
 
 
 fun term2sym term = 
@@ -528,7 +549,7 @@ fun getLHSSymbols exp =
     case exp2term (lhs exp) of
 	Exp.SYMBOL (sym,_) => [sym]
       | Exp.TUPLE terms => map term2sym terms
-      | _ => (error_no_return exp ("No valid symbol found on LHS");
+      | _ => (error_no_return exp ("No valid symbols found on LHS");
 	      [Symbol.symbol "???"])
 
 fun countTerms exp =
