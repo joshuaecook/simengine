@@ -14,7 +14,7 @@ structure ModelProcess : sig
     val normalizeParallelModel : DOF.model -> unit
 
     (* model2statesizebyiterator: Computes the total state space of the model on a per iterator basis *)
-    val model2statesizebyiterator : Symbol.symbol -> DOF.model -> int
+    val model2statesizebyiterator : DOF.systemiterator -> DOF.model -> int
 
     (* model processing commands *)
     val duplicateModel : DOF.model -> (Symbol.symbol -> Symbol.symbol) -> DOF.model
@@ -82,7 +82,7 @@ fun model2statesize (model:DOF.model) =
 	ClassProcess.class2statesize (CurrentModel.classname2class classname)
     end
 
-fun model2statesizebyiterator (iter:Symbol.symbol) (model:DOF.model) =
+fun model2statesizebyiterator (iter:DOF.systemiterator) (model:DOF.model) =
     let
 	val (_, {name,classname}, _) = model
     in
@@ -93,8 +93,8 @@ fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
     let
 	val {iterators, time, precision} = properties
 	val iterators' = List.filter 
-			     (fn(itersym,_) => 
-				     model2statesizebyiterator itersym model > 0) iterators
+			     (fn(iter) => 
+				     model2statesizebyiterator iter model > 0) iterators
 	val properties' = {iterators=iterators',
 			   time=time,
 			   precision=precision}

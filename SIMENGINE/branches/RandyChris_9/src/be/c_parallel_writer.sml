@@ -157,7 +157,7 @@ fun outputstatestructbyclass_code iter (class : DOF.class as {exps, ...}) =
 	val class_inst_pairs_non_empty = 
 	    List.filter
 		(fn(classname,instname)=>
-		   ClassProcess.class2statesizebyiterator iter_sym (CurrentModel.classname2class classname) > 0
+		   ClassProcess.class2statesizebyiterator iter (CurrentModel.classname2class classname) > 0
 		)
 		class_inst_pairs
 	val iter_name = Symbol.name iter_sym

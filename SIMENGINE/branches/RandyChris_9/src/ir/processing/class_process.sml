@@ -13,7 +13,7 @@ sig
     val class2states : DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
     val class2statesbyiterator : Symbol.symbol -> DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
-    val class2statesizebyiterator : Symbol.symbol -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
+    val class2statesizebyiterator : DOF.systemiterator -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
     val symbol2exps : DOF.class -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
 
@@ -479,10 +479,21 @@ fun class2statesize (class: DOF.class) =
 		       ) instance_equations))
     end
 
-fun class2statesizebyiterator (iter: Symbol.symbol) (class: DOF.class) =
+fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
     let	
 	val {name,exps,iterators,...} = class
-	val initial_conditions = List.filter (ExpProcess.doesEqHaveIterator iter) (List.filter ExpProcess.isInitialConditionEq (!exps))
+	val initial_conditions = 
+	    case iter of
+		(iter_sym, DOF.UPDATE dyn_iter) => 
+		let
+		    val init_eqs = List.filter ExpProcess.isInitialConditionEq (!exps)
+		    val dyn_iter_init_eqs = List.filter (ExpProcess.doesEqHaveIterator dyn_iter) init_eqs
+		    val update_states = class2statesbyiterator iter_sym class
+		in
+		    List.filter (fn(eq)=>List.exists (fn(sym)=>ExpProcess.getLHSSymbol eq = sym) update_states) dyn_iter_init_eqs
+		end
+	      | (iter_sym,_) => List.filter (ExpProcess.doesEqHaveIterator iter_sym) (List.filter ExpProcess.isInitialConditionEq (!exps))
+
 	val instance_equations = List.filter ExpProcess.isInstanceEq (!exps)
 
 	(*val _ = Util.log ("in class2statesizebyiterator for class '"^(Symbol.name name)^"', # of init conditions="^(i2s (List.length initial_conditions))^", # of instances=" ^ (i2s (List.length instance_equations)))*)
