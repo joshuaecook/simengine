@@ -123,6 +123,10 @@ fun normalizeModel (model:DOF.model) =
 	(* TODO, write the checks of the model IR as they are needed *)
 
 	(* assign correct scopes for each symbol *)
+	val _ = Util.log ("Creating event iterators ...")
+	val () = app ClassProcess.createEventIterators (CurrentModel.classes())
+	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+
 	val _ = Util.log ("Assigning correct scope ...")
 	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())

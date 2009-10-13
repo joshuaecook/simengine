@@ -27,6 +27,7 @@ sig
     val fixSymbolNames : DOF.class -> unit (* makes all symbol names C-compliant *)
     val sym2codegensym : Symbol.symbol -> Symbol.symbol (* helper function used by fixSymbolNames to update just one symbol *)
     val renameInsts : (Symbol.symbol * Symbol.symbol) -> DOF.class -> unit (* change all instance names in a class *)
+    val createEventIterators : DOF.class -> unit (* searches out postprocess and update iterators *)
 
 end
 structure ClassProcess : CLASSPROCESS = 
@@ -368,30 +369,55 @@ fun class2postprocess_states (class: DOF.class) =
     in
 	post_process_states
     end
-(*
-fun createEventIterators (class: DOF.class)
+
+fun createEventIterators (class: DOF.class) =
     let
-	val exp = !(#exps class)
+	val exps = !(#exps class)
 	val outputs = !(#outputs class)
 
 	fun update_exp exp = 
 	    case exp of 
 		Exp.TERM (Exp.SYMBOL (sym, props)) => 
-		case Propert.getIterator props of
-		    SOME (itersym,iterindex)::rest => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Symbol.symbol ("update[" ^(Symbol.name itersym) ^ "]"),iterindex)::rest)))
-		  | _ => exp
+		(case Property.getIterator props of
+		    SOME ((itersym,iterindex)::rest) => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Symbol.symbol ("update[" ^(Symbol.name itersym) ^ "]"),(*iterindex*)Iterator.RELATIVE 1)::rest)))
+		  | _ => exp)
+	      | _ => exp
+
 	fun pp_exp exp = 
 	    case exp of 
 		Exp.TERM (Exp.SYMBOL (sym, props)) => 
-		case Propert.getIterator props of
-		    SOME (itersym,iterindex)::rest => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Symbol.symbol ("pp[" ^(Symbol.name itersym) ^ "]"),iterindex)::rest)))
-		  | _ => exp
-								    
-	val update_rules = {find=(ExpBuild.equals (Match.asym "a", Match.any "b")),
-			    test=NONE,
-			    replace=Rewrite.RULE ()}
+		(case Property.getIterator props of
+		     SOME ((itersym,iterindex)::rest) => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Symbol.symbol ("pp[" ^(Symbol.name itersym) ^ "]"),(*iterindex*)Iterator.RELATIVE 1)::rest)))
+		   | _ => exp)
+	      | _ => exp
+			  
+	val update_states = class2update_states class
+	val postprocess_states = class2postprocess_states class
+
+	val exps' = map
+			(fn(exp)=>if ExpProcess.isIntermediateEq exp then
+				      let
+					  val lhs_sym = ExpProcess.getLHSSymbol exp
+				      in
+					  if List.exists (fn(sym)=>sym=lhs_sym) update_states then
+					      case exp of 
+						  Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, rhs]) => 
+						  Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [update_exp lhs, rhs])
+						| _ => exp
+					  else if List.exists (fn(sym)=>sym=lhs_sym) postprocess_states then
+					      case exp of 
+						  Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, rhs]) => 
+						  Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [pp_exp lhs, rhs])
+						| _ => exp
+					  else
+					      exp
+				      end
+				  else
+				      exp)
+			exps
     in
-    end*)
+	(#exps class := exps')
+    end
 
 fun addEPIndexToClass is_top (class: DOF.class) =
     let

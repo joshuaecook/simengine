@@ -573,10 +573,10 @@ fun assignIteratorToSymbol (sym, itertype, p) exp =
 					      (* already assigned *)
 						       true
 						   else
-						       DynException.stdException(
+						       (*DynException.stdException(
 						       ("Can't assign iterator '"^(Symbol.name sym)^"' over previously defined iterator on expression '"^(e2s exp)^"'"),
 						       "ExpProcess.assignIteratorToSymbol",
-						       Logger.INTERNAL)
+						       Logger.INTERNAL)*)true
 			       | NONE => false
 			 else
 			     List.exists (fn(sym',_)=>sym=sym') (spatial_iterators)
