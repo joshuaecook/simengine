@@ -39,8 +39,9 @@ fun std_compile exec args =
 	      val _ = Util.log("Normalizing parallel model ...")
 	      val _ = ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel())
 
-	      val _ = Util.log("Ready to build the following DOF ...")
-	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+(*	      val _ = Util.log("Ready to build the following DOF ...")*)
+	      val _ = Util.log("Ready to build ...")
+(*	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())*)
 	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
 

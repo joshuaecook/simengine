@@ -32,6 +32,7 @@ val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool (* like doesEqHaveIt
 val prependIteratorToSymbol : Iterator.iterator -> Exp.exp -> Exp.exp
 val appendIteratorToSymbol : Iterator.iterator -> Exp.exp -> Exp.exp
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
+val exp2temporaliterators : Exp.exp -> Iterator.iterator option
 
 (* Rewriter related functions *)
 val equation2rewrite : Exp.exp -> Rewrite.rewrite (* if a == b, then make a -> b *)
@@ -571,6 +572,18 @@ fun exp2spatialiterators exp =
 	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (StdFun.flatmap (exp2spatialiterators o Exp.TERM) termlist)
 	  | _ => []
 
+fun exp2temporaliterators exp = 
+    if isEquation exp then
+	exp2temporaliterators (lhs exp)
+    else
+	case exp of 
+	    Exp.TERM (term as (Exp.SYMBOL (sym, props))) => TermProcess.symbol2temporaliterator term
+	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => (case Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (List.mapPartial (exp2temporaliterators o Exp.TERM) termlist) of
+							      [] => NONE
+							    | [iter] => SOME iter
+							    | _ => DynException.stdException(("Too many temporal iterators found in tuple: " ^ (e2s exp)), "ExpProcess.exp2temporaliterators", Logger.INTERNAL))
+	  | _ => NONE
+
 fun symterm2symterm term = 
     case term of 
 	Exp.SYMBOL s => Exp.SYMBOL s
@@ -622,7 +635,7 @@ fun assignIteratorToSymbol (sym, itertype, p) exp =
 	val isAssigned = if isTemporal then
 			     case iter of
 				 SOME (sym', _) => if sym = sym' then
-					      (* already assigned *)
+						       (* already assigned *)
 						       true
 						   else
 						       (*DynException.stdException(

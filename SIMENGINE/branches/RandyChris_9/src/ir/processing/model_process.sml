@@ -131,8 +131,12 @@ fun normalizeModel (model:DOF.model) =
 	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
-	val _ = Util.log ("Propagating iterators ...")
-	val () = app ClassProcess.propagateIterators (CurrentModel.classes())
+(*	val _ = Util.log ("Propagating temporal iterators ...")
+	val () = app ClassProcess.propagatetemporalIterators (CurrentModel.classes())
+	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+*)
+	val _ = Util.log ("Propagating spatial iterators ...")
+	val () = app ClassProcess.propagateSpatialIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
 	val _ = Util.log ("Pruning excess iterators ...")

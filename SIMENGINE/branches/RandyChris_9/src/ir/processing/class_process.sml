@@ -15,12 +15,13 @@ sig
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
     val class2statesizebyiterator : DOF.systemiterator -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
     val symbol2exps : DOF.class -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
+    val symbolofiter2exps :  DOF.class -> Symbol.symbol -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
 
     (* Functions to modify class properties, usually recursively through the expressions *)
     val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
     val pruneClass : DOF.systemiterator option -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
-    val propagateIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
+    val propagateSpatialIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
     val assignCorrectScope : DOF.class -> unit (* sets read state or write state properties on symbols *)
     val addEPIndexToClass : bool -> DOF.class -> unit (* sets the embarrassingly parallel property on symbols in all but the top level class *)
     val makeSlaveClassProperties : DOF.classproperties -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
@@ -316,7 +317,20 @@ fun class2statesbyiterator iter_sym (class : DOF.class) =
 
 (* match all the expressions that have that symbol on the lhs *)
 fun symbol2exps (class: DOF.class) sym =
-    List.filter (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) (!(#exps class))
+    List.filter 
+	(fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
+	(!(#exps class))
+
+fun symbolofiter2exps (class: DOF.class) iter_sym sym =
+    List.filter 
+	(fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
+	(List.filter (ExpProcess.doesEqHaveIterator iter_sym) (!(#exps class)))
+
+fun symbolofoptiter2exps (class: DOF.class) iter_sym sym =
+    List.filter 
+	(fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
+	(List.filter (fn(exp)=> (ExpProcess.doesEqHaveIterator iter_sym exp) orelse 
+				(case ExpProcess.exp2temporaliterators exp of NONE => true | _ => false)) (!(#exps class)))
 
 (* return those states that update the value of a state that already has a dynamic equation *)
 fun class2update_states (class : DOF.class) =
@@ -379,7 +393,7 @@ fun createEventIterators (class: DOF.class) =
 	    case exp of 
 		Exp.TERM (Exp.SYMBOL (sym, props)) => 
 		(case Property.getIterator props of
-		    SOME ((itersym,iterindex)::rest) => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Symbol.symbol ("update[" ^(Symbol.name itersym) ^ "]"),(*iterindex*)Iterator.RELATIVE 1)::rest)))
+		    SOME ((itersym,iterindex)::rest) => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.updateOf (Symbol.name itersym),(*iterindex*)Iterator.RELATIVE 1)::rest)))
 		  | _ => exp)
 	      | _ => exp
 
@@ -387,7 +401,7 @@ fun createEventIterators (class: DOF.class) =
 	    case exp of 
 		Exp.TERM (Exp.SYMBOL (sym, props)) => 
 		(case Property.getIterator props of
-		     SOME ((itersym,iterindex)::rest) => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Symbol.symbol ("pp[" ^(Symbol.name itersym) ^ "]"),(*iterindex*)Iterator.RELATIVE 1)::rest)))
+		     SOME ((itersym,iterindex)::rest) => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.postProcessOf (Symbol.name itersym),(*iterindex*)Iterator.RELATIVE 1)::rest)))
 		   | _ => exp)
 	      | _ => exp
 			  
@@ -521,8 +535,8 @@ fun makeSlaveClassProperties props =
     end
 
 
-(* this will right now just propagate an iterator from an output to an input *)
-fun propagateIterators (class: DOF.class) =
+(* this will propagate an iterator from an input to an output *)
+fun propagateSpatialIterators (class: DOF.class) =
     let
 	val assigned_symbols = (map (fn{name,...}=>Exp.TERM name) (!(#inputs class))) @
 			       (Util.flatmap (fn(exp)=>
@@ -533,7 +547,7 @@ fun propagateIterators (class: DOF.class) =
 							Exp.TERM (Exp.SYMBOL _) => [ExpProcess.lhs exp]
 						      | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
 						      | _ => DynException.stdException(("Unexpected lhs of equation '"^(e2s exp)^"'"),
-										       "ClassProcess.propagateIterators",
+										       "ClassProcess.propagateSpatialIterators",
 										       Logger.INTERNAL)) (!(#exps class)))
 
 	fun create_rewrite_action expsym =
@@ -584,22 +598,58 @@ fun propagateIterators (class: DOF.class) =
 	 #outputs class := outputs')
     end
 
+(* takes a symbol name, finds an equation and returns all the iterators *)
+fun sym2iterators (class: DOF.class) sym =
+    let
+	val flat_equ = flattenEq class sym
+	(*val _ = Util.log ("Resulting flat equation: " ^ (e2s flat_equ)) *)
+	val symbols = ExpProcess.exp2termsymbols flat_equ
+	val temporal_iterators = 
+	    Util.uniquify_by_fun (fn((a,_),(a',_)) => a = a')
+				 (List.mapPartial 
+				      TermProcess.symbol2temporaliterator 
+				      symbols)
+	val spatial_iterators = 
+	    Util.uniquify_by_fun (fn((a,_),(a',_)) => a = a')
+				 (Util.flatmap 
+				      TermProcess.symbol2spatialiterators 
+				      symbols)
+    in
+	(temporal_iterators, spatial_iterators)
+    end
+
 fun assignCorrectScope (class: DOF.class) =
     let
 	val exps = !(#exps class)
 
 	val state_equations = List.filter ExpProcess.isStateEq exps
 	val state_terms = map ExpProcess.lhs state_equations
-	val state_iterators_options = map (TermProcess.symbol2temporaliterator o ExpProcess.exp2term) state_terms
-	val state_iterators = map (fn(exp, iter)=>
-				     case iter of
-					 SOME i => i
-				       | NONE => DynException.stdException(("State '"^(e2s exp)^"' does not have temporal iterator associated with it"), "ClassProcess.assignCorrectScope", Logger.INTERNAL))
-				  (ListPair.zip (state_terms, state_iterators_options))
-
 	val symbols = map (Term.sym2curname o ExpProcess.exp2term) state_terms
+	val state_iterators_options = map (TermProcess.symbol2temporaliterator o ExpProcess.exp2term) state_terms
+	val iterators = CurrentModel.iterators()
+	val symbol_state_iterators = 
+	    let
+		val all_state_iterators = 
+		    map (fn(exp, iter)=>
+			   case iter of
+			       SOME i => i
+			     | NONE => DynException.stdException(("State '"^(e2s exp)^"' does not have temporal iterator associated with it"), "ClassProcess.assignCorrectScope", Logger.INTERNAL))
+			(ListPair.zip (state_terms, state_iterators_options))
+
+		(* we have to prune update iterators *)
+		fun isUpdateIterator (iter_sym, _) =
+		    List.exists (fn(iter_sym', iter_type)=> case iter_type of
+								DOF.UPDATE _ => iter_sym = iter_sym'
+							      | _ => false) iterators
+	    in
+		List.filter (fn(_, iter)=> not (isUpdateIterator iter)) (ListPair.zip (symbols, all_state_iterators))
+	    end
+
+
+	(*val _ = Util.log ("In assignCorrectScope, producing rewriting rules: ")
+	val _ = app (fn(sym, (iter_sym,_))=> Util.log (" -> sym: " ^ (Symbol.name sym) ^ ", iter: " ^ (Symbol.name iter_sym))) symbol_state_iterators*)
 	(*Util.flatmap ExpProcess.exp2symbols state_terms*)
-	val actions = map (fn(sym, iter)=>{find=Match.asym sym, test=NONE, replace=Rewrite.ACTION (sym, (fn(exp)=>ExpProcess.assignCorrectScopeOnSymbol (ExpProcess.prependIteratorToSymbol iter exp)))}) (ListPair.zip (symbols, state_iterators))
+	val actions = map (fn(sym, iter)=>{find=Match.asym sym, test=NONE, replace=Rewrite.ACTION (Symbol.symbol (Symbol.name sym ^ "["^(Symbol.name (#1 iter))^"]"), (fn(exp)=>ExpProcess.assignCorrectScopeOnSymbol (ExpProcess.prependIteratorToSymbol iter exp)))}) symbol_state_iterators
 
 	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
 
@@ -632,30 +682,17 @@ fun assignCorrectScope (class: DOF.class) =
 				  val contents' = map (Match.applyRewritesExp actions) contents
 				  val condition' = Match.applyRewritesExp actions condition
 
-			      (* TODO: The iterator for the name should be defined in modeltranslate.  If it exists,
-			       the iterator vector will automatically be added to the output trace.  If it doesn't exist, 
-			       only the values will be output.  This can be controlled with the "withtime" and "notime" 
-			       properties *)
+				  (* TODO: The iterator for the name should be defined in modeltranslate.  If it exists,
+  			             the iterator vector will automatically be added to the output trace.  If it doesn't exist, 
+			             only the values will be output.  This can be controlled with the "withtime" and "notime" 
+			             properties *)
 				  val name' = 
 				      case TermProcess.symbol2temporaliterator name of
 					  SOME iter => name (* keep the same *)
 					| NONE => (* we have to find the iterator *)
 					  let
-					      (*val _ = Util.log ("Searching for iterator for output '"^(e2s (Exp.TERM name))^"'")*)
 					      val sym = Term.sym2curname name
-					      val flat_equ = flattenEq class sym
-					      (*val _ = Util.log ("Resulting flat equation: " ^ (e2s flat_equ)) *)
-					      val symbols = ExpProcess.exp2termsymbols flat_equ
-					      val temporal_iterators = 
-						  Util.uniquify_by_fun (fn((a,_),(a',_)) => a = a')
-								       (List.mapPartial 
-									    TermProcess.symbol2temporaliterator 
-									    symbols)
-					      val spatial_iterators = 
-						  Util.uniquify_by_fun (fn((a,_),(a',_)) => a = a')
-								       (Util.flatmap 
-									    TermProcess.symbol2spatialiterators 
-									    symbols)
+					      val (temporal_iterators, spatial_iterators) = sym2iterators class sym
 
 					      (* assign the temporal iterator first *)
 					      val name' = 
@@ -717,11 +754,20 @@ fun pruneClass iter_option (class: DOF.class) =
 	(* do some magic here ... *)
 	fun findDependencies dep_list = 
 	    let
-		val dep_list' = SymbolSet.fromList (Util.flatmap ExpProcess.exp2symbols (Util.flatmap (fn(sym)=> symbol2exps class sym) (SymbolSet.listItems dep_list)))
-		(*val _ = Util.log("In class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))*)
+		val dep_list' = 
+		    case iter_option of 
+			SOME (iter_sym, _) => SymbolSet.fromList (Util.flatmap ExpProcess.exp2symbols (Util.flatmap (fn(sym)=> symbolofoptiter2exps class iter_sym sym) (SymbolSet.listItems dep_list)))
+		      | NONE => SymbolSet.fromList (Util.flatmap ExpProcess.exp2symbols (Util.flatmap (fn(sym)=> symbol2exps class sym) (SymbolSet.listItems dep_list)))
+(*		val _ = case iter_option of
+			    SOME (iter_sym,_) => Util.log("In class '"^(Symbol.name name)^"' (iterator="^(Symbol.name iter_sym)^"): " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))
+			  | NONE => Util.log("In class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))*)
 	    in
 		if SymbolSet.equal (dep_list, dep_list') then
 		    dep_list (* dep_list hasn't changed, so we are done *)
+		else if (SymbolSet.numItems dep_list) > (SymbolSet.numItems dep_list') then (* if we lost symbols *)
+		    DynException.stdException(("Unexpected loss of symbols: " ^ (case iter_option of
+			    SOME (iter_sym,_) => "in class '"^(Symbol.name name)^"' (iterator="^(Symbol.name iter_sym)^"): " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list')
+			  | NONE => "in class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))), "ClassProcess.pruneClass.findDependencies", Logger.INTERNAL)
 		else
 		    findDependencies (SymbolSet.union (dep_list, dep_list'))
 	    end

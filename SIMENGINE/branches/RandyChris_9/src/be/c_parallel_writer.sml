@@ -266,6 +266,10 @@ fun class2flow_code (class, top_class) =
 		    firstorderdiffeq2prog exp
 		else if (ExpProcess.isDifferenceEq exp) then
 		    differenceeq2prog exp
+		else if (ExpProcess.isUpdateEq exp) then
+		    differenceeq2prog exp
+		else if (ExpProcess.isPPEq exp) then
+		    differenceeq2prog exp
 		else if (ExpProcess.isInstanceEq exp) then
 		    instanceeq2prog exp
 		else

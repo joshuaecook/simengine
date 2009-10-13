@@ -26,9 +26,9 @@ struct
 
 val i2s = Util.i2s
 
-fun eventOf iter = Symbol.symbol ("event[" ^ iter ^ "]")
-fun postProcessOf iter = Symbol.symbol ("pp[" ^ iter ^ "]")
-fun updateOf iter = Symbol.symbol ("update[" ^ iter ^ "]")
+fun eventOf iter = Symbol.symbol ("event_" ^ iter )
+fun postProcessOf iter = Symbol.symbol ("pp_" ^ iter)
+fun updateOf iter = Symbol.symbol ("update_" ^ iter)
 
 datatype iteratorindex = ALL
 		       | ABSOLUTE of int
