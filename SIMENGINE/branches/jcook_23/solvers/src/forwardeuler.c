@@ -101,14 +101,14 @@ __DEVICE__ void SOLVER(forwardeuler, post_eval, TARGET, SIMENGINE_STORAGE, forwa
     }
 
 #if defined TARGET_GPU
-__DEVICE__ void SOLVER(forwardeuler, stage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, CDATAFORMAT *s_states, CDATAFORMAT *g_states, uint modelid, uint threadid, uint blocksize)
+__DEVICE__ void SOLVER(forwardeuler, stage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, CDATAFORMAT *s_states, CDATAFORMAT *g_states, uint modelid, uint threadid, uint blocksize)
     {
     uint i;
     for (i = 0; i < mem->props->statesize; i++)
 	{ s_states[threadid + i * blocksize] = g_states[STATE_IDX]; }
     }
 
-__DEVICE__ void SOLVER(forwardeuler, destage, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, CDATAFORMAT *g_states, CDATAFORMAT *s_states, uint modelid, uint threadid, uint blocksize)
+__DEVICE__ void SOLVER(forwardeuler, destage, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, CDATAFORMAT *g_states, CDATAFORMAT *s_states, uint modelid, uint threadid, uint blocksize)
     {
     uint i;
     for (i = 0; i < mem->props->statesize; i++)

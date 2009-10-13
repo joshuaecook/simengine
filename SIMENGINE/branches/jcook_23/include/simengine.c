@@ -2,8 +2,8 @@
 // internal code
 #include<simengine_api.c>
 
-#define MAX_ALLOC_SIZE 65536000
-#define MAX_ITERATIONS 1000
+#define MAX_ALLOC_SIZE 67108864
+#define MAX_ITERATIONS 65536
 #define GPU_BLOCK_SIZE 192
 
 
@@ -30,6 +30,7 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
   double *odata;
 	     
   unsigned int ndata = ob->count[modelid];
+  size_t bytes = 0;
   ob_data *obd = (ob_data*)(&(ob->buffer[modelid * BUFFER_LEN]));
 	     
   //  fprintf(stderr, "logging %d data for model %d\n", ndata, modelid);
@@ -59,10 +60,17 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
     // the source may be float or double but the destination must be double.
     for (quantityid=0; quantityid<obd->nquantities; ++quantityid)
       { odata[quantityid] = obd->data[quantityid]; }
+    bytes += obd->nquantities * sizeof(CDATAFORMAT);
 
     obd = (ob_data*)(&(obd->data[obd->nquantities]));
     output->num_samples++;
   }
+  
+  bytes += 2 * ndata * sizeof(unsigned int);
+
+# if defined _DEBUG
+//  PRINTF("buffer %d contained %zd Bytes; %.4f%% filled\n", modelid, bytes, (1.0E2 * bytes)/(BUFFER_LEN*sizeof(CDATAFORMAT)));
+# endif
 	     
   return 0;
 }
@@ -263,6 +271,14 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
     cutilSafeCall( cudaStreamCreate(&stream[0]) );
     cutilSafeCall( cudaStreamCreate(&stream[1]) );
 
+    cudaEvent_t kernel_start, kernel_stop, memcpy_start, memcpy_stop;
+    unsigned long long logging_start, logging_elapsed;
+    float kernel_elapsed, memcpy_elapsed;
+    cutilSafeCall( cudaEventCreate(&kernel_start) );
+    cutilSafeCall( cudaEventCreate(&kernel_stop) );
+    cutilSafeCall( cudaEventCreate(&memcpy_start) );
+    cutilSafeCall( cudaEventCreate(&memcpy_stop) );
+
     // Initializes omp with one thread per processor core
     omp_set_num_threads(omp_get_num_procs());
 
@@ -300,35 +316,52 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
 		cutilSafeCall( cudaStreamSynchronize(stream[kid]) );
 		aflight = NO;
 
-		// Synchronously copies the `finished' flags between device buffers.
-		cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
-		cutilSafeCall( cudaMemcpy(device_ob + (1^kid), device_ob + kid, props->num_models * sizeof(unsigned int), cudaMemcpyDeviceToDevice) );
-		cutilSafeCall( cudaStreamSynchronize(0) );
+		cutilSafeCall( cudaEventElapsedTime(&kernel_elapsed, kernel_start, kernel_stop) );
+
+#               if defined _DEBUG
+		PRINTF("kernel %d elapsed %.4fs\n", kid, kernel_elapsed / 1.0E3);
+#               endif		
 
 		// Asynchronously copies the filled output buffers back to the host.
+		cutilSafeCall( cudaEventRecord(memcpy_start, stream[kid]) );
 		cutilSafeCall( cudaMemcpyAsync(pinned_ob, device_ob + kid, sizeof(output_buffer), cudaMemcpyDeviceToHost, stream[kid]) );
+		cutilSafeCall( cudaEventRecord(memcpy_stop, stream[kid]) );
+
+		// Synchronously copies the `finished' flags between device buffers.
+//		cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
+		cutilSafeCall( cudaMemcpy(device_ob + (1^kid), device_ob + kid, props->num_models * sizeof(unsigned int), cudaMemcpyDeviceToDevice) );
+		cutilSafeCall( cudaStreamSynchronize(0) );
 
 		// Launches another kernel.
 		// At this point, all models may be finished, so the last kernel launch is wasted.
 		kid ^= 1;
-		PRINTF("launching next kernel<<<(%dx%dx%d),(%dx%dx%d),%zd>>> with %d active_models (id %d)\n",
-		    grid.x, grid.y, grid.z,
-		    block.x, block.y, block.z,
-		    props->gpu.shmem_per_block,
-		    active_models, kid);
+		/* PRINTF("launching next kernel<<<(%dx%dx%d),(%dx%dx%d),%zd>>> with %d active_models (id %d)\n", */
+		/*     grid.x, grid.y, grid.z, */
+		/*     block.x, block.y, block.z, */
+		/*     props->gpu.shmem_per_block, */
+		/*     active_models, kid); */
+		cutilSafeCall( cudaEventRecord(kernel_start, stream[kid]) );
 		exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block, stream[kid] >>>(mem, kid);
+		cutilSafeCall( cudaEventRecord(kernel_stop, stream[kid]) );
 		aflight = YES;
 
 		// Waits for the asyc copy to complete.
 		cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
 		active_models = NUM_MODELS;
+
+		cutilSafeCall( cudaEventElapsedTime(&memcpy_elapsed, memcpy_start, memcpy_stop) );
+#               if defined _DEBUG
+		PRINTF("memcpy %d elapsed %.4f s; %.4f MiB; %.4f GiBps\n", (1^kid), memcpy_elapsed / 1.0E3, sizeof(output_buffer) / (1.0*(1<<20)), sizeof(output_buffer) / (1.0*(1<<30)) / (memcpy_elapsed / 1.0E3));
+#               endif
+
+		logging_start = getnanos();
 		}
 
 #ifndef __DEVICE_EMULATION__
 #pragma omp barrier
 #endif
 
-	    PRINTF("logging for thread %d kernel %d\n", thread_num, kid);
+	    /* PRINTF("logging for thread %d kernel %d\n", thread_num, (1^kid)); */
 	    // Copies output data to external API data structures.
 	    for (modelid = thread_num * models_per_thread; modelid < (1+thread_num) * models_per_thread; modelid++)
 		{
@@ -362,18 +395,28 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
 #ifndef __DEVICE_EMULATION__
 #pragma omp barrier
 #endif
+
+#pragma omp master
+		{
+		logging_elapsed = getnanos() - logging_start;
+#               if defined _DEBUG
+		PRINTF("logging %d elapsed %.4fs\n", (1^kid), logging_elapsed / 1.0E9);
+#               endif
+		}
 	    }
 	else if (active_models)
 	    {
 #pragma omp master
 		{
 		// No active kernels; launch one.
-		PRINTF("launching first kernel<<<(%dx%dx%d),(%dx%dx%d),%zd>>> with %d active_models (id %d)\n",
-		    grid.x, grid.y, grid.z,
-		    block.x, block.y, block.z,
-		    props->gpu.shmem_per_block,
-		    active_models, kid);
+		/* PRINTF("launching first kernel<<<(%dx%dx%d),(%dx%dx%d),%zd>>> with %d active_models (id %d)\n", */
+		/*     grid.x, grid.y, grid.z, */
+		/*     block.x, block.y, block.z, */
+		/*     props->gpu.shmem_per_block, */
+		/*     active_models, kid); */
+		cutilSafeCall( cudaEventRecord(kernel_start, stream[kid]) );
 		exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block, stream[kid] >>>(mem, kid);
+		cutilSafeCall( cudaEventRecord(kernel_stop, stream[kid]) );
 		aflight = YES;
 		}
 	    }
@@ -393,7 +436,7 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
 #pragma omp barrier
 #endif
 
-	PRINTF("logging for thread %d kernel %d\n", thread_num, kid);
+	/* PRINTF("logging for thread %d kernel %d\n", thread_num, kid); */
 	// Copies output data to external API data structures.
 	for (modelid = thread_num * models_per_thread; modelid < (1+thread_num) * models_per_thread; modelid++)
 	    {
@@ -433,6 +476,11 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
 
     cutilSafeCall( cudaStreamDestroy(stream[0]) );
     cutilSafeCall( cudaStreamDestroy(stream[1]) );
+
+    cutilSafeCall( cudaEventDestroy(kernel_start) );
+    cutilSafeCall( cudaEventDestroy(kernel_stop) );
+    cutilSafeCall( cudaEventDestroy(memcpy_start) );
+    cutilSafeCall( cudaEventDestroy(memcpy_stop) );
 
     // Copy final times and states from GPU
     cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
@@ -527,129 +575,6 @@ int exec_parallel_gpu_mapped(INTEGRATION_MEM *mem, solver_props *props, simengin
   return ret;
 }
 
-/*
-int exec_parallel_gpu_mapped_omp(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
-  int ret = SUCCESS;
-  unsigned int num_gpu_threads;
-  unsigned int num_gpu_blocks;
-  num_gpu_threads = GPU_BLOCK_SIZE < NUM_MODELS ? GPU_BLOCK_SIZE : NUM_MODELS;
-  num_gpu_blocks = (NUM_MODELS + GPU_BLOCK_SIZE - 1) / GPU_BLOCK_SIZE;
-
-  unsigned int active_models = NUM_MODELS;
-
-  // Using 2 copies of the output buffer, capable devices may execute
-  // a kernel while concurrently logging a previous result.
-  output_buffer *ob = (output_buffer *)props->ob;
-  unsigned int ob_id = 0;
-  unsigned int aflight = 0; // Number of kernels in flight
-  cudaEvent_t checkpoint[2]; // No more than 2 events in queue
-  // These events signal a kernel completion. After logging, we sync
-  // on the next event to await more results.
-  cutilSafeCall(cudaEventCreate(&checkpoint[0]));
-  cutilSafeCall(cudaEventCreate(&checkpoint[1]));
-
-  // Initialize omp with one thread per processor core
-  omp_set_num_threads(omp_get_num_procs());
-
-  fprintf(stderr, "running %d models on %d cores.\n", NUM_MODELS, omp_get_num_procs());
-
-  // Log outputs using parallel host threads
-#pragma omp parallel
-  {
-    unsigned int modelid;
-    unsigned int thread_num = omp_get_thread_num();
-    unsigned int num_threads = omp_get_num_threads();
-    
-    unsigned int models_per_thread = NUM_MODELS / num_threads;
-    unsigned int extra_models = NUM_MODELS % num_threads;
-
-    // Only Host thread 0 may interact with the GPU
-    unsigned int thread0 = 0 == thread_num;
-		 
-    while(SUCCESS == ret && active_models){
-
-      if (aflight) {
-	// A kernel is executing; wait for it to complete
-	if(thread0){
-	  cutilSafeCall(cudaEventSynchronize(checkpoint[ob_id]));
-	  --aflight;
-	}
-
-#pragma omp barrier
-
-	// Copies important data between output buffers
-	for(modelid = thread_num*models_per_thread; modelid < (thread_num+1)*models_per_thread; modelid++) {
-	  ob[1^ob_id].finished[modelid] = ob[ob_id].finished[modelid];
-	  if (ob[ob_id].finished[modelid]) {
-#pragma omp critical 
-	    { --active_models; }
-	  }
-	}
-	if (thread_num < extra_models) {
-	  modelid = NUM_MODELS - extra_models + thread_num;
-	  ob[1^ob_id].finished[modelid] = ob[ob_id].finished[modelid];
-	  if (ob[ob_id].finished[modelid]) {
-#pragma omp critical
-	    { --active_models; }
-	  }
-	}
-
-#pragma omp barrier
-
-	if (thread0) {
-	  ob_id ^= 1;
-	  // Launches the next kernel
-	  if (active_models) {
-	      PRINTF("launching next kernel with %d active_models (ob %d)\n", active_models, ob_id);
-	    exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem, ob_id);
-	    cutilSafeCall(cudaEventRecord(checkpoint[ob_id], 0));
-	    ++aflight;
-	  }
-	}
-
-#pragma omp barrier
-
-	  // Copies data in parallel to external API data structures
-	  for(modelid = thread_num*models_per_thread; modelid < (thread_num+1)*models_per_thread; modelid++) {
-	    if (SUCCESS != log_outputs(&(ob[1^ob_id]), outputs, modelid)) {
-	      ret = ERRMEM;
-	      break;
-	    }
-	  }
-	  // If the number of models is not an even multiple of the number of cores
-	  // there will be one additional batch of models, with fewer threads than
-	  // the number of cores
-	  if (thread_num < extra_models) {
-	    modelid = NUM_MODELS - extra_models + thread_num;
-	    if (SUCCESS != log_outputs(&(ob[1^ob_id]), outputs, modelid)) {
-	      ret = ERRMEM;
-	      break;
-	    }
-	  }
-      }
-      else if (active_models) {
-	// No kernels active; launch one
-	if (thread0) {
-	    PRINTF("launching first kernel with %d active_models (ob %d)\n", active_models, ob_id);
-	  exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem, ob_id);
-	  cutilSafeCall(cudaEventRecord(checkpoint[ob_id], 0));
-	  ++aflight;
-	}
-      }
-
-
-
-
-    }
-    // Host threads implicitly join here
-  }
-  // Copy final times and states from GPU
-  cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
-  cutilSafeCall(cudaMemcpy(props->model_states, props->gpu.model_states, props->statesize*props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
-
-  return ret;
-}
-*/
 
 int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
   int ret = SUCCESS;
@@ -698,84 +623,6 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
   return ret;
 }
 
-/*
-int exec_parallel_gpu_omp(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
-  int ret = SUCCESS;
-  unsigned int num_gpu_threads;
-  unsigned int num_gpu_blocks;
-  num_gpu_threads = GPU_BLOCK_SIZE < NUM_MODELS ? GPU_BLOCK_SIZE : NUM_MODELS;
-  num_gpu_blocks = (NUM_MODELS + GPU_BLOCK_SIZE - 1) / GPU_BLOCK_SIZE;
-
-  unsigned int active_models = NUM_MODELS;
-  output_buffer *ob = (output_buffer *)props->ob;
-
-  // Initialize omp with one thread per processor core
-  omp_set_num_threads(omp_get_num_procs());
-
-  fprintf(stderr, "running %d models on %d cores.\n", NUM_MODELS, omp_get_num_procs());
-
-  // Log outputs using parallel host threads
-#pragma omp parallel
-  {
-    unsigned int modelid;
-    unsigned int thread_num = omp_get_thread_num();
-    unsigned int num_threads = omp_get_num_threads();
-    
-    unsigned int models_per_thread = NUM_MODELS / num_threads;
-    unsigned int extra_models = NUM_MODELS % num_threads;
-
-    // Only Host thread 0 may interact with the GPU
-    unsigned int thread0 = 0 == thread_num;
-		 
-    while(SUCCESS == ret && active_models)
-	{
-	if (thread0) 
-	    {
-	    PRINTF("launching next kernel with %d active_models\n", active_models);
-	    exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(mem,0);
-	    cutilSafeCall(cudaMemcpy(ob, props->gpu.ob, props->ob_size, cudaMemcpyDeviceToHost));
-	    }
-
-#pragma omp barrier
-
-	  // Copies data in parallel to external API data structures
-	  for(modelid = thread_num*models_per_thread; modelid < (thread_num+1)*models_per_thread; modelid++) {
-	    if (SUCCESS != log_outputs(ob, outputs, modelid)) {
-	      ret = ERRMEM;
-	      break;
-	    }
-	    if (ob->finished[modelid]) 
-		{
-#pragma omp critical
-		  {--active_models;}
-		}
-	  }
-	  // If the number of models is not an even multiple of the number of cores
-	  // there will be one additional batch of models, with fewer threads than
-	  // the number of cores
-	  if (thread_num < extra_models) {
-	    modelid = NUM_MODELS - extra_models + thread_num;
-	    if (SUCCESS != log_outputs(ob, outputs, modelid)) {
-	      ret = ERRMEM;
-	      break;
-	    }
-	    if (ob->finished[modelid]) 
-		{
-#pragma omp critical
-		  {--active_models;}
-		}
-	  }
-
-	}
-    // Host threads implicitly join here
-  }
-  // Copy final times and states from GPU
-  cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
-  cutilSafeCall(cudaMemcpy(props->model_states, props->gpu.model_states, props->statesize*props->num_models*sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
-
-  return ret;
-}
-*/
 #endif // defined(TARGET_GPU)
 
 

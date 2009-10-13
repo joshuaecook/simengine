@@ -1,7 +1,8 @@
-
+#include <time.h>
 #define START_SIZE 1000
 
 int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs);
+EXTERN_C unsigned long long inline getnanos(void);
 
 // simEngine API: simengine_getinterface()
 //
@@ -23,6 +24,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   unsigned int modelid;
   unsigned int inputid;
   unsigned int outputid;
+  unsigned long long start, elapsed;
 	     
   // Set up allocation functions
   if(alloc){
@@ -94,8 +96,13 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   }
 	     
   // Run the model
+  start = getnanos();
   seresult->status = exec_loop(time, stop_time, parameters, model_states, seresult->outputs);
   seresult->status_message = simengine_errors[seresult->status];
+  elapsed = getnanos() - start;
+#if defined _DEBUG
+  PRINTF("exec_loop elapsed %.4fs\n", elapsed/1.0E9);
+#endif
 	     
   // Copy state values back to state initial value structure
   for(modelid=0; modelid<semeta.num_models; modelid++){
@@ -125,3 +132,11 @@ int simengine_evalflow(double t, double *y, double *dydt, double *inputs) {
 int simengine_evalflow(double t __attribute__ ((unused)), double *y __attribute__ ((unused)), double *dydt __attribute__ ((unused)), double *inputs __attribute__ ((unused))) 
 { return -1; }
 #endif
+
+
+EXTERN_C
+unsigned long long inline getnanos(void){
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  return (unsigned long long) ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
