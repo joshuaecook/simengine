@@ -16,7 +16,11 @@ structure ModelProcess : sig
     (* model2statesizebyiterator: Computes the total state space of the model on a per iterator basis *)
     val model2statesizebyiterator : DOF.systemiterator -> DOF.model -> int
 
-    (* model processing commands *)
+    (* createIteratorForkedModels: Creates a structure list of models that are unique by iterator *)
+    val createIteratorForkedModels : DOF.model -> {top_class: Symbol.symbol,
+						   iter: DOF.systemiterator,
+						   model: DOF.model} list
+
     val duplicateModel : DOF.model -> (Symbol.symbol -> Symbol.symbol) -> DOF.model
     val pruneModel : (DOF.systemiterator option) -> DOF.model -> unit
 	
@@ -172,6 +176,30 @@ fun normalizeModel (model:DOF.model) =
     end
     handle e => DynException.checkpoint "ModelProcess.normalizeModel" e
 
+fun forkModelByIterator model (iter as (iter_sym,_)) = 
+    let
+	fun namechangefun iter_sym = (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym)))
+	val model' = duplicateModel model (namechangefun iter_sym)
+	val _ = pruneModel (SOME iter) model'
+    in
+	model'
+    end
+
+fun createIteratorForkedModels model =
+    let
+	val iterators = CurrentModel.iterators()
+	fun forkedModel (iter as (iter_sym,_)) = 
+	    let 
+		val model' as (_, {name,classname},_) = forkModelByIterator model iter
+	    in
+		{top_class=classname,
+		 iter=iter,
+		 model=model'}
+	    end
+    in
+	map forkedModel iterators
+    end
+
 fun normalizeParallelModel (model:DOF.model) =
     let
 	val _ = DynException.checkToProceed()
@@ -209,22 +237,19 @@ fun normalizeParallelModel (model:DOF.model) =
 	(*val () = app ClassProcess.fixStateSymbolNames (CurrentModel.classes())*)
 
 	(* Just some debug code ...*)
-	val iterators = CurrentModel.iterators()
-	fun namechangefun iter_sym = (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym)))
+	val forkedModels = createIteratorForkedModels model
 	val _ = app
-		    (fn(iter as (iter_sym, _))=> 
-		       let
-			   val model' = duplicateModel model (namechangefun iter_sym)
-			   val _ = pruneModel (SOME iter) model'
-		       in
-			   (Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' =====================");
-			    DOFPrinter.printModel model')
-		       end)
-		    iterators
+		    (fn{top_class,iter=(iter_sym,_),model=model'}=>
+		       (Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' =====================");
+			DOFPrinter.printModel model'))
+		    forkedModels
+
 	val _ = DynException.checkToProceed()
     in
 	()
     end
     handle e => DynException.checkpoint "ModelProcess.normalizeParallelModel" e
+
+
 
 end

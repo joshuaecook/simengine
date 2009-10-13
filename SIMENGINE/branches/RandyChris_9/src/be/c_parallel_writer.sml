@@ -133,7 +133,7 @@ local
     fun instanceNamed instname inst =
 	ExpProcess.instOrigInstName inst = instname
 
-    fun instance2member (instances, iter_sym) (classname, instname) =
+    fun instance2member instances (classname, instname) =
 	let			  
 	    val index = 
 		case List.find (instanceNamed instname) instances 
@@ -143,38 +143,35 @@ local
 		    end
 		  | NONE => ";"
 	in
-	    "struct statedata_" ^ (Symbol.name classname) ^ "_" ^ (Symbol.name iter_sym) ^ " " ^ (Symbol.name instname) ^ index
+	    "struct statedata_" ^ (Symbol.name classname)  ^ " " ^ (Symbol.name instname) ^ index
 	end
 in
-fun outputstatestructbyclass_code iter (class : DOF.class as {exps, ...}) =
+fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
     let
 	val classname = (*ClassProcess.class2orig_name class*) ClassProcess.class2classname class
 	val class_iterators = #iterators class
-	val state_eqs_symbols = map ExpProcess.lhs (List.filter (ExpProcess.isStateEqOfIter iter) (!exps))
+	val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
 	val class_inst_pairs = ClassProcess.class2instnames class
-	val (iter_sym,_) = iter
 	val class_inst_pairs_non_empty = 
 	    List.filter
 		(fn(classname,instname)=>
-		   ClassProcess.class2statesizebyiterator iter (CurrentModel.classname2class classname) > 0
+		   ClassProcess.class2statesize (CurrentModel.classname2class classname) > 0
 		)
-		class_inst_pairs
-	val iter_name = Symbol.name iter_sym
-					 
+		class_inst_pairs					 
     in
 	[$(""),
-	 $("// define state structures"),
-	 $("struct statedata_" ^ (Symbol.name classname) ^ "_" ^ iter_name ^ " {"),	 
+	 $("// Define state structures"),
+	 $("struct statedata_" ^ (Symbol.name classname) ^ " {"),	 
 	 SUB($("// states (count="^(i2s (List.length state_eqs_symbols))^")") ::
 	     (map ($ o (state2member class_iterators)) state_eqs_symbols) @
 	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs_non_empty)) ^")") ::
-	      (map ($ o instance2member (instances, iter_sym)) class_inst_pairs_non_empty))),
+	      (map ($ o (instance2member instances)) class_inst_pairs_non_empty))),
 	 $("};")]
     end
 end
 
-fun outputstatestruct_code iterators classes =
+fun outputstatestruct_code classes =
     let
 	fun isMasterClass {properties={classtype,...},...} =
 	    case classtype of
@@ -184,52 +181,75 @@ fun outputstatestruct_code iterators classes =
 
 	val predeclare_statements = 
 	    map
-		(fn(class)=> ("struct statedata_" ^ (Symbol.name ((*ClassProcess.class2orig_name*) ClassProcess.class2classname class))))
+		(fn(class)=> $("struct statedata_" ^ (Symbol.name ((*ClassProcess.class2orig_name*) ClassProcess.class2classname class))))
 		master_classes
 
     in
-	Util.flatmap (fn(iter as (name, itertype))=>
+	(*Util.flatmap (fn(iter as (name, itertype))=>
 			(($(""))::
 			 ($("// Pre-declare state structures (iterator '"^(Symbol.name name)^"')"))::
 			 (map (fn(str)=> $(str ^ "_" ^ (Symbol.name name) ^ ";")) predeclare_statements)) @
-			List.concat (map (outputstatestructbyclass_code iter) master_classes)) iterators
-    (*
-	($("")::($("// Pre-declare state structures"))::predeclare_statements) @
-	List.concat (map outputstatestructbyclass_code master_classes)*)
+			List.concat (map (outputstatestructbyclass_code iter) master_classes)) iterators*)
+	
+	($("")::
+	 ($("// Pre-declare state structures"))::predeclare_statements) @
+	List.concat (map outputstatestructbyclass_code master_classes)
     end
 
-fun class2flow_code (class, top_class) =
+fun outputsystemstatestruct_code forkedModels =
+    [$(""),
+     $("// System State Structure"),
+     $("struct systemstatedata {"),
+     SUB(map (fn{model=(_,{classname,...},_),...} => $("struct statedata_" ^ (Symbol.name classname) ^ ";")) forkedModels),
+     $("};"),
+     $("")]
+
+fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
     let
 	val orig_name = ClassProcess.class2orig_name class
 
-	val has_states = ClassProcess.class2statesize class > 0
+	val has_states = case iter_type of 
+			     DOF.UPDATE _ => true
+			   | _ => ClassProcess.class2statesize class > 0
+
+	val eval_iterators = List.filter (fn(iter_sym, iter_type)=> case iter_type of
+									DOF.UPDATE v => false
+								      | DOF.POSTPROCESS v => false
+								      | _ => true) (CurrentModel.iterators())
 
 	val (readstates, writestates) = class2stateiterators class
 	val iterators = CurrentModel.iterators()
-	val iteratorprototypes = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") iterators)
+	val iteratorprototypes = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") eval_iterators)
+	(* every iterator except the update iterator uses an iter_name *)
+	val iter_name = Symbol.name (case iter_type of
+					 DOF.UPDATE v => v
+				       | _ => iter_sym)
+			
+	val statereadprototype = "const struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name
+	val statewriteprototype = "struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name
+	val systemstatereadprototype = "const struct systemstatedata *sys_rd"
 				 
-	val stateprototypes = 
+(*	val stateprototypes = 
 	    (String.concat (map
 				(fn(sym)=> "const struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ (Symbol.name sym) ^ " *rd_" ^ (Symbol.name sym) ^ ", ")
 				readstates)) ^
 	    (String.concat (map
 				(fn(sym)=> "struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ (Symbol.name sym) ^ " *wr_" ^ (Symbol.name sym) ^ ", ")
-				writestates))
+				writestates))*)
 
 	val header_progs = 
-	    [$(""),
-	     $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "("^iteratorprototypes^stateprototypes^"CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
-	    (*
+	    (*[$(""),
+	       $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
+	       ^ "("^iteratorprototypes^stateprototypes^"CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]*)
+	    
 	    if has_states then
 		[$(""),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
+		   ^ "("^iteratorprototypes^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
 	    else
 		[$(""),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "(CDATAFORMAT t, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
-	     *)
+		   ^ "("^iteratorprototypes^"CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]	    
 
 	val read_memory_progs = []
 
@@ -448,8 +468,18 @@ fun flow_wrapper (class, (iter_sym, _)) =
 
 
 
-fun flow_code (classes: DOF.class list, topclass: DOF.class) = 
+fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*){model as (classes,_,_), iter as (iter_sym, iter_type), top_class} = 
     let
+	val prevModel = CurrentModel.getCurrentModel()
+	val _ = CurrentModel.setCurrentModel(model)
+
+	val topclass = CurrentModel.classname2class top_class
+
+	val iter_name = Symbol.name (case iter_type of
+					 DOF.UPDATE v => v
+				       | DOF.POSTPROCESS v => v
+				       | _ => iter_sym)
+
 	fun isInline (class: DOF.class) =
 	    let
 		val {properties={classform,...},...} = class
@@ -459,36 +489,50 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 		  | _ => false
 	    end
 
-	val iterators = CurrentModel.iterators()
+	val eval_iterators = List.filter (fn(iter_sym, iter_type)=> case iter_type of
+									DOF.UPDATE v => false
+								      | DOF.POSTPROCESS v => false
+								      | _ => true) (CurrentModel.iterators())
 	val fundecl_progs = map
 				(fn(class) => 
 				   let
 				       val orig_name = ClassProcess.class2orig_name class
-				       val class_has_states = ClassProcess.class2statesize class > 0
+				       val class_has_states = case iter_type of
+								  DOF.UPDATE _ => true
+								| _ => ClassProcess.class2statesize class > 0
 				   in
 				       if isInline class then
 					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
 				       else
 					   let
-					       val (readstates, writestates) = class2stateiterators class
+					       (*val (readstates, writestates) = class2stateiterators class*)
 
-					       val iteratorprototypes = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") iterators)
+					       val iteratorprototypes = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") eval_iterators)
 									
-					       val stateprototypes = 
+					       (* every iterator except the update iterator uses an iter_name *)
+					       val iter_name = Symbol.name (case iter_type of
+										DOF.UPDATE v => v
+									      | _ => iter_sym)
+
+					       val statereadprototype = "const struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name
+					       val statewriteprototype = "struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name
+					       val systemstatereadprototype = "const struct systemstatedata *sys_rd"
+
+					       (*val stateprototypes = 
 						   (String.concat (map
 								       (fn(sym)=> "const struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ (Symbol.name sym) ^ " *rd_" ^ (Symbol.name sym) ^ ", ")
 								       readstates)) ^
 						   (String.concat (map
 								       (fn(sym)=> "struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ (Symbol.name sym) ^ " *wr_" ^ (Symbol.name sym) ^ ", ")
-								       writestates))
+								       writestates))*)
 
 					   in
-					       $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "("^iteratorprototypes^stateprototypes^"CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
-					       (*
+					       (*$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "("^iteratorprototypes^stateprototypes^"CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")*)
+					       
 					       if class_has_states then
-						   $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, const struct statedata_"^(Symbol.name orig_name)^" *y, struct statedata_"^(Symbol.name orig_name)^" *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
+						   $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "("^iteratorprototypes^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
 					       else
-						   $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "(CDATAFORMAT t, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);") *)
+						   $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ "("^iteratorprototypes^"CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
 					   end
 				   end)
 				classes
@@ -499,9 +543,9 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 						  DynException.setErrored();
 						  [])
 					     else
-						 class2flow_code (c,#name c = #name topclass)) classes)
+						 class2flow_code (c,#name c = #name topclass, iter)) classes)
 
-(*	val top_level_flow_progs = 
+	val top_level_flow_progs = 
 	    [$"",
 	     $("__HOST__ __DEVICE__ int model_flows(C DATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid){"),
              SUB[if ClassProcess.class2statesize topclass > 0 then
@@ -510,9 +554,10 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 	       $("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, inputs, outputs, first_iteration, modelid);")
              ],
 	     $("}"),
-	     $("")]*)
+	     $("")]
 
-	val (fun_prototypes, fun_wrappers) = ListPair.unzip (map (fn(iter)=>flow_wrapper (topclass, iter)) iterators)
+	val (fun_prototypes, fun_wrappers) = ListPair.unzip (map (fn(iter)=>flow_wrapper (topclass, iter)) eval_iterators)
+
 
     in
 	($("// Functions prototypes for flow code wrappers")::
@@ -520,7 +565,8 @@ fun flow_code (classes: DOF.class list, topclass: DOF.class) =
 	 [$("// Flow code function declarations")] @
 	 fundecl_progs @
 	 flow_progs @
-	 (List.concat fun_wrappers))
+	 (List.concat fun_wrappers)) before (CurrentModel.setCurrentModel(prevModel))
+
     (*(Util.flatmap (fn(iter)=>flow_wrapper (topclass, iter)) iterators)*)
 	(*top_level_flow_progs*)
     end
@@ -610,6 +656,9 @@ fun logoutput_code class =
 
 fun buildC (model: DOF.model as (classes, inst, props)) =
     let
+	val forkedModels = ModelProcess.createIteratorForkedModels model
+	val forkedModelsLessUpdate = List.filter (fn{iter=(iter_sym, iter_type),...}=> case iter_type of DOF.UPDATE _ => false | _ => true) forkedModels
+
 	val {name=inst_name, classname=class_name} = inst
 	val inst_class = CurrentModel.classname2class class_name
 	val class_name = Symbol.name (#name inst_class)
@@ -633,8 +682,11 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, solver_name)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
-	val outputstatestruct_progs = outputstatestruct_code iterators classes
-	val (fun_prototypes, flow_progs) = flow_code (classes, inst_class)
+	val outputstatestruct_progs = Util.flatmap (fn{model=(classes',_,_),...} => outputstatestruct_code classes') forkedModelsLessUpdate
+	val systemstate_progs = outputsystemstatestruct_code forkedModelsLessUpdate
+	val flow_data = map flow_code forkedModels
+	val fun_prototypes = List.concat (map #1 flow_data)
+	val flow_progs = List.concat (map #2 flow_data)
 	val logoutput_progs = logoutput_code inst_class
 	val simengine_target_h = $(Archive.getC "simengine/simengine_target.h")
 	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
@@ -675,6 +727,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 					      [semeta_seint_h] @
 					      outputdatastruct_progs @
 					      outputstatestruct_progs @
+					      systemstate_progs @
 					      [output_buffer_h] @
 					      [init_output_buffer_c] @
 					      logoutput_progs @
