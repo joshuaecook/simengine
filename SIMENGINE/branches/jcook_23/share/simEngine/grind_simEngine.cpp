@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 
     unsigned int models = NUM_MODELS, modelid;
 
-    double stop_time = 1000.0;
+    double stop_time = 100.0;
 
     simengine_api *api = init_simengine(load_simengine(name));
     const simengine_interface *iface = api->getinterface();

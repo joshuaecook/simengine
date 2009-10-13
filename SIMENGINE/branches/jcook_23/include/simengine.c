@@ -240,7 +240,7 @@ __GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
 
     SOLVER(INTEGRATION_METHOD, post_eval, TARGET, SIMENGINE_STORAGE, mem, modelid, threadid, blocksize);
 #   if defined __DEVICE_EMULATION__
-//    PRINTF("Ran model %d up to time %f\n", modelid, mem->props->time[modelid]);
+    PRINTF("Ran model %d up to time %f\n", modelid, mem->props->time[modelid]);
 #   endif
 
   }
@@ -251,7 +251,6 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
     int ret = SUCCESS;
 
     uint active_models = NUM_MODELS;
-    uint modelid;
 
     output_buffer *device_ob = (output_buffer *)props->gpu.ob;
     output_buffer *pinned_ob;
@@ -264,88 +263,173 @@ int exec_parallel_gpu_async(INTEGRATION_MEM *mem, solver_props *props, simengine
     cutilSafeCall( cudaStreamCreate(&stream[0]) );
     cutilSafeCall( cudaStreamCreate(&stream[1]) );
 
-    cudaEvent_t checkpoint[2]; // No more than 2 events in queue
-    // These events signal a kernel completion. After logging, we sync
-    // on the next event to await more results.
-    cutilSafeCall( cudaEventCreate(&checkpoint[0]) );
-    cutilSafeCall( cudaEventCreate(&checkpoint[1]) );
+    // Initializes omp with one thread per processor core
+    omp_set_num_threads(omp_get_num_procs());
+
 
     dim3 block(props->gpu.blockx, props->gpu.blocky, props->gpu.blockz);
     dim3 grid(props->gpu.gridx, props->gpu.gridy, props->gpu.gridz);
 
 
-    PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%d>>>\n",
+    PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%zd>>>\n",
 	grid.x, grid.y, grid.z,
 	block.x, block.y, block.z,
 	props->gpu.shmem_per_block);
 
+    // Logs outputs using parallel host threads.
+    // Nvcc will reject OpenMP code when device emulation is enabled.
+#ifndef __DEVICE_EMULATION__
+#pragma omp parallel
+#endif
+{
+    uint modelid;
+    uint thread_num = omp_get_thread_num();
+    uint num_threads = omp_get_num_threads();
+    
+    uint models_per_thread = NUM_MODELS / num_threads;
+    uint extra_models = NUM_MODELS % num_threads;
+
+    // Only Host thread 0 may interact with the GPU
     while(SUCCESS == ret && active_models)
 	{
 	if (aflight) 
-	    { // A kernel is executing; wait for it to complete.
-	    cutilSafeCall( cudaStreamSynchronize(stream[kid]) );
-	    aflight = NO;
+	    { 
+            // A kernel is executing; wait for it to complete.
+#pragma omp master
+		{
+		cutilSafeCall( cudaStreamSynchronize(stream[kid]) );
+		aflight = NO;
 
-	    // Synchronously copies the `finished' flags between device buffers.
-	    cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
-	    cutilSafeCall( cudaMemcpy(device_ob + (1^kid), device_ob + kid, props->num_models * sizeof(unsigned int), cudaMemcpyDeviceToDevice) );
-	    cutilSafeCall( cudaStreamSynchronize(0) );
+		// Synchronously copies the `finished' flags between device buffers.
+		cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
+		cutilSafeCall( cudaMemcpy(device_ob + (1^kid), device_ob + kid, props->num_models * sizeof(unsigned int), cudaMemcpyDeviceToDevice) );
+		cutilSafeCall( cudaStreamSynchronize(0) );
 
-	    // Asynchronously copies the filled output buffers back to the host.
-	    cutilSafeCall( cudaMemcpyAsync(pinned_ob, device_ob + kid, sizeof(output_buffer), cudaMemcpyDeviceToHost, stream[kid]) );
+		// Asynchronously copies the filled output buffers back to the host.
+		cutilSafeCall( cudaMemcpyAsync(pinned_ob, device_ob + kid, sizeof(output_buffer), cudaMemcpyDeviceToHost, stream[kid]) );
 
-	    // Launches another kernel.
-	    // At this point, all models may be finished, so the last kernel launch is wasted.
-	    kid ^= 1;
-	    PRINTF("launching next kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (id %d)\n",
-		grid.x, grid.y, grid.z,
-		block.x, block.y, block.z,
-		props->gpu.shmem_per_block,
-		active_models, kid);
-	    exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block, stream[kid] >>>(mem, kid);
-	    aflight = YES;
+		// Launches another kernel.
+		// At this point, all models may be finished, so the last kernel launch is wasted.
+		kid ^= 1;
+		PRINTF("launching next kernel<<<(%dx%dx%d),(%dx%dx%d),%zd>>> with %d active_models (id %d)\n",
+		    grid.x, grid.y, grid.z,
+		    block.x, block.y, block.z,
+		    props->gpu.shmem_per_block,
+		    active_models, kid);
+		exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block, stream[kid] >>>(mem, kid);
+		aflight = YES;
 
-	    // Waits for the asyc copy to complete and
-	    // copies output data to external API data structures.
-	    cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
-	    active_models = NUM_MODELS;
-	    for(modelid = 0; modelid < NUM_MODELS; modelid++) 
+		// Waits for the asyc copy to complete.
+		cutilSafeCall( cudaStreamSynchronize(stream[1^kid]) );
+		active_models = NUM_MODELS;
+		}
+
+#ifndef __DEVICE_EMULATION__
+#pragma omp barrier
+#endif
+
+	    PRINTF("logging for thread %d kernel %d\n", thread_num, kid);
+	    // Copies output data to external API data structures.
+	    for (modelid = thread_num * models_per_thread; modelid < (1+thread_num) * models_per_thread; modelid++)
 		{
 		if (pinned_ob->finished[modelid]) 
-		    { active_models--; }
-
+		    {
+#pragma omp atomic 
+		    active_models--;
+		    }
 		if (SUCCESS != log_outputs(pinned_ob, outputs, modelid)) 
 		    {
 		    ret = ERRMEM;
 		    break;
 		    }
 		}
+	    // If the number of models is not an even multiple of the number of cores
+	    // there will be one additional batch of models, with fewer threads than
+	    // the number of cores
+	    if (thread_num < extra_models) 
+		{
+		modelid = NUM_MODELS - extra_models + thread_num;
+		if (pinned_ob->finished[modelid]) 
+		    {
+#pragma omp atomic 
+		    active_models--;
+		    }
+		if (SUCCESS != log_outputs(pinned_ob, outputs, modelid)) 
+		    {
+		    ret = ERRMEM;
+		    }
+		}
+#ifndef __DEVICE_EMULATION__
+#pragma omp barrier
+#endif
 	    }
 	else if (active_models)
-	    { // No active kernels; launch one.
-	    PRINTF("launching first kernel<<<(%dx%dx%d),(%dx%dx%d),%d>>> with %d active_models (id %d)\n",
-		grid.x, grid.y, grid.z,
-		block.x, block.y, block.z,
-		props->gpu.shmem_per_block,
-		active_models, kid);
-	    exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block, stream[kid] >>>(mem, kid);
-	    aflight = YES;
+	    {
+#pragma omp master
+		{
+		// No active kernels; launch one.
+		PRINTF("launching first kernel<<<(%dx%dx%d),(%dx%dx%d),%zd>>> with %d active_models (id %d)\n",
+		    grid.x, grid.y, grid.z,
+		    block.x, block.y, block.z,
+		    props->gpu.shmem_per_block,
+		    active_models, kid);
+		exec_kernel_gpu<<< grid, block, props->gpu.shmem_per_block, stream[kid] >>>(mem, kid);
+		aflight = YES;
+		}
 	    }
 	}
+
     if (aflight)
-	{ // Awaits the ultimate kernel completion.
-	cutilSafeCall( cudaStreamSynchronize(stream[kid]) );
-	aflight = NO;
-	cutilSafeCall( cudaMemcpy(pinned_ob, device_ob + kid, sizeof(output_buffer), cudaMemcpyDeviceToHost) );
-	for(modelid = 0; modelid < NUM_MODELS; modelid++) 
+	{ 
+        // Awaits the ultimate kernel completion.
+#pragma omp master
 	    {
+	    cutilSafeCall( cudaStreamSynchronize(stream[kid]) );
+	    aflight = NO;
+	    cutilSafeCall( cudaMemcpy(pinned_ob, device_ob + kid, sizeof(output_buffer), cudaMemcpyDeviceToHost) );
+	    }
+
+#ifndef __DEVICE_EMULATION__
+#pragma omp barrier
+#endif
+
+	PRINTF("logging for thread %d kernel %d\n", thread_num, kid);
+	// Copies output data to external API data structures.
+	for (modelid = thread_num * models_per_thread; modelid < (1+thread_num) * models_per_thread; modelid++)
+	    {
+	    if (pinned_ob->finished[modelid]) 
+		{
+#pragma omp atomic 
+		active_models--;
+		}
 	    if (SUCCESS != log_outputs(pinned_ob, outputs, modelid)) 
 		{
 		ret = ERRMEM;
 		break;
 		}
 	    }
+	// If the number of models is not an even multiple of the number of cores
+	// there will be one additional batch of models, with fewer threads than
+	// the number of cores
+	if (thread_num < extra_models) 
+	    {
+	    modelid = NUM_MODELS - extra_models + thread_num;
+	    if (pinned_ob->finished[modelid]) 
+		{
+#pragma omp atomic 
+		active_models--;
+		}
+	    if (SUCCESS != log_outputs(pinned_ob, outputs, modelid)) 
+		{
+		ret = ERRMEM;
+		}
+	    }
+#ifndef __DEVICE_EMULATION__
+#pragma omp barrier
+#endif
 	}
+    // Host threads join at this point.
+}
 
     cutilSafeCall( cudaStreamDestroy(stream[0]) );
     cutilSafeCall( cudaStreamDestroy(stream[1]) );
@@ -379,7 +463,7 @@ int exec_parallel_gpu_mapped(INTEGRATION_MEM *mem, solver_props *props, simengin
   dim3 block(props->gpu.blockx, props->gpu.blocky, props->gpu.blockz);
   dim3 grid(props->gpu.gridx, props->gpu.gridy, props->gpu.gridz);
 
-  PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%d>>>\n",
+  PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%zd>>>\n",
 	 grid.x, grid.y, grid.z,
 	 block.x, block.y, block.z,
 	 props->gpu.shmem_per_block);
@@ -580,7 +664,7 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
   dim3 grid(props->gpu.gridx, props->gpu.gridy, props->gpu.gridz);
 
 
-  PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%d>>>\n",
+  PRINTF("kernel geometry <<<(%dx%dx%d),(%dx%dx%d),%zd>>>\n",
 	 grid.x, grid.y, grid.z,
 	 block.x, block.y, block.z,
 	 props->gpu.shmem_per_block);

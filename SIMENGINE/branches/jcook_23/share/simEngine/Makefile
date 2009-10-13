@@ -57,12 +57,13 @@ endif
 
 ifeq ($(TARGET),GPU)
 PTXASFLAGS = -v
+OPENCCFLAGS = -fcxx-openmp
 ifeq ($(OSLOWER),darwin)
 CUDA_ARCH = -arch=sm_11
 else
 CUDA_ARCH = -arch=sm_13
 endif
-NVCCFLAGS = $(CUDA_ARCH) --host-compilation C --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" $(INCLUDES)
+NVCCFLAGS = $(CUDA_ARCH) --host-compilation C++ --compiler-options "$(COMMON)" --ptxas-options "$(PTXASFLAGS)" --opencc-options "$(OPENCCFLAGS)" $(INCLUDES)
 INCLUDES += $(CUDA_INCLUDES)
 LDFLAGS += $(CUDA_LDFLAGS)
 LDLIBS += $(CUDA_LDLIBS)
