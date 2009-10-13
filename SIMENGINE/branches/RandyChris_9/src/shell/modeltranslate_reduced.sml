@@ -394,8 +394,17 @@ fun createClass classes object =
 				      nil => nil
 				    | keccondeqs => 
 				      let
-(*					  val lhs = ExpProcess.appendIteratorToSymbol (Iterator.eventOf (exp2str(method "name" (method "iter" object))), Iterator.RELATIVE 0) sym*)
-					  val lhs = sym
+					  val lhs = 
+					      if exp2bool (send "hasEquation" object NONE) then
+						  (print "has equation\n";
+						  ExpBuild.ivar name
+								[(Iterator.updateOf timeiterator, Iterator.RELATIVE 1)]
+						  )
+					      else
+						  (print "doesn't have equation\n";
+						  ExpBuild.ivar name
+								[(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1)]
+)
 
 					  fun buildIf (condeq, exp) =
 					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),

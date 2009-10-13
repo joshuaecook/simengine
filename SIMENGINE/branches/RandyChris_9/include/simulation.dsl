@@ -83,14 +83,13 @@ namespace Simulation
 
     function setEquation(eq: Equation)
       //TODO: perform error checking here, ie if its a param, DONT allow this
-  //    println("adding eq to " + name)
+//    println("adding eq to " + name)
       self.eq = eq
       self.hasEq = true
     end
     overload function setEquation(eq: EventDrivenEquation)
-//      println("adding conditional eq to " + name)
+  //    println("adding conditional eq to " + name)
       self.condEqs.push_front (eq)
-      self.hasEq = true
     end
 
     function setDimensions (dimensions: Vector)
