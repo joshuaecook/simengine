@@ -83,12 +83,12 @@ namespace Simulation
 
     function setEquation(eq: Equation)
       //TODO: perform error checking here, ie if its a param, DONT allow this
-      println("adding eq to " + name)
+  //    println("adding eq to " + name)
       self.eq = eq
       self.hasEq = true
     end
     overload function setEquation(eq: EventDrivenEquation)
-      println("adding conditional eq to " + name)
+//      println("adding conditional eq to " + name)
       self.condEqs.push_front (eq)
       self.hasEq = true
     end
@@ -611,6 +611,7 @@ namespace Simulation
 
   class TimeIterator extends GenericIterator
     var isContinuous
+    var sampling_frequency = 1
     constructor (name: String, isContinuous)
       super(name)
       self.isContinuous = isContinuous
@@ -827,7 +828,7 @@ namespace Simulation
           error "Cannot create equation for non-quantity: " + name
         end
       else
-        println ("Adding a new equation for: " + name)
+//        println ("Adding a new equation for: " + name)
 	var q = Intermediate.new(name)
         self.addConst(name, q)
 	if not (istype (type Vector of SimIterator, dimensions)) then

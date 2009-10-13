@@ -23,7 +23,6 @@ datatype iteratortype = CONTINUOUS of Solver.solver
 		      | DISCRETE of {fs:real} (* sampling frequency *)
 		      | POSTPROCESS of Symbol.symbol
 		      | UPDATE of Symbol.symbol
-		      | UNKNOWN
 
 datatype precisiontype = SINGLE | DOUBLE
 

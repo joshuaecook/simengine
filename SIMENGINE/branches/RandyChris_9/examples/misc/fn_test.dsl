@@ -20,7 +20,11 @@ model (u,w,I) = fn_test(b0, b1, e)
     u' = u - u*u*u / 3 - w + I[n]
     w' = e * (b0 + b1 * u - w)
 
-    u = 5 when u > 5
+    u = 5 when u > 5 and I < 2
+    u = 10 when u < 10 and I > 5
+
+    uroot when u == 0
+    u_roots = u_roots + 1 when uroot
   end
 
   solver = ode45

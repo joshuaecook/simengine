@@ -211,7 +211,7 @@ fun normalizeParallelModel (model:DOF.model) =
 		    (fn(iter as (iter_sym, _))=> 
 		       let
 			   val model' = duplicateModel model (namechangefun iter_sym)
-			   val () = pruneModel (SOME iter) model'
+			   val _ = pruneModel (SOME iter) model'
 		       in
 			   (Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' =====================");
 			    DOFPrinter.printModel model')

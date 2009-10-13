@@ -17,9 +17,6 @@ sig
     val iterators2c_str : iterator list -> string (* C writer for multiple iterator *)
     val iter_equiv : (iterator * iterator) -> bool
 
-    val unknownName : Symbol.symbol
-    val unknownEvent : Symbol.symbol
-
     val postProcessOf : string -> Symbol.symbol   
     val updateOf : string -> Symbol.symbol   
 
@@ -28,9 +25,6 @@ structure Iterator : ITERATOR =
 struct
 
 val i2s = Util.i2s
-
-val unknownName  = Symbol.symbol "?"
-val unknownEvent = Symbol.symbol "event[?]"
 
 fun eventOf iter = Symbol.symbol ("event[" ^ iter ^ "]")
 fun postProcessOf iter = Symbol.symbol ("pp[" ^ iter ^ "]")

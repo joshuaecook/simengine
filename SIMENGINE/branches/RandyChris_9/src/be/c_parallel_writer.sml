@@ -540,8 +540,7 @@ fun props2solver props =
 					    DOF.CONTINUOUS solver => true
 					  | DOF.DISCRETE {fs} => false
 					  | DOF.POSTPROCESS itersym => false
-					  | DOF.UPDATE itersym => false
-					  | DOF.UNKNOWN => false)) iterators of
+					  | DOF.UPDATE itersym => false)) iterators of
 			 SOME (sym, DOF.CONTINUOUS solver) => solver
 		       | _ => DynException.stdException ("Requiring at least one differential equation", "CParallelWriter.buildC", Logger.INTERNAL)
     in

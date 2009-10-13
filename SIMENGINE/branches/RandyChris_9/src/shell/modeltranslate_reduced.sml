@@ -368,7 +368,7 @@ fun createClass classes object =
 							       let
 								   val name = case Property.getIterator props of
 										  SOME ((name, _)::_) => name
-										| _ => Iterator.unknownName
+										| _ => error ("Malformed left hand side of equation: " ^ (ExpPrinter.exp2fullstr lhs))
 							       in
 								   ((Symbol.name (name),
 								     map (Symbol.name o #1) (tl (valOf (Property.getIterator props))))
@@ -413,7 +413,6 @@ fun createClass classes object =
 		let
 		    val name = ExpBuild.event (exp2str (method "name" object))
 		    val condition = kecexp2dofexp (method "condition" object)
-		    val _ = print ("Handling event: " ^ (exp2str (method "name" object)) ^ "\n")
 		in
 		    [ExpBuild.equals (name, condition)]
 		end
@@ -599,15 +598,7 @@ fun obj2dofmodel object =
 	    else
 		[]
 
-	val unknown_iterators = 
-(*	    if List.exists (classHasIter (Iterator.unknownName)) classes then*)
-		[(Iterator.unknownName, DOF.UNKNOWN),
-		 (Iterator.postProcessOf "?", DOF.POSTPROCESS (Symbol.symbol "?")),
-		 (Iterator.updateOf "?", DOF.UPDATE (Symbol.symbol "?"))]
-(*	    else
-		[]*)
-
-	val systemproperties = (*{solver=solver}*){iterators=continuous_iterators @ discrete_iterators @ unknown_iterators,
+	val systemproperties = (*{solver=solver}*){iterators=continuous_iterators @ discrete_iterators,
 						   time=(exp2real (method "min_t" solverobj), exp2real (method "max_t" solverobj)),
 						   precision=DOF.DOUBLE (* TODO: Make this configurable *)}
     in

@@ -165,9 +165,7 @@ fun printModel (model: DOF.model) =
 		       | DOF.POSTPROCESS iter =>
 			 print ("  Post processing iterator of " ^ (Symbol.name iter) ^ "\n")
 		       | DOF.UPDATE iter =>
-			 print ("  Updating iterator of " ^ (Symbol.name iter) ^ "\n")
-		       | DOF.UNKNOWN =>
-			 print ("  Unknown iterator\n"))
+			 print ("  Updating iterator of " ^ (Symbol.name iter) ^ "\n"))
 		 )
 		 iterators)
 
