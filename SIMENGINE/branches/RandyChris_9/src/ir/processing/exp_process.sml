@@ -638,16 +638,12 @@ fun assignCorrectScopeOnSymbol exp =
 		else if isInitialConditionTerm exp then
 		    exp (* this doesn't really apply here ... *)
 		else
-		    (Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - unknown expression type"));
-		     DynException.setErrored();
-		     exp)
+		    error exp "Unexpected expression found when assign correct scope - unknown expression type"
 	      | NONE => (*(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - no temporal iterator"));
 			 DynException.setErrored();*)
 		exp
 	end
-      | _ => (Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - not a symbol"));
-	      DynException.setErrored();
-	      exp)
+      | _ => error exp "Unexpected expression found when assign correct scope - not a symbol"
 
 fun assignCorrectScope states exp =
     if isSymbol exp then
