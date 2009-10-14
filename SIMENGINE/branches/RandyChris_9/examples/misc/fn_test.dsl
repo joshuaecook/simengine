@@ -16,7 +16,7 @@ model (u,w,I) = fn_test(b0, b1, e)
 
   //state u_roots = 0
   equations
-    I[n+1] = I[n] + 0.5
+    I[n+1] = I[n] + 0.5*n
     u' = u - u*u*u / 3 - w + I[n]
     w' = e * (b0 + b1 * u - w)
 

@@ -13,6 +13,7 @@ sig
 
     (* Useful functions *)
     val classname2class: Symbol.symbol -> DOF.class (* Searches for a class with the given name in the current model *)
+    val itersym2iter: Symbol.symbol -> DOF.systemiterator (* Searches for the matching iterator *)
 
 end
 structure CurrentModel : CURRENTMODEL =
@@ -23,7 +24,7 @@ val empty_model:DOF.model
   = ([], 
      {name=NONE,classname=Symbol.symbol "empty"}, 
      {iterators=[(Symbol.symbol "t", DOF.CONTINUOUS Solver.default),
-		 (Symbol.symbol "n", DOF.DISCRETE {fs=1.0})],time=(0.0,0.0),precision=DOF.DOUBLE})
+		 (Symbol.symbol "n", DOF.DISCRETE {sample_period=1.0})],time=(0.0,0.0),precision=DOF.DOUBLE})
 
 val current_model = (ref empty_model: DOF.model ref)
 
@@ -76,5 +77,10 @@ fun iterators() =
 	iterators
     end
 				
+fun itersym2iter iter_sym =
+    case List.find (fn(iter_sym',_)=>iter_sym=iter_sym') (iterators()) of
+	SOME iter => iter
+      | NONE => DynException.stdException(("Can't find iterator with name '"^(Symbol.name iter_sym)^"'"),
+					  ("CurrentModel.itersym2iter"), Logger.INTERNAL)
 
 end

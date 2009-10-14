@@ -51,6 +51,7 @@ val instSpatialSize : Exp.exp -> int (* returns the assigned dimension of an ins
 (* Extract symbols from expressions in different forms *)
 val exp2symbol_names : Exp.exp -> string list
 val exp2symbols : Exp.exp -> Symbol.symbol list
+val exp2symbolset: Exp.exp -> SymbolSet.set
 val exp2termsymbols : Exp.exp -> Exp.term list
 val getLHSTerm : Exp.exp -> Exp.term (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
 val getLHSTerms : Exp.exp -> Exp.term list (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
@@ -96,6 +97,8 @@ fun exp2symbols (Exp.FUN (_, exps)) =
   | exp2symbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
     (exp2symbols (Exp.TERM t1)) @ (exp2symbols (Exp.TERM t2))
   | exp2symbols _ = []
+
+fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
     
 fun exp2termsymbols (Exp.FUN (_, exps)) = 
     List.concat (map exp2termsymbols exps)
@@ -681,9 +684,12 @@ fun assignCorrectScopeOnSymbol exp =
 	Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
 	let
 	    val iter = TermProcess.symbol2temporaliterator s
+	    val iter' = case iter of 
+			    SOME (iter_sym, iter_index) => SOME (iter_sym, iter_index, #2 (CurrentModel.itersym2iter iter_sym))
+			  | NONE => NONE
 	in
-	    case iter of
-		SOME (iter_sym, iter_type) => 
+	    case iter' of
+		SOME (iter_sym, iter_index, iter_type) => 
 		if isFirstOrderDifferentialTerm exp then
 		    case exp of 
 			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))))
@@ -697,16 +703,24 @@ fun assignCorrectScopeOnSymbol exp =
 			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))))
 		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		else if isNextUpdateTerm exp then
-		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    let
+			val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    in
+			case exp of 
+			    Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name orig_iter))))))
+			  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    end
 		else if isCurVarDifferenceTerm exp then
 		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))))
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope 
+												    props (*(Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))*)
+												    (Property.READSYSTEMSTATE iter_sym)))
 		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		else if isIntermediateTerm exp then
 		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))))
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope 
+												    props (*(Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))*)
+												    (Property.READSYSTEMSTATE iter_sym)))
 		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		else if isInitialConditionTerm exp then
 		    exp (* this doesn't really apply here ... *)

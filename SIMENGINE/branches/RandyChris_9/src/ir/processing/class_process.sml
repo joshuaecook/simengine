@@ -9,7 +9,7 @@ sig
     val class2instnames : DOF.class -> (Symbol.symbol * Symbol.symbol) list (* return a list of instances within the class as classname/instname tuples *)
     val class2orig_name : DOF.class -> Symbol.symbol (* the name of the class before it was renamed, for example during ordering *)
     val class2classname : DOF.class -> Symbol.symbol (* returns the class name as stored in the structure, not the "realclassname" *)
-    val findSymbols : DOF.class -> Symbol.symbol list (* return a list of every unique symbol name used in the class - helpful for global renaming *)
+    val findSymbols : DOF.class -> SymbolSet.set (* return a list of every unique symbol name used in the class - helpful for global renaming *)
     val class2states : DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
     val class2statesbyiterator : Symbol.symbol -> DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
@@ -23,6 +23,7 @@ sig
     val pruneClass : DOF.systemiterator option -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
     val propagateSpatialIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
     val assignCorrectScope : DOF.class -> unit (* sets read state or write state properties on symbols *)
+    val updateForkedClassScope : DOF.systemiterator -> DOF.class -> unit (* update the scopes on symbols for those reads that are to be read from a per-iterator state structure instead of the system state structure *)
     val addEPIndexToClass : bool -> DOF.class -> unit (* sets the embarrassingly parallel property on symbols in all but the top level class *)
     val makeSlaveClassProperties : DOF.classproperties -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
     val fixSymbolNames : DOF.class -> unit (* makes all symbol names C-compliant *)
@@ -168,24 +169,24 @@ fun findSymbols (class: DOF.class) =
 	val outputs = !(#outputs class)
 	val exps = !(#exps class)
 
+	fun exp2symbolset exp =
+	    ExpProcess.exp2symbolset exp
+
 	fun input2symbols (inp as {name, default}) =
-	    ExpProcess.exp2symbols (Exp.TERM (name)) @ 
-	    (case default of
-		 SOME v => ExpProcess.exp2symbols v
-	       | NONE => [])
+	    SymbolSet.fromList (ExpProcess.exp2symbols (Exp.TERM (name)) @ 
+				(case default of
+				     SOME v => ExpProcess.exp2symbols v
+				   | NONE => []))
 
 	fun output2symbols (out as {name, contents, condition}) =
-	    (ExpProcess.exp2symbols (Exp.TERM name)) @
-	    (Util.flatmap ExpProcess.exp2symbols contents) @
-	    (ExpProcess.exp2symbols condition)
+	    SymbolSet.unionList [(exp2symbolset (Exp.TERM name)),
+				 (SymbolSet.flatmap exp2symbolset contents),
+				 (exp2symbolset condition)]	    
 
-	fun exp2symbols exp =
-	    ExpProcess.exp2symbols exp
-	    
     in
-	Util.uniquify (Util.uniquify (Util.flatmap input2symbols inputs) @
-		       Util.uniquify ((Util.flatmap output2symbols outputs)) @
-		       Util.uniquify ((Util.flatmap exp2symbols exps)))
+	SymbolSet.unionList [SymbolSet.flatmap input2symbols inputs,
+			     (SymbolSet.flatmap output2symbols outputs),
+			     (SymbolSet.flatmap exp2symbolset exps)]
     end
 
 fun findStateSymbols (class: DOF.class) =
@@ -269,7 +270,8 @@ fun fixSymbolNames (class: DOF.class) =
 			 else
 			     sym2codegensym sym
     in
-	app (fn(sym)=>
+	SymbolSet.app 
+	    (fn(sym)=>
 	       let
 		   val sym' = fixsym sym
 	       in
@@ -627,6 +629,10 @@ fun assignCorrectScope (class: DOF.class) =
 	val symbols = map (Term.sym2curname o ExpProcess.exp2term) state_terms
 	val state_iterators_options = map (TermProcess.symbol2temporaliterator o ExpProcess.exp2term) state_terms
 	val iterators = CurrentModel.iterators()
+	val indexable_iterators = List.mapPartial (fn(iter_sym, iter_type)=> case iter_type of
+										 DOF.CONTINUOUS _ => SOME iter_sym
+									       | DOF.DISCRETE _ => SOME iter_sym
+									       | _ => NONE) iterators
 	val symbol_state_iterators = 
 	    let
 		val all_state_iterators = 
@@ -649,9 +655,34 @@ fun assignCorrectScope (class: DOF.class) =
 	(*val _ = Util.log ("In assignCorrectScope, producing rewriting rules: ")
 	val _ = app (fn(sym, (iter_sym,_))=> Util.log (" -> sym: " ^ (Symbol.name sym) ^ ", iter: " ^ (Symbol.name iter_sym))) symbol_state_iterators*)
 	(*Util.flatmap ExpProcess.exp2symbols state_terms*)
-	val actions = map (fn(sym, iter)=>{find=Match.asym sym, test=NONE, replace=Rewrite.ACTION (Symbol.symbol (Symbol.name sym ^ "["^(Symbol.name (#1 iter))^"]"), (fn(exp)=>ExpProcess.assignCorrectScopeOnSymbol (ExpProcess.prependIteratorToSymbol iter exp)))}) symbol_state_iterators
+	val actions = map 
+			  (fn(sym, iter)=>
+			     {find=Match.asym sym, 
+			      test=NONE, 
+			      replace=Rewrite.ACTION (Symbol.symbol (Symbol.name sym ^ "["^(Symbol.name (#1 iter))^"]"),
+						      (fn(exp)=>ExpProcess.assignCorrectScopeOnSymbol
+								    (ExpProcess.prependIteratorToSymbol iter exp)))}) 
+			  symbol_state_iterators
 
-	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
+	val iter_actions = map
+			       (fn(sym)=>
+				  {find=Match.asym sym,
+				   test=NONE,
+				   replace=Rewrite.ACTION (sym,
+							   (fn(exp)=> 
+							      case exp of
+								  Exp.TERM (Exp.SYMBOL (sym', props))=> 
+								  Exp.TERM (Exp.SYMBOL (sym', 
+											Property.setScope 
+											    props 
+											    Property.ITERATOR))
+									| _ => DynException.stdException
+										   ("Unexpected expression",
+										    "ClassProcess.assignCorrectScope.iter_actions", 
+										    Logger.INTERNAL)))})
+			       indexable_iterators
+
+	val exps' = map (fn(exp) => Match.applyRewritesExp (actions @ iter_actions) exp) exps
 
 	val outputs = !(#outputs class)
 	val outputs' =
@@ -729,6 +760,40 @@ fun assignCorrectScope (class: DOF.class) =
 	()
     end
     handle e => DynException.checkpoint "ClassProcess.assignCorrectScope" e
+
+fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
+    let
+	val exps = !(#exps class)
+	val outputs = !(#outputs class)
+
+	val new_scope = Property.READSTATE (Symbol.symbol (case iter_type of 
+							       DOF.UPDATE v => "rd_" ^ (Symbol.name v)
+							     | _ => "rd_" ^ (Symbol.name iter_sym)))
+
+	val pred = ("CheckingForScope",(fn(exp)=>
+					  case exp of
+					      Exp.TERM (Exp.SYMBOL (sym, props)) => 
+					      (case Property.getScope props of
+						   (Property.READSYSTEMSTATE v) => v = iter_sym
+						 | _ => false)
+					    | _ => false))
+
+	val find = Match.anysym_with_predlist [pred] (Symbol.symbol "a")
+	val action = (fn(exp)=>
+			case exp of 
+			    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props new_scope))
+			  | _ => exp)
+	val rewrite = {find=find, test=NONE, replace=Rewrite.ACTION (Symbol.symbol ("UpdateForkedClassIterTo:"^(Symbol.name iter_sym)),action)}
+	val exps' = map (Match.applyRewriteExp rewrite) exps
+	val outputs' = map (fn{name, contents, condition}=>
+			      {name=name, (* shouldn't have to update this term *)
+			       contents=map (Match.applyRewriteExp rewrite) contents,
+			       condition=Match.applyRewriteExp rewrite condition}) outputs
+
+    in
+	(#exps class := exps';
+	 #outputs class := outputs')
+    end
 
 fun pruneClass iter_option (class: DOF.class) = 
     let

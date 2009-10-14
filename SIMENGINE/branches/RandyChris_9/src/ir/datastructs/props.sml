@@ -6,8 +6,9 @@ type dimlist = length list
 
 datatype scopetype = LOCAL
 		   | READSTATE of Symbol.symbol (* needs to be pulled out of input structure *)
+		   | READSYSTEMSTATE of Symbol.symbol (* symbol here is the iterator to pull from  *)
 		   | WRITESTATE of Symbol.symbol (* needs to be written back to output structure *)
-
+		   | ITERATOR (* if it is an iterator, it needs to be prepended as such *)
 
 datatype ep_index_type = STRUCT_OF_ARRAYS | ARRAY
 

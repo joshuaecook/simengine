@@ -593,7 +593,7 @@ fun obj2dofmodel object =
 
 	val discrete_iterators = 
 	    if List.exists (classHasIter (Symbol.symbol "n")) classes then
-		[(Symbol.symbol "n", DOF.DISCRETE {fs=1.0}),
+		[(Symbol.symbol "n", DOF.DISCRETE {sample_period=1.0}),
 		 (Iterator.postProcessOf "n", DOF.POSTPROCESS (Symbol.symbol "n")),
 		 (Iterator.updateOf "n", DOF.UPDATE (Symbol.symbol "n"))]
 	    else

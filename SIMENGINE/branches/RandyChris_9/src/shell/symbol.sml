@@ -110,12 +110,22 @@ val compare = Symbol.compare)
 open SSet
 
 fun fromList alist = addList(empty, alist)
-fun toStr symset =
-    let
-	val symbols : Symbol.symbol list = listItems symset
-	val strings : string list = List.map Symbol.name symbols
+fun toStrList symset = 
+    let 
+	val symbols = listItems symset
     in
-	"{" ^ (String.concatWith ", " strings) ^ "}"
+	List.map Symbol.name symbols
     end
+fun toStr symset =
+    "{" ^ (String.concatWith ", " (toStrList symset)) ^ "}"
+
+(* val unionList : set list -> set *)
+fun unionList [] = empty
+  | unionList [set1] = set1
+  | unionList (set1::rest) = List.foldl union set1 rest
+
+(* val flatmap : (a' -> set) -> a' list -> set *)
+fun flatmap mapfun list = 
+    unionList (List.map mapfun list)
 
 end

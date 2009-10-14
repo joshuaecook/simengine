@@ -112,7 +112,9 @@ fun expsym2parts class exp =
 	    val prefix = case scope of
 			 Property.LOCAL => ""
 		       | Property.READSTATE v => Symbol.name v
+		       | Property.READSYSTEMSTATE v => "sys_rd->" ^ (Symbol.name v)
 		       | Property.WRITESTATE v => Symbol.name v
+		       | Property.ITERATOR => "iter"
 
 	    (*val (order, vars) = case Property.getDerivative props
 				 of SOME (order, iters) => (order, iters)

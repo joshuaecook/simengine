@@ -179,8 +179,9 @@ fun normalizeModel (model:DOF.model) =
 fun forkModelByIterator model (iter as (iter_sym,_)) = 
     let
 	fun namechangefun iter_sym = (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym)))
-	val model' = duplicateModel model (namechangefun iter_sym)
+	val model' as (classes',_,_) = duplicateModel model (namechangefun iter_sym)
 	val _ = pruneModel (SOME iter) model'
+	val _ = map (ClassProcess.updateForkedClassScope iter) classes'
     in
 	model'
     end

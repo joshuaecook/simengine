@@ -1,4 +1,12 @@
-structure TermProcess =
+signature TERMPROCESS = 
+sig
+
+    (* iterator related term functions *)
+    val symbol2temporaliterator : Exp.term -> Iterator.iterator option
+    val symbol2spatialiterators : Exp.term -> Iterator.iterator list
+
+end
+structure TermProcess : TERMPROCESS =
 struct
 
 fun symbol2temporaliterator term = 

@@ -20,7 +20,7 @@ type classproperties = {sourcepos: PosLog.pos,
 			classtype: classtype}
 
 datatype iteratortype = CONTINUOUS of Solver.solver
-		      | DISCRETE of {fs:real} (* sampling frequency *)
+		      | DISCRETE of {sample_period:real} (* sampling frequency *)
 		      | POSTPROCESS of Symbol.symbol
 		      | UPDATE of Symbol.symbol
 
