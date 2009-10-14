@@ -54,6 +54,6 @@ model (VmL3, VmR3, VmL4, VmR4, VmL1, VmR1) = timingNetwork(stimR4)
 	  output VmL1 = HNL1.Vm
 	  output VmR1 = HNR1.Vm
 	 
-	  solver = cvode//forwardeuler//ode23//forwardeuler
+	  solver = forwardeuler//ode23//forwardeuler
 	  solver.dt = 1e-4
 end

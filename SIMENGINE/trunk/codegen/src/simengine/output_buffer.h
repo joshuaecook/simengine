@@ -12,9 +12,7 @@
  * The 'ptr' and 'end' pointers are references to positions within 'buffer.'
  */
 #ifdef NUM_MODELS
-#define BUFFER_LEN 8000
 typedef struct{
-  unsigned int active_models;
   unsigned int finished[NUM_MODELS];
   unsigned int full[NUM_MODELS];
   unsigned int count[NUM_MODELS];

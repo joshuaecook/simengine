@@ -26,7 +26,12 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
   // values used in conditionals, not just the number of named outputs
   props.outputsize = outputsize;
   props.num_models = NUM_MODELS;
+#ifndef TARGET_GPU
   props.ob_size = sizeof(output_buffer);
+#else
+  // 2 device buffers for async execution
+  props.ob_size = 2*sizeof(output_buffer);
+#endif
   props.ob = ob;
   props.running = running;
 
@@ -65,7 +70,6 @@ int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *
     ob->finished[modelid] = 0;
     running[modelid] = 1;
   }
-  ob->active_models = NUM_MODELS;
 	     
   INTEGRATION_MEM *mem = SOLVER(INTEGRATION_METHOD, init, TARGET, SIMENGINE_STORAGE, &props);
 

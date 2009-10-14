@@ -3,8 +3,10 @@
 #include <string.h>
 #include <strings.h>
 #include <dlfcn.h>
+#include <math.h>
 
-#include "simengine.h"
+#include "simengine_api.h"
+#include "simengine_target.h"
 
 /* Loads the given named dynamic library file.
  * Returns an opaque handle to the library.
@@ -22,6 +24,47 @@ void *load_simengine(const char *name)
     return simengine;
     }
 
+void analyze_result(const simengine_interface *iface, simengine_result *result)
+    {
+    unsigned int modelid, outputid, sampleid, quantityid;
+    simengine_output *output = result->outputs;
+
+    for (modelid = 0; modelid < NUM_MODELS; ++modelid)
+	{
+	if (0 == modelid) { continue; }
+
+	double errorNorm = 0.0;
+
+	for (outputid = 0; outputid < iface->num_outputs; ++outputid)
+	    {
+	    simengine_output *op0 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid-1)];
+	    simengine_output *op1 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid)];
+
+//	    PRINTF("%d samples in model %d output %d\n", op1->num_samples, modelid, outputid);
+	    if (op1->num_samples != op0->num_samples)
+		{
+		PRINTF("difference of sample count from %d to %d: %d\n", modelid-1, modelid, op1->num_samples - op0->num_samples);
+		continue;
+		}
+
+	    for (sampleid = 0; sampleid < op1->num_samples; ++sampleid)
+		{
+		for (quantityid = 0; quantityid < op1->num_quantities; ++quantityid)
+		    {
+		    double d0 = op0->data[AS_IDX(op1->num_quantities, op1->num_samples, quantityid, sampleid)];
+		    double d1 = op1->data[AS_IDX(op1->num_quantities, op1->num_samples, quantityid, sampleid)];
+
+		    double diff = d1 - d0;
+		    errorNorm += diff * diff;
+		    }
+		}
+	    }
+
+	if (1.0e-6 < fabs(errorNorm - 0.0))
+	    { PRINTF("Error from %d to %d: %0.8f\n", modelid-1, modelid, errorNorm); }
+	}
+    }
+
 /* Retrieves function pointers to the simengine API calls. */
 simengine_api *init_simengine(void *simengine)
     {
@@ -29,13 +72,13 @@ simengine_api *init_simengine(void *simengine)
     char *msg;
     api = NMALLOC(1, simengine_api);
 
-    api->getinterface = (simengine_interface* (*)())dlsym(simengine, "simengine_getinterface");
+    api->getinterface = (simengine_getinterface_f)dlsym(simengine, "simengine_getinterface");
     if (0 != (msg = dlerror()))
 	{ 
 	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
 	    "dlsym() failed to load getinterface: %s", msg); 
 	}
-    api->runmodel = (simengine_result* (*)(double, double, unsigned int, double*, double*, simengine_alloc*))dlsym(simengine, "simengine_runmodel");
+    api->runmodel = (simengine_runmodel_f)dlsym(simengine, "simengine_runmodel");
     if (0 != (msg = dlerror()))
 	{ 
 	ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
@@ -57,12 +100,18 @@ void release_simengine(simengine_api *api)
 
 int main(int argc, char **argv)
     {
+    if (argc < 2) {
+      fprintf(stderr, "First argument must be the name of a simEngine DLL\n.");
+      exit(1);
+    }
+    char *name = argv[1];
+
     unsigned int models = NUM_MODELS, modelid;
+
     double stop_time = 10.0;
 
-    const char *name = "/home/jcook/SourceCode/simEngine/branches/clebsack_6/local-install/libsimengine.so";
     simengine_api *api = init_simengine(load_simengine(name));
-    simengine_interface *iface = api->getinterface();
+    const simengine_interface *iface = api->getinterface();
     simengine_alloc allocator = { MALLOC, REALLOC, FREE };
 
     double *inputs = NMALLOC(models * iface->num_inputs, double);
@@ -78,26 +127,16 @@ int main(int argc, char **argv)
 
     simengine_result *result = api->runmodel(0, stop_time, models, inputs, states, &allocator);
 
-    if (0 != result->status)
+    if (SUCCESS != result->status)
 	{
 	ERROR(Simatra:error, "runmodel returned non-zero status %d: %s", result->status, result->status_message);
 	}
 
-    simengine_output *output = result->outputs;
-    for (unsigned int modelid = 0; modelid < models; ++modelid)
-	{
-	for (unsigned int outputid = 0; outputid < iface->num_outputs; ++outputid, ++output)
-	    {
-	    for (unsigned int sampleid = 0; sampleid < output->num_samples; ++sampleid)
-		{
-		for (unsigned int quantityid = 0; quantityid < output->num_quantities; ++quantityid)
-		    {
-		    double d = output->data[AS_IDX(output->num_quantities, output->num_samples, quantityid, sampleid)];
+    analyze_result(iface, result);
 
-		    PRINTF("[%d %d %d %d]\t%f\n", modelid, outputid, sampleid, quantityid, d);
-		    }
-		}
-	    }
-	}
+
+    FREE(inputs);
+    FREE(states);
+    release_simengine(api);
     return 0;
     }

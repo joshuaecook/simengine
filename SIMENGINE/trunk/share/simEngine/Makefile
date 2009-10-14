@@ -79,14 +79,16 @@ CFLAGS += -fopenmp
 #endif
 
 ifneq ($(DEBUG),)
-	COMMON += -g
-	CFLAGS += -gdwarf-2
-	NVCCFLAGS += -D_DEBUG
+	COMMON += -g -ggdb
+	NVCCFLAGS += -g -D_DEBUG
 else
-	COMMON += -O2
-	NVCCFLAGS += --compiler-options -fno-strict-aliasing
-	CXXFLAGS += -fno-strict-aliasing
-	CFLAGS += -fno-strict-aliasing
+	COMMON += -O2 -fno-strict-aliasing
+	NVCCFLAGS += -O2
+endif
+
+ifneq ($(PROFILE),)
+	COMMON += -pg
+	NVCCFLAGS += -pg
 endif
 
 ifeq ($(ARCH),x86_64)
@@ -115,7 +117,7 @@ endif
 all: $(LIBSIMENGINE)
 
 clean:
-	$(RM) $(DSL_MODEL)_parallel.o $(LIBSIMENGINE) grind_simEngine
+	$(RM) $(DSL_MODEL)_parallel.o $(LIBSIMENGINE) grind_simEngine grind_simEngine.o
 
 real-clean: clean
 	$(RM) $(DSL_MODEL)*.c $(DSL_MODEL)*.m $(DSL_MODEL)*.cu

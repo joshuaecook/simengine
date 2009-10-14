@@ -452,7 +452,7 @@ fun logoutput_code class =
 			      (fn(out as ({condition, contents, name}, output_index))=> 
 				 [$("{ // Generating output for symbol " ^ (ExpProcess.exp2str (Exp.TERM name))),
 				  SUB[$("int cond = " ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ";"),
-				      $("if (cond) {"),
+				      $("if (cond && 0 == decimation[modelid]) {"),
 				      SUB([$("((unsigned int*)(ob->ptr[modelid]))[0] = " ^ (i2s output_index) ^ ";"),
 					   $("((unsigned int*)(ob->ptr[modelid]))[1] = " ^ (i2s (inc (List.length contents))) ^ ";"),
 					   $("ob->ptr[modelid] = &((unsigned int*)(ob->ptr[modelid]))[2];"),
@@ -477,8 +477,9 @@ fun logoutput_code class =
 	[$(""),
 	 $("#define MAX_OUTPUT_SIZE (NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT)) //size in bytes"),
 	 $(""),
+	 $("__DEVICE__ uint decimation[NUM_MODELS] = {0};"),
 	 $("__DEVICE__ void buffer_outputs(double t, output_data *od, output_buffer *ob, unsigned int modelid) {"),
-	 SUB(output_exps),
+	 SUB(output_exps @ [$("decimation[modelid] = (1+decimation[modelid]) & ((1<<DECIMATION)-1);")]),
 	 $("}"),
 	 $("")]
          else

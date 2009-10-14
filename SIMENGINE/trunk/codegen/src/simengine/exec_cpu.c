@@ -14,8 +14,6 @@ int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int model
 	mem->props->running[modelid] = 0;
 	((output_buffer*)(mem->props->ob))->finished[modelid] = 1;
 	// The CPU kernel is used within the Parallel CPU kernel
-#pragma omp critical
-	--((output_buffer*)(mem->props->ob))->active_models;
 #if NUM_OUTPUTS > 0
 	// Log output values for final timestep
 	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
