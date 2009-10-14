@@ -39,15 +39,22 @@ fun pruneModel iter_sym_opt model =
 fun duplicateClasses classes namechangefun = 
     let
 	(* create name mapping *)
-	val name_mapping = map (fn{name,...}=> (name, namechangefun name)) classes
+	val orig_names = map ClassProcess.class2orig_name classes
+	val name_mapping = map (fn({name,...},orig_name)=> (name, namechangefun name, orig_name, namechangefun orig_name)) (ListPair.zip(classes, orig_names))
 
 	(* duplicate the classes *)
 	val new_classes = 
-	    map (fn((c as {name,...},(_,new_name)))=> ClassProcess.duplicateClass c new_name) (ListPair.zip (classes, name_mapping))
+	    map (fn((c as {name,...},(_,new_name,_,new_orig_name)))=> 
+		   let
+		       val c' = ClassProcess.duplicateClass c new_name
+		       val c'' = ClassProcess.updateRealClassName c' new_orig_name
+		   in
+		       c''
+		   end) (ListPair.zip (classes, name_mapping))
 
 	(* update all the references in instances - this is O(n^2) - check for performance issues... *)
 	val _ = app
-		    (fn(orig_name, new_name)=> app (fn(c as {name,...}) => ClassProcess.renameInsts (orig_name, new_name) c) new_classes)
+		    (fn(name, new_name, orig_name, new_orig_name)=> app (fn(c as {name=name',...}) => ClassProcess.renameInsts ((name, new_name),(orig_name,new_orig_name)) c) new_classes)
 		    name_mapping
     in
 	new_classes
@@ -239,11 +246,14 @@ fun normalizeParallelModel (model:DOF.model) =
 
 	(* Just some debug code ...*)
 	val forkedModels = createIteratorForkedModels model
+	val prevModel = CurrentModel.getCurrentModel()
 	val _ = app
-		    (fn{top_class,iter=(iter_sym,_),model=model'}=>
-		       (Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' =====================");
+		    (fn{top_class,iter=(iter_sym,_),model=model'}=>		       
+		       (CurrentModel.setCurrentModel(model');
+			Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' =====================");
 			DOFPrinter.printModel model'))
 		    forkedModels
+	val _ = CurrentModel.setCurrentModel(prevModel)
 
 	val _ = DynException.checkToProceed()
     in

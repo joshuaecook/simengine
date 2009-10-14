@@ -159,7 +159,7 @@ local
 		    end
 		  | NONE => ";"
 	in
-	    "struct statedata_" ^ (Symbol.name classname)  ^ " " ^ (Symbol.name instname) ^ index
+	    "struct statedata_" ^ (Symbol.name classname) ^ " " ^ (Symbol.name instname) ^ index
 	end
 in
 fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
@@ -168,13 +168,17 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	val class_iterators = #iterators class
 	val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
+	val _ = Util.log ("in outputstatestructbyclass_code: calling class_inst_pairs for class " ^ (Symbol.name (#name class)))
 	val class_inst_pairs = ClassProcess.class2instnames class
+	val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs)^"}")
+
 	val class_inst_pairs_non_empty = 
 	    List.filter
 		(fn(classname,instname)=>
 		   ClassProcess.class2statesize (CurrentModel.classname2class classname) > 0
 		)
 		class_inst_pairs					 
+
     in
 	[$(""),
 	 $("// Define state structures"),
@@ -185,10 +189,13 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	      (map ($ o (instance2member instances)) class_inst_pairs_non_empty))),
 	 $("};")]
     end
+    handle e => DynException.checkpoint "CParallelWriter.outputstatestructbyclass_code" e       
 end
 
-fun outputstatestruct_code classes =
+fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
     let
+	val prevModel = CurrentModel.getCurrentModel()
+	val _ = CurrentModel.setCurrentModel(model)
 	fun isMasterClass {properties={classtype,...},...} =
 	    case classtype of
 		DOF.MASTER _ => true
@@ -200,6 +207,12 @@ fun outputstatestruct_code classes =
 		(fn(class)=> $("struct statedata_" ^ (Symbol.name ((*ClassProcess.class2orig_name*) ClassProcess.class2classname class)) ^ ";"))
 		master_classes
 
+
+	val prog = ($("")::
+		    ($("// Pre-declare state structures"))::predeclare_statements) @
+		   List.concat (map outputstatestructbyclass_code master_classes)
+
+	val _ = CurrentModel.setCurrentModel(prevModel)
     in
 	(*Util.flatmap (fn(iter as (name, itertype))=>
 			(($(""))::
@@ -207,10 +220,9 @@ fun outputstatestruct_code classes =
 			 (map (fn(str)=> $(str ^ "_" ^ (Symbol.name name) ^ ";")) predeclare_statements)) @
 			List.concat (map (outputstatestructbyclass_code iter) master_classes)) iterators*)
 	
-	($("")::
-	 ($("// Pre-declare state structures"))::predeclare_statements) @
-	List.concat (map outputstatestructbyclass_code master_classes)
-    end
+	prog
+    end 
+    handle e => DynException.checkpoint "CParallelWriter.outputstatestruct_code" e
 
 fun outputsystemstatestruct_code forkedModels =
     [$(""),
@@ -220,9 +232,9 @@ fun outputsystemstatestruct_code forkedModels =
      $("};"),
      $("")]
 
-fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
+fun class2flow_code (orig_name, (class, top_class, iter as (iter_sym, iter_type))) =
     let
-	val orig_name = ClassProcess.class2orig_name class
+	(*val orig_name = ClassProcess.class2orig_name class*)
 
 	val has_states = case iter_type of 
 			     DOF.UPDATE _ => true
@@ -455,6 +467,7 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 	 $("}"),
 	 $("")]
     end
+    handle e => DynException.checkpoint "CParallelWriter.class2flow_code" e
 
 fun flow_wrapper (class, (iter_sym, _)) =
     let
@@ -486,7 +499,7 @@ fun flow_wrapper (class, (iter_sym, _)) =
 
 
 
-fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*){model as (classes,_,_), iter as (iter_sym, iter_type), top_class} = 
+fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*)orig_name {model as (classes,_,_), iter as (iter_sym, iter_type), top_class} = 
     let
 	val prevModel = CurrentModel.getCurrentModel()
 	val _ = CurrentModel.setCurrentModel(model)
@@ -514,7 +527,7 @@ fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*){model as (class
 	val fundecl_progs = map
 				(fn(class) => 
 				   let
-				       val orig_name = ClassProcess.class2orig_name class
+				       (*val orig_name = ClassProcess.class2orig_name class*)
 				       val class_has_states = case iter_type of
 								  DOF.UPDATE _ => true
 								| _ => ClassProcess.class2statesize class > 0
@@ -562,7 +575,7 @@ fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*){model as (class
 						  DynException.setErrored();
 						  [])
 					     else
-						 class2flow_code (c,#name c = #name topclass, iter)) classes)
+						 class2flow_code (orig_name, (c,#name c = #name topclass, iter))) classes)
 
 	val top_level_flow_progs = 
 	    [$"",
@@ -589,6 +602,7 @@ fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*){model as (class
     (*(Util.flatmap (fn(iter)=>flow_wrapper (topclass, iter)) iterators)*)
 	(*top_level_flow_progs*)
     end
+    handle e => DynException.checkpoint "CParallelWriter.flow_code" e
 
 
 fun output_code (name, location, block) =
@@ -680,7 +694,8 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 
 	val {name=inst_name, classname=class_name} = inst
 	val inst_class = CurrentModel.classname2class class_name
-	val class_name = Symbol.name (#name inst_class)
+	val orig_name = #name inst_class
+	val class_name = Symbol.name orig_name
 
 	val statespace = ClassProcess.class2statesize inst_class
 
@@ -702,9 +717,9 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, solver_name)
 	val iteratordatastruct_progs = iteratordatastruct_code iterators
 	val outputdatastruct_progs = outputdatastruct_code inst_class
-	val outputstatestruct_progs = Util.flatmap (fn{model=(classes',_,_),...} => outputstatestruct_code classes') forkedModelsLessUpdate
+	val outputstatestruct_progs = Util.flatmap (fn{model,...} => outputstatestruct_code model) forkedModelsLessUpdate
 	val systemstate_progs = outputsystemstatestruct_code forkedModelsLessUpdate
-	val flow_data = map flow_code forkedModels
+	val flow_data = map (flow_code orig_name) forkedModels
 	val fun_prototypes = List.concat (map #1 flow_data)
 	val flow_progs = List.concat (map #2 flow_data)
 	val logoutput_progs = logoutput_code inst_class

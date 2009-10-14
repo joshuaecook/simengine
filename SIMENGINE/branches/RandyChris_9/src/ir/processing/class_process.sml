@@ -20,6 +20,7 @@ sig
 
     (* Functions to modify class properties, usually recursively through the expressions *)
     val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
+    val updateRealClassName : DOF.class -> Symbol.symbol -> DOF.class 
     val pruneClass : DOF.systemiterator option -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
     val propagateSpatialIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
     val assignCorrectScope : DOF.class -> unit (* sets read state or write state properties on symbols *)
@@ -28,19 +29,21 @@ sig
     val makeSlaveClassProperties : DOF.classproperties -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
     val fixSymbolNames : DOF.class -> unit (* makes all symbol names C-compliant *)
     val sym2codegensym : Symbol.symbol -> Symbol.symbol (* helper function used by fixSymbolNames to update just one symbol *)
-    val renameInsts : (Symbol.symbol * Symbol.symbol) -> DOF.class -> unit (* change all instance names in a class *)
+    type sym = Symbol.symbol
+    val renameInsts :  ((sym * sym) * (sym * sym)) -> DOF.class -> unit (* change all instance names in a class *)
     val createEventIterators : DOF.class -> unit (* searches out postprocess and update iterators *)
 
 end
 structure ClassProcess : CLASSPROCESS = 
 struct
 
+type sym = Symbol.symbol
 val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
 
 fun duplicateClass (class: DOF.class) new_name =
     let
-	val {name, properties, inputs, outputs, exps, iterators} = class						       
+	val {name, properties, inputs, outputs, exps, iterators} = class
     in
 	{name=new_name,
 	 iterators=iterators,
@@ -50,12 +53,28 @@ fun duplicateClass (class: DOF.class) new_name =
 	 exps=ref (!exps)}
     end
 
-fun renameInsts (orig_name, new_name) (class: DOF.class) =
+fun updateRealClassName (class: DOF.class) new_name =
+    let
+	val {name, properties={sourcepos,classform,classtype}, inputs, outputs, exps, iterators} = class
+	val classtype' = case classtype of
+			      DOF.MASTER _ => DOF.MASTER new_name
+			    | DOF.SLAVE _ => DOF.SLAVE new_name
+    in
+	{name=name,
+	 iterators=iterators,
+	 properties={sourcepos=sourcepos,classform=classform,classtype=classtype'},
+	 inputs=inputs,
+	 outputs=outputs,
+	 exps=exps}
+    end	
+
+fun renameInsts (syms as ((name, new_name),(orig_name, new_orig_name))) (class: DOF.class) =
     let	
+	val _ = Util.log("in ClassProcess.renameInsts: class=" ^ (Symbol.name (#name class)) ^ ", name="^(Symbol.name name)^" ,new_name=" ^ (Symbol.name new_name))
 	val exps = !(#exps class)
 	val outputs = !(#outputs class)
 
-	val rename = ExpProcess.renameInst (orig_name, new_name)
+	val rename = ExpProcess.renameInst syms
 	val exps' = map rename exps
 	val outputs' = map
 			   (fn{name,condition,contents}=>{name=name,
@@ -475,6 +494,9 @@ fun class2instnames (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list =
 							     DOF.MASTER c => c 
 							   | DOF.SLAVE c => c)
 	      | _ => orig_name
+
+	val _ = Util.log ("In class2instname: all_classes={"^(String.concatWith ", " (map (fn(c)=> (Symbol.name (#name c) ^ ":" ^ (Symbol.name (name2orig_name (#name c))))) all_classes))^"}")
+
     in
 	map (fn(c,i)=>(name2orig_name c, i)) classes_insts
     end

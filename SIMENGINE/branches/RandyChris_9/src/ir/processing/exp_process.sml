@@ -39,7 +39,8 @@ val equation2rewrite : Exp.exp -> Rewrite.rewrite (* if a == b, then make a -> b
 
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
-val renameInst : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, updating instance names *)
+type sym = Symbol.symbol
+val renameInst : ((sym * sym) * (sym * sym)) -> Exp.exp -> Exp.exp (* Traverse through the expression, updating instance names *)
 val exp2size : DOF.classiterator list -> Exp.exp -> int
 val enableEPIndex : bool -> (Symbol.symbol list) -> Exp.exp -> Exp.exp (* Add an EP index property when running an embarrassingly parallel simulation *)
 val assignCorrectScopeOnSymbol : Exp.exp -> Exp.exp (* addes the read and write state attributes based on found derivatives or differential terms *)
@@ -68,6 +69,7 @@ end
 structure ExpProcess : EXPPROCESS =
 struct
 
+type sym = Symbol.symbol
 val i2s = Util.i2s
 val r2s = Util.r2s
 val b2s = Util.b2s
@@ -143,15 +145,16 @@ fun renameSym (orig_sym, new_sym) exp =
 	end
       | _ => exp
 
-fun renameInst (orig_sym, new_sym) exp =
+fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
     case exp of
 	Exp.FUN (Fun.INST (inst as {classname,instname,props}), args) =>
-	if classname=orig_sym then
-	    Exp.FUN (Fun.INST {classname=new_sym,instname=instname,props=props}, 
-		     map (renameInst (orig_sym, new_sym)) args)
+	if classname=sym then
+	    (Util.log("Renaming '"^(Symbol.name sym)^"' to '"^(Symbol.name new_sym)^"' and '"^(Symbol.name orig_sym)^"' to '"^(Symbol.name new_orig_sym)^"'");
+	     Exp.FUN (Fun.INST {classname=new_sym,instname=instname,props=InstProps.setRealClassName props new_orig_sym}, 
+		     map (renameInst syms) args))
 	else
-	    Exp.FUN (Fun.INST inst, map (renameInst (orig_sym, new_sym)) args)
-      | Exp.FUN (f, args) => Exp.FUN (f, map (renameInst (orig_sym, new_sym)) args)
+	    Exp.FUN (Fun.INST inst, map (renameInst syms) args)
+      | Exp.FUN (f, args) => Exp.FUN (f, map (renameInst syms) args)
       | _ => exp
 
 fun log_exps (header, exps) = 
