@@ -1,45 +1,59 @@
 #ifndef TARGET_GPU
 // Run a single model to completion on a single processor core
-int exec_cpu(INTEGRATION_MEM *mem, simengine_output *outputs, unsigned int modelid){
+int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modelid){
+  Iterator iter;
+  Iterator i;
+
+  props->running[modelid] = 1;
   // Run simulation to completion
-//  while(mem->props->time[modelid] < mem->props->stoptime){
-  while(mem->props->running[modelid]){
+  while(model_running(props, modelid)){
     // Initialize a temporary output buffer
-    init_output_buffer((output_buffer*)(mem->props->ob), modelid);
+    init_output_buffer((output_buffer*)(props->ob), modelid);
  
     // Run a set of iterations until the output buffer is full
-    while(0 == ((output_buffer *)(mem->props->ob))->full[modelid]){
+    while(0 == ((output_buffer *)(props->ob))->full[modelid]){
       // Check if simulation is complete (or produce only a single output if there are no states)
-      if(!mem->props->running[modelid] || mem->props->statesize == 0){
-	mem->props->running[modelid] = 0;
-	((output_buffer*)(mem->props->ob))->finished[modelid] = 1;
-	// The CPU kernel is used within the Parallel CPU kernel
-#pragma omp critical
-	--((output_buffer*)(mem->props->ob))->active_models;
+      if(!props->running[modelid] || props->statesize == 0){
+	props->running[modelid] = 0;
+	((output_buffer*)(props->ob))->finished[modelid] = 1;
 #if NUM_OUTPUTS > 0
 	// Log output values for final timestep
 	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
-	model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
+	model_flows(props->time[modelid], props->model_states, props->next_states, props->inputs, props->outputs, 1, modelid);
 	// Buffer the last values
-	buffer_outputs(mem->props->time[modelid],((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
+	buffer_outputs(props, modelid);
 #endif
 	break;
       }
 		 
-      CDATAFORMAT prev_time = mem->props->time[modelid];
+      // Find the iterator which is earliest in time
+      iter = find_min_t(props, modelid);
+      CDATAFORMAT prev_time = props[iter].time[modelid] * props[iter].count[modelid];
+
+      // Write state values back to state storage if they occur before time of iter
+      for(i=0;i<NUM_ITERATORS;i++)
+	if(props[i].time <= props[iter].time)
+	  solver_writeback(&props[i], modelid);
 
       // Execute solver for one timestep
-      SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);
+      solver_eval(&props[iter], modelid);
+
+      // Perform any state updates
+      update(&props[iter], modelid);
+
+      // Perform any post process evaluations
+      post_process(&props[iter], modelid);
+
 
 #if NUM_OUTPUTS > 0
       // Store a set of outputs only if the sovler made a step
-      if (mem->props->time[modelid] > prev_time) {
-	buffer_outputs(prev_time, ((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
+      if (props[iter].time[modelid] * props[iter].count[modelid] > prev_time) {
+	buffer_outputs(&props[iter], modelid);
       }
 #endif
     }
     // Log outputs from buffer to external api interface
-    if(0 != log_outputs((output_buffer*)mem->props->ob, outputs, modelid)){
+    if(0 != log_outputs((output_buffer*)props->ob, outputs, modelid)){
       return ERRMEM;
     }
   }

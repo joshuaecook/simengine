@@ -1,7 +1,9 @@
 
 #define START_SIZE 1000
 
-int exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs);
+solver_props* init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs);
+void free_solver_props(solver_props *props);
+int exec_loop(solver_props *props);
 
 // simEngine API: simengine_getinterface()
 //
@@ -18,7 +20,6 @@ EXTERN_C
 simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc){
   CDATAFORMAT model_states[NUM_MODELS * NUM_STATES];
   CDATAFORMAT parameters[NUM_MODELS * NUM_INPUTS];
-  CDATAFORMAT time[NUM_MODELS];
   unsigned int stateid;
   unsigned int modelid;
   unsigned int inputid;
@@ -72,7 +73,6 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 	     
   // Copy inputs and state initial values to internal representation
   for(modelid=0; modelid<semeta.num_models; modelid++){
-    time[modelid] = start_time;
     for(stateid=0;stateid<seint.num_states;stateid++){
       model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)];
     }
@@ -90,18 +90,23 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
       seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].data = (double*)se_alloc.malloc(START_SIZE*seint.output_num_quantities[outputid]*sizeof(double));
     }
   }
-	     
+
+  // Initialize the solver properties
+  solver_props *props = init_solver_props(start_time, stop_time, parameters, model_states, seresult->outputs);
   // Run the model
-  seresult->status = exec_loop(time, stop_time, parameters, model_states, seresult->outputs);
+  seresult->status = exec_loop(props);
   seresult->status_message = (char*) simengine_errors[seresult->status];
 	     
   // Copy state values back to state initial value structure
   for(modelid=0; modelid<semeta.num_models; modelid++){
-    seresult->final_time[modelid] = time[modelid];
+    seresult->final_time[modelid] = props->time[modelid]; // Time from the first solver
     for(stateid=0;stateid<seint.num_states;stateid++){
       seresult->final_states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)];
     }
   }
+
+  free_solver_props(props);
+
   return seresult;
 }
 

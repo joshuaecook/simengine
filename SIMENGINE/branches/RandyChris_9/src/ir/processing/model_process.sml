@@ -14,6 +14,7 @@ structure ModelProcess : sig
     val normalizeParallelModel : DOF.model -> unit
 
     (* model2statesizebyiterator: Computes the total state space of the model on a per iterator basis *)
+    val model2statesize : DOF.model -> int
     val model2statesizebyiterator : DOF.systemiterator -> DOF.model -> int
 
     (* createIteratorForkedModels: Creates a structure list of models that are unique by iterator *)

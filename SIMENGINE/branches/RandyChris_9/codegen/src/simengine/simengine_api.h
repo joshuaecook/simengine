@@ -19,7 +19,8 @@ const char *simengine_errors[] = {"Success", "Out of memory error", "Flow comput
 typedef struct {
   const unsigned long long hashcode; // Signature of the DSL model file
   const unsigned int num_models; // Parallel count of models given at compilation
-  const char *solver; // Name of integration method
+  const int num_solvers;
+  const char **solvers; // Name of integration methods
   const char *target; // Name of compute target
   const size_t precision; // Number of bytes in data storage, e.g. 4 = single-precision
   // TODO maybe include data about the compiler itself, e.g. branch id, build time, etc.
@@ -27,9 +28,11 @@ typedef struct {
 
 typedef struct{
   const unsigned long version;
+  const unsigned int num_iterators;
   const unsigned int num_inputs;
   const unsigned int num_states;
   const unsigned int num_outputs;
+  const char **iterator_names;
   const char **input_names;
   const char **state_names;
   const char **output_names;

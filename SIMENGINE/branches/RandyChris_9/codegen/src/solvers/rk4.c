@@ -1,7 +1,15 @@
 // Runga-Kutta (4th order) Integration Method
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
 
-rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
+typedef struct {
+  CDATAFORMAT *k1;
+  CDATAFORMAT *k2;
+  CDATAFORMAT *k3;
+  CDATAFORMAT *k4;
+  CDATAFORMAT *temp;
+} rk4_mem;
+
+int rk4_init(solver_props *props){
 #if defined TARGET_GPU
   GPU_ENTRY(init, SIMENGINE_STORAGE);
 
@@ -28,59 +36,62 @@ rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props) {
 
   rk4_mem *mem = (rk4_mem*)malloc(sizeof(rk4_mem));
 
-  mem->props = props;
+  props->mem = mem;
   mem->k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->k2 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->k3 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->k4 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  props->next_states = mem->k1;
 
-  return mem;
+  return 0;
 #endif
 }
 
-__DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int modelid) {
+int rk4_eval(solver_props *props, unsigned int modelid){
   int i;
   int ret;
 
   // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
-  mem->props->running[modelid] = mem->props->time[modelid] + mem->props->timestep <= mem->props->stoptime;
-  if(!mem->props->running[modelid])
+  props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
+  if(!props->running[modelid])
     return 0;
 
-  ret = model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
-  for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
-      (mem->props->timestep/2)*mem->k1[STATE_IDX];
-  }
-  ret |= model_flows(mem->props->time[modelid]+(mem->props->timestep/2), mem->temp, mem->k2, mem->props->inputs, mem->props->outputs, 0, modelid);
+  rk4_mem *mem = props->mem;
 
-  for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
-      (mem->props->timestep/2)*mem->k2[STATE_IDX];
+  ret = model_flows(props->time[modelid], props->model_states, mem->k1, props, 1, modelid);
+  for(i=props->statesize-1; i>=0; i--) {
+    mem->temp[STATE_IDX] = props->model_states[STATE_IDX] +
+      (props->timestep/2)*mem->k1[STATE_IDX];
   }
-  ret |= model_flows(mem->props->time[modelid]+(mem->props->timestep/2), mem->temp, mem->k3, mem->props->inputs, mem->props->outputs, 0, modelid);
+  ret |= model_flows(props->time[modelid]+(props->timestep/2), mem->temp, mem->k2, props, 0, modelid);
 
-  for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->temp[STATE_IDX] = mem->props->model_states[STATE_IDX] +
-      mem->props->timestep*mem->k3[STATE_IDX];
+  for(i=props->statesize-1; i>=0; i--) {
+    mem->temp[STATE_IDX] = props->model_states[STATE_IDX] +
+      (props->timestep/2)*mem->k2[STATE_IDX];
   }
-  ret |= model_flows(mem->props->time[modelid]+mem->props->timestep, mem->temp, mem->k4, mem->props->inputs, mem->props->outputs, 0, modelid);
+  ret |= model_flows(props->time[modelid]+(props->timestep/2), mem->temp, mem->k3, props, 0, modelid);
 
-  for(i=mem->props->statesize-1; i>=0; i--) {
-    mem->props->model_states[STATE_IDX] = mem->props->model_states[STATE_IDX] +
-      (mem->props->timestep/6.0) * (mem->k1[STATE_IDX] +
+  for(i=props->statesize-1; i>=0; i--) {
+    mem->temp[STATE_IDX] = props->model_states[STATE_IDX] +
+      props->timestep*mem->k3[STATE_IDX];
+  }
+  ret |= model_flows(props->time[modelid]+props->timestep, mem->temp, mem->k4, props, 0, modelid);
+
+  for(i=props->statesize-1; i>=0; i--) {
+    props->next_states[STATE_IDX] = props->model_states[STATE_IDX] +
+      (props->timestep/6.0) * (mem->k1[STATE_IDX] +
 				    2*mem->k2[STATE_IDX] +
 				    2*mem->k3[STATE_IDX] +
 				    mem->k4[STATE_IDX]);
   }
 
-  mem->props->time[modelid] += mem->props->timestep;
+  props->time[modelid] += props->timestep;
 
   return ret;
 }
 
-void SOLVER(rk4, free, TARGET, SIMENGINE_STORAGE, rk4_mem *mem) {
+int rk4_free(solver_props *props){
 #if defined TARGET_GPU
   rk4_mem tmem;
 
@@ -99,11 +110,14 @@ void SOLVER(rk4, free, TARGET, SIMENGINE_STORAGE, rk4_mem *mem) {
 
 #else // Used for CPU and OPENMP targets
 
+  rk4_mem *mem = props->mem;
+
   free(mem->k2);
   free(mem->k3);
   free(mem->k4);
   free(mem->temp);
   free(mem);
 
+  return 0;
 #endif // defined TARGET_GPU  free(mem->k1);
 }

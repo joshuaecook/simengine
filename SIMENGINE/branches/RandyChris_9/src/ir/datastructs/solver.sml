@@ -84,35 +84,35 @@ fun cvode_solver2params CVDENSE = [("CVODE_SOLV", "CVODE_DENSE")]
      ("CVODE_UPPERHALFBW", i2s upperhalfbw),
      ("CVODE_LOWERHALFBW", i2s lowerhalfbw)]
 
-fun solver2params (FORWARD_EULER {dt}) = [("DT", r2s dt),
-					  ("ABSTOL", "0.0"),
-					  ("RELTOL", "0.0")]
-  | solver2params (EXPONENTIAL_EULER {dt}) = [("DT", r2s dt),
-					      ("ABSTOL", "0.0"),
-					      ("RELTOL", "0.0")]
-  | solver2params (RK4 {dt}) = [("DT", r2s dt),
-				("ABSTOL", "0.0"),
-				("RELTOL", "0.0")]
-  | solver2params (MIDPOINT {dt}) = [("DT", r2s dt),
-				     ("ABSTOL", "0.0"),
-				     ("RELTOL", "0.0")]
-  | solver2params (HEUN {dt}) = [("DT", r2s dt),
-				 ("ABSTOL", "0.0"),
-				 ("RELTOL", "0.0")]
+fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
+					  ("abstol", "0.0"),
+					  ("abstol", "0.0")]
+  | solver2params (EXPONENTIAL_EULER {dt}) = [("timestep", r2s dt),
+					      ("abstol", "0.0"),
+					      ("reltol", "0.0")]
+  | solver2params (RK4 {dt}) = [("timestep", r2s dt),
+				("abstol", "0.0"),
+				("reltol", "0.0")]
+  | solver2params (MIDPOINT {dt}) = [("timestep", r2s dt),
+				     ("abstol", "0.0"),
+				     ("reltol", "0.0")]
+  | solver2params (HEUN {dt}) = [("timestep", r2s dt),
+				 ("abstol", "0.0"),
+				 ("reltol", "0.0")]
   | solver2params (ODE23 {dt, abs_tolerance, rel_tolerance}) = 
-    [("DT", r2s dt),
-     ("ABSTOL", r2s abs_tolerance),
-     ("RELTOL", r2s rel_tolerance)]
+    [("timestep", r2s dt),
+     ("abstol", r2s abs_tolerance),
+     ("reltol", r2s rel_tolerance)]
   | solver2params (ODE45 {dt, abs_tolerance, rel_tolerance}) = 
-    [("DT", r2s dt),
-     ("ABSTOL", r2s abs_tolerance),
-     ("RELTOL", r2s rel_tolerance)]
+    [("timestep", r2s dt),
+     ("abstol", r2s abs_tolerance),
+     ("reltol", r2s rel_tolerance)]
   | solver2params (CVODE {dt, abs_tolerance, rel_tolerance, lmm, iter, solv}) = 
-    [("DT", r2s dt),
-     ("ABSTOL", r2s abs_tolerance),
-     ("RELTOL", r2s rel_tolerance),
-     ("CVODE_LMM", case lmm of CV_ADAMS => "CV_ADAMS" | CV_BDF => "CV_BDF"),
-     ("CVODE_ITER", case iter of CV_FUNCTIONAL => "CV_FUNCTIONAL" | CV_NEWTON => "CV_NEWTON")] @ 
+    [("timestep", r2s dt),
+     ("abstol", r2s abs_tolerance),
+     ("reltol", r2s rel_tolerance),
+     ("cvode.lmm", case lmm of CV_ADAMS => "CV_ADAMS" | CV_BDF => "CV_BDF"),
+     ("cvode.iter", case iter of CV_FUNCTIONAL => "CV_FUNCTIONAL" | CV_NEWTON => "CV_NEWTON")] @ 
     cvode_solver2params solv
 
 (*

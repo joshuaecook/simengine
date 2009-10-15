@@ -204,7 +204,7 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
     mxDestroyArray(mxGetField(metadata, 0, "num_models"));
     mxSetField(metadata, 0, "num_models", mxCreateDoubleScalar((double)iface->metadata->num_models));
     mxDestroyArray(mxGetField(metadata, 0, "solver"));
-    mxSetField(metadata, 0, "solver", mxCreateString(iface->metadata->solver));
+    mxSetField(metadata, 0, "solver", mxCreateString(iface->metadata->solvers[0])); // FIXME, solvers is now a list of solvers!!!
     mxDestroyArray(mxGetField(metadata, 0, "precision"));
     mxSetField(metadata, 0, "precision",  mxCreateDoubleScalar((double)iface->metadata->precision));
     }
