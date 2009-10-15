@@ -24,7 +24,42 @@ structure ModelProcess : sig
     val duplicateModel : DOF.model -> (Symbol.symbol -> Symbol.symbol) -> DOF.model
     val pruneModel : (DOF.systemiterator option) -> DOF.model -> unit
 	
+    (* Iterator related functions - these all grab the iterators from CurrentModel *)
+    val returnIndependentIterators : unit -> Symbol.symbol list
+    val hasUpdateIterator : Symbol.symbol -> bool
+    val hasPostProcessIterator : Symbol.symbol -> bool
+
 end = struct
+
+
+fun returnIndependentIterators () =
+    let
+	val iterators = CurrentModel.iterators()
+    in
+	List.mapPartial (fn(iter_sym,iter_type)=>case iter_type of
+						     DOF.CONTINUOUS _ => SOME iter_sym
+						   | DOF.DISCRETE _ => SOME iter_sym
+						   | _ => NONE) iterators			      
+    end
+
+fun hasUpdateIterator iter_sym =
+    let
+	val iterators = CurrentModel.iterators()
+    in
+	List.exists (fn(_,iter_type)=>case iter_type of
+					  DOF.UPDATE v => v=iter_sym
+					| _ => false) iterators
+    end
+    
+fun hasPostProcessIterator iter_sym =
+    let
+	val iterators = CurrentModel.iterators()
+    in
+	List.exists (fn(_,iter_type)=>case iter_type of
+					  DOF.POSTPROCESS v => v=iter_sym
+					| _ => false) iterators
+    end
+    
 
 fun pruneModel iter_sym_opt model = 
     let
