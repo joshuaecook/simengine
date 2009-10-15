@@ -64,7 +64,7 @@ fun genlist2str data2str [data] =
 val symbollist2str = genlist2str Symbol.name
 val contents2str = genlist2str e2s
 
-fun printClass (class as {name, properties={sourcepos, classform, classtype}, inputs, outputs, iterators, exps}) =
+fun printClass (class as {name, properties={sourcepos, basename, classform, classtype}, inputs, outputs, iterators, exps}) =
     (case classtype of
 	 DOF.SLAVE orig_class_name => 
 	 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")

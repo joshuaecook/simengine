@@ -149,7 +149,7 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
     case exp of
 	Exp.FUN (Fun.INST (inst as {classname,instname,props}), args) =>
 	if classname=sym then
-	    (Util.log("Renaming '"^(Symbol.name sym)^"' to '"^(Symbol.name new_sym)^"' and '"^(Symbol.name orig_sym)^"' to '"^(Symbol.name new_orig_sym)^"'");
+	    ((*Util.log("Renaming '"^(Symbol.name sym)^"' to '"^(Symbol.name new_sym)^"' and '"^(Symbol.name orig_sym)^"' to '"^(Symbol.name new_orig_sym)^"'");*)
 	     Exp.FUN (Fun.INST {classname=new_sym,instname=instname,props=InstProps.setRealClassName props new_orig_sym}, 
 		     map (renameInst syms) args))
 	else

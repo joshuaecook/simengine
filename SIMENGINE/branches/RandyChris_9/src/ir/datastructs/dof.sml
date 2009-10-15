@@ -16,6 +16,7 @@ datatype classform = FUNCTIONAL
 
 
 type classproperties = {sourcepos: PosLog.pos,
+			basename: Symbol.symbol,
 			classform: classform,
 			classtype: classtype}
 
