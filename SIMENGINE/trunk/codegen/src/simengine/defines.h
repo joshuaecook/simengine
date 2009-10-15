@@ -2,11 +2,11 @@
 #define GPU_BLOCK_SIZE 192
 
 #ifndef MAX_ITERATIONS
-#define MAX_ITERATIONS 65536
+#define MAX_ITERATIONS (32*1024)
 #endif
 
 #ifndef BUFFER_LEN
-#define BUFFER_LEN (2048*16)
+#define BUFFER_LEN (8*1024)
 #endif
 
 #ifndef DECIMATION

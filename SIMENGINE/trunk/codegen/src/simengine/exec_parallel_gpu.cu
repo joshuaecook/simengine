@@ -129,12 +129,16 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
 		    }
 		}
 
+#           if defined _DEBUG
 		{
+		float total_consumption = 0.0f;
 		logging_elapsed = getnanos() - logging_start;
-#               if defined _DEBUG
+		for (modelid=0; modelid<NUM_MODELS; modelid++)
+		  { total_consumption += output_buffer_consumption[modelid]; }
 		PRINTF("logging %d elapsed %.4fs\n", (1^kid), logging_elapsed / 1.0E9);
-#               endif
+		PRINTF("%.f%% average buffer consumption\n", 1.0e2f * total_consumption / NUM_MODELS);
 		}
+#           endif
 	    }
 	else if (active_models)
 	    {

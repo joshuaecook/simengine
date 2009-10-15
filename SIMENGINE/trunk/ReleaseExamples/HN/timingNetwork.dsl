@@ -9,7 +9,7 @@ import "hn34.dsl"
 import "hn12.dsl"
 import "synapse.dsl"
 
-model (VmL3, VmR3, VmL4, VmR4, VmL1, VmR1) = timingNetwork(stimR4)
+model (Vm) = timingNetwork(stimR4)
 	  input stimR4 with {default = 0}
 
 	  submodel hn34 HNL3 with {gleak = 11, Eleak = -62.5}
@@ -47,12 +47,7 @@ model (VmL3, VmR3, VmL4, VmR4, VmL1, VmR1) = timingNetwork(stimR4)
 
 	  HNR4.IStim = stimR4
 
-	  output VmL3 = HNL3.Vm
-	  output VmR3 = HNR3.Vm
-	  output VmL4 = HNL4.Vm
-	  output VmR4 = HNR4.Vm
-	  output VmL1 = HNL1.Vm
-	  output VmR1 = HNR1.Vm
+	  output Vm = (HNL3.Vm, HNR3.Vm, HNL4.Vm, HNR4.Vm, HNL1.Vm, HNR1.Vm)
 	 
 	  solver = forwardeuler//ode23//forwardeuler
 	  solver.dt = 1e-4

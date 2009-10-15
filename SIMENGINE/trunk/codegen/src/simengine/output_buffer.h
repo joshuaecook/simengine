@@ -4,9 +4,9 @@
  *
  * The 'buffer' array comprises a list of tagged output data for each
  * model having the format:
- *     {tag, count, quantities[count]}
+ *     {tag, count, payload[count]}
  * where 'tag' is an integer identifying a model output, 'count' is a
- * counter specifying the number of data quantities, and 'quantities'
+ * counter specifying the number of data quantities, and 'payload'
  * is an array of actual data points.
  *
  * The 'ptr' and 'end' pointers are references to positions within 'buffer.'
@@ -20,4 +20,10 @@ typedef struct{
   void *end[NUM_MODELS];
   CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];
 } output_buffer;
+
+typedef struct {
+  uint tag;
+  uint count;
+  CDATAFORMAT payload[];
+} output_buffer_data;
 #endif
