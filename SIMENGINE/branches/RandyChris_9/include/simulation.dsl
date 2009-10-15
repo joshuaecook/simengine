@@ -855,8 +855,8 @@ namespace Simulation
 
       var iters = localiters
 
-      foreach subbie in submodels do
-        foreach iter in subbie.getTemporalIterators() do
+      foreach sub in submodels do
+        foreach iter in sub.modeltemplate.getTemporalIterators() do
 	  if exists i in iters suchthat iter.name == i.name then
 	    // TODO: verify global uniqueness per name
 	  else
