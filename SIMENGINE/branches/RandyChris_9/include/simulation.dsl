@@ -657,6 +657,10 @@ namespace Simulation
       end
     end
 
+    overload operator () (arg: Vector of Number)
+      PreviousTimeIterator.new(self, arg)
+    end
+
   end
 
   class PreviousTimeIterator extends TimeIterator
@@ -664,7 +668,13 @@ namespace Simulation
     var index
 
     constructor (titer, indices: Vector of Number)
-      self.timeIterator = rquant
+      self.timeIterator = titer
+
+      self.isContinuous = titer.isContinuous
+      self.sample_frequency = titer.sample_frequency
+      
+      self.name = titer.name
+
       if indices.length() <> 1 then
         error "References to previous values of Temporal Iterator " + timeIterator + " must be 1 dimensional"
       else

@@ -247,7 +247,9 @@ fun kecexp2dofexp obj =
 					    (iterator, Iterator.RELATIVE (exp2int(method "step" arg)))
 					else
 					    error ("Encountered iterator "^(exp2str (method "name" (method "simIterator" arg)))^" in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
-				    else if istype (arg, "TimeIterator") then
+				    else if (istype (arg, "PreviousTimeIterator")) then
+					(iterator, Iterator.RELATIVE (exp2int (method "index" arg)))
+ 				    else if istype (arg, "TimeIterator") then
 					(iterator, Iterator.RELATIVE 0)
 				    else if istype (arg, "Wildcard") then
 					(iterator, Iterator.ALL)
