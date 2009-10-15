@@ -362,7 +362,7 @@ fun symbolofoptiter2exps (class: DOF.class) iter_sym sym =
     List.filter 
 	(fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
 	(List.filter (fn(exp)=> (ExpProcess.doesEqHaveIterator iter_sym exp) orelse 
-				(case ExpProcess.exp2temporaliterators exp of NONE => true | _ => false)) (!(#exps class)))
+				(case ExpProcess.exp2temporaliterator exp of NONE => true | _ => false)) (!(#exps class)))
 
 (* return those states that update the value of a state that already has a dynamic equation *)
 fun class2update_states (class : DOF.class) =
@@ -422,21 +422,48 @@ fun createEventIterators (class: DOF.class) =
 	val outputs = !(#outputs class)
 
 	fun update_exp exp = 
-	    case exp of 
-		Exp.TERM (Exp.SYMBOL (sym, props)) => 
-		(case Property.getIterator props of
-		    SOME ((itersym,iterindex)::rest) => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.updateOf (Symbol.name itersym),(*iterindex*)Iterator.RELATIVE 1)::rest)))
-		  | _ => exp)
-	      | _ => exp
+	    let
+		val lhs = ExpProcess.lhs exp
+
+		val spatial = ExpProcess.exp2spatialiterators exp
+		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
+				  SOME eq => eq
+				| NONE => DynException.stdException ("Unexpected lack of initial condition", "ClassProcess.createEventIterators.update_exp", Logger.INTERNAL)
+		val temporal = case ExpProcess.exp2temporaliterator (init_eq) of
+				   SOME v => #1 v
+				 | _ => DynException.stdException ("Unexpected init condition w/o temporal iterator", "ClassProcess.createEventIterators.update_exp", Logger.INTERNAL)
+
+		val lhs' = 		
+		    case lhs of 
+			Exp.TERM (Exp.SYMBOL (sym, props)) => 
+			Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.updateOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE 1)::spatial)))
+		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate", "ClassProcess.createEventIterators.update_exp", Logger.INTERNAL)
+			     
+	    in
+		ExpBuild.equals (lhs', ExpProcess.rhs exp)
+	    end			  
 
 	fun pp_exp exp = 
-	    case exp of 
-		Exp.TERM (Exp.SYMBOL (sym, props)) => 
-		(case Property.getIterator props of
-		     SOME ((itersym,iterindex)::rest) => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.postProcessOf (Symbol.name itersym),(*iterindex*)Iterator.RELATIVE 1)::rest)))
-		   | _ => exp)
-	      | _ => exp
-			  
+	    let
+		val lhs = ExpProcess.lhs exp
+
+		val spatial = ExpProcess.exp2spatialiterators exp
+		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
+				  SOME eq => eq
+				| NONE => DynException.stdException ("Unexpected lack of initial condition", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+
+		val temporal = case ExpProcess.exp2temporaliterator (init_eq) of
+				   SOME v => #1 v
+				 | _ => DynException.stdException ("Unexpected init condition w/o temporal iterator", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+		val lhs' = 
+		    case lhs of 
+			Exp.TERM (Exp.SYMBOL (sym, props)) => 
+			Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.postProcessOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE 1)::spatial)))
+		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+	    in
+		ExpBuild.equals (lhs', ExpProcess.rhs exp)
+	    end			  
+
 	val update_states = class2update_states class
 	val postprocess_states = class2postprocess_states class
 
@@ -446,15 +473,9 @@ fun createEventIterators (class: DOF.class) =
 					  val lhs_sym = ExpProcess.getLHSSymbol exp
 				      in
 					  if List.exists (fn(sym)=>sym=lhs_sym) update_states then
-					      case exp of 
-						  Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, rhs]) => 
-						  Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [update_exp lhs, rhs])
-						| _ => exp
+					      update_exp exp
 					  else if List.exists (fn(sym)=>sym=lhs_sym) postprocess_states then
-					      case exp of 
-						  Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, rhs]) => 
-						  Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [pp_exp lhs, rhs])
-						| _ => exp
+					      pp_exp exp
 					  else
 					      exp
 				      end
@@ -690,12 +711,12 @@ fun assignCorrectScope (class: DOF.class) =
 	val _ = app (fn(sym, (iter_sym,_))=> Util.log (" -> sym: " ^ (Symbol.name sym) ^ ", iter: " ^ (Symbol.name iter_sym))) symbol_state_iterators*)
 	(*Util.flatmap ExpProcess.exp2symbols state_terms*)
 	val actions = map 
-			  (fn(sym, iter)=>
+			  (fn(sym, iter as (itersym, _))=>
 			     {find=Match.asym sym, 
 			      test=NONE, 
 			      replace=Rewrite.ACTION (Symbol.symbol (Symbol.name sym ^ "["^(Symbol.name (#1 iter))^"]"),
 						      (fn(exp)=>ExpProcess.assignCorrectScopeOnSymbol
-								    (ExpProcess.prependIteratorToSymbol iter exp)))}) 
+								    (ExpProcess.prependIteratorToSymbol itersym exp)))}) 
 			  symbol_state_iterators
 
 	val iter_actions = map
@@ -759,21 +780,46 @@ fun assignCorrectScope (class: DOF.class) =
 					      val sym = Term.sym2curname name
 					      val (temporal_iterators, spatial_iterators) = sym2iterators class sym
 
+					      (* transform pp[x] and update[x] into x references*)
+					      val temporal_iterators' = foldl (fn(iterator, iterators) =>
+										 let
+										     val globaliterators = CurrentModel.iterators()
+										     val iterator' =
+											 case List.find (fn(s,_) => s = iterator) globaliterators of
+											     SOME (_, itertype) =>
+											     (case itertype of
+												  DOF.POSTPROCESS iter => iter
+												| DOF.UPDATE iter => iter
+												| _ => iterator)
+											   | NONE => DynException.stdException("No global iterator found for temporal iterator " ^ (Symbol.name iterator),
+															       "ClassProcess.assignCorrectScope.outputs'",
+															       Logger.INTERNAL)
+
+										     val iterators' = if List.exists (fn(s) => s = iterator') iterators then
+													  iterators
+												      else
+													  iterator' :: iterators
+										 in
+										     iterators'
+										 end) 
+									      nil 
+									      (map #1 temporal_iterators)
+
 					      (* assign the temporal iterator first *)
 					      val name' = 
-						  case temporal_iterators of
+						  case temporal_iterators' of
 						      [] => (* no iterators present, just return name *)			
 						      name
 						    | [iter] => ExpProcess.exp2term
 								    (ExpProcess.prependIteratorToSymbol iter (Exp.TERM name))
 						    | rest => (* this is an error *)
-						      DynException.stdException(("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym,_)=> Symbol.name sym) temporal_iterators))),
+						      DynException.stdException(("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) temporal_iterators'))),
 										"ClassProcess.assignCorrectScope",
 										Logger.INTERNAL)
 
 					      (* now add the spatial iterators *)
 					      val name'' = ExpProcess.exp2term 
-							   (foldl (fn(iter,exp')=>ExpProcess.appendIteratorToSymbol iter exp') 
+							   (foldl (fn(iter as (itersym,_),exp')=>ExpProcess.appendIteratorToSymbol itersym exp') 
 								  (Exp.TERM name')
 								  spatial_iterators)
 					  in

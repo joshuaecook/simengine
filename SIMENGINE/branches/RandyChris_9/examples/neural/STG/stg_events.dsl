@@ -96,15 +96,17 @@ state last_Vm = 0
 state before_last_Vm = 0
 
 equations
-  before_last_Vm = last_Vm
-  last_Vm = Vm
-  last_spike_area = {0 when (last_Vm < -40 and Vm >= -40),
-  		     last_spike_area + (last_Vm+40)*(0.05/1000) when (last_Vm >= -40 and last_Vm <=-15),
-		     last_spike_area + 20*(0.05/1000) when (last_Vm > -15),
-                     last_spike_area otherwise}
-//  last_spike_time = {t when (Vm < last_Vm and last_Vm > before_last_Vm),
-//                     last_spike_time otherwise}
-  last_spike_time = t when (Vm < last_Vm and last_Vm > before_last_Vm)
+//  before_last_Vm = Vm[t[-1]]
+    before_last_Vm = last_Vm
+   last_Vm = Vm
+  // last_spike_area = {0 when (last_Vm < -40 and Vm >= -40),
+  // 		     last_spike_area + (last_Vm+40)*(0.05/1000) when (last_Vm >= -40 and last_Vm <=-15),
+  // 		     last_spike_area + 20*(0.05/1000) when (last_Vm > -15),
+  //                    last_spike_area otherwise}
+
+  last_spike_time = {t when (Vm < last_Vm and last_Vm > before_last_Vm),
+                     last_spike_time otherwise}
+//  last_spike_time = t when (Vm < last_Vm and last_Vm > before_last_Vm)
 //  last_spike_height = {last_Vm when (Vm < last_Vm and last_Vm > before_last_Vm),
 //    		       last_spike_height otherwise}
   last_spike_height = last_Vm when (Vm < last_Vm and last_Vm > before_last_Vm)

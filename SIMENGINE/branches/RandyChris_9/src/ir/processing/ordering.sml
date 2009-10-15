@@ -9,7 +9,7 @@ exception SortFailed
 
 (*remove line for debugging *)
 fun print x = ()
-fun printModel x = (* DOFPrinter.printModel x *) CurrentModel.setCurrentModel x 
+fun printModel x =  (*DOFPrinter.printModel x *) CurrentModel.setCurrentModel x 
 
 fun valOf (SOME thing) = thing
   | valOf NONE =
@@ -249,6 +249,7 @@ fun orderClass classMap (class:DOF.class) =
 
 	val availSyms = (GeneralUtil.flatten (map (ExpProcess.exp2symbols o ExpProcess.lhs) (init_exps @ state_exps)))
 			@ (map (term2sym o #name) (!(#inputs class)))
+			@ (map #1 (CurrentModel.iterators()))
 
 
 	val _ = print ("availsyms = " ^ (String.concatWith ", " (map Symbol.name availSyms)) ^ "\n")

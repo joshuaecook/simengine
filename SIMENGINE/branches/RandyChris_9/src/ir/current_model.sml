@@ -24,7 +24,7 @@ val empty_model:DOF.model
   = ([], 
      {name=NONE,classname=Symbol.symbol "empty"}, 
      {iterators=[(Symbol.symbol "t", DOF.CONTINUOUS Solver.default),
-		 (Symbol.symbol "n", DOF.DISCRETE {sample_period=1.0})],time=(0.0,0.0),precision=DOF.DOUBLE})
+		 (Symbol.symbol "n", DOF.DISCRETE {sample_period=1.0})],precision=DOF.DOUBLE})
 
 val current_model = (ref empty_model: DOF.model ref)
 

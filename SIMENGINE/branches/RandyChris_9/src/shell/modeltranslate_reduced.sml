@@ -363,21 +363,21 @@ fun createClass classes object =
 		    val rhs = kecexp2dofexp (method "rhs" (method "eq" object))
 		    val eq = ExpBuild.equals(lhs, rhs)			
 
-		    val (timeiterator, spatialiterators) = case (ExpProcess.exp2termsymbols lhs) of
-							       [Exp.SYMBOL (sym,props)] => 
-							       let
-								   val name = case Property.getIterator props of
-										  SOME ((name, _)::_) => name
-										| _ => error ("Malformed left hand side of equation: " ^ (ExpPrinter.exp2fullstr lhs))
-							       in
-								   ((Symbol.name (name),
-								     map (Symbol.name o #1) (tl (valOf (Property.getIterator props))))
-							       handle _ => error ("Malformed left hand side of equation: " ^ (ExpPrinter.exp2fullstr lhs)))
-							       end
-							     | _ => error "Invalid number of symbols on left hand side of equation"
-
 		    val timeiterator = (exp2str (method "name" (method "iter" object)))
 
+		    val spatialiterators = case (ExpProcess.exp2termsymbols lhs) of
+					       [Exp.SYMBOL (sym,props)] => 
+					       (case Property.getIterator props of
+						    SOME (possibletemporal::spatial) => 
+						    if (#1 possibletemporal) = (Symbol.symbol timeiterator) then
+							spatial
+						    else
+							possibletemporal :: spatial
+						  | _ => nil)
+					     | _ => error "Invalid number of symbols on left hand side of equation"
+						 
+		    val spatialiterators = map (Symbol.name o #1) spatialiterators
+   
 		    val name = exp2str (method "name" object)
 		    val initlhs = ExpBuild.initavar(name, 
 						    timeiterator,
@@ -394,23 +394,24 @@ fun createClass classes object =
 				      nil => nil
 				    | keccondeqs => 
 				      let
-					  val lhs = 
+					  val (lhs, defaultval) = 
 					      if exp2bool (send "hasEquation" object NONE) then
-						  (print "has equation\n";
-						  ExpBuild.ivar name
-								[(Iterator.updateOf timeiterator, Iterator.RELATIVE 1)]
-						  )
+						  (ExpBuild.ivar name
+								[(Iterator.updateOf timeiterator, Iterator.RELATIVE 1)],
+						   ExpBuild.ivar name
+								[(Iterator.updateOf timeiterator, Iterator.RELATIVE 0)])
 					      else
-						  (print "doesn't have equation\n";
-						  ExpBuild.ivar name
-								[(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1)]
-)
+						  (ExpBuild.ivar name
+								 [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1)],
+						   ExpBuild.ivar name
+								 [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 0)])
 
 					  fun buildIf (condeq, exp) =
 					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),
 						       [kecexp2dofexp (method "cond" condeq), kecexp2dofexp (method "rhs" condeq), exp])
 
-					  val condexp = foldl buildIf lhs keccondeqs
+
+					  val condexp = foldl buildIf defaultval keccondeqs
 				      in
 					  [ExpBuild.equals (lhs, condexp)]
 				      end
@@ -506,7 +507,7 @@ fun createClass classes object =
 	  properties={sourcepos=PosLog.NOPOS,basename=name,classform=classform,classtype=DOF.MASTER name},
 	  inputs=ref (map obj2input(vec2list(method "inputs" object))),
 	  outputs=ref (map obj2output(vec2list(method "contents" (method "outputs" object)))),
-	  iterators=map buildIterator (vec2list (method "iterators" object)),
+	  iterators=map buildIterator (vec2list (send "getSpatialIterators" object NONE)),
 	  exps=ref exps},
 	 submodelclasses)
     end
@@ -541,8 +542,8 @@ fun obj2modelinstance object =
 fun obj2dofmodel object =
     let
 	val (classes, topinstance) = obj2modelinstance (object)
-	val solverobj = method "solver" (method "modeltemplate" object)
-(*	val solver = case exp2str(method "name" solverobj) of
+(*	val solverobj = method "solver" (method "modeltemplate" object)
+	val solver = case exp2str(method "name" solverobj) of
 			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
 		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
 		       (* | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
@@ -557,7 +558,8 @@ fun obj2dofmodel object =
 						  abs_tolerance = exp2real(method "abstol" solverobj),
 						  rel_tolerance = exp2real(method "reltol" solverobj)}
 		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)*)
-	val solver = case exp2str(method "name" solverobj) of
+	fun transSolver solverobj =
+	    case exp2str(method "name" solverobj) of			 
 			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
 		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
 		       (* | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
@@ -588,7 +590,7 @@ fun obj2dofmodel object =
 							 }
 		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
-	fun classHasIter iter ({exps, ...}: DOF.class) =
+(*	fun classHasIter iter ({exps, ...}: DOF.class) =
 	    List.exists (expHasIterator iter) (!exps)
 
 	val discrete_iterators = 
@@ -606,9 +608,21 @@ fun obj2dofmodel object =
 		 (Iterator.updateOf "t", DOF.UPDATE (Symbol.symbol "t"))]
 	    else
 		[]
+*)
+	fun buildTemporalIterator (obj) =
+	    let
+		val name = exp2str (method "name" obj)
+	    in
+		[(Symbol.symbol name, if exp2bool(method "isContinuous" obj) then
+					  DOF.CONTINUOUS (transSolver (method "solver" obj))
+				      else
+					  DOF.DISCRETE{sample_period=exp2real(method "sample_period" obj)}),
+		 (Iterator.postProcessOf name, DOF.POSTPROCESS (Symbol.symbol name)),
+		 (Iterator.updateOf name, DOF.UPDATE (Symbol.symbol name))]
+	    end
 
-	val systemproperties = (*{solver=solver}*){iterators=continuous_iterators @ discrete_iterators,
-						   time=(exp2real (method "min_t" solverobj), exp2real (method "max_t" solverobj)),
+	val temporal_iterators = foldl (op @) nil (map buildTemporalIterator (vec2list (send "getTemporalIterators" (method "modeltemplate" object) NONE)))
+	val systemproperties = (*{solver=solver}*){iterators=temporal_iterators,
 						   precision=DOF.DOUBLE (* TODO: Make this configurable *)}
     in
 	(classes, topinstance, systemproperties)

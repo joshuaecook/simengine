@@ -135,9 +135,8 @@ fun printModel (model: DOF.model) =
 		 print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n"))
 	    end
 
-	fun printSystemProperties {iterators,time,precision} =
-	    (print (" time interval: ["^(r2s (#1 time))^","^(r2s (#2 time))^"]\n");
-	     print (" precision: "^(case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")^"\n");
+	fun printSystemProperties {iterators,precision} =
+	    (print (" precision: "^(case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")^"\n");
 	     app
 		 (fn(sym, itertype)=>
 		    (print (" iterator: " ^ (Symbol.name sym) ^ "\n");

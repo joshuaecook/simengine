@@ -610,11 +610,52 @@ namespace Simulation
 
   class TimeIterator extends GenericIterator
     var isContinuous
-    var sampling_frequency = 1
-    constructor (name: String, isContinuous)
+    var sample_frequency = 1
+    constructor (name: String)
       super(name)
-      self.isContinuous = isContinuous
     end 
+
+    hidden var solver_obj
+
+    property solver
+      get
+        if (not (isdefined solver_obj)) then
+          warning "No solver specified for continuous iterator '" + name + "', using default ode45 solver"
+          ode45
+        else
+          solver_obj
+        end        
+      end
+
+      set(s)
+        solver_obj = s
+      end
+    end
+
+    property sample_period 
+      get = 1 / sample_frequency
+      set(p)
+        sample_frequency = 1/p
+      end
+    end
+
+    function setValue(v)
+      error "Temporal iterators cannot have assigned ranges of values"
+    end
+
+    property continuous
+      get = isContinuous
+      set (c)
+        isContinuous = c
+      end
+    end
+
+    property discrete
+      get = not isContinuous
+      set (d)
+        isContinuous = not d
+      end
+    end
 
   end
 
@@ -633,6 +674,16 @@ namespace Simulation
     function getName() = timeIterator.getName() + "[" + index + "]"
   end
 
+  function makeIterator (name, table)
+    var iter
+    if (objectContains (table, "continuous") and table.continuous) or (objectContains (table, "discrete") and table.discrete) then
+      iter = TimeIterator.new(name)
+      iter table
+    else
+      iter = SimIterator.new(name)
+      iter table
+    end
+  end
 
   class Output
     var name
@@ -753,23 +804,6 @@ namespace Simulation
       s
     end
 
-    hidden var solver_obj
-
-    property solver
-      get
-        if (not (isdefined solver_obj)) then
-          warning "No solver specified, using default ode45 solver"
-          ode45
-        else
-          solver_obj
-        end        
-      end
-
-      set(s)
-        solver_obj = s
-      end
-    end
-
     hidden var userMembers = []
     overload function addConst (name: String, value)
       if exists m in userMembers suchthat m == name then
@@ -796,15 +830,53 @@ namespace Simulation
       end
     end
 
+    function getSpatialIterators ()
+      function isSpatialIterator (x) = false
+      overload function isSpatialIterator (x: SimIterator) = true
+
+      [iter foreach iter in iterators when isSpatialIterator iter]
+    end
+
+    function getTemporalIterators()
+      function isTemporalIterator (x) = false
+      overload function isTemporalIterator (x: TimeIterator) = true
+     
+      var localiters = [iter foreach iter in iterators when isTemporalIterator iter]
+
+      var iters = localiters
+
+      foreach subbie in submodels do
+        foreach iter in subbie.getTemporalIterators() do
+	  if exists i in iters suchthat iter.name == i.name then
+	    // TODO: verify global uniqueness per name
+	  else
+	    iters.push_back iter
+	  end
+	end
+      end
+
+      iters
+    end
+
     var inputs = []
 
     //initialization
     var t
     var n
 
+    property solver 
+      set (s)
+        warning "Setting the solver per model is deprecated.  Please specify a solver for a temporal iterator directly."
+	t.solver = s
+      end
+      get = t.solver
+    end
+
     constructor ()
-      t = TimeIterator.new("t", true)
-      n = TimeIterator.new("n", false)
+      t = TimeIterator.new("t") {isContinuous=true}
+      n = TimeIterator.new("n") {isContinuous=false}
+      iterators.push_front n
+      iterators.push_front t
     end
 
     // helper functions

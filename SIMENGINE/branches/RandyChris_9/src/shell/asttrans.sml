@@ -404,7 +404,22 @@ and trans_definition definition =
 
 		  | Ast.ITERATORDEF {name, value, settings} 
  		    =>  
-		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (send "new" (sym "SimIterator"), [sym2strlit name])), PosLog.NOPOS),
+		    let 
+			val table = 		 
+			    case settings
+			     of SOME table =>
+				trans_exp table
+			      | NONE => HLEC.TABLE []
+		    in
+			[HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (sym "makeIterator", [sym2strlit name, table])), PosLog.NOPOS),
+			 HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
+			 HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "iterators"), [HLEC.SYMBOL name])), PosLog.NOPOS)] @ 
+			(case value
+			  of SOME value => 
+			     [HLEC.ACTION (HLEC.EXP (apply (send "setValue" (HLEC.SYMBOL name), [trans_exp value])), PosLog.NOPOS)]
+			   | NONE => [])
+		    end
+(*		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (send "new" (sym "SimIterator"), [sym2strlit name])), PosLog.NOPOS),
 		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
 		     HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "iterators"), [HLEC.SYMBOL name])), PosLog.NOPOS)] @ 
 		    (case value
@@ -415,7 +430,7 @@ and trans_definition definition =
 		      of SOME table =>
 			 [HLEC.ACTION (HLEC.EXP (apply (HLEC.SYMBOL name, [trans_exp table])), PosLog.NOPOS)]
 		       | NONE => [])
-
+*)
 		  | Ast.QUANTITYDEF {modifiers, basetype, name, precision, exp, settingstable, dimensions}
 		    => 
 		    let 

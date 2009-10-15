@@ -29,10 +29,10 @@ val isUpdateEq : Exp.exp -> bool
 val doesTermHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol in the expression, returns if the iterator is assigned to that symbol *)
 val doesEqHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol on the lhs, returns if the iterator is assigned to that symbol *)
 val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool (* like doesEqHaveIterator, put also ensures that eq is a state equation *)
-val prependIteratorToSymbol : Iterator.iterator -> Exp.exp -> Exp.exp
-val appendIteratorToSymbol : Iterator.iterator -> Exp.exp -> Exp.exp
+val prependIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
+val appendIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
-val exp2temporaliterators : Exp.exp -> Iterator.iterator option
+val exp2temporaliterator : Exp.exp -> Iterator.iterator option
 
 (* Rewriter related functions *)
 val equation2rewrite : Exp.exp -> Rewrite.rewrite (* if a == b, then make a -> b *)
@@ -578,16 +578,16 @@ fun exp2spatialiterators exp =
 	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (StdFun.flatmap (exp2spatialiterators o Exp.TERM) termlist)
 	  | _ => []
 
-fun exp2temporaliterators exp = 
+fun exp2temporaliterator exp = 
     if isEquation exp then
-	exp2temporaliterators (lhs exp)
+	exp2temporaliterator (lhs exp)
     else
 	case exp of 
 	    Exp.TERM (term as (Exp.SYMBOL (sym, props))) => TermProcess.symbol2temporaliterator term
-	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => (case Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (List.mapPartial (exp2temporaliterators o Exp.TERM) termlist) of
+	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => (case Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (List.mapPartial (exp2temporaliterator o Exp.TERM) termlist) of
 							      [] => NONE
 							    | [iter] => SOME iter
-							    | _ => DynException.stdException(("Too many temporal iterators found in tuple: " ^ (e2s exp)), "ExpProcess.exp2temporaliterators", Logger.INTERNAL))
+							    | _ => DynException.stdException(("Too many temporal iterators found in tuple: " ^ (e2s exp)), "ExpProcess.exp2temporaliterator", Logger.INTERNAL))
 	  | _ => NONE
 
 fun symterm2symterm term = 
@@ -631,7 +631,7 @@ fun countFuns exp =
 
 datatype p = PREPEND | APPEND
 
-fun assignIteratorToSymbol (sym, itertype, p) exp =
+fun assignIteratorToSymbol (sym, p) exp =
     let
 	val iter = TermProcess.symbol2temporaliterator (exp2term exp)
 	val spatial_iterators = TermProcess.symbol2spatialiterators (exp2term exp)
@@ -679,8 +679,8 @@ fun assignIteratorToSymbol (sym, itertype, p) exp =
     end
     handle e => DynException.checkpoint "ExpProcess.assignIteratorToSymbol" e
  
-fun prependIteratorToSymbol (sym, itertype) exp = assignIteratorToSymbol (sym, itertype, PREPEND) exp
-fun appendIteratorToSymbol (sym, itertype) exp = assignIteratorToSymbol (sym, itertype, APPEND) exp
+fun prependIteratorToSymbol (sym) exp = assignIteratorToSymbol (sym, PREPEND) exp
+fun appendIteratorToSymbol (sym) exp = assignIteratorToSymbol (sym, APPEND) exp
 
 fun assignCorrectScopeOnSymbol exp =
     case exp of
