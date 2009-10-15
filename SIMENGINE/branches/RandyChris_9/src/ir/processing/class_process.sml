@@ -15,6 +15,7 @@ sig
     val class2statesbyiterator : Symbol.symbol -> DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
     val class2statesizebyiterator : DOF.systemiterator -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
+    val class2instancesbyiterator : Symbol.symbol -> DOF.class -> Exp.exp list (* grab all the instances that have states matching the specified iterator, determined by calling class2statesizebiterator *)
     val symbol2exps : DOF.class -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val symbolofiter2exps :  DOF.class -> Symbol.symbol -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
@@ -549,6 +550,26 @@ fun class2statesize (class: DOF.class) =
 		       ) instance_equations))
     end
 
+(* just see if there are states that use this iterator...  there could be reads, but that's not an issue *)
+fun class_has_iterator (iter: DOF.systemiterator) (class: DOF.class) =
+    let	
+	val (iter_sym, _) = iter
+	val class_states = class2statesbyiterator iter_sym class
+
+	val instance_equations = List.filter ExpProcess.isInstanceEq (!(#exps class))
+
+	(*val _ = Util.log ("in class2statesizebyiterator for class '"^(Symbol.name name)^"', # of init conditions="^(i2s (List.length initial_conditions))^", # of instances=" ^ (i2s (List.length instance_equations)))*)
+    in
+	(List.length class_states) > 0 orelse
+	(StdFun.listOr (map (fn(exp)=> 
+			       let
+				   val {classname,...} = ExpProcess.deconstructInst exp
+			       in
+				   class_has_iterator iter (CurrentModel.classname2class classname)
+			       end
+			    ) instance_equations))
+    end
+
 fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
     let	
 	val {name,exps,iterators,...} = class
@@ -559,6 +580,7 @@ fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
 		    val init_eqs = List.filter ExpProcess.isInitialConditionEq (!exps)
 		    val dyn_iter_init_eqs = List.filter (ExpProcess.doesEqHaveIterator dyn_iter) init_eqs
 		    val update_states = class2statesbyiterator iter_sym class
+		    (*val _ = Util.log ("Computing initial_conditions: # of init_eqs: "^(i2s (List.length init_eqs))^", # of dyn_iter_init_eqs: "^(i2s (List.length dyn_iter_init_eqs))^", # of update_states: "^ (i2s (List.length update_states)))*)
 		in
 		    List.filter (fn(eq)=>List.exists (fn(sym)=>ExpProcess.getLHSSymbol eq = sym) update_states) dyn_iter_init_eqs
 		end
@@ -577,8 +599,25 @@ fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
 			  end
 		       ) instance_equations))
     end
-	
 
+
+fun class2instancesbyiterator iter_sym class =
+    let
+	val instances = class2instances class
+	val iter = CurrentModel.itersym2iter iter_sym
+    in
+	List.filter 
+	    (fn(inst)=>
+	       let
+		   val {classname,...} = ExpProcess.deconstructInst inst
+		   val class' = CurrentModel.classname2class classname
+		   (*val _ = Util.log ("Found class '"^(Symbol.name (#name class'))^"' to have iterators? " ^ (Util.b2s (class_has_iterator iter class')))*)
+	       in
+		   class_has_iterator iter class'
+	       end)
+	    instances
+    end
+	
 fun makeSlaveClassProperties props = 
     let
 	val {classtype, classform, sourcepos, basename} = props
@@ -710,7 +749,7 @@ fun assignCorrectScope (class: DOF.class) =
 	(*val _ = Util.log ("In assignCorrectScope, producing rewriting rules: ")
 	val _ = app (fn(sym, (iter_sym,_))=> Util.log (" -> sym: " ^ (Symbol.name sym) ^ ", iter: " ^ (Symbol.name iter_sym))) symbol_state_iterators*)
 	(*Util.flatmap ExpProcess.exp2symbols state_terms*)
-	val actions = map 
+	val state_actions = map 
 			  (fn(sym, iter as (itersym, _))=>
 			     {find=Match.asym sym, 
 			      test=NONE, 
@@ -736,8 +775,9 @@ fun assignCorrectScope (class: DOF.class) =
 										    "ClassProcess.assignCorrectScope.iter_actions", 
 										    Logger.INTERNAL)))})
 			       indexable_iterators
+	val actions = state_actions @ iter_actions
 
-	val exps' = map (fn(exp) => Match.applyRewritesExp (actions @ iter_actions) exp) exps
+	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
 
 	val outputs = !(#outputs class)
 	val outputs' =
@@ -891,30 +931,42 @@ fun pruneClass iter_option (class: DOF.class) =
 
 	(* starting dependency list - union of the outputs and possibly the states *)
 	val dependency_list = SymbolSet.fromList output_symbols
+
+	(* now add the states if need be *)
 	val state_list = case iter_option of
 			     SOME (iter_sym,_) => class2statesbyiterator iter_sym class
 			   | NONE => (*class2states class*)[]
 	val dependency_list = SymbolSet.addList (dependency_list, state_list)
+
+	(* add all the instances as well that have states (again, if need be) *)
+	val instance_list = case iter_option of
+			     SOME (iter_sym,_) => class2instancesbyiterator iter_sym class
+			   | NONE => []
+	val instance_dependencies = SymbolSet.flatmap ExpProcess.exp2symbolset instance_list
+	val dependency_list = SymbolSet.union (dependency_list, instance_dependencies)
+				     
 
 	(* do some magic here ... *)
 	fun findDependencies dep_list = 
 	    let
 		val dep_list' = 
 		    case iter_option of 
-			SOME (iter_sym, _) => SymbolSet.fromList (Util.flatmap ExpProcess.exp2symbols (Util.flatmap (fn(sym)=> symbolofoptiter2exps class iter_sym sym) (SymbolSet.listItems dep_list)))
-		      | NONE => SymbolSet.fromList (Util.flatmap ExpProcess.exp2symbols (Util.flatmap (fn(sym)=> symbol2exps class sym) (SymbolSet.listItems dep_list)))
+			SOME (iter_sym, _) => SymbolSet.flatmap ExpProcess.exp2symbolset (Util.flatmap (fn(sym)=> symbolofoptiter2exps class iter_sym sym) (SymbolSet.listItems dep_list))
+		      | NONE => SymbolSet.flatmap ExpProcess.exp2symbolset (Util.flatmap (fn(sym)=> symbol2exps class sym) (SymbolSet.listItems dep_list))
 (*		val _ = case iter_option of
 			    SOME (iter_sym,_) => Util.log("In class '"^(Symbol.name name)^"' (iterator="^(Symbol.name iter_sym)^"): " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))
 			  | NONE => Util.log("In class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))*)
+		(* add any remaining iterators that weren't there before *)
+		val dep_list' = SymbolSet.union (dep_list, dep_list')
 	    in
 		if SymbolSet.equal (dep_list, dep_list') then
 		    dep_list (* dep_list hasn't changed, so we are done *)
-		else if (SymbolSet.numItems dep_list) > (SymbolSet.numItems dep_list') then (* if we lost symbols *)
+		(*else if (SymbolSet.numItems dep_list) > (SymbolSet.numItems dep_list') then (* if we lost symbols, but just add them in ... *)
 		    DynException.stdException(("Unexpected loss of symbols: " ^ (case iter_option of
 			    SOME (iter_sym,_) => "in class '"^(Symbol.name name)^"' (iterator="^(Symbol.name iter_sym)^"): " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list')
-			  | NONE => "in class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))), "ClassProcess.pruneClass.findDependencies", Logger.INTERNAL)
+			  | NONE => "in class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))), "ClassProcess.pruneClass.findDependencies", Logger.INTERNAL)*)
 		else
-		    findDependencies (SymbolSet.union (dep_list, dep_list'))
+		    findDependencies ((*SymbolSet.union (dep_list, dep_list')*)dep_list')
 	    end
 
 	(* find all the dependencies *)

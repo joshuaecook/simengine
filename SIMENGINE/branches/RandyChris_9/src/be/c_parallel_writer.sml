@@ -379,18 +379,18 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 
 		    val class = CurrentModel.classname2class classname
 		    val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
-		    val statereads_top = "&rd_" ^ (Symbol.name iter_sym) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
+		    val statereads_top = "&rd_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
 					(*map
 					 (fn(sym)=> "&rd_" ^ (Symbol.name sym) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname) ^ ", ")
 					 iterators*)
 					 
-		    val statewrites_top = "&wr_" ^ (Symbol.name iter_sym) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
+		    val statewrites_top = "&wr_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
 		                	(*map
 					  (fn(sym)=> "&wr_" ^ (Symbol.name sym) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname) ^ ", ")
 					  iterators*)
 		    val systemstatereads = "&sys_rd[STRUCT_IDX]."
-		    val statereads = "&rd_" ^ (Symbol.name iter_sym) ^ "->" ^ (Symbol.name orig_instname)
-		    val statewrites = "&wr_" ^ (Symbol.name iter_sym) ^ "->" ^ (Symbol.name orig_instname)
+		    val statereads = "&rd_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname)
+		    val statewrites = "&wr_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname)
 
 		    val systemdata = Unique.unique "systemdata"
 		    val sysstates_init = [$("struct systemstatedata_" ^ (Symbol.name (ClassProcess.class2basename class)) ^ " *"^systemdata^";"),

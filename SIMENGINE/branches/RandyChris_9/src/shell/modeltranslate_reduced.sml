@@ -379,8 +379,10 @@ fun createClass classes object =
 		    val spatialiterators = map (Symbol.name o #1) spatialiterators
    
 		    val name = exp2str (method "name" object)
+		    val hasEquation = exp2bool (send "hasEquation" object NONE)
+
 		    val initlhs = ExpBuild.initavar(name, 
-						    timeiterator,
+						    if hasEquation then timeiterator else Symbol.name(Iterator.postProcessOf timeiterator),
 						    spatialiterators)
 
 		    val init = ExpBuild.equals(initlhs,
@@ -395,7 +397,7 @@ fun createClass classes object =
 				    | keccondeqs => 
 				      let
 					  val (lhs, defaultval) = 
-					      if exp2bool (send "hasEquation" object NONE) then
+					      if hasEquation then
 						  (ExpBuild.ivar name
 								[(Iterator.updateOf timeiterator, Iterator.RELATIVE 1)],
 						   ExpBuild.ivar name
@@ -417,7 +419,7 @@ fun createClass classes object =
 				      end
 
 		in
-		    [init, eq] @ condeqs
+		    init :: (if hasEquation then [eq] else []) @ condeqs
 		end
 	    else if istype (object, "Event") then
 		let
