@@ -252,7 +252,7 @@ if 1 < nargin
     elseif strcmpi(arg, '-dontrecompile')
       opts.recompile = false;
     elseif strcmpi(arg(1:12), '-decimation=')
-      opts.decimation = str2num(arg(13:end))
+      opts.decimation = str2num(arg(13:end));
     elseif length(arg) > 8 && strcmpi(arg(1:8), '-solver=')
       opts.solver = arg(9:end);
       if not(exist(opts.solver)) 

@@ -10,5 +10,5 @@
 #endif
 
 #ifndef DECIMATION
-#define DECIMATION 4
+#define DECIMATION 0
 #endif
