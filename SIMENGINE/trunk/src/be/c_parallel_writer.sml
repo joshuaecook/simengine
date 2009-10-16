@@ -477,7 +477,7 @@ fun logoutput_code class =
 	[$(""),
 	 $("#define MAX_OUTPUT_SIZE (NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT)) //size in bytes"),
 	 $(""),
-	 $("__DEVICE__ uint decimation[NUM_MODELS] = {0};"),
+	 $("__DEVICE__ unsigned int decimation[NUM_MODELS] = {0};"),
 	 $("__DEVICE__ void buffer_outputs(double t, output_data *od, output_buffer *ob, unsigned int modelid) {"),
 	 SUB(output_exps @ [$("decimation[modelid] = (1+decimation[modelid]) & ((1<<DECIMATION)-1);")]),
 	 $("}"),

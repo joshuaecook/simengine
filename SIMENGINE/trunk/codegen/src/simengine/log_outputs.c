@@ -50,7 +50,7 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
   }
 
 #if defined _DEBUG
-  size_t bytes = (quants * sizeof(CDATAFORMAT)) + (2 * ndata * sizeof(uint));
+  size_t bytes = (quants * sizeof(CDATAFORMAT)) + (2 * ndata * sizeof(unsigned int));
   output_buffer_consumption[modelid] = (1.0f * bytes) / (BUFFER_LEN * sizeof(CDATAFORMAT));
 #endif
 		 

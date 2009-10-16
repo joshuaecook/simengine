@@ -1,6 +1,6 @@
 #if defined(TARGET_GPU)
 // GPU execution kernel that runs each model instance for a number of iterations or until the buffer fills
-__GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, uint ob_id){
+__GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem, unsigned int ob_id){
   const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;
   
   unsigned int num_iterations;

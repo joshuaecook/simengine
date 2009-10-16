@@ -22,8 +22,8 @@ typedef struct{
 } output_buffer;
 
 typedef struct {
-  uint tag;
-  uint count;
+  unsigned int tag;
+  unsigned int count;
   CDATAFORMAT payload[];
 } output_buffer_data;
 #endif

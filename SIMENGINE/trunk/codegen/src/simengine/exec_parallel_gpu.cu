@@ -5,14 +5,14 @@ EXTERN_C unsigned long long inline getnanos(void);
 int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_output *outputs){
   int ret = SUCCESS;
 
-  uint active_models = NUM_MODELS;
+  unsigned int active_models = NUM_MODELS;
 
   output_buffer *device_ob = (output_buffer *)props->gpu.ob;
   output_buffer *pinned_ob;
   cutilSafeCall( cudaHostAlloc((void **)&pinned_ob, sizeof(output_buffer), cudaHostAllocPortable) );
 
-  uint kid = 0; // Kernel id
-  uint aflight = NO;
+  unsigned int kid = 0; // Kernel id
+  unsigned int aflight = NO;
 
   cudaStream_t stream[2];
   cutilSafeCall( cudaStreamCreate(&stream[0]) );
@@ -26,8 +26,8 @@ int exec_parallel_gpu(INTEGRATION_MEM *mem, solver_props *props, simengine_outpu
   cutilSafeCall( cudaEventCreate(&memcpy_start) );
   cutilSafeCall( cudaEventCreate(&memcpy_stop) );
 
-  uint num_gpu_threads;
-  uint num_gpu_blocks;
+  unsigned int num_gpu_threads;
+  unsigned int num_gpu_blocks;
   num_gpu_threads = GPU_BLOCK_SIZE < NUM_MODELS ? GPU_BLOCK_SIZE : NUM_MODELS;
   num_gpu_blocks = (NUM_MODELS + GPU_BLOCK_SIZE - 1) / GPU_BLOCK_SIZE;
 	     
