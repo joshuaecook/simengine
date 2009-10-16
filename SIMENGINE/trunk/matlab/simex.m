@@ -195,6 +195,7 @@ opts = struct('models',1, 'target','', 'precision','double', ...
               'verbose',true, 'debug',false, 'profile',false, ...
               'emulate',false, 'recompile',true,'startTime',0, ...
               'endTime',0, 'inputs',struct(), 'states',[], ...
+              'decimation',0,
               'simengine','', 'solver', []);
 
 [seroot] = fileparts(which('simex'));
@@ -250,6 +251,8 @@ if 1 < nargin
       opts.profile = true;
     elseif strcmpi(arg, '-dontrecompile')
       opts.recompile = false;
+    elseif strcmpi(arg(1:12), '-decimation=')
+      opts.decimation = str2num(arg(13:end))
     elseif length(arg) > 8 && strcmpi(arg(1:8), '-solver=')
       opts.solver = arg(9:end);
       if not(exist(opts.solver)) 
@@ -478,6 +481,9 @@ if opts.recompile
         ' SIMENGINE_STORAGE=' opts.precision ...
         ' NUM_MODELS=' num2str(opts.models)];
 
+if ~isempty(opts.decimation)
+  make =[make ' DECIMATION=' num2str(opts.decimation)]
+end
 if opts.emulate
   make = [make ' EMULATE=1'];
 end

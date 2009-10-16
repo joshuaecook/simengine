@@ -78,6 +78,10 @@ LDLIBS += $(OPENMP_LDLIBS)
 CFLAGS += -fopenmp
 #endif
 
+ifneq ($(DECIMATION),)
+	COMMON += -DDECIMATION=$(DECIMATION)
+endif
+
 ifneq ($(DEBUG),)
 	COMMON += -g -ggdb
 	NVCCFLAGS += -g -D_DEBUG
