@@ -482,7 +482,7 @@ if opts.recompile
         ' NUM_MODELS=' num2str(opts.models)];
 
 if ~isempty(opts.decimation)
-  make =[make ' DECIMATION=' num2str(opts.decimation)]
+  make =[make ' DECIMATION=' num2str(opts.decimation)];
 end
 if opts.emulate
   make = [make ' EMULATE=1'];
