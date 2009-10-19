@@ -670,9 +670,9 @@ $(BUILD_DIR)/simEngine_wrapper.%: matlab/simEngine_wrapper.%
 $(MATLAB_TARGETS): matlab/src/%.c
 	@echo "Generating Matlab target $@"
 ifneq ($(ARCH64),)
-	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) MEX=$(MEX) $(ARCH64_FLAG) $(*F)
+	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) MEX="$(MEX)" $(ARCH64_FLAG) $(*F)
 else
-	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
+	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) MEX="$(MEX)" $(*F)
 endif
 
 matlab-files: $(MATLAB_FILES)
