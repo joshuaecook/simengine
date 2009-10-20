@@ -239,7 +239,8 @@ fun orderClass classMap (class:DOF.class) =
 	val _ = print ("looking up class with name " ^ (Symbol.name (#name class)) ^ "\n")
 	val mapping = valOf (SymbolTable.look (classMap, #name class))
 
-	val init_exps = List.filter ExpProcess.isInitialConditionEq exps
+	val masterexps = !(#exps (CurrentModel.classname2class (ClassProcess.class2basename class)))
+	val init_exps = List.filter ExpProcess.isInitialConditionEq masterexps
 	val state_exps = List.filter ExpProcess.isStateEq exps
 	(*val state_eqs = (EqUtil.getDerivativeEqs eqs) @ (EqUtil.getDifferenceEqs eqs)*)
 	val other_exps = List.filter (fn(exp)=> (ExpProcess.isInstanceEq exp) orelse
@@ -251,7 +252,8 @@ fun orderClass classMap (class:DOF.class) =
 			@ (map (term2sym o #name) (!(#inputs class)))
 			@ (map #1 (CurrentModel.iterators()))
 
-
+	val _ = print ("exps = " ^ (String.concatWith "\n  " (map ExpPrinter.exp2str exps)) ^ "\n")
+	val _ = print ("init_exps = " ^ (String.concatWith ", " (map ExpPrinter.exp2str init_exps)) ^ "\n")
 	val _ = print ("availsyms = " ^ (String.concatWith ", " (map Symbol.name availSyms)) ^ "\n")
 
 	val satisfiedDeps = SymbolSet.fromList availSyms
