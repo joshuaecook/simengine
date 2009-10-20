@@ -104,7 +104,7 @@ end
 model (snapshot) = life
   iterator x = 1..100
   iterator y = 1..100
-  state grid[x,y] = 0
+  state grid[x,y] = 0 with {iter=n}
   
   equation lookup (x,y) => {grid[n, x, y] when x > 0 and x <= 100 and y > 0 and y <= 100,
   	   	  	    0 otherwise}

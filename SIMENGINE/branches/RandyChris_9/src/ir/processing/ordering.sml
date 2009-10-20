@@ -251,6 +251,7 @@ fun orderClass classMap (class:DOF.class) =
 	val availSyms = (GeneralUtil.flatten (map (ExpProcess.exp2symbols o ExpProcess.lhs) (init_exps @ state_exps)))
 			@ (map (term2sym o #name) (!(#inputs class)))
 			@ (map #1 (CurrentModel.iterators()))
+			@ (map #name (#iterators class))
 
 	val _ = print ("exps = " ^ (String.concatWith "\n  " (map ExpPrinter.exp2str exps)) ^ "\n")
 	val _ = print ("init_exps = " ^ (String.concatWith ", " (map ExpPrinter.exp2str init_exps)) ^ "\n")
