@@ -1,7 +1,3 @@
-// Need to define a storage class even though this code will not be
-// manipulating device storage.
-#define SIMENGINE_STORAGE_double
-#define TARGET_CPU
 #include <simengine_api.h>
 
 #include <Python.h>
@@ -27,9 +23,9 @@ static PyObject *simex_doit(PyObject *self, PyObject *args);
  */
 static PyMethodDef SimexHelperMethods[] =
     {
-    {"simex_helper", simex_helper, METH_VARARGS, "A helper function for SIMEX."},
-//    {"doit", simex_doit, METH_VARARGS, "A helper function for SIMEX."},
-    {NULL, NULL, 0, NULL}
+      {"simex_helper", simex_helper, METH_VARARGS, "A helper function for SIMEX."},
+      {"doit", simex_doit, METH_VARARGS, "A helper function for SIMEX."},
+      {NULL, NULL, 0, NULL}
     };
 
 PyMODINIT_FUNC initsimex_helper(void)
@@ -61,18 +57,18 @@ static PyObject *simex_doit(PyObject *self, PyObject *args)
 static PyObject *simex_helper(PyObject *self, PyObject *args)
     {
     simengine_api api;
-    const simengine_interface *iface;
+    const simengine_interface *iface = NULL;
     
-    const char *dll;
+    const char *dll = NULL;
     double startTime = 0.0, stopTime = 0.0;
     PyObject *userInputs = Py_None, *userStates = Py_None;
     PyObject *value = Py_None;
 
-    simengine_result *result;
+    simengine_result *result = NULL;
     simengine_alloc allocator = { PyMem_Malloc, PyMem_Realloc, PyMem_Free };
-    unsigned int num_models;
+    unsigned int num_models = 0;
     PyArrayObject *pyInputs, *pyStates;
-    double *inputs, *states;
+    double *inputs = NULL, *states = NULL;
 
     if (!PyArg_ParseTuple(args, "s|(dd)O!O!:simex_helper", &dll, 
 	    &startTime, &stopTime, 
@@ -83,7 +79,7 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
     if (0 != simex_helper_init_simengine(dll, &api)) 
 	{ 
 	PyErr_SetString(PyExc_RuntimeError,
-	    "Unable to load simEngine DLL.");
+	    "Unable to load simEngine API.");
 	Py_RETURN_NONE;
 	}
 
@@ -92,32 +88,25 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
     if (stopTime <= 0.0)
 	{
 	simex_helper_simengine_interface(iface, &value);
-	if (!(value || PyErr_Occurred()))
+	if (Py_None == value || PyErr_Occurred())
 	    {
 	    PyErr_SetString(PyExc_RuntimeError,
 		"Unable to construct simEngine interface.");
 	    }
-
-	simex_helper_release_simengine(&api);
-	return value;
+	goto simex_helper_return;
 	}
 
-
-    if (NULL == userStates || Py_None == userStates || NULL == userInputs || Py_None == userInputs) 
+    if (Py_None == userStates || Py_None == userInputs) 
 	{
-	simex_helper_release_simengine(&api);
-
 	PyErr_SetString(PyExc_ValueError,
 	    "Neither INPUTS nor Y0 may be None.");
-	Py_RETURN_NONE;
+	goto simex_helper_return;
 	}
     if (!(PyArray_Check(userStates) && PyArray_Check(userInputs)))
 	{
-	simex_helper_release_simengine(&api);
-
 	PyErr_SetString(PyExc_ValueError,
 	    "INPUTS and Y0 must be Numpy ndarray instances.");
-	Py_RETURN_NONE;
+	goto simex_helper_return;
 	}
 
     pyInputs = (PyArrayObject *)PyArray_ContiguousFromAny(userInputs, NPY_DOUBLE, 2, 2);
@@ -126,20 +115,15 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
     num_models = PyArray_DIM(pyInputs, 0);
     if (num_models != PyArray_DIM(pyStates, 0))
 	{
-	simex_helper_release_simengine(&api);
-
 	PyErr_SetString(PyExc_ValueError,
 	    "INPUTS and Y0 must be the same length.");
-	Py_RETURN_NONE;
-
+	goto simex_helper_return;
 	}
     if (num_models < 1)
 	{
-	simex_helper_release_simengine(&api);
-
 	PyErr_SetString(PyExc_RuntimeError,
 	    "No models can be run.");
-	Py_RETURN_NONE;
+	goto simex_helper_return;
 	}
 
     inputs = (double *)PyArray_DATA(pyInputs);
@@ -169,6 +153,8 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
 	    break;
 	}
 
+    // Errored branches may jump here. Ensures that all resources are reclaimed before returning.
+    simex_helper_return:
     simex_helper_release_simengine(&api);
     return value;
     }
@@ -177,6 +163,7 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
 static int simex_helper_init_simengine(const char *name, simengine_api *api)
     {
     char *error;
+    // Loads the simulation library and obtains pointers to its public API functions.
 
     api->driver = dlopen(name, RTLD_NOW);
     if (0 != (error = dlerror()))
@@ -204,7 +191,6 @@ static void simex_helper_release_simengine(simengine_api *api)
 
 static void simex_helper_simengine_results(const simengine_interface *iface, simengine_result *result, PyObject **value)
     {
-    // TODO do the objects created herein need to be decref'd before returning?
     PyObject *outputs, *states, *times;
     unsigned int modelid, outputid, quantityid, stateid;
     unsigned int num_outputs = iface->num_outputs, 
@@ -213,43 +199,40 @@ static void simex_helper_simengine_results(const simengine_interface *iface, sim
     simengine_output *outp = result->outputs;
 
     outputs = PyList_New(num_models);
-    states = PyList_New(num_models);
-    times = PyList_New(num_models);
+
+    // Nb. PyList_SetItem() ``steals'' the reference given, but
+    // PyDict_SetItemString() ``borrows'' the reference.
+    // See the Python C API docs for information on reference semantics.
 
     for (modelid = 0; modelid < num_models; ++modelid)
 	{
 	PyObject *model_outputs = PyDict_New();
 	for (outputid = 0; outputid < num_outputs; ++outputid)
 	    {
-	    PyObject *output_quantities = PyList_New(outp->num_quantities);
-	    for (quantityid = 0; quantityid < outp->num_quantities; ++quantityid)
-		{
-		PyList_SetItem(output_quantities, 
-		    quantityid, PyFloat_FromDouble(outp->data[quantityid]));
-		}
+	    npy_intp dims[2] = {outp->num_samples, outp->num_quantities};
+	    PyObject *output_quantities = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, outp->data);
+
 	    PyDict_SetItemString(model_outputs,
 		iface->output_names[outputid], output_quantities);
+	    Py_DECREF(output_quantities);
+
 	    ++outp;
 	    }
 	PyList_SetItem(outputs, modelid, model_outputs);
-
-	PyObject *model_states = PyList_New(num_states);
-	for (stateid = 0; stateid < num_states; ++stateid)
-	    {
-	    PyList_SetItem(model_states, 
-		stateid, 
-		PyFloat_FromDouble(result->final_states[stateid + (modelid * num_states)]));
-	    }
-	PyList_SetItem(states, modelid, model_states);
-
-	PyList_SetItem(times, 
-	    modelid, PyFloat_FromDouble(result->final_time[modelid]));
 	}
 
-    *value = PyList_New(3);
-    PyList_SetItem(*value, 0, outputs);
-    PyList_SetItem(*value, 1, states);
-    PyList_SetItem(*value, 2, times);
+	{
+	npy_intp dims[2] = {num_models, num_states};
+	states = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, result->final_states);
+	}
+
+	{
+	npy_intp dims[2] = {num_models, 1};
+	times = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, result->final_time);
+	}
+
+    *value = Py_BuildValue("(NNN)", outputs, states, times);
+    Py_INCREF(*value);
     }
 
 static void simex_helper_simengine_interface(const simengine_interface *iface, PyObject **value)

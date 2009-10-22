@@ -91,20 +91,21 @@ def vet_user_inputs(iface, inputs):
 def vet_user_states(iface, states):
     states = array(states)
 
-    if 2 == states.ndim:
-        rows, cols = states.shape
+    if 0 == states.ndim or 0 == states.size:
+        rows, cols = 1, iface['num_states']
+        states = empty([1,iface['num_states']])
+        for y in xrange(iface['num_states']):
+            states[0,y] = iface['default_states'][y]
     elif 1 == states.ndim:
         states = states.reshape([1,states.size])
         rows, cols = 1, states.size
-    elif 0 == states.ndim or 0 == states.size:
-        states = empty([1,iface['num_states']])
-        for y in xrange(iface['num_states']):
-            states[1,i] = iface['default_states'][i]
+    elif 2 == states.ndim:
+        rows, cols = states.shape
     else:
         raise ValueError, "Y0 must be a vector or 2D matrix."
     
     if cols != iface['num_states']:
-        print("states %s"%states)
+        print("states %r, %d,%d" % (states, rows, cols))
         raise ValueError, "Y0 must contain %d columns." % iface['num_states']
 
     return states
@@ -185,7 +186,7 @@ def get_simex_opts(model, **opts):
     if opts['y0'] is not None: 
         opts['y0'] = array(opts['y0'])
     else: 
-        opts['y0'] = ndarray(0)
+        opts['y0'] = array([])
 
     # inspect.getfile() is supposed to be more robust than __file__
     # opts['simengine'] = path.realpath(path.split(getfile(currentframe()))[0])
