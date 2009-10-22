@@ -367,7 +367,7 @@ RELEASE = "tag"
 REV = $(shell pwd | sed -e 's/.*\/tags\/\(.*\)/\1/')
 #INSTALL_FILENAME = "$(FILENAME)_release_$(REV)_$(BUILD_TYPE).tar.gz"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
-VERSION = "$(REV)_$(BUILD_TYPE)"
+VERSION = ""#"$(REV)_$(BUILD_TYPE)"
 TOP_LEVEL=../..
 else	
 RELEASE = "unknown"
