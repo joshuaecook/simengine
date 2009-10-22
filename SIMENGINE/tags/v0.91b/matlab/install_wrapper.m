@@ -133,18 +133,41 @@ if not(licensefile)
   return
 end
 
-serial = ask_serial('Enter your serial number');
+% open the license and check it's properties
+try
+  license = load(licensefile, 'license');
+catch
+  disp(['License file is not a valid Simatra generated license file.  '...
+        'Please contant Simatra support at support@simatratechnologies.com '...
+        'for assistance.']);
+  return;
+end
 
-if not(serial)
-  disp ('You must enter a valid serial number')
-  return
+embedded_license = isstruct(license) && isfield(license.license, 'serial');
+if embedded_license
+  serial = license.license.serial;
+else
+  serial = ask_serial('Enter your serial number');
+  if not(serial)
+    disp ('You must enter a valid serial number')
+    return
+  end
 end
 
 key = load(key_file, 'publickey');
 
-if not(verify(licensefile, str2num(serial), key.publickey))
-  disp('License and serial do not match.  Please contact Simatra.')
-  return
+if embedded_license
+  if not(verify_embedded_license(licensefile, key.publickey))
+    disp(['License file is invalid.  Please contact Simatra at ' ...
+          'support@simatratechnologies.com for assistance.'])
+    return
+  end
+else
+  if not(verify(licensefile, str2num(serial), key.publickey))
+    disp(['License and serial do not match.  Please contact Simatra at ' ...
+          'support@simatratechnologies.com for assistance.'])
+    return
+  end
 end
 
 % check for installation path
@@ -425,6 +448,23 @@ try
   sig.update(serial);
   
   isValid = sig.verify(license.license);
+catch
+  isValid = 0;
+end
+
+end
+
+function [isValid] = verify_embedded_license(licensefilename, publickey)
+try
+  sig = java.security.Signature.getInstance('SHA1withRSA'); 
+  sig.initVerify(publickey);
+  
+  license = load(licensefilename, 'license');
+
+  
+  sig.update(license.license.serial);
+  
+  isValid = sig.verify(license.license.sign);
 catch
   isValid = 0;
 end
