@@ -12,7 +12,7 @@ BUILD_TYPE = software
 #DEBUG = true
 
 # Version # for RPM
-VERSION_NUMBER = 0.91
+VERSION_NUMBER = 0.91b
 BUILD_DATE = $(shell date)
 
 DESTDIR = 
