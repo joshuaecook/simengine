@@ -4,9 +4,9 @@ all: codegen
 
 simlib/simlib: simlib/simlib.c
 ifeq ($(OSLOWER),linux)
-	@cd simlib; gcc -g -m32 -o simlib simlib.c -ldl
+	@cd simlib; gcc -g -m32 -o simlib simlib.c -ldl -lz
 else ifeq ($(OSLOWER),darwin)
-	@cd simlib; gcc -g -m32 -o simlib -DDARWIN simlib.c -ldl
+	@cd simlib; gcc -g -m32 -o simlib -DDARWIN simlib.c -ldl -lz
 else
 	@echo "Host '$(OSLOWER)' not supported."
 endif

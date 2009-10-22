@@ -2,6 +2,8 @@
 #include<stdlib.h>
 #include<string.h>
 #include<dlfcn.h>
+#include <assert.h>
+#include <zlib.h>
 
 #ifdef DARWIN
 #include<mach-o/loader.h>
@@ -59,12 +61,133 @@ void fix_fname(char *fname){
     }
   }
 }
+/* Compresses the data passed in via source to a buffer created as dest */
+int compress_data(unsigned char *source, int ssize, unsigned char ** dest, int *dsize){
+  int ret;
+  z_stream strm;
+
+  int bsize = ssize;
+  *dsize = 0;
+
+  strm.zalloc = Z_NULL;
+  strm.zfree = Z_NULL;
+  strm.opaque = Z_NULL;
+
+  ret = deflateInit(&strm, Z_DEFAULT_COMPRESSION);
+  if(ret != Z_OK)
+    return ret;
+
+  *dest = (unsigned char *)malloc(bsize);
+
+  strm.avail_in = ssize;
+  strm.next_in = source;
+  strm.avail_out = bsize;
+  strm.next_out = *dest;
+
+  /* Make sure all input data gets compressed */
+  while(strm.avail_in){
+    /* make sure all compressed data gets stored */
+    do{
+      strm.avail_out = bsize - *dsize;
+      ret = deflate(&strm, Z_FINISH);
+      assert(ret != Z_STREAM_ERROR);
+      *dsize = bsize - strm.avail_out;
+      /* Reallocate if output buffer is full */
+      if(strm.avail_out == 0){
+	bsize += 1024;
+	*dest = (unsigned char *)realloc(*dest, bsize);
+	strm.next_out = &((*dest)[*dsize]);
+      }
+    }while(strm.avail_out == 0);
+  }
+
+  /* Clean up and return */
+  deflateEnd(&strm);
+  return Z_OK;
+}
+
+int decompress_data(unsigned char *source, int ssize, unsigned char **dest, int *dsize)
+{
+    int ret;
+    z_stream strm;
+    int bsize = ((ssize/1024)+1) * 1024 * 4;
+    *dsize = 0;
+
+    /* allocate inflate state */
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
+
+    ret = inflateInit(&strm);
+    if (ret != Z_OK)
+        return ret;
+
+    *dest = (unsigned char *)malloc(bsize);
+
+    strm.avail_in = ssize;
+    strm.next_in = source;
+    strm.avail_out = bsize;
+    strm.next_out = *dest;
+
+    /* decompress until deflate stream ends or end of file */
+    while(strm.avail_in){
+        /* run inflate() on input until output buffer not full */
+        do {
+            ret = inflate(&strm, Z_NO_FLUSH);
+            assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
+            switch (ret) {
+            case Z_NEED_DICT:
+                ret = Z_DATA_ERROR;     /* and fall through */
+            case Z_DATA_ERROR:
+            case Z_MEM_ERROR:
+                (void)inflateEnd(&strm);
+                return ret;
+            }
+            *dsize = bsize - strm.avail_out;
+	    if(strm.avail_out == 0){
+	      bsize += 1024;
+	      *dest = (unsigned char*)realloc(*dest,bsize);
+	      strm.next_out = &((*dest)[*dsize]);
+	    }
+        } while (strm.avail_out == 0);
+    }
+
+    /* clean up and return */
+    inflateEnd(&strm);
+
+    return ret == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
+}
+
+/* report a zlib or i/o error */
+void zerr(int ret)
+{
+    fputs("simlib: ", stderr);
+    switch (ret) {
+    case Z_ERRNO:
+        if (ferror(stdin))
+            fputs("error reading stdin\n", stderr);
+        if (ferror(stdout))
+            fputs("error writing stdout\n", stderr);
+        break;
+    case Z_STREAM_ERROR:
+        fputs("invalid compression level\n", stderr);
+        break;
+    case Z_DATA_ERROR:
+        fputs("invalid or incomplete deflate data\n", stderr);
+        break;
+    case Z_MEM_ERROR:
+        fputs("out of memory\n", stderr);
+        break;
+    case Z_VERSION_ERROR:
+        fputs("zlib version mismatch!\n", stderr);
+    }
+}
 
 // Returns the length of the data stream and sets data to point to the head
-unsigned long extract_binary_file(const char *fname, char **data){
+unsigned long extract_binary_file(const char *fname, unsigned char **data){
   char *fname_fixed;
-  char *sym_beg;
-  char *sym_end;
+  unsigned char *sym_beg;
+  unsigned char *sym_end;
   unsigned long dsize;
   int len;
 
@@ -77,8 +200,8 @@ unsigned long extract_binary_file(const char *fname, char **data){
   len = strlen(fname);
   // Allocate strings
   fname_fixed = (char*)malloc(len+1);
-  sym_beg = (char*)malloc(len+sfx_len+1); // '_' will be prepended by dlsym() in Mach-O
-  sym_end = (char*)malloc(len+sfx_len+1); // '_' will be prepended by dlsym() in Mach-O
+  sym_beg = (unsigned char*)malloc(len+sfx_len+1); // '_' will be prepended by dlsym() in Mach-O
+  sym_end = (unsigned char*)malloc(len+sfx_len+1); // '_' will be prepended by dlsym() in Mach-O
 
   // Manipulate filename for symbols
   strcpy(fname_fixed, fname);
@@ -89,7 +212,7 @@ unsigned long extract_binary_file(const char *fname, char **data){
   strcat(sym_end, end_sfx);
 
   // Retrieve data from dynamic library
-  *data = (char*)dlsym(binary_handle, sym_beg);
+  *data = (unsigned char*)dlsym(binary_handle, sym_beg);
   dsize = (unsigned long)(dlsym(binary_handle, sym_end) - (void*)*data);
 
   free(fname_fixed);
@@ -360,11 +483,11 @@ char *write_elf(char *fname, int dsize, char *data){
 
 #endif // #ifdef DARWIN
 
-unsigned long read_binary_file(const char *fname, char **data){
+unsigned long read_binary_file(const char *fname, unsigned char **data){
   FILE *bfile;
   int alloc_size = BLOCK_SIZE;
   unsigned long dsize = 0;
-  char *tmp;
+  unsigned char *tmp;
 
   *data = NULL;
 
@@ -372,7 +495,7 @@ unsigned long read_binary_file(const char *fname, char **data){
   if(!bfile) return 0;
 
   // Allocate space for data
-  *data = (char*)malloc(alloc_size);
+  *data = (unsigned char*)malloc(alloc_size);
 
   while(1){
     dsize += fread(&((*data)[dsize]), 1, alloc_size - dsize, bfile);
@@ -383,7 +506,7 @@ unsigned long read_binary_file(const char *fname, char **data){
     else{
       // Resize buffer to read next block
       alloc_size += BLOCK_SIZE;
-      tmp = realloc(*data, alloc_size);
+      tmp = (unsigned char*)realloc(*data, alloc_size);
       if(!tmp){
 	// Resize failed
 	free(*data);
@@ -402,20 +525,22 @@ unsigned long read_binary_file(const char *fname, char **data){
 
 void write_obj_files(int numfiles, char **fnames){
   int i;
-  char *data;
-  int dsize;
+  unsigned char *data, *cdata;
+  int dsize, cdsize;
   char *ofname;
 
   for(i=0; i<numfiles; i++){
     dsize = read_binary_file(fnames[i], &data);
     if(dsize){
+      compress_data(data,dsize,&cdata,&cdsize);
 #ifdef DARWIN
-      ofname = write_mach_o(fnames[i], dsize, data);
+      ofname = write_mach_o(fnames[i], cdsize, cdata);
 #else
-      ofname = write_elf(fnames[i], dsize, data);
+      ofname = write_elf(fnames[i], cdsize, cdata);
 #endif
       printf("%s\n", ofname);
       free(ofname);
+      free(cdata);
     }
     if(data)
       free(data);
@@ -424,18 +549,22 @@ void write_obj_files(int numfiles, char **fnames){
 
 void sim_extract_files(char *library, int numfiles, char **fnames){
   int i;
-  char *data;
-  int dsize;
+  unsigned char *cdata, *data;
+  int cdsize, dsize;
 
   if(!open_binary(library))
     return;
 
   // Extract all symbols
   for(i=0;i<numfiles;i++){
-    dsize = extract_binary_file(fnames[i], &data);
-    if(dsize) fwrite(data, 1, dsize, stdout);
+    cdsize = extract_binary_file(fnames[i], &cdata);
+    if(cdsize){
+      decompress_data(cdata, cdsize, &data, &dsize);
+      fwrite(data, 1, dsize, stdout);
+      free(data);
+    }
   }
-  // data need not be freed as it points to constant memory in the library
+  // cdata need not be freed as it points to constant memory in the library
   close_binary();
 
 }
