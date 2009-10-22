@@ -32,8 +32,8 @@ model (Vm) = hh(I_app, g_Na, g_K, g_L)
     alpha_n  = (0.01 * (Vm + 55))/(1 - exp(-(Vm + 55)/(10)))
     beta_n   = 0.125 * exp(-(Vm + 65)/(80))
     
-    I_Na = g_Na * m*m*m * h * (Vm - E_Na)
-    I_K  = g_K * n*n*n*n * (Vm - E_K)
+    I_Na = g_Na * m^3 * h * (Vm - E_Na)
+    I_K  = g_K * n^4 * (Vm - E_K)
     I_L  = g_L * (Vm - E_L)
   
     I_sum = -(I_Na + I_K + I_L - I_app)
