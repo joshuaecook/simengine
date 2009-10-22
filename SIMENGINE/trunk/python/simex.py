@@ -4,11 +4,19 @@ from subprocess import call, Popen, PIPE, STDOUT
 from inspect import getfile, currentframe
 from struct import calcsize
 from re import search
-from numpy import array, ndarray, zeros, ones
+from numpy import array, ndarray, ones, empty, isnan, isscalar
 
 from simex_helper import simex_helper
 
 def simex(model, time=None, inputs=None, y0=None, precision='double', target='', debug=False, profile=False, emulate=False, dontrecompile=False, verbose=False):
+    '''
+    SIMEX executes a high- software simulation engine using the
+    SIMENGINE compiler.
+
+    Usage:
+      m = simex(model, ...)
+      out, y1, t1 = simex(model, time, inputs, y0, ...)
+    '''
     dslPath, dslName, modelFile, opts = get_simex_opts(model, time=time, inputs=inputs, y0=y0, precision=precision, target=target, debug=debug, profile=profile, emulate=emulate, dontrecompile=dontrecompile, verbose=verbose)
 
     dll = invoke_compiler(dslPath, dslName, modelFile, **opts)
@@ -17,13 +25,24 @@ def simex(model, time=None, inputs=None, y0=None, precision='double', target='',
     if not time:
         return iface
     else:
-        models = 0
-        if not (inputs or y0):
-            raise ArgumentError
-
         inputs = vet_user_inputs(iface, opts['inputs'])
         y0 = vet_user_states(iface, opts['y0'])
+        models = max(1, (inputs.shape or (0,))[0], (y0.shape or (0,))[0])
+        
+        if 0 == inputs.size:
+            inputs = empty([models, iface['num_inputs']])
+            for m in xrange(models):
+                for i in xrange(iface['num_inputs']):
+                    inputs[m][i] = iface['default_inputs'][iface['input_names'][i]]
+        elif 1 == inputs.shape[0] and 1 != models:
+            inputs = inputs * ones([models,1])
+
+        if 0 == y0.size:
+            y0 = iface['default_states'] * ones([models,1])
+        elif 1 == y0.shape[0] and 1 != models:
+            y0 = y0 * ones([models,1])
             
+        print("invoking simex_helper(%s, %s, %s, %s)" % (dll, (opts['startTime'], opts['stopTime']), inputs, y0))
         output, y1, t1 = simex_helper(dll, (opts['startTime'], opts['stopTime']), inputs, y0)
 
         return (output, y1, t1)
@@ -32,39 +51,62 @@ def vet_user_inputs(iface, inputs):
     models = 0
     for key in iface['input_names']:
         if key not in inputs:
-            # TODO check for NaN values in default inputs
+            if isnan(iface['default_inputs'][key]):
+                raise ValueError, "Input %s has no default value and must be specified." % key
             continue
         field = array(inputs[key])
-        dims = field.shape
-        
-        if dims: # non-scalar
-            if models <= 1:
-                models = max(dims)
-            elif models != max(dims):
-                raise ArgumentError
-        elif 0 == models:
+
+        if not isscalar(field):
+            if 1 == field.ndim:
+                rows, cols = 1, field.size
+            elif 2 == field.ndim:
+                rows, cols = field.shape
+            else:
+                raise ValueError, "Input %s may not have more than 2 dimensions." % key
+            if not (1 == rows or 1 == cols):
+                raise ValueError, "Input %s must be a scalar or vector." % key
+
+            if 1 == models:
+                models = max(rows, cols)
+            elif field.size != models:
+                raise ValueError, "All non-scalar inputs must have the same length."
+        else:
             models = 1
 
-    userInputs = zeros([models, iface['num_inputs']])
+    userInputs = empty([models, iface['num_inputs']])
     for ix, key in enumerate(iface['input_names']):
         if key not in inputs:
             userInputs[:,ix] = iface['default_inputs'][key] * ones([models,1])
             continue
 
         field = array(inputs[key])
-        dims = field.shape
-        if dims:
+
+        if not isscalar(field):
             userInputs[:,ix] = field
         else:
-            userInputs[:,ix] = field * ones([models,1])
+            userInputs[:,ix] = field * ones(models)
         
-    userInputs
+    return userInputs
 
 def vet_user_states(iface, states):
     states = array(states)
-    dims = states.shape
-    if dims[0] != iface['num_states']:
-        raise ArgumentError
+
+    if 2 == states.ndim:
+        rows, cols = states.shape
+    elif 1 == states.ndim:
+        states = states.reshape([1,states.size])
+        rows, cols = 1, states.size
+    elif 0 == states.ndim or 0 == states.size:
+        states = empty([1,iface['num_states']])
+        for y in xrange(iface['num_states']):
+            states[1,i] = iface['default_states'][i]
+    else:
+        raise ValueError, "Y0 must be a vector or 2D matrix."
+    
+    if cols != iface['num_states']:
+        print("states %s"%states)
+        raise ValueError, "Y0 must contain %d columns." % iface['num_states']
+
     return states
 
 def invoke_compiler(dslPath, dslName, modelFile, **opts):
@@ -107,9 +149,10 @@ def invoke_compiler(dslPath, dslName, modelFile, **opts):
     if opts['debug']:
         make.append('DEBUG=1')
 
-    make.append('&> simex_make.log')
-
-    status = call(make)
+    makelog = open('simex_make.log','w')
+    proc = Popen(make, stdin=PIPE, stdout=makelog, stderr=STDOUT)
+    status = proc.wait()
+    makelog.close()
 
     if 0 != status:
         raise RuntimeError, "Make returned status %d." % (status,)
@@ -139,7 +182,7 @@ def get_simex_opts(model, **opts):
     if not opts['inputs']: 
         opts['inputs'] = dict()
 
-    if opts['y0']: 
+    if opts['y0'] is not None: 
         opts['y0'] = array(opts['y0'])
     else: 
         opts['y0'] = ndarray(0)

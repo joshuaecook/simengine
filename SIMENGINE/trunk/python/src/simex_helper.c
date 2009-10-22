@@ -18,18 +18,44 @@ static void simex_helper_release_simengine(simengine_api *api);
 static void simex_helper_simengine_results(const simengine_interface *iface, simengine_result *result, PyObject **value);
 static void simex_helper_simengine_interface(const simengine_interface *iface, PyObject **value);
 
+
+static PyObject *simex_doit(PyObject *self, PyObject *args);
+
+
 /* The method table for this module.
  * It must end with the null sentinel value.
  */
 static PyMethodDef SimexHelperMethods[] =
     {
     {"simex_helper", simex_helper, METH_VARARGS, "A helper function for SIMEX."},
+//    {"doit", simex_doit, METH_VARARGS, "A helper function for SIMEX."},
     {NULL, NULL, 0, NULL}
     };
 
 PyMODINIT_FUNC initsimex_helper(void)
     {
+    import_array();
     Py_InitModule("simex_helper", SimexHelperMethods);
+    }
+
+static PyObject *simex_doit(PyObject *self, PyObject *args)
+    {
+    fprintf(stderr, "self %p\n", self);
+    fprintf(stderr, "args %p\n", args);
+
+    PyObject *it = Py_None;
+    if (!PyArg_ParseTuple(args, "O!", &PyArray_Type, &it))
+	{ Py_RETURN_NONE; }
+
+    if (!PyArray_Check(it))
+	{
+	PyErr_SetString(PyExc_ValueError, "Expected an array.");
+	Py_RETURN_NONE;
+	}
+    
+    fprintf(stderr, "it %p\n", it);
+
+    return it;
     }
 
 static PyObject *simex_helper(PyObject *self, PyObject *args)
@@ -38,22 +64,33 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
     const simengine_interface *iface;
     
     const char *dll;
-    PyObject *userTime, *userInputs, *userStates;
+    double startTime = 0.0, stopTime = 0.0;
+    PyObject *userInputs = Py_None, *userStates = Py_None;
+    PyObject *value = Py_None;
 
-    PyObject *value = NULL;
-    
-    // simex_helper("dll_path")
-    if (PyArg_ParseTuple(args, "s", &dll))
+    simengine_result *result;
+    simengine_alloc allocator = { PyMem_Malloc, PyMem_Realloc, PyMem_Free };
+    unsigned int num_models;
+    PyArrayObject *pyInputs, *pyStates;
+    double *inputs, *states;
+
+    if (!PyArg_ParseTuple(args, "s|(dd)O!O!:simex_helper", &dll, 
+	    &startTime, &stopTime, 
+	    &PyArray_Type, &userInputs, 
+	    &PyArray_Type, &userStates))
+    	{ Py_RETURN_NONE; }
+
+    if (0 != simex_helper_init_simengine(dll, &api)) 
+	{ 
+	PyErr_SetString(PyExc_RuntimeError,
+	    "Unable to load simEngine DLL.");
+	Py_RETURN_NONE;
+	}
+
+    iface = api.getinterface();
+
+    if (stopTime <= 0.0)
 	{
-	if (0 != simex_helper_init_simengine(dll, &api)) 
-	    { 
-	    PyErr_SetString(PyExc_RuntimeError,
-		"Unable to load simEngine DLL.");
-	    return value; 
-	    }
-
-	iface = api.getinterface();
-
 	simex_helper_simengine_interface(iface, &value);
 	if (!(value || PyErr_Occurred()))
 	    {
@@ -62,71 +99,77 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
 	    }
 
 	simex_helper_release_simengine(&api);
+	return value;
 	}
-    // simex_helper("dll_path", time, inputs, y0)
-    else if (PyArg_ParseTuple(args, "sOOO", &dll, &userTime, &userInputs, &userStates))
-    	{
-	simengine_result *result;
-	simengine_alloc allocator = { PyMem_Malloc, PyMem_Realloc, PyMem_Free };
-	unsigned int num_models;
-	double startTime, stopTime;
-	PyArrayObject *pyInputs, *pyStates;
-	double *inputs, *states;
 
-	// PyFloat_AsDouble() coerces any Python object with a __float__() method.
-	startTime = PyFloat_AsDouble(PySequence_GetItem(userTime, 0));
-	stopTime = PyFloat_AsDouble(PySequence_GetItem(userTime, 1));
 
-	pyInputs = (PyArrayObject *)PyArray_FromAny(userInputs, PyArray_DescrFromType(NPY_DOUBLE), 1, 2, NPY_CARRAY_RO, NULL);
-	pyStates = (PyArrayObject *)PyArray_FromAny(userStates, PyArray_DescrFromType(NPY_DOUBLE), 1, 2, NPY_CARRAY_RO, NULL);
-	
-
-	inputs = (double *)PyArray_GetPtr(pyInputs, 0);
-
-	
-
-	states = (double *)PyArray_GetPtr(pyStates, 0);
-
-	if (0 != simex_helper_init_simengine(dll, &api)) 
-	    { 
-	    PyErr_SetString(PyExc_RuntimeError,
-		"Unable to load simEngine DLL.");
-	    return value; 
-	    }
-
-	result = api.runmodel(startTime, stopTime, num_models, inputs, states, &allocator);
-
-	switch (result->status)
-	    {
-	    case ERRMEM:
-		PyErr_SetString(PyExc_RuntimeError,
-		    "Memory error in simulation.");
-		break;
-
-	    case ERRCOMP:
-		PyErr_SetString(PyExc_RuntimeError,
-		    "Computation error in simulation.");
-		break;
-
-	    case ERRNUMMDL:
-		PyErr_SetString(PyExc_RuntimeError,
-		    "Incorrect number of models.");
-		break;
-
-	    case SUCCESS:
-		simex_helper_simengine_results(iface, result, &value);
-		break;
-	    }
-
-	simex_helper_release_simengine(&api);
-    	}
-    else
+    if (NULL == userStates || Py_None == userStates || NULL == userInputs || Py_None == userInputs) 
 	{
-	PyErr_SetString(PyExc_RuntimeError,
-	    "Incorrect number or type of arguments.");
-	return value; 
+	simex_helper_release_simengine(&api);
+
+	PyErr_SetString(PyExc_ValueError,
+	    "Neither INPUTS nor Y0 may be None.");
+	Py_RETURN_NONE;
+	}
+    if (!(PyArray_Check(userStates) && PyArray_Check(userInputs)))
+	{
+	simex_helper_release_simengine(&api);
+
+	PyErr_SetString(PyExc_ValueError,
+	    "INPUTS and Y0 must be Numpy ndarray instances.");
+	Py_RETURN_NONE;
 	}
 
+    pyInputs = (PyArrayObject *)PyArray_ContiguousFromAny(userInputs, NPY_DOUBLE, 2, 2);
+    pyStates = (PyArrayObject *)PyArray_ContiguousFromAny(userStates, NPY_DOUBLE, 2, 2);
+	
+    num_models = PyArray_DIM(pyInputs, 0);
+    if (num_models != PyArray_DIM(pyStates, 0))
+	{
+	simex_helper_release_simengine(&api);
+
+	PyErr_SetString(PyExc_ValueError,
+	    "INPUTS and Y0 must be the same length.");
+	Py_RETURN_NONE;
+
+	}
+    if (num_models < 1)
+	{
+	simex_helper_release_simengine(&api);
+
+	PyErr_SetString(PyExc_RuntimeError,
+	    "No models can be run.");
+	Py_RETURN_NONE;
+	}
+
+    inputs = (double *)PyArray_DATA(pyInputs);
+    states = (double *)PyArray_DATA(pyStates);
+
+    result = api.runmodel(startTime, stopTime, num_models, inputs, states, &allocator);
+
+    switch (result->status)
+	{
+	case ERRMEM:
+	    PyErr_SetString(PyExc_RuntimeError,
+		"Memory error in simulation.");
+	    break;
+
+	case ERRCOMP:
+	    PyErr_SetString(PyExc_RuntimeError,
+		"Computation error in simulation.");
+	    break;
+
+	case ERRNUMMDL:
+	    PyErr_SetString(PyExc_RuntimeError,
+		"Incorrect number of models.");
+	    break;
+
+	case SUCCESS:
+	    simex_helper_simengine_results(iface, result, &value);
+	    break;
+	}
+
+    simex_helper_release_simengine(&api);
     return value;
     }
 
@@ -194,7 +237,8 @@ static void simex_helper_simengine_results(const simengine_interface *iface, sim
 	for (stateid = 0; stateid < num_states; ++stateid)
 	    {
 	    PyList_SetItem(model_states, 
-		stateid, PyFloat_FromDouble(result->final_states[AS_IDX(num_states, num_models, stateid, modelid)]));
+		stateid, 
+		PyFloat_FromDouble(result->final_states[stateid + (modelid * num_states)]));
 	    }
 	PyList_SetItem(states, modelid, model_states);
 
@@ -215,8 +259,7 @@ static void simex_helper_simengine_interface(const simengine_interface *iface, P
     PyObject *default_inputs, *default_states;
     PyObject *output_num_quantities;
     PyObject *metadata, *interface;
-    unsigned int i, nd;
-    npy_intp dims[3];
+    unsigned int i;
 
     // Constructs the payload
     input_names = PyList_New(iface->num_inputs);
