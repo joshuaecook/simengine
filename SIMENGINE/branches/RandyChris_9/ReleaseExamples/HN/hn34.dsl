@@ -5,10 +5,6 @@
  *   Additional Info at (http://calabreselx.biology.emory.edu/INTRO/INDEX.HTML)
  */
 
-function xinf(a, b, V) = 1/(1 + exp(a * (V + b)))
-function taux(a, b, c, e, V) = c + e / (1 + exp(a * (V + b)))
-function cube (x) = x * x * x
-function sqr (x) = x * x
 
 //***************************************** HN 34 ***********************************************//
 model (Vm) = hn34(gh, gleak, Eleak, ISyn, IStim)
@@ -50,17 +46,23 @@ model (Vm) = hn34(gh, gleak, Eleak, ISyn, IStim)
 	state mK2 = 0.16
 	state mh = 0.08
 
+	// Helper functions
+	equations
+	    xinf(a, b, V) => 1/(1 + exp(a * (V + b)))
+	    taux(a, b, c, e, V) => c + e / (1 + exp(a * (V + b)))
+	end
+
 	//Ionic Currents
 	equations
 		mNa = xinf(-0.150, 29, Vm)
-		INa = gNa*cube(mNa)*hNa*(Vm - ENa)
+		INa = gNa*mNa^3*hNa*(Vm - ENa)
 		IP = gP*mP*(Vm - ENa)
-		ICaF = gCaF*sqr(mCaF)*hCaF*(Vm - ECa)
-		ICaS = gCaS*sqr(mCaS)*hCaS*(Vm - ECa)
-		IK1 = gK1*sqr(mK1)*hK1*(Vm - EK)
-		IK2 = gK2*sqr(mK2)*(Vm - EK)
-		IKA = gKA*sqr(mKA)*hKA*(Vm - EK)
-		Ih = gh*sqr(mh)*(Vm - Eh)
+		ICaF = gCaF*mCaF^2*hCaF*(Vm - ECa)
+		ICaS = gCaS*mCaS^2*hCaS*(Vm - ECa)
+		IK1 = gK1*mK1^2*hK1*(Vm - EK)
+		IK2 = gK2*mK2^2*(Vm - EK)
+		IKA = gKA*mKA^2*hKA*(Vm - EK)
+		Ih = gh*mh^2*(Vm - Eh)
 		Ileak = gleak*(Vm-Eleak)
 	end
 
