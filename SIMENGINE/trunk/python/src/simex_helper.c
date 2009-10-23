@@ -42,6 +42,7 @@ static PyObject *simex_doit(PyObject *self, PyObject *args)
     PyObject *it = Py_None;
     if (!PyArg_ParseTuple(args, "O!", &PyArray_Type, &it))
 	{ Py_RETURN_NONE; }
+    Py_INCREF(it);
 
     if (!PyArray_Check(it))
 	{
@@ -76,10 +77,16 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
 	    &PyArray_Type, &userStates))
     	{ Py_RETURN_NONE; }
 
+    // Retains a reference to user inputs and states.
+    Py_INCREF(userInputs);
+    Py_INCREF(userStates);
+
     if (0 != simex_helper_init_simengine(dll, &api)) 
 	{ 
 	PyErr_SetString(PyExc_RuntimeError,
 	    "Unable to load simEngine API.");
+	Py_DECREF(userInputs);
+	Py_DECREF(userStates);
 	Py_RETURN_NONE;
 	}
 
@@ -112,6 +119,7 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
     pyInputs = (PyArrayObject *)PyArray_ContiguousFromAny(userInputs, NPY_DOUBLE, 2, 2);
     pyStates = (PyArrayObject *)PyArray_ContiguousFromAny(userStates, NPY_DOUBLE, 2, 2);
 	
+
     num_models = PyArray_DIM(pyInputs, 0);
     if (num_models != PyArray_DIM(pyStates, 0))
 	{
@@ -126,11 +134,10 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
 	goto simex_helper_return;
 	}
 
-    inputs = (double *)PyArray_DATA(pyInputs);
-    states = (double *)PyArray_DATA(pyStates);
+    inputs = (double *)PyArray_GetPtr(pyInputs,0);
+    inputs = (double *)PyArray_GetPtr(pyStates,0);
 
     result = api.runmodel(startTime, stopTime, num_models, inputs, states, &allocator);
-
     switch (result->status)
 	{
 	case ERRMEM:
@@ -153,8 +160,11 @@ static PyObject *simex_helper(PyObject *self, PyObject *args)
 	    break;
 	}
 
-    // Errored branches may jump here. Ensures that all resources are reclaimed before returning.
+    // Errored branches may jump here. 
+    // Ensures that all resources are reclaimed before returning.
     simex_helper_return:
+    Py_DECREF(userInputs);
+    Py_DECREF(userStates);
     simex_helper_release_simengine(&api);
     return value;
     }
@@ -192,7 +202,7 @@ static void simex_helper_release_simengine(simengine_api *api)
 static void simex_helper_simengine_results(const simengine_interface *iface, simengine_result *result, PyObject **value)
     {
     PyObject *outputs, *states, *times;
-    unsigned int modelid, outputid, quantityid, stateid;
+    unsigned int modelid, outputid;
     unsigned int num_outputs = iface->num_outputs, 
 	num_models = iface->metadata->num_models,
 	num_states = iface->num_states;
@@ -231,8 +241,7 @@ static void simex_helper_simengine_results(const simengine_interface *iface, sim
 	times = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, result->final_time);
 	}
 
-    *value = Py_BuildValue("(NNN)", outputs, states, times);
-    Py_INCREF(*value);
+    *value = Py_BuildValue("(OOO)", outputs, states, times);
     }
 
 static void simex_helper_simengine_interface(const simengine_interface *iface, PyObject **value)

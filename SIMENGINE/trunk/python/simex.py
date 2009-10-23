@@ -8,6 +8,13 @@ from numpy import array, ndarray, ones, empty, isnan, isscalar
 
 from simex_helper import simex_helper
 
+# class simex(object):
+#     def __init__(self, model, time=None, inputs=None, y0=None, precision='double', target='', debug=False, profile=False, emulate=False, dontrecompile=False, verbose=False):
+#         self.model = model
+
+    
+
+
 def simex(model, time=None, inputs=None, y0=None, precision='double', target='', debug=False, profile=False, emulate=False, dontrecompile=False, verbose=False):
     '''
     SIMEX executes a high- software simulation engine using the
@@ -42,13 +49,11 @@ def simex(model, time=None, inputs=None, y0=None, precision='double', target='',
         elif 1 == y0.shape[0] and 1 != models:
             y0 = y0 * ones([models,1])
             
-        print("invoking simex_helper(%s, %s, %s, %s)" % (dll, (opts['startTime'], opts['stopTime']), inputs, y0))
-        output, y1, t1 = simex_helper(dll, (opts['startTime'], opts['stopTime']), inputs, y0)
-
-        return (output, y1, t1)
+        print("invoking simex_helper(%r, %r, %r, %r)" % (dll, (opts['startTime'], opts['stopTime']), inputs, y0))
+        return simex_helper(dll, (opts['startTime'], opts['stopTime']), inputs, y0)
 
 def vet_user_inputs(iface, inputs):
-    models = 0
+    models = 1
     for key in iface['input_names']:
         if key not in inputs:
             if isnan(iface['default_inputs'][key]):
@@ -69,6 +74,7 @@ def vet_user_inputs(iface, inputs):
             if 1 == models:
                 models = max(rows, cols)
             elif field.size != models:
+                print("field %s %r"%(key,field))
                 raise ValueError, "All non-scalar inputs must have the same length."
         else:
             models = 1
@@ -76,13 +82,14 @@ def vet_user_inputs(iface, inputs):
     userInputs = empty([models, iface['num_inputs']])
     for ix, key in enumerate(iface['input_names']):
         if key not in inputs:
-            userInputs[:,ix] = iface['default_inputs'][key] * ones([models,1])
+            for m in xrange(models):
+                userInputs[m,ix] = iface['default_inputs'][key]
             continue
 
         field = array(inputs[key])
 
         if not isscalar(field):
-            userInputs[:,ix] = field
+            userInputs[:,ix] = field.reshape([1,models])
         else:
             userInputs[:,ix] = field * ones(models)
         
