@@ -82,11 +82,11 @@ model (Vs, Vd, V) = brk(Iext)
 
     INaS = GNa*minf^3*h*(Vs-ENa)
     IKS = (GK_dr*n^4 + GK_CaS*CaS/(CaS+Kd))*(Vs-EK)
-    ICaS = GCa_NS*mnS*mnS*hnS* (Vs-ECa)//GCa_NS*mnS*mnS*hnS*(Vs-ECa)
+    ICaS = GCa_NS*mnS^2*hnS* (Vs-ECa)
     IleakS = gleak*(Vs-Eleak)
     IcouplingS = gc/p*(Vs-Vd)
     IKD = GK_CaD*CaD/(CaD+Kd)*(Vd-EK)
-    ICaD = (GCa_ND*mnD*mnD*hnD+GCa_L*ml)*(Vd-ECa)
+    ICaD = (GCa_ND*mnD^2*hnD+GCa_L*ml)*(Vd-ECa)
     IleakD = gleak*(Vd-Eleak)
     IcouplingD = gc/(1-p)*(Vd-Vs)
 

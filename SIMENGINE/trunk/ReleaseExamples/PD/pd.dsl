@@ -4,6 +4,7 @@
  *   Copyright 2008-2009 Simatra Modeling Technolgies, L.L.C.
  */
 
+// Define helper inline functions
 function xinf(a, b, V) = 1/(1 + exp((V + a)/b))
 function taux(a, b, c, e, V) = c + e / (1 + exp((V + a)/b))
 
@@ -49,11 +50,10 @@ state mh = 0.5
 state Caconc = 0.05 //uM
 
 equations
-    Vm = {Vclamp_cmd when Vclamp,
-		    V otherwise}
+    Vm = {Vclamp_cmd   when Vclamp,
+	  V            otherwise}
    
    //Nernst Equation to calculate Calcium Reversal
-   //ECa = 29.55*ln(3000/Caconc)
    ECa = 12.193595*ln(3000/Caconc)
    
    //Ionic Currents in uA

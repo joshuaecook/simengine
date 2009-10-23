@@ -5,10 +5,6 @@
  *   Additional Info at (http://calabreselx.biology.emory.edu/INTRO/INDEX.HTML)
  */
 
-function xinf(a, b, V) = 1/(1 + exp(a * (V + b)))
-function taux(a, b, c, e, V) = c + e / (1 + exp(a * (V + b)))
-function cube (x) = x * x * x
-function sqr (x) = x * x
 
 //***************************************** HN 12 ***********************************************//
 model (Vm) = hn12(gleak, Eleak, ISyn, IStim)
@@ -35,12 +31,18 @@ model (Vm) = hn12(gleak, Eleak, ISyn, IStim)
 	state hK1 = 0.81
 	state mK2 = 0.16
 
+	// Helper functions
+	equations
+	    xinf(a, b, V) => 1/(1 + exp(a * (V + b)))
+	    taux(a, b, c, e, V) => c + e / (1 + exp(a * (V + b)))
+	end
+
 	//Ionic Currents
 	equations
 		mNa = xinf(-0.150, 29, Vm)
-		INa = gNa*cube(mNa)*hNa*(Vm - ENa)
-		IK1 = gK1*sqr(mK1)*hK1*(Vm - EK)
-		IK2 = gK2*sqr(mK2)*(Vm - EK)
+		INa = gNa*mNa^3*hNa*(Vm - ENa)
+		IK1 = gK1*mK1^2*hK1*(Vm - EK)
+		IK2 = gK2*mK2^2*(Vm - EK)
 		Ileak = gleak*(Vm-Eleak)
 	end
 

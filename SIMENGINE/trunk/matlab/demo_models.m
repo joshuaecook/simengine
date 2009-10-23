@@ -17,7 +17,7 @@ demo(i).target = 'parallel-cpu';
 
 i = i + 1;
 % next, go to stg
-demo(i).title = 'PD - Adjust Sodium';
+demo(i).title = 'STG/PD - Adjust Sodium';
 demo(i).file = [simexamplepath '/PD/pd.dsl'];
 demo(i).starttime = 0;
 demo(i).stoptime = 500;
@@ -25,18 +25,6 @@ demo(i).inputs.gNa = [0 200];
 demo(i).steps = 50;
 demo(i).precision = 'single';
 demo(i).target = 'parallel-cpu';
-
-% i = i + 1;
-% % next, try pBc
-% demo(i).title = 'pBc - preBotzinger Complex Persistant Na Sweep';
-% demo(i).file = [simexamplepath '/pbc.dsl'];
-% demo(i).starttime = 0;
-% demo(i).stoptime = 2;
-% demo(i).inputs.Iext = 8;
-% demo(i).inputs.gNaP = [2.5 3];
-% demo(i).steps = 100;
-% demo(i).precision = 'single';
-% demo(i).target = 'parallel-cpu';
 
 i = i + 1;
 % next, try FN
