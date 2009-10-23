@@ -178,9 +178,9 @@ def get_simex_opts(model, **opts):
     # Time limits may be specified as a scalar value, or a pair.
     # We can also accept a list of length 1.
     if hasattr(opts['time'],'__len__'):
-       if 1 == len(opts): 
+       if 1 == len(opts['time']): 
            opts['startTime'], opts['stopTime'] = 0.0, float(opts['time'][0])
-       elif 2 == len(opts):
+       elif 2 == len(opts['time']):
            opts['startTime'], opts['stopTime'] = [float(x) for x in opts['time']]
        else:
            raise RuntimeError, "Time must be a scalar value or a pair of values."
