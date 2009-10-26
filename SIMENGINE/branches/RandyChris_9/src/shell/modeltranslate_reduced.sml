@@ -667,6 +667,10 @@ fun obj2dofmodel object =
 		    (case computeCapability 
 		      of "1.1" => Target.COMPUTE11
 		       | "1.3" => Target.COMPUTE13
+		       | "9999.9999" => (Logger.log_usererror nil (Printer.$("Only the emulation CUDA device has been found.  Please verify the device driver is installed properly and that you have r/w permissions on /dev/nvidia*"));
+					DynException.setErrored();
+					DynException.checkToProceed();
+					Target.COMPUTE11)
 		       | _ => (Logger.log_userwarning nil (Printer.$("Unexpected compute capability "^computeCapability^" on CUDA device, reverting to 1.1"));
 			       Target.COMPUTE11),
 		     numMPs,
