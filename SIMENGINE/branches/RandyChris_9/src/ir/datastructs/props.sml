@@ -4,24 +4,31 @@ struct
 type length = int
 type dimlist = length list
 
-datatype scopetype = LOCAL
-		   | READSTATE of Symbol.symbol (* needs to be pulled out of input structure *)
-		   | READSYSTEMSTATE of Symbol.symbol (* symbol here is the iterator to pull from  *)
-		   | WRITESTATE of Symbol.symbol (* needs to be written back to output structure *)
-		   | ITERATOR (* if it is an iterator, it needs to be prepended as such *)
+(* Several namespaces may be available for symbol lookup. *)
+datatype scope_type 
+  (* Local is the default scope. *)
+  = LOCAL
+  | READSTATE of Symbol.symbol (* needs to be pulled out of input structure *)
+  | READSYSTEMSTATE of Symbol.symbol (* symbol here is the iterator to pull from  *)
+  | WRITESTATE of Symbol.symbol (* needs to be written back to output structure *)
+  | ITERATOR (* if it is an iterator, it needs to be prepended as such *)
 
 datatype ep_index_type = STRUCT_OF_ARRAYS | ARRAY
 
-type symbolproperty = 
-     {dim: dimlist option,
-      iterator: Iterator.iterator list option,
-      derivative: (int * Symbol.symbol list) option,
-      isevent: bool,
-      sourcepos: PosLog.pos option,
-      realname: Symbol.symbol option,
-      scope: scopetype,
-      outputbuffer: bool,
-      ep_index: ep_index_type option}
+type symbolproperty = {
+     (* The extents of multidimensional data. *)
+     dim: dimlist option,
+     iterator: Iterator.iterator list option,
+     derivative: (int * Symbol.symbol list) option,
+     isevent: bool,
+     (* The lexical position of the symbol. *)
+     sourcepos: PosLog.pos option,
+     (* Symbols may be renamed for compatibility with the C target languages. 
+      * The original name is always retained for reports to the user. *)
+     realname: Symbol.symbol option,
+     scope: scope_type,
+     outputbuffer: bool,
+     ep_index: ep_index_type option}
 
 val default_symbolproperty = 
     {dim=NONE,

@@ -37,6 +37,7 @@ type classiterator = {name: Symbol.symbol,
 		      step: real,
 		      high: real}
 
+
 type class = {name:Symbol.symbol,
 	      properties:classproperties,
 	      (*		  inputs: (Symbol.symbol * inputproperties) list ref,*)
@@ -50,6 +51,7 @@ type class = {name:Symbol.symbol,
 type instance = {name: Symbol.symbol option,
 		 classname: Symbol.symbol}
 		    
+(* The instance identifies the outermost class. *)
 type model = class list * instance * systemproperties
 
 	
