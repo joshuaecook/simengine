@@ -191,7 +191,25 @@ namespace Simulation
       self.execFun = execFun
       self.precisionMap = precisionMap
       self.args = args
+
     end
+
+    function getDimensions ()      // hack to make derivatives work like symbols
+      if (self.name == "deriv") then
+        args[2].getDimensions()
+      else
+        error "getDimensions is not supported on this operation"
+      end
+    end   
+
+    overload operator () (arg: Vector)
+      if self.name == "deriv" then
+      operator_deriv(args[1], IteratorReference.new(args[2], arg))
+      else
+        error "Cannot use iterators to index into an expression"
+      end
+    end
+
 
   end
 
@@ -605,6 +623,13 @@ namespace Simulation
       value = v
     end
     function getValue() = value
+
+    property low
+      get = value.low
+    end
+    property high
+      get = value.high
+    end
 
   end
 

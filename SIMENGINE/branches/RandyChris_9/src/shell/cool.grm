@@ -78,6 +78,10 @@ start of Ast.stm
 | returnheader of Ast.header 
 | args of Ast.typedname list 
 | optargs of Ast.typedname list
+| optdims of Symbol.symbol list option
+| modelarg of Symbol.symbol * Symbol.symbol list option
+| modelargs of (Symbol.symbol * Symbol.symbol list option) list
+| optmodelargs of (Symbol.symbol * Symbol.symbol list option) list 
 | arg of Ast.typedname 
 | opttyp of Ast.typepattern option
 | typs of Ast.typepattern list
@@ -120,7 +124,7 @@ start of Ast.stm
 | multiplefunctions of (Ast.header * Ast.stm list) list
 
 | modeldef of Ast.definition
-| modelheader of Ast.header
+| modelheader of Ast.modelheader
 | precinfo of Ast.exp
 | precinfoopt of Ast.exp option
 | modifier of Ast.simq_modifier
@@ -202,8 +206,20 @@ enumarg: ID ((Symbol.symbol ID, NONE))
 modeldef: MODEL modelheader newlines modelparts END (Ast.DEFMODEL {header=modelheader, parts=modelparts}) 
 
 
-modelheader: ID optargs ({name=Symbol.symbol ID, args=optargs, returns=NONE})
-	   | LPAREN args RPAREN optlines ASSIGN optlines ID optargs ({name=Symbol.symbol ID, args=optargs, returns=SOME args})
+modelheader: ID optmodelargs ({name=Symbol.symbol ID, args=optmodelargs, returns=NONE})
+	   | LPAREN idlist RPAREN optlines ASSIGN optlines ID optmodelargs ({name=Symbol.symbol ID, args=optmodelargs, returns=SOME idlist})
+
+optmodelargs: (nil)
+       | LPAREN modelargs RPAREN (modelargs)
+
+modelargs: (nil)
+    | modelarg (modelarg :: nil)
+    | modelarg COMMA modelargs (modelarg :: modelargs)
+
+modelarg: ID optdims(Symbol.symbol ID, optdims)
+
+optdims: (NONE)
+       | LBRACE idlist RBRACE (SOME idlist)
 
 optargs: ([])
        | LPAREN args RPAREN (args)

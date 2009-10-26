@@ -24,6 +24,11 @@ type header = {name: Symbol.symbol,
  	       returns: typedname list option (* NONE indicates that no return values were specified, the function will return the value of its last expression. *) 
  	      }  
 
+type modelheader = {name: Symbol.symbol, 
+ 	       args: (Symbol.symbol * Symbol.symbol list option) list,  
+ 	       returns: Symbol.symbol list option (* NONE indicates that no return values were specified, the function will return the value of its last expression. *) 
+ 	      }  
+
 datatype visibility = HIDDEN | PUBLIC
 
 datatype exp =
@@ -85,7 +90,7 @@ and definition =
        | DEFLOCAL of Symbol.symbol * typepattern option * exp option
        | DEFENUM of {name: Symbol.symbol, parent: Symbol.symbol option, args: (Symbol.symbol * int option) list}
        | DEFCONST of Symbol.symbol * typepattern option * exp
-       | DEFMODEL of {header: header, 
+       | DEFMODEL of {header: modelheader, 
 		      parts: modelpart list}
        | INSTMODEL of {name: Symbol.symbol,
 		       exp: exp}

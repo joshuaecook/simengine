@@ -363,7 +363,7 @@ and trans_definition definition =
 			    
 			val _ = case returns of
 				    NONE => outerror()
-				  | SOME rets => if (not (List.exists (fn(s,_) => s = name) rets)) then
+				  | SOME rets => if (not (List.exists (fn(s) => s = name) rets)) then
 						     outerror ()
 						 else
 						     ()
@@ -505,7 +505,7 @@ and trans_definition definition =
 		 HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "inputs"), [HLEC.SYMBOL name])),
 			      PosLog.NOPOS)]
 	
-	    fun build_output (name, pattern) =
+	    fun build_output (name) =
 		HLEC.ACTION (HLEC.EXP (apply (sym "buildOutput", [sym2strlit name])),
 			     PosLog.NOPOS)
 	    val modelstms = 
@@ -542,7 +542,7 @@ and trans_definition definition =
 
 	    val wrapperMembers =
 		let
-		    fun makeVar (sym, typepattern) =
+		    fun makeVar (sym) =
 			HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFLOCAL(sym, HLEC.DONTCARE, HLEC.UNDEFINED))
 		in
 		    map makeVar (case #returns header of SOME r => r | NONE => [])
@@ -590,7 +590,7 @@ and trans_definition definition =
 		(case #returns header of
 		     NONE => nil
 		   | SOME returns =>
-		     flatten (map (fn(arg, patt) => (* if isdefined modeltemplate.arg then set it in outputbinding, push onto outputs, else error that it wasn't declared *)
+		     flatten (map (fn(arg) => (* if isdefined modeltemplate.arg then set it in outputbinding, push onto outputs, else error that it wasn't declared *)
 				     [HLEC.ACTION (HLEC.ASSIGN (HLEC.SEND{message=arg, object=HLEC.SYMBOL (Symbol.symbol "self")},
 								HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "new",
 											  object=HLEC.SYMBOL (Symbol.symbol "OutputBinding")},
@@ -641,7 +641,7 @@ and trans_definition definition =
 		end
 
 	    val fakeconstructor1 = HLEC.DEFINITION(HLEC.DEFFUN(HLEC.REPLACE, 
-							  [({args=map (fn(arg, patt) => (arg, trans_optpattern patt)) (#args header), 
+							  [({args=map (fn(a, dims) => (a, NONE)) (#args header), 
 							     name=Symbol.symbol "createSubModel",
 							     return=NONE},
 							    fakeConstructorStms1)]),
