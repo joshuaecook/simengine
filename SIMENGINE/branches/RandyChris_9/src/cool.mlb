@@ -67,6 +67,7 @@ util/graphs/dfg.sml*)
 
 ir/datastructs/sys.sig
 ir/util.sml
+ir/datastructs/target.sml
 
 ir/datastructs/iterator.sml
 ir/datastructs/props.sml

@@ -30,7 +30,11 @@ datatype precisiontype = SINGLE | DOUBLE
 type systemiterator = (Symbol.symbol * iteratortype)
 
 type systemproperties = {iterators: systemiterator list, 
-			 precision: precisiontype}
+			 precision: precisiontype,
+			 target: Target.target,
+			 num_models: int,
+			 debug: bool,
+			 profile: bool}
 
 type classiterator = {name: Symbol.symbol,
 		      low: real,

@@ -135,8 +135,12 @@ fun printModel (model: DOF.model) =
 		 print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n"))
 	    end
 
-	fun printSystemProperties {iterators,precision} =
+	fun printSystemProperties {iterators,precision,target,num_models,debug,profile} =
 	    (print (" precision: "^(case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")^"\n");
+	     print (" target: "^(Target.target2str target)^"\n");
+	     print (" number of models: "^(i2s num_models)^"\n");
+	     (if debug then print (" DEBUG mode enabled\n") else ());
+	     (if profile then print (" PROFILE mode enabled\n") else ());
 	     app
 		 (fn(sym, itertype)=>
 		    (print (" iterator: " ^ (Symbol.name sym) ^ "\n");

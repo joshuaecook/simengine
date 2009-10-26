@@ -627,7 +627,12 @@ fun obj2dofmodel object =
 
 	val temporal_iterators = foldl (op @) nil (map buildTemporalIterator (vec2list (send "getTemporalIterators" (method "modeltemplate" object) NONE)))
 	val systemproperties = (*{solver=solver}*){iterators=temporal_iterators,
-						   precision=DOF.DOUBLE (* TODO: Make this configurable *)}
+						   (* TODO: Make the options below configurable *)
+						   precision=DOF.DOUBLE,
+						   target=Target.CPU,
+						   num_models=1,
+						   debug=false,
+						   profile=false}
     in
 	(classes, topinstance, systemproperties)
     end
