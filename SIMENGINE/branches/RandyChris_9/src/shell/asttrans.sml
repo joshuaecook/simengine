@@ -525,13 +525,19 @@ and trans_definition definition =
 	    			  body= (HLEC.ACTION (HLEC.EXP (apply (sym "super", nil)), PosLog.NOPOS))
 	    				:: (template_constructor_stms)}
 
+
+	    val modelsettings =
+		HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFLOCAL(Symbol.symbol "settings",
+							   HLEC.DONTCARE,
+							   HLEC.TABLE []))
+
 	    val templatename = Symbol.symbol ((Symbol.name name) ^ "Template")
 
 	    val hiddenModelTemplateDef =
 		HLEC.DEFINITION(HLEC.DEFCLASS {name=templatename,
 					       classheader={inheritance=SOME (HLEC.SYMBOL (Symbol.symbol "Model")),  
 							    interfaces=[]}, 
-					       methods= templateconstructor :: modelstms},					       
+					       methods= templateconstructor :: modelsettings :: modelstms},					       
 				PosLog.NOPOS)
 
 	    val hiddenModelTemplate = 

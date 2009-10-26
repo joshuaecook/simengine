@@ -10,7 +10,10 @@ int runsimEngine (char *simengine, char *file, char *modelname, int verbose)
 
   int errored = 1;
 
-  snprintf(cmdline, 1000, "sh -c 'echo \"import \\\"%s\\\"\nprint(compile(%s))\" | %s -batch 2>& 1'", file, modelname, simengine);
+  char settings[1000];
+  snprintf(settings, 1000, "%s.template.settings = {}", modelname);
+
+  snprintf(cmdline, 1000, "sh -c 'echo \"import \\\"%s\\\"\n%s\nprint(compile(%s))\" | %s -batch 2>& 1'", file, settings, modelname, simengine);
 
   /* we must flush because the man page says we should before a popen call */
   fflush(stdin);
