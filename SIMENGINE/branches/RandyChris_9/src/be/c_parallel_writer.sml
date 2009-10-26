@@ -61,7 +61,7 @@ fun init_solver_props forkedclasses =
 		     $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
 		     $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 		     $("props[ITERATOR_"^itername^"].count = (int*)malloc(NUM_MODELS*sizeof(int));"),
-		     $("props[ITERATOR_"^itername^"].model_states = model_states;//FIXME!!!"),
+		     $("props[ITERATOR_"^itername^"].model_states = ((systemstatedata*)(model_states))->statedata_"^itername^";//THIS IS BROKEN"),
 		     $("props[ITERATOR_"^itername^"].next_states = NULL;"),
 		     $("props[ITERATOR_"^itername^"].inputs = inputs;"),
 		     $("props[ITERATOR_"^itername^"].outputs = outputs;"),
@@ -92,7 +92,9 @@ fun init_solver_props forkedclasses =
 	      $("void *od = NULL;"),
 	      $("unsigned int outputsize = 0;"),
 	      $("#endif")] @
-	     (Util.flatmap init_props forkedclasses)),
+	     (Util.flatmap init_props forkedclasses) @
+	     [$(""),
+	      $("return props;")]),
 	 $("}"),
 	 $(""),
 	 $("void free_solver_props(solver_props* props){"),
@@ -201,6 +203,7 @@ fun outputdatastruct_code class =
      $("")]
 end
 
+(*
 fun iteratordatastruct_code iters =
     let
 	val passed_iters = List.mapPartial (fn(iter_sym, iter_type)=>
@@ -215,6 +218,7 @@ fun iteratordatastruct_code iters =
 	 SUB(map (fn(iter_sym,format)=> $(format ^ " " ^ (Symbol.name iter_sym) ^ ";")) passed_iters),
 	 $("} iteratordata;")]
     end
+*)
 
 fun solver_wrappers solvers =
     let
@@ -246,7 +250,7 @@ fun iterator_wrappers classname iterator_syms =
 	fun method_redirect (meth,check) iter = 
 	    if (check iter) then
 		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
-		 SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "();")]]
+		 SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->time[modelid],);")]]
 	    else
 		[$("// No " ^meth^ " for ITERATOR_"^(Symbol.name iter))]
 	fun create_wrapper (meth,check) = 
@@ -353,7 +357,14 @@ fun outputsystemstatestruct_code forkedModels =
 	     $("typedef struct {"),
 	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " " ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
 	     $("} systemstatedata;"),
-	     $("")]
+	     $(""),
+	     $("// System State Pointer Structure"),
+	     $("typedef struct {"),
+	     SUB(map (fn(classname, iter_sym) => $("CDATAFORMAT * "^(Symbol.name iter_sym))) class_names_iterators),
+	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " *" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
+	     $("} systemstatedata_ptr;"),
+	     $(""),
+	    ]
 (*
 	(* create structures for each level of hierarchy *)
 	fun isMasterClass {properties={classtype,...},...} =
@@ -407,7 +418,7 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 	val (readstates, writestates) = class2stateiterators class
 	val iterators = CurrentModel.iterators()
 	(*val iteratorprototypes = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") eval_iterators)*)
-	val iteratorprototypes = "iteratordata *iter, "
+	(* val iteratorprototypes = "iteratordata *iter, " *)
 	(* every iterator except the update iterator uses an iter_name *)
 	val iter_name = Symbol.name (case iter_type of
 					 DOF.UPDATE v => v
@@ -433,11 +444,11 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 	    if has_states then
 		[$(""),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "("^iteratorprototypes^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
+		   ^ "("^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
 	    else
 		[$(""),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "("^iteratorprototypes^"CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]	    
+		   ^ "(CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]	    
 
 	val read_memory_progs = []
 
@@ -513,7 +524,7 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 
 		    val systemdata = Unique.unique "systemdata"
 		    val sysstates_init = [$("systemstatedata *"^systemdata^";"),
-					  SUB(map (fn(iter_sym)=> $(systemdata^"->" ^ (Symbol.name iter_sym) ^ " = &(sys_rd[STRUCT_IDX]."^(Symbol.name iter_sym)^"->"^(Symbol.name orig_instname)^");")) (ModelProcess.returnIndependentIterators()))]
+					  SUB(map (fn(iter_sym,iter_type)=> $(systemdata^"->" ^ (Symbol.name iter_sym) ^ " = &(sys_rd[STRUCT_IDX]."^(Symbol.name iter_sym)^"->"^(Symbol.name orig_instname)^");")) (ModelProcess.returnIndependentIterators()))]
 		    (*val statereads = map
 					 (fn(sym)=> "&rd_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")
 					 iterators
@@ -717,7 +728,7 @@ fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*) {model as (clas
 						       (!(#inputs class))))^");")
 				       else
 					   let
-					       val iteratorprototypes = "iteratordata *iter, "
+					       (*val iteratorprototypes = "iteratordata *iter, "*)
 									
 					       (* every iterator except the update iterator uses an iter_name *)
 					       val iter_name = Symbol.name (case iter_type of
@@ -731,12 +742,11 @@ fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*) {model as (clas
 					   in
 					       if class_has_states then
 						   $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-						     "("^iteratorprototypes^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^
+						     "("^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^
 						     ", CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
 					       else
 						   $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-						     "("^iteratorprototypes^
-						     "CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
+						     "(CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
 					   end
 				   end)
 				classes
@@ -749,22 +759,6 @@ fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*) {model as (clas
 					     else
 						 class2flow_code (c,#name c = #name topclass, iter)) classes)
 
-	val top_level_flow_progs = 
-	    [$"",
-	     $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid){"),
-             SUB($("switch(props->iterator){") ::
-		 (map (fn(iter) =>
-			SUB[$("case ITERATOR_"^iter^":"),
-			    (if ClassProcess.class2statesize topclass > 0 then
-				 $("return flow_" ^ (Symbol.name (#name topclass)) ^ "_" ^ iter ^ "(iterval, (const statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"* )y, (statedata_"^(Symbol.name (ClassProcess.class2orig_name topclass))^"* )dydt, inputs, outputs, first_iteration, modelid);")
-			     else
-				 $("return flow_" ^ (Symbol.name (#name topclass)) ^ "_" ^ iter ^ "(iterval, inputs, outputs, first_iteration, modelid);"))]) (map (fn(sym)=>(Symbol.name sym)) (ModelProcess.returnIndependentIterators()))) @
-		 [$("default: return 1;"),
-		 $("}")]
-		),
-	     $("}"),
-	     $("")]
-
 	(*val (fun_prototypes, fun_wrappers) = ListPair.unzip (map (fn(iter)=>flow_wrapper (topclass, iter)) eval_iterators)*)
 	(*val (fun_prototype, fun_wrapper) = flow_wrapper (topclass, iter)*)
 
@@ -773,14 +767,35 @@ fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*) {model as (clas
 	  (*fun_prototype*)fundecl_progs,
 	 (*$("// Flow code function declarations")::
 	 fundecl_progs @ *)
-	 flow_progs @
-	 top_level_flow_progs
+	 flow_progs
+	 (*top_level_flow_progs*)
 	 (*fun_wrapper*)) before (CurrentModel.setCurrentModel(prevModel))
 
     (*(Util.flatmap (fn(iter)=>flow_wrapper (topclass, iter)) iterators)*)
 	(*top_level_flow_progs*)
     end
     handle e => DynException.checkpoint "CParallelWriter.flow_code" e
+
+
+fun model_flows classname = 
+    let
+	val model = CurrentModel.getCurrentModel()
+    in
+	[$"",
+	 $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid){"),
+	 SUB($("switch(props->iterator){") ::
+	     (map (fn(iter_sym,iter_type) =>
+		     SUB[$("case ITERATOR_"^(Symbol.name iter_sym)^":"),
+			 (if ModelProcess.model2statesizebyiterator (iter_sym,iter_type) model > 0 then
+			      $("return flow_" ^ classname ^ "_" ^ (Symbol.name iter_sym) ^ "(iterval, (const statedata_" ^ classname ^ "* )y, (statedata_"^classname^"_"^(Symbol.name iter_sym)^"* )dydt, (const systemstatedata *)props->system_states, props->inputs, props->outputs, first_iteration, modelid);")
+			  else
+			      $("return flow_" ^ classname ^ "_" ^ (Symbol.name iter_sym) ^ "(iterval, (const systemstatedata *)props->system_states ,props->inputs, props->outputs, first_iteration, modelid);"))]) (ModelProcess.returnIndependentIterators())) @
+	     [$("default: return 1;"),
+	      $("}")]
+	    ),
+	 $("}"),
+	 $("")]
+    end
 
 
 fun output_code (name, location, block) =
@@ -913,7 +928,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 			     of DOF.SINGLE => "float" 
 			      | DOF.DOUBLE => "double"
 
-	val iterator_syms = ModelProcess.returnIndependentIterators()
+	val iterator_syms = map (fn(iter_sym,iter_type)=> iter_sym) (ModelProcess.returnIndependentIterators())
 	val iterator_names = map (fn(sym)=> (Symbol.name sym)) iterator_syms
 	(* grab the unique solvers so that we can put the code down for each one *)
 	val unique_solvers = Util.uniquify (List.mapPartial (fn(_,itertype)=> case itertype of 
@@ -926,7 +941,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 
 	val init_solver_props_c = init_solver_props forkedModelsWithSolvers		   
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, unique_solvers, iterator_names)
-	val iteratordatastruct_progs = iteratordatastruct_code iterators
+	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = Util.flatmap (fn{model,...} => outputstatestruct_code model) forkedModelsLessUpdate
 	val systemstate_progs = outputsystemstatestruct_code forkedModelsLessUpdate
@@ -955,6 +970,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val exec_serial_cpu_c = $(Archive.getC "simengine/exec_serial_cpu.c")
 	val exec_kernel_gpu_cu = $(Archive.getC "simengine/exec_kernel_gpu.cu") (* Make conditional on GPU target *)
 	val exec_parallel_gpu_cu = $(Archive.getC "simengine/exec_parallel_gpu.cu") (* Make conditional on GPU target *)
+	val model_flows_c = model_flows class_name
 	val exec_loop_c = $(Archive.getC "simengine/exec_loop.c")
 
 	(* write the code *)
@@ -966,11 +982,9 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 					      [defines_h] @
 					      (*[solver_gpu_cu] @ *)(* Make conditional on GPU target *)
 					      [solver_c] @
-					      solver_wrappers_c @
-					      iterator_wrappers_c @
 					      simengine_interface_progs @
 					      [semeta_seint_h] @
-					      iteratordatastruct_progs @
+					      (*iteratordatastruct_progs @*)
 					      outputdatastruct_progs @
 					      outputstatestruct_progs @
 					      systemstate_progs @
@@ -983,10 +997,13 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 					      [log_outputs_c] @
 					      [exec_cpu_c] @
 					      [exec_parallel_cpu_c] @
-					      (*[exec_serial_cpu_c] @ 
-					      [exec_kernel_gpu_cu] @
+					      [exec_serial_cpu_c] @ 
+					      (*[exec_kernel_gpu_cu] @
 					      [exec_parallel_gpu_cu] @ *)
 					      flow_progs @
+					      model_flows_c @
+					      solver_wrappers_c @
+					      iterator_wrappers_c @
 					      [exec_loop_c]))
     in
 	SUCCESS

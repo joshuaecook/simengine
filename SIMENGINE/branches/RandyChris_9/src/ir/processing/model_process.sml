@@ -26,7 +26,7 @@ structure ModelProcess : sig
     val pruneModel : (DOF.systemiterator option) -> DOF.model -> unit
 	
     (* Iterator related functions - these all grab the iterators from CurrentModel *)
-    val returnIndependentIterators : unit -> Symbol.symbol list
+    val returnIndependentIterators : unit -> DOF.systemiterator list
     val hasUpdateIterator : Symbol.symbol -> bool
     val hasPostProcessIterator : Symbol.symbol -> bool
 
@@ -38,8 +38,8 @@ fun returnIndependentIterators () =
 	val iterators = CurrentModel.iterators()
     in
 	List.mapPartial (fn(iter_sym,iter_type)=>case iter_type of
-						     DOF.CONTINUOUS _ => SOME iter_sym
-						   | DOF.DISCRETE _ => SOME iter_sym
+						     DOF.CONTINUOUS _ => SOME (iter_sym,iter_type)
+						   | DOF.DISCRETE _ => SOME (iter_sym,iter_type)
 						   | _ => NONE) iterators			      
     end
 

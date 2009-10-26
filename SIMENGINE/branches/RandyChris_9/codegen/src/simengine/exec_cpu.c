@@ -18,8 +18,8 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
 	((output_buffer*)(props->ob))->finished[modelid] = 1;
 #if NUM_OUTPUTS > 0
 	// Log output values for final timestep
-	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
-	model_flows(props->time[modelid], props->model_states, props->next_states, props->inputs, props->outputs, 1, modelid);
+	// Run the model flows to ensure that all intermediates are computed
+	model_flows(props->time[modelid], props->model_states, props->next_states, props, 1, modelid);
 	// Buffer the last values
 	buffer_outputs(props, modelid);
 #endif

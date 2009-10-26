@@ -121,7 +121,7 @@ int simengine_evalflow(double t, double *y, double *dydt, double *inputs) {
   int modelid = 0;
 
   // This should only ever be used when the backend is compiled in double precision
-#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1
+#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1 && 0 // Broken for now only allow for 1 continuous iterator?
   return model_flows(t, y, dydt, inputs, outputs, first_iteration, modelid);
 #else
   return -1;

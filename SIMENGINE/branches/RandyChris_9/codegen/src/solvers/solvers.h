@@ -41,6 +41,7 @@ typedef struct {
   CDATAFORMAT reltol;
   CDATAFORMAT starttime;
   CDATAFORMAT stoptime;
+  void *system_states;
   CDATAFORMAT *time;
   int *count;
   CDATAFORMAT *model_states;
@@ -96,23 +97,5 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid){
   }
   return 0;
 }
-
-// GPU Specific functions
-
-#if defined (TARGET_GPU)
-#if defined (__DEVICE_EMULATION__)
-#define GPU_ENTRY(entry, type, args...) JOIN3(emugpu, entry, type)(args)
-#else
-#define GPU_ENTRY(entry, type, args...) JOIN3(gpu, entry, type)(args)
-#endif
-#define JOIN3(a,b,c) a##_##b##_##c
-
-void GPU_ENTRY(init, SIMENGINE_STORAGE);
-void GPU_ENTRY(exit, SIMENGINE_STORAGE);
-
-solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props);
-void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props);
-
-#endif
 
 #endif // SOLVERS_H
