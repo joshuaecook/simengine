@@ -626,13 +626,77 @@ fun obj2dofmodel object =
 	    end
 
 	val temporal_iterators = foldl (op @) nil (map buildTemporalIterator (vec2list (send "getTemporalIterators" (method "modeltemplate" object) NONE)))
-	val systemproperties = (*{solver=solver}*){iterators=temporal_iterators,
-						   (* TODO: Make the options below configurable *)
-						   precision=DOF.DOUBLE,
-						   target=Target.CPU,
-						   num_models=1,
-						   debug=false,
-						   profile=false}
+
+	(*val key_value_pairs = vec2list (method "contents" (method "settings" (method "modeltemplate" object)))*)
+	val precision = exp2str (method "precision" (method "settings" (method "modeltemplate" object)))
+	val target = exp2str (method "target" (method "settings" (method "modeltemplate" object)))
+	val num_models = exp2int (method "num_models" (method "settings" (method "modeltemplate" object)))
+	val debug = exp2bool (method "debug" (method "settings" (method "modeltemplate" object)))
+	val profile = exp2bool (method "profile" (method "settings" (method "modeltemplate" object)))
+		      
+	(* only support openmp right now *)
+	val target = if StdFun.toLower target = "parallelcpu" then
+			 "openmp"
+		     else
+			 target
+
+	(* only support cuda right now *)
+	val target = if StdFun.toLower target = "gpu" then
+			 "cuda"
+		     else
+			 target
+
+	(* evaluate cuda *)
+	val cuda_namespace = method "CUDA" (KEC.SYMBOL (Symbol.symbol "Devices"))
+	val num_cuda_devices = exp2int (send "numDevices" cuda_namespace NONE)
+	val target = if StdFun.toLower target = "cuda" andalso num_cuda_devices = 0 then
+			 (Logger.log_userwarning nil (Printer.$("No CUDA capable device found, using a parallel CPU implementation instead"));
+			  "openmp")
+		     else
+			 target
+
+	val (deviceCapability, numMPs, globalMemory) = 
+	    if StdFun.toLower target = "cuda" then
+		let
+		    (* choose largest cuda device by numMPs *)
+		    val id_size_map = map (fn(id)=>(id, exp2int (send "deviceMultiprocessors" cuda_namespace (SOME [int2exp id])))) (List.tabulate (num_cuda_devices,fn(x)=>x+1))
+		    val (id, numMPs) = (StdFun.max_by_fun (fn((_,n1),(_,n2))=>n1>n2) id_size_map)
+
+		    val computeCapability = exp2str (send "deviceCapability" cuda_namespace (SOME [int2exp id]))
+		in
+		    (case computeCapability 
+		      of "1.1" => Target.COMPUTE11
+		       | "1.3" => Target.COMPUTE13
+		       | _ => (Logger.log_userwarning nil (Printer.$("Unexpected compute capability "^computeCapability^" on CUDA device, reverting to 1.1"));
+			       Target.COMPUTE11),
+		     numMPs,
+		     exp2int (send "deviceGlobalMem" cuda_namespace (SOME [int2exp id])))
+		end
+	    else
+		(Target.COMPUTE13, 0, 0)
+
+	val systemproperties = {iterators=temporal_iterators,
+				precision= case (StdFun.toLower precision)
+					    of "single" => DOF.SINGLE
+					     | "float" => DOF.SINGLE
+					     | "double" => DOF.DOUBLE
+					     | _ => DynException.stdException
+							(("Unexpected precision value " ^ (precision)),
+							 "ModelTranslate.obj2dofmodel", 
+							 Logger.INTERNAL),
+				target= case (StdFun.toLower target)
+					 of "cpu" => Target.CPU
+					  | "openmp" => Target.OPENMP
+					  | "cuda" => Target.CUDA {compute=deviceCapability, 
+								   numMP=numMPs, 
+								   globalMemory=globalMemory}
+					  | _ => DynException.stdException
+						     (("Unexpected target value " ^ (target)),
+						      "ModelTranslate.obj2dofmodel", 
+						      Logger.INTERNAL),
+				num_models=num_models,
+				debug=debug,
+				profile=profile}
     in
 	(classes, topinstance, systemproperties)
     end

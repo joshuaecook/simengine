@@ -2,16 +2,37 @@
 #include <string.h>
 #include <mex.h>
 
-int runsimEngine (char *simengine, char *file, char *modelname, int verbose)
+// define options
+#define CPUTARGET 1
+#define OPENMPTARGET 2
+#define CUDATARGET 3
+#define FLOATPRECISION 1
+#define DOUBLEPRECISION 2
+#define TRUE 1
+#define FALSE 0
+struct targetopts {
+  char *target;
+  char *precision;
+  int num_models;
+  int debug;
+  int profile;
+};
+
+int runsimEngine (char *simengine, char *file, char *modelname, struct targetopts *opts, int verbose)
 {
   FILE *fp;
   char readbuffer[1000];
   char cmdline[1000];
-
   int errored = 1;
 
+  // Settings structure - hold target specific settings
+  // target: CPU=1 | OPENMP=2 | CUDA=3
+  // precision: FLOAT=1 | DOUBLE=2
+  // num_models: int
+  // debug: FALSE=0 | TRUE=1
+  // profile: FALSE=0 | TRUE=1
   char settings[1000];
-  snprintf(settings, 1000, "%s.template.settings = {}", modelname);
+  snprintf(settings, 1000, "%s.template.settings = {target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s}", modelname, opts->target, opts->precision, opts->num_models, opts->debug ? "true" : "false", opts->profile ? "true" : "false");
 
   snprintf(cmdline, 1000, "sh -c 'echo \"import \\\"%s\\\"\n%s\nprint(compile(%s))\" | %s -batch 2>& 1'", file, settings, modelname, simengine);
 
@@ -19,6 +40,8 @@ int runsimEngine (char *simengine, char *file, char *modelname, int verbose)
   fflush(stdin);
   fflush(stdout);
   fflush(stderr);
+  if (opts->debug)
+    mexPrintf("cmdline: %s\n", cmdline);
   fp = popen(cmdline, "r");
 
   if (fp == NULL)
@@ -45,9 +68,20 @@ int runsimEngine (char *simengine, char *file, char *modelname, int verbose)
 
 void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {
   char simenginecmd[1000], file[1000], modelname[1000];
-  char verboseflag[3];
+  char flag[3];
   int verbose;
-  if (nrhs < 3 || nrhs > 4)
+  int buflen;
+  char target[100] = "cpu";
+  char precision[100] = "double";
+  struct targetopts opts;
+  // default opts
+  opts.target = target;
+  opts.precision = precision;
+  opts.num_models = 1;
+  opts.debug = FALSE;
+  opts.profile = FALSE;
+
+  if (nrhs < 3 || nrhs > 9)
     {
       mexErrMsgIdAndTxt("Simatra:argumentError", "Arguments are (simEnginecmd, file, modelname [, '-v'])");
     }
@@ -66,14 +100,46 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
     {
       mexErrMsgIdAndTxt("Simatra:argumentError", "Model name argument is not a string");
     }
-
-  if (nrhs == 4 && (mxGetString(prhs[3], verboseflag, 3) || strncmp(verboseflag, "-v", 2)))
+  
+  if (nrhs >= 4 && (mxGetString(prhs[3], flag, 3) || (strncmp(flag, "-v", 2) && strncmp(flag, "+v", 2))))
     {
-      mexErrMsgIdAndTxt("Simatra:argumentError", "Fourth parameter is not optional flag, '-v'");
+      mexErrMsgIdAndTxt("Simatra:argumentError", "Fourth parameter is not optional flag, '+/-v'");
     }
-  verbose = nrhs == 4;
+  verbose = (strcmp(flag, "+v")==0) ? TRUE : FALSE;
 
-  plhs[0] = mxCreateDoubleScalar(runsimEngine(simenginecmd, file, modelname, verbose));
+  if (nrhs >= 5 && (mxGetString(prhs[4], flag, 3) || (strncmp(flag, "-d", 2) && strncmp(flag, "+d", 2))))
+    {
+      mexErrMsgIdAndTxt("Simatra:argumentError", "Fifth parameter is not debug, '+/-d'");
+    }
+  opts.debug = (strcmp(flag, "+d")==0) ? TRUE : FALSE;
+
+  if (nrhs >= 6 && (mxGetString(prhs[5], flag, 3) || (strncmp(flag, "-p", 2) && strncmp(flag, "+p", 2))))
+    {
+      mexErrMsgIdAndTxt("Simatra:argumentError", "Fifth parameter is not profile, '+/-p'");
+    }
+  opts.profile = (strcmp(flag, "+p")==0) ? TRUE : FALSE;
+
+  if (nrhs >= 7 && (mxGetString(prhs[6], opts.target, 100)))
+    {
+      mexErrMsgIdAndTxt("Simatra:argumentError", "Seventh parameter is not the target");
+    }
+
+  if (nrhs >= 8 && (mxGetString(prhs[7], opts.precision, 100)))
+    {
+      mexErrMsgIdAndTxt("Simatra:argumentError", "Eighth parameter is not precision");
+    }
+  buflen = (mxGetM(prhs[7]) * mxGetN(prhs[7]) * sizeof(mxChar)) + 1;
+  mxGetString(prhs[7], opts.precision, buflen);
+
+  if (nrhs >= 9 && !mxIsDouble(prhs[8]))
+    {
+      mexErrMsgIdAndTxt("Simatra:argumentError", "Ninth parameter is not num models");
+    }
+  opts.num_models = mxGetScalar(prhs[8]);
+
+
+  
+  plhs[0] = mxCreateDoubleScalar(runsimEngine(simenginecmd, file, modelname, &opts, verbose));
   
 }
 /*

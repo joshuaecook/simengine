@@ -38,7 +38,7 @@ namespace Devices
 	    end
 
 	    if not found then
-		error "Devices.CUDA.deviceCapability: invalid device id."
+		error ("Devices.CUDA.deviceCapability: invalid device id: " + devid) 
 	    else
 		major + "." + minor
 	    end
@@ -63,7 +63,7 @@ namespace Devices
 
 
 	    if not found then
-		error "Devices.CUDA.deviceCapability: invalid device id."
+		error ("Devices.CUDA.deviceGlobalMem: invalid device id: " + devid)
 	    else
 		totalGlobalMem.tonumber()
 	    end
@@ -88,7 +88,7 @@ namespace Devices
 
 
 	    if not found then
-		error "Devices.CUDA.deviceCapability: invalid device id."
+		error ("Devices.CUDA.deviceMultiprocessors: invalid device id: " + devid)
 	    else
 		multiProcessorCount.tonumber()
 	    end

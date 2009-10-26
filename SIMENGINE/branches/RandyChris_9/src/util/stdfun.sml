@@ -331,7 +331,16 @@ fun count (low, high) =
     else
 	[]
 	(*raise Subscript before print ("Error StdFun.count: can't count from <"^(int2str low)^"> to <"^(int2str high)^">\n")*)
-  
+
+fun max_by_fun maxfun nil = DynException.stdException("Trying to find the maximum of an empty list", "StdFun.max_by_fun", Logger.INTERNAL)
+  | max_by_fun maxfun (n::nil) = n
+  | max_by_fun maxfun (n::rest) =
+    let val m = max_by_fun maxfun rest
+    in if maxfun (n,m)
+       then n
+       else m
+    end
+
 fun max nil = DynException.stdException("Trying to find the maximum of an empty list", "StdFun.max", Logger.INTERNAL)
   | max (n::nil) = n
   | max (n::rest) = 

@@ -429,22 +429,36 @@ setenv('SIMENGINE', opts.simengine);
 %       dslName])
 
 if opts.recompile
-  tic;
-    if opts.verbose
-      status = simEngine_wrapper(simengine, modelFile, dslName, ['-' ...
-                          'v']);
-    else
-      status = simEngine_wrapper(simengine, modelFile, dslName);
-    end
-  elapsed = toc;
-  verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
-                        'seconds.'], opts);
-
-  if 0 ~= status
-      error('Simatra:SIMEX:compileError', ...
-            'Compilation returned status code %d.', status);
+  if opts.verbose 
+    verbose_flag = '+v';
+  else
+    verbose_flag = '-v';
+  end
+  if opts.debug 
+    debug_flag = '+d';
+  else
+    debug_flag = '-d';
+  end
+  if opts.profile 
+    profile_flag = '+p';
+  else
+    profile_flag = '-p';
   end
   
+  tic;
+    status = simEngine_wrapper(simengine, modelFile, dslName, ...
+                               verbose_flag, debug_flag, ...
+                               profile_flag, opts.target, opts.precision, ...
+                               opts.models);    
+  elapsed = toc;
+  verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
+               'seconds.'], opts);
+    
+  if 0 ~= status
+    error('Simatra:SIMEX:compileError', ...
+          'Compilation returned status code %d.', status);
+  end
+    
   target = opts.target;
   if strcmp(opts.target, 'PARALLELCPU')
     target = 'OPENMP';
