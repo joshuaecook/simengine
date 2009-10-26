@@ -6,13 +6,20 @@ type expression = Exp.exp
 type inputproperties =
      {defaultValue: Exp.term option,
       sourcepos: PosLog.pos}
-      
-datatype classtype = MASTER of Symbol.symbol
-		   | SLAVE of Symbol.symbol
+  
+(* The master/slave relationship between classes enforces ordering. *)    
+datatype classtype
+  = MASTER of Symbol.symbol
+  | SLAVE of Symbol.symbol
 
-datatype classform = FUNCTIONAL
-		   | INSTANTIATION of {readstates: Symbol.symbol list,
-				       writestates: Symbol.symbol list}
+
+(* A class may take the form of a model instance or a functional
+ * invocation. Functional forms are not currently used. What are
+ * they for? *)
+datatype classform 
+  = INSTANTIATION of {readstates: Symbol.symbol list,
+		      writestates: Symbol.symbol list}
+  | FUNCTIONAL
 
 
 type classproperties = {sourcepos: PosLog.pos,

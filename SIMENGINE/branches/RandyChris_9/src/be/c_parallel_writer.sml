@@ -42,44 +42,42 @@ fun init_solver_props forkedclasses =
     let
 	fun init_props {top_class, iter=iterator, model} =
 	    let
-		val prevModel = CurrentModel.getCurrentModel()
-		val _ = CurrentModel.setCurrentModel(model)
-
-		val solverparams = (fn(_,itertype) => case itertype of
-							 DOF.CONTINUOUS solver => (Solver.solver2params solver)
-						       | DOF.DISCRETE {sample_period} => [("timestep", Util.r2s sample_period)]
-						       | _ => [("ERROR", "Bogus iterator")]) iterator
-		val itername = (fn(sym,_) => Symbol.name sym) iterator
-		val solvername = String.map Char.toUpper 
-					    ((fn(_,itertype) => case itertype of
-								    DOF.CONTINUOUS solver => (Solver.solver2name solver)
-								  | DOF.DISCRETE _ => "discrete"
-								  | _ => "") iterator)
-		val progs = 
-		    (map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
-		    [$("props[ITERATOR_"^itername^"].starttime = starttime;"),
-		     $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
-		     $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
-		     $("props[ITERATOR_"^itername^"].count = (int*)malloc(NUM_MODELS*sizeof(int));"),
-		     $("props[ITERATOR_"^itername^"].model_states = ((systemstatedata*)(model_states))->statedata_"^itername^";//THIS IS BROKEN"),
-		     $("props[ITERATOR_"^itername^"].next_states = NULL;"),
-		     $("props[ITERATOR_"^itername^"].inputs = inputs;"),
-		     $("props[ITERATOR_"^itername^"].outputs = outputs;"),
-		     $("props[ITERATOR_"^itername^"].solver = " ^ solvername ^ ";"),
-		     $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";"),
-		     $("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
-		     $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s (ModelProcess.model2statesize model)) ^ ";"),
-		     $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
-		     $("props[ITERATOR_"^itername^"].num_models = NUM_MODELS;"),
-		     $("props[ITERATOR_"^itername^"].od = od;"),
-		     $("props[ITERATOR_"^itername^"].ob_size = sizeof(output_buffer);"),
-		     $("props[ITERATOR_"^itername^"].ob = ob;"),
-		     $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
-		     $("")]
-
-		val _ = CurrentModel.setCurrentModel(prevModel)
+		fun progs () =
+		    let
+			val solverparams = (fn(_,itertype) => case itertype of
+								  DOF.CONTINUOUS solver => (Solver.solver2params solver)
+								| DOF.DISCRETE {sample_period} => [("timestep", Util.r2s sample_period)]
+								| _ => [("ERROR", "Bogus iterator")]) iterator
+			val itername = (fn(sym,_) => Symbol.name sym) iterator
+			val solvername = String.map Char.toUpper 
+						    ((fn(_,itertype) => case itertype of
+									    DOF.CONTINUOUS solver => (Solver.solver2name solver)
+									  | DOF.DISCRETE _ => "discrete"
+									  | _ => "") iterator)
+		    in
+			(map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
+			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
+			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
+			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
+			 $("props[ITERATOR_"^itername^"].count = (int*)malloc(NUM_MODELS*sizeof(int));"),
+			 $("props[ITERATOR_"^itername^"].model_states = ((systemstatedata*)(model_states))->statedata_"^itername^";//THIS IS BROKEN"),
+			 $("props[ITERATOR_"^itername^"].next_states = NULL;"),
+			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
+			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
+			 $("props[ITERATOR_"^itername^"].solver = " ^ solvername ^ ";"),
+			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";"),
+			 $("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
+			 $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s (ModelProcess.model2statesize model)) ^ ";"),
+			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
+			 $("props[ITERATOR_"^itername^"].num_models = NUM_MODELS;"),
+			 $("props[ITERATOR_"^itername^"].od = od;"),
+			 $("props[ITERATOR_"^itername^"].ob_size = sizeof(output_buffer);"),
+			 $("props[ITERATOR_"^itername^"].ob = ob;"),
+			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
+			 $("")]
+		    end
 	    in
-		progs
+		CurrentModel.withModel model progs
 	    end
     in
 	[$("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
@@ -325,25 +323,17 @@ end
 
 fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
     let
-	val prevModel = CurrentModel.getCurrentModel()
-	val _ = CurrentModel.setCurrentModel(model)
-	fun isMasterClass {properties={classtype,...},...} =
-	    case classtype of
-		DOF.MASTER _ => true
-	      | _ => false
-	val master_classes = List.filter isMasterClass classes
-
-	val prog = List.concat (map outputstatestructbyclass_code master_classes)
-
-	val _ = CurrentModel.setCurrentModel(prevModel)
+	fun progs () =
+	    let fun isMasterClass {properties={classtype,...},...} =
+		    case classtype of
+			DOF.MASTER _ => true
+		      | _ => false
+		val master_classes = List.filter isMasterClass classes
+	    in
+		List.concat (map outputstatestructbyclass_code master_classes)
+	    end
     in
-	(*Util.flatmap (fn(iter as (name, itertype))=>
-			(($(""))::
-			 ($("// Pre-declare state structures (iterator '"^(Symbol.name name)^"')"))::
-			 (map (fn(str)=> $(str ^ "_" ^ (Symbol.name name) ^ ";")) predeclare_statements)) @
-			List.concat (map (outputstatestructbyclass_code iter) master_classes)) iterators*)
-	
-	prog
+	CurrentModel.withModel model progs
     end 
     handle e => DynException.checkpoint "CParallelWriter.outputstatestruct_code" e
 
@@ -363,7 +353,7 @@ fun outputsystemstatestruct_code forkedModels =
 	     SUB(map (fn(classname, iter_sym) => $("CDATAFORMAT * "^(Symbol.name iter_sym))) class_names_iterators),
 	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " *" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
 	     $("} systemstatedata_ptr;"),
-	     $(""),
+	     $("")
 	    ]
 (*
 	(* create structures for each level of hierarchy *)
@@ -688,6 +678,7 @@ fun flow_wrapper (class, (iter_sym, _)) =
 
 fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*) {model as (classes,_,_), iter as (iter_sym, iter_type), top_class} : text list * text list = 
     let
+	(* TODO: refactor this to use CurrentModel.withModel. *)
 	val prevModel = CurrentModel.getCurrentModel()
 	val _ = CurrentModel.setCurrentModel(model)
 

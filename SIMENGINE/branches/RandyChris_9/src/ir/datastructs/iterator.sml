@@ -1,12 +1,18 @@
 signature ITERATOR =
 sig
-
-    (* Iterator datatypes *)
-    datatype iteratorindex = ALL
-			   | ABSOLUTE of int
-			   | RELATIVE of int
-			   | RANGE of (int * int)
-			   | LIST of int list
+    (* Terms are indexed by an iterator to refer to
+     * a specific value or set of values. *)
+    datatype iteratorindex
+      (* An index relative to the current value.
+       * The (RELATIVE 0) index is the common means of 
+       * referring to the "now" value. *)
+      = RELATIVE of int
+      (* The (ABSOLUTE 0) index is the common means of 
+       * referring to the initial value. *)
+      | ABSOLUTE of int
+      | RANGE of (int * int)
+      | LIST of int list
+      | ALL
 				     
     type iterator = (Symbol.symbol * iteratorindex)
 

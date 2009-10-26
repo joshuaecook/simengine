@@ -6,6 +6,13 @@ sig
     val getCurrentModel: unit -> DOF.model
     val setCurrentModel: DOF.model -> unit
 
+    (* Temporarily holds the given model as current, 
+     * invokes the given thunk and returns its result
+     * after restoring the previous current model. 
+     * Any exception raised by the thunk will be reraised 
+     * after the previous model is restored. *)
+    val withModel : DOF.model -> (unit -> 'a) -> 'a
+
     (* Additional useful accessors *)
     val classes: unit -> DOF.class list
     val iterators: unit -> DOF.systemiterator list (* returns temporal iterators of the model *)
@@ -37,6 +44,13 @@ val current_model = (ref empty_model: DOF.model ref)
 fun getCurrentModel() = (!current_model)
 fun setCurrentModel(model: DOF.model) = 
     current_model := model
+
+fun withModel model f =
+    let val old = getCurrentModel()
+	val () = setCurrentModel model
+	val y = f () handle e => (setCurrentModel old; raise e)
+	val () = setCurrentModel old
+    in y end
 
 (* accessors for the top level fields *)
 fun classes() = 
