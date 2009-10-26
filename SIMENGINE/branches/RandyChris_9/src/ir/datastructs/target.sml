@@ -18,7 +18,7 @@ fun target2str t =
     case t 
      of CPU => "CPU"
       | OPENMP => "OPENMP"
-      | CUDA {compute=COMPUTE11, numMP, globalMemory} => "CUDA {compute capability: 1.1, # of multi-processors: "^(i2s numMP)^", global memory: "^(i2s globalMemory)^"}"
-      | CUDA {compute=COMPUTE13, numMP, globalMemory} => "CUDA {compute capability: 1.3, # of multi-processors: "^(i2s numMP)^", global memory: "^(i2s globalMemory)^"}"
+      | CUDA {compute=COMPUTE11, numMP, globalMemory} => "CUDA {compute capability: 1.1, # of multi-processors: "^(i2s numMP)^", global memory (KB): "^(i2s globalMemory)^"}"
+      | CUDA {compute=COMPUTE13, numMP, globalMemory} => "CUDA {compute capability: 1.3, # of multi-processors: "^(i2s numMP)^", global memory (KB): "^(i2s globalMemory)^"}"
 
 end
