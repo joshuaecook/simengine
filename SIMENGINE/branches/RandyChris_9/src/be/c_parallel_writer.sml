@@ -248,18 +248,16 @@ fun solver_wrappers solvers =
 	Util.flatmap create_wrapper methods_params
     end
 
-fun iterator_wrappers classname iterators =
+fun update_wrapper classname iterators = 
     let
-	val methods = [("update", ModelProcess.hasUpdateIterator),
-		       ("post_process", ModelProcess.hasPostProcessIterator)]
 	fun method_redirect (meth,check) (iter,iter_type) = 
 	    if (check iter) then
 		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
 		 case iter_type of
 		     DOF.CONTINUOUS _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->time[modelid],);")]
+		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->next_time[modelid],props->next_states, props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | DOF.DISCRETE _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->count[modelid],);")]
+		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->count[modelid]+1,props->next_states, props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
 		]
 	    else
@@ -274,7 +272,34 @@ fun iterator_wrappers classname iterators =
 	     $("}"),
 	     $("")]
     in
-	Util.flatmap create_wrapper methods
+	create_wrapper ("update", ModelProcess.hasUpdateIterator)
+    end
+
+fun postprocess_wrapper classname iterators =
+    let
+	fun method_redirect (meth,check) (iter,iter_type) = 
+	    if (check iter) then
+		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
+		 case iter_type of
+		     DOF.CONTINUOUS _ =>
+		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->time[modelid],props->model_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		   | DOF.DISCRETE _ =>
+		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->count[modelid],props->model_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
+		]
+	    else
+		[$("// No " ^meth^ " for ITERATOR_"^(Symbol.name iter))]
+	fun create_wrapper (meth,check) = 
+	    [$("int " ^ meth ^ "(solver_props *props, unsigned int modelid){"),
+	     SUB($("switch(props->iterator){") ::
+		 (Util.flatmap (method_redirect (meth,check)) iterators) @
+		 [$("default:"),
+		  SUB[$("return 1;")],
+		  $("}")]),
+	     $("}"),
+	     $("")]
+    in
+	create_wrapper ("post_process", ModelProcess.hasPostProcessIterator)
     end
 
 local
@@ -927,7 +952,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 					    (fn(solv)=> Archive.getC ("solvers/"^solv^".c"))
 					    unique_solvers))
 	val solver_wrappers_c = solver_wrappers unique_solvers
-	val iterator_wrappers_c = iterator_wrappers class_name iterators
+	val iterator_wrappers_c = (update_wrapper class_name iterators) @ (postprocess_wrapper class_name iterators)
 	val simengine_api_c = $(Archive.getC "simengine/simengine_api.c")
 	val defines_h = $(Archive.getC "simengine/defines.h")
 	val semeta_seint_h = $(Archive.getC "simengine/semeta_seint.h")
