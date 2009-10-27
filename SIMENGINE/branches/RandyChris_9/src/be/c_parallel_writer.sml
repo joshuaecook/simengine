@@ -785,21 +785,6 @@ fun output_code (name, location, block) =
       before TextIO.closeOut file
     end
 
-fun props2solver props =
-    let
-    	val iterators = #iterators props
-	val solver = case List.find (fn(sym, itertype) => 
-				       (case itertype of
-					    DOF.CONTINUOUS solver => true
-					  | DOF.DISCRETE {sample_period} => false
-					  | DOF.POSTPROCESS itersym => false
-					  | DOF.UPDATE itersym => false)) iterators of
-			 SOME (sym, DOF.CONTINUOUS solver) => solver
-		       | _ => DynException.stdException ("Requiring at least one differential equation", "CParallelWriter.buildC", Logger.INTERNAL)
-    in
-	solver
-    end
-
 fun logoutput_code class =
     let
 	val iterators = CurrentModel.iterators()
@@ -905,9 +890,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 
 	val statespace = ClassProcess.class2statesize inst_class
 
-	val {iterators,precision,...} = props
-	val solver = props2solver props
-	val solver_name = Solver.solver2name solver
+	val {precision,...} = props
 
 	val c_data_format = case precision 
 			     of DOF.SINGLE => "float" 
