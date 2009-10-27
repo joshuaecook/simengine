@@ -13,8 +13,7 @@ int discrete_eval(solver_props *props, unsigned int modelid){
   if(!props->running[modelid])
     return 0;
 
-  props->time[modelid]+=props->timestep;
-  props->count[modelid]++;
+  props->next_time[modelid]+=props->timestep;
 
   return model_flows(props->time[modelid], props->model_states, props->next_states, props, 1, modelid);
 }

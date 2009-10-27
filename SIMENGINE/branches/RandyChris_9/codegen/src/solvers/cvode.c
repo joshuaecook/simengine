@@ -113,7 +113,7 @@ int cvode_eval(solver_props *props, unsigned int modelid){
     return 0;
 
   mem[modelid].first_iteration = TRUE;
-  if(CVode(mem[modelid].cvmem, mem[modelid].props->stoptime, ((N_Vector)(mem[modelid].y0)), &(mem[modelid].props->time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
+  if(CVode(mem[modelid].cvmem, mem[modelid].props->stoptime, ((N_Vector)(mem[modelid].y0)), &(mem[modelid].props->next_time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
     fprintf(stderr, "CVODE failed to make a step in model %d.\n", modelid);
     return 1;
   }

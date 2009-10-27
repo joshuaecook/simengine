@@ -150,7 +150,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
     if (mem->cur_timestep[modelid] == min_timestep) appropriate_step = TRUE;
 
     if (appropriate_step){
-      props->time[modelid] += mem->cur_timestep[modelid];
+      props->next_time[modelid] += mem->cur_timestep[modelid];
     }
 
     next_timestep = 0.90 * mem->cur_timestep[modelid]*pow(1.0/norm, 1.0/3.0);

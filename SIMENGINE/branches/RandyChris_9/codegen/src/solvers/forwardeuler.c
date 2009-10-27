@@ -54,7 +54,7 @@ int forwardeuler_eval(solver_props *props, unsigned int modelid){
       props->timestep * mem->k1[STATE_IDX];
   }
 
-  props->time[modelid] += props->timestep;
+  props->next_time[modelid] += props->timestep;
 
   return ret;
 }

@@ -63,6 +63,8 @@ fun init_solver_props forkedclasses =
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
 			 $("props[ITERATOR_"^itername^"].system_states = system_ptr;"),
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
+			 $("props[ITERATOR_"^itername^"].next_time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
+			 $("props[ITERATOR_"^itername^"].count = NULL; // Allocated by discrete solver only, must be NULL otherwise"),
 			 $("props[ITERATOR_"^itername^"].model_states = (CDATAFORMAT*)(&system_states->states_"^itername^");"),
 			 $("props[ITERATOR_"^itername^"].next_states = NULL; //Allocated by solver_init"),
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
@@ -103,9 +105,18 @@ fun init_solver_props forkedclasses =
 	      $("#else"),
 	      $("void *od = NULL;"),
 	      $("unsigned int outputsize = 0;"),
-	      $("#endif")] @
+	      $("#endif"),
+	      $("Iterator iter;"),
+	      $("unsigned int i;")] @
 	     (Util.flatmap init_props forkedclasses) @
 	     [$(""),
+	      $("// Initialize all time vectors"),
+	      $("for(iter=0;iter<NUM_ITERATORS;iter++){"),
+	      SUB[$("for(i=0;i<NUM_MODELS;i++){"),
+		  SUB[$("props[iter].time[i] = starttime;"),
+		      $("props[iter].next_time[i] = starttime;")],
+		  $("}")],
+	      $("}"),
 	      $("return props;")]),
 	 $("}"),
 	 $(""),
@@ -490,7 +501,7 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 		    val statewrites = "&wr_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname)
 
 		    val systemdata = Unique.unique "systemdata"
-		    val sysstates_init = [$("systemstatedata *"^systemdata^";"),
+		    val sysstates_init = [$("systemstatedata_ptr *"^systemdata^";"),
 					  SUB(map (fn(iter_sym,iter_type)=> $(systemdata^"->" ^ (Symbol.name iter_sym) ^ " = &(sys_rd[STRUCT_IDX]."^(Symbol.name iter_sym)^"->"^(Symbol.name orig_instname)^");")) (ModelProcess.returnIndependentIterators()))]
 		    (*val statereads = map
 					 (fn(sym)=> "&rd_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")

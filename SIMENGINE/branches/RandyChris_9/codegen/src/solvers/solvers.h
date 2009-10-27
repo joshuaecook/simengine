@@ -46,6 +46,7 @@ typedef struct {
   // A pointer to a systemstatedata_ptr structure
   void *system_states;
   CDATAFORMAT *time; // Continuous iterators (discrete mapped to continuous)
+  CDATAFORMAT *next_time;
   unsigned int *count; // Discrete iterators
   // A pointer into system_states to the states for this iterator
   CDATAFORMAT *model_states;
@@ -72,20 +73,28 @@ __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMA
 
 __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
   unsigned int i;
+  // Update model states to next value
   for(i=0;i<props->statesize;i++){
     props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
   }
+  // Update solver time to next value
+  props->time[modelid] = props->next_time[modelid];
+
+  // Only discrete iterators have a count field
+  if(props->count){
+    props->count[modelid]++;
+  }
 }
 
-__DEVICE__ Iterator find_min_t(solver_props *props, unsigned int modelid){
+__DEVICE__ Iterator find_min_time(solver_props *props, unsigned int modelid){
   Iterator iter = 0;
   Iterator i;
-  CDATAFORMAT min_time = props[iter].time[modelid];
+  CDATAFORMAT min_time = props[iter].next_time[modelid];
 
   for(i=1;i<NUM_ITERATORS;i++){
-    if(props[i].time[modelid] < min_time){
+    if(props[i].next_time[modelid] < min_time){
       iter = i;
-      min_time = props[i].time[modelid];
+      min_time = props[i].next_time[modelid];
     }
   }
 
