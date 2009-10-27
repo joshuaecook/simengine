@@ -60,7 +60,7 @@ val factorNegAddition : Rewrite.rewrite =
 (* a & true -> a *)
 (* a | true -> true *)
 (* a & false -> false *)
-(* a | false -> false *)
+(* a | false -> a *)
 (* a == a -> true *)
 (* ~true -> false *)
 (* ~false -> true *)
@@ -77,6 +77,7 @@ val factorNegAddition : Rewrite.rewrite =
 (* the following six rewrites are attempts at creating a rule to aggregate multiplications and additions *)
 (* a + (b + c) -> a + b + c *)
 (* (a*b)*c -> a*b*c *)
+
 val aggregateSums1 : Rewrite.rewrite =
     {find=ExpBuild.plus [Match.any "a", ExpBuild.plus [Match.any "b", Match.any "c"]],
      test=NONE,
