@@ -422,11 +422,11 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 	    if has_states then
 		[$(""),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "(CDATAFORMAT iterval, "^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]
+		   ^ "(CDATAFORMAT "^iter_name^", "^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
 	    else
 		[$(""),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "(CDATAFORMAT iterval, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid) {")]	    
+		   ^ "(CDATAFORMAT "^iter_name^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]	    
 
 	val read_memory_progs = []
 
@@ -709,11 +709,11 @@ fun flow_code (*(classes: DOF.class list, topclass: DOF.class)*) {model as (clas
 		    in
 			if class_has_states then
 			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-			      "(CDATAFORMAT iterval, "^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^
-			      ", CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
+			      "(CDATAFORMAT "^iter_name^", "^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^
+			      ", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
 			else
 			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-			      "(CDATAFORMAT iterval, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);")
+			      "(CDATAFORMAT "^iter_name^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
 		    end
 	    end
 
@@ -757,9 +757,9 @@ fun model_flows classname =
 	fun iterator_flow_call (iter as (iter_sym,iter_type)) =
 	    SUB[$("case ITERATOR_"^(Symbol.name iter_sym)^":"),
 		(if ModelProcess.model2statesizebyiterator iter model > 0 then
-		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const statedata_" ^ classname^"_"^(Symbol.name iter_sym) ^ "* )y, (statedata_"^classname^"_"^(Symbol.name iter_sym)^"* )dydt, (const systemstatedata_ptr *)props->system_states, props->inputs, props->outputs, first_iteration, modelid);")
+		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const statedata_" ^ classname^"_"^(Symbol.name iter_sym) ^ "* )y, (statedata_"^classname^"_"^(Symbol.name iter_sym)^"* )dydt, (const systemstatedata_ptr *)props->system_states, props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")
 		 else
-		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const systemstatedata_ptr *)props->system_states ,props->inputs, props->outputs, first_iteration, modelid);"))]
+		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const systemstatedata_ptr *)props->system_states ,props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);"))]
 
 
     in
@@ -863,8 +863,8 @@ fun logoutput_code class =
 							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])
 							contents) @
 					  [$("ob->count[modelid]++;"),
-					   $("assert(ob->buffer[modelid] <= ob->ptr[modelid]);"),
-					   $("assert(ob->end[modelid] <= ob->buffer[modelid] + (NUM_MODELS * BUFFER_LEN));"),
+					   $("assert((void *)(ob->buffer + (modelid * BUFFER_LEN)) <= ob->ptr[modelid]);"),
+					   $("assert(ob->end[modelid] <= (void*)(ob->buffer + ((modelid+1) * BUFFER_LEN)));"),
 					   $("assert(ob->ptr[modelid] <= ob->end[modelid]);"),
 					   $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= (ob->end[modelid] - ob->ptr[modelid]));")]),
 				      $("}")],

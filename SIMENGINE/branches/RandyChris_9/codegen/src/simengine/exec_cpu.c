@@ -1,5 +1,5 @@
 // Run a single model to completion on a single processor core
-int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modelid){
+int exec_cpu(solver_props *props, unsigned int modelid){
   Iterator iter;
   Iterator i;
 
@@ -52,7 +52,8 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
       update(&props[iter], modelid);
     }
     // Log outputs from buffer to external api interface
-    if(0 != log_outputs((output_buffer*)props->ob, outputs, modelid)){
+    // All iterators share references to a single output buffer and outputs structure.
+    if(0 != log_outputs((output_buffer*)props[0].ob, props[0].outputs, modelid)){
       return ERRMEM;
     }
   }
