@@ -4,7 +4,9 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
   Iterator iter;
   Iterator i;
 
-  props->running[modelid] = 1;
+  for (i = 0; i < NUM_ITERATORS; i++)
+    { props[i].running[modelid] = 1; }
+
   // Run simulation to completion
   while(model_running(props, modelid)){
     // Initialize a temporary output buffer

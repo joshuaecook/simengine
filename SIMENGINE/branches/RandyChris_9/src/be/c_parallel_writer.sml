@@ -746,14 +746,14 @@ fun model_flows classname =
 	fun iterator_flow_call (iter as (iter_sym,iter_type)) =
 	    SUB[$("case ITERATOR_"^(Symbol.name iter_sym)^":"),
 		(if ModelProcess.model2statesizebyiterator iter model > 0 then
-		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const statedata_" ^ classname ^ "* )y, (statedata_"^classname^"_"^(Symbol.name iter_sym)^"* )dydt, (const systemstatedata_ptr *)props->system_states, props->inputs, props->outputs, first_iteration, modelid);")
+		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const statedata_" ^ classname^"_"^(Symbol.name iter_sym) ^ "* )y, (statedata_"^classname^"_"^(Symbol.name iter_sym)^"* )dydt, (const systemstatedata_ptr *)props->system_states, props->inputs, props->outputs, first_iteration, modelid);")
 		 else
 		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const systemstatedata_ptr *)props->system_states ,props->inputs, props->outputs, first_iteration, modelid);"))]
 
 
     in
 	[$"",
-	 $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid){"),
+	 $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, const unsigned int first_iteration, const unsigned int modelid){"),
 	 SUB($("switch(props->iterator){") ::
 	     (map iterator_flow_call iterators) @
 	     [$("default: return 1;"),
