@@ -31,19 +31,19 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
       CDATAFORMAT prev_time = props[iter].time[modelid];
 
       // Write state values back to state storage if they occur before time of iter
-      for(i=0;i<NUM_ITERATORS;i++)
-	if(props[i].time <= props[iter].time)
+      for(i=0;i<NUM_ITERATORS;i++){
+	if(props[i].time <= props[iter].time){
 	  solver_writeback(&props[i], modelid);
+	  // Perform any post process evaluations
+	  post_process(&props[iter], modelid);
+	}
+      }
 
       // Execute solver for one timestep
       solver_eval(&props[iter], modelid);
 
       // Perform any state updates
       update(&props[iter], modelid);
-
-      // Perform any post process evaluations
-      post_process(&props[iter], modelid);
-
 
 #if NUM_OUTPUTS > 0
       // Store a set of outputs only if the sovler made a step

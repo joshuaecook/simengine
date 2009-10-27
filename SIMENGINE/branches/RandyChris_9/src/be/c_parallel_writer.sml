@@ -48,7 +48,7 @@ fun init_solver_props forkedclasses =
 								  DOF.CONTINUOUS solver => (Solver.solver2params solver)
 								| DOF.DISCRETE {sample_period} => [("timestep", Util.r2s sample_period)]
 								| _ => [("ERROR", "Bogus iterator")]) iterator
-			val itername = (fn(sym,_) => Symbol.name sym) iterator
+			val (itername, itertype) = (fn(sym,itype) => ((Symbol.name sym),itype)) iterator
 			val solvername = String.map Char.toUpper 
 						    ((fn(_,itertype) => case itertype of
 									    DOF.CONTINUOUS solver => (Solver.solver2name solver)
@@ -60,7 +60,7 @@ fun init_solver_props forkedclasses =
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
 			 $("props[ITERATOR_"^itername^"].system_states = system_ptr;"),
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
-			 $("props[ITERATOR_"^itername^"].model_states = &(system_states->states_"^itername^");"),
+			 $("props[ITERATOR_"^itername^"].model_states = (CDATAFORMAT*)(&system_states->states_"^itername^");"),
 			 $("props[ITERATOR_"^itername^"].next_states = NULL; //Allocated by solver_init"),
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
 			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
@@ -75,7 +75,13 @@ fun init_solver_props forkedclasses =
 			 $("props[ITERATOR_"^itername^"].ob = ob;"),
 			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
 			 $(""),
-			 $("system_ptr->"^itername^" = &props[ITERATOR_"^itername^"].time;"),
+			 (case itertype of
+			     DOF.CONTINUOUS _ =>
+			     $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].time;")
+			   | DOF.DISCRETE _ =>
+			     $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].count;")
+			   | _ =>
+			     $("#error BOGUS ITERATOR NOT FILTERED")),
 			 $("system_ptr->states_"^itername^" = &(system_states->states_"^itername^");"),
 			 $("")]
 		    end
@@ -205,23 +211,6 @@ fun outputdatastruct_code class =
      $("")]
 end
 
-(*
-fun iteratordatastruct_code iters =
-    let
-	val passed_iters = List.mapPartial (fn(iter_sym, iter_type)=>
-					      case iter_type of
-						  DOF.CONTINUOUS _ => SOME (iter_sym, "CDATAFORMAT")
-						| DOF.DISCRETE _ => SOME (iter_sym, "CDATAFORMAT") (* TODO: change this to int if desired... *)
-						| _ => NONE) iters
-    in
-	[$(""),
-	 $("// Iterator data structure"),
-	 $("typedef struct {"),
-	 SUB(map (fn(iter_sym,format)=> $(format ^ " " ^ (Symbol.name iter_sym) ^ ";")) passed_iters),
-	 $("} iteratordata;")]
-    end
-*)
-
 fun solver_wrappers solvers =
     let
 	val methods_params = [("_init", "", ""),
@@ -245,20 +234,26 @@ fun solver_wrappers solvers =
 	Util.flatmap create_wrapper methods_params
     end
 
-fun iterator_wrappers classname iterator_syms =
+fun iterator_wrappers classname iterators =
     let
 	val methods = [("update", ModelProcess.hasUpdateIterator),
 		       ("post_process", ModelProcess.hasPostProcessIterator)]
-	fun method_redirect (meth,check) iter = 
+	fun method_redirect (meth,check) (iter,iter_type) = 
 	    if (check iter) then
 		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
-		 SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->time[modelid],);")]]
+		 case iter_type of
+		     DOF.CONTINUOUS _ =>
+		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->time[modelid],);")]
+		   | DOF.DISCRETE _ =>
+		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->count[modelid],);")]
+		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
+		]
 	    else
 		[$("// No " ^meth^ " for ITERATOR_"^(Symbol.name iter))]
 	fun create_wrapper (meth,check) = 
 	    [$("int " ^ meth ^ "(solver_props *props, unsigned int modelid){"),
 	     SUB($("switch(props->iterator){") ::
-		 (Util.flatmap (method_redirect (meth,check)) iterator_syms) @
+		 (Util.flatmap (method_redirect (meth,check)) iterators) @
 		 [$("default:"),
 		  SUB[$("return 1;")],
 		  $("}")]),
@@ -343,19 +338,23 @@ fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
 
 fun outputsystemstatestruct_code forkedModels =
     let
-	val class_names_iterators = map (fn{model=(_,{classname,...},_),iter=(iter_sym,_),...} => (classname, iter_sym)) forkedModels
+	val class_names_iterators = map (fn{model=(_,{classname,...},_),iter=(iter_sym, iter_type),...} => (classname, iter_sym, iter_type)) forkedModels
 
 	val top_sys_state_struct_prog =
 	    [$(""),
 	     $("// System State Structure"),
 	     $("typedef struct {"),
-	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
+	     SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
 	     $("} systemstatedata;"),
 	     $(""),
 	     $("// System State Pointer Structure"),
 	     $("typedef struct {"),
-	     SUB(map (fn(classname, iter_sym) => $("CDATAFORMAT *"^(Symbol.name iter_sym)^";")) class_names_iterators),
-	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " *states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
+	     SUB(map (fn(classname, iter_sym, iter_type) => case iter_type of
+								DOF.CONTINUOUS _ => $("CDATAFORMAT *"^(Symbol.name iter_sym)^";")
+							      | DOF.DISCRETE _ => $("unsigned int *"^(Symbol.name iter_sym)^";")
+							      | _ => $("#error BOGUS ITERATOR NOT FILTERED")
+		     ) class_names_iterators),
+	     SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " *states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
 	     $("} systemstatedata_ptr;"),
 	     $("")
 	    ]
@@ -866,8 +865,15 @@ fun logoutput_code class =
 					   $("ob->ptr[modelid] = &((unsigned int*)(ob->ptr[modelid]))[2];")] @
 					  (case (ExpProcess.exp2temporaliterator (Exp.TERM name)) of
 					       SOME (iter_sym,_) => 
-					       [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = props->time[modelid];"),
-						$("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")]
+					       (case CurrentModel.itersym2iter(iter_sym) of
+						   (_,(DOF.CONTINUOUS _)) =>
+						   [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = props->time[modelid];"),
+						    $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")]
+						 | (_,(DOF.DISCRETE _)) =>
+						   [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = props->count[modelid];"),
+						    $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")]
+						 | _ =>
+						   [$("#error BOGUS ITERATOR NOT FILTERED")])
 					     | NONE => []) @
 					  (Util.flatmap (fn (exp) =>
 							    [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = "^(CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp))^";"),
@@ -920,7 +926,8 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 			     of DOF.SINGLE => "float" 
 			      | DOF.DOUBLE => "double"
 
-	val iterator_syms = map (fn(iter_sym,iter_type)=> iter_sym) (ModelProcess.returnIndependentIterators())
+	val iterators = ModelProcess.returnIndependentIterators()
+	val iterator_syms = map (fn(iter_sym,iter_type)=> iter_sym) iterators
 	val iterator_names = map (fn(sym)=> (Symbol.name sym)) iterator_syms
 	(* grab the unique solvers so that we can put the code down for each one *)
 	val unique_solvers = Util.uniquify (List.mapPartial (fn(_,itertype)=> case itertype of 
@@ -950,7 +957,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 					    (fn(solv)=> Archive.getC ("solvers/"^solv^".c"))
 					    unique_solvers))
 	val solver_wrappers_c = solver_wrappers unique_solvers
-	val iterator_wrappers_c = iterator_wrappers class_name iterator_syms
+	val iterator_wrappers_c = iterator_wrappers class_name iterators
 	val simengine_api_c = $(Archive.getC "simengine/simengine_api.c")
 	val defines_h = $(Archive.getC "simengine/defines.h")
 	val semeta_seint_h = $(Archive.getC "simengine/semeta_seint.h")

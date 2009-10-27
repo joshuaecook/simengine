@@ -3,6 +3,7 @@
 
 int discrete_init(solver_props *props){
   props->next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  props->count = (unsigned int*)calloc(props->num_models,sizeof(unsigned int));
   return 0;
 }
 
@@ -13,11 +14,13 @@ int discrete_eval(solver_props *props, unsigned int modelid){
     return 0;
 
   props->time[modelid]+=props->timestep;
+  props->count[modelid]++;
 
   return model_flows(props->time[modelid], props->model_states, props->next_states, props, 1, modelid);
 }
 
 int discrete_free(solver_props *props){
   free(props->next_states);
+  free(props->count);
   return 0;
 }

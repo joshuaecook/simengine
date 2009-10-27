@@ -42,7 +42,8 @@ typedef struct {
   CDATAFORMAT starttime;
   CDATAFORMAT stoptime;
   void *system_states;
-  CDATAFORMAT *time;
+  CDATAFORMAT *time; // Continuous iterators (discrete mapped to continuous)
+  unsigned int *count; // Discrete iterators
   CDATAFORMAT *model_states;
   CDATAFORMAT *next_states; // Allocated/Freed by solver
   CDATAFORMAT *inputs;
