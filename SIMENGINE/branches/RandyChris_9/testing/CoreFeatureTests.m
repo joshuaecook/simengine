@@ -17,6 +17,7 @@ s.add(InlineFunctionFeatureTests);
 s.add(ConstantFeatureTests);
 s.add(IntermediateFeatureTests(mode));
 s.add(FunctionFeatureTests);
+s.add(DifferenceEquationTests);
 
 end
 
@@ -208,5 +209,13 @@ s.add(Test('FunctionHyperbolicTrig', @FunctionHyperbolicTrig));
     end
 s.add(Test('FunctionInverseHyperbolicTrig', @FunctionInverseHyperbolicTrig));
 
+
+end
+
+function s = DifferenceEquationTests
+
+s = Suite('Difference Equation Tests');
+
+s.add(Test('Basic Difference Equation', @()(simex('model_FeatureTests/DifferenceEquationTest1.dsl', 10, '-quiet')), '-equal', struct('x', [0:10; 0:10]')));
 
 end
