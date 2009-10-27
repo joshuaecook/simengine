@@ -852,6 +852,8 @@ fun logoutput_code class =
 							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])
 							contents) @
 					  [$("ob->count[modelid]++;"),
+					   $("assert(ob->buffer[modelid] <= ob->ptr[modelid];"),
+					   $("assert(ob->end[modelid] <= ob->buffer[modelid] + (NUM_MODELS * BUFFER_LEN));"),
 					   $("assert(ob->ptr[modelid] <= ob->end[modelid]);"),
 					   $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= (ob->end[modelid] - ob->ptr[modelid]));")]),
 				      $("}")],

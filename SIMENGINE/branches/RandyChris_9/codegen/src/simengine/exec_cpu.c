@@ -10,9 +10,11 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
   // Run simulation to completion
   while(model_running(props, modelid)){
     // Initialize a temporary output buffer
-    init_output_buffer((output_buffer*)(props->ob), modelid);
+    for (i = 0; i < NUM_ITERATORS; i++)
+      { init_output_buffer((output_buffer*)(props[i].ob), modelid); }
  
     // Run a set of iterations until the output buffer is full
+    // FIXME references to props must be indexed by iterator
     while(0 == ((output_buffer *)(props->ob))->full[modelid]){
       // Check if simulation is complete (or produce only a single output if there are no states)
       if(!props->running[modelid] || props->statesize == 0){
@@ -30,11 +32,11 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
 		 
       // Find the iterator which is earliest in time
       iter = find_min_t(props, modelid);
-      CDATAFORMAT prev_time = props[iter].time[modelid];
+      CDATAFORMAT now = props[iter].time[modelid];
 
       // Write state values back to state storage if they occur before time of iter
       for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].time <= props[iter].time){
+	if(props[i].time[modelid] <= now){
 	  solver_writeback(&props[i], modelid);
 	  // Perform any post process evaluations
 	  post_process(&props[iter], modelid);
@@ -48,13 +50,14 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
       update(&props[iter], modelid);
 
 #if NUM_OUTPUTS > 0
-      // Store a set of outputs only if the sovler made a step
-      if (props[iter].time[modelid] > prev_time) {
+      // Store a set of outputs only if the solver made a step
+      if (props[iter].time[modelid] > now) {
 	buffer_outputs(&props[iter], modelid);
       }
 #endif
     }
     // Log outputs from buffer to external api interface
+    // FIXME references to props must be indexed by iterator
     if(0 != log_outputs((output_buffer*)props->ob, outputs, modelid)){
       return ERRMEM;
     }
