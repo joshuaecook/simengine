@@ -27,21 +27,23 @@ structure ModelProcess : sig
 	
     (* Iterator related functions - these all grab the iterators from CurrentModel *)
     val returnIndependentIterators : unit -> DOF.systemiterator list
+    val returnDependentIterators : unit -> DOF.systemiterator list
     val hasUpdateIterator : Symbol.symbol -> bool
     val hasPostProcessIterator : Symbol.symbol -> bool
 
 end = struct
 
 
+fun isDependentIterator (_, DOF.CONTINUOUS _) = false
+  | isDependentIterator (_, DOF.DISCRETE _) = false
+  | isDependentIterator _ = true
+
+
 fun returnIndependentIterators () =
-    let
-	val iterators = CurrentModel.iterators()
-    in
-	List.mapPartial (fn(iter_sym,iter_type)=>case iter_type of
-						     DOF.CONTINUOUS _ => SOME (iter_sym,iter_type)
-						   | DOF.DISCRETE _ => SOME (iter_sym,iter_type)
-						   | _ => NONE) iterators			      
-    end
+    List.filter (not o isDependentIterator) (CurrentModel.iterators ())
+
+fun returnDependentIterators () =
+    List.filter isDependentIterator (CurrentModel.iterators ())
 
 fun hasUpdateIterator iter_sym =
     let

@@ -46,11 +46,11 @@ fun setCurrentModel(model: DOF.model) =
     current_model := model
 
 fun withModel model f =
-    let val old = getCurrentModel()
-	val () = setCurrentModel model
-	val y = f () handle e => (setCurrentModel old; raise e)
-	val () = setCurrentModel old
-    in y end
+    let val old = getCurrentModel () before setCurrentModel model
+    in 
+	f () before setCurrentModel old
+	handle e => (setCurrentModel old; raise e)
+    end
 
 (* accessors for the top level fields *)
 fun classes() = 

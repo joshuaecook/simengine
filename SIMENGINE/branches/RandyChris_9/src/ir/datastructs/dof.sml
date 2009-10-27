@@ -27,10 +27,20 @@ type classproperties = {sourcepos: PosLog.pos,
 			classform: classform,
 			classtype: classtype}
 
-datatype iteratortype = CONTINUOUS of Solver.solver
-		      | DISCRETE of {sample_period:real} (* sampling frequency *)
-		      | POSTPROCESS of Symbol.symbol
-		      | UPDATE of Symbol.symbol
+datatype iteratortype 
+  (* A continuous iterator, e.g. t, is in the real domain and
+   * has an associated numerical solver. *)
+  = CONTINUOUS of Solver.solver
+  (* A discrete iterator, e.g. n, is self-evaluating and
+   * has a period relative to the global time scale. *)
+  | DISCRETE of {sample_period:real}
+  (* An update iterator is dependent upon another named iterator. 
+   * Update evaluations occur after the primary evalation. *)
+  | UPDATE of Symbol.symbol
+  (* A postprocess iterator is dependent upon another named iterator. 
+   * Postprocess evaluations occur after primary evaluation and 
+   * any update evaluations. *)
+  | POSTPROCESS of Symbol.symbol
 
 datatype precisiontype = SINGLE | DOUBLE
 

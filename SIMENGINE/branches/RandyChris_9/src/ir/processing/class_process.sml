@@ -20,6 +20,9 @@ sig
     val symbolofiter2exps :  DOF.class -> Symbol.symbol -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
 
+    (* Indicates whether a class is a functional form. *)
+    val isInline : DOF.class -> bool
+
     (* Functions to modify class properties, usually recursively through the expressions *)
     val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
     val updateRealClassName : DOF.class -> Symbol.symbol -> DOF.class 
@@ -391,6 +394,9 @@ fun class2update_states (class : DOF.class) =
     in
 	states_with_updates
     end
+
+fun isInline ({properties={classform=DOF.FUNCTIONAL,...},...} : DOF.class) = true
+  | isInline _ = false
 
 fun class2postprocess_states (class: DOF.class) = 
     let

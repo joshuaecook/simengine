@@ -5,6 +5,7 @@
 #define SOLVERS_H
 
 #include <stdlib.h>
+#include <assert.h>
 #include <math.h>
 
 // Solver indexing mode for states
@@ -34,6 +35,7 @@ typedef struct {
 
 typedef void solver_mem;
 
+// Each iterator associates with an instance of this structure.
 typedef struct {
   CDATAFORMAT timestep; // dt for fixed timestep solver, first dt for variable timestep,
                         // sample period for discrete
@@ -41,9 +43,11 @@ typedef struct {
   CDATAFORMAT reltol;
   CDATAFORMAT starttime;
   CDATAFORMAT stoptime;
+  // A pointer to a systemstatedata_ptr structure
   void *system_states;
   CDATAFORMAT *time; // Continuous iterators (discrete mapped to continuous)
   unsigned int *count; // Discrete iterators
+  // A pointer into system_states to the states for this iterator
   CDATAFORMAT *model_states;
   CDATAFORMAT *next_states; // Allocated/Freed by solver
   CDATAFORMAT *inputs;
