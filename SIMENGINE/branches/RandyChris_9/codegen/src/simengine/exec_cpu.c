@@ -28,7 +28,7 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
 		 
       // Find the iterator which is earliest in time
       iter = find_min_t(props, modelid);
-      CDATAFORMAT prev_time = props[iter].time[modelid] * props[iter].count[modelid];
+      CDATAFORMAT prev_time = props[iter].time[modelid];
 
       // Write state values back to state storage if they occur before time of iter
       for(i=0;i<NUM_ITERATORS;i++)
@@ -47,7 +47,7 @@ int exec_cpu(solver_props *props, simengine_output *outputs, unsigned int modeli
 
 #if NUM_OUTPUTS > 0
       // Store a set of outputs only if the sovler made a step
-      if (props[iter].time[modelid] * props[iter].count[modelid] > prev_time) {
+      if (props[iter].time[modelid] > prev_time) {
 	buffer_outputs(&props[iter], modelid);
       }
 #endif

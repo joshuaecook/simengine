@@ -58,10 +58,10 @@ fun init_solver_props forkedclasses =
 			(map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
 			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
+			 $("props[ITERATOR_"^itername^"].system_states = system_ptr;"),
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
-			 $("props[ITERATOR_"^itername^"].count = (int*)malloc(NUM_MODELS*sizeof(int));"),
-			 $("props[ITERATOR_"^itername^"].model_states = ((systemstatedata*)(model_states))->statedata_"^itername^";//THIS IS BROKEN"),
-			 $("props[ITERATOR_"^itername^"].next_states = NULL;"),
+			 $("props[ITERATOR_"^itername^"].model_states = &(system_states->states_"^itername^");"),
+			 $("props[ITERATOR_"^itername^"].next_states = NULL; //Allocated by solver_init"),
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
 			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvername ^ ";"),
@@ -74,6 +74,9 @@ fun init_solver_props forkedclasses =
 			 $("props[ITERATOR_"^itername^"].ob_size = sizeof(output_buffer);"),
 			 $("props[ITERATOR_"^itername^"].ob = ob;"),
 			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
+			 $(""),
+			 $("system_ptr->"^itername^" = &props[ITERATOR_"^itername^"].time;"),
+			 $("system_ptr->states_"^itername^" = &(system_states->states_"^itername^");"),
 			 $("")]
 		    end
 	    in
@@ -81,7 +84,9 @@ fun init_solver_props forkedclasses =
 	    end
     in
 	[$("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
-	 SUB([$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
+	 SUB([$("systemstatedata *system_states = (systemstatedata*)model_states;"),
+	      $("systemstatedata_ptr *system_ptr = (systemstatedata_ptr*)malloc(sizeof(systemstatedata_ptr));"),
+	      $("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
 	      $("output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));"),
 	      $("#if NUM_OUTPUTS > 0"),
 	      $("output_data *od = (output_data*)malloc(NUM_MODELS*sizeof(output_data));"),
@@ -99,7 +104,6 @@ fun init_solver_props forkedclasses =
 	 SUB[$("Iterator iter;"),
 	     $("for(iter=0;iter<NUM_ITERATORS;iter++){"),
 	     SUB[$("free(props[iter].time);"),
-		 $("free(props[iter].count);"),
 		 $("free(props[iter].running);")],
 	     $("}"),
 	     $("free(props[0].ob);"),
@@ -345,13 +349,13 @@ fun outputsystemstatestruct_code forkedModels =
 	    [$(""),
 	     $("// System State Structure"),
 	     $("typedef struct {"),
-	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " " ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
+	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
 	     $("} systemstatedata;"),
 	     $(""),
 	     $("// System State Pointer Structure"),
 	     $("typedef struct {"),
-	     SUB(map (fn(classname, iter_sym) => $("CDATAFORMAT * "^(Symbol.name iter_sym))) class_names_iterators),
-	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " *" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
+	     SUB(map (fn(classname, iter_sym) => $("CDATAFORMAT *"^(Symbol.name iter_sym)^";")) class_names_iterators),
+	     SUB(map (fn(classname, iter_sym) => $("statedata_" ^ (Symbol.name classname) ^ " *states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
 	     $("} systemstatedata_ptr;"),
 	     $("")
 	    ]
@@ -860,14 +864,11 @@ fun logoutput_code class =
 				      SUB([$("((unsigned int*)(ob->ptr[modelid]))[0] = " ^ (i2s output_index) ^ ";"),
 					   $("((unsigned int*)(ob->ptr[modelid]))[1] = " ^ (i2s (inc (List.length contents))) ^ ";"),
 					   $("ob->ptr[modelid] = &((unsigned int*)(ob->ptr[modelid]))[2];")] @
-					   (case (ExpProcess.exp2temporaliterator (Exp.TERM name)) of
-						SOME (iter_sym,_) => if (isContinuousIterator iter_sym) then
-									 [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = props->time[modelid];"),
-									  $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")]
-								     else
-									 [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = props->count[modelid];"),
-									  $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")]
-					      | NONE => []) @
+					  (case (ExpProcess.exp2temporaliterator (Exp.TERM name)) of
+					       SOME (iter_sym,_) => 
+					       [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = props->time[modelid];"),
+						$("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")]
+					     | NONE => []) @
 					  (Util.flatmap (fn (exp) =>
 							    [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = "^(CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp))^";"),
 							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])

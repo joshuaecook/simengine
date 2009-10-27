@@ -154,9 +154,9 @@ fun sym2c_str (s, props) =
 		    case scope
 		     of Property.LOCAL => ""
 		      | Property.READSTATE v => Symbol.name v ^ index
-		      | Property.READSYSTEMSTATE v => "sys_rd" ^ index ^ (Symbol.name v) ^ "->"
+		      | Property.READSYSTEMSTATE v => "sys_rd" ^ index ^ "states_" ^ (Symbol.name v) ^ "->"
  		      | Property.WRITESTATE v => Symbol.name v ^ index
-		      | Property.ITERATOR => "iter" ^ index
+		      | Property.ITERATOR => ""
 		end
 
 	val suffix = if useOutputBuffer then

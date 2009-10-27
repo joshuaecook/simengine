@@ -43,7 +43,6 @@ typedef struct {
   CDATAFORMAT stoptime;
   void *system_states;
   CDATAFORMAT *time;
-  int *count;
   CDATAFORMAT *model_states;
   CDATAFORMAT *next_states; // Allocated/Freed by solver
   CDATAFORMAT *inputs;
@@ -76,12 +75,12 @@ __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
 __DEVICE__ Iterator find_min_t(solver_props *props, unsigned int modelid){
   Iterator iter = 0;
   Iterator i;
-  CDATAFORMAT min_time = props[iter].time[modelid] * props[iter].count[modelid];
+  CDATAFORMAT min_time = props[iter].time[modelid];
 
   for(i=1;i<NUM_ITERATORS;i++){
-    if(props[i].time[modelid] * props[iter].count[modelid] < min_time){
+    if(props[i].time[modelid] < min_time){
       iter = i;
-      min_time = props[i].time[modelid] * props[iter].count[modelid];
+      min_time = props[i].time[modelid];
     }
   }
 
