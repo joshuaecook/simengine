@@ -8,6 +8,10 @@
 #include <assert.h>
 #include <math.h>
 
+#ifndef NAN
+#define NAN (FLITERAL(0.0)/FLITERAL(0.0))
+#endif
+
 // Solver indexing mode for states
 #define STATE_IDX TARGET_IDX(props->statesize, props->num_models, i, modelid)
 

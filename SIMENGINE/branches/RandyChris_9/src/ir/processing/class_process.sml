@@ -22,6 +22,8 @@ sig
 
     (* Indicates whether a class is a functional form. *)
     val isInline : DOF.class -> bool
+    (* Indicates whether a class is a master class. *)
+    val isMaster : DOF.class -> bool
 
     (* Functions to modify class properties, usually recursively through the expressions *)
     val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
@@ -397,6 +399,9 @@ fun class2update_states (class : DOF.class) =
 
 fun isInline ({properties={classform=DOF.FUNCTIONAL,...},...} : DOF.class) = true
   | isInline _ = false
+
+fun isMaster ({properties={classtype=DOF.MASTER _,...},...} : DOF.class) = true
+  | isMaster _ = false
 
 fun class2postprocess_states (class: DOF.class) = 
     let

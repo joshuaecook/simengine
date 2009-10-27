@@ -116,12 +116,11 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 //    used for interfacing an external solver
 EXTERN_C
 int simengine_evalflow(double t, double *y, double *dydt, double *inputs) {
+  // This should only ever be used when the backend is compiled in double precision
+#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1 && 0 // Broken for now only allow for 1 continuous iterator?
   CDATAFORMAT *outputs = NULL;  // Should not be written to as first_iteration is 0
   int first_iteration = 0;
   int modelid = 0;
-
-  // This should only ever be used when the backend is compiled in double precision
-#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1 && 0 // Broken for now only allow for 1 continuous iterator?
   return model_flows(t, y, dydt, inputs, outputs, first_iteration, modelid);
 #else
   return -1;

@@ -255,9 +255,9 @@ fun update_wrapper classname iterators =
 		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
 		 case iter_type of
 		     DOF.CONTINUOUS _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->next_time[modelid],props->next_states, props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->next_time[modelid], (const statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, (statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | DOF.DISCRETE _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->count[modelid]+1,props->next_states, props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->count[modelid]+1, (const statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, (statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
 		]
 	    else
@@ -331,7 +331,7 @@ local
 in
 fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
     let
-	val classname = (*ClassProcess.class2orig_name class*) ClassProcess.class2classname class
+	val classname = ClassProcess.class2classname class
 	val class_iterators = #iterators class
 	val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
@@ -362,11 +362,7 @@ end
 fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
     let
 	fun progs () =
-	    let fun isMasterClass {properties={classtype,...},...} =
-		    case classtype of
-			DOF.MASTER _ => true
-		      | _ => false
-		val master_classes = List.filter isMasterClass classes
+	    let val master_classes = List.filter ClassProcess.isMaster classes
 	    in
 		List.concat (map outputstatestructbyclass_code master_classes)
 	    end
@@ -377,6 +373,7 @@ fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
 
 fun outputsystemstatestruct_code forkedModels =
     let
+	val master_classes = List.filter ClassProcess.isMaster (CurrentModel.classes ())
 	val class_names_iterators = map (fn{model=(_,{classname,...},_),iter=(iter_sym, iter_type),...} => (classname, iter_sym, iter_type)) forkedModels
 
 	val top_sys_state_struct_prog =
@@ -384,7 +381,47 @@ fun outputsystemstatestruct_code forkedModels =
 	     $("// System State Structure"),
 	     $("typedef struct {"),
 	     SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
-	     $("} systemstatedata;"),
+	     $("} systemstatedata;")]
+
+
+	fun name_and_iterator orig_name {model=(classes,_,_),iter,...} =
+	    let fun match c = ClassProcess.class2basename c = orig_name
+		val name = case List.find match classes
+			    of SOME {name,...} => name
+			     | NONE => DynException.stdException((""),"CParallelWriter.outputsystemstatestruct_code.struct_data.findClass", Logger.INTERNAL)
+	    in
+		(name, iter)
+	    end
+
+	fun class_struct_data class =
+	    let val orig_name = ClassProcess.class2orig_name class
+		val class_name_iterator_pairs = map (name_and_iterator orig_name) forkedModels
+	    in 
+		(orig_name, class_name_iterator_pairs) 
+	    end
+
+	fun class_struct_declaration (name, iter_pairs) =
+	    [$("typedef struct {"),
+	     SUB(map ($ o iter_pair_iter_member) iter_pairs),
+	     SUB(map ($ o iter_pair_states_member) iter_pairs),
+	     $("} systemstatedata_"^(Symbol.name name)^";"),$("")]
+	and iter_pair_states_member (classname, (iter_name,iter_typ)) =
+	    "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";"
+	and iter_pair_iter_member (_, (iter_name,DOF.CONTINUOUS _)) =
+	    "CDATAFORMAT *"^(Symbol.name iter_name)^";"
+	  | iter_pair_iter_member (_, (iter_name,DOF.DISCRETE _)) = 
+	    "unsigned int *"^(Symbol.name iter_name)^";"
+	  | iter_pair_iter_member _ = 
+	    "#error BOGUS ITERATOR NOT FILTERED"
+	    
+	val per_class_struct_data = map class_struct_data master_classes
+
+	val per_class_struct_prog = 
+	    $("// Per-class system pointer structures") ::
+	    Util.flatmap class_struct_declaration per_class_struct_data
+
+
+(*
 	     $(""),
 	     $("// System State Pointer Structure"),
 	     $("typedef struct {"),
@@ -398,10 +435,11 @@ fun outputsystemstatestruct_code forkedModels =
 	     SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " *states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
 	     $("} systemstatedata_ptr;"),
 	     $("")
-	    ]
+
+*)
     in
-	top_sys_state_struct_prog
-	(* @ struct_prog*)
+	top_sys_state_struct_prog @ 
+	per_class_struct_prog
     end
     handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code" e
 
@@ -456,16 +494,21 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 	val read_memory_progs = []
 
 	val read_states_progs = []
+
+	val input_automatic_var =
+	    if top_class then
+		fn ({name,default},i) => 
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, NUM_MODELS, " ^ (i2s i) ^ ", modelid)];")
+	    else
+		fn ({name,default},i) => 
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
+
 	    
+	(* TODO map only inputs that are actually used within the flow equations *)
 	val read_inputs_progs =
 	    [$(""),
 	     $("// mapping inputs to variables")] @ 
-	    (map
-		 (if top_class then
-		     (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, NUM_MODELS, " ^ (i2s i) ^ ", modelid)];"))
-		 else
-		     (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")))
-		 (Util.addCount (!(#inputs class))))
+	    (map input_automatic_var (Util.addCount (!(#inputs class))))
 
 
 	(* filter out all the unneeded expressions *)
@@ -525,9 +568,9 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 		    val statereads = "&rd_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname)
 		    val statewrites = "&wr_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname)
 
-		    val systemdata = Unique.unique "systemdata"
-		    val sysstates_init = [$("systemstatedata_ptr *"^systemdata^";"),
-					  SUB(map (fn(iter_sym,iter_type)=> $(systemdata^"->" ^ (Symbol.name iter_sym) ^ " = &(sys_rd[STRUCT_IDX]."^(Symbol.name iter_sym)^"->"^(Symbol.name orig_instname)^");")) (ModelProcess.returnIndependentIterators()))]
+		    val systemdata = Unique.unique "subsys_rd"
+		    val sysstates_init = [$("systemstatedata_ptr "^systemdata^";"),
+					  SUB(map (fn(iter_sym,iter_type)=> $(systemdata^"." ^ (Symbol.name iter_sym) ^ " = sys_rd."^(Symbol.name iter_sym)^";")) (ModelProcess.returnIndependentIterators()))]
 		    (*val statereads = map
 					 (fn(sym)=> "&rd_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")
 					 iterators
@@ -556,14 +599,15 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
 
 		in
-		    [SUB([$("// Calling instance class " ^ (Symbol.name classname)),
+		    [$("{"),
+		     SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 			  $("// " ^ (CWriterUtil.exp2c_str exp)),
 			  $(inps)] @ 
 			 inps_init @ 
 			 sysstates_init @
 			 [$(outs_decl),
 			  if top_class then
-			      $(calling_name ^ "(iter, "^
+			      $(calling_name ^ "("^iter_name^", "^
 				statereads_top ^ ", " ^ statewrites_top ^ ", "^systemdata^", " ^ inpvar^", "^outvar^", first_iteration, modelid);")
 			  (*
 			   if class_has_states then
@@ -572,7 +616,7 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 			       $(calling_name ^ "(t, "^inpvar^", "^outvar^", first_iteration, modelid);")						  
 			   *)
 			  else
-			      $(calling_name ^ "(iter, "^
+			      $(calling_name ^ "("^iter_name^", "^
 				statereads ^ ", " ^ statewrites ^ ", " ^ inpvar^", "^outvar^", first_iteration, modelid);")
 			     (* $(calling_name ^ "("^(String.concat (map (fn(sym)=>Symbol.name sym ^ ", ") iterators))^
 				(String.concat statereads) ^ (String.concat statewrites) ^ inpvar^", "^outvar^", first_iteration, modelid);")*)
@@ -584,8 +628,8 @@ fun class2flow_code (class, top_class, iter as (iter_sym, iter_type)) =
 			  *)
 			 ] @
 			 map ($ o inst_output)
-			     (Util.addCount (ListPair.zip (symbols, !(#outputs class)))))
-
+			     (Util.addCount (ListPair.zip (symbols, !(#outputs class))))),
+		     $("}")
 		    ]
 		end
 
