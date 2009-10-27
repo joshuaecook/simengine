@@ -465,7 +465,15 @@ fun createEventIterators (class: DOF.class) =
 		val lhs' = 
 		    case lhs of 
 			Exp.TERM (Exp.SYMBOL (sym, props)) => 
-			Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.postProcessOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE 1)::spatial)))
+			if ExpProcess.isInitialConditionEq exp then
+			    Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.postProcessOf (Symbol.name temporal),(*iterindex*)Iterator.ABSOLUTE
+																		   0)::spatial)))
+			else if ExpProcess.isIntermediateEq exp then
+			    Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.postProcessOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE
+																		   1)::spatial)))
+			else
+			    DynException.stdException ("Unexpected non-intermediate and non-initial condition equation",
+						       "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
 		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
 	    in
 		ExpBuild.equals (lhs', ExpProcess.rhs exp)
@@ -474,6 +482,7 @@ fun createEventIterators (class: DOF.class) =
 	val update_states = class2update_states class
 	val postprocess_states = class2postprocess_states class
 
+	(* update all the intermediate equations based on the initial condition iterators *)
 	val exps' = map
 			(fn(exp)=>if ExpProcess.isIntermediateEq exp then
 				      let
@@ -489,8 +498,24 @@ fun createEventIterators (class: DOF.class) =
 				  else
 				      exp)
 			exps
+
+	(* for post process iterators, we also have to update the initial condition *)
+	val exps'' = map
+			(fn(exp)=>if ExpProcess.isInitialConditionEq exp then
+				      let
+					  val lhs_sym = ExpProcess.getLHSSymbol exp
+				      in
+					  if List.exists (fn(sym)=>sym=lhs_sym) postprocess_states then
+					      pp_exp exp
+					  else
+					      exp
+				      end
+				  else
+				      exp)
+			exps'
+
     in
-	(#exps class := exps')
+	(#exps class := exps'')
     end
 
 fun addEPIndexToClass is_top (class: DOF.class) =
