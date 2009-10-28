@@ -401,13 +401,12 @@ fun outputsystemstatestruct_code forkedModels =
 	fun class_struct_declaration (name, iter_pairs) =
 	    [$("typedef struct {"),
 	     SUB(map ($ o iter_pair_iter_member) iter_pairs),
-	     SUB(map ($ o iter_pair_states_member) iter_pairs),
+	     SUB(map $ (List.mapPartial iter_pair_states_member iter_pairs)),
 	     $("} systemstatedata_"^(Symbol.name name)^";"),$("")]
 	and iter_pair_states_member ((classname,basename), iter as (iter_name,iter_typ)) =
 	    if ClassProcess.hasIterator iter (CurrentModel.classname2class basename) then
-		"statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";"
-	    else
-		"void *states_"^(Symbol.name iter_name)^";"
+		SOME ("statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";")
+	    else NONE
 	and iter_pair_iter_member (_, (iter_name,DOF.CONTINUOUS _)) =
 	    "CDATAFORMAT *"^(Symbol.name iter_name)^";"
 	  | iter_pair_iter_member (_, (iter_name,DOF.DISCRETE _)) = 
@@ -540,13 +539,12 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
 		    and systemstatedata_states (iter as (iter_name, _)) =
 			if ClassProcess.hasIterator iter class then
-			    systemdata^"."^"states_"^(Symbol.name iter_name)^" = sys_rd->states_"^(Symbol.name iter_name)^"."^(Symbol.name orig_instname)^";"
-			else
-			    systemdata^"."^"states_"^(Symbol.name iter_name)^" = NULL;"
+			    SOME (systemdata^"."^"states_"^(Symbol.name iter_name)^" = sys_rd->states_"^(Symbol.name iter_name)^"."^(Symbol.name orig_instname)^";")
+			else NONE
 
 		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename class))^" "^systemdata^";"),
 					  SUB(map ($ o systemstatedata_iterator) (ModelProcess.returnIndependentIterators ())),
-					  SUB(map ($ o systemstatedata_states) (ModelProcess.returnIndependentIterators ()))]
+					  SUB(map $ (List.mapPartial systemstatedata_states (ModelProcess.returnIndependentIterators ())))]
 
 		    val class_has_states = ClassProcess.class2statesize class > 0
 
