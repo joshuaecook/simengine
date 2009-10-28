@@ -1,8 +1,12 @@
 include ../../include/common.make
 
-LDLIBS = $(CUDA_LDLIBS)
-LDFLAGS = $(CUDA_LDFLAGS)
-INCLUDES = $(CUDA_INCLUDES)
+LDLIBS = $(CUDA_LDLIBS) -lcudart
+ifneq ($(ARCH64),)
+LDFLAGS = $(CUDA_LDFLAGS) -L/opt64/cuda/lib
+else
+LDFLAGS = $(CUDA_LDFLAGS) -L/opt/cuda/lib
+endif
+INCLUDES = $(CUDA_INCLUDES) -I/opt/cuda/include
 CPPFLAGS = $(INCLUDES) -g 
 
 bandwidth_test.o: override CXX = $(NVCC)

@@ -663,7 +663,7 @@ solvers:
 .PHONY: share_cuda
 share_cuda:
 	@echo "Running target cuda_utils"
-	-$(MAKE) -C share/cuda all $(ARCH64_FLAG) DEBUG=$(DEBUG) PROFILE=$(PROFILE)
+	$(MAKE) -C share/cuda all $(ARCH64_FLAG) DEBUG=$(DEBUG) PROFILE=$(PROFILE)
 
 
 $(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
