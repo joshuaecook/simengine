@@ -539,7 +539,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
 		    and systemstatedata_states (iter as (iter_name, _)) =
 			if ClassProcess.hasIterator iter class then
-			    SOME (systemdata^"."^"states_"^(Symbol.name iter_name)^" = sys_rd->states_"^(Symbol.name iter_name)^"."^(Symbol.name orig_instname)^";")
+			    SOME (systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"->"^(Symbol.name orig_instname)^";")
 			else NONE
 
 		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename class))^" "^systemdata^";"),
@@ -550,12 +550,15 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 		    val calling_name = "flow_" ^ (Symbol.name classname)
 
-		    val inpvar = Unique.unique "inputdata"
+		    val inpvar = if List.null inpargs then "NULL" else Unique.unique "inputdata"
 		    val outvar = Unique.unique "outputdata"
 				 
 
-		    val inps = "CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];"
-		    val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";"))(Util.addCount inpargs)
+		    val inps = 
+			if List.null inpargs then []
+			else [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];")]
+
+		    val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";")) (Util.addCount inpargs)
 		    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
 
 		    val symbols = map Term.sym2curname outargs
@@ -565,10 +568,10 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
 
 		in
-		    [$("{"),
+		    [$("//{ // TODO declare output vars outside this scope"),
 		     SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-			  $("// " ^ (CWriterUtil.exp2c_str exp)),
-			  $(inps)] @ 
+			  $("// " ^ (CWriterUtil.exp2c_str exp))] @ 
+			 inps @
 			 inps_init @ 
 			 sysstates_init @
 			 [$(outs_decl),
@@ -581,7 +584,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			 ] @
 			 map ($ o inst_output)
 			     (Util.addCount (ListPair.zip (symbols, !(#outputs class))))),
-		     $("}")
+		     $("//}")
 		    ]
 		end
 
@@ -677,12 +680,12 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 					 | _ => ClassProcess.class2statesize class > 0
 	    in
 		if ClassProcess.isInline class then
-		    $("CDATAFORMAT "^(Symbol.name (#name class))^"("^
-		      (String.concatWith 
-			   ", " 
-			   (map 
-				(fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) 
-				(!(#inputs class))))^");")
+		    SOME ($("CDATAFORMAT "^(Symbol.name (#name class))^"("^
+			    (String.concatWith 
+				 ", " 
+				 (map 
+				      (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) 
+				      (!(#inputs class))))^");"))
 		else
 		    let
 			(* every iterator except the update iterator uses an iter_name *)
@@ -696,39 +699,34 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 			val systemstatereadprototype = "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd"
 		    in
 			if class_has_states then
-			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-			      "(CDATAFORMAT "^iter_name^", "^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^
-			      ", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
-			else
-			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-			      "(CDATAFORMAT "^iter_name^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+			    SOME ($("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+				    "(CDATAFORMAT "^iter_name^", "^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^
+				    ", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);"))
+			else NONE
 		    end
 	    end
 
-	val fundecl_progs = map class_flow_prototype classes
-				
-	val flow_progs = List.concat (map (fn(c)=>
-					     if ClassProcess.isInline c then
-						 (Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
-						  DynException.setErrored();
-						  [])
-					     else
-						 class2flow_code (c,#name c = #name topclass, iter)) classes)
 
 	(*val (fun_prototypes, fun_wrappers) = ListPair.unzip (map (fn(iter)=>flow_wrapper (topclass, iter)) eval_iterators)*)
 	(*val (fun_prototype, fun_wrapper) = flow_wrapper (topclass, iter)*)
 
     in
-	([$("// Functions prototypes for flow code")] @
-	  (*fun_prototype*)fundecl_progs,
-	 (*$("// Flow code function declarations")::
-	 fundecl_progs @ *)
-	 flow_progs
-	 (*top_level_flow_progs*)
-	 (*fun_wrapper*)) before (CurrentModel.setCurrentModel(prevModel))
-
-    (*(Util.flatmap (fn(iter)=>flow_wrapper (topclass, iter)) iterators)*)
-	(*top_level_flow_progs*)
+	CurrentModel.withModel model 
+	(fn () =>
+	    let
+    		val fundecl_progs = List.mapPartial class_flow_prototype classes
+				    
+		val flow_progs = List.concat (map (fn(c)=>
+						     if ClassProcess.isInline c then
+							 (Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
+							  DynException.setErrored();
+							  [])
+						     else if not (ClassProcess.hasStates c) then []
+						     else
+							 class2flow_code (c,#name c = #name topclass, iter)) classes)
+	    in
+		([$("// Functions prototypes for flow code")] @ fundecl_progs, flow_progs)
+	    end)
     end
     handle e => DynException.checkpoint "CParallelWriter.flow_code" e
 
@@ -744,10 +742,8 @@ fun model_flows classname =
 
 	fun iterator_flow_call (iter as (iter_sym,iter_type)) =
 	    SUB[$("case ITERATOR_"^(Symbol.name iter_sym)^":"),
-		(if ModelProcess.model2statesizebyiterator iter model > 0 then
-		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const statedata_" ^ classname^"_"^(Symbol.name iter_sym) ^ "* )y, (statedata_"^classname^"_"^(Symbol.name iter_sym)^"* )dydt, (const systemstatedata_"^classname^" *)props->system_states, props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")
-		 else
-		     $("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const systemstatedata_"^classname^" *)props->system_states ,props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);"))]
+		$("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const statedata_" ^ classname^"_"^(Symbol.name iter_sym) ^ "* )y, (statedata_"^classname^"_"^(Symbol.name iter_sym)^"* )dydt, (const systemstatedata_"^classname^" *)props->system_states, props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")
+		]
 
 
     in
