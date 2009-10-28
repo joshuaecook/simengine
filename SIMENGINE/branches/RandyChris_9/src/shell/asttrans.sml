@@ -526,10 +526,17 @@ and trans_definition definition =
 	    				:: (template_constructor_stms)}
 
 
+	    val default_model_settings = 
+		HLEC.TABLE [(Symbol.symbol "target", HLEC.LITERAL (HLEC.CONSTSTR "CPU")),
+			    (Symbol.symbol "precision", HLEC.LITERAL (HLEC.CONSTSTR "double")),
+			    (Symbol.symbol "num_models", HLEC.LITERAL (HLEC.CONSTREAL 1.0)),
+			    (Symbol.symbol "debug", HLEC.LITERAL (HLEC.CONSTBOOL true)),
+			    (Symbol.symbol "profile", HLEC.LITERAL (HLEC.CONSTBOOL false))]
+
 	    val modelsettings =
 		HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFLOCAL(Symbol.symbol "settings",
 							   HLEC.DONTCARE,
-							   HLEC.TABLE []))
+							   default_model_settings))
 
 	    val templatename = Symbol.symbol ((Symbol.name name) ^ "Template")
 

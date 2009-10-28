@@ -546,22 +546,6 @@ fun obj2modelinstance object =
 fun obj2dofmodel object =
     let
 	val (classes, topinstance) = obj2modelinstance (object)
-(*	val solverobj = method "solver" (method "modeltemplate" object)
-	val solver = case exp2str(method "name" solverobj) of
-			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
-		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
-		       (* | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
-		       | "heun" => Solver.HEUN {dt = exp2real(method "dt" solverobj)}*)
-		       | "ode23" => Solver.ODE23 {dt = exp2real(method "dt" solverobj),
-						  abs_tolerance = exp2real(method "abstol" solverobj),
-						  rel_tolerance = exp2real(method "reltol" solverobj)}
-		       | "ode45" => Solver.ODE45 {dt = exp2real(method "dt" solverobj),
-						  abs_tolerance = exp2real(method "abstol" solverobj),
-						  rel_tolerance = exp2real(method "reltol" solverobj)}
-		       | "cvode" => Solver.CVODE {dt = exp2real(method "dt" solverobj),
-						  abs_tolerance = exp2real(method "abstol" solverobj),
-						  rel_tolerance = exp2real(method "reltol" solverobj)}
-		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)*)
 	fun transSolver solverobj =
 	    case exp2str(method "name" solverobj) of			 
 			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
@@ -594,25 +578,6 @@ fun obj2dofmodel object =
 							 }
 		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
-(*	fun classHasIter iter ({exps, ...}: DOF.class) =
-	    List.exists (expHasIterator iter) (!exps)
-
-	val discrete_iterators = 
-	    if List.exists (classHasIter (Symbol.symbol "n")) classes then
-		[(Symbol.symbol "n", DOF.DISCRETE {sample_period=1.0}),
-		 (Iterator.postProcessOf "n", DOF.POSTPROCESS (Symbol.symbol "n")),
-		 (Iterator.updateOf "n", DOF.UPDATE (Symbol.symbol "n"))]
-	    else
-		[]
-			    
-	val continuous_iterators = 
-	    if List.exists (classHasIter (Symbol.symbol "t")) classes then
-		[(Symbol.symbol "t", DOF.CONTINUOUS solver),
-		 (Iterator.postProcessOf "t", DOF.POSTPROCESS (Symbol.symbol "t")),
-		 (Iterator.updateOf "t", DOF.UPDATE (Symbol.symbol "t"))]
-	    else
-		[]
-*)
 	fun buildTemporalIterator (obj) =
 	    let
 		val name = exp2str (method "name" obj)

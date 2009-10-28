@@ -827,8 +827,8 @@ namespace Simulation
     function tostring()
       var s = "Model " + name + "\n"
       s = s + "  Submodels:\n"
-      foreach s in submodels do
-        s = s + s.tostring() + "\n"
+      foreach sm in submodels do
+        s = s + "    " + sm.tostring() + "\n"
       end      
       s = s + "  Equations:\n"
       foreach q in quantities do
