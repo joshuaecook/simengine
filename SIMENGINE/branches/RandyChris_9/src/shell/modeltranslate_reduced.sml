@@ -170,12 +170,15 @@ fun kecexp2dofexp obj =
 		    case sym of
 			Exp.TERM(Exp.SYMBOL(s, props)) =>
 			let
-			    val props = case Property.getIterator props of
+(*			    val props = case Property.getIterator props of
 					    NONE => Property.setIterator props [(Symbol.symbol "t", Iterator.RELATIVE 0)]
 					  | SOME iters => if List.exists (fn(s,_) => s = (Symbol.symbol "t") orelse s = (Symbol.symbol "n")) iters then
 							      props
 							  else
 							      Property.setIterator props ((Symbol.symbol "t", Iterator.RELATIVE 0) :: iters)
+*)
+			    val temporal_iter = Symbol.symbol(exp2str(method "name" (method "iter" quantity)))
+			    val props = Property.setDerivative props (order, [temporal_iter])
 			in
 			    Exp.TERM(Exp.SYMBOL(s, Property.setDerivative props (order,[Symbol.symbol "t"])))
 			end
@@ -279,7 +282,7 @@ fun kecexp2dofexp obj =
 						  end))
 						 
 			else if (istype (obj, "State")) then
-			    ExpBuild.var(exp2str (method "name" obj))
+			    ExpBuild.ivar (exp2str (method "name" obj)) [(Symbol.symbol(exp2str(method "name" (method "iter" obj))), Iterator.RELATIVE 0)]
 			else
 			    ExpBuild.var(exp2str (method "name" obj))
 		in
