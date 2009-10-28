@@ -41,7 +41,7 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
      $("")
     ]
 
-fun init_solver_props forkedclasses =
+fun init_solver_props top_name forkedclasses =
     let
 	fun init_props {top_class, iter=iterator, model} =
 	    let
@@ -96,7 +96,7 @@ fun init_solver_props forkedclasses =
     in
 	[$("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
 	 SUB([$("systemstatedata *system_states = (systemstatedata*)model_states;"),
-	      $("systemstatedata_ptr *system_ptr = (systemstatedata_ptr*)malloc(sizeof(systemstatedata_ptr));"),
+	      $("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
 	      $("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
 	      $("output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));"),
 	      $("#if NUM_OUTPUTS > 0"),
@@ -898,7 +898,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				    [], (* no additional includes *)
 				    []))
 
-	val init_solver_props_c = init_solver_props forkedModelsWithSolvers		   
+	val init_solver_props_c = init_solver_props orig_name forkedModelsWithSolvers		   
 	val simengine_interface_progs = simengine_interface (class_name, inst_class, unique_solvers, iterator_names)
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
