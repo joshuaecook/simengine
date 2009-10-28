@@ -7,7 +7,7 @@ model (y)=PostProcessContinuousIteratorTest2
 
     // Post Process States
     state x_d1 = 0 with {iter=t1}
-    state x_d2 = 0 
+    state x_d2 = 0 with {iter=t1}
     equations
 	x_d1 = x
 	x_d2 = x_d1
