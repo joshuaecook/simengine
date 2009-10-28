@@ -1,4 +1,4 @@
-include ../include/common.make
+include ../../include/common.make
 
 ifeq ("$(MEX)$(MKOCTFILE)","")
 $(error "Couldn't find MEX or MKOCTFILE.")
@@ -6,7 +6,7 @@ endif
 
 DEBUG=1
 
-INCLUDES += -Iinclude -I../codegen/src/simengine
+INCLUDES += -Iinclude -I../../codegen/src/simengine
 LDLIBS = -ldl -lgomp
 
 CWARNINGS = -W -Wall

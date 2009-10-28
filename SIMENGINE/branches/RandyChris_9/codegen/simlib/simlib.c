@@ -133,6 +133,7 @@ int decompress_data(unsigned char *source, int ssize, unsigned char **dest, int 
     while(strm.avail_in){
         /* run inflate() on input until output buffer not full */
         do {
+	  strm.avail_out = bsize - *dsize;
             ret = inflate(&strm, Z_NO_FLUSH);
             assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
             switch (ret) {

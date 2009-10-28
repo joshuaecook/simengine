@@ -253,7 +253,7 @@ endif
 
 # Every possible MEX extension
 ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex
-MATLAB_TARGETS = $(addprefix matlab/%,$(ALL_MEXEXT))
+MATLAB_TARGETS = $(addprefix interfaces/matlab/%,$(ALL_MEXEXT))
 
 # Determines the appropriate MEX extension for the current platform.
 # TODO: extensions for other platforms
@@ -585,43 +585,19 @@ debug-files: $(DEBUG_FILES)
 # ==============================================================================================
 
 
-$(BUILD_DIR)/bin/%: matlab/bin/%
+$(BUILD_DIR)/bin/%: interfaces/matlab/bin/%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/src/simEngine_wrapper.c: matlab/src/simEngine_wrapper.c
+$(BUILD_DIR)/src/simEngine_wrapper.c: interfaces/matlab/src/simEngine_wrapper.c
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/src/simex_helper.c: matlab/src/simex_helper.c
+$(BUILD_DIR)/src/simex_helper.c: interfaces/matlab/src/simex_helper.c
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/%.m: matlab/%.m
+$(BUILD_DIR)/%.m: interfaces/matlab/%.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-$(BUILD_DIR)/%.fig: matlab/%.fig
+$(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-# $(BUILD_DIR)/simplot.m: matlab/simplot.m
-# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-# $(BUILD_DIR)/simSensitivity.m: matlab/simSensitivity.m
-# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-# $(BUILD_DIR)/simview.m: matlab/simview.m
-# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-# $(BUILD_DIR)/simview.fig: matlab/simview.fig
-# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-# $(BUILD_DIR)/simsweep.%: matlab/simsweep.%
-# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-# $(BUILD_DIR)/simex.m: matlab/simex.m
-# 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-#$(BUILD_DIR)/lib/solvers.c: matlab/solvers.c
-#	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-#$(BUILD_DIR)/lib/libsolvers.a: solvers/lib/libsolvers.a
-#	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
 $(BUILD_DIR)/lib/libcodegen.sim: codegen/src/* codegen/src/*/*
 	@$(MAKE) -C codegen codegen
@@ -630,28 +606,21 @@ $(BUILD_DIR)/lib/libcodegen.sim: codegen/src/* codegen/src/*/*
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-#$(BUILD_DIR)/include/solvers.h: solvers/include/solvers.h
-#	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-
-MEXINTERFACE_PREREQS = $(addprefix matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
+MEXINTERFACE_PREREQS = $(addprefix interfaces/matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 .PHONY: mexinterface
 mexinterface: $(MEXINTERFACE_PREREQS)
 
-matlab/$(INSTALL_FILENAME).m: simEngine.tgz datafiles/simatrapublickey.mat
-	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../simEngine.tgz', 'install_temp.m', '$(INSTALL_FILENAME).m', 'saveInstaller'); exit") 
+interfaces/matlab/$(INSTALL_FILENAME).m: simEngine.tgz datafiles/simatrapublickey.mat
+	@(cd interfaces/matlab; $(OCTAVECMD) "append_bin_to_file('../../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../../simEngine.tgz', 'install_temp.m', '$(INSTALL_FILENAME).m', 'saveInstaller'); exit") 
 
-%.p: matlab/%.m
+%.p: interfaces/matlab/%.m
 	@($(MATLABCMD) "pcode $<; exit")
-
-#install.p: matlab/install.p
-#	@echo "Copying '$<' to '$@' ..."
-#	@cat $< | sed -e 's/function install_wrapper/function install/' > $@
 
 pcode: $(INSTALL_FILENAME).p
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/$(INSTALL_FILENAME).m
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally interfaces/matlab/$(INSTALL_FILENAME).m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers
@@ -666,18 +635,18 @@ share_cuda:
 	$(MAKE) -C share/cuda all $(ARCH64_FLAG) DEBUG=$(DEBUG) PROFILE=$(PROFILE)
 
 
-$(BUILD_DIR)/simex_helper.%: matlab/simex_helper.%
+$(BUILD_DIR)/simex_helper.%: interfaces/matlab/simex_helper.%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(BUILD_DIR)/simEngine_wrapper.%: matlab/simEngine_wrapper.%
+$(BUILD_DIR)/simEngine_wrapper.%: interfaces/matlab/simEngine_wrapper.%
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(MATLAB_TARGETS): matlab/src/%.c
+$(MATLAB_TARGETS): interfaces/matlab/src/%.c
 	@echo "Generating Matlab target $@"
 ifneq ($(ARCH64),)
-	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) MEX=$(MEX) $(ARCH64_FLAG) $(*F)
+	$(MAKE) -C interfaces/matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) MEX=$(MEX) $(ARCH64_FLAG) $(*F)
 else
-	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
+	$(MAKE) -C interfaces/matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
 endif
 
 matlab-files: $(MATLAB_FILES)
@@ -695,34 +664,34 @@ $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 	@(cd $(LOCAL_INSTALL); tar xfz simEngine.tgz)
 
-$(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
+$(LOCAL_INSTALL)/compile_tests.m: interfaces/matlab/compile_tests.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(LOCAL_INSTALL)/simex.m: matlab/simex.m
+$(LOCAL_INSTALL)/simex.m: interfaces/matlab/simex.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 
-$(LOCAL_INSTALL)/%.mexmaci: matlab/%.mexmaci
+$(LOCAL_INSTALL)/%.mexmaci: interfaces/matlab/%.mexmaci
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-$(LOCAL_INSTALL)/%.mexmaci64: matlab/%.mexmaci64
+$(LOCAL_INSTALL)/%.mexmaci64: interfaces/matlab/%.mexmaci64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-$(LOCAL_INSTALL)/%.mex: matlab/%.mex
+$(LOCAL_INSTALL)/%.mex: interfaces/matlab/%.mex
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-$(LOCAL_INSTALL)/%.mexglx: matlab/%.mexglx
+$(LOCAL_INSTALL)/%.mexglx: interfaces/matlab/%.mexglx
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-$(LOCAL_INSTALL)/%.mexa64: matlab/%.mexa64
+$(LOCAL_INSTALL)/%.mexa64: interfaces/matlab/%.mexa64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-$(LOCAL_INSTALL)/%.mexs64: matlab/%.mexs64
+$(LOCAL_INSTALL)/%.mexs64: interfaces/matlab/%.mexs64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-$(LOCAL_INSTALL)/%.mexw32: matlab/%.mexw32
+$(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/%.mexw32
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-$(LOCAL_INSTALL)/%.mexw64: matlab/%.mexw64
+$(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/%.mexw64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
 install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
@@ -849,7 +818,7 @@ build_shared: share/*
 $(BUILD_DIR)/data/default.dol: datafiles/default.dol
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
 
-$(BUILD_DIR)/bin/simlib:
+$(BUILD_DIR)/bin/simlib: codegen/simlib/simlib.c
 	@$(MAKE) -C codegen simlib/simlib
 	@echo "Copying 'codegen/simlib/simlib' to '$@' ..."; $(CP) codegen/simlib/simlib $@ 
 
@@ -1505,7 +1474,7 @@ codegen_clean:
 	$(MAKE) -C codegen clean
 
 mexinterface_clean:
-	$(MAKE) -C matlab MEXEXT="$(MEXEXT)" clean
+	$(MAKE) -C interfaces/matlab MEXEXT="$(MEXEXT)" clean
 
 share_cuda_clean:
 	$(MAKE) -C share/cuda clean

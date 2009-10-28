@@ -526,10 +526,12 @@ end % end if recompile
 
 % TODO what is the path of the resultant DLL?
 switch computer
-  case {'MACI', 'MACI64','i386-apple-darwin9.8.0','i386-apple-darwin8.9.1'}
-   dllPath = fullfile(pwd, 'libsimengine.dylib');
- otherwise
-   dllPath = fullfile(pwd, 'libsimengine.so');
+%  case {'MACI', 'MACI64','i386-apple-darwin9.8.0','i386-apple-darwin8.9.1'}
+%   dllPath = fullfile(pwd, 'libsimengine.dylib');
+% otherwise
+%   dllPath = fullfile(pwd, 'libsimengine.so');
+[igpath modelname igext] = fileparts(modelFile);
+dllPath = fullfile(pwd, [modelname '.sim']);
 end  
 
 % TODO check the shape of the user inputs and start states, other

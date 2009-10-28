@@ -45,43 +45,25 @@
 
 
 // The type of simulation quantity values.
-#if defined SIMENGINE_STORAGE_double
-#define SIMENGINE_STORAGE double
-typedef double CDATAFORMAT;
-#define FLITERAL(X) X
-#elif defined SIMENGINE_STORAGE_float
+#if defined SIMENGINE_STORAGE_float
 #define SIMENGINE_STORAGE float
 typedef float CDATAFORMAT;
 // Ensures that operations involving literal quantities are not promoted to double-precision.
 #define FLITERAL(X) X##f
 #else
-#error SIMENGINE_STORAGE either not set or not supported, please use SIMENGINE_FLOAT or SIMENGINE_DOUBLE
+// Default to double precision
+#define SIMENGINE_STORAGE double
+typedef double CDATAFORMAT;
+#define FLITERAL(X) X
 #endif
 
 typedef unsigned long counter;
 
 // Target backends
 // Target backends reference memory in different layouts
-// TARGET_CPU allows multiple models to be executed serially and uses an array of structures to hold data
-#if defined TARGET_CPU
-//#if NUM_MODELS > 1
-//#error Only one model is supported for CPU target
-//#endif
-#define TARGET CPU
-//#define TARGET_IDX SER_IDX
-//#define STRUCT_IDX 0
-//#define STRUCT_SIZE 1
-#define TARGET_IDX AS_IDX
-#define STRUCT_IDX modelid
-#define STRUCT_SIZE NUM_MODELS
-#define ARRAY_IDX 0
-#define ARRAY_SIZE 1
-#define __DEVICE__
-#define __HOST__
-#define __GLOBAL__
 
 // TARGET_OPENMP allows multiple models to be executed on the CPU and uses an array of structures to hold data (prevents false sharing in cache between threads)
-#elif defined TARGET_OPENMP
+#if defined TARGET_OPENMP
 #define TARGET OPENMP
 #define TARGET_IDX AS_IDX
 #define STRUCT_IDX modelid
@@ -108,9 +90,18 @@ typedef unsigned long counter;
 #define __HOST__ __host__
 #define __GLOBAL__ __global__
 
-// Other targets are not yet supported
 #else
-#error TARGET either not set or not supported, please use TARGET_CPU, TARGET_OPENMP or TARGET_GPU
+// TARGET_CPU allows multiple models to be executed serially and uses an array of structures to hold data
+// Default to CPU target if not specified
+#define TARGET CPU
+#define TARGET_IDX AS_IDX
+#define STRUCT_IDX modelid
+#define STRUCT_SIZE NUM_MODELS
+#define ARRAY_IDX 0
+#define ARRAY_SIZE 1
+#define __DEVICE__
+#define __HOST__
+#define __GLOBAL__
 #endif
 
 #ifndef EXTERN_C

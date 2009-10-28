@@ -106,35 +106,28 @@ endif
 
 .PHONY: all clean remake grind real-clean
 
+LIBSIMENGINE = $(DSL_MODEL).sim
 ifeq ($(OSLOWER),darwin)
-LIBSIMENGINE = libsimengine.dylib
+TARGETLIBFLAGS = -dynamiclib -Wl,-install_name,$(LIBSIMENGINE)
 else
-LIBSIMENGINE = libsimengine.so
+TARGETLIBFLAGS = -shared -Wl,-soname,$(LIBSIMENGINE)
 endif
 
 all: $(LIBSIMENGINE)
 
 clean:
-	$(RM) $(DSL_MODEL)_parallel.o $(LIBSIMENGINE) grind_simEngine
+	$(RM) $(DSL_MODEL)_parallel.o $(DSL_MODEL)_parallel_c.o $(LIBSIMENGINE)
 
 real-clean: clean
 	$(RM) $(DSL_MODEL)*.c $(DSL_MODEL)*.m $(DSL_MODEL)*.cu
 
 remake: clean all
 
-grind: clean $(LIBSIMENGINE) grind_simEngine
-	$(GRIND) ./grind_simEngine
+$(LIBSIMENGINE): $(DSL_MODEL)_parallel.o $(DSL_MODEL)_parallel_c.o
+	$(LINK.c) $(LDFLAGS) $(TARGETLIBFLAGS) -o $@ $^ $(LDLIBS)
 
-grind_simEngine: $(SIMENGINEDIR)/share/simEngine/grind_simEngine.cpp
-	$(COMPILE.cpp) -o $@.o $<
-	$(LINK.cpp) $(LDFLAGS) -o $@ $@.o $(LDLIBS)
-
-libsimengine.dylib: $(DSL_MODEL)_parallel.o
-	$(LINK.c) $(LDFLAGS) -dynamiclib -Wl,-install_name,$@ -o $@ $< $(LDLIBS)
-
-libsimengine.so: $(DSL_MODEL)_parallel.o
-	@echo "Creating $@"
-	$(LINK.c) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)
+$(DSL_MODEL)_parallel_c.o: $(DSL_MODEL)_parallel.c
+	$(SIMENGINEDIR)/bin/simlib SiMagic put $<
 
 ifeq (GPU,$(TARGET))
 $(DSL_MODEL)_parallel.cu: $(DSL_MODEL)_parallel.c
