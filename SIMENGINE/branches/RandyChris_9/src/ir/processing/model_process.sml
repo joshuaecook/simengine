@@ -179,6 +179,11 @@ fun normalizeModel (model:DOF.model) =
 	val () = app ClassProcess.createEventIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
+	(* add intermediates for update equations if required - they are reading and writing to the same vector so we have to make sure that ordering doesn't matter. *)
+	val _ = Util.log ("Adding update intermediates ...")
+	val () = app ClassProcess.addUpdateIntermediates (CurrentModel.classes())
+	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+
 	val _ = Util.log ("Assigning correct scope ...")
 	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
