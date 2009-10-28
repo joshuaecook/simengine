@@ -51,7 +51,8 @@ fun std_compile exec args =
 		  CParallelWriter.SUCCESS => KEC.LITERAL(KEC.CONSTSTR "\nCompilation Finished Successfully\n")
 		| CParallelWriter.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
 	  end 
-	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n")))
+	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n"))
+	       | TooManyErrors => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to too many errors\n")))
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_compile" e
 

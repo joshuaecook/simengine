@@ -178,15 +178,18 @@ fun normalizeModel (model:DOF.model) =
 	val _ = Util.log ("Creating event iterators ...")
 	val () = app ClassProcess.createEventIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = DynException.checkToProceed()
 
 	(* add intermediates for update equations if required - they are reading and writing to the same vector so we have to make sure that ordering doesn't matter. *)
 	val _ = Util.log ("Adding update intermediates ...")
 	val () = app ClassProcess.addUpdateIntermediates (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = DynException.checkToProceed()
 
 	val _ = Util.log ("Assigning correct scope ...")
 	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = DynException.checkToProceed()
 
 (*	val _ = Util.log ("Propagating temporal iterators ...")
 	val () = app ClassProcess.propagatetemporalIterators (CurrentModel.classes())
@@ -195,10 +198,12 @@ fun normalizeModel (model:DOF.model) =
 	val _ = Util.log ("Propagating spatial iterators ...")
 	val () = app ClassProcess.propagateSpatialIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = DynException.checkToProceed()
 
 	val _ = Util.log ("Pruning excess iterators ...")
 	val () = pruneIterators (CurrentModel.getCurrentModel())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = DynException.checkToProceed()
 
 	(* generate all offsets for instances *)
 	(*val () = app ClassProcess.generateOffsets classes*)

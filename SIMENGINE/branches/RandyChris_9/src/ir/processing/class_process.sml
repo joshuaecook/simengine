@@ -950,10 +950,10 @@ fun assignCorrectScope (class: DOF.class) =
 						    | [iter] => ExpProcess.exp2term
 								    (ExpProcess.prependIteratorToSymbol iter (Exp.TERM name))
 						    | rest => (* this is an error *)
-						      DynException.stdException(("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) temporal_iterators'))),
-										"ClassProcess.assignCorrectScope",
-										Logger.INTERNAL)
-
+						      (Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) temporal_iterators')) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd temporal_iterators'))^"]."));
+						       DynException.setErrored();
+						       name)
+						      
 					      (* now add the spatial iterators *)
 					      val name'' = ExpProcess.exp2term 
 							   (foldl (fn(iter as (itersym,_),exp')=>ExpProcess.appendIteratorToSymbol itersym exp') 
