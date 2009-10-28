@@ -355,7 +355,7 @@ and trans_definition definition =
 			   ]
 		       end*)
 
-		  | Ast.OUTPUTDEF {name, quantity, settings, condition} 
+		  | Ast.OUTPUTDEF {name, quantity, dimensions, settings, condition} 
  		    =>
 		    let 
 			fun outerror () =
@@ -369,6 +369,14 @@ and trans_definition definition =
 						     ()
 
 			val obj = apply (send "new" (sym "Output"), [sym2strlit name, trans_exp quantity])
+
+			val obj = case dimensions of
+				      SOME [dim] => apply (HLEC.SEND{message=Symbol.symbol "setIter",
+								     object=obj},
+							   [HLEC.SYMBOL dim])
+				    | SOME _ => obj before error($("Multiple dimensions are not supported on outputs"))
+				    | NONE => obj
+
 
 			val obj = case settings 
 				   of SOME table => apply (obj, [trans_exp table])
