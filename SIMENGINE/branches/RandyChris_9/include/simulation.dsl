@@ -725,6 +725,12 @@ namespace Simulation
     var contents
     var condition
     var iter = ()
+
+    function setIter(i)
+      iter = i
+      self
+    end
+
     constructor (name, contents/*, condition*/)
       self.name = name  
       self.contents = contents
