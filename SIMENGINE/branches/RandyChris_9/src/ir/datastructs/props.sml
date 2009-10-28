@@ -4,7 +4,8 @@ struct
 type length = int
 type dimlist = length list
 
-(* Several namespaces may be available for symbol lookup. *)
+(* Several namespaces may be available for symbol lookup. The symbols attached to some scopes have to be iterators. See ExpProcess.updateTemporalIteratorOnSymbol as an example of 
+ where the scope can be modified after it is originally defined. *)
 datatype scope_type 
   (* Local is the default scope. *)
   = LOCAL

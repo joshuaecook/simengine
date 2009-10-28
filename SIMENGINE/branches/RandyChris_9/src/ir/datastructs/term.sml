@@ -22,6 +22,8 @@ val sym2c_str : (Symbol.symbol * Property.symbolproperty) -> string (* this is t
 val sym2curname : Exp.term -> Symbol.symbol (* returns the name as stored directly in symbol (this name can be changed as it is processed while the "realname" property is always the original) *)
 val sym2symname : Exp.term -> Symbol.symbol (* returns the name after checking the "realname" property *)
 val sym2name : Exp.term -> string (* This is equiv to (Symbol.name o sym2symname) *)
+(* grab the properties *)
+val sym2props : Exp.term -> Property.symbolproperty
 
 end
 structure Term : TERM =
@@ -47,6 +49,9 @@ val same = Util.same
 
 fun sym2curname (Exp.SYMBOL (s, props)) = s
   | sym2curname _ = DynException.stdException("Received an unexpected non symbol", "Term.sym2curname", Logger.INTERNAL)
+
+fun sym2props (Exp.SYMBOL (s, props)) = props
+  | sym2props _ = DynException.stdException("Received an unexpected non symbol", "Term.sym2props", Logger.INTERNAL)
 
 fun sym2name (Exp.SYMBOL (s, props)) = 
     (case (Property.getRealName props)
@@ -171,7 +176,7 @@ fun sym2c_str (s, props) =
 			       | NONE => (0, [])
 
 	val iters = (case Property.getIterator props
-		      of SOME iters => Iterator.iterators2str iters
+		      of SOME iters => Iterator.iterators2c_str iters
 		       | NONE => "")
 
 	val n = Symbol.name s
@@ -181,11 +186,7 @@ fun sym2c_str (s, props) =
 	    (*"Int(" ^ n ^ iters ^  ",["^(String.concatWith "," (map Symbol.name vars))^"])"*)
 	    DynException.stdException(("Can't support integrals ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	else if order = 0 then
-	    (if iters = "[n+1]" then
-		 prefix ^ n ^ suffix
-		 (*"next_" ^ n*)
-	     else
-		 prefix ^ n ^ suffix(*^ iters*))
+	    prefix ^ n ^ suffix
 	else if order = 1 then
 	    (*"d_" ^ n ^ "_dt"*) (* only support first order derivatives with respect to t *)
 	    prefix ^ n ^ suffix

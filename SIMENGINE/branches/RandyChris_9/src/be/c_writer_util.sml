@@ -81,7 +81,7 @@ fun expandprogs2parallelfor (class: DOF.class) (exp, progs) =
     in
 	[$("{"),
 	 SUB(Util.flatmap (fn(sym, _)=> [$("int iterator_" ^ (Symbol.name sym) ^ ";"),
-					 $("CDATAFORMAT "^(Symbol.name (ClassProcess.sym2codegensym sym))^";")]) spatial_iterators),
+					 $("CDATAFORMAT "^(Symbol.name (Util.sym2codegensym sym))^";")]) spatial_iterators),
 	 SUB(foldl
 		 (fn(iter as (sym, _) , progs)=>
 		    let 
@@ -90,7 +90,7 @@ fun expandprogs2parallelfor (class: DOF.class) (exp, progs) =
 			val size = Real.ceil ((high-low)/step) + 1
 		    in
 			[$("for (iterator_"^i^" = 0; iterator_"^i^" < "^(i2s size)^"; iterator_"^i^"++) {"),
-			 SUB($(Symbol.name (ClassProcess.sym2codegensym sym) ^ " = " ^
+			 SUB($(Symbol.name (Util.sym2codegensym sym) ^ " = " ^
 			       "((CDATAFORMAT)iterator_"^i^")*((CDATAFORMAT)"^(r2s step)^")+"^(r2s low)^";")
 			     ::progs),
 			 $("}")]

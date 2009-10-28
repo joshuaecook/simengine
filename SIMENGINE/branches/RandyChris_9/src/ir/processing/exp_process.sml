@@ -31,6 +31,7 @@ val doesEqHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol
 val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool (* like doesEqHaveIterator, put also ensures that eq is a state equation *)
 val prependIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val appendIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
+val updateTemporalIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
 val exp2temporaliterator : Exp.exp -> Iterator.iterator option
 
@@ -122,6 +123,7 @@ val uniqueid = ref 0
 fun uniq(sym) =
     (uniqueid := (!uniqueid)+1;
      (Symbol.symbol ((Symbol.name sym) ^ "_U" ^ (i2s (!uniqueid)))))
+
 
 fun exp2term (Exp.TERM t) = t
   | exp2term _ = Exp.NAN
@@ -681,6 +683,36 @@ fun assignIteratorToSymbol (sym, p) exp =
  
 fun prependIteratorToSymbol (sym) exp = assignIteratorToSymbol (sym, PREPEND) exp
 fun appendIteratorToSymbol (sym) exp = assignIteratorToSymbol (sym, APPEND) exp
+
+fun updateTemporalIteratorToSymbol (sym) exp = 
+    let
+	val (iter_sym, iter_index) = case TermProcess.symbol2temporaliterator (exp2term exp) of
+					 SOME iter => iter
+				       | NONE => DynException.stdException(("No current temporal iterator found on exp: "^(e2s exp)),
+									   "ExpProcess.updateTemporalIteratorToSymbol",
+									   Logger.INTERNAL)
+	val spatial_iterators = TermProcess.symbol2spatialiterators (exp2term exp)
+	val temporal_iterators = CurrentModel.iterators()				 
+
+	val iterators' = (sym, iter_index)::spatial_iterators
+	val props = Term.sym2props (exp2term exp)
+	val scope = Property.getScope props
+	val scope' = case scope of 
+			 Property.READSTATE rd_sym => if rd_sym = iter_sym then Property.READSTATE sym else scope
+		       | Property.WRITESTATE wr_sym => if wr_sym = iter_sym then Property.WRITESTATE sym else scope
+		       | Property.READSYSTEMSTATE rd_sys_sym => if rd_sys_sym = iter_sym then Property.READSYSTEMSTATE sym else scope
+		       | _ => scope
+
+    in
+	case (exp2term exp) of
+	    Exp.SYMBOL (exp_sym, props) => 
+	    term2exp (Exp.SYMBOL (exp_sym, (Property.setScope (Property.setIterator props iterators') scope')))
+	  | _ => DynException.stdException(("Unexpected non symbol '"^(e2s exp)^"'"),
+					   "ExpProcess.updateTemporalIteratorToSymbol", 
+					   Logger.INTERNAL)
+	    
+    end
+    handle e => DynException.checkpoint "ExpProcess.updateTemporalIteratorToSymbol" e
 
 fun assignCorrectScopeOnSymbol exp =
     case exp of

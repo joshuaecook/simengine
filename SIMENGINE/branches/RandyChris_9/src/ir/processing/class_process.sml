@@ -30,6 +30,7 @@ sig
     val hasIterator : DOF.systemiterator -> DOF.class -> bool
 
     (* Functions to modify class properties, usually recursively through the expressions *)
+    val applyRewritesToClass : Rewrite.rewrite list -> DOF.class -> unit (* generic rewriting helper *)
     val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
     val updateRealClassName : DOF.class -> Symbol.symbol -> DOF.class 
     val pruneClass : DOF.systemiterator option -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
@@ -39,7 +40,6 @@ sig
     val addEPIndexToClass : bool -> DOF.class -> unit (* sets the embarrassingly parallel property on symbols in all but the top level class *)
     val makeSlaveClassProperties : DOF.classproperties -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
     val fixSymbolNames : DOF.class -> unit (* makes all symbol names C-compliant *)
-    val sym2codegensym : Symbol.symbol -> Symbol.symbol (* helper function used by fixSymbolNames to update just one symbol *)
     type sym = Symbol.symbol
     val renameInsts :  ((sym * sym) * (sym * sym)) -> DOF.class -> unit (* change all instance names in a class *)
     val createEventIterators : DOF.class -> unit (* searches out postprocess and update iterators *)
@@ -52,6 +52,30 @@ struct
 type sym = Symbol.symbol
 val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
+
+fun applyRewritesToClass rewrites (class:DOF.class) =
+    let
+	val inputs = !(#inputs class)
+	val exps = !(#exps class)
+	val outputs = !(#outputs class)
+
+	val inputs' = map (fn{name, default}=>{name=ExpProcess.exp2term (Match.applyRewritesExp rewrites (ExpProcess.term2exp name)),
+					       default=case default of 
+							   SOME exp => SOME (Match.applyRewritesExp rewrites exp)
+							 | NONE => NONE}) inputs
+	val exps' = map (Match.applyRewritesExp rewrites) exps
+
+	val outputs' = map (fn{name,contents,condition}=>
+			      {name=ExpProcess.exp2term (Match.applyRewritesExp rewrites (ExpProcess.term2exp name)),
+			       contents=map (Match.applyRewritesExp rewrites) contents,
+			       condition=Match.applyRewritesExp rewrites condition})
+			   outputs
+		      
+    in
+	((#inputs class):=inputs';
+	 (#exps class):=exps';
+	 (#outputs class):=outputs')
+    end
 
 fun duplicateClass (class: DOF.class) new_name =
     let
@@ -267,43 +291,7 @@ fun renameSym (orig_sym, new_sym) (class: DOF.class) =
 	 (#outputs class) := (map renameOutput outputs))
     end
 
-val commonPrefix = "mdlvar__"
-val internalPrefix = "intmdlvar__"
 val parallelSuffix = "[modelid]"
-
-fun removePrefix str = 
-    if String.isPrefix commonPrefix str then
-	String.extract (str, String.size commonPrefix, NONE)
-    else if String.isPrefix internalPrefix str then
-	String.extract (str, String.size internalPrefix, NONE)
-    else
-	str
-
-fun fixname name = 
-    let
-	fun lbrack c = if c = "[" then "" else c
-	fun rbrack c = if c = "]" then "" else c
-	fun period c = if c = "." then "__" else c
-	fun dash c = if c = "-" then "_" else c
-	fun space c = if c = " " then "_" else c
-	fun underscore c = if c = "_" then "_" else c
-	fun lparen c = if c = "(" then "" else c
-	fun rparen c = if c = ")" then "" else c
-	fun plus c = if c = "+" then "" else c	
-	fun hash c = if c = "#" then "" else c
-    in
-	(StdFun.stringmap (lbrack o rbrack o period o dash o space o underscore o lparen o rparen o plus o hash) name)
-    end
-
-fun sym2codegensym sym =
-    let 
-	val str = Symbol.name sym
-    in	
-	if String.isPrefix "#" str then	    
-	    Symbol.symbol (internalPrefix ^ (fixname str))
-	else
-	    Symbol.symbol (commonPrefix ^ (fixname str))
-    end
     
 (* fix according to C rules *)
 fun fixSymbolNames (class: DOF.class) =
@@ -313,7 +301,7 @@ fun fixSymbolNames (class: DOF.class) =
 	fun fixsym sym = if List.exists (fn(sym',_)=>sym=sym') iterators then
 			     sym (* no need to fix 't' or another iterator - it's reserved *)
 			 else
-			     sym2codegensym sym
+			     Util.sym2codegensym sym
     in
 	SymbolSet.app 
 	    (fn(sym)=>

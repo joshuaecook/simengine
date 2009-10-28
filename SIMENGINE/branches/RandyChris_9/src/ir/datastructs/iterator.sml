@@ -46,7 +46,7 @@ type iterator = (Symbol.symbol * iteratorindex)
 
 fun iterator2str (iterator as (sym, i))= 
     let
-	val str = Symbol.name sym
+	val str = Util.removePrefix (Symbol.name sym)
     in
 	case i
 	 of ALL => str ^ "=:"
@@ -67,7 +67,7 @@ fun iterators2str iterators =
 
 fun iterator2c_str (iterator as (sym, i)) =
     let
-	val str = "iterator_" ^ (Symbol.name sym)
+	val str = Symbol.name sym
     in
 	case i of
 	    ALL => ""

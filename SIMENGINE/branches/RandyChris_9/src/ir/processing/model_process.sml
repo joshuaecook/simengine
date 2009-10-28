@@ -154,6 +154,49 @@ fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
     in
 	CurrentModel.setCurrentModel(model')
     end
+
+fun applyRewritesToModel rewrites (model as (classes,_,_)) =
+    app (fn(c)=>ClassProcess.applyRewritesToClass rewrites c) classes
+
+fun fixTemporalIteratorNames (model as (classes, inst, props)) =
+    let
+	val {iterators,precision,target,num_models,debug,profile} = props
+	val iterators' =  map 
+			      (fn(iter_sym, iter_type)=>
+				 (Util.sym2codegensym iter_sym,
+				  case iter_type of
+				      DOF.UPDATE v => DOF.UPDATE (Util.sym2codegensym v)
+				    | DOF.POSTPROCESS v => DOF.POSTPROCESS (Util.sym2codegensym v)
+				    | _ => iter_type))
+			      iterators
+			      
+	val iter_name_map = map
+				(fn((sym,_),(sym',_))=>(sym, sym'))
+				(ListPair.zip (iterators, iterators'))
+
+	val rewrites = map
+			   (fn(sym,sym')=>
+			      let
+				  val pred = ("Matching:"^(Symbol.name sym), (fn(exp)=> case ExpProcess.exp2temporaliterator exp of
+											    SOME (iter_sym,_) => iter_sym=sym
+											  | NONE => false))
+				  val find = Match.anysym_with_predlist [PatternProcess.predicate_anysymbol, pred] (Symbol.symbol "a")
+				  val test = NONE
+				  val replace = Rewrite.ACTION (sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol sym' exp))
+			      in
+				  {find=find,
+				   test=test,
+				   replace=replace}
+			      end)
+			   iter_name_map
+
+	val _ = applyRewritesToModel rewrites model
+	val {iterators,precision,target,num_models,debug,profile} = props
+	val props'={iterators=iterators',precision=precision,target=target,num_models=num_models,debug=debug,profile=profile}
+    in
+	(classes, inst, props')
+    end
+    
 			
 fun optimizeModel (model:DOF.model) =
     let
@@ -226,6 +269,8 @@ fun normalizeModel (model:DOF.model) =
 
 	(* remap all names into names that can be written into a back-end *)
 	val _ = Util.log ("Fixing symbol names ...")
+	val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
+	val _ = CurrentModel.setCurrentModel(model')
 	val () = (app ClassProcess.fixSymbolNames (CurrentModel.classes()))
 
 	val _ = DynException.checkToProceed()

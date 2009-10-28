@@ -31,6 +31,42 @@ fun l2s (l: string list) =
 fun symlist2s (l: Symbol.symbol list) =
     "[" ^ (String.concatWith ", " (map Symbol.name l)) ^ "]"
 
+val commonPrefix = "mdlvar__"
+val internalPrefix = "intmdlvar__"
+
+fun removePrefix str = 
+    if String.isPrefix commonPrefix str then
+	String.extract (str, String.size commonPrefix, NONE)
+    else if String.isPrefix internalPrefix str then
+	String.extract (str, String.size internalPrefix, NONE)
+    else
+	str
+
+fun fixname name = 
+    let
+	fun lbrack c = if c = "[" then "" else c
+	fun rbrack c = if c = "]" then "" else c
+	fun period c = if c = "." then "__" else c
+	fun dash c = if c = "-" then "_" else c
+	fun space c = if c = " " then "_" else c
+	fun underscore c = if c = "_" then "_" else c
+	fun lparen c = if c = "(" then "" else c
+	fun rparen c = if c = ")" then "" else c
+	fun plus c = if c = "+" then "" else c	
+	fun hash c = if c = "#" then "" else c
+    in
+	(StdFun.stringmap (lbrack o rbrack o period o dash o space o underscore o lparen o rparen o plus o hash) name)
+    end
+
+fun sym2codegensym sym =
+    let 
+	val str = Symbol.name sym
+    in	
+	if String.isPrefix "#" str then	    
+	    Symbol.symbol (internalPrefix ^ (fixname str))
+	else
+	    Symbol.symbol (commonPrefix ^ (fixname str))
+    end
 
 fun sum l = foldl (op +) 0 l
 fun prod l = foldl (op *) 1 l
