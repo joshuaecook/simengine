@@ -574,7 +574,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			 [$(outs_decl),
 			  if is_top_class then
 			      $(calling_name ^ "("^iter_name^", "^
-				statereads_top ^ ", " ^ statewrites_top ^ ", "^systemdata^", " ^ inpvar^", "^outvar^", first_iteration, modelid);")
+				statereads_top ^ ", " ^ statewrites_top ^ ", &"^systemdata^", " ^ inpvar^", "^outvar^", first_iteration, modelid);")
 			  else
 			      $(calling_name ^ "("^iter_name^", "^
 				statereads ^ ", " ^ statewrites ^ ", " ^ inpvar^", "^outvar^", first_iteration, modelid);")
