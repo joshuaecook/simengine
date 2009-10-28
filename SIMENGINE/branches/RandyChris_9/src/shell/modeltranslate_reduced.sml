@@ -336,12 +336,16 @@ fun createClass classes object =
 	    let
 		val value = vecIndex (object, 2)
 		val name = (* check if the output has a supplied temporal iterator.  If not, the value is unit *)
-		    case method "iter" (value) of
-			KEC.UNIT =>
+		    if istype (value, "Output") then
+			case method "iter" (value) of
+			    KEC.UNIT =>
+			    exp2term (ExpBuild.var (exp2str(vecIndex (object, 1))))
+			  | iter => exp2term (ExpBuild.ivar (exp2str(vecIndex (object, 1))) 
+							    [(Symbol.symbol (exp2str (method "name" iter)), 
+							      Iterator.RELATIVE 0)])
+		    else
 			exp2term (ExpBuild.var (exp2str(vecIndex (object, 1))))
-		      | iter => exp2term (ExpBuild.ivar (exp2str(vecIndex (object, 1))) 
-							[(Symbol.symbol (exp2str (method "name" iter)), 
-							  Iterator.RELATIVE 0)])
+
 		val (contents, condition) =
 		    if istype (value, "Output") then
 			(case method "contents" value of
