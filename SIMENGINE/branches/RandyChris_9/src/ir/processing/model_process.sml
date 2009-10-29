@@ -31,6 +31,9 @@ structure ModelProcess : sig
     val hasUpdateIterator : Symbol.symbol -> bool
     val hasPostProcessIterator : Symbol.symbol -> bool
 
+    (* Indicates whether an iterator is dependent upon another. *)
+    val isDependentIterator : DOF.systemiterator -> bool
+
 end = struct
 
 val i2s = Util.i2s

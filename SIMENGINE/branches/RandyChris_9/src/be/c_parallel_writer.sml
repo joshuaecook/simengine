@@ -371,7 +371,7 @@ fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
 
 fun outputsystemstatestruct_code forkedModels =
     let
-	val master_classes = List.filter ClassProcess.isMaster (CurrentModel.classes ())
+	val master_classes = List.filter (fn (c) => ClassProcess.isMaster c andalso ClassProcess.hasStates c) (CurrentModel.classes ())
 	val class_names_iterators = map (fn{model=(_,{classname,...},_),iter=(iter_sym, iter_type),...} => (classname, iter_sym, iter_type)) forkedModels
 
 	val top_sys_state_struct_prog =
@@ -381,32 +381,23 @@ fun outputsystemstatestruct_code forkedModels =
 	     SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
 	     $("} systemstatedata;")]
 
-
-	fun name_and_iterator orig_name {model=(classes,_,_),iter,...} =
-	    let fun match c = ClassProcess.class2basename c = orig_name
-		val name = case List.find match classes
-			    of SOME {name,properties={basename,...},...} => (name,basename)
-			     | NONE => DynException.stdException((""),"CParallelWriter.outputsystemstatestruct_code.struct_data.findClass", Logger.INTERNAL)
-	    in
-		(name, iter)
-	    end
+	fun name_and_iterator class (iter as (iter_sym,_)) = 
+	    (Symbol.symbol ((Symbol.name (ClassProcess.class2basename class))^"_"^(Symbol.name iter_sym)), iter)
 
 	fun class_struct_data class =
-	    let val orig_name = ClassProcess.class2orig_name class
-		val class_name_iterator_pairs = map (name_and_iterator orig_name) forkedModels
+	    let val iters = List.filter (fn (it) => (not (ModelProcess.isDependentIterator it)) andalso ClassProcess.hasIterator it class) (CurrentModel.iterators())
+		val class_name_iterator_pairs = map (name_and_iterator class) iters
 	    in 
-		(orig_name, class_name_iterator_pairs) 
+		(ClassProcess.class2classname class, class_name_iterator_pairs) 
 	    end
 
 	fun class_struct_declaration (name, iter_pairs) =
 	    [$("typedef struct {"),
 	     SUB(map ($ o iter_pair_iter_member) iter_pairs),
-	     SUB(map $ (List.mapPartial iter_pair_states_member iter_pairs)),
+	     SUB(map ($ o iter_pair_states_member) iter_pairs),
 	     $("} systemstatedata_"^(Symbol.name name)^";"),$("")]
-	and iter_pair_states_member ((classname,basename), iter as (iter_name,iter_typ)) =
-	    if ClassProcess.hasIterator iter (CurrentModel.classname2class basename) then
-		SOME ("statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";")
-	    else NONE
+	and iter_pair_states_member (classname, iter as (iter_name,iter_typ)) =
+	    "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";"
 	and iter_pair_iter_member (_, (iter_name,DOF.CONTINUOUS _)) =
 	    "CDATAFORMAT *"^(Symbol.name iter_name)^";"
 	  | iter_pair_iter_member (_, (iter_name,DOF.DISCRETE _)) = 
@@ -415,6 +406,7 @@ fun outputsystemstatestruct_code forkedModels =
 	    "#error BOGUS ITERATOR NOT FILTERED"
 	    
 	val per_class_struct_data = map class_struct_data master_classes
+
 
 	val per_class_struct_prog = 
 	    $("// Per-class system pointer structures") ::
@@ -538,13 +530,13 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    fun systemstatedata_iterator (iter as (iter_name, _)) =
 			systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
 		    and systemstatedata_states (iter as (iter_name, _)) =
-			if ClassProcess.hasIterator iter class then
-			    SOME (systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"->"^(Symbol.name orig_instname)^";")
-			else NONE
+			systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"->"^(Symbol.name orig_instname)^";"
+
+		    val iters = List.filter (fn (it) => ClassProcess.hasIterator it class) (ModelProcess.returnIndependentIterators ())
 
 		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename class))^" "^systemdata^";"),
-					  SUB(map ($ o systemstatedata_iterator) (ModelProcess.returnIndependentIterators ())),
-					  SUB(map $ (List.mapPartial systemstatedata_states (ModelProcess.returnIndependentIterators ())))]
+					  SUB(map ($ o systemstatedata_iterator) iters),
+					  SUB(map ($ o systemstatedata_states) iters)]
 
 		    val class_has_states = ClassProcess.class2statesize class > 0
 

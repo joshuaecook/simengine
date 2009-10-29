@@ -1,7 +1,10 @@
 
 #define START_SIZE 1000
 
+/* Allocates and initializes an array of solver properties, one for each iterator. */
 solver_props* init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs);
+
+
 void free_solver_props(solver_props *props);
 int exec_loop(solver_props *props);
 
