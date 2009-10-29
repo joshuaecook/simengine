@@ -124,10 +124,11 @@ fun init_solver_props top_name forkedclasses =
 	 SUB[$("Iterator iter;"),
 	     $("for(iter=0;iter<NUM_ITERATORS;iter++){"),
 	     SUB[$("free(props[iter].time);"),
+		 $("free(props[iter].next_time);"),
 		 $("free(props[iter].running);")],
 	     $("}"),
 	     $("free(props[0].ob);"),
-	     $("if(props[0].outputs) free(props[0].outputs);"),
+	     $("if(props[0].od) free(props[0].od);"),
 	     $("free(props);")],
 	 $("}"),
 	 $("")]

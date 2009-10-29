@@ -34,7 +34,7 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 
       // Write state values back to state storage if they occur before time of iter
       for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].time <= props[iter].time){
+	if(props[i].next_time[modelid] <= props[iter].time[modelid]){
 	  solver_writeback(&props[i], modelid);
 	  // Perform any post process evaluations
 	  post_process(&props[i], modelid);

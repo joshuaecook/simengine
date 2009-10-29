@@ -86,7 +86,7 @@ fun cvode_solver2params CVDENSE = [("CVODE_SOLV", "CVODE_DENSE")]
 
 fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
 					  ("abstol", "0.0"),
-					  ("abstol", "0.0")]
+					  ("reltol", "0.0")]
   | solver2params (EXPONENTIAL_EULER {dt}) = [("timestep", r2s dt),
 					      ("abstol", "0.0"),
 					      ("reltol", "0.0")]
