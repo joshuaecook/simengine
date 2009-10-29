@@ -134,23 +134,28 @@ fun init_solver_props top_name forkedclasses =
 	 $("")]
     end
 
-fun simengine_interface (class_name, class, solver_names, iterator_names) =
+fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(origModel as (classes, inst, props)) forkedModels =
     let
-	val time = Symbol.symbol "t"
+	val top_class = CurrentModel.withModel origModel (fn()=>CurrentModel.classname2class (#classname inst))
+	val iterator_names = map (Symbol.name o #1 o #iter) forkedModels
+	val solver_names = List.mapPartial (fn{iter,...}=>case iter of
+							      (_,DOF.CONTINUOUS s) => SOME (Solver.solver2name s)
+							    | _ => NONE) forkedModels
+	val class_name = Symbol.name (#classname inst)
 
-	fun init_condition2pair basestr exp =
+	fun init_condition2pair iter_sym basestr exp =
 	    let val term = ExpProcess.exp2term (ExpProcess.lhs exp)
 		val rhs = ExpProcess.rhs exp
-	    in if Term.isInitialValue term time then
+	    in if Term.isInitialValue term iter_sym then
 		   SOME ((if "" = basestr then "" else basestr ^ ".") ^ (Term.sym2name term), CWriterUtil.exp2c_str rhs)
 	       else NONE
 	    end
 
-	fun findStatesInitValues basestr (class:DOF.class) = 
+	fun findStatesInitValues iter_sym basestr (class:DOF.class) = 
 	    let
 		val classname = ClassProcess.class2orig_name class
 		val exps = #exps class
-		val diff_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isFirstOrderDifferentialEq (!exps))
+		(*val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))*)
 		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
 		fun exp2name exp = 
 		    Term.sym2curname (ExpProcess.exp2term exp)
@@ -159,23 +164,42 @@ fun simengine_interface (class_name, class, solver_names, iterator_names) =
 		val instances = List.filter ExpProcess.isInstanceEq (!exps)
 		val class_inst_pairs = ClassProcess.class2instnames class
 	    in
-		(List.mapPartial (init_condition2pair basestr) init_conditions)
-		@ (StdFun.flatmap findInstanceStatesInitValues class_inst_pairs)
+		(List.mapPartial (init_condition2pair iter_sym basestr) init_conditions)
+		@ (StdFun.flatmap (findInstanceStatesInitValues iter_sym) class_inst_pairs)
 	    end
 	    handle e => DynException.checkpoint "CParallelWriter.simengine_interface.findStatesInitValues" e
 
-	and findInstanceStatesInitValues (classname, instname) =
-	    findStatesInitValues (Symbol.name instname) (CurrentModel.classname2class classname)
+	and findInstanceStatesInitValues iter_sym (classname, instname) =
+	    findStatesInitValues iter_sym (Symbol.name instname) (CurrentModel.classname2class classname)
 
 
 	fun default2c_str (SOME v) = CWriterUtil.exp2c_str v
 	  | default2c_str NONE = 
 	    DynException.stdException("Unexpected non-default value for input", "CParallelWriter.simEngineInterface", Logger.INTERNAL)
 	    
-	val (state_names, state_defaults)  = ListPair.unzip (findStatesInitValues "" class)
-	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) (!(#inputs class)))
-	val output_names = map #name (!(#outputs class))
-	val output_num_quantities = map (i2s o inc o List.length o #contents) (!(#outputs class))
+	val (state_names, state_defaults) = 
+	    ListPair.unzip 
+		(Util.flatmap 
+		     (fn{top_class,iter,model}=>
+			CurrentModel.withModel 
+			    model 
+			    (fn()=>
+			       let
+				   val (iter_sym,_) = iter
+				   val class = CurrentModel.classname2class top_class
+			       in
+				   findStatesInitValues iter_sym "" class
+			       end))
+		     forkedModels)
+	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) (!(#inputs top_class)))
+	val output_names = Util.flatmap 
+			       (fn{top_class,iter,model}=>
+				  CurrentModel.withModel model (fn()=>map #name (!(#outputs (CurrentModel.classname2class top_class)))))
+			       forkedModels
+	val output_num_quantities = Util.flatmap 
+					(fn{top_class,iter,model}=>
+					   CurrentModel.withModel model (fn()=>map (i2s o inc o List.length o #contents) (!(#outputs (CurrentModel.classname2class top_class)))))
+					forkedModels
 	val default_inputs = map default2c_str input_defaults
     in
 	[$("const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
@@ -894,7 +918,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				    []))
 
 	val init_solver_props_c = init_solver_props orig_name forkedModelsWithSolvers		   
-	val simengine_interface_progs = simengine_interface (class_name, inst_class, unique_solvers, iterator_names)
+	val simengine_interface_progs = simengine_interface (*(class_name, inst_class, unique_solvers, iterator_names)*)model forkedModelsLessUpdate
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = Util.flatmap (fn{model,...} => outputstatestruct_code model) forkedModelsLessUpdate
