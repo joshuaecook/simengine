@@ -58,47 +58,49 @@ simex_helper: $(SIMEX_HELPER_OBJ) # $(addprefix bin/,$(SIMEX_HELPER_OBJ))
 
 simEngine_wrapper: $(SIMENGINE_WRAPPER_OBJ) # $(addprefix bin/,$(SIMENGINE_WRAPPER_OBJ))
 
+MEX_PREFIX = export MATLABROOT=$(MATLAB_INSTALL_PATH); $(MEX)
+
 %.mexglx: src/%.cpp
-	$(MEX) -glnx86 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -glnx86 -outdir . $(MEXFLAGS) $<
 
 %.mexglx: src/%.c
-	$(MEX) -glnx86 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -glnx86 -outdir . $(MEXFLAGS) $<
 
 %.mexa64: src/%.cpp
-	$(MEX) -glnxa64 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -glnxa64 -outdir . $(MEXFLAGS) $<
 
 %.mexa64: src/%.c
-	$(MEX) -glnxa64 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -glnxa64 -outdir . $(MEXFLAGS) $<
 
 %.mexmaci: src/%.cpp
-	$(MEX) -maci -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -maci -outdir . $(MEXFLAGS) $<
 
 %.mexmaci: src/%.c
-	$(MEX) -maci -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -maci -outdir . $(MEXFLAGS) $<
 
 %.mexmaci64: src/%.cpp
-	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -maci64 -outdir . $(MEXFLAGS) $<
 
 %.mexmaci64: src/%.c
-	$(MEX) -maci64 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -maci64 -outdir . $(MEXFLAGS) $<
 
 %.mexs64: src/%.cpp
-	$(MEX) -sol64 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -sol64 -outdir . $(MEXFLAGS) $<
 
 %.mexs64: src/%.c
-	$(MEX) -sol64 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -sol64 -outdir . $(MEXFLAGS) $<
 
 %.mexw32: src/%.cpp
-	$(MEX) -win32 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -win32 -outdir . $(MEXFLAGS) $<
 
 %.mexw32: src/%.c
-	$(MEX) -win32 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -win32 -outdir . $(MEXFLAGS) $<
 
 %.mexw64: src/%.cpp
-	$(MEX) -win64 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -win64 -outdir . $(MEXFLAGS) $<
 
 %.mexw64: src/%.c
-	$(MEX) -win64 -outdir . $(MEXFLAGS) $<
+	$(MEX_PREFIX) -win64 -outdir . $(MEXFLAGS) $<
 
 %.mex: src/%.cpp
 	$(MKOCTFILE) -o $@ $(MKOCTFILEFLAGS) $<

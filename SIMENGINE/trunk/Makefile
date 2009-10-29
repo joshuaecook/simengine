@@ -12,7 +12,7 @@ BUILD_TYPE = software
 #DEBUG = true
 
 # Version # for RPM
-VERSION_NUMBER = 0.91
+VERSION_NUMBER = 0.91c
 BUILD_DATE = $(shell date)
 
 DESTDIR = 
@@ -258,20 +258,24 @@ MATLAB_TARGETS = $(addprefix matlab/%,$(ALL_MEXEXT))
 # Determines the appropriate MEX extension for the current platform.
 # TODO: extensions for other platforms
 
+
 ifneq ($(MATLAB),)
+# Replace with the Mac 64-bit version if required
+ifneq ($(DARWIN),)
+ifneq ($(ARCH64),)
+MEXEXT = .mexmaci64
+else
 MEXEXT = .$(shell $(MATLAB_INSTALL_PATH)/bin/mexext)
-endif
+endif # ARCH64
+else
+MEXEXT = .$(shell $(MATLAB_INSTALL_PATH)/bin/mexext)
+endif # DARWIN
+endif # MATLAB
 
 ifneq ($(OCTAVE),)
 MEXEXT += .mex
 endif
 
-# Add the Mac 64-bit version if required
-ifneq ($(DARWIN),)
-ifneq ($(ARCH64),)
-MEXEXT += .mexmaci64
-endif
-endif
 
 
 CXXWARNINGS = -W -Wall -Wimplicit -Wswitch -Wformat -Wchar-subscripts \
@@ -378,6 +382,8 @@ VERSION = "unknown"
 endif
 endif	
 endif	
+
+INSTALL_TGZ = "simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER).tgz"
 
 INSTALL_DIR = $(TOP_LEVEL)/build/$(PLATFORM)
 ifneq ($(ARCH64),)
@@ -637,8 +643,8 @@ MEXINTERFACE_PREREQS = $(addprefix matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 .PHONY: mexinterface
 mexinterface: $(MEXINTERFACE_PREREQS)
 
-matlab/$(INSTALL_FILENAME).m: simEngine.tgz datafiles/simatrapublickey.mat
-	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../simEngine.tgz', 'install_temp.m', '$(INSTALL_FILENAME).m', 'saveInstaller'); exit") 
+matlab/$(INSTALL_FILENAME).m: $(INSTALL_TGZ) datafiles/simatrapublickey.mat
+	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../$(INSTALL_TGZ)', 'install_temp.m', '$(INSTALL_FILENAME).m', 'saveInstaller'); exit") 
 
 %.p: matlab/%.m
 	@($(MATLABCMD) "pcode $<; exit")
@@ -651,7 +657,7 @@ pcode: $(INSTALL_FILENAME).p
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a simEngine.tgz install-locally matlab/$(INSTALL_FILENAME).m
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a $(INSTALL_TGZ) install-locally matlab/$(INSTALL_FILENAME).m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers
@@ -679,16 +685,16 @@ matlab-files: $(MATLAB_FILES)
 
 matlab-installer: $(MATLAB_FILES)
 
-simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
+$(INSTALL_TGZ): $(OUTPUT_FILE) build/* build/*/*
 	@echo "Creating $@ for packaging"
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)
 
 $(LOCAL_INSTALL):
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
-$(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
+$(LOCAL_INSTALL)/$(INSTALL_TGZ): $(INSTALL_TGZ)
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@(cd $(LOCAL_INSTALL); tar xfz simEngine.tgz)
+	@(cd $(LOCAL_INSTALL); tar xfz $(INSTALL_TGZ))
 
 $(LOCAL_INSTALL)/compile_tests.m: matlab/compile_tests.m
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
@@ -720,8 +726,8 @@ $(LOCAL_INSTALL)/%.mexw32: matlab/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: matlab/%.mexw64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
-#install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/compile_tests.m
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/$(INSTALL_TGZ) $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
+#install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/$(INSTALL_TGZ) $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
 # Build type options
@@ -786,6 +792,7 @@ datafiles/software-build_options.sml: datafiles
 	@echo "structure BuildOptions = struct" > $@
 	@echo "val allowSWBackend = true val allowFPBackend = false val allowHWBackend = false val version = \"$(VERSION_NUMBER)\"" >> $@
 	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
+	@echo "val arch=\"$(PLATFORM)_$(ARCH)\"" >> $@
 	@echo "val dev_version = $(DEV_VERSION)" >> $@
 	@echo "end" >> $@
 

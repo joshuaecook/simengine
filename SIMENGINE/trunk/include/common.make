@@ -45,11 +45,21 @@ endif
 OPENMP_LDLIBS = -lgomp
 
 # Inspects for presence of MATLAB; may be overridden on command line
+ifeq ($(OSLOWER), darwin)
+ifneq ($(ARCH64),)
+MATLAB = $(shell which matlab64 2>/dev/null)
+else
 MATLAB = $(shell which matlab 2>/dev/null)
+endif
+else
+MATLAB = $(shell which matlab 2>/dev/null)
+endif
+
 ifneq ($(MATLAB),)
 MATLAB_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(MATLAB))))
 MATLAB := $(MATLAB_INSTALL_PATH)/bin/matlab
 MEX := $(MATLAB_INSTALL_PATH)/bin/mex
+$(info MEX is $(MEX))
 endif
 
 # Inspects for presence of GNU octave; may be overridden on command line
