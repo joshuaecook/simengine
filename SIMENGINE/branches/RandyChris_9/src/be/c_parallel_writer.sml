@@ -807,10 +807,18 @@ fun logoutput_code class =
 				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")
 			       end)
 			    dependent_symbols
+
+	fun term2temp_iter t = 
+	    case ExpProcess.exp2temporaliterator (Exp.TERM t) of
+		SOME (iter_sym, _) => iter_sym
+	      | NONE => DynException.stdException(("No temporal iterator found for expression " ^ (e2s (Exp.TERM t))),
+						  "CParallelWriter.logoutput_code.term2temp_iter",
+						  Logger.INTERNAL)
+
 	val output_exps =Util.flatmap
 			      (fn(out as ({condition, contents, name}, output_index))=> 
 				 [$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
-				  SUB[$("int cond = (props->iterator == ITERATOR_"^(Symbol.name (#1 (valOf (ExpProcess.exp2temporaliterator (Exp.TERM name)))))^") && (" ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ");"),
+				  SUB[$("int cond = (props->iterator == ITERATOR_"^(Symbol.name (term2temp_iter name))^") && (" ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ");"),
 				      $("if (cond) {"),
 				      SUB([$("((unsigned int*)(ob->ptr[modelid]))[0] = " ^ (i2s output_index) ^ ";"),
 					   $("((unsigned int*)(ob->ptr[modelid]))[1] = " ^ (i2s (inc (List.length contents))) ^ ";"),
@@ -859,7 +867,7 @@ fun logoutput_code class =
          else
 	 []
     end
-
+    handle e => DynException.checkpoint "CParallelWriter.logoutput_code" e
 
 fun buildC (model: DOF.model as (classes, inst, props)) =
     let

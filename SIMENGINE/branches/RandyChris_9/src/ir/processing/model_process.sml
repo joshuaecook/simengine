@@ -272,6 +272,8 @@ fun normalizeModel (model:DOF.model) =
 	val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
 	val _ = CurrentModel.setCurrentModel(model')
 	val () = (app ClassProcess.fixSymbolNames (CurrentModel.classes()))
+	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+
 
 	val _ = DynException.checkToProceed()
     in

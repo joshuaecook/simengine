@@ -5,7 +5,8 @@ sig
 val isNumeric: Exp.term -> bool
 val isZero: Exp.term -> bool
 val isOne: Exp.term -> bool
-val isSymbol: Exp.term -> bool
+val isSymbol: Exp.term -> bool (* matches only a single symbol *)
+val areSymbols: Exp.term -> bool (* can match lists, tuples, and complex numbers containing only symbols *)
 val isScalar: Exp.term -> bool
 val isLocal: Exp.term -> bool (* is this a local symbol, as opposed to being stored in a state vector *)
 val isReadState: Exp.term -> bool (* not a local symbol, but rather read in as a state *)
@@ -237,8 +238,13 @@ fun isNumeric term =
 fun isSymbol term =
     case term of
 	Exp.SYMBOL _ => true
-      | Exp.LIST (l, _) => List.all isSymbol l
-      | Exp.TUPLE l => List.all isSymbol l
+      | _ => false
+
+fun areSymbols term =
+    case term of
+	Exp.SYMBOL _ => true
+      | Exp.LIST (l, _) => List.all areSymbols l
+      | Exp.TUPLE l => List.all areSymbols l
       | Exp.COMPLEX (a,b) => (isSymbol a) andalso (isSymbol b)
       | _ => false
 

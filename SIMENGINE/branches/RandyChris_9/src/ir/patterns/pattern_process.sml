@@ -96,7 +96,7 @@ val predicate_anyterm = ("TERM", fn(x)=>case x of
 val predicate_anynumeric = ("NUM", fn(x)=>case x of 
 					      Exp.TERM t => Term.isNumeric t
 					    | _ => false)
-val predicate_anysymbol = ("NUM", fn(x)=>case x of 
+val predicate_anysymbol = ("SYM", fn(x)=>case x of 
 					     Exp.TERM t => Term.isSymbol t
 					   | _ => false)
 val predicate_anydiffterm = ("DIFFTERM", 

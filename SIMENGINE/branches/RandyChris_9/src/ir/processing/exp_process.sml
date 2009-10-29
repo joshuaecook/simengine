@@ -686,7 +686,7 @@ fun appendIteratorToSymbol (sym) exp = assignIteratorToSymbol (sym, APPEND) exp
 
 fun updateTemporalIteratorToSymbol (sym) exp = 
     let
-	val (iter_sym, iter_index) = case TermProcess.symbol2temporaliterator (exp2term exp) of
+	val (iter_sym, iter_index) = case exp2temporaliterator exp of
 					 SOME iter => iter
 				       | NONE => DynException.stdException(("No current temporal iterator found on exp: "^(e2s exp)),
 									   "ExpProcess.updateTemporalIteratorToSymbol",
@@ -702,11 +702,19 @@ fun updateTemporalIteratorToSymbol (sym) exp =
 		       | Property.WRITESTATE wr_sym => if wr_sym = iter_sym then Property.WRITESTATE sym else scope
 		       | Property.READSYSTEMSTATE rd_sys_sym => if rd_sys_sym = iter_sym then Property.READSYSTEMSTATE sym else scope
 		       | _ => scope
+	val derivative = Property.getDerivative props
+	val derivative' = case derivative of 
+			      SOME (order, iter_list) => SOME (order, map (fn(d_sym)=>if d_sym=iter_sym then sym else d_sym) iter_list)
+			    | NONE => NONE
 
+	val props' = Property.setScope (Property.setIterator props iterators') scope'
+	val props' = case derivative' of
+			 SOME v => Property.setDerivative props' v
+		       | NONE => props'
     in
 	case (exp2term exp) of
 	    Exp.SYMBOL (exp_sym, props) => 
-	    term2exp (Exp.SYMBOL (exp_sym, (Property.setScope (Property.setIterator props iterators') scope')))
+	    term2exp (Exp.SYMBOL (exp_sym, props'))
 	  | _ => DynException.stdException(("Unexpected non symbol '"^(e2s exp)^"'"),
 					   "ExpProcess.updateTemporalIteratorToSymbol", 
 					   Logger.INTERNAL)
