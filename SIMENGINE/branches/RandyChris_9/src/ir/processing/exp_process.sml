@@ -735,22 +735,22 @@ fun assignCorrectScopeOnSymbol exp =
 		SOME (iter_sym, iter_index, iter_type) => 
 		if isFirstOrderDifferentialTerm exp then
 		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))))
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
 		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		else if isNextVarDifferenceTerm exp then
 		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))))
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
 		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		else if isNextPPTerm exp then
 		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))))
+			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
 		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		else if isNextUpdateTerm exp then
 		    let
 			val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		    in
 			case exp of 
-			    Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name orig_iter))))))
+			    Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^*) (Symbol.name orig_iter))))))
 			  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		    end
 		else if isCurVarDifferenceTerm exp then

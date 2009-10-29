@@ -73,9 +73,9 @@ fun sym2str (s, props) =
 	val scope = Property.getScope props
 	val prefix = case scope of
 			 Property.LOCAL => ""
-		       | Property.READSTATE v => Symbol.name v ^ "."
+		       | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ "."
 		       | Property.READSYSTEMSTATE v => "sys_rd." ^ (Symbol.name v) ^ "."
-		       | Property.WRITESTATE v => Symbol.name v ^ "."
+		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ "."
 		       | Property.ITERATOR => ""
 
 	val (order, vars) = case Property.getDerivative props
@@ -109,9 +109,9 @@ fun sym2fullstr (s, props) =
 	val scope = Property.getScope props
 	val prefix = case scope of
 			 Property.LOCAL => ""
-		       | Property.READSTATE v => Symbol.name v ^ "."
+		       | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ "."
 		       | Property.READSYSTEMSTATE v => "sys_rd." ^ (Symbol.name v) ^ "."
-		       | Property.WRITESTATE v => Symbol.name v ^ "."
+		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name) v ^ "."
 		       | Property.ITERATOR => ""
 
 	val (order, vars) = case Property.getDerivative props
@@ -159,9 +159,9 @@ fun sym2c_str (s, props) =
 		in 
 		    case scope
 		     of Property.LOCAL => ""
-		      | Property.READSTATE v => Symbol.name v ^ index
+		      | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ index
 		      | Property.READSYSTEMSTATE v => "sys_rd" ^ index ^ "states_" ^ (Symbol.name v) ^ "->"
- 		      | Property.WRITESTATE v => Symbol.name v ^ index
+ 		      | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
 		      | Property.ITERATOR => ""
 		end
 

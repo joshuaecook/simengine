@@ -67,7 +67,7 @@ fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					    (Property.setIterator 
 						 Property.default_symbolproperty 
 						 [(Symbol.symbol "n",Iterator.RELATIVE 1)])
-					    (Property.WRITESTATE (Symbol.symbol "wr_n"))
+					    (Property.WRITESTATE (Symbol.symbol "n"))
 				       )
 			   )
 
@@ -76,7 +76,7 @@ fun curvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					   (Property.setIterator 
 						Property.default_symbolproperty 
 						[(Symbol.symbol "n",Iterator.RELATIVE 0)])
-					   (Property.READSTATE (Symbol.symbol "rd_n"))
+					   (Property.READSTATE (Symbol.symbol "n"))
 				      )
 			  )
 

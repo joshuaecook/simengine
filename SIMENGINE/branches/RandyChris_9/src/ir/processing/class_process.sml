@@ -979,8 +979,8 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 	val outputs = !(#outputs class)
 
 	val new_scope = Property.READSTATE (Symbol.symbol (case iter_type of 
-							       DOF.UPDATE v => "rd_" ^ (Symbol.name v)
-							     | _ => "rd_" ^ (Symbol.name iter_sym)))
+							       DOF.UPDATE v => (Symbol.name v)
+							     | _ => (Symbol.name iter_sym)))
 
 	val pred = ("CheckingForScope",(fn(exp)=>
 					  case exp of

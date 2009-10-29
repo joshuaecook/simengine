@@ -33,6 +33,7 @@ structure ModelProcess : sig
 
 end = struct
 
+val i2s = Util.i2s
 
 fun isDependentIterator (_, DOF.CONTINUOUS _) = false
   | isDependentIterator (_, DOF.DISCRETE _) = false
@@ -345,12 +346,13 @@ fun normalizeParallelModel (model:DOF.model) =
 	(* Just some debug code ...*)
 	val forkedModels = createIteratorForkedModels model
 	val prevModel = CurrentModel.getCurrentModel()
+	val iter_count = List.length (CurrentModel.iterators())
 	val _ = app
-		    (fn{top_class,iter=(iter_sym,_),model=model'}=>		       
+		    (fn({top_class,iter=(iter_sym,_),model=model'},n)=>		       
 		       (CurrentModel.setCurrentModel(model');
-			Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' =====================");
+			Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") =====================");
 			DOFPrinter.printModel model'))
-		    forkedModels
+		    (StdFun.addCount forkedModels)
 	val _ = CurrentModel.setCurrentModel(prevModel)
 
 	val _ = DynException.checkToProceed()
