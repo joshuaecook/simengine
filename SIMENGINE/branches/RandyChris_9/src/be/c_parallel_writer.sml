@@ -65,8 +65,11 @@ fun init_solver_props top_name forkedclasses =
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].next_time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].count = NULL; // Allocated by discrete solver only, must be NULL otherwise"),
-			 $("props[ITERATOR_"^itername^"].model_states = (CDATAFORMAT*)(&system_states->states_"^itername^");"),
-			 $("props[ITERATOR_"^itername^"].next_states = NULL; //Allocated by solver_init"),
+			 $("props[ITERATOR_"^itername^"].model_states = (CDATAFORMAT*)malloc(sizeof(system_states->states_"^itername^"));"),
+			 $("props[ITERATOR_"^itername^"].freeme = props[ITERATOR_"^itername^"].model_states;"),
+			 $("// Initial values moved to model_states first time through the exec"),
+			 $("props[ITERATOR_"^itername^"].next_states = (CDATAFORMAT*)(&system_states->states_"^itername^");"),
+(*			 $("memcpy(props[ITERATOR_"^itername^"].next_states, props[ITERATOR_"^itername^"].model_states, sizeof(system_states->states_"^itername^");"),*)
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
 			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvername ^ ";"),
@@ -125,6 +128,7 @@ fun init_solver_props top_name forkedclasses =
 	     $("for(iter=0;iter<NUM_ITERATORS;iter++){"),
 	     SUB[$("free(props[iter].time);"),
 		 $("free(props[iter].next_time);"),
+		 $("free(props[iter].freeme);"),
 		 $("free(props[iter].running);")],
 	     $("}"),
 	     $("free(props[0].ob);"),
@@ -275,56 +279,56 @@ fun solver_wrappers solvers =
 
 fun update_wrapper classname iterators = 
     let
-	fun method_redirect (meth,check) (iter,iter_type) = 
-	    if (check iter) then
+	fun method_redirect (iter,iter_type) = 
+	    if (ModelProcess.hasUpdateIterator iter) then
 		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
 		 case iter_type of
 		     DOF.CONTINUOUS _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->next_time[modelid], (const statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, (statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.updateOf (Symbol.name iter)))^ "(props->next_time[modelid], (const statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, (statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | DOF.DISCRETE _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->count[modelid]+1, (const statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, (statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.updateOf (Symbol.name iter)))^ "(props->count[modelid]+1, (const statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, (statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
 		]
 	    else
-		[$("// No " ^meth^ " for ITERATOR_"^(Symbol.name iter))]
-	fun create_wrapper (meth,check) = 
-	    [$("int " ^ meth ^ "(solver_props *props, unsigned int modelid){"),
+		[$("// No update for ITERATOR_"^(Symbol.name iter))]
+	val create_wrapper = 
+	    [$("int update(solver_props *props, unsigned int modelid){"),
 	     SUB($("switch(props->iterator){") ::
-		 (Util.flatmap (method_redirect (meth,check)) iterators) @
+		 (Util.flatmap method_redirect iterators) @
 		 [$("default:"),
 		  SUB[$("return 1;")],
 		  $("}")]),
 	     $("}"),
 	     $("")]
     in
-	create_wrapper ("update", ModelProcess.hasUpdateIterator)
+	create_wrapper
     end
 
 fun postprocess_wrapper classname iterators =
     let
-	fun method_redirect (meth,check) (iter,iter_type) = 
-	    if (check iter) then
+	fun method_redirect (iter,iter_type) = 
+	    if (ModelProcess.hasPostProcessIterator iter) then
 		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
 		 case iter_type of
 		     DOF.CONTINUOUS _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->time[modelid],props->model_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->time[modelid],props->model_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | DOF.DISCRETE _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^meth^"_" ^(Symbol.name iter)^ "(props->count[modelid],props->model_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->count[modelid],props->model_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
 		]
 	    else
-		[$("// No " ^meth^ " for ITERATOR_"^(Symbol.name iter))]
-	fun create_wrapper (meth,check) = 
-	    [$("int " ^ meth ^ "(solver_props *props, unsigned int modelid){"),
+		[$("// No post process for ITERATOR_"^(Symbol.name iter))]
+	val create_wrapper = 
+	    [$("int post_process(solver_props *props, unsigned int modelid){"),
 	     SUB($("switch(props->iterator){") ::
-		 (Util.flatmap (method_redirect (meth,check)) iterators) @
+		 (Util.flatmap method_redirect iterators) @
 		 [$("default:"),
 		  SUB[$("return 1;")],
 		  $("}")]),
 	     $("}"),
 	     $("")]
     in
-	create_wrapper ("post_process", ModelProcess.hasPostProcessIterator)
+	create_wrapper
     end
 
 local

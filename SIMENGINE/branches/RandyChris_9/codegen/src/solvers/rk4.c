@@ -42,7 +42,6 @@ int rk4_init(solver_props *props){
   mem->k3 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->k4 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  props->next_states = mem->k1;
 
   return 0;
 #endif
@@ -112,6 +111,7 @@ int rk4_free(solver_props *props){
 
   rk4_mem *mem = props->mem;
 
+  free(mem->k1);
   free(mem->k2);
   free(mem->k3);
   free(mem->k4);

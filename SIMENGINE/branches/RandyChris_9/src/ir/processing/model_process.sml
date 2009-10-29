@@ -42,7 +42,6 @@ fun isDependentIterator (_, DOF.CONTINUOUS _) = false
   | isDependentIterator (_, DOF.DISCRETE _) = false
   | isDependentIterator _ = true
 
-
 fun returnIndependentIterators () =
     List.filter (not o isDependentIterator) (CurrentModel.iterators ())
 

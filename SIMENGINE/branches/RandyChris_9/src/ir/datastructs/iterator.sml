@@ -23,8 +23,8 @@ sig
     val iterators2c_str : iterator list -> string (* C writer for multiple iterator *)
     val iter_equiv : (iterator * iterator) -> bool
 
-    val postProcessOf : string -> Symbol.symbol   
-    val updateOf : string -> Symbol.symbol   
+    val postProcessOf : string -> Symbol.symbol  
+    val updateOf : string -> Symbol.symbol
 
 end
 structure Iterator : ITERATOR =
@@ -33,8 +33,16 @@ struct
 val i2s = Util.i2s
 
 fun eventOf iter = Symbol.symbol ("event_" ^ iter )
-fun postProcessOf iter = Symbol.symbol ("pp_" ^ iter)
-fun updateOf iter = Symbol.symbol ("update_" ^ iter)
+fun postProcessOf iter = 
+    if (String.isPrefix Util.commonPrefix iter) then
+	Symbol.symbol (Util.commonPrefix ^ "pp_" ^ (Util.removePrefix iter))
+    else
+	Symbol.symbol ("pp_" ^ iter)
+fun updateOf iter =
+    if (String.isPrefix Util.commonPrefix iter) then
+	Symbol.symbol (Util.commonPrefix ^ "update_" ^ (Util.removePrefix iter))
+    else
+	Symbol.symbol ("update_" ^ iter)
 
 datatype iteratorindex = ALL
 		       | ABSOLUTE of int

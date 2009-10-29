@@ -30,7 +30,6 @@ int forwardeuler_init(solver_props *props){
 
   props->mem = mem;
   mem->k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  props->next_states = mem->k1; // mem->k1 is reused to hold the value of the next states
 
   return 0;
 

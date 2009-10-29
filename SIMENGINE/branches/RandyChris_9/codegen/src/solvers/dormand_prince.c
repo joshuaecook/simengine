@@ -71,9 +71,7 @@ int dormand_prince_init(solver_props *props){
   mem->k6 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->k7 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->z_next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  props->next_states = mem->next_states;
 
   // Allocate and initialize timesteps
   mem->cur_timestep = (CDATAFORMAT*)malloc(props->num_models*sizeof(CDATAFORMAT));
@@ -147,7 +145,7 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
     ret |= model_flows(props->time[modelid]+mem->cur_timestep[modelid], mem->temp, mem->k6, props, 0, modelid);
     
     for(i=props->statesize-1; i>=0; i--) {
-      mem->next_states[STATE_IDX] = props->model_states[STATE_IDX] +
+      props->next_states[STATE_IDX] = props->model_states[STATE_IDX] +
 	(35.0*mem->cur_timestep[modelid]/384.0)*mem->k1[STATE_IDX] +
 	(500.0*mem->cur_timestep[modelid]/1113.0)*mem->k3[STATE_IDX] +
 	(125.0*mem->cur_timestep[modelid]/192.0)*mem->k4[STATE_IDX] +
@@ -156,7 +154,7 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
     }
     
     // now compute k4 to adapt the step size
-    ret |= model_flows(props->time[modelid]+mem->cur_timestep[modelid], mem->next_states, mem->k7, props, 0, modelid);
+    ret |= model_flows(props->time[modelid]+mem->cur_timestep[modelid], props->next_states, mem->k7, props, 0, modelid);
     
     CDATAFORMAT E1 = 71.0/57600.0;
     CDATAFORMAT E3 = -71.0/16695.0;
@@ -186,7 +184,7 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
 
     for(i=props->statesize-1; i>=0; i--) {
       err = mem->temp[STATE_IDX];
-      max_allowed_error = props->reltol*MAX(fabs(mem->next_states[STATE_IDX]),fabs(props->model_states[STATE_IDX]))+props->abstol;
+      max_allowed_error = props->reltol*MAX(fabs(props->next_states[STATE_IDX]),fabs(props->model_states[STATE_IDX]))+props->abstol;
 
 
       //err = fabs(next_states[STATE_IDX]-z_next_states[STATE_IDX]);
@@ -197,7 +195,7 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
       max_error = ratio>max_error ? ratio : max_error;
       err_sum += ratio*ratio;
 
-      //mexPrintf("%d: ratio=%g next_states=%g err=%g max_allowed_error=%g\n ", i, ratio, mem->next_states[STATE_IDX], err, max_allowed_error);
+      //mexPrintf("%d: ratio=%g next_states=%g err=%g max_allowed_error=%g\n ", i, ratio, props->next_states[STATE_IDX], err, max_allowed_error);
     }
     
     //CDATAFORMAT norm = max_error; 
@@ -227,7 +225,7 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
 
   // just return back the expected
   //for(i=props->statesize-1; i>=0; i--) {
-  //  props->model_states[STATE_IDX] = mem->next_states[STATE_IDX];
+  //  props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
   //}
   
   return ret;
@@ -268,7 +266,6 @@ int dormand_prince_free(solver_props *props){
   free(mem->k6);
   free(mem->k7);
   free(mem->temp);
-  free(mem->next_states);
   free(mem->z_next_states);
   free(mem->cur_timestep);
   free(mem);

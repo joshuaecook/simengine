@@ -60,9 +60,7 @@ int bogacki_shampine_init(solver_props *props){
   mem->k3 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->k4 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->z_next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  props->next_states = mem->next_states;
 
   // Allocate and initialize timesteps
   mem->cur_timestep = (CDATAFORMAT*)malloc(props->num_models*sizeof(CDATAFORMAT));
@@ -109,14 +107,14 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
     ret |= model_flows(props->time[modelid]+(3*mem->cur_timestep[modelid]/4), mem->temp, mem->k3, props, 0, modelid);
     
     for(i=props->statesize-1; i>=0; i--) {
-      mem->next_states[STATE_IDX] = props->model_states[STATE_IDX] +
+      props->next_states[STATE_IDX] = props->model_states[STATE_IDX] +
 	(2.0/9.0)*mem->cur_timestep[modelid]*mem->k1[STATE_IDX] +
 	(1.0/3.0)*mem->cur_timestep[modelid]*mem->k2[STATE_IDX] +
 	(4.0/9.0)*mem->cur_timestep[modelid]*mem->k3[STATE_IDX];
     }
     
     // now compute k4 to adapt the step size
-    ret |= model_flows(props->time[modelid]+mem->cur_timestep[modelid], mem->next_states, mem->k4, props, 0, modelid);
+    ret |= model_flows(props->time[modelid]+mem->cur_timestep[modelid], props->next_states, mem->k4, props, 0, modelid);
     
     for(i=props->statesize-1; i>=0; i--) {
       mem->z_next_states[STATE_IDX] = props->model_states[STATE_IDX] +
@@ -134,8 +132,8 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
     CDATAFORMAT next_timestep;
 
     for(i=props->statesize-1; i>=0; i--) {
-      err = fabs(mem->next_states[STATE_IDX]-mem->z_next_states[STATE_IDX]);
-      max_allowed_error = props->reltol*fabs(mem->next_states[STATE_IDX])+props->abstol;
+      err = fabs(props->next_states[STATE_IDX]-mem->z_next_states[STATE_IDX]);
+      max_allowed_error = props->reltol*fabs(props->next_states[STATE_IDX])+props->abstol;
       //if (err-max_allowed_error > max_error) max_error = err - max_allowed_error;
       
       CDATAFORMAT ratio = (err/max_allowed_error);
@@ -172,7 +170,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
 
   // just return back the expected
   //for(i=props->statesize-1; i>=0; i--) {
-  //  props->model_states[STATE_IDX] = mem->next_states[STATE_IDX];
+  //  props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
   //}
   
   return ret;
@@ -207,7 +205,6 @@ int bogacki_shampine_free(solver_props *props){
   free(mem->k3);
   free(mem->k4);
   free(mem->temp);
-  free(mem->next_states);
   free(mem->z_next_states);
   free(mem->cur_timestep);
   free(mem);
