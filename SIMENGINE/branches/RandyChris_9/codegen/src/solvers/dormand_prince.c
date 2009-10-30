@@ -89,7 +89,7 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
   //fprintf(stderr, "ts=%g\n", mem->cur_timestep[modelid]);
 
   // Stop the solver if we have reached the stoptime
-  props->running[modelid] = props->next_time[modelid] < props->stoptime;
+  props->running[modelid] = props->time[modelid] < props->stoptime;
   if(!props->running[modelid])
     return 0;
 

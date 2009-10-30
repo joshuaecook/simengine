@@ -77,11 +77,11 @@ fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
   | solver2shortname (ODE45 _) = "ode45" (*"dormand_prince"*)
   | solver2shortname (CVODE _) = "cvode"
 
-fun cvode_solver2params CVDENSE = [("CVODE_SOLV", "CVODE_DENSE")]
-  | cvode_solver2params CVDIAG = [("CVODE_SOLV", "CVODE_DIAG")]
+fun cvode_solver2params CVDENSE = [("cvode.solv", "CVODE_DENSE")]
+  | cvode_solver2params CVDIAG = [("cvode.solv", "CVODE_DIAG")]
   | cvode_solver2params (CVBAND {upperhalfbw, lowerhalfbw}) = 
-    [("CVODE_SOLV", "CVODE_BAND"),
-     ("CVODE_UPPERHALFBW", i2s upperhalfbw),
+    [("cvode.solv", "CVODE_BAND"),
+     ("CVODE_UPPERHALFBW", i2s upperhalfbw), (* Probably broken, how do these get passed to CVODE in C? *)
      ("CVODE_LOWERHALFBW", i2s lowerhalfbw)]
 
 fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),

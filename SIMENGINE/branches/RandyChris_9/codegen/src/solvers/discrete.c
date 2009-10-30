@@ -9,7 +9,7 @@ int discrete_init(solver_props *props){
 
 int discrete_eval(solver_props *props, unsigned int modelid){
   // Check if model is still running
-  props->running[modelid] = props->time[modelid] + props->starttime + props->timestep <= props->stoptime;
+  props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
   if(!props->running[modelid])
     return 0;
 
