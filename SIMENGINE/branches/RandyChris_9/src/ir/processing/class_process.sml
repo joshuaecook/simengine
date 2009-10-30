@@ -982,13 +982,22 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 							       DOF.UPDATE v => (Symbol.name v)
 							     | _ => (Symbol.name iter_sym)))
 
-	val pred = ("CheckingForScope",(fn(exp)=>
-					  case exp of
-					      Exp.TERM (Exp.SYMBOL (sym, props)) => 
-					      (case Property.getScope props of
-						   (Property.READSYSTEMSTATE v) => v = iter_sym
-						 | _ => false)
-					    | _ => false))
+	val pred = ("CheckingForScope",
+		    case iter_type of
+			DOF.UPDATE v => (fn(exp)=>
+					   case exp of
+					       Exp.TERM (Exp.SYMBOL (sym, props)) => 
+					       (case Property.getScope props of
+						    (Property.READSYSTEMSTATE v') => v = v'
+						  | _ => false)
+			     | _ => false)
+		      | _ => (fn(exp)=>
+				case exp of
+				    Exp.TERM (Exp.SYMBOL (sym, props)) => 
+				    (case Property.getScope props of
+					 (Property.READSYSTEMSTATE v) => v = iter_sym
+				       | _ => false)
+				  | _ => false))
 
 	val find = Match.anysym_with_predlist [pred] (Symbol.symbol "a")
 	val action = (fn(exp)=>

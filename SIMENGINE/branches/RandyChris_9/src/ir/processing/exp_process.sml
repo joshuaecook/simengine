@@ -772,17 +772,25 @@ fun assignCorrectScopeOnSymbol exp =
 			  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		    end
 		else if isCurVarDifferenceTerm exp then
-		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope 
-												    props (*(Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))*)
-												    (Property.READSYSTEMSTATE iter_sym)))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    let
+			val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
+		    in
+			case exp of 
+			    Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope 
+													props (*(Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))*)
+													(Property.READSYSTEMSTATE iter_sym')))
+			  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    end
 		else if isIntermediateTerm exp then
-		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope 
-												    props (*(Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))*)
-												    (Property.READSYSTEMSTATE iter_sym)))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    let
+			val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
+		    in
+			case exp of 
+			    Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope 
+													props (*(Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))*)
+													(Property.READSYSTEMSTATE iter_sym')))
+			  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    end
 		else if isInitialConditionTerm exp then
 		    exp (* this doesn't really apply here ... *)
 		else
