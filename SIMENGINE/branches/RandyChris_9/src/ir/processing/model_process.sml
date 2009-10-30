@@ -185,7 +185,7 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 											  | NONE => false))
 				  val find = Match.anysym_with_predlist [PatternProcess.predicate_anysymbol, pred] (Symbol.symbol "a")
 				  val test = NONE
-				  val replace = Rewrite.ACTION (sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol sym' exp))
+				  val replace = Rewrite.ACTION (sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol (sym',Util.sym2codegensym) exp))
 			      in
 				  {find=find,
 				   test=test,

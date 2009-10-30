@@ -31,7 +31,7 @@ val doesEqHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol
 val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool (* like doesEqHaveIterator, put also ensures that eq is a state equation *)
 val prependIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val appendIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
-val updateTemporalIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
+val updateTemporalIteratorToSymbol : (Symbol.symbol * (Symbol.symbol -> Symbol.symbol)) -> Exp.exp -> Exp.exp (* update temporal iterators, requires a new iterator name, and a change function that can create a name (just used for update iterators to change scopes).  This requires that an Exp.TERM (Exp.SYMBOL) is passed in. *)
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
 val exp2temporaliterator : Exp.exp -> Iterator.iterator option
 
@@ -684,7 +684,7 @@ fun assignIteratorToSymbol (sym, p) exp =
 fun prependIteratorToSymbol (sym) exp = assignIteratorToSymbol (sym, PREPEND) exp
 fun appendIteratorToSymbol (sym) exp = assignIteratorToSymbol (sym, APPEND) exp
 
-fun updateTemporalIteratorToSymbol (sym) exp = 
+fun updateTemporalIteratorToSymbol (sym,symchangefun) exp = 
     let
 	val (iter_sym, iter_index) = case exp2temporaliterator exp of
 					 SOME iter => iter
@@ -694,14 +694,32 @@ fun updateTemporalIteratorToSymbol (sym) exp =
 	val spatial_iterators = TermProcess.symbol2spatialiterators (exp2term exp)
 	val temporal_iterators = CurrentModel.iterators()				 
 
+	val iter_type = case List.find (fn(iter_sym',_)=> iter_sym = iter_sym') temporal_iterators of
+			    SOME (_,iter_type)=>iter_type
+			  | NONE => DynException.stdException(("No global temporal iterator found matching: "^(Symbol.name iter_sym)),
+							      "ExpProcess.updateTemporalIteratorToSymbol",
+							      Logger.INTERNAL)
+
 	val iterators' = (sym, iter_index)::spatial_iterators
 	val props = Term.sym2props (exp2term exp)
+
+	fun changeScopeIterator cur_scope_iter =
+	    case iter_type of
+		DOF.UPDATE v => if cur_scope_iter = v then
+				    SOME (symchangefun v)
+				else
+				    NONE
+	      | _ => if cur_scope_iter = iter_sym then
+			 SOME sym
+		     else NONE
+			 
 	val scope = Property.getScope props
-	val scope' = case scope of 
-			 Property.READSTATE rd_sym => if rd_sym = iter_sym then Property.READSTATE sym else scope
-		       | Property.WRITESTATE wr_sym => if wr_sym = iter_sym then Property.WRITESTATE sym else scope
-		       | Property.READSYSTEMSTATE rd_sys_sym => if rd_sys_sym = iter_sym then Property.READSYSTEMSTATE sym else scope
+	val scope' = case scope of
+			 Property.READSTATE rd_sym => (case changeScopeIterator rd_sym of SOME sym => Property.READSTATE sym | NONE => scope)
+		       | Property.WRITESTATE wr_sym => (case changeScopeIterator wr_sym of SOME sym => Property.WRITESTATE sym | NONE => scope)
+		       | Property.READSYSTEMSTATE rd_sys_sym => (case changeScopeIterator rd_sys_sym of SOME sym => Property.READSYSTEMSTATE sym | NONE => scope)
 		       | _ => scope
+
 	val derivative = Property.getDerivative props
 	val derivative' = case derivative of 
 			      SOME (order, iter_list) => SOME (order, map (fn(d_sym)=>if d_sym=iter_sym then sym else d_sym) iter_list)
