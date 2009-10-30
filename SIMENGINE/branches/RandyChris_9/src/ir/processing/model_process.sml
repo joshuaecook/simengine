@@ -272,8 +272,8 @@ fun normalizeModel (model:DOF.model) =
 
 	(* remap all names into names that can be written into a back-end *)
 	val _ = Util.log ("Fixing symbol names ...")
-	val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
-	val _ = CurrentModel.setCurrentModel(model')
+	(*val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
+	val _ = CurrentModel.setCurrentModel(model')*)
 	val () = (app ClassProcess.fixSymbolNames (CurrentModel.classes()))
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
