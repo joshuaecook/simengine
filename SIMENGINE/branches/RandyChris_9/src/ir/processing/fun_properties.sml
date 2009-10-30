@@ -714,8 +714,8 @@ fun op2props optype =
 		   commutative=false,
 		   associative=false,
 		  eval=empty_binary,
-		   text=(" = ",INFIX),
-		   C=(" = ",INFIX),
+		   text=("=",INFIX),
+		   C=("=",INFIX),
 		   expcost=basicOpCost,
 		   codomain= vectorizedCodomain}
       | GROUP => {name="group",

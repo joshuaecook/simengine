@@ -8,6 +8,7 @@ val i2s = Util.i2s
 val r2s = Util.real2exact_str
 val log = Util.log
 
+
 fun exp2c_str (Exp.FUN (str, exps)) =
     let
 	fun useParen (Exp.FUN (str', _)) = 
@@ -31,7 +32,7 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	    Util.repStr(str, "$"^(i2s i), addParen (exp2c_str e, e))
 
 	fun notation2c_str (v, FunProps.INFIX) = 
-	    String.concatWith v (map (fn(e)=>addParen ((exp2c_str e),e)) exps)
+	    String.concatWith (" "^v^" ") (map (fn(e)=>addParen ((exp2c_str e),e)) exps)
 	  | notation2c_str (v, FunProps.PREFIX) = 
 	    v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2c_str e,e))) exps)) ^ ")"
 	  | notation2c_str (v, FunProps.POSTFIX) = 

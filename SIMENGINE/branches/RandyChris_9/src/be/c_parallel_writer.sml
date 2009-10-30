@@ -591,14 +591,18 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";")) (Util.addCount inpargs)
 		    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
 
-		    val symbols = map Term.sym2curname outargs
+		    fun declare_output ((sym,_),_) = "CDATAFORMAT "^(Symbol.name sym)^";"
 
-		    fun inst_output ((sym, {name, contents, condition}), idx) =
-			"CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
+		    fun assign_output ((sym, {name, contents, condition}), idx) =
+			(Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
 			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
 
+		    val output_symbol_pairs = 
+			Util.addCount (ListPair.zip (map Term.sym2curname outargs, !(#outputs class)))
+
 		in
-		    [$("//{ // TODO declare output vars outside this scope"),
+		    (map ($ o declare_output) output_symbol_pairs) @
+		    [$("{"),
 		     SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 			  $("// " ^ (CWriterUtil.exp2c_str exp))] @ 
 			 inps @
@@ -612,10 +616,8 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			      $(calling_name ^ "("^iter_name^", "^
 				statereads ^ ", " ^ statewrites ^ ", " ^ inpvar^", "^outvar^", first_iteration, modelid);")
 			 ] @
-			 map ($ o inst_output)
-			     (Util.addCount (ListPair.zip (symbols, !(#outputs class))))),
-		     $("//}")
-		    ]
+			 map ($ o assign_output) output_symbol_pairs),
+		     $("}"),$("")]
 		end
 
 
