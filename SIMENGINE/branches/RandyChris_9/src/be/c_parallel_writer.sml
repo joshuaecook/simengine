@@ -486,22 +486,6 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val read_states_progs = []
 
-	val input_automatic_var =
-	    if is_top_class then
-		fn ({name,default},i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, NUM_MODELS, " ^ (i2s i) ^ ", modelid)];")
-	    else
-		fn ({name,default},i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
-
-	    
-	(* TODO map only inputs that are actually used within the flow equations *)
-	val read_inputs_progs =
-	    [$(""),
-	     $("// mapping inputs to variables")] @ 
-	    (map input_automatic_var (Util.addCount (!(#inputs class))))
-
-
 	(* filter out all the unneeded expressions *)
 	val (initvalue_exps, rest_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
 	val (valid_exps, rest_exps) = List.partition (fn(exp)=> ExpProcess.isIntermediateEq exp orelse
@@ -513,6 +497,31 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		     DynException.setErrored())
 		else
 		    ()
+
+	val input_automatic_var =
+	    if is_top_class then
+		fn ({name,default},i) => 
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, NUM_MODELS, " ^ (i2s i) ^ ", modelid)];")
+	    else
+		fn ({name,default},i) => 
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
+
+	val eqn_symbolset = 
+	    SymbolSet.flatmap ExpProcess.exp2symbolset valid_exps
+
+	(* map only inputs that are actually used within the flow equations *)
+	fun input_appears_in_eqns ({name=Exp.SYMBOL (insym,_),...},_) =
+	    SymbolSet.exists (fn (sym) => sym = insym) eqn_symbolset
+	  (* TODO what happens for non-symbol inputs? *)
+	  | input_appears_in_eqns _ = true
+		   
+	val inputs = List.filter input_appears_in_eqns (Util.addCount (!(#inputs class)))
+
+	val read_inputs_progs =
+	    [$(""),
+	     $("// mapping inputs to variables")] @ 
+	    (map input_automatic_var inputs)
+
 
 	local
 	    fun exp2prog exp =
@@ -742,7 +751,6 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 							 (Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
 							  DynException.setErrored();
 							  [])
-						     else if not (ClassProcess.hasStates c) then []
 						     else
 							 class2flow_code (c,#name c = #name topclass, iter)) classes)
 	    in
