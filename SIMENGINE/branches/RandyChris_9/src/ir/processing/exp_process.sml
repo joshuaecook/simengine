@@ -741,55 +741,39 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
     handle e => DynException.checkpoint "ExpProcess.updateTemporalIteratorToSymbol" e
 
 fun assignCorrectScopeOnSymbol exp =
-    case exp of
-	Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
+    case exp 
+     of Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
 	let
 	    val iter = TermProcess.symbol2temporaliterator s
 	    val iter' = case iter of 
 			    SOME (iter_sym, iter_index) => SOME (iter_sym, iter_index, #2 (CurrentModel.itersym2iter iter_sym))
 			  | NONE => NONE
 	in
-	    case iter' of
-		SOME (iter_sym, iter_index, iter_type) => 
+	    case iter' 
+	     of SOME (iter_sym, iter_index, iter_type) => 
 		if isFirstOrderDifferentialTerm exp then
-		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
 		else if isNextVarDifferenceTerm exp then
-		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
 		else if isNextPPTerm exp then
-		    case exp of 
-			Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
-		      | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
 		else if isNextUpdateTerm exp then
 		    let
 			val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
 		    in
-			case exp of 
-			    Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^*) (Symbol.name orig_iter))))))
-			  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^*) (Symbol.name orig_iter))))))
 		    end
 		else if isCurVarDifferenceTerm exp then
 		    let
 			val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
 		    in
-			case exp of 
-			    Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope 
-													props (*(Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))*)
-													(Property.READSYSTEMSTATE iter_sym')))
-			  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
 		    end
 		else if isIntermediateTerm exp then
 		    let
 			val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
 		    in
-			case exp of 
-			    Exp.TERM (s as (Exp.SYMBOL (sym, props))) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope 
-													props (*(Property.READSTATE (Symbol.symbol ("rd_" ^ (Symbol.name iter_sym))))*)
-													(Property.READSYSTEMSTATE iter_sym')))
-			  | _ => DynException.stdException("Unexpected expression", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
 		    end
 		else if isInitialConditionTerm exp then
 		    exp (* this doesn't really apply here ... *)
@@ -800,6 +784,7 @@ fun assignCorrectScopeOnSymbol exp =
 		exp
 	end
       | _ => error exp "Unexpected expression found when assign correct scope - not a symbol"
+
 
 fun assignCorrectScope states exp =
     if isSymbol exp then

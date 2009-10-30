@@ -691,12 +691,6 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class} : text list * text list = 
     let
-	(* TODO: refactor this to use CurrentModel.withModel. *)
-	val prevModel = CurrentModel.getCurrentModel()
-	val _ = CurrentModel.setCurrentModel(model)
-
-	val topclass = CurrentModel.classname2class top_class
-
 	val iter_name = Symbol.name (case iter_type of
 					 DOF.UPDATE v => v
 				       | DOF.POSTPROCESS v => v
@@ -746,6 +740,8 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 	CurrentModel.withModel model 
 	(fn () =>
 	    let
+		val topclass = CurrentModel.classname2class top_class
+
     		val fundecl_progs = List.mapPartial class_flow_prototype classes
 				    
 		val flow_progs = List.concat (map (fn(c)=>
