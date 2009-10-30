@@ -170,44 +170,41 @@ fun findMatchingEq (class:DOF.class) sym =
 
 (* flattenEq does not pass through instance equations - we need a different one that will pass through instance equations *)
 fun flattenEq (class:DOF.class) sym = 
-    ((*Util.log ("Calling flattenEq on sym '"^(Symbol.name sym)^"'");*)
     if isSymInput class sym then
 	Exp.TERM (#name (valOf (List.find (fn{name,...}=>Term.sym2curname name = sym) (!(#inputs class)))))
     else
 	case findMatchingEq class sym of
 	    SOME exp => 
 	    let
-		(*val _ = Util.log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'")*)
+		(* val _ = Util.log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'") *)
 		val symbols = ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
 		val local_symbols = List.filter Term.isLocal symbols
 		val matching_equations = map ((findMatchingEq class) o Term.sym2curname) local_symbols
 		(* only use symbols that are from intermediates *)
-		val filtered_symbols = map (fn(sym, equ)=>sym) 
+		val filtered_symbols = map #1 
 					   (List.filter 
 						(fn(_,equ)=> case equ of 
 								 SOME e => not (ExpProcess.isInstanceEq e)
 							       | NONE => false)
 						(ListPair.zip (local_symbols,matching_equations)))
-		val local_symbols_rewrite_rules = 
-		    map
-			(fn(termsym)=>
-			   let
-			       val find = Exp.TERM termsym
-			       val test = NONE
-			       val repl_exp = ExpProcess.rhs (flattenEq class (Term.sym2curname termsym))
-			       (*val _ = Util.log ("flattenEq ("^(Symbol.name (#name class))^"): '"^(e2s find)^"' ->  '"^(e2s repl_exp)^"'")*)
-			       val replace = Rewrite.RULE repl_exp
-			   in
-			       {find=find,
-				test=test,
-				replace=replace}			       
-			   end)
-			filtered_symbols
-	    in
-		Match.applyRewritesExp local_symbols_rewrite_rules exp
-	    end
-	  | NONE => DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenEq", Logger.INTERNAL))
 
+
+		fun term_rewrite_rule term = 
+		    let
+			val find = Exp.TERM term
+			val test = NONE
+			(* val _ = Util.log ("flattenEq ("^(Symbol.name (#name class))^"): '"^(e2s find)^"'") *)
+			val repl_exp = ExpProcess.rhs (flattenEq class (Term.sym2curname term))
+			(* val _ = Util.log (" ->  '"^(e2s repl_exp)^"'") *)
+			val replace = Rewrite.RULE repl_exp
+		    in
+			{find=find, test=test, replace=replace}			       
+		    end
+	    in
+		if 1 = List.length filtered_symbols andalso sym = (Term.sym2curname (List.hd filtered_symbols)) then exp
+		else Match.applyRewritesExp (map term_rewrite_rule filtered_symbols) exp
+	    end
+	  | NONE => DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenEq", Logger.INTERNAL)
 
 
 (*this will take an exp, like 'a+b', and search for a, and search for b, substituting both variables back into the expression *)
@@ -790,8 +787,9 @@ fun propagateSpatialIterators (class: DOF.class) =
 fun sym2iterators (class: DOF.class) sym =
     let
 	val flat_equ = flattenEq class sym
-	(*val _ = Util.log ("Resulting flat equation: " ^ (e2s flat_equ)) *)
+	(* val _ = Util.log ("Resulting flat equation: " ^ (e2s flat_equ)) *)
 	val symbols = ExpProcess.exp2termsymbols flat_equ
+
 	val temporal_iterators = 
 	    Util.uniquify_by_fun (fn((a,_),(a',_)) => a = a')
 				 (List.mapPartial 
@@ -819,6 +817,7 @@ fun assignCorrectScope (class: DOF.class) =
 										 DOF.CONTINUOUS _ => SOME iter_sym
 									       | DOF.DISCRETE _ => SOME iter_sym
 									       | _ => NONE) iterators
+
 	val symbol_state_iterators = 
 	    let
 		val all_state_iterators = 
@@ -841,6 +840,7 @@ fun assignCorrectScope (class: DOF.class) =
 	(*val _ = Util.log ("In assignCorrectScope, producing rewriting rules: ")
 	val _ = app (fn(sym, (iter_sym,_))=> Util.log (" -> sym: " ^ (Symbol.name sym) ^ ", iter: " ^ (Symbol.name iter_sym))) symbol_state_iterators*)
 	(*Util.flatmap ExpProcess.exp2symbols state_terms*)
+
 	val state_actions = map 
 			  (fn(sym, iter as (itersym, _))=>
 			     {find=Match.asym sym, 
@@ -849,6 +849,7 @@ fun assignCorrectScope (class: DOF.class) =
 						      (fn(exp)=>ExpProcess.assignCorrectScopeOnSymbol
 								    (ExpProcess.prependIteratorToSymbol itersym exp)))}) 
 			  symbol_state_iterators
+
 
 	val iter_actions = map
 			       (fn(sym)=>
@@ -871,6 +872,7 @@ fun assignCorrectScope (class: DOF.class) =
 
 	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
 
+
 	val outputs = !(#outputs class)
 	val outputs' =
 	    let
@@ -892,79 +894,78 @@ fun assignCorrectScope (class: DOF.class) =
 	val _ = (#exps class) := exps'
 	val _ = (#outputs class) := outputs'
 
+
+	fun update_output2 (output as {name, contents, condition}) =
+	    let
+		(* val _ = Util.log ("Processing output '"^(e2s (Exp.TERM name))^"'") *)
+		(* this line will add the appropriate scope to each symbol and will add the correct temporal iterator*)
+		val contents' = map (Match.applyRewritesExp actions) contents
+		val condition' = Match.applyRewritesExp actions condition
+
+		(* TODO: The iterator for the name should be defined in modeltranslate.  If it exists,
+  		 * the iterator vector will automatically be added to the output trace.  If it doesn't exist, 
+		 * only the values will be output.  This can be controlled with the "withtime" and "notime" 
+		 * properties *)
+		val name' = 
+		    case TermProcess.symbol2temporaliterator name of
+			SOME iter => name (* keep the same *)
+		      | NONE => (* we have to find the iterator *)
+			let
+			    val sym = Term.sym2curname name
+			    (* val _ = Util.log ("Finding iterator for '"^(Symbol.name sym)^"'") *)
+			    val (temporal_iterators, spatial_iterators) = sym2iterators class sym
+			    (* val _ = Util.log ("Found "^(i2s (List.length temporal_iterators))^" temporal and "^(i2s (List.length spatial_iterators))^" spatial") *)
+
+			    (* transform pp[x] and update[x] into x references*)
+			    fun transform_iterators (iterator, iterators) =
+				let
+				    val globaliterators = CurrentModel.iterators()
+				    val iterator' =
+					case List.find (fn(s,_) => s = iterator) globaliterators 
+					 of SOME (_, DOF.POSTPROCESS it) => it
+					  | SOME (_, DOF.UPDATE it) => it
+					  | SOME _ => iterator
+					  | NONE => DynException.stdException("No global iterator found for temporal iterator " ^ (Symbol.name iterator),
+									      "ClassProcess.assignCorrectScope.outputs'",
+									      Logger.INTERNAL)
+
+				    val iterators' = if List.exists (fn(s) => s = iterator') iterators then
+							 iterators
+						     else
+							 iterator' :: iterators
+				in
+				    iterators'
+				end
+
+			    val temporal_iterators' = foldl transform_iterators nil (map #1 temporal_iterators)
+
+			    (* assign the temporal iterator first *)
+			    val name' = 
+				case temporal_iterators' of
+				    [] => (* no iterators present, just return name *)			
+				    name
+				  | [iter] => ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter (Exp.TERM name))
+				  | rest => (* this is an error *)
+				    (Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) temporal_iterators')) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd temporal_iterators'))^"]."));
+				     DynException.setErrored();
+				     name)
+				    
+			    (* now add the spatial iterators *)
+			    val name'' = ExpProcess.exp2term 
+					     (foldl (fn(iter as (itersym,_),exp')=>ExpProcess.appendIteratorToSymbol itersym exp') 
+						    (Exp.TERM name')
+						    spatial_iterators)
+			in
+			    name''
+			end
+	    (*val _ = Util.log("Converting name from '"^(e2s (Exp.TERM name))^"' to '"^(e2s (Exp.TERM name'))^"'")*)
+
+	    in
+		{name=name', contents=contents', condition=condition'}
+	    end
+
 	val outputs = !(#outputs class)
-	val outputs' = map (fn{name, contents, condition}=>
-			      let
-				  (*val _ = Util.log ("Processing output '"^(e2s (Exp.TERM name))^"'")*)
-				  (* this line will add the appropriate scope to each symbol and will add the correct temporal iterator*)
-				  val contents' = map (Match.applyRewritesExp actions) contents
-				  val condition' = Match.applyRewritesExp actions condition
-
-				  (* TODO: The iterator for the name should be defined in modeltranslate.  If it exists,
-  			             the iterator vector will automatically be added to the output trace.  If it doesn't exist, 
-			             only the values will be output.  This can be controlled with the "withtime" and "notime" 
-			             properties *)
-				  val name' = 
-				      case TermProcess.symbol2temporaliterator name of
-					  SOME iter => name (* keep the same *)
-					| NONE => (* we have to find the iterator *)
-					  let
-					      val sym = Term.sym2curname name
-					      val (temporal_iterators, spatial_iterators) = sym2iterators class sym
-
-					      (* transform pp[x] and update[x] into x references*)
-					      val temporal_iterators' = foldl (fn(iterator, iterators) =>
-										 let
-										     val globaliterators = CurrentModel.iterators()
-										     val iterator' =
-											 case List.find (fn(s,_) => s = iterator) globaliterators of
-											     SOME (_, itertype) =>
-											     (case itertype of
-												  DOF.POSTPROCESS iter => iter
-												| DOF.UPDATE iter => iter
-												| _ => iterator)
-											   | NONE => DynException.stdException("No global iterator found for temporal iterator " ^ (Symbol.name iterator),
-															       "ClassProcess.assignCorrectScope.outputs'",
-															       Logger.INTERNAL)
-
-										     val iterators' = if List.exists (fn(s) => s = iterator') iterators then
-													  iterators
-												      else
-													  iterator' :: iterators
-										 in
-										     iterators'
-										 end) 
-									      nil 
-									      (map #1 temporal_iterators)
-
-					      (* assign the temporal iterator first *)
-					      val name' = 
-						  case temporal_iterators' of
-						      [] => (* no iterators present, just return name *)			
-						      name
-						    | [iter] => ExpProcess.exp2term
-								    (ExpProcess.prependIteratorToSymbol iter (Exp.TERM name))
-						    | rest => (* this is an error *)
-						      (Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) temporal_iterators')) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd temporal_iterators'))^"]."));
-						       DynException.setErrored();
-						       name)
-						      
-					      (* now add the spatial iterators *)
-					      val name'' = ExpProcess.exp2term 
-							   (foldl (fn(iter as (itersym,_),exp')=>ExpProcess.appendIteratorToSymbol itersym exp') 
-								  (Exp.TERM name')
-								  spatial_iterators)
-					  in
-					      name''
-					  end
-				  (*val _ = Util.log("Converting name from '"^(e2s (Exp.TERM name))^"' to '"^(e2s (Exp.TERM name'))^"'")*)
-
-			      in
-				  {name=name',
-				   contents=contents',
-				   condition=condition'}
-			      end
-			   ) outputs
+	val outputs' = map update_output2 outputs
 		      
 	(* write back output changes *)
 	val _ = (#outputs class) := outputs'
