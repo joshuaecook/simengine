@@ -34,6 +34,8 @@ structure ModelProcess : sig
     (* Indicates whether an iterator is dependent upon another. *)
     val isDependentIterator : DOF.systemiterator -> bool
 
+    val to_json : DOF.model -> mlJS.json_value
+
 end = struct
 
 val i2s = Util.i2s
@@ -364,5 +366,63 @@ fun normalizeParallelModel (model:DOF.model) =
     handle e => DynException.checkpoint "ModelProcess.normalizeParallelModel" e
 
 
+local open mlJS in
+fun to_json (model as (classes,instance,properties)) =
+    let val json_classes
+	  = js_array (map ClassProcess.to_json classes)
+	    
+	val json_instance 
+	  = let val {name,classname}
+		  = instance
+		val js_name 
+		  = case name 
+		     of SOME n => js_string (Symbol.name n) 
+		      | NONE => js_null
+	    in
+		js_object [("name",js_name),
+			   ("classname",js_string (Symbol.name classname))]
+	    end
+
+	val json_properties
+	  = let val {iterators,precision,target,num_models,debug,profile}
+		  = properties
+
+		fun iterator_to_json (name, typ) = 
+		    js_object (("name",js_string (Symbol.name name)) ::
+			       (case typ
+				 of DOF.CONTINUOUS solver => [("type",js_string "CONTINUOUS"),
+							      ("solver",js_string "FIXME")]
+				  | DOF.DISCRETE {sample_period} => [("type",js_string "DISCRETE"),
+								     ("sample_period",js_float sample_period)]
+				  | DOF.UPDATE parent => [("type",js_string "UPDATE"),
+							  ("parent",js_string (Symbol.name parent))]
+				  | DOF.POSTPROCESS parent => [("type",js_string "UPDATE"),
+							       ("parent",js_string (Symbol.name parent))]))
+		    
+		fun target_to_json Target.CPU = js_object [("type",js_string "CPU")]
+		  | target_to_json Target.OPENMP = js_object [("type",js_string "OPENMP")]
+		  | target_to_json (Target.CUDA {compute,multiprocessors,globalMemory})
+		    = js_object [("type",js_string "CUDA"),
+				 ("computeCapability",js_string (case compute of Target.COMPUTE11 => "1.1" | Target.COMPUTE13 => "1.3")),
+				 ("globalMemory",js_int globalMemory)]
+
+		val js_iterators
+		  = js_array (map iterator_to_json iterators)
+	    in
+		js_object [("iterators",js_iterators),
+			   ("precision",js_string (case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")),
+			   ("target",target_to_json target),
+			   ("num_models",js_int num_models),
+			   ("debug",js_boolean debug),
+			   ("profile",js_boolean profile)]
+	    end
+    in
+	js_object [("classes",json_classes),
+		   ("instance",json_instance),
+		   ("properties",json_properties)]
+    end
+
+
+end
 
 end

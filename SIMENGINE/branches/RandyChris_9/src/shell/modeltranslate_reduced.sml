@@ -373,8 +373,13 @@ fun createClass classes object =
 				  kecexp2dofexp (method "rhs" (method "eq" object)))]
 	    else if (istype (object, "State")) then
 		let
-		    val lhs = kecexp2dofexp (method "lhs" (method "eq" object))
-		    val rhs = kecexp2dofexp (method "rhs" (method "eq" object))
+		    val hasEquation = exp2bool (send "hasEquation" object NONE)
+		    val name = exp2str (method "name" object)
+
+		    val (lhs,rhs) = 
+			(kecexp2dofexp (method "lhs" (method "eq" object)),
+			 kecexp2dofexp (method "rhs" (method "eq" object)))
+
 		    val eq = ExpBuild.equals(lhs, rhs)			
 
 		    val timeiterator = (exp2str (method "name" (method "iter" object)))
@@ -392,9 +397,6 @@ fun createClass classes object =
 						 
 		    val spatialiterators = map (Symbol.name o #1) spatialiterators
    
-		    val name = exp2str (method "name" object)
-		    val hasEquation = exp2bool (send "hasEquation" object NONE)
-
 		    val initlhs = ExpBuild.initavar(name, 
 						    if hasEquation then timeiterator else Symbol.name(Iterator.postProcessOf timeiterator),
 						    spatialiterators)
@@ -407,7 +409,11 @@ fun createClass classes object =
 		    val sym = ExpBuild.avar name timeiterator
 
 		    val condeqs = case keccondeqs of
-				      nil => nil
+				      nil => 
+				      if hasEquation then nil
+				      else
+					  [ExpBuild.equals (ExpBuild.ivar name [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1)],
+							    ExpBuild.ivar name [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 0)])]
 				    | keccondeqs => 
 				      let
 					  val (lhs, defaultval) = 
@@ -669,7 +675,7 @@ fun obj2dofmodel object =
 					 of "cpu" => Target.CPU
 					  | "openmp" => Target.OPENMP
 					  | "cuda" => Target.CUDA {compute=deviceCapability, 
-								   numMP=numMPs, 
+								   multiprocessors=numMPs, 
 								   globalMemory=globalMemory}
 					  | _ => DynException.stdException
 						     (("Unexpected target value " ^ (target)),

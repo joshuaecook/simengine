@@ -27,8 +27,10 @@ val isUpdateEq : Exp.exp -> bool
 
 (* Iterator related functions *)
 val doesTermHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol in the expression, returns if the iterator is assigned to that symbol *)
-val doesEqHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol on the lhs, returns if the iterator is assigned to that symbol *)
-val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool (* like doesEqHaveIterator, put also ensures that eq is a state equation *)
+(* Looks at the symbol on the lhs, returns if the iterator is assigned to that symbol *)
+val doesEqHaveIterator : Symbol.symbol -> Exp.exp -> bool 
+(* like doesEqHaveIterator, put also ensures that eq is a state equation *)
+val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool 
 val prependIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val appendIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val updateTemporalIteratorToSymbol : (Symbol.symbol * (Symbol.symbol -> Symbol.symbol)) -> Exp.exp -> Exp.exp (* update temporal iterators, requires a new iterator name, and a change function that can create a name (just used for update iterators to change scopes).  This requires that an Exp.TERM (Exp.SYMBOL) is passed in. *)
@@ -65,6 +67,9 @@ val exp2fun_names : Exp.exp -> Symbol.symbol list
 
 (* useful helper functions *)
 val uniq : Symbol.symbol -> Symbol.symbol (* given a sym, create a unique sym name *)
+
+val to_json : Exp.exp -> mlJS.json_value
+val term_to_json : Exp.term -> mlJS.json_value
 
 end
 structure ExpProcess : EXPPROCESS =
@@ -823,5 +828,145 @@ fun assignToOutputBuffer exp =
       | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist))
       | _ => exp
 
+
+
+
+
+local open mlJS in
+fun jsValOf js (SOME x) = js x
+  | jsValOf _ NONE = js_null
+
+val js_symbol = js_string o Symbol.name
+
+fun to_json (Exp.FUN (typ, expressions)) = fun_to_json (typ, expressions)
+  | to_json (Exp.TERM term) = term_to_json term
+
+and fun_to_json (Fun.BUILTIN operation, expressions) =
+    js_object [("type", js_string "BUILTIN"),
+	       ("operation", js_string (#name (FunProps.op2props operation))),
+	       ("operands", js_array (map to_json expressions))]
+  | fun_to_json (Fun.INST {classname,instname,props}, expressions) = 
+    let val {dim,sourcepos,realclassname,realinstname,iterators,inline} 
+	  = props
+
+	val json_properties = js_object [("inline", js_boolean inline),
+					 ("iterators", js_array (map js_symbol iterators)),
+					 ("realInstanceName", jsValOf js_symbol realinstname),
+					 ("realClassName", jsValOf js_symbol realclassname),
+					 ("sourcePosition", jsValOf PosLog.to_json sourcepos),
+					 ("dimensions", jsValOf (js_array o (map js_int)) dim)]
+    in
+	js_object [("type", js_string "INSTANCE"),
+		   ("className", js_string (Symbol.name classname)),
+		   ("instanceName", js_string (Symbol.name instname)),
+		   ("properties", json_properties),
+		   ("operands", js_array (map to_json expressions))]
+    end
+
+and term_to_json (Exp.RATIONAL (num, denom)) =
+    js_object [("type", js_string "COMPLEX"),
+	       ("numerator", js_int num),
+	       ("denominator", js_int denom)]
+  | term_to_json (Exp.INT z) = 
+    js_object [("type", js_string "INT"),
+	       ("value", js_int z)]
+  | term_to_json (Exp.REAL r) = 
+    js_object [("type", js_string "REAL"),
+	       ("value", js_float r)]
+  | term_to_json (Exp.BOOL b) = 
+    js_object [("type", js_string "BOOL"),
+	       ("value", js_boolean b)]
+  | term_to_json (Exp.COMPLEX (r, i)) = 
+    js_object [("type", js_string "COMPLEX"),
+	       ("real", term_to_json r),
+	       ("imaginary", term_to_json i)]
+  | term_to_json (Exp.LIST (terms, dimens)) = 
+    js_object [("type", js_string "LIST"),
+	       ("terms", js_array (map term_to_json terms)),
+	       ("dimensions", js_array (map js_int dimens))]
+  | term_to_json (Exp.TUPLE terms) =
+    js_object [("type", js_string "TUPLE"),
+	       ("terms", js_array (map term_to_json terms))]
+  | term_to_json (Exp.RANGE {low, high, step}) = 
+    js_object [("type", js_string "RANGE"),
+	       ("low", term_to_json low),
+	       ("step", term_to_json step),
+	       ("high", term_to_json high)]
+  | term_to_json (Exp.SYMBOL (name, properties)) = 
+    let val {dim, iterator, derivative, isevent, sourcepos, realname, scope, outputbuffer, ep_index}
+	  = properties
+
+	val json_iterators
+	  = case iterator 
+	     of SOME iters => 
+		let fun iterator_to_json (name, index) =
+			js_object [("name", js_symbol name),
+				   ("index", iterator_index_to_json index)]
+
+		    and iterator_index_to_json (Iterator.RELATIVE z) =
+			js_object [("type", js_string "RELATIVE"), ("value", js_int z)]
+		      | iterator_index_to_json (Iterator.ABSOLUTE z) = 
+			js_object [("type", js_string "ABSOLUTE"), ("value", js_int z)]
+		      | iterator_index_to_json (Iterator.RANGE (low, high)) = 
+			js_object [("type", js_string "RANGE"), ("low", js_int low), ("high", js_int high)]
+		      | iterator_index_to_json (Iterator.LIST zz) = 
+			js_object [("type", js_string "LIST"), ("values", js_array (map js_int zz))]
+		      | iterator_index_to_json Iterator.ALL = 
+			js_object [("type", js_string "ALL")]
+		in
+		    js_array (map iterator_to_json iters)
+		end
+	      | NONE => js_null
+
+	val json_scope
+	  = case scope
+	     of Property.LOCAL => 
+		js_object [("type", js_string "LOCAL")]
+	      | Property.READSTATE name => 
+		js_object [("type", js_string "READSTATE"), ("name", js_symbol name)]
+	      | Property.READSYSTEMSTATE name => 
+		js_object [("type", js_string "READSYSTEMSTATE"), ("name", js_symbol name)]
+	      | Property.WRITESTATE name => 
+		js_object [("type", js_string "WRITESTATE"), ("name", js_symbol name)]
+	      | Property.ITERATOR => 
+		js_object [("type", js_string "ITERATOR")]
+
+	val json_properties
+	  = js_object [("dimensions", jsValOf (js_array o (map js_int)) dim),
+		       ("iterators", json_iterators),
+		       ("derivative", js_string "FIXME"),
+		       ("isEvent", js_boolean isevent),
+		       ("sourcePosition", jsValOf PosLog.to_json sourcepos),
+		       ("realName", jsValOf js_symbol realname),
+		       ("scope", json_scope),
+		       ("outputBuffer", js_boolean outputbuffer),
+		       ("parallelIndex", jsValOf (js_string o (fn Property.ARRAY => "ARRAY" | Property.STRUCT_OF_ARRAYS => "STRUCT_OF_ARRAYS")) ep_index)]
+    in
+	js_object [("type", js_string "SYMBOL"),
+		   ("name", js_string (Symbol.name name)),
+		   ("properties", json_properties)]
+    end
+  | term_to_json Exp.DONTCARE =
+    js_object [("type", js_string "DONTCARE")]
+  | term_to_json Exp.INFINITY = 
+    js_object [("type", js_string "INFINITY")]
+  | term_to_json Exp.NAN = 
+    js_object [("type", js_string "NAN")]
+  | term_to_json (Exp.PATTERN (name, predicate, arity)) = 
+    let val json_arity 
+	  = case arity 
+	     of Pattern.ONE => js_object [("type", js_string "ONE")]
+	      | Pattern.ONE_OR_MORE => js_object [("type", js_string "ONE_OR_MORE")]
+	      | Pattern.ZERO_OR_MORE => js_object [("type", js_string "ZERO_OR_MORE")]
+	      | Pattern.SPECIFIC_COUNT count => 
+		js_object [("type", js_string "COUNT"), ("count", js_int count)]
+	      | Pattern.SPECIFIC_RANGE (low, high) => 
+		js_object [("type", js_string "RANGE"), ("low", js_int low), ("high", js_int high)]
+    in
+	js_object [("type", js_string "PATTERN"),
+		   ("predicate", js_string "FIXME"),
+		   ("arity", json_arity)]
+    end
+end
 
 end

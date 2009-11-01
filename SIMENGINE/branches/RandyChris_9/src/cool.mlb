@@ -5,6 +5,9 @@ local
   $(SML_LIB)/basis/sml-nj.mlb
   $(SML_LIB)/basis/mlton.mlb
   $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+
+  (* JSON Data Structure *)
+  util/json.sml
 in
 
 (* Utilities *)
@@ -51,9 +54,6 @@ util/stdfun.sml
 util/printing/status.sml
 
 shell/prettyprint.sml
-
-(* JSON Data Structure *)
-util/json.sml
 
 (* Data structures *)
 (*be/datastructs/rangebits.sml

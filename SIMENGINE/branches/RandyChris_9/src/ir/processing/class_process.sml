@@ -12,7 +12,8 @@ sig
     val class2basename : DOF.class -> Symbol.symbol (* the name generated for the class in modeltranslate - this is never adjusted *)
     val findSymbols : DOF.class -> SymbolSet.set (* return a list of every unique symbol name used in the class - helpful for global renaming *)
     val class2states : DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
-    val class2statesbyiterator : Symbol.symbol -> DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
+    (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
+    val class2statesbyiterator : Symbol.symbol -> DOF.class -> Symbol.symbol list 
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
     val class2statesizebyiterator : DOF.systemiterator -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
     val class2instancesbyiterator : Symbol.symbol -> DOF.class -> Exp.exp list (* grab all the instances that have states matching the specified iterator, determined by calling class2statesizebiterator *)
@@ -28,6 +29,8 @@ sig
     val hasStates : DOF.class -> bool
     (* Indicates whether a class contains states associated with a given iterator. *)
     val hasIterator : DOF.systemiterator -> DOF.class -> bool
+
+    val statesWrittenToIterator : DOF.systemiterator -> DOF.class -> Symbol.symbol list
 
     (* Functions to modify class properties, usually recursively through the expressions *)
     val applyRewritesToClass : Rewrite.rewrite list -> DOF.class -> unit (* generic rewriting helper *)
@@ -45,6 +48,7 @@ sig
     val createEventIterators : DOF.class -> unit (* searches out postprocess and update iterators *)
     val addUpdateIntermediates : DOF.class -> unit (* for update iterators, they read and write to the same state vector, so we add intermediates to break up any loops *)
 
+    val to_json : DOF.class -> mlJS.json_value
 end
 structure ClassProcess : CLASSPROCESS = 
 struct
@@ -422,7 +426,7 @@ fun class2postprocess_states (class: DOF.class) =
 	    List.filter
 		(fn(sym)=>
 		   let val exps' = symbol2exps class sym
-		   in (hasInitEq exps') andalso (not (hasStateEq exps')) andalso (hasUpdateEq exps')
+		   in (hasInitEq exps') andalso (not (hasStateEq exps'))
 		   end)
 		states
     in
@@ -643,6 +647,7 @@ fun hasStates class = 0 < class2statesize class
 fun hasIterator (iter: DOF.systemiterator) (class: DOF.class) =
     let	
 	val (iter_sym, _) = iter
+	(* FIXME this doesn't seem to find all the correct states; ensure read states are detected. *)
 	val class_states = class2statesbyiterator iter_sym class
 
 	val instance_equations = List.filter ExpProcess.isInstanceEq (!(#exps class))
@@ -658,6 +663,14 @@ fun hasIterator (iter: DOF.systemiterator) (class: DOF.class) =
 			       end
 			    ) instance_equations))
     end
+
+fun statesWrittenToIterator (iter as (iter_sym,iter_typ)) class = nil
+(*
+    let val equations = List.filter (ExpProcess.isStateEqOfIter iter) (!(#exps class))
+    in
+	map ExpProcess.getLHSSymbol equations
+    end
+*)
 
 fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
     let	
@@ -1172,5 +1185,56 @@ fun optimizeClass (class: DOF.class) =
 	()
     end
     
+
+local open mlJS in
+val js_symbol = js_string o Symbol.name
+
+fun to_json (class as {name, properties, inputs, outputs, iterators, exps}) =
+    let fun input_to_json {name, default} = 
+	    js_object [("name", ExpProcess.term_to_json name),
+		       ("default", case default of SOME exp => ExpProcess.to_json exp | NONE => js_null)]
+
+	fun output_to_json {name, contents, condition} =
+	    js_object [("name", ExpProcess.term_to_json name),
+		       ("contents", js_array (map ExpProcess.to_json contents)),
+		       ("condition", ExpProcess.to_json condition)]
+
+	fun iterator_to_json {name, low, step, high} =
+	    js_object [("name", js_symbol name),
+		       ("low", js_float low),
+		       ("step", js_float step),
+		       ("high", js_float high)]
+
+	val json_properties
+	  = let val {sourcepos, basename, classform, classtype} 
+		  = properties
+
+		val json_classform
+		  = case classform
+		     of DOF.INSTANTIATION {readstates,writestates} =>
+			js_object [("type", js_string "INSTANTIATION"),
+				   ("readStates", js_array (map js_symbol readstates)),
+				   ("writeStates", js_array (map js_symbol writestates))]
+		      | DOF.FUNCTIONAL => js_object [("type", js_string "FUNCTIONAL")]
+
+		val json_classtype
+		  = case classtype
+		     of DOF.MASTER name => js_object [("type", js_string "MASTER"), ("name", js_symbol name)]
+		      | DOF.SLAVE name => js_object [("type", js_string "SLAVE"), ("name", js_symbol name)]
+	    in
+		js_object [("sourcePosition", PosLog.to_json sourcepos),
+			   ("baseName", js_symbol basename),
+			   ("classForm", json_classform),
+			   ("classType", js_string "FIXME")]
+	    end
+    in
+	js_object [("name", js_symbol name),
+		   ("properties", json_properties),
+		   ("inputs", js_array (map input_to_json (!inputs))),
+		   ("outputs", js_array (map output_to_json (!outputs))),
+		   ("iterators", js_array (map iterator_to_json iterators)),
+		   ("expressions", js_array (map ExpProcess.to_json (!exps)))]
+    end
+end
 
 end

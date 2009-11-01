@@ -76,6 +76,8 @@ typedef struct {
 // Pre-declaration of model_flows, the interface between the solver and the model
 __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid);
 
+__DEVICE__ int model_running(solver_props *props, unsigned int modelid);
+
 __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
   unsigned int i;
   // Update model states to next value
@@ -100,6 +102,8 @@ __DEVICE__ Iterator find_min_time(solver_props *props, unsigned int modelid){
   Iterator iter = 0;
   Iterator i;
   CDATAFORMAT min_time;
+
+  assert(model_running(props,modelid));
 
   // Finds the first running iterator for the initial min time
   for(i=0;i<NUM_ITERATORS;i++) {
