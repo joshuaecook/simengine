@@ -37,6 +37,9 @@ val updateTemporalIteratorToSymbol : (Symbol.symbol * (Symbol.symbol -> Symbol.s
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
 val exp2temporaliterator : Exp.exp -> Iterator.iterator option
 
+(* Returns the set of names of all iterators appearing within an expression. *)
+val iterators_of_expression : Exp.exp -> SymbolSet.set
+
 (* Rewriter related functions *)
 val equation2rewrite : Exp.exp -> Rewrite.rewrite (* if a == b, then make a -> b *)
 
@@ -597,6 +600,37 @@ fun exp2temporaliterator exp =
 							    | _ => DynException.stdException(("Too many temporal iterators found in tuple: " ^ (e2s exp)), "ExpProcess.exp2temporaliterator", Logger.INTERNAL))
 	  | _ => NONE
 
+
+fun iterators_of_expression (Exp.FUN (typ, operands)) = 
+    foldl SymbolSet.union SymbolSet.empty (map iterators_of_expression operands)
+
+  | iterators_of_expression (Exp.TERM (Exp.SYMBOL (name, properties))) =
+    SymbolSet.union (case Property.getScope properties
+		      of Property.ITERATOR => SymbolSet.singleton name
+		       | _ => SymbolSet.empty,
+		     case Property.getIterator properties
+		      of SOME iters => SymbolSet.fromList (map #1 iters)
+		       | _ => SymbolSet.empty)
+
+  | iterators_of_expression (Exp.TERM (Exp.TUPLE terms)) = 
+    foldl SymbolSet.union SymbolSet.empty (map (iterators_of_expression o Exp.TERM) terms)
+
+  | iterators_of_expression (Exp.TERM (Exp.LIST (terms, _))) = 
+    foldl SymbolSet.union SymbolSet.empty (map (iterators_of_expression o Exp.TERM) terms)
+
+  | iterators_of_expression (Exp.TERM (Exp.COMPLEX (real, imag))) = 
+    SymbolSet.union (iterators_of_expression (Exp.TERM real),
+		     iterators_of_expression (Exp.TERM imag))
+
+  | iterators_of_expression (Exp.TERM (Exp.RANGE {low, step, high})) = 
+    foldl SymbolSet.union SymbolSet.empty (map (iterators_of_expression o Exp.TERM) [low, step, high])
+
+  | iterators_of_expression _ = SymbolSet.empty
+
+
+
+
+
 fun symterm2symterm term = 
     case term of 
 	Exp.SYMBOL s => Exp.SYMBOL s
@@ -925,16 +959,22 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
 	      | Property.READSTATE name => 
 		js_object [("type", js_string "READSTATE"), ("name", js_symbol name)]
 	      | Property.READSYSTEMSTATE name => 
-		js_object [("type", js_string "READSYSTEMSTATE"), ("name", js_symbol name)]
+		js_object [("type", js_string "READSYSTEMSTATE"), ("iterator", js_symbol name)]
 	      | Property.WRITESTATE name => 
 		js_object [("type", js_string "WRITESTATE"), ("name", js_symbol name)]
 	      | Property.ITERATOR => 
 		js_object [("type", js_string "ITERATOR")]
 
+	val json_derivative
+	  = case derivative
+	     of SOME (degree, symbols) =>
+		js_object [("degree", js_int degree),("iterators", js_array (map js_symbol symbols))]
+	      | NONE => js_null
+
 	val json_properties
 	  = js_object [("dimensions", jsValOf (js_array o (map js_int)) dim),
 		       ("iterators", json_iterators),
-		       ("derivative", js_string "FIXME"),
+		       ("derivative", json_derivative),
 		       ("isEvent", js_boolean isevent),
 		       ("sourcePosition", jsValOf PosLog.to_json sourcepos),
 		       ("realName", jsValOf js_symbol realname),

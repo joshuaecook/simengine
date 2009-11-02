@@ -148,8 +148,152 @@ fun dofexp2kecexp exp =
 	    
 (*      | Exp.FUN (Fun.INST {classname, instname, props}) =>*)
       | _ => error "Unsupported dof exp encountered"
-	
 
+
+fun quantity_to_dof_exp (KEC.LITERAL (KEC.CONSTREAL r)) = ExpBuild.real r
+  | quantity_to_dof_exp (KEC.LITERAL (KEC.CONSTBOOL b)) = ExpBuild.bool b
+  | quantity_to_dof_exp (quantity as KEC.VECTOR _) = 
+    let val expressions = vec2list quantity
+
+	fun exp_to_term (Exp.TERM t) = t
+	  | exp_to_term _ = Exp.NAN
+    in
+	Exp.TERM (Exp.LIST (map (exp_to_term o quantity_to_dof_exp) expressions, [List.length expressions]))
+    end
+
+  | quantity_to_dof_exp quantity =
+    if istype (quantity, "ModelOperation") then
+	modeloperation_to_dof_exp quantity
+    else if istype (quantity, "SimQuantity") orelse istype (quantity, "Input") then
+	simquantity_to_dof_exp quantity
+    else raise TypeMismatch ("Unexpected type of expression object; received " ^ (pretty quantity))
+
+	
+(* Derivatives are reduced to a symbol with a derivative property.
+ * All other operations are mapped to builtin functions. *)
+and modeloperation_to_dof_exp quantity =
+    case exp2str (method "name" quantity)
+     of "deriv" =>
+	let val (order, quantity')
+	      = case vec2list (method "args" quantity)
+		 of [ord, quant] => (exp2int ord, quant)
+		  | _ => DynException.stdException ("Unexpected arguments to derivative operation", 
+						    "ModelTranslate.translate.modeloperation_to_dof_exp", Logger.INTERNAL)
+	in
+	    case quantity_to_dof_exp quantity'
+	     of Exp.TERM (Exp.SYMBOL (name, properties)) =>
+		let val iterator = Symbol.symbol (exp2str (method "name" (method "iter" quantity')))
+		    val properties' = Property.setDerivative properties (order, [iterator])
+		in
+		    Exp.TERM (Exp.SYMBOL (name, properties'))
+		end
+	      | _ => error "Derivatives of arbitrary expressions are not supported."
+	end
+      | name => 
+	Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol name)),
+		 map quantity_to_dof_exp (vec2list (method "args" quantity)))
+
+and simquantity_to_dof_exp quantity =
+    if (istype (quantity, "OutputBinding")) then		    
+	ExpBuild.tvar((exp2str (method "instanceName" quantity)) ^ "." ^ (exp2str (method "name" quantity)))
+
+    else if (istype (quantity, "Intermediate")) then 
+	ExpBuild.var(exp2str (method "name" quantity))
+
+    else if (istype (quantity, "GenericIterator")) then
+	ExpBuild.itervar (exp2str (method "name" quantity))
+
+    else if istype (quantity, "IteratorReference") then
+	let
+	    val obj = quantity
+	    val name = exp2str (method "name" (method "referencedQuantity" obj))
+	    val args = vec2list (method "indices" obj)
+
+	    val iterators = map (Symbol.symbol o exp2str) 
+				(vec2list (send "getDimensions" 
+						(method "referencedQuantity" obj)
+						NONE))
+
+	    val iterators = 
+		if length args > 0 andalso (istype (hd args, "TimeIterator") orelse 
+					    (istype (hd args, "ModelOperation") andalso 
+					     List.exists (fn(a) => istype (a, "TimeIterator")) 
+							 (vec2list (method "args" (hd args)))) orelse 
+					    (istype (hd args, "RelativeOffset") andalso
+					     istype (method "simIterator" (hd args), "TimeIterator")))
+		then
+		    let
+			val time = if istype (hd args, "TimeIterator") then
+				       hd args
+				   else if istype (hd args, "ModelOperation") then
+				       valOf (List.find (fn(a) => istype (a, "TimeIterator")) 
+							(vec2list (method "args" (hd args))))
+				   else
+				       method "simIterator" (hd args)
+				       
+		    in
+			((Symbol.symbol o exp2str) (method "name" time)) :: iterators
+		    end
+		else
+		    iterators
+	    val namedargs = ListPair.zip (iterators, args)
+
+	    val _ = if length namedargs <> length args then
+			error ("Incorrect number of indices encountered on index of " ^ name ^ ": expected " ^ (Int.toString (length namedargs)) ^ " and received " ^ (Int.toString (length args)))
+		    else
+			()
+
+	    fun buildIndex (iterator, arg) =
+		if istype (arg, "Number") then
+		    (iterator, Iterator.ABSOLUTE (exp2int arg))
+		else if istype (arg, "Interval") then
+		    (iterator, Iterator.RANGE (exp2int (method "low" arg), exp2int (method "high" arg)))
+		else if istype (arg, "SimIterator") then
+		    if iterator = (Symbol.symbol (exp2str (method "name" arg))) then
+			(iterator, Iterator.RELATIVE 0)
+		    else
+			error ("Encountered iterator "^(exp2str (method "name" arg))^" in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
+		else if istype (arg, "RelativeOffset") then
+		    if iterator = (Symbol.symbol (exp2str (method "name" (method "simIterator" arg)))) then
+			(iterator, Iterator.RELATIVE (exp2int(method "step" arg)))
+		    else
+			error ("Encountered iterator "^(exp2str (method "name" (method "simIterator" arg)))^" in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
+		else if (istype (arg, "PreviousTimeIterator")) then
+		    (iterator, Iterator.RELATIVE (exp2int (method "index" arg)))
+ 		else if istype (arg, "TimeIterator") then
+		    (iterator, Iterator.RELATIVE 0)
+		else if istype (arg, "Wildcard") then
+		    (iterator, Iterator.ALL)
+		else 
+		    error ("Invalid index detected on index of " ^ name ^ ": " ^ (pretty arg))
+	in
+	    Exp.TERM (Exp.SYMBOL (Symbol.symbol name, 
+				  (Property.setIterator 
+				       Property.default_symbolproperty 
+				       (map buildIndex namedargs))))
+	end
+
+    else if (istype (quantity, "SymbolPattern")) then
+	let val name = Symbol.symbol (exp2str (method "name" quantity))
+	    val arity
+	      = case (exp2int (method "min" quantity), exp2int (method "max" quantity))
+		 of (1, 1) => Pattern.ONE
+		  | (1, ~1) => Pattern.ONE_OR_MORE
+		  | (0, ~1) => Pattern.ZERO_OR_MORE
+		  | (x, y) => if x = y then Pattern.SPECIFIC_COUNT x
+			      else Pattern.SPECIFIC_RANGE (x, y)
+	in
+	    Exp.TERM (Exp.PATTERN (name, PatternProcess.predicate_any, arity))
+	end
+
+    else if (istype (quantity, "State")) then
+	ExpBuild.ivar (exp2str (method "name" quantity)) [(Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)]
+
+    else
+	ExpBuild.var(exp2str (method "name" quantity))
+
+
+(*
 fun kecexp2dofexp obj =
     if istype (obj, "ModelOperation") then
 	let
@@ -307,6 +451,8 @@ fun kecexp2dofexp obj =
 		  | _ => 
 		    raise TypeMismatch ("Unexpected type of expression object; received " ^ (pretty obj))
 
+*)
+
 fun vecIndex (vec, index) =
     send "at" vec (SOME [int2exp index])
 
@@ -349,11 +495,11 @@ fun createClass classes object =
 		val (contents, condition) =
 		    if istype (value, "Output") then
 			(case method "contents" value of
-			     KEC.TUPLE args => map kecexp2dofexp args
-			   | exp => [kecexp2dofexp exp],
-			 kecexp2dofexp(method "condition" value))
+			     KEC.TUPLE args => map quantity_to_dof_exp args
+			   | exp => [quantity_to_dof_exp exp],
+			 quantity_to_dof_exp(method "condition" value))
 		    else
-			([kecexp2dofexp(value)],
+			([quantity_to_dof_exp(value)],
 			 Exp.TERM(Exp.BOOL true))
 	    in
 		{name=name,
@@ -368,17 +514,30 @@ fun createClass classes object =
 		       | NONE => NONE}
 
 	fun quantity2exp object =
+	    (* FIXME add iterators appearing on rhs to symbols on lhs. *)
 	    if (istype (object, "Intermediate")) then
-		[ExpBuild.equals (kecexp2dofexp (method "lhs" (method "eq" object))(*ExpBuild.var(exp2str (method "name" object)),*),
-				  kecexp2dofexp (method "rhs" (method "eq" object)))]
+		let val (lhs, rhs) = (quantity_to_dof_exp (method "lhs" (method "eq" object)),
+				      quantity_to_dof_exp (method "rhs" (method "eq" object)))
+				     
+		    val rhs_iterators = ExpProcess.iterators_of_expression rhs
+
+		    val (lhs_name, lhs_properties)
+		      = case lhs
+			 of Exp.TERM (Exp.SYMBOL s) => s
+			  | _ => error ("Unexpected expression on lhs of intermediate " ^ (pretty object))
+
+		    val lhs_properties' = Property.setIterator lhs_properties (map (fn iter_name => (iter_name, Iterator.RELATIVE 0)) (SymbolSet.listItems rhs_iterators))
+		in
+		    [ExpBuild.equals (Exp.TERM (Exp.SYMBOL (lhs_name, lhs_properties')), rhs)]
+		end
 	    else if (istype (object, "State")) then
 		let
 		    val hasEquation = exp2bool (send "hasEquation" object NONE)
 		    val name = exp2str (method "name" object)
 
 		    val (lhs,rhs) = 
-			(kecexp2dofexp (method "lhs" (method "eq" object)),
-			 kecexp2dofexp (method "rhs" (method "eq" object)))
+			(quantity_to_dof_exp (method "lhs" (method "eq" object)),
+			 quantity_to_dof_exp (method "rhs" (method "eq" object)))
 
 		    val eq = ExpBuild.equals(lhs, rhs)			
 
@@ -402,7 +561,7 @@ fun createClass classes object =
 						    spatialiterators)
 
 		    val init = ExpBuild.equals(initlhs,
-					       kecexp2dofexp (getInitialValue object))
+					       quantity_to_dof_exp (getInitialValue object))
 
 		    val keccondeqs = vec2list (method "condEqs" object)
 
@@ -430,7 +589,7 @@ fun createClass classes object =
 
 					  fun buildIf (condeq, exp) =
 					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),
-						       [kecexp2dofexp (method "cond" condeq), kecexp2dofexp (method "rhs" condeq), exp])
+						       [quantity_to_dof_exp (method "cond" condeq), quantity_to_dof_exp (method "rhs" condeq), exp])
 
 
 					  val condexp = foldl buildIf defaultval keccondeqs
@@ -444,7 +603,7 @@ fun createClass classes object =
 	    else if istype (object, "Event") then
 		let
 		    val name = ExpBuild.event (exp2str (method "name" object))
-		    val condition = kecexp2dofexp (method "condition" object)
+		    val condition = quantity_to_dof_exp (method "condition" object)
 		in
 		    [ExpBuild.equals (name, condition)]
 		end
@@ -486,7 +645,7 @@ fun createClass classes object =
 		val rhs = Exp.FUN (Fun.INST {classname=name,
 					     instname=objname,
 					     props=InstProps.setIterators InstProps.emptyinstprops iterators},
-				   map (fn(i) => kecexp2dofexp i) input_exps)
+				   map (fn(i) => quantity_to_dof_exp i) input_exps)
 
 		val exp = ExpBuild.equals (Exp.TERM lhs, rhs)
 		(*
@@ -527,8 +686,8 @@ fun createClass classes object =
     in
 	({name=name, 
 	  properties={sourcepos=PosLog.NOPOS,basename=name,classform=classform,classtype=DOF.MASTER name},
-	  inputs=ref (map obj2input(vec2list(method "inputs" object))),
-	  outputs=ref (map obj2output(vec2list(method "contents" (method "outputs" object)))),
+	  inputs=ref (map obj2input (vec2list(method "inputs" object))),
+	  outputs=ref (map obj2output (vec2list (method "contents" (method "outputs" object)))),
 	  iterators=map buildIterator (vec2list (send "getSpatialIterators" object NONE)),
 	  exps=ref exps},
 	 submodelclasses)
@@ -703,7 +862,7 @@ fun translate (execFun, object) =
 
 fun translateExp (execFun, exp) =
     (exec := execFun;
-     SOME (kecexp2dofexp exp))
+     SOME (quantity_to_dof_exp exp))
 	 handle TranslationError => NONE
 	      | e => NONE before 
 		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
@@ -721,9 +880,9 @@ fun reverseExp (execFun, exp) =
 fun rule2rewriterule (execFun, exp) =
     let
 	val _ = exec := execFun
-	val find = kecexp2dofexp (method "find" exp)
+	val find = quantity_to_dof_exp (method "find" exp)
 	val test =  NONE (*TODO: fill this in *)
-	val replace = Rewrite.RULE (kecexp2dofexp (method "replacement" exp))
+	val replace = Rewrite.RULE (quantity_to_dof_exp (method "replacement" exp))
 
     in
 	SOME {find=find,

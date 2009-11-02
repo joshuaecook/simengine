@@ -26,6 +26,14 @@ fun std_compile exec args =
 
 	      val _ = CurrentModel.setCurrentModel forest
 
+	      val () = 
+		  let val model = CurrentModel.getCurrentModel ()
+		      val filename = "dof.json"
+		      fun output outstream = mlJS.output (outstream, ModelProcess.to_json model)
+		  in 
+		      Printer.withOpenOut filename output
+		  end
+
 		      
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  (Util.log ("Optimizing model ...");
@@ -42,6 +50,16 @@ fun std_compile exec args =
 (*	      val _ = Util.log("Ready to build the following DOF ...")*)
 	      val _ = Util.log("Ready to build ...")
 (*	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())*)
+
+	      val () = 
+		  let val model = CurrentModel.getCurrentModel ()
+		      val filename = "dof-final.json"
+		      fun output outstream = mlJS.output (outstream, ModelProcess.to_json model)
+		  in 
+		      Printer.withOpenOut filename output
+		  end
+
+
 	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
 

@@ -56,4 +56,23 @@ fun progs2file (texts, filename) =
     end
 
 
+
+
+fun withOpenIn filename proc =
+    let val instream = TextIO.openIn filename
+    in
+	proc instream before TextIO.closeIn instream
+	handle e => (TextIO.closeIn instream; raise e)
+    end
+
+fun withOpenOut filename proc =
+    let val outstream = TextIO.openOut filename
+    in
+	proc outstream before TextIO.closeOut outstream
+	handle e => (TextIO.closeOut outstream; raise e)
+    end
+
+fun withOpenInOut (infilename, outfilename) proc =
+    withOpenIn infilename (fn (instream) => withOpenOut outfilename (fn (outstream) => proc (instream, outstream)))
+
 end

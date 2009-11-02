@@ -25,6 +25,7 @@ sig
     (* Returns a string representation of a JSON datum. *)
     val to_json_string : json_value -> string
 
+    val output : (TextIO.outstream * json_value) -> unit
 end
 
 structure mlJS : JSON =
@@ -92,5 +93,8 @@ fun js_object (kvs: (string * json_value) list) : json_value =
 	fun kv2pair (key, value) = (String key,value)
 (*	  | kv2pair _ = raise JSON_Error "JSON object keys must be strings."*)
     in OBJECT (Object (map kv2pair kvs)) end
+
+fun output (stream, value) =
+    TextIO.output (stream, to_json_string value)
 
 end

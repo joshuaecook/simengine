@@ -888,8 +888,7 @@ fun assignCorrectScope (class: DOF.class) =
 
 	val outputs = !(#outputs class)
 	val outputs' =
-	    let
-		fun update_output (output as {name, contents, condition}) =
+	    let fun update_output (output as {name, contents, condition}) =
 		    let
 			val name' = ExpProcess.exp2term (Match.applyRewritesExp actions (ExpProcess.term2exp name))
 			val contents' = map (fn(exp) => Match.applyRewritesExp actions exp) contents
