@@ -35,12 +35,35 @@ int exec_cpu(solver_props *props, unsigned int modelid){
       // Write state values back to state storage if they occur before time of iter
       for(i=0;i<NUM_ITERATORS;i++){
 	if(props[i].next_time[modelid] <= props[iter].next_time[modelid]){
+	  int count_current;
+	  int count_next;
+	  CDATAFORMAT time_current;
+	  CDATAFORMAT time_next;
+	  // Store current time
+	  if(props[i].count){
+	    count_current = props[i].count[modelid];
+	  }
+	  time_current = props[i].time[modelid];
 	  solver_writeback(&props[i], modelid);
 	  // Perform any post process evaluations
 	  post_process(&props[i], modelid);
 #if NUM_OUTPUTS > 0
-	  // Buffer any outputs
-	  buffer_outputs(&props[i], modelid);
+	  if(props[i].next_time[modelid] > props[i].starttime){
+	    // Restore proper time for outputs
+	    if(props[i].count){
+	      count_next = props[i].count[modelid];
+	      props[i].count[modelid] = count_current;
+	    }
+	    time_next = props[i].time[modelid];
+	    props[i].time[modelid] = time_current;
+	    // Buffer any outputs
+	    buffer_outputs(&props[i], modelid);
+	    // Restore proper time for simulation
+	    if(props[i].count){
+	      props[i].count[modelid] = count_next;
+	    }
+	    props[i].time[modelid] = time_next;
+	  }
 #endif
 	}
       }
