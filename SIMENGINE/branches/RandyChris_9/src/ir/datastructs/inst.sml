@@ -11,6 +11,8 @@ fun inst2classform f =
     end
     handle e => DynException.checkpoint "Inst.inst2classform" e
 
+val instancePrecedence = 1
+
 fun inst2props f : FunProps.op_props = 
     let
 	val classes = CurrentModel.classes()
@@ -31,7 +33,7 @@ fun inst2props f : FunProps.op_props =
 		     DynException.setErrored();
 		     {name=Symbol.name f,
 		      operands=FunProps.FIXED 0,
-		      precedence=1,
+		      precedence=instancePrecedence,
 		      commutative=false,
 		      associative=false,
 		      eval=FunProps.INSTANCE,
