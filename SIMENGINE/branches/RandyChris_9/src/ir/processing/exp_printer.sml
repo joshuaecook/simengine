@@ -27,10 +27,10 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 			in
 			    (precedence, associative)
 			end
-		      | Fun.INST _ => (1, false)
+		      | Fun.INST _ => (Inst.instancePrecedence, false)
 		val prec' = case f' of
 				Fun.BUILTIN _ => #precedence (FunProcess.fun2props f')
-			      | Fun.INST _ => 1
+			      | Fun.INST _ => Inst.instancePrecedence
 	    in
 		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end
@@ -100,10 +100,10 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 			in
 			    (precedence, associative)
 			end
-		      | Fun.INST _ => (1, false)
+		      | Fun.INST _ => (Inst.instancePrecedence, false)
 		val prec' = case f' of
 				Fun.BUILTIN _ => #precedence (FunProcess.fun2props f')
-			      | Fun.INST _ => 1
+			      | Fun.INST _ => Inst.instancePrecedence
 	    in
 		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end

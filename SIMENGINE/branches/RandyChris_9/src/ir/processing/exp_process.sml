@@ -693,7 +693,7 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
     let
 	val (iter_sym, iter_index) = case exp2temporaliterator exp of
 					 SOME iter => iter
-				       | NONE => DynException.stdException(("No current temporal iterator found on exp: "^(e2s exp)),
+				       | NONE => DynException.stdException(("No current temporal iterator found on exp: "^(e2s exp) ^ " where term is: " ^ (e2s (Exp.TERM(exp2term exp)))),
 									   "ExpProcess.updateTemporalIteratorToSymbol",
 									   Logger.INTERNAL)
 	val spatial_iterators = TermProcess.symbol2spatialiterators (exp2term exp)
