@@ -13,14 +13,26 @@ val r2s = Util.r2s
 val b2s = Util.b2s
 val log = Util.log
 
-fun exp2tersestr (Exp.FUN (str, exps)) = 
+fun exp2tersestr (Exp.FUN (f, exps)) = 
     let
-	fun useParen (Exp.FUN (str', _)) = 
+	fun useParen (Exp.FUN (f', _)) = 
 	    let
-		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
-		val {precedence=prec',...} = FunProcess.fun2props str'
+		val sym = FunProcess.fun2name f
+		val sym' = FunProcess.fun2name f'
+		val (prec, assoc) = 
+		    case f of
+			Fun.BUILTIN _ => 
+			let
+			    val {precedence, associative, ...} = FunProcess.fun2props f
+			in
+			    (precedence, associative)
+			end
+		      | Fun.INST _ => (1, false)
+		val prec' = case f' of
+				Fun.BUILTIN _ => #precedence (FunProcess.fun2props f')
+			      | Fun.INST _ => 1
 	    in
-		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
+		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end
 	  | useParen (Exp.TERM _) = false
 
@@ -32,10 +44,10 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
 	    else
 		str
     in
-	case (FunProps.fun2textstrnotation str) of
+	case (FunProps.fun2textstrnotation f) of
 	    (v, FunProps.INFIX) => 
-	    if FunProps.hasVariableArguments str andalso length exps = 1 then
-		(FunProps.op2name str) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
+	    if FunProps.hasVariableArguments f andalso length exps = 1 then
+		(FunProps.op2name f) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
 	    else
 		String.concatWith v (map (fn(e)=>addParen ((exp2tersestr e),e)) exps)
 	  | (v, FunProps.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
@@ -74,14 +86,26 @@ fun exp2tersestr (Exp.FUN (str, exps)) =
 
 
 
-fun exp2fullstr (Exp.FUN (str, exps)) = 
+fun exp2fullstr (Exp.FUN (f, exps)) = 
     let
-	fun useParen (Exp.FUN (str', _)) = 
+	fun useParen (Exp.FUN (f', _)) = 
 	    let
-		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
-		val {precedence=prec',...} = FunProcess.fun2props str'
+		val sym = FunProcess.fun2name f
+		val sym' = FunProcess.fun2name f'
+		val (prec, assoc) = 
+		    case f of
+			Fun.BUILTIN _ => 
+			let
+			    val {precedence, associative, ...} = FunProcess.fun2props f
+			in
+			    (precedence, associative)
+			end
+		      | Fun.INST _ => (1, false)
+		val prec' = case f' of
+				Fun.BUILTIN _ => #precedence (FunProcess.fun2props f')
+			      | Fun.INST _ => 1
 	    in
-		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
+		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end
 	  | useParen (Exp.TERM _) = false
 
@@ -93,7 +117,7 @@ fun exp2fullstr (Exp.FUN (str, exps)) =
 	    else
 		str
     in
-	Symbol.name (FunProcess.fun2name str) ^ "(" ^ (String.concatWith "," (map exp2fullstr exps)) ^")"
+	Symbol.name (FunProcess.fun2name f) ^ "(" ^ (String.concatWith "," (map exp2fullstr exps)) ^")"
     (*
 	case (FunProps.fun2textstrnotation str) of
 	    (v, FunProps.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2str e),e)) exps)
