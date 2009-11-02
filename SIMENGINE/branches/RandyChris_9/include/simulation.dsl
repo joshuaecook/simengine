@@ -118,7 +118,7 @@ namespace Simulation
 
     constructor (name: String)
       self.name = name      
-      self.eq = Equation.new(self', 0)
+      self.setEquation(Equation.new(self', 0))
 //      self.eq = DifferentialEquation.new(1, self, 0) 
 
 //      reset()
