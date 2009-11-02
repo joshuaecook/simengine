@@ -390,8 +390,9 @@ fun to_json (model as (classes,instance,properties)) =
 		fun iterator_to_json (name, typ) = 
 		    js_object (("name",js_string (Symbol.name name)) ::
 			       (case typ
-				 of DOF.CONTINUOUS solver => [("type",js_string "CONTINUOUS"),
-							      ("solver",js_string "FIXME")]
+				 of DOF.CONTINUOUS solver => [("type", js_string "CONTINUOUS"),
+							      ("solver", js_object (("name", js_string (Solver.solver2name solver)) ::
+										    (map (fn (key,value) => (key, js_string value)) (Solver.solver2params solver))))]
 				  | DOF.DISCRETE {sample_period} => [("type",js_string "DISCRETE"),
 								     ("sample_period",js_float sample_period)]
 				  | DOF.UPDATE parent => [("type",js_string "UPDATE"),

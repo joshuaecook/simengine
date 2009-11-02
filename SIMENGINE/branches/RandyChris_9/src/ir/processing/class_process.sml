@@ -1224,7 +1224,7 @@ fun to_json (class as {name, properties, inputs, outputs, iterators, exps}) =
 		js_object [("sourcePosition", PosLog.to_json sourcepos),
 			   ("baseName", js_symbol basename),
 			   ("classForm", json_classform),
-			   ("classType", js_string "FIXME")]
+			   ("classType", json_classtype)]
 	    end
     in
 	js_object [("name", js_symbol name),

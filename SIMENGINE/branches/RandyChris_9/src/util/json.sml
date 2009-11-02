@@ -57,7 +57,13 @@ fun to_json_string (NULL _) = "null"
   | to_json_string (BOOLEAN True) = "true"
   | to_json_string (BOOLEAN False) = "false"
   | to_json_string (NUMBER (Int i)) = numeric_to_json_string (Int.toString i)
-  | to_json_string (NUMBER (Real r)) = numeric_to_json_string (Real.toString r)
+  | to_json_string (NUMBER (Real r)) = 
+    if Real.isFinite r then numeric_to_json_string (Real.toString r)
+    (* Although JavaScript supports NaN and Infinity, they are not part of the JSON spec and are encoded here as strings. 
+     * Their true value can be recovered in JavaScript by calling parseFloat(). *)
+    else if Real.isNan r then string_to_json_string (String "NaN")
+    else if 0.0 > r then string_to_json_string (String "-Infinity")
+    else string_to_json_string (String "Infinity")
   | to_json_string (STRING s) = string_to_json_string s
   | to_json_string (ARRAY (Array vs)) = 
     "[" ^ (String.concatWith "," (map to_json_string vs)) ^ "]"
