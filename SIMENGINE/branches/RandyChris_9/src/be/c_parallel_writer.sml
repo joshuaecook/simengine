@@ -510,12 +510,14 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    SymbolSet.flatmap ExpProcess.exp2symbolset valid_exps
 
 	(* map only inputs that are actually used within the flow equations *)
+	(*
 	fun input_appears_in_eqns ({name=Exp.SYMBOL (insym,_),...},_) =
 	    SymbolSet.exists (fn (sym) => sym = insym) eqn_symbolset
 	  (* TODO what happens for non-symbol inputs? *)
 	  | input_appears_in_eqns _ = true
 		   
-	val inputs = List.filter input_appears_in_eqns (Util.addCount (!(#inputs class)))
+	 *)
+	val inputs = (* List.filter input_appears_in_eqns *) (Util.addCount (!(#inputs class)))
 
 	val read_inputs_progs =
 	    [$(""),
