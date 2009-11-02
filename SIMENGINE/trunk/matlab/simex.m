@@ -493,6 +493,7 @@ end
 if opts.debug
   make = [make ' DEBUG=1'];
   disp(make)
+  assignin('base', 'remake', @()(system(make)));
 end
 
 tic;

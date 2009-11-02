@@ -393,8 +393,8 @@ fun op2props optype =
 	       precedence=8,
 	       commutative=false,
 	       associative=false,
-	      text=(">=",INFIX),
-	       C=(">=",INFIX)}
+	      text=("<=",INFIX),
+	       C=("<=",INFIX)}
       | EQ => {name="eq",
 	      operands=FIXED 2,
 	      precedence=9,
