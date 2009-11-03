@@ -31,6 +31,11 @@ val factorNegAddition : Rewrite.rewrite =
 (* a*(-1) -> -a *)
 (* -0 -> 0 *)
 (* a^0 -> 1 *)
+(* 0^a -> 0 *)
+(* add(a) -> a *) (* a is a scalar *)
+(* mul(a) -> a *)
+(* add() -> sequence() *)
+(* mul() -> sequence() *)
 
 (* Power Rules *)
 (* a^b*a^c -> a^(b+c) *)
