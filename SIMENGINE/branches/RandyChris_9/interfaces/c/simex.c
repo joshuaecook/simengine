@@ -3,24 +3,83 @@
 #include <string.h>
 #include <strings.h>
 #include <dlfcn.h>
+#include <getopt.h>
 #include <math.h>
 
 #include "simengine_api.h"
 #include "simengine_target.h"
 
 typedef struct{
+  char *model_file;
+  char *model_name;
+  double start_time;
+  double stop_time;
+  int num_models;
+  FILE *inputs;
+  FILE *states;
+  FILE *outputs;
   char *target;
   char *precision;
-  int num_models;
   int debug;
   int profile;
-}targetopts;
+} simengine_opts;
 
-#ifndef NUM_MODELS
-#define NUM_MODELS 1
-#endif
+typedef enum {
+  NO_OPTION,
+  START,
+  STOP,
+  MODELS,
+  INPUT_FILE,
+  STATE_INIT_FILE,
+  OUTPUT_FILE,
+  CPU,
+  OPENMP,
+  GPU,
+  FLOAT,
+  DOUBLE,
+  DEBUG,
+  PROFILE
+} clopts;
 
-const targetopts defaultopts = {"CPU", "double", NUM_MODELS, 1, 0};
+static const struct option long_options[] = {
+  {"start", required_argument, 0, START},
+  {"stop", required_argument, 0, STOP},
+  {"models", required_argument, 0, MODELS},
+  {"inputs", required_argument, 0, INPUT_FILE},
+  {"states", required_argument, 0, STATE_INIT_FILE},
+  {"outputs", required_argument, 0, OUTPUT_FILE},
+  {"cpu", no_argument, 0, CPU},
+  {"parallelcpu", no_argument, 0, OPENMP},
+  {"gpu", no_argument, 0, GPU},
+  {"float", no_argument, 0, FLOAT},
+  {"single", no_argument, 0, FLOAT},
+  {"double", no_argument, 0, DOUBLE},
+  {"debug", no_argument, 0, DEBUG},
+  {"profile", no_argument, 0, PROFILE},
+  {0, 0, 0, 0}
+};
+
+
+void print_usage(){
+  printf("\nusage: simex <model.dsl> [--options]\n"
+	 "\nIf no options are specified, the model interface is displayed.\n"
+	 "\nWhere options are:\n"
+	 "\t--start <n>\tThe time to start the simulation. (Default = 0)\n"
+	 "\t--stop <n>\tThe time to stop the simulation. (Default = 0)\n"
+	 "\t--models <n>\tThe number of models to run. (Default = 1)\n"
+	 //"\t--inputs <file>\t\tThe file to load inputs from. (Default - from model)\n"
+	 //"\t--states <file>\t\tThe file to load state initial values. (Default - from model)\n"
+	 "\t--outputs <file>\t\tThe file to write outputs. (Default - console)\n"
+	 "\t--cpu\t\tRuns the simulation on the CPU. (Default)\n"
+	 "\t--parallelcpu\tRuns the simulation in parallel on all CPUs.\n"
+	 "\t--gpu\t\tRuns the simulation in parallel on the GPU.\n"
+	 "\t--double\tRuns the simulation in double precision. (Default)\n"
+	 "\t--single\tRuns the simulation in single precision.\n"
+	 "\t--float\t\t(same as --single)\n"
+	 "\t--debug\t\tEnables debugging information.\n"
+	 "\t--profile\tEnables profiling.\n"
+	 "\n");
+}
 
 // Extract the name of the model from the full path DSL filename
 char *get_model_name(const char *file){
@@ -41,15 +100,172 @@ char *get_model_name(const char *file){
 
 #define BUFSIZE 1000
 
+int parse_args(int argc, char **argv, simengine_opts *opts){
+  int arg;
+  int option_index = 0;
+
+  memset(opts, 0, sizeof(simengine_opts));
+
+  while(1){
+    arg = getopt_long(argc, argv, "", long_options, &option_index);
+
+    if(-1 == arg)
+      break;
+
+    switch(arg){
+    case START:
+      if(opts->start_time){
+	printf("ERROR: start time was already set.\n");
+	return 1;
+      }
+      opts->start_time = atof(optarg);
+      if(!isfinite(opts->start_time)){
+	printf("Error: start time is invalid %f.\n", opts->start_time);
+	return 1;
+      }
+      //printf("Start %s -> %f\n", optarg, opts->start_time);
+      break;
+    case STOP:
+      if(opts->stop_time){
+	printf("ERROR: stop time was already set.\n");
+	return 1;
+      }
+      opts->stop_time = atof(optarg);
+      if(!isfinite(opts->stop_time)){
+	printf("Error: start time is invalid %f.\n", opts->stop_time);
+	return 1;
+      }
+      //printf("Stop %s -> %f\n", optarg, opts->stop_time);
+      break;
+    case MODELS:
+      if(opts->num_models){
+	printf("ERROR: number of models was already set.\n");
+	return 1;
+      }
+      opts->num_models = atoi(optarg);
+      if(opts->num_models < 1){
+	printf("ERROR: invalud number of models %d\n", opts->num_models);
+	return 1;
+      }
+      //printf("Number of models %d\n", opts->num_models);
+      break;
+    case INPUT_FILE:
+      printf("Inputs not yet supported: %s\n", optarg);
+      break;
+    case STATE_INIT_FILE:
+      printf("States not yet supported: %s\n", optarg);
+      break;
+    case OUTPUT_FILE:
+      opts->outputs = fopen(optarg, "w");
+      if(!opts->outputs){
+	printf("ERROR: Could not open output file '%s'.\n", optarg);
+	return 1;
+      }
+      break;
+    case CPU:
+      if(opts->target){
+	printf("ERROR: target already set\n");
+	return 1;
+      }
+      opts->target = "CPU";
+      //printf("Target CPU\n");
+      break;
+    case OPENMP:
+      if(opts->target){
+	printf("ERROR: target already set\n");
+	return 1;
+      }
+      opts->target = "OPENMP";
+      //printf("Target Parallel CPU\n");
+      break;
+    case GPU:
+      if(opts->target){
+	printf("ERROR: target already set\n");
+	return 1;
+      }
+      opts->target = "GPU";
+      //printf("Target GPU\n");
+      break;
+    case FLOAT:
+      if(opts->precision){
+	printf("ERROR: precision already set\n");
+	return 1;
+      }
+      opts->precision = "float";
+      //printf("Single precision\n");
+      break;
+    case DOUBLE:
+      if(opts->precision){
+	printf("ERROR: precision already set\n");
+	return 1;
+      }
+      opts->precision = "double";
+      //printf("Double precision\n");
+      break;
+    case DEBUG:
+      opts->debug = 1;
+      printf("Debugging enabled\n");
+      break;
+    case PROFILE:
+      opts->profile = 1;
+      printf("Profiling enabled\n");
+      break;
+    default:
+      printf("ERROR: invalid argument %s\n", argv[optind]);
+      return 1;
+    }
+  }
+
+  if(optind+1 < argc){
+    printf("Error: too many models passed to simex\n");
+    while(optind < argc)
+      printf("\t%s\n", argv[optind++]);
+    return 1;
+  }
+  if(optind == argc){
+    printf("Error: no model passed to simex\n");
+    return 1;
+  }
+
+  opts->model_file = argv[optind];
+  opts->model_name = get_model_name(opts->model_file);
+  //printf("DSL model file '%s'.\n", opts->model_file);
+
+  if(opts->stop_time < opts->start_time){
+    printf("ERROR: stop time (%f) must be greater than start time (%f)\n",
+	   opts->stop_time, opts->start_time);
+    return 1;
+  }
+
+
+  // Set defaults for any unset options
+  if(!opts->target){
+    opts->target = "CPU";
+  }
+
+  if(!opts->num_models){
+    opts->num_models = 1;
+  }
+
+  if(!opts->precision){
+    opts->precision = "double";
+  }
+
+  if(!opts->outputs){
+    opts->outputs = stdout;
+  }
+
+  return 0;
+}
+
 // Compile the DSL model to specified target (including target compiler via Make)
-int runsimEngine (char *file, const targetopts *opts)
+int runsimEngine (const simengine_opts *opts)
 {
   FILE *fp;
   char settings[BUFSIZE];
   char simengine[BUFSIZE];
   char readbuffer[BUFSIZE];
   char cmdline[BUFSIZE];
-  char *modelname;
   int errored = 1;
 
   // Set up full path to simEngine
@@ -62,11 +278,9 @@ int runsimEngine (char *file, const targetopts *opts)
   strcpy(simengine, simengine_path);
   strcat(simengine, "/bin/simEngine");
 
-  modelname = get_model_name(file);
+  snprintf(settings, BUFSIZE, "%s.template.settings = {target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s}", opts->model_name, opts->target, opts->precision, opts->num_models, opts->debug ? "true" : "false", opts->profile ? "true" : "false");
 
-  snprintf(settings, BUFSIZE, "%s.template.settings = {target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s}", modelname, opts->target, opts->precision, opts->num_models, opts->debug ? "true" : "false", opts->profile ? "true" : "false");
-
-  snprintf(cmdline, BUFSIZE, "sh -c 'echo \"import \\\"%s\\\"\n%s\nprint(compile(%s))\" | %s -batch 2>& 1'", file, settings, modelname, simengine);
+  snprintf(cmdline, BUFSIZE, "sh -c 'echo \"import \\\"%s\\\"\n%s\nprint(compile(%s))\" | %s -batch 2>& 1'", opts->model_file, settings, opts->model_name, simengine);
 
   /* we must flush because the man page says we should before a popen call */
   fflush(stdin);
@@ -91,12 +305,11 @@ int runsimEngine (char *file, const targetopts *opts)
   pclose(fp);
 
   if(errored){
-    FREE(modelname);
     return errored;
   }
 
   snprintf(cmdline, BUFSIZE, "make remake -f %s/share/simEngine/Makefile SIMENGINEDIR=%s MODEL=%s TARGET=%s SIMENGINE_STORAGE=%s NUM_MODELS=%d DEBUG=1",
-	   simengine_path, simengine_path, modelname, opts->target, opts->precision, opts->num_models);
+	   simengine_path, simengine_path, opts->model_name, opts->target, opts->precision, opts->num_models);
 
   fp = popen(cmdline, "r");
   if( fp == NULL){
@@ -128,11 +341,11 @@ void *load_simengine(const char *name){
   return simengine;
 }
 
-void analyze_result(const simengine_interface *iface, simengine_result *result){
+void analyze_result(const simengine_interface *iface, simengine_result *result, unsigned int num_models){
   unsigned int modelid, outputid, sampleid, quantityid;
   simengine_output *output = result->outputs;
   
-  for (modelid = 0; modelid < NUM_MODELS; ++modelid){
+  for (modelid = 0; modelid < num_models; ++modelid){
     if (0 == modelid) { continue; }
     
     double errorNorm = 0.0;
@@ -193,54 +406,154 @@ void release_simengine(simengine_api *api){
 }
 
 
-int main(int argc, char **argv){
-  if (argc < 2) {
-    fprintf(stderr, "First argument must be the name of a DSL model\n.");
-    exit(1);
-  }
-  char *filename = argv[1];
-  
-  unsigned int models = NUM_MODELS, modelid;
-  
-  double stop_time = 10.0;
+int get_states_inputs(const simengine_interface *iface, simengine_opts *opts, double **states, double **inputs){
+  unsigned int modelid;
 
-  if(runsimEngine(filename, &defaultopts))
+  // Check for an input file
+  if(opts->inputs){
+    // Not yet implemented
     return 1;
-
-  char *modelname = get_model_name(filename);
-  char libraryname[256] = "./";
-
+  }
+  else{
+    *inputs = NMALLOC(opts->num_models * iface->num_inputs, double);
+    for (modelid = 0; modelid < opts->num_models; ++modelid){
+      memcpy(&(*inputs)[AS_IDX(iface->num_inputs, opts->num_models, 0, modelid)], iface->default_inputs, iface->num_inputs * sizeof(double));
+    }
+  }
   
-  strcat(libraryname, modelname);
-  strcat(libraryname, ".sim");
-
-  simengine_api *api = init_simengine(load_simengine(libraryname));
-
-  FREE(modelname);
-
-  const simengine_interface *iface = api->getinterface();
-  simengine_alloc allocator = { MALLOC, REALLOC, FREE };
-
-  double *inputs = NMALLOC(models * iface->num_inputs, double);
-  for (modelid = 0; modelid < models; ++modelid){
-    memcpy(&inputs[AS_IDX(iface->num_inputs, models, 0, modelid)], iface->default_inputs, iface->num_inputs * sizeof(double));
+  // Check for a state initial value file
+  if(opts->states){
+    // Not yet implemented
+    return 1;
+  }
+  else{
+    *states = NMALLOC(opts->num_models * iface->num_states, double);
+    for (modelid = 0; modelid < opts->num_models; ++modelid){
+      memcpy(&(*states)[AS_IDX(iface->num_states, opts->num_models, 0, modelid)], iface->default_states, iface->num_states * sizeof(double));
+    }
   }
 
-  double *states = NMALLOC(models * iface->num_states, double);
-  for (modelid = 0; modelid < models; ++modelid){
-    memcpy(&states[AS_IDX(iface->num_states, models, 0, modelid)], iface->default_states, iface->num_states * sizeof(double));
-  }
-
-  simengine_result *result = api->runmodel(0, stop_time, models, inputs, states, &allocator);
-
-  if (SUCCESS != result->status){
-    fprintf(stderr, "ERROR: runmodel returned non-zero status %d: %s", result->status, result->status_message);
-  }
-
-  analyze_result(iface, result);
-
-  FREE(inputs);
-  FREE(states);
-  release_simengine(api);
   return 0;
+}
+
+int write_outputs(const simengine_interface *iface, simengine_opts *opts, simengine_result *result){
+  FILE *outfile;
+  unsigned int modelid;
+  unsigned int outputid;
+  unsigned int sampleid;
+  unsigned int quantid;
+
+  // Write outputs to file if set, or stdout
+  outfile = opts->outputs ? opts->outputs : stdout;
+
+  unsigned int num_models = opts->num_models;
+  unsigned int num_outputs = iface->num_outputs;
+  fprintf(outfile, "Model : %s\n", iface->name);
+  for(modelid=0;modelid<num_models;modelid++){
+    fprintf(outfile, "Model number : %d\n", modelid);
+    for(outputid=0;outputid<num_outputs;outputid++){
+      unsigned int num_samples = result->outputs[modelid*num_outputs+outputid].num_samples;
+      fprintf(outfile, "Output : %s\n", iface->output_names[outputid]);
+      for(sampleid=0;sampleid<num_samples;sampleid++){
+	unsigned int num_quantities = result->outputs[modelid*num_outputs+outputid].num_quantities;
+	for(quantid=0;quantid<num_quantities;quantid++){
+	  fprintf(outfile, "%-10g\t", result->outputs[modelid*num_outputs+outputid].data[sampleid*num_quantities+quantid]);
+	}
+	fprintf(outfile, "\n");
+      }
+    }
+  }
+
+  return 0;
+}
+
+void print_interface(const simengine_interface *iface){
+  unsigned int i;
+  printf("\nModel : %s\n\n", iface->name);
+  printf("%12s : ", "Iterators");
+  for(i=0;i<iface->num_iterators;i++){
+    printf("%s\t", iface->iterator_names[i]);
+  }
+  printf("\n\n%12s : ", "Inputs");
+  for(i=0;i<iface->num_inputs;i++){
+    printf("%s\t", iface->input_names[i]);
+  }
+  printf("\n%12s : ", "");
+  for(i=0;i<iface->num_inputs;i++){
+    printf("%g\t",iface->default_inputs[i]);
+  }
+  printf("\n\n%12s : ", "States");
+  for(i=0;i<iface->num_states;i++){
+    printf("%s\t", iface->state_names[i]);
+  }
+  printf("\n%12s : ", "");
+  for(i=0;i<iface->num_states;i++){
+    printf("%g\t", iface->default_states[i]);
+  }
+  printf("\n\n%12s : ", "Outputs");
+  for(i=0;i<iface->num_outputs;i++){
+    printf("%s[%d]\t", iface->state_names[i],iface->output_num_quantities[i]);
+  }
+  printf("\n\n");
+}
+
+int main(int argc, char **argv){
+  simengine_opts opts;
+
+  if(argc == 1){
+    // Print usage
+    print_usage();
+    return 0;
+  }
+
+  // Parse command line arguments
+  if(parse_args(argc, argv, &opts)){
+    return 1;
+  }
+
+  simengine_api *api;
+  char libraryname[256] = "./";
+  // Compile the model
+  if(runsimEngine(&opts))
+    return 1;
+  
+  // Load the API for simulation object
+  strcat(libraryname, opts.model_name);
+  strcat(libraryname, ".sim");
+  api = init_simengine(load_simengine(libraryname));
+  
+  const simengine_interface *iface = api->getinterface();
+
+
+  // Just print the model interface
+  if(opts.stop_time == opts.start_time){
+    print_interface(iface);
+    return 0;
+  }
+  // Run the model simulation
+  else{
+    simengine_alloc allocator = { MALLOC, REALLOC, FREE };
+
+    double *inputs;
+    double *states;
+
+    if(get_states_inputs(iface, &opts, &states, &inputs)){
+      return 1;
+    }
+
+    simengine_result *result = api->runmodel(opts.start_time, opts.stop_time, opts.num_models, inputs, states, &allocator);
+
+    if (SUCCESS != result->status){
+      fprintf(stderr, "ERROR: runmodel returned non-zero status %d: %s", result->status, result->status_message);
+    }
+
+    write_outputs(iface, &opts, result);
+
+    analyze_result(iface, result, opts.num_models);
+
+    FREE(inputs);
+    FREE(states);
+    release_simengine(api);
+    return 0;
+  }
 }

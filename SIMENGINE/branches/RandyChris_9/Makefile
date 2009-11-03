@@ -660,6 +660,10 @@ simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
 $(LOCAL_INSTALL):
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
+$(LOCAL_INSTALL)/simex:
+	@$(MAKE) -C interfaces/c/
+	@echo "Copying 'interfaces/c/simex' to '$@' ..."; $(CP) interfaces/c/simex $@
+
 $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
 	@(cd $(LOCAL_INSTALL); tar xfz simEngine.tgz)
@@ -694,7 +698,7 @@ $(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/%.mexw64
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m $(LOCAL_INSTALL)/simex
 #install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/compile_tests.m
 	@echo "Local install at $(LOCAL_INSTALL) ready"
 
@@ -1425,7 +1429,7 @@ install: system
 
 
 .PHONY: clean
-clean: mostlyclean solvers_clean codegen_clean mexinterface_clean share_cuda_clean
+clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_clean share_cuda_clean
 	$(RM) *~
 #	$(RM) $(LOCAL_INSTALL)
 	$(RM) examples/*~
@@ -1475,6 +1479,9 @@ codegen_clean:
 
 mexinterface_clean:
 	$(MAKE) -C interfaces/matlab MEXEXT="$(MEXEXT)" clean
+
+cinterface_clean:
+	$(MAKE) -C interfaces/c clean
 
 share_cuda_clean:
 	$(MAKE) -C share/cuda clean
