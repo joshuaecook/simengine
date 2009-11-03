@@ -46,7 +46,7 @@ int cvode_init(solver_props *props){
 
   props->mem = mem;
   // Initialize next states to state initial values
-  memcpy(props->next_states, props->model_states, props->num_models*props->statesize*sizeof(CDATAFORMAT));
+  //memcpy(props->next_states, props->model_states, props->num_models*props->statesize*sizeof(CDATAFORMAT));
 
   for(modelid=0; modelid<props->num_models; modelid++){
     // Set location to store the value of the next states

@@ -284,7 +284,7 @@ fun op2props optype =
 				 collection=NONE,
 				 rational=NONE},
 		    text=("%",INFIX),
-		    C=("%",INFIX),
+		    C=("fmod($1,$2)",MATCH),
 		    expcost=basicOpCost * 2,
 		    codomain= vectorizedCodomain}
       | POW => {name="pow",
