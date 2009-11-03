@@ -344,6 +344,7 @@ void *load_simengine(const char *name){
 void analyze_result(const simengine_interface *iface, simengine_result *result, unsigned int num_models){
   unsigned int modelid, outputid, sampleid, quantityid;
   simengine_output *output = result->outputs;
+  unsigned int error = 0;
   
   for (modelid = 0; modelid < num_models; ++modelid){
     if (0 == modelid) { continue; }
@@ -373,7 +374,11 @@ void analyze_result(const simengine_interface *iface, simengine_result *result, 
 
     if (1.0e-6 < fabs(errorNorm - 0.0)){
       PRINTF("Error from %d to %d: %0.8f\n", modelid-1, modelid, errorNorm);
+      error = 1;
     }
+  }
+  if(!error){
+    PRINTF("Analysis found no errors.\n");
   }
 }
 
@@ -549,7 +554,11 @@ int main(int argc, char **argv){
 
     write_outputs(iface, &opts, result);
 
-    analyze_result(iface, result, opts.num_models);
+    // Analyze results only when running multiple identical models
+    if(!opts.inputs && !opts.states && opts.num_models > 1){
+      printf("\nAnalyzing Results...  ");
+      analyze_result(iface, result, opts.num_models);
+    }
 
     FREE(inputs);
     FREE(states);

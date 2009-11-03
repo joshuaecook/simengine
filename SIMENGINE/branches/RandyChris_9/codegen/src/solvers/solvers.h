@@ -81,13 +81,9 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
   unsigned int i;
   // Update model states to next value
-  //for(i=0;i<props->statesize;i++){
-  //  props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
-  //}
-  // Just flip the pointers?  Have to change the solvers to look in the right place for "next_states"
-  CDATAFORMAT *tmp = props->model_states;
-  props->model_states = props->next_states;
-  props->next_states = tmp;
+  for(i=0;i<props->statesize;i++){
+    props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
+  }
 
   // Update solver time to next value
   props->time[modelid] = props->next_time[modelid];
