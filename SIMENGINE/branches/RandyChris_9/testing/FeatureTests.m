@@ -33,6 +33,7 @@ end
 
 s = Suite('Feature Tests');
 s.add(CoreFeatureTests(mode));
+s.add(SubModelTests(mode));
 s.add(TemporalIteratorTests(mode));
 
 end
