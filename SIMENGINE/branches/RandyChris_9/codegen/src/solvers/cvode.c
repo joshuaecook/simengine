@@ -82,7 +82,7 @@ int cvode_init(solver_props *props){
       }
       break;
     case CVODE_BAND:
-      if(CVBand(mem[modelid].cvmem, mem[modelid].props->statesize, ((int*)mem[modelid].props->cvode.solv_opts)[0], ((int*)mem[modelid].props->cvode.solv_opts)[1]) != CV_SUCCESS){
+      if(CVBand(mem[modelid].cvmem, mem[modelid].props->statesize, mem[modelid].props->cvode.upperhalfbw, mem[modelid].props->cvode.lowerhalfbw) != CV_SUCCESS){
 	fprintf(stderr, "Could not set CVODE BAND linear solver");
       }
       break;

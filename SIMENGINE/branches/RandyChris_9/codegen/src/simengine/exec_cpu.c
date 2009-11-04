@@ -34,7 +34,8 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 
       // Write state values back to state storage if they occur before time of iter
       for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].next_time[modelid] <= props[iter].next_time[modelid]){
+	if(props[i].next_time[modelid] <= props[iter].next_time[modelid] &&
+	   props[i].next_time[modelid] > props[i].time[modelid]){
 	  int count_current;
 	  int count_next;
 	  CDATAFORMAT time_current;
@@ -42,13 +43,11 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 
 	  // Perform any post process evaluations
 	  post_process(&props[i], modelid);
-	  if(props[i].next_time[modelid] > props[i].starttime){
 	    // Buffer any outputs
 #if NUM_OUTPUTS > 0
-	    buffer_outputs(&props[i], modelid);
+	  buffer_outputs(&props[i], modelid);
 #endif
-	    solver_writeback(&props[i], modelid);
-	  }
+	  solver_writeback(&props[i], modelid);
 	}
       }
 

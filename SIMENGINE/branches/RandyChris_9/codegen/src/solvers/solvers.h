@@ -30,7 +30,8 @@ typedef struct {
   int lmm;
   int iter;
   int solv;
-  void *solv_opts;
+  int upperhalfbw;
+  int lowerhalfbw;
 } cvode_opts;
 // CVODE solver types
 #define CVODE_DENSE 0

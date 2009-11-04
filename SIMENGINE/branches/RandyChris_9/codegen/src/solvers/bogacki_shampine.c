@@ -157,8 +157,8 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
 #endif
 
     // Try to hit the stoptime exactly
-    if (next_timestep > props->stoptime - props->time[modelid])
-      mem->cur_timestep[modelid] = props->stoptime - props->time[modelid];
+    if (next_timestep > props->stoptime - props->next_time[modelid])
+      mem->cur_timestep[modelid] = props->stoptime - props->next_time[modelid];
     else if ((isnan(next_timestep)) || (next_timestep < min_timestep))
       mem->cur_timestep[modelid] = min_timestep;
     else if (next_timestep > max_timestep )

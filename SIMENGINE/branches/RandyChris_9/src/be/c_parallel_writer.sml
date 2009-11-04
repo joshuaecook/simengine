@@ -311,9 +311,9 @@ fun postprocess_wrapper classname iterators =
 		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
 		 case iter_type of
 		     DOF.CONTINUOUS _ =>
-		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->time[modelid],props->post_process_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->next_time[modelid],props->next_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | DOF.DISCRETE _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->count[modelid],props->post_process_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->count[modelid]+1,props->next_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
 		]
 	    else

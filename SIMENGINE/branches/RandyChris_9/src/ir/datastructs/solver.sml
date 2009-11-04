@@ -81,8 +81,8 @@ fun cvode_solver2params CVDENSE = [("cvode.solv", "CVODE_DENSE")]
   | cvode_solver2params CVDIAG = [("cvode.solv", "CVODE_DIAG")]
   | cvode_solver2params (CVBAND {upperhalfbw, lowerhalfbw}) = 
     [("cvode.solv", "CVODE_BAND"),
-     ("CVODE_UPPERHALFBW", i2s upperhalfbw), (* Probably broken, how do these get passed to CVODE in C? *)
-     ("CVODE_LOWERHALFBW", i2s lowerhalfbw)]
+     ("cvode.upperhalfbw", i2s upperhalfbw), (* Probably broken, how do these get passed to CVODE in C? *)
+     ("cvode.lowerhalfbw", i2s lowerhalfbw)]
 
 fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
 					  ("abstol", "0.0"),
