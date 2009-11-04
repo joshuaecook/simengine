@@ -424,8 +424,9 @@ compiler:
 	@$(MAKE) links
 	@$(MAKE) build-system
 	@$(MAKE) matlab-files
-#	@$(MAKE) install-locally
 #	@$(MAKE) matlab-installer
+	@$(MAKE) $(INSTALL_TGZ)
+	@$(MAKE) install-locally
 	@$(MAKE) instructions
 
 compiler-64:
@@ -643,8 +644,8 @@ MEXINTERFACE_PREREQS = $(addprefix matlab/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 .PHONY: mexinterface
 mexinterface: $(MEXINTERFACE_PREREQS)
 
-matlab/$(INSTALL_FILENAME).m: $(INSTALL_TGZ) datafiles/simatrapublickey.mat
-	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) "append_bin_to_file('../$(INSTALL_TGZ)', 'install_temp.m', '$(INSTALL_FILENAME).m', 'saveInstaller'); exit") 
+#matlab/$(INSTALL_FILENAME).m: $(INSTALL_TGZ) datafiles/simatrapublickey.mat
+#	@(cd matlab; $(OCTAVECMD) "append_bin_to_file('../datafiles/simatrapublickey.mat', 'install_wrapper.m', 'install_temp.m', 'savePublicKey'); exit"; $(OCTAVECMD) #"append_bin_to_file('../$(INSTALL_TGZ)', 'install_temp.m', '$(INSTALL_FILENAME).m', 'saveInstaller'); exit") 
 
 %.p: matlab/%.m
 	@($(MATLABCMD) "pcode $<; exit")
@@ -657,7 +658,12 @@ pcode: $(INSTALL_FILENAME).p
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a $(INSTALL_TGZ) install-locally matlab/$(INSTALL_FILENAME).m
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS)
+#MATLAB_FILES += $(BUILD_DIR)/src/simEngine_wrapper.c $(BUILD_DIR)/src/simex_helper.c 
+MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
+#MATLAB_FILES += $(INSTALL_TGZ) 
+#MATLAB_FILES += install-locally
+#MATLAB_FILES += matlab/$(INSTALL_FILENAME).m
 MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers
