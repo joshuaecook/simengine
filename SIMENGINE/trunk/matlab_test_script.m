@@ -41,7 +41,7 @@ cd ../testing
 if mode == RELEASE
   s = AllTests('-release');
 else
-  s = AllTests;
+  s = AllTests('-internal');
 end
 
 % Execute
