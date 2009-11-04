@@ -798,7 +798,7 @@ fun output_code (name, location, block) =
       before TextIO.closeOut file
     end
 
-fun logoutput_code class =
+fun logoutput_code class forkedModels =
     let
 	val iterators = CurrentModel.iterators()
 	fun iter_sym2type sym = 
@@ -844,6 +844,11 @@ fun logoutput_code class =
 						  "CParallelWriter.logoutput_code.term2temp_iter",
 						  Logger.INTERNAL)
 
+	val outputs_from_top_classes =
+	    Util.flatmap
+		(fn(m as {top_class,model,...})=>CurrentModel.withModel model (fn()=> !(#outputs (CurrentModel.classname2class top_class))))
+		forkedModels
+
 	val output_exps =Util.flatmap
 			      (fn(out as ({condition, contents, name}, output_index))=> 
 				 [$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
@@ -876,7 +881,7 @@ fun logoutput_code class =
 				      $("}")],
 				  $("}")]
 			      )
-			      (Util.addCount(!(#outputs class)))
+			      (Util.addCount((*!(#outputs class))*)outputs_from_top_classes))
 
 	val total_output_quantities =
 	    List.foldr op+ 0 (map (List.length o #contents) (!(#outputs class)))
@@ -938,7 +943,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val flow_data = map flow_code forkedModels
 	val fun_prototypes = List.concat (map #1 flow_data)
 	val flow_progs = List.concat (map #2 flow_data)
-	val logoutput_progs = logoutput_code inst_class
+	val logoutput_progs = logoutput_code inst_class forkedModelsLessUpdate
 	val simengine_target_h = $(Archive.getC "simengine/simengine_target.h")
 	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
 	val solvers_h = $(Archive.getC "solvers/solvers.h")
