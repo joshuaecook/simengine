@@ -39,32 +39,16 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 	  int count_next;
 	  CDATAFORMAT time_current;
 	  CDATAFORMAT time_next;
-	  // Store current time
-	  if(props[i].count){
-	    count_current = props[i].count[modelid];
-	  }
-	  time_current = props[i].time[modelid];
-	  solver_writeback(&props[i], modelid);
+
 	  // Perform any post process evaluations
 	  post_process(&props[i], modelid);
-#if NUM_OUTPUTS > 0
 	  if(props[i].next_time[modelid] > props[i].starttime){
-	    // Restore proper time for outputs
-	    if(props[i].count){
-	      count_next = props[i].count[modelid];
-	      props[i].count[modelid] = count_current;
-	    }
-	    time_next = props[i].time[modelid];
-	    props[i].time[modelid] = time_current;
 	    // Buffer any outputs
+#if NUM_OUTPUTS > 0
 	    buffer_outputs(&props[i], modelid);
-	    // Restore proper time for simulation
-	    if(props[i].count){
-	      props[i].count[modelid] = count_next;
-	    }
-	    props[i].time[modelid] = time_next;
-	  }
 #endif
+	    solver_writeback(&props[i], modelid);
+	  }
 	}
       }
 

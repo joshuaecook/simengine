@@ -37,10 +37,10 @@ end
 function s = PostProcessIteratorTests
 
 s = Suite('Post Process Iterator Tests');
-s.add(Test('TwoDelayUsingPPTimeIterator',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
-s.add(Test('TwoDelayUsingPPContinuousIterator',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest2',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
-s.add(Test('TwoDelayUsingPPDiscreteNIterator',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest1',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
-s.add(Test('TwoDelayUsingPPOtherDiscreteIterator',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest2',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
+s.add(Test('TwoDelayUsingPPTimeIterator',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1.dsl',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
+s.add(Test('TwoDelayUsingPPContinuousIterator',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest2.dsl',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
+s.add(Test('TwoDelayUsingPPDiscreteNIterator',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest1.dsl',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
+s.add(Test('TwoDelayUsingPPOtherDiscreteIterator',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest2.dsl',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
 
 end
 

@@ -216,6 +216,6 @@ function s = DifferenceEquationTests
 
 s = Suite('Difference Equation Tests');
 
-s.add(Test('Basic Difference Equation', @()(simex('model_FeatureTests/DifferenceEquationTest1.dsl', 10, '-quiet')), '-equal', struct('x', [0:10; 0:10]')));
+s.add(Test('Basic Difference Equation', @()(simex('models_FeatureTests/DifferenceEquationTest1.dsl', 10, '-quiet')), '-equal', struct('x', [0:10; 0:10]')));
 
 end

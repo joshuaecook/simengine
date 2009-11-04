@@ -4,6 +4,6 @@ model (x)=UpdateContinuousIteratorTest2
     state x = 0 with {iter=t1}
     
     equation x' = 1
-    equation x = 0 when t1 >= 4
+    equation x = 0 when t1 % 4 == 0
     
 end
