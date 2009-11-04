@@ -139,6 +139,9 @@ s = Suite('Intermediate Feature Tests');
 s.add(Test('Intermediate=State', @()(simex('models_FeatureTests/IntermediateTest1.dsl', 10,'-quiet')), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:10]')));
 s.add(Test('Intermediate=Input', @()(simex('models_FeatureTests/IntermediateTest2.dsl', 10,'-quiet')), '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
 s.add(Test('InputToOutput', @()(simex('models_FeatureTests/IntermediateTest3.dsl', 10,'-quiet')), '-equal', struct('s', [0:10; 0:10]', 'x', [0:10; ones(1,11)]')));
+s.add(Test('InputFcnOfTime', @()(simex(['models_FeatureTests/' ...
+                    'IntermediateTest5.dsl'], 10, '-quiet')), '-equal', ...
+           struct('y', [0:10; [zeros(1,6) 1:5]]', 'I', [0:10; [zeros(1,5) ones(1,6)]]')));
 
 % We want to add derivative suport soon
 if mode == INTERNAL
