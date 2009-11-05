@@ -1,7 +1,7 @@
 model (y1,y2)=TwoTemporalIteratorTest6
 
-    iterator t1 with {continuous, solver=forwardeuler{dt=1}}
-    iterator t2 with {continuous, solver=rk4{dt=0.3}}
+    iterator t1 with {continuous, solver=forwardeuler{dt=10}}
+    iterator t2 with {continuous, solver=rk4{dt=3}}
     state x1 = 0 with {iter=t1}
     state x2 = 0 with {iter=t2}
     

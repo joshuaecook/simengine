@@ -1,7 +1,7 @@
 // Run a single model to completion on a single processor core
 int exec_cpu(solver_props *props, unsigned int modelid){
-  Iterator iter;
   Iterator i;
+  CDATAFORMAT min_time;
 
   // Initialize all iterators to running
   for(i=0;i<NUM_ITERATORS;i++){
@@ -14,48 +14,58 @@ int exec_cpu(solver_props *props, unsigned int modelid){
  
     // Run a set of iterations until the output buffer is full
     while(0 == ((output_buffer *)(props->ob))->full[modelid]){
-      // Check if simulation is complete
-      if(!model_running(props,modelid)){ // WHAT ABOUT IF THERE ARE NO STATES?
-	((output_buffer*)(props->ob))->finished[modelid] = 1;
-#if NUM_OUTPUTS > 0
-	// Log output values for final timestep
-	// Run all the model flows to ensure that all intermediates are computed
+      // Run solvers for all iterators that need to advance
+      for(i=0;i<NUM_ITERATORS;i++){
+	if(props[i].next_time[modelid] == props[i].time[modelid]){
+	  solver_eval(&props[i], modelid);
+	  if(!props[i].running[modelid]){
+	    model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
+	  }
+	  update(&props[i], modelid);
+	}
+      }
+
+      // Perform any post process evaluations (BEFORE OR AFTER BUFFER OUTPUTS?)
+      if(model_running(props, modelid)){
+	min_time = find_min_time(props, modelid);
 	for(i=0;i<NUM_ITERATORS;i++){
-	  model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
-	  // Buffer the last values
+	  if(props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] > props[i].time[modelid]){
+	    post_process(&props[i], modelid);
+	  }
+	}
+      }
+
+      // Buffer outputs for all iterators that have values to output
+      // This isn't conditional on running to make sure it outputs a value for the last time
+      for(i=0;i<NUM_ITERATORS;i++){
+	Iterator j;
+	int buffer_ready = 1;
+	for(j=0;j<NUM_ITERATORS;j++){
+	  if(props[j].time[modelid] > props[i].time[modelid]){
+	    // Some iterator has run out ahead, don't buffer again
+	    buffer_ready = 0;
+	    break;
+	  }
+	}
+	if(buffer_ready){
 	  buffer_outputs(&props[i], modelid);
 	}
-#endif
+      }
+	
+      // Write state values back to state storage
+      if(model_running(props, modelid)){
+	for(i=0;i<NUM_ITERATORS;i++){
+	  if(props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] > props[i].time[modelid]){
+	    solver_writeback(&props[i], modelid);
+	  }
+	}
+      }
+      else{
+	// Model is complete, make sure to break out of the loop
 	break;
       }
-		 
-      // Find the iterator which is earliest in time
-      iter = find_min_time(props, modelid);
-
-      // Write state values back to state storage if they occur before time of iter
-      for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].next_time[modelid] <= props[iter].next_time[modelid] &&
-	   props[i].next_time[modelid] > props[i].time[modelid]){
-	  int count_current;
-	  int count_next;
-	  CDATAFORMAT time_current;
-	  CDATAFORMAT time_next;
-
-	  // Perform any post process evaluations
-	  post_process(&props[i], modelid);
-	    // Buffer any outputs
-#if NUM_OUTPUTS > 0
-	  buffer_outputs(&props[i], modelid);
-#endif
-	  solver_writeback(&props[i], modelid);
-	}
-      }
-
-      // Execute solver for one timestep
-      solver_eval(&props[iter], modelid);
-
-      // Perform any state updates
-      update(&props[iter], modelid);
     }
     // Log outputs from buffer to external api interface
     // All iterators share references to a single output buffer and outputs structure.

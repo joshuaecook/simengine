@@ -1,4 +1,4 @@
-model (y)=TwoTemporalIteratorTest2
+model (x1,x2)=TwoTemporalIteratorTest2
 
     iterator t1 with {continuous, solver=forwardeuler{dt=1}}
     iterator t2 with {continuous, solver=rk4{dt=1}}
@@ -7,7 +7,5 @@ model (y)=TwoTemporalIteratorTest2
     
     equation x1' = 1
     equation x2' = 2
-
-    output y = (x1, x2)
 
 end
