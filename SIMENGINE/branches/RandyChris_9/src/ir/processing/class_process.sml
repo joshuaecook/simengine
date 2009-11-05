@@ -524,9 +524,30 @@ fun createEventIterators (class: DOF.class) =
 				      exp)
 			exps'
 
+	(* need to add the correct temporal iterators everywhere for pp iterators - this will propagate the pp_t to all the RHS terms that require it *)
+	fun pp2rewrite (state_sym, (iter_sym,_)) = 
+	    {find=Match.asym state_sym,
+	     test=NONE,
+	     replace=Rewrite.ACTION (Symbol.symbol ("pp_update:" ^ (Symbol.name state_sym)),
+				     (fn(exp)=> ExpProcess.updateTemporalIteratorToSymbol (iter_sym, (fn(sym)=>sym)) exp))}
+
+	val pp_rewrites = map (fn(exp)=>pp2rewrite (ExpProcess.getLHSSymbol exp, valOf (ExpProcess.exp2temporaliterator exp))) 
+			      (List.filter ExpProcess.isPPEq exps'')
+
+	val rewrite = Match.applyRewritesExp pp_rewrites
+	val exps''' = map rewrite exps''
+	val outputs' = map 
+			   (fn{name,contents,condition}=>
+			      {name=ExpProcess.exp2term (rewrite (ExpProcess.term2exp name)),
+			       contents=map rewrite contents,
+			       condition=rewrite condition})
+			   outputs
+
     in
-	(#exps class := exps'')
+	(#exps class := exps''';
+	 #outputs class := outputs')
     end
+    handle e => DynException.checkpoint "ClassProcess.createEventIterators" e
 
 (* for an update x[update_t+1] = x[update_t] - 1, for example, x[update_t] should really be x[update_t+1], and should be read from the same vector as x is written 
 back to.  If there is coupling between multiple update equations {x=f(y), y=f(x)}, then we need to break the loop by inserting intermediates.  *)
