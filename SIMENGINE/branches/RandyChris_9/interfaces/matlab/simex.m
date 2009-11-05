@@ -520,7 +520,7 @@ if opts.debug == false
 % clean up generated files
   delete simex_make.log
   [igpath fileprefix igext] = fileparts(modelFile);
-  delete([fileprefix '_parallel.*'])
+  delete([fileprefix '_parallel*'])
 end
 end % end if recompile
 
