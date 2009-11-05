@@ -36,6 +36,7 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 	}
       }
 
+#if NUM_OUTPUTS > 0
       // Buffer outputs for all iterators that have values to output
       // This isn't conditional on running to make sure it outputs a value for the last time
       for(i=0;i<NUM_ITERATORS;i++){
@@ -52,6 +53,7 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 	  buffer_outputs(&props[i], modelid);
 	}
       }
+#endif
 	
       // Write state values back to state storage
       if(model_running(props, modelid)){
