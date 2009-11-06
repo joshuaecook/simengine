@@ -37,6 +37,7 @@ structure ModelProcess : sig
 
     (* Indicates whether an iterator is dependent upon another. *)
     val isDependentIterator : DOF.systemiterator -> bool
+    val isUpdateIterator : DOF.systemiterator -> bool
 
     val to_json : DOF.model -> mlJS.json_value
 
@@ -47,6 +48,9 @@ val i2s = Util.i2s
 fun isDependentIterator (_, DOF.CONTINUOUS _) = false
   | isDependentIterator (_, DOF.DISCRETE _) = false
   | isDependentIterator _ = true
+
+fun isUpdateIterator (_, DOF.UPDATE _) = true
+  | isUpdateIterator _ = false
 
 fun classByName (model, name) =
     let fun match (class : DOF.class) =

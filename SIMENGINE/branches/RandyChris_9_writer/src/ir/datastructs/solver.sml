@@ -20,6 +20,7 @@ sig
 	   | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
 	   | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
 		       lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver}
+	   | DISCRETE
 		      
     (* Solver accessor methods *)
     val solver2name : solver -> string (* name of the solver *)
@@ -51,6 +52,7 @@ datatype solver =
        | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
        | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
 		   lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver}
+       | DISCRETE
 
 val i2s = Util.i2s
 val r2s = Util.r2s
@@ -66,6 +68,7 @@ fun solver2name (FORWARD_EULER _) = "forwardeuler"
   | solver2name (ODE23 _) = (*"ode23"*) "bogacki_shampine"
   | solver2name (ODE45 _) = (*"ode45"*) "dormand_prince"
   | solver2name (CVODE _) = "cvode"
+  | solver2name (DISCRETE) = "discrete"
 
 (* these are defined in solvers.c *)
 fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
@@ -76,6 +79,7 @@ fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
   | solver2shortname (ODE23 _) = "ode23" (*"bogacki_shampine"*)
   | solver2shortname (ODE45 _) = "ode45" (*"dormand_prince"*)
   | solver2shortname (CVODE _) = "cvode"
+  | solver2shortname (DISCRETE) = "discrete"
 
 fun cvode_solver2params CVDENSE = [("cvode.solv", "CVODE_DENSE")]
   | cvode_solver2params CVDIAG = [("cvode.solv", "CVODE_DIAG")]
@@ -114,6 +118,7 @@ fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
      ("cvode.lmm", case lmm of CV_ADAMS => "CV_ADAMS" | CV_BDF => "CV_BDF"),
      ("cvode.iter", case iter of CV_FUNCTIONAL => "CV_FUNCTIONAL" | CV_NEWTON => "CV_NEWTON")] @ 
     cvode_solver2params solv
+  | solver2params _ = nil
 
 (*
 fun solver2options solver = 

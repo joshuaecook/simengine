@@ -5,9 +5,6 @@
 structure CWriter =
 struct
 
-fun isUpdateIterator (_, DOF.UPDATE _) = true
-  | isUpdateIterator _ = false
-
 (* See smlnj-lib/PP/src/pp-stream-sig.sml. *)
 structure PP = PPStreamFn(structure Token = StringToken structure Device = SimpleTextIODev)
 
@@ -67,9 +64,13 @@ fun line emit pps item =
 (* Emits Printer.text data. *)
 fun text pps ($ str) = line string pps str
   | text pps (SUB txts) =
-    openBox pps (Rel 2) before newline pps
-    before app (text pps) txts
-    before closeBox pps before newline pps
+    openHOVBox pps (Rel 2)
+    before texts pps txts
+    before closeBox pps
+and texts pps txts = app (text pps) txts
+
+fun archive pps filename =
+    line string pps (Archive.getC filename)
 
 (* Emits a preprocessor error. 
  * Writing may continue but the C compiler should fail;
@@ -261,7 +262,7 @@ and emit_instance_equation pps (iterator, caller, equation) =
 	      | (_, DOF.POSTPROCESS name) => name
 	      | (name, _) => name
 
-	val iterators = List.filter (not o isUpdateIterator) (CurrentModel.iterators ())
+	val iterators = List.filter (not o ModelProcess.isUpdateIterator) (CurrentModel.iterators ())
 
 	fun declare_instance_input pps [] = ()
 	  | declare_instance_input pps xs = 
@@ -278,7 +279,7 @@ and emit_instance_equation pps (iterator, caller, equation) =
 	fun declare_subsystem pps [] = ()
 	  | declare_subsystem pps iterators = 
 	    let val term = (ExpProcess.exp2term o ExpBuild.var) ("system_"^(Symbol.name classname))
-	    in line (suffix (emit_term_name, " subsystemRead;")) pps term
+	    in line (suffix (emit_term_name, " subsys_rd;")) pps term
 	    end
 
 	fun assign_input pps (input, index) =
@@ -294,20 +295,20 @@ and emit_instance_equation pps (iterator, caller, equation) =
 	    end
 
 	fun assign_subsystem pps (iterator as (iter_name, _)) =
-	    let val subsys_iter = ExpBuild.var ("subsystemRead." ^  (Symbol.name iter_name))
-		val subsys_states = ExpBuild.var ("subsystemRead.states_" ^  (Symbol.name iter_name))
+	    let val subsys_iter = ExpBuild.var ("subsys_rd." ^  (Symbol.name iter_name))
+		val subsys_states = ExpBuild.var ("subsys_rd.states_" ^  (Symbol.name iter_name))
 	    in emit_lvalue pps subsys_iter;
-	       string pps ("systemRead->" ^ (Symbol.name iter_name));
+	       string pps ("sys_rd->" ^ (Symbol.name iter_name));
 	       string pps ";"; newline pps;
 	       emit_lvalue pps subsys_states;
-	       string pps ("systemRead->" ^ (Symbol.name iter_name) ^ "->" ^ (Symbol.name instname));
+	       string pps ("sys_rd->" ^ (Symbol.name iter_name) ^ "->" ^ (Symbol.name instname));
 	       string pps ";"
 	    end
 
     in comment pps ("Calling "^(Symbol.name classname)^" instance "^(Symbol.name instname));
        comment' expEmit pps equation;
        delimit (suffix (emit_term_declaration, ";"), newline) pps outargs; newline pps;
-       string pps "  {"; openBox pps (Rel ~1); newline pps;
+       string pps "  {"; openHOVBox pps (Rel ~1); newline pps;
 
        declare_instance_input pps inpargs;
        declare_instance_output pps outargs;
@@ -338,7 +339,7 @@ fun classEmit pps (iterator, class) =
 and emit_class_definition pps (iterator, class) =
     let val {name, properties, inputs, outputs, iterators, exps} = class
     in emit_class_signature pps (iterator, class); newline pps;
-       string pps "  {"; openBox pps (Rel ~1); newline pps;
+       string pps "  {"; openHOVBox pps (Rel ~1); newline pps;
        emit_class_locals pps class; newline pps;
        newline pps;
 
@@ -360,8 +361,8 @@ and emit_class_signature pps (iterator, class : DOF.class) =
 	      | (_, DOF.POSTPROCESS name) => name
 	      | (name, _) => name
 
-	val state_type = "state_" ^ (Symbol.name basename) ^ "_" ^ (Symbol.name iter_name)
-	val system_type = "system_" ^ (Symbol.name basename) ^ "_" ^ (Symbol.name iter_name)
+	val state_type = "state_" ^ (Symbol.name name)
+	val system_type = "system_" ^ (Symbol.name basename)
 
 	val params = ["CDATAFORMAT " ^ (Symbol.name iter_name),
 		      "const " ^ state_type ^ " *rd_" ^ (Symbol.name iter_name),
@@ -417,11 +418,16 @@ and emit_class_outputs pps class =
 		(Util.flatmap ExpProcess.exp2termsymbols contents)
 
 	    val terms = Util.flatmap output_terms (!outputs)
+
+	    fun assign_output pps exp =
+		prefix ("od[modelid].", emit_term_name) pps exp
+		before prefix (" = ", suffix (emit_term_name, ";")) pps exp
+
 	in comment pps "Output data";
 	   string pps "if (firstIteration) {"; newline pps;
 	   string pps "output_data *od = (output_data *)outputs;"; newline pps;
-	   openBox pps (Rel 2);
-	   delimit (emit_term_name, newline) pps terms; newline pps;
+	   openHOVBox pps (Rel 2);
+	   delimit (assign_output, newline) pps terms; newline pps;
 	   closeBox pps; newline pps;
 	   string pps "}"; newline pps
 	end
@@ -439,11 +445,13 @@ and emit_class_outputs pps class =
 	    delimit (emit_output, newline) pps (Util.addCount (!outputs))
 	 end
 
+(*
 fun emit_class_data_structures pps class =
     let val {name, properties, inputs, outputs, iterators, exps} = class
     in emit_class_state_structure pps class; newline pps;
        emit_class_output_structure pps class; newline pps
     end
+*)
 
 and emit_class_state_structure pps class = 
     let val {name, properties, inputs, outputs, iterators, exps} = class
@@ -474,7 +482,7 @@ and emit_class_state_structure pps class =
        string pps ";"; newline pps
     end
 
-and emit_class_output_structure pps ({outputs=ref [], ...}) = ()
+and emit_class_output_structure pps ({outputs=ref [], ...} : DOF.class) = ()
   | emit_class_output_structure pps (class as {name, outputs, ...}) = 
     let fun output_terms {contents, condition, ...} =
 	    ExpProcess.exp2termsymbols condition @
@@ -485,8 +493,7 @@ and emit_class_output_structure pps ({outputs=ref [], ...}) = ()
        delimit (suffix (emit_term_declaration, ";"), newline) 
 	       pps terms;
        newline pps;
-       string pps ("} output_" ^ (Symbol.name name));
-       string pps ";"; newline pps;
+       string pps "} output_data;"; newline pps;
        newline pps
     end
     
@@ -527,7 +534,10 @@ and init_condition2pair iter_sym basestr exp =
 
 fun systemEmit pps [] = ()
   | systemEmit pps system = 
-    let val () = ()
+    let val solvers = 
+	    List.mapPartial (fn {iter as (_, DOF.CONTINUOUS solver), ...} => 
+				SOME solver
+			      | _ => NONE) system
     in comment pps "System data structures";
        delimit (emit_system_data_structures, newline) pps system; newline pps;
        emit_subsystem_data_structures pps system; newline pps;
@@ -537,6 +547,12 @@ fun systemEmit pps [] = ()
        delimit (emit_system_flow_prototypes, newline) pps system; newline pps;
        newline pps;
 
+       comment pps "System solvers wrapper";
+       emit_system_solvers pps solvers; newline pps;
+       newline pps;
+
+       (* TODO update and post_process wrappers *)
+
        comment pps "System flow definitions";
        delimit (emit_system_flow_definitions, newline) pps system; newline pps
     end
@@ -545,12 +561,12 @@ and emit_system_data_structures pps {top_class, iter, model} =
     let val (iter_name, _) = iter
 	val (classes, instance, properties) = model
     in comment pps ("Data structures of iterator " ^ (Symbol.name iter_name));
-       CurrentModel.withModel model (fn _ => delimit (emit_class_data_structures, newline) pps classes)
+       CurrentModel.withModel model (fn _ => delimit (emit_class_state_structure, newline) pps classes)
     end
 
 and emit_subsystem_data_structures pps [] = ()
   | emit_subsystem_data_structures pps system = 
-    let val storage_system = List.filter (not o isUpdateIterator o #iter) system
+    let val storage_system = List.filter (not o ModelProcess.isUpdateIterator o #iter) system
 	val class_iterator_pairs = map (fn {model=(_, {classname, ...}, _),
 					    iter, ...} => (classname, iter)) 
 				       storage_system
@@ -598,6 +614,7 @@ and emit_subsystem_data_structures pps [] = ()
        newline pps;
 
        comment pps ("Per-class system states");
+       (* FIXME this is generating structures per-iterator *)
        delimit (declare_subsystem, newline) pps storage_system; newline pps
     end
     
@@ -608,6 +625,37 @@ and emit_system_flow_prototypes pps {top_class, iter, model} =
 	val pairs = map (fn c => (iter, c)) classes
     in comment pps ("Flow prototypes of iterator " ^ (Symbol.name iter_name));
        CurrentModel.withModel model (fn _ => delimit (emit_class_prototype, newline) pps pairs)
+    end
+
+and emit_system_solvers pps solvers =
+    let val templates = [("init", nil, nil),
+			 ("eval", ["unsigned int modelid"], ["modelid"]),
+			 ("free", nil, nil)]
+	fun solver_call (method, args) pps solver =
+	    let val name = Solver.solver2name solver
+	    in text pps ($("case " ^ (String.map Char.toUpper name) ^ ":"));
+	       string pps "return ";
+	       prefix (name, 
+		       parentheses ("(", delimit (string, comma), ")"))
+		      pps args;
+	       string pps ";"
+	    end
+	fun solver_wrapper pps (method, params, args) =
+	    let val params' = "solver_props *props" :: params
+		val args' = "props" :: args
+	    in prefix ("solver_" ^ method, 
+		       parentheses ("(", delimit (string, comma), ")"))
+		      pps params';
+	       line string pps "{";
+	       text pps ($"switch (props->solver)");
+	       line string pps "{";
+	       delimit (solver_call (method, args'), newline) pps solvers;
+	       newline pps;
+	       text pps ($"default: return 1");
+	       line string pps "}";
+	       line string pps "}"
+	    end
+    in delimit (solver_wrapper, newline) pps templates
     end
 
 and emit_system_flow_definitions pps {top_class, iter, model} =
@@ -648,24 +696,183 @@ fun emit_model_flows pps system =
        prefix ("int model_flows", 
 	       parentheses ("(", delimit (string, comma), ")"))
 	      pps params;
-       string pps "  {"; newline pps; openBox pps (Rel 2);
+       newline pps; 
+       openHOVBox pps (Rel 2);
+       line string pps "{";
+
+       line string pps "switch (props->iterator) {";
+       openHOVBox pps (Rel 2);
        delimit (system_flow, newline) pps system; newline pps;
        line string pps "default: return 1;";
+       string pps "}"; closeBox pps; newline pps;
+
        string pps "}"; closeBox pps; newline pps
     end
 
+fun emit_solver_init pps system =
+    let val solver_system = List.filter (fn {iter, ...} => not (ModelProcess.isDependentIterator iter)) system
+	val (_, {classname, ...}, _) = CurrentModel.getCurrentModel ()
+    in comment pps "Initializes solver properties";
+       text pps ($("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs) {"));
+
+       text pps (SUB [$("system *system_states = (system * )model_states;"),
+		      $("system_"^(Symbol.name classname)^" *system_ptr = (system_"^(Symbol.name classname)^" * )malloc(sizeof(system_"^(Symbol.name classname)^" ));"),
+		      $("solver_props *props = (solver_props * )malloc(NUM_ITERATORS * sizeof(solver_props));"),
+		      $("output_buffer *ob = (output_buffer * )malloc(sizeof(output_buffer));"),
+		      $("output_data *od = (output_data *)malloc(num_models * sizeof(output_data));"),
+		      $("unsigned int outputsize = sizeof(output_data) / sizeof(CDATAFORMAT);")]);
+
+       openHOVBox pps (Rel 2);
+       delimit (init_solver_props, newline) pps solver_system;
+       closeBox pps; newline pps;
+
+       text pps (SUB [$("// Initialize all time vectors"),
+		      $("for(Iterator iter=0;iter<NUM_ITERATORS;iter++){"),
+		      SUB[$("for(unsigned inti=0;i<NUM_MODELS;i++){"),
+			  SUB[$("props[iter].time[i] = starttime;"),
+			      $("props[iter].next_time[i] = starttime;")],
+			  $("}")],
+		      $("}")]);
+       text pps ($("}"));
+       newline pps;
+
+       texts pps [$("void free_solver_props(solver_props* props){"),
+		  SUB[$("for(Iterator iter=0;iter<NUM_ITERATORS;iter++){"),
+		      SUB[$("free(props[iter].time);"),
+			  $("free(props[iter].next_time);"),
+			  $("free(props[iter].freeme);"),
+			  $("free(props[iter].running);")],
+		      $("}"),
+		      $("free(props[0].ob);"),
+		      $("if(props[0].od) free(props[0].od);"),
+		      $("free(props);")],
+		  $("}")]
+    end
+
+and init_solver_props pps {top_class, iter, model} =
+    let val (iter_name, iter_typ) = iter
+	val props_name = "props[ITERATOR_" ^ (Symbol.name iter_name) ^ "]"
+	val props = [("starttime", "starttime"),
+		     ("stoptime", "stoptime"),
+		     ("system_states", "system_ptr"),
+		     ("time", "(CDATAFORMAT * )malloc(num_models * sizeof(CDATAFORMAT))"),
+		     ("next_time", "(CDATAFORMAT * )malloc(num_models * sizeof(CDATAFORMAT))"),
+		     ("count", "NULL"),
+		     ("model_states", "(CDATAFORMAT * )(&system_states->states_" ^ (Symbol.name iter_name)),
+		     ("inputs", "inputs"),
+		     ("outputs", "outputs"),
+		     ("solver", "FIXME"),
+		     ("iterator", "ITERATOR_" ^ (Symbol.name iter_name)),
+		     ("inputsize", "num_inputs"),
+		     ("statesize", "FIXME"(*Int.toString (ModelProcess.model2statesize model)*)),
+		     ("next_states", "(CDATAFORMAT * )malloc(num_models * " ^ props_name ^ ".statesize * sizeof(CDATAFORMAT))"),
+		     ("freeme", props_name ^ ".next_states"),
+		     ("outputsize", "outputsize"),
+		     ("num_models", "num_models"),
+		     ("od", "od"),
+		     ("ob_size", "sizeof(output_buffer)"),
+		     ("ob", "ob"),
+		     ("running", "(int * )malloc(num_models * sizeof(int))")]
+	val params = case iter_typ
+		      of DOF.CONTINUOUS solver => Solver.solver2params solver
+		       | DOF.DISCRETE {sample_period} => [("timestep", Util.r2s sample_period)]
+		       | _ => [("ERROR", "Unfiltered dependent iterator")]
+	fun init_prop pps (prop, value) =
+	    prefix (props_name ^ ".", string) pps prop
+	    before prefix (" = ", suffix (string, ";")) pps value
+    in delimit (init_prop, newline) pps (params @ props);
+       text pps ($("memcpy(props[ITERATOR_" ^ (Symbol.name iter_name) ^ 
+		   "].next_states, props[ITERATOR_" ^ (Symbol.name iter_name) ^ 
+		   "].model_states, NUM_MODELS*props[ITERATOR_" ^ (Symbol.name iter_name) ^ 
+		   "].statesize*sizeof(CDATAFORMAT));"));
+       (case iter_typ
+	 of DOF.CONTINUOUS _ =>
+	    text pps ($("system_ptr->" ^ (Symbol.name iter_name) ^ " = " ^ props_name ^ ".time;"))
+	  | DOF.DISCRETE _ => 
+	    text pps ($("system_ptr->" ^ (Symbol.name iter_name) ^ " = " ^ props_name ^ ".time;"))
+	  | _ => error pps "Unfiltered dependent iterator");
+       text pps ($("system_ptr->states_" ^ (Symbol.name iter_name) ^ " = &(system_states->states_" ^ (Symbol.name iter_name) ^ ");"))
+    end
+    
+fun enum_model_iterators pps [] = ()
+  | enum_model_iterators pps iterators = 
+    let fun member pps (iter_name, _) =
+	    prefix ("ITERATOR_", string) pps (Symbol.name iter_name)
+    in text pps ($("typedef enum {"));
+       delimit (member, comma) pps iterators;
+       comma pps; text pps ($("NUM_ITERATORS"));
+       text pps ($("} Iterator;"))
+    end
+    
+fun enum_model_solvers pps [] = ()
+  | enum_model_solvers pps solvers = 
+    let fun member pps solver =
+	    string pps (String.map Char.toUpper (Solver.solver2name solver))
+    in text pps ($("typedef enum {"));
+       delimit (member, comma) pps solvers;
+       comma pps; text pps ($("NUM_SOLVERS"));
+       text pps ($("} Solver;"))
+    end
+
+
 fun modelEmit pps model =
-    let val system = ModelProcess.createIteratorForkedModels model
+    let val (_, {classname, ...}, properties) = model
+	val {target, ...} = properties
+	val system = ModelProcess.createIteratorForkedModels model
+	val independent_system = List.filter (not o ModelProcess.isDependentIterator o #iter) system
+	val independent_iterators = map #iter independent_system
+	val solvers = List.mapPartial (fn (_, DOF.CONTINUOUS solver) => SOME solver
+					| (_, DOF.DISCRETE _) => SOME Solver.DISCRETE
+					| _ => NONE) independent_iterators
+	val top_class = ModelProcess.classByName (model, classname)
     in comment pps "Copyright Simatra Modeling Technologies, LLC";
        newline pps;
 
+       enum_model_solvers pps solvers;
+       enum_model_iterators pps independent_iterators;
+
+       archive pps "simengine/simengine_target.h";
+       archive pps "simengine/simengine_api.h";
+       archive pps "solvers/solvers.h";
+       archive pps "simengine/defines.h";
+       
        comment pps "Model interface description";
        CurrentModel.withModel model (fn _ => emit_model_interface pps system); newline pps;
        newline pps;
 
+       archive pps "simengine/semeta_seint.h";
+
+       (case top_class
+	 of SOME class =>
+	    CurrentModel.withModel model (fn _ => emit_class_output_structure pps class) before newline pps
+	  | NONE => error pps "Top class not found.");
+       newline pps;
+
+       archive pps "simengine/output_buffer.h";
+       archive pps "simengine/init_output_buffer.c";
+       
+       CurrentModel.withModel model (fn _ => emit_solver_init pps system); newline pps;
+       newline pps;
+
+       archive pps "simengine/simengine_api.c";
+       archive pps "simengine/log_outputs.c";
+       
+       (case target
+	 of Target.CPU =>
+	    archive pps "simengine/exec_cpu.c"
+	    before archive pps "simengine/exec_serial_cpu.c"
+	  | Target.OPENMP => 
+	    archive pps "simengine/exec_cpu.c"
+	    before archive pps "simengine/exec_parallel_cpu.c"
+	  | Target.CUDA _ => 
+	    archive pps "simengine/exec_kernel_gpu.cu"
+	    before archive pps "simengine/exec_parallel_gpu.cu");
+
        systemEmit pps system;
 
-       CurrentModel.withModel model (fn _ => emit_model_flows pps system); newline pps
+       CurrentModel.withModel model (fn _ => emit_model_flows pps independent_system); newline pps;
+
+       archive pps "simengine/exec_loop.c"
     end
 
 (* Displays the public interface for a model,
@@ -685,10 +892,14 @@ and emit_model_interface pps system =
 			   of Target.CPU => "cpu"
 			    | Target.OPENMP => "openmp"
 			    | Target.CUDA _ => "cuda"
+
 	val solvers = 
 	    List.mapPartial (fn {iter as (_, DOF.CONTINUOUS solver), ...} => 
 				SOME solver
+			      | {iter as (_, DOF.DISCRETE _), ...} => 
+				SOME Solver.DISCRETE
 			      | _ => NONE) system
+
 	val iterators = 
 	    map (fn {iter, ...} => iter) system
 
@@ -738,7 +949,16 @@ and emit_model_interface pps system =
        line (prefix ("const char *state_names[] = ", suffix (c_array c_string, ";"))) 
 	    pps state_names;
        line (prefix ("const char *default_states[] = ", suffix (c_array string, ";"))) 
-	    pps state_defaults
+	    pps state_defaults;
+
+       texts pps [$("#define NUM_INPUTS " ^ (Int.toString (List.length (!inputs)))),
+		  $("const unsigned int num_inputs " ^ (Int.toString (List.length (!inputs)))),
+		  $("#define NUM_STATES " ^ (Int.toString (List.length state_names))),
+		  $("const unsigned int num_states " ^ (Int.toString (List.length state_names))),
+		  $("#define NUM_OUTPUTS " ^ (Int.toString (List.length outputs))),
+		  $("const unsigned int num_outputs " ^ (Int.toString (List.length outputs))),
+		  $("#define HASHCODE (0x0000000000000000ULL)"),
+		  $("#define VERSION (0))")]
     end
 
 end (* structure Emit *)

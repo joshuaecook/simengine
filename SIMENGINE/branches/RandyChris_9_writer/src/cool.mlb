@@ -115,25 +115,12 @@ ir/processing/ordering.sml
 
 ir/processing/model_process.sml
 
+be/archive.sml
+
 be/c_writer_util.sml
 be/c_writer.sml
-(* deprecated writers
-be/mex_writer.sml
-be/mex_ode_writer.sml
-*)
-be/archive.sml
 be/c_parallel_writer.sml
 
-(*
-
-be/datastructs/dfexp.sml
-be/datastructs/expgraph.sml
-be/datastructs/pegraph.sml
-be/datastructs/ptegraph.sml
-be/datastructs/schedgraph.sml
-
-be/datastructs/sys.sig
-*)
 
 (* Model Construction and Interactive Shell *)
 
