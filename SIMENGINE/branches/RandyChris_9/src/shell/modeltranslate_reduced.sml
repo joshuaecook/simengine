@@ -99,7 +99,9 @@ fun istype (object, typ) =
     in
 	exp2bool result
     end
-    
+
+fun isdefined KEC.UNDEFINED = false
+  | isdefined _ = true
     
 fun vec2list (KEC.VECTOR vec) = KEC.kecvector2list (vec)
   | vec2list exp =
@@ -126,7 +128,7 @@ fun dofexp2kecexp exp =
 			       args=KEC.TUPLE [KEC.LITERAL(KEC.CONSTSTR (Symbol.name s))]})
 	end
       | Exp.FUN (Fun.BUILTIN oper, args) =>
-	let
+(*	let
 	    val funname = case oper of
 			      Fun.ADD => "operator_add"
 			    | Fun.SUB => "operator_subtract"
@@ -142,6 +144,22 @@ fun dofexp2kecexp exp =
 	    val exp =
 		KEC.APPLY{func=KEC.SYMBOL (Symbol.symbol funname),
 			  args=KEC.TUPLE (map dofexp2kecexp args)}
+*)
+	let
+	    val funname = case oper of
+			      Fun.ADD => "operator_add"
+			    | Fun.SUB => "sub"
+			    | Fun.NEG => "neg"
+			    | Fun.MUL => "mul"
+			    | Fun.DIVIDE => "div"
+			    | Fun.MODULUS => "mod"
+			    | Fun.POW => "pow"
+			    | Fun.DERIV => "deriv"
+			    | _ => error "Unsupported dof operation"
+
+	    val exp =
+		KEC.APPLY{func=KEC.SYMBOL (Symbol.symbol "modelop"),
+			  args=KEC.TUPLE [KEC.LITERAL (KEC.CONSTSTR funname), KEC.list2kecvector (map dofexp2kecexp args)]}
 	in
 	    (!exec) (exp)
 	end
@@ -182,8 +200,13 @@ and modeloperation_to_dof_exp quantity =
 	in
 	    case quantity_to_dof_exp quantity'
 	     of Exp.TERM (Exp.SYMBOL (name, properties)) =>
-		let val iterator = Symbol.symbol (exp2str (method "name" (method "iter" quantity')))
-		    val properties' = Property.setDerivative properties (order, [iterator])
+		let 
+		    val iterators = 
+			if istype (quantity', "IteratorReference") then
+			    map (fn(e) => Symbol.symbol (exp2str (method "name" e))) (vec2list (method "indices" quantity'))
+			else			    
+			    [Symbol.symbol (exp2str (method "name" (method "iter" quantity')))]
+		    val properties' = Property.setDerivative properties (order, iterators)
 		in
 		    Exp.TERM (Exp.SYMBOL (name, properties'))
 		end
@@ -286,7 +309,7 @@ and simquantity_to_dof_exp quantity =
 	    Exp.TERM (Exp.PATTERN (name, PatternProcess.predicate_any, arity))
 	end
 
-    else if (istype (quantity, "State")) then
+    else if (istype (quantity, "State")) andalso isdefined (method "iter" quantity) then
 	ExpBuild.ivar (exp2str (method "name" quantity)) [(Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)]
 
     else
@@ -425,7 +448,7 @@ fun kecexp2dofexp obj =
 								       Pattern.SPECIFIC_RANGE (x,y)
 						  end))
 						 
-			else if (istype (obj, "State")) then
+			else if (istype (obj, "State")) andalso isdefined (method "iter" obj) then
 			    ExpBuild.ivar (exp2str (method "name" obj)) [(Symbol.symbol(exp2str(method "name" (method "iter" obj))), Iterator.RELATIVE 0)]
 			else
 			    ExpBuild.var(exp2str (method "name" obj))
