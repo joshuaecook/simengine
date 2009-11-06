@@ -1,915 +1,747 @@
+(* Implements a stream-oriented C language printer for DOF model data. 
+ * Depends on the PP library from smlnj-lib.
+ * See smlnj-lib/PP/src/pp-stream-sig.sml.
+ *)
 structure CWriter =
 struct
 
-datatype status =
-	 SUCCESS 
-       | FAILURE of string
+fun isUpdateIterator (_, DOF.UPDATE _) = true
+  | isUpdateIterator _ = false
 
+(* See smlnj-lib/PP/src/pp-stream-sig.sml. *)
+structure PP = PPStreamFn(structure Token = StringToken structure Device = SimpleTextIODev)
+
+(* Constructs a PP.stream which writes to a given outstream. *)
+fun withTextIOStream (outstream : TextIO.outstream) proc =
+    let val device = SimpleTextIODev.openDev {dst=outstream, wid=100}
+	val stream = PP.openStream device
+    in
+	proc stream before PP.closeStream stream
+	handle e => (PP.closeStream stream; raise e)
+    end
+
+
+structure Emit : sig
+    (* An emitter displays an item of some type 'a on the given print stream. *)
+    type 'a emit = PP.stream -> 'a -> unit
+
+    val modelEmit : DOF.model emit
+
+    val systemEmit : {top_class: Symbol.symbol,
+		      iter: DOF.systemiterator,
+		      model: DOF.model} list emit
+
+    val classEmit : (DOF.systemiterator * DOF.class) emit
+    val expEmit : Exp.exp emit
+    val termEmit : Exp.term emit
+
+end = 
+struct
+(* Abbreviations
+ * pps: "Pretty Print Stream" of type PP.stream
+ *)
+
+(* See smlnj-lib/PP/src/pp-stream-sig.sml. *)
+open PP
 open Printer
-exception InternalError
 
-val e2s = ExpPrinter.exp2str
-val i2s = Util.i2s
-val r2s = Util.r2s
-val l2s = Util.l2s
+(* Most functions within this module conform to this type.
+ * Many utility functions operate by wrapping another emitter, e.g.
+ * 
+ * line : 'a emit -> 'a emit
+ * prefix : (string * 'a emit) -> 'a emit *)
+type 'a emit = stream -> 'a -> unit
 
-(* ====================  HEADER  ==================== *)
+(* Emits a list of expressions delimited by a separator
+ * E.g. (delimit (string,newline) pps strings) prints each string on a line.
+ * delimit : ('a emit * (PP.stream -> unit)) -> stream -> 'a list -> unit *)
+fun delimit (emit, separate) pps [] = ()
+  | delimit (emit, separate) pps [x] = emit pps x
+  | delimit (emit, separate) pps (x::xs) = 
+    (emit pps x; separate pps; delimit (emit, separate) pps xs)
 
-fun header ((model: DOF.model), includes, defpairs, iterators) = 
-    let
-	val (_, inst as {classname,...}, _) = model
-	val inst_class = CurrentModel.classname2class classname
-	val class_name = Symbol.name (#name inst_class)
-	val iterators = CurrentModel.iterators()
-    in
-	[$("// C Execution Engine for top-level model: " ^ class_name),
-	 $("// " ^ Globals.copyright),
-	 $(""),
-	 $("#include <stdio.h>"),
-	 $("#include <stdlib.h>"),
-	 $("#include <math.h>"),
-	 $("#include <string.h>"),
-	 (*$("#define CDATAFORMAT double"),*)
-	 $("#include <solvers.h>")] @
-	(map (fn(inc)=> $("#include "^inc)) includes) @
-	[$(""),
-	 $("int fun_invocations = 0, steps = 0;"),
-	 $("")] @
-	(map (fn(name,value)=> $("#define " ^ name ^ " " ^ value)) defpairs) @
-	[$("")] @
-	(Util.flatmap (fn(sym,_)=> 
-			 let
-			     val statesize = ModelProcess.model2statesizebyiterator sym model
-			     (*val _ = Util.log ("Computing statesize to be " ^ (i2s statesize))*)
-			 in
-			     [$("static CDATAFORMAT model_states_"^(Symbol.name sym)^"["^(i2s statesize)^"];"),
-			      $("static CDATAFORMAT model_states_wr_"^(Symbol.name sym)^"["^(i2s statesize)^"];")]
-			 end)
-		      iterators) @
-	[$("")]
+(* Emits a newline after displaying an item. *)
+fun line emit pps item = 
+    emit pps item before newline pps
+
+(* Emits Printer.text data. *)
+fun text pps ($ str) = line string pps str
+  | text pps (SUB txts) =
+    openBox pps (Rel 2) before newline pps
+    before app (text pps) txts
+    before closeBox pps before newline pps
+
+(* Emits a preprocessor error. 
+ * Writing may continue but the C compiler should fail;
+ * output is no longer assured to be valid C code. *)
+fun error pps message =
+    newline pps
+    before text pps ($("#error (" ^ message ^ ")"))
+     
+fun comma pps = string pps ", "
+
+fun prefix (left, emit) pps item =
+    string pps left before emit pps item
+
+fun suffix (emit, right) pps item =
+    emit pps item before string pps right
+
+fun parentheses (left, emit, right) pps item =
+    suffix (prefix (left, emit), right) pps item
+
+val c_string =
+    parentheses ("\"", string, "\"")
+
+fun c_array emit =
+    parentheses ("{", delimit (emit, comma), "}")
+
+(* Emits a single-line comment followed by a newline. *)
+fun comment' emit pps message = 
+    line (prefix ("// ", emit)) pps message
+fun comment pps message =
+    comment' string pps message
+
+
+
+
+
+fun expEmit pps (exp as Exp.FUN (typ, operands)) =
+    emit_fun_expression pps (typ, operands)
+
+  | expEmit pps (Exp.TERM term) =
+    termEmit pps term
+
+and emit_instance_call pps (iter_name, caller, equation) =
+    let val {classname, instname, props={realinstname, ...}, ...} = ExpProcess.deconstructInst equation
+	val instname = case realinstname of SOME name => name | NONE => instname
+
+	val (state_read, state_write) =
+	    if CurrentModel.isTopClass caller then
+		("&rd_" ^ (Symbol.name iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name instname),
+		 "&wr_" ^ (Symbol.name iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name instname))
+	    else
+		("rd_" ^ (Symbol.name iter_name) ^ "->" ^ (Symbol.name instname),
+		 "wr_" ^ (Symbol.name iter_name) ^ "->" ^ (Symbol.name instname))
+
+	val arguments = [(Symbol.name iter_name),
+			 state_read,
+			 state_write,
+			 "subsys_rd",
+			 "instInputs",
+			 "instOuputs",
+			 "firstIteration",
+			 "modelid"]
+    in prefix (("flow_"^(Symbol.name classname)),
+	       parentheses ("(", delimit (string, comma), ")"))
+	      pps arguments
     end
 
-fun class2stateiterators (class: DOF.class) =
-    let
-	val iterators = map (fn(sym,_)=>sym) (CurrentModel.iterators())
-    in
-	(iterators, iterators)
-    end
-(*    let
-	val {properties={classform,...},...} = class
-    in
-	case classform of 
-	    DOF.FUNCTIONAL => ([],[])
-	  | DOF.INSTANTIATION {readstates,writestates} => (readstates, writestates)
-    end*)
 
-fun class2iterators (class: DOF.class) =
-    let
-	val (readstates, writestates) = class2stateiterators class
-    in
-	(Util.intersection (readstates, writestates))
-    end
+(* Emits the computation without a destination. *)
+and emit_fun_expression pps (Fun.BUILTIN Fun.ASSIGN, [dst, src]) =
+    expEmit pps src
+  | emit_fun_expression pps (Fun.BUILTIN Fun.ASSIGN, operands) = 
+    error pps ("Malformed assignment with "^(Util.i2s (List.length operands))^" operands.")
+  | emit_fun_expression pps (f, operands) =
+    (case FunProps.fun2cstrnotation f
+      of (operation, FunProps.INFIX) => 
+	 delimit (expEmit, (fn pps => string pps operation)) pps operands
 
-fun outputdatastruct_code class =
-    let
-	val outputs = #outputs class
-	fun output2struct (out as {name, contents, condition}) = 
-	    let
-		val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (Exp.TERM name)
-		val struct_name = "output_" ^ identifier
-		val struct_inst = "outputdata_" ^ identifier
-		val iter = TermProcess.symbol2temporaliterator name
-	    in
-		[$(""),
-		 $("struct " ^ struct_name ^ " {"),
-		 SUB[$("int length;"),
-		     $("int alloc_size;"),
-		     (case iter of 
-			  SOME (sym, _) => $("CDATAFORMAT *time; // equivalent to iterator " ^ (Symbol.name sym))
-			| NONE => $("// no temporal iterator")),
-		     $("// output data: "),
-		     SUB(map (fn(exp,i)=> $("CDATAFORMAT *vals" ^ (i2s i) ^ "; // " ^ (e2s exp))) (Util.addCount contents))],
-		 $("};"),
-		 $("struct " ^ struct_name ^ " " ^ struct_inst ^ ";")]
+       | (operation, FunProps.PREFIX) =>
+	 prefix (operation, parentheses ("(",delimit (expEmit, comma),")")) 
+		pps operands
+
+       | (operation, FunProps.POSTFIX) => 
+	 string pps "POSTFIX-FIXME"
+
+       | (operation, FunProps.MATCH) => 
+	 let fun emit_replacing substr =
+		 if Substring.isEmpty substr then ()
+		 else if Substring.isPrefix "$" substr then
+		     case (Int.fromString o Substring.string o Substring.slice) (substr, 1, NONE)
+		      of SOME z =>
+			 let val zlen = (String.size (Int.toString z))
+			     val () = if z < 1 orelse z > (List.length operands) 
+				      then prefix ("$", string) pps (Int.toString z)
+				      else parentheses ("(",expEmit,")") pps (List.nth (operands, (z-1)))
+			 in 
+			    emit_replacing (Substring.slice (substr, 1 + zlen, NONE))
+			 end
+		       | NONE => 
+			 (string pps "$";
+			  emit_replacing (Substring.slice (substr, 1, NONE)))
+
+		 else let val (prefix, substr) = Substring.position "$" substr
+		      in string pps (Substring.string prefix);
+			 emit_replacing substr
+		      end
+
+	 in
+	     emit_replacing (Substring.full operation)
+	 end)
+
+and termEmit pps (Exp.BOOL b) = 
+    string pps (if b then "YES" else "NO")
+
+  | termEmit pps (Exp.INT z) = 
+    string pps (Util.i2s z)
+
+  | termEmit pps (Exp.REAL r) = 
+    emit_real pps r
+
+  | termEmit pps Exp.NAN = 
+    string pps "NAN"
+
+  (* TODO negative infinity. *)
+  | termEmit pps Exp.INFINITY = 
+    string pps "INFINITY"
+
+  | termEmit pps (Exp.RATIONAL (numer,denom)) = 
+    emit_rational pps (numer, denom)
+
+  | termEmit pps (Exp.SYMBOL (name, properties)) = 
+    emit_symbol pps (name, properties)
+
+  | termEmit pps term = 
+    error pps "Unrecognized term."
+
+
+(* Emits a rational number by converting to literal division. *)
+and emit_rational pps (numer, denom) =
+    expEmit pps (ExpBuild.divide (ExpBuild.int numer, ExpBuild.real (Real.fromInt denom)))
+
+(* Emits a real number according to the precision of the expression.
+ * Infinity and NaN are not allowed.
+ * TODO support precision directly and eliminate the FLITERAL macro. *)
+and emit_real pps r = 
+    if Real.isFinite r then string pps ("FLITERAL("^(Util.real2exact_str r)^")")
+    else error pps ("Number is infinite or nan.")
+
+and emit_symbol pps (name, properties) =
+    string pps (Term.sym2c_str (name, properties))
+
+fun emit_term_name pps (Exp.SYMBOL (name, properties)) = 
+    string pps (Symbol.name name)
+  | emit_term_name pps _ = error pps "Not a name."
+
+fun emit_term_declaration pps exp =
+    prefix ("CDATAFORMAT ", emit_term_name) pps exp
+
+(* Emits a name as the destination ('left' value) of an assignment.
+ * Only symbol terminals are allowed. *)
+fun emit_lvalue pps (exp as Exp.TERM (Exp.SYMBOL (name, properties))) =
+    suffix (emit_symbol, " = ") pps (name, properties)
+
+  | emit_lvalue pps _ = 
+    error pps ("Left side of assignment must be a symbol.")
+
+
+
+
+(* Emits an expression as a part of a class flow function. *)
+fun emit_class_instruction pps (iterator, class, block as Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [dst, src])) =
+    if ExpProcess.isInstanceEq block then
+	emit_instance_equation pps (iterator, class, block)
+    else if ExpProcess.isIntermediateEq block then
+	prefix ("CDATAFORMAT ", emit_lvalue) pps dst
+	before suffix (expEmit, ";") pps block
+    else 
+	emit_lvalue pps dst
+	before suffix (expEmit, ";") pps block
+
+  | emit_class_instruction pps _ = 
+    error pps ("Not a class instruction.")
+
+and emit_instance_equation pps (iterator, caller, equation) =
+    let val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst equation
+	val instance_class = CurrentModel.classname2class classname
+	val iter_name = 
+	    case iterator
+	     of (_, DOF.UPDATE name) => name
+	      | (_, DOF.POSTPROCESS name) => name
+	      | (name, _) => name
+
+	val iterators = List.filter (not o isUpdateIterator) (CurrentModel.iterators ())
+
+	fun declare_instance_input pps [] = ()
+	  | declare_instance_input pps xs = 
+	    let val term = (ExpProcess.exp2term o ExpBuild.var) ("instInputs["^(Int.toString (List.length xs))^"]")
+	    in line (suffix (emit_term_declaration, ";")) pps term
 	    end
-    in
-	List.concat (map output2struct (!outputs))
-    end
 
-fun outputstatestructbyclass_code iter (class : DOF.class) =
-    let
-	val classname = ClassProcess.class2orig_name class
-	val exps = #exps class
-	val state_eqs_symbols = map ExpProcess.lhs (List.filter (ExpProcess.isStateEqOfIter iter) (!exps))
-	val instances = List.filter ExpProcess.isInstanceEq (!exps)
-	val class_inst_pairs = ClassProcess.class2instnames class
-	val iter_name = Symbol.name (#1 iter)
-    in
-	[$(""),
-	 $("// define state structures"),
-	 $("struct statedata_" ^ (Symbol.name classname) ^ "_" ^ iter_name ^ " {"),	 
-	 SUB($("// states (count="^(i2s (List.length state_eqs_symbols))^")")::
-	     (map (fn(exp)=>
-		     let
-			 (* TODO - size must be a list of sizes *)
-			 val size = (*Term.symbolSpatialSize (ExpProcess.exp2term sym)*) ExpProcess.exp2size (#iterators class) exp
-			 val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term exp))
-		     in
-			 if size = 1 then
-			     $("CDATAFORMAT " ^ name ^ ";")
-			 else
-			     $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"];")
-		     end) state_eqs_symbols) @
-	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
-	      (map 
-		   (fn(classname, instname)=>
-		      let			  
-			  val size = 
-			      case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
-			       of SOME inst' => ExpProcess.instSpatialSize inst'
-				| NONE => 1
-		      in
-			  if size = 1 then
-			      $("struct statedata_" ^ (Symbol.name classname) ^ "_" ^ iter_name ^ " "^(Symbol.name instname)^";")
-			  else
-			      $("struct statedata_" ^ (Symbol.name classname) ^ "_" ^ iter_name ^ " "^(Symbol.name instname)^"["^(i2s size)^"];")
-		      end)
-		   class_inst_pairs))),
-	 $("};")]
-    end
-
-fun outputstatestruct_code iterators classes =
-    let
-	fun isMasterClass {properties={classtype,...},...} =
-	    case classtype of
-		DOF.MASTER _ => true
-	      | _ => false
-	val master_classes = List.filter isMasterClass classes
-
-	val predeclare_statements = 
-	    map
-		(fn(class)=> "struct statedata_" ^ (Symbol.name (ClassProcess.class2orig_name class)))
-		master_classes
-
-    in
-	Util.flatmap (fn(iter as (name, itertype))=>
-			 ($("")::($("// Pre-declare state structures (iterator '"^(Symbol.name name)^"')"))::(map (fn(str)=> $(str ^ "_" ^ (Symbol.name name) ^ ";")) predeclare_statements)) @
-			 List.concat (map (outputstatestructbyclass_code iter) master_classes)) iterators
-    end
-
-fun outputinit_code class =
-    let 
-	val outputs = #outputs class
-	fun output2progs (out as {name, contents, condition}) = 
-	    let
-		val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (Exp.TERM name)
-		val var = "outputdata_" ^ identifier
-		val iter = TermProcess.symbol2temporaliterator name
-		val spatial_iterators = TermProcess.symbol2spatialiterators name
-
-		fun iter2size iter = 
-		    let
-			val {name,high,low,step} = CWriterUtil.iter2range class iter
-		    in
-			Real.ceil((high-low)/step) + 1
-		    end
-		    
-		val total_size = ExpProcess.exp2size (#iterators class) (Exp.TERM name)
-	    in
-		[$(var ^ ".length = 0;"),
-		 $(var ^ ".alloc_size = START_SIZE;")] @
-		(case iter of
-		     SOME (sym, _) => [$(var ^ ".time = MALLOCFUN(START_SIZE*sizeof(CDATAFORMAT)); // iterator '"^(Symbol.name sym)^"'")]
-		   | NONE => []) @
-		(map (fn(c,i)=> $(var ^ ".vals" ^ (i2s i) ^ " = MALLOCFUN(START_SIZE*"^(i2s total_size)^"*sizeof(CDATAFORMAT));")) (Util.addCount contents))
+	fun declare_instance_output pps [] = ()
+	  | declare_instance_output pps ys = 
+	    let val term = (ExpProcess.exp2term o ExpBuild.var) ("instOutputs["^(Int.toString (List.length ys))^"]")
+	    in line (suffix (emit_term_declaration, ";")) pps term
 	    end
 
-	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
-	val sym_decls = map
-			    (fn(term, sym)=> 
-			       if (ExpProcess.exp2size (#iterators class) (Exp.TERM term)) > 1 then
-				   $("CDATAFORMAT *outputsave_" ^ (Symbol.name sym) ^ ";")
-			       else
-				   $("CDATAFORMAT outputsave_" ^ (Symbol.name sym) ^ ";")
-			    )
-			    dependent_symbols
+	fun declare_subsystem pps [] = ()
+	  | declare_subsystem pps iterators = 
+	    let val term = (ExpProcess.exp2term o ExpBuild.var) ("system_"^(Symbol.name classname))
+	    in line (suffix (emit_term_name, " subsystemRead;")) pps term
+	    end
 
-	val init_outputsaves = List.mapPartial 
-				   (fn(term, sym)=> 
-				      let
-					  val size = ExpProcess.exp2size (#iterators class) (Exp.TERM term)
-				      in
-					  if size > 1 then
-					      SOME ($("outputsave_" ^ (Symbol.name sym) ^ " = MALLOCFUN("^(i2s size)^" * sizeof(CDATAFORMAT));"))
-					  else
-					      NONE
-				      end
-				   ) dependent_symbols
+	fun assign_input pps (input, index) =
+	    let val lvalue = ExpBuild.var ("instInputs["^(Int.toString index)^"]")
+	    in emit_lvalue pps lvalue;
+	       suffix (expEmit, ";") pps input
+	    end
 
+	fun assign_output pps (output, index) =
+	    let val rvalue = ExpBuild.var ("instOutputs["^(Int.toString index)^"]")
+	    in emit_lvalue pps (Exp.TERM output);
+	       suffix (expEmit, ";") pps rvalue
+	    end
+
+	fun assign_subsystem pps (iterator as (iter_name, _)) =
+	    let val subsys_iter = ExpBuild.var ("subsystemRead." ^  (Symbol.name iter_name))
+		val subsys_states = ExpBuild.var ("subsystemRead.states_" ^  (Symbol.name iter_name))
+	    in emit_lvalue pps subsys_iter;
+	       string pps ("systemRead->" ^ (Symbol.name iter_name));
+	       string pps ";"; newline pps;
+	       emit_lvalue pps subsys_states;
+	       string pps ("systemRead->" ^ (Symbol.name iter_name) ^ "->" ^ (Symbol.name instname));
+	       string pps ";"
+	    end
+
+    in comment pps ("Calling "^(Symbol.name classname)^" instance "^(Symbol.name instname));
+       comment' expEmit pps equation;
+       delimit (suffix (emit_term_declaration, ";"), newline) pps outargs; newline pps;
+       string pps "  {"; openBox pps (Rel ~1); newline pps;
+
+       declare_instance_input pps inpargs;
+       declare_instance_output pps outargs;
+       declare_subsystem pps iterators;
+       newline pps;
+
+       delimit (assign_input, newline) pps (Util.addCount inpargs); newline pps;
+       newline pps;
+
+       delimit (assign_subsystem, newline) pps iterators; newline pps;
+       newline pps;
+
+       suffix (emit_instance_call, ";") pps (iter_name, caller, equation); newline pps;
+       newline pps;
+
+       delimit (assign_output, newline) pps (Util.addCount outargs); newline pps;
+       string pps "}"; closeBox pps; newline pps
+    end
+	
+fun classEmit pps (iterator, class) =
+    let val {exps, ...} = class
     in
-	[$(""),
-	 $("void output_init() {"),
-	 SUB(List.concat (map output2progs (!outputs))),
-	 $("}"),
-	 $(""),
-	 $("// declaring variables to store for computing outputs")] @
-	 sym_decls @ 
-	[$(""),
-	 $("void outputsave_init() {"),
-	 SUB(init_outputsaves),
-	 $("}")]
-
+	case !exps 
+	 of [] => emit_class_prototype pps (iterator, class)
+	  | _ => emit_class_definition pps (iterator, class)
     end
 
-fun initbyclass_code iter class =
-    let
-	val classname = ClassProcess.class2orig_name class
-	val exps = #exps class
-	val init_eqs = (List.filter ExpProcess.isInitialConditionEq (!exps))
-	(* init_eqs' - matches only those with the correct iterator *)
-	val init_eqs' = List.filter (fn(exp)=> case ExpProcess.lhs exp of
-						   Exp.TERM (Exp.SYMBOL (_, props))=> 
-						   (case Property.getIterator props of
-							SOME ((sym,_)::rest)=> sym = (#1 iter)
-						      | _ => false)
-						 | _ => false)
-				    init_eqs
-	val instances = List.filter ExpProcess.isInstanceEq (!exps)
-	val class_inst_pairs = ClassProcess.class2instnames class
-	val iter_name = Symbol.name (#1 iter)
+and emit_class_definition pps (iterator, class) =
+    let val {name, properties, inputs, outputs, iterators, exps} = class
+    in emit_class_signature pps (iterator, class); newline pps;
+       string pps "  {"; openBox pps (Rel ~1); newline pps;
+       emit_class_locals pps class; newline pps;
+       newline pps;
+
+       emit_class_body pps (iterator, class); newline pps;
+       newline pps;
+
+       emit_class_outputs pps class; newline pps;
+       newline pps;
+
+       string pps "return 0;"; newline pps;
+       string pps "}"; closeBox pps; newline pps
+    end
+
+and emit_class_signature pps (iterator, class : DOF.class) =
+    let val {name, properties={basename, ...}, ...} = class
+	val iter_name = 
+	    case iterator
+	     of (_, DOF.UPDATE name) => name
+	      | (_, DOF.POSTPROCESS name) => name
+	      | (name, _) => name
+
+	val state_type = "state_" ^ (Symbol.name basename) ^ "_" ^ (Symbol.name iter_name)
+	val system_type = "system_" ^ (Symbol.name basename) ^ "_" ^ (Symbol.name iter_name)
+
+	val params = ["CDATAFORMAT " ^ (Symbol.name iter_name),
+		      "const " ^ state_type ^ " *rd_" ^ (Symbol.name iter_name),
+		      state_type ^ " *wr_" ^ (Symbol.name iter_name),
+		      system_type ^ " *sys_rd",
+		      "CDATAFORMAT *inputs",
+		      "CDATAFORMAT *outputs",
+		      "const unsigned int firstIteration",
+		      "const unsigned int modelid"]
     in
-	[$(""),
-	 $("// define state initialization functions"),
-	 $("void init_" ^ (Symbol.name classname) ^ "_" ^ iter_name ^ "(struct statedata_"^(Symbol.name classname)^"_"^iter_name^" *states) {"),	 
-	 SUB($("// states (count="^(i2s (List.length init_eqs))^")")::
-	     (Util.flatmap (fn(exp)=>
-		     let
-			 val size = (*Term.symbolSpatialSize (ExpProcess.exp2term (ExpProcess.lhs sym))*)
-			     ExpProcess.exp2size (#iterators class) exp
-			 val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (ExpProcess.lhs exp)
-			 (*val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term (ExpProcess.lhs exp)))*)
-			 val assigned_value = CWriterUtil.exp2c_str (ExpProcess.rhs exp)
-		     in
-			 if size = 1 then
-			     [$("states->" ^ identifier ^ " = " ^ assigned_value ^ ";")]
-			 else (* might have to do something special here or in c_writer_util - add the foreach code...*)
-			     CWriterUtil.expandprogs2parallelfor 
-				 class 
-				 (exp, [$("states->" ^ identifier ^ iterators ^" = " ^ assigned_value ^ ";")])
-		     end) init_eqs') @
-	     ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")")::
-	      (map 
-		   (fn(classname, instname)=>
-		      let			  
-			  val size = 
-			      case List.find (fn(inst)=> ExpProcess.instOrigInstName inst = instname) instances 
-			       of SOME inst' => ExpProcess.instSpatialSize inst'
-				| NONE => 1
-		      in
-			  if size = 1 then
-			      $("init_" ^ (Symbol.name classname) ^ "_" ^ iter_name ^ "(&states->"^(Symbol.name instname)^");")
-			  else (* not sure what to do here *)
-			      $("init_" ^ (Symbol.name classname) ^ "(&states->"^(Symbol.name instname)^");")
-		      end)
-		   class_inst_pairs))),
-	 $("};")]
+	line string pps "__HOST__ __DEVICE__";
+	prefix (("int flow_"^(Symbol.name name)), 
+		parentheses ("(", delimit (string, comma), ")"))
+	       pps params
+    end
+
+and emit_class_prototype pps (iterator, class) =
+    suffix (emit_class_signature, ";") pps (iterator, class)
+
+and emit_class_locals pps class =
+    let val {name, properties, inputs, outputs, iterators, exps} = class
+	fun emit_input pps (input, index) =
+	    let val {name, default} = input
+		val index = 
+		    if CurrentModel.isTopClass class then
+			"TARGET_IDX(num_inputs, num_models, " ^ (Int.toString index) ^ ", modelid)"
+		    else Int.toString index
+	    in prefix ("CDATAFORMAT ", emit_lvalue) pps (Exp.TERM name);
+	       prefix ("inputs", parentheses ("[", string, "]"))
+		      pps index;
+	       string pps ";"
+	    end
+    in comment pps "Local variables";
+       delimit (emit_input, newline) pps (Util.addCount (!inputs))
+    end
+
+
+and emit_class_body pps (iterator, class) =
+    let val {name, properties, inputs, outputs, iterators, exps} = class
+	val equations = List.filter (fn exp => not (ExpProcess.isInitialConditionEq exp) andalso
+					       (ExpProcess.isIntermediateEq exp orelse
+						ExpProcess.isInstanceEq exp orelse
+						ExpProcess.isStateEq exp)) (!exps)
+    in comment pps "Computation of equations";
+       delimit (fn pps => (fn exp => emit_class_instruction pps (iterator, class, exp)), newline) pps equations
+    end
+
+and emit_class_outputs pps class =
+    if CurrentModel.isTopClass class then
+	let val {outputs, ...} = class
+	    fun output_terms {contents, condition, ...} =
+		ExpProcess.exp2termsymbols condition @
+		(Util.flatmap ExpProcess.exp2termsymbols contents)
+
+	    val terms = Util.flatmap output_terms (!outputs)
+	in comment pps "Output data";
+	   string pps "if (firstIteration) {"; newline pps;
+	   string pps "output_data *od = (output_data *)outputs;"; newline pps;
+	   openBox pps (Rel 2);
+	   delimit (emit_term_name, newline) pps terms; newline pps;
+	   closeBox pps; newline pps;
+	   string pps "}"; newline pps
+	end
+    else let val {outputs, ...} = class
+	     fun emit_output pps (output, index) =
+		 let val {contents, ...} = output
+		     val lvalue = ExpBuild.var ("outputs["^(Int.toString index)^"]")
+		 in case contents
+		     of [item] => (emit_lvalue pps lvalue;
+				   suffix (expEmit, ";") pps item)
+		      | [] => error pps "Empty output."
+		      | _ => error pps "Output contents too large."
+		 end
+	 in comment pps "Output data";
+	    delimit (emit_output, newline) pps (Util.addCount (!outputs))
+	 end
+
+fun emit_class_data_structures pps class =
+    let val {name, properties, inputs, outputs, iterators, exps} = class
+    in emit_class_state_structure pps class; newline pps;
+       emit_class_output_structure pps class; newline pps
+    end
+
+and emit_class_state_structure pps class = 
+    let val {name, properties, inputs, outputs, iterators, exps} = class
+	fun declare_member pps (exp as Exp.FUN _) =
+	    if ExpProcess.isStateEq exp then 
+		suffix (emit_term_declaration, ";") pps (ExpProcess.exp2term (ExpProcess.lhs exp))
+	    else if ExpProcess.isInstanceEq exp then 
+		suffix (declare_instance, ";") pps exp
+	    else ()
+	  | declare_member pps _ = ()
+
+	and declare_instance pps exp =
+	    let val {classname, instname, props={realclassname, ...}, ...} = ExpProcess.deconstructInst exp
+		val name = case realclassname of SOME name => name | _ => classname
+	    in prefix ("state_", string) pps (Symbol.name name);
+	       string pps " ";
+	       string pps (Symbol.name instname)
+	    end
+
+	val members = List.filter (fn exp => ExpProcess.isStateEq exp orelse ExpProcess.isInstanceEq exp) (!exps)
+
+	val (states, rest) = List.partition ExpProcess.isStateEq (!exps)
+	val (instances, rest) = List.partition ExpProcess.isInstanceEq rest
+    in comment pps ("States of " ^ (Symbol.name name));
+       string pps "typedef struct {"; newline pps;
+       delimit (declare_member, newline) pps (states @ instances); newline pps;
+       string pps ("} state_" ^ (Symbol.name name));
+       string pps ";"; newline pps
+    end
+
+and emit_class_output_structure pps ({outputs=ref [], ...}) = ()
+  | emit_class_output_structure pps (class as {name, outputs, ...}) = 
+    let fun output_terms {contents, condition, ...} =
+	    ExpProcess.exp2termsymbols condition @
+	    (Util.flatmap ExpProcess.exp2termsymbols contents)
+	val terms = Util.flatmap output_terms (!outputs)
+    in comment pps ("Outputs of " ^ (Symbol.name name));
+       string pps "typedef struct {"; newline pps;
+       delimit (suffix (emit_term_declaration, ";"), newline) 
+	       pps terms;
+       newline pps;
+       string pps ("} output_" ^ (Symbol.name name));
+       string pps ";"; newline pps;
+       newline pps
     end
     
 
-fun init_code (classes, inst_class, iterators) =
+(* FIXME this was pasted directly from old writer; clean it up. *)
+fun findStatesInitValues iter_sym basestr (class:DOF.class) = 
     let
-	fun isMasterClass {properties={classtype,...},...} =
-	    case classtype of
-		DOF.MASTER _ => true
-	      | _ => false
-	val master_classes = List.filter isMasterClass classes
-	fun orig_name class = Symbol.name (ClassProcess.class2orig_name class)
-	fun iter_name iter = Symbol.name (#1 iter)
-
-	fun predeclare_statements itername = 
-	    map
-		(fn(class)=> $("void init_" ^ (orig_name class) ^ "_" ^ itername ^ "(struct statedata_"^ (orig_name class) ^"_" ^ itername ^ " *states);"))
-		master_classes
-
-	val init_states_code = 
-	    [$(""),
-	     $("// Call the individual init_??? routines for each iterator"),
-	     $("void init_states() {"),
-	     SUB(map (fn(iter)=> $("init_" ^ (orig_name inst_class) ^ "_" ^ (iter_name iter) ^ "((struct statedata_"^(orig_name inst_class)^"_"^(iter_name iter)^"*) model_states_"^(iter_name iter)^");")) iterators),
-	     $("}")]
-
-    in
-	(Util.flatmap (fn(iter as (name,itertype))=> ($("")::($("// Pre-declare state initialization functions"))::(predeclare_statements (Symbol.name name))) @
-						     List.concat (map (initbyclass_code iter) master_classes))
-		      iterators) @
-	init_states_code
-    end
-
-fun class2flow_code (class, top_class) =
-    let
-	val orig_name = ClassProcess.class2orig_name class
-
-	val (readstates, writestates) = class2stateiterators class
-	val iterators = CurrentModel.iterators()
-	val iteratorprototypes = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") iterators)
-				 
-	val stateprototypes = 
-	    (String.concat (map
-				(fn(sym)=> "const struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ (Symbol.name sym) ^ " *rd_" ^ (Symbol.name sym) ^ ", ")
-				readstates)) ^
-	    (String.concat (map
-				(fn(sym)=> "struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ (Symbol.name sym) ^ " *wr_" ^ (Symbol.name sym) ^ ", ")
-				writestates))
-
-	val header_progs = 
-	    [$(""),
-	     $("int flow_" ^ (Symbol.name (#name class)) 
-	       ^ "("^iteratorprototypes^stateprototypes^"CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration) {")]
-
-	val read_memory_progs = []
-
-	val read_states_progs = []
-	    
-	val read_inputs_progs =
-	    [$(""),
-	     $("// mapping inputs to variables")] @ 
-	    (map
-		 (fn({name,default},i)=> $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];"))
-		 (Util.addCount (!(#inputs class))))
-
-
-	(* filter out all the unneeded expressions *)
-	val (initvalue_exps, rest_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
-	val (valid_exps, rest_exps) = List.partition (fn(exp)=>(ExpProcess.isIntermediateEq exp) orelse
-							     (ExpProcess.isInstanceEq exp) orelse
-							     (ExpProcess.isStateEq exp)) rest_exps
-	val _ = if (List.length rest_exps > 0) then
-		    (Logger.log_error($("Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class))));
-		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (e2s exp))) rest_exps;
-		     DynException.setErrored())
-		else
-		    ()
-
-	val equ_progs = 
-	    [$(""),
-	     $("// writing all intermediate, instance, and differential equation expressions")] @
-	    (let
-		 val progs =
-		     Util.flatmap
-			 (fn(exp)=>
-			    let
-				val size = ExpProcess.exp2size (#iterators class) exp
-				val spatial_iterators = ExpProcess.exp2spatialiterators exp
-				fun exp2lhssymname exp = Symbol.name (Term.sym2curname (ExpProcess.getLHSSymbol exp))
-			    in
-				if (ExpProcess.isIntermediateEq exp) then
-				    if size > 1 then					
-					if (ExpProcess.isTerm (ExpProcess.rhs exp)) andalso 
-					   (Term.isNumeric (ExpProcess.exp2term (ExpProcess.rhs exp))) then
-					    if (Term.isScalar (ExpProcess.exp2term (ExpProcess.rhs exp))) then
-						(* duplicate each element as it is assigned *)
-						[$("CDATAFORMAT "^(exp2lhssymname exp)^"["^(i2s size)^"] = "^
-						   "{"^(String.concatWith ", " (List.tabulate (size, fn(x)=>(CWriterUtil.exp2c_str (ExpProcess.rhs exp)))))^"};")]
-					    else
-						(* assign as a vector*)
-						[$("CDATAFORMAT "^(exp2lhssymname exp)^"["^(i2s size)^"] = "^
-						   (CWriterUtil.exp2c_str (ExpProcess.rhs exp))^"};")]
-					else
- 					    [$("CDATAFORMAT " ^ (exp2lhssymname exp) ^ "["^(i2s size)^"];")] @ 
-					    (CWriterUtil.exp2parallelfor class exp)
-				    else
- 					[$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
-				else if (ExpProcess.isStateEq exp) then
-				    if size > 1 then
-					CWriterUtil.exp2parallelfor class exp
-				    else
- 					[$((CWriterUtil.exp2c_str exp) ^ ";")]
-				else if (ExpProcess.isInstanceEq exp) then
-				    let
-					val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
-					val orig_instname = case InstProps.getRealInstName props of
-								SOME v => v
-							      | NONE => instname
-
-					val class = CurrentModel.classname2class classname
-					val {properties={classform,...},...} = class
-
-					val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
-					val statereads = map
-							     (fn(sym)=> "&rd_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")
-							     iterators
-							     
-					val statewrites = map
-							      (fn(sym)=> "&wr_" ^ (Symbol.name sym) ^ "->" ^ (Symbol.name orig_instname) ^ ", ")
-							      iterators
-
-					val calling_name = "flow_" ^ (Symbol.name classname)
-
-					val inpvar = Unique.unique "inputdata"
-					val outvar = Unique.unique "outputdata"
-
-					val inps = "CDATAFORMAT " ^ inpvar ^ "[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str inpargs)) ^ "};"
-					val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
-				    in
-					[SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-					      $("// " ^ (CWriterUtil.exp2c_str exp)),
-					      $(inps), $(outs_decl),
-					      $(calling_name ^ "("^(String.concat (map (fn(sym)=>Symbol.name sym ^ ", ") iterators))^(String.concat statereads) ^ (String.concat statewrites) ^ inpvar^", "^outvar^", first_iteration);")] @
-					     let
-						 val symbols = map
-								   (fn(outsym) => Term.sym2curname outsym)
-								   outargs
-					     in
-						 map
-						     (fn((sym, {name, contents, condition}),i')=> 
-							$("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ outvar ^
-							  "["^(i2s i')^"]; // Mapped to "^(Symbol.name classname)^": "^(e2s (List.hd (contents)))))
-						     (Util.addCount (ListPair.zip (symbols, !(#outputs class))))
-					     end)
-
-					]
-				    end
-				else
-				    DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CWriter.class2flow_code.equ_progs", Logger.INTERNAL)
-			    end)
-			 valid_exps
-	     in
-		 progs
-	     end)
-	    
-	val state_progs = []
-
-	val output_progs = 
-	    if top_class then
-		[$(""),
-		 $("// writing output variables"),
-		 $("if (first_iteration) {"),
-		 SUB(map
-			 (fn(t,s)=> 
-			    let
-				val size = ExpProcess.exp2size (#iterators class) (Exp.TERM t)
-				val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (Exp.TERM t)
-			    in
-				if size > 1 then
-				    $("memcpy(outputsave_"^(Symbol.name s)^", &("^prefix^"->"^identifier^"), "^(i2s size)^" * sizeof(CDATAFORMAT));")
-				else
-				    $("outputsave_" ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";")
-			    end
-			 )
-			 (CWriterUtil.class2uniqueoutputsymbols class)),
-		 $("}")]
-	    else
-		[$(""),
-		 $("// writing output data "),
-		 SUB(map 
-			 (fn({name,contents,condition},i)=> 
-			    let
-				val _ = if length contents = 1 then
-					    ()
-					else
-					    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
-					    
-				val valid_condition = case condition 
-						       of (Exp.TERM (Exp.BOOL v)) => v
-							| _ => false
-				val _ = if valid_condition then
-					    ()
-					else
-					    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(e2s condition)^"' when used as a submodel"), "CWriter.class2flow_code", Logger.INTERNAL)
-					    
-			    in
-				case contents of
-				    [content] =>
-				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
-				  | _ => 
-				    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), 
-							       "CWriter.class2flow_code", 
-							       Logger.INTERNAL)
-			    end) (Util.addCount (!(#outputs class))))]
-
-	val mapping_back_progs = []
-
-    in
-	header_progs @
-	[SUB(read_states_progs @
-	     read_inputs_progs @
-	     equ_progs @
-	     state_progs @
-	     output_progs @
-	     mapping_back_progs @
-	     [$(""),
-	      $("return 0;")]),
-	 $("}"),
-	 $("")]
-    end
-
-fun flow_wrapper (class, (iter_sym, _)) =
-    let
-	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
-	val iter_name = Symbol.name iter_sym
-
-	val (readstates, writestates) = class2stateiterators class
-	val iterators = CurrentModel.iterators()
-	val iteratorprototypes = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") iterators)
-				 
-	val stateprototypes = 
-	    (String.concat (map
-				(fn(sym)=> "const struct statedata_" ^ (orig_name) ^ "_" ^ (Symbol.name sym) ^ " *rd_" ^ (Symbol.name sym) ^ ", ")
-				readstates)) ^
-	    (String.concat (map
-				(fn(sym)=> "struct statedata_" ^ (orig_name) ^ "_" ^ (Symbol.name sym) ^ " *wr_" ^ (Symbol.name sym) ^ ", ")
-				writestates))
-    in
-  	[$(""),
-	 $("// wrapper for flow function over iterator '"^iter_name^"'"),
-	 $("int flow_"^iter_name^"(CDATAFORMAT "^iter_name^", const CDATAFORMAT *rd_"^iter_name^", CDATAFORMAT *wr_"^iter_name^", CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration) {"),
-	 SUB[$("return flow_"^orig_name^"("^(String.concat (map (fn(sym,_)=> Symbol.name sym ^ ", ") iterators))^(String.concat (map (fn(sym)=>  "(const struct statedata_"^orig_name^"_"^(Symbol.name sym)^" *) rd_" ^ (Symbol.name sym) ^ ", ") readstates))^(String.concat (map (fn(sym)=> "(struct statedata_"^orig_name^"_"^(Symbol.name sym)^"*) wr_" ^ (Symbol.name sym) ^ ", ") writestates))^"inputs, outputs, first_iteration);")],
-	 $("}")]
-    end
-
-
-fun flow_code (model: DOF.model) = 
-    let
-	val (classes, inst, props) = model	
-	val {name=inst_name, classname=class_name} = inst
-	val inst_class = CurrentModel.classname2class class_name
-
-	fun isInline (class: DOF.class) =
-	    let
-		val {properties={classform,...},...} = class
-	    in
-		case classform of 
-		    DOF.FUNCTIONAL => true
-		  | _ => false
-	    end
-	val iterators = CurrentModel.iterators()
-
-	val fundecl_progs = map
-				(fn(class) => 
-				   let
-				       val orig_name = ClassProcess.class2orig_name class
-				   in
-				       if isInline class then
-					   $("CDATAFORMAT "^(Symbol.name (#name class))^"("^(String.concatWith ", " (map (fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) (!(#inputs class))))^");")
-				       else
-					   let
-					       val (readstates, writestates) = class2stateiterators class
-
-					       val iteratorprototypes = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") iterators)
-									
-					       val stateprototypes = 
-						   (String.concat (map
-								       (fn(sym)=> "const struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ (Symbol.name sym) ^ " *rd_" ^ (Symbol.name sym) ^ ", ")
-								       readstates)) ^
-						   (String.concat (map
-								       (fn(sym)=> "struct statedata_" ^ (Symbol.name orig_name) ^ "_" ^ (Symbol.name sym) ^ " *wr_" ^ (Symbol.name sym) ^ ", ")
-								       writestates))
-
-					   in
-					       $("int flow_" ^ (Symbol.name (#name class)) ^ "("^iteratorprototypes^stateprototypes^"CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration);")
-					   end
-				   end)
-				classes
-				
-	val flow_progs = List.concat (map (fn(c)=>
-					     if isInline c then
-						 (Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
-						  DynException.setErrored();
-						  [])
-					     else
-						 class2flow_code (c,#name c = #name inst_class)) classes)
-
-	(*val top_level_flow_progs = [$"",
-				    $("int model_flows(CDATAFORMAT t, const void *y, void *dydt, CDATAFORMAT inputs[], CDATAFORMAT outputs[], int first_iteration){"),
-				    SUB[$("return flow_" ^ (Symbol.name (#name topclass)) ^ "(t, y, dydt, inputs, outputs,first_iteration);")],
-				    $("}")]*)
-    in
-	[$("// Flow code function declarations")] @
-	fundecl_progs @
-	flow_progs @
-	(Util.flatmap (fn(iter)=>flow_wrapper (inst_class, iter)) iterators)
-    end
-
-fun input_code (class: DOF.class) =
-    [$(""),
-     $("void init_inputs(double *inputs) {"),
-     SUB(map 
-	     (fn({name,default},i)=> $("inputs["^(i2s i)^"] = " ^(case default 
-								of SOME t => CWriterUtil.exp2c_str t
-								 | NONE => "(0.0/0.0)")^ "; // " ^ (e2s (Exp.TERM name))))
-	     (Util.addCount (!(#inputs class)))),
-     $("}")]
-
-fun output_code (name, location, block) =
-    let
-      val filename = location ^ "/" ^ name ^ ".c"
-      val _ = Logger.log_notice ($("Generating C source file '"^ filename ^"'"))
-      val file = TextIO.openOut (filename)
-    in
-      Printer.printtexts (file, block, 0)
-      before TextIO.closeOut file
-    end
-
-fun props2solvers props = 
-    let
-	val iterators = #iterators props
-	(* val _ = Util.log("In props2solvers: found iterators: " ^ (l2s (map (fn(sym,_)=>Symbol.name sym) iterators))) *)
-	val continuous_iterators = List.filter (fn(sym, itertype)=>case itertype of
-					       DOF.CONTINUOUS _ => true
-					     | DOF.DISCRETE _ => false) iterators
-        (* val _ = Util.log("In props2solvers: found continuous iterators: " ^ (l2s (map (fn(sym,_)=>Symbol.name sym) continuous_iterators))) *)
-    in
-	List.mapPartial (* just to skip out on the exception that is not needed *)
-	    (fn(sym, itertype)=> case itertype of
-				     DOF.CONTINUOUS solver => SOME (sym, solver)
-				   | _ => NONE (* won't reach this condition *))
-	    continuous_iterators
-    end
-
-fun props2discretes props =
-    let
-	val iterators = #iterators props
-	val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of
-					       DOF.CONTINUOUS _ => false
-					     | DOF.DISCRETE _ => true) iterators
-    in
-	List.mapPartial (* just to skip out on the exception that is not needed *)
-	    (fn(sym, itertype)=> case itertype of
-				     DOF.DISCRETE {fs} => SOME (sym, fs)
-				   | _ => NONE (* won't reach this condition *))
-	    discrete_iterators
-    end
-
-
-fun exec_code (class:DOF.class, props, statespace) =
-    let
-	val iter_solver_list = props2solvers props
-	val iter_fs_list = props2discretes props
-	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
-	val iterators = CurrentModel.iterators()
+	val classname = ClassProcess.class2orig_name class
+	val exps = #exps class
+	(*val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))*)
+	val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
+	fun exp2name exp = 
+	    Term.sym2curname (ExpProcess.exp2term exp)
+	    handle e => DynException.checkpoint ("CParallelWriter.simengine_interface.findStatesInitValues.exp2name ["^(ExpPrinter.exp2str exp)^"]") e
 			
-	val itervars = String.concat (map (fn(sym,_)=> "CDATAFORMAT *" ^ (Symbol.name sym) ^ ", ") iterators)
-
-	val time_comparison = String.concatWith " || " (map (fn(sym, itertype)=> 
-							    case itertype of
-								DOF.CONTINUOUS _ => "*" ^ (Symbol.name sym) ^ " < t1"
-							      | DOF.DISCRETE {fs} => "(*" ^ (Symbol.name sym) ^ "/" ^ (r2s fs) ^ ") < t1") iterators)
+	val instances = List.filter ExpProcess.isInstanceEq (!exps)
+	val class_inst_pairs = ClassProcess.class2instnames class
     in
-	[$(""),
-	 $("void exec_loop(CDATAFORMAT *t, CDATAFORMAT t1, CDATAFORMAT *inputs) {"),	 
-	 SUB((StdFun.flatmap 
-		  (fn(sym, itertype)=> 
-		     case itertype of
-			 DOF.CONTINUOUS _ => 
-			 [$("CDATAFORMAT "^(Symbol.name sym)^"_ptr = *t...;"),
-			  $("CDATAFORMAT *"^(Symbol.name sym)^" = &"^(Symbol.name sym)^"_ptr;")]
-		       | DOF.DISCRETE {fs} => 
-			 [$("CDATAFORMAT "^(Symbol.name sym)^"_ptr = *t * "^(r2s fs)^";"),
-			  $("CDATAFORMAT *"^(Symbol.name sym)^" = &"^(Symbol.name sym)^"_ptr;")])
-		  (List.filter (fn(sym,_)=> sym <> (Symbol.symbol "t")) iterators)) @
-	     (Util.flatmap (fn(sym, solver)=>
-			      let
-				  val iter_name = Symbol.name sym
-				  val {dt, abstol, reltol} = Solver.solver2options solver
-				  val statesize = ModelProcess.model2statesizebyiterator sym (CurrentModel.getCurrentModel())
-			      in
-				  [$("solver_props props_"^iter_name^";"),
-				   $("props_"^iter_name^".timestep = "^(r2s dt)^";"),
-				   $("props_"^iter_name^".abstol = "^(r2s abstol)^";"),
-				   $("props_"^iter_name^".reltol = "^(r2s reltol)^";"),
-				   $("props_"^iter_name^".starttime = *"^iter_name^";"),
-				   $("props_"^iter_name^".stoptime = t1;"),
-				   $("props_"^iter_name^".time = t;"),
-				   $("props_"^iter_name^".model_states = model_states_"^iter_name^";"),
-				   $("props_"^iter_name^".inputs = inputs;"),
-				   $("props_"^iter_name^".outputs = NULL;"),
-				   $("props_"^iter_name^".first_iteration = TRUE;"),
-				   $("props_"^iter_name^".statesize = "^(i2s statesize)^";"),
-				   $("props_"^iter_name^".fun = &flow_"^(iter_name)^";"),
-				   $("INTEGRATION_METHOD_"^iter_name^"(mem) *mem_"^iter_name^" = INTEGRATION_METHOD_"^iter_name^"(init)(&props_"^iter_name^");"),
-				   $("")]
-			      end)
-			   iter_solver_list) @
-	     [$("while ("^time_comparison^") {"),
-	      SUB((Util.flatmap (fn(sym, solver)=> 
-				   [$("double prev_"^(Symbol.name sym)^" = *"^(Symbol.name sym)^";"),
-				    $("if (*"^(Symbol.name sym)^" < t1) {"),
-				    SUB[$("int status = INTEGRATION_METHOD_"^(Symbol.name sym)^"(eval)(mem_"^(Symbol.name sym)^");"),
-					$("if (status != 0) {"),
-					SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
-					    $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g for iterator "^(Symbol.name sym)^"\", *t);"),
-					    $("break;")],
-					$("}")],
-				    $("}"),
-				    $("")]) iter_solver_list) @
-		  (Util.flatmap
-		       (fn(sym, fs)=> 
-			  [$("double prev_"^(Symbol.name sym)^" = *"^(Symbol.name sym)^";"),
-			   $("if ((*"^(Symbol.name sym)^"/"^(r2s fs)^") < t1) {"),
-			   SUB[$("int status = flow_"^(Symbol.name sym)^
-				 "(*"^(Symbol.name sym)^", model_states_"^
-				 (Symbol.name sym)^", model_states_wr_"^(Symbol.name sym)^", inputs, NULL, 1);"),
-			       $("if (status != 0) {"),
-			       SUB[(*$("sprintf(str, \"Flow calculated failed at time=%g\", *t);")*)
-				   $("ERRORFUN(Simatra:flowError, \"Flow calculation failed at time=%g for iterator "^(Symbol.name sym)^"\", *t);"),
-				   $("break;")],
-			       $("}"),
-			       $("(*"^(Symbol.name sym)^")++;")],
-			   $("}")
-			  ]
-		       )
-		       iter_fs_list) @
-		  [$("if (log_outputs("^(String.concat (map (fn(sym,_)=>"prev_" ^ (Symbol.name sym) ^ ", ") iterators))^
-		     (String.concatWith ", " (map (fn(sym,_)=> "(struct statedata_"^orig_name^"_"^(Symbol.name sym)^"*) model_states_"^(Symbol.name sym)) iterators))^") != 0) {"),
-		   SUB[$("ERRORFUN(Simatra:outOfMemory, \"Exceeded available memory\");"),
-		       $("break;")],		   
-		   $("}")] @	
-		  (* here, do the memory copy back *)
-		  (map (fn(sym,_)=>
-			  $("memcpy(model_states_"^(Symbol.name sym)^", model_states_wr_"^(Symbol.name sym)^", sizeof(struct statedata_"^orig_name^"_"^(Symbol.name sym)^"));"))
-		       iter_fs_list) @
-		   [$("steps++;")](*,*)
-		 (*  $("PRINTFUN(\"%g,"^(String.concatWith "," (List.tabulate (statespace, fn(i)=>"%g")))^"\\n\", t, "^
-		       (String.concatWith ", " (List.tabulate (statespace, fn(i)=>"model_states["^(i2s i)^"]")))^");")*)
-		 ),
-	      $("}")] @
-	      (Util.flatmap 
-		   (fn(sym, solver)=> [$("INTEGRATION_METHOD_"^(Symbol.name sym)^"(free)(mem_"^(Symbol.name sym)^");")])
-		   iter_solver_list)
-	    ),
-	 $("}")]
+	(List.mapPartial (init_condition2pair iter_sym basestr) init_conditions)
+	@ (StdFun.flatmap (findInstanceStatesInitValues iter_sym) class_inst_pairs)
+    end
+    handle e => DynException.checkpoint "CParallelWriter.simengine_interface.findStatesInitValues" e
+
+and findInstanceStatesInitValues iter_sym (classname, instname) =
+    findStatesInitValues iter_sym (Symbol.name instname) (CurrentModel.classname2class classname)
+
+and init_condition2pair iter_sym basestr exp =
+    let val term = ExpProcess.exp2term (ExpProcess.lhs exp)
+	val rhs = ExpProcess.rhs exp
+    in if Term.isInitialValue term iter_sym then
+	   SOME ((if "" = basestr then "" else basestr ^ ".") ^ (Term.sym2name term), CWriterUtil.exp2c_str rhs)
+       else NONE
     end
 
-fun logoutput_code class =
-    let
-	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
-	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
-	val sym_decls = map
-			    (fn(term, sym)=> 
-			       let
-				   val local_scope = case term of
-							 Exp.SYMBOL (_, props) => (case Property.getScope props of
-										       Property.LOCAL => true
-										     | _ => false)
-						       | _ => DynException.stdException (("Unexpected non symbol"), "CWriter.logoutput_code", Logger.INTERNAL)
-				   val size = ExpProcess.exp2size (#iterators class) (Exp.TERM term)
-			       in
-				   (*if local_scope then*)
-				   if size > 1 then
-				       $("CDATAFORMAT *" ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";")
-				   else
-				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = outputsave_" ^ (Symbol.name sym) ^ ";")
-				  (* else
-				       $("CDATAFORMAT " ^ (Symbol.name sym) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")*)
-			       end)
-			    dependent_symbols
-	val output_exps =Util.flatmap
-			      (fn(out as {condition, contents, name})=> 
-				 let
-				     val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class (Exp.TERM name)
-				     val size = ExpProcess.exp2size (#iterators class) (Exp.TERM name)
-				     val var = "outputdata_" ^ identifier
-				     val iter = TermProcess.symbol2temporaliterator name
-				 in
-				     [$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
-				      SUB[$("int cond = " ^ (CWriterUtil.exp2c_str condition) ^ ";"),
-					  $("if (cond) {"),
-					  SUB([$("if ("^var^".length == "^var^".alloc_size) {"),
-					       SUB((case iter of 
-							SOME (sym, _) => [$("CDATAFORMAT *new_ptr = REALLOCFUN("^var^".time, "^var^".alloc_size*2*sizeof(CDATAFORMAT));"),
-									  $("if (NULL == new_ptr) return 1;"),
-									  $(var ^ ".time = new_ptr;")]
-						      | NONE => [$("CDATAFORMAT *new_ptr;")]) @
-						   (Util.flatmap 
-							(fn(_, i)=> [$("new_ptr = REALLOCFUN("^var^".vals"^(i2s i)^", "^var^".alloc_size*2*"^(i2s size)^"*sizeof(CDATAFORMAT));"),
-								     $("if (NULL == new_ptr) return 1;"),
-								     $(var^".vals"^(i2s i)^" = new_ptr;")])
-							(Util.addCount contents)) @
-						   [$(var^".alloc_size *= 2;")]),
-					       $("}")] @					      
-					      (case iter of
-						   SOME (sym,_)=>  [$(var^".time["^var^".length] = "^(Symbol.name sym)^";"),
-								    $("PRINTFUN(\"%g \", "^(Symbol.name sym)^");")]
-						 | NONE => []) @
-					      (Util.flatmap
-						   (fn(exp,i)=> 
-						      let
-							  val {prefix,identifier,iterators} = CWriterUtil.expsym2parts class exp
-						      in
-							  CWriterUtil.expandprogs2parallelfor
-							      class
-							      (exp, [$(var^".vals"^(i2s i)^"["^var^".length] = "^identifier^iterators^";"), 
-								     $("PRINTFUN(\"%g \", "^var^".vals"^(i2s i)^"["^var^".length]);")])
-						      end)
-						   (Util.addCount contents)) @
-					      [$(var^".length++;")]),
-					  $("}")
-					 ],
-				      $("}")]
-				 end)
-			      (!(#outputs class))
 
-	val (readstates, writestates) = class2stateiterators class
-	val iterators = CurrentModel.iterators()
-	val itervars = String.concat (map (fn(sym,_)=> "CDATAFORMAT " ^ (Symbol.name sym) ^ ", ") iterators)
-	val stateprototypes = 
-	    (String.concatWith ", " (map
-					 (fn(sym)=> "const struct statedata_" ^ (orig_name) ^ "_" ^ (Symbol.name sym) ^ " *rd_" ^ (Symbol.name sym))
-				readstates))
 
-    in
-	[$(""),
-	 $("int log_outputs("^itervars^stateprototypes^") {"),
-	 SUB(sym_decls @
-	     [$("")] @
-	     output_exps @
-	     [$(""),
-	      $("PRINTFUN(\"\\n\");"),
-	      $("return 0;")]
-	    ),
-	 $("}")]
+
+
+fun systemEmit pps [] = ()
+  | systemEmit pps system = 
+    let val () = ()
+    in comment pps "System data structures";
+       delimit (emit_system_data_structures, newline) pps system; newline pps;
+       emit_subsystem_data_structures pps system; newline pps;
+       newline pps;
+       
+       comment pps "System flow prototypes";
+       delimit (emit_system_flow_prototypes, newline) pps system; newline pps;
+       newline pps;
+
+       comment pps "System flow definitions";
+       delimit (emit_system_flow_definitions, newline) pps system; newline pps
     end
 
-fun main_code class =
-    let
-	val name = Symbol.name (#name class)
-	val orig_name = Symbol.name (ClassProcess.class2orig_name class)
-    in
-	[$("int main(int argc, char **argv) {"),
-	 SUB[(*$("FPRINTFUN(stderr,\"Running '"^name^"' model ...\\n\");"),*)
-	     $(""),
-	     $("// Get the simulation time t from the command line"),
-	     $("double t = 0;"),
-	     $("double t1 = atof(argv[1]);"),
-	     $("output_init(); // initialize the outputs"),
-	     $("outputsave_init(); // initialize temporary memory used for outputs"),
-	     $("init_states(); // initialize the states"),
-	     $("CDATAFORMAT inputs[INPUTSPACE];"),
-	     $(""),
-	     $("init_inputs(inputs);"),
-	     $(""),
-	     $("exec_loop(&t, t1, inputs);"),
-	     $(""),
-	     $("return 0;")],
-	 $("}")]
+and emit_system_data_structures pps {top_class, iter, model} =
+    let val (iter_name, _) = iter
+	val (classes, instance, properties) = model
+    in comment pps ("Data structures of iterator " ^ (Symbol.name iter_name));
+       CurrentModel.withModel model (fn _ => delimit (emit_class_data_structures, newline) pps classes)
     end
 
-fun buildC (model: DOF.model as (classes, inst, props)) =
-    let
-	val {name=inst_name, classname=class_name} = inst
-	val inst_class = CurrentModel.classname2class class_name
-	val class_name = Symbol.name (#name inst_class)
+and emit_subsystem_data_structures pps [] = ()
+  | emit_subsystem_data_structures pps system = 
+    let val storage_system = List.filter (not o isUpdateIterator o #iter) system
+	val class_iterator_pairs = map (fn {model=(_, {classname, ...}, _),
+					    iter, ...} => (classname, iter)) 
+				       storage_system
 
-	val statespace = ClassProcess.class2statesize inst_class
+	fun declare_system_member pps (classname, iter) =
+	    let val (iter_name, _) = iter
+	    in prefix ("state_", string) pps (Symbol.name classname);
+	       nbSpace pps 1;
+	       prefix ("states_", string) pps (Symbol.name iter_name)
+	    end
 
-	val {iterators,precision,...} = props
-	val iter_solver_list = props2solvers props
+	fun declare_subsystem pps {top_class, iter, model} = 
+	    let val (classes, _, _) = model
+		val iterators = ModelProcess.independentIterators model
 
-	val c_data_format = case precision 
-			     of DOF.SINGLE => "float" 
-			      | DOF.DOUBLE => "double"
+		fun iter_member pps (iter_name, DOF.CONTINUOUS _) =
+		    prefix ("CDATAFORMAT *", suffix(string, ";")) pps (Symbol.name iter_name)
+		  | iter_member pps (iter_name, DOF.DISCRETE _) = 
+		    prefix ("unsigned int *", suffix(string, ";")) pps (Symbol.name iter_name)
+		  | iter_member pps _ = 
+		    error pps ("Dependent iterator not filtered.")
 
-	val header_progs = header (model,
-				   [], (* no additional includes *)
-				   ("ITERSPACE", i2s (length iterators))::
-				   ("STATESPACE", i2s statespace)::
-				   ("CDATAFORMAT", c_data_format)::
-				   ("INPUTSPACE", i2s (length (!(#inputs inst_class))))::nil @ 
-				   (map (fn(sym, solver)=>("INTEGRATION_METHOD_"^(Symbol.name sym)^"(m)", (Solver.solver2name solver) ^ "_ ## m")) iter_solver_list) @
-				   (("START_SIZE", "1000")::
-				    ("MAX_ALLOC_SIZE", "65536000")::
-				    ("MALLOCFUN", "malloc")::
-				    ("REALLOCFUN", "realloc")::
-				    ("PRINTFUN", "printf")::
-				    (*("ERRORFUN(id,txt)", "(fprintf(stderr, \"Error (%s): %s\\n\", #id, txt))")*)
-				    ("ERRORFUN(ID, MESSAGE, ...)", "(fprintf(stderr, \"Error (%s): \" MESSAGE \"\\n\", #ID, ## __VA_ARGS__))")::
-				    nil),				 
-				   iterators)
+		fun iter_states class pps (iter_name, _) =
+		    let val {name, ...} = class
+		    in prefix ("state_", string) pps (Symbol.name name);
+		       prefix (" *states_", suffix(string, ";")) pps (Symbol.name iter_name)
+		    end
 
-	val input_progs = input_code inst_class
-	val outputdatastruct_progs = outputdatastruct_code inst_class
-	val outputstatestruct_progs = outputstatestruct_code iterators classes
-	val outputinit_progs = outputinit_code inst_class
-	val init_progs = init_code (classes, inst_class, iterators)
-	val flow_progs = flow_code model
-	val exec_progs = exec_code (inst_class, props, statespace)
-	val main_progs = main_code inst_class
-	val logoutput_progs = logoutput_code inst_class
+		fun class_subsystem pps class =
+		    let val {name, ...} = class
+			fun hasIterator iter = ClassProcess.hasIterator iter class
+			val iterators = List.filter hasIterator iterators
+		    in line string pps "typedef struct {";
+		       delimit (iter_member, newline) pps iterators; newline pps;
+		       delimit (iter_states class, newline) pps iterators; newline pps;
+		       line string pps ("} system_" ^ (Symbol.name name) ^ ";")
+		    end
+	    in
+		CurrentModel.withModel model (fn _ => delimit (class_subsystem, newline) pps classes)
+	    end
+    in comment pps ("Top-level system states");
+       line string pps "typedef struct {";
+       delimit (declare_system_member, newline) pps class_iterator_pairs; newline pps;
+       line string pps ("} system;");
+       newline pps;
 
-	(* write the code *)
-	val _ = output_code(class_name, ".", (header_progs @ 
-					      outputdatastruct_progs @ 
-					      outputstatestruct_progs @
-					      outputinit_progs @ 
-					      input_progs @ 
-					      init_progs @ 
-					      flow_progs @ 
-					      logoutput_progs @
-					      exec_progs @
-					      main_progs))
-    in
-	SUCCESS
+       comment pps ("Per-class system states");
+       delimit (declare_subsystem, newline) pps storage_system; newline pps
     end
-    handle e => DynException.checkpoint "CWriter.buildC" e
+    
+
+and emit_system_flow_prototypes pps {top_class, iter, model} =
+    let val (iter_name, _) = iter
+	val (classes, _, _) = model
+	val pairs = map (fn c => (iter, c)) classes
+    in comment pps ("Flow prototypes of iterator " ^ (Symbol.name iter_name));
+       CurrentModel.withModel model (fn _ => delimit (emit_class_prototype, newline) pps pairs)
+    end
+
+and emit_system_flow_definitions pps {top_class, iter, model} =
+    let val (iter_name, _) = iter
+	val (classes, _, _) = model
+	val pairs = map (fn c => (iter, c)) classes
+    in comment pps ("Flow definitions of iterator " ^ (Symbol.name iter_name));
+       CurrentModel.withModel model (fn _ => delimit (classEmit, newline) pps pairs)
+    end
+
+fun emit_model_flows pps system =
+    let val params = ["CDATAFORMAT iterval",
+		      "const CDATAFORMAT *y",
+		      "CDATAFORMAT *dydt",
+		      "solver_props *props",
+		      "const unsigned int firstIteration",
+		      "const unsigned int modelid"]
+
+	fun system_flow pps {top_class, iter, ...} =
+	    let val (iter_name, _) = iter
+		val flow_name = "flow_" ^ (Symbol.name top_class)
+		val args = ["iterval",
+			    "(const state_" ^ (Symbol.name top_class) ^ " * )y",
+			    "(state_" ^ (Symbol.name top_class) ^ " * )dydt",
+			    "(const system_" ^ (Symbol.name top_class) ^ " * )props->system_states",
+			    "props->inputs",
+			    "(CDATAFORMAT *)props->od",
+			    "firstIteration",
+			    "modelid"]
+	    in string pps ("case ITERATOR_" ^ (Symbol.name iter_name) ^ ":"); newline pps;
+	       string pps "return ";
+	       prefix (flow_name,
+		       parentheses ("(", delimit (string, comma), ")"))
+		      pps args;
+	       string pps ";"; newline pps
+	    end
+    in line string pps "__HOST__ __DEVICE__";
+       prefix ("int model_flows", 
+	       parentheses ("(", delimit (string, comma), ")"))
+	      pps params;
+       string pps "  {"; newline pps; openBox pps (Rel 2);
+       delimit (system_flow, newline) pps system; newline pps;
+       line string pps "default: return 1;";
+       string pps "}"; closeBox pps; newline pps
+    end
+
+fun modelEmit pps model =
+    let val system = ModelProcess.createIteratorForkedModels model
+    in comment pps "Copyright Simatra Modeling Technologies, LLC";
+       newline pps;
+
+       comment pps "Model interface description";
+       CurrentModel.withModel model (fn _ => emit_model_interface pps system); newline pps;
+       newline pps;
+
+       systemEmit pps system;
+
+       CurrentModel.withModel model (fn _ => emit_model_flows pps system); newline pps
+    end
+
+(* Displays the public interface for a model,
+ * including its name, descriptions of its inputs, outputs, and states,
+ * and any target-specific metadata. *)
+and emit_model_interface pps system =
+    let val (_, instance, systemproperties) = CurrentModel.getCurrentModel ()
+	val {precision, target, num_models, debug, profile, ...} = systemproperties
+
+	val top_class = CurrentModel.classname2class (#classname instance)
+
+	val model_name = case instance
+			  of {name as SOME iname, ...} => iname
+			   | {classname, ...} => classname
+
+	val target_name = case target
+			   of Target.CPU => "cpu"
+			    | Target.OPENMP => "openmp"
+			    | Target.CUDA _ => "cuda"
+	val solvers = 
+	    List.mapPartial (fn {iter as (_, DOF.CONTINUOUS solver), ...} => 
+				SOME solver
+			      | _ => NONE) system
+	val iterators = 
+	    map (fn {iter, ...} => iter) system
+
+	val {inputs, ...} = top_class
+
+	fun default_input pps (SOME exp) = expEmit pps exp
+	  | default_input pps NONE = default_input pps (SOME (Exp.TERM (Exp.NAN)))
+
+	val outputs = 
+	    let fun subsystem_outputs {top_class, model, ...} =
+		    case ModelProcess.classByName (model, top_class)
+			of SOME {outputs, ...} => ! outputs
+			 | NONE => nil
+	    in Util.flatmap subsystem_outputs system
+	    end
+
+	val output_num_quantities =
+	    map (fn {contents, ...} => 1 + (List.length contents)) outputs
+
+	val (state_names, state_defaults) = 
+	    let fun subsystem_states {top_class, model, iter} =
+		    CurrentModel.withModel 
+			model 
+			(fn _ =>
+			    let val (iter_sym,_) = iter
+				val class = CurrentModel.classname2class top_class
+			    in findStatesInitValues iter_sym "" class
+			    end)
+	    in ListPair.unzip (Util.flatmap subsystem_states system)
+	    end
+    in line (prefix ("const char model_name[] = ", suffix (c_string, ";"))) 
+	    pps (Symbol.name model_name);
+       line (prefix ("const char target[] = ", suffix (c_string, ";"))) 
+	    pps target_name;
+       line (prefix ("const char *solvers[] = ", suffix (c_array c_string, ";"))) 
+	    pps (map Solver.solver2name solvers);
+       line (prefix ("const char *iterator_names[] = ", suffix (c_array c_string, ";"))) 
+	    pps (map (Symbol.name o #1) iterators);
+       line (prefix ("const char *input_names[] = ", suffix (c_array c_string, ";"))) 
+	    pps (map (Term.sym2name o #name) (!inputs));
+       line (prefix ("const char *default_inputs[] = ", suffix (c_array default_input, ";")))
+	    pps (map #default (!inputs));
+       line (prefix ("const char *output_names[] = ", suffix (c_array c_string, ";")))
+	    pps (map (Term.sym2name o #name) outputs);
+       line (prefix ("const unsigned int output_num_quantities[] = ", suffix (c_array string, ";")))
+	    pps (map Int.toString output_num_quantities);
+       line (prefix ("const char *state_names[] = ", suffix (c_array c_string, ";"))) 
+	    pps state_names;
+       line (prefix ("const char *default_states[] = ", suffix (c_array string, ";"))) 
+	    pps state_defaults
+    end
+
+end (* structure Emit *)
+
 
 end

@@ -24,7 +24,11 @@ structure ModelProcess : sig
 
     val duplicateModel : DOF.model -> (Symbol.symbol -> Symbol.symbol) -> DOF.model
     val pruneModel : (DOF.systemiterator option) -> DOF.model -> unit
+
+    val classByName : DOF.model * Symbol.symbol -> DOF.class option
 	
+    val independentIterators : DOF.model -> DOF.systemiterator list
+
     (* Iterator related functions - these all grab the iterators from CurrentModel *)
     val returnIndependentIterators : unit -> DOF.systemiterator list
     val returnDependentIterators : unit -> DOF.systemiterator list
@@ -43,6 +47,21 @@ val i2s = Util.i2s
 fun isDependentIterator (_, DOF.CONTINUOUS _) = false
   | isDependentIterator (_, DOF.DISCRETE _) = false
   | isDependentIterator _ = true
+
+fun classByName (model, name) =
+    let fun match (class : DOF.class) =
+	    #name class = name orelse
+	    (case #classtype (#properties class)
+	      of DOF.MASTER master => master = name
+	       | _ => false)
+	val (classes, _, _) = model
+    in List.find match classes
+    end
+
+fun independentIterators model = 
+    let val (_, _, {iterators, ...} : DOF.systemproperties) = model
+    in List.filter (not o isDependentIterator) iterators
+    end
 
 fun returnIndependentIterators () =
     List.filter (not o isDependentIterator) (CurrentModel.iterators ())

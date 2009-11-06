@@ -60,8 +60,32 @@ fun std_compile exec args =
 		  end
 
 
+
+	      val () 
+		= let val model = CurrentModel.getCurrentModel ()
+		      val system = ModelProcess.createIteratorForkedModels model
+
+		      fun sysmod_to_json {top_class, iter, model} =
+			  let val (iter_name, iter_typ) = iter
+			  in mlJS.js_object [("top_class", mlJS.js_string (Symbol.name top_class)),
+					     ("iterator", mlJS.js_string (Symbol.name iter_name)),
+					     ("model", ModelProcess.to_json model)]
+			  end
+
+		      fun writeJSON outstream =
+			  mlJS.output (outstream, mlJS.js_array (map sysmod_to_json system))
+		      fun writeC outstream =
+			  (TextIO.output (outstream, "// NEW C WRITER\n// ===\n");
+			   CWriter.withTextIOStream outstream (fn pps => CWriter.Emit.modelEmit pps model);
+			   TextIO.output (outstream, "\n// --- NEW C WRITER\n"));
+		  in
+		      Printer.withOpenOut "dof-system.json" writeJSON
+		      before Printer.withOpenOut "new-c-writer.c" writeC
+		  end
+		  
 	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
+
 
 	      val _ = DynException.checkToProceed()
 	  in 

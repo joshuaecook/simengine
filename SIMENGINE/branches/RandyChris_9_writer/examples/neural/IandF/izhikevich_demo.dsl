@@ -1,6 +1,6 @@
 import "izhikevich.dsl"
 
-model (v_RS, v_IB, v_CH, v_FS, v_LTS, v_RS) = izhikevich_demo(I)
+model (v_RS, v_IB, v_CH, v_FS, v_LTS, v_RE) = izhikevich_demo(I)
 
     submodel izhikevich regular_spiking with {I=I, d=8}
     submodel izhikevich intrinsically_bursting with {I=I, c=-55, d=4}
@@ -16,7 +16,7 @@ model (v_RS, v_IB, v_CH, v_FS, v_LTS, v_RS) = izhikevich_demo(I)
 	v_CH = chattering.v
 	v_FS = fast_spiking.v
 	v_LTS = low_threshold_spiking.v
-	v_RS = resonator.v
+	v_RE = resonator.v
     end
 
 end

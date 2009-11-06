@@ -662,6 +662,34 @@ fun repStr (s1, s2, s3) =
     handle e => DynException.checkpoint "StdFun.repStr" e
 
 
+(* Returns a new string with each occurance of a search substring replaced by a new substring. *)
+fun replace str "" "" = str
+  | replace str "" new =
+    (* Replaces an empty search string at every opportunity: at the beginning, the end, and between each character. *)
+    let
+	fun replace_acc (acc: string list) (str: Substring.substring) =
+	    if Substring.isEmpty str then
+		String.concatWith "" (List.rev (new :: acc))
+	    else
+		replace_acc (String.str (Substring.sub (str, 0)) :: (new :: acc)) (Substring.slice (str, 1, NONE))
+    in
+	replace_acc nil (Substring.extract (str, 0, NONE))
+    end
+  | replace str old new = 
+    let
+	val oldn = String.size old
+	fun replace_acc (acc: string list) (str: Substring.substring) =
+	    if Substring.isEmpty str then
+		String.concatWith "" (List.rev acc)
+	    else if Substring.isPrefix old str then
+		replace_acc (new :: acc) (Substring.slice (str, oldn, NONE))
+	    else
+		replace_acc (String.str (Substring.sub (str, 0)) :: acc) (Substring.slice (str, 1, NONE))
+    in
+	replace_acc nil (Substring.full str)
+    end
+
+
 (* manipulate directories and system names *)
 fun formatSysName name = 
     let

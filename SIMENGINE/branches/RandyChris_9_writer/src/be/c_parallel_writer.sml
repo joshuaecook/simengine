@@ -45,7 +45,7 @@ fun init_solver_props top_name forkedclasses =
     let
 	fun init_props {top_class, iter=iterator, model} =
 	    let
-		fun progs () =
+		fun progs _ =
 		    let
 			val solverparams = (fn(_,itertype) => case itertype of
 								  DOF.CONTINUOUS solver => (Solver.solver2params solver)
@@ -145,7 +145,7 @@ fun init_solver_props top_name forkedclasses =
 
 fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(origModel as (classes, inst, props)) forkedModels =
     let
-	val top_class = CurrentModel.withModel origModel (fn()=>CurrentModel.classname2class (#classname inst))
+	val top_class = CurrentModel.withModel origModel (fn _ => CurrentModel.classname2class (#classname inst))
 	val iterator_names = map (Symbol.name o #1 o #iter) forkedModels
 	val solver_names = List.mapPartial (fn{iter,...}=>case iter of
 							      (_,DOF.CONTINUOUS s) => SOME (Solver.solver2name s)
@@ -192,7 +192,7 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 		     (fn{top_class,iter,model}=>
 			CurrentModel.withModel 
 			    model 
-			    (fn()=>
+			    (fn _ =>
 			       let
 				   val (iter_sym,_) = iter
 				   val class = CurrentModel.classname2class top_class
@@ -203,11 +203,11 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) (!(#inputs top_class)))
 	val output_names = Util.flatmap 
 			       (fn{top_class,iter,model}=>
-				  CurrentModel.withModel model (fn()=>map #name (!(#outputs (CurrentModel.classname2class top_class)))))
+				  CurrentModel.withModel model (fn _ =>map #name (!(#outputs (CurrentModel.classname2class top_class)))))
 			       forkedModels
 	val output_num_quantities = Util.flatmap 
 					(fn{top_class,iter,model}=>
-					   CurrentModel.withModel model (fn()=>map (i2s o inc o List.length o #contents) (!(#outputs (CurrentModel.classname2class top_class)))))
+					   CurrentModel.withModel model (fn _ =>map (i2s o inc o List.length o #contents) (!(#outputs (CurrentModel.classname2class top_class)))))
 					forkedModels
 	val default_inputs = map default2c_str input_defaults
     in
@@ -393,7 +393,7 @@ end
 
 fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
     let
-	fun progs () =
+	fun progs _ =
 	    let val master_classes = List.filter (fn (c) => ClassProcess.isMaster c andalso ClassProcess.hasStates c) classes
 	    in
 		List.concat (map outputstatestructbyclass_code master_classes)
@@ -747,7 +747,7 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 
     in
 	CurrentModel.withModel model 
-	(fn () =>
+	(fn _ =>
 	    let
 		val topclass = CurrentModel.classname2class top_class
 

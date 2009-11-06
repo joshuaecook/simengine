@@ -7,11 +7,13 @@ sig
     val setCurrentModel: DOF.model -> unit
 
     (* Temporarily holds the given model as current, 
-     * invokes the given thunk and returns its result
+     * invokes the given function and returns its result
      * after restoring the previous current model. 
      * Any exception raised by the thunk will be reraised 
      * after the previous model is restored. *)
     val withModel : DOF.model -> (unit -> 'a) -> 'a
+
+    val isTopClass : DOF.class -> bool
 
     (* Additional useful accessors *)
     val classes: unit -> DOF.class list
@@ -75,6 +77,13 @@ fun top_name() =
 	    SOME v => Symbol.name v
 	  | NONE => "UNKNOWN"
     end
+
+fun isTopClass (class: DOF.class) =
+    let val (_, {classname, ...}, _) = getCurrentModel ()
+	val {name, ...} = class
+    in name = classname
+    end
+
 
 fun classname2class(sym) : DOF.class = 
     case List.find (fn(class)=> 

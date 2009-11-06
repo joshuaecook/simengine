@@ -25,6 +25,8 @@ val isIntermediateEq : Exp.exp -> bool
 val isPPEq : Exp.exp -> bool
 val isUpdateEq : Exp.exp -> bool
 
+val isIntermediateTerm : Exp.exp -> bool
+
 (* Iterator related functions *)
 val doesTermHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol in the expression, returns if the iterator is assigned to that symbol *)
 (* Looks at the symbol on the lhs, returns if the iterator is assigned to that symbol *)
