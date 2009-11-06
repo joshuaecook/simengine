@@ -46,7 +46,7 @@ sig
     type sym = Symbol.symbol
     val renameInsts :  ((sym * sym) * (sym * sym)) -> DOF.class -> unit (* change all instance names in a class *)
     val createEventIterators : DOF.class -> unit (* searches out postprocess and update iterators *)
-    val addUpdateIntermediates : DOF.class -> unit (* for update iterators, they read and write to the same state vector, so we add intermediates to break up any loops *)
+    val addBufferedIntermediates : DOF.class -> unit (* for iterators that read and write to the same state vector, so we add intermediates to break up any loops *)
 
     val to_json : DOF.class -> mlJS.json_value
 end
@@ -551,51 +551,58 @@ fun createEventIterators (class: DOF.class) =
 
 (* for an update x[update_t+1] = x[update_t] - 1, for example, x[update_t] should really be x[update_t+1], and should be read from the same vector as x is written 
 back to.  If there is coupling between multiple update equations {x=f(y), y=f(x)}, then we need to break the loop by inserting intermediates.  *)
-fun addUpdateIntermediates (class: DOF.class) = 
+(* The same is true for post processing.  This function handles both updates and post processing flows. *)
+fun addBufferedIntermediates (class: DOF.class) = 
     let
-	val exps = !(#exps class)
-	val (updateEqs, restEqs) = List.partition ExpProcess.isUpdateEq exps
+	val expfilters = [ExpProcess.isUpdateEq, ExpProcess.isPPEq]
+	fun addBufferedIntermediatesByType expfilter = 
+	    let
+		val exps = !(#exps class)
+		val (filterEqs, restEqs) = List.partition expfilter exps
 
-	(* find the updateEqs that have update iterator terms on the rhs *)
-	val (dependentUpdateEqs, independentUpdateEqs) = 
-	    List.partition
-		(fn(exp)=>
-		   let
-		       (* this is the update iterator that we want to match against *)
-		       val temporal_iterator = case (TermProcess.symbol2temporaliterator (ExpProcess.getLHSTerm exp)) of
-						   SOME (sym, _) => sym
-						 | NONE => DynException.stdException("Can't find temporal iterator in update eq",
-										     "ClassProcess.addUpdateIntermediates", 
-										     Logger.INTERNAL)
-		       val rhs_terms = ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
-		   in
-		       List.exists (fn(t)=> case (TermProcess.symbol2temporaliterator t) of
-						SOME (sym,_) => sym=temporal_iterator
-					      | NONE => false) rhs_terms
-		   end
-		)
-		updateEqs
+		(* find the filterEqs that have filtered iterator terms on the rhs *)
+		val (dependentEqs, independentEqs) = 
+		    List.partition
+			(fn(exp)=>
+			   let
+			       (* this is the update iterator that we want to match against *)
+			       val temporal_iterator = case (TermProcess.symbol2temporaliterator (ExpProcess.getLHSTerm exp)) of
+							   SOME (sym, _) => sym
+							 | NONE => DynException.stdException("Can't find temporal iterator in update eq",
+											     "ClassProcess.addUpdateIntermediates", 
+											     Logger.INTERNAL)
+			       val rhs_terms = ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
+			   in
+			       List.exists (fn(t)=> case (TermProcess.symbol2temporaliterator t) of
+ 							SOME (sym,_) => sym=temporal_iterator
+						      | NONE => false) rhs_terms
+			   end
+			)
+			filterEqs
 
-	(* foreach of the dependentUpdateEqs, split them into two equations.  Ordering doesn't matter since there will be an ordering pass later... *)
-	val splitDependentUpdateEqs = Util.flatmap 
-					  (fn(eqs)=>
-					     let
-						 val lhs = ExpProcess.lhs eqs
-						 val rhs = ExpProcess.rhs eqs
-						 val gen_symbol = 
-						     case ExpProcess.getLHSSymbols eqs of
-							 [sym] => "#updateintermediate_" ^ (Symbol.name sym)
-						       | nil => DynException.stdException(("Unexpectedly no symbols on lhs of expression " ^ (ExpPrinter.exp2str eqs)), 
-											  "ClassProcess.addUpdateIntermediates", Logger.INTERNAL)
-						       | _ => DynException.stdException(("Can not handle a tuple on lhs of update expression " ^ (ExpPrinter.exp2str eqs)), 
-											"ClassProcess.addUpdateIntermediates", Logger.INTERNAL)
-					     in
-						 [ExpBuild.equals (ExpBuild.var gen_symbol, rhs),
-						  ExpBuild.equals (lhs, ExpBuild.var gen_symbol)]
-					     end) 
-					  dependentUpdateEqs
+		(* foreach of the dependentEqs, split them into two equations.  Ordering doesn't matter since there will be an ordering pass later... *)
+		val splitDependentEqs = Util.flatmap 
+						  (fn(eqs)=>
+						     let
+							 val lhs = ExpProcess.lhs eqs
+							 val rhs = ExpProcess.rhs eqs
+							 val gen_symbol = 
+							     case ExpProcess.getLHSSymbols eqs of
+								 [sym] => "#updateintermediate_" ^ (Symbol.name sym)
+							       | nil => DynException.stdException(("Unexpectedly no symbols on lhs of expression " ^ (ExpPrinter.exp2str eqs)), 
+												  "ClassProcess.addUpdateIntermediates", Logger.INTERNAL)
+							       | _ => DynException.stdException(("Can not handle a tuple on lhs of update expression " ^ (ExpPrinter.exp2str eqs)), 
+												"ClassProcess.addUpdateIntermediates", Logger.INTERNAL)
+						     in
+							 [ExpBuild.equals (ExpBuild.var gen_symbol, rhs),
+							  ExpBuild.equals (lhs, ExpBuild.var gen_symbol)]
+						     end) 
+						  dependentEqs
+	    in
+		(#exps class) := (restEqs @ independentEqs @ splitDependentEqs)
+	    end
     in
-	(#exps class) := (restEqs @ independentUpdateEqs @ splitDependentUpdateEqs)
+	app addBufferedIntermediatesByType expfilters
     end
 
 fun addEPIndexToClass is_top (class: DOF.class) =

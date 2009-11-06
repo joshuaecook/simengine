@@ -51,7 +51,8 @@ fun init_solver_props top_name forkedclasses =
 								  DOF.CONTINUOUS solver => (Solver.solver2params solver)
 								| DOF.DISCRETE {sample_period} => [("timestep", Util.r2s sample_period)]
 								| _ => [("ERROR", "Bogus iterator")]) iterator
-			val (itername, itertype) = (fn(sym,itype) => ((Symbol.name sym),itype)) iterator
+			val (itersym, itertype) = iterator
+			val itername = (Symbol.name itersym)
 			val solvername = String.map Char.toUpper 
 						    ((fn(_,itertype) => case itertype of
 									    DOF.CONTINUOUS solver => (Solver.solver2name solver)
@@ -91,6 +92,10 @@ fun init_solver_props top_name forkedclasses =
 			   | _ =>
 			     $("#error BOGUS ITERATOR NOT FILTERED")),
 			 $("system_ptr->states_"^itername^" = &(system_states->states_"^itername^");"),
+			 (if (ModelProcess.hasPostProcessIterator itersym) then
+			      $("system_ptr->states_pp_"^itername^" = &(system_states->states_pp_"^itername^");")
+			 else
+			     $("")),
 			 $("")]
 		    end
 	    in
@@ -311,9 +316,9 @@ fun postprocess_wrapper classname iterators =
 		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
 		 case iter_type of
 		     DOF.CONTINUOUS _ =>
-		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->next_time[modelid],props->next_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->next_time[modelid],((systemstatedata_"^classname^"*)props->system_states)->states_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^", ((systemstatedata_"^classname^"*)props->system_states)->states_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^", props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | DOF.DISCRETE _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->count[modelid]+1,props->next_states, props->post_process_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
+		     SUB[$("return flow_" ^ classname ^ "_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->count[modelid]+1, ((systemstatedata_"^classname^"*)props->system_states)->states_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^", ((systemstatedata_"^classname^"*)props->system_states)->states_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^", props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
 		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
 		]
 	    else
@@ -414,7 +419,7 @@ fun outputsystemstatestruct_code forkedModels =
 	    (Symbol.symbol ((Symbol.name (ClassProcess.class2basename class))^"_"^(Symbol.name iter_sym)), iter)
 
 	fun class_struct_data class =
-	    let val iters = List.filter (fn (it) => (not (ModelProcess.isDependentIterator it)) andalso ClassProcess.hasIterator it class) (CurrentModel.iterators())
+	    let val iters = List.filter (fn (it) => ClassProcess.hasIterator it class) (CurrentModel.iterators())
 		val class_name_iterator_pairs = map (name_and_iterator class) iters
 	    in 
 		(ClassProcess.class2classname class, class_name_iterator_pairs) 
@@ -426,13 +431,15 @@ fun outputsystemstatestruct_code forkedModels =
 	     SUB(map ($ o iter_pair_states_member) iter_pairs),
 	     $("} systemstatedata_"^(Symbol.name name)^";"),$("")]
 	and iter_pair_states_member (classname, iter as (iter_name,iter_typ)) =
-	    "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";"
+	    case iter_typ of
+		DOF.UPDATE _ => ""
+	      | _ => "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";"
 	and iter_pair_iter_member (_, (iter_name,DOF.CONTINUOUS _)) =
 	    "CDATAFORMAT *"^(Symbol.name iter_name)^";"
 	  | iter_pair_iter_member (_, (iter_name,DOF.DISCRETE _)) = 
 	    "unsigned int *"^(Symbol.name iter_name)^";"
 	  | iter_pair_iter_member _ = 
-	    "#error BOGUS ITERATOR NOT FILTERED"
+	    (*"#error BOGUS ITERATOR NOT FILTERED"*) ""
 	    
 	val per_class_struct_data = map class_struct_data master_classes
 
