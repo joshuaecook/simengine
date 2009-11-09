@@ -154,6 +154,7 @@ classdef Suite < handle
         
         % override the disp function
         function disp(s)
+            s.Total = s.length;
             disp(sprintf('Suite: %s', s.Name));
             disp('------------------------------------------');
             if s.Total == 0
@@ -206,6 +207,7 @@ classdef Suite < handle
         function summary_helper(s, level, showTests, showFailures)
             spaces = blanks(level*2);
             base_str = sprintf('%sSuite ''%s'': ', spaces, s.Name);
+            s.Total = s.length;
             if s.Total == 0
                 summary_str = 'No Tests Defined';
             elseif s.Total == s.Passed
