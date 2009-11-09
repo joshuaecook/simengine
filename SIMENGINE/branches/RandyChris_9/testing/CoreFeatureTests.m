@@ -5,7 +5,13 @@
 %  s = CoreFeatureTests - runs all tests
 %  s = CoreFeatureTests('-release') - runs only those required for a release
 %
-function s = CoreFeatureTests(mode)
+function s = CoreFeatureTests(varargin)
+
+if nargin == 0
+    mode = 1;
+else
+    mode = varargin{1};
+end
 
 s = Suite('Core Feature Tests');
 
@@ -220,5 +226,6 @@ function s = DifferenceEquationTests
 s = Suite('Difference Equation Tests');
 
 s.add(Test('Basic Difference Equation', @()(simex('models_FeatureTests/DifferenceEquationTest1.dsl', 10, '-quiet')), '-equal', struct('x', [0:10; 0:10]')));
+s.add(Test('Difference Equation larger fs', @()(simex('models_FeatureTests/DifferenceEquationTest2.dsl', 10, '-quiet')), '-equal', struct('x', [0:0.5:10; 0:0.5:10]')));
 
 end
