@@ -549,7 +549,7 @@ fun createClass classes object =
 			 of Exp.TERM (Exp.SYMBOL s) => s
 			  | _ => error ("Unexpected expression on lhs of intermediate " ^ (pretty object))
 
-		    val lhs_properties' = Property.setIterator lhs_properties (map (fn iter_name => (iter_name, Iterator.RELATIVE 0)) (SymbolSet.listItems rhs_iterators))
+		    val lhs_properties' = (*Property.setIterator lhs_properties (map (fn iter_name => (iter_name, Iterator.RELATIVE 0)) (SymbolSet.listItems rhs_iterators))*)lhs_properties
 		in
 		    [ExpBuild.equals (Exp.TERM (Exp.SYMBOL (lhs_name, lhs_properties')), rhs)]
 		end
