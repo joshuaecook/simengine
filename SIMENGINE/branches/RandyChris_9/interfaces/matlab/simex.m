@@ -509,7 +509,7 @@ status = system([make ' &> simex_make.log']);
 elapsed = toc;
 
 if 0 ~= status
-  if ~opt.verbose
+  if opts.verbose
     type simex_make.log
   end
   error('Simatra:SIMEX:compileError', ...
