@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <dlfcn.h>
@@ -18,6 +18,9 @@ typedef struct{
   FILE *inputs;
   FILE *states;
   FILE *outputs;
+  char *inputs_filename;
+  char *states_filename;
+  char *outputs_filename;
   char *target;
   char *precision;
   int debug;
@@ -70,8 +73,8 @@ void print_usage(){
 	 "\t--start <n>\tThe time to start the simulation. (Default = 0)\n"
 	 "\t--stop <n>\tThe time to stop the simulation. (Default = 0)\n"
 	 "\t--models <n>\tThe number of models to run. (Default = 1)\n"
-	 //"\t--inputs <file>\t\tThe file to load inputs from. (Default - from model)\n"
-	 //"\t--states <file>\t\tThe file to load state initial values. (Default - from model)\n"
+	 "\t--inputs <file>\t\tThe file to load inputs from. (Default - from model)\n"
+	 "\t--states <file>\t\tThe file to load state initial values. (Default - from model)\n"
 	 "\t--outputs <file>\t\tThe file to write outputs. (Default - console)\n"
 	 "\t--cpu\t\tRuns the simulation on the CPU. (Default)\n"
 	 "\t--parallelcpu\tRuns the simulation in parallel on all CPUs.\n"
@@ -123,7 +126,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	return 1;
       }
       opts->start_time = atof(optarg);
-      if(!isfinite(opts->start_time)){
+      if(!__finite(opts->start_time)){
 	printf("Error: start time is invalid %f.\n", opts->start_time);
 	return 1;
       }
@@ -135,7 +138,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	return 1;
       }
       opts->stop_time = atof(optarg);
-      if(!isfinite(opts->stop_time)){
+      if(!__finite(opts->stop_time)){
 	printf("Error: start time is invalid %f.\n", opts->stop_time);
 	return 1;
       }
@@ -154,15 +157,26 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       //printf("Number of models %d\n", opts->num_models);
       break;
     case INPUT_FILE:
-      printf("Inputs not yet supported: %s\n", optarg);
+      opts->inputs_filename = optarg;
+      opts->inputs = fopen(opts->inputs_filename, "r");
+      if(!opts->inputs){
+	printf("ERROR: Could not open input file '%s'.\n", opts->inputs_filename);
+	return 1;
+      }
       break;
     case STATE_INIT_FILE:
-      printf("States not yet supported: %s\n", optarg);
+      opts->states_filename = optarg;
+      opts->states = fopen(opts->states_filename, "r");
+      if(!opts->states){
+	printf("ERROR: Could not open state initial value file '%s'.\n", opts->states_filename);
+	return 1;
+      }
       break;
     case OUTPUT_FILE:
-      opts->outputs = fopen(optarg, "w");
+      opts->outputs_filename = optarg;
+      opts->outputs = fopen(opts->outputs_filename, "w");
       if(!opts->outputs){
-	printf("ERROR: Could not open output file '%s'.\n", optarg);
+	printf("ERROR: Could not open output file '%s'.\n", opts->outputs_filename);
 	return 1;
       }
       break;
@@ -425,25 +439,41 @@ void release_simengine(simengine_api *api){
 int get_states_inputs(const simengine_interface *iface, simengine_opts *opts, double **states, double **inputs){
   unsigned int modelid;
 
+  *inputs = NMALLOC(opts->num_models * iface->num_inputs, double);
   // Check for an input file
   if(opts->inputs){
-    // Not yet implemented
-    return 1;
+    int i;
+    // Read inputs from file
+    for(i=0;i<opts->num_models * iface->num_inputs; i++){
+      if(1 != fscanf(opts->inputs, "%lf", &((*inputs)[i]))){
+	printf("ERROR: failed to read input %d of %d from '%s'.\n", i+1, opts->num_models * iface->num_inputs, opts->inputs_filename);
+	return 1;
+      }
+    }
+    fclose(opts->inputs);
   }
   else{
-    *inputs = NMALLOC(opts->num_models * iface->num_inputs, double);
+    // Copy inputs from default inputs
     for (modelid = 0; modelid < opts->num_models; ++modelid){
       memcpy(&(*inputs)[AS_IDX(iface->num_inputs, opts->num_models, 0, modelid)], iface->default_inputs, iface->num_inputs * sizeof(double));
     }
   }
   
+  *states = NMALLOC(opts->num_models * iface->num_states, double);
   // Check for a state initial value file
   if(opts->states){
-    // Not yet implemented
-    return 1;
+    int i;
+    // Read states from file
+    for(i=0;i<opts->num_models * iface->num_states; i++){
+      if(1 != fscanf(opts->states, "%lf", &((*states)[i]))){
+	printf("ERROR: failed to read state %d of %d from '%s'.\n", i+1, opts->num_models * iface->num_states, opts->states_filename);
+	return 1;
+      }
+    }
+    fclose(opts->states);
   }
   else{
-    *states = NMALLOC(opts->num_models * iface->num_states, double);
+    // Copy states from default states
     for (modelid = 0; modelid < opts->num_models; ++modelid){
       memcpy(&(*states)[AS_IDX(iface->num_states, opts->num_models, 0, modelid)], iface->default_states, iface->num_states * sizeof(double));
     }
