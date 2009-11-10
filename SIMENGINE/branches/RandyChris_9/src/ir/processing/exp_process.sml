@@ -25,6 +25,8 @@ val isIntermediateEq : Exp.exp -> bool
 val isPPEq : Exp.exp -> bool
 val isUpdateEq : Exp.exp -> bool
 
+val isIntermediateTerm : Exp.exp -> bool
+
 (* Iterator related functions *)
 val doesTermHaveIterator : Symbol.symbol -> Exp.exp -> bool (* Looks at the symbol in the expression, returns if the iterator is assigned to that symbol *)
 (* Looks at the symbol on the lhs, returns if the iterator is assigned to that symbol *)
@@ -36,6 +38,8 @@ val appendIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val updateTemporalIteratorToSymbol : (Symbol.symbol * (Symbol.symbol -> Symbol.symbol)) -> Exp.exp -> Exp.exp (* update temporal iterators, requires a new iterator name, and a change function that can create a name (just used for update iterators to change scopes).  This requires that an Exp.TERM (Exp.SYMBOL) is passed in. *)
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
 val exp2temporaliterator : Exp.exp -> Iterator.iterator option
+
+val hasTemporalIterator : Exp.exp -> bool
 
 (* Returns the set of names of all iterators appearing within an expression. *)
 val iterators_of_expression : Exp.exp -> SymbolSet.set
@@ -601,6 +605,11 @@ fun exp2temporaliterator exp =
 	  | _ => NONE
 
 
+fun hasTemporalIterator exp =
+    case exp2temporaliterator exp
+     of SOME _ => true
+      | NONE => false
+		
 fun iterators_of_expression (Exp.FUN (typ, operands)) = 
     foldl SymbolSet.union SymbolSet.empty (map iterators_of_expression operands)
 

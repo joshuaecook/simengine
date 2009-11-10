@@ -146,9 +146,14 @@ fun model2statesizebyiterator (iter:DOF.systemiterator) (model:DOF.model) =
 fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
     let
 	val {iterators, precision, target, num_models, debug, profile} = properties
-	val iterators' = List.filter 
-			     (fn(iter) => 
-				     model2statesizebyiterator iter model > 0) iterators
+
+	fun filter_iter iterator =
+	    0 < model2statesizebyiterator iterator model orelse
+	    List.exists
+		(fn (class) => 0 < List.length (ClassProcess.outputsByIterator iterator class))
+		classes
+
+	val iterators' = List.filter filter_iter iterators
 	val properties' = {iterators=iterators',
 			   precision=precision,
 			   target=target,

@@ -59,13 +59,16 @@ type classiterator = {name: Symbol.symbol,
 		      high: real}
 
 
-type class = {name:Symbol.symbol,
-	      properties:classproperties,
-	      (*		  inputs: (Symbol.symbol * inputproperties) list ref,*)
-	      inputs: {name: Exp.term, default: expression option} list ref,
-	      outputs: {name: Exp.term, 
-			contents: expression list, 
-			condition: expression} list ref,
+type input = {name: Exp.term, 
+	      default: expression option}
+type output = {name: Exp.term, 
+	       contents: expression list, 
+	       condition: expression}
+
+type class = {name: Symbol.symbol,
+	      properties: classproperties,
+	      inputs: input list ref,
+	      outputs: output list ref,
 	      iterators: classiterator list,
 	      exps: expression list ref}
 	     
