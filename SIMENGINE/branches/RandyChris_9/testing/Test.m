@@ -221,7 +221,7 @@ classdef Test < handle
             if t.Result == t.PASSED
               status = 'Passed';
             elseif t.Result == t.FAILED
-              status = 'FAILED <----';
+              status = 'FAILED  <----';
             else
               status = 'ERRORED <----';
             end
