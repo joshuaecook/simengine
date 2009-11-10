@@ -21,9 +21,9 @@ model (top_u, top_w) = split_fn(I)
 
 //  solver = rk4(0.1)
 
-    solver = ode45// with {dt=0.1, abstol=1e-6, reltol=1e-3, max_t=100}
-    solver.dt = 0.1
-    solver.max_t = 100
+  t {solver=ode45{dt=0.1}}
+  //  solver = ode45// with {dt=0.1, abstol=1e-6, reltol=1e-3, max_t=100}
+  //  solver.dt = 0.1
 
 end
 
