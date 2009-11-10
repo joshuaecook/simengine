@@ -120,11 +120,18 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 EXTERN_C
 int simengine_evalflow(double t, double *y, double *dydt, double *inputs) {
   // This should only ever be used when the backend is compiled in double precision
-#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1 && 0 // Broken for now only allow for 1 continuous iterator?
-  CDATAFORMAT *outputs = NULL;  // Should not be written to as first_iteration is 0
+#if defined(SIMENGINE_STORAGE_double) && !defined(TARGET_GPU) && NUM_MODELS == 1
+  static solver_props *props = NULL;
+  if(!props){
+    props = (solver_props*)malloc(sizeof(solver_props)); // Small memory leak. How do we free?
+    memset(props, 0, sizeof(solver_props));
+    props->inputs = inputs;
+    props->iterator = 0; // The only iterator
+    CDATAFORMAT *outputs = NULL;  // Should not be written to as first_iteration is 0
+  }
   int first_iteration = 0;
   int modelid = 0;
-  return model_flows(t, y, dydt, inputs, outputs, first_iteration, modelid);
+  return model_flows(t, y, dydt, props, first_iteration, modelid);
 #else
   return -1;
 #endif
