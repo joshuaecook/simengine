@@ -233,6 +233,12 @@ fun normalizeModel (model:DOF.model) =
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 
+	(* expand out delays *)
+	val _ = Util.log ("Adding delays to difference equations")
+	val () = app ClassProcess.addDelays (CurrentModel.classes())
+	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = DynException.checkToProceed()
+
 	(* add intermediates for update equations if required - they are reading and writing to the same vector so we have to make sure that ordering doesn't matter. *)
 	val _ = Util.log ("Adding buffered intermediates ...")
 	val () = app ClassProcess.addBufferedIntermediates (CurrentModel.classes())

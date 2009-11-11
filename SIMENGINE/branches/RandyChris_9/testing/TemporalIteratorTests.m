@@ -8,7 +8,7 @@ s.add(SimpleIteratorTests);
 s.add(UpdateIteratorTests);
 s.add(PostProcessIteratorTests);
 s.add(MultipleTemporalIteratorTests);
-
+s.add(MultipleIteratorsSubModelTests)
 end
 
 
@@ -60,5 +60,11 @@ s.add(Test('TwoSolversWithIntermediate', @ ...
                     '-quiet')), '-equal', struct('y', [0:10; 0:10; ...
                     0:2:20; 0:3:30]')));
 
+
+end
+
+function s = MultipleIteratorsSubModelTests
+s = Suite('Multiple Temporal Iterators through Sub-Model Tests');
+s.add(Test('UpdateExpInSubModel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest1.dsl',10, '-quiet')), '-equal', struct('y', [0:10; mod(0:10,4)]')));
 
 end

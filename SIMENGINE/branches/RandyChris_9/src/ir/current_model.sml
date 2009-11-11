@@ -77,16 +77,20 @@ fun top_name() =
     end
 
 fun classname2class(sym) : DOF.class = 
-    case List.find (fn(class)=> 
-		      #name class = sym (* this is the first option *) 
-		      orelse
-		      (case #classtype (#properties class) of
-			   DOF.MASTER sym' => sym = sym' (* these are accepted since they just had to be renamed *)
-			 | DOF.SLAVE _ => false (* we are not matching slave classes *))		      
-		   ) (classes())
-     of SOME v => v
-      | NONE => DynException.stdException(("Can't find class with name '"^(Symbol.name sym)^"'"),
-					  ("CurrentModel.classname2class"), Logger.INTERNAL)
+    let
+	val classnames = map #name (classes())
+    in
+	case List.find (fn(class)=> 
+			  #name class = sym (* this is the first option *) 
+			  orelse
+			  (case #classtype (#properties class) of
+			       DOF.MASTER sym' => sym = sym' (* these are accepted since they just had to be renamed *)
+			     | DOF.SLAVE _ => false (* we are not matching slave classes *))		      
+		       ) (classes())
+	 of SOME v => v
+	  | NONE => DynException.stdException(("Can't find class with name '"^(Symbol.name sym)^"': ClassList=" ^(Util.symlist2s classnames)),
+					      ("CurrentModel.classname2class"), Logger.INTERNAL)
+    end
 
 
 fun iterators() =

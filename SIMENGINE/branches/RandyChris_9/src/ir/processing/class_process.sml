@@ -46,6 +46,7 @@ sig
     type sym = Symbol.symbol
     val renameInsts :  ((sym * sym) * (sym * sym)) -> DOF.class -> unit (* change all instance names in a class *)
     val createEventIterators : DOF.class -> unit (* searches out postprocess and update iterators *)
+    val addDelays : DOF.class -> unit (* adds delays to difference equation terms *)
     val addBufferedIntermediates : DOF.class -> unit (* for iterators that read and write to the same state vector, so we add intermediates to break up any loops *)
 
     val to_json : DOF.class -> mlJS.json_value
@@ -564,6 +565,113 @@ fun createEventIterators (class: DOF.class) =
 	 #outputs class := outputs')
     end
     handle e => DynException.checkpoint "ClassProcess.createEventIterators" e
+
+(* find symbols of the form x[n-d] where d is an integer.. Then add d states to the system to create that particular value.  This should also work with x[t[-d]] *)
+fun addDelays (class: DOF.class) =
+    let
+	val exps = !(#exps class)
+	val outputs = !(#outputs class)
+
+	val allTerms = (Util.flatmap ExpProcess.exp2termsymbols exps) @
+		       (Util.flatmap (fn{name,contents,condition}=>(ExpProcess.exp2termsymbols condition) @
+								   (Util.flatmap ExpProcess.exp2termsymbols contents)) outputs)
+
+	val delayedTerms = List.filter (ExpProcess.isDelayedVarDifferenceTerm o ExpProcess.term2exp) allTerms
+
+	fun term2name_delay (t as (Exp.SYMBOL (sym, _))) = 
+	    (case TermProcess.symbol2temporaliterator t of
+		 SOME (iter_sym, Iterator.RELATIVE d) => (sym, iter_sym, ~d)
+	       | _ => DynException.stdException("ClassProcess.addDelays", "Unexpected non-relative iterator", Logger.INTERNAL))
+	  | term2name_delay _ = DynException.stdException("ClassProcess.addDelays", "Unexpected non-symbol term", Logger.INTERNAL)
+
+	val term_list = map term2name_delay delayedTerms
+
+	val grouped_term_list = List.foldl (fn((sym,iter_sym,d),l)=>
+					      let
+						  val (match, others) = List.partition (fn(sym',_,_)=>sym=sym') l
+					      in
+						  if List.length match = 0 then
+						      (sym, iter_sym, [d])::l
+						  else 
+						      let
+							  val e as (sym',iter_sym',d_list) = Util.hd match
+						      in
+							  if List.exists (fn(d')=>d=d') d_list then
+							      e::others
+							  else
+							      (sym',iter_sym',d::d_list)::others
+						      end
+					      end)
+					   [] 
+					   term_list
+					   
+	val exps_and_rewrites = 
+	    map 
+	    (fn(sym,iter_sym,d_list)=>
+	       let
+		   val max_d = StdFun.max d_list
+		   val (init_condition_value, spatial_iterators) = case List.find (fn(exp)=> ExpProcess.isInitialConditionEq exp) (symbol2exps class sym) of
+								       SOME exp => (ExpProcess.rhs exp, ExpProcess.exp2spatialiterators exp) 
+								     | NONE => (ExpBuild.int 0,[])
+									       
+		   val pp_iter_sym = Iterator.postProcessOf (Symbol.name iter_sym)
+		   fun d2symname d = 
+		       Symbol.symbol ("#intdelay_" ^ (Symbol.name sym) ^ "_" ^ (Util.i2s d))
+		   val init_conditions = map
+					     (fn(d)=>ExpBuild.equals (Exp.TERM (Exp.SYMBOL (d2symname d, (Property.setIterator Property.default_symbolproperty ((Iterator.postProcessOf (Symbol.name iter_sym), Iterator.ABSOLUTE 0)::spatial_iterators)))), init_condition_value))
+					     (List.tabulate (max_d,fn(x)=>x+1))
+
+		   fun sym_props r = Property.setIterator Property.default_symbolproperty ((pp_iter_sym, Iterator.RELATIVE r)::spatial_iterators)
+		   fun d2lhs_exp d r = Exp.TERM (Exp.SYMBOL (d2symname d, sym_props r))
+		   val pp_equations = map
+					  (fn(d)=>if d = 1 then 
+						      ExpBuild.equals (d2lhs_exp d 1, 
+								       Exp.TERM (Exp.SYMBOL (sym, 
+											     Property.setIterator 
+												 Property.default_symbolproperty 
+												 ((iter_sym, Iterator.RELATIVE 0)::spatial_iterators))))
+						  else
+						      ExpBuild.equals (d2lhs_exp d 1,
+								       d2lhs_exp (d-1) 0))
+					  (List.tabulate (max_d,fn(x)=>x+1))
+		   val rewrites = map
+				      (fn(d)=>
+					 let 
+					     val pred = ("Find:" ^ (Symbol.name sym),
+							 (fn(exp)=>
+							    case exp of
+								    Exp.TERM (Exp.SYMBOL (sym', props))=>sym=sym' andalso
+													 (case ExpProcess.exp2temporaliterator exp of
+													      SOME (iter_sym',Iterator.RELATIVE d') => iter_sym=iter_sym' andalso d=(~d')
+													    | _ => false)
+								  | _ => false))
+					 in
+					     {find=Match.anysym_with_predlist [pred] (Symbol.symbol "a"),
+					      test=NONE,
+					      replace=Rewrite.RULE (d2lhs_exp d 0)}
+					 end
+				      ) d_list
+				  
+	       in
+		   (init_conditions @ pp_equations, rewrites)
+	       end)
+	    grouped_term_list
+
+	val new_exps = StdFun.flatmap #1 exps_and_rewrites
+	val rewrites = StdFun.flatmap #2 exps_and_rewrites
+
+	val exps' = map (Match.applyRewritesExp rewrites) exps
+	val outputs' = map (fn{name,contents,condition}=>
+			      {name=name,
+			       contents=map (Match.applyRewritesExp rewrites) contents,
+			       condition=Match.applyRewritesExp rewrites condition})
+			   outputs
+
+    in
+	(#exps class := (new_exps @ exps');
+	 #outputs class := outputs')
+    end
+    handle e => DynException.checkpoint "ClassProcess.addDelays" e
 
 (* for an update x[update_t+1] = x[update_t] - 1, for example, x[update_t] should really be x[update_t+1], and should be read from the same vector as x is written 
 back to.  If there is coupling between multiple update equations {x=f(y), y=f(x)}, then we need to break the loop by inserting intermediates.  *)
