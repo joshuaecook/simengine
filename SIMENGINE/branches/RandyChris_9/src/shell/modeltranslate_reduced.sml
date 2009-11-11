@@ -7,6 +7,7 @@ sig
     val reverseExp : ((KEC.exp -> KEC.exp) * Exp.exp) -> (KEC.exp) option
     val rule2rewriterule : ((KEC.exp -> KEC.exp) * KEC.exp) -> (Rewrite.rewrite) option
     val rules2rewriterules : ((KEC.exp -> KEC.exp) * KEC.exp) -> (Rewrite.rewrite list) option
+    val exp2str : KEC.exp -> string
 end
 
 structure ModelTranslate : MODELTRANSLATE=
@@ -127,7 +128,7 @@ fun dofexp2kecexp exp =
 	    (!exec) (KEC.APPLY{func=KEC.SEND{message=Symbol.symbol "new", object=KEC.SYMBOL (Symbol.symbol "Symbol")},
 			       args=KEC.TUPLE [KEC.LITERAL(KEC.CONSTSTR (Symbol.name s))]})
 	end
-      | Exp.FUN (Fun.BUILTIN oper, args) =>
+      | Exp.FUN (func as Fun.BUILTIN oper, args) =>
 (*	let
 	    val funname = case oper of
 			      Fun.ADD => "operator_add"
@@ -146,16 +147,7 @@ fun dofexp2kecexp exp =
 			  args=KEC.TUPLE (map dofexp2kecexp args)}
 *)
 	let
-	    val funname = case oper of
-			      Fun.ADD => "operator_add"
-			    | Fun.SUB => "sub"
-			    | Fun.NEG => "neg"
-			    | Fun.MUL => "mul"
-			    | Fun.DIVIDE => "div"
-			    | Fun.MODULUS => "mod"
-			    | Fun.POW => "pow"
-			    | Fun.DERIV => "deriv"
-			    | _ => error "Unsupported dof operation"
+	    val funname = FunProps.op2name func
 
 	    val exp =
 		KEC.APPLY{func=KEC.SYMBOL (Symbol.symbol "modelop"),
@@ -165,7 +157,7 @@ fun dofexp2kecexp exp =
 	end
 	    
 (*      | Exp.FUN (Fun.INST {classname, instname, props}) =>*)
-      | _ => error "Unsupported dof exp encountered"
+      | _ => error ("Unsupported dof exp encountered: " ^ (ExpPrinter.exp2str exp))
 
 
 fun quantity_to_dof_exp (KEC.LITERAL (KEC.CONSTREAL r)) = ExpBuild.real r

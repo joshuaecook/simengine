@@ -12,7 +12,14 @@ datatype exp =
 	  * See src/ir/datastructs/fun.sml. *)
 	 FUN of (Fun.funtype * exp list)
        | TERM of term
+       | META of meta	 
 
+     and meta =
+	 LAMBDA of {arg:Symbol.symbol, body:exp}
+       | APPLY of {func:exp, arg:exp}
+       | MAP of {func:exp, args: exp}
+       | SEQUENCE of exp list
+	 
      and term = 
 	 RATIONAL of (int * int)
        | INT of int

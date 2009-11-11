@@ -1,7 +1,7 @@
 structure Rewrite =
 struct
 
-type assigned_pattern_type = (Symbol.symbol * Exp.exp) list
+type assigned_pattern_type = Exp.exp SymbolTable.table
 type test_type = ((Exp.exp * assigned_pattern_type) -> bool) option
 
 datatype rewrite_type = RULE of Exp.exp (* from and to *)

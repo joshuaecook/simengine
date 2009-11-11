@@ -81,6 +81,29 @@ fun std_transExp exec args =
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_transExp" e
 
+fun std_addRules exec args =
+    (case args of
+	 [categoryname, rules] => 
+	 (case ModelTranslate.rules2rewriterules (exec, rules) of
+	      SOME rules =>
+	      (Rules.addRules (ModelTranslate.exp2str categoryname, rules);
+	       KEC.UNIT)
+	    | NONE => KEC.UNIT)
+       | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
+    handle e => DynException.checkpoint "CompilerLib.std_addRules" e
+
+
+fun std_expcost exec args =
+    (case args of
+	 [exp] => 
+	 let
+	     val exp = valOf (ModelTranslate.translateExp(exec, exp))
+	 in
+	     KEC.LITERAL(KEC.CONSTREAL (Real.fromInt (Cost.exp2cost exp)))
+	 end
+       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
+    handle e => DynException.checkpoint "CompilerLib.std_expcost" e
+
 fun std_applyRewriteExp exec args =
     (case args of
 	 [rewrite, exp] => valOf(ModelTranslate.reverseExp (exec, Match.applyRewriteExp (valOf (ModelTranslate.rule2rewriterule (exec, rewrite)))
@@ -91,7 +114,18 @@ fun std_applyRewriteExp exec args =
 
 fun std_applyRewritesExp exec args =
     (case args of
-	 [rewrite, exp] => valOf(ModelTranslate.reverseExp (exec, Match.applyRewritesExp (valOf (ModelTranslate.rules2rewriterules (exec, rewrite)))
+	 [KEC.LITERAL (KEC.CONSTSTR rulecategory), exp] =>
+	 let
+	     val _ = print ("in applyRewritesExp\n")
+	     val rules = Rules.getRules rulecategory
+	     val _ = print ("got rules\n")
+	     val exp = valOf (ModelTranslate.translateExp(exec, exp))
+	     val _ = print ("got exp\n")
+	 in
+	     valOf(ModelTranslate.reverseExp (exec, Match.applyRewritesExp rules exp))
+	     before print ("done\n")
+	 end
+       | [rewrite, exp] => valOf(ModelTranslate.reverseExp (exec, Match.applyRewritesExp (valOf (ModelTranslate.rules2rewriterules (exec, rewrite)))
 											 (valOf (ModelTranslate.translateExp(exec, exp)))))
 
        | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
@@ -99,36 +133,40 @@ fun std_applyRewritesExp exec args =
 
 fun std_repeatApplyRewriteExp exec args =
     (case args of
-	 [rewrite, exp] => valOf(ModelTranslate.reverseExp (exec, Match.repeatApplyRewriteExp (valOf (ModelTranslate.rule2rewriterule (exec, rewrite)))
-											(valOf (ModelTranslate.translateExp(exec, exp)))))
+	 [rewrite, exp] => valOf(ModelTranslate.reverseExp (exec, (Match.repeatApplyRewriteExp (valOf (ModelTranslate.rule2rewriterule (exec, rewrite)))
+											       (valOf (ModelTranslate.translateExp(exec, exp))))))
 
        | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_repeatApplyRewriteExp" e
 
 fun std_repeatApplyRewritesExp exec args =
     (case args of
-	 [rewrite, exp] => valOf(ModelTranslate.reverseExp (exec, Match.repeatApplyRewritesExp (valOf (ModelTranslate.rules2rewriterules (exec, rewrite)))
+	 [KEC.LITERAL (KEC.CONSTSTR rulecategory), exp] =>
+	 let
+	     val rules = Rules.getRules rulecategory
+	     val exp = valOf (ModelTranslate.translateExp(exec, exp))
+	 in
+	     valOf(ModelTranslate.reverseExp (exec, Match.repeatApplyRewritesExp rules exp))
+	 end
+       | [rewrite, exp] => valOf(ModelTranslate.reverseExp (exec, Match.repeatApplyRewritesExp (valOf (ModelTranslate.rules2rewriterules (exec, rewrite)))
 											 (valOf (ModelTranslate.translateExp(exec, exp)))))
 
        | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_repeatApplyRewritesExp" e
 
 fun std_exp2str exec args =
-    let
-	val _ = print ("in exp2str\n")
-    in
     (case args of
 	 [object] => KEC.LITERAL(KEC.CONSTSTR (ExpPrinter.exp2str (valOf (ModelTranslate.translateExp(exec, object)))))
 
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_exp2str" e 
-    end
-    before print ("out of exp2str\n")
     
 
 val library = [{name="compile", operation=std_compile},
 	       {name="transexp", operation=std_transExp},
 	       {name="exp2str", operation=std_exp2str},
+	       {name="addRules", operation=std_addRules},
+	       {name="expcost", operation=std_expcost},
 	       {name="applyRewriteExp", operation=std_applyRewriteExp},
 	       {name="applyRewritesExp", operation=std_applyRewritesExp},
 	       {name="repeatApplyRewriteExp", operation=std_repeatApplyRewriteExp},

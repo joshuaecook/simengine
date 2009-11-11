@@ -13,5 +13,5 @@ model (y)=PostProcessContinuousIteratorTest2
 	x_d2 = x_d1
     end
     
-    output y = (x, x_d1, x_d2)
+    output y[t1] = (x, x_d1, x_d2) with {iter=t1}
 end

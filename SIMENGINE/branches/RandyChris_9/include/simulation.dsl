@@ -181,8 +181,8 @@ namespace Simulation
     var args
    
     function tostring ()
-      "ModelOperation(name=" + self.name + ", args=" + self.args + ")"
-      //LF exp2str (self)
+      //"ModelOperation(name=" + self.name + ", args=" + self.args + ")"
+      LF exp2str (self)
     end
 
     constructor (name: String, numArgs: Number, execFun, precisionMap, args: Vector of _)
@@ -212,6 +212,8 @@ namespace Simulation
 
 
   end
+
+  function modelop (name, args) = ModelOperation.new(name, args.length(), (lambdafun (x) = modelop (name, args)), 0, args)
 
   overload function not(b: ModelOperation) = ModelOperation.new ("not", 1, not, 0, [b])
   overload function not(b: SimQuantity) = ModelOperation.new ("not", 1, not, 0, [b])

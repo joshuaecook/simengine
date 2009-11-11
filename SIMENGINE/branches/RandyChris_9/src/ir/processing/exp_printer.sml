@@ -35,8 +35,11 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end
 	  | useParen (Exp.TERM _) = false
+	  | useParen (Exp.META _) = false
 
-	fun addParen (str, exp) = 
+	fun addParen ("", exp) = 
+	    ""
+	  | addParen (str, exp) = 
 	    if hd (String.explode str) = #"-" then
 		"(" ^ str ^ ")"
 	    else if useParen exp then
@@ -62,28 +65,31 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 			    
     end
   | exp2tersestr (Exp.TERM term) =
-    case term of 
-	Exp.RATIONAL (n,d) => (i2s n) ^ "/" ^ (i2s d)
-      | Exp.INT v => i2s v
-      | Exp.REAL v => r2s v
-      | Exp.BOOL v => b2s v
-      | Exp.COMPLEX (t1,t2) => if Term.isZero t1 andalso Term.isZero t2 then (exp2tersestr (Exp.TERM (Exp.INT 0)))
-			   else if Term.isZero t1 then (exp2tersestr (Exp.TERM t2) ^ " i")
-			   else if Term.isZero t2 then exp2tersestr (Exp.TERM t1)
-			   else exp2tersestr (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
-      | Exp.LIST (l,_) => "[" ^ (String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l)) ^ "]"
-      | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l))^")"
-      | Exp.RANGE {low, high, step} => 
-	if Term.isOne step then
-	    (exp2tersestr (Exp.TERM low)) ^ ":" ^ (exp2tersestr (Exp.TERM high))
-	else
-	    (exp2tersestr (Exp.TERM low)) ^ ":" ^ (exp2tersestr (Exp.TERM step)) ^ ":" ^ (exp2tersestr (Exp.TERM high))
-      | Exp.SYMBOL (s, props) => Term.sym2str (s, props)
-      | Exp.DONTCARE => "?"
-      | Exp.INFINITY => "Inf"
-      | Exp.NAN => "NaN"
-      | Exp.PATTERN p => PatternProcess.pattern2str p
-
+    (case term of 
+	 Exp.RATIONAL (n,d) => (i2s n) ^ "/" ^ (i2s d)
+       | Exp.INT v => i2s v
+       | Exp.REAL v => r2s v
+       | Exp.BOOL v => b2s v
+       | Exp.COMPLEX (t1,t2) => if Term.isZero t1 andalso Term.isZero t2 then (exp2tersestr (Exp.TERM (Exp.INT 0)))
+				else if Term.isZero t1 then (exp2tersestr (Exp.TERM t2) ^ " i")
+				else if Term.isZero t2 then exp2tersestr (Exp.TERM t1)
+				else exp2tersestr (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
+       | Exp.LIST (l,_) => "[" ^ (String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l)) ^ "]"
+       | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l))^")"
+       | Exp.RANGE {low, high, step} => 
+	 if Term.isOne step then
+	     (exp2tersestr (Exp.TERM low)) ^ ":" ^ (exp2tersestr (Exp.TERM high))
+	 else
+	     (exp2tersestr (Exp.TERM low)) ^ ":" ^ (exp2tersestr (Exp.TERM step)) ^ ":" ^ (exp2tersestr (Exp.TERM high))
+       | Exp.SYMBOL (s, props) => Term.sym2str (s, props)
+       | Exp.DONTCARE => "?"
+       | Exp.INFINITY => "Inf"
+       | Exp.NAN => "NaN"
+       | Exp.PATTERN p => PatternProcess.pattern2str p)
+  | exp2tersestr (Exp.META meta) =
+    (case meta of 
+	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2tersestr e)) ^ " :}"
+       | _ => "<unresolved-meta>")
 
 
 fun exp2fullstr (Exp.FUN (f, exps)) = 
@@ -108,6 +114,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end
 	  | useParen (Exp.TERM _) = false
+	  | useParen (Exp.META _) = false
 
 	fun addParen (str, exp) = 
 	    if hd (String.explode str) = #"-" then
@@ -133,24 +140,28 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 			    
     end
   | exp2fullstr (Exp.TERM term) =
-    case term of 
-	Exp.RATIONAL (n,d) => "Rational(" ^ (i2s n) ^ "," ^ (i2s d) ^ ")"
-      | Exp.INT v => i2s v
-      | Exp.REAL v => r2s v
-      | Exp.BOOL v => b2s v
-      | Exp.COMPLEX (t1,t2) => "Complex("^(exp2fullstr (Exp.TERM t1))^","^(exp2fullstr (Exp.TERM t2))^")"
-	(*if Term.isZero t1 andalso Term.isZero t2 then (exp2fullstr (Exp.TERM (Exp.INT 0)))
-			   else if Term.isZero t1 then (exp2fullstr (Exp.TERM t2) ^ " i")
-			   else if Term.isZero t2 then exp2fullstr (Exp.TERM t1)
-			   else exp2fullstr (Exp.FUN (Symbol.symbol "PLUS", [Exp.TERM t1, Exp.FUN (Symbol.symbol "TIMES", [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))])]))	*)
-      | Exp.LIST (l,_) => "List(" ^ (String.concatWith "," (map (fn(t)=>exp2fullstr (Exp.TERM t)) l)) ^ ")"
-      | Exp.TUPLE l => "Tuple("^(String.concatWith ", " (map (fn(t)=>exp2fullstr (Exp.TERM t)) l))^")"
-      | Exp.RANGE {low, high, step} => "Range("^(exp2fullstr (Exp.TERM low))^":"^(exp2fullstr (Exp.TERM step))^":"^(exp2fullstr (Exp.TERM high))^")"
-      | Exp.SYMBOL (s, props) => Term.sym2fullstr (s, props)
-      | Exp.DONTCARE => "?"
-      | Exp.INFINITY => "Inf"
-      | Exp.NAN => "NaN"
-      | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")"
+    (case term of 
+	 Exp.RATIONAL (n,d) => "Rational(" ^ (i2s n) ^ "," ^ (i2s d) ^ ")"
+       | Exp.INT v => i2s v
+       | Exp.REAL v => r2s v
+       | Exp.BOOL v => b2s v
+       | Exp.COMPLEX (t1,t2) => "Complex("^(exp2fullstr (Exp.TERM t1))^","^(exp2fullstr (Exp.TERM t2))^")"
+       (*if Term.isZero t1 andalso Term.isZero t2 then (exp2fullstr (Exp.TERM (Exp.INT 0)))
+	 else if Term.isZero t1 then (exp2fullstr (Exp.TERM t2) ^ " i")
+	 else if Term.isZero t2 then exp2fullstr (Exp.TERM t1)
+	 else exp2fullstr (Exp.FUN (Symbol.symbol "PLUS", [Exp.TERM t1, Exp.FUN (Symbol.symbol "TIMES", [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))])]))	*)
+       | Exp.LIST (l,_) => "List(" ^ (String.concatWith "," (map (fn(t)=>exp2fullstr (Exp.TERM t)) l)) ^ ")"
+       | Exp.TUPLE l => "Tuple("^(String.concatWith ", " (map (fn(t)=>exp2fullstr (Exp.TERM t)) l))^")"
+       | Exp.RANGE {low, high, step} => "Range("^(exp2fullstr (Exp.TERM low))^":"^(exp2fullstr (Exp.TERM step))^":"^(exp2fullstr (Exp.TERM high))^")"
+       | Exp.SYMBOL (s, props) => Term.sym2fullstr (s, props)
+       | Exp.DONTCARE => "?"
+       | Exp.INFINITY => "Inf"
+       | Exp.NAN => "NaN"
+       | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")")
+  | exp2fullstr (Exp.META meta) =
+    (case meta of 
+	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2fullstr e)) ^ " :}"
+       | _ => "<unresolved-meta>")
 
 fun exp2str e = 
     (if DynamoOptions.isFlagSet("usefullform") then

@@ -24,6 +24,7 @@ val isDifferenceEq : Exp.exp -> bool
 val isIntermediateEq : Exp.exp -> bool
 val isPPEq : Exp.exp -> bool
 val isUpdateEq : Exp.exp -> bool
+val isPattern : Exp.exp -> bool
 
 val isIntermediateTerm : Exp.exp -> bool
 val isDelayedVarDifferenceTerm : Exp.exp -> bool
@@ -205,12 +206,13 @@ fun error exp text = (error_no_return exp text;
 fun isFun exp = 
     case exp of
 	Exp.FUN _ => true
-      | Exp.TERM _ => false
+      | _ => false
+
 
 fun isTerm exp = 
     case exp of
 	Exp.FUN _ => false
-      | Exp.TERM _ => true
+      | _ => true
 
 fun isSymbol exp = 
     case exp of
@@ -386,6 +388,9 @@ fun isUpdateEq exp =
     isEquation exp andalso
     isNextUpdateTerm (lhs exp)
     
+fun isPattern (Exp.TERM(Exp.PATTERN _)) = true
+  | isPattern _ = false
+
 (* difference terms of the form x[n] *)
 fun isCurVarDifferenceTerm exp = 
     case exp of
@@ -594,6 +599,7 @@ fun exp2size iterator_list exp : int =
 (*		       foldl combineSizes 1 (map (exp2size iterator_list) args)*)
 		       end
 		     | Exp.FUN (Fun.INST _, args) => 1 (*TODO: ???? *)
+		     | Exp.META _ => 1 (*TODO: ???? *)
 
     in
 	size

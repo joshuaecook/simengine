@@ -119,6 +119,9 @@ fun group l = Exp.FUN (Fun.BUILTIN Fun.GROUP, l)
 fun atan2 (a,b) = Exp.FUN (Fun.BUILTIN Fun.ATAN2, [a,b])
 fun re z = Exp.FUN (Fun.BUILTIN Fun.RE, [z])
 fun im z = Exp.FUN (Fun.BUILTIN Fun.IM, [z])
+fun land l = Exp.FUN (Fun.BUILTIN Fun.AND, l)
+fun lor l = Exp.FUN (Fun.BUILTIN Fun.OR, l)
+fun not v = Exp.FUN (Fun.BUILTIN Fun.NOT, [v])
 fun arg z = atan2 (re z, im z)
 fun cos x = Exp.FUN (Fun.BUILTIN Fun.COS, [x])
 fun sin x = Exp.FUN (Fun.BUILTIN Fun.SIN, [x])
@@ -141,4 +144,10 @@ fun complex_logn (b, z) =
 		  divide (times [arg b, log (plus [square i, square r])],
 			  times [int 2, plus [square (arg b), times [frac(1,4), square (log (square b))]]])))
     end
+
+fun lambda (arg, body) = Exp.META(Exp.LAMBDA{arg=Symbol.symbol arg, body=body})
+fun sequence (exps) = Exp.META(Exp.SEQUENCE exps)
+fun apply (func, arg) = Exp.META(Exp.APPLY{func=func, arg=arg})
+fun map (func, args) = Exp.META(Exp.MAP{func=func, args=args})
+
 end

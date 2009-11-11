@@ -96,10 +96,10 @@ fun findOnce (pattern, target) =
 
 fun findOnceWithPatterns (pattern, target) =
     let
-	val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (pattern, target)
+	val assigned_patterns = ExpEquality.findMatches (pattern, target)
     in
-	if result then
-	    SOME assigned_patterns
+	if not (null assigned_patterns) then
+	    SOME (hd assigned_patterns)
 	else
 	    foldl (fn(a,b)=> case b of 
 				 SOME v => SOME v
@@ -119,28 +119,42 @@ fun findRecursive (pattern, target) =
 	 []
 	 (level target))
 
-fun replaceSymbol (sym,repl_exp) exp =
-    let
-	val _ = print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression " ^ (e2s repl_exp) ^ " in " ^ (e2s exp) ^ "\n")
-    in
+fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
     case exp of
 	Exp.TERM (Exp.SYMBOL (sym',_)) => 
 	      if sym=sym' then
-		  case repl_exp of
-		      Exp.FUN (Fun.BUILTIN Fun.GROUP, args) => args
-		    | _ => [repl_exp]
+		  repl_exp
 	      else
-		  [exp]
-      | Exp.TERM (Exp.LIST (termlist, dimlist)) => [Exp.TERM (Exp.LIST (Util.flatmap (map exp2term o (replaceSymbol (sym, repl_exp)) o Exp.TERM) termlist, dimlist))]
-      | Exp.TERM (Exp.TUPLE termlist) => [Exp.TERM (Exp.TUPLE (Util.flatmap (map exp2term o (replaceSymbol (sym, repl_exp)) o Exp.TERM) termlist))]
-      | Exp.FUN (funtype, args) => [Exp.FUN (funtype, Util.flatmap (replaceSymbol (sym, repl_exp)) args)]
-      | _ => [exp]
-    end
-fun replacePattern assigned_patterns exp =
+		  exp
+(*      | Exp.TERM (Exp.LIST (termlist, dimlist)) 
+	=> Exp.TERM (Exp.LIST ( (map exp2term o (replaceSymbol (sym, repl_exp)) o Exp.TERM) termlist, dimlist))*)
+      | Exp.TERM (Exp.TUPLE termlist) 
+	=> Exp.TERM (Exp.TUPLE (map exp2term 
+				    (map (replaceSymbol(sym, repl_exp))
+					 (map Exp.TERM 
+					      termlist))))
+      | Exp.FUN (funtype, args) 
+	=> Exp.FUN (funtype, map (replaceSymbol (sym, repl_exp)) args)
+      | Exp.META (Exp.SEQUENCE s) 
+	=> Exp.META(Exp.SEQUENCE (map (replaceSymbol (sym, repl_exp)) s))
+      | Exp.META (Exp.MAP {func, args} )
+	=> Exp.META (Exp.MAP {func= replaceSymbol (sym, repl_exp) func,
+			      args= replaceSymbol (sym, repl_exp) args})
+      | Exp.META (Exp.APPLY {func, arg}) 
+	=> Exp.META (Exp.APPLY {func= replaceSymbol (sym, repl_exp) func,
+				arg= replaceSymbol (sym, repl_exp) arg})
+      | Exp.META (Exp.LAMBDA {arg, body})
+	=> if arg = sym then
+	       exp
+	   else
+	       Exp.META (Exp.LAMBDA {arg=arg, body= replaceSymbol (sym, repl_exp) body})
+      | _ => exp
+
+fun replacePattern (assigned_patterns: Exp.exp SymbolTable.table ) exp =
     foldl 
-	(fn(pattern,exp) => Util.hd (replaceSymbol pattern exp))
+	(fn(sym, exp) => replaceSymbol (sym, valOf (SymbolTable.look (assigned_patterns, sym))) exp)
 	exp
-	assigned_patterns
+	(SymbolTable.listKeys assigned_patterns)
 
 fun rule2str (exp1, exp2) =
     (e2s exp1) ^ " -> " ^ (e2s exp2)
@@ -150,26 +164,40 @@ fun rules2str rules =
 (* replaces the pat_exp with repl_exp in the expression, returning the new expression.  This function will operate recursively through the expression data structure. *)
 fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
     let
-	val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
+	val assigned_patterns = (ExpEquality.findMatches (find, exp))
+
+val _ = print ("  # matches = " ^ (Int.toString (length assigned_patterns)) ^ "\n")
 
 	val _ = print ("Assigned patterns: \n")
-	val _ = app (fn(sym, repl_exp) => print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression" ^ (e2s repl_exp) ^ "\n")) assigned_patterns
+(*	val _ = app (fn(sym, repl_exp) => print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression" ^ (e2s repl_exp) ^ "\n")) assigned_patterns*)
+	val _ = if null assigned_patterns then
+		    print ("  no match\n")
+		else
+		    let
+ 			val match = hd assigned_patterns
+		    in
+			app (fn(sym) => print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression " ^ (e2s (Normalize.normalize (valOf(SymbolTable.look (match, sym))))) ^ "\n")) (SymbolTable.listKeys match)
+		    end
+	val _ = print ("old exp = " ^ (e2s (Normalize.normalize exp)) ^ "\n")
 	val run_test = case test of SOME v => true | NONE => false
 
 	(* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)
 	fun test_exp() = 
 	    let
 		val test_fun = valOf test
+		val match = hd assigned_patterns
 	    in
-		test_fun (exp, assigned_patterns)
+		test_fun (exp, match)
 	    end
 
-	val exp' = if result andalso (not run_test orelse (test_exp())) then
+	val exp' = if not (null assigned_patterns) andalso (not run_test orelse (test_exp())) then
 		       let
+			   val match = hd assigned_patterns
+
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
-			   val repl_exp' = case replace of
-					       Rewrite.RULE repl_exp => replacePattern assigned_patterns repl_exp
-					     | Rewrite.ACTION (sym, action_fun) => action_fun exp
+			   val repl_exp' = Normalize.normalize(case replace of
+								    Rewrite.RULE repl_exp => replacePattern (match) repl_exp
+								  | Rewrite.ACTION (sym, action_fun) => action_fun exp)
 
 			   (* log if desired *)
 			   val _ = if DynamoOptions.isFlagSet "logrewrites" then
@@ -184,6 +212,8 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
 		       end
 		   else
 		       (head exp) (map (fn(arg)=> applyRewriteExp rewrite arg) (level exp))
+
+	val _ = print ("new exp = " ^ (e2s (Normalize.normalize exp')) ^ "\n")
 		       
     in
 	exp'
@@ -193,12 +223,12 @@ fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp =
     if List.length rewritelist > 0 then
 	let
 	    val ret = foldl
-			  (fn({find, test, replace},ret : ((Symbol.symbol * Exp.exp) list * Rewrite.rewrite) option) => 
+			  (fn({find, test, replace},ret : ((Exp.exp)SymbolTable.table * Rewrite.rewrite) option) => 
 			     case ret of 
 				 SOME v => SOME v (* already found a match here so skip the rest*)
 			       | NONE => 
 				 let
-				     val (assigned_patterns, result) = ExpEquality.exp_equivalent [] (find, exp)
+				     val assigned_patterns = ExpEquality.findMatches (find, exp)
 				     val run_test = case test of SOME v => true | NONE => false
 											  
 				     (* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)
@@ -206,11 +236,11 @@ fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp =
 					 let
 					     val test_fun = valOf test
 					 in
-					     test_fun (exp, assigned_patterns)
+					     test_fun (exp, hd assigned_patterns)
 					 end
 				 in
-				     if result andalso (not run_test orelse (test_exp())) then
-					 SOME (assigned_patterns, {find=find, test=test, replace=replace})
+				     if not (null assigned_patterns) andalso (not run_test orelse (test_exp())) then
+					 SOME (hd assigned_patterns, {find=find, test=test, replace=replace})
 				     else
 					 NONE
 				 end)
@@ -222,10 +252,10 @@ fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp =
 			   SOME (assigned_patterns, rewrite as {find,test,replace}) =>
 			   let
 			       (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
-			       val repl_exp' = case replace of
-						   Rewrite.RULE repl_exp => replacePattern assigned_patterns repl_exp
-						 | Rewrite.ACTION (sym, action_fun) => action_fun exp
-										       
+			       val repl_exp' = Normalize.normalize(case replace of
+								       Rewrite.RULE repl_exp => replacePattern (assigned_patterns) repl_exp
+								     | Rewrite.ACTION (sym, action_fun) => action_fun exp)
+													   
 			       (* log if desired *)
 			       val _ = if DynamoOptions.isFlagSet "logrewrites" then
 					   Util.log ("Rewriting Rule '"^(Rewrite.rewrite2str rewrite)^"': changed expression from '"^(e2s exp)^"' to '"^(e2s repl_exp')^"'")
@@ -260,7 +290,7 @@ fun repeatApplyRewriteExp rewrite exp =
 		    val exp' = applyRewriteExp rewrite exp
 		in
 		    if ExpEquality.equiv (exp, exp') then
-			exp
+			exp 
 		    else
 			repeatApplyRewriteExp_helper (limit-1) rewrite exp'
 		end
@@ -277,6 +307,7 @@ fun repeatApplyRewritesExp rewrites exp =
 	    fun repeatApplyRewritesExp_helper limit rewrites exp =
 		if limit = 0 then
 		    (Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit)));
+		     Logger.log_warning(Printer.$("  exp = " ^ (ExpPrinter.exp2str exp)));
 		     exp)
 		else
 		    let

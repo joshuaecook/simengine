@@ -23,6 +23,8 @@ fun exp2cost exp =
 	in
 	    args_size + inst_size
 	end
+      | Exp.META (Exp.SEQUENCE s) => Util.sum (map exp2cost s)
+      | Exp.META _ => 0
 
 and class2cost (c:DOF.class) = 
     let

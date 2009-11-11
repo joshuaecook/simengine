@@ -62,12 +62,19 @@ fun pattern2str ((symbol, (predicate_name, predicate_fun), patcount):
     end
 
 fun patcount_compatible patcount count =
+    let
+	val _ = print ("patcount_compatible (" ^ (Int.toString count) ^ ") = ")
+val res =
     case patcount 
      of Pattern.ONE => count = 1
       | Pattern.ONE_OR_MORE => count >= 1
       | Pattern.ZERO_OR_MORE => count >= 0
       | Pattern.SPECIFIC_COUNT i => i=count
       | Pattern.SPECIFIC_RANGE (i1, i2) => i1 <= count andalso count <= i2
+val _ = print ((Bool.toString res) ^ "\n")
+    in
+    res						       
+end
 
 fun min_patcount patcount =
     case patcount 

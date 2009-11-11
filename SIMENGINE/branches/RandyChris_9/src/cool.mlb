@@ -93,10 +93,13 @@ ir/datastructs/inst.sml
 
 
 ir/processing/fun_process.sml
-ir/processing/term_process.sml
 
 ir/patterns/pattern_process.sml
 ir/processing/exp_printer.sml
+
+ir/processing/term_process.sml
+
+ir/processing/normalize.sml
 
 ir/datastructs/rewrite.sml
 ir/patterns/exp_equality.sml
