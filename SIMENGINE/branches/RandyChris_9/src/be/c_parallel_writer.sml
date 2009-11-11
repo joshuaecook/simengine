@@ -249,6 +249,7 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 	 $("#define VERSION (0)"),
 	 $("")]
     end
+    handle e => DynException.checkpoint "CParallelWriter.simengine_interface" e
 
 fun class2stateiterators (class: DOF.class) =
     let
@@ -423,13 +424,17 @@ fun outputsystemstatestruct_code forkedModels =
 	fun subsystem_classname_iterator_pair subsystem =
 	    let val {model, iter, ...} = subsystem
 		val (_, {classname, ...}, _) = model
-		val (iter_sym, iter_typ) = iter
-		val class = 
-		    CurrentModel.withModel model (fn _ => CurrentModel.classname2class classname)
-	    in if ClassProcess.hasIterator iter class then
-		   SOME (classname, iter_sym, iter_typ)
-	       else NONE
+	    in
+		CurrentModel.withModel model (fn _ =>
+		let
+		    val (iter_sym, iter_typ) = iter
+		    val class = CurrentModel.classname2class classname
+		in if ClassProcess.hasIterator iter class then
+		       SOME (classname, iter_sym, iter_typ)
+		   else NONE
+		end)
 	    end
+	    handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code.subsystem_classname_iterator_pair" e
 
 	val class_names_iterators = 
 	    List.mapPartial subsystem_classname_iterator_pair forkedModels
@@ -450,6 +455,7 @@ fun outputsystemstatestruct_code forkedModels =
 	    in 
 		(ClassProcess.class2classname class, class_name_iterator_pairs) 
 	    end
+	    handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code.class_struct_data" e
 
 	fun class_struct_declaration (name, iter_pairs) =
 	    [$("typedef struct {"),
@@ -662,6 +668,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			 map ($ o assign_output) output_symbol_pairs),
 		     $("}"),$("")]
 		end
+		handle e => DynException.checkpoint "CParallelWriter.class2flow_code.instanceeq2prog" e
 
 
 
@@ -804,7 +811,8 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 							 class2flow_code (c,#name c = #name topclass, iter)) classes)
 	    in
 		([$("// Functions prototypes for flow code")] @ fundecl_progs, flow_progs)
-	    end)
+	    end
+	    handle e => DynException.checkpoint "CParallelWriter.flow_code.anonymous_fun" e)
     end
     handle e => DynException.checkpoint "CParallelWriter.flow_code" e
 
@@ -841,6 +849,7 @@ fun model_flows classname =
 	 $("}"),
 	 $("")]
     end
+    handle e => DynException.checkpoint "CParallelWriter.model_flows" e
 
 
 fun output_code (name, location, block) =
@@ -892,6 +901,7 @@ fun logoutput_code class forkedModels =
 			       end)
 			    dependent_symbols
 
+	(* FIXME - term2temp_iter must have the appropriate model defined in CurrentModel *)
 	fun term2temp_iter t = 
 	    case ExpProcess.exp2temporaliterator (Exp.TERM t) of
 		SOME (iter_sym, _) => iter_sym
@@ -900,9 +910,10 @@ fun logoutput_code class forkedModels =
 						  Logger.INTERNAL)
 
 	val outputs_from_top_classes =
-	    Util.flatmap
-		(fn(m as {top_class,model,...})=>CurrentModel.withModel model (fn()=> !(#outputs (CurrentModel.classname2class top_class))))
-		forkedModels
+	    (Util.flatmap
+		 (fn(m as {top_class,model,...})=>CurrentModel.withModel model (fn()=> !(#outputs (CurrentModel.classname2class top_class))))
+		 forkedModels)
+	    handle e => DynException.checkpoint "CParallelWriter.logoutput_code.outputs_from_top_classes" e
 
 	val output_exps =Util.flatmap
 			      (fn(out as ({condition, contents, name}, output_index))=> 
@@ -993,7 +1004,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val simengine_interface_progs = simengine_interface (*(class_name, inst_class, unique_solvers, iterator_names)*)model forkedModelsLessUpdate
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
-	val outputstatestruct_progs = Util.flatmap (fn{model,...} => outputstatestruct_code model) forkedModelsLessUpdate
+	val outputstatestruct_progs = Util.flatmap (fn{model,...} => CurrentModel.withModel model (fn _=> outputstatestruct_code model)) forkedModelsLessUpdate
 	val systemstate_progs = outputsystemstatestruct_code forkedModelsLessUpdate
 	val flow_data = map flow_code forkedModels
 	val fun_prototypes = List.concat (map #1 flow_data)
