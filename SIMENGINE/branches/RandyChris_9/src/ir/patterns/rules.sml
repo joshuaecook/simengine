@@ -29,7 +29,33 @@ val expansionRules : Rewrite.rewrite list =
       replace=Rewrite.RULE (ExpBuild.land [ExpBuild.map (ExpBuild.lambda ("x", ExpBuild.not (ExpBuild.var "x")),
 						       ExpBuild.var "a")])}
     ]
-								 
+
+val simplificationRules =
+    [
+     (* add() -> sequence() *)
+     {find=ExpBuild.plus [],
+      test=NONE,
+      replace=Rewrite.RULE (ExpBuild.sequence [])},
+     (* mul() -> sequence() *)
+     {find=ExpBuild.times [],
+      test=NONE,
+      replace=Rewrite.RULE (ExpBuild.sequence [])}
+
+    ]								 
+
+val restorationRules =
+    [(* COPIED *)
+     (* add() -> sequence() *)
+     {find=ExpBuild.plus [],
+      test=NONE,
+      replace=Rewrite.RULE (ExpBuild.sequence [])},
+     (* mul() -> sequence() *)
+     {find=ExpBuild.times [],
+      test=NONE,
+      replace=Rewrite.RULE (ExpBuild.sequence [])}
+
+    ]								 
+
 
 val ruleTable = ref SymbolTable.empty
 
@@ -37,6 +63,14 @@ val _ = ruleTable := SymbolTable.enter (!ruleTable,
 					Symbol.symbol "expansion",
 					expansionRules)
 
+
+val _ = ruleTable := SymbolTable.enter (!ruleTable,
+					Symbol.symbol "simplification",
+					simplificationRules)
+
+val _ = ruleTable := SymbolTable.enter (!ruleTable,
+					Symbol.symbol "restoration",
+					restorationRules)
 
 fun addRules (categoryname, rules) =
     ruleTable := SymbolTable.enter (!ruleTable, 

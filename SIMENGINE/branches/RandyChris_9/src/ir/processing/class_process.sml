@@ -1340,8 +1340,66 @@ fun optimizeClass (class: DOF.class) =
 								  Rules.aggregateProds2,
 								  Rules.aggregateProds] exp) exps'
 *)
-	val exps'' = exps
-	val _ = (#exps class) := exps''
+	val simplify = (Rules.getRules "simplification")
+
+	val simplifyAndExpand = (Rules.getRules "simplification") @ 
+				(Rules.getRules "expansion")
+
+	val simplifyAndFactor = (Rules.getRules "simplification") @ 
+				(Rules.getRules "factoring")
+
+	val restore = (Rules.getRules "restoration")
+
+	val exps' = map ((Match.repeatApplyRewritesExp restore) o
+			 (Match.repeatApplyRewritesExp simplify))
+			exps
+	val exps = 
+	    let
+		val orig_cost = Util.sum(map Cost.exp2cost exps)
+		val new_cost = Util.sum(map Cost.exp2cost exps')
+	    in
+		if orig_cost <= new_cost then
+		    exps
+		else
+		    (Util.log ("  Basic simplification improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)));
+		     exps')
+	    end
+
+		       
+	val exps' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps
+	val exps'' = map (Match.repeatApplyRewritesExp restore) exps'
+
+	val exps = 
+	    let
+		val orig_cost = Util.sum(map Cost.exp2cost exps)
+		val new_cost = Util.sum(map Cost.exp2cost exps'')
+	    in
+		if orig_cost <= new_cost then
+		    exps
+		else
+		    (Util.log ("  Factoring improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)));
+		     exps'')
+	    end
+
+	val exps' = map (Match.repeatApplyRewritesExp simplifyAndExpand) exps
+
+	val exps'' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps'
+
+	val exps''' = map (Match.repeatApplyRewritesExp restore) exps''
+
+	val exps = 
+	    let
+		val orig_cost = Util.sum(map Cost.exp2cost exps)
+		val new_cost = Util.sum(map Cost.exp2cost exps''')
+	    in
+		if orig_cost <= new_cost then
+		    exps
+		else
+		    (Util.log ("  Expanding and factoring improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)));
+		     exps''')
+	    end
+
+	val _ = (#exps class) := exps
     in
 	()
     end

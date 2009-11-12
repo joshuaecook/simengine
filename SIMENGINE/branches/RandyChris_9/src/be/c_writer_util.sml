@@ -21,7 +21,7 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	  | useParen (Exp.TERM _) = false
 
 	fun addParen (str, exp) = 
-	    if hd (String.explode str) = #"-" then
+	    if String.isPrefix "-" str then
 		"(" ^ str ^ ")"
 	    else if useParen exp then
 		"(" ^ str ^")"

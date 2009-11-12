@@ -170,15 +170,18 @@ val _ = print ("  # matches = " ^ (Int.toString (length assigned_patterns)) ^ "\
 
 	val _ = print ("Assigned patterns: \n")
 (*	val _ = app (fn(sym, repl_exp) => print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression" ^ (e2s repl_exp) ^ "\n")) assigned_patterns*)
-	val _ = if null assigned_patterns then
+(*	val _ = if null assigned_patterns then
 		    print ("  no match\n")
+		    
 		else
 		    let
  			val match = hd assigned_patterns
 		    in
+
 			app (fn(sym) => print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression " ^ (e2s (Normalize.normalize (valOf(SymbolTable.look (match, sym))))) ^ "\n")) (SymbolTable.listKeys match)
 		    end
-	val _ = print ("old exp = " ^ (e2s (Normalize.normalize exp)) ^ "\n")
+*)
+(*	val _ = print ("old exp = " ^ (e2s (Normalize.normalize exp)) ^ "\n")*)
 	val run_test = case test of SOME v => true | NONE => false
 
 	(* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)
@@ -193,7 +196,6 @@ val _ = print ("  # matches = " ^ (Int.toString (length assigned_patterns)) ^ "\
 	val exp' = if not (null assigned_patterns) andalso (not run_test orelse (test_exp())) then
 		       let
 			   val match = hd assigned_patterns
-
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
 			   val repl_exp' = Normalize.normalize(case replace of
 								    Rewrite.RULE repl_exp => replacePattern (match) repl_exp
