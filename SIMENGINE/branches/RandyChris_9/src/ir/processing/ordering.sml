@@ -9,7 +9,7 @@ exception SortFailed
 
 (*remove line for debugging *)
 fun print x = ()
-fun printModel x = (* DOFPrinter.printModel x *) CurrentModel.setCurrentModel x 
+fun printModel x = (* DOFPrinter.printModel x *) CurrentModel.setCurrentModel x
 
 fun valOf (SOME thing) = thing
   | valOf NONE =
@@ -241,6 +241,7 @@ fun orderClass classMap (class:DOF.class) =
 
 	val masterexps = !(#exps (CurrentModel.classname2class (ClassProcess.class2basename class)))
 	val init_exps = List.filter ExpProcess.isInitialConditionEq exps
+	val master_init_exps = List.filter ExpProcess.isInitialConditionEq masterexps
 	val state_exps = List.filter ExpProcess.isStateEq exps
 	(*val state_eqs = (EqUtil.getDerivativeEqs eqs) @ (EqUtil.getDifferenceEqs eqs)*)
 	val other_exps = List.filter (fn(exp)=> (ExpProcess.isInstanceEq exp) orelse
@@ -248,7 +249,7 @@ fun orderClass classMap (class:DOF.class) =
 
 	val sortable_exps = map (pairExpWithDeps mapping) other_exps
 
-	val availSyms = (GeneralUtil.flatten (map (ExpProcess.exp2symbols o ExpProcess.lhs) (init_exps @ state_exps)))
+	val availSyms = (GeneralUtil.flatten (map (ExpProcess.exp2symbols o ExpProcess.lhs) (init_exps @ master_init_exps @ state_exps)))
 			@ (map (term2sym o #name) (!(#inputs class)))
 			@ (map #1 (CurrentModel.iterators()))
 			@ (map #name (#iterators class))
