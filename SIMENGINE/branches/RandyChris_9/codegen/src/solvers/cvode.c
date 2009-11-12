@@ -9,15 +9,11 @@
 #error CVODE not supported on the GPU
 #endif
 
-#if NUM_MODELS > 1
-#error CVODE is not supported for multiple parallel models
-#endif
-
 typedef struct{
   solver_props *props;
-  CDATAFORMAT *next_states; // Used only to produce last output values
+  CDATAFORMAT *next_states;
   void *cvmem;
-  void *y0;
+  N_Vector y0;
   unsigned int modelid;
   unsigned int first_iteration;
 } cvode_mem;
@@ -25,15 +21,12 @@ typedef struct{
 int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
   cvode_mem *mem = (cvode_mem*)userdata;
   solver_props *props = mem->props;
+  unsigned int modelid = mem->modelid;
 
   model_flows(t,
-	      NV_DATA_S(y), // 'y' has already been partitioned on a per model basis
-	      NV_DATA_S(ydot), // 'ydot' is storage created by CVODE for the return value
-	      props, // THIS NEEDS FIXED FOR EP MODELS!!! inputs and states are not referenced by modelid!!!
-	      mem->first_iteration,
-	      0 // 0 is passed to modelid to prevent flow from indexing model_states, 
-	         // which is already indexed by having a separate mem structure per model
-	      );
+	      &NV_DATA_S(y)[-(modelid*props->statesize)], // Model flows indexes y and dydt with modelid
+	      &NV_DATA_S(ydot)[-(modelid*props->statesize)], // and this ptr arithmetic adjusts to compensate
+	      props, mem->first_iteration, modelid);
 
   mem->first_iteration = FALSE;
 
@@ -45,8 +38,6 @@ int cvode_init(solver_props *props){
   unsigned int modelid;
 
   props->mem = mem;
-  // Initialize next states to state initial values
-  //memcpy(props->next_states, props->model_states, props->num_models*props->statesize*sizeof(CDATAFORMAT));
 
   for(modelid=0; modelid<props->num_models; modelid++){
     // Set location to store the value of the next states
@@ -62,7 +53,7 @@ int cvode_init(solver_props *props){
     mem[modelid].cvmem = CVodeCreate(props->cvode.lmm, props->cvode.iter);
     
     // Initialize CVODE
-    if(CVodeInit(mem[modelid].cvmem, user_fun_wrapper, props->starttime, ((N_Vector)(mem[modelid].y0))) != CV_SUCCESS){
+    if(CVodeInit(mem[modelid].cvmem, user_fun_wrapper, props->starttime, mem[modelid].y0) != CV_SUCCESS){
       fprintf(stderr, "Couldn't initialize CVODE");
     }
     // Set solver tolerances
