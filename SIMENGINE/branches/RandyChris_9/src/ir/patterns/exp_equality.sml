@@ -23,29 +23,10 @@ val e2s = ExpPrinter.exp2str
 fun explist2str explist = 
     "{" ^ (String.concatWith ", " (map e2s explist)) ^ "}"
 
-(* two helper functions that operate the same way as andalso and orelse, 
- just with an extra output argument *)
-fun andcond ((pat1, bool1), (pat2, bool2)) =
-    if bool1 andalso bool2 then
-	(pat1 , bool2)
-    else
-	(pat1, false)
-infix andcond
-
 (* this function is used to kill all match candidates based upon a flag *)
 (*   this is useful if some condition would mean that nothing can match regardless of prior matched symbols *)
 fun checkAndKillMatches matchCandidates false = nil
   | checkAndKillMatches matchCandidates true = matchCandidates
-
-fun orcond ((pat1, bool1), (pat2, bool2)) =
-    if bool1 then
-	if bool2 then
-	    (pat1, bool1)
-	else
-	    (pat1, bool1)
-    else
-	(pat2, bool2)
-infix orcond
 
 (* helper function for All *)
 fun allEquiv comparefun matchCandidates (nil, nil) = matchCandidates
@@ -223,8 +204,8 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 	    case nextMatch of
 		Exp.TERM(Exp.PATTERN (sym, (predname,pred), patcount)) =>
 		let
-		    fun rebuildPattern patcount =
-			Exp.TERM(Exp.PATTERN (sym, (predname,pred), patcount))
+		    fun rebuildPattern patcount' =
+			Exp.TERM(Exp.PATTERN (sym, (predname,pred), patcount'))
 		in
 		    (case patcount of
 			 Pattern.ONE => 
@@ -276,7 +257,7 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 			      (case openMatch of 
 				   NONE =>  (* this is the beginning of a 0+ match against a sequence*)
 				   if (length exps) = 0 then
-				       (matchPattern element (SymbolTable.enter (candidate, sym, Exp.META(Exp.SEQUENCE [])), NONE, pattern')) (* we've matched previously, and it is supposed to be empty *)
+				       (matchPattern element (candidate, NONE, pattern')) (* we've matched previously, and it is supposed to be empty *)
 				   else if (length exps) > 0 andalso not (null (exp_equivalent [candidate] (element, List.nth(exps, 0)))) then
 				       [(candidate, 
 					 SOME (PRIORMATCH (sym, 1)),
@@ -294,7 +275,7 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 							  NONE,
 							  pattern'))
 				 | SOME (PRIORMATCH (s, i)) => (* We verify our element against the existing match *)
-				   if (length exps) >= i then
+				   if (length exps) <= i then
 				       [(candidate,
 					 NONE,
 					 pattern')]
@@ -355,7 +336,7 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 		
 
 	fun updatePatternState (element, patternState) =
-	    foldl (op @) nil (map (matchPattern element) patternState)
+	    Util.flatmap (matchPattern element) patternState
 
 
 	fun printPatternState (cm, pm, patterns) =
@@ -447,197 +428,12 @@ in
 	pairwiseMatch (explist1, explist2)
     else
 	if (containsPatterns explist1) then
-	    foldl (op @) 
-		  nil 
-		  (map (fn(candidate) => patternListMatch candidate explist1 explist2) 
-		       matchCandidates)
+	    Util.flatmap (fn(candidate) => patternListMatch candidate explist1 explist2) 
+			 matchCandidates
 	else
-	    foldl (op @) 
-		  nil 
-		  (map (fn(candidate) => patternListMatch candidate explist2 explist1) 
-		       matchCandidates)
-end before print ("Returning from list_equivalent\n")
-
-
-(*
-and list_equivalent matchCandidates (explist1, explist2) =
-    let
-	val _ = print ("calling list_equivalent\n")
-	val _ = print ("  assigned patterns = " ^ (String.concatWith ", " (map (fn(sym, repl_exp) => (Symbol.name sym) ^ "=" ^ (e2s repl_exp)) matchCandidates)))	
-	val _ = print ("  matching = " ^(explist2str explist1)^"' and '"^(explist2str explist2)^"\n")
-
-	fun isExpZeroCompatible ap exp = 
-	    case exp
-	     of Exp.TERM (Exp.NAN) => (ap, true)
-	      | Exp.TERM (Exp.LIST (l, d)) => (ap, length l = 0)
-	      | Exp.TERM (Exp.TUPLE l) => (ap, length l = 0)
-	      | Exp.TERM (Exp.PATTERN (sym, _, patcount)) => 
-		if PatternProcess.patcount_compatible patcount 0 then
-		    (((sym,Exp.TERM Exp.NAN)::ap), true)
-		else
-		    (ap, false)
-	      | Exp.FUN (Fun.BUILTIN Fun.GROUP, []) => (ap, true)
-	      | _ => (ap, false)
-
-	(* list_equiv_helper - recursive routine that will use a greedy algorithm to best match two lists of expressions *)
-	fun list_equiv_helper matchCandidates (nil, nil) = (matchCandidates, true) before print "here1\n"
-	  | list_equiv_helper matchCandidates (nil, explist2) = 
-	    foldl (fn(exp, r as (ap, _)) => r andcond isExpZeroCompatible ap exp) (matchCandidates, true) explist2 before print "here2\n"
-	  | list_equiv_helper matchCandidates (explist1, nil) = 
-	     foldl (fn(exp, r as (ap, _)) => r andcond isExpZeroCompatible ap exp) (matchCandidates, true) explist1 before print "here3\n"
-	  | list_equiv_helper matchCandidates (exp1::nil, exp2::nil) = 
-	    (* shortcut pattern *)
-	    exp_equivalent matchCandidates (exp1, exp2) before print "here4\n"
-	  | list_equiv_helper matchCandidates (exp1::rest1, explist2) =
-	    let
-		val _ = Util.log ("In list_equiv_helper: '"^(explist2str (exp1::rest1))^"' '"^(explist2str explist2)^"'")
-		(* remove duplicates in the assigned patterns structure *)
-		fun removeAPduplicates matchCandidates =
-		    let
-			val symbols = map (fn(sym,_)=>sym) matchCandidates
-		    in
-			map 
-			    (fn(sym)=>
-			       let
-				   val (matching, unmatching) = List.partition (fn(sym', _)=>sym=sym') matchCandidates
-			       in
-				   if length matching = 1 then
-				       Util.hd matching
-				   else
-				       let
-					   val exps = map (fn(_, exp)=>exp) matching
-				       in
-					   (sym, Exp.FUN (Fun.BUILTIN Fun.GROUP, exps))
-				       end
-			       end
-			    )
-			    (Util.uniquify symbols)
-		    end
-		    
-		(* gobble takes as many of the explist argument as possible to match with exp *)
-		fun gobble matchCandidates (exp, nil) = ((matchCandidates, true), [])
-		  | gobble matchCandidates (exp1, exp2::rest) = 
-		    let			
-			val (matchCandidates', ret) = exp_equivalent matchCandidates (exp1, exp2)
-				val _ = print ("gobble.ret = " ^ (Bool.toString ret) ^ "\n")
-		    in
-			if ret then
-			    let
-
-				val ((matchCandidates'',ret'),explist) = gobble matchCandidates' (exp1, rest)
-				val _ = print ("gobble.ret' = " ^ (Bool.toString ret') ^ "\n")
-			    in
-				if ret' then
-				    ((matchCandidates'',ret'),explist)
-				else
-				    ((matchCandidates', ret),rest)
-			    end
-			else
-			    ((matchCandidates, false), exp2::rest)
-		    end
-
-
-		(* gobble_helper - what this does is run gobble repeatedly, but it needs to also run list_equiv_helper *)
-		fun gobble_helper matchCandidates max_count (exp1::rest1, explist2) = 
-		    (case exp1 of
-			 Exp.TERM (Exp.PATTERN (_,_,patcount)) => 
-			 let
-			     val min_num = PatternProcess.min_patcount patcount
-			     val _ = print ("In gobble_helper with min_num=" ^ (Int.toString min_num) ^ " and max_count = " ^ (Int.toString max_count) ^ "\n")
-			 in
-			     if min_num > max_count then
-				 (* return what we have ... *)
-				 (matchCandidates, false, explist2)
-			     else
-				 let
-				     val ((matchCandidates', ret'), rest) = gobble matchCandidates (exp1, explist2)
-					     val _ = print ("ret' = " ^ (Bool.toString ret') ^ "\n")
-					     val _ = print ("  assigned patterns' = " ^ (String.concatWith ", " (map (fn(sym, repl_exp) => (Symbol.name sym) ^ "=" ^ (e2s repl_exp)) matchCandidates')))
-					     val _ = print ("  rest = " ^ (explist2str rest) ^ "\n")
-				 in
-				     if ret' then (* passing this means that it was able to successfully gobble something in explist *)
-					 let
-					     val (matchCandidates'', ret'') = list_equiv_helper matchCandidates' (rest1, rest)
-					     val _ = print ("ret'' = " ^ (Bool.toString ret'') ^ "\n")
-					 in
-					     if ret'' then (* this means that the rest matched*)
-						 (matchCandidates'', ret'', [])
-					     else (* the rest didn't match *)
-						 if max_count > min_num then
-						     gobble_helper matchCandidates' (max_count-1) (exp1::rest1, explist2) (* start again, with one less gobbled *)
-						 else (* there's not a lot we can do ... it doesn't match *)
-						     (matchCandidates', false, explist2)
-					 end
-				     else (* we couldn't gobble, meaning that it didn't work *)
-					 (matchCandidates, false, explist2)
-				 end
-			 end
-		       | _ => DynException.stdException ("Wouldn't expect anything but expressions here", "ExpEquality.list_equivalent.list_equiv_helper.gobble_helper", Logger.INTERNAL))
-		  | gobble_helper _ _ _ = DynException.stdException ("Unexpected nil expression list", "ExpEquality.list_equivalent.list_equiv_helper.gobble_helper", Logger.INTERNAL)
-
-		(* all the matching should be done... if it doesn't work at this point, it won't work.. *)
-		val ((matchCandidates', ret, list1), list2) = 
-		    case exp1 of
-			Exp.TERM (Exp.PATTERN (_,_,patcount)) =>
-			(case PatternProcess.max_patcount patcount of
-			     SOME i => if length explist2 > i then
-					   (gobble_helper matchCandidates i (exp1::rest1, Util.take (explist2, i)), Util.drop (explist2, i)) before print "there1\n"
-				       else
-					   (gobble_helper matchCandidates (length explist2) (exp1::rest1, explist2), []) before print "there2\n"
-			   | NONE => (gobble_helper matchCandidates (length explist2) (exp1::rest1, explist2), [])) before print "there3\n"
-		      | _=> 
-			let
-			    val _ = Util.log ("Exp in case is " ^ (ExpPrinter.exp2fullstr exp1))
-
-			    (*val (matchCandidates', ret') = exp_equivalent matchCandidates (exp1, Util.hd explist2) *)
-			    val (matchCandidates', ret') = allEquiv exp_equivalent matchCandidates (*(exp1, Util.hd explist2) *) (exp1::rest1, explist2)
-			in
-			    ((matchCandidates', ret', []), (List.tl explist2)) before print "there4\n"
-			end
-
-		val remaining_exps = list1 @ list2
-		val matched_exps = Util.take (explist2, length explist2 - (length remaining_exps))
-
-		val _ = Util.log ("IN list_equivalent_helper with remaining exps = " ^ (String.concatWith ", " (map e2s remaining_exps)))
-		val _ = Util.log ("  matched_exps = " ^ (String.concatWith ", " (map e2s matched_exps)))
-
-	    in
-		(matchCandidates', ret) before print "here5\n"
-(*
-
-		if ret then
-		    let
-			(* we gobbled up as much as we can, now we have to run it on the remaining expressions.  It's possible that we gobbled too much, so if it failed, we'll try it with one less pattern *)
-			val (matchCandidates', ret') = list_equiv_helper (removeAPduplicates matchCandidates') (rest1, remaining_exps)
-		    in
-			if ret' then (* so we're good ... *)
-			    (matchCandidates', ret')
-			else (* can we back track a bit - only if we can reduce the match *)
-			    case exp1 of
-				Exp.TERM (Exp.PATTERN (_,_,patcount)) => 
-				let
-				    val num_matched = length matched_exps
-				    val min_num = PatternProcess.min_patcount patcount
-				in
-				    if num_matched = min_num then (* we did all we can do, won't match *)
-					(matchCandidates', ret')
-				    else (* lets reduce the number of matched by one *)
-					let
-					    val ((matchCandidates'', ret''), _) = gobble matchCandidates (exp1, Util.take(explist2, num_matched-1))
-					in
-					    
-					end
-				end
-		    end
-		else (* we can't do anything here ... *)
-		    (matchCandidates, false)*)
-	    end
-
-
-    in
-	list_equiv_helper matchCandidates (explist1, explist2)
-    end
-*)
+	    Util.flatmap (fn(candidate) => patternListMatch candidate explist2 explist1) 
+			 matchCandidates
+end
 
 (* Check if two expressions are equivalent *)
 and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) = 

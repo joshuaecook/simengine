@@ -126,8 +126,6 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
 		  repl_exp
 	      else
 		  exp
-(*      | Exp.TERM (Exp.LIST (termlist, dimlist)) 
-	=> Exp.TERM (Exp.LIST ( (map exp2term o (replaceSymbol (sym, repl_exp)) o Exp.TERM) termlist, dimlist))*)
       | Exp.TERM (Exp.TUPLE termlist) 
 	=> Exp.TERM (Exp.TUPLE (map exp2term 
 				    (map (replaceSymbol(sym, repl_exp))
@@ -166,22 +164,10 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
     let
 	val assigned_patterns = (ExpEquality.findMatches (find, exp))
 
-val _ = print ("  # matches = " ^ (Int.toString (length assigned_patterns)) ^ "\n")
+	val _ = print ("  # matches = " ^ (Int.toString (length assigned_patterns)) ^ "\n")
 
 	val _ = print ("Assigned patterns: \n")
-(*	val _ = app (fn(sym, repl_exp) => print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression" ^ (e2s repl_exp) ^ "\n")) assigned_patterns*)
-(*	val _ = if null assigned_patterns then
-		    print ("  no match\n")
-		    
-		else
-		    let
- 			val match = hd assigned_patterns
-		    in
 
-			app (fn(sym) => print ("Replacing symbol " ^ (Symbol.name sym) ^ " with expression " ^ (e2s (Normalize.normalize (valOf(SymbolTable.look (match, sym))))) ^ "\n")) (SymbolTable.listKeys match)
-		    end
-*)
-(*	val _ = print ("old exp = " ^ (e2s (Normalize.normalize exp)) ^ "\n")*)
 	val run_test = case test of SOME v => true | NONE => false
 
 	(* Test the expression only if an additional predicate test is included in the rule (run_test is true) *)
