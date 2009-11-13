@@ -41,6 +41,8 @@ datatype iteratortype
    * Postprocess evaluations occur after primary evaluation and 
    * any update evaluations. *)
   | POSTPROCESS of Symbol.symbol
+  (* An immediate iterator is used for outputs having no other iterator. *)
+  | IMMEDIATE
 
 datatype precisiontype = SINGLE | DOUBLE
 

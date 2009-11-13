@@ -19,7 +19,8 @@ int discrete_eval(solver_props *props, unsigned int modelid){
 }
 
 int discrete_free(solver_props *props){
-  free(props->next_states);
-  free(props->count);
+  assert(props);
+  if (props->next_states) free(props->next_states);
+  if (props->count) free(props->count);
   return 0;
 }

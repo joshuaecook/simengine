@@ -15,6 +15,103 @@ val e2s = ExpPrinter.exp2str
 fun cstring str = "\"" ^ str ^ "\""
 fun inc x = 1 + x
 
+(* Indicates whether the class of a given instance satisfies a test.
+ * Nb Presumes a CurrentModel context. *)
+fun test_instance_class test instance =
+    let val {classname, ...} = ExpProcess.deconstructInst instance
+	val class = CurrentModel.classname2class classname
+    in test class
+    end
+
+(* Indicates whether a given subsystem has states. *)
+fun subsystem_has_states subsystem =
+    let val {model, iter, top_class} = subsystem
+	val (_, {classname, ...}, _) = model
+    in CurrentModel.withModel model (fn _ =>
+       let val class = CurrentModel.classname2class classname
+       in has_states iter class
+       end)
+    end
+
+(* Indicates whether a given class or any of its instances 
+ * has states associated with a given iterator.
+ * Nb Presumes a CurrentModel context. *)
+and has_states iter class = 
+    0 < ClassProcess.class2statesizebyiterator iter class orelse
+    has_instance_states iter class
+
+(* Indicates whether a given class contains any instances 
+ * involving states associated with a given iterator.
+ * Nb Presumes a CurrentModel context. *)
+and has_instance_states iter class = 
+    let val (iter_sym, _) = iter
+	val instances = ClassProcess.class2instancesbyiterator iter_sym class
+    in List.exists (instance_has_states (has_states iter)) instances
+    end
+
+(* Indicates whether an instance invocation involves states associated with a given iterator.
+ * Nb Presumes a CurrentModel context. *)
+and instance_has_states test instance =
+    let val {classname, ...} = ExpProcess.deconstructInst instance
+	val class = CurrentModel.classname2class classname
+    in test class
+    end
+
+(* Indicates whether an output contains any term in its condition or contents
+ * which satisfies a given predicate. *)
+fun output_contains_term test output =
+    let val {condition, contents, ...} = output
+	val terms = Util.flatmap ExpProcess.exp2termsymbols (condition :: contents)
+    in List.exists test terms
+    end
+
+(* Indicates whether a given class or any of its instances 
+ * reads any states associated with a given iterator.
+ * Nb Presumes a CurrentModel context. *)
+fun reads_iterator iter class =
+    let val {exps, outputs, ...} = class
+    in List.exists (output_contains_term (term_reads_iterator iter)) (! outputs) orelse
+       List.exists (term_reads_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
+       List.exists (test_instance_class (reads_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
+    end
+
+and term_reads_iterator iter (Exp.SYMBOL (name, props)) =
+    let val (iter_sym, _) = iter
+    in case Property.getScope props
+	of Property.READSTATE iter_sym' => iter_sym = iter_sym'
+	 | _ => false
+    end
+  | term_reads_iterator _ _ = false
+
+
+(* Indicates whether a given class or any of its instances
+ * writes any states associated with a given iterator.
+ * Nb Presumes a CurrentModel context. *)
+fun writes_iterator iter class =
+    let val {exps, ...} = class
+    in List.exists (term_writes_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
+       List.exists (test_instance_class (writes_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
+    end
+
+and term_writes_iterator iter (Exp.SYMBOL (_, props)) =
+    let val (iter_sym, _) = iter
+    in case Property.getScope props
+	of Property.WRITESTATE iter_sym' => iter_sym = iter_sym'
+	 | _ => false
+    end
+  | term_writes_iterator _ _ = false
+
+
+(* Indicates whether a given class or any of its instances 
+ * reads any states from the system scope.
+ * Nb Presumes a CurrentModel context. *)
+fun reads_system class =
+    let val {exps, outputs, ...} = class
+    in List.exists (output_contains_term Term.isReadSystemState) (! outputs) orelse
+       List.exists Term.isReadSystemState (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
+       List.exists (test_instance_class reads_system) (List.filter ExpProcess.isInstanceEq (! exps))
+    end
+
 
 
 
@@ -43,6 +140,8 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
 
 fun init_solver_props top_name forkedclasses =
     let
+	val need_systemdata = List.exists subsystem_has_states forkedclasses
+
 	fun init_props {top_class, iter=iterator, model} =
 	    let
 		fun progs () =
@@ -50,6 +149,7 @@ fun init_solver_props top_name forkedclasses =
 			val solverparams = (fn(_,itertype) => case itertype of
 								  DOF.CONTINUOUS solver => (Solver.solver2params solver)
 								| DOF.DISCRETE {sample_period} => [("timestep", Util.r2s sample_period)]
+								| DOF.IMMEDIATE => []
 								| _ => [("ERROR", "Bogus iterator")]) iterator
 			val (itersym, itertype) = iterator
 			val itername = (Symbol.name itersym)
@@ -57,13 +157,14 @@ fun init_solver_props top_name forkedclasses =
 						    ((fn(_,itertype) => case itertype of
 									    DOF.CONTINUOUS solver => (Solver.solver2name solver)
 									  | DOF.DISCRETE _ => "discrete"
-									  | _ => "") iterator)
+									  | DOF.IMMEDIATE => "immediate"
+									  | _ => "ERROR Bogus iterator") iterator)
 			val num_states = ModelProcess.model2statesize model 
 		    in
 			(map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
 			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
-			 $("props[ITERATOR_"^itername^"].system_states = system_ptr;"),
+			 $("props[ITERATOR_"^itername^"].system_states = " ^ (if need_systemdata then "system_ptr" else "NULL") ^ ";"),
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].next_time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].count = NULL; // Allocated by discrete solver only, must be NULL otherwise"),
@@ -114,11 +215,14 @@ fun init_solver_props top_name forkedclasses =
 	    in
 		CurrentModel.withModel model progs
 	    end
+
     in
 	[$("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
-	 SUB([$("systemstatedata *system_states = (systemstatedata*)model_states;"),
-	      $("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
-	      $("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
+	 SUB((if need_systemdata then
+		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
+		   $("systemstatedata *system_states = (systemstatedata*)model_states;")]
+	      else nil) @
+	     [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
 	      $("output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));"),
 	      $("#if NUM_OUTPUTS > 0"),
 	      $("output_data *od = (output_data*)malloc(NUM_MODELS*sizeof(output_data));"),
@@ -132,6 +236,7 @@ fun init_solver_props top_name forkedclasses =
 	     (Util.flatmap init_props forkedclasses) @
 	     [$(""),
 	      $("// Initialize all time vectors"),
+	      $("assert(NUM_ITERATORS);"),
 	      $("for(iter=0;iter<NUM_ITERATORS;iter++){"),
 	      SUB[$("for(i=0;i<NUM_MODELS;i++){"),
 		  SUB[$("props[iter].time[i] = starttime;"),
@@ -143,14 +248,15 @@ fun init_solver_props top_name forkedclasses =
 	 $(""),
 	 $("void free_solver_props(solver_props* props){"),
 	 SUB[$("Iterator iter;"),
+	     $("assert(props);"),
 	     $("for(iter=0;iter<NUM_ITERATORS;iter++){"),
-	     SUB[$("free(props[iter].time);"),
-		 $("free(props[iter].next_time);"),
-		 $("free(props[iter].freeme);"),
-		 $("free(props[iter].running);")],
+	     SUB[$("if (props[iter].time) free(props[iter].time);"),
+		 $("if (props[iter].next_time) free(props[iter].next_time);"),
+		 $("if (props[iter].freeme) free(props[iter].freeme);"),
+		 $("if (props[iter].running) free(props[iter].running);")],
 	     $("}"),
-	     $("free(props[0].ob);"),
-	     $("if(props[0].od) free(props[0].od);"),
+	     $("if (props[0].ob) free(props[0].ob);"),
+	     $("if (props[0].od) free(props[0].od);"),
 	     $("free(props);")],
 	 $("}"),
 	 $("")]
@@ -214,23 +320,57 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 			       end))
 		     forkedModels)
 	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) (!(#inputs top_class)))
-	val output_names = Util.flatmap 
-			       (fn{top_class,iter,model}=>
-				  CurrentModel.withModel model (fn()=>map #name (!(#outputs (CurrentModel.classname2class top_class)))))
-			       forkedModels
-	val output_num_quantities = Util.flatmap 
-					(fn{top_class,iter,model}=>
-					   CurrentModel.withModel model (fn()=>map (i2s o inc o List.length o #contents) (!(#outputs (CurrentModel.classname2class top_class)))))
-					forkedModels
+
+	fun wrap (f, m) x = CurrentModel.withModel m (fn _ => f x)
+
+	fun name_subsystem_outputs {top_class, model, ...} =
+	    CurrentModel.withModel model (fn _ =>
+            let val class = CurrentModel.classname2class top_class
+		val {outputs, ...} = class
+	    in map (Term.sym2name o #name) (! outputs)
+	    end)
+
+	val output_names = 
+	    Util.uniquify (Util.flatmap name_subsystem_outputs forkedModels)
+
+	fun output_num_quantities (model, output) =
+	    CurrentModel.withModel model (fn _ =>
+	    let val {name, contents, ...} = output
+	    in case TermProcess.symbol2temporaliterator name
+		of SOME (iter_sym, _) => 
+		   (case CurrentModel.itersym2iter iter_sym 
+		     of (_, DOF.IMMEDIATE) => List.length contents
+		      | _ => inc (List.length contents))
+		 | _ => List.length contents
+	    end)
+
+	(* Presumes a CurrentModel.withModel context. *)
+	fun outputs_from_class (model, class) =
+	    let val {outputs, ...} = class
+	    in 
+		map (fn (output as {name, ...}) => (model, output))
+		    (! outputs)
+	    end
+
+	val outputs_from_top_classes =
+	    Util.flatmap (fn {top_class, model, ...} => CurrentModel.withModel model (fn _ => (outputs_from_class (model, CurrentModel.classname2class top_class))))
+			 forkedModels
+
+	val outputs_from_top_classes =
+	    Util.uniquify_by_fun (fn ((_,a:DOF.output),(_,b:DOF.output)) => Term.sym2curname (#name a) = Term.sym2curname (#name b)) outputs_from_top_classes
+
+
+	val outputs_num_quantities = map output_num_quantities outputs_from_top_classes
+
 	val default_inputs = map default2c_str input_defaults
     in
 	[$("const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
 	 $("const char *state_names[] = {" ^ (String.concatWith ", " (map cstring state_names)) ^ "};"),
-	 $("const char *output_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) output_names)) ^ "};"),
+	 $("const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
 	 $("const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
 	 $("const double default_inputs[] = {" ^ (String.concatWith ", " default_inputs) ^ "};"),
 	 $("const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
-	 $("const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " output_num_quantities) ^ "};"),
+	 $("const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " (map i2s outputs_num_quantities)) ^ "};"),
 	 $("const char model_name[] = \"" ^ class_name ^ "\";"),
 	 $("const char *solvers[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
 	 $("#if defined TARGET_CPU"),  (* These #if statements should be converted to sml conditionals based on compiler options *)
@@ -284,6 +424,7 @@ fun solver_wrappers solvers =
 
 	fun create_wrapper (m,pd,p) =
 	    [$("int solver" ^ m ^ "(solver_props *props" ^ pd ^ "){"),
+	     $("assert(NUM_SOLVERS > props->solver);"),
 	     SUB($("switch(props->solver){") ::
 		 (Util.flatmap (method_redirect (m, p)) solvers) @
 		 [$("default:"),
@@ -426,10 +567,9 @@ fun outputsystemstatestruct_code forkedModels =
 		val (_, {classname, ...}, _) = model
 	    in
 		CurrentModel.withModel model (fn _ =>
-		let
-		    val (iter_sym, iter_typ) = iter
+		let val (iter_sym, iter_typ) = iter
 		    val class = CurrentModel.classname2class classname
-		in if ClassProcess.hasIterator iter class then
+		in if has_states iter class then
 		       SOME (classname, iter_sym, iter_typ)
 		   else NONE
 		end)
@@ -440,17 +580,19 @@ fun outputsystemstatestruct_code forkedModels =
 	    List.mapPartial subsystem_classname_iterator_pair forkedModels
 
 	val top_sys_state_struct_prog =
-	    [$(""),
-	     $("// System State Structure"),
-	     $("typedef struct {"),
-	     SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
-	     $("} systemstatedata;")]
+	    if List.null class_names_iterators then []
+	    else
+		[$(""),
+		 $("// System State Structure"),
+		 $("typedef struct {"),
+		 SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
+		 $("} systemstatedata;")]
 
 	fun name_and_iterator class (iter as (iter_sym,_)) = 
 	    (Symbol.symbol ((Symbol.name (ClassProcess.class2basename class))^"_"^(Symbol.name iter_sym)), iter)
 
 	fun class_struct_data class =
-	    let val iters = List.filter (fn (it) => ClassProcess.hasIterator it class) (CurrentModel.iterators())
+	    let val iters = List.filter (fn (it) => has_states it class) (CurrentModel.iterators())
 		val class_name_iterator_pairs = map (name_and_iterator class) iters
 	    in 
 		(ClassProcess.class2classname class, class_name_iterator_pairs) 
@@ -492,9 +634,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	val orig_name = ClassProcess.class2basename class
 
-	val has_states = case iter_type of 
-			     DOF.UPDATE _ => true
-			   | _ => ClassProcess.class2statesize class > 0
+	(* val has_states = case iter_type of  *)
+	(* 		     DOF.UPDATE _ => true *)
+	(* 		   | _ => ClassProcess.class2statesize class > 0 *)
 
 	val eval_iterators = List.filter (fn(iter_sym, iter_type)=> case iter_type of
 									DOF.UPDATE v => false
@@ -510,19 +652,24 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 					 DOF.UPDATE v => v
 				       | _ => iter_sym)
 			
-	val statereadprototype = "const statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name
-	val statewriteprototype = "statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name
-	val systemstatereadprototype = "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd"
+	val (statereadprototype,
+	     statewriteprototype,
+	     systemstatereadprototype) =
+	    (if reads_iterator iter class then
+		 "const statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+	     else "",
+	     if writes_iterator iter class then
+		 "statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
+	     else "",
+	     if reads_system class then
+		 "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd, "
+	     else "")
+
 
 	val header_progs = 
-	    if has_states then
-		[$(""),
-		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "(CDATAFORMAT "^iter_name^", "^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
-	    else
-		[$(""),
-		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-		   ^ "(CDATAFORMAT "^iter_name^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]	    
+	    [$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+	      "(CDATAFORMAT "^iter_name^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
+	      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
 
 	val read_memory_progs = []
 
@@ -597,30 +744,30 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 					    SOME v => v
 					  | NONE => instname
 
-		    val class = CurrentModel.classname2class classname
+		    val instclass = CurrentModel.classname2class classname
 		    val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
 		    val statereads_top = "&rd_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
 					 
 		    val statewrites_top = "&wr_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
 
-		    val systemstatereads = "&sys_rd[STRUCT_IDX]."
-		    val statereads = "&rd_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname)
-		    val statewrites = "&wr_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname)
-
 		    val systemdata = Unique.unique "subsys_rd"
+
+		    val (statereads, statewrites, systemstatereads) =
+			(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname) ^ ", " else "",
+			 if writes_iterator iter instclass then "&wr_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname) ^ ", " else "",
+			 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
+			
 
 		    fun systemstatedata_iterator (iter as (iter_name, _)) =
 			systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
 		    and systemstatedata_states (iter as (iter_name, _)) =
 			systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"->"^(Symbol.name orig_instname)^";"
 
-		    val iters = List.filter (fn (it) => ClassProcess.hasIterator it class) (ModelProcess.returnIndependentIterators ())
+		    val iters = List.filter (fn (it) => ClassProcess.hasIterator it instclass) (ModelProcess.returnIndependentIterators ())
 
-		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename class))^" "^systemdata^";"),
+		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^systemdata^";"),
 					  SUB(map ($ o systemstatedata_iterator) iters),
 					  SUB(map ($ o systemstatedata_states) iters)]
-
-		    val class_has_states = ClassProcess.class2statesize class > 0
 
 		    val calling_name = "flow_" ^ (Symbol.name classname)
 
@@ -642,8 +789,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
 
 		    val output_symbol_pairs = 
-			Util.addCount (ListPair.zip (map Term.sym2curname outargs, !(#outputs class)))
-
+			Util.addCount (ListPair.zip (map Term.sym2curname outargs, !(#outputs instclass)))
 		in
 		    (map ($ o declare_output) output_symbol_pairs) @
 		    [$("{"),
@@ -651,19 +797,13 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  $("// " ^ (CWriterUtil.exp2c_str exp))] @ 
 			 inps @
 			 inps_init @ 
-			 (if class_has_states then
+			 (if reads_system instclass then
 			      sysstates_init 
 			  else [] ) @
 			 [$(outs_decl),
-			  if not class_has_states then
-			      $(calling_name ^ "(" ^ iter_name ^ ", " ^
-				inpvar ^ ", " ^ outvar ^ ", first_iteration, modelid);")
-			  else if is_top_class then
-			      $(calling_name ^ "("^iter_name^", "^
-				statereads_top ^ ", " ^ statewrites_top ^ ", &"^systemdata^", " ^ inpvar^", "^outvar^", first_iteration, modelid);")
-			  else
-			      $(calling_name ^ "("^iter_name^", "^
-				statereads ^ ", " ^ statewrites ^ ", " ^ inpvar^", "^outvar^", first_iteration, modelid);")
+			  $(calling_name ^ "("^iter_name^", "^
+			    statereads ^ statewrites ^ systemstatereads ^ 
+			    inpvar^", "^outvar^", first_iteration, modelid);")
 			 ] @
 			 map ($ o assign_output) output_symbol_pairs),
 		     $("}"),$("")]
@@ -681,18 +821,23 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    
 	val state_progs = []
 
+
+
 	val output_progs = 
 	    if is_top_class then
-		[$(""),
-		 $("// writing output variables"),
-                 $("#if NUM_OUTPUTS > 0"),
-		 $("if (first_iteration) {"),
-		 SUB($("output_data *od = (output_data*)outputs;")::
-		     (map
-			  (fn(t,s)=> $("od[modelid]." ^ (Symbol.name s) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-			  (CWriterUtil.class2uniqueoutputsymbols class))),
-		 $("}"),
-                 $("#endif")]
+		let fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
+		    val outputs_symbols = Util.uniquify_by_fun cmp (ClassProcess.outputsSymbols class)
+		in
+		    [$(""),
+		     $("// writing output variables"),
+                     $("#if NUM_OUTPUTS > 0"),
+		     $("if (first_iteration) {"),
+		     SUB($("output_data *od = (output_data*)outputs;") ::
+			 (map (fn(t)=> $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+			      outputs_symbols)),
+		     $("}"),
+                     $("#endif")]
+		end
 	    else
 		[$(""),
 		 $("// writing output data "),
@@ -751,9 +896,9 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 	fun class_flow_prototype class = 
 	    let
 		val orig_name = ClassProcess.class2basename class
-		val class_has_states = case iter_type of
-					   DOF.UPDATE _ => true
-					 | _ => ClassProcess.class2statesize class > 0
+	    (* val class_has_states = case iter_type of *)
+	    (* 			   DOF.UPDATE _ => true *)
+	    (* 			 | _ => ClassProcess.class2statesize class > 0 *)
 	    in
 		if ClassProcess.isInline class then
 		    $("CDATAFORMAT "^(Symbol.name (#name class))^"("^
@@ -771,78 +916,73 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 			val (statereadprototype,
 			     statewriteprototype,
 			     systemstatereadprototype) =
-			    if class_has_states then
-				("const statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name,
-				 "statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name,
-				 "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd")
-			    else
-				("const void *rd_" ^ iter_name,
-				 "void *wr_" ^ iter_name,
-				 "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd")
+			    (if reads_iterator iter class then
+				 "const statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+			     else "",
+			     if writes_iterator iter class then
+				 "statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
+			     else "",
+			     if reads_system class then
+				 "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd, "
+			     else "")
 		    in
-			if class_has_states then
-			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-			      "(CDATAFORMAT "^iter_name^", "^statereadprototype^", "^statewriteprototype^", "^systemstatereadprototype^
-			      ", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
-			else 
-			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) 
-			      ^ "(CDATAFORMAT "^iter_name^", CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+			$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+			  "(CDATAFORMAT "^iter_name^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
+			  " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
 		    end
 	    end
 
 
-	(*val (fun_prototypes, fun_wrappers) = ListPair.unzip (map (fn(iter)=>flow_wrapper (topclass, iter)) eval_iterators)*)
-	(*val (fun_prototype, fun_wrapper) = flow_wrapper (topclass, iter)*)
+    (*val (fun_prototypes, fun_wrappers) = ListPair.unzip (map (fn(iter)=>flow_wrapper (topclass, iter)) eval_iterators)*)
+    (*val (fun_prototype, fun_wrapper) = flow_wrapper (topclass, iter)*)
 
     in
 	CurrentModel.withModel model 
-	(fn () =>
-	    let
-		val topclass = CurrentModel.classname2class top_class
+			       (fn () =>
+				   let
+				       val topclass = CurrentModel.classname2class top_class
 
-    		val fundecl_progs = map class_flow_prototype classes
-				    
-		val flow_progs = List.concat (map (fn(c)=>
-						     if ClassProcess.isInline c then
-							 (Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
-							  DynException.setErrored();
-							  [])
-						     else
-							 class2flow_code (c,#name c = #name topclass, iter)) classes)
-	    in
-		([$("// Functions prototypes for flow code")] @ fundecl_progs, flow_progs)
-	    end
-	    handle e => DynException.checkpoint "CParallelWriter.flow_code.anonymous_fun" e)
+    				       val fundecl_progs = map class_flow_prototype classes
+							   
+				       val flow_progs = List.concat (map (fn(c)=>
+									    if ClassProcess.isInline c then
+										(Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
+										 DynException.setErrored();
+										 [])
+									    else
+										class2flow_code (c,#name c = #name topclass, iter)) classes)
+				   in
+				       ([$("// Functions prototypes for flow code")] @ fundecl_progs, flow_progs)
+				   end
+				   handle e => DynException.checkpoint "CParallelWriter.flow_code.anonymous_fun" e)
     end
     handle e => DynException.checkpoint "CParallelWriter.flow_code" e
 
 
-fun model_flows classname = 
+(* TODO remove the iterval parameter from IMMEDIATE flows. *)
+fun model_flows forkedModels = 
     let
-	val model = CurrentModel.getCurrentModel()
-
-	val class = CurrentModel.classname2class (Symbol.symbol classname)
-
-	val iterators = ModelProcess.returnIndependentIterators ()
-
-	fun iterator_flow_name classname iter_sym =
-	    "flow_" ^ classname ^ "_" ^ (Symbol.name iter_sym)
-
-	fun iterator_flow_call (iter as (iter_sym,iter_type)) =
-	    let val class_has_states = 0 < ClassProcess.class2statesizebyiterator iter class
-	    in
-		if class_has_states then
-		    SUB[$("case ITERATOR_"^(Symbol.name iter_sym)^":"),
-			$("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, (const statedata_" ^ classname^"_"^(Symbol.name iter_sym) ^ "* )y, (statedata_"^classname^"_"^(Symbol.name iter_sym)^"* )dydt, (const systemstatedata_"^classname^" *)props->system_states, props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
-		else
-		    SUB[$("case ITERATOR_"^(Symbol.name iter_sym)^":"),
-			$("return "^ (iterator_flow_name classname iter_sym) ^"(iterval, props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
+	fun subsystem_flow_call subsystem =
+	    let val {top_class, model, iter} = subsystem
+		val (iter_sym, _) = iter
+	    in CurrentModel.withModel model (fn _ =>
+	       let val class = CurrentModel.classname2class top_class
+		   val basename = ClassProcess.class2basename class
+		   val (statereads, statewrites, systemstatereads) =
+		       (if reads_iterator iter class then "(const statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
+			if writes_iterator iter class then "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " else "",
+			if reads_system class then "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states, " else "")
+	       in
+		SUB[$("case ITERATOR_" ^ (Symbol.name iter_sym) ^ ":"),
+		    $("return flow_" ^ (Symbol.name top_class) ^ 
+		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
+	       end)
 	    end
     in
 	[$"",
 	 $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, const unsigned int first_iteration, const unsigned int modelid){"),
 	 SUB($("switch(props->iterator){") ::
-	     (map iterator_flow_call iterators) @
+	     (map subsystem_flow_call forkedModels) @
 	     [$("default: return 1;"),
 	      $("}")]
 	    ),
@@ -876,12 +1016,14 @@ fun logoutput_code class forkedModels =
 	      | DOF.DISCRETE _ => false
 	      | DOF.UPDATE v => List.exists (fn(iter_sym',iter_type')=> v = iter_sym' andalso (case iter_type' of DOF.CONTINUOUS _ => true | _ => false)) iterators
 	      | DOF.POSTPROCESS v => List.exists (fn(iter_sym',iter_type')=> v = iter_sym' andalso (case iter_type' of DOF.CONTINUOUS _ => true | _ => false)) iterators
+	      | DOF.IMMEDIATE => false
 	fun isDiscreteIterator (iter_sym) = 
 	    case iter_sym2type iter_sym of
 		DOF.CONTINUOUS _ => false
 	      | DOF.DISCRETE _ => true
 	      | DOF.UPDATE v => List.exists (fn(iter_sym',iter_type')=> v = iter_sym' andalso (case iter_type' of DOF.DISCRETE _ => true | _ => false)) iterators
 	      | DOF.POSTPROCESS v => List.exists (fn(iter_sym',iter_type')=> v = iter_sym' andalso (case iter_type' of DOF.DISCRETE _ => true | _ => false)) iterators
+	      | DOF.IMMEDIATE => false
 
 	val orig_name = Symbol.name (ClassProcess.class2basename class)
 	val dependent_symbols = CWriterUtil.class2uniqueoutputsymbols class
@@ -901,53 +1043,80 @@ fun logoutput_code class forkedModels =
 			       end)
 			    dependent_symbols
 
-	(* FIXME - term2temp_iter must have the appropriate model defined in CurrentModel *)
-	fun term2temp_iter t = 
-	    case ExpProcess.exp2temporaliterator (Exp.TERM t) of
-		SOME (iter_sym, _) => iter_sym
-	      | NONE => DynException.stdException(("No temporal iterator found for expression " ^ (e2s (Exp.TERM t))),
-						  "CParallelWriter.logoutput_code.term2temp_iter",
-						  Logger.INTERNAL)
+
+	fun output_prog (output, index) =
+	    let val {name, contents, condition} = output
+		val num_quantities = 
+		    case TermProcess.symbol2temporaliterator name
+		     of SOME (iter_sym, _) => 
+			(case CurrentModel.itersym2iter iter_sym 
+			  of (_, DOF.IMMEDIATE) => List.length contents
+			   | _ => inc (List.length contents))
+		      | _ => List.length contents
+		val cond = 
+		    (case ExpProcess.exp2temporaliterator (Exp.TERM name) 
+		      of SOME (iter_sym, _) => "(props->iterator == ITERATOR_" ^ (Symbol.name iter_sym) ^ ")"
+		       | _ => "1") ^ " && (" ^
+		    (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ")"
+
+		(* fun term2temp_iter t =  *)
+		(*     case ExpProcess.exp2temporaliterator (Exp.TERM t)  *)
+		(*      of SOME (name, _) => name *)
+		(*       | NONE => DynException.stdException(("No temporal iterator found for expression " ^ (e2s (Exp.TERM t))), *)
+		(* 					  "CParallelWriter.logoutput_code.term2temp_iter", *)
+		(* 					  Logger.INTERNAL) *)
+
+	    in
+		[$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
+		 SUB[$("int cond = " ^ cond ^ ";"),
+		     $("if (cond) {"),
+		     SUB([$("((unsigned int * )(ob->ptr[modelid]))[0] = " ^ (i2s index) ^ ";"),
+			  $("((unsigned int * )(ob->ptr[modelid]))[1] = " ^ (i2s num_quantities) ^ ";"),
+			  $("ob->ptr[modelid] = &((unsigned int * )(ob->ptr[modelid]))[2];")] @
+			 (case (ExpProcess.exp2temporaliterator (Exp.TERM name)) of
+			      SOME (iter_sym, _) => 
+			      (case CurrentModel.itersym2iter iter_sym of
+				   (_, DOF.CONTINUOUS _) =>
+				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
+				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
+				 | (_, DOF.DISCRETE _) =>
+				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->count[modelid];"),
+				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
+				 | (_, DOF.IMMEDIATE) => []
+				 | _ => [$("#error BOGUS ITERATOR NOT FILTERED")])
+			    | NONE => []) @
+			 (Util.flatmap (fn (exp) =>
+					   [$("*((CDATAFORMAT* )(ob->ptr[modelid])) = "^(CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp))^";"),
+					    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")])
+				       contents) @
+			 [$("ob->count[modelid]++;"),
+			  $("assert((void * )(ob->buffer + (modelid * BUFFER_LEN)) <= ob->ptr[modelid]);"),
+			  $("assert(ob->end[modelid] <= (void * )(ob->buffer + ((modelid+1) * BUFFER_LEN)));"),
+			  $("assert(ob->ptr[modelid] <= ob->end[modelid]);"),
+			  $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= (ob->end[modelid] - ob->ptr[modelid]));")]),
+		     $("}")],
+		 $("}")]
+	    end
+
+	(* Presumes a CurrentModel.withModel context. *)
+	fun outputs_from_class (model, class) =
+	    let val {outputs, ...} = class
+	    in 
+		map (fn (output as {name, ...}) => (model, output))
+		    (! outputs)
+	    end
 
 	val outputs_from_top_classes =
-	    (Util.flatmap
-		 (fn(m as {top_class,model,...})=>CurrentModel.withModel model (fn()=> !(#outputs (CurrentModel.classname2class top_class))))
-		 forkedModels)
-	    handle e => DynException.checkpoint "CParallelWriter.logoutput_code.outputs_from_top_classes" e
+	    Util.flatmap (fn {top_class, model, ...} => CurrentModel.withModel model (fn _ => (outputs_from_class (model, CurrentModel.classname2class top_class))))
+			 forkedModels
 
-	val output_exps =Util.flatmap
-			      (fn(out as ({condition, contents, name}, output_index))=> 
-				 [$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
-				  SUB[$("int cond = (props->iterator == ITERATOR_"^(Symbol.name (term2temp_iter name))^") && (" ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ");"),
-				      $("if (cond) {"),
-				      SUB([$("((unsigned int*)(ob->ptr[modelid]))[0] = " ^ (i2s output_index) ^ ";"),
-					   $("((unsigned int*)(ob->ptr[modelid]))[1] = " ^ (i2s (inc (List.length contents))) ^ ";"),
-					   $("ob->ptr[modelid] = &((unsigned int*)(ob->ptr[modelid]))[2];")] @
-					  (case (ExpProcess.exp2temporaliterator (Exp.TERM name)) of
-					       SOME (iter_sym,_) => 
-					       (case CurrentModel.itersym2iter(iter_sym) of
-						   (_,(DOF.CONTINUOUS _)) =>
-						   [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = props->time[modelid];"),
-						    $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")]
-						 | (_,(DOF.DISCRETE _)) =>
-						   [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = props->count[modelid];"),
-						    $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")]
-						 | _ =>
-						   [$("#error BOGUS ITERATOR NOT FILTERED")])
-					     | NONE => []) @
-					  (Util.flatmap (fn (exp) =>
-							    [$("*((CDATAFORMAT*)(ob->ptr[modelid])) = "^(CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp))^";"),
-							      $("ob->ptr[modelid] = &((CDATAFORMAT*)(ob->ptr[modelid]))[1];")])
-							contents) @
-					  [$("ob->count[modelid]++;"),
-					   $("assert((void *)(ob->buffer + (modelid * BUFFER_LEN)) <= ob->ptr[modelid]);"),
-					   $("assert(ob->end[modelid] <= (void*)(ob->buffer + ((modelid+1) * BUFFER_LEN)));"),
-					   $("assert(ob->ptr[modelid] <= ob->end[modelid]);"),
-					   $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= (ob->end[modelid] - ob->ptr[modelid]));")]),
-				      $("}")],
-				  $("}")]
-			      )
-			      (Util.addCount((*!(#outputs class))*)outputs_from_top_classes))
+	val outputs_from_top_classes =
+	    Util.uniquify_by_fun (fn ((_,a:DOF.output),(_,b:DOF.output)) => Term.sym2curname (#name a) = Term.sym2curname (#name b)) outputs_from_top_classes
+
+	val output_exps = 
+	    Util.flatmap (fn ((model, output), index) => CurrentModel.withModel model (fn _ => output_prog (output, index)))
+			 (Util.addCount outputs_from_top_classes)
+
 
 	val total_output_quantities =
 	    List.foldr op+ 0 (map (List.length o #contents) (!(#outputs class)))
@@ -971,9 +1140,28 @@ fun logoutput_code class forkedModels =
 
 fun buildC (model: DOF.model as (classes, inst, props)) =
     let
+	val () = CurrentModel.setCurrentModel model
+
 	val forkedModels = ModelProcess.createIteratorForkedModels model
+
+	val () = 
+	    let val model = CurrentModel.getCurrentModel ()
+		val filename = "dof-system.json"
+                fun subsystem_to_json {top_class, iter, model} =
+                    let val (iter_name, iter_typ) = iter
+                    in mlJS.js_object [("top_class", mlJS.js_string (Symbol.name top_class)),
+                                       ("iterator", mlJS.js_string (Symbol.name iter_name)),
+                                       ("model", ModelProcess.to_json model)]
+                    end
+		fun output outstream = 
+		    mlJS.output (outstream, mlJS.js_array (map subsystem_to_json forkedModels))
+	    in 
+		Printer.withOpenOut filename output
+	    end
+			   
+
 	val forkedModelsLessUpdate = List.filter (fn{iter=(iter_sym, iter_type),...}=> case iter_type of DOF.UPDATE _ => false | _ => true) forkedModels
-	val forkedModelsWithSolvers = List.filter (fn{iter=(iter_sym, iter_type),...}=> case iter_type of DOF.CONTINUOUS _ => true | DOF.DISCRETE _ => true | _ => false) forkedModels
+	val forkedModelsWithSolvers = List.filter (not o ModelProcess.isDependentIterator o #iter) forkedModels
 
 	val {name=inst_name, classname=class_name} = inst
 	val inst_class = CurrentModel.classname2class class_name
@@ -995,6 +1183,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val unique_solvers = Util.uniquify (List.mapPartial (fn(_,itertype)=> case itertype of 
 										  DOF.CONTINUOUS solver => SOME (Solver.solver2name solver)
 										| DOF.DISCRETE _ => SOME "discrete"
+										| DOF.IMMEDIATE => SOME "immediate"
 										| _ => NONE) iterators)
 	val header_progs = (header (class_name, iterator_names, unique_solvers,
 				    [], (* no additional includes *)
@@ -1031,7 +1220,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val exec_serial_cpu_c = $(Archive.getC "simengine/exec_serial_cpu.c")
 	val exec_kernel_gpu_cu = $(Archive.getC "simengine/exec_kernel_gpu.cu") (* Make conditional on GPU target *)
 	val exec_parallel_gpu_cu = $(Archive.getC "simengine/exec_parallel_gpu.cu") (* Make conditional on GPU target *)
-	val model_flows_c = model_flows class_name
+	val model_flows_c = model_flows forkedModelsLessUpdate
 	val exec_loop_c = $(Archive.getC "simengine/exec_loop.c")
 
 	(* write the code *)

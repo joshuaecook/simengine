@@ -177,6 +177,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
 }
 
 int bogacki_shampine_free(solver_props *props){
+  assert(props);
 #if defined TARGET_GPU
   bogacki_shampine_mem tmem;
 

@@ -23,6 +23,9 @@ sig
 
     val outputsByIterator : DOF.systemiterator -> DOF.class -> DOF.output list
 
+    val outputsSymbols : DOF.class -> Exp.term list
+    val outputsSymbolsByIterator : DOF.systemiterator -> DOF.class -> Exp.term list
+
     (* Indicates whether a class is a functional form. *)
     val isInline : DOF.class -> bool
     (* Indicates whether a class is a master class. *)
@@ -174,6 +177,67 @@ fun findMatchingEq (class:DOF.class) sym =
 	       | NONE => NONE)
 	     
     end
+
+fun flattenExpressionThroughInstances class exp =
+    let val symbols = ExpProcess.exp2symbols exp
+	val equations = map (flattenEquationThroughInstances class) symbols
+	val rules = map ExpProcess.equation2rewrite equations
+    in
+	Match.applyRewritesExp rules exp
+    end
+    handle e => DynException.checkpoint "ClassProcess.flattenExpressionThroughInstances" e
+
+and flattenEquationThroughInstances class sym =
+    let val {name=classname, inputs, ...} = class
+    in if isSymInput class sym then
+	ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
+			 Exp.TERM (#name (valOf (List.find (fn {name, ...} => Term.sym2curname name = sym) (! inputs)))))
+       else
+	   case findMatchingEq class sym
+	    of SOME exp =>
+	       if ExpProcess.isInstanceEq exp then
+		   flattenInstanceEquation sym exp
+	       else if ExpProcess.isIntermediateEq exp then
+		   let val locals = List.filter Term.isLocal (ExpProcess.exp2termsymbols (ExpProcess.rhs exp))
+		       (* val _ = Util.log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'") *)
+		   in if 1 = List.length locals andalso sym = Term.sym2curname (List.hd locals) then
+			  exp
+		      else
+			  let fun make_rule term =
+				  let val replace = 
+					  case flattenEquationThroughInstances class (Term.sym2curname term)
+					   of exp => if ExpProcess.isEquation exp then ExpProcess.rhs exp else exp
+				  in {find = Exp.TERM term, replace = Rewrite.RULE replace, test = NONE} 
+				  end
+			  in Match.applyRewritesExp (map make_rule locals) exp
+			  end
+		   end
+	       else 
+		   exp
+	     | NONE => DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenEquationThroughInstances", Logger.INTERNAL)
+    end
+
+(* Constructs a flattened expression by associating the given symbol with an output parameter,
+ * then inspecting the instance class to find the class output expression. *)
+and flattenInstanceEquation sym eqn =
+    let val {classname, outargs, ...} = ExpProcess.deconstructInst eqn
+	val class = CurrentModel.classname2class classname
+	val {outputs, ...} = class
+	val output_ix = case List.find (fn (x,_) => Term.sym2curname x = sym) (Util.addCount outargs)
+			 of SOME (_, index) => index
+			  | NONE => 
+			    DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenInstanceEquation", Logger.INTERNAL)
+	val {contents,...} = List.nth (! outputs, output_ix)
+
+	(* val _ = Util.log ("flattenInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'") *)
+
+	val flat_contents = map (flattenExpressionThroughInstances class) contents
+	val terms = List.concat (map ExpProcess.exp2termsymbols flat_contents)
+    in 
+	ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
+			 Exp.TERM (if 1 = List.length terms then List.hd terms else Exp.TUPLE terms))
+    end
+
 
 (* flattenEq does not pass through instance equations - we need a different one that will pass through instance equations *)
 fun flattenEq (class:DOF.class) sym = 
@@ -412,11 +476,46 @@ fun outputsByIterator iterator (class: DOF.class) =
 	val {outputs, ...} = class
 
 	fun has_iterator ({name, ...}: DOF.output) =
-	    case Property.getIterator (Term.sym2props name)
-	     of NONE => false
-	      | SOME iterators =>
-		List.exists ((equal iter_sym) o #1) iterators
+	    let fun has exp =
+		    case ExpProcess.exp2temporaliterator exp
+		     of SOME (iter_sym', _) => iter_sym = iter_sym'
+		      | _ => false
+	    in has (ExpProcess.term2exp name)
+	    end
     in List.filter has_iterator (! outputs)
+    end
+
+fun outputSymbols output =
+    let val {contents, condition, ...} = output
+    in
+	Util.flatmap ExpProcess.exp2termsymbols (condition :: contents)
+    end
+
+fun outputSymbolsByFilter f output =
+    List.filter f (outputSymbols output)
+
+fun outputSymbolsByIterator iterator output =
+    let val (iter_sym, _) = iterator
+    in
+	outputSymbolsByFilter
+	    ((ExpProcess.doesTermHaveIterator iter_sym) o ExpProcess.term2exp)
+	    output
+    end
+
+fun outputsSymbols class =
+    let val {outputs, ...} = class
+    in Util.flatmap outputSymbols (! outputs)
+    end
+
+fun outputsSymbolsByFilter f class =
+    List.filter f (outputsSymbols class)
+
+fun outputsSymbolsByIterator iterator (class : DOF.class) =
+    let val (iter_sym, _) = iterator
+    in
+	outputsSymbolsByFilter
+	    ((ExpProcess.doesTermHaveIterator iter_sym) o ExpProcess.term2exp)
+	    class
     end
 
 fun isInline ({properties={classform=DOF.FUNCTIONAL,...},...} : DOF.class) = true
@@ -797,7 +896,7 @@ fun hasStates class = 0 < class2statesize class
 
 (* just see if there are states that use this iterator...  there could be reads, but that's not an issue *)
 fun hasIterator (iter: DOF.systemiterator) (class: DOF.class) =
-    let	
+    let	val {outputs, ...} = class
 	val (iter_sym, _) = iter
 	(* FIXME this doesn't seem to find all the correct states; ensure read states are detected. *)
 	val class_states = class2statesbyiterator iter_sym class
@@ -805,7 +904,9 @@ fun hasIterator (iter: DOF.systemiterator) (class: DOF.class) =
 	val instance_equations = List.filter ExpProcess.isInstanceEq (!(#exps class))
 
 	(*val _ = Util.log ("in class2statesizebyiterator for class '"^(Symbol.name name)^"', # of init conditions="^(i2s (List.length initial_conditions))^", # of instances=" ^ (i2s (List.length instance_equations)))*)
-    in
+    in  
+	List.exists (fn {name, ...} => case TermProcess.symbol2temporaliterator name
+					of SOME (sym,_) => sym = iter_sym | NONE => false) (! outputs) orelse
 	(List.length class_states) > 0 orelse
 	(StdFun.listOr (map (fn(exp)=> 
 			       let
@@ -1029,37 +1130,6 @@ fun assignCorrectScope (class: DOF.class) =
 			       indexable_iterators
 
 
-	local
-	    fun match_intermediate exp =
-		let fun match_termsym sym =
-			case TermProcess.symbol2temporaliterator sym
-			 of NONE => true | _ => false
-		in
-		    ExpProcess.isIntermediateEq exp andalso
-		    List.all match_termsym (ExpProcess.exp2termsymbols exp)
-		end
-		
-
-	    fun static_match_predicate (Exp.TERM (t as Exp.SYMBOL (sym, props))) =
-		(case TermProcess.symbol2temporaliterator t
-		  of SOME _ => false
-		   | NONE => true) andalso
-		(isSymInput class sym orelse
-		 List.exists match_intermediate (symbol2exps class sym))
-	      | static_match_predicate exp = false
-
-	    val static_action_match =
-		Match.anysym_with_predlist [("TICK", static_match_predicate)] (Symbol.symbol "a")
-
-	    fun static_action_replace (exp as Exp.TERM (Exp.SYMBOL _)) = 
-		ExpProcess.prependIteratorToSymbol (Symbol.symbol "tick") exp
-	      | static_action_replace exp = exp
-	in
-	val static_action = {find = static_action_match,
-			     test = NONE,
-			     replace = Rewrite.ACTION (Symbol.symbol "a[tick]", static_action_replace)}
-	end
-
 	val actions = state_actions @ iter_actions
 
 	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
@@ -1069,9 +1139,9 @@ fun assignCorrectScope (class: DOF.class) =
 	val outputs' =
 	    let fun update_output (output as {name, contents, condition}) =
 		    let
-			val name' = ExpProcess.exp2term (Match.applyRewritesExp (static_action :: actions) (ExpProcess.term2exp name))
-			val contents' = map (fn(exp) => Match.applyRewritesExp (static_action :: actions) exp) contents
-			val condition' = Match.applyRewritesExp (static_action :: actions) condition
+			val name' = ExpProcess.exp2term (Match.applyRewritesExp actions (ExpProcess.term2exp name))
+			val contents' = map (fn(exp) => Match.applyRewritesExp actions exp) contents
+			val condition' = Match.applyRewritesExp actions condition
 		    in
 			{name=name', contents=contents', condition=condition'}
 		    end
@@ -1090,8 +1160,27 @@ fun assignCorrectScope (class: DOF.class) =
 	    let
 		(* val _ = Util.log ("Processing output '"^(e2s (Exp.TERM name))^"'") *)
 		(* this line will add the appropriate scope to each symbol and will add the correct temporal iterator*)
+		(* TODO is this necessary? These rules have already been applied above. *)
 		val contents' = map (Match.applyRewritesExp actions) contents
 		val condition' = Match.applyRewritesExp actions condition
+
+		val name = 
+		    case TermProcess.symbol2temporaliterator name 
+		     of NONE => 
+			let val exps = map (flattenExpressionThroughInstances class) (condition' :: contents')
+			    val iters = List.mapPartial ExpProcess.exp2temporaliterator exps
+			    val _ = Util.log ("Finding iterator for output '"^(Symbol.name (Term.sym2curname name))^"'")
+			    val _ = Util.log ("Found "^(i2s (List.length iters))^" temporal iterators in " ^ (i2s (List.length exps)) ^ " expressions")
+			    val _ = Util.log (String.concatWith "\n" (map ExpPrinter.exp2str exps))
+			in case Util.uniquify_by_fun (fn ((a,_), (b,_)) => a = b) iters
+			    of nil => name
+			     | [(iter_sym,_)] => ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name))
+			     | iters => 
+			       name before
+			       Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) (map #1 iters))) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (#1 (StdFun.hd iters)))^"]."))
+			end
+		      |	SOME iter => name (* keep the same *)
+
 
 		(* TODO: The iterator for the name should be defined in modeltranslate.  If it exists,
   		 * the iterator vector will automatically be added to the output trace.  If it doesn't exist, 
@@ -1160,6 +1249,22 @@ fun assignCorrectScope (class: DOF.class) =
 		      
 	(* write back output changes *)
 	val _ = (#outputs class) := outputs'
+
+	(* Associates any output having no iterator dependencies to the immediate iterator. *)
+	fun update_output_immediate output =
+	    let val {name, contents, condition} = output
+		val terms = Util.flatmap ExpProcess.exp2termsymbols (condition :: contents)
+		val name' = 
+		    if List.exists (Option.isSome o TermProcess.symbol2temporaliterator) terms then
+			name
+		    else
+			ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name))
+	    in
+		{name = name', contents = contents, condition = condition}
+	    end
+
+
+	val _ = (#outputs class) := map update_output_immediate (! (#outputs class))
     in
 	()
     end
@@ -1208,6 +1313,7 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 	 #outputs class := outputs')
     end
 
+(* FIXME define this algorithm more clearly. *)
 fun pruneClass iter_option (class: DOF.class) = 
     let
 	(* pull out useful quantities *)
@@ -1219,8 +1325,15 @@ fun pruneClass iter_option (class: DOF.class) =
 	fun filter_output iterator output =
 	    let val (iter_sym, _) = iterator
 		val {name, contents, condition} = output
-	    in ExpProcess.doesTermHaveIterator iter_sym (ExpProcess.term2exp name) orelse
-	       (not (List.exists ExpProcess.hasTemporalIterator (condition :: contents)))
+		val name' = ExpProcess.term2exp name
+	    in 
+		ExpProcess.doesTermHaveIterator iter_sym name' orelse
+		case TermProcess.symbol2temporaliterator name 
+		 of SOME (iter_sym, _) =>
+		    (case CurrentModel.itersym2iter iter_sym
+		      of (_, DOF.IMMEDIATE) => true
+		       | _ => false)
+		  | NONE => false
 	    end
 
 	val outputs' = case iter_option 

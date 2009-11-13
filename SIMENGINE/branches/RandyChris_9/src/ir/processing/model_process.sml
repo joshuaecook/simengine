@@ -40,9 +40,9 @@ end = struct
 
 val i2s = Util.i2s
 
-fun isDependentIterator (_, DOF.CONTINUOUS _) = false
-  | isDependentIterator (_, DOF.DISCRETE _) = false
-  | isDependentIterator _ = true
+fun isDependentIterator (_, DOF.UPDATE _) = true
+  | isDependentIterator (_, DOF.POSTPROCESS _) = true
+  | isDependentIterator _ = false
 
 fun returnIndependentIterators () =
     List.filter (not o isDependentIterator) (CurrentModel.iterators ())
@@ -70,14 +70,10 @@ fun hasPostProcessIterator iter_sym =
     
 
 fun pruneModel iter_sym_opt model = 
-    let
-	val prevModel = CurrentModel.getCurrentModel()
-	val _ = CurrentModel.setCurrentModel(model)
-	val (classes, top_inst, props) = model
-	val () = app (ClassProcess.pruneClass iter_sym_opt) classes
-    in
-	(CurrentModel.setCurrentModel(prevModel))
-    end
+    CurrentModel.withModel model (fn _ =>
+    let val (classes, _, _) = model
+    in app (ClassProcess.pruneClass iter_sym_opt) classes
+    end)
 
 fun duplicateClasses classes namechangefun = 
     let
@@ -154,6 +150,7 @@ fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
 		classes
 
 	val iterators' = List.filter filter_iter iterators
+
 	val properties' = {iterators=iterators',
 			   precision=precision,
 			   target=target,
@@ -409,7 +406,8 @@ fun to_json (model as (classes,instance,properties)) =
 				  | DOF.UPDATE parent => [("type",js_string "UPDATE"),
 							  ("parent",js_string (Symbol.name parent))]
 				  | DOF.POSTPROCESS parent => [("type",js_string "UPDATE"),
-							       ("parent",js_string (Symbol.name parent))]))
+							       ("parent",js_string (Symbol.name parent))]
+				  | DOF.IMMEDIATE => [("type", js_string "IMMEDIATE")]))
 		    
 		fun target_to_json Target.CPU = js_object [("type",js_string "CPU")]
 		  | target_to_json Target.OPENMP = js_object [("type",js_string "OPENMP")]

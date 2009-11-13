@@ -11,6 +11,7 @@ val isScalar: Exp.term -> bool
 val isLocal: Exp.term -> bool (* is this a local symbol, as opposed to being stored in a state vector *)
 val isReadState: Exp.term -> bool (* not a local symbol, but rather read in as a state *)
 val isWriteState: Exp.term -> bool (* not a local symbol, but rather written to a state *)
+val isReadSystemState : Exp.term -> bool
 val isInitialValue: Exp.term -> Symbol.symbol -> bool (* returns if it is an initial value for a given iterator *)
 val termCount: Exp.term -> int (* count the elements of a symbol, list, or tuple *)
 val symbolSpatialSize: Exp.term -> int (* assumes that the term is a symbol, otherwise returns 1 by default - also, uses dim property to determine size *)
@@ -258,6 +259,13 @@ fun isReadState term =
     case term of
 	Exp.SYMBOL (_, props) => (case (Property.getScope props) of
 				      Property.READSTATE v => true
+				    | _ => false)
+      | _ => false
+
+fun isReadSystemState term =
+    case term
+     of Exp.SYMBOL (_, props) => (case Property.getScope props
+				   of Property.READSYSTEMSTATE _ => true
 				    | _ => false)
       | _ => false
 					  

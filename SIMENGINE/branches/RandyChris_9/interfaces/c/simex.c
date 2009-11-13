@@ -538,7 +538,7 @@ void print_interface(const simengine_interface *iface){
   }
   printf("\n\n%12s : ", "Outputs");
   for(i=0;i<iface->num_outputs;i++){
-    printf("%s[%d]\t", iface->state_names[i],iface->output_num_quantities[i]);
+    printf("%s[%d]\t", iface->output_names[i], iface->output_num_quantities[i]);
   }
   printf("\n\n");
 }

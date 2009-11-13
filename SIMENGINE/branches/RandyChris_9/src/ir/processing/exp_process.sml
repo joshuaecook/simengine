@@ -16,6 +16,7 @@ val deconstructInst : Exp.exp -> {classname: Symbol.symbol,
 
 (* Classification functions *)
 val isTerm : Exp.exp -> bool
+val isEquation : Exp.exp -> bool
 val isStateEq : Exp.exp -> bool
 val isInitialConditionEq : Exp.exp -> bool
 val isInstanceEq : Exp.exp -> bool
@@ -47,7 +48,8 @@ val hasTemporalIterator : Exp.exp -> bool
 val iterators_of_expression : Exp.exp -> SymbolSet.set
 
 (* Rewriter related functions *)
-val equation2rewrite : Exp.exp -> Rewrite.rewrite (* if a == b, then make a -> b *)
+(* Constructs a rule that will match the lhs of an equation and replace it with the rhs. *)
+val equation2rewrite : Exp.exp -> Rewrite.rewrite
 
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
@@ -470,6 +472,7 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	       | _ => false
 	 end
        | _ => false)
+  | isStateTermOfIter _ _ = false
     
 
 fun isStateEqOfIter iter exp =

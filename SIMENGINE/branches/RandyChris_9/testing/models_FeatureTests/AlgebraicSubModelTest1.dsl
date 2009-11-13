@@ -1,7 +1,7 @@
 model (y)=Fcn(x)
     equation z = x^2
 
-    output y = 3 * z
+    output y = z
 end
 
 model (y)=AlgebraicSubModelTest1

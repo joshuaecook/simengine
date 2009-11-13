@@ -11,7 +11,11 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
 	     
   for (dataid = 0; dataid < ndata; ++dataid) {
     outputid = ((unsigned int *)data)[0];
+    assert(seint.num_outputs > outputid);
+
     nquantities = ((unsigned int *)data)[1];
+    assert(seint.output_num_quantities[outputid] == nquantities);
+
     data = &((unsigned int*)data)[2];
 		 
     // TODO an error code for invalid data?

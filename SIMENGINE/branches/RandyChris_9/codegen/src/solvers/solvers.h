@@ -101,6 +101,7 @@ __DEVICE__ CDATAFORMAT find_min_time(solver_props *props, unsigned int modelid){
   CDATAFORMAT min_time;
 
   assert(model_running(props,modelid));
+  assert(NUM_ITERATORS);
 
   // Finds the first running iterator for the initial min time
   for(i=0;i<NUM_ITERATORS;i++) {
@@ -123,11 +124,32 @@ __DEVICE__ CDATAFORMAT find_min_time(solver_props *props, unsigned int modelid){
 // Check to see if any of the iterators are not yet completed
 __DEVICE__ int model_running(solver_props *props, unsigned int modelid){
   Iterator iter;
+  assert(NUM_ITERATORS);
   for(iter=0;iter<NUM_ITERATORS;iter++){
     if(props[iter].running[modelid])
       return 1;
   }
   return 0;
 }
+
+
+int immediate_init(solver_props *props) {
+  return 0;
+}
+
+int immediate_eval(solver_props *props, unsigned int modelid) {
+  props->running[modelid] = props->time[modelid] < props->stoptime;
+  if (!props->running[modelid])
+    return 0;
+
+  props->next_time[modelid] = props->stoptime;
+
+  return model_flows(props->time[modelid], props->model_states, props->next_states, props, 1, modelid);
+}
+
+int immediate_free(solver_props *props) {
+  return 0;
+}
+
 
 #endif // SOLVERS_H

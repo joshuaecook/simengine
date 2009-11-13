@@ -13,8 +13,4 @@ model (sum,diff) = StateTest3
    equation diff = (A
                  -  B // comments my appear here also
                  -  C)
-    
-    solver=forwardeuler{
-      dt=1
-      }
 end

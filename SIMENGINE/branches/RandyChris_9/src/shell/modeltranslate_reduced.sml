@@ -624,7 +624,7 @@ fun obj2dofmodel object =
 	    end
 
 	val temporal_iterators = 
-	    (Symbol.symbol "tick", DOF.DISCRETE {sample_period=1.0}) ::
+	    (Symbol.symbol "always", DOF.IMMEDIATE) ::
 	    (foldl (op @) nil (map buildTemporalIterator (vec2list (send "getTemporalIterators" (method "modeltemplate" object) NONE))))
 
 	(*val key_value_pairs = vec2list (method "contents" (method "settings" (method "modeltemplate" object)))*)
