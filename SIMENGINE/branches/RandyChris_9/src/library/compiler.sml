@@ -30,8 +30,9 @@ fun std_compile exec args =
 		  let val model = CurrentModel.getCurrentModel ()
 		      val filename = "dof.json"
 		      fun output outstream = mlJS.output (outstream, ModelProcess.to_json model)
-		  in 
-		      Printer.withOpenOut filename output
+		  in if ModelProcess.isDebugging model then
+			 Printer.withOpenOut filename output
+		     else ()
 		  end
 
 		      
@@ -55,8 +56,9 @@ fun std_compile exec args =
 		  let val model = CurrentModel.getCurrentModel ()
 		      val filename = "dof-final.json"
 		      fun output outstream = mlJS.output (outstream, ModelProcess.to_json model)
-		  in 
-		      Printer.withOpenOut filename output
+		  in if ModelProcess.isDebugging model then
+			 Printer.withOpenOut filename output
+		     else ()
 		  end
 
 

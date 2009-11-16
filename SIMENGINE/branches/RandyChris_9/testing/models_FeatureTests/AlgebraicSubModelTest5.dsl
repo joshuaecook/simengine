@@ -4,7 +4,7 @@ model (y)=Fcn(x)
     output y = z
 end
 
-model (y, z)=AlgebraicSubModelTest4
+model (y, z)=AlgebraicSubModelTest5
 
     state x1 = 0
     equation x1' = 1

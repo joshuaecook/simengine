@@ -227,12 +227,15 @@ and flattenInstanceEquation sym eqn =
 			 of SOME (_, index) => index
 			  | NONE => 
 			    DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenInstanceEquation", Logger.INTERNAL)
-	val {contents,...} = List.nth (! outputs, output_ix)
+	val {name, contents,...} = List.nth (! outputs, output_ix)
 
 	(* val _ = Util.log ("flattenInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'") *)
 
-	val flat_contents = map (flattenExpressionThroughInstances class) contents
-	val terms = List.concat (map ExpProcess.exp2termsymbols flat_contents)
+	val terms = 
+	    case TermProcess.symbol2temporaliterator name
+	     of SOME _ => [name]
+	      | NONE => 
+		List.concat (map (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) contents)
     in 
 	ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
 			 Exp.TERM (if 1 = List.length terms then List.hd terms else Exp.TUPLE terms))

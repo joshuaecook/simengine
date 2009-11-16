@@ -1155,8 +1155,9 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
                     end
 		fun output outstream = 
 		    mlJS.output (outstream, mlJS.js_array (map subsystem_to_json forkedModels))
-	    in 
-		Printer.withOpenOut filename output
+	    in if ModelProcess.isDebugging model then
+		   Printer.withOpenOut filename output
+	       else ()
 	    end
 			   
 

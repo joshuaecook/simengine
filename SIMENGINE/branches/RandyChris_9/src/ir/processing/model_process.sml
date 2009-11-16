@@ -34,6 +34,9 @@ structure ModelProcess : sig
     (* Indicates whether an iterator is dependent upon another. *)
     val isDependentIterator : DOF.systemiterator -> bool
 
+    val isDebugging : DOF.model -> bool
+    val isProfiling : DOF.model -> bool
+
     val to_json : DOF.model -> mlJS.json_value
 
 end = struct
@@ -373,6 +376,16 @@ fun normalizeParallelModel (model:DOF.model) =
     end
     handle e => DynException.checkpoint "ModelProcess.normalizeParallelModel" e
 
+
+fun isDebugging model = 
+    let val (_, _, props : DOF.systemproperties) = model
+    in #debug props
+    end
+
+fun isProfiling model =
+    let val (_, _, props : DOF.systemproperties) = model
+    in #profile props
+    end
 
 local open mlJS in
 fun to_json (model as (classes,instance,properties)) =
