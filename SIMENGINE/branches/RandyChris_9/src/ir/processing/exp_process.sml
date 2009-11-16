@@ -909,6 +909,7 @@ val js_symbol = js_string o Symbol.name
 
 fun to_json (Exp.FUN (typ, expressions)) = fun_to_json (typ, expressions)
   | to_json (Exp.TERM term) = term_to_json term
+  | to_json (Exp.META meta) = meta_to_json meta
 
 and fun_to_json (Fun.BUILTIN operation, expressions) =
     js_object [("type", js_string "BUILTIN"),
@@ -1042,6 +1043,25 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
 		   ("predicate", js_string "FIXME"),
 		   ("arity", json_arity)]
     end
+
+and meta_to_json (Exp.LAMBDA {arg, body}) =
+    js_object [("type", js_string "LAMBDA"),
+	       ("argument", js_symbol arg),
+	       ("body", to_json body)]
+  | meta_to_json (Exp.APPLY {func, arg}) = 
+    js_object [("type", js_string "APPLY"),
+	       ("function", to_json func),
+	       ("argument", to_json arg)]
+  | meta_to_json (Exp.MAP {func, args}) =  
+    js_object [("type", js_string "MAP"),
+	       ("function", to_json func),
+	       ("arguments", to_json args)]
+  | meta_to_json (Exp.SEQUENCE members) =  
+    js_object [("type", js_string "SEQUENCE"),
+	       ("members", js_array (map to_json members))]
+   
+
+
 end
 
 end
