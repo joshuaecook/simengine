@@ -196,7 +196,7 @@ and flattenEquationThroughInstances class sym =
 	   case findMatchingEq class sym
 	    of SOME exp =>
 	       if ExpProcess.isInstanceEq exp then
-		   flattenInstanceEquation sym exp
+		   flattenInstanceEquation class sym exp
 	       else if ExpProcess.isIntermediateEq exp then
 		   let val locals = List.filter Term.isLocal (ExpProcess.exp2termsymbols (ExpProcess.rhs exp))
 		       (* val _ = Util.log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'") *)
@@ -219,26 +219,38 @@ and flattenEquationThroughInstances class sym =
 
 (* Constructs a flattened expression by associating the given symbol with an output parameter,
  * then inspecting the instance class to find the class output expression. *)
-and flattenInstanceEquation sym eqn =
-    let val {classname, outargs, ...} = ExpProcess.deconstructInst eqn
+and flattenInstanceEquation caller sym eqn =
+    let val {classname, outargs, inpargs, ...} = ExpProcess.deconstructInst eqn
 	val class = CurrentModel.classname2class classname
-	val {outputs, ...} = class
+	val {outputs, inputs, ...} = class
 	val output_ix = case List.find (fn (x,_) => Term.sym2curname x = sym) (Util.addCount outargs)
 			 of SOME (_, index) => index
 			  | NONE => 
 			    DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenInstanceEquation", Logger.INTERNAL)
-	val {name, contents,...} = List.nth (! outputs, output_ix)
+	val {name, contents, condition} = List.nth (! outputs, output_ix)
 
 	(* val _ = Util.log ("flattenInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'") *)
-
-	val terms = 
-	    case TermProcess.symbol2temporaliterator name
-	     of SOME _ => [name]
-	      | NONE => 
-		List.concat (map (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) contents)
-    in 
-	ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
-			 Exp.TERM (if 1 = List.length terms then List.hd terms else Exp.TUPLE terms))
+    in case TermProcess.symbol2temporaliterator name
+	of SOME _ => ExpBuild.equals (ExpBuild.var (Symbol.name sym), Exp.TERM name)
+	 | NONE => 
+	   let val terms = 
+		   List.concat (map (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) (condition :: contents))
+	       val terms = 
+		   Util.flatmap (fn t => 
+		   if isSymInput class (Term.sym2curname t) then
+		       let val input_ix = case List.find (fn ({name, ...}, _) => Term.sym2curname name = Term.sym2curname t) (Util.addCount (! inputs))
+					   of SOME (_, index) => index
+					    | NONE => 
+					      DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenInstanceEquation", Logger.INTERNAL)
+			   val inp = List.nth (inpargs, input_ix)
+		       in ExpProcess.exp2termsymbols (flattenExpressionThroughInstances caller inp)
+		       end
+		   else [t]
+	           ) terms
+	   in		   
+	       ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
+				Exp.TERM (if 1 = List.length terms then List.hd terms else Exp.TUPLE terms))
+	   end
     end
 
 

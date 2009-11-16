@@ -1080,7 +1080,7 @@ fun logoutput_code class forkedModels =
 				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
 				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
 				 | (_, DOF.DISCRETE _) =>
-				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->count[modelid];"),
+				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
 				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
 				 | (_, DOF.IMMEDIATE) => []
 				 | _ => [$("#error BOGUS ITERATOR NOT FILTERED")])
@@ -1221,7 +1221,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val exec_serial_cpu_c = $(Archive.getC "simengine/exec_serial_cpu.c")
 	val exec_kernel_gpu_cu = $(Archive.getC "simengine/exec_kernel_gpu.cu") (* Make conditional on GPU target *)
 	val exec_parallel_gpu_cu = $(Archive.getC "simengine/exec_parallel_gpu.cu") (* Make conditional on GPU target *)
-	val model_flows_c = model_flows forkedModelsLessUpdate
+	val model_flows_c = model_flows forkedModelsWithSolvers
 	val exec_loop_c = $(Archive.getC "simengine/exec_loop.c")
 
 	(* write the code *)
