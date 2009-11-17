@@ -43,7 +43,8 @@ typedef enum {
   DOUBLE,
   DEBUG,
   PROFILE,
-  REMAKE
+  REMAKE,
+  HELP
 } clopts;
 
 static const struct option long_options[] = {
@@ -62,6 +63,7 @@ static const struct option long_options[] = {
   {"debug", no_argument, 0, DEBUG},
   {"profile", no_argument, 0, PROFILE},
   {"remake", no_argument, 0, REMAKE},
+  {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
 
@@ -85,6 +87,7 @@ void print_usage(){
 	 "\t--debug\t\tEnables debugging information.\n"
 	 "\t--profile\tEnables profiling.\n"
 	 "\t--remake\tSkip simEngine compilation and just remake C code.\n"
+	 "\t--help\tShow this message.\n"
 	 "\n");
 }
 
@@ -120,6 +123,10 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       break;
 
     switch(arg){
+    case HELP:
+      print_usage();
+      return 1;
+      break;
     case START:
       if(opts->start_time){
 	printf("ERROR: start time was already set.\n");

@@ -331,22 +331,6 @@ fun isNextVarDifferenceTerm exp =
 	end
       | _ => false
 
-(* difference terms of the form x[n-d] where d>0 *)
-fun isDelayedVarDifferenceTerm exp = 
-    case exp of
-	Exp.TERM (Exp.SYMBOL (_, props)) =>
-	let
-	    val iterators = Property.getIterator props
-	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
-									 DOF.DISCRETE _ => true
-								       | _ => false) (CurrentModel.iterators())
-	in
-	    case iterators of
-		SOME ((iterator, Iterator.RELATIVE d)::rest) => d < 0 andalso (List.exists (fn(sym, _)=> iterator = sym) discrete_iterators)
-	      | _ => false
-	end
-      | _ => false
-
 (* difference equations must have x[n+1] on the left hand side *)
 fun isDifferenceEq exp =
     isEquation exp andalso
@@ -636,6 +620,13 @@ fun hasTemporalIterator exp =
      of SOME _ => true
       | NONE => false
 		
+(* difference terms of the form x[n+d] or x[t[d]] where d<0 *)
+fun isDelayedVarDifferenceTerm exp =
+    case exp2temporaliterator exp
+     of SOME (iterator, Iterator.RELATIVE d) => d < 0
+      | _ => false
+
+
 fun iterators_of_expression (Exp.FUN (typ, operands)) = 
     foldl SymbolSet.union SymbolSet.empty (map iterators_of_expression operands)
 

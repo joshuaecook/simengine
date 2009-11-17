@@ -1184,12 +1184,19 @@ fun assignCorrectScope (class: DOF.class) =
 		     of NONE => 
 			let val exps = map (flattenExpressionThroughInstances class) (condition' :: contents')
 			    val iters = List.mapPartial ExpProcess.exp2temporaliterator exps
-			    val _ = Util.log ("Finding iterator for output '"^(Symbol.name (Term.sym2curname name))^"'")
-			    val _ = Util.log ("Found "^(i2s (List.length iters))^" temporal iterators in " ^ (i2s (List.length exps)) ^ " expressions")
-			    val _ = Util.log (String.concatWith "\n" (map ExpPrinter.exp2str exps))
+			    (* val _ = Util.log ("Finding iterator for output '"^(Symbol.name (Term.sym2curname name))^"'") *)
+			    (* val _ = Util.log ("Found "^(i2s (List.length iters))^" temporal iterators in " ^ (i2s (List.length exps)) ^ " expressions") *)
+			    (* val _ = Util.log (String.concatWith "\n" (map ExpPrinter.exp2str exps)) *)
 			in case Util.uniquify_by_fun (fn ((a,_), (b,_)) => a = b) iters
 			    of nil => name
-			     | [(iter_sym,_)] => ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name))
+			     | [(iter_sym,_)] => 
+			       (case CurrentModel.itersym2iter iter_sym
+				 of (_, DOF.UPDATE base_iter) => 
+				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
+				  | (_, DOF.POSTPROCESS base_iter) => 
+				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
+				  | _ => 
+				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name)))
 			     | iters => 
 			       name before
 			       Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) (map #1 iters))) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (#1 (StdFun.hd iters)))^"]."))
