@@ -27,7 +27,9 @@ function s = UpdateIteratorTests
 s = Suite('Update Iterator Tests');
 
 sawtooth = [0 1 2 3 0 1 2 3 0 1 2];
-s.add(Test('UpdateTimeIterator',@()(simex('models_FeatureTests/UpdateContinuousIteratorTest1.dsl',10,'-quiet')), '-equal', struct('x', [0:10; sawtooth]')));
+s.add(Test('UpdateTimeIterator', ...
+           @()(simex(['models_FeatureTests/UpdateContinuousIteratorTest1.dsl'],10,'-quiet')), ...
+           '-equal', struct('x', [0:10; sawtooth]')));
 s.add(Test('UpdateContinuousIterator',@()(simex('models_FeatureTests/UpdateContinuousIteratorTest2.dsl',10,'-quiet')), '-equal', struct('x', [0:10; sawtooth]')));
 s.add(Test('UpdateDiscreteNIterator',@()(simex('models_FeatureTests/UpdateDiscreteIteratorTest1.dsl',10,'-quiet')), '-equal', struct('x', [0:10; sawtooth]')));
 s.add(Test('UpdateOtherDiscreteIterator',@()(simex('models_FeatureTests/UpdateDiscreteIteratorTest2.dsl',10,'-quiet')), '-equal', struct('x', [0:10; sawtooth]')));
@@ -37,7 +39,9 @@ end
 function s = PostProcessIteratorTests
 
 s = Suite('Post Process Iterator Tests');
-s.add(Test('TwoDelayUsingPPTimeIterator',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1.dsl',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
+s.add(Test('TwoDelayUsingPPTimeIterator', ...
+           @()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1.dsl',10,'-quiet')), ...
+           '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
 s.add(Test('TwoDelayUsingPPContinuousIterator',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest2.dsl',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
 s.add(Test('TwoDelayUsingIndex',@ ...
            ()(simex('models_FeatureTests/PostProcessContinuousIteratorTest3.dsl',10,'-quiet')), '-equal', struct('y', [0:10; 0:10; 0 0 0:8]')));

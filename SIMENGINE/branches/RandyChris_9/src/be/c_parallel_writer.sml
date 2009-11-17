@@ -68,7 +68,11 @@ fun output_contains_term test output =
 (* Indicates whether a given class or any of its instances 
  * reads any states associated with a given iterator.
  * Nb Presumes a CurrentModel context. *)
-fun reads_iterator iter class =
+fun reads_iterator (_, DOF.UPDATE iter_sym) class =
+    let val iter = CurrentModel.itersym2iter iter_sym
+    in reads_iterator iter class end
+
+  | reads_iterator iter class =
     let val {exps, outputs, ...} = class
     in List.exists (output_contains_term (term_reads_iterator iter)) (! outputs) orelse
        List.exists (term_reads_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
@@ -87,7 +91,11 @@ and term_reads_iterator iter (Exp.SYMBOL (name, props)) =
 (* Indicates whether a given class or any of its instances
  * writes any states associated with a given iterator.
  * Nb Presumes a CurrentModel context. *)
-fun writes_iterator iter class =
+fun writes_iterator (_, DOF.UPDATE iter_sym) class =
+    let val iter = CurrentModel.itersym2iter iter_sym
+    in writes_iterator iter class end
+
+  | writes_iterator iter class =
     let val {exps, ...} = class
     in List.exists (term_writes_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
        List.exists (test_instance_class (writes_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
@@ -437,59 +445,86 @@ fun solver_wrappers solvers =
 	Util.flatmap create_wrapper methods_params
     end
 
-fun update_wrapper classname iterators = 
-    let
-	fun method_redirect (iter,iter_type) = 
-	    if (ModelProcess.hasUpdateIterator iter) then
-		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
-		 case iter_type of
-		     DOF.CONTINUOUS _ =>
-		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.updateOf (Symbol.name iter)))^ "(props->next_time[modelid], (const statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, (statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
-		   | DOF.DISCRETE _ =>
-		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.updateOf (Symbol.name iter)))^ "(props->count[modelid]+1, (const statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, (statedata_"^classname^"_"^(Symbol.name iter)^" *)props->next_states, props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
-		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
-		]
-	    else
-		[$("// No update for ITERATOR_"^(Symbol.name iter))]
-	val create_wrapper = 
-	    [$("int update(solver_props *props, unsigned int modelid){"),
-	     SUB($("switch(props->iterator){") ::
-		 (Util.flatmap method_redirect iterators) @
-		 [$("default:"),
-		  SUB[$("return 1;")],
-		  $("}")]),
-	     $("}"),
-	     $("")]
-    in
-	create_wrapper
+fun update_wrapper subsystems =
+    let val _ = ()
+	fun call_update {top_class, iter, model} =
+	    CurrentModel.withModel model (fn _ =>
+	       let val (iter_name, iter_typ) = iter
+		   val (base_iter_name, base_iter_typ) = 
+		       case iter_typ 
+			of DOF.UPDATE dep => CurrentModel.itersym2iter dep
+			 | _ => 
+			   DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
+
+		   val class = CurrentModel.classname2class top_class
+		   val basename = ClassProcess.class2basename class
+		   val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
+		   val (statereads, statewrites, systemstatereads) =
+		       (if reads_iterator iter class then "(const statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
+			if writes_iterator iter class then "(statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
+			if reads_system class then "props->system_states, " else "")
+
+	       in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
+		   case base_iter_typ
+		    of DOF.CONTINUOUS _ =>
+		       SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
+			      statereads ^ statewrites ^ systemstatereads ^
+			      "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+		     | DOF.DISCRETE _ => 
+		       SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
+			      statereads ^ statewrites ^ systemstatereads ^
+			      "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+		     | _ => $("#error BOGUS ITERATOR")]
+	       end)
+
+    in [$("int update(solver_props *props, unsigned int modelid) {"),
+	SUB ($("switch (props->iterator) {") ::
+	     List.concat (map call_update subsystems) @
+	     [$("default: return 1;"),
+	      $("}")]),
+	$("}")]
     end
 
-fun postprocess_wrapper classname iterators =
-    let
-	fun method_redirect (iter,iter_type) = 
-	    if (ModelProcess.hasPostProcessIterator iter) then
-		[$("case ITERATOR_" ^ (Symbol.name iter) ^ ":"),
-		 case iter_type of
-		     DOF.CONTINUOUS _ =>
-		     SUB[$("return flow_" ^ classname ^ "_" ^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->next_time[modelid],((systemstatedata_"^classname^"*)props->system_states)->states_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^", ((systemstatedata_"^classname^"*)props->system_states)->states_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^", props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
-		   | DOF.DISCRETE _ =>
-		     SUB[$("return flow_" ^ classname ^ "_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^ "(props->count[modelid]+1, ((systemstatedata_"^classname^"*)props->system_states)->states_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^", ((systemstatedata_"^classname^"*)props->system_states)->states_"^(Symbol.name (Iterator.postProcessOf (Symbol.name iter)))^", props->system_states, props->inputs, (CDATAFORMAT *)props->od, 1, modelid);")]
-		   | _ => $("#error BOGUS ITERATOR NOT FILTERED")
-		]
-	    else
-		[$("// No post process for ITERATOR_"^(Symbol.name iter))]
-	val create_wrapper = 
-	    [$("int post_process(solver_props *props, unsigned int modelid){"),
-	     SUB($("switch(props->iterator){") ::
-		 (Util.flatmap method_redirect iterators) @
-		 [$("default:"),
-		  SUB[$("return 1;")],
-		  $("}")]),
-	     $("}"),
-	     $("")]
-    in
-	create_wrapper
+fun postprocess_wrapper subsystems =
+    let val _ = ()
+	fun call_update {top_class, iter, model} =
+	    CurrentModel.withModel model (fn _ =>
+	       let val (iter_name, iter_typ) = iter
+		   val (base_iter_name, base_iter_typ) = 
+		       case iter_typ 
+			of DOF.POSTPROCESS dep => CurrentModel.itersym2iter dep
+			 | _ => 
+			   DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
+
+		   val class = CurrentModel.classname2class top_class
+		   val basename = ClassProcess.class2basename class
+		   val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
+		   val (statereads, statewrites, systemstatereads) =
+		       (if reads_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ ", " else "",
+			if writes_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ ", " else "",
+			if reads_system class then "props->system_states, " else "")
+
+	       in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
+		   case base_iter_typ
+		    of DOF.CONTINUOUS _ =>
+		       SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
+			      statereads ^ statewrites ^ systemstatereads ^
+			      "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+		     | DOF.DISCRETE _ => 
+		       SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
+			      statereads ^ statewrites ^ systemstatereads ^
+			      "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+		     | _ => $("#error BOGUS ITERATOR")]
+	       end)
+
+    in [$("int post_process(solver_props *props, unsigned int modelid) {"),
+	SUB ($("switch (props->iterator) {") ::
+	     List.concat (map call_update subsystems) @
+	     [$("default: return 1;"),
+	      $("}")]),
+	$("}")]
     end
+
 
 local
     fun state2member iterators (sym) =
@@ -1164,6 +1199,9 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 	val forkedModelsLessUpdate = List.filter (fn{iter=(iter_sym, iter_type),...}=> case iter_type of DOF.UPDATE _ => false | _ => true) forkedModels
 	val forkedModelsWithSolvers = List.filter (not o ModelProcess.isDependentIterator o #iter) forkedModels
 
+	val updateModels = List.filter (fn {iter=(_, iter_typ), ...} => case iter_typ of DOF.UPDATE _ => true | _ => false) forkedModels
+	val postprocessModels = List.filter (fn {iter=(_, iter_typ), ...} => case iter_typ of DOF.POSTPROCESS _ => true | _ => false) forkedModels
+
 	val {name=inst_name, classname=class_name} = inst
 	val inst_class = CurrentModel.classname2class class_name
 	val orig_name = #name inst_class
@@ -1177,9 +1215,8 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 			     of DOF.SINGLE => "float" 
 			      | DOF.DOUBLE => "double"
 
-	val iterators = ModelProcess.returnIndependentIterators()
-	val iterator_syms = map #1 (ModelProcess.returnIndependentIterators ())
-	val iterator_names = map Symbol.name iterator_syms
+	val iterators = ModelProcess.returnIndependentIterators ()
+	val iterator_names = map (Symbol.name o #1) iterators
 	(* grab the unique solvers so that we can put the code down for each one *)
 	val unique_solvers = Util.uniquify (List.mapPartial (fn(_,itertype)=> case itertype of 
 										  DOF.CONTINUOUS solver => SOME (Solver.solver2name solver)
@@ -1209,7 +1246,8 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 					    (fn(solv)=> Archive.getC ("solvers/"^solv^".c"))
 					    unique_solvers))
 	val solver_wrappers_c = solver_wrappers unique_solvers
-	val iterator_wrappers_c = (update_wrapper class_name iterators) @ (postprocess_wrapper class_name iterators)
+	val iterator_wrappers_c = (update_wrapper updateModels) @ 
+				  (postprocess_wrapper postprocessModels)
 	val simengine_api_c = $(Archive.getC "simengine/simengine_api.c")
 	val defines_h = $(Archive.getC "simengine/defines.h")
 	val semeta_seint_h = $(Archive.getC "simengine/semeta_seint.h")
