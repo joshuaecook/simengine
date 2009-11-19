@@ -257,6 +257,9 @@ overload function filter(f, v: Vector) =
 // Types
 function istype (typ, quant) = LF istype (typ, quant)
 
+// Testing
+function test_pass(pass) = LF sys_exit ({1 when not pass, 0 otherwise})
+
 end // namespace Operations
 
 namespace Types
@@ -288,11 +291,11 @@ namespace Types
         false
       elseif pattern == "" then
         false
-      elseif pattern(1) == "?" then
+      elseif pattern[1] == "?" then
         match_pattern (pattern.rest(), str.rest())
-      elseif pattern(1) == "*" then
+      elseif pattern[1] == "*" then
         match_pattern (pattern, str.rest()) or match_pattern (pattern.rest(), str) or match_pattern (pattern.rest(), str.rest())
-      elseif pattern(1) == str(1) then
+      elseif pattern[1] == str[1] then
         match_pattern (pattern.rest(), str.rest())
       else
         false

@@ -2,6 +2,7 @@ namespace Rules
 
 var simplification = [
 
+
 /* Operator Simplification */
 /* a-b -> a+(-b) */
 rulematch $$a.one - $$b.one -> $a + (-$b),
@@ -16,6 +17,13 @@ rulematch $$a.one / $$b.one -> $a * ($b  ^ (-1)),
 /* negation removal */
 /* (-a) -> -1 * a */
 rulematch -$$a.one -> modelop("mul", [-1, $a]),
+
+/* Aggregation: multi-op creation*/
+rulematch modelop("mul", [$$d1.any, modelop("mul", [$$d2.any]), $$d3.any]) -> modelop("mul", [$d1, $d2, $d3]),
+rulematch modelop("add", [$$d1.any, modelop("add", [$$d2.any]), $$d3.any]) -> modelop("add", [$d1, $d2, $d3]),
+rulematch modelop("and", [$$d1.any, modelop("and", [$$d2.any]), $$d3.any]) -> modelop("and", [$d1, $d2, $d3]),
+rulematch modelop("or", [$$d1.any, modelop("or", [$$d2.any]), $$d3.any]) -> modelop("or", [$d1, $d2, $d3]),
+
 
 /* -0 -> 0 */
 rulematch modelop("neg", [0]) -> 0,
@@ -84,16 +92,12 @@ rulematch -(-$$a.one) -> $a,
 /* a+(-a) -> 0 */
 rulematch modelop("add", [$$d1.any, $$a.one, $$d2.any, -($$a.one), $$d3.any]) -> modelop("add", [0, $d1, $d2, $d3]),
 rulematch modelop("add", [$$d1.any, -($$a.one), $$d2.any, $$a.one, $$d3.any]) -> modelop("add", [0, $d1, $d2, $d3]),
+rulematch modelop("add", [$$d1.any, $$a.one, $$d2.any, -1*($$a.one), $$d3.any]) -> modelop("add", [0, $d1, $d2, $d3]),
+rulematch modelop("add", [$$d1.any, -1*($$a.one), $$d2.any, $$a.one, $$d3.any]) -> modelop("add", [0, $d1, $d2, $d3]),
 
 /* a*a^(-1) -> 1 */
 rulematch modelop("mul", [$$d1.any, $$a.one, $$d2.any, $$a.one ^ (-1), $$d3.any]) -> modelop("mul", [1, $d1, $d2, $d3]),
 rulematch modelop("mul", [$$d1.any, $$a.one ^ (-1), $$d2.any, $$a.one, $$d3.any]) -> modelop("mul", [1, $d1, $d2, $d3]),
-
-/* Aggregation: multi-op creation*/
-rulematch modelop("mul", [$$d1.any, modelop("mul", [$$d2.any]), $$d3.any]) -> modelop("mul", [$d1, $d2, $d3]),
-rulematch modelop("add", [$$d1.any, modelop("add", [$$d2.any]), $$d3.any]) -> modelop("add", [$d1, $d2, $d3]),
-rulematch modelop("and", [$$d1.any, modelop("and", [$$d2.any]), $$d3.any]) -> modelop("and", [$d1, $d2, $d3]),
-rulematch modelop("or", [$$d1.any, modelop("or", [$$d2.any]), $$d3.any]) -> modelop("or", [$d1, $d2, $d3]),
 
 /* inline execution of constants */
 
