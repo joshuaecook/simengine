@@ -35,6 +35,7 @@ s = Suite('Feature Tests');
 s.add(CoreFeatureTests(mode));
 s.add(SubModelTests(mode));
 s.add(TemporalIteratorTests(mode));
+s.add(ParallelCPUTests(mode));
 s.add(DSLTests(mode));
 
 end

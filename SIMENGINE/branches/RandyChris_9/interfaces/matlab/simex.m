@@ -53,10 +53,6 @@
 %      '-parallel-cpu'
 %        Constructs a multiprocessor cpu-based simulation engine.
 %
-%      '-gpu'
-%        Constructs a massively parallel gpu-based simulation
-%        engine for CUDA-compatible Nvidia devices.
-%
 %      '-debug'
 %        Enables the compiler to produce extra debugging
 %        information.
@@ -67,10 +63,6 @@
 %      '-profile'
 %        Enables the compiler to produce extra profiling
 %        information.
-%
-%      '-emulate'
-%        Constructs a simulation engine that executes in GPU
-%        emulation. (ONLY VALID FOR GPU TARGET.)
 %
 %      '-solver=MATLABODE'
 %        Utilize a particular solver builtin to MATLAB, such as
@@ -234,8 +226,8 @@ if 1 < nargin
       opts.precision = 'float';
     elseif strcmpi(arg, '-cpu')
       opts.target = 'CPU';
-    elseif strcmpi(arg, '-gpu')
-      opts.target = 'GPU';
+%    elseif strcmpi(arg, '-gpu')
+%      opts.target = 'GPU';
     elseif strcmpi(arg, '-parallel-cpu')
       opts.target = 'PARALLELCPU';
     elseif strcmpi(arg, '-v')
@@ -270,12 +262,12 @@ end
 if strcmpi(opts.target, '')
   opts.target = 'CPU';
   if 1 < opts.models
-    switch computer
-     case {'MACI','MACI64'}
+%    switch computer
+%     case {'MACI','MACI64'}
       opts.target = 'PARALLELCPU';
-     otherwise
-      opts.target = 'GPU';
-    end
+%     otherwise
+%      opts.target = 'GPU';
+%    end
   end
 end
 
@@ -514,6 +506,7 @@ if 0 ~= status
   end
   error('Simatra:SIMEX:compileError', ...
         'Make returned status code %d.', status);
+  type simex_make.log
 end
 verbose_out([opts.target ' compiler completed in ' num2str(elapsed) ' ' ...
                     'seconds.'], opts);
@@ -527,14 +520,8 @@ end
 end % end if recompile
 
 % TODO what is the path of the resultant DLL?
-%switch computer
-%  case {'MACI', 'MACI64','i386-apple-darwin9.8.0','i386-apple-darwin8.9.1'}
-%   dllPath = fullfile(pwd, 'libsimengine.dylib');
-% otherwise
-%   dllPath = fullfile(pwd, 'libsimengine.so');
 [igpath modelname igext] = fileparts(modelFile);
 dllPath = fullfile(pwd, [modelname '.sim']);
-%end  
 
 % TODO check the shape of the user inputs and start states, other
 % parameters, and recompile the model if necessary.

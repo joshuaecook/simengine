@@ -92,14 +92,15 @@ int cvode_init(solver_props *props){
 
 int cvode_eval(solver_props *props, unsigned int modelid){
   cvode_mem *mem = props->mem;
+  mem = &mem[modelid];
 
   // Stop the solver if the stop time has been reached
   props->running[modelid] = props->time[modelid] < props->stoptime;
   if(!props->running[modelid])
     return 0;
 
-  mem[modelid].first_iteration = TRUE;
-  if(CVode(mem[modelid].cvmem, mem[modelid].props->stoptime, ((N_Vector)(mem[modelid].y0)), &(mem[modelid].props->next_time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
+  mem->first_iteration = TRUE;
+  if(CVode(mem->cvmem, props->stoptime, mem->y0, &(props->next_time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
     fprintf(stderr, "CVODE failed to make a step in model %d.\n", modelid);
     return 1;
   }
