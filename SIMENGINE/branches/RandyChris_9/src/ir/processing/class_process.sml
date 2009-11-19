@@ -1189,13 +1189,18 @@ fun assignCorrectScope (class: DOF.class) =
 		    case TermProcess.symbol2temporaliterator name 
 		     of NONE => 
 			let val exps = map (flattenExpressionThroughInstances class) (condition' :: contents')
-			    val iters = List.mapPartial ExpProcess.exp2temporaliterator exps
+			    val iters = map 
+					    (fn(iter_sym,_)=>iter_sym) 
+					    (List.mapPartial ExpProcess.exp2temporaliterator exps)
+			    (* grab the iterators used in expression (ex. y = x when t > 10) *)
+			    val symbolset = SymbolSet.flatmap ExpProcess.exp2symbolset exps
+			    val used_iters = List.filter (fn(iter_sym)=>SymbolSet.exists (fn(sym)=>sym=iter_sym) symbolset) indexable_iterators
 			    (* val _ = Util.log ("Finding iterator for output '"^(Symbol.name (Term.sym2curname name))^"'") *)
 			    (* val _ = Util.log ("Found "^(i2s (List.length iters))^" temporal iterators in " ^ (i2s (List.length exps)) ^ " expressions") *)
 			    (* val _ = Util.log (String.concatWith "\n" (map ExpPrinter.exp2str exps)) *)
-			in case Util.uniquify_by_fun (fn ((a,_), (b,_)) => a = b) iters
+			in case Util.uniquify (iters @ used_iters)
 			    of nil => name
-			     | [(iter_sym,_)] => 
+			     | [iter_sym] => 
 			       (case CurrentModel.itersym2iter iter_sym
 				 of (_, DOF.UPDATE base_iter) => 
 				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
@@ -1205,7 +1210,7 @@ fun assignCorrectScope (class: DOF.class) =
 				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name)))
 			     | iters => 
 			       name before
-			       Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) (map #1 iters))) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (#1 (StdFun.hd iters)))^"]."))
+			       Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."))
 			end
 		      |	SOME iter => name (* keep the same *)
 
