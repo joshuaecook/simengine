@@ -1276,17 +1276,25 @@ fun assignCorrectScope (class: DOF.class) =
 	val _ = (#outputs class) := outputs'
 
 	(* Associates any output having no iterator dependencies to the immediate iterator. *)
-	fun update_output_immediate output =
-	    let val {name, contents, condition} = output
-		val terms = Util.flatmap ExpProcess.exp2termsymbols (condition :: contents)
-		val name' = 
-		    if List.exists (Option.isSome o TermProcess.symbol2temporaliterator) terms then
-			name
-		    else
-			ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name))
-	    in
-		{name = name', contents = contents, condition = condition}
-	    end
+	fun update_output_immediate (output as {name, contents, condition}) =
+	    case (TermProcess.symbol2temporaliterator name) of
+		SOME t => output
+	      | NONE => 
+		let 
+		    val flatequ = flattenEq class (Term.sym2curname name)
+		    val terms = (*Util.flatmap*) ExpProcess.exp2termsymbols (*(condition :: contents)*)flatequ
+		    fun isIteratorTerm t =
+			List.exists (fn(iter_sym)=> Term.sym2symname t = iter_sym) indexable_iterators
+		    val name' = 
+			if List.exists (fn(t)=> (Option.isSome (TermProcess.symbol2temporaliterator t)) orelse
+					    (isIteratorTerm t)) terms then
+			    name
+			else
+			    (Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));
+			     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name)))
+		in
+		    {name = name', contents = contents, condition = condition}
+		end
 
 
 	val _ = (#outputs class) := map update_output_immediate (! (#outputs class))
