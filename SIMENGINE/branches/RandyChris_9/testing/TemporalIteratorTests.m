@@ -71,5 +71,8 @@ end
 function s = MultipleIteratorsSubModelTests
 s = Suite('Multiple Temporal Iterators through Sub-Model Tests');
 s.add(Test('UpdateExpInSubModel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest1.dsl',10, '-quiet')), '-equal', struct('y', [0:10; mod(0:10,4)]')));
+s.add(Test('TwoIteratorsAcrossSubModels', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest2.dsl',10, '-quiet')), '-equal', struct('y1', [0:10; 0:10]','y2', [0:10; 0:2:20]')));
+s.add(Test('TwoIteratorsMixedAcrossSubModels', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest3.dsl',10, '-quiet')), '-equal', struct('y1', [0:10; 0:10; 0:2:20]','y2', [0:10; 0:2:20; 0:4:40]')));
+
 
 end
