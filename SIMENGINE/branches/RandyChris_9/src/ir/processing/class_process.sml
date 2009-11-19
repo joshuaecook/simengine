@@ -341,6 +341,7 @@ fun findStateSymbols (class: DOF.class) =
 		val terms = ExpProcess.exp2termsymbols exp
 		val state_terms = List.filter 
 				      (fn(t)=>Term.isReadState t orelse
+					      Term.isReadSystemState t orelse
 					      Term.isWriteState t)
 				      terms
 		val state_exps = map Exp.TERM state_terms
@@ -847,8 +848,10 @@ fun addBufferedIntermediates (class: DOF.class) =
 
 fun addEPIndexToClass is_top (class: DOF.class) =
     let
+	(*val _ = Util.log ("Adding EP Indices to class " ^ (Symbol.name (#name class)))*)
 	val master_class = CurrentModel.classname2class (class2orig_name class)
 	val states = findStateSymbols master_class
+	(*val _ = Util.log ("Found States: " ^ (Util.symlist2s states))*)
 	val exps = !(#exps class)
 	val exps' = map (ExpProcess.enableEPIndex is_top states) exps
 

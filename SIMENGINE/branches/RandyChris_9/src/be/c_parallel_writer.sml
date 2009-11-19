@@ -669,6 +669,9 @@ fun outputsystemstatestruct_code forkedModels =
 
 fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     let
+	(* we need to add EP indices if this is the top class *)
+	val _ = ClassProcess.addEPIndexToClass is_top_class class
+
 	val orig_name = ClassProcess.class2basename class
 
 	(* val has_states = case iter_type of  *)
@@ -789,9 +792,11 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 		    val systemdata = Unique.unique "subsys_rd"
 
+		    val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
+
 		    val (statereads, statewrites, systemstatereads) =
-			(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname) ^ ", " else "",
-			 if writes_iterator iter instclass then "&wr_" ^ (iter_name) ^ "->" ^ (Symbol.name orig_instname) ^ ", " else "",
+			(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
+			 if writes_iterator iter instclass then "&wr_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
 			 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
 			
 

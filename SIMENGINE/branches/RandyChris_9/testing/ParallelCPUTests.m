@@ -1,6 +1,6 @@
 
 
-function s = ParallelCPUTests(~)
+function s = ParallelCPUTests(varargin)
 
 s = Suite('Parallel CPU Tests');
 s.add(DuplicateStatesTarget('-cpu'));
@@ -12,7 +12,7 @@ end
 
 
 function e = DuplicateStates(model, runtime, precision, target, number)
-    m = simex(model);
+    m = simex(model,'-quiet');
     states = zeros(number, length(m.default_states));
     for i=1:number
         states(i,:) = m.default_states;
