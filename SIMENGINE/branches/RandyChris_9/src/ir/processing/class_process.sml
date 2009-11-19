@@ -32,6 +32,8 @@ sig
     val isMaster : DOF.class -> bool
     (* Indicates whether a class has a non-zero number of states. *)
     val hasStates : DOF.class -> bool
+    (* Indicates whether a class has instances. *)
+    val hasInstances : DOF.class -> bool
     (* Indicates whether a class contains states associated with a given iterator. *)
     val hasIterator : DOF.systemiterator -> DOF.class -> bool
 
@@ -908,6 +910,7 @@ fun class2statesize (class: DOF.class) =
 
 
 fun hasStates class = 0 < class2statesize class
+fun hasInstances (class:DOF.class) = List.length (List.filter ExpProcess.isInstanceEq (!(#exps class))) > 0
 
 (* just see if there are states that use this iterator...  there could be reads, but that's not an issue *)
 fun hasIterator (iter: DOF.systemiterator) (class: DOF.class) =
@@ -1382,6 +1385,8 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 	val instance_list = case iter_option of
 			     SOME (iter_sym,_) => class2instancesbyiterator iter_sym class
 			   | NONE => []
+	fun inst2instname inst = #instname (ExpProcess.deconstructInst inst)
+	val instance_names = map inst2instname instance_list
 
 	(* pull only from the RHS *)
 	val instance_dependencies = SymbolSet.flatmap (ExpProcess.exp2symbolset o ExpProcess.rhs) instance_list
@@ -1424,6 +1429,8 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 	fun isStateEqOfValidIterator iter exp = ExpProcess.isStateEqOfIter iter exp
 	fun isInitialConditionEq exp = ExpProcess.isInitialConditionEq exp
 	fun isInitialConditionEqOfValidIterator (itersym,_) exp = (isInitialConditionEq exp) andalso (ExpProcess.doesEqHaveIterator itersym exp)
+	fun isRequiredInstanceEq exp = ExpProcess.isInstanceEq exp andalso
+				       List.exists (fn(instname)=>instname=(inst2instname exp)) instance_names
 												     
 	fun is_dependency exp =
 	    let val symbols = ExpProcess.getLHSSymbols exp
@@ -1438,8 +1445,12 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 					    ((isStateEq exp) andalso (isStateEqOfValidIterator iter exp)) orelse 
 					    (* if it's not a state eq, check to see if the lhs defines what you are looking for ... *)
 					    (isInitialConditionEqOfValidIterator iter exp) orelse
-					    ((not (isStateEq exp)) andalso (not (isInitialConditionEq exp)) andalso is_dependency exp) orelse
-					    (not (ExpProcess.hasTemporalIterator exp)))
+					    ((not (isStateEq exp)) andalso (not (isInitialConditionEq exp)) andalso is_dependency exp) orelse 
+					    (* it is an instance we need with no relevent inputs/outputs *)
+					    (isRequiredInstanceEq exp)
+
+					 (*orelse
+					    (not (ExpProcess.hasTemporalIterator exp))*))
 					 exps
 		      | NONE => List.filter is_dependency exps
 

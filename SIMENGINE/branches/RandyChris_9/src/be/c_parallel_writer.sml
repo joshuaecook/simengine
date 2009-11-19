@@ -559,7 +559,7 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	val class_iterators = #iterators class
 	val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
-	(*val _ = Util.log ("in outputstatestructbyclass_code: calling class_inst_pairs for class " ^ (Symbol.name (#name class)))*)
+	(*val _ = Util.log ("in outputstatestructbyclass_code: calling class_inst_pairs for class " ^ (Symbol.name (#name class))^ ", number of instances = " ^ (i2s (List.length instances)))*)
 	val class_inst_pairs = ClassProcess.class2instnames class
 	(*val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs)^"}")*)
 
@@ -567,7 +567,9 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	    List.filter (ClassProcess.hasStates o CurrentModel.classname2class o #1) class_inst_pairs					 
 
     in
-	if List.null class_inst_pairs_non_empty andalso List.null state_eqs_symbols then []
+	if List.null class_inst_pairs_non_empty andalso List.null state_eqs_symbols andalso List.null instances then 
+	    [$(""),
+	     $("// Ignoring class '" ^ (Symbol.name (#name class)) ^ "'")]
 	else
 	    [$(""),
 	     $("// Define state structures"),
@@ -584,7 +586,7 @@ end
 fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
     let
 	fun progs () =
-	    let val master_classes = List.filter (fn (c) => ClassProcess.isMaster c andalso ClassProcess.hasStates c) classes
+	    let val master_classes = List.filter (fn (c) => ClassProcess.isMaster c andalso (ClassProcess.hasStates c orelse ClassProcess.hasInstances c)) classes
 	    in
 		List.concat (map outputstatestructbyclass_code master_classes)
 	    end
@@ -798,7 +800,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    and systemstatedata_states (iter as (iter_name, _)) =
 			systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"->"^(Symbol.name orig_instname)^";"
 
-		    val iters = List.filter (fn (it) => ClassProcess.hasIterator it instclass) (ModelProcess.returnIndependentIterators ())
+		    val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.hasIterator it instclass)) (ModelProcess.returnIndependentIterators ())
 
 		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^systemdata^";"),
 					  SUB(map ($ o systemstatedata_iterator) iters),

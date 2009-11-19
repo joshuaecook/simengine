@@ -33,6 +33,7 @@ structure ModelProcess : sig
 
     (* Indicates whether an iterator is dependent upon another. *)
     val isDependentIterator : DOF.systemiterator -> bool
+    val isImmediateIterator : DOF.systemiterator -> bool
 
     val isDebugging : DOF.model -> bool
     val isProfiling : DOF.model -> bool
@@ -46,6 +47,9 @@ val i2s = Util.i2s
 fun isDependentIterator (_, DOF.UPDATE _) = true
   | isDependentIterator (_, DOF.POSTPROCESS _) = true
   | isDependentIterator _ = false
+
+fun isImmediateIterator (_, DOF.IMMEDIATE) = true
+  | isImmediateIterator _ = false
 
 fun returnIndependentIterators () =
     List.filter (not o isDependentIterator) (CurrentModel.iterators ())
