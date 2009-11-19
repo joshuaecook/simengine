@@ -39,7 +39,7 @@ sig
     val applyRewritesToClass : Rewrite.rewrite list -> DOF.class -> unit (* generic rewriting helper *)
     val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
     val updateRealClassName : DOF.class -> Symbol.symbol -> DOF.class 
-    val pruneClass : DOF.systemiterator option -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
+    val pruneClass : (DOF.systemiterator option * bool) -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
     val propagateSpatialIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
     val assignCorrectScope : DOF.class -> unit (* sets read state or write state properties on symbols *)
     val updateForkedClassScope : DOF.systemiterator -> DOF.class -> unit (* update the scopes on symbols for those reads that are to be read from a per-iterator state structure instead of the system state structure *)
@@ -1336,7 +1336,7 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
     end
 
 (* FIXME define this algorithm more clearly. *)
-fun pruneClass iter_option (class: DOF.class) = 
+fun pruneClass (iter_option, top_class) (class: DOF.class) = 
     let
 	(* pull out useful quantities *)
 	val name = class2orig_name class
@@ -1358,9 +1358,12 @@ fun pruneClass iter_option (class: DOF.class) =
 		  | NONE => false
 	    end
 
-	val outputs' = case iter_option 
-			of SOME iter => List.filter (filter_output iter) outputs
-			 | NONE => outputs
+	val outputs' = if top_class then
+			   case iter_option 
+			    of SOME iter => List.filter (filter_output iter) outputs
+			     | NONE => outputs
+		       else
+			   outputs
 
 	val output_symbols = Util.flatmap ExpProcess.exp2symbols (map #condition outputs' @ 
 								  (Util.flatmap #contents outputs'))
@@ -1379,7 +1382,9 @@ fun pruneClass iter_option (class: DOF.class) =
 	val instance_list = case iter_option of
 			     SOME (iter_sym,_) => class2instancesbyiterator iter_sym class
 			   | NONE => []
-	val instance_dependencies = SymbolSet.flatmap ExpProcess.exp2symbolset instance_list
+
+	(* pull only from the RHS *)
+	val instance_dependencies = SymbolSet.flatmap (ExpProcess.exp2symbolset o ExpProcess.rhs) instance_list
 	val dependency_list = SymbolSet.union (dependency_list, instance_dependencies)
 				     
 
@@ -1395,7 +1400,7 @@ fun pruneClass iter_option (class: DOF.class) =
 				 (symbolofoptiter2exps class iter_sym)
 				 (SymbolSet.listItems dep_list))
 		      | NONE => SymbolSet.flatmap ExpProcess.exp2symbolset (Util.flatmap (fn(sym)=> symbol2exps class sym) (SymbolSet.listItems dep_list))
-(*		val _ = case iter_option of
+	(*	val _ = case iter_option of
 			    SOME (iter_sym,_) => Util.log("In class '"^(Symbol.name name)^"' (iterator="^(Symbol.name iter_sym)^"): " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))
 			  | NONE => Util.log("In class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))*)
 		(* add any remaining iterators that weren't there before *)
@@ -1437,6 +1442,37 @@ fun pruneClass iter_option (class: DOF.class) =
 					    (not (ExpProcess.hasTemporalIterator exp)))
 					 exps
 		      | NONE => List.filter is_dependency exps
+
+	(* remove extra lhs arguments that are not on the dependency list *)
+	(* this only needs to be done where the LHS is a tuple.. - this occurs only for instances right now *)
+	fun test_and_replace_term t = 
+	    if SymbolSet.exists 
+		   (fn(sym)=>sym=(Term.sym2curname t)) 
+		   dependency_list then
+		t
+	    else
+		Exp.DONTCARE
+	fun add_dontcares_to_lhs_instance exp =
+	    let
+		val lhs = ExpProcess.lhs exp
+		val rhs = ExpProcess.rhs exp
+	    in
+		case lhs of
+		    Exp.TERM (Exp.TUPLE terms) =>
+		    let
+			val terms' = map test_and_replace_term terms
+			val lhs' = Exp.TERM (Exp.TUPLE terms')
+		    in
+			ExpBuild.equals (lhs', rhs)
+		    end
+		  | _ => exp
+	    end				   
+	val exps'' = map
+			 (fn(exp)=>if ExpProcess.isInstanceEq exp then
+				       add_dontcares_to_lhs_instance exp
+				   else
+				       exp)
+			 exps'
 		    
 	(* check the inputs to see if any of them are not in the dependency list *)
 	val _ = case iter_option of 
@@ -1453,7 +1489,7 @@ fun pruneClass iter_option (class: DOF.class) =
 		    end	       
 
     in
-	((#exps class) := exps';
+	((#exps class) := exps'';
 	 (#outputs class) := outputs')
     end
 

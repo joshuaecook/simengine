@@ -823,8 +823,18 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			(Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
 			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
 
-		    val output_symbol_pairs = 
-			Util.addCount (ListPair.zip (map Term.sym2curname outargs, !(#outputs instclass)))
+		    (* removing below line since the output args could contain don't cares *)
+		    (*val output_symbol_pairs = 
+			Util.addCount (ListPair.zip (map Term.sym2curname outargs, !(#outputs instclass)))*)
+		    val output_term_pairs =
+			Util.addCount (ListPair.zip (outargs, !(#outputs instclass)))
+		    val output_symbol_pairs =
+			List.mapPartial (fn((outarg,outs),n)=> if Term.isSymbol outarg then 
+								   SOME ((Term.sym2curname outarg, outs), n)
+							       else 
+								   NONE)
+					output_term_pairs
+
 		in
 		    (map ($ o declare_output) output_symbol_pairs) @
 		    [$("{"),
