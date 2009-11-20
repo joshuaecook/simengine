@@ -1340,7 +1340,7 @@ fun assignCorrectScope (class: DOF.class) =
 					    (isIteratorTerm t)) terms then
 			    name
 			else
-			    (Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));
+			    ((*Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));*)
 			     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name)))
 		in
 		    {name = name', contents = contents, condition = condition}

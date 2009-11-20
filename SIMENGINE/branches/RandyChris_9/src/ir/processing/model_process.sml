@@ -42,6 +42,11 @@ structure ModelProcess : sig
 
 end = struct
 
+fun log str = if DynamoOptions.isFlagSet "logdof" then 
+		  Util.log str
+	      else
+		  ()
+
 val i2s = Util.i2s
 
 fun isDependentIterator (_, DOF.UPDATE _) = true
@@ -233,38 +238,38 @@ fun normalizeModel (model:DOF.model) =
 	(* TODO, write the checks of the model IR as they are needed *)
 
 	(* assign correct scopes for each symbol *)
-	val _ = Util.log ("Creating event iterators ...")
+	val _ = log ("Creating event iterators ...")
 	val () = app ClassProcess.createEventIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 
 	(* expand out delays *)
-	val _ = Util.log ("Adding delays to difference equations")
+	val _ = log ("Adding delays to difference equations")
 	val () = app ClassProcess.addDelays (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 
 	(* add intermediates for update equations if required - they are reading and writing to the same vector so we have to make sure that ordering doesn't matter. *)
-	val _ = Util.log ("Adding buffered intermediates ...")
+	val _ = log ("Adding buffered intermediates ...")
 	val () = app ClassProcess.addBufferedIntermediates (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 
-	val _ = Util.log ("Assigning correct scope ...")
+	val _ = log ("Assigning correct scope ...")
 	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 
-(*	val _ = Util.log ("Propagating temporal iterators ...")
+(*	val _ = log ("Propagating temporal iterators ...")
 	val () = app ClassProcess.propagatetemporalIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 *)
-	val _ = Util.log ("Propagating spatial iterators ...")
+	val _ = log ("Propagating spatial iterators ...")
 	val () = app ClassProcess.propagateSpatialIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 
-	val _ = Util.log ("Pruning excess iterators ...")
+	val _ = log ("Pruning excess iterators ...")
 	val () = pruneIterators (CurrentModel.getCurrentModel())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
@@ -283,13 +288,13 @@ fun normalizeModel (model:DOF.model) =
 			end) 
 		     classes
 	*)
-	val _ = Util.log ("Ordering model ...")
+	val _ = log ("Ordering model ...")
 	val _ = Ordering.orderModel(CurrentModel.getCurrentModel())
 
 	val _ = DynException.checkToProceed()
 
 	(* remap all names into names that can be written into a back-end *)
-	val _ = Util.log ("Fixing symbol names ...")
+	val _ = log ("Fixing symbol names ...")
 	(*val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
 	val _ = CurrentModel.setCurrentModel(model')*)
 	val () = (app ClassProcess.fixSymbolNames (CurrentModel.classes()))
@@ -356,7 +361,7 @@ fun normalizeParallelModel (model:DOF.model) =
 	(*val () = app ClassProcess.fixSymbolNames (CurrentModel.classes())*)
 	(* must be put into a different normalizeModel function *)
 
-	val _ = Util.log ("Adding EP index to class ...")
+	val _ = log ("Adding EP index to class ...")
 	val () = app (ClassProcess.addEPIndexToClass false) (CurrentModel.classes())
 	val top_class = CurrentModel.classname2class (#classname (CurrentModel.top_inst()))
 	val () = ClassProcess.addEPIndexToClass true top_class
@@ -370,7 +375,7 @@ fun normalizeParallelModel (model:DOF.model) =
 	val _ = app
 		    (fn({top_class,iter=(iter_sym,_),model=model'},n)=>		       
 		       (CurrentModel.setCurrentModel(model');
-			Util.log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") =====================");
+			log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") =====================");
 			DOFPrinter.printModel model'))
 		    (StdFun.addCount forkedModels)
 	val _ = CurrentModel.setCurrentModel(prevModel)

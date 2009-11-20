@@ -6,6 +6,11 @@ and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 
 exception Aborted
 
+fun log str = if DynamoOptions.isFlagSet "logdof" then 
+		  Util.log str
+	      else
+		  ()
+
 fun std_compile exec args =
     (case args of
 	 [object] => 
@@ -37,19 +42,19 @@ fun std_compile exec args =
 
 		      
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
-			  (Util.log ("Optimizing model ...");
+			  (log ("Optimizing model ...");
 			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
 		      else
 			  ()
 
-	      val _ = Util.log("Normalizing model ...")
+	      val _ = log("Normalizing model ...")
 	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
 
-	      val _ = Util.log("Normalizing parallel model ...")
+	      val _ = log("Normalizing parallel model ...")
 	      val _ = ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel())
 
-(*	      val _ = Util.log("Ready to build the following DOF ...")*)
-	      val _ = Util.log("Ready to build ...")
+(*	      val _ = log("Ready to build the following DOF ...")*)
+	      val _ = log("Ready to build ...")
 (*	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())*)
 
 	      val () = 

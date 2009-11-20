@@ -909,7 +909,7 @@ namespace Simulation
 
     property solver 
       set (s)
-        warning "Setting the solver per model is deprecated.  Please specify a solver for a temporal iterator directly."
+        //warning "Setting the solver per model is deprecated.  Please specify a solver for a temporal iterator directly."
 	t.solver = s
       end
       get = t.solver
