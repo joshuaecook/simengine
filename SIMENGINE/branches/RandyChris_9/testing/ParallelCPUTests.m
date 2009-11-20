@@ -8,6 +8,7 @@ s.add(DuplicateStatesTarget('-parallelcpu'));
 s.add(Test('split_fn submodel cpu', @()(DuplicateStates(['../examples/' ...
                     'neural/FN/split_fn.dsl'], 10, '-double', '-cpu', ...
                                                   2))));
+s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
 end
 
 
@@ -43,3 +44,28 @@ end
 
 end
 
+function e = RunMRGSerialvsParallel
+
+    model = '../examples/neural/MRG/axon.dsl';
+    runtime = 2;
+    Istim = [0 100 200];
+    % precompile
+    simex(model, '-quiet');
+    % Run one input at a time and concatenate the results
+    for i = 1:length(Istim)
+        inputs.Istim = Istim(i);
+        oserial1(i) = simex(model, runtime, inputs, '-quiet', '-dontrecompile');
+    end
+    inputs.Istim = Istim;
+    % Run all the inputs serially in a single simex invocation
+    oserial2 = simex(model, runtime, inputs, '-quiet', '-cpu');
+    e = equiv(oserial1, oserial2);
+    if not(e)
+        return;
+    end
+
+    % Run all the inputs in parallel
+    oparallel = simex(model, runtime, inputs, '-quiet', '-parallelcpu');
+    
+    e = equiv(oserial1, oparallel);
+end
