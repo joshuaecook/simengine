@@ -9,6 +9,10 @@
 #include "simengine_api.h"
 #include "simengine_target.h"
 
+#ifdef isfinite
+#define __finite isfinite
+#endif
+
 typedef struct{
   char *model_file;
   char *model_name;
