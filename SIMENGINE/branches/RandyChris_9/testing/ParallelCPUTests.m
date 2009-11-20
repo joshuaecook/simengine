@@ -5,9 +5,7 @@ function s = ParallelCPUTests(varargin)
 s = Suite('Parallel CPU Tests');
 s.add(DuplicateStatesTarget('-cpu'));
 s.add(DuplicateStatesTarget('-parallelcpu'));
-s.add(Test('split_fn submodel cpu', @()(DuplicateStates(['../examples/' ...
-                    'neural/FN/split_fn.dsl'], 10, '-double', '-cpu', ...
-                                                  2))));
+s.add(Test('split_fn submodel cpu', @()(DuplicateStates(['models_FeatureTests/split_fn.dsl'], 10, '-double', '-cpu', 2))));
 s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
 end
 
@@ -46,7 +44,7 @@ end
 
 function e = RunMRGSerialvsParallel
 
-    model = '../examples/neural/MRG/axon.dsl';
+    model = fullfile(simexamplepath, 'MRG/axon.dsl');
     runtime = 2;
     Istim = [0 100 200];
     % precompile
