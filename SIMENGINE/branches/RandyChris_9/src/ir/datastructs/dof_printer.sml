@@ -113,6 +113,8 @@ fun printModel (model: DOF.model) =
 
 	val (classes, topinstance, systemproperties) = model
 
+	val num_states = ClassProcess.class2statesize (CurrentModel.classname2class (#classname topinstance))
+
 	fun header2str() =
 	    let 
 		val _ = Util.log ("")
@@ -132,7 +134,9 @@ fun printModel (model: DOF.model) =
 		 print ("  Class: " ^ (Symbol.name classname) ^ "\n");
 		 print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,...} => e2s (Exp.TERM name)) (!(#inputs class)))) ^ "\n");
 		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => e2s (Exp.TERM name)) (!(#outputs class)))) ^ "\n");
-		 print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n"))
+		 print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n");
+		 print ("  State Count: "^(i2s num_states)^"\n"))
+
 	    end
 
 	fun printSystemProperties {iterators,precision,target,num_models,debug,profile} =
