@@ -8,7 +8,8 @@ s.add(SimpleIteratorTests);
 s.add(UpdateIteratorTests);
 s.add(PostProcessIteratorTests);
 s.add(MultipleTemporalIteratorTests);
-s.add(MultipleIteratorsSubModelTests)
+s.add(MultipleIteratorsSubModelTests);
+s.add(ImmediateIteratorTests);
 end
 
 
@@ -51,12 +52,34 @@ s.add(Test('TwoDelayUsingPPOtherDiscreteIterator',@()(simex('models_FeatureTests
 
 end
 
+function s = ImmediateIteratorTests
+
+s = Suite('Immediate Iterator Tests');
+s.add(Test('constant -> output', ...
+           @()(simex('models_FeatureTests/ImmediateIteratorTest1.dsl', 1, '-quiet')), ...
+           '-equal', struct('G', [0:1; 9.80665 * ones(1,2)]')));
+s.add(Test('immediate intermediate -> output', ... 
+           @()(simex('models_FeatureTests/ImmediateIteratorTest2.dsl', 1, '-quiet')), ...
+           '-approxequal', struct('F', [0:1; 2942 * ones(1,2)]')));
+s.add(Test('immediate intermediate -> submodel -> output', ... 
+           @()(simex('models_FeatureTests/ImmediateIteratorTest3.dsl', 1, '-quiet')), ...
+           '-approxequal', struct('F', [0:1; 2942 * ones(1,2)]')));
+s.add(Test('top input -> submodel -> immediate intermediate -> output', ... 
+           @()(simex('models_FeatureTests/ImmediateIteratorTest4.dsl', 1, '-quiet')), ...
+           '-approxequal', struct('F', [0:1; 2942 * ones(1,2)]')));
+          
+           
+
+end
+
 function s = MultipleTemporalIteratorTests
 s = Suite('Multiple Temporal Iterator Tests');
-s.add(Test('TwoSameTemporalIterators', @()(simex('models_FeatureTests/TwoTemporalIteratorTest1.dsl',10, '-quiet')), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:10; 0:2:20]')));
+s.add(Test('TwoSameTemporalIterators', ...
+           @()(simex('models_FeatureTests/TwoTemporalIteratorTest1.dsl',10, '-quiet')), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:10; 0:2:20]')));
 s.add(Test('TwoSolversSameDT', @()(simex('models_FeatureTests/TwoTemporalIteratorTest2.dsl',10, '-quiet')), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:10; 0:2:20]')));
 s.add(Test('OneSolverTwoSynchDTs', @()(simex('models_FeatureTests/TwoTemporalIteratorTest3.dsl',10, '-quiet')), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:0.5:10; 0:1:20]')));
-s.add(Test('TwoSolversTwoSynchDTs', @()(simex('models_FeatureTests/TwoTemporalIteratorTest4.dsl',10, '-quiet')), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:0.5:10; 0:1:20]')));
+s.add(Test('TwoSolversTwoSynchDTs', ...
+           @()(simex('models_FeatureTests/TwoTemporalIteratorTest4.dsl',10, '-quiet')), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:0.5:10; 0:1:20]')));
 s.add(Test('TwoSolversTwoSynchDTsWithOutputs', @()(simex('models_FeatureTests/TwoTemporalIteratorTest4b.dsl',10, '-quiet')), '-equal', struct('y1', [0:10; 0:10; 0:2:20]', 'y2', [0:0.5:10; floor(0:0.5:10); 0:1:20]')));
 s.add(Test('OneSolverTwoASynchDTs', @()(simex('models_FeatureTests/TwoTemporalIteratorTest5.dsl',100, '-quiet')), '-equal', struct('y1', [0:10:100; 0:10:100; floor((0:10:100)/3)*6]', 'y2', [0:3:100; floor((0:3:100)/10)*10; 0:(2*3):200]')));
 s.add(Test('TwoSolversTwoASynchDTs', @()(simex('models_FeatureTests/TwoTemporalIteratorTest6.dsl',100, '-quiet')), '-equal', struct('y1', [0:10:100; 0:10:100; floor((0:10:100)/3)*6]', 'y2', [0:3:100; floor((0:3:100)/10)*10; 0:(2*3):200]')));
@@ -77,10 +100,18 @@ end
 
 function s = MultipleIteratorsSubModelTests
 s = Suite('Multiple Temporal Iterators through Sub-Model Tests');
-s.add(Test('UpdateExpInSubModel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest1.dsl',10, '-quiet')), '-equal', struct('y', [0:10; mod(0:10,4)]')));
-s.add(Test('TwoIteratorsAcrossSubModels', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest2.dsl',10, '-quiet')), '-equal', struct('y1', [0:10; 0:10]','y2', [0:10; 0:2:20]')));
-s.add(Test('TwoIteratorsMixedAcrossSubModels', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest3.dsl',10, '-quiet')), '-equal', struct('y1', [0:10; 0:10; 0:2:20]','y2', [0:10; 0:2:20; 0:4:40]')));
-s.add(Test('MoreComplexTwoIteratorsMixedAcrossSubModels', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest4.dsl',10, '-quiet')), '-equal', struct('ya', [0:10; 0:10; 0:2:20]','yb', [0:10; 0:2:20; 0:4:40]','ya1', [0:10; 0:10; 0:2:20]','yb1', [0:10; 0:2:20; 0:4:40]','ya2', [0:10; 0:10; 0:4:40]','yb2', [0:10; 0:2:20; 0:2:20]')));
+s.add(Test('UpdateExpInSubModel', ...
+           @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest1.dsl',10, '-quiet')), ...
+           '-equal', struct('y', [0:10; mod(0:10,4)]')));
+s.add(Test('TwoIteratorsAcrossSubModels', ...
+           @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest2.dsl',10, '-quiet')), ...
+           '-equal', struct('y1', [0:10; 0:10]','y2', [0:10; 0:2:20]')));
+s.add(Test('TwoIteratorsMixedAcrossSubModels', ...
+           @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest3.dsl',10, '-quiet')), ...
+           '-equal', struct('y1', [0:10; 0:10; 0:2:20]','y2', [0:10; 0:2:20; 0:4:40]')));
+s.add(Test('MoreComplexTwoIteratorsMixedAcrossSubModels', ...
+           @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest4.dsl',10, '-quiet')), ...
+           '-equal', struct('ya', [0:10; 0:10; 0:2:20]','yb', [0:10; 0:2:20; 0:4:40]','ya1', [0:10; 0:10; 0:2:20]','yb1', [0:10; 0:2:20; 0:4:40]','ya2', [0:10; 0:10; 0:4:40]','yb2', [0:10; 0:2:20; 0:2:20]')));
 
 
 end

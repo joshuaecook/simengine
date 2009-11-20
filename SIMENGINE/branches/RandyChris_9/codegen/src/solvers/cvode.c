@@ -24,8 +24,8 @@ int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
   unsigned int modelid = mem->modelid;
 
   model_flows(t,
-	      &NV_DATA_S(y)[-(modelid*props->statesize)], // Model flows indexes y and dydt with modelid
-	      &NV_DATA_S(ydot)[-(modelid*props->statesize)], // and this ptr arithmetic adjusts to compensate
+	      NV_DATA_S(y) - (modelid*props->statesize), // Model flows indexes y and dydt with modelid
+	      NV_DATA_S(ydot) - (modelid*props->statesize), // and this ptr arithmetic adjusts to compensate
 	      props, mem->first_iteration, modelid);
 
   mem->first_iteration = FALSE;
@@ -34,6 +34,8 @@ int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
 }
 
 int cvode_init(solver_props *props){
+  assert(props->statesize > 0);
+
   cvode_mem *mem = (cvode_mem*) malloc(props->num_models*sizeof(cvode_mem));
   unsigned int modelid;
 

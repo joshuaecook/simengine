@@ -345,10 +345,7 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 	    CurrentModel.withModel model (fn _ =>
 	    let val {name, contents, ...} = output
 	    in case TermProcess.symbol2temporaliterator name
-		of SOME (iter_sym, _) => 
-		   (case CurrentModel.itersym2iter iter_sym 
-		     of (_, DOF.IMMEDIATE) => List.length contents
-		      | _ => inc (List.length contents))
+		of SOME (iter_sym, _) => inc (List.length contents)
 		 | _ => List.length contents
 	    end)
 
@@ -561,7 +558,7 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
 	(*val _ = Util.log ("in outputstatestructbyclass_code: calling class_inst_pairs for class " ^ (Symbol.name (#name class))^ ", number of instances = " ^ (i2s (List.length instances)))*)
 	val class_inst_pairs = ClassProcess.class2instnames class
-	(*val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs)^"}")*)
+	(* val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs)^"}") *)
 
 	val class_inst_pairs_non_empty = 
 	    List.filter (ClassProcess.hasStates o CurrentModel.classname2class o #1) class_inst_pairs					 
@@ -1100,23 +1097,13 @@ fun logoutput_code class forkedModels =
 	    let val {name, contents, condition} = output
 		val num_quantities = 
 		    case TermProcess.symbol2temporaliterator name
-		     of SOME (iter_sym, _) => 
-			(case CurrentModel.itersym2iter iter_sym 
-			  of (_, DOF.IMMEDIATE) => List.length contents
-			   | _ => inc (List.length contents))
+		     of SOME (iter_sym, _) => inc (List.length contents)
 		      | _ => List.length contents
 		val cond = 
 		    (case ExpProcess.exp2temporaliterator (Exp.TERM name) 
 		      of SOME (iter_sym, _) => "(props->iterator == ITERATOR_" ^ (Symbol.name iter_sym) ^ ")"
 		       | _ => "1") ^ " && (" ^
 		    (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ")"
-
-		(* fun term2temp_iter t =  *)
-		(*     case ExpProcess.exp2temporaliterator (Exp.TERM t)  *)
-		(*      of SOME (name, _) => name *)
-		(*       | NONE => DynException.stdException(("No temporal iterator found for expression " ^ (e2s (Exp.TERM t))), *)
-		(* 					  "CParallelWriter.logoutput_code.term2temp_iter", *)
-		(* 					  Logger.INTERNAL) *)
 
 	    in
 		[$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
@@ -1134,7 +1121,9 @@ fun logoutput_code class forkedModels =
 				 | (_, DOF.DISCRETE _) =>
 				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
 				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
-				 | (_, DOF.IMMEDIATE) => []
+				 | (_, DOF.IMMEDIATE) =>
+				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
+				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
 				 | _ => [$("#error BOGUS ITERATOR NOT FILTERED")])
 			    | NONE => []) @
 			 (Util.flatmap (fn (exp) =>

@@ -150,7 +150,9 @@ s.add(Test('InputFcnOfTime', ...
 
 % We want to add derivative suport soon
 if mode == INTERNAL
-  s.add(Test('Intermediate=Derivative', @()(simex('models_FeatureTests/IntermediateTest4.dsl', 10,'-quiet')), '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
+  s.add(Test('Intermediate=Derivative', ...
+             @()(simex('models_FeatureTests/IntermediateTest4.dsl', 10,'-quiet')), ...
+             '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
 end
 
 end

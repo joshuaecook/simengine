@@ -17,8 +17,10 @@ fun symbol2temporaliterator term =
 	case term of
 	    Exp.SYMBOL (sym, props) => 
 	    (case Property.getIterator props of
-		 SOME iters => ((*Util.log("Symbol '"^(Symbol.name sym)^"' iterators = " ^ (Util.symlist2s (map #1 iters)));*)
-				List.find (fn(sym, _)=> List.exists (fn(sym',_)=> sym = sym') iterators) iters)
+		 SOME iters => 
+		 List.find 
+		     (fn (sym, _) => List.exists (fn(sym',_)=> sym = sym') iterators) 
+		     iters
 	       | NONE => NONE)
 	  | _ => NONE
     end
