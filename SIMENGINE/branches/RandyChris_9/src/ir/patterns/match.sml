@@ -18,6 +18,7 @@ val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp
 val asym : Symbol.symbol -> Exp.exp (* match a particular symbol by name - ex. I want to find 'Vm' - asym (Symbol.name "Vm") *)
 
 (* Matching functions *)
+val findOnce : (Exp.exp * Exp.exp) -> Exp.exp option (* Try to find just one match, return the first one found as an option *)
 val findRecursive : (Exp.exp * Exp.exp) -> Exp.exp list (* Recursively search and find all matching expressions (search for the 1st exp in the 2nd exp) *)
 
 (* Utility functions - similar to Mathematica's Head[] and Level[] *)

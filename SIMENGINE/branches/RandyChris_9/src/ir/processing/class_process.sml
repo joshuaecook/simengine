@@ -35,7 +35,8 @@ sig
     (* Indicates whether a class has instances. *)
     val hasInstances : DOF.class -> bool
     (* Indicates whether a class contains states associated with a given iterator. *)
-    val hasIterator : DOF.systemiterator -> DOF.class -> bool
+    val hasStatesWithIterator : DOF.systemiterator -> DOF.class -> bool
+    val requiresIterator : DOF.systemiterator -> DOF.class -> bool
 
     (* Functions to modify class properties, usually recursively through the expressions *)
     val applyRewritesToClass : Rewrite.rewrite list -> DOF.class -> unit (* generic rewriting helper *)
@@ -915,8 +916,49 @@ fun class2statesize (class: DOF.class) =
 fun hasStates class = 0 < class2statesize class
 fun hasInstances (class:DOF.class) = List.length (List.filter ExpProcess.isInstanceEq (!(#exps class))) > 0
 
-(* just see if there are states that use this iterator...  there could be reads, but that's not an issue *)
-fun hasIterator (iter: DOF.systemiterator) (class: DOF.class) =
+fun class2exps (class: DOF.class) =
+    let
+	val exps = !(#exps class)
+	val inputs = !(#inputs class)
+	val outputs = !(#outputs class)
+    in
+	exps @ 
+	(map (ExpProcess.term2exp o #name) inputs) @
+	(List.mapPartial #default inputs) @
+	(map (ExpProcess.term2exp o #name) outputs) @
+	(Util.flatmap #contents outputs) @
+	(map #condition outputs)
+    end
+
+(* returns true if any read or write uses this iterator *)
+fun requiresIterator (iter: DOF.systemiterator) (class: DOF.class) =
+    let	val {outputs, ...} = class
+	val (iter_sym,_) = iter
+
+	val pattern = Match.anysym_with_predlist [("TestFor:" ^ (Symbol.name iter_sym), ExpProcess.doesTermHaveIterator iter_sym)] (Symbol.symbol "a")
+	fun exp_has_iterator exp = 
+	    let
+		val match = Match.findOnce (pattern, exp)
+	    in
+		Option.isSome match
+	    end
+
+	val instance_equations = List.filter ExpProcess.isInstanceEq (!(#exps class))
+
+	val all_exps = class2exps class
+    in  
+	List.exists exp_has_iterator all_exps orelse
+	(StdFun.listOr (map (fn(exp)=> 
+			       let
+				   val {classname,...} = ExpProcess.deconstructInst exp
+			       in
+				   requiresIterator iter (CurrentModel.classname2class classname)
+			       end
+			    ) instance_equations))
+    end
+
+(* just see if there are states or outputs that use this iterator... *)
+fun hasStatesWithIterator (iter: DOF.systemiterator) (class: DOF.class) =
     let	val {outputs, ...} = class
 	val (iter_sym, _) = iter
 	(* FIXME this doesn't seem to find all the correct states; ensure read states are detected. *)
@@ -933,7 +975,7 @@ fun hasIterator (iter: DOF.systemiterator) (class: DOF.class) =
 			       let
 				   val {classname,...} = ExpProcess.deconstructInst exp
 			       in
-				   hasIterator iter (CurrentModel.classname2class classname)
+				   hasStatesWithIterator iter (CurrentModel.classname2class classname)
 			       end
 			    ) instance_equations))
     end
@@ -982,7 +1024,7 @@ fun class2instancesbyiterator iter_sym class =
 		   val class' = CurrentModel.classname2class classname
 		   (*val _ = Util.log ("Found class '"^(Symbol.name (#name class'))^"' to have iterators? " ^ (Util.b2s (class_has_iterator iter class')))*)
 	       in
-		   hasIterator iter class'
+		   hasStatesWithIterator iter class'
 	       end)
 	    instances
     end
