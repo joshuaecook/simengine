@@ -688,6 +688,10 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val iter_name = Symbol.name (case iter_type of
 					 DOF.UPDATE v => v
 				       | _ => iter_sym)
+	val iter_name' = Symbol.name (case iter_type of
+					 DOF.UPDATE v => v
+				       | DOF.POSTPROCESS v => v
+				       | _ => iter_sym)
 			
 	val (statereadprototype,
 	     statewriteprototype,
@@ -705,7 +709,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val header_progs = 
 	    [$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-	      "(CDATAFORMAT "^iter_name^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
+	      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
 	      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
 
 	val read_memory_progs = []
@@ -962,6 +966,10 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 			val iter_name = Symbol.name (case iter_type of
 							 DOF.UPDATE v => v
 						       | _ => iter_sym)
+			val iter_name' = Symbol.name (case iter_type of
+							  DOF.UPDATE v => v
+							| DOF.POSTPROCESS v => v
+							| _ => iter_sym)
 			val (statereadprototype,
 			     statewriteprototype,
 			     systemstatereadprototype) =
@@ -976,7 +984,7 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 			     else "")
 		    in
 			$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-			  "(CDATAFORMAT "^iter_name^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
+			  "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
 			  " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
 		    end
 	    end
