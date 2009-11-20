@@ -676,7 +676,7 @@ $(LOCAL_INSTALL):
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(LOCAL_INSTALL)/simex:
-	@$(MAKE) -C interfaces/c/
+	@$(MAKE) -C interfaces/c/ $(ARCH64_FLAG)
 	@echo "Copying 'interfaces/c/simex' to '$@' ..."; $(CP) interfaces/c/simex $@
 
 $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
@@ -838,7 +838,7 @@ $(BUILD_DIR)/data/default.dol: datafiles/default.dol
 	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
 
 $(BUILD_DIR)/bin/simlib: codegen/simlib/simlib.c
-	@$(MAKE) -C codegen simlib/simlib
+	@$(MAKE) -C codegen simlib/simlib $(ARCH64_FLAG)
 	@echo "Copying 'codegen/simlib/simlib' to '$@' ..."; $(CP) codegen/simlib/simlib $@ 
 
 # Run scripts
