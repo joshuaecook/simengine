@@ -55,6 +55,10 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
       | (Exp.REAL a1, Exp.REAL a2) => 
 	checkAndKillMatches matchCandidates 
 			    (Real.?=(a1, a2))
+
+      | (Exp.BOOL a1, Exp.BOOL a2) => 
+	checkAndKillMatches matchCandidates 
+			    ((a1 andalso a2) orelse (not a1 andalso not a2))
       | (Exp.COMPLEX (r1, i1), Exp.COMPLEX (r2, i2)) => 
 
 	allEquiv terms_equivalent matchCandidates ([r1, i1], [r2, i2])

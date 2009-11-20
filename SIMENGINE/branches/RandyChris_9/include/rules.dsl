@@ -43,6 +43,13 @@ rulematch modelop("add", [$$a.one]) -> $a,
 /* mul(a) -> a */
 rulematch modelop("mul", [$$a.one]) -> $a,
 
+/* and(a) -> a */ /* a is a scalar */
+rulematch modelop("and", [$$a.one]) -> $a,
+
+/* or(a) -> a */ /* a is a scalar */
+rulematch modelop("or", [$$a.one]) -> $a,
+
+
 /* add() -> sequence() */
 //rulematch modelop("add", []) -> a sequence....
 /* mul() -> sequence() */
@@ -106,8 +113,23 @@ rulematch modelop("mul", [$$d1.any, $$a.one ^ (-1), $$d2.any, $$a.one, $$d3.any]
 /* a & true -> a */
 rulematch modelop("and", [$$d1.any, true, $$d2.any]) -> modelop("and", [$d1, $d2]),
 
+/* a & a -> a */
+rulematch modelop("and", [$$d1.any, $$a.one, $$d2.any, $$a.one, $$d3.any]) -> modelop("and", [$d1, $a, $d2, $d3]),
+
+/* a & ~a -> false */
+rulematch modelop("and", [$$d1.any, $$a.one, $$d2.any, not ($$a.one), $$d3.any]) -> false,
+rulematch modelop("and", [$$d1.any, not($$a.one), $$d2.any, $$a.one, $$d3.any]) -> false,
+
 /* a | true -> true */
 rulematch modelop("or", [$$d1.any, true, $$d2.any]) -> true,
+
+/* a | a -> a */
+rulematch modelop("or", [$$d1.any, $$a.one, $$d2.any, $$a.one, $$d3.any]) -> modelop("or", [$d1, $a, $d2, $d3]),
+
+/* a | ~a -> true */
+rulematch modelop("or", [$$d1.any, $$a.one, $$d2.any, not ($$a.one), $$d3.any]) -> true,
+rulematch modelop("or", [$$d1.any, not($$a.one), $$d2.any, $$a.one, $$d3.any]) -> true,
+
 
 /* a & false -> false */
 rulematch modelop("and", [$$d1.any, false, $$d2.any]) -> false,
