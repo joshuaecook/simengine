@@ -35,8 +35,8 @@ input Iperiaxonal with {default = 0}
 //************************************************
 //State Declarations
 //************************************************
-state V (-100 to 50 by 0.00001) = -80
-state Vmp (-100 to 50 by 0.00001) = 0
+state V = -80
+state Vmp = 0
 
 //************************************************
 //Model Equations

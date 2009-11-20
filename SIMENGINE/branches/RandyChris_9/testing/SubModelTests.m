@@ -6,6 +6,8 @@ function s = SubModelTests(varargin)
 %  s = SubModelTests - runs all tests
 %  s = SubModelTests('-release') - runs only those required for a release
 %
+INTERNAL = 0; RELEASE = 1;
+
 if nargin == 0
     mode = 1;
 else
@@ -30,11 +32,15 @@ s1.add(Test('DuplicateSubModelToOutputTest', @()(simex(['models_FeatureTests/' .
 s1.add(Test('SubModelDefaultInputTest', @()(simex(['models_FeatureTests/' ...
                     'SubModelTest5.dsl'], 10,'-quiet')), '-equal', ...
            struct('y', [0:10; 0:2:20; 0:2:20; 0:10]')));
-s1.add(Test('SubModelInputToInitTest', @()(simex(['models_FeatureTests/' ...
-                    'SubModelTest6.dsl'], 10,'-quiet')), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
 s1.add(Test('DeepHierarchy', ...
             @()(simex(['models_FeatureTests/SubModelTest7.dsl'], 10,'-quiet')), ...
             '-equal', struct('y', [0:10; 0:3:30; 0:8:80; 0:10]')));
+
+% this is related to init values driven by inputs
+if mode == INTERNAL
+    s1.add(Test('SubModelInputToInitTest', @()(simex(['models_FeatureTests/' ...
+        'SubModelTest6.dsl'], 10,'-quiet')), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
+end
 
 s2 = Suite('Algebraic Sub-Model Tests');
 s.add(s2);

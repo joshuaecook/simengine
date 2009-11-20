@@ -18,7 +18,7 @@ s = Suite('Core Feature Tests');
 % Add each of the language feature tests
 s.add(OutputFeatureTests);
 s.add(InputFeatureTests);
-s.add(StateFeatureTests);
+s.add(StateFeatureTests(mode));
 s.add(InlineFunctionFeatureTests);
 s.add(ConstantFeatureTests);
 s.add(IntermediateFeatureTests(mode));
@@ -62,7 +62,8 @@ s.add(Test('OverrideInputDefaultValue', @()(simex('models_FeatureTests/InputTest
 
 end
 
-function s = StateFeatureTests
+function s = StateFeatureTests(mode)
+INTERNAL = 0; RELEASE = 1;
 
 s = Suite('State Feature Tests');
 
@@ -88,13 +89,16 @@ s.add(Test('TestFinalStates', @TestFinalStates));
 s.add(Test('TestFinalTime', @TestFinalTime));
 s.add(Test('StateWithoutEquation', @()(simex('models_FeatureTests/StateTest2.dsl', 10,'-quiet')), '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 5*ones(1,11)]')));
 s.add(Test('MultilineEquations (zero states)', @()(simex('models_FeatureTests/StateTest3.dsl', 10,'-quiet')), '-withouterror'))
-s.add(Test('InitValueasInput', @()(simex('models_FeatureTests/StateTest4.dsl', 10,'-quiet')), '-equal', struct('x', [0:10; 0:10]')));
-s.add(Test('InitValueasInputWithValue', @()(simex('models_FeatureTests/StateTest4.dsl', 10,[1],'-quiet')), '-equal', struct('x', [0:10; 1:11]')));
 s.add(Test('InitValueasConstant', @()(simex('models_FeatureTests/StateTest5.dsl', 10,[1],'-quiet')), '-equal', struct('x', [0:10; 1:11]')));
-input_struct = struct('init', 2);
-s.add(Test('InitValueasInputthenInit', @()(simex('models_FeatureTests/StateTest6.dsl', 10,input_struct,[1],'-quiet')), '-equal', struct('x', [0:10; 1:11]')));
-s.add(Test('InitValueasInitthenInput', @()(simex('models_FeatureTests/StateTest6.dsl', 10,[1],input_struct,'-quiet')), '-equal', struct('x', [0:10; 2:12]')));
 
+% We should eventually support initial values driven by states
+if mode == INTERNAL
+    s.add(Test('InitValueasInput', @()(simex('models_FeatureTests/StateTest4.dsl', 10,'-quiet')), '-equal', struct('x', [0:10; 0:10]')));
+    s.add(Test('InitValueasInputWithValue', @()(simex('models_FeatureTests/StateTest4.dsl', 10,[1],'-quiet')), '-equal', struct('x', [0:10; 1:11]')));
+    input_struct = struct('init', 2);
+    s.add(Test('InitValueasInputthenInit', @()(simex('models_FeatureTests/StateTest6.dsl', 10,input_struct,[1],'-quiet')), '-equal', struct('x', [0:10; 1:11]')));
+    s.add(Test('InitValueasInitthenInput', @()(simex('models_FeatureTests/StateTest6.dsl', 10,[1],input_struct,'-quiet')), '-equal', struct('x', [0:10; 2:12]')));
+end
 
 end
 
