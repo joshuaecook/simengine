@@ -28,12 +28,16 @@ structure ModelProcess : sig
     (* Iterator related functions - these all grab the iterators from CurrentModel *)
     val returnIndependentIterators : unit -> DOF.systemiterator list
     val returnDependentIterators : unit -> DOF.systemiterator list
+    val returnStatefulIterators : unit -> DOF.systemiterator list
+    val returnStatelessIterators : unit -> DOF.systemiterator list
+
     val hasUpdateIterator : Symbol.symbol -> bool
     val hasPostProcessIterator : Symbol.symbol -> bool
 
     (* Indicates whether an iterator is dependent upon another. *)
     val isDependentIterator : DOF.systemiterator -> bool
     val isImmediateIterator : DOF.systemiterator -> bool
+    val isStatelessIterator : DOF.systemiterator -> bool
 
     val isDebugging : DOF.model -> bool
     val isProfiling : DOF.model -> bool
@@ -56,11 +60,28 @@ fun isDependentIterator (_, DOF.UPDATE _) = true
 fun isImmediateIterator (_, DOF.IMMEDIATE) = true
   | isImmediateIterator _ = false
 
+fun isStatefulIterator (_, DOF.CONTINUOUS _) = true
+  | isStatefulIterator (_, DOF.DISCRETE _) = true
+  | isStatefulIterator (_, DOF.POSTPROCESS _) = true
+  | isStatefulIterator _ = false
+
+fun isStatelessIterator (_, DOF.UPDATE _) = true
+  | isStatelessIterator (_, DOF.IMMEDIATE) = true
+  | isStatelessIterator _ = false
+
+val isStatefulIterator = not o isStatelessIterator
+
 fun returnIndependentIterators () =
     List.filter (not o isDependentIterator) (CurrentModel.iterators ())
 
 fun returnDependentIterators () =
     List.filter isDependentIterator (CurrentModel.iterators ())
+
+fun returnStatelessIterators () =
+    List.filter isStatelessIterator (CurrentModel.iterators ())
+
+fun returnStatefulIterators () = 
+    List.filter isStatefulIterator (CurrentModel.iterators ())
 
 fun hasUpdateIterator iter_sym =
     let

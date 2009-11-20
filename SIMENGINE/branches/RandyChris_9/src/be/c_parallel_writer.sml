@@ -807,10 +807,11 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"->"^(Symbol.name orig_instname)^";"
 
 		    val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
+		    val state_iters = List.filter (fn it => ClassProcess.requiresIterator it instclass) (ModelProcess.returnStatefulIterators ())
 
 		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^systemdata^";"),
 					  SUB(map ($ o systemstatedata_iterator) iters),
-					  SUB(map ($ o systemstatedata_states) iters)]
+					  SUB(map ($ o systemstatedata_states) state_iters)]
 
 		    val calling_name = "flow_" ^ (Symbol.name classname)
 
@@ -854,7 +855,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			      sysstates_init 
 			  else [] ) @
 			 [$(outs_decl),
-			  $(calling_name ^ "("^iter_name^", "^
+			  $(calling_name ^ "("^iter_name'^", "^
 			    statereads ^ statewrites ^ systemstatereads ^ 
 			    inpvar^", "^outvar^", first_iteration, modelid);")
 			 ] @
