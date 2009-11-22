@@ -96,9 +96,6 @@ equations
 
   last_spike_time = {t when (Vm < Vm[t[-1]] and Vm[t[-1]] > Vm[t[-2]]),
                      last_spike_time otherwise}
-//  last_spike_time = t when (Vm < Vm[t[-1]] and Vm[t[-1]] > Vm[t[-2]])
-//  last_spike_height = {Vm[t[-1]] when (Vm < Vm[t[-1]] and Vm[t[-1]] > Vm[t[-2]]),
-//    		       last_spike_height otherwise}
   last_spike_height = Vm[t[-1]] when (Vm < Vm[t[-1]] and Vm[t[-1]] > Vm[t[-2]])
 
   output_data = (Vm < -40 and Vm[t[-1]] >= -40 and t > 10000)
