@@ -11,7 +11,8 @@ enum status {
 int main(int argc, char **argv)
     {
     cudaError_t cuErr;
-    unsigned int ndevices, deviceid;
+    int ndevices;
+    unsigned int deviceid;
     struct cudaDeviceProp props;
 
     if (cudaSuccess != cudaGetDeviceCount(&ndevices))
@@ -38,7 +39,7 @@ int main(int argc, char **argv)
 	fprintf(stdout, "device %d\n", deviceid);
 	fprintf(stdout, "major %d\n", props.major);
 	fprintf(stdout, "minor %d\n", props.minor);
-	fprintf(stdout, "totalGlobalMem %zd\n", props.totalGlobalMem);
+	fprintf(stdout, "totalGlobalMem %zd\n", props.totalGlobalMem/1024); // have to switch to kb so it doesn't overflow an int
 	fprintf(stdout, "multiProcessorCount %d\n", props.multiProcessorCount);
 	}
     }

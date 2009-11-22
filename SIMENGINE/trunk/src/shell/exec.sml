@@ -79,6 +79,7 @@ fun exec_exp parse (depth_count, isLHS) (env(*: (KEC.exp Env.env ref * KEC.exp E
 	       | KEC.OBJECT _ => exp
 	       | KEC.UNIT => exp
 	       | KEC.UNDEFINED => exp
+	       | KEC.PROCESS _ => exp
 
 	       | KEC.CELL _ => exp
 	       | KEC.DEREF (KEC.CELL (_,KEC.REFERENCE c)) => (! c)
@@ -400,11 +401,9 @@ and execImportStatement parse env file pos =
 	val _ = Logger.log_notice ($("Reading source file '" ^ (fullpath)^ "'"))
 	val eof_encountered = !Globals.eof_encountered
 
-	val _ = OOLCParse.push_buffer()
     in
 	parse instream env
 	before (TextIO.closeIn instream;
-		OOLCParse.pop_buffer();
 		Globals.eof_encountered := eof_encountered;
 		ParserSettings.restoreSettings oldsettings)
 	handle _ => 
@@ -558,6 +557,7 @@ fun recursive_decell (exp as KEC.LITERAL _) = exp
   | recursive_decell (exp as KEC.UNIT) = exp
   | recursive_decell (exp as KEC.UNDEFINED) = exp
   | recursive_decell (exp as KEC.VECTOR _) = exp
+  | recursive_decell (exp as KEC.PROCESS _) = exp
   | recursive_decell (exp as KEC.OBJECT _) = exp (* not decelling objects by design; there's no need to print all the contents of an object and it's inefficient *)
   | recursive_decell (exp as KEC.RUNNABLE _) = exp
 

@@ -5,6 +5,9 @@ local
   $(SML_LIB)/basis/sml-nj.mlb
   $(SML_LIB)/basis/mlton.mlb
   $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+
+  (* JSON Data Structure *)
+  util/json.sml
 in
 
 (* Utilities *)
@@ -29,12 +32,12 @@ shell/ast.sml
 shell/hlec.sml
 shell/kec.sml
 
-util/globals.sml
-
 util/printing/printer.sml
 util/printing/logger.sml
 
 util/error/exceptions.sml
+
+util/globals.sml
 
 util/registry/registry.sml
 util/registry/registry.grm.sig
@@ -52,9 +55,6 @@ util/printing/status.sml
 
 shell/prettyprint.sml
 
-(* JSON Data Structure *)
-util/json.sml
-
 (* Data structures *)
 (*be/datastructs/rangebits.sml
 be/datastructs/exptree.sml
@@ -67,28 +67,46 @@ util/graphs/dfg.sml*)
 
 ir/datastructs/sys.sig
 ir/util.sml
+ir/datastructs/target.sml
 
 ir/datastructs/iterator.sml
 ir/datastructs/props.sml
 ir/datastructs/pattern.sml
+ir/processing/inst_properties.sml
 ir/datastructs/fun.sml
 ir/datastructs/exp.sml
+(*ir/datastructs/eval.sml*)
 ir/datastructs/term.sml
 ir/datastructs/solver.sml
-
-ir/patterns/exp_equality.sml
-ir/patterns/pattern_process.sml
-
 ir/processing/exp_build.sml
+ir/processing/fun_properties.sml
 
 (*ir/processing/exp_util.sml*)
 
 ir/datastructs/dof.sml
 
 ir/current_model.sml
+
+ir/processing/cost.sml
+
 ir/datastructs/inst.sml
 
+
 ir/processing/fun_process.sml
+
+ir/patterns/pattern_process.sml
+ir/processing/exp_printer.sml
+
+ir/processing/term_process.sml
+
+ir/processing/normalize.sml
+
+ir/datastructs/rewrite.sml
+ir/patterns/exp_equality.sml
+ir/patterns/match.sml
+ir/patterns/rules.sml
+
+
 ir/processing/exp_validate.sml
 ir/processing/exp_process.sml
 (*ir/processing/eq_util.sml*)
@@ -148,6 +166,7 @@ library/compiler.sml
 library/settings.sml
 (*library/precision.sml*)
 library/environment.sml
+library/process.sml
 library/library.sml
 
 shell/desugar.sml

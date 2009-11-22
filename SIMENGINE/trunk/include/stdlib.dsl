@@ -1,5 +1,3 @@
-import "sys.dsl"
-
 namespace Text
 function print (s) = LF print (s.tostring())
 function println (s) = print (s.tostring() + "\n")
@@ -43,6 +41,8 @@ function logn (x: Number, y: Number) = {ln(x) when y == e,
 
 function power (x: Number, y: Number) = exp(y * ln(x))
 
+function sum (x: Vector of Number) = foldl (lambdafun(a,b) = a + b) 0 x
+function prod (x: Vector of Number) = foldl (lambdafun(a,b) = a * b) 1 x
 
 function deg2rad (x: Number) = x / (180 / pi)
 function rad2deg (x: Number) = x * (180 / pi)
@@ -257,6 +257,9 @@ overload function filter(f, v: Vector) =
 // Types
 function istype (typ, quant) = LF istype (typ, quant)
 
+// Testing
+function test_pass(pass) = LF sys_exit ({1 when not pass, 0 otherwise})
+
 end // namespace Operations
 
 namespace Types
@@ -288,11 +291,11 @@ namespace Types
         false
       elseif pattern == "" then
         false
-      elseif pattern(1) == "?" then
+      elseif pattern[1] == "?" then
         match_pattern (pattern.rest(), str.rest())
-      elseif pattern(1) == "*" then
+      elseif pattern[1] == "*" then
         match_pattern (pattern, str.rest()) or match_pattern (pattern.rest(), str) or match_pattern (pattern.rest(), str.rest())
-      elseif pattern(1) == str(1) then
+      elseif pattern[1] == str[1] then
         match_pattern (pattern.rest(), str.rest())
       else
         false
@@ -464,8 +467,36 @@ namespace Relational
   function operator_ne (a, b) = LF neq(a,b)
 end
 
+namespace Process
+  function readline (process) = LF preadline (process)	
+  
+  function read (process)
+    var x = []
+    var line = LF preadline (process)
+
+    while line <> () do
+      x.push_back line
+      line = LF preadline (process)
+    end
+
+    x
+  end
+
+  function write (process, text) = LF pwrite (process, text)
+
+  function run (name: String, args: Vector) = LF popen (name, args)
+  overload function run (name: String) = LF popen (name, [])
+
+
+  function reap (process) = LF preap (process)
+end
+
 open Operations
 open Relational
 open Text
 
 open Types
+
+import "sys.dsl"
+import "environment.dsl"
+import "devices.dsl"

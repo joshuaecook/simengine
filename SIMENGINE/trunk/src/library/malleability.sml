@@ -313,6 +313,8 @@ fun std_deepclone exec args =
 				      interface=cloneExp interface}
 		  | KEC.PROPERTYEXP property
 		    => KEC.PROPERTYEXP (cloneProperty property)
+		  | KEC.PROCESS p
+		    => KEC.PROCESS p
 
 	    and cloneProperty {name, expansionAllowed, read, write} =
 		{name=name,

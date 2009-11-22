@@ -37,57 +37,20 @@ namespace Simulation
     var name
     hidden var precision = InfinitePrecision.new()
     var initialval
-    hidden var currentval
-    hidden var readval // when an exp is read, replace the var with this if not undefined
-    var eq    
+    hidden var eq    
+    hidden var condEqs = []
+    // hidden var currentval
+    // hidden var readval // when an exp is read, replace the var with this if not undefined
+    // var eq    
     hidden var hasEq = false
-    hidden var isVisible = false
-    hidden var isTunable = false
-    hidden var isIterable = false
-    hidden var isIntermediate = false
+    // hidden var isVisible = false
+    // hidden var isTunable = false
+    // hidden var isIterable = false
+    // hidden var isIntermediate = false
 
     hidden var dimensions = []
 
-    hidden var h_dslname = ""
-
     var downsampling
-
-    property dslname 
-      get = h_dslname
-      set(v)
-        h_dslname = v
-      end
-    end
-
-    function reset ()
-      currentval = initialval
-      readval = undefined
-    end
-
-    // methods for modifiers
-    function setIsVisible(status)
-      isVisible = status
-    end
-
-    function setIsTunable(status)
-      isTunable = status
-    end
- 
-    hidden function setIsIterable(status)
-      isIterable = status
-    end
-
-    function getIsState()   = isIterable
-    function getIsTunable() = isTunable
-    function getIsVisible() = isVisible
-    function getIsIntermediate()
-      isIntermediate
-    end
-    function getIsConstant() = not isIterable and not isTunable and not (isdefined eq) and isdefined (initialval)
- 
-    function setReadValue(value)
-      readval = value
-    end
 
     function setPrecision (p: Precision)
       precision = p
@@ -108,24 +71,25 @@ namespace Simulation
       end
     end
 
-    function getValue()
-      if isdefined(readval) then
-        readval
-      else
-        currentval
-      end
-    end
-
     function getEquation()
       self.eq
     end
 
+    function getCondEqs()
+      self.condEqs
+    end
+
     function hasEquation() = hasEq
 
-    function setEquation(eq)
+    function setEquation(eq: Equation)
       //TODO: perform error checking here, ie if its a param, DONT allow this
+//    println("adding eq to " + name)
       self.eq = eq
-      self.hasEq = isdefined(eq)
+      self.hasEq = true
+    end
+    overload function setEquation(eq: EventDrivenEquation)
+  //    println("adding conditional eq to " + name)
+      self.condEqs.push_front (eq)
     end
 
     function setDimensions (dimensions: Vector)
@@ -144,6 +108,7 @@ namespace Simulation
       end
     end
 
+//    function tostring() = eq.tostring()
 
     function tostring ()
       var str = self.class.name + "("
@@ -152,10 +117,11 @@ namespace Simulation
     end
 
     constructor (name: String)
-      self.name = name
-      self.eq = DifferentialEquation.new(1, self, 0) 
+      self.name = name      
+      self.setEquation(Equation.new(self', 0))
+//      self.eq = DifferentialEquation.new(1, self, 0) 
 
-      reset()
+//      reset()
     end
   end
 
@@ -169,99 +135,43 @@ namespace Simulation
     end    
   end  
 
+  class Event extends SimQuantity
+    var name
+    var condition
+
+    constructor (name: String, condition)
+      self.name = name
+      self.condition = condition
+    end    
+
+    function tostring() = name + " when " + condition.tostring()
+  end  
+
 
   class Equation
-    var assigned_state
-    var expression
+    var lhs
+    var rhs
 
-    function regenerateExp(x: Number) = x
-    overload function regenerateExp (x: Binary) = x
-    overload function regenerateExp (x: Boolean) = x
-    overload function regenerateExp (x: SimQuantity) = x.getValue()
-    overload function regenerateExp (x: ModelOperation) = 
-        LF apply (x.execFun, x.args.map(regenerateExp).totuple())
-
-    function regenerate() = regenerateExp (expression)
-
-    function copyWithNewExp(exp) = Equation.new (assigned_state, exp)
-
-    function getExp() = expression
-    function getState() = assigned_state
-
-    function tostring ()
-      var str = self.class.name + "("
-      // cannot rely on the + operator for string coersion because it is overloaded to return a ModelOperation
-      str = str + "assigned_state=" + self.assigned_state.tostring()
-      str + ")"
+    constructor (lhs, rhs)
+      self.lhs = lhs
+      self.rhs = rhs
     end
 
-    constructor (assigned_state: SimQuantity, expression)
-      self.assigned_state = assigned_state
-      self.expression = expression
-    end
-  end
+    function tostring() = lhs.tostring() + " = " + rhs.tostring()
+  end  
 
-  class DifferenceEquation extends Equation
-    var temporalRef
+  class EventDrivenEquation extends Equation
+    var cond
 
-    constructor (temporalRef, assigned_state: SimQuantity, expression)
-      super (assigned_state, expression)
-
-
-       if istype (type SimIterator, temporalRef) then
-         self.temporalRef = IteratorReference.new(assigned_state, temporalRef, 0)
-       else
-         self.temporalRef = temporalRef
-       end
-    end    
-  end
-
-  class DifferentialEquation extends Equation
-    var degree
-
-    constructor (degree: Number, assigned_state: SimQuantity, expression)
-      super (assigned_state, expression)
-
-//      println ("  differential equation for " + (assigned_state.name) + " has degree " + degree + " with expression " + (expression.tostring()))
-
-      self.degree = degree
-    end    
-  end
-
-  
-
-  function addIntermediateEquation (destination, name, exp)
-    // check if dest id exists
-    function contains (vector, element)
-      if vector.isempty() then
-	false
-      elseif vector.first() == element then
-        true 
-      else
-        contains (vector.rest(), element)
-      end
+    constructor (lhs, rhs, cond)
+      super(lhs, rhs)
+      self.cond = cond
     end
 
-    function isIntermediate (x) = false
-    overload function isIntermediate(q:SimQuantity) = q.getIsIntermediate()
-    
-
-    if contains(destination.members, name) and not(isIntermediate(destination.getMember name)) then
-      error ("Cannot replace " + name + " with algebraic equation")
-    else
-      if not (contains(destination.members, name)) then
-        destination.addConst(name, Intermediate.new(name))
-      end
-      destination.getMember(name).setEquation(Equation.new(destination.getMember(name), operator_noop exp))
-    end
+    function tostring() = lhs.tostring() + " = " + rhs.tostring() + " when " + cond.tostring()
   end
 
-  function makeIntermediate(name, exp)
-    var i = Intermediate.new(name)
-//    println("making intermediate for " + name)
-    i.setEquation(Equation.new(i, /*operator_noop*/ exp))
-    i
-  end
+
 
   class ModelOperation
     var name
@@ -271,7 +181,8 @@ namespace Simulation
     var args
    
     function tostring ()
-      "ModelOperation(name=" + self.name + ", args=" + self.args + ")"
+      //"ModelOperation(name=" + self.name + ", args=" + self.args + ")"
+      LF exp2str (self)
     end
 
     constructor (name: String, numArgs: Number, execFun, precisionMap, args: Vector of _)
@@ -280,20 +191,29 @@ namespace Simulation
       self.execFun = execFun
       self.precisionMap = precisionMap
       self.args = args
+
     end
+
+    function getDimensions ()      // hack to make derivatives work like symbols
+      if (self.name == "deriv") then
+        args[2].getDimensions()
+      else
+        error "getDimensions is not supported on this operation"
+      end
+    end   
+
+    overload operator () (arg: Vector)
+      if self.name == "deriv" then
+      operator_deriv(args[1], IteratorReference.new(args[2], arg))
+      else
+        error "Cannot use iterators to index into an expression"
+      end
+    end
+
 
   end
 
-  class IteratorOperation extends ModelOperation
-    var simIterator
-    var step
-
-    constructor (simIterator: SimIterator, step: Number)
-      super("add", 2, operator_add, 0, [simIterator, step])      
-      self.simIterator = simIterator
-      self.step = step
-    end
-  end
+  function modelop (name, args) = ModelOperation.new(name, args.length(), (lambdafun (x) = modelop (name, args)), 0, args)
 
   overload function not(b: ModelOperation) = ModelOperation.new ("not", 1, not, 0, [b])
   overload function not(b: SimQuantity) = ModelOperation.new ("not", 1, not, 0, [b])
@@ -306,16 +226,18 @@ namespace Simulation
   overload function operator_neg(arg: ModelOperation) = ModelOperation.new ("neg", 1, operator_neg, 0, [arg])
   overload function operator_neg(arg: SimQuantity) =    ModelOperation.new ("neg", 1, operator_neg, 0, [arg])
 
-//  overload function operator_subtract(arg1, arg2) = arg1 + (-arg2)
   overload function operator_subtract(arg1: ModelOperation, arg2) = {arg1 when arg2 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   overload function operator_subtract(arg1, arg2: ModelOperation) = {-arg2 when arg1 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   overload function operator_subtract(arg1: SimQuantity, arg2) = {arg1 when arg2 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   overload function operator_subtract(arg1, arg2: SimQuantity) = {-arg2 when arg1 == 0, ModelOperation.new ("sub", 2, operator_subtract, 0, [arg1, arg2]) otherwise}
   
+  overload function operator_add(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
+  overload function operator_add(arg1: Number, arg2: GenericIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
   overload function operator_add(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, arg2) otherwise}
   overload function operator_add(arg1: Number, arg2: SimIterator) = {arg2 when arg1 == 0, RelativeOffset.new (arg2, arg1) otherwise}
    
   overload function operator_subtract(arg1: SimIterator, arg2: Number) = {arg1 when arg2 == 0, IteratorOperation.new (arg1, -arg2) otherwise}
+  overload function operator_subtract(arg1: GenericIterator, arg2: Number) = {arg1 when arg2 == 0, RelativeOffset.new (arg1, -arg2) otherwise}
 
 
   overload function operator_multiply(arg1: ModelOperation, arg2) = {arg2 when arg2 == 0,
@@ -337,8 +259,6 @@ namespace Simulation
                                                                   arg2 when arg1 == 1, 
 								  -arg2 when arg1 == -1,
                                                                   ModelOperation.new ("mul", 2, operator_multiply, 0, [arg1, arg2]) otherwise}
-
-//  overload function operator_divide(arg1, arg2) = arg1 * (arg2^-1)
 
   overload function operator_divide(arg1: ModelOperation, arg2) = {arg1 when arg2 == 1, 
                                                                    -arg1 when arg2 == -1,
@@ -368,6 +288,16 @@ namespace Simulation
   overload function power(arg1: SimQuantity, arg2) = ModelOperation.new ("pow", 2, power, 0, [arg1, arg2])
   overload function power(arg1, arg2: SimQuantity) = ModelOperation.new ("pow", 2, power, 0, [arg1, arg2])
 
+  overload function sum(arg: ModelOperation) = ModelOperation.new ("reduction_add", 1, sum, 0, [arg])
+  overload function sum(arg: SimQuantity) =    ModelOperation.new ("reduction_add", 1, sum, 0, [arg])
+
+  function plus(args: Vector) = ModelOperation.new ("add", args.length(), plus, 0, args)
+
+  function times(args: Vector) = ModelOperation.new ("mul", args.length(), times, 0, args)
+
+  overload function prod(arg: ModelOperation) = ModelOperation.new ("reduction_mul", 1, prod, 0, [arg])
+  overload function prod(arg: SimQuantity) =    ModelOperation.new ("reduction_mul", 1, prod, 0, [arg])
+
   overload function exp(arg: ModelOperation) = ModelOperation.new ("exp", 1, exp, 0, [arg])
   overload function exp(arg: SimQuantity) =    ModelOperation.new ("exp", 1, exp, 0, [arg])
 
@@ -376,9 +306,6 @@ namespace Simulation
 
   overload function ln(arg: ModelOperation) = ModelOperation.new ("log", 1, ln, 0, [arg])
   overload function ln(arg: SimQuantity) = ModelOperation.new ("log", 1, ln, 0, [arg])
-
-//redefine this to catch new model extensions of exp and ln
-//function power (x, y) = exp(y * ln(x))
 
   overload function log10(arg: ModelOperation) = ModelOperation.new ("log10", 1, log10, 0, [arg])
   overload function log10(arg: SimQuantity) = ModelOperation.new ("log10", 1, log10, 0, [arg])
@@ -562,19 +489,28 @@ namespace Simulation
 
     constructor (name: String)
       super(name)
-      self.isIntermediate = true
-      self.isIterable = false
-      self.isTunable = false
     end
 
     overload operator () (arg: Vector)
       IteratorReference.new(self, arg)
     end
-
   end
 
   class State extends SimQuantity
     var downsampling
+    hidden var h_iter
+
+    property iter
+      get = h_iter
+      set (i)
+        h_iter = i
+	if h_iter.isContinuous then
+	  self.eq = Equation.new(self', 0)
+	else
+	  self.eq = Equation.new(self[h_iter], self[h_iter-1])
+	end
+      end
+    end
 
     property output_frequency
       set (frequency)
@@ -584,19 +520,65 @@ namespace Simulation
 
     constructor (name: String)
       super(name)
-      self.isIterable = true
     end
 
     overload operator () (arg: Vector)
       IteratorReference.new(self, arg)
     end
 
-    function updateHistoryDepth(depth)
-      historyDepth = {depth when depth > historyDepth,
-                      historyDepth otherwise}
-    end 
-
   end
+
+  class Symbol extends State 
+    constructor (name)
+      super(name)
+    end    
+  end
+
+  class SymbolPattern extends State
+    var min = 1
+    var max = 1
+
+    property one
+      get 
+        min=1
+        max=1
+        self
+      end
+    end
+
+    property some
+      get 
+        min=1
+        max=-1
+        self
+      end
+    end
+
+    property any
+      get 
+        min=0
+        max=-1
+        self
+      end
+    end
+
+    function exactly (num)
+      min=num
+      max=num
+      self
+    end
+
+    function between (range: Interval)
+      min=range.low
+      max=range.high
+      self
+    end
+
+    constructor (name)
+      super(name)
+    end    
+  end
+
 
 
   class IteratorReference extends SimQuantity
@@ -610,56 +592,147 @@ namespace Simulation
     function getName() = referencedQuantity.getName() + indices
   end
 
-  class RelativeOffset
+  class RelativeOffset extends ModelOperation
     var simIterator
     var step
     
-    constructor (simIterator: SimIterator, step: Number)
+    constructor (simIterator: GenericIterator, step: Number)
       self.simIterator = simIterator
       self.step = step
+
+      self.name = "add"
+      self.numArgs = 2
+      self.execFun = operator_add
+      self.precisionMap = 0
+      self.args = [simIterator, step]
     end    
   end
 
-  class Parameter extends SimQuantity
-    function setIsVisible (status)
-      // do nothing: parameters cannot be visible
-    end
-
+  class GenericIterator extends SimQuantity
     constructor (name: String)
       super(name)
-      self.isIterable = false
-      self.isTunable = true
-    end 
+    end
   end
 
   // down here because it needs to see definition of + with model operations
-  class SimIterator extends SimQuantity
+  class SimIterator extends GenericIterator
     var value
     constructor (name: String)
       super(name)
     end 
 
-    function setValue(v)
+    function setValue(v:Interval)
       value = v
     end
     function getValue() = value
 
+    property low
+      get = value.low
+    end
+    property high
+      get = value.high
+    end
+
   end
 
-  class TimeIterator extends SimQuantity
+  class TimeIterator extends GenericIterator
     var isContinuous
-    constructor (name: String, isContinuous)
+    var sample_frequency = 1
+    constructor (name: String)
       super(name)
-      self.isContinuous = isContinuous
     end 
 
+    hidden var solver_obj
+
+    property solver
+      get
+        if (not (isdefined solver_obj)) then
+          warning "No solver specified for continuous iterator '" + name + "', using default ode45 solver"
+          ode45
+        else
+          solver_obj
+        end        
+      end
+
+      set(s)
+        solver_obj = s
+      end
+    end
+
+    property sample_period 
+      get = 1 / sample_frequency
+      set(p)
+        sample_frequency = 1/p
+      end
+    end
+
+    function setValue(v)
+      error "Temporal iterators cannot have assigned ranges of values"
+    end
+
+    property continuous
+      get = isContinuous
+      set (c)
+        isContinuous = c
+      end
+    end
+
+    property discrete
+      get = not isContinuous
+      set (d)
+        isContinuous = not d
+      end
+    end
+
+    overload operator () (arg: Vector of Number)
+      PreviousTimeIterator.new(self, arg)
+    end
+
   end
 
+  class PreviousTimeIterator extends TimeIterator
+    var timeIterator
+    var index
+
+    constructor (titer, indices: Vector of Number)
+      self.timeIterator = titer
+
+      self.isContinuous = titer.isContinuous
+      self.sample_frequency = titer.sample_frequency
+      
+      self.name = titer.name
+
+      if indices.length() <> 1 then
+        error "References to previous values of Temporal Iterator " + timeIterator + " must be 1 dimensional"
+      else
+        self.index = indices[1]
+      end
+    end
+    function getName() = timeIterator.getName() + "[" + index + "]"
+  end
+
+  function makeIterator (name, table)
+    var iter
+    if (objectContains (table, "continuous") and table.continuous) or (objectContains (table, "discrete") and table.discrete) then
+      iter = TimeIterator.new(name)
+      iter table
+    else
+      iter = SimIterator.new(name)
+      iter table
+    end
+  end
 
   class Output
     var name
     var contents
     var condition
+    var iter = ()
+
+    function setIter(i)
+      iter = i
+      self
+    end
+
     constructor (name, contents/*, condition*/)
       self.name = name  
       self.contents = contents
@@ -741,11 +814,13 @@ namespace Simulation
   class ModelInstance
     var inputs = []
     var outputs = []
+    var dimensions = []
     constructor ()
-//      println "in modelinstance"
     end
 
     var name
+
+    function getDimensions () = dimensions
 
     function setName(name)
       self.name = name
@@ -757,21 +832,19 @@ namespace Simulation
 
   class Model
 
-    hidden var solver_obj
-
-    property solver
-      get
-        if (not (isdefined solver_obj)) then
-          warning "No solver specified, using default ode45 solver"
-          ode45
-        else
-          solver_obj
-        end        
+    function tostring()
+      var s = "Model " + name + "\n"
+      s = s + "  Submodels:\n"
+      foreach sm in submodels do
+        s = s + "    " + sm.tostring() + "\n"
+      end      
+      s = s + "  Equations:\n"
+      foreach q in quantities do
+        s = s + "    " + q.tostring() + "\n"
       end
-
-      set(s)
-        solver_obj = s
-      end
+      
+      s = s + "end model " + name + "\n"
+      s
     end
 
     hidden var userMembers = []
@@ -787,7 +860,6 @@ namespace Simulation
     var quantities = []
     var iterators = []
     var submodels = []
-    var dimensions = []
     var outputs = {}
     hidden var outputDefs = {} // a placeholder to throw outputs into as we compute them.  outputs will be populated by this after the model stms are run
 
@@ -801,29 +873,53 @@ namespace Simulation
       end
     end
 
+    function getSpatialIterators ()
+      function isSpatialIterator (x) = false
+      overload function isSpatialIterator (x: SimIterator) = true
+
+      [iter foreach iter in iterators when isSpatialIterator iter]
+    end
+
+    function getTemporalIterators()
+      function isTemporalIterator (x) = false
+      overload function isTemporalIterator (x: TimeIterator) = true
+     
+      var localiters = [iter foreach iter in iterators when isTemporalIterator iter]
+
+      var iters = localiters
+
+      foreach sub in submodels do
+        foreach iter in sub.modeltemplate.getTemporalIterators() do
+	  if exists i in iters suchthat iter.name == i.name then
+	    // TODO: verify global uniqueness per name
+	  else
+	    iters.push_back iter
+	  end
+	end
+      end
+
+      iters
+    end
+
     var inputs = []
 
     //initialization
     var t
     var n
-//    var domain
 
-//    var keep_running = State.new ("keep_running")
+    property solver 
+      set (s)
+        //warning "Setting the solver per model is deprecated.  Please specify a solver for a temporal iterator directly."
+	t.solver = s
+      end
+      get = t.solver
+    end
 
     constructor ()
-  //    println "in model.new"
-      t = TimeIterator.new("t", true)
-      n = TimeIterator.new("n", false)
-//      domain = IterationDomain.new(t,n)
-
-//      t.setPrecision(InfinitePrecision.new())
-//      n.setPrecision(InfinitePrecision.new())
-
-//       keep_running.setPrecision(Range.new(0,1,1))
-//       keep_running.setInitialValue 1
-//      equation keep_running[n+1] = 1
-
-//      quantities.push_back(keep_running)
+      t = TimeIterator.new("t") {isContinuous=true}
+      n = TimeIterator.new("n") {isContinuous=false}
+      iterators.push_front n
+      iterators.push_front t
     end
 
     // helper functions
@@ -832,17 +928,57 @@ namespace Simulation
       quantities
     end
 
+    function makeEquation (name, dimensions, lhs, rhs, cond, condvalid)
+      if objectContains(self, name) then
+        var q = self.getMember name
+        if istype(type SimQuantity, q) then
+//	  println ("  it's optcond = " + optcond)
+	  if not condvalid then
+       	    q.setEquation (Equation.new(lhs q, rhs q))
+          else
+	    q.setEquation (EventDrivenEquation.new(lhs q, rhs q, cond))
+          end
+        else
+          error "Cannot create equation for non-quantity: " + name
+        end
+      else
+//        println ("Adding a new equation for: " + name)
+	var q = Intermediate.new(name)
+        self.addConst(name, q)
+	if not (istype (type Vector of SimIterator, dimensions)) then
+	   error "Indexes on an intermediate equation must be iterators"
+        else
+          q.dimensions = [d.name foreach d in dimensions]
+        end
+	
+	self.quantities.push_back (q)
+	if not condvalid then
+          self.getMember(name).setEquation(Equation.new(lhs q, rhs q))        
+        else
+  	  self.getMember(name).setEquation(EventDrivenEquation.new(lhs q, rhs q, cond))        
+        end
+      end
+    end
 
-   
+    overload function makeEquation (name, dimensions, lhs, rhs, cond)
+      makeEquation (name, dimensions, lhs, rhs, cond, true)
+    end
+
+    overload function makeEquation (name, dimensions, lhs, rhs)
+      makeEquation (name, dimensions, lhs, rhs, (), false)
+    end
+
+
     function getSubModels()
       submodels
     end
 
-    function instantiateSubModel (mod, name:String, table: Table)
+    function instantiateSubModel (mod, name:String, table: Table, dimensions: Vector)
       var m = mod.instantiate()
       self.addConst (name, m)
 
       m.setName(name)
+      m.dimensions = dimensions
 
       submodels.push_back (m)
 
@@ -860,12 +996,26 @@ namespace Simulation
           end
         end
       end
-
     end
+  end
+  
+  class Rule 
+      var find
+      var conds
+      var replacement
+      constructor (find, conds, replacement)
+        self.find = find
+        self.conds = conds
+        self.replacement = replacement
+      end      
   end
 
   import "downsampling.dsl"
 
+  function applyRewriteExp (rule: Rule, exp) = LF applyRewriteExp (rule, exp)
+  function applyRewritesExp (rule: Vector of Rule, exp) = LF applyRewritesExp (rule, exp)
+  function repeatApplyRewriteExp (rule: Rule, exp) = LF repeatApplyRewriteExp (rule, exp)
+  function repeatApplyRewritesExp (rule: Vector of Rule, exp) = LF repeatApplyRewritesExp (rule, exp)
 
 end
 

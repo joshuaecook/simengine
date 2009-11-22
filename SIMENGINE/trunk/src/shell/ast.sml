@@ -24,6 +24,11 @@ type header = {name: Symbol.symbol,
  	       returns: typedname list option (* NONE indicates that no return values were specified, the function will return the value of its last expression. *) 
  	      }  
 
+type modelheader = {name: Symbol.symbol, 
+ 	       args: (Symbol.symbol * Symbol.symbol list option) list,  
+ 	       returns: Symbol.symbol list option (* NONE indicates that no return values were specified, the function will return the value of its last expression. *) 
+ 	      }  
+
 datatype visibility = HIDDEN | PUBLIC
 
 datatype exp =
@@ -56,6 +61,7 @@ datatype exp =
        | LET       of (Symbol.symbol * exp * exp)
        | NAMEDPATTERN of Symbol.symbol * exp
        | WILDCARD
+       | RULEMATCH of {find:exp, conds: exp, replace: exp}
 
 (*withtype method = {name:string, exp: exp} (* implicitly takes self as first arg *)*)
 and method = 
@@ -84,7 +90,7 @@ and definition =
        | DEFLOCAL of Symbol.symbol * typepattern option * exp option
        | DEFENUM of {name: Symbol.symbol, parent: Symbol.symbol option, args: (Symbol.symbol * int option) list}
        | DEFCONST of Symbol.symbol * typepattern option * exp
-       | DEFMODEL of {header: header, 
+       | DEFMODEL of {header: modelheader, 
 		      parts: modelpart list}
        | INSTMODEL of {name: Symbol.symbol,
 		       exp: exp}
@@ -100,11 +106,11 @@ and quantitytype =
 and modelpart =
     STM of stm
   | QUANTITYDEF of {modifiers: simq_modifier list, basetype: quantitytype, name: Symbol.symbol, precision: exp option, exp: exp option, settingstable: exp option, dimensions: Symbol.symbol list option}
-  | OUTPUTDEF of {name: Symbol.symbol, quantity: exp, settings: exp option}
+  | OUTPUTDEF of {name: Symbol.symbol, quantity: exp, dimensions: Symbol.symbol list option, settings: exp option, condition: exp option}
   | INPUTDEF of {name: Symbol.symbol, settings: exp option}
   | ITERATORDEF of {name: Symbol.symbol, value: exp option, settings: exp option}
   | SUBMODELDEF of definition (* assumed to be DEFMODEL *)
-  | SUBMODELINST of {class: Symbol.symbol, name: Symbol.symbol, opttable: exp option}
+  | SUBMODELINST of {class: Symbol.symbol, name: Symbol.symbol, opttable: exp option, optdimensions: Symbol.symbol list option}
 (*    STATEDEF of {modifiers: simq_modifier list,
 		 name: Symbol.symbol,
 		 precision: exp option,
@@ -148,8 +154,9 @@ and stm =
 
 (* model/simulation related data structures *)
 and equation =
-    EQUATION of exp * exp
+    EQUATION of exp * exp * exp option
   | MATHFUNCTION of exp * exp
+  | EVENT of Symbol.symbol * exp
 	      
 
 end

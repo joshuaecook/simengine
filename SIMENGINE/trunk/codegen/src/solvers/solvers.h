@@ -5,20 +5,16 @@
 #define SOLVERS_H
 
 #include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 #include <math.h>
-//#include <cvode/cvode.h>
 
-// Defines a solver entry point
-#define SOLVER(solver, entry, target, type, args...)  \
-  JOIN4(solver, entry, target, type)(args)
-// Helper macro to allow nested macro expansion of arguments to INTEGRATION_METHOD
-#define JOIN4(w, x, y, z) w##_##x##_##y##_##z
+#ifndef NAN
+#define NAN (FLITERAL(0.0)/FLITERAL(0.0))
+#endif
 
 // Solver indexing mode for states
-#define STATE_IDX TARGET_IDX(mem->props->statesize, mem->props->num_models, i, modelid)
-
-// Pre-declaration of model_flows, the interface between the solver and the model
-__DEVICE__ int model_flows(CDATAFORMAT t, const CDATAFORMAT *y, CDATAFORMAT *dydt, CDATAFORMAT *inputs, CDATAFORMAT *outputs, unsigned int first_iteration, unsigned int modelid);
+#define STATE_IDX TARGET_IDX(props->statesize, props->num_models, i, modelid)
 
 // Properties data structure
 // ============================================================================================================
@@ -35,152 +31,125 @@ typedef struct {
   int lmm;
   int iter;
   int solv;
-  void *solv_opts;
+  int upperhalfbw;
+  int lowerhalfbw;
 } cvode_opts;
 // CVODE solver types
 #define CVODE_DENSE 0
 #define CVODE_DIAG 1
 #define CVODE_BAND 2
 
+typedef void solver_mem;
+
+// Each iterator associates with an instance of this structure.
 typedef struct {
-  CDATAFORMAT timestep;
+  CDATAFORMAT timestep; // dt for fixed timestep solver, first dt for variable timestep,
+                        // sample period for discrete
   CDATAFORMAT abstol;
   CDATAFORMAT reltol;
   CDATAFORMAT starttime;
   CDATAFORMAT stoptime;
-  CDATAFORMAT *time;
+  // A pointer to a systemstatedata_ptr structure
+  void *system_states;
+  CDATAFORMAT *time; // Continuous iterators (discrete mapped to continuous)
+  CDATAFORMAT *next_time;
+  unsigned int *count; // Discrete iterators
+  // A pointer into system_states to the states for this iterator
   CDATAFORMAT *model_states;
+  CDATAFORMAT *next_states;
+  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states
   CDATAFORMAT *inputs;
-  CDATAFORMAT *outputs;
+  simengine_output *outputs;
+  Solver solver;
+  Iterator iterator;
   unsigned int inputsize;
   unsigned int statesize;
   unsigned int outputsize;
   unsigned int num_models;
+  void *od;
   unsigned int ob_size;
   void *ob;
   gpu_data gpu;
   cvode_opts cvode;
   int *running;
+  solver_mem *mem;
 } solver_props;
 
-// Forward Euler data structures and function declarations
-// ============================================================================================================
+// Pre-declaration of model_flows, the interface between the solver and the model
+__DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid);
 
-typedef struct {
-  solver_props *props;
-  CDATAFORMAT *k1;
-} forwardeuler_mem;
+__DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 
-forwardeuler_mem *SOLVER(forwardeuler, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
+__DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
+  unsigned int i;
+  // Update model states to next value
+  for(i=0;i<props->statesize;i++){
+    props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
+  }
 
-__DEVICE__ int SOLVER(forwardeuler, eval, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem, unsigned int modelid);
+  // Update solver time to next value
+  props->time[modelid] = props->next_time[modelid];
 
-void SOLVER(forwardeuler, free, TARGET, SIMENGINE_STORAGE, forwardeuler_mem *mem);
+  // Only discrete iterators have a count field
+  if(props->count){
+    props->count[modelid]++;
+  }
+}
 
+__DEVICE__ CDATAFORMAT find_min_time(solver_props *props, unsigned int modelid){
+  Iterator i;
+  CDATAFORMAT min_time;
 
-// Runga-Kutta (4th order) data structures and function declarations
-// ============================================================================================================
+  assert(model_running(props,modelid));
+  assert(NUM_ITERATORS);
 
-typedef struct {
-  solver_props *props;
-  CDATAFORMAT *k1;
-  CDATAFORMAT *k2;
-  CDATAFORMAT *k3;
-  CDATAFORMAT *k4;
-  CDATAFORMAT *temp;
-} rk4_mem;
+  // Finds the first running iterator for the initial min time
+  for(i=0;i<NUM_ITERATORS;i++) {
+    if (props[i].running[modelid]) {
+      min_time = props[i].next_time[modelid];
+      break;
+    }
+  }
 
-rk4_mem *SOLVER(rk4, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
+  // Finds the running iterator with the earliest min time
+  for(i=0;i<NUM_ITERATORS;i++){
+    if(props[i].next_time[modelid] < min_time && props[i].running[modelid]){
+      min_time = props[i].next_time[modelid];
+    }
+  }
 
-__DEVICE__ int SOLVER(rk4, eval, TARGET, SIMENGINE_STORAGE, rk4_mem *mem, unsigned int modelid);
+  return min_time;
+}
 
-void SOLVER(rk4, free, TARGET, SIMENGINE_STORAGE, rk4_mem *mem);
-
-
-// Bogacki-Shampine (ode23) data structures and function declarations
-// ============================================================================================================
-
-typedef struct {
-  solver_props *props;
-  CDATAFORMAT *k1;
-  CDATAFORMAT *k2;
-  CDATAFORMAT *k3;
-  CDATAFORMAT *k4;
-  CDATAFORMAT *temp;
-  CDATAFORMAT *next_states;
-  CDATAFORMAT *z_next_states;
-  CDATAFORMAT *cur_timestep;
-} bogacki_shampine_mem;
-
-bogacki_shampine_mem *SOLVER(bogacki_shampine, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
-
-__DEVICE__ int SOLVER(bogacki_shampine, eval, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem, unsigned int modelid);
-
-void SOLVER(bogacki_shampine, free, TARGET, SIMENGINE_STORAGE, bogacki_shampine_mem *mem);
-
-
-// Dormand-Prince (ode45) data structures and function declarations
-// ============================================================================================================
-
-typedef struct {
-  solver_props *props;
-  CDATAFORMAT *k1;
-  CDATAFORMAT *k2;
-  CDATAFORMAT *k3;
-  CDATAFORMAT *k4;
-  CDATAFORMAT *k5;
-  CDATAFORMAT *k6;
-  CDATAFORMAT *k7;
-  CDATAFORMAT *temp;
-  CDATAFORMAT *next_states;
-  CDATAFORMAT *z_next_states;
-  CDATAFORMAT *cur_timestep;
-} dormand_prince_mem;
-
-dormand_prince_mem *SOLVER(dormand_prince, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
-
-__DEVICE__ int SOLVER(dormand_prince, running, TARGET, SIMENGINE_STORAGE);
-
-__DEVICE__ int SOLVER(dormand_prince, eval, TARGET, SIMENGINE_STORAGE, dormand_prince_mem *mem, unsigned int modelid);
-
-void SOLVER(dormand_prince, free, TARGET, SIMENGINE_STORAGE, dormand_prince_mem *mem);
+// Check to see if any of the iterators are not yet completed
+__DEVICE__ int model_running(solver_props *props, unsigned int modelid){
+  Iterator iter;
+  assert(NUM_ITERATORS);
+  for(iter=0;iter<NUM_ITERATORS;iter++){
+    if(props[iter].running[modelid])
+      return 1;
+  }
+  return 0;
+}
 
 
-// CVODE data structures and function declarations
-// ============================================================================================================
+int immediate_init(solver_props *props) {
+  return 0;
+}
 
-typedef struct{
-  solver_props *props;
-  CDATAFORMAT *k1; // Used only to produce last output values
-  void *cvmem;
-  void *y0;
-  unsigned int modelid;
-  unsigned int first_iteration;
-} cvode_mem;
+int immediate_eval(solver_props *props, unsigned int modelid) {
+  props->running[modelid] = props->time[modelid] < props->stoptime;
+  if (!props->running[modelid])
+    return 0;
 
-cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props);
+  props->next_time[modelid] = props->stoptime;
 
-int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int modelid);
+  return model_flows(props->time[modelid], props->model_states, props->next_states, props, 1, modelid);
+}
 
-void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem);
+int immediate_free(solver_props *props) {
+  return 0;
+}
 
-
-// GPU Specific functions
-
-#if defined (TARGET_GPU)
-#if defined (__DEVICE_EMULATION__)
-#define GPU_ENTRY(entry, type, args...) JOIN3(emugpu, entry, type)(args)
-#else
-#define GPU_ENTRY(entry, type, args...) JOIN3(gpu, entry, type)(args)
-#endif
-#define JOIN3(a,b,c) a##_##b##_##c
-
-void GPU_ENTRY(init, SIMENGINE_STORAGE);
-void GPU_ENTRY(exit, SIMENGINE_STORAGE);
-
-solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props);
-void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props);
-
-#endif
 
 #endif // SOLVERS_H

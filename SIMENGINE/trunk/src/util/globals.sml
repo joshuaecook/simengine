@@ -29,9 +29,20 @@ val version = BuildOptions.version
 val extension = ".dso"
 
 val startupMessage =
-    (name ^ " v" ^ version ^ " " ^ BuildOptions.build ^ " " ^ BuildOptions.arch ^ "\n"
+    (name ^ " v" ^ version ^ " " ^ BuildOptions.build ^ "\n"
      ^ "[built: " ^ BuildOptions.build_date ^ "]\n"
      ^ copyright)
     
+
+val path = ref let
+ 	       val env = Posix.ProcEnv.environ()
+	       val pathstr = case List.find (String.isPrefix "PATH") env of
+				 NONE => (DynException.stdException ("Host's environment does not contain a path", "Globals.path", Logger.DATA))
+			       | SOME p => p
+	       val paths = List.nth(String.fields(fn(c) => c = #"=") pathstr, 1)
+	   in
+	       String.fields(fn(c) => c = #":") paths  
+	   end
+
 
 end

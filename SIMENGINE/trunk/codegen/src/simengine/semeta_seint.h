@@ -1,16 +1,19 @@
 const simengine_metadata semeta = {
   HASHCODE,
   NUM_MODELS,
-  solver,
+  NUM_SOLVERS,
+  solvers,
   target,
   sizeof(CDATAFORMAT)
 };
 
 const simengine_interface seint = {
   VERSION,
+  NUM_ITERATORS,
   NUM_INPUTS,
   NUM_STATES,
   NUM_OUTPUTS,
+  iterator_names,
   input_names,
   state_names,
   output_names,

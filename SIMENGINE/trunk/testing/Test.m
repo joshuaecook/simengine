@@ -73,6 +73,11 @@ classdef Test < handle
         Message = ''
     end
     
+    properties (Access = private)
+        FunctionFile
+        FunctionName
+        FunctionLine
+    end
    
     methods
         
@@ -89,6 +94,20 @@ classdef Test < handle
             else
                 error('Test:ArgumentError', 'Wrong number of arguments');
             end
+            
+            % Find the filename and line #
+            try
+              me = MException('Simatra:Test:Exception',['No Error ' ...
+                                  'Occurred']);
+              throw(me);
+            catch me
+              FunctionFile = me.stack(2).file;
+              t.FunctionName = me.stack(2).name;
+              t.FunctionLine = me.stack(2).line;
+              [fpath,fname,fext]=fileparts(FunctionFile);
+              t.FunctionFile = [fname fext];
+            end              
+            
             if nargin >= 3 && ischar(varargin{1})
                 switch lower(varargin{1})
                     case '-boolean'
@@ -217,13 +236,16 @@ classdef Test < handle
                 end
             end 
             
+            % Location string
+            location = ['(' t.FunctionFile ':' num2str(t.FunctionLine) ')'];
+            
             % Show result of this test
             if t.Result == t.PASSED
               status = 'Passed';
             elseif t.Result == t.FAILED
-              status = 'FAILED <----';
+              status = ['FAILED  <---- ' location];
             else
-              status = 'ERRORED <----';
+              status = ['ERRORED <---- ' location];
             end
             s = sprintf('%40s:\t%s', t.Name, status);
             disp(s)

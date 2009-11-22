@@ -1,9 +1,33 @@
-structure PatternProcess =
+signature PATTERNPROCESS =
+sig
+    
+    (* Predicate type - includes a string name and a function that takes an expression and resolves to a boolean to indicate that it matched *)
+    type predicate = (string * (Exp.exp -> bool))
+
+    (* useful functions *)
+    val pattern2str : Exp.pattern -> string
+    val patcount_compatible : Pattern.patterncount -> int -> bool
+    val min_patcount : Pattern.patterncount -> int
+    val max_patcount : Pattern.patterncount -> int option
+    val combine_preds : predicate list -> predicate (* reduction predicate list *)
+    val notpred : predicate -> predicate (* invert a predicate *)
+
+    (* common predicates *)
+    val predicate_any : predicate
+    val predicate_anyfun : predicate
+    val predicate_anyterm : predicate
+    val predicate_anynumeric : predicate
+    val predicate_anysymbol : predicate
+    val predicate_anydiffterm : predicate
+    val gen_predicate_from_symbol : Symbol.symbol -> predicate (* create a predicate that matches a symbol by name *)
+
+end
+structure PatternProcess : PATTERNPROCESS =
 struct
 
 val i2s = Util.i2s
 
-(*type predicate = (string * (exp -> bool))*)
+type predicate = (string * (Exp.exp -> bool))
 
 (*
 datatype patterntype = ANY
@@ -37,6 +61,37 @@ fun pattern2str ((symbol, (predicate_name, predicate_fun), patcount):
 	name ^ typestr ^ countstr
     end
 
+fun patcount_compatible patcount count =
+    let
+	val _ = print ("patcount_compatible (" ^ (Int.toString count) ^ ") = ")
+val res =
+    case patcount 
+     of Pattern.ONE => count = 1
+      | Pattern.ONE_OR_MORE => count >= 1
+      | Pattern.ZERO_OR_MORE => count >= 0
+      | Pattern.SPECIFIC_COUNT i => i=count
+      | Pattern.SPECIFIC_RANGE (i1, i2) => i1 <= count andalso count <= i2
+val _ = print ((Bool.toString res) ^ "\n")
+    in
+    res						       
+end
+
+fun min_patcount patcount =
+    case patcount 
+     of Pattern.ONE => 1
+      | Pattern.ONE_OR_MORE => 1
+      | Pattern.ZERO_OR_MORE => 0
+      | Pattern.SPECIFIC_COUNT i => i
+      | Pattern.SPECIFIC_RANGE (i1, i2) => i1
+
+fun max_patcount patcount =
+    case patcount 
+     of Pattern.ONE => SOME 1
+      | Pattern.ONE_OR_MORE => NONE
+      | Pattern.ZERO_OR_MORE => NONE
+      | Pattern.SPECIFIC_COUNT i => SOME i
+      | Pattern.SPECIFIC_RANGE (i1, i2) => SOME i2
+
 (* Define common predicates *)
 val predicate_any = ("ANY", fn(x)=>true)
 val predicate_anyfun = ("FUN", fn(x)=>case x of 
@@ -48,7 +103,7 @@ val predicate_anyterm = ("TERM", fn(x)=>case x of
 val predicate_anynumeric = ("NUM", fn(x)=>case x of 
 					      Exp.TERM t => Term.isNumeric t
 					    | _ => false)
-val predicate_anysymbol = ("NUM", fn(x)=>case x of 
+val predicate_anysymbol = ("SYM", fn(x)=>case x of 
 					     Exp.TERM t => Term.isSymbol t
 					   | _ => false)
 val predicate_anydiffterm = ("DIFFTERM", 
@@ -58,5 +113,25 @@ val predicate_anydiffterm = ("DIFFTERM",
 				       of SOME (order, _) => order >= 1 
 					| NONE => false)
 				   | _ => false)
+
+fun notpred ((id, pred):predicate):predicate = 
+    ("!" ^ id, (fn(x) => not (pred x)))
+    
+
+fun gen_predicate_from_symbol sym = 
+    ("ASYM", 
+     fn(x)=>case x 
+	     of Exp.TERM (Exp.SYMBOL (name, props)) => name = sym
+	      | _ => false)
+
+fun combine_preds nil = ("NIL", fn(x)=>true)
+  | combine_preds [pred1] = pred1
+  | combine_preds ((pred as (id,p))::rest) = 
+    let
+	val (id', combined_preds) = combine_preds rest
+    in
+	(id ^ ":" ^ id',
+	 (fn(x) => ((p x) andalso (combined_preds x))))
+    end
 
 end

@@ -12,7 +12,7 @@ bandwidth_test.o: override CXXFLAGS = $(NVCCFLAGS) -Xcompiler -ggdb --ptxas-opti
 	$(COMPILE.cpp) -o $@ $<
 
 .PHONY: all clean
-all: device_props bandwidth_test
+all: device_props
 clean:
 	$(RM) *.o *.linkinfo
 	$(RM) device_props bandwidth_test

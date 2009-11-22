@@ -71,6 +71,7 @@ and exp =
   | NAMESPACEDEF of {name: Symbol.symbol, stms: (visibility * stm) list}
   | SATISFIES of {class:exp, interface: exp}
   | PROPERTYEXP of property
+  | PROCESS of (TextIO.outstream, TextIO.instream, TextIO.instream) MLton.Process.t * string * string list
 
 and definition =
     DEFGLOBAL of replacement * Symbol.symbol * typepattern * exp

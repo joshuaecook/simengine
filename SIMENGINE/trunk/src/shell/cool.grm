@@ -32,10 +32,10 @@ exception StubbedOut
   | BIN of int * IntInf.int
   | BEGIN_STRING | END_STRING | STRING_EXP
   | TICK | PERIOD | GT | LT | EQ | ASSIGN | LPAREN | RPAREN | STAR | AND | AMPERSAND | ARROW | EQARROW | UNDERSCORE | PLUS | MINUS | UMINUS | SLASH | CARROT | LCBRACE | RCBRACE | ELLIPSIS | GEQUAL | NEQ | LEQUAL
-  | LAMBDAFUN | COMMA | IN | END | LF | LBRACE | RBRACE | UNDERBRACE | PERCENT | WHEN | OTHERWISE | UNDEFINED
+  | LAMBDAFUN | COMMA | IN | END | LF | LBRACE | RBRACE | UNDERBRACE | PERCENT | DOLLAR | AT | WHEN | OTHERWISE | UNDEFINED
   | ASSERT | OR | IF | THEN | ELSE | TRUE | FALSE | ERROR | ELSEIF
   | IMPORT | CLASS | OF | COLON | TO | BY | WITH | STATEFUL | TUNABLE | VISIBLE | OUTPUT | INPUT | MODEL | SUBMODEL | PARAMETER | STATE | HIDDEN | PUBLIC
-  | WHILE | FOREACH | DO | VAR | ITERATOR | CONSTANT | GLOBAL | FUNCTION | OPERATOR | CONSTRUCTOR | NEWLINE | SATISFIES | EXTENDS | INTERFACE | NAMESPACE | REPLACE | OVERLOAD | OPEN | TYPE | ENUMERATION | EQUATION | EQUATIONS | QUANTITY | FORALL | EXISTS | SUCHTHAT | PROPERTY | GET | SET | MULTIFUNCTION | LET 
+  | WHILE | FOREACH | DO | VAR | ITERATOR | CONSTANT | GLOBAL | FUNCTION | OPERATOR | CONSTRUCTOR | NEWLINE | SATISFIES | EXTENDS | INTERFACE | NAMESPACE | REPLACE | OVERLOAD | OPEN | TYPE | ENUMERATION | EQUATION | EQUATIONS | QUANTITY | FORALL | EXISTS | SUCHTHAT | PROPERTY | GET | SET | MULTIFUNCTION | LET | RULEMATCH | WHERE
 
 %nonassoc IMPORT CLASS VAR CONSTANT GLOBAL CONSTRUCTOR OPERATOR FUNCTION MULTIFUNCTION SATISFIES EXTENDS INTERFACE NAMESPACE REPLACE OVERLOAD OPEN ENUMERATION QUANTITY PROPERTY GET SET
 %left LAMBDAFUN TYPE
@@ -43,7 +43,7 @@ exception StubbedOut
 %left IF THEN ELSE ELSEIF
 %nonassoc ASSIGN WHEN OTHERWISE TO BY WITH MODEL SUBMODEL PARAMETER STATE HIDDEN PUBLIC EQARROW ITERATOR 
 %left COMMA
-%left EQUATION EQUATIONS
+%left EQUATION EQUATIONS RULEMATCH WHERE
 %left OR 
 %left AND AMPERSAND
 %left FORALL EXISTS SUCHTHAT
@@ -58,7 +58,7 @@ exception StubbedOut
 %right LPAREN LBRACE LCBRACE UNDERBRACE
 %nonassoc STATEFUL TUNABLE VISIBLE OUTPUT INPUT
 %left PERIOD
-%left REAL INT ID TRUE FALSE NEWLINE UNDERSCORE UNDEFINED HEX BIN OCT TICK PATTERN
+%left REAL INT ID TRUE FALSE NEWLINE UNDERSCORE UNDEFINED HEX BIN OCT TICK PATTERN DOLLAR AT
 %left STRING_CHARS STRING_EXP
 %right BEGIN_STRING END_STRING
 
@@ -78,6 +78,10 @@ start of Ast.stm
 | returnheader of Ast.header 
 | args of Ast.typedname list 
 | optargs of Ast.typedname list
+| optdims of Symbol.symbol list option
+| modelarg of Symbol.symbol * Symbol.symbol list option
+| modelargs of (Symbol.symbol * Symbol.symbol list option) list
+| optmodelargs of (Symbol.symbol * Symbol.symbol list option) list 
 | arg of Ast.typedname 
 | opttyp of Ast.typepattern option
 | typs of Ast.typepattern list
@@ -120,7 +124,7 @@ start of Ast.stm
 | multiplefunctions of (Ast.header * Ast.stm list) list
 
 | modeldef of Ast.definition
-| modelheader of Ast.header
+| modelheader of Ast.modelheader
 | precinfo of Ast.exp
 | precinfoopt of Ast.exp option
 | modifier of Ast.simq_modifier
@@ -202,8 +206,20 @@ enumarg: ID ((Symbol.symbol ID, NONE))
 modeldef: MODEL modelheader newlines modelparts END (Ast.DEFMODEL {header=modelheader, parts=modelparts}) 
 
 
-modelheader: ID optargs ({name=Symbol.symbol ID, args=optargs, returns=NONE})
-	   | LPAREN args RPAREN optlines ASSIGN optlines ID optargs ({name=Symbol.symbol ID, args=optargs, returns=SOME args})
+modelheader: ID optmodelargs ({name=Symbol.symbol ID, args=optmodelargs, returns=NONE})
+	   | LPAREN idlist RPAREN optlines ASSIGN optlines ID optmodelargs ({name=Symbol.symbol ID, args=optmodelargs, returns=SOME idlist})
+
+optmodelargs: (nil)
+       | LPAREN modelargs RPAREN (modelargs)
+
+modelargs: (nil)
+    | modelarg (modelarg :: nil)
+    | modelarg COMMA modelargs (modelarg :: modelargs)
+
+modelarg: ID optdims(Symbol.symbol ID, optdims)
+
+optdims: (NONE)
+       | LBRACE idlist RBRACE (SOME idlist)
 
 optargs: ([])
        | LPAREN args RPAREN (args)
@@ -222,12 +238,13 @@ modelpart: quantitydef newlines (quantitydef)
 quantitydef: modifiers quantitytype ID optdimensions precinfoopt optassignment opttable(Ast.QUANTITYDEF {modifiers=modifiers, basetype=quantitytype, name=Symbol.symbol ID, precision=precinfoopt, exp=optassignment, settingstable = opttable, dimensions=optdimensions})
 	   | modifiers PARAMETER ID optdimensions precinfoopt ASSIGN optlines exp opttable (Ast.STM (Ast.DEFINITION (Ast.DEFCONST (Symbol.symbol ID, NONE, exp), PARAMETERleft)) before error_at_pos PARAMETERleft "The parameter keyword has been removed.  Please use inputs for all tunable quantities or set as a constant.")
 
-outputdef: OUTPUT ID optassignment opttable (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
-	                                                    quantity=(case optassignment 
-	                                                               of NONE => Ast.SYMBOL (Symbol.symbol ID) 
-	                                                                | SOME exp => exp), 
-	                                                    settings=opttable}) 
-
+outputdef: OUTPUT ID optdimensions optassignment opttable optwhen (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
+										  quantity=(case optassignment 
+											     of NONE => Ast.SYMBOL (Symbol.symbol ID) 
+											      | SOME exp => exp), 
+										  dimensions= optdimensions,
+										  settings=opttable,
+										  condition=optwhen}) 
 inputdef: INPUT ID opttable (Ast.INPUTDEF {name=Symbol.symbol ID,
 					   settings=opttable})
 
@@ -252,13 +269,14 @@ equations: (nil)
 	 | equation newlines equations (equation :: equations)
 
 equation: exp EQARROW optlines exp (Ast.MATHFUNCTION (exp1, exp2))
-	| exp ASSIGN optlines exp (Ast.EQUATION (exp1, exp2))
+	| exp ASSIGN optlines exp optwhen (Ast.EQUATION (exp1, exp2, optwhen))
+	| ID WHEN exp (Ast.EVENT (Symbol.symbol ID, exp))
 
 
 ticks: TICK (1)
      | ticks TICK (1 + ticks)
 
-submodelinst: SUBMODEL ID ID opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable}))
+submodelinst: SUBMODEL ID ID optdimensions opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable, optdimensions=optdimensions}))
 
 modifiers: (nil)
 	 | modifier modifiers (modifier::modifiers)
@@ -417,6 +435,8 @@ lambda: lambdaapp (lambdaapp)
 	 | FORALL ID IN lambda SUCHTHAT lambda  (Ast.FORALL {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
 	 | EXISTS ID IN lambda SUCHTHAT lambda  (Ast.EXISTS {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
 	 | LET ID optlines ASSIGN optlines lambda optlines IN optlines lambda (Ast.LET (Symbol.symbol ID, lambda1, lambda2))
+	 | RULEMATCH lambda optlines ARROW optlines lambda (Ast.RULEMATCH{find=lambda1, conds=Ast.LITERAL(Ast.CONSTBOOL true), replace=lambda2})
+	 | RULEMATCH lambda optlines WHERE optlines lambda optlines ARROW optlines lambda (Ast.RULEMATCH{find=lambda1, conds=lambda2, replace=lambda3})
 
 lambdalist : lambda COMMA lambda ([lambda1, lambda2])
 	   | lambda COMMA lambdalist (lambda :: lambdalist)
@@ -477,6 +497,10 @@ aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
     | LCBRACE conditions RCBRACE (conditions)
     | TYPE typ (Ast.TYPEEXP typ)
     | ASSERT lambda (Ast.ASSERTION lambda)
+    | DOLLAR ID (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "Symbol")},
+			   args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR ID)]})
+    | DOLLAR DOLLAR ID (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "SymbolPattern")},
+				  args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR ID)]})
 
 lambdapatternlist: lambdapattern (lambdapattern :: nil)
 		 | lambdapattern COMMA optlines lambdapatternlist (lambdapattern :: lambdapatternlist)

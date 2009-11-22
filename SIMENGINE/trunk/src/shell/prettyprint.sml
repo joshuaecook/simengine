@@ -51,6 +51,8 @@ fun kecexp2nickname exp =
 	=> "write-only property "
       | KEC.PROPERTYEXP {name, read=SOME _, write = SOME _, ...}
 	=> "read/write property"
+      | KEC.PROCESS p 
+	=> "a running process"
       | _ => "an uncomputed expression"
 
 exception ImpossibleListType
@@ -187,6 +189,8 @@ fun kecexp2prettystr (exec : (KEC.exp -> KEC.exp)) (exp: KEC.exp) : string =
 	  | KEC.MAKEREF _ => "makeref"
 	  | KEC.DEREF _ => "deref"
 	  | KEC.UNDEFINED => "undefined"
+	  | KEC.PROCESS (p, name, args) 
+	    => "process of " ^ name	    
 	  | KEC.PROPERTYEXP {name, read=NONE, write=NONE, ...}
 	    => "inaccessible property " ^ (Symbol.name name)
 	  | KEC.PROPERTYEXP {name, read=SOME _, write=NONE, ...}
@@ -265,6 +269,8 @@ fun kecexp2debugstr (exp: KEC.exp) : string =
 	  | KEC.MAKEREF _ => "makeref"
 	  | KEC.DEREF _ => "deref"
 	  | KEC.UNDEFINED => "undefined"
+	  | KEC.PROCESS (p, name, args) 
+	    => "process of " ^ name	    
 	  | KEC.PROPERTYEXP {name, read=NONE, write=NONE, ...}
 	    => "inaccessible property " ^ (Symbol.name name)
 	  | KEC.PROPERTYEXP {name, read=SOME _, write=NONE, ...}

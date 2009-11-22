@@ -11,11 +11,14 @@ ARCH64 = $(strip $(shell arch|grep 64))
 GRIND := valgrind
 CXX := g++
 ifeq ($(OSLOWER), darwin)
-GXXVERSION = $(shell g++ -v 2>&1 | tail -1 | cut -d' ' -f 3)
+#GXXVERSION = $(shell g++ -v 2>&1 | tail -1 | cut -d' ' -f 3)
+GXXVERSION = $(shell gcc -v 2>&1 | tail -1 | cut -d' ' -f 3)
 GXXMAJOR = $(shell echo $(GXXVERSION) | cut -d. -f 1)
 GXXMINOR = $(shell echo $(GXXVERSION) | cut -d. -f 2)
 
-CC=$(shell (export CC=g++; if [[ 4 -ge $GXXMAJOR ]]; then if [[ 2 -gt $GXXMINOR ]]; then export CC=g++-4.2; fi; fi; echo $$CC))
+#CC=$(shell (export CC=g++; if [[ 4 -ge $GXXMAJOR ]]; then if [[ 2 -gt $GXXMINOR ]]; then export CC=g++-4.2; fi; fi; echo $$CC))
+CC=$(shell (export CC=gcc; if [[ 4 -ge $GXXMAJOR ]]; then if [[ 2 -gt $GXXMINOR ]]; then export CC=gcc-4.2; fi; fi; echo $$CC))
+
 else
 CC := gcc
 endif
@@ -45,21 +48,11 @@ endif
 OPENMP_LDLIBS = -lgomp
 
 # Inspects for presence of MATLAB; may be overridden on command line
-ifeq ($(OSLOWER), darwin)
-ifneq ($(ARCH64),)
-MATLAB = $(shell which matlab64 2>/dev/null)
-else
 MATLAB = $(shell which matlab 2>/dev/null)
-endif
-else
-MATLAB = $(shell which matlab 2>/dev/null)
-endif
-
 ifneq ($(MATLAB),)
 MATLAB_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(MATLAB))))
 MATLAB := $(MATLAB_INSTALL_PATH)/bin/matlab
 MEX := $(MATLAB_INSTALL_PATH)/bin/mex
-$(info MEX is $(MEX))
 endif
 
 # Inspects for presence of GNU octave; may be overridden on command line

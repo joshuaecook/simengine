@@ -1,4 +1,4 @@
-
+#include <string.h>
 #include <cvode/cvode.h>
 #include <nvector/nvector_serial.h>
 #include <cvode/cvode_dense.h>
@@ -9,46 +9,53 @@
 #error CVODE not supported on the GPU
 #endif
 
+typedef struct{
+  solver_props *props;
+  CDATAFORMAT *next_states;
+  void *cvmem;
+  N_Vector y0;
+  unsigned int modelid;
+  unsigned int first_iteration;
+} cvode_mem;
+
 int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
   cvode_mem *mem = (cvode_mem*)userdata;
+  solver_props *props = mem->props;
+  unsigned int modelid = mem->modelid;
 
   model_flows(t,
-	      NV_DATA_S(y), // 'y' has already been partitioned on a per model basis
-	      NV_DATA_S(ydot), // 'ydot' is storage created by CVODE for the return value
-	      &(mem->props->inputs[mem->modelid*mem->props->inputsize]),
-	      &(mem->props->outputs[mem->modelid*mem->props->outputsize]),
-	      mem->first_iteration,
-	      0 // 0 is passed to modelid to prevent flow from indexing model_states, 
-	         // which is already indexed by having a separate mem structure per model
-	      );
+	      NV_DATA_S(y) - (modelid*props->statesize), // Model flows indexes y and dydt with modelid
+	      NV_DATA_S(ydot) - (modelid*props->statesize), // and this ptr arithmetic adjusts to compensate
+	      props, mem->first_iteration, modelid);
 
   mem->first_iteration = FALSE;
 
   return CV_SUCCESS;
 }
 
-cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
+int cvode_init(solver_props *props){
+  assert(props->statesize > 0);
+
   cvode_mem *mem = (cvode_mem*) malloc(props->num_models*sizeof(cvode_mem));
   unsigned int modelid;
 
-  // Only need to create this buffer in the first memory space as we are using this only for scratch
-  // and outside of the CVODE solver to compute the last outputs
-  mem[0].k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  props->mem = mem;
 
   for(modelid=0; modelid<props->num_models; modelid++){
+    // Set location to store the value of the next states
+    mem[modelid].next_states = &(props->next_states[modelid*props->statesize]);
+    mem[modelid].props = props;
     // Set the modelid on a per memory structure basis
     mem[modelid].modelid = modelid;
-    // Store solver properties
-    mem[modelid].props = props;
     // Create intial value vector
     // This is done to avoid having the change the internal indexing within the flows and for the output_buffer
-    mem[modelid].y0 = N_VMake_Serial(props->statesize, &(props->model_states[modelid*props->statesize]));
+    mem[modelid].y0 = N_VMake_Serial(props->statesize, mem[modelid].next_states);
     // Create data structure for solver
     //    mem[modelid].cvmem = CVodeCreate(CV_BDF, CV_NEWTON);
     mem[modelid].cvmem = CVodeCreate(props->cvode.lmm, props->cvode.iter);
     
     // Initialize CVODE
-    if(CVodeInit(mem[modelid].cvmem, user_fun_wrapper, props->starttime, ((N_Vector)(mem[modelid].y0))) != CV_SUCCESS){
+    if(CVodeInit(mem[modelid].cvmem, user_fun_wrapper, props->starttime, mem[modelid].y0) != CV_SUCCESS){
       fprintf(stderr, "Couldn't initialize CVODE");
     }
     // Set solver tolerances
@@ -56,7 +63,7 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
       fprintf(stderr, "Could not set CVODE tolerances");
     }
     // Set linear solver
-    switch (mem[modelid].props->cvode.solv) {
+    switch (props->cvode.solv) {
     case CVODE_DENSE:
       if(CVDense(mem[modelid].cvmem, mem[modelid].props->statesize) != CV_SUCCESS){
 	fprintf(stderr, "Could not set CVODE DENSE linear solver");
@@ -68,7 +75,7 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
       }
       break;
     case CVODE_BAND:
-      if(CVBand(mem[modelid].cvmem, mem[modelid].props->statesize, ((int*)mem[modelid].props->cvode.solv_opts)[0], ((int*)mem[modelid].props->cvode.solv_opts)[1]) != CV_SUCCESS){
+      if(CVBand(mem[modelid].cvmem, mem[modelid].props->statesize, mem[modelid].props->cvode.upperhalfbw, mem[modelid].props->cvode.lowerhalfbw) != CV_SUCCESS){
 	fprintf(stderr, "Could not set CVODE BAND linear solver");
       }
       break;
@@ -82,17 +89,20 @@ cvode_mem *SOLVER(cvode, init, TARGET, SIMENGINE_STORAGE, solver_props *props){
     }
   }
 
-  return mem;
+  return 0;
 }
 
-int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int modelid) {
+int cvode_eval(solver_props *props, unsigned int modelid){
+  cvode_mem *mem = props->mem;
+  mem = &mem[modelid];
+
   // Stop the solver if the stop time has been reached
-  mem->props->running[modelid] = mem->props->time[modelid] < mem->props->stoptime;
-  if(!mem->props->running[modelid])
+  props->running[modelid] = props->time[modelid] < props->stoptime;
+  if(!props->running[modelid])
     return 0;
 
-  mem[modelid].first_iteration = TRUE;
-  if(CVode(mem[modelid].cvmem, mem[modelid].props->stoptime, ((N_Vector)(mem[modelid].y0)), &(mem[modelid].props->time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
+  mem->first_iteration = TRUE;
+  if(CVode(mem->cvmem, props->stoptime, mem->y0, &(props->next_time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
     fprintf(stderr, "CVODE failed to make a step in model %d.\n", modelid);
     return 1;
   }
@@ -100,7 +110,7 @@ int SOLVER(cvode, eval, TARGET, SIMENGINE_STORAGE, cvode_mem *mem, unsigned int 
   return 0;
 }
 
-void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem){
+int cvode_free(solver_props *props){
   unsigned int modelid;
   /* // Debug code
   long int count;
@@ -116,10 +126,12 @@ void SOLVER(cvode, free, TARGET, SIMENGINE_STORAGE, cvode_mem *mem){
   */
 
   // Cleanup
-  for(modelid = 0; modelid<mem[0].props->num_models; modelid++){
+  cvode_mem *mem = props->mem;
+  for(modelid = 0; modelid<props->num_models; modelid++){
     N_VDestroy_Serial(((N_Vector)(mem[modelid].y0)));
     CVodeFree(&(mem[modelid].cvmem));
   }
-  free(mem[0].k1);
   free(mem);
+
+  return 0;
 }

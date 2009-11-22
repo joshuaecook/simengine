@@ -52,12 +52,12 @@ fun setShowStackTrace(bool) =
 open Printer
 
 fun log_stack e () =
-    if (!showStackTrace) then
+(*    if (!showStackTrace) then*)
 	[$"  Exception stack trace:",
 	 (SUB (map (fn(s) => $s) (MLton.Exn.history e)))]
-    else
+(*    else
 	[]
-				  
+*)				  
 fun log handlelocation (e as InternalError {message, severity, characterization, location}) =
     (Logger.log characterization severity 
 		(Printer.$("Exception caught at " ^ handlelocation 
@@ -65,10 +65,27 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
      Logger.log_information (log_stack e) Logger.NOGROUP)
   | log handlelocation (e as TooManyErrors) =
     ()
+
   | log handlelocation e = 
-    (Logger.log Logger.OTHER Logger.FAILURE 
-		($("Unknown exception caught at " ^ handlelocation));
-     Logger.log_information (log_stack e) Logger.NOGROUP)
+    let val message =
+	    (* Formats builtin basis exceptions. *)
+	    case e of Bind => "Bind exception at " ^ handlelocation
+		    | Chr => "Chr exception at " ^ handlelocation
+		    | Div => "Div exception at " ^ handlelocation
+		    | Domain => "Domain exception at " ^ handlelocation
+		    | Empty => "Empty exception at " ^ handlelocation
+		    | Fail reason => "Failed at " ^ handlelocation ^ " because " ^ reason
+		    | Match => "Match exception at " ^ handlelocation
+		    | Option => "Option exception at " ^ handlelocation
+		    | Overflow => "Overflow exception at " ^ handlelocation
+		    | Size => "Size exception at " ^ handlelocation
+		    | Span => "Span exception at " ^ handlelocation
+		    | Subscript => "Subscript exception at " ^ handlelocation
+		    | _ => "Unknown exception caught at " ^ handlelocation
+    in
+	(Logger.log Logger.OTHER Logger.FAILURE ($(message));
+	 Logger.log_error (Printer.SUB(log_stack e ())))
+    end
 
 fun checkpoint handlelocation e =
     (log handlelocation e;

@@ -32,6 +32,20 @@ if isnumeric(a) && isnumeric(b)
 elseif isstr(a) && isstr(b)
     e = strcmp(a,b);
 elseif isstruct(a) && isstruct(b)
+    if length(a) ~= length(b)
+        e = false;
+        return;
+    end
+    % Structures of length > 1 should be compared iteratively
+    if length(a) > 1
+        for i=1:length(a)
+            e = equiv(a(i), b(i));
+            if not(e)
+                return;
+            end
+        end
+        return;
+    end
     afields = fieldnames(a);
     bfields = fieldnames(b);
     if length(afields) == length(bfields)

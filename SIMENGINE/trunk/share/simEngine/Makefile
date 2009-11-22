@@ -78,21 +78,15 @@ LDLIBS += $(OPENMP_LDLIBS)
 CFLAGS += -fopenmp
 #endif
 
-ifneq ($(DECIMATION),)
-	COMMON += -DDECIMATION=$(DECIMATION)
-endif
-
 ifneq ($(DEBUG),)
-	COMMON += -g -ggdb
-	NVCCFLAGS += -g -D_DEBUG
+	COMMON += -g
+	CFLAGS += -gdwarf-2
+	NVCCFLAGS += -D_DEBUG
 else
-	COMMON += -O2 -fno-strict-aliasing
-	NVCCFLAGS += -O2
-endif
-
-ifneq ($(PROFILE),)
-	COMMON += -pg
-	NVCCFLAGS += -pg
+	COMMON += -O2
+	NVCCFLAGS += --compiler-options -fno-strict-aliasing
+	CXXFLAGS += -fno-strict-aliasing
+	CFLAGS += -fno-strict-aliasing
 endif
 
 ifeq ($(ARCH),x86_64)
@@ -112,35 +106,28 @@ endif
 
 .PHONY: all clean remake grind real-clean
 
+LIBSIMENGINE = $(DSL_MODEL).sim
 ifeq ($(OSLOWER),darwin)
-LIBSIMENGINE = libsimengine.dylib
+TARGETLIBFLAGS = -dynamiclib -Wl,-install_name,$(LIBSIMENGINE)
 else
-LIBSIMENGINE = libsimengine.so
+TARGETLIBFLAGS = -shared -Wl,-soname,$(LIBSIMENGINE)
 endif
 
 all: $(LIBSIMENGINE)
 
 clean:
-	$(RM) $(DSL_MODEL)_parallel.o $(LIBSIMENGINE) grind_simEngine grind_simEngine.o
+	$(RM) $(DSL_MODEL)_parallel.o $(DSL_MODEL)_parallel_c.o $(LIBSIMENGINE)
 
 real-clean: clean
 	$(RM) $(DSL_MODEL)*.c $(DSL_MODEL)*.m $(DSL_MODEL)*.cu
 
 remake: clean all
 
-grind: clean $(LIBSIMENGINE) grind_simEngine
-	$(GRIND) ./grind_simEngine
+$(LIBSIMENGINE): $(DSL_MODEL)_parallel.o $(DSL_MODEL)_parallel_c.o
+	$(LINK.c) $(LDFLAGS) $(TARGETLIBFLAGS) -o $@ $^ $(LDLIBS)
 
-grind_simEngine: $(SIMENGINEDIR)/share/simEngine/grind_simEngine.cpp
-	$(COMPILE.cpp) -o $@.o $<
-	$(LINK.cpp) $(LDFLAGS) -o $@ $@.o $(LDLIBS)
-
-libsimengine.dylib: $(DSL_MODEL)_parallel.o
-	$(LINK.c) $(LDFLAGS) -dynamiclib -Wl,-install_name,$@ -o $@ $< $(LDLIBS)
-
-libsimengine.so: $(DSL_MODEL)_parallel.o
-	@echo "Creating $@"
-	$(LINK.c) $(LDFLAGS) -shared -Wl,-soname,$@ -o $@ $< $(LDLIBS)
+$(DSL_MODEL)_parallel_c.o: $(DSL_MODEL)_parallel.c
+	$(SIMENGINEDIR)/bin/simlib SiMagic put $<
 
 ifeq (GPU,$(TARGET))
 $(DSL_MODEL)_parallel.cu: $(DSL_MODEL)_parallel.c

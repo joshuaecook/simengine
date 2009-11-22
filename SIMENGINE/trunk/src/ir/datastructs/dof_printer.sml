@@ -1,8 +1,14 @@
-structure DOFPrinter =
+signature DOFPRINTER =
+sig
+    val printModel : DOF.model -> unit
+    val printClass : DOF.class -> unit
+end
+structure DOFPrinter : DOFPRINTER =
 struct 
 
 val i2s = Util.i2s
 val r2s = Util.r2s
+val e2s = ExpPrinter.exp2str
 
 (*
 fun eq2str (eq:DOF.eq) = 
@@ -16,7 +22,7 @@ fun eq2str (eq:DOF.eq) =
 	    end
 	    
 	val {eq_type,...} = eq
-	val expstr = ExpProcess.exp2str (eq2exp eq)
+	val expstr = e2s (eq2exp eq)
 
 	fun offset2str (sym, int) = 
 	    (Symbol.name sym) ^ ":" ^ (i2s int)
@@ -56,9 +62,9 @@ fun genlist2str data2str [data] =
     "(" ^ (String.concatWith ", " (map data2str datalist)) ^ ")"
 
 val symbollist2str = genlist2str Symbol.name
-val contents2str = genlist2str ExpProcess.exp2str
+val contents2str = genlist2str e2s
 
-fun printClass (class as {name, properties={sourcepos, classform, classtype}, inputs, outputs, exps}) =
+fun printClass (class as {name, properties={sourcepos, basename, classform, classtype}, inputs, outputs, iterators, exps}) =
     (case classtype of
 	 DOF.SLAVE orig_class_name => 
 	 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")
@@ -71,27 +77,50 @@ fun printClass (class as {name, properties={sourcepos, classform, classtype}, in
 	  print (" |-> Functional class\n")
 	| DOF.INSTANTIATION {readstates, writestates} => 
 	  print (" |-> States read: "^ (symbollist2str readstates) ^ ", States written: " ^(symbollist2str writestates)^ "\n"));
-     print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => ExpProcess.exp2str (Exp.TERM name) ^ (case default of SOME v => (" = "^(ExpProcess.exp2str v)) | NONE => "")) (!inputs))) ^ "\n");
+     print(" |-> Class cost: " ^ (i2s (Cost.class2cost class)) ^ "\n");
+     print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => e2s (Exp.TERM name) ^ (case default of SOME v => (" = "^(e2s v)) | NONE => "")) (!inputs))) ^ "\n");
      print ("  Equations:\n");
-     app (fn(e) => print("    " ^ (ExpProcess.exp2str e) ^ "\n")) (!exps);
-     print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (ExpProcess.exp2str (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (ExpProcess.exp2str condition)) 
+     app (fn(e) => 
+	    let
+		val size = (ExpProcess.exp2size iterators e)
+			   handle _ => (~1)
+
+		val cost = (Cost.exp2cost e)
+			   handle _ => (~1)
+		val prefix = "  (x" ^ (i2s size) ^ ", cost="^(i2s cost)^") "
+	    in
+		if ExpProcess.isInstanceEq e then
+		    let
+			val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
+		    in
+			print(prefix ^ "[" ^ (String.concatWith ", " (map Symbol.name (#iterators props))) ^ "]: " ^ (e2s e) ^ "\n")
+		    end
+		else
+		    print(prefix ^ (e2s e) ^ "\n")
+	    end
+	 ) (!exps);
+     print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (e2s (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (e2s condition)) 
 							 (!outputs))) ^ "\n");
-     print ("  Symbols: {"^(String.concatWith ", " (map Symbol.name (ClassProcess.findSymbols class)))^"}\n"))
+     print ("  Iterators: " ^ (String.concatWith ", " (map (fn({name,low,step,high})=>(Symbol.name name) ^ "=" ^ (Real.toString low) ^ ":" ^ (Real.toString step) ^ ":" ^ (Real.toString high)) iterators)) ^ "\n");
+     print ("  Symbols: {"^(String.concatWith ", " (SymbolSet.toStrList (ClassProcess.findSymbols class)))^"}\n"))
     
 
 
 fun printModel (model: DOF.model) =
     let
+	val prevModel = CurrentModel.getCurrentModel()
 	val _ = CurrentModel.setCurrentModel model
 
 	val (classes, topinstance, systemproperties) = model
+
+	val num_states = ClassProcess.class2statesize (CurrentModel.classname2class (#classname topinstance))
 
 	fun header2str() =
 	    let 
 		val _ = Util.log ("")
 		val _ = Util.log ("Top Level Model: " ^ (Symbol.name (#classname topinstance)))
 		val _ = Util.log ("Class List: {"^(String.concatWith ", " (map (fn{name,...}=> Symbol.name name) classes)^"}"))
-		val _ = Util.log ("")
+		val _ = Util.log ("Iterator list: {"^(String.concatWith ", " (map (fn(itersym,_)=>Symbol.name itersym) (#iterators systemproperties))) ^ "}")
 	    in
 		()
 	    end
@@ -103,13 +132,19 @@ fun printModel (model: DOF.model) =
 	    in
 		(print ("  Name: " ^ (case name of SOME name => Symbol.name name | NONE => "NONE") ^ "\n");
 		 print ("  Class: " ^ (Symbol.name classname) ^ "\n");
-		 print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,...} => ExpProcess.exp2str (Exp.TERM name)) (!(#inputs class)))) ^ "\n");
-		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => ExpProcess.exp2str (Exp.TERM name)) (!(#outputs class)))) ^ "\n"))
+		 print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,...} => e2s (Exp.TERM name)) (!(#inputs class)))) ^ "\n");
+		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => e2s (Exp.TERM name)) (!(#outputs class)))) ^ "\n");
+		 print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n");
+		 print ("  State Count: "^(i2s num_states)^"\n"))
+
 	    end
 
-	fun printSystemProperties {iterators,time,precision} =
-	    (print (" time interval: ["^(r2s (#1 time))^","^(r2s (#2 time))^"]\n");
-	     print (" precision: "^(case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")^"\n");
+	fun printSystemProperties {iterators,precision,target,num_models,debug,profile} =
+	    (print (" precision: "^(case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")^"\n");
+	     print (" target: "^(Target.target2str target)^"\n");
+	     print (" number of models: "^(i2s num_models)^"\n");
+	     (if debug then print (" DEBUG mode enabled\n") else ());
+	     (if profile then print (" PROFILE mode enabled\n") else ());
 	     app
 		 (fn(sym, itertype)=>
 		    (print (" iterator: " ^ (Symbol.name sym) ^ "\n");
@@ -132,23 +167,31 @@ fun printModel (model: DOF.model) =
 			      print ("  Solver = ODE45 (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ")\n")
 			    | Solver.CVODE {dt, abs_tolerance, rel_tolerance,lmm,iter,solv} =>
 			      print ("  Solver = CVode (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ", lmm = "^(case lmm of Solver.CV_ADAMS => "CV_ADAMS" | Solver.CV_BDF => "CV_BDF")^", iter = "^(case iter of Solver.CV_NEWTON => "CV_NEWTON" | Solver.CV_FUNCTIONAL => "CV_FUNCTIONAL")^", solv = " ^ (case solv of Solver.CVDENSE => "CVDENSE" | Solver.CVDIAG => "CVDIAG" | Solver.CVBAND {upperhalfbw, lowerhalfbw} => "CVBAND("^(i2s lowerhalfbw)^","^(i2s upperhalfbw)^")") ^ ")\n"))
-		       | DOF.DISCRETE => 
-			 print ("  Discrete\n"))
+		       | DOF.DISCRETE {sample_period} => 
+			 print ("  Discrete with Ts="^(r2s sample_period)^", fs="^(r2s (1.0/sample_period))^"\n")
+		       | DOF.POSTPROCESS iter =>
+			 print ("  Post processing iterator of " ^ (Symbol.name iter) ^ "\n")
+		       | DOF.UPDATE iter =>
+			 print ("  Updating iterator of " ^ (Symbol.name iter) ^ "\n")
+		       | DOF.IMMEDIATE =>
+			 print ("  Immediate iterator\n"))
 		 )
 		 iterators)
 
     in
-	if DynamoOptions.isFlagSet "logdof" then
-	    (header2str();	 
-	     print("CLASSES:\n");
-	     app printClass classes;
-	     print("\n\n");
-	     print("TOP LEVEL INSTANCE:\n");
-	     printTopInstance topinstance;
-	     print("\n");
-	     printSystemProperties systemproperties)
-	else
-	    ()
+	(if DynamoOptions.isFlagSet "logdof" then
+	     (header2str();	 
+	      print("CLASSES:\n");
+	      app printClass classes;
+	      print("\n\n");
+	      print("TOP LEVEL INSTANCE:\n");
+	      printTopInstance topinstance;
+	      print("\n");
+	      printSystemProperties systemproperties;
+	      print("\n"))
+	 else
+	     ();
+	 CurrentModel.setCurrentModel(prevModel))
     end
     handle e => DynException.checkpoint "DOFPrinter.printModel" e
 (*
