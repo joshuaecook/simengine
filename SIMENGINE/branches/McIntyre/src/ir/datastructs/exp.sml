@@ -13,6 +13,7 @@ datatype exp =
 	 FUN of (Fun.funtype * exp list)
        | TERM of term
        | META of meta	 
+       | CONTAINER of container
 
      and meta =
 	 LAMBDA of {arg:Symbol.symbol, body:exp}
@@ -20,6 +21,11 @@ datatype exp =
        | MAP of {func:exp, args: exp}
        | SEQUENCE of exp list
 	 
+     and container =
+	 MATRIX of exp Array2.array
+       | VECTOR of exp Vector.vector
+       | EXPLIST of exp list
+
      and term = 
 	 RATIONAL of (int * int)
        | INT of int
