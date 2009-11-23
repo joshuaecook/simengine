@@ -68,8 +68,47 @@ fun sym2codegensym sym =
 	    Symbol.symbol (commonPrefix ^ (fixname str))
     end
 
+fun mathematica_fixname name = 
+    let
+	val n' =
+	    let
+		fun lbrack c = if c = "[" then "" else c
+		fun rbrack c = if c = "]" then "" else c
+		fun period c = if c = "." then "" else c
+		fun dash c = if c = "-" then "" else c
+		fun space c = if c = " " then "" else c
+		fun underscore c = if c = "_" then "" else c
+		fun lparen c = if c = "(" then "" else c
+		fun rparen c = if c = ")" then "" else c
+		fun plus c = if c = "+" then "" else c	
+		fun hash c = if c = "#" then "" else c
+	    in
+		(StdFun.stringmap (lbrack o rbrack o period o dash o space o underscore o lparen o rparen o plus o hash) name)
+	    end
+    in
+	if n'="I" then
+	    "disambiguateI"
+	else if n'="E" then
+	    "disambiguateE"
+	else
+	    n'
+    end
+
+
 fun sum l = foldl (op +) 0 l
 fun prod l = foldl (op *) 1 l
+
+fun firstCap str = 
+    if String.size str > 0 then
+	let
+	    val (first, rest) = case String.explode str of
+				  first::rest => (first, rest)
+				| _ => DynException.stdException("Unexpected string: " ^ str, "Util.firstCap", Logger.INTERNAL)
+	in
+	    String.implode (Char.toUpper first::rest)
+	end
+    else
+	str
 
 fun toUpper string =
     String.map Char.toUpper string

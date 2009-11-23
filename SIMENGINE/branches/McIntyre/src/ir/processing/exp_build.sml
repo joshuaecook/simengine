@@ -2,6 +2,7 @@ structure ExpBuild =
 struct
 
 fun var str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, Property.default_symbolproperty))
+
 fun tvar str = Exp.TERM 
 		   (Exp.SYMBOL (Symbol.symbol str, 
 				Property.setIterator Property.default_symbolproperty 
@@ -145,6 +146,7 @@ fun complex_logn (b, z) =
 			  times [int 2, plus [square (arg b), times [frac(1,4), square (log (square b))]]])))
     end
 
+fun tuple l = Exp.TERM (Exp.TUPLE l)
 fun lambda (arg, body) = Exp.META(Exp.LAMBDA{arg=Symbol.symbol arg, body=body})
 fun sequence (exps) = Exp.META(Exp.SEQUENCE exps)
 fun apply (func, arg) = Exp.META(Exp.APPLY{func=func, arg=arg})

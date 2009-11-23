@@ -91,7 +91,6 @@ ir/processing/cost.sml
 
 ir/datastructs/inst.sml
 
-
 ir/processing/fun_process.sml
 
 ir/patterns/pattern_process.sml
@@ -111,6 +110,10 @@ ir/processing/exp_validate.sml
 ir/processing/exp_process.sml
 (*ir/processing/eq_util.sml*)
 ir/processing/class_process.sml
+
+be/mathematica.sml
+be/mathematica_writer.sml
+
 
 ir/datastructs/dof_printer.sml
 ir/processing/ordering.sml

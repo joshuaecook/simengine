@@ -21,6 +21,8 @@ sig
     val iterators2str : iterator list -> string
     val iterator2c_str : iterator -> string (* C writer for iterator *)
     val iterators2c_str : iterator list -> string (* C writer for multiple iterator *)
+    val iterator2mathematica_str : iterator -> string (* C writer for iterator *)
+    val iterators2mathematica_str : iterator list -> string (* C writer for multiple iterator *)
     val iter_equiv : (iterator * iterator) -> bool
 
     val postProcessOf : string -> Symbol.symbol  
@@ -88,6 +90,25 @@ fun iterator2c_str (iterator as (sym, i)) =
 fun iterators2c_str iterators =
     if List.length iterators > 0 then
 	String.concat (map (fn(iter)=> "[" ^ (iterator2c_str iter) ^ "]") iterators)
+	(*"[" ^ (String.concatWith "," (map iterator2c_str iterators)) ^ "]"*)
+    else
+	""
+
+fun iterator2mathematica_str (iterator as (sym, i)) =
+    let
+	val str = Symbol.name sym
+    in
+	case i of
+	    ALL => ""
+	  | ABSOLUTE i => (i2s i)
+	  | RELATIVE i => str ^ (if i = 0 then "" else "+" ^ (i2s i))
+	  | RANGE _ => DynException.stdException("Currently, an iterator range can't be specified.  Instead, use one or more symbols with absolute indices.", "Iterator.iterator2c_str", Logger.INTERNAL)
+	  | LIST _ => DynException.stdException("Currently, an iterator list can't be specified.  Instead, use one or more symbols with absolute indices.", "Iterator.iterator2c_str", Logger.INTERNAL)
+    end
+
+fun iterators2mathematica_str iterators =
+    if List.length iterators > 0 then
+	String.concat (map (fn(iter)=> "[" ^ (iterator2mathematica_str iter) ^ "]") iterators)
 	(*"[" ^ (String.concatWith "," (map iterator2c_str iterators)) ^ "]"*)
     else
 	""

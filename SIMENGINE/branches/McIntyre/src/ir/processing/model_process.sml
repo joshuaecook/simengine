@@ -255,8 +255,19 @@ fun normalizeModel (model:DOF.model) =
     let
 	val _ = DynException.checkToProceed()
 
-	val (classes, _, _) = model
+	val (classes, {name,classname}, _) = model
 	(* TODO, write the checks of the model IR as they are needed *)
+
+	val _ = if DynamoOptions.isFlagSet "generateMathematica" then
+		    CurrentModel.withModel (CurrentModel.getCurrentModel())
+		    (fn()=>
+		       (log ("Creating Mathematica model description (first propagating state iterators) ...");
+			app ClassProcess.propagateStateIterators (CurrentModel.classes()); (* pre-run the assignCorrectScope *)
+			log ("Creating Mathematica model description (converting model to code) ...");
+			Printer.progs2file (MathematicaWriter.model2progs (CurrentModel.getCurrentModel()), Symbol.name classname ^ ".nb")))
+		else
+		    ()
+
 
 	(* assign correct scopes for each symbol *)
 	val _ = log ("Creating event iterators ...")
