@@ -1,5 +1,9 @@
 include ../../include/common.make
 
+ifeq ($(NVCC),)
+$(error No CUDA compiler found)
+endif
+
 LDLIBS = $(CUDA_LDLIBS)
 LDFLAGS = $(CUDA_LDFLAGS)
 INCLUDES = $(CUDA_INCLUDES)

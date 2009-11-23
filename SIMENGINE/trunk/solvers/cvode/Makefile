@@ -1,8 +1,15 @@
-OSLOWER = $(shell uname -s 2>/dev/null | tr [:upper:] [:lower:])
+include ../../include/common.make
 
 DATATYPES = float double
 SUNDIALS = sundials-2.4.0
-SUNDIALS_PATH = /shared/simEngine_support/$(SUNDIALS).tar.gz
+
+
+SUNDIALS_URI = https://computation.llnl.gov/casc/sundials/download/code/$(SUNDIALS).tar.gz
+SUNDIALS_PATH = $(wildcard /shared/simEngine_support/$(SUNDIALS).tar.gz)
+ifeq (,$(SUNDIALS_PATH))
+SUNDIALS_PATH = /var/tmp/$(SUNDIALS).tar.gz
+endif
+
 SUNDIALS_BASE_PATH = $(TYPE)
 SUNDIALS_BUILD_PATH = $(SUNDIALS_BASE_PATH)/$(SUNDIALS)
 CVODE_PATH = $(SUNDIALS_BUILD_PATH)/src
@@ -111,8 +118,6 @@ BUILD_DEPENDENCIES = $(SUNDIALS)/Makefile.in \
 	$(SUNDIALS)/src/cvode/cvode_bbdpre_impl.h \
 
 
-AR = ar -rs
-
 all:
 	for type in $(DATATYPES); do \
 	  $(MAKE) TYPE=$$type ../lib/libcvode_$$type\.a; \
@@ -139,7 +144,10 @@ clean:
 	  $(MAKE) clean-cvode TYPE=$$type; \
 	 done
 
-$(SUNDIALS_BUILD_PATH): # $(SUNDIALS_PATH)
+$(SUNDIALS_PATH):
+	curl -o $(SUNDIALS_PATH) $(SUNDIALS_URI)
+
+$(SUNDIALS_BUILD_PATH): $(SUNDIALS_PATH)
 	cd $(SUNDIALS_BASE_PATH); tar xvzf $(SUNDIALS_PATH) $(BUILD_DEPENDENCIES)
 
 # define a special architecture if ARCH64 is defined

@@ -31,7 +31,7 @@ ifneq ($(ARCH64),)
 VPATH := /lib64 /usr/lib64 /usr/local/lib64 $(VPATH)
 endif
 
-# Inspects for presence of Nvidia nvcc; may be overridden on command
+# Inspects for presence of Nvidia nvcc; may be overridden on command line
 NVCC ?= $(shell which nvcc 2>/dev/null)
 ifneq ($(NVCC),)
 CUDA_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(NVCC))))
@@ -65,8 +65,3 @@ endif
 
 # Every possible MEX extension
 ALL_MEXEXT = mexglx mexa64 mexmaci mexs64 mexw32 mexw64 mex
-
-# Inspects operating system and architecture
-OSLOWER = $(shell uname -s|tr [:upper:] [:lower:])
-ARCH64 = $(strip $(shell arch|grep 64))
-
