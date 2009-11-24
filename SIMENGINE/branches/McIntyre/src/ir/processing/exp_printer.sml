@@ -97,8 +97,8 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
     in
 	case container of
 	     Exp.EXPLIST e => "{" ^ (list2str e) ^ "}"
-	   | Exp.VECTOR v => "[" ^ (list2str (Container.vector2list v)) ^ "]"
-	   | Exp.MATRIX m => "[" ^ (list2str (map (Exp.CONTAINER o Exp.VECTOR) (Container.matrix2vectors m))) ^ "]"
+	   | Exp.ARRAY v => "[" ^ (list2str (Container.array2list v)) ^ "]"
+	   | Exp.MATRIX m => "[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Container.matrix2rows m))) ^ "]"
     end
 
 
@@ -179,8 +179,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
     in
 	case container of
 	     Exp.EXPLIST e => "explist(" ^ (list2str e) ^ ")"
-	   | Exp.VECTOR v => "vector(" ^ (list2str (Container.vector2list v)) ^ ")"
-	   | Exp.MATRIX m => "matrix(" ^ (list2str (map (Exp.CONTAINER o Exp.VECTOR) (Container.matrix2vectors m))) ^ ")"
+	   | Exp.ARRAY v => "array(" ^ (list2str (Container.array2list v)) ^ ")"
+	   | Exp.MATRIX m => "matrix(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Container.matrix2rows m))) ^ ")"
     end
 
 fun exp2str e = 

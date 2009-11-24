@@ -17,6 +17,9 @@ val deconstructInst : Exp.exp -> {classname: Symbol.symbol,
 (* Classification functions *)
 val isTerm : Exp.exp -> bool
 val isEquation : Exp.exp -> bool
+val isExpList : Exp.exp -> bool
+val isArray : Exp.exp -> bool
+val isMatrix : Exp.exp -> bool
 val isStateEq : Exp.exp -> bool
 val isInitialConditionEq : Exp.exp -> bool
 val isInstanceEq : Exp.exp -> bool
@@ -98,30 +101,7 @@ val exp2str = ExpPrinter.exp2str
 val e2s = ExpPrinter.exp2str
 open Printer
 
-fun exp2symbol_names (Exp.FUN (_, exps)) = 
-    List.concat (map exp2symbol_names exps)
-  | exp2symbol_names (Exp.TERM (Exp.SYMBOL (var, _))) = [Symbol.name var]
-  | exp2symbol_names (Exp.TERM (Exp.LIST (terms, _))) = 
-    List.concat (map (fn(t)=> exp2symbol_names (Exp.TERM t)) terms)
-  | exp2symbol_names (Exp.TERM (Exp.TUPLE terms)) = 
-    List.concat (map (fn(t)=> exp2symbol_names (Exp.TERM t)) terms)
-  | exp2symbol_names (Exp.TERM (Exp.COMPLEX (t1, t2))) =
-    (exp2symbol_names (Exp.TERM t1)) @ (exp2symbol_names (Exp.TERM t2))
-  | exp2symbol_names _ = []
-    
-fun exp2symbols (Exp.FUN (_, exps)) = 
-    List.concat (map exp2symbols exps)
-  | exp2symbols (Exp.TERM (Exp.SYMBOL (var, _))) = [var]
-  | exp2symbols (Exp.TERM (Exp.LIST (terms, _))) = 
-    List.concat (map (fn(t)=> exp2symbols (Exp.TERM t)) terms)
-  | exp2symbols (Exp.TERM (Exp.TUPLE terms)) = 
-    List.concat (map (fn(t)=> exp2symbols (Exp.TERM t)) terms)
-  | exp2symbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
-    (exp2symbols (Exp.TERM t1)) @ (exp2symbols (Exp.TERM t2))
-  | exp2symbols _ = []
-
-fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
-    
+(* TODO: Refactor*)
 fun exp2termsymbols (Exp.FUN (_, exps)) = 
     List.concat (map exp2termsymbols exps)
   | exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
@@ -131,10 +111,57 @@ fun exp2termsymbols (Exp.FUN (_, exps)) =
     List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
   | exp2termsymbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
     (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
+  | exp2termsymbols (Exp.CONTAINER c) =
+    List.concat (map exp2termsymbols (Container.container2elements c))
   | exp2termsymbols _ = []
+    
+fun exp2symbols exp =
+    let
+	val terms = exp2termsymbols exp
+    in
+	map Term.sym2curname terms
+    end
+
+fun exp2symbol_names exp =
+    let
+	val symbols = exp2symbols exp
+    in
+	map Symbol.name symbols
+    end
+
+(*
+fun exp2symbols (Exp.FUN (_, exps)) = 
+    List.concat (map exp2symbols exps)
+  | exp2symbols (Exp.TERM (Exp.SYMBOL (var, _))) = [var]
+  | exp2symbols (Exp.TERM (Exp.LIST (terms, _))) = 
+    List.concat (map (fn(t)=> exp2symbols (Exp.TERM t)) terms)
+  | exp2symbols (Exp.TERM (Exp.TUPLE terms)) = 
+    List.concat (map (fn(t)=> exp2symbols (Exp.TERM t)) terms)
+  | exp2symbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
+    (exp2symbols (Exp.TERM t1)) @ (exp2symbols (Exp.TERM t2))
+  | exp2symbols (Exp.CONTAINER c) =
+    List.concat (map exp2symbols (Container.container2elements c))
+  | exp2symbols _ = []
+
+fun exp2symbol_names (Exp.FUN (_, exps)) = 
+    List.concat (map exp2symbol_names exps)
+  | exp2symbol_names (Exp.TERM (Exp.SYMBOL (var, _))) = [Symbol.name var]
+  | exp2symbol_names (Exp.TERM (Exp.LIST (terms, _))) = 
+    List.concat (map (fn(t)=> exp2symbol_names (Exp.TERM t)) terms)
+  | exp2symbol_names (Exp.TERM (Exp.TUPLE terms)) = 
+    List.concat (map (fn(t)=> exp2symbol_names (Exp.TERM t)) terms)
+  | exp2symbol_names (Exp.TERM (Exp.COMPLEX (t1, t2))) =
+    (exp2symbol_names (Exp.TERM t1)) @ (exp2symbol_names (Exp.TERM t2))
+  | exp2symbol_names (Exp.CONTAINER c) =
+    List.concat (map exp2symbol_names (Container.container2elements c))
+  | exp2symbol_names _ = []
+    *)
+
+fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
     
 
 fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(List.concat (map exp2fun_names exps))
+  | exp2fun_names (Exp.CONTAINER c) = List.concat (map exp2fun_names (Container.container2elements c))
   | exp2fun_names _ = []
 
 val uniqueid = ref 0
@@ -164,6 +191,23 @@ fun renameSym (orig_sym, new_sym) exp =
 	    Exp.TERM (Exp.TUPLE (new_terms))
 
 	end
+      | Exp.CONTAINER c => 
+	let
+	    fun renameList l = map (renameSym (orig_sym, new_sym)) l
+	    fun renameArray a = (Container.list2array o 
+				 renameList o
+				 Container.array2list) a
+	    fun renameMatrix m = (Container.rows2matrix o
+				  (map renameArray) o
+				  Container.matrix2rows) m
+				 
+	    val c' = case c of
+			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
+		       | Exp.ARRAY a => Exp.ARRAY (renameArray a)
+		       | Exp.MATRIX m => Exp.MATRIX (renameMatrix m)
+	in
+	    Exp.CONTAINER c'
+	end
       | _ => exp
 
 fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
@@ -176,6 +220,23 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
 	else
 	    Exp.FUN (Fun.INST inst, map (renameInst syms) args)
       | Exp.FUN (f, args) => Exp.FUN (f, map (renameInst syms) args)
+      | Exp.CONTAINER c => 
+	let
+	    fun renameList l = map (renameInst syms) l
+	    fun renameArray a = (Container.list2array o 
+				 renameList o
+				 Container.array2list) a
+	    fun renameMatrix m = (Container.rows2matrix o
+				  (map renameArray) o
+				  Container.matrix2rows) m
+				 
+	    val c' = case c of
+			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
+		       | Exp.ARRAY a => Exp.ARRAY (renameArray a)
+		       | Exp.MATRIX m => Exp.MATRIX (renameMatrix m)
+	in
+	    Exp.CONTAINER c'
+	end     
       | _ => exp
 
 fun log_exps (header, exps) = 
@@ -222,6 +283,21 @@ fun isTerm exp =
 fun isSymbol exp = 
     case exp of
 	Exp.TERM (Exp.SYMBOL _) => true
+      | _ => false
+
+fun isExpList exp =
+    case exp of
+	Exp.CONTAINER (Exp.EXPLIST _) => true
+      | _ => false
+
+fun isArray exp =
+    case exp of
+	Exp.CONTAINER (Exp.ARRAY _) => true
+      | _ => false
+
+fun isMatrix exp =
+    case exp of
+	Exp.CONTAINER (Exp.MATRIX _) => true
       | _ => false
 
 (*fun isEquation exp =
@@ -592,8 +668,8 @@ fun exp2size iterator_list exp : int =
 		     | Exp.META _ => 1 (*TODO: ???? *)
 		     | Exp.CONTAINER c => 
 		       (case c of
-			    Exp.EXPLIST l => length l
-			  | Exp.VECTOR v => Vector.length v
+			    Exp.EXPLIST l => Util.sum (map (exp2size iterator_list) l)
+			  | Exp.ARRAY a => Array.length a
 			  | Exp.MATRIX m => (Array2.nCols m) * (Array2.nRows m))
 
     in
@@ -658,6 +734,13 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 
   | iterators_of_expression (Exp.TERM (Exp.RANGE {low, step, high})) = 
     foldl SymbolSet.union SymbolSet.empty (map (iterators_of_expression o Exp.TERM) [low, step, high])
+
+  | iterators_of_expression (Exp.CONTAINER c) = 
+    let
+	fun list2iters l = foldl SymbolSet.union SymbolSet.empty (map iterators_of_expression l)
+    in
+	list2iters (Container.container2elements c)
+    end
 
   | iterators_of_expression _ = SymbolSet.empty
 
@@ -920,8 +1003,24 @@ fun assignCorrectScope states exp =
     else
 	(Match.head exp) (map (assignCorrectScope states) (Match.level exp))
 	
-(* function to add EP_index property to all state symbols *)
+
 fun enableEPIndex is_top states exp = 
+    if isSymbol exp then
+	let 
+	    val term = exp2term exp
+	    val (sym, props) = (Term.sym2curname term, Term.sym2props term)
+		      
+	    fun enableEPProperty prop = 
+		Exp.TERM (Exp.SYMBOL (sym, Property.setEPIndex props prop))
+	in
+	    if List.exists (fn(sym')=>sym=sym') states then
+		enableEPProperty (SOME (if is_top then Property.STRUCT_OF_ARRAYS else Property.ARRAY))
+	    else
+		exp
+	end
+    else
+	(Match.head exp) (map (enableEPIndex is_top states) (Match.level exp))
+(*
     case exp of
 	Exp.FUN (funtype, args) => Exp.FUN (funtype, map (enableEPIndex is_top states) args)
       | Exp.TERM (Exp.SYMBOL (sym, props)) => 
@@ -931,18 +1030,28 @@ fun enableEPIndex is_top states exp =
 	    exp
       | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist, dimlist))
       | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist))
-      | _ => exp
+      | _ => exp*)
 
 
 (* find symbols and assign to output buffer *)
 fun assignToOutputBuffer exp =
-    case exp of
+    if isSymbol exp then
+	let
+	    val term = exp2term exp
+	    val (sym, props) = (Term.sym2curname term, Term.sym2props term)
+	in
+	    Exp.TERM (Exp.SYMBOL (sym, Property.setOutputBuffer props true))
+	end
+    else
+	(Match.head exp) (map assignToOutputBuffer (Match.level exp))
+	    
+(*    case exp of
 	Exp.FUN (funtype, args) => Exp.FUN (funtype, map assignToOutputBuffer args)
       | Exp.TERM (Exp.SYMBOL (sym, props)) => 
 	Exp.TERM (Exp.SYMBOL (sym, Property.setOutputBuffer props true))
       | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist, dimlist))
       | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist))
-      | _ => exp
+      | _ => exp*)
 
 
 
@@ -1111,17 +1220,17 @@ and meta_to_json (Exp.LAMBDA {arg, body}) =
 and container_to_json (Exp.EXPLIST l) =
     js_object [("type", js_string "EXPLIST"),
 	       ("members", js_array (map to_json l))]
-  | container_to_json (Exp.VECTOR v) =
-    js_object [("type", js_string "VECTOR"),
-	       ("length", js_int (Vector.length v)),
-	       ("members", js_array (map to_json (Container.vector2list v)))]
+  | container_to_json (Exp.ARRAY a) =
+    js_object [("type", js_string "ARRAY"),
+	       ("length", js_int (Array.length a)),
+	       ("members", js_array (map to_json (Container.array2list a)))]
   | container_to_json (Exp.MATRIX m) =
     js_object [("type", js_string "MATRIX"),
 	       ("rows", js_int (Array2.nRows m)),
 	       ("columns", js_int (Array2.nCols m)),
 	       ("members", js_array (map 
-					 (to_json o Exp.CONTAINER o Exp.VECTOR)
-					 (Container.matrix2vectors m)))]
+					 (to_json o Exp.CONTAINER o Exp.ARRAY)
+					 (Container.matrix2rows m)))]
 
 end
 

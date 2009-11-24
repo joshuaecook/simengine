@@ -473,17 +473,21 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 	      (* simply, we can start with just using the allEquiv - maybe we can
 	         eventually use list_equivalent *)
 	      | (Exp.CONTAINER (Exp.EXPLIST l1), Exp.CONTAINER (Exp.EXPLIST l2)) =>
-		allEquiv exp_equivalent matchCandidates (l1, l2)
+		list_equivalent matchCandidates (l1, l2)
 
-	      | (Exp.CONTAINER (Exp.VECTOR v1), Exp.CONTAINER (Exp.VECTOR v2)) =>
+	      | (Exp.CONTAINER (c1 as (Exp.ARRAY a1)), Exp.CONTAINER (c2 as (Exp.ARRAY a2))) =>
 		allEquiv exp_equivalent matchCandidates 
-			 (Container.vector2list v1, 
-			  Container.vector2list v2)
+			 (Container.container2elements c1, 
+			  Container.container2elements c2)
 		
-	      | (Exp.CONTAINER (Exp.MATRIX m1), Exp.CONTAINER (Exp.MATRIX m2)) =>
-		nil
-	      (* need help doing this*)
-
+	      | (Exp.CONTAINER (c1 as (Exp.MATRIX m1)), Exp.CONTAINER (c2 as (Exp.MATRIX m2))) =>
+		if (Container.matrix2size m1) = (Container.matrix2size m2) then
+		    allEquiv exp_equivalent matchCandidates 
+			     (Container.container2elements c1, 
+			      Container.container2elements c2)
+		else
+		    nil
+		
 	      | (exp1, Exp.TERM (Exp.PATTERN p)) => 
 		pattern_equivalent matchCandidates (p, exp1) 
 

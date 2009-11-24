@@ -32,25 +32,25 @@ fun normalize_with_env table exp =
 	       | _ => exp)
 	  | Exp.CONTAINER c =>
 	    let
-		fun normalize_vector v =
+		fun normalize_array a =
 		    let
-			val l = Container.vector2list v
+			val l = Container.array2list a
 			val l' = map (normalize_with_env table) l
 		    in
-			Container.list2vector l'
+			Container.list2array l'
 		    end
 		fun normalize_matrix m =
 		    let
-			val vectors = Container.matrix2vectors m
-			val vectors' = map normalize_vector vectors
+			val arrays = Container.matrix2rows m
+			val arrays' = map normalize_array arrays
 		    in
-			Container.vectors2matrix vectors'
+			Container.rows2matrix arrays'
 		    end
 	    in
 	    Exp.CONTAINER 
 	    (case c of
-		 Exp.EXPLIST l => Exp.EXPLIST (map (normalize_with_env table) l)
-	       | Exp.VECTOR v => Exp.VECTOR (normalize_vector v)
+		 Exp.EXPLIST l => Exp.EXPLIST (flatten (map (normalize_with_env table) l))
+	       | Exp.ARRAY a => Exp.ARRAY (normalize_array a)
 	       | Exp.MATRIX m => Exp.MATRIX (normalize_matrix m))
 	    end
 	  | Exp.META m =>

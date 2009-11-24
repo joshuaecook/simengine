@@ -72,10 +72,10 @@ fun level (exp) =
       | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
       | Exp.TERM (Exp.COMPLEX (a, b)) => map Exp.TERM [a,b]
       | Exp.CONTAINER (Exp.EXPLIST l) => l
-      | Exp.CONTAINER (Exp.VECTOR v) => (Container.vector2list v)
+      | Exp.CONTAINER (Exp.ARRAY a) => (Container.array2list a)
       | Exp.CONTAINER (Exp.MATRIX m) => map 
-					    (Exp.CONTAINER o Exp.VECTOR)
-					    (Container.matrix2vectors m)
+					    (Exp.CONTAINER o Exp.ARRAY)
+					    (Container.matrix2rows m)
       | _ => []
 
 (* this will return a function to rebuild the head *)
@@ -86,8 +86,8 @@ fun head (exp) =
       | Exp.TERM (Exp.TUPLE (termlist)) => (fn(args') => Exp.TERM (Exp.TUPLE (map exp2term args')))
       | Exp.TERM (Exp.COMPLEX (a, b)) => (fn(args') => Exp.TERM (Exp.COMPLEX (exp2term (List.nth (args', 0)), exp2term (List.nth (args', 1)))))
       | Exp.CONTAINER (Exp.EXPLIST l) => (fn(args') => Exp.CONTAINER (Exp.EXPLIST args'))
-      | Exp.CONTAINER (Exp.VECTOR v) => (fn(args') => Exp.CONTAINER (Exp.VECTOR (Container.list2vector args')))
-      | Exp.CONTAINER (Exp.MATRIX m) => (fn(args') => Exp.CONTAINER (Exp.MATRIX (Container.vectors2matrix (Container.listexp2listvector args'))))
+      | Exp.CONTAINER (Exp.ARRAY a) => (fn(args') => Exp.CONTAINER (Exp.ARRAY (Container.list2array args')))
+      | Exp.CONTAINER (Exp.MATRIX m) => (fn(args') => Exp.CONTAINER (Exp.MATRIX (Container.rows2matrix (Container.listexp2listarray args'))))
       | _ => (fn(args') => exp)
 
 (* level and head are identity functions *)
@@ -142,6 +142,23 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
 					      termlist))))
       | Exp.FUN (funtype, args) 
 	=> Exp.FUN (funtype, map (replaceSymbol (sym, repl_exp)) args)
+      | Exp.CONTAINER c
+	=> 
+	let
+	    fun replaceList l = map (replaceSymbol (sym, repl_exp)) l
+	    fun replaceArray a = (Container.list2array o 
+				  replaceList o 
+				  Container.array2list) a
+	    fun replaceMatrix m = (Container.rows2matrix o
+				   (map replaceArray) o
+				   Container.matrix2rows) m				  
+	in
+	    Exp.CONTAINER 
+	    (case c of
+		 Exp.EXPLIST l => Exp.EXPLIST (replaceList l)
+	       | Exp.ARRAY a => Exp.ARRAY (replaceArray a)
+	       | Exp.MATRIX m => Exp.MATRIX (replaceMatrix m))
+	end
       | Exp.META (Exp.SEQUENCE s) 
 	=> Exp.META(Exp.SEQUENCE (map (replaceSymbol (sym, repl_exp)) s))
       | Exp.META (Exp.MAP {func, args} )

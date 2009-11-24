@@ -25,13 +25,7 @@ fun exp2cost exp =
 	end
       | Exp.META (Exp.SEQUENCE s) => Util.sum (map exp2cost s)
       | Exp.META _ => 0
-      | Exp.CONTAINER c => container2cost c
-
-and container2cost container =
-    case container of
-	Exp.EXPLIST l => Util.sum (map exp2cost l)
-      | Exp.VECTOR v => Vector.foldl (fn(e,cost)=>cost + (exp2cost e)) 0 v
-      | Exp.MATRIX m => Array2.fold Array2.RowMajor (fn(e, cost)=>cost+(exp2cost e)) 0 m
+      | Exp.CONTAINER c => Util.sum (map exp2cost (Container.container2elements c))
 
 and class2cost (c:DOF.class) = 
     let

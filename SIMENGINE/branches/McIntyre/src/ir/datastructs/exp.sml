@@ -14,7 +14,7 @@ datatype exp =
        | TERM of term
        | META of meta	 
        | CONTAINER of container
-
+		      
      and meta =
 	 LAMBDA of {arg:Symbol.symbol, body:exp}
        | APPLY of {func:exp, arg:exp}
@@ -23,7 +23,7 @@ datatype exp =
 	 
      and container =
 	 MATRIX of exp Array2.array
-       | VECTOR of exp Vector.vector
+       | ARRAY of exp Array.array
        | EXPLIST of exp list
 
      and term = 

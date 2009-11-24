@@ -49,7 +49,7 @@ fun exp2c_str (Exp.FUN (str, exps)) =
   | exp2c_str (Exp.CONTAINER c) =
     (case c of
 	 Exp.EXPLIST l => DynException.stdException ("Cannot write EXPLIST expressions", "CWriter.exp2c_str", Logger.INTERNAL)
-       | Exp.VECTOR v => "{" ^ (String.concatWith ", " (map exp2c_str (Container.vector2list v))) ^ "}"
+       | Exp.ARRAY a => "{" ^ (String.concatWith ", " (map exp2c_str (Container.array2list a))) ^ "}"
        | Exp.MATRIX m => DynException.stdException ("Cannot write MATRIX expressions", "CWriter.exp2c_str", Logger.INTERNAL))
   | exp2c_str (Exp.META _) = 
     DynException.stdException ("Cannot write META expressions.", "CWriter.exp2c_str", Logger.INTERNAL)
