@@ -12,8 +12,9 @@ val repeatApplyRewritesExp : Rewrite.rewrite list -> Exp.exp -> Exp.exp
 val any : string -> Exp.exp (* zero or more of anything *)
 val some : string -> Exp.exp (* one or more of anything *)
 val one : string -> Exp.exp (* just match one only *)
-val anyterm : string -> Exp.exp (* match one or more terms *)
-val anyfun : string -> Exp.exp (* match one or more functions *)
+val anyterm : string -> Exp.exp (* match one term *)
+val anylocal : Exp.exp
+val anyfun : string -> Exp.exp (* match one function *)
 val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
 val asym : Symbol.symbol -> Exp.exp (* match a particular symbol by name - ex. I want to find 'Vm' - asym (Symbol.name "Vm") *)
 
@@ -46,6 +47,7 @@ fun any sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate
 fun some sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_any, Pattern.ONE_OR_MORE))
 fun anyfun sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anyfun, Pattern.ONE))
 fun anyterm sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anyterm, Pattern.ONE))
+val anylocal = Exp.TERM (Exp.PATTERN (Symbol.symbol "anylocal", PatternProcess.predicate_anylocal, Pattern.ONE))
 fun anynum sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anynumeric, Pattern.ONE))
 (*fun anysym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ONE))*)
 fun onesym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ONE))

@@ -1658,127 +1658,80 @@ fun listPairFind f (nil, _) = NONE
   | listPairFind f (x::xs, y::ys) = 
     if f (x, y) then SOME (x, y) else listPairFind f (xs, ys)
 
-(* Visits each expression, completely expanding the right-hand side of all equations. 
- * Nb dependends on a CurrentModel context. *)
+(* Nb dependends on a CurrentModel context. *)
 fun unify class =
     let val {name, properties, inputs, outputs, iterators, exps} : DOF.class = class
+
+	val exps' = (! exps)
+
+	val (intermediateEquations, exps') = 
+	    List.partition ExpProcess.isIntermediateEq exps'
+
+	val exps' = map (Match.applyRewritesExp (map ExpProcess.equation2rewrite intermediateEquations)) exps'
+
+	val (instanceEquations, exps') = 
+	    List.partition ExpProcess.isInstanceEq exps'
+
+	val exps' = exps' @
+		    (Util.flatmap instanceExpressions instanceEquations)
     in
 	{name = name, 
 	 properties = properties, 
 	 inputs = inputs, 
 	 iterators = iterators, 
-	 exps = ref (map (unifyExpression class nil) (! exps)),
-	 outputs = ref (map (unifyOutput class nil) (! outputs))}
+	 exps = ref exps',
+	 outputs = outputs}
     end
 
-(* Expands an expression. *)
-and unifyExpression (class : DOF.class) blacklist exp =
-    let	fun blacklisted sym =
-	    List.exists (fn x => (Symbol.name x) = (Symbol.name sym)) blacklist
+(* Nb dependends on a CurrentModel context. *)
+and instanceExpressions equation =
+    let val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
+	val instanceClass = unify (CurrentModel.classname2class classname)
+	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
+	val exps' = ! exps
 
-	val symbols = 
-	    List.filter (not o blacklisted)
-			(if ExpProcess.isEquation exp then
-			     ExpProcess.exp2symbols (ExpProcess.rhs exp)
-			 else
-			     ExpProcess.exp2symbols exp)
-    in
-	case symbols
-	 of nil => exp
-	  | _ => 
-	    let val _ = Util.log ("unifyExpression "^(Symbol.name (#name class))^" "^ (ExpPrinter.exp2str exp))
-		val _ = Util.log ("\tsymbols " ^ (String.concatWith ", " (map Symbol.name symbols)))
-		val _ = Util.log ("\tblacklist " ^ (String.concatWith ", " (map Symbol.name blacklist)))
+	fun prefixLocalName prefix (Exp.TERM (Exp.SYMBOL (sym, props))) =
+	    Exp.TERM (Exp.SYMBOL (Symbol.symbol (prefix ^ (Symbol.name sym)), props))
 
-		val expansions = List.mapPartial (symbolExpansion class blacklist) symbols
+	  | prefixLocalName _ _ = 
+	    DynException.stdException(("Cannot rename non-symbol in instance '" ^ (Symbol.name instname) ^ "' of class '" ^ (Symbol.name name) ^ "'"), 
+				      "ClassProcess.unify.symbolExpansion", Logger.INTERNAL)
+	    
+	    
+	val renameWithInstanceNamePrefix = {find = Match.anylocal,
+					    replace = Rewrite.ACTION (Symbol.symbol "renameWithInstanceNamePrefix", prefixLocalName ((Symbol.name instname) ^ ".")),
+					    test = NONE}
 
-		val _ = Util.log ("unifyExpression "^(Symbol.name (#name class))^" " ^ (ExpPrinter.exp2str exp) ^ " expansions \n\t" ^ 
-				  (String.concatWith "\n\t" (map (fn (sym,exp) => (Symbol.name sym) ^ ":=" ^ (ExpPrinter.exp2str exp)) expansions)))
-
-		val rules = map (fn (find, replace) => {find = Match.asym find, replace = Rewrite.RULE replace, test = NONE}) expansions
-		val exp' = Match.applyRewritesExp rules exp
-
-		val _ = Util.log ("unifyExpression "^(Symbol.name (#name class))^" " ^ (ExpPrinter.exp2str exp) ^ " := " ^ (ExpPrinter.exp2str exp'))
+	fun makeInputExpression (inparg, {name, default}) =
+	    let val name' = Match.applyRewriteExp renameWithInstanceNamePrefix (Exp.TERM name)
 	    in
-		exp'
+		ExpBuild.equals (name', inparg)
 	    end
-    end
-    handle e => DynException.checkpoint "ClassProcess.unify.unifyExpression" e
 
-(* Finds a symbol and maybe produces an pair of the form "(sym, expansion)". *)
-and symbolExpansion (class : DOF.class) blacklist sym =
-    let (* val _ = Util.log ("symbolExpansion " ^(Symbol.name (#name class))^ " " ^ (Symbol.name sym)) *)
-	val expansion = 
-	    case findInput class sym
-	     of SOME {name, ...} 
-		(* Inputs cannot be further expanded. *)
-		=> NONE
-	      | NONE 
-		=> (case findMatchingEq class sym
-		     of SOME exp 
-			=> SOME (if ExpProcess.isInstanceEq exp then
-				     (sym, instanceEquationExpansion class blacklist sym exp)
-				 else
-				     (sym, unifyExpression class (sym::blacklist) (ExpProcess.rhs exp)))
-		      | NONE 
-			=> DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined  in class '" ^ (Symbol.name (#name class)) ^ "'"), 
-						     "ClassProcess.unify.symbolExpansion", Logger.INTERNAL))
+	val inputs_exps =
+	    ListPair.map makeInputExpression (inpargs, ! inputs)
 
-	(* val _ = Util.log ("symbolExpansion " ^(Symbol.name (#name class))^ " " ^ (Symbol.name sym)^ " := " ^  *)
-(* 			  (case expansion of SOME exp => ExpPrinter.exp2str exp | _ => "NONE")) *)
+	val exps' = map (Match.applyRewriteExp renameWithInstanceNamePrefix) exps'
+
+	fun makeOutputExpression (outarg, {name, condition, contents}) =
+	    let val value = 
+		    if 1 = List.length contents then List.hd contents
+		    else DynException.stdException(("Too many quantities for output '"^(Symbol.name (Term.sym2curname name))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
+						   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
+		val condition' = Match.applyRewriteExp renameWithInstanceNamePrefix condition
+		val value' = Match.applyRewriteExp renameWithInstanceNamePrefix value
+		val name' = Exp.TERM outarg
+	    in
+		ExpBuild.equals (name', ExpBuild.cond (condition', value', name'))
+	    end
+
+	val outputs_exps = 
+	    ListPair.map makeOutputExpression (outargs, ! outputs)
     in
-	expansion
+	inputs_exps @
+	exps' @
+	outputs_exps
     end
-	   
-and instanceEquationExpansion (class : DOF.class) blacklist sym eqn =
-    let val {classname, outargs, inpargs, ...} = ExpProcess.deconstructInst eqn
-	val instanceClass = CurrentModel.classname2class classname
-	val {outputs, ...} = instanceClass
-
-	(* val _ = Util.log ("instanceEquationExpansion "^(Symbol.name (#name class))^" "^ (ExpPrinter.exp2str eqn)) *)
-
-	(* Finds the output associated with this symbol. *)
-	val {contents, condition, ...} =
-	    case listPairFind (fn (outarg, _) => Term.sym2curname outarg = sym)
-			      (outargs, ! outputs)
-	     of SOME (_, output) 
-		=> output
-	      | NONE
-		=> DynException.stdException(("Output '"^(Symbol.name sym)^"' not defined in class '" ^ (Symbol.name classname) ^ "'"), 
-					     "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
-
-	val name = ExpBuild.var (Symbol.name sym)
-
-	val value = 
-	    if 1 = List.length contents then 
-		List.hd contents
-	    else
-		DynException.stdException(("Too many quantities for output '"^(Symbol.name sym)^"' in class '" ^ (Symbol.name classname) ^ "'"), 
-					  "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
-
-	(* Builds a new equation of the form "sym = if condition then contents else sym" *)
-	val expansion = ExpBuild.cond (unifyExpression instanceClass (sym::blacklist) condition, 
-				       unifyExpression instanceClass (sym::blacklist) value, 
-				       name)
-	(* val _ = Util.log ("instanceEquationExpansion "^(Symbol.name (#name class))^" := " ^ (ExpPrinter.exp2str eqn')) *)
-    in
-	expansion
-    end
-
-and expandIntermediateEquation (class : DOF.class) eqn = eqn
-
-    
-
-(* Expands the contents and condition expressions of an output. *)
-and unifyOutput (class : DOF.class) blacklist output =
-    let val {name, contents, condition} = output
-    in
-	{name = name, 
-	 contents = map (unifyExpression class blacklist) contents,
-	 condition = unifyExpression class blacklist condition}
-    end
-    handle e => DynException.checkpoint "ClassProcess.unify.unifyOutput" e
-
 
 
 local open mlJS in
