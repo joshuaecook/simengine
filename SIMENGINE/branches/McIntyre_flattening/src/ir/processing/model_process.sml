@@ -2,6 +2,9 @@ structure ModelProcess : sig
 
     (* Primary functions to execute optimizations and commands across all classes within a model *)
 
+    (* Flattens all equations and instances into a single, monolithic model. *)
+    val unify : DOF.model -> DOF.model
+
     (* optimizeModel: algebraic and performance optimizations all occur in this function.  All transformations
       performed here should be independent of back-end.  If the data structure is to be saved prior to writing 
       a particular back-end, the data structure returned from optimizeModel would be a good one to save.  *)
@@ -417,6 +420,16 @@ fun isProfiling model =
     let val (_, _, props : DOF.systemproperties) = model
     in #profile props
     end
+
+(* Beginning at the top instance's class,
+ * flatten the model into a single class. *)
+fun unify model =
+    let val (classes, instance, properties) : DOF.model = model
+	val topClass = CurrentModel.withModel model (fn _ => CurrentModel.classname2class (#classname instance))
+    in
+	([ClassProcess.unify topClass], instance, properties)
+    end
+
 
 local open mlJS in
 fun to_json (model as (classes,instance,properties)) =

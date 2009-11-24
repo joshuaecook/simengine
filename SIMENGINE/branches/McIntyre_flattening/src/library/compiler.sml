@@ -27,7 +27,7 @@ fun std_compile exec args =
 
 	      val (classes, _, _) = forest
 
-	      val _ = DOFPrinter.printModel forest   
+	      val _ = DOFPrinter.printModel forest
 
 	      val _ = CurrentModel.setCurrentModel forest
 
@@ -40,7 +40,18 @@ fun std_compile exec args =
 		     else ()
 		  end
 
-		      
+	      val _ = log("Unifying model...")
+	      val _ = CurrentModel.setCurrentModel (ModelProcess.unify (CurrentModel.getCurrentModel ()))
+
+	      val () = 
+		  let val model = CurrentModel.getCurrentModel ()
+		      val filename = "dof-unified.json"
+		      fun output outstream = mlJS.output (outstream, ModelProcess.to_json model)
+		  in if ModelProcess.isDebugging model then
+			 Printer.withOpenOut filename output
+		     else ()
+		  end
+
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  (log ("Optimizing model ...");
 			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))

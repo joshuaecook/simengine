@@ -106,16 +106,15 @@ fun exp2symbol_names (Exp.FUN (_, exps)) =
     (exp2symbol_names (Exp.TERM t1)) @ (exp2symbol_names (Exp.TERM t2))
   | exp2symbol_names _ = []
     
-fun exp2symbols (Exp.FUN (_, exps)) = 
-    List.concat (map exp2symbols exps)
-  | exp2symbols (Exp.TERM (Exp.SYMBOL (var, _))) = [var]
-  | exp2symbols (Exp.TERM (Exp.LIST (terms, _))) = 
-    List.concat (map (fn(t)=> exp2symbols (Exp.TERM t)) terms)
-  | exp2symbols (Exp.TERM (Exp.TUPLE terms)) = 
-    List.concat (map (fn(t)=> exp2symbols (Exp.TERM t)) terms)
-  | exp2symbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
-    (exp2symbols (Exp.TERM t1)) @ (exp2symbols (Exp.TERM t2))
-  | exp2symbols _ = []
+fun exp2symbols (Exp.FUN (_, operands))		= List.concat (map exp2symbols operands)
+  | exp2symbols (Exp.TERM term) 		= term2symbols term
+  | exp2symbols _ 				= nil
+
+and term2symbols (Exp.SYMBOL (var, _)) 		= [var]
+  | term2symbols (Exp.LIST (terms, _)) 		= List.concat (map term2symbols terms)
+  | term2symbols (Exp.TUPLE terms) 		= List.concat (map term2symbols terms)
+  | term2symbols (Exp.COMPLEX (real, imag)) 	= (term2symbols real) @ (term2symbols imag)
+  | term2symbols _ 				= nil
 
 fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
     
