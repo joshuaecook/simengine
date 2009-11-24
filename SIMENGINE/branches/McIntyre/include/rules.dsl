@@ -221,9 +221,17 @@ rulematch 0 ^ ($$a.one) -> 0
 ]
 
 
+// independent variable: term
+var collection = [
+rulematch modelop("add", [$$d1.any, modelop("mul", [$$d2.any, $term, $$d3.any]), $$d4.any, modelop("mul", [$$d5.any, $term, $$d6.any]), $$d7.any]) -> modelop("add", [$d1, $d4, $d7, modelop("mul", [$term, ($d2 * $d3 + $d5 * $d6)])])
+]
+
+// do not add simplification rules into collect rules, they will be added later internally
+LF addRules("collect", collection)
+
 LF addRules("simplification", simplification)
-LF addRules("factoring", factoring)
-LF addRules("expansion", expansion)
+LF addRules("factoring", simplification + factoring)
+LF addRules("expansion", simplification + expansion)
 
 LF addRules("restoration", restoration)
 

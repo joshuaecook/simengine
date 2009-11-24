@@ -177,7 +177,6 @@ fun std_vec_concat exec args =
 	 [KEC.VECTOR exps1, KEC.VECTOR exps2] =>
 	 ((if ((!(#back_index exps1)) - (! (#front_index exps1)) + (!(#back_index exps2)) - (!(#front_index exps2))) < (!(#front_pad_size exps1) + !(#back_pad_size exps1)) then
 	     let
-		 val _ = print ("case 1\n")
 
 		  val array' = Array.array (!(#front_pad_size exps1) + !(#back_pad_size exps1), KEC.UNDEFINED)
 (*		  val _ = Array.copy{src= !(#array exps1), dst=array', di= !(#front_index exps1)}
@@ -209,7 +208,6 @@ fun std_vec_concat exec args =
 
 	 else if ((!(#back_index exps1)) - (!(#front_index exps1)) + (!(#back_index exps2)) - (!(#front_index exps2))) < (!(#front_pad_size exps2) + !(#back_pad_size exps2)) then	     
 	     let
-		 val _ = print ("case 2\n")
 		  val array' = Array.array (!(#front_pad_size exps2) + !(#back_pad_size exps2), KEC.UNDEFINED)
 
 					  
@@ -238,7 +236,6 @@ fun std_vec_concat exec args =
 	      end
 	 else
 	     let
-		 val _ = print ("case 3\n")
 
 		 val front_pad_size = !(#front_pad_size exps1) + !(#front_pad_size exps2)
 		 val back_pad_size = !(#back_pad_size exps1) + !(#back_pad_size exps2)

@@ -51,6 +51,9 @@ val iterators_of_expression : Exp.exp -> SymbolSet.set
 (* Constructs a rule that will match the lhs of an equation and replace it with the rhs. *)
 val equation2rewrite : Exp.exp -> Rewrite.rewrite
 
+val collect : Symbol.symbol * Exp.exp -> Exp.exp
+
+
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
 type sym = Symbol.symbol
@@ -658,6 +661,30 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 
   | iterators_of_expression _ = SymbolSet.empty
 
+
+fun collect (sym, exp) =
+  let
+      val {find, test, replace} = 
+	  case Rules.getRules "collect" of
+	      [collectrule] => collectrule
+	    | _ => DynException.stdException("Unexpected number of collect rule","Match.collect", Logger.INTERNAL)
+
+      val replace_exp = case replace of
+			    Rewrite.RULE exp => exp
+			  | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
+
+      fun subTerm exp repl_exp = 
+	  Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
+									   body=exp}),
+						 arg=repl_exp}))
+
+      val collecter = {find=subTerm find (ExpBuild.var (Symbol.name sym)),
+		       test=test,
+		       replace=Rewrite.RULE (subTerm replace_exp (ExpBuild.var (Symbol.name sym)))}
+
+  in
+      Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ [collecter]) (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
+  end
 
 
 

@@ -161,6 +161,17 @@ fun std_repeatApplyRewritesExp exec args =
        | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_repeatApplyRewritesExp" e
 
+fun std_collect exec args =
+    (case args of
+	 [KEC.LITERAL (KEC.CONSTSTR name), exp] =>
+	 let
+	     val exp = valOf (ModelTranslate.translateExp(exec, exp))
+	 in
+	     valOf(ModelTranslate.reverseExp (exec, ExpProcess.collect (Symbol.symbol name, exp)))
+	 end
+       | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
+    handle e => DynException.checkpoint "CompilerLib.std_repeatApplyRewritesExp" e
+
 fun std_exp2str exec args =
     (case args of
 	 [object] => KEC.LITERAL(KEC.CONSTSTR (ExpPrinter.exp2str (valOf (ModelTranslate.translateExp(exec, object)))))
@@ -177,6 +188,7 @@ val library = [{name="compile", operation=std_compile},
 	       {name="applyRewriteExp", operation=std_applyRewriteExp},
 	       {name="applyRewritesExp", operation=std_applyRewritesExp},
 	       {name="repeatApplyRewriteExp", operation=std_repeatApplyRewriteExp},
-	       {name="repeatApplyRewritesExp", operation=std_repeatApplyRewritesExp}]
+	       {name="repeatApplyRewritesExp", operation=std_repeatApplyRewritesExp},
+	       {name="collect", operation=std_collect}]
 
 end

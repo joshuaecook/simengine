@@ -18,7 +18,7 @@ fun sys_exit _ args =
     (case args of
 	 [KEC.LITERAL(KEC.CONSTREAL (r))] => 
 	 let
-	     val _ = OS.Process.exit (Real.floor r)
+	     val _ = OS.Process.exit (if (Real.floor r) = 0 then OS.Process.success else OS.Process.failure)
 	 in
 	     KEC.LITERAL(KEC.CONSTREAL (r))
 	 end
