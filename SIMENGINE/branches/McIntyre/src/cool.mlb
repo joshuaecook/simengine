@@ -75,6 +75,7 @@ ir/datastructs/pattern.sml
 ir/processing/inst_properties.sml
 ir/datastructs/fun.sml
 ir/datastructs/exp.sml
+ir/datastructs/container.sml
 (*ir/datastructs/eval.sml*)
 ir/datastructs/term.sml
 ir/datastructs/solver.sml

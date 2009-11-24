@@ -20,6 +20,7 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
+	  | useParen (Exp.CONTAINER _) = false
 
 	fun addParen (str, exp) = 
 	    if String.isPrefix "-" str then
@@ -45,6 +46,11 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	notation2c_str (FunProps.fun2cstrnotation str)
     end
   | exp2c_str (Exp.TERM term) = term2c_str term
+  | exp2c_str (Exp.CONTAINER c) =
+    (case c of
+	 Exp.EXPLIST l => DynException.stdException ("Cannot write EXPLIST expressions", "CWriter.exp2c_str", Logger.INTERNAL)
+       | Exp.VECTOR v => "{" ^ (String.concatWith ", " (map exp2c_str (Container.vector2list v))) ^ "}"
+       | Exp.MATRIX m => DynException.stdException ("Cannot write MATRIX expressions", "CWriter.exp2c_str", Logger.INTERNAL))
   | exp2c_str (Exp.META _) = 
     DynException.stdException ("Cannot write META expressions.", "CWriter.exp2c_str", Logger.INTERNAL)
     

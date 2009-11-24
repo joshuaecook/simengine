@@ -587,6 +587,11 @@ fun exp2size iterator_list exp : int =
 		       end
 		     | Exp.FUN (Fun.INST _, args) => 1 (*TODO: ???? *)
 		     | Exp.META _ => 1 (*TODO: ???? *)
+		     | Exp.CONTAINER c => 
+		       (case c of
+			    Exp.EXPLIST l => length l
+			  | Exp.VECTOR v => Vector.length v
+			  | Exp.MATRIX m => (Array2.nCols m) * (Array2.nRows m))
 
     in
 	size
@@ -901,6 +906,7 @@ val js_symbol = js_string o Symbol.name
 fun to_json (Exp.FUN (typ, expressions)) = fun_to_json (typ, expressions)
   | to_json (Exp.TERM term) = term_to_json term
   | to_json (Exp.META meta) = meta_to_json meta
+  | to_json (Exp.CONTAINER c) = container_to_json c
 
 and fun_to_json (Fun.BUILTIN operation, expressions) =
     js_object [("type", js_string "BUILTIN"),
@@ -1051,7 +1057,20 @@ and meta_to_json (Exp.LAMBDA {arg, body}) =
     js_object [("type", js_string "SEQUENCE"),
 	       ("members", js_array (map to_json members))]
    
-
+and container_to_json (Exp.EXPLIST l) =
+    js_object [("type", js_string "EXPLIST"),
+	       ("members", js_array (map to_json l))]
+  | container_to_json (Exp.VECTOR v) =
+    js_object [("type", js_string "VECTOR"),
+	       ("length", js_int (Vector.length v)),
+	       ("members", js_array (map to_json (Container.vector2list v)))]
+  | container_to_json (Exp.MATRIX m) =
+    js_object [("type", js_string "MATRIX"),
+	       ("rows", js_int (Array2.nRows m)),
+	       ("columns", js_int (Array2.nCols m)),
+	       ("members", js_array (map 
+					 (to_json o Exp.CONTAINER o Exp.VECTOR)
+					 (Container.matrix2vectors m)))]
 
 end
 

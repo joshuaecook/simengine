@@ -36,6 +36,7 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
+	  | useParen (Exp.CONTAINER _) = false
 
 	fun addParen ("", exp) = 
 	    ""
@@ -90,6 +91,15 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2tersestr e)) ^ " :}"
        | _ => "<unresolved-meta>")
+  | exp2tersestr (Exp.CONTAINER container) =
+    let
+	fun list2str l = String.concatWith ", " (map exp2tersestr l)
+    in
+	case container of
+	     Exp.EXPLIST e => "{" ^ (list2str e) ^ "}"
+	   | Exp.VECTOR v => "[" ^ (list2str (Container.vector2list v)) ^ "]"
+	   | Exp.MATRIX m => "[" ^ (list2str (map (Exp.CONTAINER o Exp.VECTOR) (Container.matrix2vectors m))) ^ "]"
+    end
 
 
 fun exp2fullstr (Exp.FUN (f, exps)) = 
@@ -115,6 +125,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
+	  | useParen (Exp.CONTAINER _) = false
 
 	fun addParen (str, exp) = 
 	    if hd (String.explode str) = #"-" then
@@ -162,6 +173,15 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2fullstr e)) ^ " :}"
        | _ => "<unresolved-meta>")
+  | exp2fullstr (Exp.CONTAINER container) =
+    let
+	fun list2str l = String.concatWith ", " (map exp2fullstr l)
+    in
+	case container of
+	     Exp.EXPLIST e => "explist(" ^ (list2str e) ^ ")"
+	   | Exp.VECTOR v => "vector(" ^ (list2str (Container.vector2list v)) ^ ")"
+	   | Exp.MATRIX m => "matrix(" ^ (list2str (map (Exp.CONTAINER o Exp.VECTOR) (Container.matrix2vectors m))) ^ ")"
+    end
 
 fun exp2str e = 
     (if DynamoOptions.isFlagSet("usefullform") then

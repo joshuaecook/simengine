@@ -71,6 +71,11 @@ fun level (exp) =
       | Exp.TERM (Exp.LIST (termlist, _)) => map Exp.TERM termlist
       | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
       | Exp.TERM (Exp.COMPLEX (a, b)) => map Exp.TERM [a,b]
+      | Exp.CONTAINER (Exp.EXPLIST l) => l
+      | Exp.CONTAINER (Exp.VECTOR v) => (Container.vector2list v)
+      | Exp.CONTAINER (Exp.MATRIX m) => map 
+					    (Exp.CONTAINER o Exp.VECTOR)
+					    (Container.matrix2vectors m)
       | _ => []
 
 (* this will return a function to rebuild the head *)
@@ -80,6 +85,9 @@ fun head (exp) =
       | Exp.TERM (Exp.LIST (termlist, dimlist)) => (fn(args')=> Exp.TERM (Exp.LIST (map exp2term args', dimlist)))
       | Exp.TERM (Exp.TUPLE (termlist)) => (fn(args') => Exp.TERM (Exp.TUPLE (map exp2term args')))
       | Exp.TERM (Exp.COMPLEX (a, b)) => (fn(args') => Exp.TERM (Exp.COMPLEX (exp2term (List.nth (args', 0)), exp2term (List.nth (args', 1)))))
+      | Exp.CONTAINER (Exp.EXPLIST l) => (fn(args') => Exp.CONTAINER (Exp.EXPLIST args'))
+      | Exp.CONTAINER (Exp.VECTOR v) => (fn(args') => Exp.CONTAINER (Exp.VECTOR (Container.list2vector args')))
+      | Exp.CONTAINER (Exp.MATRIX m) => (fn(args') => Exp.CONTAINER (Exp.MATRIX (Container.vectors2matrix (Container.listexp2listvector args'))))
       | _ => (fn(args') => exp)
 
 (* level and head are identity functions *)

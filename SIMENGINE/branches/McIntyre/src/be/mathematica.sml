@@ -72,6 +72,7 @@ fun exp2mathematica_str (exp as (Exp.FUN (Fun.BUILTIN Fun.ASSIGN,[_,Exp.FUN (Fun
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
+	  | useParen (Exp.CONTAINER _) = false
 
 	fun addParen (str, exp) = 
 	    if String.isPrefix "-" str then
@@ -97,6 +98,18 @@ fun exp2mathematica_str (exp as (Exp.FUN (Fun.BUILTIN Fun.ASSIGN,[_,Exp.FUN (Fun
 	notation2mathematica_str (FunProps.fun2mathematicastrnotation str)
     end
   | exp2mathematica_str (Exp.TERM term) = term2mathematica_str term
+  | exp2mathematica_str (Exp.CONTAINER c) = 
+    let
+	fun list2str l = "{" ^ (String.concatWith "," l) ^ "}"
+	fun explist2str l = list2str (map exp2mathematica_str l)
+    in
+	case c of 
+	    Exp.EXPLIST l => explist2str l
+	  | Exp.VECTOR v => explist2str (Container.vector2list v)
+	  | Exp.MATRIX m => list2str (map 
+					  (explist2str o Container.vector2list)
+					  (Container.matrix2vectors m))
+    end    
   | exp2mathematica_str (Exp.META _) = 
     DynException.stdException ("Cannot write META expressions.", "Mathematica.exp2mathematica_str", Logger.INTERNAL)
     
@@ -123,7 +136,6 @@ and term2mathematica_str (Exp.RATIONAL (n,d)) = "("^(i2s n) ^ "/" ^ (i2s d) ^ ")
   | term2mathematica_str Exp.NAN = "Indeterminate"
   | term2mathematica_str term =
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"Mathematica.exp2mathematica_str", Logger.INTERNAL)
-
 
 
 fun mexp2prog mexp = 
