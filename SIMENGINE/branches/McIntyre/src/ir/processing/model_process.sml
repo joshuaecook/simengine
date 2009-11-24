@@ -11,17 +11,19 @@ structure ModelProcess : sig
       function performs transformations that are used solely for fitting within a back-end.  This
       can include renaming symbols to fit within compiler rules or adding code generation flags. *)
     val normalizeModel : DOF.model -> unit
-    val normalizeParallelModel : DOF.model -> unit
+    val forkModel : DOF.model -> {top_class: Symbol.symbol,
+				  iter: DOF.systemiterator,
+				  model: DOF.model} list
 
     (* model2statesizebyiterator: Computes the total state space of the model on a per iterator basis *)
     val model2statesize : DOF.model -> int
     val model2statesizebyiterator : DOF.systemiterator -> DOF.model -> int
 
-    (* createIteratorForkedModels: Creates a structure list of models that are unique by iterator *)
+(*    (* createIteratorForkedModels: Creates a structure list of models that are unique by iterator *)
     val createIteratorForkedModels : DOF.model -> {top_class: Symbol.symbol,
 						   iter: DOF.systemiterator,
 						   model: DOF.model} list
-
+*)
     val duplicateModel : DOF.model -> (Symbol.symbol -> Symbol.symbol) -> DOF.model
     val pruneModel : (DOF.systemiterator option) -> DOF.model -> unit
 	
@@ -334,6 +336,14 @@ fun normalizeModel (model:DOF.model) =
 
 
 	val _ = DynException.checkToProceed()
+
+	val _ = log ("Adding EP index to class ...")
+	val () = app (ClassProcess.addEPIndexToClass false) (CurrentModel.classes())
+	val top_class = CurrentModel.classname2class (#classname (CurrentModel.top_inst()))
+	val () = ClassProcess.addEPIndexToClass true top_class
+
+	val _ = DynException.checkToProceed()
+
     in
 	() (* all changes are in the model, we don't have to return this model *)
     end
@@ -364,44 +374,16 @@ fun createIteratorForkedModels model =
 	map forkedModel iterators
     end
 
-fun normalizeParallelModel (model:DOF.model) =
+fun forkModel (model:DOF.model) =
     let
 	val _ = DynException.checkToProceed()
 
 	val (classes, _, _) = model
 	(* TODO, write the checks of the model IR as they are needed *)
 
-	(* generate all offsets for instances *)
-	(*val () = app ClassProcess.generateOffsets classes*)
 
-(*
-	(* reorder all the statements *)
-	val () = app 
-		     (fn(class)=> 
-			let
-			    val eqs' = EqUtil.order_eqs (!(#eqs class))
-			in
-			    (#eqs class) := eqs'
-			end) 
-		     classes
-	*)
-(*	val _ = Ordering.orderModel(model)*)
-
-	val _ = DynException.checkToProceed()
-
-	(* remap all names into names that can be written into a back-end *)
-	(*val () = app ClassProcess.fixSymbolNames (CurrentModel.classes())*)
-	(* must be put into a different normalizeModel function *)
-
-	val _ = log ("Adding EP index to class ...")
-	val () = app (ClassProcess.addEPIndexToClass false) (CurrentModel.classes())
-	val top_class = CurrentModel.classname2class (#classname (CurrentModel.top_inst()))
-	val () = ClassProcess.addEPIndexToClass true top_class
-
-	(*val () = app ClassProcess.fixStateSymbolNames (CurrentModel.classes())*)
-
-	(* Just some debug code ...*)
 	val forkedModels = createIteratorForkedModels model
+
 	val prevModel = CurrentModel.getCurrentModel()
 	val iter_count = List.length (CurrentModel.iterators())
 	val _ = app
@@ -414,9 +396,9 @@ fun normalizeParallelModel (model:DOF.model) =
 
 	val _ = DynException.checkToProceed()
     in
-	()
+	forkedModels
     end
-    handle e => DynException.checkpoint "ModelProcess.normalizeParallelModel" e
+    handle e => DynException.checkpoint "ModelProcess.forkModel" e
 
 
 fun isDebugging model = 

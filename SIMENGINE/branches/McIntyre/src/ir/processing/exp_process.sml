@@ -687,8 +687,6 @@ fun collect (sym, exp) =
   end
 
 
-
-
 fun symterm2symterm term = 
     case term of 
 	Exp.SYMBOL s => Exp.SYMBOL s
@@ -727,6 +725,32 @@ fun countTerms exp =
 
 fun countFuns exp =
     length (Match.findRecursive (Match.anyfun "a", exp))
+
+
+fun expEulerEqReformat(sym, titer, dt, exp) =
+    let
+	val a = ExpBuild.plus [ExpBuild.var "d1", ExpBuild.var "d4"]
+	val b = ExpBuild.neg (ExpBuild.times [ExpBuild.var "d2", ExpBuild.var "d3"])
+
+	val s = Symbol.name(term2sym(exp2term(sym)))
+		    
+
+	val reformatter = {find=ExpBuild.plus [Match.any "d1", ExpBuild.times [Match.any "d2", ExpBuild.var s, Match.any "d3"], Match.any "d4"],
+			   test=NONE,
+			   replace=Rewrite.RULE (ExpBuild.plus[ExpBuild.times [ExpBuild.avar s titer, 
+									       ExpBuild.exp (ExpBuild.times [dt, 
+													     ExpBuild.neg (b)])], 
+							       ExpBuild.times [ExpBuild.divide (a, b),
+									       ExpBuild.sub (ExpBuild.real 1.0,
+											     ExpBuild.exp (ExpBuild.times [ExpBuild.neg b,
+															   dt]))]])}
+    in
+	Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ [reformatter]) exp
+    end
+
+(*fun expEulerReformat ( *)
+
+
 
 datatype p = PREPEND | APPEND
 

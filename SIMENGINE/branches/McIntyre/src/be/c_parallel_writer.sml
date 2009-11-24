@@ -1188,11 +1188,11 @@ fun logoutput_code class forkedModels =
     end
     handle e => DynException.checkpoint "CParallelWriter.logoutput_code" e
 
-fun buildC (model: DOF.model as (classes, inst, props)) =
+fun buildC (combinedModel as (classes, inst, props), forkedModels) =
     let
-	val () = CurrentModel.setCurrentModel model
+(*	val () = CurrentModel.setCurrentModel combinedModel
 
-	val forkedModels = ModelProcess.createIteratorForkedModels model
+	val forkedModels = ModelProcess.createIteratorForkedModels model *)
 
 	val () = 
 	    let val model = CurrentModel.getCurrentModel ()
@@ -1243,7 +1243,7 @@ fun buildC (model: DOF.model as (classes, inst, props)) =
 				    []))
 
 	val init_solver_props_c = init_solver_props orig_name forkedModelsWithSolvers		   
-	val simengine_interface_progs = simengine_interface (*(class_name, inst_class, unique_solvers, iterator_names)*)model forkedModelsLessUpdate
+	val simengine_interface_progs = simengine_interface (*(class_name, inst_class, unique_solvers, iterator_names)*)combinedModel forkedModelsLessUpdate
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = Util.flatmap (fn{model,...} => CurrentModel.withModel model (fn _=> outputstatestruct_code model)) forkedModelsLessUpdate

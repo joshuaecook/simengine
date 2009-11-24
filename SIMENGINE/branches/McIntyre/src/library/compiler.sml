@@ -51,7 +51,7 @@ fun std_compile exec args =
 	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
 
 	      val _ = log("Normalizing parallel model ...")
-	      val _ = ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel())
+	      val forkedModels = ModelProcess.forkModel (CurrentModel.getCurrentModel())
 
 (*	      val _ = log("Ready to build the following DOF ...")*)
 	      val _ = log("Ready to build ...")
@@ -67,7 +67,7 @@ fun std_compile exec args =
 		  end
 
 
-	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
+	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel(), forkedModels)
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
 
 	      val _ = DynException.checkToProceed()
