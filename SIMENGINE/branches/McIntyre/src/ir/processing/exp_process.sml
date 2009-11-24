@@ -82,6 +82,9 @@ val getLHSSymbols : Exp.exp -> Symbol.symbol list (* Grab them as a list, since 
 (* pull out all the function names that are present *)
 val exp2fun_names : Exp.exp -> Symbol.symbol list
 
+(* sort states by dependencies *)
+val sortStatesByDependencies : (Symbol.symbol * Exp.exp * SymbolSet.set) list -> (Symbol.symbol * Exp.exp * SymbolSet.set) list
+
 (* useful helper functions *)
 val uniq : Symbol.symbol -> Symbol.symbol (* given a sym, create a unique sym name *)
 
@@ -1054,7 +1057,57 @@ fun assignToOutputBuffer exp =
       | _ => exp*)
 
 
+fun sortStatesByDependencies nil =
+    DynException.stdException("No relations passd in", "ExpProcess.sortStatesByDependencies", Logger.INTERNAL)
+  | sortStatesByDependencies relations =
+    let
+	fun addCount (relation as (_,_,deps)) = (relation, SymbolSet.numItems deps)
+	fun sort_lessthan ((_,count1),(_,count2)) = count1 < count2
+	fun stateExists relation_list state =
+	    List.exists (fn(state',_,_)=>state=state') relation_list
+	fun findState relation_list state = 
+	    let
+		val (matched, unmatched) = List.partition (fn(state',_,_)=>state=state') relation_list
+	    in
+		(Util.hd matched, unmatched)
+	    end
 
+	(* need a relation with the smallest count *)
+	fun fewestCount relation_list =
+	    let 
+		val sorted_list = StdFun.sort_compare sort_lessthan (map addCount relation_list)
+		val (relation, _) = Util.hd sorted_list
+	    in
+		relation
+	    end
+
+	(* move one relation from the remaining list to the sorted list *)
+	fun moveRelation (sorted, remaining, []) = 
+	    let
+		val r as (state, _, deps) = fewestCount remaining					    
+		val (_, unmatched) = findState remaining state
+	    in
+		(sorted @ [r], unmatched, SymbolSet.listItems deps)
+	    end
+	  | moveRelation (sorted, remaining, backlog::backlog_list) =
+	    if stateExists sorted backlog then
+		(sorted, remaining, backlog_list)
+	    else
+		let
+		    val (matched as (_, _, deps), unmatched) = findState remaining backlog
+		in
+		    (sorted @ [matched], unmatched, Util.tl backlog_list @ (SymbolSet.listItems deps))
+		end
+		
+	(* recursive sortRelations list *)
+	fun sortRelations (sorted, [], _) = sorted (* result *)
+	  | sortRelations (var as (sorted, remaining, backlog)) = 
+	    sortRelations (moveRelation var) (* recursive call *)
+	    
+    in
+	sortRelations ([], relations, [])
+    end
+    handle e => DynException.checkpoint "ExpProcess.sortStatesByDependencies" e
 
 
 local open mlJS in
