@@ -359,6 +359,205 @@ fun normalizeModel (model:DOF.model) =
     end
     handle e => DynException.checkpoint "ModelProcess.normalizeModel" e
 
+
+fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS solvertype), model: DOF.model }) =
+    (case solvertype of 
+	 Solver.EXPONENTIAL_EULER {dt} => 
+	 shard (* TODO: stubbed out *)
+
+       | Solver.LINEAR_BACKWARD_EULER {dt} =>
+	 (let
+	     (* flatten model *)
+	     (*TODO: integrate with josh *)
+	     val model' = (* ModelProcess.unify *) model
+						   
+	     val flatclass = case model' of
+				 ([class], _, _) => class
+			       | _ => DynException.stdException ("Flattening resulted in more than one class", 
+								 "ModelProcess.updateSHardForSolver.LINEAR_BACKWARDS_EULER", 
+								 Logger.INTERNAL)
+
+	     val (_, instance, sysprops) = model 
+
+	     (* get list of all states *)
+	     val states = ClassProcess.class2states flatclass
+
+	     val stateSet = SymbolSet.fromList states
+
+	     (* compute state relationships *)
+	     fun computeRelationships state =
+		 let
+		     val stateeq = 
+			 Util.hd(List.filter ExpProcess.isStateEq (ClassProcess.symbol2exps flatclass state))
+
+		     val rhs = ExpProcess.rhs stateeq
+
+		     val usedSyms = SymbolSet.add(ExpProcess.exp2symbolset rhs, state)
+		 in
+		     (state, stateeq, SymbolSet.intersection (stateSet, usedSyms))
+		 end
+		 handle e => DynException.checkpoint "ModelProcess.updateShardForSolver.computeRelationships" e
+		 
+
+	     val relations = map computeRelationships states
+
+	     (* order the states to make matrix banded *)
+			     
+	     val orderedRelationships = ExpProcess.sortStatesByDependencies relations
+
+	     val numberedRelationships = (ListPair.zip (orderedRelationships, 
+							List.tabulate (length orderedRelationships, fn(i) => i)))
+
+	     val sym2index = foldl (fn(((s, _, _), i), t) => SymbolTable.enter(t,s,i))
+				   SymbolTable.empty 
+				   numberedRelationships
+
+   	     (* populate matrix*)
+	     val matrix = Container.expmatrix2matrix(Container.zeros_matrix (length states, length states))
+
+	     val bvector = Container.exparray2array (Container.zeros_array (length states))
+
+	     fun buildIteratorUpdate state =
+		 {find=ExpBuild.avar (Symbol.name state) (Symbol.name itername),
+		  test=NONE,
+		  replace=Rewrite.ACTION (Symbol.symbol ("t->t+1 on " ^ (Symbol.name state)), 
+					  ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1))}
+
+	     val iteratorUpdateRules = map buildIteratorUpdate states
+
+	     fun setAsReadState (Exp.TERM (Exp.SYMBOL (sym, props))) =
+		 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE itername)))
+	       | setAsReadState _ = DynException.stdException("Unexpected non-symbol",
+							      "ModelProcess.updateShardForSolver.setAsReadState",
+							      Logger.INTERNAL)
+
+	     fun updateMatrix ((state, eq, deps), rowIndex) =		
+		 let
+		     (* backwards euler transformation *)
+		     (* update rhs to make any states in matrix [t+1] from [t] *)
+		     val rhs' = Match.repeatApplyRewritesExp iteratorUpdateRules (ExpProcess.rhs eq)
+				
+		     (* plug rhs into x[t+1] = x[t] + dt * rhs' *)
+		     (* subtract lhs from rhs, making an expression*)
+		     (* so really, we're doing exp = x[t] + dt * rhs' - x[t+1] (implicitly == 0) *)
+		     val var = setAsReadState (ExpBuild.avar (Symbol.name state) (Symbol.name itername)) (*x[t]*) 
+		     val nextvar = ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1) var (*x[t+1]*)
+		     val exp = ExpBuild.plus [var,
+					      ExpBuild.times [ExpBuild.real dt, rhs'],
+					      ExpBuild.neg(nextvar)] 
+			       
+		     (* collect *)
+		     val exp' = ExpProcess.multicollect (SymbolSet.listItems deps, exp)
+		     val _ = Util.log("Calling multicollect: from '"^(e2s exp)^"' to '"^(e2s exp')^"'")
+
+		     (* for each dep (column) in the row: *)	
+		     fun addEntry (statedep, exp) =
+			 let
+			     val _ = Util.log("In addEntry for state '"^(Symbol.name statedep)^"', exp: "^(e2s exp))
+			     (* pull out coefficient for statedep from collected eq *)
+			     fun extractCoefficient sym =
+				 let
+				     val var = ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1) 
+										 (ExpBuild.nextavar (Symbol.name sym) itername)
+				     val coeff_rewrite = 
+					 {find=ExpBuild.plus[Match.any "d1", 
+							     ExpBuild.times [Match.any "d2", 
+									     var, 
+									     Match.any "d3"], 
+							     Match.any "d4"],
+					  test=NONE,
+					  replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.var "d2", ExpBuild.var "d3"],
+											 ExpBuild.plus  [ExpBuild.var "d1", ExpBuild.var "d4"]]))}
+					 
+				 in
+				     case Match.repeatApplyRewriteExp coeff_rewrite exp of
+					 Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
+					 (coeff, remainder)
+				       | _ => (ExpBuild.int 0, exp)
+					      
+				 end
+				 handle e => DynException.checkpoint
+						 "ModelProcess.updateShardForSolver.updateMatrix.addEntry.extractCoefficient"
+						 e
+
+				 
+			     val (coeff, remainder) = extractCoefficient statedep
+
+			     (* insert coefficient into matrix at (rowindex, sym2index statedep)*)
+			     val columnIndex = case SymbolTable.look(sym2index, statedep) of
+						   SOME i => i
+						 | NONE => DynException.stdException ("Unknown symbol dependency: " ^ (Symbol.name statedep), 
+										      "ModelProcess.updateSHardForSolver.LINEAR_BACKWARDS_EULER.updateMatrix.addEntry", 
+										      Logger.INTERNAL)
+							   
+			     val _ = Array2.update (matrix, rowIndex, columnIndex, ExpProcess.simplify coeff)
+
+			 in
+			     remainder
+			 end
+			 handle e => DynException.checkpoint "ModelProcess.updateShardForSolver.updateMatrix.addEntry" e
+			     
+		     val b_entry = foldl addEntry exp' (SymbolSet.listItems deps)
+
+		     (* Verify that remainder does not contain states with [t+1] iterators (indicating non-linearity) *)  		
+		     val preds = [("is symbol", ExpProcess.isSymbol),
+				  ("symbol in state syms", fn(exp) => SymbolSet.member (stateSet, ExpProcess.exp2symbol exp)),
+				  ("relative iterator is 1", fn(exp) => case ExpProcess.exp2temporaliterator exp of 
+									    SOME (_, Iterator.RELATIVE 1) => true
+									  | _ => false)]
+				 
+		     val _ = case Match.findOnce (Match.anysym_with_predlist preds (Symbol.symbol "#pattern"), b_entry) of
+				 SOME e =>
+				 (Logger.log_usererror nil (Printer.$("Cannot use backwards euler because state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2s eq)));
+				  DynException.setErrored())
+			       | NONE => ()
+
+		     (* insert "rest" coefficient into bvector at stateindex*)
+		     val _ = Array.update (bvector, rowIndex, b_entry)
+		 in
+		     ((*foldl addEntry eq (SymbolSet.listItems deps);*)
+		      ())
+		 end
+		 handle e => DynException.checkpoint "ModelProcess.updateShardForSolver.updateMatrix" e
+
+	     val _ = app updateMatrix numberedRelationships
+
+  	     (* create new shard using matrix equation Mx = b *)
+	     val m_eq = ExpBuild.equals (ExpBuild.var ("#M"),
+					 Exp.CONTAINER(Exp.MATRIX matrix))
+	     val b_eq = ExpBuild.equals (ExpBuild.var ("#b"),
+					 Exp.CONTAINER(Exp.ARRAY bvector))
+			
+	     (* sort initial conditions so order matches x element order *)
+	     (* see findStateInitValues in CParallelWriter *)
+	     val inits = List.filter ExpProcess.isInitialConditionEq (!(#exps flatclass))
+
+	     fun getInitialCondition (state, _, _) =
+		 case List.find (fn(init) => ExpProcess.getLHSSymbol(init) = state) inits of
+		     SOME init => init
+		   | NONE => DynException.stdException ("State has no initial condition: " ^ (Symbol.name state), 
+							"ModelProcess.updateSHardForSolver.LINEAR_BACKWARDS_EULER", 
+							Logger.INTERNAL)
+
+	     val sorted_inits = map getInitialCondition orderedRelationships
+
+	     val newExps = sorted_inits @ [m_eq, b_eq]
+
+	     val _ = (#exps flatclass) := newExps
+
+	     val shard' = {top_class=top_class, iter=iter, model=([flatclass], instance, sysprops)}
+
+	 in
+	     shard'
+	 end
+	 handle e => DynException.checkpoint "ModelProcess.updateShardForSolver.[LINEAR_BACKWARD_EULER]" e)
+	 
+       | _ => shard) 
+
+  | updateShardForSolver shard = shard
+
+
+
 fun forkModelByIterator model (iter as (iter_sym,_)) = 
     let
 	fun namechangefun iter_sym = (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym)))
@@ -404,190 +603,22 @@ fun forkModel (model:DOF.model) =
 		    (StdFun.addCount forkedModels)
 	val _ = CurrentModel.setCurrentModel(prevModel)
 
+	val shards = map (fn(s as {model,...})=> CurrentModel.withModel model (fn(_)=>updateShardForSolver s)) forkedModels
+
+	val _ = app
+		    (fn({top_class,iter=(iter_sym,_),model=model'},n)=>		       
+		       (CurrentModel.setCurrentModel(model');
+			log("\n==================   () Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") (Updated shards) =====================");
+			DOFPrinter.printModel model'))
+		    (StdFun.addCount shards)
+	val _ = CurrentModel.setCurrentModel(prevModel)
+
+
 	val _ = DynException.checkToProceed()
     in
-	forkedModels
+	shards
     end
     handle e => DynException.checkpoint "ModelProcess.forkModel" e
-
-fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS solvertype), model: DOF.model }) =
-    (case solvertype of 
-	 Solver.EXPONENTIAL_EULER {dt} => 
-	 shard (* TODO: stubbed out *)
-
-       | Solver.LINEAR_BACKWARD_EULER {dt} =>
-	 let
-	     (* flatten model *)
-	     (*TODO: integrate with josh *)
-	     val model' = (* ModelProcess.unify *) model
-						   
-	     val flatclass = case model' of
-				 ([class], _, _) => class
-			       | _ => DynException.stdException ("Flattening resulted in more than one class", 
-								 "ModelProcess.updateSHardForSolver.LINEAR_BACKWARDS_EULER", 
-								 Logger.INTERNAL)
-
-	     val (_, instance, sysprops) = model 
-
-	     (* get list of all states *)
-	     val states = ClassProcess.class2states flatclass
-
-	     val stateSet = SymbolSet.fromList states
-
-	     (* compute state relationships *)
-	     fun computeRelationships state =
-		 let
-		     val stateeq = 
-			 Util.hd(List.filter ExpProcess.isStateEq (ClassProcess.symbol2exps flatclass state))
-
-		     val rhs = ExpProcess.rhs stateeq
-
-		     val usedSyms = ExpProcess.exp2symbolset rhs
-		 in
-		     (state, stateeq, SymbolSet.intersection (stateSet, usedSyms))
-		 end
-
-	     val relations = map computeRelationships states
-
-	     (* order the states to make matrix banded *)
-			     
-	     val orderedRelationships = ExpProcess.sortStatesByDependencies relations
-
-	     val numberedRelationships = (ListPair.zip (orderedRelationships, 
-							List.tabulate (length orderedRelationships, fn(i) => i)))
-
-	     val sym2index = foldl (fn(((s, _, _), i), t) => SymbolTable.enter(t,s,i))
-				   SymbolTable.empty 
-				   numberedRelationships
-
-   	     (* populate matrix*)
-	     val matrix = Container.expmatrix2matrix(Container.zeros_matrix (length states, length states))
-
-	     val bvector = Container.exparray2array (Container.zeros_array (length states))
-
-	     fun buildIteratorUpdate state =
-		 {find=ExpBuild.avar (Symbol.name state) (Symbol.name itername),
-		  test=NONE,
-		  replace=Rewrite.ACTION (Symbol.symbol ("t->t+1 on " ^ (Symbol.name state)), 
-					  ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1))}
-
-	     val iteratorUpdateRules = map buildIteratorUpdate states
-
-
-	     fun updateMatrix ((state, eq, deps), rowIndex) =		
-		 let
-		     (* backwards euler transformation *)
-		     (* update rhs to make any states in matrix [t+1] from [t] *)
-		     val rhs' = Match.repeatApplyRewritesExp iteratorUpdateRules (ExpProcess.rhs eq)
-				
-		     (* plug rhs into x[t+1] = x[t] + dt * rhs' *)
-		     (* subtract lhs from rhs, making an expression*)
-		     (* so really, we're doing exp = x[t] + dt * rhs' - x[t+1] (implicitly == 0) *)
-		     val var = ExpProcess.assignCorrectScopeOnSymbol (ExpBuild.avar (Symbol.name state) (Symbol.name itername)) (*x[t]*) 
-		     val nextvar = ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1) var (*x[t+1]*)
-		     val exp = ExpBuild.plus [var,
-					      ExpBuild.times [ExpBuild.real dt, rhs'],
-					      ExpBuild.neg(nextvar)] 
-			       
-		     (* for each dep (column) in the row: *)	
-		     fun addEntry (statedep, exp) =
-			 let
-			     (* collect *)
-			     val exp' = ExpProcess.multicollect (SymbolSet.listItems deps, exp)
-
-			     (* pull out coefficient for statedep from collected eq *)
-			     fun extractCoefficient sym =
-				 let
-				     val var = ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1) 
-										 (ExpBuild.nextavar (Symbol.name sym) itername)
-				     val coeff_rewrite = 
-					 {find=ExpBuild.plus[Match.any "d1", 
-							     ExpBuild.times [Match.any "d2", 
-									     var, 
-									     Match.any "d3"], 
-							     Match.any "d4"],
-					  test=NONE,
-					  replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.var "d2", ExpBuild.var "d3"],
-											 ExpBuild.plus  [ExpBuild.var "d1", ExpBuild.var "d4"]]))}
-					 
-				 in
-				     case Match.repeatApplyRewriteExp coeff_rewrite exp of
-					 Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
-					 (coeff, remainder)
-				       | _ => (ExpBuild.int 0, exp)
-					      
-				 end
-				 
-			     val (coeff, remainder) = extractCoefficient statedep
-
-			     (* insert coefficient into matrix at (rowindex, sym2index statedep)*)
-			     val columnIndex = case SymbolTable.look(sym2index, statedep) of
-						   SOME i => i
-						 | NONE => DynException.stdException ("Unknown symbol dependency: " ^ (Symbol.name statedep), 
-										      "ModelProcess.updateSHardForSolver.LINEAR_BACKWARDS_EULER.updateMatrix.addEntry", 
-										      Logger.INTERNAL)
-							   
-			     val _ = Array2.update (matrix, rowIndex, columnIndex, coeff)
-
-			 in
-			     remainder
-			 end
-
-		     val b_entry = foldl addEntry exp (SymbolSet.listItems deps)
-
-		     (* Verify that remainder does not contain states with [t+1] iterators (indicating non-linearity) *)  		
-		     val preds = [("symbol in state syms", fn(exp) => SymbolSet.member (stateSet, ExpProcess.exp2symbol exp)),
-				  ("relative iterator is 1", fn(exp) => case ExpProcess.exp2temporaliterator exp of 
-									    SOME (_, Iterator.RELATIVE 1) => true
-									  | _ => false)]
-				 
-		     val _ = case Match.findOnce (Match.anysym_with_predlist preds (Symbol.symbol "#pattern"), b_entry) of
-				 SOME e =>
-				 Logger.log_usererror nil (Printer.$("Cannot use backwards euler because state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2s eq)))
-			       | NONE => ()
-
-		     (* insert "rest" coefficient into bvector at stateindex*)
-		     val _ = Array.update (bvector, rowIndex, b_entry)
-		 in
-		     (foldl addEntry eq (SymbolSet.listItems deps);
-		      ())
-		 end
-
-	     val _ = app updateMatrix numberedRelationships
-
-  	     (* create new shard using matrix equation Mx = b *)
-	     val m_eq = ExpBuild.equals (ExpBuild.var ("#M"),
-					 Exp.CONTAINER(Exp.MATRIX matrix))
-	     val b_eq = ExpBuild.equals (ExpBuild.var ("#b"),
-					 Exp.CONTAINER(Exp.ARRAY bvector))
-			
-	     (* sort initial conditions so order matches x element order *)
-	     (* see findStateInitValues in CParallelWriter *)
-	     val inits = List.filter ExpProcess.isInitialConditionEq (!(#exps flatclass))
-
-	     fun getInitialCondition (state, _, _) =
-		 case List.find (fn(init) => ExpProcess.getLHSSymbol(init) = state) inits of
-		     SOME init => init
-		   | NONE => DynException.stdException ("State has no initial condition: " ^ (Symbol.name state), 
-							"ModelProcess.updateSHardForSolver.LINEAR_BACKWARDS_EULER", 
-							Logger.INTERNAL)
-
-	     val sorted_inits = map getInitialCondition orderedRelationships
-
-	     val newExps = sorted_inits @ [m_eq, b_eq]
-
-	     val _ = (#exps flatclass) := newExps
-
-	     val shard' = {top_class=top_class, iter=iter, model=([flatclass], instance, sysprops)}
-
-	 in
-	     shard'
-	 end
-	 
-       | _ => shard)
-
-  | updateShardForSolver shard = shard
-
 
 fun isDebugging model = 
     let val (_, _, props : DOF.systemproperties) = model

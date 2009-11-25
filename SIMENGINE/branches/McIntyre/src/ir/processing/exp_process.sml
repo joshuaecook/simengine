@@ -16,10 +16,12 @@ val deconstructInst : Exp.exp -> {classname: Symbol.symbol,
 
 (* Classification functions *)
 val isTerm : Exp.exp -> bool
+val isSymbol : Exp.exp -> bool
 val isEquation : Exp.exp -> bool
 val isExpList : Exp.exp -> bool
 val isArray : Exp.exp -> bool
 val isMatrix : Exp.exp -> bool
+val isMatrixEq : Exp.exp -> bool
 val isStateEq : Exp.exp -> bool
 val isInitialConditionEq : Exp.exp -> bool
 val isInstanceEq : Exp.exp -> bool
@@ -55,6 +57,7 @@ val iterators_of_expression : Exp.exp -> SymbolSet.set
 (* Constructs a rule that will match the lhs of an equation and replace it with the rhs. *)
 val equation2rewrite : Exp.exp -> Rewrite.rewrite
 
+val simplify: Exp.exp -> Exp.exp
 val collect : Symbol.symbol * Exp.exp -> Exp.exp
 val multicollect : Symbol.symbol list * Exp.exp -> Exp.exp
 
@@ -558,6 +561,10 @@ fun isStateEq exp =
     isEquation exp andalso
     isStateTerm (lhs exp)
 
+fun isMatrixEq exp =
+    isEquation exp andalso
+    isMatrix (rhs exp)
+
 (* intermediate equations *)
 fun isIntermediateTerm exp =
     case exp of
@@ -750,6 +757,8 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 
   | iterators_of_expression _ = SymbolSet.empty
 
+fun simplify exp =
+    Match.repeatApplyRewritesExp (Rules.getRules "simplification") exp
 
 fun collect (sym, exp) =
   let
@@ -1158,7 +1167,7 @@ fun sortStatesByDependencies nil =
 		let
 		    val (matched as (_, _, deps), unmatched) = findState remaining backlog
 		in
-		    (matched::sorted, unmatched, addSetToList (Util.tl backlog_list) deps)
+		    (matched::sorted, unmatched, addSetToList backlog_list deps)
 		end
 		
 	(* recursive sortRelations list *)
