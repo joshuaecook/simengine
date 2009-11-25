@@ -27,7 +27,7 @@ fun std_compile exec args =
 
 	      val (classes, _, _) = forest
 
-	      val _ = DOFPrinter.printModel forest   
+	      val _ = DOFPrinter.printModel forest
 
 	      val _ = CurrentModel.setCurrentModel forest
 
@@ -40,7 +40,7 @@ fun std_compile exec args =
 		     else ()
 		  end
 
-		      
+
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  (log ("Optimizing model ...");
 			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))

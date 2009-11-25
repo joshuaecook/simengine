@@ -21,7 +21,7 @@
 <conservativeprecision = false>
 <normalizeprecision = true>
 <hwtarget = "ml402">
-<logdof = false>
+<logdof = true>
 <termrewritelimit = 25>
 <optimize = false>
 <logrewrites = false>

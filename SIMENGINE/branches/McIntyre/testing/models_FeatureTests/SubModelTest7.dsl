@@ -14,12 +14,12 @@ model (y1, y2, y3) = Middle1 (step)
 end
 
 model (y1, y2, y3) = Middle2 (step)
-    submodel Middle1 m1 with {step = step}
-    submodel Middle1 m2 with {step = 2 * step}
+    submodel Middle1 n1 with {step = step}
+    submodel Middle1 n2 with {step = 2 * step}
     submodel Bottom b1 with {step = 3 * step}
 
-    output y1 = m1.y1
-    output y2 = m2.y2
+    output y1 = n1.y1
+    output y2 = n2.y2
     output y3 = b1.y
 end
 
@@ -28,8 +28,8 @@ model (y) = SubModelTest7 (step)
     input step with {default = 1}
 
 
-    submodel Middle1 m1 with {step = step}
     submodel Middle2 m2 with {step = 2 * step}
+    submodel Middle1 m1 with {step = step}
     submodel Bottom b1 with {step = 3 * step}
 
     output y = (b1.y, m2.y2, m1.y1)

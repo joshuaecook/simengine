@@ -123,6 +123,7 @@ fun norm l = sqrt (plus (map square l))
 fun exp v = power (var "e", v)
 fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
 infix equals;
+fun cond (p, q, r) = Exp.FUN (Fun.BUILTIN Fun.IF, [p, q, r]);
 fun group l = Exp.FUN (Fun.BUILTIN Fun.GROUP, l)
 fun atan2 (a,b) = Exp.FUN (Fun.BUILTIN Fun.ATAN2, [a,b])
 fun re z = Exp.FUN (Fun.BUILTIN Fun.RE, [z])

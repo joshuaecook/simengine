@@ -9,7 +9,7 @@ model (Vms) = hh_compartment(I_begin, I_middle, I_end)
     
 
     iterator t_exp with {continuous, solver=forwardeuler{dt=0.01}}
-    iterator t_imp with {continuous, solver=cvode}
+    iterator t_imp with {continuous, solver=linearbackwardeuler{dt=0.01}}
 
     input I_begin with {default=0}
     input I_middle with {default=0}

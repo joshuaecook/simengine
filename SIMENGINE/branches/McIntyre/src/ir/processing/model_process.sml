@@ -2,6 +2,9 @@ structure ModelProcess : sig
 
     (* Primary functions to execute optimizations and commands across all classes within a model *)
 
+    (* Flattens all equations and instances into a single, monolithic model. *)
+    val unify : DOF.model -> DOF.model
+
     (* optimizeModel: algebraic and performance optimizations all occur in this function.  All transformations
       performed here should be independent of back-end.  If the data structure is to be saved prior to writing 
       a particular back-end, the data structure returned from optimizeModel would be a good one to save.  *)
@@ -103,6 +106,17 @@ fun hasUpdateIterator iter_sym =
 					  DOF.UPDATE v => v=iter_sym
 					| _ => false) iterators
     end
+
+(* Beginning at the top instance's class,
+ * flatten the model into a single class. *)
+fun unify model =
+    let val (classes, instance, properties) : DOF.model = model
+	val flatclass = CurrentModel.withModel model (fn _ => ClassProcess.unify (CurrentModel.classname2class (#classname instance)))
+    in
+	([flatclass], instance, properties)
+    end
+
+
     
 fun hasPostProcessIterator iter_sym =
     let
@@ -368,8 +382,13 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
        | Solver.LINEAR_BACKWARD_EULER {dt} =>
 	 (let
 	     (* flatten model *)
-	     (*TODO: integrate with josh *)
-	     val model' = (* ModelProcess.unify *) model
+	     val model' = unify model
+
+(* 	     val _ =  *)
+(* 		 (log("\n ============ pre-unified model ============ \n"); *)
+(* 		  DOFPrinter.printModel model; *)
+(* 		  log("\n ============ unified model ============ \n"); *)
+(* 		  DOFPrinter.printModel model') *)
 						   
 	     val flatclass = case model' of
 				 ([class], _, _) => class
@@ -388,7 +407,11 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 	     fun computeRelationships state =
 		 let
 		     val stateeq = 
-			 Util.hd(List.filter ExpProcess.isStateEq (ClassProcess.symbol2exps flatclass state))
+			 case List.filter ExpProcess.isStateEq (ClassProcess.symbol2exps flatclass state)
+			  of eq::_ => eq
+			   | nil => DynException.stdException ("Couldn't find state equation for '" ^ (Symbol.name state) ^"'",
+								"ModelProcess.updateShardForSolver.computeRelationships", 
+								Logger.INTERNAL)
 
 		     val rhs = ExpProcess.rhs stateeq
 

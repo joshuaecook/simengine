@@ -6,7 +6,8 @@
 //************************************************
 model (Vm, Vmp, Raxonal, Rperiaxonal) = flut(fiberDiameter, diameter, length, numLamella, Iaxonal, Iperiaxonal)
 
-iterator t_imp with {continuous, solver=cvode}
+iterator t_exp with {continuous, solver=forwardeuler{dt=0.001}}
+iterator t_imp with {continuous, solver=linearbackwardeuler{dt=0.001}}
 
 //************************************************
 //Geometric Parameters
