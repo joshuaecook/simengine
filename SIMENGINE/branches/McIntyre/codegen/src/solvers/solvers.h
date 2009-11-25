@@ -66,6 +66,7 @@ typedef struct {
   unsigned int statesize;
   unsigned int outputsize;
   unsigned int num_models;
+  unsigned int bandsize;  // Number of bands in statesize*statesize matrix for linear solver
   void *od;
   unsigned int ob_size;
   void *ob;
