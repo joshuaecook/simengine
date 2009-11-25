@@ -75,6 +75,13 @@ fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 				       )
 			   )
 
+fun nextavar str temporal_iterator = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
+							   (Property.setIterator 
+								Property.default_symbolproperty 
+								[(temporal_iterator,Iterator.RELATIVE 1)])
+							  )
+					      )
+				     
 fun curvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 				       Property.setScope
 					   (Property.setIterator 

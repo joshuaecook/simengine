@@ -155,6 +155,8 @@ fun printModel (model: DOF.model) =
 			      print ("  Solver = Forward Euler (dt = " ^ (Real.toString dt) ^ ")\n")
 			    | Solver.EXPONENTIAL_EULER {dt} =>
 			      print ("  Solver = Exponential Euler (dt = " ^ (Real.toString dt) ^ ")\n")
+			    | Solver.LINEAR_BACKWARD_EULER {dt} =>
+			      print ("  Solver = Linear Backward Euler (dt = " ^ (Real.toString dt) ^ ")\n")
 			    | Solver.RK4 {dt} =>
 			      print ("  Solver = RK4 (dt = " ^ (Real.toString dt) ^ ")\n")
 			    | Solver.MIDPOINT {dt} =>

@@ -343,6 +343,9 @@ class Integrators
     property exponentialeuler
       get = Solver.new ("exponentialeuler", 0.1, 0, 0)
     end
+    property linearbackwardeuler
+      get = Solver.new ("linearbackwardeuler", 0.1, 0, 0)
+    end
     property rk4
       get = Solver.new("rk4", 0.1, 0, 0)
     end

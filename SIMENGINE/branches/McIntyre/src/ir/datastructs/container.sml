@@ -16,18 +16,22 @@ val list2array : Exp.exp list -> array
 val rows2matrix : array list -> matrix
 val columns2matrix : array list -> matrix
 val array2size : array -> int
+val exparray2array : Exp.exp -> array
 
 (* Matrix mappings *)
 val matrix2rows : matrix -> array list
 val matrix2columns : matrix -> array list
 val listexp2listarray : Exp.exp list -> array list
 val matrix2size : matrix -> (int * int)
+val expmatrix2matrix : Exp.exp -> matrix
 
 (* Container mappings *)
 val container2elements : Exp.container -> Exp.exp list
 
 (* Matrix creation *)
 val zeros_matrix : (int * int) -> Exp.exp
+val zeros_array : int -> Exp.exp
+
 val identity_matrix : (int) -> Exp.exp
 val transpose : Exp.exp -> Exp.exp
 
@@ -100,8 +104,20 @@ val one = Exp.TERM (Exp.INT 1)
 fun matrix2expmatrix m =
     Exp.CONTAINER (Exp.MATRIX m)
 
+fun array2exparray a =
+    Exp.CONTAINER (Exp.ARRAY a)
+
 fun zeros_matrix (rows,cols) =
     matrix2expmatrix (Array2.array (rows, cols, zero))
+
+fun zeros_array cols =
+    array2exparray (Array.array (cols, zero))
+
+fun exparray2array (Exp.CONTAINER (Exp.ARRAY a)) = a
+  | exparray2array _ = DynException.stdException("Non-array passed in", 
+						   "Container.exparray2array", 
+						   Logger.INTERNAL)
+
 
 fun expmatrix2matrix (Exp.CONTAINER (Exp.MATRIX m)) = m
   | expmatrix2matrix _ = DynException.stdException("Non-matrix passed in", 

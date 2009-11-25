@@ -56,6 +56,7 @@ val iterators_of_expression : Exp.exp -> SymbolSet.set
 val equation2rewrite : Exp.exp -> Rewrite.rewrite
 
 val collect : Symbol.symbol * Exp.exp -> Exp.exp
+val multicollect : Symbol.symbol list * Exp.exp -> Exp.exp
 
 
 (* Expression manipulation functions - get/set differing properties *)
@@ -72,6 +73,7 @@ val instSpatialSize : Exp.exp -> int (* returns the assigned dimension of an ins
 
 (* Extract symbols from expressions in different forms *)
 val exp2symbol_names : Exp.exp -> string list
+val exp2symbol : Exp.exp -> Symbol.symbol
 val exp2symbols : Exp.exp -> Symbol.symbol list
 val exp2symbolset: Exp.exp -> SymbolSet.set
 val exp2termsymbols : Exp.exp -> Exp.term list
@@ -773,6 +775,34 @@ fun collect (sym, exp) =
       Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ [collecter]) (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
   end
 
+fun multicollect (syms, exp) =
+  let
+      val {find, test, replace} = 
+	  case Rules.getRules "collect" of
+	      [collectrule] => collectrule
+	    | _ => DynException.stdException("Unexpected number of collect rule","Match.collect", Logger.INTERNAL)
+
+      val replace_exp = case replace of
+			    Rewrite.RULE exp => exp
+			  | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
+
+      fun subTerm exp repl_exp = 
+	  Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
+									   body=exp}),
+						 arg=repl_exp}))
+
+      val collectors = map (fn(sym) => {find=subTerm find (ExpBuild.var (Symbol.name sym)),
+					test=test,
+					replace=Rewrite.RULE (subTerm replace_exp (ExpBuild.var (Symbol.name sym)))})
+			   syms
+
+      val exp' = (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
+  in
+      foldl (fn(collector,exp) => Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ [collector]) exp) 
+	    exp' 
+	    collectors
+  end
+
 
 fun symterm2symterm term = 
     case term of 
@@ -800,6 +830,9 @@ fun term2sym term =
 fun getLHSSymbol exp = 
     term2sym(exp2term (lhs exp))
 	
+fun exp2symbol exp =
+    term2sym(exp2term (exp))
+
 fun getLHSSymbols exp = 
     case exp2term (lhs exp) of
 	Exp.SYMBOL (sym,_) => [sym]

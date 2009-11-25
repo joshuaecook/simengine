@@ -582,6 +582,8 @@ fun obj2dofmodel object =
 	fun transSolver solverobj =
 	    case exp2str(method "name" solverobj) of			 
 			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
+		       | "exponentialeuler" => Solver.EXPONENTIAL_EULER {dt = exp2real(method "dt" solverobj)}
+		       | "linearbackwardeuler" => Solver.LINEAR_BACKWARD_EULER {dt = exp2real(method "dt" solverobj)}
 		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
 		       (* | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
 		       | "heun" => Solver.HEUN {dt = exp2real(method "dt" solverobj)}*)
