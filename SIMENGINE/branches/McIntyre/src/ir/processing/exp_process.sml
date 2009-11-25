@@ -42,6 +42,7 @@ val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool
 val prependIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val appendIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val updateTemporalIteratorToSymbol : (Symbol.symbol * (Symbol.symbol -> Symbol.symbol)) -> Exp.exp -> Exp.exp (* update temporal iterators, requires a new iterator name, and a change function that can create a name (just used for update iterators to change scopes).  This requires that an Exp.TERM (Exp.SYMBOL) is passed in. *)
+val updateTemporalIterator : Iterator.iterator -> Exp.exp -> Exp.exp (* changes the temporal iterator of a symbol to a new temporal iterator *)
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
 val exp2temporaliterator : Exp.exp -> Iterator.iterator option
 
@@ -946,6 +947,22 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
 	    
     end
     handle e => DynException.checkpoint "ExpProcess.updateTemporalIteratorToSymbol" e
+
+fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t as Exp.SYMBOL (sym, props))) = 
+    let
+	val temporaliterator = case exp2temporaliterator exp of
+				   SOME v => v
+				 | NONE => DynException.stdException("No temporal iterator found",
+								     "updateTemporalIterator",
+								     Logger.INTERNAL)
+	val spatialiterators = exp2spatialiterators exp
+	val props' = Property.setIterator props (iter::spatialiterators)
+    in
+	Exp.TERM (Exp.SYMBOL (sym, props'))
+    end
+  | updateTemporalIterator iter _ = DynException.stdException("Non symbol encountered",
+							      "ExpProcess.updateTemporalIterator",
+							      Logger.INTERNAL)
 
 fun assignCorrectScopeOnSymbol exp =
     case exp 
