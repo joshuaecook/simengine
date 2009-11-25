@@ -176,11 +176,21 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
   | exp2fullstr (Exp.CONTAINER container) =
     let
 	fun list2str l = String.concatWith ", " (map exp2fullstr l)
+	fun array2str a = 
+	    "[" ^ (i2s (Container.array2size a)) ^ "]"
+	fun matrix2str m = 
+	    let
+		val (rows, cols) = Container.matrix2size m
+		val (upper_bw, lower_bw) = Container.findBandwidth m
+	    in
+		"["^(i2s rows)^"x"^(i2s cols)^"]" ^ 
+		"{upper_bw:"^(i2s upper_bw)^",lower_bw:"^(i2s lower_bw)^"}"
+	    end
     in
 	case container of
 	     Exp.EXPLIST e => "explist(" ^ (list2str e) ^ ")"
-	   | Exp.ARRAY v => "array(" ^ (list2str (Container.array2list v)) ^ ")"
-	   | Exp.MATRIX m => "matrix(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Container.matrix2rows m))) ^ ")"
+	   | Exp.ARRAY a => "array"^(array2str a)^"(" ^ (list2str (Container.array2list a)) ^ ")"
+	   | Exp.MATRIX m => "matrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Container.matrix2rows m))) ^ ")"
     end
 
 fun exp2str e = 

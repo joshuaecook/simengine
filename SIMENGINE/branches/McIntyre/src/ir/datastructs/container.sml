@@ -1,25 +1,27 @@
 signature CONTAINER =
 sig
 
+type matrix = Exp.exp Array2.array
+type array = Exp.exp Array.array
+
 (* Vector routines *)
 val vector2list : Exp.exp Vector.vector -> Exp.exp list
 val list2vector : Exp.exp list -> Exp.exp Vector.vector
-val vectors2matrix : Exp.exp Vector.vector list -> Exp.exp Array2.array
-val vector2array : Exp.exp Vector.vector -> Exp.exp Array.array
+val vectors2matrix : Exp.exp Vector.vector list -> matrix
+val vector2array : Exp.exp Vector.vector -> array
 
 (* Array mappings *)
-val array2list : Exp.exp Array.array -> Exp.exp list
-val list2array : Exp.exp list -> Exp.exp Array.array
-val rows2matrix : Exp.exp Array.array list -> Exp.exp Array2.array
-val columns2matrix : Exp.exp Array.array list -> Exp.exp Array2.array
-
-(* rows2matrix and columns2matrix *)
+val array2list : array -> Exp.exp list
+val list2array : Exp.exp list -> array
+val rows2matrix : array list -> matrix
+val columns2matrix : array list -> matrix
+val array2size : array -> int
 
 (* Matrix mappings *)
-val matrix2rows : Exp.exp Array2.array -> Exp.exp Array.array list
-val matrix2columns : Exp.exp Array2.array -> Exp.exp Array.array list
-val listexp2listarray : Exp.exp list -> Exp.exp Array.array list
-val matrix2size : Exp.exp Array2.array -> (int * int)
+val matrix2rows : matrix -> array list
+val matrix2columns : matrix -> array list
+val listexp2listarray : Exp.exp list -> array list
+val matrix2size : matrix -> (int * int)
 
 (* Container mappings *)
 val container2elements : Exp.container -> Exp.exp list
@@ -29,10 +31,19 @@ val zeros_matrix : (int * int) -> Exp.exp
 val identity_matrix : (int) -> Exp.exp
 val transpose : Exp.exp -> Exp.exp
 
+(* Matrix operations *)
+val isSquare : matrix -> bool
+val getBand : matrix -> int -> array
+val findBandwidth : matrix -> (int * int)
+val dense2bandedmatrix : matrix -> array list
+
 end
 
 structure Container:CONTAINER =
 struct
+
+type matrix = Exp.exp Array2.array
+type array = Exp.exp Array.array
 
 fun vector2list v = map 
 			(fn(i)=>Vector.sub (v,i)) 
@@ -57,6 +68,7 @@ fun matrix2list m = Util.flatmap
 			array2list
 			(matrix2rows m)
 
+fun array2size a = Array.length a
 fun matrix2size m = Array2.dimensions m
 
 fun listexp2listarray l =
@@ -69,6 +81,14 @@ fun listexp2listarray l =
     in
 	map exp2array l
     end
+
+fun allzero a =
+    let
+	fun isZero (Exp.TERM t) = Term.isZero t
+	  | isZero _ = false
+    in
+	Array.foldl (fn(item, zero)=>zero andalso isZero item) true a
+    end				     
 
 fun container2elements (Exp.EXPLIST l) = l
   | container2elements (Exp.ARRAY a) = array2list a
@@ -137,6 +157,116 @@ fun columns2matrix vectors =
 	(expmatrix2matrix o transpose o matrix2expmatrix) m
     end
 
+fun isSquare m =
+    let
+	val (rows, cols) = matrix2size m
+    in
+	rows = cols
+    end
+
+(* getBand will pull out a particular diagonal band from the matrix. 
+  When num is zero, the main diagonal is pulled.  When num is greater than zero, bands
+  are taken from the upper triangular matrix.  When num is less than zero, bands are
+  taken from the lower triangular matrix. *)
+fun getBand m num =
+    let
+	val (rows, cols) = matrix2size m
+	val max_dim = if rows > cols then rows else cols
+	val _ = if Int.abs num + 1 >= rows orelse Int.abs num + 1 >= cols then
+		    DynException.stdException("Trying to grab a band that is outside of the matrix's dimensions",
+					      "Container.getBand",
+					      Logger.INTERNAL)
+		else
+		    ()
+	val all_indices = map 
+			      (fn(i)=>if num > 0 then
+					  (i, i+num)
+				      else if num < 0 then
+					  (i-num, i)
+				      else (* num == 0 *)
+					  (i, i)) 
+			      (List.tabulate (max_dim, fn(x)=>x))
+	val valid_indices = List.filter (fn(r,c)=> r >= 0 andalso r < rows andalso 
+						   c >= 0 andalso c < cols) all_indices
+
+	val items = map 
+			(fn(i,j)=>Array2.sub(m, i, j))
+			valid_indices
+    in
+	list2array items
+    end
+
+(* findBandwidth will determine the number of upper and lower non-zero bands that encompass the matrix *)
+fun findBandwidth m =
+    if isSquare m then
+	let
+	    val (dim, _) = matrix2size m
+	    val half_bands = dim-1
+	    val total_bands = 1+2*(half_bands)
+
+	    (* start with upper bands *) 
+	    val upper_band_list = List.tabulate (half_bands, (fn(x)=>half_bands-x))
+	    val (upper_half_bw,_) = foldl 
+					(fn(test_band, (bw, found_non_zero))=>
+					   if found_non_zero then
+					       (bw, true)
+					   else
+					       let
+						   val a = getBand m test_band
+					       in
+						   if allzero a then
+						       (test_band-1, false)
+						   else
+						       (test_band, true)
+					       end
+					)
+					(half_bands, false)
+					upper_band_list
+					
+	    (* lower half bands *)
+	    val lower_band_list = List.tabulate (half_bands, (fn(x)=> ~(half_bands-x)))
+	    val (lower_half_bw,_) = foldl 
+					(fn(test_band, (bw, found_non_zero))=>
+					   if found_non_zero then
+					       (bw, true)
+					   else
+					       let
+						   val a = getBand m test_band
+					       in
+						   if allzero a then
+						       (~test_band-1, false)
+						   else
+						       (~test_band, true)
+					   end
+					)
+					(half_bands, false)
+					lower_band_list
+	in
+	    (upper_half_bw, lower_half_bw)
+	end
+    else
+	DynException.stdException("Only supports square matrices", "Container.findBandwidth", Logger.INTERNAL)
+
+(* convert a dense matrix to a banded matrix - this will be a list of arrays *)
+fun dense2bandedmatrix m =
+    if isSquare m then
+	let
+	    val (upper_bw,lower_bw) = findBandwidth m
+
+	    (* grab the diagonal *)
+	    val diag = getBand m 0
+		       
+	    (* grab the upper bands *)
+	    val upper_bands = List.tabulate (upper_bw, fn(x)=> getBand m (x+1))
+
+	    (* grab the lower bands *)
+	    val lower_bands = List.tabulate (lower_bw, fn(x)=> getBand m (~(x+1)))
+	in
+	    upper_bands @ [diag] @ lower_bands
+	end
+    else
+	DynException.stdException("Only supports square matrices", "Container.dense2bandedmatrix", Logger.INTERNAL)
 
 
 end
+

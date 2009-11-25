@@ -1081,13 +1081,25 @@ fun sortStatesByDependencies nil =
 		relation
 	    end
 
+	(* we don't want to add items from the set that already appear.  This should be less costly than searching 
+	  through the larger sorted/remaining lists *)
+	fun addSetToList l set =
+	    foldl 
+		(fn(item, list)=>
+		   if List.exists (fn(item')=>item=item') list then
+		       list
+		   else
+		       list @ [item])
+		l
+		(SymbolSet.listItems set)
+
 	(* move one relation from the remaining list to the sorted list *)
 	fun moveRelation (sorted, remaining, []) = 
 	    let
 		val r as (state, _, deps) = fewestCount remaining					    
 		val (_, unmatched) = findState remaining state
 	    in
-		(sorted @ [r], unmatched, SymbolSet.listItems deps)
+		(r::sorted, unmatched, SymbolSet.listItems deps)
 	    end
 	  | moveRelation (sorted, remaining, backlog::backlog_list) =
 	    if stateExists sorted backlog then
@@ -1096,7 +1108,7 @@ fun sortStatesByDependencies nil =
 		let
 		    val (matched as (_, _, deps), unmatched) = findState remaining backlog
 		in
-		    (sorted @ [matched], unmatched, Util.tl backlog_list @ (SymbolSet.listItems deps))
+		    (matched::sorted, unmatched, addSetToList (Util.tl backlog_list) deps)
 		end
 		
 	(* recursive sortRelations list *)
