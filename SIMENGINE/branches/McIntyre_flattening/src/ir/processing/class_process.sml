@@ -1,7 +1,5 @@
 signature CLASSPROCESS =
 sig
-    val unify : DOF.class -> DOF.class
-
     (* Optimization method - primary method used to call optimizations that get executed across a class. *)
     (* Note: All class optimizations work on expressions that are references, therefore most methods don't have a return value *)
     val optimizeClass : DOF.class -> unit
@@ -58,6 +56,10 @@ sig
     val addDelays : DOF.class -> unit (* adds delays to difference equation terms *)
     val addBufferedIntermediates : DOF.class -> unit (* for iterators that read and write to the same state vector, so we add intermediates to break up any loops *)
 
+    (* Returns the given class with all intermediates inlined and all instance equations expanded.
+     * Nb Changes the class's internal references and dependends on a CurrentModel context. *)
+    val unify : DOF.class -> DOF.class
+
     val to_json : DOF.class -> mlJS.json_value
 end
 structure ClassProcess : CLASSPROCESS = 
@@ -75,16 +77,18 @@ fun applyRewritesToClass rewrites (class:DOF.class) =
 	val exps = !(#exps class)
 	val outputs = !(#outputs class)
 
-	val inputs' = map (fn{name, default}=>{name=ExpProcess.exp2term (Match.applyRewritesExp rewrites (ExpProcess.term2exp name)),
+	val rewrite = Match.applyRewritesExp rewrites
+
+	val inputs' = map (fn{name, default}=>{name=name,
 					       default=case default of 
-							   SOME exp => SOME (Match.applyRewritesExp rewrites exp)
+							   SOME exp => SOME (rewrite exp)
 							 | NONE => NONE}) inputs
-	val exps' = map (Match.applyRewritesExp rewrites) exps
+	val exps' = map rewrite exps
 
 	val outputs' = map (fn{name,contents,condition}=>
-			      {name=ExpProcess.exp2term (Match.applyRewritesExp rewrites (ExpProcess.term2exp name)),
-			       contents=map (Match.applyRewritesExp rewrites) contents,
-			       condition=Match.applyRewritesExp rewrites condition})
+			      {name=name,
+			       contents=map rewrite contents,
+			       condition=rewrite condition})
 			   outputs
 		      
     in
@@ -92,6 +96,7 @@ fun applyRewritesToClass rewrites (class:DOF.class) =
 	 (#exps class):=exps';
 	 (#outputs class):=outputs')
     end
+
 
 fun duplicateClass (class: DOF.class) new_name =
     let
@@ -1653,40 +1658,63 @@ fun optimizeClass (class: DOF.class) =
     end
 
 
-fun listPairFind f (nil, _) = NONE
-  | listPairFind f (_, nil) = NONE
-  | listPairFind f (x::xs, y::ys) = 
-    if f (x, y) then SOME (x, y) else listPairFind f (xs, ys)
+fun unify class = 
+    (inlineIntermediates o expandInstances) class
 
-(* Nb dependends on a CurrentModel context. *)
-fun unify class =
+and inlineIntermediates class =
     let val {name, properties, inputs, outputs, iterators, exps} : DOF.class = class
-
+        (* Extracts all intermediate equations from the class's member expressions.
+         * Each remaining expression is rewritten by replacing any symbol referencing
+	 * an intermediate computation with the expression representing that computation.
+	 * The same inlining rewrite is performed on the class's output contents and conditions. 
+	 * Does not recur through instance equations.
+	 *)
 	val exps' = (! exps)
 
 	val (intermediateEquations, exps') = 
 	    List.partition ExpProcess.isIntermediateEq exps'
 
-	val exps' = map (Match.applyRewritesExp (map ExpProcess.equation2rewrite intermediateEquations)) exps'
+	val _ = exps := exps'
 
-	val (instanceEquations, exps') = 
-	    List.partition ExpProcess.isInstanceEq exps'
+        val rewrites = map ExpProcess.equation2rewrite intermediateEquations
 
-	val exps' = exps' @
-		    (Util.flatmap instanceExpressions instanceEquations)
+	(* First inlines intermediates within the right-hand expression of the intermediates themselves. *)
+	val intermediateEquations' = 
+	    map (fn eqn =>
+                 let val lhs = ExpProcess.lhs eqn
+                     val rhs = ExpProcess.rhs eqn
+              	     val rhs' = Match.applyRewritesExp rewrites rhs
+                 in
+                     ExpBuild.equals (lhs, rhs')
+                 end) intermediateEquations
+
+	(* Then recomputes the rules before applying them to the remainder of the class. *)
+	val rewrites = map ExpProcess.equation2rewrite intermediateEquations'
+
+	val _ = applyRewritesToClass rewrites class
     in
-	{name = name, 
-	 properties = properties, 
-	 inputs = inputs, 
-	 iterators = iterators, 
-	 exps = ref exps',
-	 outputs = outputs}
+        class
+    end
+
+and expandInstances class =
+    let val {name, properties, inputs, outputs, iterators, exps} : DOF.class = class
+        (* Detects instance equations within a class's member expressions.
+	 * Finds the class definition  for the instance via CurrentModel and
+	 * expands the instance into a list of equations.
+	 * Constructs expressions to assign inputs and outputs.
+	 * Renames all local symbols by prefixing the instance name. *)
+        val exps' = ! exps
+
+        val _ = exps := List.concat (map (fn exp => if ExpProcess.isInstanceEq exp then instanceExpressions exp else [exp]) exps')
+	(* FIXME need to expand in outputs *)
+    in
+        class
     end
 
 (* Nb dependends on a CurrentModel context. *)
 and instanceExpressions equation =
     let val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
-	val instanceClass = unify (CurrentModel.classname2class classname)
+	val instanceClass = CurrentModel.classname2class classname
 	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
 	val exps' = ! exps
 
@@ -1721,8 +1749,13 @@ and instanceExpressions equation =
 		val condition' = Match.applyRewriteExp renameWithInstanceNamePrefix condition
 		val value' = Match.applyRewriteExp renameWithInstanceNamePrefix value
 		val name' = Exp.TERM outarg
+
+		val output' = 
+		    case condition'
+                      of Exp.TERM (Exp.BOOL true) => value'
+                       | _ => ExpBuild.cond (condition', value', name')
 	    in
-		ExpBuild.equals (name', ExpBuild.cond (condition', value', name'))
+		ExpBuild.equals (name', output')
 	    end
 
 	val outputs_exps = 
