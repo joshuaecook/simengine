@@ -71,7 +71,7 @@ fun getBand m num =
 fun findBandwidth m =
     if isSquare m then
 	let
-	    val _ = Util.log ("findBandwidth m=" ^ (e2s (Container.matrix2expmatrix m)))
+	    (*val _ = Util.log ("findBandwidth m=" ^ (e2s (Container.matrix2expmatrix m)))*)
 	    val (dim, _) = Container.matrix2size m
 	    val half_bands = dim-1
 	    val total_bands = 1+2*(half_bands)

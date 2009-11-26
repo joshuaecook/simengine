@@ -792,11 +792,11 @@ fun multicollect (symexps, exp) =
       val collecters = map (fn(sym) => 
 			       map (buildCollecter sym) (Rules.getRules "collect"))
 			    symexps
-
+(*
       val _ = Util.log ("# collecters = " ^ (Int.toString (length collecters)))
       val _ = Util.log ("# of collector members = " ^ (String.concatWith ", " (map (i2s o length) collecters)))
       val _ = app (fn(rules)=> (Util.log(" - ");app (fn(rule)=>Util.log (" -> Rule: " ^ (Rewrite.rewrite2str rule))) rules)) collecters
-
+*)
       val exp' = (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
   in
       foldl (fn(collecter_group,exp) => Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ collecter_group) exp) 

@@ -1809,7 +1809,7 @@ and instanceExpressions equation =
 	fun renameWithPrefix pref =
 	    {find = Match.onesym "anysym",
 	     replace = Rewrite.ACTION (Symbol.symbol ("renameWithPrefix:"^(Symbol.name pref)), 
-				       prefixSymbol ((Symbol.name pref) ^ ".")),
+				       prefixSymbol ((Symbol.name pref) ^ "_")),
 	     test = NONE}
 
 	val renameWithInstanceNamePrefix = renameWithPrefix (ExpProcess.instOrigInstName equation)

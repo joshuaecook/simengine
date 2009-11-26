@@ -417,17 +417,18 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 								Logger.INTERNAL)
 
 		     val rhs = ExpProcess.rhs stateeq
-		     val _ = Util.log ("StateEq: " ^ (e2s stateeq))
+		     (*val _ = Util.log ("StateEq: " ^ (e2s stateeq))*)
 
 		     val usedSyms = SymbolSet.add(ExpProcess.exp2symbolset rhs, state)
-		     val _ = Util.log("in computeRelationships: state=" ^ (Symbol.name state) ^ ": usedSyms=" ^ (SymbolSet.toStr usedSyms))
-		     val _ = Util.log("in computeRelationships: state=" ^ (Symbol.name state) ^ ": deps=" ^ (SymbolSet.toStr (SymbolSet.intersection (stateSet, usedSyms))))
+		     (*val _ = Util.log("in computeRelationships: state=" ^ (Symbol.name state) ^ ": usedSyms=" ^ (SymbolSet.toStr usedSyms))
+		     val _ = Util.log("in computeRelationships: state=" ^ (Symbol.name state) ^ ": deps=" ^ (SymbolSet.toStr (SymbolSet.intersection (stateSet, usedSyms))))*)
 		 in
 		     (state, stateeq, SymbolSet.intersection (stateSet, usedSyms))
 		 end
 		 handle e => DynException.checkpoint "ModelProcess.updateShardForSolver.computeRelationships" e
 		 
 
+	     val _ = log ("Computing dependencies  ... ")
 	     val relations = map computeRelationships states
 
 	     (* order the states to make matrix banded *)
@@ -462,6 +463,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
 	     fun updateMatrix ((state, eq, deps), rowIndex) =		
 		 let
+		     val _ = log ("Updating matrix for state '"^(Symbol.name state)^"': "^(i2s (rowIndex+1))^" of " ^ (i2s (List.length states)))
 		     (* backwards euler transformation *)
 		     (* update rhs to make any states in matrix [t+1] from [t] *)
 		     val rhs' = Match.repeatApplyRewritesExp iteratorUpdateRules (ExpProcess.rhs eq)
@@ -487,12 +489,12 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 			       
 		     (* collect *)
 		     val exp' = ExpProcess.multicollect (map nextvarfromsym (SymbolSet.listItems deps), exp)
-		     val _ = Util.log("Calling multicollect: from '"^(e2s exp)^"' to '"^(e2s exp')^"'")
+		     (*val _ = Util.log("Calling multicollect: from '"^(e2s exp)^"' to '"^(e2s exp')^"'")*)
 
 		     (* for each dep (column) in the row: *)	
 		     fun addEntry (statedep, exp) =
 			 let
-			     val _ = Util.log("In addEntry for state '"^(Symbol.name statedep)^"', exp: "^(e2s exp))
+			     (*val _ = Util.log("In addEntry for state '"^(Symbol.name statedep)^"', exp: "^(e2s exp))*)
 			     (* pull out coefficient for statedep from collected eq *)
 			     fun extractCoefficient sym =
 				 let
