@@ -167,7 +167,7 @@ fun std_collect exec args =
 	 let
 	     val exp = valOf (ModelTranslate.translateExp(exec, exp))
 	 in
-	     valOf(ModelTranslate.reverseExp (exec, ExpProcess.collect (Symbol.symbol name, exp)))
+	     valOf(ModelTranslate.reverseExp (exec, ExpProcess.collect (ExpBuild.var name, exp)))
 	 end
        | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_repeatApplyRewritesExp" e

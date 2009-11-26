@@ -1760,7 +1760,7 @@ and inlineIntermediates class =
 	    map (fn eqn =>
                  let val lhs = ExpProcess.lhs eqn
                      val rhs = ExpProcess.rhs eqn
-              	     val rhs' = Match.applyRewritesExp rewrites rhs
+              	     val rhs' = Match.repeatApplyRewritesExp rewrites rhs
                  in
                      ExpBuild.equals (lhs, rhs')
                  end) intermediateEquations
@@ -1787,7 +1787,7 @@ and expandInstances class =
         class
     end
 
-(* Nb dependends on a CurrentModel context. *)
+(* Nb (look up the latin) depends on a CurrentModel context. *)
 and instanceExpressions equation =
     let val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
@@ -1798,7 +1798,9 @@ and instanceExpressions equation =
 	val exps' = List.concat (map (fn exp => if ExpProcess.isInstanceEq exp then instanceExpressions exp else [exp]) exps')
 
 	fun prefixSymbol prefix (Exp.TERM (Exp.SYMBOL (sym, props))) =
-	    Exp.TERM (Exp.SYMBOL (Symbol.symbol (prefix ^ (Symbol.name sym)), props))
+	    Exp.TERM (Exp.SYMBOL (Symbol.symbol (prefix ^ (Symbol.name sym)), case Property.getRealName props of 
+										  SOME v => Property.setRealName props (Symbol.symbol (prefix ^ (Symbol.name v)))
+										| NONE => props))
 
 	  | prefixSymbol _ _ = 
 	    DynException.stdException(("Cannot rename non-symbol in instance '" ^ (Symbol.name instname) ^ "' of class '" ^ (Symbol.name name) ^ "'"), 
@@ -1810,7 +1812,7 @@ and instanceExpressions equation =
 				       prefixSymbol ((Symbol.name pref) ^ ".")),
 	     test = NONE}
 
-	val renameWithInstanceNamePrefix = renameWithPrefix instname
+	val renameWithInstanceNamePrefix = renameWithPrefix (ExpProcess.instOrigInstName equation)
 
 	fun makeInputExpression (inparg, {name, default}) =
 	    let val name' = Match.applyRewriteExp renameWithInstanceNamePrefix (Exp.TERM name)

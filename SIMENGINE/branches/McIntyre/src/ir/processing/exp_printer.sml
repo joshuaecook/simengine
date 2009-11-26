@@ -181,10 +181,10 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	fun matrix2str m = 
 	    let
 		val (rows, cols) = Container.matrix2size m
-		val (upper_bw, lower_bw) = Container.findBandwidth m
+		(*val (upper_bw, lower_bw) = Matrix.findBandwidth m*)
 	    in
-		"["^(i2s rows)^"x"^(i2s cols)^"]" ^ 
-		"{upper_bw:"^(i2s upper_bw)^",lower_bw:"^(i2s lower_bw)^"}"
+		"["^(i2s rows)^"x"^(i2s cols)^"]"(* ^ 
+		"{upper_bw:"^(i2s upper_bw)^",lower_bw:"^(i2s lower_bw)^"}"*)
 	    end
     in
 	case container of

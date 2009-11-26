@@ -47,10 +47,22 @@ fun exp2c_str (Exp.FUN (str, exps)) =
     end
   | exp2c_str (Exp.TERM term) = term2c_str term
   | exp2c_str (Exp.CONTAINER c) =
-    (case c of
-	 Exp.EXPLIST l => DynException.stdException ("Cannot write EXPLIST expressions", "CWriter.exp2c_str", Logger.INTERNAL)
-       | Exp.ARRAY a => "{" ^ (String.concatWith ", " (map exp2c_str (Container.array2list a))) ^ "}"
-       | Exp.MATRIX m => DynException.stdException ("Cannot write MATRIX expressions", "CWriter.exp2c_str", Logger.INTERNAL))
+    let
+	fun array2str a = "{" ^ (String.concatWith ", " (map exp2c_str (Container.array2list a))) ^ "}"
+	fun matrix2str m = 
+	    let
+		val arrays = Container.matrix2rows m
+	    in
+		"{" ^ "\n" ^
+		(String.concatWith ",\n" (map array2str arrays)) ^ "\n" ^
+		"}"
+	    end
+    in
+	case c of
+	    Exp.EXPLIST l => DynException.stdException ("Cannot write EXPLIST expressions", "CWriter.exp2c_str", Logger.INTERNAL)
+	  | Exp.ARRAY a => array2str a
+	  | Exp.MATRIX m => matrix2str m
+    end
   | exp2c_str (Exp.META _) = 
     DynException.stdException ("Cannot write META expressions.", "CWriter.exp2c_str", Logger.INTERNAL)
     

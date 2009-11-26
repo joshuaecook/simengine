@@ -113,6 +113,8 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
 			     (* check the iterator lists *)
 			     (case (Property.getIterator p1, Property.getIterator p2)
 			       of (NONE, NONE) => true
+				| (NONE, SOME []) => true
+				| (SOME [], NONE) => true
 				| (SOME l1, SOME l2) => 
 				  (* check the size *)
 				  length l1 = length l2

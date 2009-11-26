@@ -20,6 +20,7 @@ val isSymbol : Exp.exp -> bool
 val isEquation : Exp.exp -> bool
 val isExpList : Exp.exp -> bool
 val isArray : Exp.exp -> bool
+val isArrayEq : Exp.exp -> bool
 val isMatrix : Exp.exp -> bool
 val isMatrixEq : Exp.exp -> bool
 val isStateEq : Exp.exp -> bool
@@ -58,8 +59,8 @@ val iterators_of_expression : Exp.exp -> SymbolSet.set
 val equation2rewrite : Exp.exp -> Rewrite.rewrite
 
 val simplify: Exp.exp -> Exp.exp
-val collect : Symbol.symbol * Exp.exp -> Exp.exp
-val multicollect : Symbol.symbol list * Exp.exp -> Exp.exp
+val collect : Exp.exp * Exp.exp -> Exp.exp
+val multicollect : Exp.exp list * Exp.exp -> Exp.exp
 
 
 (* Expression manipulation functions - get/set differing properties *)
@@ -539,6 +540,10 @@ fun isStateEq exp =
     isEquation exp andalso
     isStateTerm (lhs exp)
 
+fun isArrayEq exp =
+    isEquation exp andalso
+    isArray (rhs exp)
+
 fun isMatrixEq exp =
     isEquation exp andalso
     isMatrix (rhs exp)
@@ -738,56 +743,65 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 fun simplify exp =
     Match.repeatApplyRewritesExp (Rules.getRules "simplification") exp
 
-fun collect (sym, exp) =
+fun collect (symexp, exp) =
   let
-      val {find, test, replace} = 
-	  case Rules.getRules "collect" of
-	      [collectrule] => collectrule
-	    | _ => DynException.stdException("Unexpected number of collect rule","Match.collect", Logger.INTERNAL)
+      fun buildCollecter {find, test, replace} = 
+	  let
+	      val replace_exp = case replace of
+				    Rewrite.RULE exp => exp
+				  | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
 
-      val replace_exp = case replace of
-			    Rewrite.RULE exp => exp
-			  | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
+	      fun subTerm exp repl_exp = 
+		  Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
+										   body=exp}),
+							 arg=repl_exp}))
 
-      fun subTerm exp repl_exp = 
-	  Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
-									   body=exp}),
-						 arg=repl_exp}))
+	      val collecter = {find=subTerm find symexp,
+			       test=test,
+			       replace=Rewrite.RULE (subTerm replace_exp symexp)}
+	  in 
+	      collecter
+	  end
 
-      val collecter = {find=subTerm find (ExpBuild.var (Symbol.name sym)),
-		       test=test,
-		       replace=Rewrite.RULE (subTerm replace_exp (ExpBuild.var (Symbol.name sym)))}
+      val collecters = map buildCollecter (Rules.getRules "collect")
 
   in
-      Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ [collecter]) (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
+      Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ collecters) (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
   end
 
-fun multicollect (syms, exp) =
-  let
-      val {find, test, replace} = 
-	  case Rules.getRules "collect" of
-	      [collectrule] => collectrule
-	    | _ => DynException.stdException("Unexpected number of collect rule","Match.collect", Logger.INTERNAL)
+fun multicollect (symexps, exp) =
+    let
+	fun buildCollecter sym {find, test, replace} = 
+	    let
+		val replace_exp = case replace of
+				      Rewrite.RULE exp => exp
+				    | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
 
-      val replace_exp = case replace of
-			    Rewrite.RULE exp => exp
-			  | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
+		fun subTerm exp repl_exp = 
+		    Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
+										     body=exp}),
+							   arg=repl_exp}))
 
-      fun subTerm exp repl_exp = 
-	  Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
-									   body=exp}),
-						 arg=repl_exp}))
+		val collecter = {find=subTerm find sym,
+				 test=test,
+				 replace=Rewrite.RULE (subTerm replace_exp sym)}
+	    in 
+		collecter
+	    end
 
-      val collectors = map (fn(sym) => {find=subTerm find (ExpBuild.var (Symbol.name sym)),
-					test=test,
-					replace=Rewrite.RULE (subTerm replace_exp (ExpBuild.var (Symbol.name sym)))})
-			   syms
+      val collecters = map (fn(sym) => 
+			       map (buildCollecter sym) (Rules.getRules "collect"))
+			    symexps
+
+      val _ = Util.log ("# collecters = " ^ (Int.toString (length collecters)))
+      val _ = Util.log ("# of collector members = " ^ (String.concatWith ", " (map (i2s o length) collecters)))
+      val _ = app (fn(rules)=> (Util.log(" - ");app (fn(rule)=>Util.log (" -> Rule: " ^ (Rewrite.rewrite2str rule))) rules)) collecters
 
       val exp' = (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
   in
-      foldl (fn(collector,exp) => Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ [collector]) exp) 
+      foldl (fn(collecter_group,exp) => Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ collecter_group) exp) 
 	    exp' 
-	    collectors
+	    collecters
   end
 
 

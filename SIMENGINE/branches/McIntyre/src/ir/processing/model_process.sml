@@ -381,14 +381,17 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
        | Solver.LINEAR_BACKWARD_EULER {dt} =>
 	 (let
+ 	     val _ =  
+		 (log("\n ============ pre-unified model ============ \n");
+		  DOFPrinter.printModel model)
+		  
 	     (* flatten model *)
-	     val model' = unify model
+	     val model' = unify model			  
 
-(* 	     val _ =  *)
-(* 		 (log("\n ============ pre-unified model ============ \n"); *)
-(* 		  DOFPrinter.printModel model; *)
-(* 		  log("\n ============ unified model ============ \n"); *)
-(* 		  DOFPrinter.printModel model') *)
+ 	     val _ =  
+		 (log("\n ============ unified model ============ \n");
+		  DOFPrinter.printModel model')
+
 						   
 	     val flatclass = case model' of
 				 ([class], _, _) => class
@@ -414,8 +417,11 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 								Logger.INTERNAL)
 
 		     val rhs = ExpProcess.rhs stateeq
+		     val _ = Util.log ("StateEq: " ^ (e2s stateeq))
 
 		     val usedSyms = SymbolSet.add(ExpProcess.exp2symbolset rhs, state)
+		     val _ = Util.log("in computeRelationships: state=" ^ (Symbol.name state) ^ ": usedSyms=" ^ (SymbolSet.toStr usedSyms))
+		     val _ = Util.log("in computeRelationships: state=" ^ (Symbol.name state) ^ ": deps=" ^ (SymbolSet.toStr (SymbolSet.intersection (stateSet, usedSyms))))
 		 in
 		     (state, stateeq, SymbolSet.intersection (stateSet, usedSyms))
 		 end
@@ -463,14 +469,24 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 		     (* plug rhs into x[t+1] = x[t] + dt * rhs' *)
 		     (* subtract lhs from rhs, making an expression*)
 		     (* so really, we're doing exp = x[t] + dt * rhs' - x[t+1] (implicitly == 0) *)
-		     val var = setAsReadState (ExpBuild.avar (Symbol.name state) (Symbol.name itername)) (*x[t]*) 
-		     val nextvar = ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1) var (*x[t+1]*)
-		     val exp = ExpBuild.plus [var,
+
+		     fun varfromsym sym = 
+			 setAsReadState (ExpBuild.avar (Symbol.name sym) (Symbol.name itername))
+
+		     fun nextvarfromsym sym = 
+			 let
+			     val base_var = varfromsym sym
+			     val next_var = ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1) base_var
+			 in
+			     next_var
+			 end
+
+		     val exp = ExpBuild.plus [varfromsym state,
 					      ExpBuild.times [ExpBuild.real dt, rhs'],
-					      ExpBuild.neg(nextvar)] 
+					      ExpBuild.times [ExpBuild.int (~1), (nextvarfromsym state)]] 
 			       
 		     (* collect *)
-		     val exp' = ExpProcess.multicollect (SymbolSet.listItems deps, exp)
+		     val exp' = ExpProcess.multicollect (map nextvarfromsym (SymbolSet.listItems deps), exp)
 		     val _ = Util.log("Calling multicollect: from '"^(e2s exp)^"' to '"^(e2s exp')^"'")
 
 		     (* for each dep (column) in the row: *)	
@@ -493,7 +509,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 											 ExpBuild.plus  [ExpBuild.var "d1", ExpBuild.var "d4"]]))}
 					 
 				 in
-				     case Match.repeatApplyRewriteExp coeff_rewrite exp of
+				     case Match.applyRewriteExp coeff_rewrite exp of
 					 Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
 					 (coeff, remainder)
 				       | _ => (ExpBuild.int 0, exp)
@@ -546,8 +562,12 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 	     val _ = app updateMatrix numberedRelationships
 
   	     (* create new shard using matrix equation Mx = b *)
+	     val (upperbw, lowerbw) = Matrix.findBandwidth matrix
+	     val _ = Util.log("Upper BW: "^(i2s upperbw)^", Lower BW: " ^ (i2s lowerbw))
+
+	     val m_banded = Matrix.dense2bandedmatrix matrix
 	     val m_eq = ExpBuild.equals (ExpBuild.var ("#M"),
-					 Exp.CONTAINER(Exp.MATRIX matrix))
+					 Exp.CONTAINER(Exp.MATRIX m_banded))
 	     val b_eq = ExpBuild.equals (ExpBuild.var ("#b"),
 					 Exp.CONTAINER(Exp.ARRAY bvector))
 			

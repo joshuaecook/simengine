@@ -96,6 +96,7 @@ ir/processing/fun_process.sml
 
 ir/patterns/pattern_process.sml
 ir/processing/exp_printer.sml
+ir/math/matrix.sml
 
 ir/processing/term_process.sml
 

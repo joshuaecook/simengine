@@ -91,9 +91,9 @@ fun sym2str (s, props) =
 		      of SOME iters => Iterator.iterators2str iters
 		       | NONE => "")
 
-	val n = prefix ^ (case (Property.getRealName props)
+	val n = prefix ^ ((*case (Property.getRealName props)
 			   of SOME v => Symbol.name v
-			    | NONE => Symbol.name s)
+			    | NONE =>*) Symbol.name s)
 
     in
 	if order < 0 then (* integral *)
@@ -185,7 +185,11 @@ fun sym2c_str (s, props) =
 		      of SOME iters => Iterator.iterators2c_str iters
 		       | NONE => "")
 
-	val n = Symbol.name s
+	val pre_n = Symbol.name s
+	val n = if String.isPrefix "#" pre_n then
+		    "INTERNAL_" ^ (StdFun.extract (pre_n, 1, NONE))
+		else
+		    pre_n
 
     in
 	if order < 0 then (* integral *)
