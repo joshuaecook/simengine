@@ -1,10 +1,9 @@
-#include <solvers.h>
-
-#define MATIDX(n,r,c) (r*n+c) /* Row major ordering */
+#define SPIDX(r,c) (r*(hbw*2+1)+c) /* Row major ordering - Sparse */
+#define DIDX(r,c) (r*n+c) /* Row major ordering - Dense */
 
 #if NUM_MODELS > 1
 #error Linear solver not parallelized to multiple models
-#end
+#endif
 
 typedef struct{
   CDATAFORMAT *M; // sparse nxn banded matrix
@@ -31,13 +30,13 @@ int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
   if(!props->running[modelid])
     return 0;
 
-  int ret = model_flows_linear(props->model_states, mem->M, props->next_states/*b_x*/, modelid);
+  int ret = model_flows(props->time, props->model_states, props->next_states/*b_x*/, props, 1, modelid);
 
   bandsolv_sparse(props->statesize, hbw, 
 		  mem->M + (modelid*props->statesize*props->bandsize),
 		  props->next_states + (modelid*props->statesize));
 
-  props->nexttime[modelid] += props->timestep;
+  props->next_time[modelid] += props->timestep;
 
   return ret;
 }
@@ -97,9 +96,9 @@ void bandsolv_sparse(const int n, const int hbw, CDATAFORMAT *M, CDATAFORMAT *b_
     for(er = br + 1; er <= MIN(br + hbw, n); er++){
       bc = hbw;
       ec = bc - (er-br);
-      rmult = -M[IDX(er,ec)]/M[IDX(br,bc)];
+      rmult = -M[SPIDX(er,ec)]/M[SPIDX(br,bc)];
       for(; bc < 2*hbw+1; ec++, bc++){
-	M[IDX(er,ec)] += rmult*M[IDX(br,bc)];
+	M[SPIDX(er,ec)] += rmult*M[SPIDX(br,bc)];
       }
       b_x[er] += rmult*b_x[br];
     }
@@ -110,13 +109,13 @@ void bandsolv_sparse(const int n, const int hbw, CDATAFORMAT *M, CDATAFORMAT *b_
   for(br = n-1; br > 0; br--){
     for(er = br - 1; er >= MAX(br - hbw, 0); er--){
       ec = bc + (br-er);
-      rmult = -M[IDX(er,ec)]/M[IDX(br,bc)];
+      rmult = -M[SPIDX(er,ec)]/M[SPIDX(br,bc)];
       b_x[er] += rmult*b_x[br];
     }
   }
 
   /* Produce x from remaining diagonal of M */
   for(br = 0; br < n; br++){
-    b_x[br] = b_x[br]/M[IDX(br,bc)];
+    b_x[br] = b_x[br]/M[SPIDX(br,bc)];
   }
 }
