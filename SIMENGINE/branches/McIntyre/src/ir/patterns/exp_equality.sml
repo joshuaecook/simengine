@@ -361,12 +361,12 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 	     app printPatternState patternstates;
 	     print ("  element we're about to process: " ^ (e2s element) ^ "\n"))
 
-	val _ = print ("Matching: " ^ (String.concatWith ", " (map e2s elements)) ^ "\n")
+(*	val _ = print ("Matching: " ^ (String.concatWith ", " (map e2s elements)) ^ "\n")*)
 
-	val patternState' = foldl (fn(e,ps) => (printPatternStates(e, ps); updatePatternState (e, ps))) initialPatternState elements
+	val patternState' = foldl (fn(e,ps) => ((*printPatternStates(e, ps);*) updatePatternState (e, ps))) initialPatternState elements
 
-	val _ = print ("  ==============Final")
-	val _ = app printPatternState patternState'
+(*	val _ = print ("  ==============Final")
+	val _ = app printPatternState patternState'*)
 
 	fun isZeroable (Exp.TERM(Exp.PATTERN (sym, (predname,pred), patcount))) =
 	    (case patcount of
@@ -413,9 +413,9 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 
 and list_equivalent (matchCandidates: patterns_matched) (explist1: Exp.exp list, explist2: Exp.exp list) =
 let
-	val _ = print ("calling list_equivalent\n")
+(*	val _ = print ("calling list_equivalent\n")*)
 (*	val _ = print ("  assigned patterns = " ^ (String.concatWith ", " (map (fn(sym, repl_exp) => (Symbol.name sym) ^ "=" ^ (e2s repl_exp)) matchCandidates)))	*)
-	val _ = print ("  matching = " ^(explist2str explist1)^"' and '"^(explist2str explist2)^"\n")		
+(*	val _ = print ("  matching = " ^(explist2str explist1)^"' and '"^(explist2str explist2)^"\n")		*)
 
 	fun isPattern (Exp.TERM(Exp.PATTERN _)) = true
 	  | isPattern _ = false
