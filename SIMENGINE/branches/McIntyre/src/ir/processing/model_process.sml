@@ -386,6 +386,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 		  DOFPrinter.printModel model)
 		  
 	     (* flatten model *)
+	     val _ = log("Flattening model ...")
 	     val model' = unify model			  
 
  	     val _ =  
@@ -430,10 +431,14 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
 	     val _ = log ("Computing dependencies  ... ")
 	     val relations = map computeRelationships states
+	     val _ = ExpProcess.analyzeRelations relations
 
 	     (* order the states to make matrix banded *)
 			     
+	     val _ = log ("Ordering relationships ...")
 	     val orderedRelationships = ExpProcess.sortStatesByDependencies relations
+	     val _ = ExpProcess.analyzeRelations orderedRelationships
+	     (*val _ = DynException.exit()*)
 
 	     val numberedRelationships = (ListPair.zip (orderedRelationships, 
 							List.tabulate (length orderedRelationships, fn(i) => i)))

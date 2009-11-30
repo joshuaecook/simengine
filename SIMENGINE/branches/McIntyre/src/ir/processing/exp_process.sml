@@ -90,6 +90,7 @@ val getLHSSymbols : Exp.exp -> Symbol.symbol list (* Grab them as a list, since 
 val exp2fun_names : Exp.exp -> Symbol.symbol list
 
 (* sort states by dependencies *)
+val analyzeRelations : (Symbol.symbol * Exp.exp * SymbolSet.set) list -> unit
 val sortStatesByDependencies : (Symbol.symbol * Exp.exp * SymbolSet.set) list -> (Symbol.symbol * Exp.exp * SymbolSet.set) list
 
 (* useful helper functions *)
@@ -1108,6 +1109,37 @@ fun assignToOutputBuffer exp =
       | _ => exp*)
 
 
+fun analyzeRelations relations = 
+    let
+	val sym2index = foldl (fn(((s, _, _), i), t) => SymbolTable.enter(t,s,i))
+			      SymbolTable.empty 
+			      (Util.addCount relations)
+
+	fun ind sym = valOf (SymbolTable.look (sym2index, sym))
+			  
+
+	fun distance state dep = 
+	    Int.abs ((ind state)-(ind dep))
+
+	fun dep2str state dep = 
+	    (Symbol.name dep) ^ ":" ^ (i2s (distance state dep))
+
+	val _ = Util.log("All relationships:")
+	fun relation2str (s, eq, deps) = 
+	    (Symbol.name s) ^ " " ^
+	    "(dep_count=" ^ (i2s (SymbolSet.numItems deps)) ^", " ^ 
+	    "max_distance=" ^ (i2s (StdFun.max (map (distance s) (SymbolSet.listItems deps)))) ^ "): " ^
+	    "{" ^ (String.concatWith ", " (map (dep2str s) (SymbolSet.listItems deps))) ^ "}"
+	    
+	val _ = app (Util.log o relation2str) relations
+
+	val _ = Util.log ("")
+		
+    in
+	()
+    end
+
+
 fun sortStatesByDependencies nil =
     DynException.stdException("No relations passd in", "ExpProcess.sortStatesByDependencies", Logger.INTERNAL)
   | sortStatesByDependencies relations =
@@ -1147,7 +1179,7 @@ fun sortStatesByDependencies nil =
 	(* move one relation from the remaining list to the sorted list *)
 	fun moveRelation (sorted, remaining, []) = 
 	    let
-		val r as (state, _, deps) = fewestCount remaining					    
+		val r as (state, _, deps) = fewestCount remaining
 		val (_, unmatched) = findState remaining state
 	    in
 		(r::sorted, unmatched, SymbolSet.listItems deps)

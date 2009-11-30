@@ -98,6 +98,9 @@ fun stdException (message, location, characterization) =
 			 characterization=characterization,
 			 location=location}
 
+fun exit () =
+    stdException ("Premature exit", "DynException.exit", Logger.INTERNAL)
+
 val terminal_errors = ref false
 
 fun setErrored() =
