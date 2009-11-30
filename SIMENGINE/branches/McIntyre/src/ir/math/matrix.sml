@@ -154,16 +154,24 @@ fun dense2bandedmatrix m =
 		    a'
 		end
 
+	    fun appendZerosArray num_zeros a = 
+		let
+		    val zeros = List.tabulate (num_zeros, fn(x)=>Exp.TERM (Exp.INT 0))
+		    val a' = list2array (array2list a @ zeros)
+		in
+		    a'
+		end
+
 	    (* grab the diagonal *)
 	    val diag = getBand m 0
 		       
 	    (* grab the upper bands *)
-	    val upper_bands = List.tabulate (bw, fn(x)=> prependZerosArray (upper_bw-x) (getBand m (upper_bw-x)))
+	    val upper_bands = List.tabulate (bw, fn(x)=> appendZerosArray (x+1) (getBand m (x+1)))
 
 	    (* grab the lower bands *)
-	    val lower_bands = List.tabulate (bw, fn(x)=> prependZerosArray (x+1) (getBand m (~(x+1))))
+	    val lower_bands = List.tabulate (bw, fn(x)=> prependZerosArray (bw-x) (getBand m (~(bw-x))))
 	in
-	    Container.rows2matrix (upper_bands @ [diag] @ lower_bands)
+	    Container.rows2matrix (lower_bands @ [diag] @ upper_bands)
 	end
 	handle e => DynException.checkpoint "Matrix.dense2bandedlist" e
     else
