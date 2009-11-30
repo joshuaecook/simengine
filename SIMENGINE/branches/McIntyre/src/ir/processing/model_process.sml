@@ -496,7 +496,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
 	     fun updateMatrix ((state, eq, deps), rowIndex) =		
 		 let
-		     val _ = log ("Updating matrix for state '"^(Symbol.name state)^"': "^(i2s (rowIndex+1))^" of " ^ (i2s (List.length states)))
+		     (*val _ = log ("Updating matrix for state '"^(Symbol.name state)^"': "^(i2s (rowIndex+1))^" of " ^ (i2s (List.length states)))*)
 		     (* backwards euler transformation *)
 		     (* update rhs to make any states in matrix [t+1] from [t] *)
 		     val rhs' = Match.repeatApplyRewritesExp iteratorUpdateRules (ExpProcess.rhs eq)
@@ -556,6 +556,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
 				 
 			     val (coeff, remainder) = extractCoefficient statedep
+			     (*val _ = Util.log (" -> coeff="^(e2s coeff)^", remainder="^(e2s remainder))*)
 
 			     (* insert coefficient into matrix at (rowindex, sym2index statedep)*)
 			     val columnIndex = case SymbolTable.look(sym2index, statedep) of
@@ -573,6 +574,9 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 			     
 		     val b_entry = foldl addEntry exp' (SymbolSet.listItems deps)
 
+				   (* we need to negate the b_entry - since we're constructing Ax-b=0 instead of Ax=b *)
+		     val neg_b_entry = ExpBuild.neg (b_entry)
+
 		     (* Verify that remainder does not contain states with [t+1] iterators (indicating non-linearity) *)  		
 		     val preds = [("is symbol", ExpProcess.isSymbol),
 				  ("symbol in state syms", fn(exp) => SymbolSet.member (stateSet, ExpProcess.exp2symbol exp)),
@@ -587,7 +591,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 			       | NONE => ()
 
 		     (* insert "rest" coefficient into bvector at stateindex*)
-		     val _ = Array.update (bvector, rowIndex, b_entry)
+		     val _ = Array.update (bvector, rowIndex, neg_b_entry)
 		 in
 		     ((*foldl addEntry eq (SymbolSet.listItems deps);*)
 		      ())
