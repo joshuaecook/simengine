@@ -4,7 +4,8 @@ struct
 exception InternalError
 
 fun log s = 
-    print (s ^ "\n")
+    (print (s ^ "\n");
+     TextIO.flushOut(TextIO.stdOut))
 
 
 local 

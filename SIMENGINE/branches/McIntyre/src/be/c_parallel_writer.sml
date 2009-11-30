@@ -554,7 +554,7 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
     let
 	val classname = ClassProcess.class2classname class
 	val class_iterators = #iterators class
-	val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))
+	val init_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isInitialConditionEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
 	(*val _ = Util.log ("in outputstatestructbyclass_code: calling class_inst_pairs for class " ^ (Symbol.name (#name class))^ ", number of instances = " ^ (i2s (List.length instances)))*)
 	val class_inst_pairs = ClassProcess.class2instnames class
@@ -564,15 +564,15 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	    List.filter (ClassProcess.hasStates o CurrentModel.classname2class o #1) class_inst_pairs					 
 
     in
-	if List.null class_inst_pairs_non_empty andalso List.null state_eqs_symbols andalso List.null instances then 
+	if List.null class_inst_pairs_non_empty andalso List.null init_eqs_symbols andalso List.null instances then 
 	    [$(""),
 	     $("// Ignoring class '" ^ (Symbol.name (#name class)) ^ "'")]
 	else
 	    [$(""),
 	     $("// Define state structures"),
 	     $("typedef struct  {"),	 
-	     SUB($("// states (count="^(i2s (List.length state_eqs_symbols))^")") ::
-		 (map ($ o (state2member class_iterators)) state_eqs_symbols) @
+	     SUB($("// states (count="^(i2s (List.length init_eqs_symbols))^")") ::
+		 (map ($ o (state2member class_iterators)) init_eqs_symbols) @
 		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs_non_empty)) ^")") ::
 		  (map ($ o (instance2member instances)) class_inst_pairs_non_empty))),
 	     $("} statedata_" ^ (Symbol.name classname) ^";")]

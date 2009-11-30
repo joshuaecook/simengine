@@ -264,6 +264,16 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 	(classes, inst, props')
     end
     
+(* requiresFlattening - only requires it if it requires a matrix solver *)
+fun requiresFlattening () =
+    let
+	val iterators = CurrentModel.iterators()
+    in
+	List.exists (fn(_, iter_type)=> case iter_type of 
+					    DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _)=> true
+					  | _ => false) iterators
+    end
+
 			
 fun optimizeModel (model:DOF.model) =
     let
@@ -346,6 +356,20 @@ fun normalizeModel (model:DOF.model) =
 			end) 
 		     classes
 	*)
+
+	val _ = if requiresFlattening() then
+		    let
+			val _ = log ("Flattening model ...")
+			val model' = unify(CurrentModel.getCurrentModel())
+			val _ = CurrentModel.setCurrentModel(model')
+			val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+		    in
+			()
+		    end
+		else
+		    ()
+		     
+
 	val _ = log ("Ordering model ...")
 	val _ = Ordering.orderModel(CurrentModel.getCurrentModel())
 
@@ -381,7 +405,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
        | Solver.LINEAR_BACKWARD_EULER {dt} =>
 	 (let
- 	     val _ =  
+ 	     (*val _ =  
 		 (log("\n ============ pre-unified model ============ \n");
 		  DOFPrinter.printModel model)
 		  
@@ -391,10 +415,10 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
  	     val _ =  
 		 (log("\n ============ unified model ============ \n");
-		  DOFPrinter.printModel model')
+		  DOFPrinter.printModel model')*)
 
 						   
-	     val flatclass = case model' of
+	     val flatclass = case model of
 				 ([class], _, _) => class
 			       | _ => DynException.stdException ("Flattening resulted in more than one class", 
 								 "ModelProcess.updateSHardForSolver.LINEAR_BACKWARDS_EULER", 
