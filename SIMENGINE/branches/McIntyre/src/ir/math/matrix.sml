@@ -129,7 +129,7 @@ fun dense2bandedlist m =
 	    val diag = getBand m 0
 		       
 	    (* grab the upper bands *)
-	    val upper_bands = List.tabulate (upper_bw, fn(x)=> getBand m (x+1))
+	    val upper_bands = List.tabulate (upper_bw, fn(x)=> getBand m (upper_bw-x))
 
 	    (* grab the lower bands *)
 	    val lower_bands = List.tabulate (lower_bw, fn(x)=> getBand m (~(x+1)))
@@ -158,13 +158,14 @@ fun dense2bandedmatrix m =
 	    val diag = getBand m 0
 		       
 	    (* grab the upper bands *)
-	    val upper_bands = List.tabulate (bw, fn(x)=> prependZerosArray (x+1) (getBand m (x+1)))
+	    val upper_bands = List.tabulate (bw, fn(x)=> prependZerosArray (upper_bw-x) (getBand m (upper_bw-x)))
 
 	    (* grab the lower bands *)
 	    val lower_bands = List.tabulate (bw, fn(x)=> prependZerosArray (x+1) (getBand m (~(x+1))))
 	in
 	    Container.rows2matrix (upper_bands @ [diag] @ lower_bands)
 	end
+	handle e => DynException.checkpoint "Matrix.dense2bandedlist" e
     else
 	DynException.stdException("Only supports square matrices", "Matrix.dense2bandedlist", Logger.INTERNAL)
 
