@@ -168,6 +168,19 @@ fun init_solver_props top_name forkedclasses =
 									  | DOF.IMMEDIATE => "immediate"
 									  | _ => "ERROR Bogus iterator") iterator)
 			val num_states = ModelProcess.model2statesize model 
+					 
+			val requiresBandedMatrix = case itertype of
+						       DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) => true
+						     | _ => false
+			val c = CurrentModel.classname2class top_class
+			val matrix_exps = ClassProcess.symbol2exps c (Symbol.symbol "#M")
+			val bandsize = case matrix_exps of
+					   [exp] => 
+					   if ExpProcess.isMatrixEq exp then
+					       (fn(rows,cols)=>rows) (Container.matrix2size (Container.expmatrix2matrix (ExpProcess.rhs exp)))
+					   else
+					       0
+					 | _ => 0
 		    in
 			(map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
 			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
@@ -185,8 +198,12 @@ fun init_solver_props top_name forkedclasses =
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
 			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvername ^ ";"),
-			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";"),
-			 $("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
+			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
+			 (if requiresBandedMatrix then
+			      [$("props[ITERATOR_"^itername^"].bandsize = " ^ (i2s bandsize) ^ ";")]
+			  else
+			      []) @
+			 [$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
 			 $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
 			 $("props[ITERATOR_"^itername^"].next_states = " ^
 			   (if 0 < num_states then
@@ -707,10 +724,18 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	     else "")
 
 
+	val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)
+
 	val header_progs = 
-	    [$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-	      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
-	      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+	    if useMatrixForm then
+		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
+		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+	    else
+		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
+		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+		
 
 	val read_memory_progs = []
 
@@ -1007,10 +1032,17 @@ fun flow_code {model as (classes,_,_), iter as (iter_sym, iter_type), top_class}
 			     if reads_system class then
 				 "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd, "
 			     else "")
+
+			val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)
 		    in
-			$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-			  "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
-			  " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+			if useMatrixForm then
+			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+			      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
+			      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+			else
+			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+			      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
+			      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
 		    end
 	    end
 
@@ -1047,12 +1079,18 @@ fun model_flows forkedModels =
 	fun subsystem_flow_call subsystem =
 	    let val {top_class, model, iter} = subsystem
 		val (iter_sym, _) = iter
+		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
 	    in CurrentModel.withModel model (fn _ =>
 	       let val class = CurrentModel.classname2class top_class
 		   val basename = ClassProcess.class2basename class
 		   val (statereads, statewrites, systemstatereads) =
 		       (if reads_iterator iter class then "(const statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
-			if writes_iterator iter class then "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " else "",
+			if writes_iterator iter class then 
+			    "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " 
+			else if requiresMatrix then
+			    "(CDATAFORMAT* ) props->mem, dydt, "
+			else
+			    "",
 			if reads_system class then "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states, " else "")
 	       in
 		SUB[$("case ITERATOR_" ^ (Symbol.name iter_sym) ^ ":"),
@@ -1060,6 +1098,7 @@ fun model_flows forkedModels =
 		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
 	       end)
 	    end
+
     in
 	[$"",
 	 $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, const unsigned int first_iteration, const unsigned int modelid){"),

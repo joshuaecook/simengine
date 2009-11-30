@@ -42,6 +42,7 @@ structure ModelProcess : sig
 
     val hasUpdateIterator : Symbol.symbol -> bool
     val hasPostProcessIterator : Symbol.symbol -> bool
+    val requiresMatrixSolution : DOF.systemiterator -> bool
 
     (* Indicates whether an iterator is dependent upon another. *)
     val isDependentIterator : DOF.systemiterator -> bool
@@ -263,15 +264,18 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
     in
 	(classes, inst, props')
     end
+
+fun requiresMatrixSolution (_,iter_type) = 
+    case iter_type of 
+	DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _)=> true
+      | _ => false
     
 (* requiresFlattening - only requires it if it requires a matrix solver *)
 fun requiresFlattening () =
     let
 	val iterators = CurrentModel.iterators()
     in
-	List.exists (fn(_, iter_type)=> case iter_type of 
-					    DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _)=> true
-					  | _ => false) iterators
+	List.exists requiresMatrixSolution iterators
     end
 
 			
