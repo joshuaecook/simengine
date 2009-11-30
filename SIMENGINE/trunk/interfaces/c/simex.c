@@ -102,7 +102,7 @@ char *get_model_name(const char *file){
   int i;
 
   // Find the beginning of the filename
-  for(i=strlen(file)-1;i>1 && file[i-1] != '/';i--){}
+  for(i=strlen(file)-1;i>0 && file[i-1] != '/';i--){}
 
   len = strlen(file+i)-4;
   model_name = (char*)MALLOC(len+1);
