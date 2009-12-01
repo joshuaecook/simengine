@@ -226,19 +226,24 @@ fun init_solver_props top_name forkedclasses =
 			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
 			 $("")] @
 			(if 0 < num_states then
+                             [$("// These pointers beyond the first structure are bogus for the GPU, but STRUCT_IDX will always be 0"),
+                              $("for(modelid=0;modelid<props->num_models;modelid++){"),
+			     SUB(
 			     (case itertype of
 				  DOF.CONTINUOUS _ =>
-				  $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].time;")
+				  $("system_ptr[modelid]."^itername^" = &props[ITERATOR_"^itername^"].time[modelid];")
 				| DOF.DISCRETE _ =>
-				  $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].count;")
+				  $("system_ptr[modelid]."^itername^" = &props[ITERATOR_"^itername^"].count[modelid];")
 				| _ =>
 				  $("#error BOGUS ITERATOR NOT FILTERED")) ::
-			     [$("system_ptr->states_"^itername^" = &(system_states->states_"^itername^");"),
+			     [$("system_ptr[modelid].states_"^itername^" = &(system_states[modelid].states_"^itername^");"),
 			      (if (ModelProcess.hasPostProcessIterator itersym) then
-				   $("system_ptr->states_pp_"^itername^" = &(system_states->states_pp_"^itername^");")
+				   $("system_ptr->states_pp_"^itername^" = &(system_states[modelid].states_pp_"^itername^");")
 			       else
-				   $("")),
-			      $("")]
+                                   $(""))]),
+                              $("}"),
+			      $("")
+			      ]
 			 else nil)
 		    end
 	    in
@@ -248,7 +253,7 @@ fun init_solver_props top_name forkedclasses =
     in
 	[$("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
 	 SUB((if need_systemdata then
-		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
+		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(NUM_MODELS*sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
 		   $("systemstatedata *system_states = (systemstatedata*)model_states;")]
 	      else nil) @
 	     [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
@@ -259,24 +264,26 @@ fun init_solver_props top_name forkedclasses =
 	      $("#else"),
 	      $("void *od = NULL;"),
 	      $("unsigned int outputsize = 0;"),
-	      $("#endif")] @
+	      $("#endif"),
+	      $("unsigned int i, modelid;")] @
 	     (Util.flatmap init_props forkedclasses) @
 	     [$(""),
 	      $("// Initialize all time vectors"),
 	      $("assert(NUM_ITERATORS);"),
-	      $("for(unsigned int i=0;i<NUM_ITERATORS;i++){"),
-	      SUB[$("for(i=0;i<NUM_MODELS;i++){"),
+	      $("for(i=0;i<NUM_ITERATORS;i++){"),
+	      SUB[$("for(modelid=0;modelid<NUM_MODELS;modelid++){"),
 		  SUB[$("Iterator iter = ITERATORS[i];"),
-		      $("props[iter].time[i] = starttime;"),
-		      $("props[iter].next_time[i] = starttime;")],
+		      $("props[iter].time[modelid] = starttime;"),
+		      $("props[iter].next_time[modelid] = starttime;")],
 		  $("}")],
 	      $("}"),
 	      $("return props;")]),
 	 $("}"),
 	 $(""),
 	 $("void free_solver_props(solver_props* props){"),
-	 SUB[$("assert(props);"),
-	     $("for(unsigned int i=0;i<NUM_ITERATORS;i++){"),
+	 SUB[$("unsigned int i;"),
+             $("assert(props);"),
+	     $("for(i=0;i<NUM_ITERATORS;i++){"),
 	     SUB[$("Iterator iter = ITERATORS[i];"),
 		 $("if (props[iter].time) free(props[iter].time);"),
 		 $("if (props[iter].next_time) free(props[iter].next_time);"),
@@ -406,12 +413,18 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 	 $("static const char target[] = \"gpu\";"),
 	 $("#endif"),
 	 $(""),
+	 (* This would be nice but fails in gcc
 	 $("static const unsigned int NUM_INPUTS = "^(i2s (List.length input_names)) ^ ";"),
 	 $("static const unsigned int NUM_STATES = "^(i2s (List.length state_names)) ^ ";"),
-	 (* FIXME get rid of the preprocessor directives that depend on NUM_OUTPUTS being a macro. *)
-	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
 	 $("static const unsigned long long HASHCODE = 0x0000000000000000ULL;"),
 	 $("static const unsigned int VERSION = 0;"),
+         *)
+	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
+	 $("#define NUM_STATES "^(i2s (List.length state_names))),
+	 $("#define HASHCODE 0x0000000000000000ULL"),
+	 (* FIXME get rid of the preprocessor directives that depend on NUM_OUTPUTS being a macro. *)
+	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
+	 $("#define VERSION 0"),
 	 $("")]
     end
     handle e => DynException.checkpoint "CParallelWriter.simengine_interface" e
@@ -810,7 +823,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
 			  val (rows, cols) = (Container.matrix2size o Container.expmatrix2matrix) rhs
 			  val var = CWriterUtil.exp2c_str lhs
-			  fun createIdx (i,j) = "MATIDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^")"
+			  fun createIdx (i,j) = "MATIDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", NUM_MODELS, modelid)"
 			  fun createEntry (exp, i, j) = $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")
 		      in
 			  Container.matrixmap createEntry (Container.expmatrix2matrix rhs)
@@ -820,7 +833,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
 			  val size = (Container.array2size o Container.exparray2array) rhs
 			  val var = CWriterUtil.exp2c_str lhs				  
-			  fun createIdx i = "VECIDX("^(i2s size)^","^(i2s i)^")"
+			  fun createIdx i = "VECIDX("^(i2s size)^","^(i2s i)^", NUM_MODELS, modelid)"
 			  fun createEntry (exp, i) = $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")
 		      in
 			  map createEntry (StdFun.addCount (Container.array2list (Container.exparray2array rhs)))

@@ -4,10 +4,6 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-
 #ifndef NAN
 #define NAN (FLITERAL(0.0)/FLITERAL(0.0))
 #endif
@@ -136,8 +132,9 @@ __DEVICE__ CDATAFORMAT find_min_time(solver_props *props, unsigned int modelid){
 
 // Check to see if any of the iterators are not yet completed
 __DEVICE__ int model_running(solver_props *props, unsigned int modelid){
+  unsigned int i;
   assert(NUM_ITERATORS);
-  for(unsigned int i=0;i<NUM_ITERATORS;i++){
+  for(i=0;i<NUM_ITERATORS;i++){
     Iterator iter = ITERATORS[i];
     if(props[iter].running[modelid])
       return 1;

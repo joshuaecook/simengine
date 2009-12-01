@@ -45,7 +45,8 @@ int exec_cpu(solver_props *props, unsigned int modelid){
       // This isn't conditional on running to make sure it outputs a value for the last time
       for(i=0;i<NUM_ITERATORS;i++){
 	int buffer_ready = 1;
-	for(unsigned int j=0;j<NUM_ITERATORS;j++){
+	unsigned int j;
+	for(j=0;j<NUM_ITERATORS;j++){
 	  if(props[ITERATORS[j]].time[modelid] > props[ITERATORS[i]].time[modelid]){
 	    // Some iterator has run out ahead, don't buffer again
 	    buffer_ready = 0;
