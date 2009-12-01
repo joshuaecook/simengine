@@ -22,7 +22,7 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 	if(props[iter].next_time[modelid] == props[iter].time[modelid]){
 	  solver_eval(&props[iter], modelid);
 	  if(!props[iter].running[modelid]){
-	    model_flows(props[iter].time[modelid], props[iter].model_states, props[iter].next_states, &props[i], 1, modelid);
+	    model_flows(props[iter].time[modelid], props[iter].model_states, props[iter].next_states, &props[iter], 1, modelid);
 	  }
 	  update(&props[iter], modelid);
 	}
