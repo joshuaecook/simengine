@@ -78,7 +78,7 @@ typedef struct {
   unsigned int bandsize;  // Number of bands in statesize*statesize matrix for linear solver
   void *od;
   unsigned int ob_size;
-  void *ob;
+  output_buffer *ob;
   gpu_data gpu;
   cvode_opts cvode;
   int *running;

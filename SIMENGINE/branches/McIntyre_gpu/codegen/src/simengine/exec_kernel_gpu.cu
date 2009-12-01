@@ -9,12 +9,12 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
   if (modelid < NUM_MODELS) {
 
     // Initialize output buffer to store output data
-    init_output_buffer((output_buffer*)(props->ob), modelid);
+    init_output_buffer(props->ob, modelid);
     
     // Run up to MAX_ITERATIONS for each model
     for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++){
       // Check if simulation finished previously
-      if(((output_buffer*)(props->ob))->finished[modelid]){
+      if(props->ob->finished[modelid]){
 	// (threads are launched in batches on the GPU and not all will complete at the
 	// same time with variable timestep solvers)
 	break;
@@ -77,7 +77,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
       }
 
       // Stop if the output buffer is full
-      if(((output_buffer*)(props->ob))->full[modelid]) { 
+      if(props->ob->full[modelid]) { 
 	break; 
       }
     }

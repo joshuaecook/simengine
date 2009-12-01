@@ -1188,31 +1188,32 @@ fun logoutput_code class forkedModels =
 		[$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
 		 SUB[$("int cond = " ^ cond ^ ";"),
 		     $("if (cond) {"),
-		     SUB([$("((unsigned int * )(ob->ptr[modelid]))[0] = " ^ (i2s index) ^ ";"),
-			  $("((unsigned int * )(ob->ptr[modelid]))[1] = " ^ (i2s num_quantities) ^ ";"),
-			  $("ob->ptr[modelid] = &((unsigned int * )(ob->ptr[modelid]))[2];")] @
+		     SUB([$("output_buffer_data *buf = (output_buffer_data *)ob->ptr[modelid];"),
+			  $("buf->outputid = " ^ (i2s index) ^ ";"),
+			  $("buf->num_quantities = " ^ (i2s num_quantities) ^ ";"),
+			  $("")] @
 			 (case (ExpProcess.exp2temporaliterator (Exp.TERM name)) of
 			      SOME (iter_sym, _) => 
 			      (case CurrentModel.itersym2iter iter_sym of
 				   (_, DOF.CONTINUOUS _) =>
-				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
-				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
+				   [$("buf->quantities[0] = props->time[modelid];")]
 				 | (_, DOF.DISCRETE _) =>
-				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
-				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
+				   [$("buf->quantities[0] = props->time[modelid];")]
 				 | (_, DOF.IMMEDIATE) =>
-				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
-				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
+				   [$("buf->quantities[0] = props->time[modelid];")]
 				 | _ => [$("#error BOGUS ITERATOR NOT FILTERED")])
 			    | NONE => []) @
-			 (Util.flatmap (fn (exp) =>
-					   [$("*((CDATAFORMAT* )(ob->ptr[modelid])) = "^(CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp))^";"),
-					    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")])
-				       contents) @
-			 [$("ob->count[modelid]++;"),
+			 (map (fn (exp, idx) =>
+				  $("buf->quantities["^(i2s (1 + idx))^"] = " ^ (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer exp))^";"))
+			      (Util.addCount contents)) @
+			 [$(""),
+			  $("ob->ptr[modelid] = buf->quantities + buf->num_quantities;"),
+			  $("ob->count[modelid]++;"),
+			  $(""),
 			  $("assert((void * )(ob->buffer + (modelid * BUFFER_LEN)) <= ob->ptr[modelid]);"),
 			  $("assert(ob->end[modelid] <= (void * )(ob->buffer + ((modelid+1) * BUFFER_LEN)));"),
 			  $("assert(ob->ptr[modelid] <= ob->end[modelid]);"),
+			  $(""),
 			  $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= ((unsigned char * )(ob->end[modelid]) - (unsigned char * )(ob->ptr[modelid])));")]),
 		     $("}")],
 		 $("}")]
@@ -1368,10 +1369,10 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 					      simengine_interface_progs @
 
 					      [simengine_api_h] @
-					      [solvers_h] @
 					      [defines_h] @
 					      [semeta_seint_h] @
 					      [output_buffer_h] @
+					      [solvers_h] @
 
 					      (case props
 						of {target=Target.CUDA _, ...} =>

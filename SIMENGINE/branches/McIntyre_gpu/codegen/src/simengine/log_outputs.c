@@ -7,17 +7,15 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
   double *odata;
 	     
   unsigned int ndata = ob->count[modelid];
-  void *data = &(ob->buffer[modelid * BUFFER_LEN]);
+  output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN));
 	     
   for (dataid = 0; dataid < ndata; ++dataid) {
-    outputid = ((unsigned int *)data)[0];
+    outputid = buf->outputid;
     assert(seint.num_outputs > outputid);
 
-    nquantities = ((unsigned int *)data)[1];
+    nquantities = buf->num_quantities;
     assert(seint.output_num_quantities[outputid] == nquantities);
 
-    data = &((unsigned int*)data)[2];
-		 
     // TODO an error code for invalid data?
     if (outputid > seint.num_outputs) { return 1; }
     if (seint.output_num_quantities[outputid] != nquantities) { return 1; }
@@ -36,11 +34,12 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
 		 
     odata = &output->data[AS_IDX(nquantities, output->num_samples, 0, output->num_samples)];
 		 
+    // Copies each element individually for implicit type conversion from CDATAFORMAT to double.
     for (quantityid = 0; quantityid < nquantities; ++quantityid) {
-      odata[quantityid] = *((CDATAFORMAT*)data);
-      data = &((CDATAFORMAT*)data)[1];
+      odata[quantityid] = buf->quantities[quantityid];
     }
 		 
+    buf = (output_buffer_data *)(buf->quantities + buf->num_quantities);
     ++output->num_samples;
   }
 	     

@@ -22,4 +22,10 @@ typedef struct{
   void *end[NUM_MODELS];
   CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];
 } output_buffer;
+
+typedef struct {
+  unsigned int outputid;
+  unsigned int num_quantities;
+  CDATAFORMAT quantities[];
+} output_buffer_data;
 #endif

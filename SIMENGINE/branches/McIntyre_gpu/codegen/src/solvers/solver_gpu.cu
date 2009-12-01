@@ -88,7 +88,7 @@ solver_props *gpu_init_props (solver_props *props) {
 
 // Copies final times and states back to host main memory.
 void gpu_finalize_props (solver_props *props) {
-  unsigned int i, states_offset = 0;
+  unsigned int i;
   for (i = 0; i < NUM_ITERATORS; i++) {
     // Each iterator has its own area of memory
     cutilSafeCall(cudaMemcpyFromSymbol(props[i].time, gpu_time, NUM_MODELS * sizeof(CDATAFORMAT), i * NUM_MODELS, cudaMemcpyDeviceToHost));
