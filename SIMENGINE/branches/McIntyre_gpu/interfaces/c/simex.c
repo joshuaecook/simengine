@@ -513,12 +513,12 @@ int write_outputs(const simengine_interface *iface, simengine_opts *opts, simeng
 
   unsigned int num_models = opts->num_models;
   unsigned int num_outputs = iface->num_outputs;
-  fprintf(outfile, "Model : %s\n", iface->name);
+  fprintf(outfile, "# Model : %s\n", iface->name);
   for(modelid=0;modelid<num_models;modelid++){
-    fprintf(outfile, "Model number : %d\n", modelid);
+    fprintf(outfile, "# Model number : %d\n", modelid);
     for(outputid=0;outputid<num_outputs;outputid++){
       unsigned int num_samples = result->outputs[modelid*num_outputs+outputid].num_samples;
-      fprintf(outfile, "Output : %s\n", iface->output_names[outputid]);
+      fprintf(outfile, "# Output : %s\n", iface->output_names[outputid]);
       for(sampleid=0;sampleid<num_samples;sampleid++){
 	unsigned int num_quantities = result->outputs[modelid*num_outputs+outputid].num_quantities;
 	for(quantid=0;quantid<num_quantities;quantid++){

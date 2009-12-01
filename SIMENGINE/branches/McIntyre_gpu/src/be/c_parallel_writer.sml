@@ -824,9 +824,10 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  val (rows, cols) = (Container.matrix2size o Container.expmatrix2matrix) rhs
 			  val var = CWriterUtil.exp2c_str lhs
 			  fun createIdx (i,j) = "MATIDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", NUM_MODELS, modelid)"
-			  fun createEntry (exp, i, j) = $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")
+			  fun createEntry (exp, i, j) = [$("// " ^ (e2s exp)),
+							 $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 		      in
-			  Container.matrixmap createEntry (Container.expmatrix2matrix rhs)
+			  List.concat (Container.matrixmap createEntry (Container.expmatrix2matrix rhs))
 		      end
 		  else if ExpProcess.isArrayEq exp then
 		      let
@@ -834,12 +835,14 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  val size = (Container.array2size o Container.exparray2array) rhs
 			  val var = CWriterUtil.exp2c_str lhs				  
 			  fun createIdx i = "VECIDX("^(i2s size)^","^(i2s i)^", NUM_MODELS, modelid)"
-			  fun createEntry (exp, i) = $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")
+			  fun createEntry (exp, i) = [$("//" ^ (e2s exp)),
+						      $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 		      in
-			  map createEntry (StdFun.addCount (Container.array2list (Container.exparray2array rhs)))
+			  List.concat (map createEntry (StdFun.addCount (Container.array2list (Container.exparray2array rhs))))
 		      end
 		  else
- 		      [$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")])
+ 		      [$("// " ^ (e2s exp)),
+		       $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")])
 		 handle e => DynException.checkpoint "CParallelWriter.class2flow_code.intermediateeq2prog" e)
 		
 
