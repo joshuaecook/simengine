@@ -2,12 +2,14 @@
 __GLOBAL__ void exec_kernel_gpu(solver_props *props){
   const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;
   
-  unsigned int num_iterations;
+  unsigned int num_iterations, i;
+  Iterator iter;
+  CDATAFORMAT min_time;
 	     
   if (modelid < NUM_MODELS) {
 
     // Initialize output buffer to store output data
-    init_output_buffer((output_buffer*)(mem->props->ob), modelid);
+    init_output_buffer((output_buffer*)(props->ob), modelid);
     
     // Run up to MAX_ITERATIONS for each model
     for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++){

@@ -12,6 +12,7 @@
 #define NAN (FLITERAL(0.0)/FLITERAL(0.0))
 #endif
 
+// Assert is not available in device code.
 #if defined(__DEVICE_EMULATION__) || !defined(__CUDACC__)
 #include <assert.h>
 #else
@@ -30,6 +31,7 @@ typedef struct {
   CDATAFORMAT *time;
   CDATAFORMAT *model_states;
   void *ob;
+  void *mem;
 } gpu_data;
 
 // Additional CVODE specific options
@@ -63,7 +65,8 @@ typedef struct {
   // A pointer into system_states to the states for this iterator
   CDATAFORMAT *model_states;
   CDATAFORMAT *next_states;
-  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states
+  // freeme is not currently used.
+  //  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states; 
   CDATAFORMAT *inputs;
   simengine_output *outputs;
   Solver solver;
@@ -81,6 +84,7 @@ typedef struct {
   int *running;
   solver_mem *mem;
 } solver_props;
+
 
 // Pre-declaration of model_flows, the interface between the solver and the model
 __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid);
@@ -146,7 +150,7 @@ int immediate_init(solver_props *props) {
   return 0;
 }
 
-int immediate_eval(solver_props *props, unsigned int modelid) {
+__DEVICE__ int immediate_eval(solver_props *props, unsigned int modelid) {
   props->running[modelid] = props->time[modelid] < props->stoptime;
   if (!props->running[modelid])
     return 0;

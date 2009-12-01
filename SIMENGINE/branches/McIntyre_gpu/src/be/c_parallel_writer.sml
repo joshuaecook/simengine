@@ -127,6 +127,7 @@ fun reads_system class =
 
 fun header (class_name, iterator_names, solvers, includes, defpairs) = 
     let val iters_enumerated = map (fn it => "ITERATOR_"^ it) iterator_names
+        val solvers_enumerated = map (fn sol => String.map Char.toUpper sol) solvers
     in
 	[$("// C Execution Engine for top-level model: " ^ class_name),
 	 $("// " ^ Globals.copyright),
@@ -140,7 +141,7 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
 	 SUB(map (fn(sol) => $((String.map Char.toUpper sol) ^ ",")) solvers),
 	 SUB[$("NUM_SOLVERS")],
 	 $("} Solver;"),
-	 $("const Solver SOLVERS[NUM_SOLVERS] = {" ^ (String.concatWith ", " solvers) ^ "};"),
+	 $("const Solver SOLVERS[NUM_SOLVERS] = {" ^ (String.concatWith ", " solvers_enumerated) ^ "};"),
 	 $(""),
 	 $("typedef enum {"),
 	 SUB(map (fn(iter) => $("ITERATOR_"^iter^",")) iterator_names),
@@ -216,7 +217,7 @@ fun init_solver_props top_name forkedclasses =
 			 $("if (props[ITERATOR_"^itername^"].statesize) {"),
 			 SUB[$("memcpy((void * )props[ITERATOR_"^itername^"].next_states, (const void *)props[ITERATOR_"^itername^"].model_states, NUM_MODELS*props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
 			 $("}"),
-			 $("props[ITERATOR_"^itername^"].freeme = props[ITERATOR_"^itername^"].next_states;"),
+			 (*$("props[ITERATOR_"^itername^"].freeme = props[ITERATOR_"^itername^"].next_states;"),*)
 			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
 			 $("props[ITERATOR_"^itername^"].num_models = NUM_MODELS;"),
 			 $("props[ITERATOR_"^itername^"].od = od;"),
@@ -258,9 +259,7 @@ fun init_solver_props top_name forkedclasses =
 	      $("#else"),
 	      $("void *od = NULL;"),
 	      $("unsigned int outputsize = 0;"),
-	      $("#endif"),
-	      $("Iterator iter;"),
-	      $("unsigned int i;")] @
+	      $("#endif")] @
 	     (Util.flatmap init_props forkedclasses) @
 	     [$(""),
 	      $("// Initialize all time vectors"),
@@ -281,7 +280,7 @@ fun init_solver_props top_name forkedclasses =
 	     SUB[$("Iterator iter = ITERATORS[i];"),
 		 $("if (props[iter].time) free(props[iter].time);"),
 		 $("if (props[iter].next_time) free(props[iter].next_time);"),
-		 $("if (props[iter].freeme) free(props[iter].freeme);"),
+		 (*$("if (props[iter].freeme) free(props[iter].freeme);"),*)
 		 $("if (props[iter].running) free(props[iter].running);")],
 	     $("}"),
 	     $("if (props[0].ob) free(props[0].ob);"),
@@ -390,29 +389,29 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 
 	val default_inputs = map default2c_str input_defaults
     in
-	[$("const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
-	 $("const char *state_names[] = {" ^ (String.concatWith ", " (map cstring state_names)) ^ "};"),
-	 $("const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
-	 $("const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
-	 $("const double default_inputs[] = {" ^ (String.concatWith ", " default_inputs) ^ "};"),
-	 $("const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
-	 $("const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " (map i2s outputs_num_quantities)) ^ "};"),
-	 $("const char model_name[] = \"" ^ class_name ^ "\";"),
-	 $("const char *solvers[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
+	[$("static const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
+	 $("static const char *state_names[] = {" ^ (String.concatWith ", " (map cstring state_names)) ^ "};"),
+	 $("static const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
+	 $("static const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
+	 $("static const double default_inputs[] = {" ^ (String.concatWith ", " default_inputs) ^ "};"),
+	 $("static const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
+	 $("static const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " (map i2s outputs_num_quantities)) ^ "};"),
+	 $("static const char model_name[] = \"" ^ class_name ^ "\";"),
+	 $("static const char *solvers[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
 	 $("#if defined TARGET_CPU"),  (* These #if statements should be converted to sml conditionals based on compiler options *)
-	 $("const char target[] = \"cpu\";"),
+	 $("static const char target[] = \"cpu\";"),
 	 $("#elif defined TARGET_OPENMP"),
-	 $("const char target[] = \"openmp\";"),
+	 $("static const char target[] = \"openmp\";"),
 	 $("#elif defined TARGET_GPU"),
-	 $("const char target[] = \"gpu\";"),
+	 $("static const char target[] = \"gpu\";"),
 	 $("#endif"),
 	 $(""),
-	 $(""),
-	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
-	 $("#define NUM_STATES "^(i2s (List.length state_names))),
+	 $("static const unsigned int NUM_INPUTS = "^(i2s (List.length input_names)) ^ ";"),
+	 $("static const unsigned int NUM_STATES = "^(i2s (List.length state_names)) ^ ";"),
+	 (* FIXME get rid of the preprocessor directives that depend on NUM_OUTPUTS being a macro. *)
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
-	 $("#define HASHCODE (0x0000000000000000ULL)"),
-	 $("#define VERSION (0)"),
+	 $("static const unsigned long long HASHCODE = 0x0000000000000000ULL;"),
+	 $("static const unsigned int VERSION = 0;"),
 	 $("")]
     end
     handle e => DynException.checkpoint "CParallelWriter.simengine_interface" e
@@ -449,7 +448,11 @@ fun solver_wrappers solvers =
 	     SUB[$("return " ^ s ^ m ^ "(props" ^ p ^ ");")]]
 
 	fun create_wrapper (m,pd,p) =
-	    [$("int solver" ^ m ^ "(solver_props *props" ^ pd ^ "){"),
+	    [(case m 
+	       of "_eval" =>
+		  $("__DEVICE__ int solver_eval(solver_props *props" ^ pd ^") {")
+		| _ => 
+		   $("int solver" ^ m ^ "(solver_props *props" ^ pd ^ "){")),
 	     $("assert(NUM_SOLVERS > props->solver);"),
 	     SUB($("switch(props->solver){") ::
 		 (Util.flatmap (method_redirect (m, p)) solvers) @
@@ -495,7 +498,7 @@ fun update_wrapper subsystems =
 		     | _ => $("#error BOGUS ITERATOR")]
 	       end)
 
-    in [$("int update(solver_props *props, unsigned int modelid) {"),
+    in [$("__HOST__ __DEVICE__ int update(solver_props *props, unsigned int modelid) {"),
 	SUB ($("switch (props->iterator) {") ::
 	     List.concat (map call_update subsystems) @
 	     [$("default: return 1;"),
@@ -535,7 +538,7 @@ fun postprocess_wrapper subsystems =
 		     | _ => $("#error BOGUS ITERATOR")]
 	       end)
 
-    in [$("int post_process(solver_props *props, unsigned int modelid) {"),
+    in [$("__HOST__ __DEVICE__ int post_process(solver_props *props, unsigned int modelid) {"),
 	SUB ($("switch (props->iterator) {") ::
 	     List.concat (map call_update subsystems) @
 	     [$("default: return 1;"),
@@ -1210,7 +1213,7 @@ fun logoutput_code class forkedModels =
 			  $("assert((void * )(ob->buffer + (modelid * BUFFER_LEN)) <= ob->ptr[modelid]);"),
 			  $("assert(ob->end[modelid] <= (void * )(ob->buffer + ((modelid+1) * BUFFER_LEN)));"),
 			  $("assert(ob->ptr[modelid] <= ob->end[modelid]);"),
-			  $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= (ob->end[modelid] - ob->ptr[modelid]));")]),
+			  $("ob->full[modelid] |= (MAX_OUTPUT_SIZE >= ((unsigned char * )(ob->end[modelid]) - (unsigned char * )(ob->ptr[modelid])));")]),
 		     $("}")],
 		 $("}")]
 	    end
@@ -1242,11 +1245,11 @@ fun logoutput_code class forkedModels =
         if total_output_quantities > 0 then
 	[$(""),
 	 $("// Output buffers must have at least this much free space to ensure that an output can be written."),
-	 $("const ptrdiff_t MAX_OUTPUT_SIZE = NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT); //size in bytes"),
+	 $("static const ptrdiff_t MAX_OUTPUT_SIZE = NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT); //size in bytes"),
 	 $(""),
 	 $("__DEVICE__ void buffer_outputs(solver_props *props, unsigned int modelid) {"),
-	 SUB([$("output_buffer *ob = props->ob;"),
-	      $("output_data *od = props->od;")] @
+	 SUB([$("output_buffer *ob = (output_buffer *)props->ob;"),
+	      $("output_data *od = (output_data *)props->od;")] @
 	     output_exps),
 	 $("}"),
 	 $("")]
@@ -1310,7 +1313,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 				    []))
 
 	val init_solver_props_c = init_solver_props orig_name forkedModelsWithSolvers		   
-	val simengine_interface_progs = simengine_interface (*(class_name, inst_class, unique_solvers, iterator_names)*)combinedModel forkedModelsLessUpdate
+	val simengine_interface_progs = simengine_interface combinedModel forkedModelsLessUpdate
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = Util.flatmap (fn{model,...} => CurrentModel.withModel model (fn _=> outputstatestruct_code model)) forkedModelsLessUpdate
@@ -1322,8 +1325,8 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 	val simengine_target_h = $(Archive.getC "simengine/simengine_target.h")
 	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
 	val solvers_h = $(Archive.getC "solvers/solvers.h")
-	val gpu_util_c = $(Archive.getC "simengine/gpu_util.c") (* Make conditional on GPU target *)
-	val solver_gpu_cu = $(Archive.getC ("solvers/solver_gpu.cu")) (* Make conditional on GPU target *)
+	val gpu_util_c = $(Archive.getC "simengine/gpu_util.c")
+	val solver_gpu_cu = $(Archive.getC ("solvers/solver_gpu.cu"))
 	val solver_c = $(String.concat (map
 					    (fn(solv)=> Archive.getC ("solvers/"^solv^".c"))
 					    unique_solvers))
@@ -1362,9 +1365,13 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 						   [gpu_util_c]
 						 | _ => []) @
 
+					      simengine_interface_progs @
+
 					      [simengine_api_h] @
 					      [solvers_h] @
 					      [defines_h] @
+					      [semeta_seint_h] @
+					      [output_buffer_h] @
 
 					      (case props
 						of {target=Target.CUDA _, ...} =>
@@ -1372,8 +1379,6 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 						 | _ => []) @
 
 					      [solver_c] @
-					      simengine_interface_progs @
-					      [semeta_seint_h] @
 					      (*iteratordatastruct_progs @*)
 					      outputdatastruct_progs @
 					      outputstatestruct_progs @
@@ -1381,7 +1386,6 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 					      fun_prototypes @
 					      solver_wrappers_c @
 					      iterator_wrappers_c @
-					      [output_buffer_h] @
 					      [init_output_buffer_c] @
 					      [simengine_api_c] @
 					      init_solver_props_c @

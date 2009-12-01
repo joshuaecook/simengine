@@ -5,24 +5,24 @@ typedef struct {
   CDATAFORMAT *k1;
 } forwardeuler_mem;
 
+__HOST__
 int forwardeuler_init(solver_props *props){
 #if defined TARGET_GPU
-  gpu_init();
+  // Temporary CPU copies of GPU datastructures in host main memory
+  forwardeuler_mem tmp_mem;
+  // GPU persistent data in global memory
+  forwardeuler_mem *g_mem;
 
-  // Temporary CPU copies of GPU datastructures
-  forwardeuler_mem tmem;
-  // GPU datastructures
-  forwardeuler_mem *dmem;
-  
-  // Allocate GPU space for mem and pointer fields of mem (other than props)
-  cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(forwardeuler_mem)));
-  tmem.props = gpu_init_props(props);;
-  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  // Allocates GPU global memory for solver's persistent data
+  cutilSafeCall(cudaMalloc((void **)&tmp_mem.k1, sizeof(CDATAFORMAT) * props->statesize * props->num_models));
 
-  // Copy mem structure to GPU
-  cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(forwardeuler_mem), cudaMemcpyHostToDevice));
+  // Copies solver's persistent data structure to device memory
+  cutilSafeCall(cudaMalloc((void **)&g_mem, sizeof(forwardeuler_mem)));
+  cutilSafeCall(cudaMemcpy(g_mem, &tmp_mem, sizeof(forwardeuler_mem), cudaMemcpyHostToDevice));
 
-  return dmem;
+  props->mem = g_mem;
+
+  return 0;
   
 #else // Used for CPU and OPENMP targets
 
@@ -36,8 +36,9 @@ int forwardeuler_init(solver_props *props){
 #endif // defined TARGET_GPU
 }
 
+__DEVICE__
 int forwardeuler_eval(solver_props *props, unsigned int modelid){
-  forwardeuler_mem *mem = props->mem;
+  forwardeuler_mem *mem = (forwardeuler_mem *)props->mem;
 
   // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
   props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
@@ -58,18 +59,16 @@ int forwardeuler_eval(solver_props *props, unsigned int modelid){
   return ret;
 }
 
+__HOST__
 int forwardeuler_free(solver_props *props){
 #if defined TARGET_GPU
-  forwardeuler_mem tmem;
+  forwardeuler_mem tmp_mem;
+  forwardeuler_mem *g_mem = (forwardeuler_mem *)props->mem;
 
-  cutilSafeCall(cudaMemcpy(&tmem, mem, sizeof(forwardeuler_mem), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(&tmp_mem, g_mem, sizeof(forwardeuler_mem), cudaMemcpyDeviceToHost));
 
-  gpu_free_props(tmem.props);
-
-  cutilSafeCall(cudaFree(tmem.k1));
-  cutilSafeCall(cudaFree(mem));
-
-  gpu_exit();
+  cutilSafeCall(cudaFree(tmp_mem.k1));
+  cutilSafeCall(cudaFree(g_mem));
 
 #else // Used for CPU and OPENMP targets
 
@@ -77,7 +76,7 @@ int forwardeuler_free(solver_props *props){
 
   free(mem->k1);
   free(mem);
+#endif // defined TARGET_GPU
 
   return 0;
-#endif // defined TARGET_GPU
 }

@@ -26,14 +26,28 @@ int VECIDX(int nc, int c){
 void bandsolv_dense(const int n, const int hbw, CDATAFORMAT *M, CDATAFORMAT *b_x);
 void bandsolv_sparse(const int n, const int hbw, CDATAFORMAT *M, CDATAFORMAT *b_x);
 
+__HOST__
 int linearbackwardeuler_init(solver_props *props){
-  props->mem = malloc(props->statesize*props->bandsize*sizeof(CDATAFORMAT)); /* The matrix */
+#if defined TARGET_GPU
+  solver_mem *g_mem;
+
+  // Allocates GPU global memory for solver's persistent data
+  cutilSafeCall(cudaMalloc((void **)&g_mem, props->statesize * props->bandsize * sizeof(CDATAFORMAT)));
+
+  props->mem = g_mem;
+
+#else // CPU and OPENMP targets
+  solver_mem *mem = (solver_mem *)malloc(props->statesize*props->bandsize*sizeof(CDATAFORMAT));
+
+  props->mem = mem; /* The matrix */
+#endif
 
   return 0;
 }
 
+__DEVICE__
 int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
-  CDATAFORMAT* M = props->mem;
+  CDATAFORMAT* M = (CDATAFORMAT *)props->mem;
   int hbw = props->bandsize>>1; // Integer division by 2
 
   // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
@@ -52,8 +66,13 @@ int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
   return ret;
 }
 
+__HOST__
 int linearbackwardeuler_free(solver_props *props){
+#if defined TARGET_GPU
+  cutilSafeCall(cudaFree(props->mem));
+#else // Used for CPU and OPENMP targets
   free(props->mem);
+#endif
   return 0;
 }
 

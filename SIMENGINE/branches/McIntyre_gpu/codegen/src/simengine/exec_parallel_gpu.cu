@@ -27,7 +27,7 @@ int exec_parallel_gpu(solver_props *props){
 
     // Copy data in parallel to external api interface
     for(modelid = 0; modelid < props->num_models; modelid++){
-      if(0 != log_outputs((output_buffer*)props->ob, outputs, modelid))
+      if(0 != log_outputs((output_buffer*)props->ob, props->outputs, modelid))
 	return ERRMEM;
     }
   }

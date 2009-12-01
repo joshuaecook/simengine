@@ -3,6 +3,9 @@ int exec_loop(solver_props *props){
   int status = SUCCESS;
 
   // Initialize solvers for all iterators
+# if defined TARGET_GPU
+  gpu_init();
+# endif
   for(iterid=0;iterid<NUM_ITERATORS;iterid++){
     solver_init(&props[ITERATORS[iterid]]);
   }
@@ -22,6 +25,9 @@ int exec_loop(solver_props *props){
   for(iterid=0;iterid<NUM_ITERATORS;iterid++){
     solver_free(&props[ITERATORS[iterid]]);
   }
+# if defined TARGET_GPU
+  gpu_exit();
+# endif
 
   return status;
 }

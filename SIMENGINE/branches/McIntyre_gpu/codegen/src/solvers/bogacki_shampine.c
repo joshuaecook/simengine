@@ -12,6 +12,7 @@ typedef struct {
   CDATAFORMAT *cur_timestep;
 } bogacki_shampine_mem;
 
+__HOST__
 int bogacki_shampine_init(solver_props *props){
   int i;
 #if defined TARGET_GPU
@@ -71,6 +72,7 @@ int bogacki_shampine_init(solver_props *props){
 #endif
 }
 
+__HOST__ __DEVICE__
 int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
   CDATAFORMAT max_timestep = props->timestep*1024;
   CDATAFORMAT min_timestep = props->timestep/1024;
@@ -176,6 +178,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
   return ret;
 }
 
+__HOST__
 int bogacki_shampine_free(solver_props *props){
   assert(props);
 #if defined TARGET_GPU
