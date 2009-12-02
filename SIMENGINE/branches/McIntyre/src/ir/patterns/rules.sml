@@ -1,5 +1,16 @@
-structure Rules =
+signature RULES = sig
+
+type rule = Rewrite.rewrite
+
+val addRules : string * rule list -> unit
+val getRules : string -> rule list
+
+end
+
+structure Rules : RULES=
 struct
+
+type rule = Rewrite.rewrite
 
 val expansionRules : Rewrite.rewrite list = 
     [
@@ -60,6 +71,14 @@ fun op2name (oper) =
     FunProps.op2name (Fun.BUILTIN oper)
 
 val e2s = ExpPrinter.exp2str
+
+fun lookup assigned_patterns name : Exp.exp =
+    case SymbolTable.look(assigned_patterns, Symbol.symbol name) of
+	SOME (exp) => exp
+      | NONE => DynException.stdException ("Encountered unknown pattern " ^ name, 
+					   "Rules.funop2rule.lookup", 
+					   Logger.INTERNAL)
+
 
 fun funop2rule oper =
     let
@@ -132,13 +151,6 @@ fun funop2rule oper =
 		runlist [Exp.TERM a', Exp.TERM b']
 	    end
 
-	fun lookup assigned_patterns name : Exp.exp =
-	    case SymbolTable.look(assigned_patterns, Symbol.symbol name) of
-		SOME (exp) => exp
-	      | NONE => DynException.stdException ("Encountered unknown pattern " ^ name, 
-						   "Rules.funop2rule.lookup", 
-						   Logger.INTERNAL)
-
 	val (argpattern, evalExp) = 
 	case #operands (FunProps.op2props oper) of
 	    FunProps.FIXED (x) => (List.tabulate (x, (fn(i)=>Match.anyconst ("#x" ^ (Int.toString i)))),
@@ -191,7 +203,16 @@ fun funop2rule oper =
 	     replace=Rewrite.MATCHEDACTION (("constant folding " ^ (#name (FunProps.op2props oper))),
 					    evalExp)}
     end
-val evalRules = map funop2rule Fun.op_list
+
+val ifRules = [{find = Exp.FUN (Fun.BUILTIN Fun.IF, [Match.anyconst "#b", Match.one "#t", Match.one "#f"]),
+		test=NONE,
+		replace=Rewrite.MATCHEDACTION ("constant folding if", fn(exp, assigned_patterns) => case lookup assigned_patterns ("#b") of
+													Exp.TERM (Exp.BOOL true) => lookup assigned_patterns ("#t")
+												      | Exp.TERM (Exp.BOOL false) => lookup assigned_patterns ("#f")
+												      | _ => exp)}]
+
+val evalRules = (map funop2rule Fun.op_list)
+		@ ifRules
 
 
 val ruleTable = ref SymbolTable.empty
