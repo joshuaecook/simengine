@@ -108,18 +108,16 @@ __DEVICE__ CDATAFORMAT find_min_time(solver_props *props, unsigned int modelid){
 
   // Finds the first running iterator for the initial min time
   for(i=0;i<NUM_ITERATORS;i++) {
-    Iterator iter = ITERATORS[i];
-    if (props[iter].running[modelid]) {
-      min_time = props[iter].next_time[modelid];
+    if (props[i].running[modelid]) {
+      min_time = props[i].next_time[modelid];
       break;
     }
   }
 
   // Finds the running iterator with the earliest min time
   for(i=0;i<NUM_ITERATORS;i++){
-    Iterator iter = ITERATORS[i];
-    if(props[iter].next_time[modelid] < min_time && props[iter].running[modelid]){
-      min_time = props[iter].next_time[modelid];
+    if(props[i].next_time[modelid] < min_time && props[i].running[modelid]){
+      min_time = props[i].next_time[modelid];
     }
   }
 
@@ -131,8 +129,7 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid){
   unsigned int i;
   assert(NUM_ITERATORS);
   for(i=0;i<NUM_ITERATORS;i++){
-    Iterator iter = ITERATORS[i];
-    if(props[iter].running[modelid])
+    if(props[i].running[modelid])
       return 1;
   }
   return 0;

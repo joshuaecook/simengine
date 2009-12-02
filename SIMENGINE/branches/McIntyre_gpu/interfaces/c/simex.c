@@ -351,8 +351,8 @@ int runsimEngine (const simengine_opts *opts)
     }
   }
 
-  snprintf(cmdline, BUFSIZE, "make remake -f %s/share/simEngine/Makefile SIMENGINEDIR=%s MODEL=%s TARGET=%s SIMENGINE_STORAGE=%s NUM_MODELS=%d DEBUG=1 EMULATE=%d",
-	   simengine_path, simengine_path, opts->model_name, opts->target, opts->precision, opts->num_models, opts->emulate);
+  snprintf(cmdline, BUFSIZE, "make remake -f %s/share/simEngine/Makefile SIMENGINEDIR=%s MODEL=%s TARGET=%s SIMENGINE_STORAGE=%s NUM_MODELS=%d DEBUG=%s EMULATE=%s",
+	   simengine_path, simengine_path, opts->model_name, opts->target, opts->precision, opts->num_models, opts->debug ? "YES" : "", opts->emulate ? "YES" : "");
 
   fp = popen(cmdline, "r");
   if( fp == NULL){

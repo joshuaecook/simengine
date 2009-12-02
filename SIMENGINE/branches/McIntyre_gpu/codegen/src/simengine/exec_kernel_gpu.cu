@@ -26,13 +26,12 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
 
       // Run solvers for all iterators that need to advance
       for(i=0;i<NUM_ITERATORS;i++){
-	iter = ITERATORS[i];
-	if(props[iter].next_time[modelid] == props[iter].time[modelid]){
-	  solver_eval(&props[iter], modelid);
-	  if(!props[iter].running[modelid]){
-	    model_flows(props[iter].time[modelid], props[iter].model_states, props[iter].next_states, &props[iter], 1, modelid);
+	if(props[i].next_time[modelid] == props[i].time[modelid]){
+	  solver_eval(&props[i], modelid);
+	  if(!props[i].running[modelid]){
+	    model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
 	  }
-	  update(&props[iter], modelid);
+	  update(&props[i], modelid);
 	}
       }
 
@@ -40,10 +39,9 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
       if(model_running(props, modelid)){
 	min_time = find_min_time(props, modelid);
 	for(i=0;i<NUM_ITERATORS;i++){
-	  iter = ITERATORS[i];
-	  if(props[iter].next_time[modelid] == min_time &&
-	     props[iter].next_time[modelid] > props[iter].time[modelid]){
-	    post_process(&props[iter], modelid);
+	  if(props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] > props[i].time[modelid]){
+	    post_process(&props[i], modelid);
 	  }
 	}
       }
@@ -54,14 +52,14 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
       for(i=0;i<NUM_ITERATORS;i++){
 	int buffer_ready = 1;
 	for(unsigned int j=0;j<NUM_ITERATORS;j++){
-	  if(props[ITERATORS[j]].time[modelid] > props[ITERATORS[i]].time[modelid]){
+	  if(props[j].time[modelid] > props[i].time[modelid]){
 	    // Some iterator has run out ahead, don't buffer again
 	    buffer_ready = 0;
 	    break;
 	  }
 	}
 	if(buffer_ready){
-	  buffer_outputs(&props[ITERATORS[i]], modelid);
+	  buffer_outputs(&props[i], modelid);
 	}
       }
 #endif
@@ -69,10 +67,9 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
       // Write state values back to state storage
       if(model_running(props, modelid)){
 	for(i=0;i<NUM_ITERATORS;i++){
-	  iter = ITERATORS[i];
-	  if(props[iter].next_time[modelid] == min_time &&
-	     props[iter].next_time[modelid] > props[iter].time[modelid]){
-	    solver_writeback(&props[iter], modelid);
+	  if(props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] > props[i].time[modelid]){
+	    solver_writeback(&props[i], modelid);
 	  }
 	}
       }
