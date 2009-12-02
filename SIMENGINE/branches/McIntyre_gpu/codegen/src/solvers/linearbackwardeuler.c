@@ -1,23 +1,23 @@
 
-__DEVICE__
+__HOST__ __DEVICE__
 int SPIDX(int n, int hbw,int r, int c, unsigned int num_models, unsigned int modelid){
   int idx = TARGET_IDX(n*(hbw*2+1), num_models, r*(hbw*2+1)+c, modelid);
   return idx;
 } /* Row major ordering - Sparse */
 
-__DEVICE__
+__HOST__ __DEVICE__
 int DIDX(int n,int r,int c, unsigned int num_models, unsigned int modelid){
   int idx = TARGET_IDX(n*n, num_models, r*n+c, modelid);
   return idx;
 } /* Row major ordering - Dense */
 
-__DEVICE__
+__HOST__ __DEVICE__
 int MATIDX(int nc, int nr, int c, int r, unsigned int num_models, unsigned int modelid){
   int idx = TARGET_IDX(nc*nr, num_models, r*nc+c, modelid);
   return idx;
 }
 
-__DEVICE__
+__HOST__ __DEVICE__
 int VECIDX(int nc, int c, unsigned int num_models, unsigned int modelid){
   int idx = TARGET_IDX(nc, num_models, c, modelid);
   return idx;

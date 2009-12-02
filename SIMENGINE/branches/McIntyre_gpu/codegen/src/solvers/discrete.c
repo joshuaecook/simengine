@@ -1,12 +1,14 @@
 // Discrete solver for difference equations
 // Copyright 2009 Simatra Modeling Technologies, L.L.C.
 
+__HOST__
 int discrete_init(solver_props *props){
   props->next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   props->count = (unsigned int*)calloc(props->num_models,sizeof(unsigned int));
   return 0;
 }
 
+__DEVICE__
 int discrete_eval(solver_props *props, unsigned int modelid){
   // Check if model is still running
   props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
@@ -18,6 +20,7 @@ int discrete_eval(solver_props *props, unsigned int modelid){
   return model_flows(props->time[modelid], props->model_states, props->next_states, props, 1, modelid);
 }
 
+__HOST__
 int discrete_free(solver_props *props){
   assert(props);
   if (props->next_states) free(props->next_states);

@@ -19,6 +19,11 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
 	// same time with variable timestep solvers)
 	break;
       }
+      else if (!model_running(props, modelid)) {
+	props->ob->finished[modelid] = 1;
+	break;
+      }
+
       // Run solvers for all iterators that need to advance
       for(i=0;i<NUM_ITERATORS;i++){
 	iter = ITERATORS[i];

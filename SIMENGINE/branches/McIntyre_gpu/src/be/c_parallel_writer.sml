@@ -238,7 +238,7 @@ fun init_solver_props top_name forkedclasses =
 				  $("#error BOGUS ITERATOR NOT FILTERED")) ::
 			     [$("system_ptr[modelid].states_"^itername^" = &(system_states[modelid].states_"^itername^");"),
 			      (if (ModelProcess.hasPostProcessIterator itersym) then
-				   $("system_ptr->states_pp_"^itername^" = &(system_states[modelid].states_pp_"^itername^");")
+				   $("system_ptr[modelid].states_pp_"^itername^" = &(system_states[modelid].states_pp_"^itername^");")
 			       else
                                    $(""))]),
                               $("}"),
@@ -252,8 +252,52 @@ fun init_solver_props top_name forkedclasses =
 	    end
 	    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props" e
 
+	    
+	fun gpu_init_props {top_class, iter=iterator, model} =
+	    let fun progs () = 
+		    let val (itersym, itertype) = iterator
+			val itername = (Symbol.name itersym)
+
+			val iterator_value_ptr = 
+			    case itertype of
+				DOF.CONTINUOUS _ =>
+				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^itername^"].time;")
+			      | DOF.DISCRETE _ =>
+				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^itername^"].count;")
+			      | _ =>
+				$("#error BOGUS ITERATOR NOT FILTERED")
+
+			val iterator_states_ptr =
+			    $("tmp_system->states_"^itername^" = (statedata_"^(Symbol.name top_class)^" * )(tmp_props[ITERATOR_"^itername^"].model_states);")
+
+			val iterator_pp_states_ptr =
+			    if ModelProcess.hasPostProcessIterator itersym then
+				[$("#error FIXME"),
+				 $("system_ptr->states_pp_"^itername^" = &(system_states[modelid].states_pp_"^itername^");")]
+			    else nil
+			    
+		    in
+			iterator_value_ptr ::
+			iterator_states_ptr ::
+			iterator_pp_states_ptr
+		    end
+
+
+		val num_states = CurrentModel.withModel model (fn _ => ModelProcess.model2statesize model)
+	    in
+		if 0 < num_states then
+		    CurrentModel.withModel model progs
+		else nil
+	    end
     in
-	[$("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
+	[
+	 $("#if defined TARGET_GPU"),
+	 $("void gpu_init_system_states_pointers (solver_props *tmp_props, top_systemstatedata *tmp_system) {"),
+	 SUB(Util.flatmap gpu_init_props forkedclasses),
+	 $("}"),
+	 $("#endif"),
+	 $(""),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
 	 SUB((if need_systemdata then
 		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(NUM_MODELS*sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
 		   $("systemstatedata *system_states = (systemstatedata*)model_states;")]
@@ -694,10 +738,19 @@ fun outputsystemstatestruct_code forkedModels =
 		(not o List.null o #2)
 		(map class_struct_data master_classes)
 
+	val (top_class_struct_data :: rest_classes_struct_data) = 
+	    case per_class_struct_data
+	     of nil => 
+		DynException.stdException(("No classes to generate state structures."), "CParallelWriter.outputsystemstatestruct_code", Logger.INTERNAL)
+	      | _ => per_class_struct_data
+
+
+
 
 	val per_class_struct_prog = 
 	    $("// Per-class system pointer structures") ::
-	    Util.flatmap class_struct_declaration per_class_struct_data
+	    Util.flatmap class_struct_declaration per_class_struct_data @
+	    [$("typedef systemstatedata_"^(Symbol.name (#1 top_class_struct_data))^" top_systemstatedata;"),$("")]
     in
 	top_sys_state_struct_prog @ 
 	per_class_struct_prog
@@ -1268,7 +1321,7 @@ fun logoutput_code class forkedModels =
 	 $("static const ptrdiff_t MAX_OUTPUT_SIZE = NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT); //size in bytes"),
 	 $(""),
 	 $("__DEVICE__ void buffer_outputs(solver_props *props, unsigned int modelid) {"),
-	 SUB([$("output_buffer *ob = (output_buffer *)props->ob;"),
+	 SUB([$("output_buffer *ob = props->ob;"),
 	      $("output_data *od = (output_data *)props->od;")] @
 	     output_exps),
 	 $("}"),
@@ -1391,6 +1444,10 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 					      [defines_h] @
 					      [semeta_seint_h] @
 					      [output_buffer_h] @
+					      outputdatastruct_progs @
+					      outputstatestruct_progs @
+					      systemstate_progs @
+					      fun_prototypes @
 					      [solvers_h] @
 
 					      (case props
@@ -1400,10 +1457,6 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 
 					      [solver_c] @
 					      (*iteratordatastruct_progs @*)
-					      outputdatastruct_progs @
-					      outputstatestruct_progs @
-					      systemstate_progs @
-					      fun_prototypes @
 					      solver_wrappers_c @
 					      iterator_wrappers_c @
 					      [init_output_buffer_c] @

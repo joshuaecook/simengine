@@ -50,7 +50,7 @@ typedef struct {
   CDATAFORMAT starttime;
   CDATAFORMAT stoptime;
   // A pointer to a systemstatedata_ptr structure
-  void *system_states;
+  top_systemstatedata *system_states;
   CDATAFORMAT *time; // Continuous iterators (discrete mapped to continuous)
   CDATAFORMAT *next_time;
   unsigned int *count; // Discrete iterators
@@ -137,7 +137,6 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid){
   }
   return 0;
 }
-
 
 int immediate_init(solver_props *props) {
   return 0;

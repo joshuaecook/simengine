@@ -4,7 +4,10 @@ int exec_parallel_gpu(solver_props *props){
   Iterator iter;
   unsigned int num_gpu_threads;
   unsigned int num_gpu_blocks;
+  unsigned int active_models;
   solver_props *device_props;
+
+  active_models = NUM_MODELS;
   num_gpu_threads = GPU_BLOCK_SIZE < NUM_MODELS ? GPU_BLOCK_SIZE : NUM_MODELS;
   num_gpu_blocks = (NUM_MODELS + GPU_BLOCK_SIZE - 1) / GPU_BLOCK_SIZE;
 
@@ -15,11 +18,11 @@ int exec_parallel_gpu(solver_props *props){
       props[iter].running[modelid] = 1;
     }
   }
-
+  
   // Initialize GPU device memory for all solvers (returns pointer to device memory)
   device_props = gpu_init_props(props);
 
-  while(((output_buffer*)props->ob)->active_models){
+  while(active_models){
     // Execute models on the GPU
     exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(device_props);
     // Copy data back to the host
@@ -27,8 +30,9 @@ int exec_parallel_gpu(solver_props *props){
 
     // Copy data in parallel to external api interface
     for(modelid = 0; modelid < props->num_models; modelid++){
-      if(0 != log_outputs((output_buffer*)props->ob, props->outputs, modelid))
-	return ERRMEM;
+      if(0 != log_outputs(props->ob, props->outputs, modelid)) return ERRMEM;
+      
+      if (props->ob->finished[modelid]) active_models--;
     }
   }
 
