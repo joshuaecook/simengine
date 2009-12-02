@@ -9,7 +9,7 @@ model (sine)=sine_model
     y' = x - 1
   end
 
-  solver = ode23
+  solver = linearbackwardeuler{dt=0.01}
 
 end
 

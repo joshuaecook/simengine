@@ -527,7 +527,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 		     (* for each dep (column) in the row: *)	
 		     fun addEntry (statedep, exp) =
 			 let
-			     (*val _ = Util.log("In addEntry for state '"^(Symbol.name statedep)^"', exp: "^(e2s exp))*)
+			     val _ = Util.log("In addEntry for state '"^(Symbol.name statedep)^"', exp: "^(e2s exp))
 			     (* pull out coefficient for statedep from collected eq *)
 			     fun extractCoefficient sym =
 				 let

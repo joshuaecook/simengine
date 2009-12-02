@@ -29,7 +29,7 @@ model (Vm1, Vm2, Vm3) = axon(Istim)
   input Istim with {default = 100}
 
   //instantiate all submodels
-  submodel segment segment1 with {Istim = Istim} 
+  submodel segment segment1
   submodel segment segment2
   submodel segment segment3
   submodel segment segment4
@@ -38,7 +38,7 @@ model (Vm1, Vm2, Vm3) = axon(Istim)
   submodel segment segment7
   submodel segment segment8
   submodel segment segment9
-  submodel segment segment10
+  submodel segment segment10 with {Istim = Istim} 
   submodel segment segment11
   submodel segment segment12
   submodel segment segment13

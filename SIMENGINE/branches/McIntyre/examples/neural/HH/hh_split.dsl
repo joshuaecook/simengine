@@ -39,7 +39,8 @@ model (Vm) = hh_split(I_app, g_Na, g_K, g_L)
     I_K  = g_K * n*n*n*n * (Vm - E_K)
     I_L  = g_L * (Vm - E_L)
   
-    I_sum = -(/*I_Na + */I_K /*+ I_L*/ - I_app)
+    I_sum = -(I_Na + I_K + I_L - I_app)
+    //I_sum = I_app - I_L
 
     Vm' = I_sum / Cm
 
