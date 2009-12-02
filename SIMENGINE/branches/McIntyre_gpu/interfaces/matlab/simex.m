@@ -226,8 +226,8 @@ if 1 < nargin
       opts.precision = 'float';
     elseif strcmpi(arg, '-cpu')
       opts.target = 'CPU';
-%    elseif strcmpi(arg, '-gpu')
-%      opts.target = 'GPU';
+    elseif strcmpi(arg, '-gpu')
+      opts.target = 'GPU';
     elseif strcmpi(arg, '-parallel-cpu')
       opts.target = 'PARALLELCPU';
     elseif strcmpi(arg, '-v')
