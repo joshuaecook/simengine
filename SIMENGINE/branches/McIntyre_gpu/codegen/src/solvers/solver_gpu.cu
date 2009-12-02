@@ -3,7 +3,6 @@
 // Variables in global device memory. Do not refer to these directly in user code!
 // gpu_init_solver_props() returns a pointer to the global solver properties.
 
-/*
 // Needs to be copied host-to-device. May be __constant__?
 __DEVICE__ solver_props gpu_solver_props[NUM_ITERATORS];
 
@@ -36,7 +35,6 @@ __DEVICE__ output_buffer gpu_ob[1];
 #if NUM_OUTPUTS > 0
 __DEVICE__ output_data gpu_od[NUM_MODELS];
 #endif
-*/
 
 void gpu_init (void) {
   // FIXME Add more checking of capabilities and devices available!
@@ -67,6 +65,7 @@ solver_props *gpu_init_props (solver_props *props) {
   output_buffer *g_ob;
   output_data *g_od;
 
+  /*
   // Allocates space for global variables.
   cutilSafeCall(cudaMalloc((void **)&g_props, NUM_ITERATORS * sizeof(solver_props)));
   cutilSafeCall(cudaMalloc((void **)&g_system, sizeof(top_systemstatedata)));
@@ -81,8 +80,8 @@ solver_props *gpu_init_props (solver_props *props) {
 # if NUM_OUTPUTS > 0
   cutilSafeCall(cudaMalloc((void **)&g_od, sizeof(output_data)));
 # endif
+  */
 
-  /*
   // Obtains the addresses of statically allocated variables.
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_props, gpu_solver_props));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_system, gpu_system));
@@ -94,8 +93,9 @@ solver_props *gpu_init_props (solver_props *props) {
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_inputs, gpu_inputs));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_running, gpu_running));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_ob, gpu_ob));
+# if NUM_OUTPUTS > 0
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_od, gpu_od));
-  */
+# endif
 
   // A temporary host duplicate of the time vectors.
   CDATAFORMAT tmp_time[NUM_MODELS * NUM_ITERATORS];
@@ -164,6 +164,7 @@ solver_props *gpu_init_props (solver_props *props) {
 
   // Copies initial times to device.
   cutilSafeCall(cudaMemcpy(g_time, tmp_time, NUM_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(g_next_time, tmp_time, NUM_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 
   // Copies inputs to device.
   cutilSafeCall(cudaMemcpy(g_inputs, props->inputs, NUM_MODELS * NUM_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
@@ -177,6 +178,9 @@ solver_props *gpu_init_props (solver_props *props) {
 
   // Copies properties to device.
   cutilSafeCall(cudaMemcpy(g_props, tmp_props, NUM_ITERATORS * sizeof(solver_props), cudaMemcpyHostToDevice));
+
+  // Zeroes the initial output buffer to ensure the finished flags start at 0
+  cutilSafeCall(cudaMemset(g_ob, 0, sizeof(output_buffer)));
 
   return g_props;
 }

@@ -532,6 +532,28 @@ int write_outputs(const simengine_interface *iface, simengine_opts *opts, simeng
   return 0;
 }
 
+int write_states(const simengine_interface *iface, simengine_opts *opts, simengine_result *result){
+  FILE *outfile;
+  unsigned int num_models = opts->num_models;
+  unsigned int num_states = iface->num_states;
+  double *states = result->final_states;
+  unsigned int modelid;
+  unsigned int stateid;
+
+  // TODO Write outputs to file if set, or stdout
+  outfile = stdout;
+
+  for (modelid = 0; modelid < num_models; modelid++) {
+    fprintf(outfile, "# Model number : %d\n", modelid);
+    for (stateid = 0; stateid < num_states; stateid++) {
+      fprintf(outfile, stateid == 0 ? "%e" : " %e", *states);
+      states++;
+    }
+    fprintf(outfile, "\n");
+  }
+}
+
+
 void print_interface(const simengine_interface *iface){
   unsigned int i;
   printf("\nModel : %s\n\n", iface->name);
@@ -613,6 +635,7 @@ int main(int argc, char **argv){
     }
 
     write_outputs(iface, &opts, result);
+    //    write_states(iface, &opts, result);
 
     // Analyze results only when running multiple identical models
     if(!opts.inputs && !opts.states && opts.num_models > 1){

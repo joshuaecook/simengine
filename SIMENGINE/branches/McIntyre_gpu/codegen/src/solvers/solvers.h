@@ -77,7 +77,6 @@ typedef struct {
   solver_mem *mem;
 } solver_props;
 
-
 // Pre-declaration of model_flows, the interface between the solver and the model
 __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid);
 
