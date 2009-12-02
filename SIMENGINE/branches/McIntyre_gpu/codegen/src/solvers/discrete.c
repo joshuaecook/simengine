@@ -3,8 +3,10 @@
 
 __HOST__
 int discrete_init(solver_props *props){
-  props->next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+# if defined TARGET_GPU
+# else
   props->count = (unsigned int*)calloc(props->num_models,sizeof(unsigned int));
+# endif
   return 0;
 }
 
@@ -23,7 +25,9 @@ int discrete_eval(solver_props *props, unsigned int modelid){
 __HOST__
 int discrete_free(solver_props *props){
   assert(props);
-  if (props->next_states) free(props->next_states);
+# if defined TARGET_GPU
+# else
   if (props->count) free(props->count);
+# endif
   return 0;
 }
