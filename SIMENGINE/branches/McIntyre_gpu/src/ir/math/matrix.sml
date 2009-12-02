@@ -171,7 +171,7 @@ fun dense2bandedmatrix m =
 	    (* grab the lower bands *)
 	    val lower_bands = List.tabulate (bw, fn(x)=> prependZerosArray (bw-x) (getBand m (~(bw-x))))
 	in
-	    Container.rows2matrix (lower_bands @ [diag] @ upper_bands)
+	    Container.columns2matrix (lower_bands @ [diag] @ upper_bands)
 	end
 	handle e => DynException.checkpoint "Matrix.dense2bandedlist" e
     else

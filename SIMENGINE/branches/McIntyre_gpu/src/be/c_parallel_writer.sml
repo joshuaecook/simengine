@@ -181,7 +181,7 @@ fun init_solver_props top_name forkedclasses =
 			val bandsize = case matrix_exps of
 					   [exp] => 
 					   if ExpProcess.isMatrixEq exp then
-					       (fn(rows,cols)=>rows) (Container.matrix2size (Container.expmatrix2matrix (ExpProcess.rhs exp)))
+					       (fn(rows,cols)=>cols) (Container.matrix2size (Container.expmatrix2matrix (ExpProcess.rhs exp)))
 					   else
 					       0
 					 | _ => 0
