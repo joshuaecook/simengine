@@ -73,6 +73,8 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
 			      else if Real.isNan v then "NAN" 
 			      else if v < 0.0 then "-INFINITY" 
 			      else "INFINITY"
+  | term2c_str (Exp.NAN) = "NAN"
+  | term2c_str (Exp.INFINITY) = "INFINITY"
   | term2c_str (Exp.BOOL v) = if v then "1" else "0"
   | term2c_str (Exp.TUPLE l) = "("^(String.concatWith ", " (map (fn(t)=>exp2c_str (Exp.TERM t)) l))^")"
   | term2c_str (term as (Exp.SYMBOL (s, props))) = (*Term.sym2c_str (s, props)*)

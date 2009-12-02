@@ -18,6 +18,13 @@
 #define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
 #endif
 
+#ifndef NAN
+#define NAN (FLITERAL(0.0)/FLITERAL(0.0))
+#endif
+#ifndef INFINITY
+#define INFINITY (FLITERAL(1.0)/FLITERAL(0.0))
+#endif
+
 #ifdef SIMENGINE_MATLAB_CLIENT
 #include <mex.h>
 // The following macros invoke MATLAB API functions.

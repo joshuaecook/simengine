@@ -4,10 +4,6 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
-#ifndef NAN
-#define NAN (FLITERAL(0.0)/FLITERAL(0.0))
-#endif
-
 // Assert is not available in device code.
 #if defined(__DEVICE_EMULATION__) || !defined(__CUDACC__)
 #include <assert.h>
