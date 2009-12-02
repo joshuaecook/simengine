@@ -308,7 +308,8 @@ fun op2props optype =
 					 else if i2 < 0 then
 					     eval (ExpBuild.recip (power (int i1, int (~i2))))
 					 else
-					     int (foldl (fn(a,b)=> a*b) i1 (List.tabulate (i2, fn(x)=>i2)))),
+					     int (Real.round (Math.pow(Real.fromInt i1, Real.fromInt i2)))
+					     (*int (foldl (fn(a,b)=> a*b) 1 (List.tabulate (i2, fn(x)=>i1)))*)),
 			     real=SOME (fn(r1,r2)=>
 					  if Real.?=(r2, 0.0) then
 					      int 1
@@ -641,7 +642,7 @@ fun op2props optype =
       | AND => {name="and",
 		operands=VARIABLE (Exp.BOOL true),
 		precedence=13,
-		commutative=false,
+		commutative=true,
 		associative=false,
 		  eval=empty_binary,
 		text=("&&",INFIX),
@@ -652,7 +653,7 @@ fun op2props optype =
       | OR => {name="or",
 	       operands=VARIABLE (Exp.BOOL false),
 	       precedence=14,
-	       commutative=false,
+	       commutative=true,
 	       associative=false,
 		  eval=empty_binary,
 	       text=("||",INFIX),

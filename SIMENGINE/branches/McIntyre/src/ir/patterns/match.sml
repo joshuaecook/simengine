@@ -14,6 +14,7 @@ val some : string -> Exp.exp (* one or more of anything *)
 val one : string -> Exp.exp (* just match one only *)
 val onesym : string -> Exp.exp
 val anyterm : string -> Exp.exp (* match one term *)
+val anyconst : string -> Exp.exp
 val anylocal : Exp.exp
 val anyfun : string -> Exp.exp (* match one function *)
 val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
@@ -50,6 +51,7 @@ fun anyfun sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predic
 fun anyterm sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anyterm, Pattern.ONE))
 val anylocal = Exp.TERM (Exp.PATTERN (Symbol.symbol "anylocal", PatternProcess.predicate_anylocal, Pattern.ONE))
 fun anynum sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anynumeric, Pattern.ONE))
+fun anyconst sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anyconstant, Pattern.ONE))
 (*fun anysym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ONE))*)
 fun onesym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ONE))
 fun anysym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ZERO_OR_MORE))
@@ -214,7 +216,8 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
 			   val repl_exp' = Normalize.normalize(case replace of
 								    Rewrite.RULE repl_exp => replacePattern (match) repl_exp
-								  | Rewrite.ACTION (sym, action_fun) => action_fun exp)
+								  | Rewrite.ACTION (sym, action_fun) => action_fun exp
+								  | Rewrite.MATCHEDACTION (sym, action_fun) => action_fun (exp, Util.hd assigned_patterns))
 
 			   (* log if desired *)
 			   val _ = if DynamoOptions.isFlagSet "logrewrites" then
@@ -271,7 +274,8 @@ fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp =
 			       (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
 			       val repl_exp' = Normalize.normalize(case replace of
 								       Rewrite.RULE repl_exp => replacePattern (assigned_patterns) repl_exp
-								     | Rewrite.ACTION (sym, action_fun) => action_fun exp)
+								     | Rewrite.ACTION (sym, action_fun) => action_fun exp
+								     | Rewrite.MATCHEDACTION (sym, action_fun) => action_fun (exp, assigned_patterns))
 													   
 			       (* log if desired *)
 			       val _ = if DynamoOptions.isFlagSet "logrewrites" then
