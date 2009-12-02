@@ -246,9 +246,11 @@ fun init_solver_props top_name forkedclasses =
 			      ]
 			 else nil)
 		    end
+		    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props.progs" e
 	    in
 		CurrentModel.withModel model progs
 	    end
+	    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props" e
 
     in
 	[$("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
@@ -296,6 +298,7 @@ fun init_solver_props top_name forkedclasses =
 	 $("}"),
 	 $("")]
     end
+    handle e => DynException.checkpoint "CParallelWriter.init_solver_props" e
 
 fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(origModel as (classes, inst, props)) forkedModels =
     let

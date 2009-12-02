@@ -40,6 +40,7 @@ model (Vm) = hh_split(I_app, g_Na, g_K, g_L)
     I_L  = g_L * (Vm - E_L)
   
     I_sum = -(I_Na + I_K + I_L - I_app)
+    //I_sum = I_app - I_L
 
     Vm' = I_sum / Cm
 
@@ -56,5 +57,7 @@ model (Vm) = hh_split(I_app, g_Na, g_K, g_L)
     h' = (h_inf - h) / h_tau
     n' = (n_inf - n) / n_tau
   end
+
+  //solver = ode45
 
 end

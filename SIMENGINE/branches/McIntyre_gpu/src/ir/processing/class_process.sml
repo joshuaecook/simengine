@@ -475,22 +475,25 @@ fun class2statesbyiterator iter_sym (class : DOF.class) =
 
 (* match all the expressions that have that symbol on the lhs *)
 fun symbol2exps (class: DOF.class) sym =
-    List.filter 
-	(fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
-	(!(#exps class))
+    (List.filter 
+	 (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
+	 (!(#exps class)))
+    handle e => DynException.checkpoint "ClassProcess.symbol2exps" e
 
 fun symbolofiter2exps (class: DOF.class) iter_sym sym =
-    List.filter 
-	(fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
-	(List.filter (ExpProcess.doesEqHaveIterator iter_sym) (!(#exps class)))
+    (List.filter 
+	 (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
+	 (List.filter (ExpProcess.doesEqHaveIterator iter_sym) (!(#exps class))))
+    handle e => DynException.checkpoint "ClassProcess.symboliter2exps" e
 
 fun symbolofoptiter2exps (class: DOF.class) iter_sym sym =
-    List.filter 
-	((List.exists (equal sym)) o ExpProcess.getLHSSymbols)
-	(List.filter 
-	     (fn (exp) => (ExpProcess.doesEqHaveIterator iter_sym exp) orelse 
-			  (case ExpProcess.exp2temporaliterator exp of NONE => true | _ => false)) 
-	     (!(#exps class)))
+    (List.filter 
+	 ((List.exists (equal sym)) o ExpProcess.getLHSSymbols)
+	 (List.filter 
+	      (fn (exp) => (ExpProcess.doesEqHaveIterator iter_sym exp) orelse 
+			   (case ExpProcess.exp2temporaliterator exp of NONE => true | _ => false)) 
+	      (!(#exps class))))
+    handle e => DynException.checkpoint "ClassProcess.symboloptiter2exps" e
 
 (* return those states that update the value of a state that already has a dynamic equation *)
 fun class2update_states (class : DOF.class) =
@@ -840,7 +843,7 @@ fun addBufferedIntermediates (class: DOF.class) =
 			       val temporal_iterator = case (TermProcess.symbol2temporaliterator (ExpProcess.getLHSTerm exp)) of
 							   SOME (sym, _) => sym
 							 | NONE => DynException.stdException("Can't find temporal iterator in update eq",
-											     "ClassProcess.addUpdateIntermediates", 
+											     "ClassProcess.addBufferedIntermediates.addBufferedIntermediatesByType", 
 											     Logger.INTERNAL)
 			       val rhs_terms = ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
 			   in
@@ -861,9 +864,9 @@ fun addBufferedIntermediates (class: DOF.class) =
 							     case ExpProcess.getLHSSymbols eqs of
 								 [sym] => "#updateintermediate_" ^ (Symbol.name sym)
 							       | nil => DynException.stdException(("Unexpectedly no symbols on lhs of expression " ^ (ExpPrinter.exp2str eqs)), 
-												  "ClassProcess.addUpdateIntermediates", Logger.INTERNAL)
+												  "ClassProcess.addBufferedIntermediates.addBufferedIntermediatesByType", Logger.INTERNAL)
 							       | _ => DynException.stdException(("Can not handle a tuple on lhs of update expression " ^ (ExpPrinter.exp2str eqs)), 
-												"ClassProcess.addUpdateIntermediates", Logger.INTERNAL)
+												"ClassProcess.addBufferedIntermediates.addBufferedIntermediatesByType", Logger.INTERNAL)
 						     in
 							 [ExpBuild.equals (ExpBuild.var gen_symbol, rhs),
 							  ExpBuild.equals (lhs, ExpBuild.var gen_symbol)]
@@ -875,6 +878,7 @@ fun addBufferedIntermediates (class: DOF.class) =
     in
 	app addBufferedIntermediatesByType expfilters
     end
+    handle e => DynException.checkpoint "ClassBuffer.addBufferedIntermediates" e
 
 fun addEPIndexToClass is_top (class: DOF.class) =
     let

@@ -807,40 +807,57 @@ fun multicollect (symexps, exp) =
 
 
 fun symterm2symterm term = 
-    case term of 
-	Exp.SYMBOL s => Exp.SYMBOL s
-      | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
-	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
+    (case term of 
+	 Exp.SYMBOL s => Exp.SYMBOL s
+       | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
+	       Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty)))
+    handle e => DynException.checkpoint "ExpProcess.symterm2symterm" e
 
 fun getLHSTerm exp = 
     symterm2symterm (exp2term (lhs exp))
+    handle e => DynException.checkpoint "ExpProcess.getLHSTerm" e
+
+fun getTermsfromTerm exp = 
+    (case exp2term exp of
+	 Exp.SYMBOL s => [Exp.SYMBOL s]
+       | Exp.TUPLE terms => Util.flatmap (getTermsfromTerm o term2exp) terms
+       | Exp.DONTCARE => []
+       | _ => (error_no_return exp ("No valid symbols found on LHS");
+	       [Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty)]))
+    handle e => DynException.checkpoint "ExpProcess.getTermsfromTerm" e
 
 fun getLHSTerms exp = 
-    case exp2term (lhs exp) of
-	Exp.SYMBOL s => [Exp.SYMBOL s]
-      | Exp.TUPLE terms => map symterm2symterm terms
-      | _ => (error_no_return exp ("No valid symbols found on LHS");
-	      [Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty)])
+    getTermsfromTerm (lhs exp)
+    handle e => DynException.checkpoint "ExpProcess.getLHSTerms" e
 
 
 fun term2sym term = 
-    case term of 
-	Exp.SYMBOL (sym,_) => sym
-      | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
-	      Symbol.symbol "???")
+    (case term of 
+	 Exp.SYMBOL (sym,_) => sym
+       | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
+	       Symbol.symbol "???"))
+    handle e => DynException.checkpoint "ExpProcess.term2sym" e
 
 fun getLHSSymbol exp = 
     term2sym(exp2term (lhs exp))
-	
+    handle e => DynException.checkpoint "ExpProcess.getLHSSymbol" e
+
 fun exp2symbol exp =
     term2sym(exp2term (exp))
+    handle e => DynException.checkpoint "ExpProcess.exp2symbol" e
+
+fun getSymbolsfromTerm exp = 
+    (case exp2term exp of
+	 Exp.SYMBOL (sym,_) => [sym]
+       | Exp.TUPLE terms => Util.flatmap (getSymbolsfromTerm o term2exp) terms
+       | Exp.DONTCARE => []
+       | _ => (error_no_return exp ("No valid symbols found on LHS");
+	       [Symbol.symbol "???"]))
+    handle e => DynException.checkpoint "ExpProcess.getSymbolsFromTerm" e
 
 fun getLHSSymbols exp = 
-    case exp2term (lhs exp) of
-	Exp.SYMBOL (sym,_) => [sym]
-      | Exp.TUPLE terms => map term2sym terms
-      | _ => (error_no_return exp ("No valid symbols found on LHS");
-	      [Symbol.symbol "???"])
+    getSymbolsfromTerm (lhs exp)
+    handle e => DynException.checkpoint "ExpProcess.getLHSSymbols" e
 
 fun countTerms exp =
     length (Match.findRecursive (Match.anyterm "a", exp))

@@ -11,9 +11,9 @@ model (Vms) = hh_compartment(I_begin, I_middle, I_end)
     iterator t_exp with {continuous, solver=forwardeuler{dt=0.01}}
     iterator t_imp with {continuous, solver=linearbackwardeuler{dt=0.01}}
 
-    input I_begin with {default=0}
+    input I_begin with {default=30}
     input I_middle with {default=0}
-    input I_end with {default=25}    
+    input I_end with {default=20}    
 
     constant R = 1
 
@@ -39,9 +39,12 @@ model (Vms) = hh_compartment(I_begin, I_middle, I_end)
     hh9.I_app = (hh10.Vm - hh9.Vm)/R + (hh8.Vm - hh9.Vm)/R + I_middle
     hh10.I_app = (hh9.Vm - hh10.Vm)/R + I_end
 
+//    hh3.I_app = (hh2.Vm - hh3.Vm)/R + I_end
+    
     equation Vm_begin = hh1.Vm
     equation Vm_middle = hh2.Vm
     equation Vm_end = hh3.Vm
     output Vms = (hh1.Vm, hh2.Vm, hh3.Vm, hh4.Vm, hh5.Vm, hh6.Vm, hh7.Vm, hh8.Vm, hh9.Vm, hh10.Vm)
+
 
 end
