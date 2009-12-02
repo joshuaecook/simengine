@@ -496,7 +496,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
 	     fun updateMatrix ((state, eq, deps), rowIndex) =		
 		 let
-		     (*val _ = log ("Updating matrix for state '"^(Symbol.name state)^"': "^(i2s (rowIndex+1))^" of " ^ (i2s (List.length states)))*)
+		     val _ = log ("Updating matrix for state '"^(Symbol.name state)^"': "^(i2s (rowIndex+1))^" of " ^ (i2s (List.length states)))
 		     (* backwards euler transformation *)
 		     (* update rhs to make any states in matrix [t+1] from [t] *)
 		     val rhs' = Match.repeatApplyRewritesExp iteratorUpdateRules (ExpProcess.rhs eq)
@@ -527,7 +527,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 		     (* for each dep (column) in the row: *)	
 		     fun addEntry (statedep, exp) =
 			 let
-			     val _ = Util.log("In addEntry for state '"^(Symbol.name statedep)^"', exp: "^(e2s exp))
+			     (*val _ = Util.log("In addEntry for state '"^(Symbol.name statedep)^"', exp: "^(e2s exp))*)
 			     (* pull out coefficient for statedep from collected eq *)
 			     fun extractCoefficient sym =
 				 let
