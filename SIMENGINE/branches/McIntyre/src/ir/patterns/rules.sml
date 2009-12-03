@@ -156,7 +156,7 @@ fun funop2rule oper =
 	    FunProps.FIXED (x) => (List.tabulate (x, (fn(i)=>Match.anyconst ("#x" ^ (Int.toString i)))),
 				   fn(exp, assigned_patterns) =>
 				     if x = 1 then
-					 runlist[lookup assigned_patterns "x0"]
+					 runlist[lookup assigned_patterns "#x0"]
 				     else if x = 2 then
 					 run(lookup assigned_patterns "#x0",
 					     lookup assigned_patterns "#x1")
@@ -164,6 +164,7 @@ fun funop2rule oper =
 					 runlist (List.tabulate (x, 
 								 (fn(i)=> lookup assigned_patterns 
 										 ("#x" ^ (Int.toString i))))))
+				  
 	  | FunProps.VARIABLE _ => 
 	    if (#commutative (FunProps.op2props oper)) then
 		([Match.any "#d1",
