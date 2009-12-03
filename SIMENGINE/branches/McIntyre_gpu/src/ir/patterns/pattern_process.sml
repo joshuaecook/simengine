@@ -17,6 +17,7 @@ sig
     val predicate_anyfun : predicate
     val predicate_anyterm : predicate
     val predicate_anynumeric : predicate
+    val predicate_anyconstant : predicate
     val predicate_anysymbol : predicate
     val predicate_anylocal : predicate
     val predicate_anydiffterm : predicate
@@ -104,6 +105,10 @@ val predicate_anyterm = ("TERM", fn(x)=>case x of
 val predicate_anynumeric = ("NUM", fn(x)=>case x of 
 					      Exp.TERM t => Term.isNumeric t
 					    | _ => false)
+
+val predicate_anyconstant = ("CONST", fn(x)=>case x of 
+						 Exp.TERM t => Term.isConstant t
+					       | _ => false)
 val predicate_anysymbol = ("SYM", fn(x)=>case x of 
 					     Exp.TERM t => Term.isSymbol t
 					   | _ => false)

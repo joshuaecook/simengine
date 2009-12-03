@@ -52,6 +52,7 @@ fun std_compile exec args =
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  (log ("Optimizing model ...");
 			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
+(*			  handle e => (app (fn(s) => print("    " ^ s ^ "\n")) (MLton.Exn.history e))*)
 		      else
 			  ()
 
@@ -67,7 +68,13 @@ fun std_compile exec args =
 		      profileDone (forkModelProfile, "mlmon.forkModel.out")
 		  end
 
-
+	      val _ = if DynamoOptions.isFlagSet "optimize" then
+			  (log ("Optimizing model ...");
+			   app (fn({model, ...}) => (CurrentModel.withModel model 
+									    (fn() => ModelProcess.optimizeModel (model)))) 
+			       forkedModels)
+		      else
+			  ()
 
 (*	      val _ = log("Ready to build the following DOF ...")*)
 	      val _ = log("Ready to build ...")

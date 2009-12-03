@@ -3,6 +3,7 @@ sig
 
 (* Access properties of terminals *)
 val isNumeric: Exp.term -> bool
+val isConstant: Exp.term -> bool
 val isZero: Exp.term -> bool
 val isOne: Exp.term -> bool
 val isSymbol: Exp.term -> bool (* matches only a single symbol *)
@@ -29,6 +30,8 @@ val sym2name : Exp.term -> string (* This is equiv to (Symbol.name o sym2symname
 (* grab the properties *)
 val sym2term : Symbol.symbol -> Exp.term
 val sym2props : Exp.term -> Property.symbolproperty
+
+val makeCommensurable : Exp.term * Exp.term -> Exp.term * Exp.term
 
 end
 structure Term : TERM =
@@ -312,6 +315,19 @@ fun isNumeric term =
       | Exp.COMPLEX (t1, t2) => (isNumeric t1) andalso (isNumeric t2)
       | Exp.LIST (l, _) => List.all isNumeric l
       | Exp.TUPLE l => List.all isNumeric l
+      | Exp.INFINITY => true
+      | Exp.NAN => true
+      | _ => false
+
+fun isConstant term =
+    case term of
+	Exp.RATIONAL _ => true
+      | Exp.INT _ => true
+      | Exp.REAL _ => true
+      | Exp.BOOL _ => true
+      | Exp.COMPLEX _ => true
+      | Exp.LIST (l,_) => List.all isConstant l
+      | Exp.TUPLE l => List.all isConstant l
       | Exp.INFINITY => true
       | Exp.NAN => true
       | _ => false
