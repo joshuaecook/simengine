@@ -196,7 +196,12 @@ fun init_solver_props top_name forkedclasses =
 			 $("// Initial values moved to model_states first time through the exec"),
 			 $("props[ITERATOR_"^itername^"].model_states = " ^
 			   (if 0 < num_states then
-				"(CDATAFORMAT*)(&system_states->states_"^itername^");"
+				"(CDATAFORMAT*)(&system_states_int->states_"^itername^");"
+			    else
+				"NULL;")),
+			 $("props[ITERATOR_"^itername^"].next_states = " ^
+			   (if 0 < num_states then
+				"(CDATAFORMAT*)(&system_states_next->states_"^itername^");"
 			    else
 				"NULL;")),
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
@@ -209,14 +214,6 @@ fun init_solver_props top_name forkedclasses =
 			      []) @
 			 [$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
 			 $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
-			 $("props[ITERATOR_"^itername^"].next_states = " ^
-			   (if 0 < num_states then
-				"(CDATAFORMAT*)malloc(NUM_MODELS*props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));"
-			    else
-				"NULL;")),
-			 $("if (props[ITERATOR_"^itername^"].statesize) {"),
-			 SUB[$("memcpy((void * )props[ITERATOR_"^itername^"].next_states, (const void *)props[ITERATOR_"^itername^"].model_states, NUM_MODELS*props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
-			 $("}"),
 			 (*$("props[ITERATOR_"^itername^"].freeme = props[ITERATOR_"^itername^"].next_states;"),*)
 			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
 			 $("props[ITERATOR_"^itername^"].num_models = NUM_MODELS;"),
@@ -226,24 +223,24 @@ fun init_solver_props top_name forkedclasses =
 			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
 			 $("")] @
 			(if 0 < num_states then
-                             [$("// These pointers beyond the first structure are bogus for the GPU, but STRUCT_IDX will always be 0"),
-                              $("for(modelid=0;modelid<props->num_models;modelid++){"),
-			     SUB(
 			     (case itertype of
 				  DOF.CONTINUOUS _ =>
-				  $("system_ptr[modelid]."^itername^" = &props[ITERATOR_"^itername^"].time[modelid];")
+				  $("system_ptr->"^itername^" = &props[ITERATOR_"^itername^"].time;")
 				| DOF.DISCRETE _ =>
-				  $("system_ptr[modelid]."^itername^" = &props[ITERATOR_"^itername^"].count[modelid];")
+				  $("system_ptr->"^itername^" = &props[ITERATOR_"^itername^"].count;")
 				| _ =>
 				  $("#error BOGUS ITERATOR NOT FILTERED")) ::
-			     [$("system_ptr[modelid].states_"^itername^" = &(system_states[modelid].states_"^itername^");"),
+			     [$("system_ptr->states_"^itername^" = system_states_int->states_"^itername^";"),
 			      (if (ModelProcess.hasPostProcessIterator itersym) then
-				   $("system_ptr[modelid].states_pp_"^itername^" = &(system_states[modelid].states_pp_"^itername^");")
+				   $("system_ptr->states_pp_"^itername^" = system_states_int->states_pp_"^itername^";")
 			       else
-                                   $(""))]),
+                                   $("")),
+                              $("#if !defined TARGET_GPU"),
+                              $("// Translate structure arrangement from external to internal formatting"),
+                              $("for(modelid=0;modelid<props->num_models;modelid++){"),
+                              SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], &system_states_ext[modelid].states_"^itername^", props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
                               $("}"),
-			      $("")
-			      ]
+                              $("#endif")]
 			 else nil)
 		    end
 		    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props.progs" e
@@ -299,8 +296,15 @@ fun init_solver_props top_name forkedclasses =
 	 $(""),
 	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
 	 SUB((if need_systemdata then
-		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(NUM_MODELS*sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
-		   $("systemstatedata *system_states = (systemstatedata*)model_states;")]
+		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
+		   $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
+                   $("#if defined TARGET_GPU"),
+                   $("systemstatedata_external *system_states_int = (systemstatedata_external*)model_states;"),
+                   $("systemstatedata_external *system_states_next = (systemstatedata_external*)malloc(sizeof(systemstatedata_external));"),
+		   $("#else"),
+                   $("systemstatedata_internal *system_states_int = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
+                   $("systemstatedata_internal *system_states_next = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
+                   $("#endif")]
 	      else nil) @
 	     [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
 	      $("output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));"),
@@ -701,10 +705,17 @@ fun outputsystemstatestruct_code forkedModels =
 	    if List.null class_names_iterators then []
 	    else
 		[$(""),
-		 $("// System State Structure"),
+		 $("// System State Structure (external ordering)"),
 		 $("typedef struct {"),
 		 SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
-		 $("} systemstatedata;")]
+		 $("} systemstatedata_external;"),
+                 $(""),
+		 (* Should make the following conditional on whether we are targetting CPU or OPENMP (not GPU) *)
+		 $("// System State Structure (internal ordering)"),
+		 $("typedef struct {"),
+		 SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ "[NUM_MODELS];")) class_names_iterators),
+		 $("} systemstatedata_internal;"),
+                 $("")]
 
 	fun name_and_iterator class (iter as (iter_sym,_)) = 
 	    (Symbol.symbol ((Symbol.name (ClassProcess.class2basename class))^"_"^(Symbol.name iter_sym)), iter)
