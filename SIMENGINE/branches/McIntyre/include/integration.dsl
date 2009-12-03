@@ -318,6 +318,7 @@ class Solver
   var cv_solv
   var cv_upperhalfbw
   var cv_lowerhalfbw
+  var cv_maxorder
 
   constructor(name, dt, abs_tolerance, rel_tolerance)
     self.name = name
@@ -330,6 +331,7 @@ class Solver
                              // (can be CVDENSE, CVBAND, CVDIAG, CVSPGMR, CVSPBCG, CVSPTFQMR) 
     self.cv_upperhalfbw = 1 // upper and lower half bandwidths for use only with CVBAND 
     self.cv_lowerhalfbw = 1
+    self.cv_maxorder = 5
   end
 
   
@@ -364,19 +366,19 @@ class Integrators
       get = Solver.new("ode45", 0.1, 1e-6, 1e-3)
     end
     property cvode
-      get = Solver.new("cvode", 0.1, 1e-6, 1e-6)
+      get = Solver.new("cvode", -1, 1e-6, 1e-6)
     end
     property cvode_stiff
-      get = Solver.new("cvode", 0.1, 1e-6, 1e-6) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON"}
+      get = Solver.new("cvode", -1, 1e-6, 1e-6) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON", cv_maxorder = 5}
     end
     property cvode_diag
-      get = Solver.new("cvode", 0.1, 1e-6, 1e-6) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON", cv_solv="CVDIAG"}
+      get = Solver.new("cvode", -1, 1e-6, 1e-6) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON", cv_solv="CVDIAG", cv_maxorder = 5}
     end
     property cvode_tridiag
-      get = Solver.new("cvode", 0.1, 1e-6, 1e-6) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON", cv_solv="CVBAND", cv_upperhalfbw=1, cv_lowerhalfbw=1}
+      get = Solver.new("cvode", -1, 1e-6, 1e-6) {cv_lmm = "CV_BDF", cv_iter = "CV_NEWTON", cv_solv="CVBAND", cv_upperhalfbw=1, cv_lowerhalfbw=1, cv_maxorder = 5}
     end
     property cvode_nonstiff
-      get = Solver.new("cvode", 0.1, 1e-6, 1e-6) {cv_lmm = "CV_ADAMS", cv_iter = "CV_FUNCTIONAL"}
+      get = Solver.new("cvode", -1, 1e-6, 1e-6) {cv_lmm = "CV_ADAMS", cv_iter = "CV_FUNCTIONAL", cv_maxorder = 12}
     end
 //    property mycvode
 //      get = Solver.new (yada) {cvode_var1 = blabla}

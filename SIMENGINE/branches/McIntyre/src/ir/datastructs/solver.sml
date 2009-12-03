@@ -20,7 +20,8 @@ sig
 	   | ODE23 of {dt:real, abs_tolerance: real, rel_tolerance: real}
 	   | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
 	   | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
-		       lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver}
+		       lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver,
+		       max_order: int}
 		      
     (* Solver accessor methods *)
     val solver2name : solver -> string (* name of the solver *)
@@ -52,7 +53,8 @@ datatype solver =
        | ODE23 of {dt:real, abs_tolerance: real, rel_tolerance: real}
        | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
        | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
-		   lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver}
+		   lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver,
+		   max_order: int}
 
 val i2s = Util.i2s
 val r2s = Util.r2s
@@ -114,10 +116,11 @@ fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
     [("timestep", r2s dt),
      ("abstol", r2s abs_tolerance),
      ("reltol", r2s rel_tolerance)]
-  | solver2params (CVODE {dt, abs_tolerance, rel_tolerance, lmm, iter, solv}) = 
+  | solver2params (CVODE {dt, abs_tolerance, rel_tolerance, lmm, iter, solv, max_order}) = 
     [("timestep", r2s dt),
      ("abstol", r2s abs_tolerance),
      ("reltol", r2s rel_tolerance),
+     ("cvode.max_order", i2s max_order),
      ("cvode.lmm", case lmm of CV_ADAMS => "CV_ADAMS" | CV_BDF => "CV_BDF"),
      ("cvode.iter", case iter of CV_FUNCTIONAL => "CV_FUNCTIONAL" | CV_NEWTON => "CV_NEWTON")] @ 
     cvode_solver2params solv

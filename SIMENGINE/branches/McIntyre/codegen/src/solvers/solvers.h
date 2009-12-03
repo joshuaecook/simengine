@@ -33,6 +33,7 @@ typedef struct {
   int solv;
   int upperhalfbw;
   int lowerhalfbw;
+  int max_order;
 } cvode_opts;
 // CVODE solver types
 #define CVODE_DENSE 0

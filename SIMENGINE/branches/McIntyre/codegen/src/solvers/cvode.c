@@ -62,6 +62,10 @@ int cvode_init(solver_props *props){
     if(CVodeSStolerances(mem[modelid].cvmem, props->reltol, props->abstol) != CV_SUCCESS){
       fprintf(stderr, "Could not set CVODE tolerances");
     }
+    // Set maximum order
+    if(CVodeSetMaxOrd(mem[modelid].cvmem, props->cvode.max_order) != CV_SUCCESS) {
+      fprintf(stderr, "Could not set CVODE maximum order");
+    }
     // Set linear solver
     switch (props->cvode.solv) {
     case CVODE_DENSE:
@@ -101,12 +105,29 @@ int cvode_eval(solver_props *props, unsigned int modelid){
   if(!props->running[modelid])
     return 0;
 
-  mem->first_iteration = TRUE;
-  if(CVode(mem->cvmem, props->stoptime, mem->y0, &(props->next_time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
-    fprintf(stderr, "CVODE failed to make a step in model %d.\n", modelid);
-    return 1;
-  }
+  // if a positive dt is specified, then we will have this function return after it reaches the next time point,
+  // otherwise, it will just run one iteration and return
+  if(props->timestep > 0) {
+    // Reinitialize the function at each step
+    if(CVodeReInit(mem->cvmem, props->time[modelid], mem->y0) != CV_SUCCESS) {
+      fprintf(stderr, "CVODE failed to reinitialize");
+    }
 
+    CDATAFORMAT stop_time = MIN(props->time[modelid] + props->timestep, props->stoptime);
+    mem->first_iteration = TRUE;
+    if(CVode(mem->cvmem, stop_time, mem->y0, &(props->next_time[modelid]), CV_NORMAL) != CV_SUCCESS){
+      fprintf(stderr, "CVODE failed to make a fixed step in model %d.\n", modelid);
+      return 1;
+    }
+  }
+  else {
+    mem->first_iteration = TRUE;
+    if(CVode(mem->cvmem, props->stoptime, mem->y0, &(props->next_time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
+      fprintf(stderr, "CVODE failed to make a step in model %d.\n", modelid);
+      return 1;
+    }
+  }
+    
   return 0;
 }
 
