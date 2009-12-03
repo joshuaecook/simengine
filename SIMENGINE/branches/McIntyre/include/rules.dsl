@@ -205,6 +205,16 @@ rulematch modelop("add", [$$d1.any, -$$b.one, $$d2.any]) -> modelop("sub", [mode
 // a*b^-1 -> a/b
 rulematch modelop("mul", [$$d1.any, $$b ^ -1, $$d2.any]) -> (modelop("mul", [$d1, $d2]) / $b),
 
+// a^2 -> a*a
+rulematch $$a.one ^ 2 -> $a * $a,
+
+// a^3 -> a*a*a
+rulematch $$a.one ^ 3 -> $a * $a * $a,
+
+// a^4 -> a*a*a*a
+rulematch $$a.one ^ 4 -> $a * $a * $a * $a,
+
+
 // b^-1 -> 1/b
 rulematch $$b ^ -1 -> 1/$b,
 

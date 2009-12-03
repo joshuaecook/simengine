@@ -53,6 +53,14 @@ fun std_compile exec args =
 	      val _ = log("Normalizing parallel model ...")
 	      val forkedModels = ModelProcess.forkModel (CurrentModel.getCurrentModel())
 
+	      val _ = if DynamoOptions.isFlagSet "optimize" then
+			  (log ("Optimizing model ...");
+			   app (fn({model, ...}) => (CurrentModel.withModel model 
+									    (fn() => ModelProcess.optimizeModel (model)))) 
+			       forkedModels)
+		      else
+			  ()
+
 (*	      val _ = log("Ready to build the following DOF ...")*)
 	      val _ = log("Ready to build ...")
 (*	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())*)
