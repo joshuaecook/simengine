@@ -51,4 +51,7 @@ else
     s.add(FeatureTests('-release'));
 end
 
+% Add message tests (for checking compiler output)
+s.add(MessageTests)
+
 end
