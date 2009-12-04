@@ -11,8 +11,6 @@ typedef struct {
 
 int rk4_init(solver_props *props){
 #if defined TARGET_GPU
-  gpu_init();
-
   // Temporary CPU copies of GPU datastructures
   rk4_mem tmem;
   // GPU datastructures
@@ -20,7 +18,7 @@ int rk4_init(solver_props *props){
   
   // Allocate GPU space for mem and pointer fields of mem (other than props)
   cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(rk4_mem)));
-  tmem.props = gpu_init_props(props);;
+  props.mem = dmem;
   cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
@@ -30,8 +28,6 @@ int rk4_init(solver_props *props){
   // Copy mem structure to GPU
   cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(rk4_mem), cudaMemcpyHostToDevice));
 
-  return dmem;
-  
 #else // Used for CPU and OPENMP targets
 
   rk4_mem *mem = (rk4_mem*)malloc(sizeof(rk4_mem));
@@ -42,9 +38,9 @@ int rk4_init(solver_props *props){
   mem->k3 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->k4 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
   mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+#endif
 
   return 0;
-#endif
 }
 
 int rk4_eval(solver_props *props, unsigned int modelid){
@@ -92,20 +88,17 @@ int rk4_eval(solver_props *props, unsigned int modelid){
 
 int rk4_free(solver_props *props){
 #if defined TARGET_GPU
+  rk4_mem dmem = props->mem;
   rk4_mem tmem;
 
-  cutilSafeCall(cudaMemcpy(&tmem, mem, sizeof(rk4_mem), cudaMemcpyDeviceToHost));
-
-  gpu_free_props(tmem.props);
+  cutilSafeCall(cudaMemcpy(&tmem, dmem, sizeof(rk4_mem), cudaMemcpyDeviceToHost));
 
   cutilSafeCall(cudaFree(tmem.k1));
   cutilSafeCall(cudaFree(tmem.k2));
   cutilSafeCall(cudaFree(tmem.k3));
   cutilSafeCall(cudaFree(tmem.k4));
   cutilSafeCall(cudaFree(tmem.temp));
-  cutilSafeCall(cudaFree(mem));
-
-  gpu_exit();
+  cutilSafeCall(cudaFree(dmem));
 
 #else // Used for CPU and OPENMP targets
 
@@ -117,7 +110,7 @@ int rk4_free(solver_props *props){
   free(mem->k4);
   free(mem->temp);
   free(mem);
+#endif // defined TARGET_GPU  free(mem->k1);
 
   return 0;
-#endif // defined TARGET_GPU  free(mem->k1);
 }

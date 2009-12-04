@@ -12,7 +12,6 @@ typedef struct {
   CDATAFORMAT *k6;
   CDATAFORMAT *k7;
   CDATAFORMAT *temp;
-  CDATAFORMAT *next_states;
   CDATAFORMAT *z_next_states;
   CDATAFORMAT *cur_timestep;
 } dormand_prince_mem;
@@ -20,8 +19,6 @@ typedef struct {
 int dormand_prince_init(solver_props *props){
   unsigned int i;
 #if defined TARGET_GPU
-  gpu_init();
-
   // Temporary CPU copies of GPU datastructures
   dormand_prince_mem tmem;
   // GPU datastructures
@@ -31,7 +28,7 @@ int dormand_prince_init(solver_props *props){
   
   // Allocate GPU space for mem and pointer fields of mem (other than props)
   cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(dormand_prince_mem)));
-  tmem.props = gpu_init_props(props);
+  props->mem = dmem;
   cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
@@ -40,7 +37,6 @@ int dormand_prince_init(solver_props *props){
   cutilSafeCall(cudaMalloc((void**)&tmem.k6, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k7, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.next_states, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.z_next_states, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.cur_timestep, props->num_models*sizeof(CDATAFORMAT)));
 
@@ -56,8 +52,6 @@ int dormand_prince_init(solver_props *props){
   // Free temporary
   free(temp_cur_timestep);
 
-  return dmem;
-  
 #else // Used for CPU and OPENMP targets
 
   dormand_prince_mem *mem = (dormand_prince_mem*)malloc(sizeof(dormand_prince_mem));
@@ -77,9 +71,9 @@ int dormand_prince_init(solver_props *props){
   mem->cur_timestep = (CDATAFORMAT*)malloc(props->num_models*sizeof(CDATAFORMAT));
   for(i=0; i<props->num_models; i++)
     mem->cur_timestep[i] = props->timestep;
+#endif
 
   return 0;
-#endif
 }
 
 int dormand_prince_eval(solver_props *props, unsigned int modelid){
@@ -234,10 +228,9 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
 int dormand_prince_free(solver_props *props){
 #if defined TARGET_GPU
   dormand_prince_mem tmem;
+  dormand_prince_mem *dmem = props->mem;
 
-  cutilSafeCall(cudaMemcpy(&tmem, mem, sizeof(dormand_prince_mem), cudaMemcpyDeviceToHost));
-
-  gpu_free_props(tmem.props);
+  cutilSafeCall(cudaMemcpy(&tmem, dmem, sizeof(dormand_prince_mem), cudaMemcpyDeviceToHost));
 
   cutilSafeCall(cudaFree(tmem.k1));
   cutilSafeCall(cudaFree(tmem.k2));
@@ -247,12 +240,9 @@ int dormand_prince_free(solver_props *props){
   cutilSafeCall(cudaFree(tmem.k6));
   cutilSafeCall(cudaFree(tmem.k7));
   cutilSafeCall(cudaFree(tmem.temp));
-  cutilSafeCall(cudaFree(tmem.next_states));
   cutilSafeCall(cudaFree(tmem.z_next_states));
   cutilSafeCall(cudaFree(tmem.cur_timestep));
-  cutilSafeCall(cudaFree(mem));
-
-  gpu_exit();
+  cutilSafeCall(cudaFree(dmem));
 
 #else // Used for CPU and OPENMP targets
 
@@ -269,7 +259,7 @@ int dormand_prince_free(solver_props *props){
   free(mem->z_next_states);
   free(mem->cur_timestep);
   free(mem);
+#endif
 
   return 0;
-#endif
 }
