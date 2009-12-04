@@ -16,6 +16,7 @@ typedef struct {
   CDATAFORMAT *cur_timestep;
 } dormand_prince_mem;
 
+__HOST__
 int dormand_prince_init(solver_props *props){
   unsigned int i;
 #if defined TARGET_GPU
@@ -76,6 +77,7 @@ int dormand_prince_init(solver_props *props){
   return 0;
 }
 
+__DEVICE__
 int dormand_prince_eval(solver_props *props, unsigned int modelid){
   CDATAFORMAT max_timestep = props->timestep*1024;
   CDATAFORMAT min_timestep = props->timestep/1024;
@@ -87,7 +89,7 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
   if(!props->running[modelid])
     return 0;
 
-  dormand_prince_mem *mem = props->mem;
+  dormand_prince_mem *mem = (dormand_prince_mem*)props->mem;
   int i;
   int ret = model_flows(props->time[modelid], props->model_states, mem->k1, props, 1, modelid);
 
@@ -225,10 +227,11 @@ int dormand_prince_eval(solver_props *props, unsigned int modelid){
   return ret;
 }
 
+__HOST__
 int dormand_prince_free(solver_props *props){
 #if defined TARGET_GPU
   dormand_prince_mem tmem;
-  dormand_prince_mem *dmem = props->mem;
+  dormand_prince_mem *dmem = (dormand_prince_mem*)props->mem;
 
   cutilSafeCall(cudaMemcpy(&tmem, dmem, sizeof(dormand_prince_mem), cudaMemcpyDeviceToHost));
 
@@ -246,7 +249,7 @@ int dormand_prince_free(solver_props *props){
 
 #else // Used for CPU and OPENMP targets
 
-  dormand_prince_mem *mem = props->mem;
+  dormand_prince_mem *mem = (dormand_prince_mem*)props->mem;
 
   free(mem->k1);
   free(mem->k2);

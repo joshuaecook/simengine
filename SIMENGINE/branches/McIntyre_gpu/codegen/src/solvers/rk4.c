@@ -9,6 +9,7 @@ typedef struct {
   CDATAFORMAT *temp;
 } rk4_mem;
 
+__HOST__
 int rk4_init(solver_props *props){
 #if defined TARGET_GPU
   // Temporary CPU copies of GPU datastructures
@@ -18,7 +19,7 @@ int rk4_init(solver_props *props){
   
   // Allocate GPU space for mem and pointer fields of mem (other than props)
   cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(rk4_mem)));
-  props.mem = dmem;
+  props->mem = dmem;
   cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
   cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
@@ -43,6 +44,7 @@ int rk4_init(solver_props *props){
   return 0;
 }
 
+__DEVICE__
 int rk4_eval(solver_props *props, unsigned int modelid){
   int i;
   int ret;
@@ -52,7 +54,7 @@ int rk4_eval(solver_props *props, unsigned int modelid){
   if(!props->running[modelid])
     return 0;
 
-  rk4_mem *mem = props->mem;
+  rk4_mem *mem = (rk4_mem*)props->mem;
 
   ret = model_flows(props->time[modelid], props->model_states, mem->k1, props, 1, modelid);
   for(i=props->statesize-1; i>=0; i--) {
@@ -86,9 +88,10 @@ int rk4_eval(solver_props *props, unsigned int modelid){
   return ret;
 }
 
+__HOST__
 int rk4_free(solver_props *props){
 #if defined TARGET_GPU
-  rk4_mem dmem = props->mem;
+  rk4_mem *dmem = (rk4_mem*)props->mem;
   rk4_mem tmem;
 
   cutilSafeCall(cudaMemcpy(&tmem, dmem, sizeof(rk4_mem), cudaMemcpyDeviceToHost));
@@ -102,7 +105,7 @@ int rk4_free(solver_props *props){
 
 #else // Used for CPU and OPENMP targets
 
-  rk4_mem *mem = props->mem;
+  rk4_mem *mem =(rk4_mem*)props->mem;
 
   free(mem->k1);
   free(mem->k2);

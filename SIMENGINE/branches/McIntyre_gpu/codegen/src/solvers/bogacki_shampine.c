@@ -66,7 +66,7 @@ int bogacki_shampine_init(solver_props *props){
   return 0;
 }
 
-__HOST__ __DEVICE__
+__DEVICE__
 int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
   CDATAFORMAT max_timestep = props->timestep*1024;
   CDATAFORMAT min_timestep = props->timestep/1024;
@@ -78,7 +78,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
   if(!props->running[modelid])
     return 0;
 
-  bogacki_shampine_mem *mem = props->mem;
+  bogacki_shampine_mem *mem = (bogacki_shampine_mem*)props->mem;
 
   int i;
   int ret = model_flows(props->time[modelid], props->model_states, mem->k1, props, 1, modelid);
@@ -177,7 +177,7 @@ int bogacki_shampine_free(solver_props *props){
   assert(props);
 #if defined TARGET_GPU
   bogacki_shampine_mem tmem;
-  bogacki_shampine_mem *dmem = props->mem;
+  bogacki_shampine_mem *dmem = (bogacki_shampine_mem*)props->mem;
 
   cutilSafeCall(cudaMemcpy(&tmem, dmem, sizeof(bogacki_shampine_mem), cudaMemcpyDeviceToHost));
 
@@ -192,7 +192,7 @@ int bogacki_shampine_free(solver_props *props){
 
 #else // Used for CPU and OPENMP targets
 
-  bogacki_shampine_mem *mem = props->mem;
+  bogacki_shampine_mem *mem = (bogacki_shampine_mem*)props->mem;
 
   free(mem->k1);
   free(mem->k2);
