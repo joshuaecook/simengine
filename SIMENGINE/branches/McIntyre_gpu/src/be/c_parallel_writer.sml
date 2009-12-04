@@ -154,6 +154,14 @@ fun init_solver_props top_name forkedclasses =
     let
 	val need_systemdata = List.exists subsystem_has_states forkedclasses
 
+        fun free_props {top_class, iter=iterator, model} =
+            let
+                val (itersym, itertype) = iterator
+                val itername = (Symbol.name itersym)
+            in
+                $("memcpy(&system_states_ext[modelid].states_"^itername^", &system_states_int->states_"^itername^"[modelid], props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")
+            end
+
 	fun init_props {top_class, iter=iterator, model} =
 	    let
 		fun progs () =
@@ -225,9 +233,9 @@ fun init_solver_props top_name forkedclasses =
 			(if 0 < num_states then
 			     (case itertype of
 				  DOF.CONTINUOUS _ =>
-				  $("system_ptr->"^itername^" = &props[ITERATOR_"^itername^"].time;")
+				  $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].time;")
 				| DOF.DISCRETE _ =>
-				  $("system_ptr->"^itername^" = &props[ITERATOR_"^itername^"].count;")
+				  $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].count;")
 				| _ =>
 				  $("#error BOGUS ITERATOR NOT FILTERED")) ::
 			     [$("system_ptr->states_"^itername^" = system_states_int->states_"^itername^";"),
@@ -330,9 +338,22 @@ fun init_solver_props top_name forkedclasses =
 	      $("return props;")]),
 	 $("}"),
 	 $(""),
-	 $("void free_solver_props(solver_props* props){"),
-	 SUB[$("unsigned int i;"),
+	 $("void free_solver_props(solver_props* props, CDATAFORMAT* model_states){"),
+	 SUB[$("unsigned int modelid;"),
+             $("unsigned int i;"),
              $("assert(props);"),
+             $(""),
+             $("#if !defined TARGET_GPU"),
+             $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
+             $("systemstatedata_internal *system_states_int = (systemstatedata_internal*)props[0].model_states;"),
+             $(""),
+             $("// Translate structure arrangement from internal back to external formatting"),
+             $("for(modelid=0;modelid<props->num_models;modelid++){"),
+             SUB(map free_props forkedclasses),
+             $("}"),
+             $("free(system_states_int);"),
+             $("#endif"),
+             $(""),
 	     $("for(i=0;i<NUM_ITERATORS;i++){"),
 	     SUB[$("Iterator iter = ITERATORS[i];"),
 		 $("if (props[iter].time) free(props[iter].time);"),
