@@ -594,6 +594,7 @@ fun obj2dofmodel object =
 		       | "cvode" => Solver.CVODE {dt = exp2real(method "dt" solverobj),
 						  abs_tolerance = exp2real(method "abstol" solverobj),
 						  rel_tolerance = exp2real(method "reltol" solverobj),
+						  max_order = exp2int (method "cv_maxorder" solverobj),
 						  lmm = case exp2str (method "cv_lmm" solverobj) of
 							    "CV_BDF" => Solver.CV_BDF
 							  | "CV_ADAMS" => Solver.CV_ADAMS

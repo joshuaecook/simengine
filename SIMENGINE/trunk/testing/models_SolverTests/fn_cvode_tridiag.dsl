@@ -16,5 +16,4 @@ model (u,w) = fn_cvode_tridiag(b0, b1, e, I)
   end
 
   solver = cvode_tridiag
-  solver.dt = 0.1
 end
