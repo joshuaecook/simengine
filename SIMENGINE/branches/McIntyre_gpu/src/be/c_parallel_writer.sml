@@ -158,8 +158,12 @@ fun init_solver_props top_name forkedclasses =
             let
                 val (itersym, itertype) = iterator
                 val itername = (Symbol.name itersym)
+		val num_states = CurrentModel.withModel model (fn _ => ModelProcess.model2statesize model)
             in
-                $("memcpy(&system_states_ext[modelid].states_"^itername^", &system_states_int->states_"^itername^"[modelid], props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")
+	        if 0 < num_states then
+                    $("memcpy(&system_states_ext[modelid].states_"^itername^", &system_states_int->states_"^itername^"[modelid], props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")
+ 		else
+                    $("")
             end
 
 	fun init_props {top_class, iter=iterator, model} =
@@ -728,7 +732,7 @@ fun outputsystemstatestruct_code forkedModels =
 		[$(""),
 		 $("// System State Structure (external ordering)"),
 		 $("typedef struct {"),
-		 SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ ";")) class_names_iterators),
+		 SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ "[1];")) class_names_iterators),
 		 $("} systemstatedata_external;"),
                  $(""),
 		 (* Should make the following conditional on whether we are targetting CPU or OPENMP (not GPU) *)
