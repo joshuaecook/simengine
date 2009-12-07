@@ -243,17 +243,22 @@ fun init_solver_props top_name forkedclasses =
 				  $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].count;")
 				| _ =>
 				  $("#error BOGUS ITERATOR NOT FILTERED")) ::
-			     [$("system_ptr->states_"^itername^" = system_states_int->states_"^itername^";"),
+			     [$("system_ptr->states_"^itername^" = system_states_int->states_"^itername^";")] @
 			      (if (ModelProcess.hasPostProcessIterator itersym) then
-				   $("system_ptr->states_pp_"^itername^" = system_states_int->states_pp_"^itername^";")
-			       else
-                                   $("")),
-                              $("#if !defined TARGET_GPU"),
-                              $("// Translate structure arrangement from external to internal formatting"),
-                              $("for(modelid=0;modelid<props->num_models;modelid++){"),
-                              SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], &system_states_ext[modelid].states_"^itername^", props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
-                              $("}"),
-                              $("#endif")]
+				   ([$("system_ptr->states_pp_"^itername^" = system_states_int->states_pp_"^itername^";"),
+                                    $("#if !defined TARGET_GPU"),
+                                    $("// Translate structure arrangement from external to internal formatting"),
+                                    $("for(modelid=0;modelid<props->num_models;modelid++){"),
+                                    SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], &system_states_ext[modelid].states_"^itername^", props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
+                                    $("}"),
+                                    $("#endif")])
+			       else nil) @
+                              [$("#if !defined TARGET_GPU"),
+                               $("// Translate structure arrangement from external to internal formatting"),
+                               $("for(modelid=0;modelid<props->num_models;modelid++){"),
+                               SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], &system_states_ext[modelid].states_"^itername^", props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
+                               $("}"),
+                               $("#endif")]
 			 else nil)
 		    end
 		    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props.progs" e
