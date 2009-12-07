@@ -389,7 +389,8 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 	val iterator_names = map (Symbol.name o #1 o #iter) forkedModels
 	val solver_names = List.mapPartial (fn{iter,...}=>case iter of
 							      (_,DOF.CONTINUOUS s) => SOME (Solver.solver2name s)
-							    | (_,DOF.DISCRETE s) => SOME "discrete"
+							    | (_,DOF.DISCRETE _) => SOME "discrete"
+							    | (_,DOF.IMMEDIATE) => SOME "immediate"
 							    | _ => NONE) forkedModels
 	val class_name = Symbol.name (#classname inst)
 
