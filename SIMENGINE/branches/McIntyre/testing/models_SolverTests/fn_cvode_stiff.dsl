@@ -16,5 +16,4 @@ model (u,w) = fn_cvode_stiff(b0, b1, e, I)
   end
 
   solver = cvode_stiff
-  solver.dt = 0.1
 end
