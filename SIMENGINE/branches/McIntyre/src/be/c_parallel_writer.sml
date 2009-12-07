@@ -249,7 +249,7 @@ fun init_solver_props top_name forkedclasses =
                                     $("#if !defined TARGET_GPU"),
                                     $("// Translate structure arrangement from external to internal formatting"),
                                     $("for(modelid=0;modelid<props->num_models;modelid++){"),
-                                    SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], &system_states_ext[modelid].states_"^itername^", props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
+                                    SUB[$("memcpy(&system_states_int->states_pp_"^itername^"[modelid], &system_states_ext[modelid].states_pp_"^itername^", sizeof(system_states_ext[modelid].states_pp_"^itername^"));")],
                                     $("}"),
                                     $("#endif")])
 			       else nil) @
