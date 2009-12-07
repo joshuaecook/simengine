@@ -1,6 +1,7 @@
 // Run a single model to completion on a single processor core
 int exec_cpu(solver_props *props, unsigned int modelid){
-  Iterator i;
+  unsigned int i;
+  Iterator iter;
   CDATAFORMAT min_time;
 
   // Initialize all iterators to running
@@ -16,10 +17,11 @@ int exec_cpu(solver_props *props, unsigned int modelid){
     while(0 == ((output_buffer *)(props->ob))->full[modelid]){
       // Run solvers for all iterators that need to advance
       for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].next_time[modelid] == props[i].time[modelid]){
-	  solver_eval(&props[i], modelid);
-	  if(!props[i].running[modelid]){
-	    model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
+	iter = ITERATORS[i];
+	if(props[iter].next_time[modelid] == props[iter].time[modelid]){
+	  solver_eval(&props[iter], modelid);
+	  if(!props[iter].running[modelid]){
+	    model_flows(props[iter].time[modelid], props[iter].model_states, props[iter].next_states, &props[iter], 1, modelid);
 	  }
 	  update(&props[i], modelid);
 	}
@@ -40,10 +42,10 @@ int exec_cpu(solver_props *props, unsigned int modelid){
       // Buffer outputs for all iterators that have values to output
       // This isn't conditional on running to make sure it outputs a value for the last time
       for(i=0;i<NUM_ITERATORS;i++){
-	Iterator j;
 	int buffer_ready = 1;
+	unsigned int j;
 	for(j=0;j<NUM_ITERATORS;j++){
-	  if(props[j].time[modelid] > props[i].time[modelid]){
+	  if(props[ITERATORS[j]].time[modelid] > props[ITERATORS[i]].time[modelid]){
 	    // Some iterator has run out ahead, don't buffer again
 	    buffer_ready = 0;
 	    break;

@@ -14,7 +14,6 @@
 #ifdef NUM_MODELS
 #define BUFFER_LEN 8000
 typedef struct{
-  unsigned int active_models;
   unsigned int finished[NUM_MODELS];
   unsigned int full[NUM_MODELS];
   unsigned int count[NUM_MODELS];
@@ -22,4 +21,10 @@ typedef struct{
   void *end[NUM_MODELS];
   CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];
 } output_buffer;
+
+typedef struct {
+  unsigned int outputid;
+  unsigned int num_quantities;
+  CDATAFORMAT quantities[];
+} output_buffer_data;
 #endif

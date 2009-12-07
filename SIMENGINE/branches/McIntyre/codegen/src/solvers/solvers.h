@@ -4,14 +4,13 @@
 #ifndef SOLVERS_H
 #define SOLVERS_H
 
-#include <stdlib.h>
-#include <string.h>
+// Assert is not available in device code.
+#if defined(__DEVICE_EMULATION__) || !defined(__CUDACC__)
 #include <assert.h>
-#include <math.h>
-
-#ifndef NAN
-#define NAN (FLITERAL(0.0)/FLITERAL(0.0))
+#else
+#define assert(x)
 #endif
+
 
 // Solver indexing mode for states
 #define STATE_IDX TARGET_IDX(props->statesize, props->num_models, i, modelid)
@@ -24,6 +23,7 @@ typedef struct {
   CDATAFORMAT *time;
   CDATAFORMAT *model_states;
   void *ob;
+  void *mem;
 } gpu_data;
 
 // Additional CVODE specific options
@@ -51,14 +51,15 @@ typedef struct {
   CDATAFORMAT starttime;
   CDATAFORMAT stoptime;
   // A pointer to a systemstatedata_ptr structure
-  void *system_states;
+  top_systemstatedata *system_states;
   CDATAFORMAT *time; // Continuous iterators (discrete mapped to continuous)
   CDATAFORMAT *next_time;
   unsigned int *count; // Discrete iterators
   // A pointer into system_states to the states for this iterator
   CDATAFORMAT *model_states;
   CDATAFORMAT *next_states;
-  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states
+  // freeme is not currently used.
+  //  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states; 
   CDATAFORMAT *inputs;
   simengine_output *outputs;
   Solver solver;
@@ -70,7 +71,7 @@ typedef struct {
   unsigned int bandsize;  // Number of bands in statesize*statesize matrix for linear solver
   void *od;
   unsigned int ob_size;
-  void *ob;
+  output_buffer *ob;
   gpu_data gpu;
   cvode_opts cvode;
   int *running;
@@ -99,7 +100,7 @@ __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
 }
 
 __DEVICE__ CDATAFORMAT find_min_time(solver_props *props, unsigned int modelid){
-  Iterator i;
+  unsigned int i;
   CDATAFORMAT min_time;
 
   assert(model_running(props,modelid));
@@ -125,21 +126,20 @@ __DEVICE__ CDATAFORMAT find_min_time(solver_props *props, unsigned int modelid){
 
 // Check to see if any of the iterators are not yet completed
 __DEVICE__ int model_running(solver_props *props, unsigned int modelid){
-  Iterator iter;
+  unsigned int i;
   assert(NUM_ITERATORS);
-  for(iter=0;iter<NUM_ITERATORS;iter++){
-    if(props[iter].running[modelid])
+  for(i=0;i<NUM_ITERATORS;i++){
+    if(props[i].running[modelid])
       return 1;
   }
   return 0;
 }
 
-
 int immediate_init(solver_props *props) {
   return 0;
 }
 
-int immediate_eval(solver_props *props, unsigned int modelid) {
+__DEVICE__ int immediate_eval(solver_props *props, unsigned int modelid) {
   props->running[modelid] = props->time[modelid] < props->stoptime;
   if (!props->running[modelid])
     return 0;

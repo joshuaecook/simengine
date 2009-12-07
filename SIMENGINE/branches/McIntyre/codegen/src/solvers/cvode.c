@@ -101,7 +101,7 @@ int cvode_eval(solver_props *props, unsigned int modelid){
   mem = &mem[modelid];
 
   // Stop the solver if the stop time has been reached
-  props->running[modelid] = props->time[modelid] < props->stoptime;
+  props->running[modelid] = (props->time[modelid] + props->timestep) < props->stoptime;
   if(!props->running[modelid])
     return 0;
 

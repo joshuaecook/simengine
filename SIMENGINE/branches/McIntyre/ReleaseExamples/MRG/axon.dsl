@@ -22,7 +22,7 @@ end
 function join2(s1, s2, s3)
   //function to join s1 to s2 (left) and s3 (right)
   s1.ILeft = (s1.VmLeft - s2.VmRight)/((s1.RLeft + s2.RRight)/2)
-  s2.IRight = (s1.VmRight - s3.VmLeft)/((s1.RRight + s2.RLeft)/2)
+  s1.IRight = (s1.VmRight - s3.VmLeft)/((s1.RRight + s2.RLeft)/2)
 end
 
 model (Vm1, Vm2, Vm3) = axon(Istim)

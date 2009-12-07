@@ -168,7 +168,7 @@ fun sym2c_str (s, props) =
 		    case scope
 		     of Property.LOCAL => ""
 		      | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ index
-		      | Property.READSYSTEMSTATE v => "sys_rd" ^ index ^ "states_" ^ (Symbol.name v) ^ "->"
+		      | Property.READSYSTEMSTATE v => "sys_rd->states_" ^ (Symbol.name v) ^ index
  		      | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
 		      | Property.ITERATOR => ""
 		end
