@@ -340,6 +340,7 @@ fun init_solver_props top_name forkedclasses =
 		      $("props[iter].next_time[modelid] = starttime;")],
 		  $("}")],
 	      $("}"),
+	      $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_external));"),
 	      $("return props;")]),
 	 $("}"),
 	 $(""),
