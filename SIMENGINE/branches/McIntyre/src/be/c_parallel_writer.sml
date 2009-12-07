@@ -783,19 +783,15 @@ fun outputsystemstatestruct_code forkedModels =
 		(not o List.null o #2)
 		(map class_struct_data master_classes)
 
-	val (top_class_struct_data :: rest_classes_struct_data) = 
-	    case per_class_struct_data
-	     of nil => 
-		DynException.stdException(("No classes to generate state structures."), "CParallelWriter.outputsystemstatestruct_code", Logger.INTERNAL)
-	      | _ => per_class_struct_data
-
-
-
 
 	val per_class_struct_prog = 
 	    $("// Per-class system pointer structures") ::
 	    Util.flatmap class_struct_declaration per_class_struct_data @
-	    [$("typedef systemstatedata_"^(Symbol.name (#1 top_class_struct_data))^" top_systemstatedata;"),$("")]
+	    (case per_class_struct_data
+	      of top :: rest =>
+		 [$("typedef systemstatedata_"^(Symbol.name (#1 top))^" top_systemstatedata;"),$("")]
+	       | _ => 
+		 [$("typedef void * top_systemstatedata;"),$("")])
     in
 	top_sys_state_struct_prog @ 
 	per_class_struct_prog
