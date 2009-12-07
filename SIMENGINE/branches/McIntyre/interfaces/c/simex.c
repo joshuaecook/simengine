@@ -31,6 +31,7 @@ typedef struct{
   int emulate;
   int profile;
   int remake;
+  int nocompile;
 } simengine_opts;
 
 typedef enum {
@@ -50,6 +51,7 @@ typedef enum {
   EMULATE,
   PROFILE,
   REMAKE,
+  NOCOMPILE,
   HELP
 } clopts;
 
@@ -70,6 +72,7 @@ static const struct option long_options[] = {
   {"emulate", no_argument, 0, EMULATE},
   {"profile", no_argument, 0, PROFILE},
   {"remake", no_argument, 0, REMAKE},
+  {"nocompile", no_argument, 0, NOCOMPILE},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
@@ -95,6 +98,7 @@ void print_usage(){
 	 "\t--emulate\t\tEnables device emulation (only meaningful with --gpu.)\n"
 	 "\t--profile\tEnables profiling.\n"
 	 "\t--remake\tSkip simEngine compilation and just remake C code.\n"
+         "\t--nocompile\tSkip all compilation and just execute simulation.\n"
 	 "\t--help\tShow this message.\n"
 	 "\n");
 }
@@ -250,6 +254,10 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
     case REMAKE:
       opts->remake = 1;
       printf("Skipping simEngine compilation and only recompiling C code.\n");
+      break;
+    case NOCOMPILE:
+      opts->nocompile = 1;
+      printf("Skipping all compilation and executing simulation.\n");
       break;
     default:
       printf("ERROR: invalid argument %s\n", argv[optind]);
@@ -600,9 +608,11 @@ int main(int argc, char **argv){
 
   simengine_api *api;
   char libraryname[256] = "./";
-  // Compile the model
-  if(runsimEngine(&opts))
-    return 1;
+  if(!opts.nocompile){
+    // Compile the model
+    if(runsimEngine(&opts))
+      return 1;
+  }
   
   // Load the API for simulation object
   strcat(libraryname, opts.model_name);
