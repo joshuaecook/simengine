@@ -5,7 +5,8 @@ function s = ParallelCPUTests(varargin)
 s = Suite('Parallel CPU Tests');
 s.add(DuplicateStatesTarget('-cpu'));
 s.add(DuplicateStatesTarget('-parallelcpu'));
-s.add(Test('split_fn submodel cpu', @()(DuplicateStates(['models_FeatureTests/split_fn.dsl'], 10, '-double', '-cpu', 2))));
+s.add(Test('split_fn submodel parallelcpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-parallelcpu', 2))));
+s.add(Test('fn_imp explicit/implicit parallelcpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-parallelcpu', 10))));
 s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
 end
 
