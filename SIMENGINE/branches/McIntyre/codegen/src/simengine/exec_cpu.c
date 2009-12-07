@@ -19,7 +19,9 @@ int exec_cpu(solver_props *props, unsigned int modelid){
       for(i=0;i<NUM_ITERATORS;i++){
 	iter = ITERATORS[i];
 	if(props[iter].next_time[modelid] == props[iter].time[modelid]){
-	  solver_eval(&props[iter], modelid);
+	  if(0 != solver_eval(&props[iter], modelid)) {
+	    return ERRCOMP;
+	  }
 	  if(!props[iter].running[modelid]){
 	    model_flows(props[iter].time[modelid], props[iter].model_states, props[iter].next_states, &props[iter], 1, modelid);
 	  }
