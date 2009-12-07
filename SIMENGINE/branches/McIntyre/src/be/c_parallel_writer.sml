@@ -340,7 +340,7 @@ fun init_solver_props top_name forkedclasses =
 		      $("props[iter].next_time[modelid] = starttime;")],
 		  $("}")],
 	      $("}"),
-	      $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_external));"),
+	      $("memcpy(system_states_next, system_states_int, NUM_MODELS * sizeof(systemstatedata_external));"),
 	      $("return props;")]),
 	 $("}"),
 	 $(""),
@@ -387,6 +387,7 @@ fun simengine_interface (*(class_name, class, solver_names, iterator_names)*)(or
 	val iterator_names = map (Symbol.name o #1 o #iter) forkedModels
 	val solver_names = List.mapPartial (fn{iter,...}=>case iter of
 							      (_,DOF.CONTINUOUS s) => SOME (Solver.solver2name s)
+							    | (_,DOF.DISCRETE s) => SOME "discrete"
 							    | _ => NONE) forkedModels
 	val class_name = Symbol.name (#classname inst)
 
