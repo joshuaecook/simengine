@@ -125,7 +125,11 @@ else
   end
   
   if 0 == statesM
-    userStates = transpose(interface.default_states) * ones(1, models);
+    if 0 < interface.num_states
+      userStates = transpose(interface.default_states) * ones(1, models);
+    else
+      userStates = [];
+    end
   elseif 1 == statesM && models ~= statesM
     userStates = transpose(userStates) * ones(1, models);
   else
