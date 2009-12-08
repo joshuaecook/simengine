@@ -392,6 +392,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	double startTime = 0, stopTime = 0;
 	unsigned int models, expected;
 
+	if (3 < nlhs)
+	    {
+	    usage();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError,
+		"Incorrect number of left-hand side arguments.");
+	    }
+
 	// TODO switch is unnecessary; this form should ONLY accept 4 rhs arguments.
 	switch (nrhs)
 	    {
@@ -435,28 +442,46 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	    }
 
-	if (!userStates)
-	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "Y0 was not specified."); }
-	if (!userInputs)
-	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS was not specified."); }
-
-	models = userStates ? mxGetN(userStates) : 0;
-
-	if (mxGetN(userInputs) != models)
-	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS and Y0 must be the same length."); }
-	if (1 > models)
-	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "No models can be run."); }
-
-	if (3 < nlhs)
-	    {
-	    usage();
-	    ERROR(Simatra:SIMEX:HELPER:argumentError,
-		"Incorrect number of left-hand side arguments.");
-	    }
-
 	init_simengine(name);
 	const simengine_interface *iface = api->getinterface();
 	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
+
+	if (!userStates)
+	    { 
+	    release_simengine();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError, "Y0 was not specified."); 
+	    }
+	if (!userInputs)
+	    { 
+	    release_simengine();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS was not specified."); 
+	    }
+
+	if (0 < iface->num_states)
+	    {
+	    models = mxGetN(userStates);
+
+	    if (0 < iface->num_inputs && mxGetN(userInputs) != models)
+		{
+		release_simengine();
+		ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS and Y0 must be the same length %d.", models); 
+		}
+	    }
+	else if (0 < iface->num_inputs)
+	    {
+	    models = mxGetN(userInputs);
+	    }
+	else
+	    {
+	    // With no states or inputs, only a single model may be run.
+	    models = 1;
+	    }
+	
+	if (1 > models)
+	    { 
+	    release_simengine();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError, "No models can be run."); 
+	    }
 
         // These openmp calls are not used currently, but openmp may be used in the future to move data back to
         // Matlab.  For some reason, if omp_set_num_threads is called without querying the omp environment first
