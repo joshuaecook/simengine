@@ -43,7 +43,8 @@ fun std_compile exec args =
 
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  (log ("Optimizing model ...");
-			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
+			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel());
+			   DOFPrinter.printModel(CurrentModel.getCurrentModel()))
 (*			  handle e => (app (fn(s) => print("    " ^ s ^ "\n")) (MLton.Exn.history e))*)
 		      else
 			  ()

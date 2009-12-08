@@ -2,7 +2,7 @@
 // Essential role of the persistent sodium current in spike initiation during slowly
 // rising inputs in mouse spinal neurones
 
-model (INa,O) = na_kinetic(dur1,amp1,dur2,amp2,amp3,Oon,Ooff,m1Vh,m2Vh)
+model (INa,O,V) = na_kinetic(dur1,amp1,dur2,amp2,amp3,Oon,Ooff,m1Vh,m2Vh)
 
     constant mVs = 12		//	(mV)		: voltage sensitivity of activation
     constant aTau = 0.05	//		(ms)		: activation time constant
@@ -24,7 +24,7 @@ model (INa,O) = na_kinetic(dur1,amp1,dur2,amp2,amp3,Oon,Ooff,m1Vh,m2Vh)
 
 
     equation V= {amp1 when (t < dur1 or t==dur1), 
-		 amp2 when (t > dur1 and (t < dur1+dur2 or t==dur1+dur2)),
+		 amp2 when (t > dur1 and t <= dur1+dur2),
 		 amp3 otherwise}
 
     equations
@@ -38,6 +38,7 @@ model (INa,O) = na_kinetic(dur1,amp1,dur2,amp2,amp3,Oon,Ooff,m1Vh,m2Vh)
 	b = (Ooff/Coff)^(1/4)
     end
 
+    // Same initial conditions as Nachan.dsl
     state C1 = 1/12
     state C2 = 1/12
     state C3 = 1/12
@@ -51,25 +52,28 @@ model (INa,O) = na_kinetic(dur1,amp1,dur2,amp2,amp3,Oon,Ooff,m1Vh,m2Vh)
     state I5 = 1/12
     state I6 = 1/12
 
+
+    // All rate equations
     equations 
 	C1' = beta*C2-4*alpha*C1+Coff*I1-Con*C1
-	C2' = 2*beta*C3-3*alpha*C2+Coff/a*I2-Con*a*C2+4*alpha*C1-beta*C2
-	C3' = 3*beta*C4-2*alpha*C3+Coff/a^2*I3-Con*a^2*C3+3*alpha*C2-2*beta*C3
-	C4' = 4*beta*C5-alpha*C4+Coff/a^3*I4-Con*a^3*C4+2*alpha*C3-3*beta*C4
-	C5' = delta*O-gamma*C5+Coff/a^4*I5-Con*a^4*C5+alpha*C4-4*beta*C5
+	C2' = 2*beta*C3-3*alpha*C2+Coff/b*I2-Con*a*C2+4*alpha*C1-beta*C2
+	C3' = 3*beta*C4-2*alpha*C3+Coff/b^2*I3-Con*a^2*C3+3*alpha*C2-2*beta*C3
+	C4' = 4*beta*C5-alpha*C4+Coff/b^3*I4-Con*a^3*C4+2*alpha*C3-3*beta*C4
+	C5' = delta*O-gamma*C5+Coff/b^4*I5-Con*a^4*C5+alpha*C4-4*beta*C5
 	O' = Ooff*I6-Oon*O+gamma*C5-delta*O
-	I1' = beta/a*I2-4*alpha*a*I1+Con*C1-Coff*I1
-	I2' = 2*beta/a*I3-3*alpha*a*I2+Con*a*C2-Coff/a*I2+4*alpha*a*I1-beta/a*I2
-	I3' = 3*beta/a*I4-2*alpha*a*I3+Con*a^2*C3-Coff/a^2*I3+3*alpha*a*I2-2*beta/a*I3
-	I4' = 4*beta/a*I5-alpha*a*I4+Con*a^3*C4-Coff/a^3*I4+2*alpha*a*I3-3*beta/a*I4
-	I5' = delta*I6-gamma*I5+Con*a^4*C5-Coff/a^4*I5+alpha*a*I4-4*beta/a*I5
+	I1' = beta/b*I2-4*alpha*a*I1+Con*C1-Coff*I1
+	I2' = 2*beta/b*I3-3*alpha*a*I2+Con*a*C2-Coff/b*I2+4*alpha*a*I1-beta/b*I2
+	I3' = 3*beta/b*I4-2*alpha*a*I3+Con*a^2*C3-Coff/b^2*I3+3*alpha*a*I2-2*beta/b*I3
+	I4' = 4*beta/b*I5-alpha*a*I4+Con*a^3*C4-Coff/b^3*I4+2*alpha*a*I3-3*beta/b*I4
+	I5' = delta*I6-gamma*I5+Con*a^4*C5-Coff/b^4*I5+alpha*a*I4-4*beta/b*I5
 	I6' = Oon*O-Ooff*I6+gamma*I5-delta*I6
     end
 
     constant GMax = 0.01487
     constant ENa = 50
-    equation INa = GMax*(V-ENa)
+    equation INa = O*GMax*(V-ENa)
 
-    t {solver=cvode}
+//    t {solver=cvode{dt=0.01}}
+    t {solver=linearbackwardeuler{dt=0.01}}
 
 end

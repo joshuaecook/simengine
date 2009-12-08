@@ -54,7 +54,7 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 		(FunProps.op2name f) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
 	    else
 		String.concatWith v (map (fn(e)=>addParen ((exp2tersestr e),e)) exps)
-	  | (v, FunProps.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
+	  | (v, FunProps.PREFIX) => v ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps))
 	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr e),e)) exps)) ^ " " ^ v
 	  | (v, FunProps.MATCH) => 
 	    let
