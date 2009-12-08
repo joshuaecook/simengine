@@ -1,8 +1,4 @@
 #ifdef TARGET_GPU
-<<<<<<< .working
-void GPU_ENTRY(init, SIMENGINE_STORAGE){
-=======
-
 // Variables in global device memory. Do not refer to these directly in user code!
 // gpu_init_solver_props() returns a pointer to the global solver properties.
 
@@ -40,12 +36,11 @@ __DEVICE__ output_data gpu_od[NUM_MODELS];
 #endif
 
 void gpu_init (void) {
->>>>>>> .merge-right.r660
   // FIXME Add more checking of capabilities and devices available!
   cudaSetDevice(cutGetMaxGflopsDeviceId());
 }
 
-void GPU_ENTRY(exit, SIMENGINE_STORAGE){
+void gpu_exit (void) {
   cudaThreadExit();
 }
 
@@ -58,7 +53,7 @@ void gpu_init_system_states_pointers (solver_props *tmp_props, top_systemstateda
 
 // Given a pointer to an array of solver properties having NUM_ITERATORS length,
 // initializes a mirrored set of properties in device global memory.
-solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
+solver_props *gpu_init_props(solver_props *props){
   // Pointers to the statically allocated in device global memory;
   solver_props *g_props;
   top_systemstatedata *g_system;
@@ -172,17 +167,11 @@ solver_props *GPU_ENTRY(init_props, SIMENGINE_STORAGE, solver_props *props){
   return g_props;
 }
 
-<<<<<<< .working
-// Frees a GPU solver props structure
-void GPU_ENTRY(free_props, SIMENGINE_STORAGE, solver_props *props){
-  solver_props tprops;
-=======
 // Copies final times and states back to host main memory.
 void gpu_finalize_props (solver_props *props) {
   unsigned int i;
   // A temporary host duplicate of the time vectors.
   CDATAFORMAT tmp_time[NUM_MODELS * NUM_ITERATORS];
->>>>>>> .merge-right.r660
 
   // Copies final times from the device
   cutilSafeCall(cudaMemcpy(tmp_time, props[0].gpu.time, NUM_MODELS * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));

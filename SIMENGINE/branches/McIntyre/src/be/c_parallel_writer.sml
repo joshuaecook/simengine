@@ -1461,18 +1461,31 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 	val output_buffer_h = $(Archive.getC "simengine/output_buffer.h")
 	val init_output_buffer_c = $(Archive.getC "simengine/init_output_buffer.c")
 	val log_outputs_c = $(Archive.getC "simengine/log_outputs.c")
-	val exec_cpu_c = $(Archive.getC "simengine/exec_cpu.c")
-	val exec_parallel_cpu_c = $(Archive.getC "simengine/exec_parallel_cpu.c")
-	val exec_serial_cpu_c = $(Archive.getC "simengine/exec_serial_cpu.c")
-	val exec_kernel_gpu_cu = $(Archive.getC "simengine/exec_kernel_gpu.cu") (* Make conditional on GPU target *)
-	val exec_parallel_gpu_cu = $(Archive.getC "simengine/exec_parallel_gpu.cu") (* Make conditional on GPU target *)
+
+	val exec_c = 
+	    case props
+	     of {target=Target.CPU, ...} =>
+		[$(Archive.getC "simengine/exec_cpu.c"),
+		 $(Archive.getC "simengine/exec_serial_cpu.c")]
+	      | {target=Target.OPENMP, ...} => 
+		[$(Archive.getC "simengine/exec_cpu.c"),
+		 $(Archive.getC "simengine/exec_parallel_cpu.c")]
+	      | {target=Target.CUDA _, ...} =>
+		[$(Archive.getC "simengine/exec_kernel_gpu.cu"),
+		 $(Archive.getC "simengine/exec_parallel_gpu.cu")]
+
 	val model_flows_c = model_flows forkedModelsWithSolvers
 	val exec_loop_c = $(Archive.getC "simengine/exec_loop.c")
 
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @
 					      [simengine_target_h] @
-					      (*[gpu_util_c] @ *)(* Make conditional on GPU target *)
+
+					      (case props
+						of {target=Target.CUDA _, ...} =>
+						   [gpu_util_c]
+						 | _ => []) @
+
 					      simengine_interface_progs @
 
 					      [simengine_api_h] @
@@ -1484,7 +1497,12 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 					      systemstate_progs @
 					      fun_prototypes @
 					      [solvers_h] @
-					      (*[solver_gpu_cu] @ *)(* Make conditional on GPU target *)
+
+					      (case props
+						of {target=Target.CUDA _, ...} =>
+						   [solver_gpu_cu]
+						 | _ => []) @
+
 					      [solver_c] @
 					      (*iteratordatastruct_progs @*)
 					      solver_wrappers_c @
@@ -1494,11 +1512,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 					      init_solver_props_c @
 					      logoutput_progs @
 					      [log_outputs_c] @
-					      [exec_cpu_c] @
-					      [exec_parallel_cpu_c] @
-					      [exec_serial_cpu_c] @ 
-					      (*[exec_kernel_gpu_cu] @
-					      [exec_parallel_gpu_cu] @ *)
+					      exec_c @
 					      flow_progs @
 					      model_flows_c @
 					      [exec_loop_c]))
