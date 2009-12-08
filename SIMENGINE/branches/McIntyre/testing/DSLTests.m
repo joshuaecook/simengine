@@ -23,10 +23,11 @@ function [result] = run(strvec)
   for i = 1:length(strvec)
     s = strcat(s, strvec{i}, '\n');
   end
-  str = strcat('printf "', s, '" | ../simEngine');
+  str = strcat('printf "', s, '" | ', simexamplepath ,'/../bin/simEngine');
   
   function [res] = systemWrapper()
-    [status,result] = system(str);
+    status = system(str);
+    %disp(result)
     res = 0 == status;
   end
   result = @systemWrapper;
@@ -36,7 +37,6 @@ end
 function s = RewriterTests(mode)
 INTERNAL = 0; RELEASE = 1;
 s = Suite('Rewriter Tests');
-s.add(Test('fake test', @()(true)));
 
 % Simplification Tests
 simp = {'var s = State.new(\"s\")'

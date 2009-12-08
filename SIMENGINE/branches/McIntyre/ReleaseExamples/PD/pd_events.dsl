@@ -6,8 +6,6 @@
 
 function xinf(a, b, V) = 1/(1 + exp((V + a)/b))
 function taux(a, b, c, e, V) = c + e / (1 + exp((V + a)/b))
-function cube (x) = x * x * x
-function sqr (x) = x * x
 
 //*****************************************STG***********************************************//
 model (Vm, metrics)=pd_events(gNa, gCaT, gCaS, gA, gKCa, gKd, gh, gleak)
@@ -25,8 +23,6 @@ input gKCa with {default=25}
 input gKd with {default=75}
 input gh with {default=0.02}
 input gleak with {default=0.03}
-//parameter Vclamp (-100 to 100 by 1) = -60
-//parameter clampOn (0 to 1 by 1) = 0
 
 constant ENa = 50 //mV
 constant EK = -80
@@ -49,6 +45,10 @@ state mh = 0.031
 state Caconc = 0.05 //uM
 
 equations
+    // Helper functions
+    xinf(a, b, V) => 1/(1 + exp((V + a)/b))
+    taux(a, b, c, e, V) => c + e / (1 + exp((V + a)/b))
+
    //store previous values of Vm
    ECa = 29.55*ln(3000/Caconc)
 
@@ -56,12 +56,12 @@ equations
    mKCa = 0 when mKCa < 0
    
    //Ionic Currents in uA
-   INa = gNa*cube(mNa)*hNa*(Vm - ENa)*Amem
-   ICaT = gCaT*cube(mCaT)*hCaT*(Vm - ECa)*Amem
-   ICaS = gCaS*cube(mCaS)*hCaS*(Vm - ECa)*Amem
-   IA = gA*cube(mA)*hA*(Vm-EK)*Amem
-   IKCa = gKCa*sqr(mKCa)*sqr(mKCa)*(Vm-EK)*Amem
-   IKd = gKd*sqr(mKd)*sqr(mKd)*(Vm-EK)*Amem
+   INa = gNa*mNa^3*hNa*(Vm - ENa)*Amem
+   ICaT = gCaT*mCaT^3*hCaT*(Vm - ECa)*Amem
+   ICaS = gCaS*mCaS^3*hCaS*(Vm - ECa)*Amem
+   IA = gA*mA^3*hA*(Vm-EK)*Amem
+   IKCa = gKCa*mKCa^4*(Vm-EK)*Amem
+   IKd = gKd*mKd^4*(Vm-EK)*Amem
    Ih = gh*mh*(Vm - Eh)*Amem
    Ileak = gleak*(Vm-Eleak)*Amem
 

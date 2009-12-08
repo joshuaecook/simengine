@@ -69,10 +69,10 @@ for i=1:length(testInfos)
             % create function handle to run simulation
             if isempty(info.states)
                 f = @()(reduceDataSet(simex(info.model, info.time, ...
-                                            info.inputs, '-quiet')));
+                                            info.inputs)));
             else
                 f = @()(reduceDataSet(simex(info.model, info.time, ...
-                                            info.inputs, info.states, '-quiet')));
+                                            info.inputs, info.states)));
             end
             matfile = fullfile(templatedir, [info.name '_exp.mat']);            
             s.add(Test(info.name, f, '-approxequal', matfile, 5));

@@ -1,4 +1,4 @@
-// Adapter from Kuo, Lee, Zhang, and Heckman, 2006, J. Physiol
+// Adapted from Kuo, Lee, Zhang, and Heckman, 2006, J. Physiol
 // Essential role of the persistent sodium current in spike initiation during slowly
 // rising inputs in mouse spinal neurones
 
@@ -51,7 +51,6 @@ model (INa,O,V) = na_kinetic(dur1,amp1,dur2,amp2,amp3,Oon,Ooff,m1Vh,m2Vh)
     state I4 = 1/12
     state I5 = 1/12
     state I6 = 1/12
-
 
     // All rate equations
     equations 

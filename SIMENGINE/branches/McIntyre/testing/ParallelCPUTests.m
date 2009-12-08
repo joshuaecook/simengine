@@ -5,13 +5,14 @@ function s = ParallelCPUTests(varargin)
 s = Suite('Parallel CPU Tests');
 s.add(DuplicateStatesTarget('-cpu'));
 s.add(DuplicateStatesTarget('-parallelcpu'));
-s.add(Test('split_fn submodel cpu', @()(DuplicateStates(['models_FeatureTests/split_fn.dsl'], 10, '-double', '-cpu', 2))));
+s.add(Test('split_fn submodel parallelcpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-parallelcpu', 2))));
+s.add(Test('fn_imp explicit/implicit parallelcpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-parallelcpu', 10))));
 s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
 end
 
 
 function e = DuplicateStates(model, runtime, precision, target, number)
-    m = simex(model,'-quiet');
+    m = simex(model);
     states = zeros(number, length(m.default_states));
     for i=1:number
         states(i,:) = m.default_states;
@@ -48,7 +49,7 @@ function e = RunMRGSerialvsParallel
     runtime = 2;
     Istim = [0 100 200];
     % precompile
-    simex(model, '-quiet');
+    simex(model);
     % Run one input at a time and concatenate the results
     for i = 1:length(Istim)
         inputs.Istim = Istim(i);
