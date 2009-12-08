@@ -15,6 +15,11 @@
 %     This test succeeds if the return of FUNCTION is equivalent to VAL.
 %     Equivalency is determined by the EQUIV helper function.
 %
+%   t = TEST(NAME, FUNCTION, '-allequal')
+%     This test succeeds if each parallel entry in the return structure of
+%     FUNCTION is equal to every other. (returns true when running a single
+%     model.
+%
 %   t = TEST(NAME, FUNCTION, '-approxequal', VAL [, PRECISION])
 %     This test verifies that the return of FUNCTION is equal to VAL within
 %     +/- PRECISION percent.
@@ -62,6 +67,7 @@ classdef Test < handle
         EQUAL = 2;
         APPROXEQUAL = 3;
         RANGE = 4;
+        ALLEQUAL = 5;
     end
     
     properties (SetAccess = private)
@@ -121,6 +127,8 @@ classdef Test < handle
                         else
                             error('Test:ArgumentError', 'When using the -equal option, there should be a fourth required option')
                         end
+                    case '-allequal'
+                        t.Mode = t.ALLEQUAL;
                     case '-approxequal'
                         t.Mode = t.APPROXEQUAL;
                         if nargin == 4
@@ -181,6 +189,13 @@ classdef Test < handle
                                 t.Message = ['Returned a different quantity instead'];
                             end
                         end
+                    case t.ALLEQUAL
+                      if all_equiv(t.Return)
+                        t.Result = t.PASSED;
+                      else
+                        t.Result = t.FAILED;
+                        t.Message = ['Not all parallel structures are identical'];
+                      end
                     case t.APPROXEQUAL
                         if approx_equiv(t.CompareOptions{1}, t.Return, t.CompareOptions{2})
                             t.Result = t.PASSED;
