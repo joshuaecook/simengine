@@ -112,10 +112,10 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 				 "input_names", "state_names", "output_names",
 				 "default_inputs", "default_states", 
 				 "output_num_quantities", "metadata"};
-    const char *meta_names[] = {"hashcode", "num_models", "solver", "precision"};
+    const char *meta_names[] = {"hashcode", "num_models", "num_solvers", "solvers", "precision"};
 
     mxArray *version;
-    mxArray *input_names, *state_names, *output_names;
+    mxArray *input_names, *state_names, *output_names, *solvers;
     mxArray *default_inputs, *default_states;
     mxArray *output_num_quantities;
     mxArray *metadata;
@@ -135,9 +135,10 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
     input_names = mxCreateCellMatrix(1, iface->num_inputs);
     state_names = mxCreateCellMatrix(1, iface->num_states);
     output_names = mxCreateCellMatrix(1, iface->num_outputs);
+    solvers = mxCreateCellMatrix(1, iface->metadata->num_solvers);
 
     data = mxGetPr(output_num_quantities);
-    for (i = 0; i < iface->num_inputs || i < iface->num_states || i < iface->num_outputs; ++i)
+    for (i = 0; i < iface->num_inputs || i < iface->num_states || i < iface->num_outputs || i < iface->metadata->num_solvers; ++i)
 	{
 	if (i < iface->num_inputs)
 	    { 
@@ -153,6 +154,8 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 	    mxSetCell(output_names, i, mxCreateString(iface->output_names[i])); 
 	    ((double *)data)[i] = iface->output_num_quantities[i];
 	    }
+	if (i < iface->metadata->num_solvers)
+	    { mxSetCell(solvers, i, mxCreateString(iface->metadata->solvers[i])); }
 	}
 
     // Creates and initializes the return structure.
@@ -197,14 +200,22 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 
     mxDestroyArray(mxGetField(*interface, 0, "version"));
     mxSetField(*interface, 0, "version", version);
+
     mxDestroyArray(mxGetField(*interface, 0, "metadata"));
     mxSetField(*interface, 0, "metadata", metadata);
+
     mxDestroyArray(mxGetField(metadata, 0, "hashcode"));
     mxSetField(metadata, 0, "hashcode", hashcode);
+
     mxDestroyArray(mxGetField(metadata, 0, "num_models"));
     mxSetField(metadata, 0, "num_models", mxCreateDoubleScalar((double)iface->metadata->num_models));
-    mxDestroyArray(mxGetField(metadata, 0, "solver"));
-    mxSetField(metadata, 0, "solver", mxCreateString(iface->metadata->solvers[0])); // FIXME, solvers is now a list of solvers!!!
+
+    mxDestroyArray(mxGetField(metadata, 0, "num_solvers"));
+    mxSetField(metadata, 0, "num_solvers", mxCreateDoubleScalar((double)iface->metadata->num_solvers));
+
+    mxDestroyArray(mxGetField(metadata, 0, "solvers"));
+    mxSetField(metadata, 0, "solvers", solvers);
+
     mxDestroyArray(mxGetField(metadata, 0, "precision"));
     mxSetField(metadata, 0, "precision",  mxCreateDoubleScalar((double)iface->metadata->precision));
     }
