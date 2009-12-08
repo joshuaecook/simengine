@@ -1108,9 +1108,21 @@ fun logoutput_code class forkedModels =
 		    case TermProcess.symbol2temporaliterator name
 		     of SOME (iter_sym, _) => inc (List.length contents)
 		      | _ => List.length contents
+		fun iter2baseiter iter_sym =
+		    let
+			val (iter_sym, iter_type) = CurrentModel.itersym2iter iter_sym
+		    in
+			case iter_type of
+			    DOF.CONTINUOUS _ => iter_sym
+			  | DOF.DISCRETE _ => iter_sym
+			  | DOF.UPDATE iter_sym' => iter_sym'
+			  | DOF.POSTPROCESS iter_sym' => iter_sym'
+			  | DOF.IMMEDIATE => iter_sym
+		    end
+
 		val cond = 
 		    (case ExpProcess.exp2temporaliterator (Exp.TERM name) 
-		      of SOME (iter_sym, _) => "(props->iterator == ITERATOR_" ^ (Symbol.name iter_sym) ^ ")"
+		      of SOME (iter_sym, _) => "(props->iterator == ITERATOR_" ^ (Symbol.name (iter2baseiter iter_sym)) ^ ")"
 		       | _ => "1") ^ " && (" ^
 		    (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ")"
 
@@ -1128,6 +1140,9 @@ fun logoutput_code class forkedModels =
 				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
 				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
 				 | (_, DOF.DISCRETE _) =>
+				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
+				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
+				 | (_, DOF.POSTPROCESS _) =>
 				   [$("*((CDATAFORMAT * )(ob->ptr[modelid])) = props->time[modelid];"),
 				    $("ob->ptr[modelid] = &((CDATAFORMAT * )(ob->ptr[modelid]))[1];")]
 				 | (_, DOF.IMMEDIATE) =>
