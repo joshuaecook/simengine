@@ -64,7 +64,6 @@ solver_props *gpu_init_props(solver_props *props){
   unsigned int *g_count;
   int *g_running;
   output_buffer *g_ob;
-  output_data *g_od;
 
   // Obtains the addresses of statically allocated variables.
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_props, gpu_solver_props));
@@ -82,9 +81,10 @@ solver_props *gpu_init_props(solver_props *props){
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_running, gpu_running));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_ob, gpu_ob));
 # if NUM_OUTPUTS > 0
+  output_data *g_od;
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_od, gpu_od));
 # else
-  g_od = NULL;
+  char *g_od = NULL;
 # endif
 
   // A temporary host duplicate of the time vectors.
