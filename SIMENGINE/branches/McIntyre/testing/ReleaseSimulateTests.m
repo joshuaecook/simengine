@@ -70,17 +70,12 @@ for i=1:length(testInfos)
             if isempty(info.states)
                 f = @()(reduceDataSet(simex(info.model, info.time, ...
                                             info.inputs)));
-                g = @()(reduceDataSet(simex(info.model, info.time, ...
-                                            info.inputs, '-gpu')));
             else
                 f = @()(reduceDataSet(simex(info.model, info.time, ...
                                             info.inputs, info.states)));
-                g = @()(reduceDataSet(simex(info.model, info.time, ...
-                                            info.inputs, info.states, '-gpu')));
             end
             matfile = fullfile(templatedir, [info.name '_exp.mat']);            
-            s.add(Test(['CPU ' info.name], f, '-approxequal', matfile, 5));
-            s.add(Test(['GPU ' info.name], g, '-approxequal', matfile, 5));
+            s.add(Test(info.name, f, '-approxequal', matfile, 5));
     end
 end
 
