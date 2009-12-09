@@ -2,6 +2,9 @@ structure ExpBuild =
 struct
 
 fun var str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, Property.default_symbolproperty))
+fun pvar str = 
+        Exp.TERM (Exp.SYMBOL (Symbol.symbol (str), 
+                              Property.setIsRewriteSymbol Property.default_symbolproperty true))
 fun tvar str = Exp.TERM 
 		   (Exp.SYMBOL (Symbol.symbol str, 
 				Property.setIterator Property.default_symbolproperty 
