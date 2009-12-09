@@ -29,8 +29,12 @@ function s = DuplicateStatesTarget(target)
 
 s = Suite(['Duplicate Default States ' target]);
 
+if strcmp('-gpu', target)
+solvers = {'forwardeuler', 'rk4', 'ode23', 'ode45'};
+else
 solvers = {'forwardeuler', 'rk4', 'ode23', 'ode45', 'cvode', ...
            'cvode_stiff', 'cvode_nonstiff', 'cvode_diag', 'cvode_tridiag'};
+end
 precisions = {'single', 'double'};
 for i=1:length(solvers)
     solver = solvers{i};

@@ -31,7 +31,8 @@ s = Suite('All Tests');
 s.add(ReleaseCompileTests)
 % The below test won't pass because the model name is different than the
 % file name.  This is expected
-s.getTest('Release Compile Tests').getTest('Model neuronWithSynapse').ExpectFail = true;
+s.getTest('Release Compile Tests').getTest('CPU - Model neuronWithSynapse').ExpectFail = true;
+s.getTest('Release Compile Tests').getTest('GPU - Model neuronWithSynapse').ExpectFail = true;
 
 % Add full simulation tests
 s.add(ReleaseSimulateTests)

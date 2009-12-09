@@ -19,7 +19,7 @@ for i=1:length(dsl_files)
     if name(1) ~= '.'
         filename = fullfile(path, [name ext]);
         s.add(Test(['CPU - Model ' name], @()(simex(filename)), '-withouterror'));
-        s.add(Test(['GPU - Model ' name], @()(simex(filename), '-gpu'), '-withouterror'));
+        s.add(Test(['GPU - Model ' name], @()(simex(filename, '-gpu')), '-withouterror'));
     end
 end
 

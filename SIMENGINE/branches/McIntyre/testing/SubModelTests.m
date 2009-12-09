@@ -15,16 +15,16 @@ else
 end
 
 s = Suite('Sub-model Feature Tests');
-s.add(BasicSubModelTests('-cpu'));
+s.add(BasicSubModelTests(mode, '-cpu'));
 s.add(AlgebraicSubModelTests('-cpu'));
 s.add(OrderingTests('-cpu'));
 
-s.add(BasicSubModelTests('-gpu'));
+s.add(BasicSubModelTests(mode, '-gpu'));
 s.add(AlgebraicSubModelTests('-gpu'));
 s.add(OrderingTests('-gpu'));
 end
 
-function s = BasicSubModelTests(target)
+function s = BasicSubModelTests(mode, target)
 
 s = Suite(['Basic Sub-Model Tests ' target]);
 
@@ -44,6 +44,8 @@ s.add(Test('SubModelDefaultInputTest', @()(simex(['models_FeatureTests/' ...
 s.add(Test('DeepHierarchy', ...
             @()(simex(['models_FeatureTests/SubModelTest7.dsl'], 10,target)), ...
             '-equal', struct('y', [0:10; 0:3:30; 0:8:80; 0:10]')));
+
+INTERNAL = 0; RELEASE = 1;
 
 % this is related to init values driven by inputs
 if mode == INTERNAL
