@@ -39,7 +39,7 @@ void cvode_err_handler(int error_code, const char *module, const char *function,
     PRINTF("%s ERROR %d: %s : %s\n", module, error_code, function, msg);
   }
   else{
-    PRINTF("%s WARNING %d: %s : %s : %s\n", module, error_code, function, msg);
+    PRINTF("%s WARNING %d: %s : %s\n", module, error_code, function, msg);
   }
 }
 
