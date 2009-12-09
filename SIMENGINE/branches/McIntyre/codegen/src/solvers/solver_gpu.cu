@@ -22,8 +22,10 @@ __DEVICE__ systemstatedata_external gpu_model_states[1];
 // Does not need to be copied?
 __DEVICE__ systemstatedata_external gpu_next_states[1];
 
+#if NUM_INPUTS > 0
 // Needs to be copied host-to-device.
 __DEVICE__ CDATAFORMAT gpu_inputs[NUM_MODELS * NUM_INPUTS];
+#endif
 
 // Needs to be copied device-to-host? May be __shared__?
 __DEVICE__ int gpu_running[NUM_MODELS * NUM_ITERATORS];
@@ -62,6 +64,7 @@ solver_props *gpu_init_props(solver_props *props){
   unsigned int *g_count;
   int *g_running;
   output_buffer *g_ob;
+  output_data *g_od;
 
   // Obtains the addresses of statically allocated variables.
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_props, gpu_solver_props));
@@ -71,12 +74,17 @@ solver_props *gpu_init_props(solver_props *props){
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_count, gpu_count));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_model_states, gpu_model_states));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_next_states, gpu_next_states));
+# if NUM_INPUTS > 0
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_inputs, gpu_inputs));
+# else
+  g_inputs = NULL;
+# endif
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_running, gpu_running));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_ob, gpu_ob));
 # if NUM_OUTPUTS > 0
-  output_data *g_od;
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_od, gpu_od));
+# else
+  g_od = NULL;
 # endif
 
   // A temporary host duplicate of the time vectors.
@@ -116,9 +124,7 @@ solver_props *gpu_init_props(solver_props *props){
     tmp_props[i].outputs = NULL; // not needed?
     tmp_props[i].inputs = g_inputs;
     tmp_props[i].ob = g_ob;
-#   if NUM_OUTPUTS > 0
     tmp_props[i].od = g_od;
-#   endif
 
     // Pointers to device global memory that the host needs
     props[i].gpu.time = tmp_props[i].time;
@@ -148,8 +154,10 @@ solver_props *gpu_init_props(solver_props *props){
   cutilSafeCall(cudaMemcpy(g_time, tmp_time, NUM_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
   cutilSafeCall(cudaMemcpy(g_next_time, tmp_time, NUM_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 
+# if NUM_INPUTS > 0
   // Copies inputs to device.
   cutilSafeCall(cudaMemcpy(g_inputs, props->inputs, NUM_MODELS * NUM_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+# endif
 
   // Copies running flags to device
   int tmp_running[NUM_MODELS * NUM_ITERATORS];
