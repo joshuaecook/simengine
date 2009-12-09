@@ -65,7 +65,8 @@ typedef struct {
   Solver solver;
   Iterator iterator;
   unsigned int inputsize;
-  unsigned int statesize;
+  unsigned int statesize; // Number of states for this solver
+  unsigned int pp_statesize; // Number of postprocess states dependent upon this solver's iterator
   unsigned int outputsize;
   unsigned int num_models;
   unsigned int bandsize;  // Number of bands in statesize*statesize matrix for linear solver

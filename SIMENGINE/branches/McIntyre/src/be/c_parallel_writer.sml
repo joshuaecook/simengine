@@ -151,7 +151,7 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
 	 $("")]
     end
 
-fun init_solver_props top_name forkedclasses =
+fun init_solver_props top_name pp_classes forkedclasses =
     let
 	val need_systemdata = List.exists subsystem_has_states forkedclasses
 
@@ -185,6 +185,14 @@ fun init_solver_props top_name forkedclasses =
 									  | DOF.IMMEDIATE => "immediate"
 									  | _ => "ERROR Bogus iterator") iterator)
 			val num_states = ModelProcess.model2statesize model 
+
+			val num_pp_states =
+			    if ModelProcess.hasPostProcessIterator itersym then
+				case List.find (fn {iter as (_, DOF.POSTPROCESS iter_sym), ...} => true | _ => false) pp_classes
+				 of SOME {model, ...} => CurrentModel.withModel model (fn _ => ModelProcess.model2statesize model)
+				  | NONE => ~1
+			    else 0
+
 					 
 			val requiresBandedMatrix = case itertype of
 						       DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) => true
@@ -226,7 +234,8 @@ fun init_solver_props top_name forkedclasses =
 			  else
 			      []) @
 			 [$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
-			 $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
+			  $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
+			  $("props[ITERATOR_"^itername^"].pp_statesize = " ^ (Util.i2s num_pp_states) ^ ";"),
 			 (*$("props[ITERATOR_"^itername^"].freeme = props[ITERATOR_"^itername^"].next_states;"),*)
 			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
 			 $("props[ITERATOR_"^itername^"].num_models = NUM_MODELS;"),
@@ -287,8 +296,13 @@ fun init_solver_props top_name forkedclasses =
 
 			val iterator_pp_states_ptr =
 			    if ModelProcess.hasPostProcessIterator itersym then
-				[$("#error FIXME"),
-				 $("system_ptr->states_pp_"^itername^" = &(system_states[modelid].states_pp_"^itername^");")]
+				let val pp_classname = 
+					case List.find (fn {iter as (_, DOF.POSTPROCESS iter_sym), ...} => true | _ => false) pp_classes
+					 of SOME {top_class, ...} => Symbol.name top_class
+					  | NONE => "#error invalid"
+				in 
+				    [$("tmp_system->states_pp_"^itername^" = (statedata_"^pp_classname^" * )(tmp_props[ITERATOR_"^itername^"].model_states + tmp_props[ITERATOR_"^itername^"].statesize);")] 
+				end
 			    else nil
 			    
 		    in
@@ -1438,7 +1452,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 				    [], (* no additional includes *)
 				    []))
 
-	val init_solver_props_c = init_solver_props orig_name forkedModelsWithSolvers		   
+	val init_solver_props_c = init_solver_props orig_name postprocessModels forkedModelsWithSolvers		   
 	val simengine_interface_progs = simengine_interface combinedModel forkedModelsLessUpdate
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code inst_class

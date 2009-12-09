@@ -126,7 +126,7 @@ solver_props *gpu_init_props(solver_props *props){
       tmp_props[i].next_states = NULL;
     }
 
-    states_offset += props[i].statesize;
+    states_offset += props[i].statesize + props[i].pp_statesize;
 
     // Every iterator shares the same memory
     tmp_props[i].system_states = g_system;
