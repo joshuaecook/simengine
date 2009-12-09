@@ -75,7 +75,7 @@ for i=1:length(testInfos)
                                             info.inputs, info.states, '-gpu')));
             end
             matfile = fullfile(templatedir, [info.name '_exp.mat']);
-            s.add(Test(info.name, g, '-approxequal', matfile, 5));
+            s.add(Test(info.name, f, '-approxequal', matfile, 5));
     end
 end
 
