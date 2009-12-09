@@ -13,6 +13,7 @@ __DEVICE__ CDATAFORMAT gpu_next_time[NUM_MODELS * NUM_ITERATORS];
 
 __DEVICE__ unsigned int gpu_count[NUM_MODELS * NUM_ITERATORS];
 
+#if NUM_STATES > 0
 // Needs to be coped device-to-host.
 __DEVICE__ top_systemstatedata gpu_system[1];
 
@@ -21,6 +22,7 @@ __DEVICE__ systemstatedata_external gpu_model_states[1];
 
 // Does not need to be copied?
 __DEVICE__ systemstatedata_external gpu_next_states[1];
+#endif
 
 #if NUM_INPUTS > 0
 // Needs to be copied host-to-device.
@@ -59,7 +61,6 @@ solver_props *gpu_init_props(solver_props *props){
   // Pointers to the statically allocated in device global memory;
   solver_props *g_props;
   top_systemstatedata *g_system;
-  systemstatedata_external *g_model_states, *g_next_states;
   CDATAFORMAT *g_time, *g_next_time, *g_inputs;
   unsigned int *g_count;
   int *g_running;
@@ -67,12 +68,20 @@ solver_props *gpu_init_props(solver_props *props){
 
   // Obtains the addresses of statically allocated variables.
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_props, gpu_solver_props));
-  cutilSafeCall(cudaGetSymbolAddress((void **)&g_system, gpu_system));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_time, gpu_time));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_next_time, gpu_next_time));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_count, gpu_count));
+# if NUM_STATES > 0
+  systemstatedata_external *g_model_states, *g_next_states;
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_system, gpu_system));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_model_states, gpu_model_states));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_next_states, gpu_next_states));
+# else
+  char *g_model_states, *g_next_states;
+  g_system = NULL;
+  g_model_states = NULL;
+  g_next_states = NULL;
+# endif
 # if NUM_INPUTS > 0
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_inputs, gpu_inputs));
 # else
@@ -140,15 +149,19 @@ solver_props *gpu_init_props(solver_props *props){
   for (i = 0; i < NUM_ITERATORS; i++) {
     // Finds the first iterator with states. 
     // Its pointer will reference the beginning of state memory.
+#   if NUM_STATES > 0
     if (0 < props[i].statesize) {
       cutilSafeCall(cudaMemcpy(g_model_states, props[i].model_states, sizeof(systemstatedata_external), cudaMemcpyHostToDevice));
       cutilSafeCall(cudaMemcpy(g_next_states, props[i].model_states, sizeof(systemstatedata_external), cudaMemcpyHostToDevice));
       break;
     }
+#   endif
   }
 
   // Copies system states to device.
+# if NUM_STATES > 0
   cutilSafeCall(cudaMemcpy(g_system, tmp_system, sizeof(top_systemstatedata), cudaMemcpyHostToDevice));
+# endif
 
   // Copies initial times to device.
   cutilSafeCall(cudaMemcpy(g_time, tmp_time, NUM_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
@@ -192,10 +205,12 @@ void gpu_finalize_props (solver_props *props) {
   for (i = 0; i < NUM_ITERATORS; i++) {
     // Finds the first iterator with states. 
     // Its pointer will reference the beginning of state memory.
+#   if NUM_STATES > 0
     if (0 < props[i].statesize) {
       cutilSafeCall(cudaMemcpy(props[i].model_states, props[i].gpu.model_states, sizeof(systemstatedata_external), cudaMemcpyDeviceToHost));
       break;
     }
+#   endif
   }
 
 
