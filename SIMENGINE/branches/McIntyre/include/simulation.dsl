@@ -864,7 +864,9 @@ namespace Simulation
     hidden var outputDefs = {} // a placeholder to throw outputs into as we compute them.  outputs will be populated by this after the model stms are run
 
     hidden function buildOutput(name)
-      if exists out in outputDefs.keys suchthat out == name then
+      if exists out in outputs.keys suchthat out == name then
+        error ("Duplicate output " + name + ". Each output must have a unique name.")
+      elseif exists out in outputDefs.keys suchthat out == name then
         outputs.add(name, outputDefs.getValue(name) ())
       elseif objectContains(self, name) then
         outputs.add(name, self.getMember(name))

@@ -38,6 +38,7 @@ s.add(Test('OutputGroups',@()(simex('models_FeatureTests/OutputTest3.dsl', 10)),
 s.add(Test('OutputCondition',@()(simex('models_FeatureTests/OutputTest4.dsl', 10)), '-equal', struct('y', [5:10; 5:10]')));
 s.add(Test('OutputTwoValues',@()(simex('models_FeatureTests/OutputTest5.dsl', 10)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:2:20]')));
 s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10)), '-equal', struct()));
+s.add(Test('DuplicateOutputNames',@()(simex('models_FeatureTests/OutputTest7.dsl')), '-regexpmatch', 'Duplicate output'));
 
 end
 
