@@ -165,6 +165,15 @@ function s = FunctionFeatureTests
 
 s = Suite('Function Feature Tests');
 
+    function y = MathFunction
+        o = simex('models_FeatureTests/FunctionTestMathFunction.dsl', 100);
+        tol = 1e-6;
+y = approx_equiv(1+(o.y(:,2)),o.z(:,2),tol) && ...
+    approx_equiv(1+(o.x(:,2)),o.y(:,2),tol)
+    end
+s.add(Test('MathFunction', @MathFunction));
+
+
 s.add(Test('RelationalOperations', @()(simex(['models_FeatureTests/' ...
                     'FunctionTestRelational.dsl'],10,'-quiet')), ...
            '-equal', struct('y_eq', [5 5], 'y_ne', [[0:4 6:10]; [0:4 ...

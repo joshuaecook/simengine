@@ -954,7 +954,7 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
 	       ("step", term_to_json step),
 	       ("high", term_to_json high)]
   | term_to_json (Exp.SYMBOL (name, properties)) = 
-    let val {dim, iterator, derivative, isevent, sourcepos, realname, scope, outputbuffer, ep_index}
+    let val {dim, iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index}
 	  = properties
 
 	val json_iterators

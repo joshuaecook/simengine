@@ -304,6 +304,9 @@ and simquantity_to_dof_exp quantity =
     else if (istype (quantity, "State")) andalso isdefined (method "iter" quantity) then
 	ExpBuild.ivar (exp2str (method "name" quantity)) [(Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)]
 
+    else if (istype (quantity, "Symbol")) then
+        Exp.TERM (Exp.SYMBOL (Symbol.symbol (exp2str (method "name" quantity)), 
+                              Property.setIsRewriteSymbol Property.default_symbolproperty true))
     else
 	ExpBuild.var(exp2str (method "name" quantity))
 
