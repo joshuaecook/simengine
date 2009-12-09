@@ -2,17 +2,21 @@
 
 function s = ParallelCPUTests(varargin)
 
-s = Suite('Parallel CPU Tests');
+s = Suite('Parallel Tests');
 s.add(DuplicateStatesTarget('-cpu'));
 s.add(DuplicateStatesTarget('-parallelcpu'));
+s.add(DuplicateStatesTarget('-gpu'));
 s.add(Test('split_fn submodel parallelcpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-parallelcpu', 2))));
+s.add(Test('split_fn submodel gpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-gpu', 2))));
 s.add(Test('fn_imp explicit/implicit parallelcpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-parallelcpu', 10))));
+s.add(Test('fn_imp explicit/implicit gpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-gpu', 10))));
+% MRG axon model won't currently compile for the gpu so it is not included in this test
 s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
 end
 
 
 function e = DuplicateStates(model, runtime, precision, target, number)
-    m = simex(model);
+    m = simex(model, '-quiet');
     states = zeros(number, length(m.default_states));
     for i=1:number
         states(i,:) = m.default_states;
