@@ -17,7 +17,7 @@ function e = DuplicateStates(model, runtime, precision, target, number)
     for i=1:number
         states(i,:) = m.default_states;
     end
-    o = simex(model, runtime, states, precision, target, '-quiet');
+    o = simex(model, runtime, states, precision, target);
     e = all_equiv(o);
 end
 
