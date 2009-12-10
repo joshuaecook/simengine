@@ -673,7 +673,7 @@ fun createEventIterators (class: DOF.class) =
 	val exps''' = map rewrite exps''
 	val outputs' = map 
 			   (fn{name,contents,condition}=>
-			      {name=ExpProcess.exp2term (rewrite (ExpProcess.term2exp name)),
+			      {name=(*ExpProcess.exp2term (rewrite (ExpProcess.term2exp *)name(*))*),
 			       contents=map rewrite contents,
 			       condition=rewrite condition})
 			   outputs

@@ -34,14 +34,14 @@ exception StubbedOut
   | TICK | PERIOD | GT | LT | EQ | ASSIGN | LPAREN | RPAREN | STAR | AND | AMPERSAND | ARROW | EQARROW | UNDERSCORE | PLUS | MINUS | UMINUS | SLASH | CARROT | LCBRACE | RCBRACE | ELLIPSIS | GEQUAL | NEQ | LEQUAL
   | LAMBDAFUN | COMMA | IN | END | LF | LBRACE | RBRACE | UNDERBRACE | PERCENT | DOLLAR | AT | WHEN | OTHERWISE | UNDEFINED
   | ASSERT | OR | IF | THEN | ELSE | TRUE | FALSE | ERROR | ELSEIF
-  | IMPORT | CLASS | OF | COLON | TO | BY | WITH | STATEFUL | TUNABLE | VISIBLE | OUTPUT | INPUT | MODEL | SUBMODEL | PARAMETER | STATE | HIDDEN | PUBLIC
+  | IMPORT | CLASS | OF | COLON | TO | BY | WITH | STATEFUL | TUNABLE | VISIBLE | OUTPUT | INPUT | MODEL | SUBMODEL | PARAMETER | STATE | RANDOM | HIDDEN | PUBLIC
   | WHILE | FOREACH | DO | VAR | ITERATOR | CONSTANT | GLOBAL | FUNCTION | OPERATOR | CONSTRUCTOR | NEWLINE | SATISFIES | EXTENDS | INTERFACE | NAMESPACE | REPLACE | OVERLOAD | OPEN | TYPE | ENUMERATION | EQUATION | EQUATIONS | QUANTITY | FORALL | EXISTS | SUCHTHAT | PROPERTY | GET | SET | MULTIFUNCTION | LET | RULEMATCH | WHERE
 
 %nonassoc IMPORT CLASS VAR CONSTANT GLOBAL CONSTRUCTOR OPERATOR FUNCTION MULTIFUNCTION SATISFIES EXTENDS INTERFACE NAMESPACE REPLACE OVERLOAD OPEN ENUMERATION QUANTITY PROPERTY GET SET
 %left LAMBDAFUN TYPE
 %right LET IN END WHILE FOREACH DO OF 
 %left IF THEN ELSE ELSEIF
-%nonassoc ASSIGN WHEN OTHERWISE TO BY WITH MODEL SUBMODEL PARAMETER STATE HIDDEN PUBLIC EQARROW ITERATOR 
+%nonassoc ASSIGN WHEN OTHERWISE TO BY WITH MODEL SUBMODEL PARAMETER STATE RANDOM HIDDEN PUBLIC EQARROW ITERATOR 
 %left COMMA
 %left EQUATION EQUATIONS RULEMATCH WHERE
 %left OR 
@@ -131,6 +131,7 @@ start of Ast.stm
 | modifiers of Ast.simq_modifier list
 | paramdef of Ast.modelpart
 | statedef of Ast.modelpart
+| randomdef of Ast.modelpart
 | temporary of Ast.modelpart
 | modelpart of Ast.modelpart
 | modelparts of Ast.modelpart list
@@ -237,6 +238,7 @@ modelpart: quantitydef newlines (quantitydef)
 
 quantitydef: modifiers quantitytype ID optdimensions precinfoopt optassignment opttable(Ast.QUANTITYDEF {modifiers=modifiers, basetype=quantitytype, name=Symbol.symbol ID, precision=precinfoopt, exp=optassignment, settingstable = opttable, dimensions=optdimensions})
 	   | modifiers PARAMETER ID optdimensions precinfoopt ASSIGN optlines exp opttable (Ast.STM (Ast.DEFINITION (Ast.DEFCONST (Symbol.symbol ID, NONE, exp), PARAMETERleft)) before error_at_pos PARAMETERleft "The parameter keyword has been removed.  Please use inputs for all tunable quantities or set as a constant.")
+	   | modifiers RANDOM ID optdimensions precinfoopt opttable (Ast.QUANTITYDEF {modifiers=modifiers, basetype=Ast.RANDOM_QUANTITY, name=Symbol.symbol ID, precision=precinfoopt, exp=NONE, settingstable = opttable, dimensions=optdimensions})
 
 outputdef: OUTPUT ID optdimensions optassignment opttable optwhen (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
 										  quantity=(case optassignment 

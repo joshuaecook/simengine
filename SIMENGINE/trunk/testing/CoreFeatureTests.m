@@ -165,20 +165,32 @@ function s = FunctionFeatureTests
 
 s = Suite('Function Feature Tests');
 
-    function y = MathFunction
-        o = simex('models_FeatureTests/FunctionTestMathFunction.dsl', 100);
-        tol = 1e-6;
-y = approx_equiv(1+(o.y(:,2)),o.z(:,2),tol) && ...
-    approx_equiv(1+(o.x(:,2)),o.y(:,2),tol)
-    end
+function y = MathFunction
+  o = simex('models_FeatureTests/FunctionTestMathFunction.dsl', 100);
+  tol = 1e-6;
+  y = approx_equiv(1+(o.y(:,2)),o.z(:,2),tol) && ...
+      approx_equiv(1+(o.x(:,2)),o.y(:,2),tol)
+end
 s.add(Test('MathFunction', @MathFunction));
-
+    
 
 s.add(Test('RelationalOperations', @()(simex(['models_FeatureTests/' ...
-                    'FunctionTestRelational.dsl'],10,'-quiet')), ...
+                    'FunctionTestRelational.dsl'],10)), ...
            '-equal', struct('y_eq', [5 5], 'y_ne', [[0:4 6:10]; [0:4 ...
-                   6:10]]', 'y_gt', [6:10; 6:10]', 'y_lt', [0:4; 0:4]', ...
-                    'y_ge', [5:10; 5:10]', 'y_le', [0:5; 0:5]')));
+                    6:10]]', 'y_gt', [6:10; 6:10]', 'y_lt', [0:4; 0:4]', ...
+                            'y_ge', [5:10; 5:10]', 'y_le', [0:5; 0:5]')));
+
+function y = RandomTest
+o = simex('models_FeatureTests/RandomTest1.dsl',10);
+outliers = [find(o.r1(:,2)<-10)' ...
+            find(o.r1(:,2)>0)' ...
+            find(o.r2(:,2)<0)' ...
+            find(o.r2(:,2)>10)' ...
+            find(o.r3(:,2)<-5)' ...
+            find(o.r3(:,2)>5)'];
+y = not(length(outliers) > 0);
+end
+s.add(Test('RandomOperations', @RandomTest));
 
 s.add(Test('FunctionModulus', @()(simex(['models_FeatureTests/' ...
                     'FunctionTestModulus.dsl'], 10)), '-equal', ...
@@ -250,6 +262,7 @@ s.add(Test('FunctionHyperbolicTrig', @FunctionHyperbolicTrig));
         y = y && approx_equiv(acoth(o.ayh(:,2)),o.ayh(:,8),tol);
     end
 s.add(Test('FunctionInverseHyperbolicTrig', @FunctionInverseHyperbolicTrig));
+
 
 
 end

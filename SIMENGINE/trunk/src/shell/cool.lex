@@ -74,6 +74,7 @@ val keyword_table = [("function",         Tokens.FUNCTION),
 		     ("parameter",        Tokens.PARAMETER),
 		     ("quantity",         Tokens.QUANTITY),
 		     ("state",            Tokens.STATE),
+		     ("random",           Tokens.RANDOM),
 		     ("hidden",           Tokens.HIDDEN),
 		     ("public",           Tokens.PUBLIC),
 
@@ -173,7 +174,7 @@ fun eof () =
 
 %header (functor LexFun(structure Tokens: LC_TOKENS));
 
-KEYWORD = (let | in | end | LF | val | assert | or | and | if | then | else | elseif | true | false | import | class | function | multifunction | while | foreach | do | var | constant | quantity | global | operator | constructor | satisfies | extends | namespace | open | type | overload | when | otherwise | of | lambdafun | undefined | enumeration | d | equation | equations | error | to | by | with | stateful | tunable | visible | output | input | iterator | model | submodel | submodels | parameter | parameters | state | states | public | hidden | forall | exists | suchthat | property | get | set | rulematch | where);
+KEYWORD = (let | in | end | LF | val | assert | or | and | if | then | else | elseif | true | false | import | class | function | multifunction | while | foreach | do | var | constant | quantity | global | operator | constructor | satisfies | extends | namespace | open | type | overload | when | otherwise | of | lambdafun | undefined | enumeration | d | equation | equations | error | to | by | with | stateful | tunable | visible | output | input | iterator | model | submodel | submodels | parameter | parameters | random | state | states | public | hidden | forall | exists | suchthat | property | get | set | rulematch | where);
 
 
 DIGIT   = [0-9];
