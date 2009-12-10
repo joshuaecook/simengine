@@ -1,4 +1,6 @@
-OSLOWER=$(shell uname -s|tr [:upper:] [:lower:])
+include ../../include/common.make
+
+#OSLOWER=$(shell uname -s|tr [:upper:] [:lower:])
 
 # define a special architecture if ARCH64 is defined
 ifneq ($(ARCH64),)
@@ -12,7 +14,7 @@ endif
 all: simex
 
 simex: simex.c
-	gcc -g -I../../codegen/src/simengine -o $@ $< -ldl $(CFLAG64)
+	$(CC) -g -I../../codegen/src/simengine -o $@ $< -ldl $(CFLAG64)
 
 clean:
 	rm -rf simex simex.dSYM
