@@ -29,7 +29,7 @@ val version = BuildOptions.version
 val extension = ".dso"
 
 val startupMessage =
-    (name ^ " v" ^ version ^ " " ^ BuildOptions.build ^ "\n"
+    (name ^ " v" ^ version ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
      ^ "[built: " ^ BuildOptions.build_date ^ "]\n"
      ^ copyright)
     

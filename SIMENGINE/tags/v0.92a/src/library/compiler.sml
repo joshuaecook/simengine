@@ -25,7 +25,14 @@ fun std_compile exec args =
 				     | NONE => raise Aborted
 						  
 
-	      val (classes, _, _) = forest
+	      val (classes, _, sysprops) = forest
+	      val target = #target sysprops
+	      val _ = case target of
+			  Target.CUDA _ => (Logger.log_usererror nil (Printer.$("The high-performance GPU target is not available in the release.  Please contact us at support@simatratechnologies.com if you are interested in beta testing the GPU-enabled simEngine."));
+					    DynException.setErrored())
+			| _ => ()
+
+	      val _ = DynException.checkToProceed()
 
 	      val _ = DOFPrinter.printModel forest
 
