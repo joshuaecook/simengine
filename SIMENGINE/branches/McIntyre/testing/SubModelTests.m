@@ -8,20 +8,19 @@ function s = SubModelTests(varargin)
 %
 INTERNAL = 0; RELEASE = 1;
 
-if nargin == 0
+target = varargin{1};
+
+if nargin == 1
     mode = 1;
 else
-    mode = varargin{1};
+    mode = varargin{2};
 end
 
-s = Suite('Sub-model Feature Tests');
-s.add(BasicSubModelTests(mode, '-cpu'));
-s.add(AlgebraicSubModelTests('-cpu'));
-s.add(OrderingTests('-cpu'));
+s = Suite(['Sub-model Feature Tests ' target]);
+s.add(BasicSubModelTests(mode, target));
+s.add(AlgebraicSubModelTests(target));
+s.add(OrderingTests(target));
 
-s.add(BasicSubModelTests(mode, '-gpu'));
-s.add(AlgebraicSubModelTests('-gpu'));
-s.add(OrderingTests('-gpu'));
 end
 
 function s = BasicSubModelTests(mode, target)

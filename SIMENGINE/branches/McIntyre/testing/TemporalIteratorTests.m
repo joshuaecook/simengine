@@ -1,22 +1,18 @@
-function s = TemporalIteratorTests(mode)
+function s = TemporalIteratorTests(varargin)
 % TEMPORALITERATORTESTS runs a set of tests across temporal iterators
 %   mode can be either 0 for internal or 1 for release
 INTERNAL = 0; RELEASE = 1;
 
-s = Suite('Temporal Iterator Feature Tests');
-s.add(SimpleIteratorTests('-cpu'));
-s.add(UpdateIteratorTests('-cpu'));
-s.add(PostProcessIteratorTests('-cpu'));
-s.add(MultipleTemporalIteratorTests('-cpu'));
-s.add(MultipleIteratorsSubModelTests('-cpu'));
-s.add(ImmediateIteratorTests('-cpu'));
+target = varargin{1};
 
-s.add(SimpleIteratorTests('-gpu'));
-s.add(UpdateIteratorTests('-gpu'));
-s.add(PostProcessIteratorTests('-gpu'));
-s.add(MultipleTemporalIteratorTests('-gpu'));
-s.add(MultipleIteratorsSubModelTests('-gpu'));
-s.add(ImmediateIteratorTests('-gpu'));
+s = Suite(['Temporal Iterator Feature Tests ' target]);
+s.add(SimpleIteratorTests(target));
+s.add(UpdateIteratorTests(target));
+s.add(PostProcessIteratorTests(target));
+s.add(MultipleTemporalIteratorTests(target));
+s.add(MultipleIteratorsSubModelTests(target));
+s.add(ImmediateIteratorTests(target));
+
 end
 
 

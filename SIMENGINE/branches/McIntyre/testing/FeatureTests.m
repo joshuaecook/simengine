@@ -23,8 +23,10 @@ function s = FeatureTests(varargin)
 INTERNAL = 0; RELEASE = 1;
 mode = INTERNAL;
 
-if nargin == 1
-    if strcmpi(varargin{1},'-release')
+target = varargin{1};
+
+if nargin == 2
+    if strcmpi(varargin{2},'-release')
         mode = RELEASE;
     else
         error('Simatra:FeatureTests', 'Unexpected argument');
@@ -32,10 +34,10 @@ if nargin == 1
 end
 
 s = Suite('Feature Tests');
-s.add(CoreFeatureTests(mode));
-s.add(SubModelTests(mode));
-s.add(TemporalIteratorTests(mode));
-s.add(ParallelTests(mode));
+s.add(CoreFeatureTests(target,mode));
+s.add(SubModelTests(target,mode));
+s.add(TemporalIteratorTests(target,mode));
+s.add(ParallelTests(target,mode));
 s.add(DSLTests(mode));
 
 end

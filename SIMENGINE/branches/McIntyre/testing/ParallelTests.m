@@ -1,17 +1,25 @@
 
 
-function s = ParallelCPUTests(varargin)
+function s = ParallelTests(varargin)
 
-s = Suite('Parallel Tests');
-s.add(DuplicateStatesTarget('-cpu'));
-s.add(DuplicateStatesTarget('-parallelcpu'));
-s.add(DuplicateStatesTarget('-gpu'));
-s.add(Test('split_fn submodel parallelcpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-parallelcpu', 2))));
-s.add(Test('split_fn submodel gpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-gpu', 2))));
-s.add(Test('fn_imp explicit/implicit parallelcpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-parallelcpu', 10))));
-s.add(Test('fn_imp explicit/implicit gpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-gpu', 10))));
-% MRG axon model won't currently compile for the gpu so it is not included in this test
-s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
+target = varargin{1};
+
+s = Suite(['Parallel Tests ' target]);
+
+if strcmpi(target, '-cpu')
+  s.add(DuplicateStatesTarget('-cpu'));
+  s.add(DuplicateStatesTarget('-parallelcpu'));
+  s.add(Test('split_fn submodel parallelcpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-parallelcpu', 2))));
+  s.add(Test('fn_imp explicit/implicit parallelcpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-parallelcpu', 10))));
+  s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
+
+else
+  % Parallel GPU tests
+  s.add(Test('split_fn submodel gpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-gpu', 2))));
+  s.add(DuplicateStatesTarget('-gpu'));
+  s.add(Test('fn_imp explicit/implicit gpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-gpu', 10))));
+end
+
 end
 
 

@@ -7,32 +7,25 @@
 %
 function s = CoreFeatureTests(varargin)
 
-if nargin == 0
-    mode = 1;
+target = varargin{1};
+
+if nargin == 1
+   mode = 1;
 else
-    mode = varargin{1};
+   mode = varargin{2};
 end
 
-s = Suite('Core Feature Tests');
+s = Suite(['Core Feature Tests ' target]);
 
 % Add each of the language feature tests
-s.add(OutputFeatureTests('-cpu'));
-s.add(InputFeatureTests('-cpu'));
-s.add(StateFeatureTests(mode, '-cpu'));
-s.add(InlineFunctionFeatureTests('-cpu'));
-s.add(ConstantFeatureTests('-cpu'));
-s.add(IntermediateFeatureTests(mode, '-cpu'));
-s.add(FunctionFeatureTests('-cpu'));
-s.add(DifferenceEquationTests('-cpu'));
-
-s.add(OutputFeatureTests('-gpu'));
-s.add(InputFeatureTests('-gpu'));
-s.add(StateFeatureTests(mode, '-gpu'));
-s.add(InlineFunctionFeatureTests('-gpu'));
-s.add(ConstantFeatureTests('-gpu'));
-s.add(IntermediateFeatureTests(mode, '-gpu'));
-s.add(FunctionFeatureTests('-gpu'));
-s.add(DifferenceEquationTests('-gpu'));
+s.add(OutputFeatureTests(target));
+s.add(InputFeatureTests(target));
+s.add(StateFeatureTests(mode, target));
+s.add(InlineFunctionFeatureTests(target));
+s.add(ConstantFeatureTests(target));
+s.add(IntermediateFeatureTests(mode, target));
+s.add(FunctionFeatureTests(target));
+s.add(DifferenceEquationTests(target));
 
 end
 
