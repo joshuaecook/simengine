@@ -121,7 +121,7 @@ set(handles.StateTable, 'Data', data);
 % Update Solver
 set(handles.ODESolver, 'Value', 1);
 solver_choices = get(handles.ODESolver, 'String');
-solver_choices{1} = ['simEngine ' m.metadata.solver];
+solver_choices{1} = ['simEngine ' m.metadata.solvers{1}];
 set(handles.ODESolver, 'String', solver_choices);
 
 setStatus(handles, ['Loaded model <' m.name '>']);
