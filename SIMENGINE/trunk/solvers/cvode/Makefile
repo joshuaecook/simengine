@@ -117,7 +117,6 @@ BUILD_DEPENDENCIES = $(SUNDIALS)/Makefile.in \
 	$(SUNDIALS)/src/cvode/cvode_bandpre_impl.h \
 	$(SUNDIALS)/src/cvode/cvode_bbdpre_impl.h \
 
-
 all:
 	for type in $(DATATYPES); do \
 	  $(MAKE) TYPE=$$type ../lib/libcvode_$$type\.a; \
@@ -172,5 +171,6 @@ $(CVODE_OBJS): $(SUNDIALS_BUILD_PATH)
 	 cd ../nvec_ser; $(MAKE) nvector_serial.lo; \
 	 cd ../sundials; $(MAKE) sundials_dense.lo sundials_band.lo sundials_direct.lo sundials_math.lo sundials_nvector.lo; \
 	fi
+	touch $(CVODE_OBJS) # make sure that all the .o files have a later time that sundials build path
 	$(MAKE) includes
 
