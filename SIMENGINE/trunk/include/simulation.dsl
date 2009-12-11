@@ -528,105 +528,6 @@ namespace Simulation
 
   end
 
-  class RandomValue extends SimQuantity
-  end
-
-  class Random extends State
-//      var mean = 1
-//      var stddev = 0.1
-      var seed = 1
-//      var high = 1
-//      var low = 0
-      var isNormal = false
-      var isUniform = true
-      hidden var h_high = 1
-      hidden var h_low = 0
-      hidden var h_mean = 1
-      hidden var h_stddev = 0.1
-
-      constructor (name)
-	  super(name)
-      end      
-
-      property iter
-	  get = h_iter
-	  set (i)
-	      h_iter = i
-	      self.eq = getEq()
-	  end
-      end
-
-      property high
-	  get = h_high
-	  set (h)
-	      h_high = h
-	      self.eq = getEq()
-	  end
-      end
-
-      property low
-	  get = h_low
-	  set (l)
-	      h_low = l
-	      self.eq = getEq()
-	  end
-      end
-
-      property mean
-	  get = h_mean
-	  set (h)
-	      h_mean = h
-	      self.eq = getEq()
-	  end
-      end
-
-      property stddev
-	  get = h_stddev
-	  set (l)
-	      h_stddev = l
-	      self.eq = getEq()
-	  end
-      end
-
-      property normal
-	  get = isNormal
-	  set (c)
-	      isNormal = c
-	      if isNormal then
-		  isUniform = false
-	      end		  
-	      self.eq = getEq()
-	  end
-      end
-
-      property uniform
-	  get = isUniform
-	  set (c)
-	      isUniform = c
-	      if isUniform then
-		  isNormal = false
-	      end		  
-	      self.eq = getEq()
-	  end
-      end
-
-      function getInitialValue()
-         // we want to grab the rhs, but this is not supported, so let's just make it zero
-         //getEq().rhs
-         0
-      end
-
-      function getEq()
-//        Equation.new(self[h_iter], ModelOperation.new ("add", 2, plus, 0, [ModelOperation.new ("mul", 2, operator_multiply, 0, [high-low, rand]), low]))
-        if isNormal then
-            Equation.new(self[h_iter], (1/(sqrt(2*pi*stddev^2)))*exp(-((ModelOperation.new ("sub", 2, operator_subtract, 0, [RandomValue.new(), mean]))^2)/(2*stddev^2)))
-	else
-            // Equation.new(self[h_iter], ModelOperation.new ("mul", 2, operator_multiply, 0, [high-low, RandomValue.new()]) + low)
-            Equation.new(self[h_iter], (high-low) * RandomValue.new() + low)
-	end
-      end
-  end
-
   class Symbol extends State 
     constructor (name)
       super(name)
@@ -963,7 +864,9 @@ namespace Simulation
     hidden var outputDefs = {} // a placeholder to throw outputs into as we compute them.  outputs will be populated by this after the model stms are run
 
     hidden function buildOutput(name)
-      if exists out in outputDefs.keys suchthat out == name then
+      if exists out in outputs.keys suchthat out == name then
+        error ("Duplicate output " + name + ". Each output must have a unique name.")
+      elseif exists out in outputDefs.keys suchthat out == name then
         outputs.add(name, outputDefs.getValue(name) ())
       elseif objectContains(self, name) then
         outputs.add(name, self.getMember(name))

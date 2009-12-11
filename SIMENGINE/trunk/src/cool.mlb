@@ -75,8 +75,9 @@ ir/datastructs/pattern.sml
 ir/processing/inst_properties.sml
 ir/datastructs/fun.sml
 ir/datastructs/exp.sml
-(*ir/datastructs/eval.sml*)
 ir/datastructs/term.sml
+ir/datastructs/container.sml
+(*ir/datastructs/eval.sml*)
 ir/datastructs/solver.sml
 ir/processing/exp_build.sml
 ir/processing/fun_properties.sml
@@ -91,11 +92,11 @@ ir/processing/cost.sml
 
 ir/datastructs/inst.sml
 
-
 ir/processing/fun_process.sml
 
 ir/patterns/pattern_process.sml
 ir/processing/exp_printer.sml
+ir/math/matrix.sml
 
 ir/processing/term_process.sml
 
@@ -111,6 +112,10 @@ ir/processing/exp_validate.sml
 ir/processing/exp_process.sml
 (*ir/processing/eq_util.sml*)
 ir/processing/class_process.sml
+
+be/mathematica.sml
+be/mathematica_writer.sml
+
 
 ir/datastructs/dof_printer.sml
 ir/processing/ordering.sml

@@ -9,6 +9,9 @@
 #ifndef SIMENGINE_API_H
 #define SIMENGINE_API_H
 
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
 #include <stddef.h>
 #include <omp.h>
 

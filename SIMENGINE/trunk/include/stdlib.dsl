@@ -81,7 +81,6 @@ function acsch (x: Number) = asinh (1.0 / x)
 function asech (x: Number) = acosh (1.0 / x)
 function acoth (x: Number) = atanh (1.0 / x)
 
-//constant rand = LF rand ()
 
 
 // Strings

@@ -25,6 +25,7 @@ fun exp2cost exp =
 	end
       | Exp.META (Exp.SEQUENCE s) => Util.sum (map exp2cost s)
       | Exp.META _ => 0
+      | Exp.CONTAINER c => Util.sum (map exp2cost (Container.container2elements c))
 
 and class2cost (c:DOF.class) = 
     let

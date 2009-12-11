@@ -22,14 +22,14 @@ end
 function join2(s1, s2, s3)
   //function to join s1 to s2 (left) and s3 (right)
   s1.ILeft = (s1.VmLeft - s2.VmRight)/((s1.RLeft + s2.RRight)/2)
-  s2.IRight = (s1.VmRight - s3.VmLeft)/((s1.RRight + s2.RLeft)/2)
+  s1.IRight = (s1.VmRight - s3.VmLeft)/((s1.RRight + s2.RLeft)/2)
 end
 
 model (Vm1, Vm2, Vm3) = axon(Istim)
   input Istim with {default = 100}
 
   //instantiate all submodels
-  submodel segment segment1 with {Istim = Istim} 
+  submodel segment segment1
   submodel segment segment2
   submodel segment segment3
   submodel segment segment4
@@ -38,7 +38,7 @@ model (Vm1, Vm2, Vm3) = axon(Istim)
   submodel segment segment7
   submodel segment segment8
   submodel segment segment9
-  submodel segment segment10
+  submodel segment segment10 with {Istim = Istim} 
   submodel segment segment11
   submodel segment segment12
   submodel segment segment13

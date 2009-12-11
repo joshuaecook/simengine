@@ -11,6 +11,7 @@
 #include <strings.h>
 #include <dlfcn.h>
 #include <omp.h>
+#include <assert.h>
 
 static simengine_api *api = NULL;
 static double *inputs = NULL;
@@ -107,15 +108,17 @@ void mexSimengineResult(const simengine_interface *iface, int noutput, mxArray *
  */
 void mexSimengineInterface(const simengine_interface *iface, mxArray **interface)
     {
+    const unsigned int num_fields = 13;
     const char *field_names[] = {"version", "name",
-				 "num_inputs", "num_states", "num_outputs",
+				 "num_inputs", "num_states", "num_outputs", "num_iterators",
 				 "input_names", "state_names", "output_names",
 				 "default_inputs", "default_states", 
 				 "output_num_quantities", "metadata"};
-    const char *meta_names[] = {"hashcode", "num_models", "solver", "precision"};
+    const unsigned int num_meta = 4;
+    const char *meta_names[] = {"hashcode", "num_models", "solvers", "precision"};
 
     mxArray *version;
-    mxArray *input_names, *state_names, *output_names;
+    mxArray *input_names, *state_names, *output_names, *solvers;
     mxArray *default_inputs, *default_states;
     mxArray *output_num_quantities;
     mxArray *metadata;
@@ -124,20 +127,59 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
     unsigned int i;
 
     // Constructs the payload.
-    default_inputs = mxCreateStructMatrix(1, 1, iface->num_inputs, iface->input_names);
+    if (0 < iface->num_inputs)
+        { 
+	input_names = mxCreateCellMatrix(1, iface->num_inputs); 
+	default_inputs = mxCreateStructMatrix(1, 1, iface->num_inputs, iface->input_names);
+	}
+    else
+	{
+	input_names = mxCreateCellMatrix(0, 0);
+	default_inputs = mxCreateStructMatrix(0, 0, 0, NULL);
+	}
+    assert(input_names != NULL);
+    assert(default_inputs != NULL);
 
-    default_states = mxCreateDoubleMatrix(1, iface->num_states, mxREAL);
-    data = mxGetPr(default_states);
-    memcpy(data, iface->default_states, iface->num_states * sizeof(double));
+    if (0 < iface->num_states)
+        { 
+	state_names = mxCreateCellMatrix(1, iface->num_states); 
+	default_states = mxCreateDoubleMatrix(1, iface->num_states, mxREAL);
+	data = mxGetPr(default_states);
+	memcpy(data, iface->default_states, iface->num_states * sizeof(double));
+	}
+    else
+	{
+	state_names = mxCreateCellMatrix(0, 0);
+	default_states = mxCreateDoubleMatrix(0, 0, mxREAL);
+	}
+    assert(state_names != NULL);
+    assert(default_states != NULL);
 
-    output_num_quantities = mxCreateDoubleMatrix(1, iface->num_outputs, mxREAL);
+    if (0 < iface->num_outputs)
+        { 
+	output_names = mxCreateCellMatrix(1, iface->num_outputs); 
+	output_num_quantities = mxCreateDoubleMatrix(1, iface->num_outputs, mxREAL);
+	}
+    else
+	{
+	output_names = mxCreateCellMatrix(0, 0);
+	output_num_quantities = mxCreateDoubleMatrix(0, 0, mxREAL);
+	}
+    assert(output_names != NULL);
+    assert(output_num_quantities != NULL);
 
-    input_names = mxCreateCellMatrix(1, iface->num_inputs);
-    state_names = mxCreateCellMatrix(1, iface->num_states);
-    output_names = mxCreateCellMatrix(1, iface->num_outputs);
+    if (0 < iface->num_iterators)
+        { 
+	solvers = mxCreateCellMatrix(1, iface->num_iterators); 
+	}
+    else
+	{
+	solvers = mxCreateCellMatrix(0, 0);
+	}
+    assert(solvers != NULL);
 
     data = mxGetPr(output_num_quantities);
-    for (i = 0; i < iface->num_inputs || i < iface->num_states || i < iface->num_outputs; ++i)
+    for (i = 0; i < iface->num_inputs || i < iface->num_states || i < iface->num_outputs || i < iface->num_iterators; ++i)
 	{
 	if (i < iface->num_inputs)
 	    { 
@@ -153,32 +195,42 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 	    mxSetCell(output_names, i, mxCreateString(iface->output_names[i])); 
 	    ((double *)data)[i] = iface->output_num_quantities[i];
 	    }
+	if (i < iface->num_iterators)
+	    { mxSetCell(solvers, i, mxCreateString(iface->metadata->solvers[i])); }
 	}
 
     // Creates and initializes the return structure.
-    *interface = mxCreateStructMatrix(1, 1, 12, field_names);
+    *interface = mxCreateStructMatrix(1, 1, num_fields, field_names);
 
     mxDestroyArray(mxGetField(*interface, 0, "name"));
     mxSetField(*interface, 0, "name", mxCreateString(iface->name));
     
     mxDestroyArray(mxGetField(*interface, 0, "num_inputs"));
     mxSetField(*interface, 0, "num_inputs", mxCreateDoubleScalar((double)iface->num_inputs));
+
     mxDestroyArray(mxGetField(*interface, 0, "num_states"));
     mxSetField(*interface, 0, "num_states", mxCreateDoubleScalar((double)iface->num_states));
+
     mxDestroyArray(mxGetField(*interface, 0, "num_outputs"));
     mxSetField(*interface, 0, "num_outputs", mxCreateDoubleScalar((double)iface->num_outputs));
 
+    mxDestroyArray(mxGetField(*interface, 0, "num_iterators"));
+    mxSetField(*interface, 0, "num_iterators", mxCreateDoubleScalar((double)iface->num_iterators));
+
     mxDestroyArray(mxGetField(*interface, 0, "input_names"));
     mxSetField(*interface, 0, "input_names", input_names);
-    mxDestroyArray(mxGetField(*interface, 0, "state_names"));
-    mxSetField(*interface, 0, "state_names", state_names);
-    mxDestroyArray(mxGetField(*interface, 0, "output_names"));
-    mxSetField(*interface, 0, "output_names", output_names);
 
     mxDestroyArray(mxGetField(*interface, 0, "default_inputs"));
     mxSetField(*interface, 0, "default_inputs", default_inputs);
+
+    mxDestroyArray(mxGetField(*interface, 0, "state_names"));
+    mxSetField(*interface, 0, "state_names", state_names);
+
     mxDestroyArray(mxGetField(*interface, 0, "default_states"));
     mxSetField(*interface, 0, "default_states", default_states);
+
+    mxDestroyArray(mxGetField(*interface, 0, "output_names"));
+    mxSetField(*interface, 0, "output_names", output_names);
 
     mxDestroyArray(mxGetField(*interface, 0, "output_num_quantities"));
     mxSetField(*interface, 0, "output_num_quantities", output_num_quantities);
@@ -193,18 +245,23 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
     memcpy(data, &iface->metadata->hashcode, sizeof(unsigned long long));
     
     // Creates and initializes the metadata structure
-    metadata = mxCreateStructMatrix(1, 1, 4, meta_names);
+    metadata = mxCreateStructMatrix(1, 1, num_meta, meta_names);
 
     mxDestroyArray(mxGetField(*interface, 0, "version"));
     mxSetField(*interface, 0, "version", version);
+
     mxDestroyArray(mxGetField(*interface, 0, "metadata"));
     mxSetField(*interface, 0, "metadata", metadata);
+
     mxDestroyArray(mxGetField(metadata, 0, "hashcode"));
     mxSetField(metadata, 0, "hashcode", hashcode);
+
     mxDestroyArray(mxGetField(metadata, 0, "num_models"));
     mxSetField(metadata, 0, "num_models", mxCreateDoubleScalar((double)iface->metadata->num_models));
-    mxDestroyArray(mxGetField(metadata, 0, "solver"));
-    mxSetField(metadata, 0, "solver", mxCreateString(iface->metadata->solvers[0])); // FIXME, solvers is now a list of solvers!!!
+
+    mxDestroyArray(mxGetField(metadata, 0, "solvers"));
+    mxSetField(metadata, 0, "solvers", solvers);
+
     mxDestroyArray(mxGetField(metadata, 0, "precision"));
     mxSetField(metadata, 0, "precision",  mxCreateDoubleScalar((double)iface->metadata->precision));
     }
@@ -335,6 +392,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	double startTime = 0, stopTime = 0;
 	unsigned int models, expected;
 
+	if (3 < nlhs)
+	    {
+	    usage();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError,
+		"Incorrect number of left-hand side arguments.");
+	    }
+
 	// TODO switch is unnecessary; this form should ONLY accept 4 rhs arguments.
 	switch (nrhs)
 	    {
@@ -378,28 +442,46 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	    }
 
-	if (!userStates)
-	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "Y0 was not specified."); }
-	if (!userInputs)
-	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS was not specified."); }
-
-	models = userStates ? mxGetN(userStates) : 0;
-
-	if (mxGetN(userInputs) != models)
-	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS and Y0 must be the same length."); }
-	if (1 > models)
-	    { ERROR(Simatra:SIMEX:HELPER:argumentError, "No models can be run."); }
-
-	if (3 < nlhs)
-	    {
-	    usage();
-	    ERROR(Simatra:SIMEX:HELPER:argumentError,
-		"Incorrect number of left-hand side arguments.");
-	    }
-
 	init_simengine(name);
 	const simengine_interface *iface = api->getinterface();
 	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
+
+	if (!userStates)
+	    { 
+	    release_simengine();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError, "Y0 was not specified."); 
+	    }
+	if (!userInputs)
+	    { 
+	    release_simengine();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS was not specified."); 
+	    }
+
+	if (0 < iface->num_states)
+	    {
+	    models = mxGetN(userStates);
+
+	    if (0 < iface->num_inputs && mxGetN(userInputs) != models)
+		{
+		release_simengine();
+		ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS and Y0 must be the same length %d.", models); 
+		}
+	    }
+	else if (0 < iface->num_inputs)
+	    {
+	    models = mxGetN(userInputs);
+	    }
+	else
+	    {
+	    // With no states or inputs, only a single model may be run.
+	    models = 1;
+	    }
+	
+	if (1 > models)
+	    { 
+	    release_simengine();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError, "No models can be run."); 
+	    }
 
         // These openmp calls are not used currently, but openmp may be used in the future to move data back to
         // Matlab.  For some reason, if omp_set_num_threads is called without querying the omp environment first

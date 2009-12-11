@@ -259,7 +259,7 @@ MATLAB_TARGETS = $(addprefix interfaces/matlab/%,$(ALL_MEXEXT))
 # TODO: extensions for other platforms
 
 ifneq ($(MATLAB),)
-MEXEXT = .$(shell MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mexext)
+MEXEXT = .$(shell $(MATLAB_INSTALL_PATH)/bin/mexext)
 endif
 
 ifneq ($(OCTAVE),)
@@ -502,7 +502,7 @@ links: $(BUILD_DIR)
 # Compiler Dependencies
 # ==============================================================================================
 
-COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/processing/*.s* src/ir/patterns/*.s* src/be/*.s* src/library/*.s* src/objects/*.s* src/shell/*.s* src/util/*.s* src/util/error/*.s* src/util/files/*.s* src/util/printing/*.s* src/util/registry/*.s* src/cool.mlb
+COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/math/*.s* src/ir/processing/*.s* src/ir/patterns/*.s* src/be/*.s* src/library/*.s* src/objects/*.s* src/shell/*.s* src/util/*.s* src/util/error/*.s* src/util/files/*.s* src/util/printing/*.s* src/util/registry/*.s* src/cool.mlb
 
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCE) src/shell/cool.lex.sml src/shell/cool.grm.sig src/shell/cool.grm.sml src/shell/cool.lex src/shell/cool.grm src/util/registry/registry.lex.sml src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml src/util/registry/registry.lex src/util/registry/registry.grm
 
@@ -661,7 +661,6 @@ $(MATLAB_TARGETS): interfaces/matlab/src/%.c
 ifneq ($(ARCH64),)
 	$(MAKE) -C interfaces/matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(ARCH64_FLAG) $(*F)
 else
-	$(info MEXEXT is $(MEXEXT))
 	$(MAKE) -C interfaces/matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
 endif
 

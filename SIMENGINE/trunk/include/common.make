@@ -51,8 +51,8 @@ OPENMP_LDLIBS = -lgomp
 MATLAB = $(shell which matlab 2>/dev/null)
 ifneq ($(MATLAB),)
 MATLAB_INSTALL_PATH = $(shell dirname $$(dirname $(realpath $(MATLAB))))
-MATLAB := MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/matlab
-MEX := MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mex
+MATLAB := $(MATLAB_INSTALL_PATH)/bin/matlab
+MEX := $(MATLAB_INSTALL_PATH)/bin/mex
 endif
 
 # Inspects for presence of GNU octave; may be overridden on command line

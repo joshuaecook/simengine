@@ -12,8 +12,11 @@ val repeatApplyRewritesExp : Rewrite.rewrite list -> Exp.exp -> Exp.exp
 val any : string -> Exp.exp (* zero or more of anything *)
 val some : string -> Exp.exp (* one or more of anything *)
 val one : string -> Exp.exp (* just match one only *)
-val anyterm : string -> Exp.exp (* match one or more terms *)
-val anyfun : string -> Exp.exp (* match one or more functions *)
+val onesym : string -> Exp.exp
+val anyterm : string -> Exp.exp (* match one term *)
+val anyconst : string -> Exp.exp
+val anylocal : Exp.exp
+val anyfun : string -> Exp.exp (* match one function *)
 val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
 val asym : Symbol.symbol -> Exp.exp (* match a particular symbol by name - ex. I want to find 'Vm' - asym (Symbol.name "Vm") *)
 
@@ -46,7 +49,9 @@ fun any sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate
 fun some sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_any, Pattern.ONE_OR_MORE))
 fun anyfun sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anyfun, Pattern.ONE))
 fun anyterm sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anyterm, Pattern.ONE))
+val anylocal = Exp.TERM (Exp.PATTERN (Symbol.symbol "anylocal", PatternProcess.predicate_anylocal, Pattern.ONE))
 fun anynum sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anynumeric, Pattern.ONE))
+fun anyconst sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anyconstant, Pattern.ONE))
 (*fun anysym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ONE))*)
 fun onesym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ONE))
 fun anysym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Pattern.ZERO_OR_MORE))
@@ -71,6 +76,11 @@ fun level (exp) =
       | Exp.TERM (Exp.LIST (termlist, _)) => map Exp.TERM termlist
       | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
       | Exp.TERM (Exp.COMPLEX (a, b)) => map Exp.TERM [a,b]
+      | Exp.CONTAINER (Exp.EXPLIST l) => l
+      | Exp.CONTAINER (Exp.ARRAY a) => (Container.array2list a)
+      | Exp.CONTAINER (Exp.MATRIX m) => map 
+					    (Exp.CONTAINER o Exp.ARRAY)
+					    (Container.matrix2rows m)
       | _ => []
 
 (* this will return a function to rebuild the head *)
@@ -80,6 +90,9 @@ fun head (exp) =
       | Exp.TERM (Exp.LIST (termlist, dimlist)) => (fn(args')=> Exp.TERM (Exp.LIST (map exp2term args', dimlist)))
       | Exp.TERM (Exp.TUPLE (termlist)) => (fn(args') => Exp.TERM (Exp.TUPLE (map exp2term args')))
       | Exp.TERM (Exp.COMPLEX (a, b)) => (fn(args') => Exp.TERM (Exp.COMPLEX (exp2term (List.nth (args', 0)), exp2term (List.nth (args', 1)))))
+      | Exp.CONTAINER (Exp.EXPLIST l) => (fn(args') => Exp.CONTAINER (Exp.EXPLIST args'))
+      | Exp.CONTAINER (Exp.ARRAY a) => (fn(args') => Exp.CONTAINER (Exp.ARRAY (Container.list2array args')))
+      | Exp.CONTAINER (Exp.MATRIX m) => (fn(args') => Exp.CONTAINER (Exp.MATRIX (Container.rows2matrix (Container.listexp2listarray args'))))
       | _ => (fn(args') => exp)
 
 (* level and head are identity functions *)
@@ -122,8 +135,8 @@ fun findRecursive (pattern, target) =
 
 fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
     case exp of
-	Exp.TERM (Exp.SYMBOL (sym',props)) => 
-	      if sym=sym' andalso Property.getIsRewriteSymbol props then
+	Exp.TERM (Exp.SYMBOL (sym',_)) => 
+	      if sym=sym' then
 		  repl_exp
 	      else
 		  exp
@@ -134,6 +147,23 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
 					      termlist))))
       | Exp.FUN (funtype, args) 
 	=> Exp.FUN (funtype, map (replaceSymbol (sym, repl_exp)) args)
+      | Exp.CONTAINER c
+	=> 
+	let
+	    fun replaceList l = map (replaceSymbol (sym, repl_exp)) l
+	    fun replaceArray a = (Container.list2array o 
+				  replaceList o 
+				  Container.array2list) a
+	    fun replaceMatrix m = (Container.rows2matrix o
+				   (map replaceArray) o
+				   Container.matrix2rows) m				  
+	in
+	    Exp.CONTAINER 
+	    (case c of
+		 Exp.EXPLIST l => Exp.EXPLIST (replaceList l)
+	       | Exp.ARRAY a => Exp.ARRAY (replaceArray a)
+	       | Exp.MATRIX m => Exp.MATRIX (replaceMatrix m))
+	end
       | Exp.META (Exp.SEQUENCE s) 
 	=> Exp.META(Exp.SEQUENCE (map (replaceSymbol (sym, repl_exp)) s))
       | Exp.META (Exp.MAP {func, args} )
@@ -186,7 +216,8 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
 			   (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
 			   val repl_exp' = Normalize.normalize(case replace of
 								    Rewrite.RULE repl_exp => replacePattern (match) repl_exp
-								  | Rewrite.ACTION (sym, action_fun) => action_fun exp)
+								  | Rewrite.ACTION (sym, action_fun) => action_fun exp
+								  | Rewrite.MATCHEDACTION (sym, action_fun) => action_fun (exp, Util.hd assigned_patterns))
 
 			   (* log if desired *)
 			   val _ = if DynamoOptions.isFlagSet "logrewrites" then
@@ -243,7 +274,8 @@ fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp =
 			       (* convert the repl_exp by removing all the pattern variables that have been assigned *)	    
 			       val repl_exp' = Normalize.normalize(case replace of
 								       Rewrite.RULE repl_exp => replacePattern (assigned_patterns) repl_exp
-								     | Rewrite.ACTION (sym, action_fun) => action_fun exp)
+								     | Rewrite.ACTION (sym, action_fun) => action_fun exp
+								     | Rewrite.MATCHEDACTION (sym, action_fun) => action_fun (exp, assigned_patterns))
 													   
 			       (* log if desired *)
 			       val _ = if DynamoOptions.isFlagSet "logrewrites" then

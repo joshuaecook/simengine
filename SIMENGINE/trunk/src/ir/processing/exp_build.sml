@@ -2,9 +2,7 @@ structure ExpBuild =
 struct
 
 fun var str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, Property.default_symbolproperty))
-fun pvar str = 
-        Exp.TERM (Exp.SYMBOL (Symbol.symbol (str), 
-                              Property.setIsRewriteSymbol Property.default_symbolproperty true))
+
 fun tvar str = Exp.TERM 
 		   (Exp.SYMBOL (Symbol.symbol str, 
 				Property.setIterator Property.default_symbolproperty 
@@ -77,6 +75,13 @@ fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 				       )
 			   )
 
+fun nextavar str temporal_iterator = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
+							   (Property.setIterator 
+								Property.default_symbolproperty 
+								[(temporal_iterator,Iterator.RELATIVE 1)])
+							  )
+					      )
+				     
 fun curvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 				       Property.setScope
 					   (Property.setIterator 
@@ -104,7 +109,6 @@ fun relvar (sym, itersym, offset) =
 fun int i = Exp.TERM (Exp.INT i);
 fun real r = Exp.TERM (Exp.REAL r);
 fun bool b = Exp.TERM (Exp.BOOL b);
-fun rand () = Exp.TERM (Exp.RANDOM);
 fun frac (n,d) = Exp.TERM (Exp.RATIONAL (n, d))
 fun plus l = Exp.FUN (Fun.BUILTIN Fun.ADD, l);
 fun sub (a,b) = Exp.FUN (Fun.BUILTIN Fun.SUB, [a, b]);
@@ -119,6 +123,7 @@ fun norm l = sqrt (plus (map square l))
 fun exp v = power (var "e", v)
 fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
 infix equals;
+fun cond (p, q, r) = Exp.FUN (Fun.BUILTIN Fun.IF, [p, q, r]);
 fun group l = Exp.FUN (Fun.BUILTIN Fun.GROUP, l)
 fun atan2 (a,b) = Exp.FUN (Fun.BUILTIN Fun.ATAN2, [a,b])
 fun re z = Exp.FUN (Fun.BUILTIN Fun.RE, [z])
@@ -149,6 +154,7 @@ fun complex_logn (b, z) =
 			  times [int 2, plus [square (arg b), times [frac(1,4), square (log (square b))]]])))
     end
 
+fun tuple l = Exp.TERM (Exp.TUPLE l)
 fun lambda (arg, body) = Exp.META(Exp.LAMBDA{arg=Symbol.symbol arg, body=body})
 fun sequence (exps) = Exp.META(Exp.SEQUENCE exps)
 fun apply (func, arg) = Exp.META(Exp.APPLY{func=func, arg=arg})

@@ -13,6 +13,7 @@ sig
     datatype solver =
 	     FORWARD_EULER of {dt:real}
 	   | EXPONENTIAL_EULER of {dt:real}
+	   | LINEAR_BACKWARD_EULER of {dt:real}
 	   | RK4 of {dt:real}
 	   | MIDPOINT of {dt:real}
 	   | HEUN of {dt:real}
@@ -45,6 +46,7 @@ datatype cvode_solver =
 datatype solver =
 	 FORWARD_EULER of {dt:real}
        | EXPONENTIAL_EULER of {dt:real}
+       | LINEAR_BACKWARD_EULER of {dt:real}
        | RK4 of {dt:real}
        | MIDPOINT of {dt:real}
        | HEUN of {dt:real}
@@ -62,6 +64,7 @@ val default = ODE45 {dt=0.1, abs_tolerance=(1e~6), rel_tolerance=(1e~3)}
 (* these are defined in solvers.c *)
 fun solver2name (FORWARD_EULER _) = "forwardeuler"
   | solver2name (EXPONENTIAL_EULER _) = "exponentialeuler"
+  | solver2name (LINEAR_BACKWARD_EULER _) = "linearbackwardeuler"
   | solver2name (RK4 _) = "rk4"
   | solver2name (MIDPOINT _) = "midpoint"
   | solver2name (HEUN _) = "heun"
@@ -72,6 +75,7 @@ fun solver2name (FORWARD_EULER _) = "forwardeuler"
 (* these are defined in solvers.c *)
 fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
   | solver2shortname (EXPONENTIAL_EULER _) = "exponentialeuler"
+  | solver2shortname (LINEAR_BACKWARD_EULER _) = "linearbackwardeuler"
   | solver2shortname (RK4 _) = "rk4"
   | solver2shortname (MIDPOINT _) = "midpoint"
   | solver2shortname (HEUN _) = "heun"
@@ -89,6 +93,9 @@ fun cvode_solver2params CVDENSE = [("cvode.solv", "CVODE_DENSE")]
 fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
 					  ("abstol", "0.0"),
 					  ("reltol", "0.0")]
+  | solver2params (LINEAR_BACKWARD_EULER {dt}) = [("timestep", r2s dt),
+						  ("abstol", "0.0"),
+						  ("reltol", "0.0")]
   | solver2params (EXPONENTIAL_EULER {dt}) = [("timestep", r2s dt),
 					      ("abstol", "0.0"),
 					      ("reltol", "0.0")]

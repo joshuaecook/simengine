@@ -1,23 +1,35 @@
 
 
-function s = ParallelCPUTests(varargin)
+function s = ParallelTests(varargin)
 
-s = Suite('Parallel CPU Tests');
-s.add(DuplicateStatesTarget('-cpu'));
-s.add(DuplicateStatesTarget('-parallelcpu'));
-s.add(Test('split_fn submodel parallelcpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-parallelcpu', 2))));
-s.add(Test('fn_imp explicit/implicit parallelcpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-parallelcpu', 10))));
-s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
+target = varargin{1};
+
+s = Suite(['Parallel Tests ' target]);
+
+if strcmpi(target, '-cpu')
+  s.add(DuplicateStatesTarget('-cpu'));
+  s.add(DuplicateStatesTarget('-parallelcpu'));
+  s.add(Test('split_fn submodel parallelcpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-parallelcpu', 2))));
+  s.add(Test('fn_imp explicit/implicit parallelcpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-parallelcpu', 10))));
+  s.add(Test('MRG parallel test', @RunMRGSerialvsParallel));
+
+else
+  % Parallel GPU tests
+  s.add(Test('split_fn submodel gpu', @()(DuplicateStates('models_FeatureTests/split_fn.dsl', 10, '-double', '-gpu', 2))));
+  s.add(DuplicateStatesTarget('-gpu'));
+  s.add(Test('fn_imp explicit/implicit gpu', @()(DuplicateStates('models_FeatureTests/fn_imp.dsl',10, '-double', '-gpu', 10))));
+end
+
 end
 
 
 function e = DuplicateStates(model, runtime, precision, target, number)
-    m = simex(model);
+    m = simex(model, '-quiet');
     states = zeros(number, length(m.default_states));
     for i=1:number
         states(i,:) = m.default_states;
     end
-    o = simex(model, runtime, states, precision, target);
+    o = simex(model, runtime, states, precision, target, '-quiet');
     e = all_equiv(o);
 end
 
@@ -25,8 +37,12 @@ function s = DuplicateStatesTarget(target)
 
 s = Suite(['Duplicate Default States ' target]);
 
+if strcmp('-gpu', target)
+solvers = {'forwardeuler', 'rk4', 'ode23', 'ode45'};
+else
 solvers = {'forwardeuler', 'rk4', 'ode23', 'ode45', 'cvode', ...
            'cvode_stiff', 'cvode_nonstiff', 'cvode_diag', 'cvode_tridiag'};
+end
 precisions = {'single', 'double'};
 for i=1:length(solvers)
     solver = solvers{i};

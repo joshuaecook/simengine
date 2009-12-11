@@ -22,7 +22,6 @@ type symbolproperty = {
      iterator: Iterator.iterator list option,
      derivative: (int * Symbol.symbol list) option,
      isevent: bool,
-     isrewritesymbol: bool,
      (* The lexical position of the symbol. *)
      sourcepos: PosLog.pos option,
      (* Symbols may be renamed for compatibility with the C target languages. 
@@ -40,7 +39,6 @@ val default_symbolproperty =
      realname=NONE,
      scope=LOCAL,
      isevent=false,
-     isrewritesymbol=false,
      outputbuffer=false,
      ep_index=NONE}
 
@@ -63,8 +61,6 @@ fun getScope (props:symbolproperty) = #scope props
 
 fun getIsEvent (props:symbolproperty) = #isevent props
 
-fun getIsRewriteSymbol (props: symbolproperty) = #isrewritesymbol props
-
 fun isOutputBuffer (props:symbolproperty) = #outputbuffer props
 
 fun getEPIndex (props:symbolproperty) = #ep_index props
@@ -77,7 +73,6 @@ fun setDim props p =
      realname=getRealName props,
      scope=getScope props,
      isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 
@@ -89,19 +84,6 @@ fun setIsEvent props flag =
      realname=getRealName props,
      scope=getScope props,
      isevent=flag,
-     isrewritesymbol=getIsRewriteSymbol props,
-     outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}
-
-fun setIsRewriteSymbol props flag = 
-    {dim=getDim props,
-     iterator=getIterator props,
-     derivative=getDerivative props,
-     sourcepos=getSourcePos props,
-     realname=getRealName props,
-     scope=getScope props,
-     isevent=getIsEvent props,
-     isrewritesymbol = flag,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
@@ -113,7 +95,6 @@ fun setIterator props p =
      realname=getRealName props,
      scope=getScope props,
      isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
@@ -125,7 +106,6 @@ fun setDerivative props p =
      realname=getRealName props,
      scope=getScope props,
      isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
@@ -137,7 +117,6 @@ fun setSourcePos props p =
      realname=getRealName props,
      scope=getScope props,
      isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
@@ -149,7 +128,6 @@ fun setRealName props p =
      realname=SOME p,
      scope=getScope props,
      isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}	
 
@@ -161,7 +139,6 @@ fun setScope props p =
      realname=getRealName props,
      scope=p,
      isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}	
 
@@ -173,7 +150,6 @@ fun setOutputBuffer props p =
      realname=getRealName props,
      scope=getScope props,
      isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=p,
      ep_index=getEPIndex props}	
 
@@ -185,7 +161,6 @@ fun setEPIndex props p =
      realname=getRealName props,
      scope=getScope props,
      isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
      ep_index=p}	
 

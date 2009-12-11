@@ -28,8 +28,10 @@ typedef struct{
   char *target;
   char *precision;
   int debug;
+  int emulate;
   int profile;
   int remake;
+  int nocompile;
 } simengine_opts;
 
 typedef enum {
@@ -46,8 +48,10 @@ typedef enum {
   FLOAT,
   DOUBLE,
   DEBUG,
+  EMULATE,
   PROFILE,
   REMAKE,
+  NOCOMPILE,
   HELP
 } clopts;
 
@@ -65,8 +69,10 @@ static const struct option long_options[] = {
   {"single", no_argument, 0, FLOAT},
   {"double", no_argument, 0, DOUBLE},
   {"debug", no_argument, 0, DEBUG},
+  {"emulate", no_argument, 0, EMULATE},
   {"profile", no_argument, 0, PROFILE},
   {"remake", no_argument, 0, REMAKE},
+  {"nocompile", no_argument, 0, NOCOMPILE},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
@@ -89,8 +95,10 @@ void print_usage(){
 	 "\t--single\tRuns the simulation in single precision.\n"
 	 "\t--float\t\t(same as --single)\n"
 	 "\t--debug\t\tEnables debugging information.\n"
+	 "\t--emulate\t\tEnables device emulation (only meaningful with --gpu.)\n"
 	 "\t--profile\tEnables profiling.\n"
 	 "\t--remake\tSkip simEngine compilation and just remake C code.\n"
+         "\t--nocompile\tSkip all compilation and just execute simulation.\n"
 	 "\t--help\tShow this message.\n"
 	 "\n");
 }
@@ -235,6 +243,10 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       opts->debug = 1;
       printf("Debugging enabled\n");
       break;
+    case EMULATE:
+      opts->emulate = 1;
+      printf("Emulation enabled\n");
+      break;
     case PROFILE:
       opts->profile = 1;
       printf("Profiling enabled\n");
@@ -242,6 +254,10 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
     case REMAKE:
       opts->remake = 1;
       printf("Skipping simEngine compilation and only recompiling C code.\n");
+      break;
+    case NOCOMPILE:
+      opts->nocompile = 1;
+      printf("Skipping all compilation and executing simulation.\n");
       break;
     default:
       printf("ERROR: invalid argument %s\n", argv[optind]);
@@ -343,8 +359,8 @@ int runsimEngine (const simengine_opts *opts)
     }
   }
 
-  snprintf(cmdline, BUFSIZE, "make remake -f %s/share/simEngine/Makefile SIMENGINEDIR=%s MODEL=%s TARGET=%s SIMENGINE_STORAGE=%s NUM_MODELS=%d DEBUG=1",
-	   simengine_path, simengine_path, opts->model_name, opts->target, opts->precision, opts->num_models);
+  snprintf(cmdline, BUFSIZE, "make remake -f %s/share/simEngine/Makefile SIMENGINEDIR=%s MODEL=%s TARGET=%s SIMENGINE_STORAGE=%s NUM_MODELS=%d DEBUG=%s EMULATE=%s",
+	   simengine_path, simengine_path, opts->model_name, opts->target, opts->precision, opts->num_models, opts->debug ? "YES" : "", opts->emulate ? "YES" : "");
 
   fp = popen(cmdline, "r");
   if( fp == NULL){
@@ -505,12 +521,12 @@ int write_outputs(const simengine_interface *iface, simengine_opts *opts, simeng
 
   unsigned int num_models = opts->num_models;
   unsigned int num_outputs = iface->num_outputs;
-  fprintf(outfile, "Model : %s\n", iface->name);
+  fprintf(outfile, "# Model : %s\n", iface->name);
   for(modelid=0;modelid<num_models;modelid++){
-    fprintf(outfile, "Model number : %d\n", modelid);
+    fprintf(outfile, "# Model number : %d\n", modelid);
     for(outputid=0;outputid<num_outputs;outputid++){
       unsigned int num_samples = result->outputs[modelid*num_outputs+outputid].num_samples;
-      fprintf(outfile, "Output : %s\n", iface->output_names[outputid]);
+      fprintf(outfile, "# Output : %s\n", iface->output_names[outputid]);
       for(sampleid=0;sampleid<num_samples;sampleid++){
 	unsigned int num_quantities = result->outputs[modelid*num_outputs+outputid].num_quantities;
 	for(quantid=0;quantid<num_quantities;quantid++){
@@ -523,6 +539,28 @@ int write_outputs(const simengine_interface *iface, simengine_opts *opts, simeng
 
   return 0;
 }
+
+int write_states(const simengine_interface *iface, simengine_opts *opts, simengine_result *result){
+  FILE *outfile;
+  unsigned int num_models = opts->num_models;
+  unsigned int num_states = iface->num_states;
+  double *states = result->final_states;
+  unsigned int modelid;
+  unsigned int stateid;
+
+  // TODO Write outputs to file if set, or stdout
+  outfile = stdout;
+
+  for (modelid = 0; modelid < num_models; modelid++) {
+    fprintf(outfile, "# Model number : %d\n", modelid);
+    for (stateid = 0; stateid < num_states; stateid++) {
+      fprintf(outfile, stateid == 0 ? "%e" : " %e", *states);
+      states++;
+    }
+    fprintf(outfile, "\n");
+  }
+}
+
 
 void print_interface(const simengine_interface *iface){
   unsigned int i;
@@ -570,9 +608,11 @@ int main(int argc, char **argv){
 
   simengine_api *api;
   char libraryname[256] = "./";
-  // Compile the model
-  if(runsimEngine(&opts))
-    return 1;
+  if(!opts.nocompile){
+    // Compile the model
+    if(runsimEngine(&opts))
+      return 1;
+  }
   
   // Load the API for simulation object
   strcat(libraryname, opts.model_name);
@@ -605,6 +645,7 @@ int main(int argc, char **argv){
     }
 
     write_outputs(iface, &opts, result);
+    //    write_states(iface, &opts, result);
 
     // Analyze results only when running multiple identical models
     if(!opts.inputs && !opts.states && opts.num_models > 1){

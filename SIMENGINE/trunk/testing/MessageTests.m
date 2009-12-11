@@ -51,15 +51,13 @@ s.add(CreateUserErrorTest('DuplicateDefinition', 'VariableTest7.dsl', ...
                           'Variable x has already been defined'));
 s.add(CreateUserErrorTest('NoEquations', 'VariableTest8.dsl', ...
                           'Model has no equations defined'));
-s.add(CreateUserErrorTest('DuplicatedOutput', 'VariableTest9.dsl', ...
-                          'Model has duplicated output variable x'));
 
 end
 
 % Equation Tests - find errors in equations
 function s = EquationTests
 
-s = Suite('Equation Tests');
+s = Suite('Equation Tests')
 
 s.add(CreateUserErrorTest('UndefinedFunction', 'EquationTest1.dsl', ...
                           'Unknown identifier encountered: f'))

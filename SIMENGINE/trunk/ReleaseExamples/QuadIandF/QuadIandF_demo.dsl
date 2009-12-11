@@ -8,7 +8,7 @@
 
 import "QuadIandF.dsl"
 
-model (v_RS, v_IB, v_CH, v_FS, v_LTS, v_RS) = QuadIandF_demo(I)
+model (v_RS, v_IB, v_CH, v_FS, v_LTS, v_RN) = QuadIandF_demo(I)
 
     submodel QuadIandF regular_spiking with {I=I, d=8}
     submodel QuadIandF intrinsically_bursting with {I=I, c=-55, d=4}
@@ -23,7 +23,7 @@ model (v_RS, v_IB, v_CH, v_FS, v_LTS, v_RS) = QuadIandF_demo(I)
 	v_CH = chattering.v
 	v_FS = fast_spiking.v
 	v_LTS = low_threshold_spiking.v
-	v_RS = resonator.v
+	v_RN = resonator.v
     end
 
 end

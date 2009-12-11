@@ -3,9 +3,7 @@
 
 /* Allocates and initializes an array of solver properties, one for each iterator. */
 solver_props* init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs);
-
-
-void free_solver_props(solver_props *props);
+void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
 int exec_loop(solver_props *props);
 
 // simEngine API: simengine_getinterface()
@@ -94,21 +92,26 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     }
   }
 
-  // Initialize the solver properties
+  // Initialize the solver properties and internal simulation memory structures
   solver_props *props = init_solver_props(start_time, stop_time, parameters, model_states, seresult->outputs);
   // Run the model
   seresult->status = exec_loop(props);
   seresult->status_message = (char*) simengine_errors[seresult->status];
 	     
-  // Copy state values back to state initial value structure
+  // Copy the final time from simulation
   for(modelid=0; modelid<semeta.num_models; modelid++){
     seresult->final_time[modelid] = props->time[modelid]; // Time from the first solver
+  }
+
+  // Free all internal simulation memory and make sure that model_states has the final state values
+  free_solver_props(props, model_states);
+
+  // Copy state values back to state initial value structure
+  for(modelid=0; modelid<semeta.num_models; modelid++){
     for(stateid=0;stateid<seint.num_states;stateid++){
       seresult->final_states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)];
     }
   }
-
-  free_solver_props(props);
 
   return seresult;
 }

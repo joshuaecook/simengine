@@ -205,6 +205,16 @@ rulematch modelop("add", [$$d1.any, -$$b.one, $$d2.any]) -> modelop("sub", [mode
 // a*b^-1 -> a/b
 rulematch modelop("mul", [$$d1.any, $$b ^ -1, $$d2.any]) -> (modelop("mul", [$d1, $d2]) / $b),
 
+// a^2 -> a*a
+rulematch $$a.one ^ 2 -> $a * $a,
+
+// a^3 -> a*a*a
+rulematch $$a.one ^ 3 -> $a * $a * $a,
+
+// a^4 -> a*a*a*a
+rulematch $$a.one ^ 4 -> $a * $a * $a * $a,
+
+
 // b^-1 -> 1/b
 rulematch $$b ^ -1 -> 1/$b,
 
@@ -220,10 +230,20 @@ rulematch 0 ^ ($$a.one) -> 0
 
 ]
 
+// independent variable: term
+var collection = [
+rulematch modelop("add", [$$d1.any, modelop("mul", [$$d2.any, $term, $$d3.any]), $$d4.any, modelop("mul", [$$d5.any, $term, $$d6.any]), $$d7.any]) -> modelop("add", [$d1, $d4, $d7, modelop("mul", [$term, ($d2 * $d3 + $d5 * $d6)])]),
+rulematch modelop("add", [$$d1.any, $term, $$d4.any, modelop("mul", [$$d5.any, $term, $$d6.any]), $$d7.any]) -> modelop("add", [$d1, $d4, $d7, modelop("mul", [$term, (1 + $d5 * $d6)])]),
+rulematch modelop("add", [$$d1.any, modelop("mul", [$$d2.any, $term, $$d3.any]), $$d4.any, $term, $$d7.any]) -> modelop("add", [$d1, $d4, $d7, modelop("mul", [$term, ($d2 * $d3 + 1)])]),
+rulematch modelop("add", [$$d1.any, $term, $$d2.any, $term, $$d3.any]) -> modelop("add", [$d1, $d2, $d3, $term * 2])
+]
+
+// do not add simplification rules into collect rules, they will be added later internally
+LF addRules("collect", collection)
 
 LF addRules("simplification", simplification)
-LF addRules("factoring", factoring)
-LF addRules("expansion", expansion)
+LF addRules("factoring", simplification + factoring)
+LF addRules("expansion", simplification + expansion)
 
 LF addRules("restoration", restoration)
 

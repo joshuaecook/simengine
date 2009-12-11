@@ -101,7 +101,6 @@ and definition =
 and quantitytype = 
     GENERIC_QUANTITY
   | STATE_QUANTITY
-  | RANDOM_QUANTITY
   | PARAMETER_QUANTITY
 
 and modelpart =

@@ -17,7 +17,9 @@ sig
     val predicate_anyfun : predicate
     val predicate_anyterm : predicate
     val predicate_anynumeric : predicate
+    val predicate_anyconstant : predicate
     val predicate_anysymbol : predicate
+    val predicate_anylocal : predicate
     val predicate_anydiffterm : predicate
     val gen_predicate_from_symbol : Symbol.symbol -> predicate (* create a predicate that matches a symbol by name *)
 
@@ -103,9 +105,16 @@ val predicate_anyterm = ("TERM", fn(x)=>case x of
 val predicate_anynumeric = ("NUM", fn(x)=>case x of 
 					      Exp.TERM t => Term.isNumeric t
 					    | _ => false)
+
+val predicate_anyconstant = ("CONST", fn(x)=>case x of 
+						 Exp.TERM t => Term.isConstant t
+					       | _ => false)
 val predicate_anysymbol = ("SYM", fn(x)=>case x of 
 					     Exp.TERM t => Term.isSymbol t
 					   | _ => false)
+val predicate_anylocal = ("SYM", fn(x)=>case x of 
+					    Exp.TERM t => Term.isSymbol t andalso Term.isLocal t
+					  | _ => false)
 val predicate_anydiffterm = ("DIFFTERM", 
 			  fn(x)=>case x 
 				  of Exp.TERM (Exp.SYMBOL (name, props)) => 

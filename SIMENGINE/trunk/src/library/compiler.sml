@@ -27,7 +27,7 @@ fun std_compile exec args =
 
 	      val (classes, _, _) = forest
 
-	      val _ = DOFPrinter.printModel forest   
+	      val _ = DOFPrinter.printModel forest
 
 	      val _ = CurrentModel.setCurrentModel forest
 
@@ -40,10 +40,12 @@ fun std_compile exec args =
 		     else ()
 		  end
 
-		      
+
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  (log ("Optimizing model ...");
-			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel()))
+			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel());
+			   DOFPrinter.printModel(CurrentModel.getCurrentModel()))
+(*			  handle e => (app (fn(s) => print("    " ^ s ^ "\n")) (MLton.Exn.history e))*)
 		      else
 			  ()
 
@@ -51,7 +53,15 @@ fun std_compile exec args =
 	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
 
 	      val _ = log("Normalizing parallel model ...")
-	      val _ = ModelProcess.normalizeParallelModel (CurrentModel.getCurrentModel())
+	      val forkedModels = ModelProcess.forkModel (CurrentModel.getCurrentModel())
+
+	      val _ = if DynamoOptions.isFlagSet "optimize" then
+			  (log ("Optimizing model ...");
+			   app (fn({model, ...}) => (CurrentModel.withModel model 
+									    (fn() => ModelProcess.optimizeModel (model)))) 
+			       forkedModels)
+		      else
+			  ()
 
 (*	      val _ = log("Ready to build the following DOF ...")*)
 	      val _ = log("Ready to build ...")
@@ -67,7 +77,7 @@ fun std_compile exec args =
 		  end
 
 
-	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel())
+	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel(), forkedModels)
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
 
 	      val _ = DynException.checkToProceed()
@@ -161,6 +171,17 @@ fun std_repeatApplyRewritesExp exec args =
        | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_repeatApplyRewritesExp" e
 
+fun std_collect exec args =
+    (case args of
+	 [KEC.LITERAL (KEC.CONSTSTR name), exp] =>
+	 let
+	     val exp = valOf (ModelTranslate.translateExp(exec, exp))
+	 in
+	     valOf(ModelTranslate.reverseExp (exec, ExpProcess.collect (ExpBuild.var name, exp)))
+	 end
+       | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
+    handle e => DynException.checkpoint "CompilerLib.std_repeatApplyRewritesExp" e
+
 fun std_exp2str exec args =
     (case args of
 	 [object] => KEC.LITERAL(KEC.CONSTSTR (ExpPrinter.exp2str (valOf (ModelTranslate.translateExp(exec, object)))))
@@ -177,6 +198,7 @@ val library = [{name="compile", operation=std_compile},
 	       {name="applyRewriteExp", operation=std_applyRewriteExp},
 	       {name="applyRewritesExp", operation=std_applyRewritesExp},
 	       {name="repeatApplyRewriteExp", operation=std_repeatApplyRewriteExp},
-	       {name="repeatApplyRewritesExp", operation=std_repeatApplyRewritesExp}]
+	       {name="repeatApplyRewritesExp", operation=std_repeatApplyRewritesExp},
+	       {name="collect", operation=std_collect}]
 
 end

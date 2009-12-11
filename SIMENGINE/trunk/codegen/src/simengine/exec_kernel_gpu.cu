@@ -1,55 +1,87 @@
-#if defined(TARGET_GPU)
 // GPU execution kernel that runs each model instance for a number of iterations or until the buffer fills
-__GLOBAL__ void exec_kernel_gpu(INTEGRATION_MEM *mem){
+__GLOBAL__ void exec_kernel_gpu(solver_props *props){
   const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;
   
-  unsigned int num_iterations;
+  unsigned int num_iterations, i;
+  Iterator iter;
+  CDATAFORMAT min_time;
 	     
   if (modelid < NUM_MODELS) {
 
     // Initialize output buffer to store output data
-    init_output_buffer((output_buffer*)(mem->props->ob), modelid);
+    init_output_buffer(props->ob, modelid);
     
     // Run up to MAX_ITERATIONS for each model
     for(num_iterations = 0; num_iterations < MAX_ITERATIONS; num_iterations++){
       // Check if simulation finished previously
-      if(((output_buffer*)(mem->props->ob))->finished[modelid]){
+      if(props->ob->finished[modelid]){
 	// (threads are launched in batches on the GPU and not all will complete at the
 	// same time with variable timestep solvers)
 	break;
       }
-      // Check if the simulation just finished (or if there are no states)
-      if(!mem->props->running[modelid] || mem->props->statesize == 0){
-	mem->props->running[modelid] = 0;
-	((output_buffer*)(mem->props->ob))->finished[modelid] = 1;
-	atomicDec(&((output_buffer*)(mem->props->ob))->active_models, NUM_MODELS);
-#if NUM_OUTPUTS > 0
-	// Log output values for final timestep
-	// Run the model flows to ensure that all intermediates are computed, mem->k1 is borrowed from the solver as scratch for ignored dydt values
-	model_flows(mem->props->time[modelid], mem->props->model_states, mem->k1, mem->props->inputs, mem->props->outputs, 1, modelid);
-	// Buffer the last values
-	buffer_outputs(mem->props->time[modelid],((output_data*)mem->props->outputs), ((output_buffer*)mem->props->ob), modelid);
-#endif
+      else if (!model_running(props, modelid)) {
+	props->ob->finished[modelid] = 1;
 	break;
       }
-      
-      CDATAFORMAT prev_time = mem->props->time[modelid];
 
-      // Execute solver for one timestep
-      SOLVER(INTEGRATION_METHOD, eval, TARGET, SIMENGINE_STORAGE, mem, modelid);
+      // Run solvers for all iterators that need to advance
+      for(i=0;i<NUM_ITERATORS;i++){
+	if(props[i].next_time[modelid] == props[i].time[modelid]){
+	  solver_eval(&props[i], modelid);
+	  if(!props[i].running[modelid]){
+	    model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
+	  }
+	  update(&props[i], modelid);
+	}
+      }
+
+      // Perform any post process evaluations (BEFORE OR AFTER BUFFER OUTPUTS?)
+      if(model_running(props, modelid)){
+	min_time = find_min_time(props, modelid);
+	for(i=0;i<NUM_ITERATORS;i++){
+	  if(props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] > props[i].time[modelid]){
+	    post_process(&props[i], modelid);
+	  }
+	}
+      }
 
 #if NUM_OUTPUTS > 0
-      // Store a set of outputs only if the sovler made a step
-      if (mem->props->time[modelid] > prev_time) {
-	buffer_outputs(prev_time, (output_data*)mem->props->outputs, (output_buffer*)mem->props->ob, modelid);
+      // Buffer outputs for all iterators that have values to output
+      // This isn't conditional on running to make sure it outputs a value for the last time
+      for(i=0;i<NUM_ITERATORS;i++){
+	int buffer_ready = 1;
+	for(unsigned int j=0;j<NUM_ITERATORS;j++){
+	  if(props[j].time[modelid] > props[i].time[modelid]){
+	    // Some iterator has run out ahead, don't buffer again
+	    buffer_ready = 0;
+	    break;
+	  }
+	}
+	if(buffer_ready){
+	  buffer_outputs(&props[i], modelid);
+	}
       }
 #endif
-      
+	
+      // Write state values back to state storage
+      if(model_running(props, modelid)){
+	for(i=0;i<NUM_ITERATORS;i++){
+	  if(props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] > props[i].time[modelid]){
+	    solver_writeback(&props[i], modelid);
+	  }
+	}
+      }
+      else{
+	// Model is complete, make sure to break out of the loop
+	break;
+      }
+
       // Stop if the output buffer is full
-      if(((output_buffer*)(mem->props->ob))->full[modelid]) { 
+      if(props->ob->full[modelid]) { 
 	break; 
       }
     }
   }
 }
-#endif

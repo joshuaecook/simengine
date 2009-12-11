@@ -113,6 +113,8 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
 			     (* check the iterator lists *)
 			     (case (Property.getIterator p1, Property.getIterator p2)
 			       of (NONE, NONE) => true
+				| (NONE, SOME []) => true
+				| (SOME [], NONE) => true
 				| (SOME l1, SOME l2) => 
 				  (* check the size *)
 				  length l1 = length l2
@@ -359,12 +361,12 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 	     app printPatternState patternstates;
 	     print ("  element we're about to process: " ^ (e2s element) ^ "\n"))
 
-	val _ = print ("Matching: " ^ (String.concatWith ", " (map e2s elements)) ^ "\n")
+(*	val _ = print ("Matching: " ^ (String.concatWith ", " (map e2s elements)) ^ "\n")*)
 
-	val patternState' = foldl (fn(e,ps) => (printPatternStates(e, ps); updatePatternState (e, ps))) initialPatternState elements
+	val patternState' = foldl (fn(e,ps) => ((*printPatternStates(e, ps);*) updatePatternState (e, ps))) initialPatternState elements
 
-	val _ = print ("  ==============Final")
-	val _ = app printPatternState patternState'
+(*	val _ = print ("  ==============Final")
+	val _ = app printPatternState patternState'*)
 
 	fun isZeroable (Exp.TERM(Exp.PATTERN (sym, (predname,pred), patcount))) =
 	    (case patcount of
@@ -411,9 +413,9 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 
 and list_equivalent (matchCandidates: patterns_matched) (explist1: Exp.exp list, explist2: Exp.exp list) =
 let
-	val _ = print ("calling list_equivalent\n")
+(*	val _ = print ("calling list_equivalent\n")*)
 (*	val _ = print ("  assigned patterns = " ^ (String.concatWith ", " (map (fn(sym, repl_exp) => (Symbol.name sym) ^ "=" ^ (e2s repl_exp)) matchCandidates)))	*)
-	val _ = print ("  matching = " ^(explist2str explist1)^"' and '"^(explist2str explist2)^"\n")		
+(*	val _ = print ("  matching = " ^(explist2str explist1)^"' and '"^(explist2str explist2)^"\n")		*)
 
 	fun isPattern (Exp.TERM(Exp.PATTERN _)) = true
 	  | isPattern _ = false
@@ -470,6 +472,24 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 	      | (Exp.FUN _, Exp.FUN _) => nil
 	      (* need to handle patterns *)
 
+	      (* simply, we can start with just using the allEquiv - maybe we can
+	         eventually use list_equivalent *)
+	      | (Exp.CONTAINER (Exp.EXPLIST l1), Exp.CONTAINER (Exp.EXPLIST l2)) =>
+		list_equivalent matchCandidates (l1, l2)
+
+	      | (Exp.CONTAINER (c1 as (Exp.ARRAY a1)), Exp.CONTAINER (c2 as (Exp.ARRAY a2))) =>
+		allEquiv exp_equivalent matchCandidates 
+			 (Container.container2elements c1, 
+			  Container.container2elements c2)
+		
+	      | (Exp.CONTAINER (c1 as (Exp.MATRIX m1)), Exp.CONTAINER (c2 as (Exp.MATRIX m2))) =>
+		if (Container.matrix2size m1) = (Container.matrix2size m2) then
+		    allEquiv exp_equivalent matchCandidates 
+			     (Container.container2elements c1, 
+			      Container.container2elements c2)
+		else
+		    nil
+		
 	      | (exp1, Exp.TERM (Exp.PATTERN p)) => 
 		pattern_equivalent matchCandidates (p, exp1) 
 

@@ -3,6 +3,10 @@ struct
 
 datatype text = SUB of text list | $ of string
 
+fun text2str ($(str)) = 
+    str
+  | text2str (SUB(progs)) =
+    String.concatWith "\n" (map text2str progs)
 
 fun printtext (outstream, text, i) =
     let

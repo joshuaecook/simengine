@@ -20,6 +20,7 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
+	  | useParen (Exp.CONTAINER _) = false
 
 	fun addParen (str, exp) = 
 	    if String.isPrefix "-" str then
@@ -45,6 +46,23 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	notation2c_str (FunProps.fun2cstrnotation str)
     end
   | exp2c_str (Exp.TERM term) = term2c_str term
+  | exp2c_str (Exp.CONTAINER c) =
+    let
+	fun array2str a = "{" ^ (String.concatWith ", " (map exp2c_str (Container.array2list a))) ^ "}"
+	fun matrix2str m = 
+	    let
+		val arrays = Container.matrix2rows m
+	    in
+		"{" ^ "\n" ^
+		(String.concatWith ",\n" (map array2str arrays)) ^ "\n" ^
+		"}"
+	    end
+    in
+	case c of
+	    Exp.EXPLIST l => DynException.stdException ("Cannot write EXPLIST expressions", "CWriter.exp2c_str", Logger.INTERNAL)
+	  | Exp.ARRAY a => array2str a
+	  | Exp.MATRIX m => matrix2str m
+    end
   | exp2c_str (Exp.META _) = 
     DynException.stdException ("Cannot write META expressions.", "CWriter.exp2c_str", Logger.INTERNAL)
     
@@ -55,6 +73,8 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
 			      else if Real.isNan v then "NAN" 
 			      else if v < 0.0 then "-INFINITY" 
 			      else "INFINITY"
+  | term2c_str (Exp.NAN) = "NAN"
+  | term2c_str (Exp.INFINITY) = "INFINITY"
   | term2c_str (Exp.BOOL v) = if v then "1" else "0"
   | term2c_str (Exp.TUPLE l) = "("^(String.concatWith ", " (map (fn(t)=>exp2c_str (Exp.TERM t)) l))^")"
   | term2c_str (term as (Exp.SYMBOL (s, props))) = (*Term.sym2c_str (s, props)*)
@@ -65,7 +85,6 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
 	in
 	    base_str ^ (if List.length iter_strs > 0 then "["^(String.concatWith ", " iter_strs)^"]" else "")
 	end
-  | term2c_str (Exp.RANDOM) = "((CDATAFORMAT)rand()/((CDATAFORMAT)(RAND_MAX)+(CDATAFORMAT)(1)))"
   | term2c_str Exp.DONTCARE = "_"
   | term2c_str term =
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)

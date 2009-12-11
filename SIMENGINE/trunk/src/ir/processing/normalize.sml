@@ -30,6 +30,29 @@ fun normalize_with_env table exp =
 		      NONE => exp
 		    | SOME e => e)
 	       | _ => exp)
+	  | Exp.CONTAINER c =>
+	    let
+		fun normalize_array a =
+		    let
+			val l = Container.array2list a
+			val l' = map (normalize_with_env table) l
+		    in
+			Container.list2array l'
+		    end
+		fun normalize_matrix m =
+		    let
+			val arrays = Container.matrix2rows m
+			val arrays' = map normalize_array arrays
+		    in
+			Container.rows2matrix arrays'
+		    end
+	    in
+	    Exp.CONTAINER 
+	    (case c of
+		 Exp.EXPLIST l => Exp.EXPLIST (flatten (map (normalize_with_env table) l))
+	       | Exp.ARRAY a => Exp.ARRAY (normalize_array a)
+	       | Exp.MATRIX m => Exp.MATRIX (normalize_matrix m))
+	    end
 	  | Exp.META m =>
 	    let
 		fun run argsym exp arg =

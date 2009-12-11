@@ -26,6 +26,7 @@ fun inst2props f : FunProps.op_props =
 									    eval=FunProps.INSTANCE,
 									    text=(Symbol.name f, FunProps.PREFIX),
 									    C=(Symbol.name f, FunProps.PREFIX),
+									    mathematica=(Symbol.name f, FunProps.PREFIX),
 									    expcost=0, (* need to work on this ... *)
 									    codomain=fn(_) => [1]} (*TODO: ??? *)
 	  | NONE => (Logger.log_internalerror (Printer.$("Can't handle operation '" ^ (Symbol.name f) ^ "'. Doesn't exist in current classes: {"
@@ -39,6 +40,7 @@ fun inst2props f : FunProps.op_props =
 		      eval=FunProps.INSTANCE,
 		      text=("<?" ^ (Symbol.name f) ^ ">", FunProps.PREFIX),
 		      C=("<?" ^ (Symbol.name f) ^ ">", FunProps.PREFIX),
+		      mathematica=("<?" ^ (Symbol.name f) ^ ">", FunProps.PREFIX),
 		      expcost=0,
 		      codomain=(fn(_) => [1])})
     end

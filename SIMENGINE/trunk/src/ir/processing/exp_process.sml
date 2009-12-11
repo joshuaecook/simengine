@@ -16,7 +16,13 @@ val deconstructInst : Exp.exp -> {classname: Symbol.symbol,
 
 (* Classification functions *)
 val isTerm : Exp.exp -> bool
+val isSymbol : Exp.exp -> bool
 val isEquation : Exp.exp -> bool
+val isExpList : Exp.exp -> bool
+val isArray : Exp.exp -> bool
+val isArrayEq : Exp.exp -> bool
+val isMatrix : Exp.exp -> bool
+val isMatrixEq : Exp.exp -> bool
 val isStateEq : Exp.exp -> bool
 val isInitialConditionEq : Exp.exp -> bool
 val isInstanceEq : Exp.exp -> bool
@@ -39,6 +45,7 @@ val isStateEqOfIter : DOF.systemiterator -> Exp.exp -> bool
 val prependIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val appendIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val updateTemporalIteratorToSymbol : (Symbol.symbol * (Symbol.symbol -> Symbol.symbol)) -> Exp.exp -> Exp.exp (* update temporal iterators, requires a new iterator name, and a change function that can create a name (just used for update iterators to change scopes).  This requires that an Exp.TERM (Exp.SYMBOL) is passed in. *)
+val updateTemporalIterator : Iterator.iterator -> Exp.exp -> Exp.exp (* changes the temporal iterator of a symbol to a new temporal iterator *)
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
 val exp2temporaliterator : Exp.exp -> Iterator.iterator option
 
@@ -50,6 +57,11 @@ val iterators_of_expression : Exp.exp -> SymbolSet.set
 (* Rewriter related functions *)
 (* Constructs a rule that will match the lhs of an equation and replace it with the rhs. *)
 val equation2rewrite : Exp.exp -> Rewrite.rewrite
+
+val simplify: Exp.exp -> Exp.exp
+val collect : Exp.exp * Exp.exp -> Exp.exp
+val multicollect : Exp.exp list * Exp.exp -> Exp.exp
+
 
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
@@ -65,6 +77,7 @@ val instSpatialSize : Exp.exp -> int (* returns the assigned dimension of an ins
 
 (* Extract symbols from expressions in different forms *)
 val exp2symbol_names : Exp.exp -> string list
+val exp2symbol : Exp.exp -> Symbol.symbol
 val exp2symbols : Exp.exp -> Symbol.symbol list
 val exp2symbolset: Exp.exp -> SymbolSet.set
 val exp2termsymbols : Exp.exp -> Exp.term list
@@ -75,6 +88,10 @@ val getLHSSymbols : Exp.exp -> Symbol.symbol list (* Grab them as a list, since 
 
 (* pull out all the function names that are present *)
 val exp2fun_names : Exp.exp -> Symbol.symbol list
+
+(* sort states by dependencies *)
+val analyzeRelations : (Symbol.symbol * Exp.exp * SymbolSet.set) list -> unit
+val sortStatesByDependencies : (Symbol.symbol * Exp.exp * SymbolSet.set) list -> (Symbol.symbol * Exp.exp * SymbolSet.set) list
 
 (* useful helper functions *)
 val uniq : Symbol.symbol -> Symbol.symbol (* given a sym, create a unique sym name *)
@@ -95,30 +112,7 @@ val exp2str = ExpPrinter.exp2str
 val e2s = ExpPrinter.exp2str
 open Printer
 
-fun exp2symbol_names (Exp.FUN (_, exps)) = 
-    List.concat (map exp2symbol_names exps)
-  | exp2symbol_names (Exp.TERM (Exp.SYMBOL (var, _))) = [Symbol.name var]
-  | exp2symbol_names (Exp.TERM (Exp.LIST (terms, _))) = 
-    List.concat (map (fn(t)=> exp2symbol_names (Exp.TERM t)) terms)
-  | exp2symbol_names (Exp.TERM (Exp.TUPLE terms)) = 
-    List.concat (map (fn(t)=> exp2symbol_names (Exp.TERM t)) terms)
-  | exp2symbol_names (Exp.TERM (Exp.COMPLEX (t1, t2))) =
-    (exp2symbol_names (Exp.TERM t1)) @ (exp2symbol_names (Exp.TERM t2))
-  | exp2symbol_names _ = []
-    
-fun exp2symbols (Exp.FUN (_, exps)) = 
-    List.concat (map exp2symbols exps)
-  | exp2symbols (Exp.TERM (Exp.SYMBOL (var, _))) = [var]
-  | exp2symbols (Exp.TERM (Exp.LIST (terms, _))) = 
-    List.concat (map (fn(t)=> exp2symbols (Exp.TERM t)) terms)
-  | exp2symbols (Exp.TERM (Exp.TUPLE terms)) = 
-    List.concat (map (fn(t)=> exp2symbols (Exp.TERM t)) terms)
-  | exp2symbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
-    (exp2symbols (Exp.TERM t1)) @ (exp2symbols (Exp.TERM t2))
-  | exp2symbols _ = []
-
-fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
-    
+(* TODO: Refactor*)
 fun exp2termsymbols (Exp.FUN (_, exps)) = 
     List.concat (map exp2termsymbols exps)
   | exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
@@ -128,10 +122,35 @@ fun exp2termsymbols (Exp.FUN (_, exps)) =
     List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
   | exp2termsymbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
     (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
+  | exp2termsymbols (Exp.CONTAINER c) =
+    List.concat (map exp2termsymbols (Container.container2elements c))
   | exp2termsymbols _ = []
+    
+fun exp2symbols (Exp.FUN (_, operands))		= List.concat (map exp2symbols operands)
+  | exp2symbols (Exp.TERM term) 		= term2symbols term
+  | exp2symbols (Exp.CONTAINER c)               = List.concat (map exp2symbols (Container.container2elements c))
+  | exp2symbols _ 				= nil
+
+and term2symbols (Exp.SYMBOL (var, _)) 		= [var]
+  | term2symbols (Exp.LIST (terms, _)) 		= List.concat (map term2symbols terms)
+  | term2symbols (Exp.TUPLE terms) 		= List.concat (map term2symbols terms)
+  | term2symbols (Exp.COMPLEX (real, imag)) 	= (term2symbols real) @ (term2symbols imag)
+  | term2symbols _ 				= nil
+
+fun exp2symbol_names exp =
+    let
+	val symbols = exp2symbols exp
+    in
+	map Symbol.name symbols
+    end
+
+
+
+fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
     
 
 fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(List.concat (map exp2fun_names exps))
+  | exp2fun_names (Exp.CONTAINER c) = List.concat (map exp2fun_names (Container.container2elements c))
   | exp2fun_names _ = []
 
 val uniqueid = ref 0
@@ -161,6 +180,23 @@ fun renameSym (orig_sym, new_sym) exp =
 	    Exp.TERM (Exp.TUPLE (new_terms))
 
 	end
+      | Exp.CONTAINER c => 
+	let
+	    fun renameList l = map (renameSym (orig_sym, new_sym)) l
+	    fun renameArray a = (Container.list2array o 
+				 renameList o
+				 Container.array2list) a
+	    fun renameMatrix m = (Container.rows2matrix o
+				  (map renameArray) o
+				  Container.matrix2rows) m
+				 
+	    val c' = case c of
+			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
+		       | Exp.ARRAY a => Exp.ARRAY (renameArray a)
+		       | Exp.MATRIX m => Exp.MATRIX (renameMatrix m)
+	in
+	    Exp.CONTAINER c'
+	end
       | _ => exp
 
 fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
@@ -173,6 +209,23 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
 	else
 	    Exp.FUN (Fun.INST inst, map (renameInst syms) args)
       | Exp.FUN (f, args) => Exp.FUN (f, map (renameInst syms) args)
+      | Exp.CONTAINER c => 
+	let
+	    fun renameList l = map (renameInst syms) l
+	    fun renameArray a = (Container.list2array o 
+				 renameList o
+				 Container.array2list) a
+	    fun renameMatrix m = (Container.rows2matrix o
+				  (map renameArray) o
+				  Container.matrix2rows) m
+				 
+	    val c' = case c of
+			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
+		       | Exp.ARRAY a => Exp.ARRAY (renameArray a)
+		       | Exp.MATRIX m => Exp.MATRIX (renameMatrix m)
+	in
+	    Exp.CONTAINER c'
+	end     
       | _ => exp
 
 fun log_exps (header, exps) = 
@@ -219,6 +272,21 @@ fun isTerm exp =
 fun isSymbol exp = 
     case exp of
 	Exp.TERM (Exp.SYMBOL _) => true
+      | _ => false
+
+fun isExpList exp =
+    case exp of
+	Exp.CONTAINER (Exp.EXPLIST _) => true
+      | _ => false
+
+fun isArray exp =
+    case exp of
+	Exp.CONTAINER (Exp.ARRAY _) => true
+      | _ => false
+
+fun isMatrix exp =
+    case exp of
+	Exp.CONTAINER (Exp.MATRIX _) => true
       | _ => false
 
 (*fun isEquation exp =
@@ -473,6 +541,14 @@ fun isStateEq exp =
     isEquation exp andalso
     isStateTerm (lhs exp)
 
+fun isArrayEq exp =
+    isEquation exp andalso
+    isArray (rhs exp)
+
+fun isMatrixEq exp =
+    isEquation exp andalso
+    isMatrix (rhs exp)
+
 (* intermediate equations *)
 fun isIntermediateTerm exp =
     case exp of
@@ -587,6 +663,11 @@ fun exp2size iterator_list exp : int =
 		       end
 		     | Exp.FUN (Fun.INST _, args) => 1 (*TODO: ???? *)
 		     | Exp.META _ => 1 (*TODO: ???? *)
+		     | Exp.CONTAINER c => 
+		       (case c of
+			    Exp.EXPLIST l => Util.sum (map (exp2size iterator_list) l)
+			  | Exp.ARRAY a => Array.length a
+			  | Exp.MATRIX m => (Array2.nCols m) * (Array2.nRows m))
 
     in
 	size
@@ -651,50 +732,164 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
   | iterators_of_expression (Exp.TERM (Exp.RANGE {low, step, high})) = 
     foldl SymbolSet.union SymbolSet.empty (map (iterators_of_expression o Exp.TERM) [low, step, high])
 
+  | iterators_of_expression (Exp.CONTAINER c) = 
+    let
+	fun list2iters l = foldl SymbolSet.union SymbolSet.empty (map iterators_of_expression l)
+    in
+	list2iters (Container.container2elements c)
+    end
+
   | iterators_of_expression _ = SymbolSet.empty
 
+fun simplify exp =
+    Match.repeatApplyRewritesExp (Rules.getRules "simplification") exp
 
+fun collect (symexp, exp) =
+  let
+      fun buildCollecter {find, test, replace} = 
+	  let
+	      val replace_exp = case replace of
+				    Rewrite.RULE exp => exp
+				  | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
 
+	      fun subTerm exp repl_exp = 
+		  Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
+										   body=exp}),
+							 arg=repl_exp}))
+
+	      val collecter = {find=subTerm find symexp,
+			       test=test,
+			       replace=Rewrite.RULE (subTerm replace_exp symexp)}
+	  in 
+	      collecter
+	  end
+
+      val collecters = map buildCollecter (Rules.getRules "collect")
+
+  in
+      Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ collecters) (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
+  end
+
+fun multicollect (symexps, exp) =
+    let
+	fun buildCollecter sym {find, test, replace} = 
+	    let
+		val replace_exp = case replace of
+				      Rewrite.RULE exp => exp
+				    | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
+
+		fun subTerm exp repl_exp = 
+		    Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
+										     body=exp}),
+							   arg=repl_exp}))
+
+		val collecter = {find=subTerm find sym,
+				 test=test,
+				 replace=Rewrite.RULE (subTerm replace_exp sym)}
+	    in 
+		collecter
+	    end
+
+      val collecters = map (fn(sym) => 
+			       map (buildCollecter sym) (Rules.getRules "collect"))
+			    symexps
+(*
+      val _ = Util.log ("# collecters = " ^ (Int.toString (length collecters)))
+      val _ = Util.log ("# of collector members = " ^ (String.concatWith ", " (map (i2s o length) collecters)))
+      val _ = app (fn(rules)=> (Util.log(" - ");app (fn(rule)=>Util.log (" -> Rule: " ^ (Rewrite.rewrite2str rule))) rules)) collecters
+*)
+      val exp' = (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
+  in
+      foldl (fn(collecter_group,exp) => Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ collecter_group) exp) 
+	    exp' 
+	    collecters
+  end
 
 
 fun symterm2symterm term = 
-    case term of 
-	Exp.SYMBOL s => Exp.SYMBOL s
-      | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
-	      Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty))
+    (case term of 
+	 Exp.SYMBOL s => Exp.SYMBOL s
+       | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
+	       Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty)))
+    handle e => DynException.checkpoint "ExpProcess.symterm2symterm" e
 
 fun getLHSTerm exp = 
     symterm2symterm (exp2term (lhs exp))
+    handle e => DynException.checkpoint "ExpProcess.getLHSTerm" e
+
+fun getTermsfromTerm exp = 
+    (case exp2term exp of
+	 Exp.SYMBOL s => [Exp.SYMBOL s]
+       | Exp.TUPLE terms => Util.flatmap (getTermsfromTerm o term2exp) terms
+       | Exp.DONTCARE => []
+       | _ => (error_no_return exp ("No valid symbols found on LHS");
+	       [Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty)]))
+    handle e => DynException.checkpoint "ExpProcess.getTermsfromTerm" e
 
 fun getLHSTerms exp = 
-    case exp2term (lhs exp) of
-	Exp.SYMBOL s => [Exp.SYMBOL s]
-      | Exp.TUPLE terms => map symterm2symterm terms
-      | _ => (error_no_return exp ("No valid symbols found on LHS");
-	      [Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty)])
+    getTermsfromTerm (lhs exp)
+    handle e => DynException.checkpoint "ExpProcess.getLHSTerms" e
 
 
 fun term2sym term = 
-    case term of 
-	Exp.SYMBOL (sym,_) => sym
-      | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
-	      Symbol.symbol "???")
+    (case term of 
+	 Exp.SYMBOL (sym,_) => sym
+       | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
+	       Symbol.symbol "???"))
+    handle e => DynException.checkpoint "ExpProcess.term2sym" e
 
 fun getLHSSymbol exp = 
     term2sym(exp2term (lhs exp))
-	
+    handle e => DynException.checkpoint "ExpProcess.getLHSSymbol" e
+
+fun exp2symbol exp =
+    term2sym(exp2term (exp))
+    handle e => DynException.checkpoint "ExpProcess.exp2symbol" e
+
+fun getSymbolsfromTerm exp = 
+    (case exp2term exp of
+	 Exp.SYMBOL (sym,_) => [sym]
+       | Exp.TUPLE terms => Util.flatmap (getSymbolsfromTerm o term2exp) terms
+       | Exp.DONTCARE => []
+       | _ => (error_no_return exp ("No valid symbols found on LHS");
+	       [Symbol.symbol "???"]))
+    handle e => DynException.checkpoint "ExpProcess.getSymbolsFromTerm" e
+
 fun getLHSSymbols exp = 
-    case exp2term (lhs exp) of
-	Exp.SYMBOL (sym,_) => [sym]
-      | Exp.TUPLE terms => map term2sym terms
-      | _ => (error_no_return exp ("No valid symbols found on LHS");
-	      [Symbol.symbol "???"])
+    getSymbolsfromTerm (lhs exp)
+    handle e => DynException.checkpoint "ExpProcess.getLHSSymbols" e
 
 fun countTerms exp =
     length (Match.findRecursive (Match.anyterm "a", exp))
 
 fun countFuns exp =
     length (Match.findRecursive (Match.anyfun "a", exp))
+
+
+fun expEulerEqReformat(sym, titer, dt, exp) =
+    let
+	val a = ExpBuild.plus [ExpBuild.var "d1", ExpBuild.var "d4"]
+	val b = ExpBuild.neg (ExpBuild.times [ExpBuild.var "d2", ExpBuild.var "d3"])
+
+	val s = Symbol.name(term2sym(exp2term(sym)))
+		    
+
+	val reformatter = {find=ExpBuild.plus [Match.any "d1", ExpBuild.times [Match.any "d2", ExpBuild.var s, Match.any "d3"], Match.any "d4"],
+			   test=NONE,
+			   replace=Rewrite.RULE (ExpBuild.plus[ExpBuild.times [ExpBuild.avar s titer, 
+									       ExpBuild.exp (ExpBuild.times [dt, 
+													     ExpBuild.neg (b)])], 
+							       ExpBuild.times [ExpBuild.divide (a, b),
+									       ExpBuild.sub (ExpBuild.real 1.0,
+											     ExpBuild.exp (ExpBuild.times [ExpBuild.neg b,
+															   dt]))]])}
+    in
+	Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ [reformatter]) exp
+    end
+
+(*fun expEulerReformat ( *)
+
+
 
 datatype p = PREPEND | APPEND
 
@@ -805,6 +1000,22 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
     end
     handle e => DynException.checkpoint "ExpProcess.updateTemporalIteratorToSymbol" e
 
+fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t as Exp.SYMBOL (sym, props))) = 
+    let
+	val temporaliterator = case exp2temporaliterator exp of
+				   SOME v => v
+				 | NONE => DynException.stdException("No temporal iterator found",
+								     "updateTemporalIterator",
+								     Logger.INTERNAL)
+	val spatialiterators = exp2spatialiterators exp
+	val props' = Property.setIterator props (iter::spatialiterators)
+    in
+	Exp.TERM (Exp.SYMBOL (sym, props'))
+    end
+  | updateTemporalIterator iter _ = DynException.stdException("Non symbol encountered",
+							      "ExpProcess.updateTemporalIterator",
+							      Logger.INTERNAL)
+
 fun assignCorrectScopeOnSymbol exp =
     case exp 
      of Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
@@ -864,8 +1075,24 @@ fun assignCorrectScope states exp =
     else
 	(Match.head exp) (map (assignCorrectScope states) (Match.level exp))
 	
-(* function to add EP_index property to all state symbols *)
+
 fun enableEPIndex is_top states exp = 
+    if isSymbol exp then
+	let 
+	    val term = exp2term exp
+	    val (sym, props) = (Term.sym2curname term, Term.sym2props term)
+		      
+	    fun enableEPProperty prop = 
+		Exp.TERM (Exp.SYMBOL (sym, Property.setEPIndex props prop))
+	in
+	    if List.exists (fn(sym')=>sym=sym') states then
+		enableEPProperty (SOME (if is_top then Property.STRUCT_OF_ARRAYS else Property.ARRAY))
+	    else
+		exp
+	end
+    else
+	(Match.head exp) (map (enableEPIndex is_top states) (Match.level exp))
+(*
     case exp of
 	Exp.FUN (funtype, args) => Exp.FUN (funtype, map (enableEPIndex is_top states) args)
       | Exp.TERM (Exp.SYMBOL (sym, props)) => 
@@ -875,21 +1102,124 @@ fun enableEPIndex is_top states exp =
 	    exp
       | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist, dimlist))
       | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist))
-      | _ => exp
+      | _ => exp*)
 
 
 (* find symbols and assign to output buffer *)
 fun assignToOutputBuffer exp =
-    case exp of
+    if isSymbol exp then
+	let
+	    val term = exp2term exp
+	    val (sym, props) = (Term.sym2curname term, Term.sym2props term)
+	in
+	    Exp.TERM (Exp.SYMBOL (sym, Property.setOutputBuffer props true))
+	end
+    else
+	(Match.head exp) (map assignToOutputBuffer (Match.level exp))
+	    
+(*    case exp of
 	Exp.FUN (funtype, args) => Exp.FUN (funtype, map assignToOutputBuffer args)
       | Exp.TERM (Exp.SYMBOL (sym, props)) => 
 	Exp.TERM (Exp.SYMBOL (sym, Property.setOutputBuffer props true))
       | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist, dimlist))
       | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist))
-      | _ => exp
+      | _ => exp*)
 
 
+fun analyzeRelations relations = 
+    let
+	val sym2index = foldl (fn(((s, _, _), i), t) => SymbolTable.enter(t,s,i))
+			      SymbolTable.empty 
+			      (Util.addCount relations)
 
+	fun ind sym = valOf (SymbolTable.look (sym2index, sym))
+			  
+
+	fun distance state dep = 
+	    Int.abs ((ind state)-(ind dep))
+
+	fun dep2str state dep = 
+	    (Symbol.name dep) ^ ":" ^ (i2s (distance state dep))
+
+	val _ = Util.log("All relationships:")
+	fun relation2str (s, eq, deps) = 
+	    (Symbol.name s) ^ " " ^
+	    "(dep_count=" ^ (i2s (SymbolSet.numItems deps)) ^", " ^ 
+	    "max_distance=" ^ (i2s (StdFun.max (map (distance s) (SymbolSet.listItems deps)))) ^ "): " ^
+	    "{" ^ (String.concatWith ", " (map (dep2str s) (SymbolSet.listItems deps))) ^ "}"
+	    
+	val _ = app (Util.log o relation2str) relations
+
+	val _ = Util.log ("")
+		
+    in
+	()
+    end
+
+
+fun sortStatesByDependencies nil =
+    DynException.stdException("No relations passd in", "ExpProcess.sortStatesByDependencies", Logger.INTERNAL)
+  | sortStatesByDependencies relations =
+    let
+	fun addCount (relation as (_,_,deps)) = (relation, SymbolSet.numItems deps)
+	fun sort_lessthan ((_,count1),(_,count2)) = count1 < count2
+	fun stateExists relation_list state =
+	    List.exists (fn(state',_,_)=>state=state') relation_list
+	fun findState relation_list state = 
+	    let
+		val (matched, unmatched) = List.partition (fn(state',_,_)=>state=state') relation_list
+	    in
+		(Util.hd matched, unmatched)
+	    end
+
+	(* need a relation with the smallest count *)
+	fun fewestCount relation_list =
+	    let 
+		val sorted_list = StdFun.sort_compare sort_lessthan (map addCount relation_list)
+		val (relation, _) = Util.hd sorted_list
+	    in
+		relation
+	    end
+
+	(* we don't want to add items from the set that already appear.  This should be less costly than searching 
+	  through the larger sorted/remaining lists *)
+	fun addSetToList l set =
+	    foldl 
+		(fn(item, list)=>
+		   if List.exists (fn(item')=>item=item') list then
+		       list
+		   else
+		       list @ [item])
+		l
+		(SymbolSet.listItems set)
+
+	(* move one relation from the remaining list to the sorted list *)
+	fun moveRelation (sorted, remaining, []) = 
+	    let
+		val r as (state, _, deps) = fewestCount remaining
+		val (_, unmatched) = findState remaining state
+	    in
+		(r::sorted, unmatched, SymbolSet.listItems deps)
+	    end
+	  | moveRelation (sorted, remaining, backlog::backlog_list) =
+	    if stateExists sorted backlog then
+		(sorted, remaining, backlog_list)
+	    else
+		let
+		    val (matched as (_, _, deps), unmatched) = findState remaining backlog
+		in
+		    (matched::sorted, unmatched, addSetToList backlog_list deps)
+		end
+		
+	(* recursive sortRelations list *)
+	fun sortRelations (sorted, [], _) = sorted (* result *)
+	  | sortRelations (var as (sorted, remaining, backlog)) = 
+	    sortRelations (moveRelation var) (* recursive call *)
+	    
+    in
+	sortRelations ([], relations, [])
+    end
+    handle e => DynException.checkpoint "ExpProcess.sortStatesByDependencies" e
 
 
 local open mlJS in
@@ -901,6 +1231,7 @@ val js_symbol = js_string o Symbol.name
 fun to_json (Exp.FUN (typ, expressions)) = fun_to_json (typ, expressions)
   | to_json (Exp.TERM term) = term_to_json term
   | to_json (Exp.META meta) = meta_to_json meta
+  | to_json (Exp.CONTAINER c) = container_to_json c
 
 and fun_to_json (Fun.BUILTIN operation, expressions) =
     js_object [("type", js_string "BUILTIN"),
@@ -937,8 +1268,6 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
   | term_to_json (Exp.BOOL b) = 
     js_object [("type", js_string "BOOL"),
 	       ("value", js_boolean b)]
-  | term_to_json (Exp.RANDOM) =
-    js_object [("type", js_string "RAND")]
   | term_to_json (Exp.COMPLEX (r, i)) = 
     js_object [("type", js_string "COMPLEX"),
 	       ("real", term_to_json r),
@@ -956,7 +1285,7 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
 	       ("step", term_to_json step),
 	       ("high", term_to_json high)]
   | term_to_json (Exp.SYMBOL (name, properties)) = 
-    let val {dim, iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index}
+    let val {dim, iterator, derivative, isevent, sourcepos, realname, scope, outputbuffer, ep_index}
 	  = properties
 
 	val json_iterators
@@ -1053,7 +1382,20 @@ and meta_to_json (Exp.LAMBDA {arg, body}) =
     js_object [("type", js_string "SEQUENCE"),
 	       ("members", js_array (map to_json members))]
    
-
+and container_to_json (Exp.EXPLIST l) =
+    js_object [("type", js_string "EXPLIST"),
+	       ("members", js_array (map to_json l))]
+  | container_to_json (Exp.ARRAY a) =
+    js_object [("type", js_string "ARRAY"),
+	       ("length", js_int (Array.length a)),
+	       ("members", js_array (map to_json (Container.array2list a)))]
+  | container_to_json (Exp.MATRIX m) =
+    js_object [("type", js_string "MATRIX"),
+	       ("rows", js_int (Array2.nRows m)),
+	       ("columns", js_int (Array2.nCols m)),
+	       ("members", js_array (map 
+					 (to_json o Exp.CONTAINER o Exp.ARRAY)
+					 (Container.matrix2rows m)))]
 
 end
 

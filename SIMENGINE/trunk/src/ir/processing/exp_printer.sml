@@ -36,6 +36,7 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
+	  | useParen (Exp.CONTAINER _) = false
 
 	fun addParen ("", exp) = 
 	    ""
@@ -53,7 +54,7 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 		(FunProps.op2name f) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
 	    else
 		String.concatWith v (map (fn(e)=>addParen ((exp2tersestr e),e)) exps)
-	  | (v, FunProps.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
+	  | (v, FunProps.PREFIX) => v ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps))
 	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr e),e)) exps)) ^ " " ^ v
 	  | (v, FunProps.MATCH) => 
 	    let
@@ -85,12 +86,20 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN"
-       | Exp.RANDOM => "Rand"
        | Exp.PATTERN p => PatternProcess.pattern2str p)
   | exp2tersestr (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2tersestr e)) ^ " :}"
        | _ => "<unresolved-meta>")
+  | exp2tersestr (Exp.CONTAINER container) =
+    let
+	fun list2str l = String.concatWith ", " (map exp2tersestr l)
+    in
+	case container of
+	     Exp.EXPLIST e => "{" ^ (list2str e) ^ "}"
+	   | Exp.ARRAY v => "[" ^ (list2str (Container.array2list v)) ^ "]"
+	   | Exp.MATRIX m => "[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Container.matrix2rows m))) ^ "]"
+    end
 
 
 fun exp2fullstr (Exp.FUN (f, exps)) = 
@@ -116,6 +125,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
+	  | useParen (Exp.CONTAINER _) = false
 
 	fun addParen (str, exp) = 
 	    if hd (String.explode str) = #"-" then
@@ -157,13 +167,31 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
        | Exp.SYMBOL (s, props) => Term.sym2fullstr (s, props)
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
-       | Exp.NAN => "NaN" 
-       | Exp.RANDOM => "Random"
+       | Exp.NAN => "NaN"
        | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")")
   | exp2fullstr (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2fullstr e)) ^ " :}"
        | _ => "<unresolved-meta>")
+  | exp2fullstr (Exp.CONTAINER container) =
+    let
+	fun list2str l = String.concatWith ", " (map exp2fullstr l)
+	fun array2str a = 
+	    "[" ^ (i2s (Container.array2size a)) ^ "]"
+	fun matrix2str m = 
+	    let
+		val (rows, cols) = Container.matrix2size m
+		(*val (upper_bw, lower_bw) = Matrix.findBandwidth m*)
+	    in
+		"["^(i2s rows)^"x"^(i2s cols)^"]"(* ^ 
+		"{upper_bw:"^(i2s upper_bw)^",lower_bw:"^(i2s lower_bw)^"}"*)
+	    end
+    in
+	case container of
+	     Exp.EXPLIST e => "explist(" ^ (list2str e) ^ ")"
+	   | Exp.ARRAY a => "array"^(array2str a)^"(" ^ (list2str (Container.array2list a)) ^ ")"
+	   | Exp.MATRIX m => "matrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Container.matrix2rows m))) ^ ")"
+    end
 
 fun exp2str e = 
     (if DynamoOptions.isFlagSet("usefullform") then

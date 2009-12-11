@@ -445,7 +445,6 @@ and trans_definition definition =
 			val baseclass = case basetype 
 					 of Ast.GENERIC_QUANTITY => "SimQuantity"
 					  | Ast.STATE_QUANTITY => "State"
-					  | Ast.RANDOM_QUANTITY => "Random"
 					  | Ast.PARAMETER_QUANTITY => "Parameter"
 
 			val dims = case dimensions

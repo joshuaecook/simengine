@@ -3,6 +3,7 @@ sig
 
 (* Access properties of terminals *)
 val isNumeric: Exp.term -> bool
+val isConstant: Exp.term -> bool
 val isZero: Exp.term -> bool
 val isOne: Exp.term -> bool
 val isSymbol: Exp.term -> bool (* matches only a single symbol *)
@@ -21,11 +22,16 @@ val sym2str : (Symbol.symbol * Property.symbolproperty) -> string (* used for pr
 val sym2fullstr : (Symbol.symbol * Property.symbolproperty) -> string (* used for pretty printing when not using the default terse output *)
 val sym2c_str : (Symbol.symbol * Property.symbolproperty) -> string (* this is the call to produce a valid c representation of a symbol (works for locals, read states, and write states) *)
 (* these accessors require a term that can only be a symbol *)
+val sym2mathematica_str : (Symbol.symbol * Property.symbolproperty) -> string (* this is the call to produce a valid mathematica representation of a symbol (works for locals, read states, and write states) *)
+(* these accessors require a term that can only be a symbol *)
 val sym2curname : Exp.term -> Symbol.symbol (* returns the name as stored directly in symbol (this name can be changed as it is processed while the "realname" property is always the original) *)
 val sym2symname : Exp.term -> Symbol.symbol (* returns the name after checking the "realname" property *)
 val sym2name : Exp.term -> string (* This is equiv to (Symbol.name o sym2symname) *)
 (* grab the properties *)
+val sym2term : Symbol.symbol -> Exp.term
 val sym2props : Exp.term -> Property.symbolproperty
+
+val makeCommensurable : Exp.term * Exp.term -> Exp.term * Exp.term
 
 end
 structure Term : TERM =
@@ -67,7 +73,8 @@ fun sym2symname (Exp.SYMBOL (s, props)) =
       | NONE => s)
   | sym2symname _ = DynException.stdException("Received an unexpected non symbol", "Term.sym2symname", Logger.INTERNAL)
 
-
+fun sym2term sym =
+    Exp.SYMBOL (sym, Property.default_symbolproperty)
 
 fun sym2str (s, props) =
     let
@@ -87,9 +94,9 @@ fun sym2str (s, props) =
 		      of SOME iters => Iterator.iterators2str iters
 		       | NONE => "")
 
-	val n = prefix ^ (case (Property.getRealName props)
+	val n = prefix ^ ((*case (Property.getRealName props)
 			   of SOME v => Symbol.name v
-			    | NONE => Symbol.name s)
+			    | NONE =>*) Symbol.name s)
 
     in
 	if order < 0 then (* integral *)
@@ -161,7 +168,7 @@ fun sym2c_str (s, props) =
 		    case scope
 		     of Property.LOCAL => ""
 		      | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ index
-		      | Property.READSYSTEMSTATE v => "sys_rd" ^ index ^ "states_" ^ (Symbol.name v) ^ "->"
+		      | Property.READSYSTEMSTATE v => "sys_rd->states_" ^ (Symbol.name v) ^ index
  		      | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
 		      | Property.ITERATOR => ""
 		end
@@ -181,7 +188,11 @@ fun sym2c_str (s, props) =
 		      of SOME iters => Iterator.iterators2c_str iters
 		       | NONE => "")
 
-	val n = Symbol.name s
+	val pre_n = Symbol.name s
+	val n = if String.isPrefix "#" pre_n then
+		    "INTERNAL_" ^ (StdFun.extract (pre_n, 1, NONE))
+		else
+		    pre_n
 
     in
 	if order < 0 then (* integral *)
@@ -194,6 +205,78 @@ fun sym2c_str (s, props) =
 	    prefix ^ n ^ suffix
 	else
 	    DynException.stdException(("Can't support higher order derivative terms ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
+	(*else if order > 3 andalso (same vars) then
+	    n ^ "^("^(i2s order)^")" ^ iters
+	else if order > 0 andalso (same vars) then
+	    n ^ (foldl (op ^) "" (List.tabulate (order,(fn(x)=>"'")))) ^ iters
+	else
+	    "d^" ^ (i2s order)  ^ n ^ iters ^
+	    "/" ^ (foldl (op ^) "" (map (fn(v)=>"d"^(Symbol.name v)) vars))*)
+    end
+
+fun sym2mathematica_str (s, props) =
+    let
+	(*val ep_index = Property.getEPIndex props
+
+	val scope = Property.getScope props
+
+	val useOutputBuffer = Property.isOutputBuffer props
+
+	val prefix = 
+	    if useOutputBuffer then
+		"od[modelid]."
+	    else
+		let 
+		    val index = case ep_index
+				 of SOME Property.STRUCT_OF_ARRAYS => "[STRUCT_IDX]."
+				  | _ => "->"
+		in 
+		    case scope
+		     of Property.LOCAL => ""
+		      | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ index
+		      | Property.READSYSTEMSTATE v => "sys_rd" ^ index ^ "states_" ^ (Symbol.name v) ^ "->"
+ 		      | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
+		      | Property.ITERATOR => ""
+		end
+
+	val suffix = if useOutputBuffer then
+			 ""
+		     else
+			 case ep_index 
+			  of SOME _ => "[ARRAY_IDX]"
+			   | NONE => ""*)
+
+	val (order, vars) = case Property.getDerivative props
+			      of SOME (order, iters) => (order, iters)
+			       | NONE => (0, [])
+
+	val ignore_iter = Symbol.symbol "always"
+	fun filter_iters iters =
+	    List.filter (fn(sym,_)=> sym<>ignore_iter) iters
+
+	val iters = (case Property.getIterator props
+		      of SOME iters => Iterator.iterators2mathematica_str (filter_iters iters)
+		       | NONE => "")
+
+	val n = Util.mathematica_fixname (Symbol.name s)
+
+    in
+	if order < 0 then (* integral *)
+	    "Integrate["^n^","^(String.concatWith "," (map Symbol.name vars))^"]"
+	    (*"Int(" ^ n ^ iters ^  ",["^(String.concatWith "," (map Symbol.name vars))^"])"*)
+	    (*DynException.stdException(("Can't support integrals ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2mathematica_str", Logger.INTERNAL)*)
+	else if order = 0 then
+	    n ^ iters
+	else
+	    "D["^n^iters^","^(String.concatWith "," (map (fn(i)=>if order > 1 then
+							       "{"^(Symbol.name i)^","^(i2s order)^"}"
+							   else
+							       Symbol.name i) vars))^"]"
+	(*else if order = 1 then*)
+	    (*"d_" ^ n ^ "_dt"*) (* only support first order derivatives with respect to t *)
+	    
+(*	else
+	    DynException.stdException(("Can't support higher order derivative terms ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2mathematica_str", Logger.INTERNAL)*)
 	(*else if order > 3 andalso (same vars) then
 	    n ^ "^("^(i2s order)^")" ^ iters
 	else if order > 0 andalso (same vars) then
@@ -232,6 +315,19 @@ fun isNumeric term =
       | Exp.COMPLEX (t1, t2) => (isNumeric t1) andalso (isNumeric t2)
       | Exp.LIST (l, _) => List.all isNumeric l
       | Exp.TUPLE l => List.all isNumeric l
+      | Exp.INFINITY => true
+      | Exp.NAN => true
+      | _ => false
+
+fun isConstant term =
+    case term of
+	Exp.RATIONAL _ => true
+      | Exp.INT _ => true
+      | Exp.REAL _ => true
+      | Exp.BOOL _ => true
+      | Exp.COMPLEX _ => true
+      | Exp.LIST (l,_) => List.all isConstant l
+      | Exp.TUPLE l => List.all isConstant l
       | Exp.INFINITY => true
       | Exp.NAN => true
       | _ => false
