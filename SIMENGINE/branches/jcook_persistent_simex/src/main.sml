@@ -75,33 +75,100 @@ val _ = Logger.log_stdout (Logger.WARNINGS,
 val registryfile = case OS.Process.getEnv("SIMENGINEDOL") of
 		       SOME reg => reg
 		     | NONE => (case OS.Process.getEnv("SIMENGINE") of
-				    SOME reg => reg ^ "/data/default.dol"
+				    SOME path => OS.Path.concat (path, OS.Path.fromUnixPath "data/default.dol")
 				  | NONE => (print ("\nError: Environment variable SIMENGINEDOL or SIMENGINE must be set to determine the location of the Diesel options file (dol)\n");
 					     DynException.setErrored();
 					     ""))
+val _ = DynException.checkToProceed()
+
+val worldfile = case (OS.Process.getEnv("SIMENGINESEW"), OS.Process.getEnv("SIMENGINE"))
+		 of (SOME world, _) => world
+		  | (NONE, SOME path) => OS.Path.concat (path, OS.Path.fromUnixPath "data/default.sew")
+		  | (NONE, NONE) => (print ("\nError: Environment variable SIMENGINESEW or SIMENGINE must be set to determine the location of the simEngine world file (sew)\n");
+				     DynException.setErrored();
+				     "")
 val _ = DynException.checkToProceed()
 	
 	
 (* read in registry settings - this will overwrite the command line args imported above *)
 val _ = DynamoOptions.importRegistryFile (registryfile)
 	before DynException.checkToProceed()
-	
+
 
 	
-val logfiledir = "/tmp" (*TODO: change this*)
-val username = case OS.Process.getEnv("USER") of
-		   SOME user => user
-		 | NONE => ""
-val logfilename = logfiledir ^ "/simEngine-" ^ username ^ ".log"
-val log_id = Logger.log_add (logfilename,
-			     Logger.ALL, 
-			     defaultOptions(* @ (DynamoParameters.options2groups options)*))
+
+local
+structure W = MLton.World
+fun main () =
+    let val logfile = OS.Path.joinDirFile {dir = OS.Path.fromUnixPath "/tmp",
+					   file = case OS.Process.getEnv "USER"
+						   of SOME user => "simEngine-" ^ user ^ ".log"
+						    | NONE => "simEngine.log"}
+	val log_id = Logger.log_add (logfile, Logger.ALL, defaultOptions)
+	val env = PopulatedEnv.new (rep_loop false)
+		  
+	(* Saves/restores the heap, opening a new log file if restoring. *)
+	val log_id = case W.save worldfile
+		      of W.Original => log_id
+		       | W.Clone => 
+			 let val logfile = OS.Path.joinDirFile {dir = OS.Path.fromUnixPath "/tmp",
+								file = case OS.Process.getEnv "USER"
+									of SOME user => "simEngine-" ^ user ^ ".log"
+									 | NONE => "simEngine.log"}
+			 in 
+			     Logger.log_add (logfile, Logger.ALL, defaultOptions)
+			 end
+    in
+	(case CommandLine.arguments ()
+	 of nil =>
+	    let val _ = ParserSettings.setSettings (true, "STDIN", ".")
+		val _ = print (Globals.startupMessage ^ "\n")
+	    in
+		rep_loop true TextIO.stdIn env
+	    end
+
+	  | ["-batch"] => 
+	    let val _ = ParserSettings.setSettings (true, "STDIN", ".")
+	    in
+		rep_loop false TextIO.stdIn env
+	    end
+
+	  | [filename] => 
+	    let val input = TextIO.openIn filename
+		val {file, dir} = OS.Path.splitDirFile filename
+		val _ = ParserSettings.setSettings (false, file, dir)
+	    in
+		rep_loop false input env
+	    end
+
+	  | _ => 
+	    (print ("Usage: " ^ CommandLine.name() ^ " [optional filename]\n\n");
+	     raise Usage);
+
+	 Logger.log_remove log_id;
+	 GeneralUtil.SUCCESS)
+    end
+in
+
+val _ = main ()
+handle DynException.TooManyErrors => GeneralUtil.FAILURE "Too many errors encountered"
+     | Usage => GeneralUtil.SUCCESS
+     | e => (DynException.log "Main" e; GeneralUtil.FAILURE "An exception was encountered")
+	    
+end
+
+
+	     (*
 
 val _ = (if List.length (CommandLine.arguments()) = 0 then
 	     let
 		 val env = PopulatedEnv.new (rep_loop false)
 		 val _ = ParserSettings.setSettings (true, "STDIN", ".")
 		 val _ = print (Globals.startupMessage ^ "\n")
+			 
+		 val _ = case W.save worldfile
+			  of W.Original => ()
+			   | W.Clone => print "Need to reopen log file"
 	     in
 		 rep_loop true TextIO.stdIn env
 	     end
@@ -137,3 +204,4 @@ val _ = (if List.length (CommandLine.arguments()) = 0 then
 	    (DynException.log "Main" e;
 	     GeneralUtil.FAILURE "An exception was encountered")
 
+	     *)
