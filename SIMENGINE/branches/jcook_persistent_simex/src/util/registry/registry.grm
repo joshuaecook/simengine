@@ -1,0 +1,52 @@
+
+%%
+
+
+(* The list of terminals corresponding to DynLib syntactic atoms. *)
+%term
+    EOF 
+  | ID of string
+  | STRING of string
+  | INT of int 
+  | REAL of real 
+  | SLASH | LTHAN | GTHAN | EQ | TRUE | FALSE
+
+%keyword  SLASH LTHAN GTHAN EQ TRUE FALSE
+(* The list of rules (non-terminals) used by the parser. *)
+%nonterm
+registry of Registry.entry list
+| entry of Registry.entry
+| boolean of bool
+| number of real
+
+(* Default values for tokens with values. *)
+
+%value ID ("bogus")
+%value STRING ("")
+%value INT (1)
+%value REAL (1.0)
+
+%nodefault
+%name DYNREG
+%pure
+%verbose
+%pos int * int
+%eop EOF
+%noshift EOF
+%start registry
+%header (functor LrValsFun(structure Token: TOKEN))
+
+%%
+
+registry: (nil)
+	  | entry registry (entry :: registry)
+
+entry: LTHAN ID EQ boolean GTHAN (Registry.REG_FLAG(ID, boolean))
+     | LTHAN ID EQ number GTHAN (Registry.REG_SETTING(ID, Registry.REG_NUMBER(number)))
+     | LTHAN ID EQ STRING GTHAN (Registry.REG_SETTING(ID, Registry.REG_STRING(STRING)))
+
+boolean: TRUE (true)
+    | FALSE (false)
+
+number: INT (Real.fromInt INT)
+      | REAL (REAL)
