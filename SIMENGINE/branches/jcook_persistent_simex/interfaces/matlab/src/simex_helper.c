@@ -6,10 +6,12 @@
 #include <simengine_target.h>
 #include <simengine_api.h>
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
 #include <dlfcn.h>
+#include <pthread.h>
 #include <omp.h>
 #include <assert.h>
 
@@ -17,6 +19,71 @@ static simengine_api *api = NULL;
 static double *inputs = NULL;
 
 //#define ERROR(ID, MESSAGE, ARG...) {mexPrintf("ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); return; }
+
+static unsigned char initialized = 0;
+static pthread_t simengine_thread;
+
+void thread_error (int code, const char *message)
+    {
+    switch (code)
+	{
+	case EINVAL: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) invalid argument.", code, message);
+	case ESRCH: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) no such thread.", code, message);
+	case EDEADLK: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) deadlock.", code, message);
+	}
+    }
+
+void *run_simengine_thread (void *arg)
+    {
+    PRINTF("I'm on a boat!\n");
+
+    pthread_exit(NULL);
+    return NULL;
+    }
+
+void release_simex_helper (void)
+    {
+    static unsigned char releasing = 0;
+
+    if (!initialized) return;
+    if (releasing) { ERROR(Simatra:SIMEX:HELPER:RunTimeError, "Attempted to double-release SIMEX_HELPER.\nPlease restart MATLAB before attempting to use SIMEX again."); }
+    releasing = 1;
+
+    PRINTF("releasing SIMEX_HELPER\n");
+
+    if (simengine_thread)
+	{
+	int err = pthread_join(simengine_thread, NULL);
+	if (err) thread_error(err, "Failed to join simengine thread");
+	}
+
+    initialized = 0;
+    releasing = 0;
+    }
+
+void init_simex_helper (void)
+    {
+    static unsigned char initializing = 0;
+
+    if (initialized) return;
+    if (initializing) { ERROR(Simatra:SIMEX:HELPER:RunTimeError, "Attempted to double-initialize SIMEX_HELPER.\nPlease restart MATLAB before attempting to use SIMEX again."); }
+    initializing = 1;
+
+    PRINTF("initializing SIMEX_HELPER\n");
+    mexAtExit(release_simex_helper);
+
+	{
+	// TODO need any attributes?
+	// TODO what to pass as an argument?
+	int err = pthread_create(&simengine_thread, NULL, run_simengine_thread, NULL);
+	if (err) thread_error(err, "Failed to create simengine thread");
+	}
+
+    initialized = 1;
+    initializing = 0;
+    }
+
+
 
 /* Loads the given named dynamic library file.
    Retrieves function pointers to the simengine API calls. */
@@ -271,6 +338,7 @@ void usage(void)
       PRINTF("Usage:\tSIMEX_HELPER(DLL, '-query')\n\tSIMEX_HELPER(DLL,T,INPUTS,Y0)\n\tSIMEX_HELPER(DLL,INPUTS)\n\tSIMEX_HELPER(T,Y0)\n");
     }
 
+
 /* MATLAB entry point.
  *
  * Usage:
@@ -299,6 +367,8 @@ void usage(void)
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
     char name[2048];
+
+    init_simex_helper();    
 
     // Fast entry to evalflow
     // Check for two parameters where the first is not the name of the DLL
