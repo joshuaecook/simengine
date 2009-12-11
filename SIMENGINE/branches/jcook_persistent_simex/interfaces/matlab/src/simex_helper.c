@@ -21,7 +21,9 @@ static double *inputs = NULL;
 //#define ERROR(ID, MESSAGE, ARG...) {mexPrintf("ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); return; }
 
 static unsigned char initialized = 0;
+static unsigned char exiting = 0;
 static pthread_t simengine_thread;
+static pthread_cond_t simengine_wakeup = PTHREAD_COND_INITIALIZER;
 
 void thread_error (int code, const char *message)
     {
@@ -30,12 +32,23 @@ void thread_error (int code, const char *message)
 	case EINVAL: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) invalid argument.", code, message);
 	case ESRCH: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) no such thread.", code, message);
 	case EDEADLK: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) deadlock.", code, message);
+	default: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; unrecognized error code.", message);
 	}
     }
 
 void *run_simengine_thread (void *arg)
     {
+    static pthread_mutex_t invocation_lock = PTHREAD_MUTEX_INITIALIZER;
+
     PRINTF("I'm on a boat!\n");
+
+    while (1)
+	{
+	int err = pthread_cond_wait(&simengine_wakeup, &invocation_lock);
+	if (err) thread_error(err, "Waiting for wakeup condition");
+	if (exiting) break;
+	// do something
+	}
 
     pthread_exit(NULL);
     return NULL;
@@ -53,8 +66,13 @@ void release_simex_helper (void)
 
     if (simengine_thread)
 	{
-	int err = pthread_join(simengine_thread, NULL);
-	if (err) thread_error(err, "Failed to join simengine thread");
+	int err;
+	exiting = 1;
+	err = pthread_cond_signal(&simengine_wakeup);
+	if (err) thread_error(err, "Signalling wakeup condition");
+	err = pthread_join(simengine_thread, NULL);
+	if (err) thread_error(err, "Joining simEngine thread");
+	exiting = 0;
 	}
 
     initialized = 0;
@@ -76,7 +94,7 @@ void init_simex_helper (void)
 	// TODO need any attributes?
 	// TODO what to pass as an argument?
 	int err = pthread_create(&simengine_thread, NULL, run_simengine_thread, NULL);
-	if (err) thread_error(err, "Failed to create simengine thread");
+	if (err) thread_error(err, "Creating simEngine thread");
 	}
 
     initialized = 1;
