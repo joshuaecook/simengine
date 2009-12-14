@@ -23,7 +23,11 @@ function s = FeatureTests(varargin)
 INTERNAL = 0; RELEASE = 1;
 mode = INTERNAL;
 
-target = varargin{1};
+if nargin > 0
+    target = varargin{1};
+else
+    target = '-cpu';
+end
 
 if nargin == 2
     if strcmpi(varargin{2},'-release')

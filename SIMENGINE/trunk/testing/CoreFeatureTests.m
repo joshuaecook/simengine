@@ -3,13 +3,18 @@
 %
 % Usage:
 %  s = CoreFeatureTests - runs all tests
+%  s = CoreFeatureTests('-cpu', '-release')
 %  s = CoreFeatureTests('-release') - runs only those required for a release
 %
 function s = CoreFeatureTests(varargin)
 
-target = varargin{1};
+if nargin>0
+    target = varargin{1};
+else
+    target = '-cpu';
+end
 
-if nargin == 1
+if nargin<2
    mode = 1;
 else
    mode = varargin{2};
