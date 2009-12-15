@@ -746,7 +746,7 @@ namespace Simulation
     property solver
       get
         if (not (isdefined solver_obj)) then
-          warning "No solver specified for continuous iterator '" + name + "', using default ode45 solver"
+          //warning ("No solver specified for continuous iterator '" + name + "', using default ode45 solver")
           ode45
         else
           solver_obj
