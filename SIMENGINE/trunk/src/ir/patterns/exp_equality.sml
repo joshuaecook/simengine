@@ -62,6 +62,7 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
       | (Exp.COMPLEX (r1, i1), Exp.COMPLEX (r2, i2)) => 
 
 	allEquiv terms_equivalent matchCandidates ([r1, i1], [r2, i2])
+	(*
       | (Exp.LIST (l1, d1), Exp.LIST (l2, d2)) => 
 	let
 	    val matchCandidates' =
@@ -79,6 +80,7 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
 	in
 	    (allEquiv terms_equivalent matchCandidates' (l1, l2))
 	end
+	 *)
       | (Exp.TUPLE l1, Exp.TUPLE l2) =>
 	let
 	    val matchCandidates' =

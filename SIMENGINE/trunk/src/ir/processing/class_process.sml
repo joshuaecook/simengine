@@ -192,7 +192,7 @@ fun findMatchingEq (class:DOF.class) sym =
 											  "ClassProcess.findMatchingEq",
 											  Logger.INTERNAL)
 							| [oneexp] => SOME (ExpBuild.equals (Exp.TERM name, oneexp))
-							| rest => SOME (ExpBuild.equals (Exp.TERM name, ExpBuild.group rest)))
+							| rest => SOME (ExpBuild.equals (Exp.TERM name, ExpBuild.explist rest)))
 	       | NONE => NONE)
 	     
     end

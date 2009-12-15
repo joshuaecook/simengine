@@ -168,7 +168,8 @@ fun quantity_to_dof_exp (KEC.LITERAL (KEC.CONSTREAL r)) = ExpBuild.real r
 	fun exp_to_term (Exp.TERM t) = t
 	  | exp_to_term _ = Exp.NAN
     in
-	Exp.TERM (Exp.LIST (map (exp_to_term o quantity_to_dof_exp) expressions, [List.length expressions]))
+	(*Exp.TERM (Exp.LIST (map (exp_to_term o quantity_to_dof_exp) expressions, [List.length expressions]))*)
+	ExpBuild.explist (map quantity_to_dof_exp expressions)
     end
 
   | quantity_to_dof_exp quantity =

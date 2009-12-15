@@ -760,17 +760,6 @@ fun op2props optype =
 		   mathematica=("==",INFIX),
 		   expcost=basicOpCost,
 		   codomain= vectorizedCodomain}
-      | GROUP => {name="group",
-		  operands=VARIABLE (Exp.LIST ([],[])),
-		  precedence=1,
-		  commutative=false,
-		  associative=false,
-		  eval=empty_binary,
-		  text=("",PREFIX),
-		  C=("",PREFIX),
-		  mathematica=("",PREFIX),
-		  expcost=0,
-		  codomain= vectorizedCodomain}
       | NULL => {name="nullfun",
 		 operands=FIXED 0,
 		 precedence=1,

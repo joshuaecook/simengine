@@ -82,7 +82,7 @@ fun class2mexp top_class (class: DOF.class) =
 			      case contents of 
 				  nil => NONE
 				| [content] => SOME (ExpBuild.equals (ExpProcess.term2exp name, content))
-				| _ => SOME (ExpBuild.equals (ExpProcess.term2exp name, ExpBuild.group contents)))
+				| _ => SOME (ExpBuild.equals (ExpProcess.term2exp name, ExpBuild.explist contents)))
 			      outputs
 	val output_mequs = map exp2mexp output_equs
 			       

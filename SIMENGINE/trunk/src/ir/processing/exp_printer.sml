@@ -75,7 +75,6 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 				else if Term.isZero t1 then (exp2tersestr (Exp.TERM t2) ^ " i")
 				else if Term.isZero t2 then exp2tersestr (Exp.TERM t1)
 				else exp2tersestr (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
-       | Exp.LIST (l,_) => "[" ^ (String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l)) ^ "]"
        | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l))^")"
        | Exp.RANGE {low, high, step} => 
 	 if Term.isOne step then
@@ -162,7 +161,6 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	 else if Term.isZero t1 then (exp2fullstr (Exp.TERM t2) ^ " i")
 	 else if Term.isZero t2 then exp2fullstr (Exp.TERM t1)
 	 else exp2fullstr (Exp.FUN (Symbol.symbol "PLUS", [Exp.TERM t1, Exp.FUN (Symbol.symbol "TIMES", [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))])]))	*)
-       | Exp.LIST (l,_) => "List(" ^ (String.concatWith "," (map (fn(t)=>exp2fullstr (Exp.TERM t)) l)) ^ ")"
        | Exp.TUPLE l => "Tuple("^(String.concatWith ", " (map (fn(t)=>exp2fullstr (Exp.TERM t)) l))^")"
        | Exp.RANGE {low, high, step} => "Range("^(exp2fullstr (Exp.TERM low))^":"^(exp2fullstr (Exp.TERM step))^":"^(exp2fullstr (Exp.TERM high))^")"
        | Exp.SYMBOL (s, props) => Term.sym2fullstr (s, props)

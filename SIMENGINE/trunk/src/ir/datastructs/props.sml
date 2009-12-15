@@ -18,7 +18,6 @@ datatype ep_index_type = STRUCT_OF_ARRAYS | ARRAY
 
 type symbolproperty = {
      (* The extents of multidimensional data. *)
-     dim: dimlist option,
      iterator: Iterator.iterator list option,
      derivative: (int * Symbol.symbol list) option,
      isevent: bool,
@@ -33,8 +32,7 @@ type symbolproperty = {
      ep_index: ep_index_type option}
 
 val default_symbolproperty = 
-    {dim=NONE,
-     iterator=NONE,
+    {iterator=NONE,
      derivative=NONE,
      sourcepos=NONE,
      realname=NONE,
@@ -43,8 +41,6 @@ val default_symbolproperty =
      isrewritesymbol=false,
      outputbuffer=false,
      ep_index=NONE}
-
-fun getDim (props:symbolproperty) = #dim props
 
 fun getIterator (props:symbolproperty) = #iterator props
 	
@@ -69,21 +65,8 @@ fun isOutputBuffer (props:symbolproperty) = #outputbuffer props
 
 fun getEPIndex (props:symbolproperty) = #ep_index props
 
-fun setDim props p = 
-    {dim=SOME p,
-     iterator=getIterator props,
-     derivative=getDerivative props,
-     sourcepos=getSourcePos props,
-     realname=getRealName props,
-     scope=getScope props,
-     isevent=getIsEvent props,
-     isrewritesymbol=getIsRewriteSymbol props,
-     outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}
-
 fun setIsEvent props flag = 
-    {dim=getDim props,
-     iterator=getIterator props,
+    {iterator=getIterator props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -94,8 +77,7 @@ fun setIsEvent props flag =
      ep_index=getEPIndex props}
 
 fun setIsRewriteSymbol props flag = 
-    {dim=getDim props,
-     iterator=getIterator props,
+    {iterator=getIterator props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -106,8 +88,7 @@ fun setIsRewriteSymbol props flag =
      ep_index=getEPIndex props}
 	
 fun setIterator props p = 
-    {dim=getDim props,
-     iterator=SOME p,
+    {iterator=SOME p,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -118,8 +99,7 @@ fun setIterator props p =
      ep_index=getEPIndex props}
 	
 fun setDerivative props p = 
-    {dim=getDim props,
-     iterator=getIterator props,
+    {iterator=getIterator props,
      derivative=SOME p,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -130,8 +110,7 @@ fun setDerivative props p =
      ep_index=getEPIndex props}
 	
 fun setSourcePos props p = 
-    {dim=getDim props,
-     iterator=getIterator props,
+    {iterator=getIterator props,
      derivative=getDerivative props,
      sourcepos=SOME p,
      realname=getRealName props,
@@ -142,8 +121,7 @@ fun setSourcePos props p =
      ep_index=getEPIndex props}
 	
 fun setRealName props p = 
-    {dim=getDim props,
-     iterator=getIterator props,
+    {iterator=getIterator props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=SOME p,
@@ -154,8 +132,7 @@ fun setRealName props p =
      ep_index=getEPIndex props}	
 
 fun setScope props p = 
-    {dim=getDim props,
-     iterator=getIterator props,
+    {iterator=getIterator props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -166,8 +143,7 @@ fun setScope props p =
      ep_index=getEPIndex props}	
 
 fun setOutputBuffer props p = 
-    {dim=getDim props,
-     iterator=getIterator props,
+    {iterator=getIterator props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -178,8 +154,7 @@ fun setOutputBuffer props p =
      ep_index=getEPIndex props}	
 
 fun setEPIndex props p = 
-    {dim=getDim props,
-     iterator=getIterator props,
+    {iterator=getIterator props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,

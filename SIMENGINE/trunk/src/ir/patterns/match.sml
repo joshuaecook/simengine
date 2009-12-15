@@ -73,7 +73,6 @@ fun exp2term (Exp.TERM t) = t
 fun level (exp) =
     case exp of 
 	Exp.FUN (_,args) => args
-      | Exp.TERM (Exp.LIST (termlist, _)) => map Exp.TERM termlist
       | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
       | Exp.TERM (Exp.COMPLEX (a, b)) => map Exp.TERM [a,b]
       | Exp.CONTAINER (Exp.EXPLIST l) => l
@@ -87,7 +86,6 @@ fun level (exp) =
 fun head (exp) =
     case exp of
 	Exp.FUN (funtype, args) => (fn(args')=> Exp.FUN (funtype, args'))
-      | Exp.TERM (Exp.LIST (termlist, dimlist)) => (fn(args')=> Exp.TERM (Exp.LIST (map exp2term args', dimlist)))
       | Exp.TERM (Exp.TUPLE (termlist)) => (fn(args') => Exp.TERM (Exp.TUPLE (map exp2term args')))
       | Exp.TERM (Exp.COMPLEX (a, b)) => (fn(args') => Exp.TERM (Exp.COMPLEX (exp2term (List.nth (args', 0)), exp2term (List.nth (args', 1)))))
       | Exp.CONTAINER (Exp.EXPLIST l) => (fn(args') => Exp.CONTAINER (Exp.EXPLIST args'))

@@ -25,7 +25,7 @@ datatype operation =
 	 (* reduction operations *)
 	 RADD | RMUL | RAND | ROR | 
 	 (* special purpose operations *)
-	 DERIV | IF | ASSIGN | GROUP | NULL
+	 DERIV | IF | ASSIGN | NULL
 
 (* create a full op list *)
 val op_list = 
@@ -49,7 +49,7 @@ val op_list =
      (* reduction operations *)
      RADD, RMUL, RAND, ROR, 
      (* special purpose operations *)
-     DERIV, IF, ASSIGN, GROUP]
+     DERIV, IF, ASSIGN]
 
     
 datatype funtype = BUILTIN of operation

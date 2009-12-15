@@ -116,8 +116,6 @@ open Printer
 fun exp2termsymbols (Exp.FUN (_, exps)) = 
     List.concat (map exp2termsymbols exps)
   | exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
-  | exp2termsymbols (Exp.TERM (Exp.LIST (terms, _))) = 
-    List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
   | exp2termsymbols (Exp.TERM (Exp.TUPLE terms)) = 
     List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
   | exp2termsymbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
@@ -132,7 +130,6 @@ fun exp2symbols (Exp.FUN (_, operands))		= List.concat (map exp2symbols operands
   | exp2symbols _ 				= nil
 
 and term2symbols (Exp.SYMBOL (var, _)) 		= [var]
-  | term2symbols (Exp.LIST (terms, _)) 		= List.concat (map term2symbols terms)
   | term2symbols (Exp.TUPLE terms) 		= List.concat (map term2symbols terms)
   | term2symbols (Exp.COMPLEX (real, imag)) 	= (term2symbols real) @ (term2symbols imag)
   | term2symbols _ 				= nil
@@ -334,7 +331,11 @@ fun deconstructInst exp =
     end
 
 fun instSpatialSize inst =
-    if isInstanceEq inst then
+    if isInstanceEq inst then 
+	1
+    else 
+   (* we need to add a way to compute the instance size since deprecating getDim *) 
+   (* if isInstanceEq inst then
 	let
 	    val {props,...} = deconstructInst inst
 	in
@@ -342,7 +343,7 @@ fun instSpatialSize inst =
 	     of SOME l => Util.prod l
 	      | NONE => 1
 	end	    
-    else
+    else*)
 	DynException.stdException(("Passed exp '"^(e2s inst)^"' that is not an instance"), "Inst.instSpatialSize", Logger.INTERNAL)
 
 fun instOrigClassName inst = 
@@ -720,9 +721,6 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 		       | _ => SymbolSet.empty)
 
   | iterators_of_expression (Exp.TERM (Exp.TUPLE terms)) = 
-    foldl SymbolSet.union SymbolSet.empty (map (iterators_of_expression o Exp.TERM) terms)
-
-  | iterators_of_expression (Exp.TERM (Exp.LIST (terms, _))) = 
     foldl SymbolSet.union SymbolSet.empty (map (iterators_of_expression o Exp.TERM) terms)
 
   | iterators_of_expression (Exp.TERM (Exp.COMPLEX (real, imag))) = 
@@ -1238,15 +1236,14 @@ and fun_to_json (Fun.BUILTIN operation, expressions) =
 	       ("operation", js_string (#name (FunProps.op2props operation))),
 	       ("operands", js_array (map to_json expressions))]
   | fun_to_json (Fun.INST {classname,instname,props}, expressions) = 
-    let val {dim,sourcepos,realclassname,realinstname,iterators,inline} 
+    let val {sourcepos,realclassname,realinstname,iterators,inline} 
 	  = props
 
 	val json_properties = js_object [("inline", js_boolean inline),
 					 ("iterators", js_array (map js_symbol iterators)),
 					 ("realInstanceName", jsValOf js_symbol realinstname),
 					 ("realClassName", jsValOf js_symbol realclassname),
-					 ("sourcePosition", jsValOf PosLog.to_json sourcepos),
-					 ("dimensions", jsValOf (js_array o (map js_int)) dim)]
+					 ("sourcePosition", jsValOf PosLog.to_json sourcepos)]
     in
 	js_object [("type", js_string "INSTANCE"),
 		   ("className", js_string (Symbol.name classname)),
@@ -1274,10 +1271,6 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
     js_object [("type", js_string "COMPLEX"),
 	       ("real", term_to_json r),
 	       ("imaginary", term_to_json i)]
-  | term_to_json (Exp.LIST (terms, dimens)) = 
-    js_object [("type", js_string "LIST"),
-	       ("terms", js_array (map term_to_json terms)),
-	       ("dimensions", js_array (map js_int dimens))]
   | term_to_json (Exp.TUPLE terms) =
     js_object [("type", js_string "TUPLE"),
 	       ("terms", js_array (map term_to_json terms))]
@@ -1287,7 +1280,7 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
 	       ("step", term_to_json step),
 	       ("high", term_to_json high)]
   | term_to_json (Exp.SYMBOL (name, properties)) = 
-    let val {dim, iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index}
+    let val {iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index}
 	  = properties
 
 	val json_iterators
@@ -1332,8 +1325,7 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
 	      | NONE => js_null
 
 	val json_properties
-	  = js_object [("dimensions", jsValOf (js_array o (map js_int)) dim),
-		       ("iterators", json_iterators),
+	  = js_object [("iterators", json_iterators),
 		       ("derivative", json_derivative),
 		       ("isEvent", js_boolean isevent),
 		       ("sourcePosition", jsValOf PosLog.to_json sourcepos),

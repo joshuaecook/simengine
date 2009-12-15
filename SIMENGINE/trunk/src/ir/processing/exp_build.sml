@@ -128,7 +128,6 @@ fun exp v = power (var "e", v)
 fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
 infix equals;
 fun cond (p, q, r) = Exp.FUN (Fun.BUILTIN Fun.IF, [p, q, r]);
-fun group l = Exp.FUN (Fun.BUILTIN Fun.GROUP, l)
 fun atan2 (a,b) = Exp.FUN (Fun.BUILTIN Fun.ATAN2, [a,b])
 fun re z = Exp.FUN (Fun.BUILTIN Fun.RE, [z])
 fun im z = Exp.FUN (Fun.BUILTIN Fun.IM, [z])
@@ -163,5 +162,6 @@ fun lambda (arg, body) = Exp.META(Exp.LAMBDA{arg=Symbol.symbol arg, body=body})
 fun sequence (exps) = Exp.META(Exp.SEQUENCE exps)
 fun apply (func, arg) = Exp.META(Exp.APPLY{func=func, arg=arg})
 fun map (func, args) = Exp.META(Exp.MAP{func=func, args=args})
+fun explist (args) = Exp.CONTAINER(Exp.EXPLIST args)
 
 end

@@ -294,7 +294,6 @@ fun isZero term =
       | Exp.INT v => (v = 0) orelse (v = ~0)
       | Exp.REAL v => (Real.==(v, 0.0)) orelse (Real.==(v, ~0.0))
       | Exp.COMPLEX (a,b) => (isZero a) andalso (isZero b)
-      | Exp.LIST (l,_) => List.all isZero l
       | Exp.TUPLE l => List.all isZero l
       | _ => false
 
@@ -304,7 +303,6 @@ fun isOne term =
       | Exp.INT v => (v = 1)
       | Exp.REAL v => (Real.==(v, 1.0))
       | Exp.COMPLEX (a,b) => (isOne a) andalso (isZero b)
-      | Exp.LIST (l,_) => List.all isOne l
       | Exp.TUPLE l => List.all isOne l
       | _ => false
 
@@ -313,7 +311,6 @@ fun isNumeric term =
 	Exp.RATIONAL _ => true
       | Exp.INT _ => true
       | Exp.COMPLEX (t1, t2) => (isNumeric t1) andalso (isNumeric t2)
-      | Exp.LIST (l, _) => List.all isNumeric l
       | Exp.TUPLE l => List.all isNumeric l
       | Exp.INFINITY => true
       | Exp.NAN => true
@@ -326,7 +323,6 @@ fun isConstant term =
       | Exp.REAL _ => true
       | Exp.BOOL _ => true
       | Exp.COMPLEX _ => true
-      | Exp.LIST (l,_) => List.all isConstant l
       | Exp.TUPLE l => List.all isConstant l
       | Exp.INFINITY => true
       | Exp.NAN => true
@@ -340,15 +336,13 @@ fun isSymbol term =
 fun areSymbols term =
     case term of
 	Exp.SYMBOL _ => true
-      | Exp.LIST (l, _) => List.all areSymbols l
       | Exp.TUPLE l => List.all areSymbols l
       | Exp.COMPLEX (a,b) => (isSymbol a) andalso (isSymbol b)
       | _ => false
 
 fun isScalar term =
     case term of
-	Exp.LIST _ => false
-      | Exp.TUPLE _ => false
+	Exp.TUPLE _ => false
       | _ => true
 
 fun isReadState term =
@@ -384,7 +378,6 @@ fun isLocal term =
 fun termCount term =
     case term of
 	Exp.SYMBOL _ => 1 (* this might have to change *)
-      | Exp.LIST (l, _) => length l
       | Exp.TUPLE l => length l
       | _ => 1
 
@@ -418,14 +411,15 @@ fun symbolSampleDelay term =
 	       | _ => 0)
       | _ => 0
 
-fun symbolSpatialSize term =
-    case term
+fun symbolSpatialSize term = 1
+    (* we need to calculate this based on spatial iterators.  This can be rewritten when we're ready *)
+(*    case term
      of Exp.SYMBOL (sym, props) =>
 	(case Property.getDim props
 	  of SOME l => Util.prod l
 	   | NONE => 1)
       | _ => 1
-
+*)
 
 (* compute the memory requirements of a term *)
 fun termMemorySize term =
@@ -483,14 +477,14 @@ and makeReal t =
       | Exp.INFINITY => Exp.REAL (Real.posInf)
       | Exp.NAN => Exp.REAL (0.0/0.0)
       | _ => DynException.stdException(("Invalid input"), "Term.makeReal", Logger.INTERNAL)
-
+(*
 and makeList (t, dimlist) =
     let
 	val size = Util.prod dimlist
     in
 	Exp.LIST (List.tabulate (size, fn(x)=>t), dimlist)
     end
-    
+  *)  
 and makeRange t =
     case t of 
 	Exp.RANGE _ => DynException.stdException(("Invalid range input"), "Term.makeRange", Logger.INTERNAL)
@@ -517,7 +511,7 @@ and makeCommensurable (t1, t2) =
 	in
 	    (Exp.COMPLEX (a1'', b1''), Exp.COMPLEX (a2'', b2''))
 	end
-      | (Exp.LIST (l1, d1), Exp.LIST (l2, d2)) => 
+    (*  | (Exp.LIST (l1, d1), Exp.LIST (l2, d2)) => 
 	if (List.length l1) = (List.length l2) then
 	    let
 		val (l1', l2') = ListPair.unzip (map makeCommensurable (ListPair.zip (l1, l2)))
@@ -525,7 +519,7 @@ and makeCommensurable (t1, t2) =
 		(Exp.LIST (l1', d1), Exp.LIST (l2', d2))
 	    end
  	else 
-	    DynException.stdException(("Invalid lists"), "Term.makeCommensurable [List,List]", Logger.INTERNAL)	    
+	    DynException.stdException(("Invalid lists"), "Term.makeCommensurable [List,List]", Logger.INTERNAL)	   *) 
       | (Exp.TUPLE l1, Exp.TUPLE l2) => 
 	if (List.length l1) = (List.length l2) then
 	    let
@@ -556,8 +550,8 @@ and makeCommensurable (t1, t2) =
       | (_, Exp.NAN) => makeCommensurable (t1, makeReal t2)
       | (Exp.INFINITY, _) => makeCommensurable (makeReal t1, t2)
       | (_, Exp.INFINITY) => makeCommensurable (t1, makeReal t2)
-      | (Exp.LIST (l1, d1), _) => makeCommensurable (t1, makeList (t2, d1))			     
-      | (_, Exp.LIST (l2, d2)) => makeCommensurable (makeList (t1, d2), t2)
+      (* | (Exp.LIST (l1, d1), _) => makeCommensurable (t1, makeList (t2, d1))			     
+      | (_, Exp.LIST (l2, d2)) => makeCommensurable (makeList (t1, d2), t2)*)
       | (Exp.TUPLE l1, _) => makeCommensurable (t1, Exp.TUPLE [t2])
       | (_, Exp.TUPLE l2) => makeCommensurable (Exp.TUPLE [t1], t2)
       | _ => (t1, t2)
@@ -570,9 +564,9 @@ fun isCommensurable (t1, t2) =
       | (Exp.COMPLEX (r1, i1), Exp.COMPLEX (r2, i2)) => 
 	(isCommensurable (r1, i1) andalso (isCommensurable (r2, i2)) andalso
 	 isCommensurable (r1, r2) andalso (isCommensurable (i1, i2)))
-      | (Exp.LIST (l1,_), Exp.LIST (l2,_)) => 
+      (*| (Exp.LIST (l1,_), Exp.LIST (l2,_)) => 
 	(List.length l1) = (List.length l2) andalso
-	(List.all isCommensurable (ListPair.zip (l1, l2)))
+	(List.all isCommensurable (ListPair.zip (l1, l2)))*)
       | (Exp.TUPLE l1, Exp.TUPLE l2) => 
 	(List.length l1) = (List.length l2) andalso
 	(List.all isCommensurable (ListPair.zip (l1, l2)))
