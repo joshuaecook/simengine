@@ -459,13 +459,13 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
 	     val _ = log ("Computing dependencies  ... ")
 	     val relations = map computeRelationships states
-	     val _ = ExpProcess.analyzeRelations relations
+	    (* val _ = ExpProcess.analyzeRelations relations*)
 
 	     (* order the states to make matrix banded *)
 			     
 	     val _ = log ("Ordering relationships ...")
 	     val orderedRelationships = ExpProcess.sortStatesByDependencies relations
-	     val _ = ExpProcess.analyzeRelations orderedRelationships
+	     (*val _ = ExpProcess.analyzeRelations orderedRelationships*)
 	     (*val _ = DynException.exit()*)
 
 	     val numberedRelationships = (ListPair.zip (orderedRelationships, 
@@ -602,7 +602,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
   	     (* create new shard using matrix equation Mx = b *)
 	     val (upperbw, lowerbw) = Matrix.findBandwidth matrix
-	     val _ = Util.log("Upper BW: "^(i2s upperbw)^", Lower BW: " ^ (i2s lowerbw))
+	     val _ = log("Upper BW: "^(i2s upperbw)^", Lower BW: " ^ (i2s lowerbw))
 
 	     val m_banded = Matrix.dense2bandedmatrix matrix
 	     val m_eq = ExpBuild.equals (ExpBuild.var ("#M"),
