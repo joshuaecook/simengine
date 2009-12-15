@@ -301,9 +301,16 @@ and simquantity_to_dof_exp quantity =
 	    Exp.TERM (Exp.PATTERN (name, PatternProcess.predicate_any, arity))
 	end
 
+    else if (istype (quantity, "Random")) andalso isdefined (method "iter" quantity) then
+	((*Util.log("Found random quantity: " ^ (exp2str (method "name" quantity)));*)
+	 ExpBuild.ivar (exp2str (method "name" quantity)) [(Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)])
+
     else if (istype (quantity, "State")) andalso isdefined (method "iter" quantity) then
 	ExpBuild.ivar (exp2str (method "name" quantity)) [(Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)]
-
+    else if (istype (quantity, "Symbol")) then
+        ExpBuild.pvar(exp2str (method "name" quantity))
+    else if (istype (quantity, "RandomValue")) then
+	ExpBuild.rand()
     else
 	ExpBuild.var(exp2str (method "name" quantity))
 

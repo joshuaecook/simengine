@@ -86,6 +86,7 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN"
+       | Exp.RANDOM => "Rand"
        | Exp.PATTERN p => PatternProcess.pattern2str p)
   | exp2tersestr (Exp.META meta) =
     (case meta of 
@@ -167,7 +168,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
        | Exp.SYMBOL (s, props) => Term.sym2fullstr (s, props)
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
-       | Exp.NAN => "NaN"
+       | Exp.NAN => "NaN" 
+       | Exp.RANDOM => "Random"
        | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")")
   | exp2fullstr (Exp.META meta) =
     (case meta of 

@@ -2,6 +2,9 @@ structure ExpBuild =
 struct
 
 fun var str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, Property.default_symbolproperty))
+fun pvar str = 
+        Exp.TERM (Exp.SYMBOL (Symbol.symbol (str), 
+                              Property.setIsRewriteSymbol Property.default_symbolproperty true))
 
 fun tvar str = Exp.TERM 
 		   (Exp.SYMBOL (Symbol.symbol str, 
@@ -109,6 +112,7 @@ fun relvar (sym, itersym, offset) =
 fun int i = Exp.TERM (Exp.INT i);
 fun real r = Exp.TERM (Exp.REAL r);
 fun bool b = Exp.TERM (Exp.BOOL b);
+fun rand () = Exp.TERM (Exp.RANDOM);
 fun frac (n,d) = Exp.TERM (Exp.RATIONAL (n, d))
 fun plus l = Exp.FUN (Fun.BUILTIN Fun.ADD, l);
 fun sub (a,b) = Exp.FUN (Fun.BUILTIN Fun.SUB, [a, b]);

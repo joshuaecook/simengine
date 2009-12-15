@@ -33,9 +33,6 @@ fun addCount list =
 fun listSlice list (first, rest) =
     List.take(List.drop(list, first), rest-first)
 
-fun vector2list vec = 
-    Vector.foldr (fn (a,l) => a::l) [] vec
-
 
 fun mapPairs f nil = nil
   | mapPairs f (x::nil) = nil

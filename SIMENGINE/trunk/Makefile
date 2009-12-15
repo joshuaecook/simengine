@@ -259,7 +259,7 @@ MATLAB_TARGETS = $(addprefix interfaces/matlab/%,$(ALL_MEXEXT))
 # TODO: extensions for other platforms
 
 ifneq ($(MATLAB),)
-MEXEXT = .$(shell $(MATLAB_INSTALL_PATH)/bin/mexext)
+MEXEXT = .$(shell MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mexext)
 endif
 
 ifneq ($(OCTAVE),)
@@ -661,6 +661,7 @@ $(MATLAB_TARGETS): interfaces/matlab/src/%.c
 ifneq ($(ARCH64),)
 	$(MAKE) -C interfaces/matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(ARCH64_FLAG) $(*F)
 else
+	$(info MEXEXT is $(MEXEXT))
 	$(MAKE) -C interfaces/matlab MEXEXT="$(MEXEXT)" DEBUG=$(DEBUG) PROFILE=$(PROFILE) $(*F)
 endif
 

@@ -135,8 +135,8 @@ fun findRecursive (pattern, target) =
 
 fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
     case exp of
-	Exp.TERM (Exp.SYMBOL (sym',_)) => 
-	      if sym=sym' then
+	Exp.TERM (Exp.SYMBOL (sym',props)) => 
+	      if sym=sym' andalso Property.getIsRewriteSymbol props then
 		  repl_exp
 	      else
 		  exp

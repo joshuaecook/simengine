@@ -540,8 +540,8 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 									     Match.any "d3"], 
 							     Match.any "d4"],
 					  test=NONE,
-					  replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.var "d2", ExpBuild.var "d3"],
-											 ExpBuild.plus  [ExpBuild.var "d1", ExpBuild.var "d4"]]))}
+					  replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.pvar "d2", ExpBuild.pvar "d3"],
+											 ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
 					 
 				 in
 				     case Match.applyRewriteExp coeff_rewrite exp of

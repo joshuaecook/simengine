@@ -37,6 +37,7 @@ datatype exp =
        | LIST of (term list * Property.dimlist)
        | TUPLE of (term list)
        | RANGE of {low: term, high: term, step: term}
+       | RANDOM
        (* Symbols are associated with a variety of metadata.
 	* See props.sml. *)
        | SYMBOL of (Symbol.symbol * Property.symbolproperty)

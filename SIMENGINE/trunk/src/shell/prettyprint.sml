@@ -10,9 +10,6 @@ struct
 fun error msg = (print ("ERROR: " ^ msg ^ "\n");
 		 DynException.setErrored())
 
-fun stream2str (KEC.INSTREAM _) = "input"
-  | stream2str (KEC.OUTSTREAM _) = "output"
-
 (* Returns a textual description of the type of an expression. *)
 fun kecexp2nickname exp =
     case exp of
@@ -56,8 +53,6 @@ fun kecexp2nickname exp =
 	=> "read/write property"
       | KEC.PROCESS p 
 	=> "a running process"
-      | KEC.STREAM (s,_,_)
-	=> "an " ^ (stream2str s) ^ " file stream"
       | _ => "an uncomputed expression"
 
 exception ImpossibleListType
@@ -196,8 +191,6 @@ fun kecexp2prettystr (exec : (KEC.exp -> KEC.exp)) (exp: KEC.exp) : string =
 	  | KEC.UNDEFINED => "undefined"
 	  | KEC.PROCESS (p, name, args) 
 	    => "process of " ^ name	    
-	  | KEC.STREAM (s,_,n)
-	    => "an " ^ (stream2str s) ^ " file stream to: " ^ n
 	  | KEC.PROPERTYEXP {name, read=NONE, write=NONE, ...}
 	    => "inaccessible property " ^ (Symbol.name name)
 	  | KEC.PROPERTYEXP {name, read=SOME _, write=NONE, ...}
@@ -278,8 +271,6 @@ fun kecexp2debugstr (exp: KEC.exp) : string =
 	  | KEC.UNDEFINED => "undefined"
 	  | KEC.PROCESS (p, name, args) 
 	    => "process of " ^ name	    
-	  | KEC.STREAM (s,_,n)
-	    => "an " ^ (stream2str s) ^ " file stream to: " ^ n
 	  | KEC.PROPERTYEXP {name, read=NONE, write=NONE, ...}
 	    => "inaccessible property " ^ (Symbol.name name)
 	  | KEC.PROPERTYEXP {name, read=SOME _, write=NONE, ...}

@@ -81,6 +81,7 @@ function acsch (x: Number) = asinh (1.0 / x)
 function asech (x: Number) = acosh (1.0 / x)
 function acoth (x: Number) = atanh (1.0 / x)
 
+//constant rand = LF rand ()
 
 
 // Strings
@@ -489,56 +490,6 @@ namespace Process
 
 
   function reap (process) = LF preap (process)
-end
-
-namespace File
-
-  // text file io
-
-  class TextFileIn
-    var instream
-    constructor (instream)
-      self.instream = instream
-    end
-
-    // all functions return UNIT when eof (done) is reached.
-
-    function getline() = LF getline instream
-    function getchar() = LF getchar instream
-
-    // returns up to n characters
-    function getchars(n: Number) = LF getchars (instream, n)
-    function getall() = LF getall instream
-    function close() = LF close instream
-    function done() = LF endofstream instream
-  end
-
-  function openTextIn (filename: String)
-    TextFileIn.new(LF openTextIn filename)
-  end
-
-  class TextFileOut
-    var outstream
-    constructor (outstream)
-      self.outstream = outstream
-    end
-    function putstr (str: String) = LF outputstring (outstream, str)
-    function flush () = LF flush(outstream)
-    function close() = LF close outstream
-  end
-
-  function openTextOut (filename: String)
-    TextFileOut.new(LF openTextOut filename)
-  end
-
-  function openTextAppend (filename: String)
-    TextFileOut.new(LF openTextAppend filename)
-  end
-
-
-  // binary file io
-  // placeholder
-
 end
 
 open Operations
