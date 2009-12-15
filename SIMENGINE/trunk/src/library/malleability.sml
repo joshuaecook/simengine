@@ -315,6 +315,8 @@ fun std_deepclone exec args =
 		    => KEC.PROPERTYEXP (cloneProperty property)
 		  | KEC.PROCESS p
 		    => KEC.PROCESS p
+		  | KEC.STREAM f
+		    => KEC.STREAM f
 
 	    and cloneProperty {name, expansionAllowed, read, write} =
 		{name=name,

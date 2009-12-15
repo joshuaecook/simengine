@@ -17,6 +17,9 @@ datatype lit = CONSTREAL of real
 
 type header = {name: Symbol.symbol, args: (Symbol.symbol * typepattern) list, return: typepattern option} 
 
+datatype stream = INSTREAM of IOUtil.instream
+		| OUTSTREAM of IOUtil.outstream
+
 datatype visibility = HIDDEN | PUBLIC
 
 datatype member = METHOD of (Symbol.symbol * visibility * runnable)
@@ -72,7 +75,8 @@ and exp =
   | SATISFIES of {class:exp, interface: exp}
   | PROPERTYEXP of property
   | PROCESS of (TextIO.outstream, TextIO.instream, TextIO.instream) MLton.Process.t * string * string list
-
+  | STREAM of stream * bool ref * string
+ 
 and definition =
     DEFGLOBAL of replacement * Symbol.symbol * typepattern * exp
   | DEFLOCAL of replacement * Symbol.symbol * typepattern * exp
