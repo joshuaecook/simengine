@@ -1,10 +1,15 @@
 /*
- * mysa compartment definition for the MRG model
+ * Cameron MacIntyre's Axon Model
+ * mysa compartment definition
+ * adapted for use with simEngine
+ *
+ * Copyright 2009 Simatra Modeling Technologies, L.L.C.
  */
+
 //************************************************
 //special function definitions
 //************************************************
-model (Vm, Vmp, Raxonal, Rperiaxonal) = mysa(fiberDiameter, diameter, length, numLamella, Iaxonal, Iperiaxonal)
+model (Vm, Vmp, Raxonal, Rperiaxonal) = mysa(fiberDiameter, diameter, length, numLamella, Iaxonal, Iperiaxonal, Isegmental_axonal, Isegmental_periaxonal)
 
 iterator t_exp with {continuous, solver=forwardeuler{dt=0.001}}
 iterator t_imp with {continuous, solver=linearbackwardeuler{dt=0.001}}
@@ -35,6 +40,9 @@ equation xc = 0.1/(numLamella*2)
 
 input Iaxonal with {default = 0}
 input Iperiaxonal with {default = 0}
+input Isegmental_axonal with {default = 0}
+input Isegmental_periaxonal with {default = 0}
+
 //************************************************
 //State Declarations
 //************************************************
@@ -59,8 +67,8 @@ equations
    //Calculate Passive currents
    IPas = GPas*(V - e_pas)
    Imyelin = Gmyelin*Vmp
-   ICmem = -IPas - Iaxonal
-   ICmyelin = ICmem + IPas - Imyelin - Iperiaxonal
+   ICmem = -IPas - Iaxonal - Isegmental_axonal
+   ICmyelin = ICmem + IPas - Imyelin - Iperiaxonal - Isegmental_periaxonal
 
    //Membrane potential differential equation
    V' = (1/Cm)*(ICmem)
@@ -68,7 +76,4 @@ equations
    Vm = V + Vmp
 end
 
-//************************************************
-//Simulation Parameters
-//************************************************
 end

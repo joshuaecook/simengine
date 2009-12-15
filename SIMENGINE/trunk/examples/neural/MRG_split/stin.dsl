@@ -1,6 +1,11 @@
 /*
- * stin compartment definition for the MRG model
+ * Cameron MacIntyre's Axon Model
+ * stin compartment definition
+ * adapted for use with simEngine
+ *
+ * Copyright 2009 Simatra Modeling Technologies, L.L.C.
  */
+
 //************************************************
 //special function definitions
 //************************************************
@@ -68,7 +73,4 @@ equations
    Vm = V + Vmp
 end
 
-//************************************************
-//Simulation Parameters
-//************************************************
 end

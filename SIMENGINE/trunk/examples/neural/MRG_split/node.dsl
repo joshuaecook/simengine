@@ -1,7 +1,11 @@
 /*
-Cameron MacIntyre's Axon Model
-node compartment definition
-*/
+ * Cameron MacIntyre's Axon Model
+ * node compartment definition
+ * adapted for use with simEngine
+ * 
+ * Copyright 2009 Simatra Modeling Technologies, L.L.C.
+ */
+
 model (Vm, Vmp, Raxonal, Rperiaxonal) = node(diameter, length, Istim, Iaxonal, Iperiaxonal, Isegmental)
 
 iterator t_exp with {continuous, solver=forwardeuler{dt=0.001}}
@@ -100,7 +104,4 @@ equations
    Vm' = (1/Cm)*(ICmem)
 end
 
-//************************************************
-//Solver Parameters
-//************************************************
 end

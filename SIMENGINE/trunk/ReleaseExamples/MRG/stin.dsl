@@ -1,10 +1,18 @@
 /*
- * stin compartment definition for the MRG model
+ * Cameron MacIntyre's Axon Model
+ * stin compartment definition
+ * adapted for use with simEngine
+ *
+ * Copyright 2009 Simatra Modeling Technologies, L.L.C.
  */
+
 //************************************************
 //special function definitions
 //************************************************
 model (Vm, Vmp, Raxonal, Rperiaxonal) = stin(fiberDiameter, diameter, length, numLamella, Iaxonal, Iperiaxonal)
+
+iterator t_exp with {continuous, solver=forwardeuler{dt=0.001}}
+iterator t_imp with {continuous, solver=linearbackwardeuler{dt=0.001}}
 
 //************************************************
 //Geometric Parameters
@@ -35,8 +43,8 @@ input Iperiaxonal with {default = 0}
 //************************************************
 //State Declarations
 //************************************************
-state V = -80
-state Vmp = 0
+state V = -80 with {iter=t_imp}
+state Vmp = 0 with {iter=t_imp}
 
 //************************************************
 //Model Equations
@@ -65,9 +73,4 @@ equations
    Vm = V + Vmp
 end
 
-//************************************************
-//Simulation Parameters
-//************************************************
-solver = rk4
-solver.dt = 1e-4
 end
