@@ -81,6 +81,9 @@ val registryfile = case OS.Process.getEnv("SIMENGINEDOL") of
 					     ""))
 val _ = DynException.checkToProceed()
 
+local
+    structure W = MLton.World
+in
 val worldfile = case (OS.Process.getEnv("SIMENGINESEW"), OS.Process.getEnv("SIMENGINE"))
 		 of (SOME world, _) => world
 		  | (NONE, SOME path) => OS.Path.concat (path, OS.Path.fromUnixPath "data/default.sew")
@@ -88,6 +91,14 @@ val worldfile = case (OS.Process.getEnv("SIMENGINESEW"), OS.Process.getEnv("SIME
 				     DynException.setErrored();
 				     "")
 val _ = DynException.checkToProceed()
+(* Attempts to restore the world from a previously-saved file.
+ * It's ok to fail; that means the world hasn't existed before so we just continue building it and save it later. 
+ * If this succeeds, the world will be replaced by the one being restored, jumping to the state of execution in which it was saved.
+ *)
+val _ = (ignore (W.load worldfile)
+	 handle Fail _ => ())
+end
+
 	
 	
 (* read in registry settings - this will overwrite the command line args imported above *)
@@ -107,7 +118,10 @@ fun main () =
 	val log_id = Logger.log_add (logfile, Logger.ALL, defaultOptions)
 	val env = PopulatedEnv.new (rep_loop false)
 		  
-	(* Saves/restores the heap, opening a new log file if restoring. *)
+	(* Saves/restores the world. 
+	 * Open file descriptors are not retained; reopens the log file in the restored world.
+	 * TODO should the old log file be closed before saving?
+	 *)
 	val log_id = case W.save worldfile
 		      of W.Original => log_id
 		       | W.Clone => 

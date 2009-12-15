@@ -14,11 +14,29 @@ const simengine_interface *simengine_getinterface(){
   return &seint;
 }
 
+EXTERN_C
+void simengine_free_results (simengine_result *seresult) {
+  if (!seresult) return;
+  unsigned int i;
+  simengine_output *outp;
+  if (seresult->outputs) {
+    outp = seresult->outputs;
+    for (i = 0; i < semeta.num_models * seint.num_outputs; i++) {
+      if (outp->data) free(outp->data);
+      outp++;
+    }
+    free(seresult->outputs);
+  }
+  if (seresult->final_states) free(seresult->final_states);
+  if (seresult->final_time) free(seresult->final_time);
+  free(seresult);
+}
+
 // simEngine API: simengine_runmodel()
 //
 //    executes the model for the given parameters, states and simulation time
 EXTERN_C
-simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc){
+simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states){
   CDATAFORMAT model_states[NUM_MODELS * NUM_STATES];
   CDATAFORMAT parameters[NUM_MODELS * NUM_INPUTS];
   unsigned int stateid;
@@ -26,15 +44,9 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   unsigned int inputid;
   unsigned int outputid;
 	     
-  // Set up allocation functions
-  if(alloc){
-    se_alloc.malloc = alloc->malloc;
-    se_alloc.realloc = alloc->realloc;
-    se_alloc.free = alloc->free;
-  }
 	     
   // Create result structure
-  simengine_result *seresult = (simengine_result*)se_alloc.malloc(sizeof(simengine_result));
+  simengine_result *seresult = (simengine_result *)malloc(sizeof(simengine_result));
 	     
   // Couldn't allocate return structure, return NULL
   if(!seresult) return NULL;
@@ -51,18 +63,18 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 	     
   // Allocate return structures
   if(seint.num_outputs){
-    seresult->outputs = (simengine_output*)se_alloc.malloc(semeta.num_models * seint.num_outputs * sizeof(simengine_output));
+    seresult->outputs = (simengine_output *)malloc(semeta.num_models * seint.num_outputs * sizeof(simengine_output));
   }
   else{
     seresult->outputs = NULL;
   }
   if(seint.num_states){
-    seresult->final_states = (double*)se_alloc.malloc(semeta.num_models * seint.num_states * sizeof(double));
+    seresult->final_states = (double *)malloc(semeta.num_models * seint.num_states * sizeof(double));
   }
   else{
     seresult->final_states = NULL;
   }
-  seresult->final_time = (double*)se_alloc.malloc(semeta.num_models * sizeof(double));
+  seresult->final_time = (double *)malloc(semeta.num_models * sizeof(double));
   if((seint.num_outputs && !seresult->outputs) || (seint.num_states && !seresult->final_states) ||!seresult->final_time){
     seresult->status = ERRMEM;
     seresult->status_message = (char*) simengine_errors[ERRMEM];
@@ -88,7 +100,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
       seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].alloc = START_SIZE;
       seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].num_quantities = seint.output_num_quantities[outputid];
       seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].num_samples = 0;
-      seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].data = (double*)se_alloc.malloc(START_SIZE*seint.output_num_quantities[outputid]*sizeof(double));
+      seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].data = (double *)malloc(START_SIZE*seint.output_num_quantities[outputid]*sizeof(double));
     }
   }
 

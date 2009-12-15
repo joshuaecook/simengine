@@ -46,11 +46,6 @@ typedef struct{
   const simengine_metadata *metadata;
 } simengine_interface;
 
-// Josh: variables that track counts should be declared as
-// unsigned long. We should also be bounds-checking, especially
-// quantities that track the number of samples. Most likely we'd run
-// out of memory before overrunning a 32-bit counter but we could
-// eventually be working with >20GB RAM.
 /* Output data are stored interleaved.
  * The data of an output with Q quantities over T samples would look like
  *     [q0t0, q1t0, ... qQt0, q0t1, q1t1, ... qQt1, ... qQtT]
@@ -81,44 +76,32 @@ typedef struct{
 } simengine_alloc;
 
 // The types of the simengine API functions
+
+/* Returns a pointer to a static structure defining a model interface. */
 typedef const simengine_interface *(*simengine_getinterface_f)(void);
-typedef simengine_result *(*simengine_runmodel_f)(double, double, unsigned int, double *, double *, simengine_alloc *);
+/* Executes a model and returns a pointer to the results.
+ * The caller owns the memory and is responsible for releasing the results by a call to free_results().
+ *
+ * Parameters:
+ *         start_time - time to start simulation
+ *         stop_time - time to stop simulation
+ *         num_models - dimensionality of inputs and states; value greater than 1 indicates parallel execution of models
+ *         inputs - array of input values to the simulation (contiguous arrays when num_models > 1)
+ *         states - array of state initial values to the simulation (contiguous arrays when num_models > 1)
+ *         alloc - allocation routines used for simengine_output return data
+ */
+typedef simengine_result *(*simengine_runmodel_f)(double, double, unsigned int, double *, double *);
+/* Frees memory associated with a results structure. */
+typedef void (*simengine_free_results_f)(simengine_result *);
 typedef int (*simengine_evalflow_f)(double, double *, double *, double *);
-//typedef void (*simengine_register_vertex_buffer)(float4 *);
 
 typedef struct {
   simengine_getinterface_f getinterface;
   simengine_runmodel_f runmodel;
+  simengine_free_results_f free_results;
   simengine_evalflow_f evalflow;
-  //  simengine_register_vertex_buffer register_vertex_buffer;
   void *driver;
 } simengine_api;
 
-/*
- * simengine_getinterface()
- *
- * outputs:
- *          simengine_interface * - pointer to a static structure within a model that defines its interface
- */
-/* EXTERN_C const simengine_interface *simengine_getinterface(); */
-
-
-
-/*
- * simengine_runmodel()
- *
- * inputs:
- *         start_time - time to start simulation
- *         stop_time - time to stop simulation
- *         num_models - dimensionality of inputs value greater than 1 indicates parallel execution of models
- *         inputs - array of input values to the simulation (contiguous arrays when num_input_sets > 1)
- *         states - array of state initial values to the simulation (contiguous arrays when num_state_sets > 1)
- *         alloc - allocation routines used for simengine_output return data
- *
- * outputs:
- *          simengine_output * - returns an array of output structures with the data produced by the models
- *                               outputs from a single model are contiguous
- */
-/* EXTERN_C simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, simengine_alloc *alloc); */
 
 #endif // SIMENGINE_API_H

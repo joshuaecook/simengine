@@ -15,41 +15,57 @@
 #include <omp.h>
 #include <assert.h>
 
+// Filename of a compiled simEngine simulation.
+static char *simname = NULL;
+
 static simengine_api *api = NULL;
 static double *inputs = NULL;
 
-//#define ERROR(ID, MESSAGE, ARG...) {mexPrintf("ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); return; }
 
+static double startTime = 0, stopTime = 0;
+static unsigned int models = 1;
+static double *userInputs, *userStates;
+static simengine_result *result;
+
+
+// Threading related variables
 static unsigned char initialized = 0;
 static unsigned char exiting = 0;
 static pthread_t simengine_thread;
 static pthread_cond_t simengine_wakeup = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t simengine_complete = PTHREAD_COND_INITIALIZER;
 
-void thread_error (int code, const char *message)
+void safe_pthread (const char *action, const int status)
     {
-    switch (code)
+    switch (status)
 	{
-	case EINVAL: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) invalid argument.", code, message);
-	case ESRCH: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) no such thread.", code, message);
-	case EDEADLK: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; (%d) deadlock.", code, message);
-	default: ERROR(Simatra:SIMEX:HELPER:ThreadError, "%s; unrecognized error code.", message);
+	case 0: return;
+	case EINVAL: ERROR(Simatra:SIMEX:HELPER:threadError, "%s; (%d) invalid argument.", status, action);
+	case ESRCH: ERROR(Simatra:SIMEX:HELPER:threadError, "%s; (%d) no such thread.", status, action);
+	case EDEADLK: ERROR(Simatra:SIMEX:HELPER:threadError, "%s; (%d) deadlock.", status, action);
+	default: ERROR(Simatra:SIMEX:HELPER:threadError, "%s; unrecognized error code.", action);
 	}
     }
 
 void *run_simengine_thread (void *arg)
     {
-    static pthread_mutex_t invocation_lock = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t wakeup_lock = PTHREAD_MUTEX_INITIALIZER;
 
     PRINTF("I'm on a boat!\n");
 
-    while (1)
+    while (!exiting)
 	{
-	int err = pthread_cond_wait(&simengine_wakeup, &invocation_lock);
-	if (err) thread_error(err, "Waiting for wakeup condition");
+	safe_pthread("Waiting for simEngine wakeup condition", 
+		     pthread_cond_wait(&simengine_wakeup, &wakeup_lock));
 	if (exiting) break;
-	// do something
+
+	result = api->runmodel(startTime, stopTime, models, userInputs, userStates);
+
+	safe_pthread("Signalling simEngine completion condition.",
+		     pthread_cond_broadcast(&simengine_complete));
 	}
 
+    PRINTF("I'm off the boat.\n");
     pthread_exit(NULL);
     return NULL;
     }
@@ -68,10 +84,10 @@ void release_simex_helper (void)
 	{
 	int err;
 	exiting = 1;
-	err = pthread_cond_signal(&simengine_wakeup);
-	if (err) thread_error(err, "Signalling wakeup condition");
-	err = pthread_join(simengine_thread, NULL);
-	if (err) thread_error(err, "Joining simEngine thread");
+	safe_pthread("Cancelling simEngine thread",
+		     pthread_cancel(simengine_thread));
+	safe_pthread("Joining simEngine thread",
+		     pthread_join(simengine_thread, NULL));
 	exiting = 0;
 	}
 
@@ -93,8 +109,8 @@ void init_simex_helper (void)
 	{
 	// TODO need any attributes?
 	// TODO what to pass as an argument?
-	int err = pthread_create(&simengine_thread, NULL, run_simengine_thread, NULL);
-	if (err) thread_error(err, "Creating simEngine thread");
+	safe_pthread("Creating simEngine thread",
+		     pthread_create(&simengine_thread, NULL, run_simengine_thread, NULL));
 	}
 
     initialized = 1;
@@ -109,7 +125,6 @@ void init_simengine(const char *name)
 {
   char *msg;
   api = NMALLOC(1, simengine_api);
-  mexMakeMemoryPersistent(api);
 
   api->driver = dlopen(name, RTLD_NOW);
   if(!api->driver)
@@ -136,6 +151,12 @@ void init_simengine(const char *name)
       ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
 	    "dlsym() failed to load evalflow: %s", msg); 
     }
+  api->free_results = (simengine_free_results_f)dlsym(api->driver, "simengine_free_results");
+  if (0 != (msg = dlerror()))
+    { 
+      ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
+	    "dlsym() failed to load free_results: %s", msg); 
+    }
 }
 
 /* Releases a library handle. The given handle and associated api may no longer be used. */
@@ -161,8 +182,7 @@ void mexSimengineResult(const simengine_interface *iface, int noutput, mxArray *
 	for (outputid = 0; outputid < outputs; ++outputid)
 	    {
 	    outmat = mxCreateDoubleMatrix(outp->num_quantities, outp->num_samples, mxREAL);
-	    mxFree(mxGetPr(outmat));
-	    mxSetPr(outmat, outp->data);
+	    memcpy(mxGetData(outmat), outp->data, outp->num_quantities * outp->num_samples * sizeof(double));
 
 	    mxDestroyArray(mxGetField(*output, modelid, iface->output_names[outputid]));
 	    mxSetField(*output, modelid, iface->output_names[outputid], outmat);
@@ -174,15 +194,13 @@ void mexSimengineResult(const simengine_interface *iface, int noutput, mxArray *
     if (1 < noutput)
 	{ 
 	outmat = mxCreateDoubleMatrix(iface->num_states, models, mxREAL);
-	mxFree(mxGetPr(outmat));
-	mxSetPr(outmat, result->final_states);
+	memcpy(mxGetData(outmat), result->final_states, iface->num_states * models * sizeof(double));
 	output[1] = outmat;
 	}
     if (2 < noutput)
 	{
 	outmat = mxCreateDoubleMatrix(1, models, mxREAL);
-	mxFree(mxGetPr(outmat));
-	mxSetPr(outmat, result->final_time);
+	memcpy(mxGetData(outmat), result->final_time, models * sizeof(double));
 	output[2] = outmat; 
 	}
     }
@@ -474,11 +492,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     
     else
       {
-	simengine_result *result;
-	const mxArray *userInputs = 0, *userStates = 0;
 	double *data;
-	double startTime = 0, stopTime = 0;
-	unsigned int models, expected;
+	unsigned int expected;
+	static pthread_mutex_t complete_lock = PTHREAD_MUTEX_INITIALIZER;
 
 	if (3 < nlhs)
 	    {
@@ -486,53 +502,38 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	    ERROR(Simatra:SIMEX:HELPER:argumentError,
 		"Incorrect number of left-hand side arguments.");
 	    }
-
-	// TODO switch is unnecessary; this form should ONLY accept 4 rhs arguments.
-	switch (nrhs)
+	if (!mxIsDouble(prhs[3]))
 	    {
-	    case 4:
-		if (!mxIsDouble(prhs[3]))
-		    {
-		    usage();
-		    ERROR(Simatra:SIMEX:HELPER:argumentError,
-			"Incorrect type of Y0 argument.");
-		    }
-		userStates = prhs[3];
-		// Passes through
-
-	    case 3:
-		if (!mxIsDouble(prhs[2]))
-		    {
-		    usage();
-		    ERROR(Simatra:SIMEX:HELPER:argumentError,
-			"Incorrect type of INPUTS argument.");
-		    }
-		userInputs = prhs[2];
-		// Passes through
-
-	    case 2:
-		if (!mxIsDouble(prhs[2]))
-		    {
-		    usage();
-		    ERROR(Simatra:SIMEX:HELPER:argumentError,
-			"Incorrect type of TIME argument.");
-		    }
-		if (2 != mxGetNumberOfElements(prhs[1]))
-		    {
-		    ERROR(Simatra:SIMEX:HELPER:argumentError,
-			"TIME must contain 2 elements.");
-		    }
-
-		data = (double*)mxGetPr(prhs[1]);
-		startTime = data[0];
-		stopTime = data[1];
-		break;
-
+	    usage();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError,
+		  "Incorrect type of Y0 argument.");
 	    }
+	if (!mxIsDouble(prhs[2]))
+	    {
+	    usage();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError,
+		  "Incorrect type of INPUTS argument.");
+	    }
+	if (!mxIsDouble(prhs[1]))
+	    {
+	    usage();
+	    ERROR(Simatra:SIMEX:HELPER:argumentError,
+		  "Incorrect type of TIME argument.");
+	    }
+	if (2 != mxGetNumberOfElements(prhs[1]))
+	    {
+	    ERROR(Simatra:SIMEX:HELPER:argumentError,
+		  "TIME must contain 2 elements.");
+	    }
+
+	userStates = mxGetPr(prhs[3]);
+	userInputs = mxGetPr(prhs[2]);
+	data = (double*)mxGetPr(prhs[1]);
+	startTime = data[0];
+	stopTime = data[1];
 
 	init_simengine(name);
 	const simengine_interface *iface = api->getinterface();
-	simengine_alloc allocator = { MALLOC, REALLOC, FREE };
 
 	if (!userStates)
 	    { 
@@ -547,9 +548,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	if (0 < iface->num_states)
 	    {
-	    models = mxGetN(userStates);
+	    models = mxGetN(prhs[3]);
 
-	    if (0 < iface->num_inputs && mxGetN(userInputs) != models)
+	    if (0 < iface->num_inputs && mxGetN(prhs[2]) != models)
 		{
 		release_simengine();
 		ERROR(Simatra:SIMEX:HELPER:argumentError, "INPUTS and Y0 must be the same length %d.", models); 
@@ -557,7 +558,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	    }
 	else if (0 < iface->num_inputs)
 	    {
-	    models = mxGetN(userInputs);
+	    models = mxGetN(prhs[2]);
 	    }
 	else
 	    {
@@ -578,22 +579,30 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	int np = omp_get_num_procs();
 	omp_set_num_threads(np);
 
-	result = api->runmodel(startTime, stopTime, models, mxGetPr(userInputs), mxGetPr(userStates), &allocator);
+	safe_pthread("Signalling simEngine wakeup condition.",
+		     pthread_cond_broadcast(&simengine_wakeup));
+	safe_pthread("Waiting for simEngine completion condition", 
+		     pthread_cond_wait(&simengine_complete, &complete_lock));
+
+//	result = api->runmodel(startTime, stopTime, models, mxGetPr(userInputs), mxGetPr(userStates));
 
 	switch (result->status)
 	    {
 	    case ERRMEM:
+		api->free_results(result);
 		release_simengine();
 		ERROR(Simatra:SIMEX:HELPER:memoryError, "Ran out of memory during simulation.");
 		break;
 
 	    case ERRCOMP:
+		api->free_results(result);
 		release_simengine();
 		ERROR(Simatra:SIMEX:HELPER:runtimeError, "An error occurred during simulation computation.");
 		break;
 
 	    case ERRNUMMDL:
 		expected = iface->metadata->num_models;
+		api->free_results(result);
 		release_simengine();
 		ERROR(Simatra:SIMEX:HELPER:valueError, "Expected to run %d parallel models but received %d.", expected, models);
 		break;
@@ -601,6 +610,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 	mexSimengineResult(iface, nlhs, plhs, models, result);
 
+	api->free_results(result);
 	release_simengine();
       }
     }

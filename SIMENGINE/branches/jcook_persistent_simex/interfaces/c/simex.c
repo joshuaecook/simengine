@@ -2,9 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <assert.h>
 #include <dlfcn.h>
 #include <getopt.h>
 #include <math.h>
+#include <unistd.h>
+
 
 #include "simengine_api.h"
 #include "simengine_target.h"
@@ -450,6 +453,11 @@ simengine_api *init_simengine(void *simengine){
     ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
 	  "dlsym() failed to load runmodel: %s", msg); 
   }
+  api->free_results = (simengine_free_results_f)dlsym(simengine, "simengine_free_results");
+  if (0 != (msg = dlerror())) { 
+    ERROR(Simatra:SIMEX:HELPER:dynamicLoadError, 
+	  "dlsym() failed to load free_results: %s", msg); 
+  }
 
   api->driver = simengine;
   
@@ -629,8 +637,6 @@ int main(int argc, char **argv){
   }
   // Run the model simulation
   else{
-    simengine_alloc allocator = { MALLOC, REALLOC, FREE };
-
     double *inputs;
     double *states;
 
@@ -638,7 +644,7 @@ int main(int argc, char **argv){
       return 1;
     }
 
-    simengine_result *result = api->runmodel(opts.start_time, opts.stop_time, opts.num_models, inputs, states, &allocator);
+    simengine_result *result = api->runmodel(opts.start_time, opts.stop_time, opts.num_models, inputs, states);
 
     if (SUCCESS != result->status){
       fprintf(stderr, "ERROR: runmodel returned non-zero status %d: %s", result->status, result->status_message);
@@ -655,7 +661,9 @@ int main(int argc, char **argv){
 
     FREE(inputs);
     FREE(states);
+    api->free_results(result);
     release_simengine(api);
+
     return 0;
   }
 }
