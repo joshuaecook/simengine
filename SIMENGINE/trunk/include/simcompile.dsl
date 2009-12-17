@@ -9,6 +9,9 @@ namespace SimCompile
     out
   end
 
+  var osLower = shell("uname -s | tr [:upper:] [:lower:]")[1].rstrip("\n")
+  var arch64 = "" <> (shell("arch | grep 64")[1].rstrip("\n"))
+
   class Make
     var CC = "gcc"
     var CFLAGS = []
@@ -35,22 +38,21 @@ namespace SimCompile
     var debug = false
     var profile = false
     var precision = "double"
-    var osLower
-    var arch64
 
     var cFlags = ["-W", "-Wall", "-fPIC", "-fopenmp"]
     var cppFlags = []
     var ldFlags = []
     var ldLibs = ["-ldl", "-lm", "-lgomp"]
 
-    constructor ()
-      osLower = shell("uname -s | tr [:upper:] [:lower:]")[1].rstrip("\n")
-      arch64 = "" <> (shell("arch | grep 64")[1].rstrip("\n"))
-    end
-
     function make ()
       var simEngine = Environment.getVar("SIMENGINE")
-      var m = Make.new() {CFLAGS=cFlags, CPPFLAGS=cppFlags, LDFLAGS=ldFlags, LDLIBS=ldLibs}
+      var m = Make.new()
+
+      m.CFLAGS = cFlags.clone ()
+      m.CPPFLAGS = cppFlags.clone ()
+      m.LDFLAGS = ldFlags.clone ()
+      m.LDLIBS = ldLibs.clone ()
+
       if "double" <> precision then
         m.CPPFLAGS.push_back("-DSIMENGINE_STORAGE_float")
         m.CFLAGS.push_back("-I" + simEngine + "/include/float")
@@ -85,6 +87,23 @@ namespace SimCompile
       setupMake(m)
 
       m
+    end
+
+    function compile (outfile: String, args)
+      var m = make ()
+      m.compile(outfile, args)
+    end
+
+    function link (soname: String, outfile: String, args)
+      var m = make()
+      if "darwin" <> osLower then
+	m.LDFLAGS.push_back("-shared")
+	m.LDFLAGS.push_back("-Wl,-soname,"+soname)
+      else
+	m.LDFLAGS.push_back("-dynamiclib")
+	m.LDFLAGS.push_back("-Wl,-install_name,"+soname)
+      end
+      m.link(outfile, args)
     end
   end
 
