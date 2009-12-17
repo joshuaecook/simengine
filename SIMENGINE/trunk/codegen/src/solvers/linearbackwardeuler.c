@@ -15,6 +15,8 @@ __DEVICE__
 void bandsolv_dense(const int n, const int hbw, CDATAFORMAT *M, CDATAFORMAT *b_x, unsigned int num_models, unsigned int modelid);
 __DEVICE__
 void bandsolv_sparse(const int n, const int hbw, CDATAFORMAT *M, CDATAFORMAT *b_x, unsigned int num_models, unsigned int modelid);
+__DEVICE__
+void densesolv(const int n, CDATAFORMAT *M, CDATAFORMAT *b_x, unsigned int num_models, unsigned int modelid);
 
 __HOST__
 int linearbackwardeuler_init(solver_props *props){
@@ -22,9 +24,15 @@ int linearbackwardeuler_init(solver_props *props){
 
 #if defined TARGET_GPU
   // Allocates GPU global memory for solver's persistent data
-  cutilSafeCall(cudaMalloc((void **)&mem, props->num_models * props->statesize * props->bandsize * sizeof(CDATAFORMAT)));
+  if(props->bandsize) // Sparse banded representation
+    cutilSafeCall(cudaMalloc((void **)&mem, props->num_models * props->statesize * props->bandsize * sizeof(CDATAFORMAT)));
+  else // Dense full n*n representation
+    cutilSafeCall(cudaMalloc((void **)&mem, props->num_models * props->statesize * props->statesize * sizeof(CDATAFORMAT)));
 #else // CPU and OPENMP targets
-  mem = (solver_mem *)malloc(props->num_models * props->statesize * props->bandsize * sizeof(CDATAFORMAT));
+  if(props->bandsize) // Sparse banded representation
+    mem = (solver_mem *)malloc(props->num_models * props->statesize * props->bandsize * sizeof(CDATAFORMAT));
+  else // Dense full n*n representation
+    mem = (solver_mem *)malloc(props->num_models * props->statesize * props->statesize * sizeof(CDATAFORMAT));
 #endif
 
   props->mem = mem; /* The matrix */
@@ -43,7 +51,12 @@ int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
 
   int ret = model_flows(props->time[modelid], props->model_states, props->next_states/*b_x*/, props, 1, modelid);
 
-  bandsolv_sparse(props->statesize, props->bandsize, M, props->next_states, props->num_models, modelid);
+  // If the matrix M is banded, use the optimized sparse banded solver
+  if(props->bandsize)
+    bandsolv_sparse(props->statesize, props->bandsize, M, props->next_states, props->num_models, modelid);
+  // Otherwise use the full dense solver
+  else
+    densesolv(props->statesize, M, props->next_states, props->num_models, modelid);
 
   props->next_time[modelid] += props->timestep;
 
@@ -80,7 +93,7 @@ void bandsolv_dense(const int n, const int bw, CDATAFORMAT *M, CDATAFORMAT *b_x,
   for(br = bc = 0; br < n-1; br++, bc++){
     for(er = br + 1; er <= MIN(br + hbw, n-1); er++){
       rmult = -M[MATIDX(n,n,er,bc, num_models, modelid)]/M[MATIDX(n,n,br,bc, num_models, modelid)];
-      for(ec = bc + 1; ec <= MIN(bc + hbw, n); ec++){
+      for(ec = bc + 1; ec <= MIN(bc + hbw, n-1); ec++){
 	M[MATIDX(n,n,er,ec, num_models, modelid)] += rmult*M[MATIDX(n,n,br,ec, num_models, modelid)];
       }
       b_x[VECIDX(n,er,num_models,modelid)] += rmult*b_x[VECIDX(n,br,num_models,modelid)];
@@ -133,5 +146,36 @@ void bandsolv_sparse(const int n, const int bw, CDATAFORMAT *M, CDATAFORMAT *b_x
   /* Produce x from remaining diagonal of M */
   for(br = 0; br < n; br++){
     b_x[VECIDX(n,br,num_models,modelid)] = b_x[VECIDX(n,br,num_models,modelid)]/M[MATIDX(n,bw,br,bc, num_models, modelid)];
+  }
+}
+
+__DEVICE__
+void densesolv(const int n, CDATAFORMAT *M, CDATAFORMAT *b_x, unsigned int num_models, unsigned int modelid){
+  CDATAFORMAT rmult; /* Constant multiplier for a row when eliminating a value from another row */
+  int br, er, bc, ec; /* Row and column matrix indicies */
+  int idx; /* Vector index */
+
+  /* Clear out lower half of M */
+  for(br = bc = 0; br < n-1; br++, bc++){
+    for(er = br + 1; er < n; er++){
+      rmult = -M[MATIDX(n,n,er,bc, num_models, modelid)]/M[MATIDX(n,n,br,bc, num_models, modelid)];
+      for(ec = bc + 1; ec < n; ec++){
+	M[MATIDX(n,n,er,ec, num_models, modelid)] += rmult*M[MATIDX(n,n,br,ec, num_models, modelid)];
+      }
+      b_x[VECIDX(n,er,num_models,modelid)] += rmult*b_x[VECIDX(n,br,num_models,modelid)];
+    }
+  }
+
+  /* Clear out upper half of M */
+  for(br = bc = n-1; br > 0; br--, bc--){
+    for(er = br - 1; er >= 0; er--){
+      rmult = -M[MATIDX(n,n,er,bc, num_models, modelid)]/M[MATIDX(n,n,br,bc, num_models, modelid)];
+      b_x[VECIDX(n,er,num_models,modelid)] += rmult*b_x[VECIDX(n,br,num_models,modelid)];
+    }
+  }
+
+  /* Produce x from remaining diagonal of M */
+  for(idx = 0; idx < n; idx++){
+    b_x[VECIDX(n,idx,num_models,modelid)] = b_x[VECIDX(n,idx,num_models,modelid)]/M[MATIDX(n,n,idx,idx, num_models, modelid)];
   }
 }
