@@ -194,15 +194,15 @@ fun init_solver_props top_name pp_classes forkedclasses =
 			    else 0
 
 					 
-			val requiresBandedMatrix = case itertype of
-						       DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) => true
-						     | _ => false
+			val requiresMatrix = case itertype of
+				             DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) => true
+				           | _ => false
 			val c = CurrentModel.classname2class top_class
 			val matrix_exps = ClassProcess.symbol2exps c (Symbol.symbol "#M")
 			val bandsize = case matrix_exps of
 					   [exp] => 
 					   if ExpProcess.isMatrixEq exp then
-					       (fn(rows,cols)=>cols) (Container.matrix2size (Container.expmatrix2matrix (ExpProcess.rhs exp)))
+					       (fn(rows,cols)=>(if (rows = cols) then 0 else cols)) (Container.matrix2size (Container.expmatrix2matrix (ExpProcess.rhs exp)))
 					   else
 					       0
 					 | _ => 0
@@ -229,7 +229,7 @@ fun init_solver_props top_name pp_classes forkedclasses =
 			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvername ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
-			 (if requiresBandedMatrix then
+			 (if requiresMatrix then
 			      [$("props[ITERATOR_"^itername^"].bandsize = " ^ (i2s bandsize) ^ ";")]
 			  else
 			      []) @
