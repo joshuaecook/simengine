@@ -488,7 +488,8 @@ namespace Process
   function run (name: String, args: Vector) = LF popen (name, args)
   overload function run (name: String) = LF popen (name, [])
 
-
+  // Always returns () regardless of process exit status,
+  // due to a bug in MLton's subprocess libraries.
   function reap (process) = LF preap (process)
 end
 

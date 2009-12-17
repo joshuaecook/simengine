@@ -9,6 +9,10 @@ namespace SimCompile
     out
   end
 
+  function shellWithStatus (command: String)
+    shell(command + "; echo \$?")
+  end
+
   var osLower = shell("uname -s | tr [:upper:] [:lower:]")[1].rstrip("\n")
   var arch64 = "" <> (shell("arch | grep 64")[1].rstrip("\n"))
 
@@ -22,7 +26,7 @@ namespace SimCompile
     /* Returns a tuple of (compiler, options)
      * suitable for application by Process.run(). */
     function compile (outfile: String, args)
-      (CC, CFLAGS + CPPFLAGS + args + ["-o", outfile])
+      (CC, ["-c"] + CFLAGS + CPPFLAGS + args + ["-o", outfile])
     end
 
     /* Returns a tuple of (linker, options)
@@ -35,6 +39,7 @@ namespace SimCompile
   /* A target-specific Make configuration.
    * A derived class shall exist for each supported target backend. */
   class Target
+    var num_models = 1
     var debug = false
     var profile = false
     var precision = "double"
@@ -52,6 +57,8 @@ namespace SimCompile
       m.CPPFLAGS = cppFlags.clone ()
       m.LDFLAGS = ldFlags.clone ()
       m.LDLIBS = ldLibs.clone ()
+
+      m.CPPFLAGS.push_front("-DNUM_MODELS=" + (num_models.tostring()))
 
       if "double" <> precision then
         m.CPPFLAGS.push_back("-DSIMENGINE_STORAGE_float")
