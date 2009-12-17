@@ -9,8 +9,16 @@ namespace SimCompile
     out
   end
 
+  overload function shell (command: String, args: Vector)
+    shell (command + " " + join(" ", args))
+  end
+
   function shellWithStatus (command: String)
     shell(command + "; echo \$?")
+  end
+
+  overload function shellWithStatus (command: String, args: Vector)
+    shellWithStatus(command + " " + join(" ", args))
   end
 
   var osLower = shell("uname -s | tr [:upper:] [:lower:]")[1].rstrip("\n")

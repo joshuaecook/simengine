@@ -1123,7 +1123,28 @@ end
 open Simulation
 
 import "translate.dsl"
+import "simcompile.dsl"
 
-function compile (mod)//: Model)  
+function compile (mod, target: Target)//: Model)  
+  var name = mod.template.name
   LF compile (Translate.model2forest (mod.instantiate()))
+  var cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
+  var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
+
+  var ccp = SimCompile.shellWithStatus(cc(1), cc(2))
+  var ccstat = ccp.rev().first().rstrip("\n")
+  if "0" <> ccstat then
+    error ("OOPS! Compiler returned non-zero exit status " + ccstat)
+  end
+
+  var ldp = SimCompile.shellWithStatus(ld(1), ld(2))
+  var ldstat = ldp.rev().first().rstrip("\n")
+  if "0" <> ldstat then
+    error ("OOPS! Linker returned non-zero exit status " + ldstat)
+  end
+end
+
+overload function compile (mod)
+  var target = SimCompile.TargetCPU.new()
+  compile (mod, target)
 end
