@@ -22,7 +22,7 @@ namespace SimCompile
   end
 
   var osLower = shell("uname -s | tr [:upper:] [:lower:]")[1].rstrip("\n")
-  var arch64 = "" <> (shell("arch | grep 64")[1].rstrip("\n"))
+  var arch64 = not(shell("arch | grep 64").isempty())
 
   class Make
     var CC = "gcc"
