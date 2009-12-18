@@ -1125,7 +1125,12 @@ open Simulation
 import "translate.dsl"
 import "simcompile.dsl"
 
-function compile (mod, target: Target)//: Model)  
+function compile (mod)
+  LF compile (Translate.model2forest (mod.instantiate()))
+end
+
+
+function compile2 (mod, target: Target)
   var name = mod.template.name
   LF compile (Translate.model2forest (mod.instantiate()))
   var cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
@@ -1144,7 +1149,7 @@ function compile (mod, target: Target)//: Model)
   end
 end
 
-overload function compile (mod)
+overload function compile2 (mod)
   var target = SimCompile.TargetCPU.new()
   compile (mod, target)
 end
