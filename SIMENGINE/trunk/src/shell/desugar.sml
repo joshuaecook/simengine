@@ -60,8 +60,9 @@ fun desugar_exp exp =
       | HLEC.IFEXP {cond, ift, iff}
 	=> KEC.IFEXP {cond=desugar_exp cond, ift=desugar_exp ift, iff=desugar_exp iff}
 
-      | HLEC.VECTOR nil
-	=> KEC.list2kecvector nil
+      | HLEC.VECTOR exps
+	=> KEC.list2kecvector (map desugar_exp exps)
+(*
       | HLEC.VECTOR exps
 	=>
 	let
@@ -73,7 +74,7 @@ fun desugar_exp exp =
 	in
 	    desugar_exp (pushVector exps)
 	end
-
+*)
       | HLEC.TUPLE exps
 	=> KEC.TUPLE (map desugar_exp exps)
 
@@ -154,7 +155,7 @@ fun desugar_exp exp =
 		(KEC.TUPLE [KEC.LITERAL(KEC.CONSTSTR (Symbol.name name)), desugar_exp exp])
 	in
 	    KEC.APPLY{func=KEC.SEND{message=Symbol.symbol "new", object=(KEC.SYMBOL (Symbol.symbol "Table"))},
-		      args=KEC.TUPLE [KEC.list2kecvector (map entry2mem entries)]}
+		      args=KEC.TUPLE[KEC.list2kecvector (map entry2mem entries)]}
 	end
 
 

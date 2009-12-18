@@ -161,6 +161,7 @@ library/trigonometry.sml
 library/comparison.sml
 library/string.sml
 library/file.sml
+library/filesys.sml
 objects/objects.sml
 library/type.sml
 library/function.sml

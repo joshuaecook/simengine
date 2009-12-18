@@ -543,6 +543,21 @@ namespace File
 
 end
 
+namespace FileSystem
+  function pwd () = LF pwd ()
+  function chmod (file, permission) = LF chmod (file, permission)
+  function getPermissions(file) = LF getPermissions (file)
+  function setPermissions(file, permission) = chmod (file, permission)
+  function rmfile (file) = LF rmfile file
+  function rmdir (dir) = LF rmdir dir
+  function chdir (dir) = LF chdir dir
+  function ls () = LF ls ()
+  function isdir (dir) = LF isdir dir
+  function isfile (file) = LF isfile file
+  function mkdir (dir) = LF mkdir dir
+  function realpath (file) = LF realpath file
+end
+
 open Operations
 open Relational
 open Text

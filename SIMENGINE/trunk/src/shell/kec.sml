@@ -117,7 +117,29 @@ and property = {name: Symbol.symbol,
  
 
 		    
-fun list2kecvector list =
+val emptyvector =
+    let
+	(* This is parameterized to make changes to this code easier.  The compiler should optimize this all away *)
+	val default_vector_size = 64
+
+	fun find_pad_size size =
+	    (Int.div(size,2), Int.div(size,2), size)
+
+	val (front_pad_size, back_pad_size, size) = 
+	    find_pad_size default_vector_size
+
+	val front_index = Int.div (size, 2)
+	val back_index = Int.div (size, 2)
+
+	val array = Array.array (size, UNDEFINED)
+    in
+	VECTOR {array=ref array,
+		front_index=ref front_index,
+		front_pad_size=ref front_pad_size,
+		back_index=ref back_index,
+		back_pad_size=ref back_pad_size}
+    end
+(*
     let
 	val default_vector_size = 64
 
@@ -142,6 +164,18 @@ fun list2kecvector list =
 		front_pad_size=ref front_pad_size,
 		back_index=ref back_index,
 		back_pad_size=ref back_pad_size}
+    end
+*)
+
+fun list2kecvector list =
+    let
+	fun pushVector items =
+	    foldl (fn(i, v) => APPLY{func=SEND{message=Symbol.symbol "push_back", object=v},
+					 args=TUPLE [i]}) 
+		  (LIBFUN(Symbol.symbol "deepclone", emptyvector)) 
+		  items 
+    in
+	(pushVector list)
     end
 
 fun kecvector2list {array, front_index, back_index, front_pad_size, back_pad_size} =
