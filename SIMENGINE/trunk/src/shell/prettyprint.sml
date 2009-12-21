@@ -13,53 +13,6 @@ fun error msg = (print ("ERROR: " ^ msg ^ "\n");
 fun stream2str (KEC.INSTREAM _) = "input"
   | stream2str (KEC.OUTSTREAM _) = "output"
 
-(* Returns a textual description of the type of an expression. *)
-fun kecexp2nickname exp =
-    case exp of
-	KEC.LITERAL (KEC.CONSTREAL r) 
-	=> "a number"
-      | KEC.LITERAL (KEC.CONSTSTR s) 
-	=> "a string"
-      | KEC.LITERAL (KEC.CONSTBOOL b) 
-	=> "a boolean value"
-      | KEC.LITERAL (KEC.CONSTBINARY b) 
-	=> "a binary value"
-      | KEC.SYMBOL s 
-	=> "an unknown identifier"
-      | KEC.LAMBDA _
-	=> "a function"
-      | KEC.IFEXP _
-	=> "an unresolved conditional expression"
-      | KEC.VECTOR _
-	=> "a vector"
-      | KEC.UNIT
-	=> "an empty value"
-      | KEC.TUPLE _
-	=> "a collection of function arguments"
-      | KEC.OBJECT _
-	=> "an object" (*TODO: use tostring? *)
-      | KEC.TYPEEXP _
-	=> "a type"
-      | KEC.UNDEFINED
-	=> "an undefined value"
-      | KEC.CELL (_,KEC.REFERENCE e)
-	=> kecexp2nickname (!e)
-      | KEC.CELL (_,KEC.GETSET (g,s))
-	=> kecexp2nickname (g())
-      | KEC.PROPERTYEXP {name, read=NONE, write=NONE, ...}
-	=> "inaccessible property"
-      | KEC.PROPERTYEXP {name, read=SOME _, write=NONE, ...}
-	=> "read-only property"
-      | KEC.PROPERTYEXP {name, read=NONE, write=SOME _, ...}
-	=> "write-only property "
-      | KEC.PROPERTYEXP {name, read=SOME _, write = SOME _, ...}
-	=> "read/write property"
-      | KEC.PROCESS p 
-	=> "a running process"
-      | KEC.STREAM (s,_,_)
-	=> "an " ^ (stream2str s) ^ " file stream"
-      | _ => "an uncomputed expression"
-
 exception ImpossibleListType
 
 fun keclist2list (KEC.VECTOR vec) =
@@ -289,5 +242,51 @@ fun kecexp2debugstr (exp: KEC.exp) : string =
 	  | KEC.PROPERTYEXP {name, read=SOME _, write = SOME _, ...}
 	    => "read/write property " ^ (Symbol.name name)
 
+(* Returns a textual description of the type of an expression. *)
+fun kecexp2nickname exp =
+    case exp of
+	KEC.LITERAL (KEC.CONSTREAL r) 
+	=> "a number"
+      | KEC.LITERAL (KEC.CONSTSTR s) 
+	=> "a string"
+      | KEC.LITERAL (KEC.CONSTBOOL b) 
+	=> "a boolean value"
+      | KEC.LITERAL (KEC.CONSTBINARY b) 
+	=> "a binary value"
+      | KEC.SYMBOL s 
+	=> "an unknown identifier"
+      | KEC.LAMBDA _
+	=> "a function"
+      | KEC.IFEXP _
+	=> "an unresolved conditional expression"
+      | KEC.VECTOR _
+	=> "a vector"
+      | KEC.UNIT
+	=> "an empty value"
+      | KEC.TUPLE _
+	=> "a collection of function arguments"
+      | KEC.OBJECT _
+	=> "an object" (*TODO: use tostring? *)
+      | KEC.TYPEEXP _
+	=> "a type"
+      | KEC.UNDEFINED
+	=> "an undefined value"
+      | KEC.CELL (_,KEC.REFERENCE e)
+	=> kecexp2nickname (!e)
+      | KEC.CELL (_,KEC.GETSET (g,s))
+	=> kecexp2nickname (g())
+      | KEC.PROPERTYEXP {name, read=NONE, write=NONE, ...}
+	=> "inaccessible property"
+      | KEC.PROPERTYEXP {name, read=SOME _, write=NONE, ...}
+	=> "read-only property"
+      | KEC.PROPERTYEXP {name, read=NONE, write=SOME _, ...}
+	=> "write-only property "
+      | KEC.PROPERTYEXP {name, read=SOME _, write = SOME _, ...}
+	=> "read/write property"
+      | KEC.PROCESS p 
+	=> "a running process"
+      | KEC.STREAM (s,_,_)
+	=> "an " ^ (stream2str s) ^ " file stream"
+      | _ => "an uncomputed expression: " ^ (kecexp2debugstr exp)
 
 end

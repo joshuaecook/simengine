@@ -175,7 +175,7 @@ fun list2kecvector list =
 		  (LIBFUN(Symbol.symbol "deepclone", emptyvector)) 
 		  items 
     in
-	(pushVector list)
+	(pushVector list) 
     end
 
 fun kecvector2list {array, front_index, back_index, front_pad_size, back_pad_size} =
