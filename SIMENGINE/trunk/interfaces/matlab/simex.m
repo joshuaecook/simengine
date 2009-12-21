@@ -455,72 +455,11 @@ if opts.recompile
           'Compilation returned status code %d.', status);
   end
     
-  target = opts.target;
-  if strcmp(opts.target, 'PARALLELCPU')
-    target = 'OPENMP';
+  if opts.debug == false
+    % clean up generated files
+    [igpath fileprefix igext] = fileparts(modelFile);
+    delete([fileprefix '_parallel*'])
   end
-
-  % determine architecture
-  switch computer
-   case {'PCWIN', 'GLNX86', 'MACI'}
-    arch = 'i386';
-   case {'PCWIN64', 'GLNXA64', 'SOL64', 'MACI64'}
-    arch = 'x86_64';
-   otherwise
-    if regexp(computer, 'x86_64')
-      arch = 'x86_64';
-    elseif regexp(computer, 'i.86')
-      arch = 'i386'
-    else
-      warning('Simatra:simEngine:simex', ...
-              ['Architecture is not officially '...
-               'supported']);
-    end
-  end  
-
-  
-  make = ['make remake' ...
-        ' -f' fullfile(opts.simengine, 'share/simEngine/Makefile') ...
-        ' SIMENGINEDIR=' opts.simengine ...
-        ' MODEL=' modelFile ...
-        ' TARGET=' target ...
-        ' ARCH=' arch ...
-        ' SIMENGINE_STORAGE=' opts.precision ...
-        ' NUM_MODELS=' num2str(opts.models)];
-
-if opts.emulate
-  make = [make ' EMULATE=1'];
-end
-if opts.profile
-  make = [make ' PROFILE=1'];
-end
-if opts.debug
-  make = [make ' DEBUG=1'];
-  disp(make)
-  assignin('base', 'remake', @()(system(make)));
-end
-
-tic;
-status = system([make ' &> simex_make.log']);
-elapsed = toc;
-
-if 0 ~= status
-  if opts.verbose
-    type simex_make.log
-  end
-  error('Simatra:SIMEX:compileError', ...
-        'Make returned status code %d.', status);
-  type simex_make.log
-end
-verbose_out([opts.target ' compiler completed in ' num2str(elapsed) ' ' ...
-                    'seconds.'], opts);
-
-if opts.debug == false
-% clean up generated files
-  delete simex_make.log
-  [igpath fileprefix igext] = fileparts(modelFile);
-  delete([fileprefix '_parallel*'])
-end
 end % end if recompile
 
 % TODO what is the path of the resultant DLL?

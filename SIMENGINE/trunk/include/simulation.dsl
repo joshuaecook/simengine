@@ -1126,30 +1126,64 @@ import "translate.dsl"
 import "simcompile.dsl"
 
 function compile (mod)
-  LF compile (Translate.model2forest (mod.instantiate()))
-end
-
-
-function compile2 (mod, target: Target)
   var name = mod.template.name
-  LF compile (Translate.model2forest (mod.instantiate()))
-  var cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
+  var settings = mod.template.settings
+
+  var target
+
+  if "CPU" == settings.target then
+      target = SimCompile.TargetCPU.new()
+  elseif "OPENMP" == settings.target then
+      target = SimCompile.TargetOpenMP.new()
+  elseif "PARALLELCPU" == settings.target then
+      target = SimCompile.TargetOpenMP.new()
+  elseif "CUDA" == settings.target then
+      target = SimCompile.TargetCUDA.new()
+      target.emulate = settings.emulate
+  elseif "GPU" == settings.target then
+      target = SimCompile.TargetCUDA.new()
+      target.emulate = settings.emulate
+  else
+      error ("Unknown target " + settings.target)
+  end
+
+  target.debug = settings.debug
+  target.profile = settings.profile
+
+  target.num_models = settings.num_models
+  target.precision = settings.precision
+
+  var stat = LF compile (Translate.model2forest (mod.instantiate()))
+
+  var cc
+  if "GPU" <> settings.target and "CUDA" <> settings.target then
+      cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
+  else
+      SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
+      cc = target.compile(name + "_parallel.o", [name + "_parallel.cu"])
+  end
+
+
   var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
 
+  if settings.debug then
+      println(cc(1) + " " + (join(" ", cc(2))))
+  end
   var ccp = SimCompile.shellWithStatus(cc(1), cc(2))
   var ccstat = ccp.rev().first().rstrip("\n")
   if "0" <> ccstat then
-    error ("OOPS! Compiler returned non-zero exit status " + ccstat)
+      error ("OOPS! Compiler returned non-zero exit status " + ccstat)
   end
 
+  if settings.debug then
+      println(ld(1) + " " + (join(" ", ld(2))))
+  end
   var ldp = SimCompile.shellWithStatus(ld(1), ld(2))
   var ldstat = ldp.rev().first().rstrip("\n")
   if "0" <> ldstat then
-    error ("OOPS! Linker returned non-zero exit status " + ldstat)
+      error ("OOPS! Linker returned non-zero exit status " + ldstat)
   end
+
+  stat
 end
 
-overload function compile2 (mod)
-  var target = SimCompile.TargetCPU.new()
-  compile (mod, target)
-end

@@ -539,8 +539,9 @@ and trans_definition definition =
 		HLEC.TABLE [(Symbol.symbol "target", HLEC.LITERAL (HLEC.CONSTSTR "CPU")),
 			    (Symbol.symbol "precision", HLEC.LITERAL (HLEC.CONSTSTR "double")),
 			    (Symbol.symbol "num_models", HLEC.LITERAL (HLEC.CONSTREAL 1.0)),
-			    (Symbol.symbol "debug", HLEC.LITERAL (HLEC.CONSTBOOL true)),
-			    (Symbol.symbol "profile", HLEC.LITERAL (HLEC.CONSTBOOL false))]
+			    (Symbol.symbol "debug", HLEC.LITERAL (HLEC.CONSTBOOL false)),
+			    (Symbol.symbol "profile", HLEC.LITERAL (HLEC.CONSTBOOL false)),
+			    (Symbol.symbol "emulate", HLEC.LITERAL (HLEC.CONSTBOOL false))]
 
 	    val modelsettings =
 		HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFLOCAL(Symbol.symbol "settings",

@@ -30,7 +30,6 @@ typedef struct{
   int debug;
   int emulate;
   int profile;
-  int remake;
   int nocompile;
 } simengine_opts;
 
@@ -50,7 +49,6 @@ typedef enum {
   DEBUG,
   EMULATE,
   PROFILE,
-  REMAKE,
   NOCOMPILE,
   HELP
 } clopts;
@@ -71,7 +69,6 @@ static const struct option long_options[] = {
   {"debug", no_argument, 0, DEBUG},
   {"emulate", no_argument, 0, EMULATE},
   {"profile", no_argument, 0, PROFILE},
-  {"remake", no_argument, 0, REMAKE},
   {"nocompile", no_argument, 0, NOCOMPILE},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
@@ -97,7 +94,6 @@ void print_usage(){
 	 "\t--debug\t\tEnables debugging information.\n"
 	 "\t--emulate\t\tEnables device emulation (only meaningful with --gpu.)\n"
 	 "\t--profile\tEnables profiling.\n"
-	 "\t--remake\tSkip simEngine compilation and just remake C code.\n"
          "\t--nocompile\tSkip all compilation and just execute simulation.\n"
 	 "\t--help\tShow this message.\n"
 	 "\n");
@@ -251,10 +247,6 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       opts->profile = 1;
       printf("Profiling enabled\n");
       break;
-    case REMAKE:
-      opts->remake = 1;
-      printf("Skipping simEngine compilation and only recompiling C code.\n");
-      break;
     case NOCOMPILE:
       opts->nocompile = 1;
       printf("Skipping all compilation and executing simulation.\n");
@@ -307,7 +299,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
   return 0;
 }
 
-// Compile the DSL model to specified target (including target compiler via Make)
+// Compile the DSL model to specified target
 int runsimEngine (const simengine_opts *opts)
 {
   FILE *fp;
@@ -324,57 +316,38 @@ int runsimEngine (const simengine_opts *opts)
     setenv("SIMENGINE", simengine_path, 1);
   }
 
-  if(!opts->remake){
-    strcpy(simengine, simengine_path);
-    strcat(simengine, "/bin/simEngine");
+  strcpy(simengine, simengine_path);
+  strcat(simengine, "/bin/simEngine");
 
-    snprintf(settings, BUFSIZE, "%s.template.settings = {target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s}", opts->model_name, opts->target, opts->precision, opts->num_models, opts->debug ? "true" : "false", opts->profile ? "true" : "false");
+  snprintf(settings, BUFSIZE, "%s.template.settings = {target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s,emulate=%s}", 
+	   opts->model_name, opts->target, opts->precision, opts->num_models, 
+	   opts->debug ? "true" : "false", 
+	   opts->profile ? "true" : "false",
+	   opts->emulate ? "true" : "false");
 
-    snprintf(cmdline, BUFSIZE, "sh -c 'echo \"import \\\"%s\\\"\n%s\nprint(compile(%s))\" | %s -batch 2>& 1'", opts->model_file, settings, opts->model_name, simengine);
+  snprintf(cmdline, BUFSIZE, "sh -c 'echo \"import \\\"%s\\\"\n%s\nprint(compile(%s))\" | %s -batch 2>& 1'", opts->model_file, settings, opts->model_name, simengine);
 
-    /* we must flush because the man page says we should before a popen call */
-    fflush(stdin);
-    fflush(stdout);
-    fflush(stderr);
-
-    fp = popen(cmdline, "r");
- 
-    if (fp == NULL){
-      PRINTF("Error launching simEngine\nDo you need to set SIMENGINE environment variable?\n");
-      return 1;
-    }
-    
-    while (NULL != (fgets(readbuffer, BUFSIZE, fp))){
-      if (strstr(readbuffer, "Compilation Finished Successfully") != NULL){
-	errored = 0;
-      }
-      PRINTF("%s", readbuffer);
-    }
-
-    PRINTF("\n");
-    pclose(fp);
-
-    if(errored){
-      return errored;
-    }
-  }
-
-  snprintf(cmdline, BUFSIZE, "make remake -f %s/share/simEngine/Makefile SIMENGINEDIR=%s MODEL=%s TARGET=%s SIMENGINE_STORAGE=%s NUM_MODELS=%d DEBUG=%s EMULATE=%s",
-	   simengine_path, simengine_path, opts->model_name, opts->target, opts->precision, opts->num_models, opts->debug ? "YES" : "", opts->emulate ? "YES" : "");
+  /* we must flush because the man page says we should before a popen call */
+  fflush(stdin);
+  fflush(stdout);
+  fflush(stderr);
 
   fp = popen(cmdline, "r");
-  if( fp == NULL){
-    PRINTF("Error launching Make\n");
+ 
+  if (fp == NULL){
+    PRINTF("Error launching simEngine\nDo you need to set SIMENGINE environment variable?\n");
     return 1;
   }
-
-  // Display output of make
+    
   while (NULL != (fgets(readbuffer, BUFSIZE, fp))){
+    if (strstr(readbuffer, "Compilation Finished Successfully") != NULL){
+      errored = 0;
+    }
     PRINTF("%s", readbuffer);
   }
 
-  // Return the status of Make
-  errored = pclose(fp);
+  PRINTF("\n");
+  pclose(fp);
 
   return errored;
 }

@@ -26,6 +26,7 @@ namespace SimCompile
 
   class Make
     var CC = "gcc"
+    var LD = "gcc"
     var CFLAGS = []
     var CPPFLAGS = []
     var LDFLAGS = []
@@ -34,13 +35,13 @@ namespace SimCompile
     /* Returns a tuple of (compiler, options)
      * suitable for application by Process.run(). */
     function compile (outfile: String, args)
-      (CC, ["-c"] + CFLAGS + CPPFLAGS + args + ["-o", outfile])
+      (CC, ["-c", "-o", outfile] + CFLAGS + CPPFLAGS + args)
     end
 
     /* Returns a tuple of (linker, options)
      * suitable for application by Process.run(). */
     function link (outfile: String, args)
-      (CC, LDFLAGS + LDLIBS + args + ["-o", outfile])
+      (LD, ["-o", outfile] + LDFLAGS + args + LDLIBS)
     end
   end
 

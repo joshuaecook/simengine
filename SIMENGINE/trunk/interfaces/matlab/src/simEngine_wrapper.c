@@ -16,6 +16,7 @@ struct targetopts {
   int num_models;
   int debug;
   int profile;
+  int emulate;
 };
 
 int runsimEngine (char *simengine, char *file, char *modelname, struct targetopts *opts, int verbose)
@@ -32,7 +33,11 @@ int runsimEngine (char *simengine, char *file, char *modelname, struct targetopt
   // debug: FALSE=0 | TRUE=1
   // profile: FALSE=0 | TRUE=1
   char settings[1000];
-  snprintf(settings, 1000, "%s.template.settings = {target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s}", modelname, opts->target, opts->precision, opts->num_models, opts->debug ? "true" : "false", opts->profile ? "true" : "false");
+  snprintf(settings, 1000, "%s.template.settings = {target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s,emulate=%s}", 
+	   modelname, opts->target, opts->precision, opts->num_models, 
+	   opts->debug ? "true" : "false", 
+	   opts->profile ? "true" : "false",
+	   opts->emulate ? "true" : "false");
 
   snprintf(cmdline, 1000, "sh -c 'echo \"import \\\"%s\\\"\n%s\nprint(compile(%s))\" | %s -batch 2>& 1'", file, settings, modelname, simengine);
 

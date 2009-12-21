@@ -15,6 +15,7 @@
 # Copyright 2009 Simatra Modeling Technologies, L.L.C.
 # For more information, please visit http://www.simatratechnologies.com
 
+$(error This Makefile is obsolete.)
 include $(SIMENGINEDIR)/include/common.make
 
 # The name of the model must be specified when invoking make.
