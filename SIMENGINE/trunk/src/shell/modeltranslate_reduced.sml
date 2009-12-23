@@ -591,7 +591,14 @@ fun obj2dofmodel object =
 	    case exp2str(method "name" solverobj) of			 
 			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
 		       | "exponentialeuler" => Solver.EXPONENTIAL_EULER {dt = exp2real(method "dt" solverobj)}
-		       | "linearbackwardeuler" => Solver.LINEAR_BACKWARD_EULER {dt = exp2real(method "dt" solverobj)}
+		       | "linearbackwardeuler" => Solver.LINEAR_BACKWARD_EULER {dt = exp2real(method "dt" solverobj),
+										solv = case exp2str (method "lbe_solv" solverobj) of
+											   "LSOLVER_DENSE" => Solver.LSOLVER_DENSE
+											 | "LSOLVER_BANDED" => Solver.LSOLVER_BANDED { upperhalfbw = exp2int (method "lbe_upperhalfbw" solverobj),
+                                                                                                                                       lowerhalfbw = exp2int (method "lbe_lowerhalfbw" solverobj)}
+											 | s => (Logger.log_warning (Printer.$("Invalid linear solver '"^s^"' chosen: Valid options are LSOLVER_DENSE or LSOLVER_BANDED.  Defaulting to LSOLVER_BANDED"));Solver.LSOLVER_BANDED { upperhalfbw = exp2int (method "lbe_upperhalfbw" solverobj),
+                                                                                                       lowerhalfbw = exp2int (method "lbe_lowerhalfbw" solverobj)})
+									       }
 		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
 		       (* | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
 		       | "heun" => Solver.HEUN {dt = exp2real(method "dt" solverobj)}*)

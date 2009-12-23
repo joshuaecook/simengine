@@ -176,14 +176,19 @@ fun init_solver_props top_name pp_classes forkedclasses =
 								| DOF.DISCRETE {sample_period} => [("timestep", Util.r2s sample_period)]
 								| DOF.IMMEDIATE => []
 								| _ => [("ERROR", "Bogus iterator")]) iterator
+			val solveropts = (fn(_,itertype) => case itertype of
+								  DOF.CONTINUOUS solver => (Solver.solver2opts solver)
+								| DOF.DISCRETE _ => []
+								| DOF.IMMEDIATE => []
+								| _ => [("ERROR", "Bogus iterator")]) iterator
 			val (itersym, itertype) = iterator
 			val itername = (Symbol.name itersym)
-			val solvername = String.map Char.toUpper 
-						    ((fn(_,itertype) => case itertype of
-									    DOF.CONTINUOUS solver => (Solver.solver2name solver)
-									  | DOF.DISCRETE _ => "discrete"
-									  | DOF.IMMEDIATE => "immediate"
-									  | _ => "ERROR Bogus iterator") iterator)
+			val solvername = ((fn(_,itertype) => case itertype of
+								 DOF.CONTINUOUS solver => (Solver.solver2name solver)
+							       | DOF.DISCRETE _ => "discrete"
+							       | DOF.IMMEDIATE => "immediate"
+							       | _ => "ERROR Bogus iterator") iterator)
+			val solvernameCaps = String.map Char.toUpper solvername
 			val num_states = ModelProcess.model2statesize model 
 
 			val num_pp_states =
@@ -199,14 +204,21 @@ fun init_solver_props top_name pp_classes forkedclasses =
 				           | _ => false
 			val c = CurrentModel.classname2class top_class
 			val matrix_exps = ClassProcess.symbol2exps c (Symbol.symbol "#M")
-			val bandsize = case matrix_exps of
+			val bandsize = case matrix_exps of (* ignored for dense solver *)
 					   [exp] => 
 					   if ExpProcess.isMatrixEq exp then
-					       (fn(rows,cols)=>(if (rows = cols) then 0 else cols)) (Container.matrix2size (Container.expmatrix2matrix (ExpProcess.rhs exp)))
+					       (fn(rows,cols)=>(cols)) (Container.matrix2size (Container.expmatrix2matrix (ExpProcess.rhs exp)))
 					   else
 					       0
 					 | _ => 0
 		    in
+			(if (List.null solveropts) then
+			     nil
+			 else
+			     [$("{"),
+			      $(solvername ^"_opts *opts = ("^solvername^"_opts*)&props[ITERATOR_"^itername^"].opts;"),
+			      SUB(map(fn(opt,oval) => $("opts->"^opt^" = "^oval^";")) solveropts),
+			      $("}")]) @
 			(map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
 			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
@@ -227,12 +239,8 @@ fun init_solver_props top_name pp_classes forkedclasses =
 				"NULL;")),
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
 			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
-			 $("props[ITERATOR_"^itername^"].solver = " ^ solvername ^ ";"),
+			 $("props[ITERATOR_"^itername^"].solver = " ^ solvernameCaps ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
-			 (if requiresMatrix then
-			      [$("props[ITERATOR_"^itername^"].bandsize = " ^ (i2s bandsize) ^ ";")]
-			  else
-			      []) @
 			 [$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
 			  $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
 			  $("props[ITERATOR_"^itername^"].pp_statesize = " ^ (Util.i2s num_pp_states) ^ ";"),
@@ -243,7 +251,7 @@ fun init_solver_props top_name pp_classes forkedclasses =
 			 $("props[ITERATOR_"^itername^"].ob_size = sizeof(output_buffer);"),
 			 $("props[ITERATOR_"^itername^"].ob = ob;"),
 			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
-			 $("")] @
+			 $("")]@ 
 			(if 0 < num_states then
 			     (case itertype of
 				  DOF.CONTINUOUS _ =>

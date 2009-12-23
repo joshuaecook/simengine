@@ -155,8 +155,12 @@ fun printModel (model: DOF.model) =
 			      print ("  Solver = Forward Euler (dt = " ^ (Real.toString dt) ^ ")\n")
 			    | Solver.EXPONENTIAL_EULER {dt} =>
 			      print ("  Solver = Exponential Euler (dt = " ^ (Real.toString dt) ^ ")\n")
-			    | Solver.LINEAR_BACKWARD_EULER {dt} =>
-			      print ("  Solver = Linear Backward Euler (dt = " ^ (Real.toString dt) ^ ")\n")
+			    | Solver.LINEAR_BACKWARD_EULER {dt, solv} =>
+			      print ("  Solver = Linear Backward Euler (dt = " ^ (Real.toString dt) ^ 
+				     (case solv of 
+					  Solver.LSOLVER_DENSE => " Dense linear solver"
+					| Solver.LSOLVER_BANDED {bandsize} => " Banded linear solver with "^(i2s bandsize)^" bands")
+				     ^")\n")
 			    | Solver.RK4 {dt} =>
 			      print ("  Solver = RK4 (dt = " ^ (Real.toString dt) ^ ")\n")
 			    | Solver.MIDPOINT {dt} =>

@@ -2,6 +2,10 @@ signature SOLVER =
 sig
 
     (* Solver data type *)
+    datatype linear_solver =
+	     LSOLVER_DENSE
+	   | LSOLVER_BANDED of {upperhalfbw: int, lowerhalfbw: int}
+
     datatype cvode_lmm = CV_ADAMS | CV_BDF
     datatype cvode_iter = CV_NEWTON | CV_FUNCTIONAL
 
@@ -13,7 +17,7 @@ sig
     datatype solver =
 	     FORWARD_EULER of {dt:real}
 	   | EXPONENTIAL_EULER of {dt:real}
-	   | LINEAR_BACKWARD_EULER of {dt:real}
+	   | LINEAR_BACKWARD_EULER of {dt:real, solv: linear_solver}
 	   | RK4 of {dt:real}
 	   | MIDPOINT of {dt:real}
 	   | HEUN of {dt:real}
@@ -26,7 +30,8 @@ sig
     (* Solver accessor methods *)
     val solver2name : solver -> string (* name of the solver *)
     val solver2shortname : solver -> string (* simpler, shorter name *)
-    val solver2params : solver -> (string * string) list (* this function is used when generating #define's in C *)
+    val solver2params : solver -> (string * string) list (* this function is used when generating generic solver properties in C *)
+    val solver2opts : solver -> (string * string) list (* this function is used to generate solver specific options in C *)
 
     (* Get the default solver if none was specified *)
     val default : solver
@@ -34,6 +39,10 @@ sig
 end
 structure Solver : SOLVER =
 struct
+
+datatype linear_solver =
+	 LSOLVER_DENSE
+       | LSOLVER_BANDED of {upperhalfbw: int, lowerhalfbw: int}
 
 datatype cvode_lmm = CV_ADAMS | CV_BDF
 datatype cvode_iter = CV_NEWTON | CV_FUNCTIONAL
@@ -46,7 +55,7 @@ datatype cvode_solver =
 datatype solver =
 	 FORWARD_EULER of {dt:real}
        | EXPONENTIAL_EULER of {dt:real}
-       | LINEAR_BACKWARD_EULER of {dt:real}
+       | LINEAR_BACKWARD_EULER of {dt:real, solv: linear_solver}
        | RK4 of {dt:real}
        | MIDPOINT of {dt:real}
        | HEUN of {dt:real}
@@ -83,19 +92,12 @@ fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
   | solver2shortname (ODE45 _) = "ode45" (*"dormand_prince"*)
   | solver2shortname (CVODE _) = "cvode"
 
-fun cvode_solver2params CVDENSE = [("cvode.solv", "CVODE_DENSE")]
-  | cvode_solver2params CVDIAG = [("cvode.solv", "CVODE_DIAG")]
-  | cvode_solver2params (CVBAND {upperhalfbw, lowerhalfbw}) = 
-    [("cvode.solv", "CVODE_BAND"),
-     ("cvode.upperhalfbw", i2s upperhalfbw), (* Probably broken, how do these get passed to CVODE in C? *)
-     ("cvode.lowerhalfbw", i2s lowerhalfbw)]
-
 fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
 					  ("abstol", "0.0"),
 					  ("reltol", "0.0")]
-  | solver2params (LINEAR_BACKWARD_EULER {dt}) = [("timestep", r2s dt),
-						  ("abstol", "0.0"),
-						  ("reltol", "0.0")]
+  | solver2params (LINEAR_BACKWARD_EULER {dt, ...}) = [("timestep", r2s dt),
+							    ("abstol", "0.0"),
+							    ("reltol", "0.0")]
   | solver2params (EXPONENTIAL_EULER {dt}) = [("timestep", r2s dt),
 					      ("abstol", "0.0"),
 					      ("reltol", "0.0")]
@@ -116,14 +118,31 @@ fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
     [("timestep", r2s dt),
      ("abstol", r2s abs_tolerance),
      ("reltol", r2s rel_tolerance)]
-  | solver2params (CVODE {dt, abs_tolerance, rel_tolerance, lmm, iter, solv, max_order}) = 
+  | solver2params (CVODE {dt, abs_tolerance, rel_tolerance, ...}) = 
     [("timestep", r2s dt),
      ("abstol", r2s abs_tolerance),
-     ("reltol", r2s rel_tolerance),
-     ("cvode.max_order", i2s max_order),
-     ("cvode.lmm", case lmm of CV_ADAMS => "CV_ADAMS" | CV_BDF => "CV_BDF"),
-     ("cvode.iter", case iter of CV_FUNCTIONAL => "CV_FUNCTIONAL" | CV_NEWTON => "CV_NEWTON")] @ 
-    cvode_solver2params solv
+     ("reltol", r2s rel_tolerance)]
+
+fun linear_backward_euler_solver2opts LSOLVER_DENSE = [("lsolver", "LSOLVER_DENSE")]
+  | linear_backward_euler_solver2opts (LSOLVER_BANDED {lowerhalfbw, upperhalfbw}) = [("lsolver", "LSOLVER_BANDED"),
+								     ("upperhalfbw", i2s upperhalfbw),
+                                                                     ("lowerhalfbw", i2s lowerhalfbw),]
+
+fun cvode_solver2opts CVDENSE = [("solv", "CVODE_DENSE")]
+  | cvode_solver2opts CVDIAG = [("solv", "CVODE_DIAG")]
+  | cvode_solver2opts (CVBAND {upperhalfbw, lowerhalfbw}) = 
+    [("solv", "CVODE_BAND"),
+     ("upperhalfbw", i2s upperhalfbw),
+     ("lowerhalfbw", i2s lowerhalfbw)]
+
+fun solver2opts (LINEAR_BACKWARD_EULER {dt, solv}) = linear_backward_euler_solver2opts solv
+  | solver2opts (CVODE {dt, abs_tolerance, rel_tolerance, lmm, iter, solv, max_order}) =
+    [("max_order", i2s max_order),
+     ("lmm", case lmm of CV_ADAMS => "CV_ADAMS" | CV_BDF => "CV_BDF"),
+     ("iter", case iter of CV_FUNCTIONAL => "CV_FUNCTIONAL" | CV_NEWTON => "CV_NEWTON")] @
+    cvode_solver2opts solv
+  | solver2opts _ =
+    nil
 
 (*
 fun solver2options solver = 

@@ -26,21 +26,15 @@ typedef struct {
   void *mem;
 } gpu_data;
 
-// Additional CVODE specific options
-typedef struct {
-  int lmm;
-  int iter;
-  int solv;
-  int upperhalfbw;
-  int lowerhalfbw;
-  int max_order;
-} cvode_opts;
-// CVODE solver types
-#define CVODE_DENSE 0
-#define CVODE_DIAG 1
-#define CVODE_BAND 2
-
 typedef void solver_mem;
+
+// This is a space container for solver specific options.  This structure should not be used directly
+// as a specific solver should have its own structured layout and cast the props entry to its own
+// representation.  However, this structure is what actually allocates the space and therefore it
+// must be at least as large as the largest solver specific options structure.
+typedef struct {
+  CDATAFORMAT ignoreme[8];  // Increase the array size to accommodate larger options structures as needed
+}solver_opts;
 
 // Each iterator associates with an instance of this structure.
 typedef struct {
@@ -69,14 +63,13 @@ typedef struct {
   unsigned int pp_statesize; // Number of postprocess states dependent upon this solver's iterator
   unsigned int outputsize;
   unsigned int num_models;
-  unsigned int bandsize;  // Number of bands in statesize*statesize matrix for linear solver
   void *od;
   unsigned int ob_size;
   output_buffer *ob;
   gpu_data gpu;
-  cvode_opts cvode;
   int *running;
-  solver_mem *mem;
+  solver_mem *mem;  // Solver specific memory storage
+  solver_opts opts; // Solver specific options
 } solver_props;
 
 // Pre-declaration of model_flows, the interface between the solver and the model

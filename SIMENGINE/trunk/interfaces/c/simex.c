@@ -614,7 +614,7 @@ int main(int argc, char **argv){
     simengine_result *result = api->runmodel(opts.start_time, opts.stop_time, opts.num_models, inputs, states, &allocator);
 
     if (SUCCESS != result->status){
-      fprintf(stderr, "ERROR: runmodel returned non-zero status %d: %s", result->status, result->status_message);
+      fprintf(stderr, "ERROR: runmodel returned non-zero status %d: %s\n", result->status, result->status_message);
     }
 
     write_outputs(iface, &opts, result);

@@ -407,7 +407,7 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 	 Solver.EXPONENTIAL_EULER {dt} => 
 	 shard (* TODO: stubbed out *)
 
-       | Solver.LINEAR_BACKWARD_EULER {dt} =>
+       | Solver.LINEAR_BACKWARD_EULER {dt, solv} =>
 	 (let
  	     (*val _ =  
 		 (log("\n ============ pre-unified model ============ \n");

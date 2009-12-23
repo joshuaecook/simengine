@@ -18,6 +18,21 @@ typedef struct{
   unsigned int first_iteration;
 } cvode_mem;
 
+// Additional CVODE specific options
+typedef struct {
+  int lmm;
+  int iter;
+  int solv;
+  int upperhalfbw;
+  int lowerhalfbw;
+  int max_order;
+} cvode_opts;
+
+// CVODE solver types
+#define CVODE_DENSE 0
+#define CVODE_DIAG 1
+#define CVODE_BAND 2
+
 int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
   cvode_mem *mem = (cvode_mem*)userdata;
   solver_props *props = mem->props;
@@ -46,6 +61,7 @@ void cvode_err_handler(int error_code, const char *module, const char *function,
 int cvode_init(solver_props *props){
   assert(props->statesize > 0);
 
+  cvode_opts *opts = (cvode_opts*)&props->opts;
   cvode_mem *mem = (cvode_mem*) malloc(props->num_models*sizeof(cvode_mem));
   unsigned int modelid;
 
@@ -62,7 +78,7 @@ int cvode_init(solver_props *props){
     mem[modelid].y0 = N_VMake_Serial(props->statesize, mem[modelid].next_states);
     // Create data structure for solver
     //    mem[modelid].cvmem = CVodeCreate(CV_BDF, CV_NEWTON);
-    mem[modelid].cvmem = CVodeCreate(props->cvode.lmm, props->cvode.iter);
+    mem[modelid].cvmem = CVodeCreate(opts->lmm, opts->iter);
     
     // Initialize CVODE
     if(CVodeInit(mem[modelid].cvmem, user_fun_wrapper, props->starttime, mem[modelid].y0) != CV_SUCCESS){
@@ -77,13 +93,13 @@ int cvode_init(solver_props *props){
       PRINTF( "Could not set CVODE tolerances");
     }
     // Set maximum order
-    if(CVodeSetMaxOrd(mem[modelid].cvmem, props->cvode.max_order) != CV_SUCCESS) {
+    if(CVodeSetMaxOrd(mem[modelid].cvmem, opts->max_order) != CV_SUCCESS) {
       PRINTF( "Could not set CVODE maximum order");
     }
     // Set linear solver
-    switch (props->cvode.solv) {
+    switch (opts->solv) {
     case CVODE_DENSE:
-      if(CVDense(mem[modelid].cvmem, mem[modelid].props->statesize) != CV_SUCCESS){
+      if(CVDense(mem[modelid].cvmem, props->statesize) != CV_SUCCESS){
 	PRINTF( "Could not set CVODE DENSE linear solver");
       }
       break;
@@ -93,7 +109,7 @@ int cvode_init(solver_props *props){
       }
       break;
     case CVODE_BAND:
-      if(CVBand(mem[modelid].cvmem, mem[modelid].props->statesize, mem[modelid].props->cvode.upperhalfbw, mem[modelid].props->cvode.lowerhalfbw) != CV_SUCCESS){
+      if(CVBand(mem[modelid].cvmem, props->statesize, opts->upperhalfbw, opts->lowerhalfbw) != CV_SUCCESS){
 	PRINTF( "Could not set CVODE BAND linear solver");
       }
       break;

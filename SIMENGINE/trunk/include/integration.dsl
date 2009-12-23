@@ -3,6 +3,13 @@ class Solver
   var dt
   var abstol
   var reltol
+
+  // Linear Backward Euler Specific Options
+  var lbe_solv
+  var lbe_upperhalfbw
+  var lbe_lowerhalfbw
+
+  // CVODE Specific Options
   var cv_lmm
   var cv_iter
   var cv_solv
@@ -15,6 +22,12 @@ class Solver
     self.dt = dt
     self.abstol = abs_tolerance
     self.reltol = rel_tolerance
+
+    // Linear Backward Euler Specific Options
+    self.lbe_solv = "LSOLVER_DENSE" // Currently LSOLVER_BANDED or LSOLVER_DENSE
+    self.lbe_bandsize = 0 // Only relevant for banded solver
+
+    // CVODE Specific Options
     self.cv_lmm = "CV_BDF" // lmm = linear multistep method (can be CV_BDF or CV_ADAMS)
     self.cv_iter = "CV_NEWTON" // iter = nunlinear solver iteration (can be CV_NEWTON or CV_FUNCTIONAL)
     self.cv_solv = "CVDENSE" // solv = specify the type of solver and how they compute the Jacobian
