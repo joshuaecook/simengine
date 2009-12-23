@@ -5,27 +5,43 @@
 
 # Platform and operating system detection
 OSLOWER = $(shell uname -s|tr [:upper:] [:lower:])
+ARCH = $(strip $(shell arch))
 ARCH64 = $(strip $(shell arch|grep 64))
 
 # Compilers and commands
-GRIND := valgrind
-CXX := g++
-ifeq ($(OSLOWER), darwin)
-#GXXVERSION = $(shell g++ -v 2>&1 | tail -1 | cut -d' ' -f 3)
-GXXVERSION = $(shell gcc -v 2>&1 | tail -1 | cut -d' ' -f 3)
-GXXMAJOR = $(shell echo $(GXXVERSION) | cut -d. -f 1)
-GXXMINOR = $(shell echo $(GXXVERSION) | cut -d. -f 2)
-
-#CC=$(shell (export CC=g++; if [[ 4 -ge $GXXMAJOR ]]; then if [[ 2 -gt $GXXMINOR ]]; then export CC=g++-4.2; fi; fi; echo $$CC))
-CC=$(shell (export CC=gcc; if [[ 4 -ge $GXXMAJOR ]]; then if [[ 2 -gt $GXXMINOR ]]; then export CC=gcc-4.2; fi; fi; echo $$CC))
-
-else
 CC := gcc
+CCVERSION = $(shell $(CC) -v 2>&1 | tail -1 | cut -d' ' -f 3)
+CCMAJOR = $(shell echo $(CCVERSION) | cut -d. -f 1)
+CCMINOR = $(shell echo $(CCVERSION) | cut -d. -f 2)
+
+ifeq ($(OSLOWER), darwin)
+# OpenMP requires gcc-4.2 on OS X Leopard
+CC := $(shell if [ 4 -ge $(CCMAJOR) -a 2 -gt $(CCMINOR) ]; then echo $(CC)-4.2; else echo $(CC); fi)
+CCVERSION = $(shell $(CC) -v 2>&1 | tail -1 | cut -d' ' -f 3)
+CCMAJOR = $(shell echo $(CCVERSION) | cut -d. -f 1)
+CCMINOR = $(shell echo $(CCVERSION) | cut -d. -f 2)
 endif
+
+CFLAGS += -arch $(ARCH)
+
+CXX := g++
+CXXVERSION = $(shell $(CXX) -v 2>&1 | tail -1 | cut -d' ' -f 3)
+CXXMAJOR = $(shell echo $(CXXVERSION) | cut -d. -f 1)
+CXXMINOR = $(shell echo $(CXXVERSION) | cut -d. -f 2)
+
+ifeq ($(OSLOWER), darwin)
+# OpenMP requires g++-4.2 on OS X Leopard
+CXX := $(shell if [ 4 -ge $(CXXMAJOR) -a 2 -gt $(CXXMINOR) ]; then echo $(CXX)-4.2; else echo $(CXX); fi)
+CXXVERSION = $(shell $(CXX) -v 2>&1 | tail -1 | cut -d' ' -f 3)
+CXXMAJOR = $(shell echo $(CXXVERSION) | cut -d. -f 1)
+CXXMINOR = $(shell echo $(CXXVERSION) | cut -d. -f 2)
+endif
+
 AR := ar rs
 LN := ln -s
 MKDIR := mkdir -p
 RM := rm -rf
+GRIND := valgrind
 
 ifneq ($(ARCH64),)
 VPATH := /lib64 /usr/lib64 /usr/local/lib64 $(VPATH)
