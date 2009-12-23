@@ -377,8 +377,8 @@ void analyze_result(const simengine_interface *iface, simengine_result *result, 
     double errorNorm = 0.0;
     
     for (outputid = 0; outputid < iface->num_outputs; ++outputid){
-      simengine_output *op0 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid-1)];
-      simengine_output *op1 = &output[AS_IDX(iface->num_outputs, NUM_MODELS, outputid, modelid)];
+      simengine_output *op0 = &output[AS_IDX(iface->num_outputs, num_models, outputid, modelid-1)];
+      simengine_output *op1 = &output[AS_IDX(iface->num_outputs, num_models, outputid, modelid)];
       
 //	    PRINTF("%d samples in model %d output %d\n", op1->num_samples, modelid, outputid);
       if (op1->num_samples != op0->num_samples){
@@ -397,7 +397,7 @@ void analyze_result(const simengine_interface *iface, simengine_result *result, 
       }
     }
 
-    if (1.0e-6 < fabs(errorNorm - 0.0)){
+    if (0.0 < fabs(errorNorm - 0.0)){
       PRINTF("Error from %d to %d: %0.8f\n", modelid-1, modelid, errorNorm);
       error = 1;
     }
