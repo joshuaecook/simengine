@@ -31,6 +31,7 @@ __HOST__
 int linearbackwardeuler_init(solver_props *props){
   solver_mem *mem;
   linearbackwardeuler_opts *opts = (linearbackwardeuler_opts*)&props->opts;
+  unsigned int bandwidth = opts->upperhalfbw + opts->lowerhalfbw + 1;
 
 #if defined TARGET_GPU
   // Allocates GPU global memory for solver's persistent data
@@ -39,7 +40,7 @@ int linearbackwardeuler_init(solver_props *props){
     cutilSafeCall(cudaMalloc((void **)&mem, props->num_models * props->statesize * props->statesize * sizeof(CDATAFORMAT)));
     break;
   case LSOLVER_BANDED:
-    cutilSafeCall(cudaMalloc((void **)&mem, props->num_models * props->statesize * opts->bandsize * sizeof(CDATAFORMAT)));
+    cutilSafeCall(cudaMalloc((void **)&mem, props->num_models * props->statesize * bandwidth * sizeof(CDATAFORMAT)));
     break;
   default:
     return 1;
@@ -50,7 +51,7 @@ int linearbackwardeuler_init(solver_props *props){
     mem = (solver_mem *)malloc(props->num_models * props->statesize * props->statesize * sizeof(CDATAFORMAT));
     break;
   case LSOLVER_BANDED:
-    mem = (solver_mem *)malloc(props->num_models * props->statesize * opts->bandsize * sizeof(CDATAFORMAT));
+    mem = (solver_mem *)malloc(props->num_models * props->statesize * bandwidth * sizeof(CDATAFORMAT));
     break;
   default:
     return 1;

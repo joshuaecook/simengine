@@ -25,7 +25,8 @@ class Solver
 
     // Linear Backward Euler Specific Options
     self.lbe_solv = "LSOLVER_DENSE" // Currently LSOLVER_BANDED or LSOLVER_DENSE
-    self.lbe_bandsize = 0 // Only relevant for banded solver
+    self.lbe_upperhalfbw = 0 // Only relevant for banded solver
+    self.lbe_lowerhalfbw = 0 // Only relevant for banded solver
 
     // CVODE Specific Options
     self.cv_lmm = "CV_BDF" // lmm = linear multistep method (can be CV_BDF or CV_ADAMS)
