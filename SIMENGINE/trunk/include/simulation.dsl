@@ -1172,6 +1172,8 @@ function compile (mod)
   var ccp = SimCompile.shellWithStatus(cc(1), cc(2))
   var ccstat = ccp.rev().first().rstrip("\n")
   if "0" <> ccstat then
+      println (cc(1) + " " + join(" ", cc(2)))
+      println (join("\n", ccp))
       error ("OOPS! Compiler returned non-zero exit status " + ccstat)
   end
 

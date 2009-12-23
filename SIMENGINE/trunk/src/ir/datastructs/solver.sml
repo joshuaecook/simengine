@@ -125,8 +125,8 @@ fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
 
 fun linear_backward_euler_solver2opts LSOLVER_DENSE = [("lsolver", "LSOLVER_DENSE")]
   | linear_backward_euler_solver2opts (LSOLVER_BANDED {lowerhalfbw, upperhalfbw}) = [("lsolver", "LSOLVER_BANDED"),
-								     ("upperhalfbw", i2s upperhalfbw),
-                                                                     ("lowerhalfbw", i2s lowerhalfbw),]
+										     ("upperhalfbw", i2s upperhalfbw),
+										     ("lowerhalfbw", i2s lowerhalfbw)]
 
 fun cvode_solver2opts CVDENSE = [("solv", "CVODE_DENSE")]
   | cvode_solver2opts CVDIAG = [("solv", "CVODE_DIAG")]

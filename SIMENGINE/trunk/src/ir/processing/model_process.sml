@@ -627,7 +627,34 @@ fun updateShardForSolver (shard as {top_class, iter as (itername, DOF.CONTINUOUS
 
 	     val _ = (#exps flatclass) := newExps
 
-	     val shard' = {top_class=top_class, iter=iter, model=([flatclass], instance, sysprops)}
+
+	     (* Replaces the system iterator with a new one having a linear solver with the appropriate bandwidth attributes. *)
+	     local
+		 val linSolver = Solver.LSOLVER_BANDED {upperhalfbw = upperbw,
+							    lowerhalfbw = lowerbw}
+		 val solver = Solver.LINEAR_BACKWARD_EULER {dt = dt, solv = linSolver}
+	     in
+	     val iter' = (itername, DOF.CONTINUOUS solver)
+
+	     val sysprops' =
+		 let val {iterators, precision, target, num_models, debug, profile} = sysprops
+		     (* Find the continuous iterator and replace it with a new one. *)
+		     fun replaceIterator (name, typ) =
+			 if name = itername then iter' else (name, typ)
+
+		     val iterators' = map replaceIterator iterators
+		 in
+		     {iterators = iterators',
+		      precision = precision,
+		      target = target, 
+		      num_models = num_models,
+		      debug = debug,
+		      profile = profile}
+		 end
+	     end
+
+	     val shard' = {top_class=top_class, iter=iter', model=([flatclass], instance, sysprops')}
+
 
 	 in
 	     shard'

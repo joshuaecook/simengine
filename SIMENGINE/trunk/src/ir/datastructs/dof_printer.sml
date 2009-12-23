@@ -159,7 +159,7 @@ fun printModel (model: DOF.model) =
 			      print ("  Solver = Linear Backward Euler (dt = " ^ (Real.toString dt) ^ 
 				     (case solv of 
 					  Solver.LSOLVER_DENSE => " Dense linear solver"
-					| Solver.LSOLVER_BANDED {bandsize} => " Banded linear solver with "^(i2s bandsize)^" bands")
+					| Solver.LSOLVER_BANDED {lowerhalfbw, upperhalfbw} => " Banded linear solver with "^(i2s lowerhalfbw)^" lower and "^(i2s upperhalfbw)^" upper bands")
 				     ^")\n")
 			    | Solver.RK4 {dt} =>
 			      print ("  Solver = RK4 (dt = " ^ (Real.toString dt) ^ ")\n")
