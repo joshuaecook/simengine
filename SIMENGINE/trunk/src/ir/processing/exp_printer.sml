@@ -97,8 +97,8 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
     in
 	case container of
 	     Exp.EXPLIST e => "{" ^ (list2str e) ^ "}"
-	   | Exp.ARRAY v => "[" ^ (list2str (Container.array2list v)) ^ "]"
-	   | Exp.MATRIX m => "[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Container.matrix2rows m))) ^ "]"
+	   | Exp.ARRAY v => "[" ^ (list2str (Container.arrayToList v)) ^ "]"
+	   | Exp.MATRIX m => "("^(Matrix.infoString m)^")[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ "]"
     end
 
 
@@ -177,10 +177,10 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
     let
 	fun list2str l = String.concatWith ", " (map exp2fullstr l)
 	fun array2str a = 
-	    "[" ^ (i2s (Container.array2size a)) ^ "]"
+	    "[" ^ (i2s (Container.arrayToSize a)) ^ "]"
 	fun matrix2str m = 
 	    let
-		val (rows, cols) = Container.matrix2size m
+		val (rows, cols) = Matrix.size m
 		(*val (upper_bw, lower_bw) = Matrix.findBandwidth m*)
 	    in
 		"["^(i2s rows)^"x"^(i2s cols)^"]"(* ^ 
@@ -189,8 +189,13 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
     in
 	case container of
 	     Exp.EXPLIST e => "explist(" ^ (list2str e) ^ ")"
-	   | Exp.ARRAY a => "array"^(array2str a)^"(" ^ (list2str (Container.array2list a)) ^ ")"
-	   | Exp.MATRIX m => "matrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Container.matrix2rows m))) ^ ")"
+	   | Exp.ARRAY a => "array"^(array2str a)^"(" ^ (list2str (Container.arrayToList a)) ^ ")"
+	   | Exp.MATRIX m => 
+	     case !m of
+		 Matrix.DENSE _ => 
+		 "DenseMatrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ ")"
+	       | Matrix.BANDED _ => 
+		 "BandedMatrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ ")"
     end
 
 fun exp2str e = 
@@ -199,6 +204,9 @@ fun exp2str e =
      else
 	 exp2tersestr e)
     handle e => DynException.checkpoint "ExpProcess.exp2str" e
+
+val _ = Exp.exp2str := exp2str
+val _ = ExpBuild.exp2str := exp2str
 
 
 

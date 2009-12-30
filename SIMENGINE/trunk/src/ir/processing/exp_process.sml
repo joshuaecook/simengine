@@ -121,12 +121,12 @@ fun exp2termsymbols (Exp.FUN (_, exps)) =
   | exp2termsymbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
     (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
   | exp2termsymbols (Exp.CONTAINER c) =
-    List.concat (map exp2termsymbols (Container.container2elements c))
+    List.concat (map exp2termsymbols (Container.containerToElements c))
   | exp2termsymbols _ = []
     
 fun exp2symbols (Exp.FUN (_, operands))		= List.concat (map exp2symbols operands)
   | exp2symbols (Exp.TERM term) 		= term2symbols term
-  | exp2symbols (Exp.CONTAINER c)               = List.concat (map exp2symbols (Container.container2elements c))
+  | exp2symbols (Exp.CONTAINER c)               = List.concat (map exp2symbols (Container.containerToElements c))
   | exp2symbols _ 				= nil
 
 and term2symbols (Exp.SYMBOL (var, _)) 		= [var]
@@ -147,7 +147,7 @@ fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
     
 
 fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(List.concat (map exp2fun_names exps))
-  | exp2fun_names (Exp.CONTAINER c) = List.concat (map exp2fun_names (Container.container2elements c))
+  | exp2fun_names (Exp.CONTAINER c) = List.concat (map exp2fun_names (Container.containerToElements c))
   | exp2fun_names _ = []
 
 val uniqueid = ref 0
@@ -180,12 +180,12 @@ fun renameSym (orig_sym, new_sym) exp =
       | Exp.CONTAINER c => 
 	let
 	    fun renameList l = map (renameSym (orig_sym, new_sym)) l
-	    fun renameArray a = (Container.list2array o 
+	    fun renameArray a = (Container.listToArray o 
 				 renameList o
-				 Container.array2list) a
-	    fun renameMatrix m = (Container.rows2matrix o
+				 Container.arrayToList) a
+	    fun renameMatrix m = ((Matrix.fromRows (Exp.calculus())) o
 				  (map renameArray) o
-				  Container.matrix2rows) m
+				  Matrix.toRows) m
 				 
 	    val c' = case c of
 			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
@@ -209,12 +209,12 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
       | Exp.CONTAINER c => 
 	let
 	    fun renameList l = map (renameInst syms) l
-	    fun renameArray a = (Container.list2array o 
+	    fun renameArray a = (Container.listToArray o 
 				 renameList o
-				 Container.array2list) a
-	    fun renameMatrix m = (Container.rows2matrix o
+				 Container.arrayToList) a
+	    fun renameMatrix m = ((Matrix.fromRows (Exp.calculus())) o
 				  (map renameArray) o
-				  Container.matrix2rows) m
+				  Matrix.toRows) m
 				 
 	    val c' = case c of
 			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
@@ -668,8 +668,12 @@ fun exp2size iterator_list exp : int =
 		       (case c of
 			    Exp.EXPLIST l => Util.sum (map (exp2size iterator_list) l)
 			  | Exp.ARRAY a => Array.length a
-			  | Exp.MATRIX m => (Array2.nCols m) * (Array2.nRows m))
-
+			  | Exp.MATRIX m => 
+			    let
+				val (nrows, ncols) = Matrix.size m
+			    in
+				nrows * ncols
+			    end)
     in
 	size
     end
@@ -734,7 +738,7 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
     let
 	fun list2iters l = foldl SymbolSet.union SymbolSet.empty (map iterators_of_expression l)
     in
-	list2iters (Container.container2elements c)
+	list2iters (Container.containerToElements c)
     end
 
   | iterators_of_expression _ = SymbolSet.empty
@@ -1382,15 +1386,18 @@ and container_to_json (Exp.EXPLIST l) =
   | container_to_json (Exp.ARRAY a) =
     js_object [("type", js_string "ARRAY"),
 	       ("length", js_int (Array.length a)),
-	       ("members", js_array (map to_json (Container.array2list a)))]
+	       ("members", js_array (map to_json (Container.arrayToList a)))]
   | container_to_json (Exp.MATRIX m) =
-    js_object [("type", js_string "MATRIX"),
-	       ("rows", js_int (Array2.nRows m)),
-	       ("columns", js_int (Array2.nCols m)),
-	       ("members", js_array (map 
-					 (to_json o Exp.CONTAINER o Exp.ARRAY)
-					 (Container.matrix2rows m)))]
-
+    let
+	val (nrows, ncols) = Matrix.size m
+    in
+	js_object [("type", js_string "MATRIX"),
+		   ("rows", js_int nrows),
+		   ("columns", js_int ncols),
+		   ("members", js_array (map 
+					     (to_json o Exp.CONTAINER o Exp.ARRAY)
+					     (Matrix.toRows m)))]
+    end
 end
 
 end

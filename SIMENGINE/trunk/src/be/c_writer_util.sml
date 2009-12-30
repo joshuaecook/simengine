@@ -48,15 +48,31 @@ fun exp2c_str (Exp.FUN (str, exps)) =
   | exp2c_str (Exp.TERM term) = term2c_str term
   | exp2c_str (Exp.CONTAINER c) =
     let
-	fun array2str a = "{" ^ (String.concatWith ", " (map exp2c_str (Container.array2list a))) ^ "}"
+	fun array2str a = "{" ^ (String.concatWith ", " (map exp2c_str (Container.arrayToList a))) ^ "}"
 	fun matrix2str m = 
-	    let
-		val arrays = Container.matrix2rows m
-	    in
-		"{" ^ "\n" ^
-		(String.concatWith ",\n" (map array2str arrays)) ^ "\n" ^
-		"}"
-	    end
+	    case !m of
+		Matrix.DENSE _ =>
+		let
+		    val _ = print ("dense matrix -> ")
+		    val _ = Matrix.print m
+		    val arrays = Matrix.toRows m
+		in
+		    "{" ^ "\n" ^
+		    (String.concatWith ",\n" (map array2str arrays)) ^ "\n" ^
+		    "}"
+		end
+	      | Matrix.BANDED _ =>
+		let
+		    val bands = Matrix.toPaddedBands m
+		    val m' = Matrix.fromRows (Exp.calculus()) bands
+		    val _ = print ("matrix bands -> ")
+		    val _ = Matrix.print m'
+		    val _ = Matrix.transpose m'
+		    val _ = print ("matrix bands (transposed) -> ")
+		    val _ = Matrix.print m'
+		in
+		    matrix2str m'
+		end		
     in
 	case c of
 	    Exp.EXPLIST l => DynException.stdException ("Cannot write EXPLIST expressions", "CWriter.exp2c_str", Logger.INTERNAL)

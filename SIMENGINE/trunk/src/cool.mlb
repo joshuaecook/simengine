@@ -67,6 +67,8 @@ util/graphs/dfg.sml*)
 
 ir/datastructs/sys.sig
 ir/util.sml
+ir/math/calculus.sml
+ir/math/matrix.sml
 ir/datastructs/target.sml
 
 ir/datastructs/iterator.sml
@@ -96,7 +98,7 @@ ir/processing/fun_process.sml
 
 ir/patterns/pattern_process.sml
 ir/processing/exp_printer.sml
-ir/math/matrix.sml
+(*ir/math/matrix_ops.sml*)
 
 ir/processing/term_process.sml
 

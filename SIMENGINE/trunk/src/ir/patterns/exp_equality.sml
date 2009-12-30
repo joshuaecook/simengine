@@ -481,14 +481,14 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 
 	      | (Exp.CONTAINER (c1 as (Exp.ARRAY a1)), Exp.CONTAINER (c2 as (Exp.ARRAY a2))) =>
 		allEquiv exp_equivalent matchCandidates 
-			 (Container.container2elements c1, 
-			  Container.container2elements c2)
+			 (Container.containerToElements c1, 
+			  Container.containerToElements c2)
 		
 	      | (Exp.CONTAINER (c1 as (Exp.MATRIX m1)), Exp.CONTAINER (c2 as (Exp.MATRIX m2))) =>
-		if (Container.matrix2size m1) = (Container.matrix2size m2) then
+		if (Matrix.size m1) = (Matrix.size m2) then
 		    allEquiv exp_equivalent matchCandidates 
-			     (Container.container2elements c1, 
-			      Container.container2elements c2)
+			     (Container.containerToElements c1, 
+			      Container.containerToElements c2)
 		else
 		    nil
 		

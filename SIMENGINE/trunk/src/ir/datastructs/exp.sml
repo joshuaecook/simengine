@@ -22,7 +22,7 @@ datatype exp =
        | SEQUENCE of exp list
 	 
      and container =
-	 MATRIX of exp Array2.array
+	 MATRIX of exp Matrix.matrix
        | ARRAY of exp Array.array
        | EXPLIST of exp list
 
@@ -46,9 +46,26 @@ datatype exp =
        | PATTERN of (Symbol.symbol * predicate * Pattern.patterncount)
 
 withtype predicate = (string * (exp -> bool))
+
 type pattern = (Symbol.symbol * predicate * Pattern.patterncount)
 
 val null = FUN (Fun.BUILTIN Fun.NULL, [])
+val exp2str : (exp -> string) ref = ref (fn(exp)=>"??")
+
+fun calculus () : exp Calculus.calculus = 
+    {zero= TERM (INT 0),
+     isZero= (fn(a)=> case a of
+			  TERM (INT 0) => true
+			| TERM (REAL r) => Real.== (0.0, r)
+			| _ => false),
+     one= TERM (INT 1),
+     isOne= (fn(a)=> case a of
+			 TERM (INT 1) => true
+		       | TERM (REAL r) => Real.== (1.0, r)
+		       | _ => false),
+     addition= (fn(l)=>FUN (Fun.BUILTIN Fun.ADD, l)),
+     multiplication= (fn(l)=>FUN (Fun.BUILTIN Fun.MUL, l)),
+     toString= !exp2str}
 
 
 end

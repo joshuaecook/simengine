@@ -56,10 +56,17 @@ fun std_compile exec args =
 	      val forkedModels = ModelProcess.forkModel (CurrentModel.getCurrentModel())
 
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
-			  (log ("Optimizing model ...");
-			   app (fn({model, ...}) => (CurrentModel.withModel model 
-									    (fn() => ModelProcess.optimizeModel (model)))) 
-			       forkedModels)
+			  let
+			      val (shards, sysprops) = forkedModels
+			      fun toModel {classes, instance, ...} = (classes, instance, sysprops)
+			  in
+			      (log ("Optimizing model ...");
+			       app 
+				   (fn(shard) => 
+				      (CurrentModel.withModel (toModel shard)
+							      (fn() => ModelProcess.optimizeModel (toModel shard)))) 
+				   shards)
+			  end
 		      else
 			  ()
 

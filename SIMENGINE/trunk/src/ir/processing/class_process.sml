@@ -899,6 +899,7 @@ fun addEPIndexToClass is_top (class: DOF.class) =
 	((#exps class) := exps';
 	 (#outputs class) := outputs')
     end
+    handle e => DynException.checkpoint "ClassProcess.addEPIndexToClass" e
 
 fun class2instances class = 
     let

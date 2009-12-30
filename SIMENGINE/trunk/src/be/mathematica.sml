@@ -105,10 +105,10 @@ fun exp2mathematica_str (exp as (Exp.FUN (Fun.BUILTIN Fun.ASSIGN,[_,Exp.FUN (Fun
     in
 	case c of 
 	    Exp.EXPLIST l => explist2str l
-	  | Exp.ARRAY a => explist2str (Container.array2list a)
+	  | Exp.ARRAY a => explist2str (Container.arrayToList a)
 	  | Exp.MATRIX m => list2str (map 
-					  (explist2str o Container.array2list)
-					  (Container.matrix2rows m))
+					  (explist2str o Container.arrayToList)
+					  (Matrix.toRows m))
     end    
   | exp2mathematica_str (Exp.META _) = 
     DynException.stdException ("Cannot write META expressions.", "Mathematica.exp2mathematica_str", Logger.INTERNAL)

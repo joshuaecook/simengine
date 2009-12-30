@@ -34,17 +34,17 @@ fun normalize_with_env table exp =
 	    let
 		fun normalize_array a =
 		    let
-			val l = Container.array2list a
+			val l = Container.arrayToList a
 			val l' = map (normalize_with_env table) l
 		    in
-			Container.list2array l'
+			Container.listToArray l'
 		    end
 		fun normalize_matrix m =
 		    let
-			val arrays = Container.matrix2rows m
+			val arrays = Matrix.toRows m
 			val arrays' = map normalize_array arrays
 		    in
-			Container.rows2matrix arrays'
+			Matrix.fromRows (Exp.calculus ()) arrays'
 		    end
 	    in
 	    Exp.CONTAINER 

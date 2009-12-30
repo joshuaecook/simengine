@@ -71,27 +71,77 @@ fun exp2term (Exp.TERM t) = t
 (* common term rewriting commands *)
 (* level - grab the next level of arguments *)
 fun level (exp) =
-    case exp of 
-	Exp.FUN (_,args) => args
-      | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
-      | Exp.TERM (Exp.COMPLEX (a, b)) => map Exp.TERM [a,b]
-      | Exp.CONTAINER (Exp.EXPLIST l) => l
-      | Exp.CONTAINER (Exp.ARRAY a) => (Container.array2list a)
-      | Exp.CONTAINER (Exp.MATRIX m) => map 
-					    (Exp.CONTAINER o Exp.ARRAY)
-					    (Container.matrix2rows m)
-      | _ => []
+    (case exp of 
+	 Exp.FUN (_,args) => args
+       | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
+       | Exp.TERM (Exp.COMPLEX (a, b)) => map Exp.TERM [a,b]
+       | Exp.CONTAINER (Exp.EXPLIST l) => l
+       | Exp.CONTAINER (Exp.ARRAY a) => (Container.arrayToList a)
+       | Exp.CONTAINER (Exp.MATRIX m) =>
+	 (case !m of
+	      Matrix.DENSE {data,...} => 	     
+	      map 
+		  (Exp.CONTAINER o Exp.ARRAY)
+		  (Matrix.toRows m)
+	   | Matrix.BANDED {data,calculus,...} =>
+	     (#zero calculus)::(map Container.arrayToExpArray data))
+      | _ => [])
+    handle e => DynException.checkpoint ("Match.level ["^(e2s exp)^"]") e
 
 (* this will return a function to rebuild the head *)
 fun head (exp) =
-    case exp of
+    (case exp of
 	Exp.FUN (funtype, args) => (fn(args')=> Exp.FUN (funtype, args'))
       | Exp.TERM (Exp.TUPLE (termlist)) => (fn(args') => Exp.TERM (Exp.TUPLE (map exp2term args')))
       | Exp.TERM (Exp.COMPLEX (a, b)) => (fn(args') => Exp.TERM (Exp.COMPLEX (exp2term (List.nth (args', 0)), exp2term (List.nth (args', 1)))))
       | Exp.CONTAINER (Exp.EXPLIST l) => (fn(args') => Exp.CONTAINER (Exp.EXPLIST args'))
-      | Exp.CONTAINER (Exp.ARRAY a) => (fn(args') => Exp.CONTAINER (Exp.ARRAY (Container.list2array args')))
-      | Exp.CONTAINER (Exp.MATRIX m) => (fn(args') => Exp.CONTAINER (Exp.MATRIX (Container.rows2matrix (Container.listexp2listarray args'))))
-      | _ => (fn(args') => exp)
+      | Exp.CONTAINER (Exp.ARRAY a) => (fn(args') => Exp.CONTAINER (Exp.ARRAY (Container.listToArray args')))
+      | Exp.CONTAINER (Exp.MATRIX m) => 
+	(case !m of
+	     Matrix.DENSE {data, calculus} => 
+	     (fn(args') => Exp.CONTAINER (Exp.MATRIX (Matrix.fromRows (calculus) (Container.expListToArrayList args'))))
+	   | Matrix.BANDED {data, calculus, nrows, ncols, upperbw, lowerbw} => 
+	     (fn(all_args) => 
+		case all_args of
+		    zero::args' => 
+		    if (#isZero calculus) zero then
+			let
+			    val data' = map Container.expArrayToArray args'
+			in
+			    Exp.CONTAINER (Exp.MATRIX 
+					       (ref (Matrix.BANDED {data=data',
+								    calculus=calculus, 
+								    nrows=nrows,
+								    ncols=ncols,
+								    upperbw=upperbw,
+								    lowerbw=lowerbw})))
+			end
+		    else (* the zero element has changed, so it's no longer a banded matrix *)
+			let
+			    val args'' = map Container.expArrayToArray args'
+			    val data' = Array2.array (nrows, ncols, zero)
+			    fun updateBand (a, num) =
+				let
+				    val indices = if num = 0 then (* on diagonal *)
+						      List.tabulate (Array.length a, fn(i)=>(i,i))
+						  else if num < 0 then (* lower band *)
+						      List.tabulate (Array.length a, fn(i)=>(i-num, i))
+						  else (* upper band *)
+						      List.tabulate (Array.length a, fn(i)=>(i, i+num))
+				in
+				    app 
+					(fn(exp, (i,j))=> Array2.update (data', i, j, exp)) 
+					(ListPair.zip (Container.arrayToList a, indices))
+				end
+			    val band_numbers = List.tabulate (length args'', fn(x)=>x-lowerbw)
+			    val _ = app updateBand (ListPair.zip (args'', band_numbers))
+			in
+			    Exp.CONTAINER (Exp.MATRIX (ref (Matrix.DENSE {data=data', calculus=calculus})))
+			end
+		  | _ => DynException.stdException("Unexpected number of arguments", "Match.head [Banded Matrix]", Logger.INTERNAL)))
+      | _ => (fn(args') => exp))
+    handle e => DynException.checkpoint ("Match.head ["^(e2s exp)^"]") e
+
 
 (* level and head are identity functions *)
 (* exp == (head exp) (level exp)*)
@@ -149,12 +199,12 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
 	=> 
 	let
 	    fun replaceList l = map (replaceSymbol (sym, repl_exp)) l
-	    fun replaceArray a = (Container.list2array o 
+	    fun replaceArray a = (Container.listToArray o 
 				  replaceList o 
-				  Container.array2list) a
-	    fun replaceMatrix m = (Container.rows2matrix o
+				  Container.arrayToList) a
+	    fun replaceMatrix m = ((Matrix.fromRows (Exp.calculus())) o
 				   (map replaceArray) o
-				   Container.matrix2rows) m				  
+				   Matrix.toRows) m				  
 	in
 	    Exp.CONTAINER 
 	    (case c of

@@ -79,6 +79,11 @@ namespace SimCompile
 
       m.LDFLAGS.push_back("-L" + simEngine + "/lib")
 
+      if "darwin" == osLower then
+	m.CC = "gcc-4.2"
+	m.LD = "gcc-4.2"
+      end
+
       if arch64 then
         if "darwin" <> osLower then
           m.CFLAGS.push_back("-m64")

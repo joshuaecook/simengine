@@ -1,4 +1,15 @@
-structure CParallelWriter =
+signature CPARALLELWRITER =
+sig
+
+datatype status =
+	 SUCCESS 
+       | FAILURE of string
+
+(* one entry point to build a C back-end *)
+val buildC : (DOF.model * ModelProcess.shardedModel) -> status
+
+end
+structure CParallelWriter : CPARALLELWRITER =
 struct
 
 datatype status =
@@ -204,10 +215,17 @@ fun init_solver_props top_name pp_classes forkedclasses =
 				           | _ => false
 			val c = CurrentModel.classname2class top_class
 			val matrix_exps = ClassProcess.symbol2exps c (Symbol.symbol "#M")
+			(* band size is the number of columns in the banded matrix, set to zero when it is a dense matrix *)
 			val bandsize = case matrix_exps of (* ignored for dense solver *)
 					   [exp] => 
 					   if ExpProcess.isMatrixEq exp then
-					       (fn(rows,cols)=>(cols)) (Container.matrix2size (Container.expmatrix2matrix (ExpProcess.rhs exp)))
+					       let
+						   val m = Container.expMatrixToMatrix (ExpProcess.rhs exp)
+					       in
+						   case !m of
+						       Matrix.DENSE _ => 0 (* set to zero when it is dense *)
+						     | Matrix.BANDED {ncols,...} => List.length (Matrix.toPaddedBands m)
+					       end
 					   else
 					       0
 					 | _ => 0
@@ -834,8 +852,13 @@ fun outputsystemstatestruct_code forkedModels =
 
 fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     let
+	(*val _ = Util.log("Generating code for class '"^(Symbol.name (#name class))^"'")
+	val _ = DOFPrinter.printClass class*)
+
 	(* we need to add EP indices if this is the top class *)
 	val _ = ClassProcess.addEPIndexToClass is_top_class class
+	(*val _ = Util.log("After adding EP indices")
+	val _ = DOFPrinter.printClass class*)
 
 	val orig_name = ClassProcess.class2basename class
 
@@ -951,25 +974,52 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    and intermediateeq2prog exp =
 		((if ExpProcess.isMatrixEq exp then
 		      let
+			  (*val _ = print ("matrix eq -> ")
+			  val _ = Util.log (e2s exp)*)
 			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
-			  val (rows, cols) = (Container.matrix2size o Container.expmatrix2matrix) rhs
+			  val (rows, cols) = (Matrix.size o Container.expMatrixToMatrix) rhs
 			  val var = CWriterUtil.exp2c_str lhs
 			  fun createIdx (i,j) = "MATIDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", NUM_MODELS, modelid)"
-			  fun createEntry (exp, i, j) = [$("// " ^ (e2s exp)),
+			  fun createEntry (i, j, exp) = [$("// " ^ (e2s exp)),
 							 $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
+			  val m = Container.expMatrixToMatrix rhs
+			  val m' = case !m of
+					    Matrix.DENSE _ => 
+					    let
+						(*val _ = print ("intermediate matrix eq -> ")
+						val _ = Matrix.print m*)
+					    in
+						m
+					    end
+					  | Matrix.BANDED _ => 
+					    let
+						val bands = Matrix.toPaddedBands m
+						val m' = Matrix.fromRows (Exp.calculus()) bands
+						(*val _ = print ("matrix bands -> ")
+						val _ = Matrix.print m'*)
+						val _ = Matrix.transpose m'
+						(*val _ = print ("matrix bands (transposed) -> ")
+						val _ = Matrix.print m'*)
+
+					    in
+						m'
+					    end
+
+			  val _ = print ("Matrix written -> ")
+			  val _ = Matrix.print m'
 		      in
-			  List.concat (Container.matrixmap createEntry (Container.expmatrix2matrix rhs))
+			  List.concat (Matrix.mapi createEntry m')
 		      end
 		  else if ExpProcess.isArrayEq exp then
 		      let
 			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
-			  val size = (Container.array2size o Container.exparray2array) rhs
+			  val size = (Container.arrayToSize o Container.expArrayToArray) rhs
 			  val var = CWriterUtil.exp2c_str lhs				  
 			  fun createIdx i = "VECIDX("^(i2s size)^","^(i2s i)^", NUM_MODELS, modelid)"
 			  fun createEntry (exp, i) = [$("//" ^ (e2s exp)),
 						      $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 		      in
-			  List.concat (map createEntry (StdFun.addCount (Container.array2list (Container.exparray2array rhs))))
+			  List.concat (map createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray rhs))))
 		      end
 		  else
  		      [$("// " ^ (e2s exp)),
@@ -1073,7 +1123,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val equ_progs = 
 	    [$(""),
 	     $("// writing all intermediate, instance, and differential equation expressions")] @
-	    (Util.flatmap exp2prog valid_exps)
+	    (Util.flatmap (fn(exp)=> ((*Util.log("printing exp: " ^ (e2s exp)); *)exp2prog exp)) valid_exps)
 	end
 	    
 	val state_progs = []
@@ -1426,6 +1476,22 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 
 	val forkedModels = ModelProcess.createIteratorForkedModels model *)
 
+	val (shards, sysprops) = forkedModels
+	fun toModel {classes, instance,...} = (classes, instance, sysprops)
+	val modelShards = map
+			       (fn(shard as {classes, instance, iter_sym})=>
+				  let
+				      val model' = toModel shard
+				      val {iterators,...} = sysprops
+				      val iter = case List.find (fn(iter_sym',_)=>iter_sym=iter_sym') iterators of
+						     SOME iter => iter
+						   | NONE => DynException.stdException(("Can't find iterator '"^(Symbol.name iter_sym)^"' in system properties"),"CParallelWriter.buildC",Logger.INTERNAL)
+					  
+				  in
+				      {model=model', top_class=(#classname instance), iter=iter}
+				  end)
+				  shards
+
 	val () = 
 	    let val model = CurrentModel.getCurrentModel ()
 		val filename = "dof-system.json"
@@ -1436,18 +1502,18 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
                                        ("model", ModelProcess.to_json model)]
                     end
 		fun output outstream = 
-		    mlJS.output (outstream, mlJS.js_array (map subsystem_to_json forkedModels))
+		    mlJS.output (outstream, mlJS.js_array (map subsystem_to_json modelShards))
 	    in if ModelProcess.isDebugging model then
 		   Printer.withOpenOut filename output
 	       else ()
 	    end
 			   
 
-	val forkedModelsLessUpdate = List.filter (fn{iter=(iter_sym, iter_type),...}=> case iter_type of DOF.UPDATE _ => false | _ => true) forkedModels
-	val forkedModelsWithSolvers = List.filter (not o ModelProcess.isDependentIterator o #iter) forkedModels
+	val forkedModelsLessUpdate = List.filter (fn{iter=(iter_sym, iter_type),...}=> case iter_type of DOF.UPDATE _ => false | _ => true) modelShards
+	val forkedModelsWithSolvers = List.filter (not o ModelProcess.isDependentIterator o #iter) modelShards
 
-	val updateModels = List.filter (fn {iter=(_, iter_typ), ...} => case iter_typ of DOF.UPDATE _ => true | _ => false) forkedModels
-	val postprocessModels = List.filter (fn {iter=(_, iter_typ), ...} => case iter_typ of DOF.POSTPROCESS _ => true | _ => false) forkedModels
+	val updateModels = List.filter (fn {iter=(_, iter_typ), ...} => case iter_typ of DOF.UPDATE _ => true | _ => false) modelShards
+	val postprocessModels = List.filter (fn {iter=(_, iter_typ), ...} => case iter_typ of DOF.POSTPROCESS _ => true | _ => false) modelShards
 
 	val {name=inst_name, classname=class_name} = inst
 	val inst_class = CurrentModel.classname2class class_name
@@ -1480,7 +1546,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 	val outputdatastruct_progs = outputdatastruct_code inst_class
 	val outputstatestruct_progs = Util.flatmap (fn{model,...} => CurrentModel.withModel model (fn _=> outputstatestruct_code model)) forkedModelsLessUpdate
 	val systemstate_progs = outputsystemstatestruct_code forkedModelsLessUpdate
-	val flow_data = map flow_code forkedModels
+	val flow_data = map flow_code modelShards
 	val fun_prototypes = List.concat (map #1 flow_data)
 	val flow_progs = List.concat (map #2 flow_data)
 	val logoutput_progs = logoutput_code inst_class forkedModelsLessUpdate
