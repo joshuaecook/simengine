@@ -11,6 +11,10 @@ function taux(a, b, c, e, V) = c + e / (1 + exp((V + a)/b))
 //*****************************************STG***********************************************//
 model (Vm)=pd(gNa, gCaT, gCaS, gA, gKCa, gKd, gh, gleak)
 
+// Define exponential euler iterator
+iterator t_expeuler with {continuous, solver=exponentialeuler{dt=0.05}}
+t{continuous, solver=forwardeuler{dt=0.05}}
+
 //Membrane properties
 constant Amem = 0.6283e-3 //cm^2
 constant Cmem = 0.0006283 //nF 
@@ -35,7 +39,7 @@ constant Vclamp = false
 constant Vclamp_cmd = 0
 
 //State Variable Declaration
-state V = -57.5 //mV
+state V = -57.5 with {iter=t_expeuler} //mV
 state mNa = 0.5
 state hNa = 0.5
 state mCaT = 0.5
@@ -82,7 +86,5 @@ equations
    mh' = (xinf(75, 5.5, Vm) - mh)/(2/(exp((Vm + 169.7)/-11.6) + exp((Vm - 26.7)/14.3)))
    V' = (1/Cmem)*(-INa-ICaT-ICaS-IA-IKCa-IKd-Ih-Ileak)
 end
-
-solver = ode23 {dt=0.05}
 
 end

@@ -124,7 +124,7 @@ fun recip a = power (a, int (~1))
 fun sqrt a = Exp.FUN (Fun.BUILTIN Fun.SQRT, [a])
 fun square a = power (a, int 2)
 fun norm l = sqrt (plus (map square l))
-fun exp v = power (var "e", v)
+fun exp v = (*power (var "e", v)*) Exp.FUN (Fun.BUILTIN Fun.EXP, [v])
 fun equals (a,b) = Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [a, b]);
 infix equals;
 fun cond (p, q, r) = Exp.FUN (Fun.BUILTIN Fun.IF, [p, q, r]);
