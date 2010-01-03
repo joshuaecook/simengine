@@ -1269,8 +1269,10 @@ and term_to_json (Exp.RATIONAL (num, denom)) =
   | term_to_json (Exp.BOOL b) = 
     js_object [("type", js_string "BOOL"),
 	       ("value", js_boolean b)]
-  | term_to_json (Exp.RANDOM) =
-    js_object [("type", js_string "RAND")]
+  | term_to_json (Exp.RANDOM Exp.UNIFORM) =
+    js_object [("type", js_string "UNIFORM_RAND")]
+  | term_to_json (Exp.RANDOM Exp.NORMAL) =
+    js_object [("type", js_string "NORMAL_RAND")]
   | term_to_json (Exp.COMPLEX (r, i)) = 
     js_object [("type", js_string "COMPLEX"),
 	       ("real", term_to_json r),
