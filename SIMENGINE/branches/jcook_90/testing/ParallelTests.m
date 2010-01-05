@@ -70,7 +70,7 @@ function e = RunMRGSerialvsParallel
     % Run one input at a time and concatenate the results
     for i = 1:length(Istim)
         inputs.Istim = Istim(i);
-        oserial1(i) = simex(model, runtime, inputs);
+        oserial1(i) = simex(model, runtime, inputs, '-dontrecompile');
     end
     inputs.Istim = Istim;
     % Run all the inputs serially in a single simex invocation

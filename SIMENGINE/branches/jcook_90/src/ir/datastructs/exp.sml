@@ -36,7 +36,7 @@ datatype exp =
        | COMPLEX of (term * term)
        | TUPLE of (term list)
        | RANGE of {low: term, high: term, step: term}
-       | RANDOM
+       | RANDOM of randomtype
        (* Symbols are associated with a variety of metadata.
 	* See props.sml. *)
        | SYMBOL of (Symbol.symbol * Property.symbolproperty)
@@ -44,6 +44,10 @@ datatype exp =
        | INFINITY
        | NAN
        | PATTERN of (Symbol.symbol * predicate * Pattern.patterncount)
+
+     and randomtype = 
+	 UNIFORM
+       | NORMAL
 
 withtype predicate = (string * (exp -> bool))
 

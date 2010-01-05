@@ -85,7 +85,8 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN"
-       | Exp.RANDOM => "Rand"
+       | Exp.RANDOM Exp.UNIFORM => "UniformRand"
+       | Exp.RANDOM Exp.NORMAL => "NormalRand"
        | Exp.PATTERN p => PatternProcess.pattern2str p)
   | exp2tersestr (Exp.META meta) =
     (case meta of 
@@ -167,7 +168,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN" 
-       | Exp.RANDOM => "Random"
+       | Exp.RANDOM Exp.UNIFORM => "UniformRandom"
+       | Exp.RANDOM Exp.NORMAL => "NormalRandom"
        | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")")
   | exp2fullstr (Exp.META meta) =
     (case meta of 

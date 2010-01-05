@@ -977,11 +977,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  (*val _ = print ("matrix eq -> ")
 			  val _ = Util.log (e2s exp)*)
 			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
-			  val (rows, cols) = (Matrix.size o Container.expMatrixToMatrix) rhs
 			  val var = CWriterUtil.exp2c_str lhs
-			  fun createIdx (i,j) = "MATIDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", NUM_MODELS, modelid)"
-			  fun createEntry (i, j, exp) = [$("// " ^ (e2s exp)),
-							 $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 			  val m = Container.expMatrixToMatrix rhs
 			  val m' = case !m of
 					    Matrix.DENSE _ => 
@@ -1004,6 +1000,11 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 					    in
 						m'
 					    end
+
+			  val (rows, cols) = Matrix.size m'
+			  fun createIdx (i,j) = "MATIDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", NUM_MODELS, modelid)"
+			  fun createEntry (i, j, exp) = [$("// " ^ (e2s exp)),
+							 $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 
 			  val _ = print ("Matrix written -> ")
 			  val _ = Matrix.print m'
@@ -1554,6 +1555,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
 	val solvers_h = $(Archive.getC "solvers/solvers.h")
 	val gpu_util_c = $(Archive.getC "simengine/gpu_util.c")
+	val random_c = $(Archive.getC "simengine/random.c")
 	val solver_gpu_cu = $(Archive.getC ("solvers/solver_gpu.cu"))
 	val solver_c = $(String.concat (map
 					    (fn(solv)=> Archive.getC ("solvers/"^solv^".c"))
@@ -1596,6 +1598,8 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 
 					      [simengine_api_h] @
 					      [defines_h] @
+					      (* Could be conditional on use of randoms *)
+					      [random_c] @
 					      [semeta_seint_h] @
 					      [output_buffer_h] @
 					      outputdatastruct_progs @

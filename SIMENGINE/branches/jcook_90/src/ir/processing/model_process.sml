@@ -283,8 +283,14 @@ fun requiresMatrixSolution (_,iter_type) =
 fun requiresFlattening () =
     let
 	val iterators = CurrentModel.iterators()
+
+	fun solverRequiresFlattening (_,iter_type) =
+	    case iter_type of
+		DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) => true
+	      | DOF.CONTINUOUS (Solver.EXPONENTIAL_EULER _) => true
+	      | _ => false
     in
-	List.exists requiresMatrixSolution iterators
+	List.exists solverRequiresFlattening iterators
     end
 
 			
@@ -416,9 +422,147 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 	val model = (classes, instance, systemproperties)
     in
 	(case solvertype of 
-	     Solver.EXPONENTIAL_EULER {dt} => 
-	     (shard, iter) (* TODO: stubbed out *)
-	     
+	     Solver.EXPONENTIAL_EULER {dt=dtval} => 
+	     (let
+		  (* at this point, there should be just one flattened class *)
+		  val flatclass = case model of
+				      ([class], _, _) => class
+				    | _ => DynException.stdException ("Flattening resulted in more than one class", 
+								      "ModelProcess.updateSHardForSolver.EXPONENTIAL_EULER", 
+								      Logger.INTERNAL)
+
+		  (* get list of all states *)
+		  val states = ClassProcess.class2states flatclass
+		  val stateSet = SymbolSet.fromList states
+
+		  (* grab all the equations *)
+		  val exps = !(#exps flatclass)
+
+		  (* rewrite each equation, one state at a time *) 
+		  fun rewriteEquationForExponentialEuler (state, eq) =
+		      let
+			  (* pull out the LHS term *)
+			  val lhsterm = ExpProcess.getLHSTerm eq
+
+			  fun setAsReadState (Exp.TERM (Exp.SYMBOL (sym, props))) =
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE itername)))
+			    | setAsReadState _ = DynException.stdException("Unexpected non-symbol",
+									   "ModelProcess.updateShardForSolver.rewriteEquationForExponentialEuler.setAsReadState",
+									   Logger.INTERNAL)
+			  fun varfromsym sym = 
+			      setAsReadState (ExpBuild.avar (Symbol.name sym) (Symbol.name itername))
+			  val var = varfromsym state
+
+			  (* first thing is to factor out the state from the rhs of the equation *)
+			  val rhs = ExpProcess.rhs eq
+			  val exp' = ExpProcess.multicollect ([var], rhs)
+			  (*val _ = Util.log ("Collected expression: " ^ (e2s exp'))*)
+
+			  (* create a rewrite to match the resulting equation *)
+			  val coeff_rewrite =
+			      {find=ExpBuild.plus[Match.any "d1", 
+						  ExpBuild.times [Match.any "d2", 
+								  var, 
+								  Match.any "d3"], 
+						  Match.any "d4"],
+			       test=NONE,
+			       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.pvar "d2", ExpBuild.pvar "d3"],
+									      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+			  (* run a rewrite to pull out the coeff and remainder *)
+			  val (coeff, remainder) = 
+			      case Match.applyRewriteExp coeff_rewrite exp' of
+				  Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
+				  (coeff, remainder)
+				| _ => 
+				  (Logger.log_usererror nil (Printer.$("Cannot factor out state '"^(Symbol.name state)^"' from expression '"^(e2s exp')^"'.  The system may be nonlinear."));
+				   DynException.setErrored();
+				   (ExpBuild.int 0, rhs))
+
+			  (* Verify that remainder and coefficient does not contain 'state' (indicating non-linearity) *)  		
+			  val _ = case Match.findOnce (Match.asym state, ExpBuild.explist [coeff, remainder]) of
+				      SOME e =>
+				      (Logger.log_usererror nil (Printer.$("Cannot use exponential euler because the equation for state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2s eq)));
+				       DynException.setErrored())
+				    | NONE => ()
+
+			  (* Exponential Euler requires that the equation is of the form dy/dt = A-B*y *)
+			  (* Therefore, A = remainder and B = -coeff *)
+			  val A = remainder
+			  val B = ExpBuild.neg (coeff)
+			  (*val _ = Util.log("A = " ^ (e2s A))
+			  val _ = Util.log("B = " ^ (e2s B))*)
+			  val y = var
+			  val dt = ExpBuild.real dtval
+			  val e = ExpBuild.exp
+			  fun add(a,b) = ExpBuild.plus [a, b]
+			  fun sub(a,b) = ExpBuild.sub (a, b)
+			  fun mul(a,b) = ExpBuild.times [a, b]
+			  fun divide(a,b) = ExpBuild.divide (a, b)
+			  val one = ExpBuild.int 1
+			  val neg = ExpBuild.neg
+
+			  (* the transformation looks like: *)
+			  (* y(t+h) = y(t)*e^(-B*dt)+(A/B)*(1-e^(-B*dt))  *)
+			  val rhs' = add(mul(y, e(mul(neg(B),dt))),
+					 mul(divide(A,B),sub(one, e(mul(neg(B),dt)))))
+
+			  (* transform the lhs term y'[t] into y[t+1] *)
+			  val lhsterm' = case lhsterm of
+					     Exp.SYMBOL (sym, props) => 
+					     let
+						 val derivative = Property.getDerivative props
+						 val derivative' = 
+						     case derivative of
+							 SOME (1, symlist) => (0, symlist)
+						       | _ => DynException.stdException (("Original equation '"^(e2s eq)^"' is not a first order differential equation"), "ModelProcess.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
+						 val props' = Property.setDerivative props derivative'
+						 val iterators = Property.getIterator props'
+						 val iterators' = case iterators of
+								      SOME iters =>
+								      (map (fn(sym,index)=>
+									      if sym=itername then
+										  case index of
+										      Iterator.RELATIVE 0 => (sym, Iterator.RELATIVE 1)
+										    | _ => DynException.stdException(("Unexpected iterator found in lhs symbol"), 
+"ModelProcess.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", 
+														     Logger.INTERNAL) iters
+									      else
+										  (sym, index))
+									   iters)
+								    | NONE => DynException.stdException (("Original equation '"^(e2s eq)^"' does not have any defined iterators"), "ModelProcess.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
+						 val props'' = Property.setIterator props' iterators'
+					     in
+						 Exp.SYMBOL (sym, props'')
+					     end
+					   | _ => DynException.stdException(("No valid symbol found"),
+									    "ModelProcess.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState",
+									    Logger.INTERNAL)
+
+			  (* Create updated equation *)
+			  val eq' = ExpBuild.equals (Exp.TERM lhsterm', ExpProcess.simplify rhs')
+					     
+		      in
+			  eq'
+		      end
+		      handle e => DynException.checkpoint ("ModelProcess.updateShardForSolver.[EXPONENTIAL_EULER].rewriteEquationForExponentialEuler [state="^(Symbol.name state)^"]") e
+
+		  (* loop through each equation, pulling out differential equations for remapping *)
+		  val exps' = map (fn(eq)=> 
+				     if ExpProcess.isFirstOrderDifferentialEq eq then
+					 rewriteEquationForExponentialEuler (ExpProcess.getLHSSymbol eq, eq)
+				     else
+					 eq)
+				  exps
+
+		  (* update exps in class *)
+		  val _ = #exps flatclass := exps'
+
+		  (* change the form of the iterator *)
+		  val iter' = (itername, DOF.DISCRETE {sample_period=dtval})
+
+	      in
+		  (shard, iter')
+	      end)
 	   | Solver.LINEAR_BACKWARD_EULER {dt, solv} =>
 	     (let
  		  (*val _ =  
@@ -601,7 +745,7 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 				      
 			  val _ = case Match.findOnce (Match.anysym_with_predlist preds (Symbol.symbol "#pattern"), b_entry) of
 				      SOME e =>
-				      (Logger.log_usererror nil (Printer.$("Cannot use backwards euler because state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2s eq)));
+				      (Logger.log_usererror nil (Printer.$("Cannot use backwards euler because the equation for state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2s eq)));
 				       DynException.setErrored())
 				    | NONE => ()
 
@@ -710,7 +854,7 @@ fun forkModel (model:DOF.model) =
     let
 	val _ = DynException.checkToProceed()
 
-	val (classes, _, sysprops) = model
+	val (classes, instance, sysprops) = model
 	(* TODO, write the checks of the model IR as they are needed *)
 
 
@@ -770,7 +914,9 @@ fun forkModel (model:DOF.model) =
 			    DOFPrinter.printModel model')
 		       end)
 		    (StdFun.addCount shards)
-	val _ = CurrentModel.setCurrentModel(prevModel)
+
+	(* we changed the system properties, so assign the new instance properties to the current model *)
+	val _ = CurrentModel.setCurrentModel (classes, instance, sysprops') 
 
 
 	val _ = DynException.checkToProceed()

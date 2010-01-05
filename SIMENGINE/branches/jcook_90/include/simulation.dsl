@@ -532,6 +532,7 @@ namespace Simulation
   end
 
   class RandomValue extends SimQuantity
+      var normal = false
   end
 
   class Random extends State
@@ -621,11 +622,14 @@ namespace Simulation
 
       function getEq()
 //        Equation.new(self[h_iter], ModelOperation.new ("add", 2, plus, 0, [ModelOperation.new ("mul", 2, operator_multiply, 0, [high-low, rand]), low]))
+        var r
+	r = RandomValue.new()
         if isNormal then
-            Equation.new(self[h_iter], (1/(sqrt(2*pi*stddev^2)))*exp(-((ModelOperation.new ("sub", 2, operator_subtract, 0, [RandomValue.new(), mean]))^2)/(2*stddev^2)))
+	    r.normal = true
+            Equation.new(self[h_iter], stddev * r + mean)
 	else
             // Equation.new(self[h_iter], ModelOperation.new ("mul", 2, operator_multiply, 0, [high-low, RandomValue.new()]) + low)
-            Equation.new(self[h_iter], (high-low) * RandomValue.new() + low)
+            Equation.new(self[h_iter], (high-low) * r + low)
 	end
       end
   end

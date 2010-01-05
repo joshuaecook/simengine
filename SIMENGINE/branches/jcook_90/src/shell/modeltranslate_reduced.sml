@@ -311,7 +311,10 @@ and simquantity_to_dof_exp quantity =
     else if (istype (quantity, "Symbol")) then
         ExpBuild.pvar(exp2str (method "name" quantity))
     else if (istype (quantity, "RandomValue")) then
-	ExpBuild.rand()
+	if isdefined (method "normal" quantity) andalso exp2bool (method "normal" quantity) then
+	    ExpBuild.normal_rand()
+	else
+	    ExpBuild.uniform_rand()
     else
 	ExpBuild.var(exp2str (method "name" quantity))
 

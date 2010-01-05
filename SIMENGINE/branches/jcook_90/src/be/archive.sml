@@ -51,8 +51,10 @@ fun get fname =
 				 stdin = MLton.Process.Param.null,
 				 stdout = MLton.Process.Param.pipe}
 	val pipein = MLton.Process.Child.textIn (MLton.Process.getStdout proc)
+	val file = readfileString pipein
+	val _ = MLton.Process.reap proc
     in
-	readfileString pipein
+	file
     end
 
 fun mget fnames =
@@ -71,8 +73,10 @@ fun mput fnames =
 				 stdin = MLton.Process.Param.null,
 				 stdout = MLton.Process.Param.pipe}
 	val pipein = MLton.Process.Child.textIn (MLton.Process.getStdout proc)
+	val files = readfileList pipein
+	val _ = MLton.Process.reap proc
     in
-	readfileList pipein
+	files
     end
 
 fun put fname =
