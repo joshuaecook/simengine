@@ -1,3 +1,6 @@
+/* Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
+ * For more information, please visit http://simatratechnologies.com/
+ */
 import "integration.dsl"
 
 namespace Simulation
@@ -1169,20 +1172,22 @@ function compile (mod)
   if settings.debug then
       println(cc(1) + " " + (join(" ", cc(2))))
   end
-  var ccp = SimCompile.shellWithStatus(cc(1), cc(2))
-  var ccstat = ccp.rev().first().rstrip("\n")
-  if "0" <> ccstat then
-      println (cc(1) + " " + join(" ", cc(2)))
-      println (join("\n", ccp))
+  var ccp = Process.run(cc(1),cc(2))
+  var ccout = Process.read(ccp)
+  var ccstat = Process.reap(ccp)
+  if () <> ccstat then
+      println (join("\n", ccout))
       error ("OOPS! Compiler returned non-zero exit status " + ccstat)
   end
 
   if settings.debug then
       println(ld(1) + " " + (join(" ", ld(2))))
   end
-  var ldp = SimCompile.shellWithStatus(ld(1), ld(2))
-  var ldstat = ldp.rev().first().rstrip("\n")
-  if "0" <> ldstat then
+  var ldp = Process.run(ld(1), ld(2))
+  var ldout = Process.read(ldp)
+  var ldstat = Process.reap(ldp)
+  if () <> ldstat then
+      println (join("\n", ldout))
       error ("OOPS! Linker returned non-zero exit status " + ldstat)
   end
 

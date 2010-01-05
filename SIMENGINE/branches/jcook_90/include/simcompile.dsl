@@ -1,3 +1,6 @@
+/* Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
+ * For more information, please visit http://simatratechnologies.com/
+ */
 namespace SimCompile
   /* Executes a command in a shell.
    * Enables a sequence of processes connected by pipes to be
@@ -13,14 +16,6 @@ namespace SimCompile
     shell (command + " " + join(" ", args))
   end
 
-  function shellWithStatus (command: String)
-    shell(command + "; echo \$?")
-  end
-
-  overload function shellWithStatus (command: String, args: Vector)
-    shellWithStatus(command + " " + join(" ", args))
-  end
-
   var osLower = shell("uname -s | tr [:upper:] [:lower:]")[1].rstrip("\n")
   var arch64 = not(shell("arch | grep 64").isempty())
 
@@ -31,7 +26,7 @@ namespace SimCompile
     var CPPFLAGS = []
     var LDFLAGS = []
     var LDLIBS = []
-    var TARGET_ARCH = "-arch i386"
+    var TARGET_ARCH = "-m32"
 
     /* Returns a tuple of (compiler, options)
      * suitable for application by Process.run(). */
@@ -85,7 +80,7 @@ namespace SimCompile
       end
 
       if arch64 then
-        m.TARGET_ARCH = "-arch x86_64"
+        m.TARGET_ARCH = "-m64"
       end
       if "darwin" == osLower then
         m.TARGET_ARCH = "-arch i386 -arch x86_64"

@@ -13,7 +13,7 @@ BUILD_TYPE = software
 
 # Version # for RPM
 VERSION_NUMBER = 0.92
-BUILD_DATE = $(shell date)
+BUILD_DATE := $(shell date)
 
 DESTDIR = 
 PARTIAL_INSTALL_BUILD_DIR = /usr/local/share/Simatra
@@ -47,47 +47,47 @@ EXAMPLES = `cat ../examples/release_list | sed -e 's/\#.*//' | grep -v '^ *$$' `
 
 .PHONY: help
 help:
-	@echo " "
-	@echo "**********************************************************"
-	@echo "****        Simatra simEngine Compiler Makefile       ****"
-	@echo "**********************************************************"
-	@echo "****                                                  ****"
-	@echo "****  make help - display this message                ****"
-	@echo "****                                                  ****"
-	@echo "****  make compiler - Just build the compiler         ****"
-	@echo "****                  in accordance with BUILD_TYPE   ****"
-	@echo "****                                                  ****"
-	@echo "****  make compiler-64 - Build the compiler with libs ****"
-	@echo "****                     in 64-bit                    ****"
-	@echo "****                                                  ****"
-	@echo "****  make pcode - Build a pcode installer            ****"
-	@echo "****                                                  ****"
-	@echo "****  make pcode-64 - Build a 64-bit pcode installer  ****"
-	@echo "****                                                  ****"
-	@echo "****  make profiling-tools - Builds the profiling     ****"
-	@echo "****                         tools                    ****"
-	@echo "****                                                  ****"
-	@echo "****  make matlab-release-test - perform a system     ****"
-	@echo "****                             'release' test       ****"
-	@echo "****                                                  ****"
-	@echo "****  make matlab-internal-test - perform a system    ****"
-	@echo "****                              'internal' test     ****"
-	@echo "****                                                  ****"
+	$(info  )
+	$(info **********************************************************)
+	$(info ****        Simatra simEngine Compiler Makefile       ****)
+	$(info **********************************************************)
+	$(info ****                                                  ****)
+	$(info ****  make help - display this message                ****)
+	$(info ****                                                  ****)
+	$(info ****  make compiler - Just build the compiler         ****)
+	$(info ****                  in accordance with BUILD_TYPE   ****)
+	$(info ****                                                  ****)
+	$(info ****  make compiler-64 - Build the compiler with libs ****)
+	$(info ****                     in 64-bit                    ****)
+	$(info ****                                                  ****)
+	$(info ****  make pcode - Build a pcode installer            ****)
+	$(info ****                                                  ****)
+	$(info ****  make pcode-64 - Build a 64-bit pcode installer  ****)
+	$(info ****                                                  ****)
+	$(info ****  make profiling-tools - Builds the profiling     ****)
+	$(info ****                         tools                    ****)
+	$(info ****                                                  ****)
+	$(info ****  make matlab-release-test - perform a system     ****)
+	$(info ****                             'release' test       ****)
+	$(info ****                                                  ****)
+	$(info ****  make matlab-internal-test - perform a system    ****)
+	$(info ****                              'internal' test     ****)
+	$(info ****                                                  ****)
 ifeq ($(BRANCH),1)
-	@echo "****  make update-from-trunk - merges trunk changes   ****"
-	@echo "****                           into branch            ****"
-	@echo "****                                                  ****"
-	@echo "****  make show-changes - run browser and show svn    ****"
-	@echo "****                      changes from branch         ****"
-	@echo "****                                                  ****"
+	$(info ****  make update-from-trunk - merges trunk changes   ****)
+	$(info ****                           into branch            ****)
+	$(info ****                                                  ****)
+	$(info ****  make show-changes - run browser and show svn    ****)
+	$(info ****                      changes from branch         ****)
+	$(info ****                                                  ****)
 endif
-	@echo "****  make clean - removes the compiled code          ****"
-	@echo "****                                                  ****"
-	@echo "****  make clean-all - removes the compiled code and  ****"
-	@echo "****                   all ml403 generated files      ****"
-	@echo "****                                                  ****"
-	@echo "**********************************************************"
-	@echo " "
+	$(info ****  make clean - removes the compiled code          ****)
+	$(info ****                                                  ****)
+	$(info ****  make clean-all - removes the compiled code and  ****)
+	$(info ****                   all ml403 generated files      ****)
+	$(info ****                                                  ****)
+	$(info **********************************************************)
+	$(info  )
 
 
 
@@ -120,7 +120,7 @@ CP = cp -rf
 RMDIR = rm -rf
 SYSTESTDIR = ../testing/frameworks/system
 SYSTEST = systest
-MAKE = make --no-print-directory
+#MAKE = make --no-print-directory
 BROWSER = firefox
 MATLABCMD = $(MATLAB) -nodisplay -nojvm -r 
 
@@ -247,7 +247,7 @@ endif
 
 INSTALL_TGZ = "simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER).tgz"
 simEngine_%.tgz: $(OUTPUT_FILE) build/* build/*/*
-	@echo "Creating $@ for packaging"
+	$(info Creating $@ for packaging)
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)
 
 
@@ -272,7 +272,7 @@ system:
 	@$(MAKE) links
 	@$(MAKE) build-system
 ifneq ($(DEBUG),)
-	@echo "Adding debug options ..."
+	$(info Adding debug options ...)
 	@$(MAKE) debug-files
 endif
 	@$(MAKE) instructions
@@ -299,7 +299,7 @@ pcode-64:
 # ==============================================================================================
 
 build-examples: $(BUILD_DIR)/examples
-	@echo "Building examples"
+	$(info Building examples)
 #	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
 	@cd ReleaseExamples; $(CP) * ../$(BUILD_DIR)/examples
 ifdef $(DYN)
@@ -404,7 +404,7 @@ library/stdlib.so: src/dll/arithmetic.o src/dll/comparison.o src/dll/math.o
 	gcc $(SHARED_FLAGS) -W1,-soname,stdlib.so -o $@ src/dll/*.o -lc
 
 $(BUILD_DIR)/lib/stdlib.so: library/stdlib.so
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
+	$(CP) $< $@ 
 
 
 # Compiler Debugging Files
@@ -434,19 +434,20 @@ debug-files: $(DEBUG_FILES)
 
 
 $(BUILD_DIR)/bin/%: interfaces/matlab/bin/%
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 $(BUILD_DIR)/%.m: interfaces/matlab/%.m
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
+
 $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 $(BUILD_DIR)/lib/libcodegen.sim: codegen/src/* codegen/src/*/*
 	@$(MAKE) -C codegen codegen
-	@echo "Copying 'codegen/lib/libcodegen.sim' to '$@' ..."; $(CP) codegen/lib/libcodegen.sim $@
+	$(CP) codegen/lib/libcodegen.sim $@
 
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 .PHONY: mexinterface
 mexinterface:
@@ -468,26 +469,26 @@ solvers/lib/libcvode_%.a: solvers
 
 .PHONY: solvers
 solvers:
-	$(MAKE) -C solvers/cvode
+	$(MAKE) -C solvers/cvode all install install
 
 .PHONY: share_cuda
 share_cuda:
-	@echo "Running target cuda_utils"
+	$(info Running target cuda_utils)
 	$(MAKE) -C share/cuda all
 
 
 $(BUILD_DIR)/simex_helper.%: interfaces/matlab/src/simex_helper.%
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 $(BUILD_DIR)/simEngine_wrapper.%: interfaces/matlab/src/simEngine_wrapper.%
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 matlab-files: $(MATLAB_FILES)
 
 matlab-installer: $(MATLAB_FILES)
 
 simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
-	@echo "Creating $@ for packaging"
+	$(info Creating $@ for packaging)
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)
 
 $(LOCAL_INSTALL):
@@ -495,44 +496,44 @@ $(LOCAL_INSTALL):
 
 $(LOCAL_INSTALL)/simex:
 	@$(MAKE) -C interfaces/c/ simex
-	@echo "Copying 'interfaces/c/simex' to '$@' ..."; $(CP) interfaces/c/simex $@
+	$(CP) interfaces/c/simex $@
 
 $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 	@(cd $(LOCAL_INSTALL); tar xfz simEngine.tgz)
 
 $(LOCAL_INSTALL)/compile_tests.m: interfaces/matlab/compile_tests.m
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 $(LOCAL_INSTALL)/simex.m: interfaces/matlab/simex.m
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 $(LOCAL_INSTALL)/%.mexmaci: interfaces/matlab/src/%.mexmaci
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+	$(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mexmaci64: interfaces/matlab/src/%.mexmaci64
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+	$(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mex: interfaces/matlab/src/%.mex
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+	$(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mexglx: interfaces/matlab/src/%.mexglx
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+	$(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mexa64: interfaces/matlab/src/%.mexa64
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+	$(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mexs64: interfaces/matlab/src/%.mexs64
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+	$(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/src/%.mexw32
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+	$(CP) $< $@	
 
 $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@	
+	$(CP) $< $@	
 
 install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m $(LOCAL_INSTALL)/simex
-	@echo "Local install at $(LOCAL_INSTALL) ready"
+	$(info Local install at $(LOCAL_INSTALL) ready)
 
 # Build type options
 # ==============================================================================================
@@ -540,47 +541,42 @@ install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(L
 
 .PHONY: check-build-type
 check-build-type:
-	@echo " "
 ifeq ($(BUILD_TYPE), software)
-	@echo "Building software-only release ..."
+	$(info Building software-only release ...)
 else
 ifeq ($(BUILD_TYPE), full)
-	@echo "Building full release ..."	
+	$(info Building full release ...)
 else
 ifeq ($(BUILD_TYPE), enhanced)
-	@echo "Building software w/ fixed-point release ..."
+	$(info Building software w/ fixed-point release ...)
 else
-	@echo "Unknown build type - exiting"
-	@exit 1
+	$(error Unknown build type)
 endif
 endif
 endif
-	@echo " "
-#	@$(MAKE) build_defs
 
 BUILD_OPTS = src/util/build_options.sml
 
 ifeq ($(BUILD_TYPE), software)
 build_defs: datafiles/software-build_options.sml
 	@if ! cmp -s $< $(BUILD_OPTS) ; then \
-	 echo "Copying '$<' to '$(BUILD_OPTS)' ..."; $(CP) $< $(BUILD_OPTS) ;\
+	 $(CP) $< $(BUILD_OPTS) ;\
 	fi
 else
 ifeq ($(BUILD_TYPE), enhanced)
 build_defs: datafiles/enhanced-build_options.sml
 	@if ! cmp -s $< $(BUILD_OPTS) ; then \
-	 echo "Copying '$<' to '$(BUILD_OPTS)' ..."; $(CP) $< $(BUILD_OPTS) ;\
+	 $(CP) $< $(BUILD_OPTS) ;\
 	fi
 else
 ifeq ($(BUILD_TYPE), full)
 build_defs: datafiles/full-build_options.sml
 	@if ! cmp -s $< $(BUILD_OPTS) ; then \
-	 echo "Copying '$<' to '$(BUILD_OPTS)' ..."; $(CP) $< $(BUILD_OPTS) ;\
+	 $(CP) $< $(BUILD_OPTS) ;\
 	fi
 else
 build_defs:
-	@echo "Unknown build type - exiting"
-	@exit 1
+	$(error Unknown build type)
 endif
 endif
 endif
@@ -592,7 +588,7 @@ DEV_VERSION = false
 endif
 
 datafiles/software-build_options.sml: datafiles
-	@echo "Creating $(BUILD_TYPE) build options file ..."
+	$(info Creating $(BUILD_TYPE) build options file ...)
 	@echo "structure BuildOptions = struct" > $@
 	@echo "val allowSWBackend = true val allowFPBackend = false val allowHWBackend = false val version = \"$(VERSION_NUMBER)\"" >> $@
 	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
@@ -600,7 +596,7 @@ datafiles/software-build_options.sml: datafiles
 	@echo "end" >> $@
 
 datafiles/enhanced-build_options.sml: datafiles
-	@echo "Creating $(BUILD_TYPE) build options file ..."
+	$(info Creating $(BUILD_TYPE) build options file ...)
 	@echo "structure BuildOptions = struct" > $@
 	@echo "val allowSWBackend = true val allowFPBackend = true val allowHWBackend = false val version = \"$(VERSION_NUMBER)\"" >> $@
 	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
@@ -608,7 +604,7 @@ datafiles/enhanced-build_options.sml: datafiles
 	@echo "end" >> $@
 
 datafiles/full-build_options.sml: datafiles
-	@echo "Creating $(BUILD_TYPE) build options file ..."
+	$(info Creating $(BUILD_TYPE) build options file ...)
 	@echo "structure BuildOptions = struct" > $@
 	@echo "val allowSWBackend = true val allowFPBackend = true val allowHWBackend = true val version = \"$(VERSION_NUMBER)\"" >> $@
 	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
@@ -621,87 +617,52 @@ datafiles/full-build_options.sml: datafiles
 
 
 $(BUILD_DIR)/lib/core.h: library/core.h
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
+	$(CP) $< $@ 
 
 $(BUILD_DIR)/lib/fixpt.h: library/fixpt.h
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
+	$(CP) $< $@ 
 
 $(BUILD_DIR)/lib/floatpt.h: library/floatpt.h
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
+	$(CP) $< $@ 
 
 $(BUILD_DIR)/lib/swbe_main.c: library/swbe_main.c
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 $(BUILD_DIR)/lib/llc_defs.h: ../dslc/llc_defs.h
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 $(BUILD_DIR)/lib/llc_protocol.c: ../dslc/llc_protocol.c
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 build_includes: include/* solvers
-	@echo "Populating standard includes ..."
+	$(info Populating standard includes ...)
 	@$(CP) include/* $(BUILD_DIR)/include/
 	@$(CP) -r solvers/include/* $(BUILD_DIR)/include
 #	@$(MKDIR) $(BUILD_DIR)/include/solvers/
 #	@cp -fL solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
 
 build_shared: share/*
-	@echo "Populating shared files..."
+	$(info Populating shared files...)
 	@$(MAKE) share_cuda
 	$(CP) $^ $(BUILD_DIR)/share/
 	-$(CP) share/cuda/device_props $(BUILD_DIR)/bin/
 
 $(BUILD_DIR)/data/default.dol: datafiles/default.dol
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@ 
+	$(CP) $< $@ 
 
 $(BUILD_DIR)/bin/simlib: codegen/simlib/simlib.c
 	@$(MAKE) -C codegen simlib/simlib $(ARCH64_FLAG)
-	@echo "Copying 'codegen/simlib/simlib' to '$@' ..."; $(CP) codegen/simlib/simlib $@ 
-
-# Run scripts
-# ==============================================================================================
-
-$(BUILD_DIR)/bin/create_table.pl: ../scripts/perl/create_table.pl
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@chmod +x $@
-
-$(BUILD_DIR)/bin/change2tab.pl: ../scripts/perl/change2tab.pl
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@chmod +x $@
-
-$(BUILD_DIR)/bin/verify_xflow.pl: ../scripts/perl/verify_xflow.pl
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@chmod +x $@
-
-$(BUILD_DIR)/bin/fixed2float.pl: ../scripts/perl/fixed2float.pl
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@chmod +x $@
-
-$(BUILD_DIR)/bin/dpl_asm.pl: ../scripts/perl/dpl_asm.pl
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@chmod +x $@
-
-$(BUILD_DIR)/bin/fixpt_report.pl: ../scripts/perl/fixpt_report.pl
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@chmod +x $@
-
-$(BUILD_DIR)/bin/compare_backends.pl: ../scripts/perl/compare_backends.pl
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@chmod +x $@
-
-$(BUILD_DIR)/bin/compare_sims.pl: ../scripts/perl/compare_sims.pl
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
-	@chmod +x $@
+	$(CP) codegen/simlib/simlib $@ 
 
 
 # User and developer documents
 # ==============================================================================================
 
 $(BUILD_DIR)/doc/developersLanguageGuide.pdf: ../doc/developersLanguageGuide.pdf
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 $(BUILD_DIR)/doc/idynamoUsersGuide.pdf: ../doc/idynamoUsersGuide.pdf
-	@echo "Copying '$<' to '$@' ..."; $(CP) $< $@
+	$(CP) $< $@
 
 ../doc/%.pdf: ../doc/%.tex
 	@(cd ../doc; $(MAKE) $(@F))
@@ -786,14 +747,14 @@ $(BUILD_DIR)/doc: $(BUILD_DIR)
 $(BUILD_DIR):
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
-
+.PHONY: instructions
 instructions:
-	@echo " "
-	@echo "To execute $(FILENAME), the SIMENGINE environmental variable must be set:"
-	@echo "  The current value is '$$SIMENGINE'"
-	@echo "  In (t)csh, use 'setenv SIMENGINE `pwd`/build'"
-	@echo "  In bash, use 'export SIMENGINE=`pwd`/build'"
-	@echo " "
+	$(info  )
+	$(info To execute $(FILENAME), the SIMENGINE environmental variable must be set:)
+	$(info   The current value is $(SIMENGINE))
+	$(info   In (t)csh, use 'setenv SIMENGINE $(CURDIR)/build')
+	$(info   In bash, use 'export SIMENGINE=$(CURDIR)/build')
+	$(info  )
 
 $(BUILD_DIR)/bin/settings.csh:
 	@echo "setenv SIMENGINE '$(INSTALL_BUILD_DIR)'" > $@
@@ -822,24 +783,24 @@ endif
 
 
 installer: system
-	@echo "Generating the install tar ball for a '$(RELEASE)' release ..."
+	$(info Generating the install tar ball for a '$(RELEASE)' release ...)
 	@$(MAKE) $(INSTALL_FILENAME)
 
 simEngine_%.tar.gz: $(OUTPUT_FILE) build/* build/*/*
 	@tar chvfz $(INSTALL_FILENAME) --exclude=\.svn build
-	@echo "$(INSTALL_FILENAME) is ready for release"
+	$(info $(INSTALL_FILENAME) is ready for release)
 
 build-release:
 	@$(MAKE) installer
-	@echo " "
-	@echo "Checking if build already exists in repository"
+	$(info  )
+	$(info Checking if build already exists in repository)
 	@-svn list $(SVNSRV)/build/$(PLATFORM)/$(INSTALL_FILENAME) | grep $(INSTALL_FILENAME) > check_file_exists
 	@if [ -s check_file_exists ] ; then \
 	 echo "Build already exists, Current build being replaced with new build" ;\
 	 svn rm -m "removing $(INSTALL_FILENAME) to replace with a new version" $(SVNSRV)/build/$(PLATFORM)/$(INSTALL_FILENAME) ; \
 	fi
 	@$(RM) check_file_exists
-	@echo "Creating build for release [$(RELEASE) -> $(REV)]"
+	$(info Creating build for release [$(RELEASE) -> $(REV)])
 	@svn add $(INSTALL_FILENAME) > /dev/null
 	@$(CP) $(INSTALL_FILENAME) makefile_temp_tar_file
 	svn copy -m "Committing build [$(RELEASE) -> $(REV)]" $(INSTALL_FILENAME) $(SVNSRV)/build/$(PLATFORM)
@@ -852,8 +813,8 @@ build-all:
 	@$(MAKE) system build-release BUILD_TYPE=full
 
 $(TOP_LEVEL)/build:
-	@echo "Build directory <$@> does not exist"
-	@echo "Updating top level makefile"
+	$(info Build directory <$@> does not exist)
+	$(info Updating top level makefile)
 	@(cd $(TOP_LEVEL); svn update -N Makefile; make build)
 
 # Subversion Related
@@ -861,8 +822,8 @@ $(TOP_LEVEL)/build:
 
 ifeq ($(BRANCH),1)
 update-from-trunk:
-	@echo "Updating branch from trunk ..."
-	@echo "First updating the branch to make sure it is up to date"
+	$(info Updating branch from trunk ...)
+	$(info First updating the branch to make sure it is up to date)
 	@svn update
 	@echo "Determining the first copy revision number ..."; \
 	 startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
@@ -873,13 +834,13 @@ update-from-trunk:
 
 #http://www.hosted-projects.com/trac/simatra/dynamo/changeset?old_path=trunk&old=644&new_path=branches%2Frweinstein_299&new=701
 show-changes:
-	@echo "Opening $(BROWSER) to show changes in branch relative to trunk"
+	$(info Opening $(BROWSER) to show changes in branch relative to trunk)
 	@startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
 	 website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=$$startrev\&new_path=branches%2F$(REV)\&new=HEAD; \
 	 echo "Opening website: $$website"; \
 	 $(BROWSER) $$website
 show-changes-vs-trunk:
-	@echo "Opening $(BROWSER) to show changes in branch relative to trunk"
+	$(info Opening $(BROWSER) to show changes in branch relative to trunk)
 	@website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=HEAD\&new_path=branches%2F$(REV)\&new=HEAD; \
 	 echo "Opening website: $$website"; \
 	 $(BROWSER) $$website
@@ -890,15 +851,15 @@ endif
 # ==============================================================================================
 
 matlab-release-test: compiler
-	@echo "Executing the MATLAB release test framework"
+	$(info Executing the MATLAB release test framework)
 	@matlab -nosplash -nodesktop -r "matlab_test_script('-release')"
 
 matlab-internal-test: compiler
-	@echo "Executing the MATLAB internal test framework"
+	$(info Executing the MATLAB internal test framework)
 	@matlab -nosplash -nodesktop -r "matlab_test_script('-internal')"
 
 system-test:
-	@echo "Executing the system-test framework"
+	$(info Executing the system-test framework)
 	@chmod +x $(SYSTESTDIR)/$(SYSTEST)
 	@(cd $(SYSTESTDIR); ./$(SYSTEST) -l)
 	@echo "Enter the suite number or 'a' for all the tests"; \
@@ -922,7 +883,7 @@ $(BUILD_DIR)/$(DSLC)/dslc.so: ../dslc/*.c ../dslc/*.h
 # ==============================================================================================
 
 rpm-setup: $(BUILD_DIR)/bin/idynamo.sh
-	@echo "Building directories for RPM"
+	$(info Building directories for RPM)
 	@$(MKDIR) ~/rpm
 	@$(MKDIR) ~/rpm/BUILD
 	@$(MKDIR) ~/rpm/RPMS
@@ -986,7 +947,7 @@ RPM_TEMP_DIR = $(FILENAME)-$(VERSION_NUMBER)
 
 rpm:
 	@$(MAKE) rpm-setup
-	@echo "Creating rpm ..."
+	$(info Creating rpm ...)
 	@$(RM) $(SPEC)
 	@$(MAKE) $(SPEC)
 	(cd ..; $(RM) $(RPM_TAR_GZ))
@@ -1000,30 +961,30 @@ rpm:
 	(cd ..; tar cfz $(RPM_TAR_GZ) $(RPM_TEMP_DIR))
 	$(CP) ../$(RPM_TAR_GZ) $(RPM_DIR)/SOURCES
 	rpmbuild -ba -v $(SPEC)
-	@echo " "
-	@echo "RPM Generated successfully"
-	@echo "Install the RPM by running the following command as super user"
-	@echo "rpm -ihv ~/rpm/RPMS/i386/$(FILENAME)-$(VERSION_NUMBER)-$(VERSION).i386.rpm"
+	$(info  )
+	$(info RPM Generated successfully)
+	$(info Install the RPM by running the following command as super user)
+	$(info rpm -ihv ~/rpm/RPMS/i386/$(FILENAME)-$(VERSION_NUMBER)-$(VERSION).i386.rpm)
 
 
 # Installer
 # ==============================================================================================
 
 install: system
-	@echo "Installing Dynamo in $(INSTALL_BUILD_DIR) ..."
+	$(info Installing Dynamo in $(INSTALL_BUILD_DIR) ...)
 	@$(RMDIR) $(INSTALL_BUILD_DIR)
 	@-$(MKDIR) $(INSTALL_BUILD_DIR)
 	@$(CP) build/* $(INSTALL_BUILD_DIR)
 #	@gzip -d $(INSTALL_BUILD_DIR)/bin/i$(FILENAME)_save.gz
 	@$(MKDIR) $(INSTALL_BIN_DIR)
 #	(cd $(INSTALL_BUILD_DIR); ls -ld `find .`)
-	@echo "Creating link to '$(FILENAME)' in $(INSTALL_BIN_DIR) ..."
+	$(info Creating link to '$(FILENAME)' in $(INSTALL_BIN_DIR) ...)
 	@$(RM) $(INSTALL_BIN_DIR)/$(FILENAME)
 	@(cd $(INSTALL_BIN_DIR); ln -s $(PARTIAL_INSTALL_BUILD_DIR)/bin/$(FILENAME))
-	@echo "Creating link to 'i$(FILENAME)' in $(INSTALL_BIN_DIR) ..."
+	$(info Creating link to 'i$(FILENAME)' in $(INSTALL_BIN_DIR) ...)
 	@$(RM) $(INSTALL_BIN_DIR)/i$(FILENAME)
 	@(cd $(INSTALL_BIN_DIR); ln -s $(PARTIAL_INSTALL_BUILD_DIR)/bin/i$(FILENAME) i$(FILENAME))
-	@echo "Install Completed"
+	$(info Install Completed)
 	@cat $(BUILD_DIR)/README
 
 # Clean Up

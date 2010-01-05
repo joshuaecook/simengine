@@ -23,15 +23,11 @@ clean:
 	$(RM) $(addprefix src/simex_helper,$(ALL_MEXEXT)) $(addprefix src/simEngine_wrapper,$(ALL_MEXEXT))
 
 simex_helper: override CFLAGS += -fPIC -fopenmp -std=gnu99
-ifeq ($(OSLOWER),darwin)
 simex_helper: override LDFLAGS += $(SHARED_FLAGS)
-endif
 simex_helper: override MEXFLAGS += $(INCLUDES) $(LDLIBS)
 simex_helper: src/$(SIMEX_HELPER_OBJ)
 
 simEngine_wrapper: override CFLAGS += -fPIC -std=gnu99 $(OPENMP_CFLAGS) $(INCLUDES)
-ifeq ($(OSLOWER),darwin)
 simEngine_wrapper: override LDFLAGS += $(SHARED_FLAGS)
-endif
 simEngine_wrapper: override MEXFLAGS += $(INCLUDES) $(LDLIBS)
 simEngine_wrapper: src/$(SIMENGINE_WRAPPER_OBJ)

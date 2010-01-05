@@ -28,7 +28,7 @@ DARWIN := $(findstring darwin,$(OSLOWER))
 LINUX := $(findstring linux,$(OSLOWER))
 
 ARCH := $(strip $(shell arch))
-ARCH64 := $(findstring 64,$(arch))
+ARCH64 := $(findstring 64,$(ARCH))
 
 ifneq ($(ARCH64),)
 VPATH := /lib64 /usr/lib64 /usr/local/lib64 $(VPATH)
@@ -183,3 +183,6 @@ CONFIGURE = ./configure
 ifeq ($(VERBOSE),)
 CONFIGURE_FLAGS += --quiet
 endif
+INSTALL = install
+INSTALL_PROG = $(INSTALL)
+INSTALL_HEADER = $(INSTALL) -m 644
