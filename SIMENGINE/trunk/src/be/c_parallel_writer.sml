@@ -1555,6 +1555,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
 	val solvers_h = $(Archive.getC "solvers/solvers.h")
 	val gpu_util_c = $(Archive.getC "simengine/gpu_util.c")
+	val random_c = $(Archive.getC "simengine/random.c")
 	val solver_gpu_cu = $(Archive.getC ("solvers/solver_gpu.cu"))
 	val solver_c = $(String.concat (map
 					    (fn(solv)=> Archive.getC ("solvers/"^solv^".c"))
@@ -1597,6 +1598,8 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 
 					      [simengine_api_h] @
 					      [defines_h] @
+					      (* Could be conditional on use of randoms *)
+					      [random_c] @
 					      [semeta_seint_h] @
 					      [output_buffer_h] @
 					      outputdatastruct_progs @

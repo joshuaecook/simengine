@@ -22,7 +22,7 @@ CCMAJOR = $(shell echo $(CCVERSION) | cut -d. -f 1)
 CCMINOR = $(shell echo $(CCVERSION) | cut -d. -f 2)
 endif
 
-CFLAGS += -arch $(ARCH)
+#CFLAGS += -arch $(ARCH)
 
 CXX := g++
 CXXVERSION = $(shell $(CXX) -v 2>&1 | tail -1 | cut -d' ' -f 3)
