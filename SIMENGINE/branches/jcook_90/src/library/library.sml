@@ -13,6 +13,7 @@ val core_library : {name: string, operation: (KEC.exp -> KEC.exp) -> KEC.exp lis
     FileLib.library @
     FileSysLib.library @
     FunctionLib.library @
+    PathLib.library @
     TypeLib.library @
     BooleanLib.library @
     VectorLib.library @

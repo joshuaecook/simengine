@@ -11,6 +11,7 @@ fun log str = if DynamoOptions.isFlagSet "logdof" then
 	      else
 		  ()
 
+
 fun std_compile exec args =
     (case args of
 	 [object] => 
@@ -212,9 +213,45 @@ fun std_exp2str exec args =
 
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_exp2str" e 
-    
+
+fun loadModel exec args =
+    case args
+     of [KEC.LITERAL (KEC.CONSTSTR path)] =>
+	exec (KEC.STMS [KEC.ACTION (KEC.IMPORT path, PosLog.NOPOS),
+			KEC.ACTION ((KEC.EXP o KEC.SYMBOL o Symbol.symbol o OS.Path.base o OS.Path.file) path, PosLog.NOPOS)])
+      | [a] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
+      | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
+fun simfileSettings exec args =
+    case args
+     of [KEC.LITERAL (KEC.CONSTSTR path)] =>
+	Simex.withSimengine path (fn simengine =>
+	let val api = Simex.api simengine
+	    val meta = Simex.API.metadata api
+	    val newTable = KEC.SEND {object = KEC.SYMBOL (Symbol.symbol "Table"), 
+				     message = Symbol.symbol "new"}
+
+	    val keys = ["target", "precision", "num_models", "version"]
+	    val values = 
+		[KEC.LITERAL (KEC.CONSTSTR (Simex.API.Metadata.target meta)),
+		 KEC.LITERAL (KEC.CONSTSTR (case Simex.API.Metadata.precision meta
+					     of Simex.API.Metadata.Double => "double"
+					      | Simex.API.Metadata.Single => "float")),
+		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.Metadata.numModels meta))),
+		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.version api)))]
+
+	    val entries = KEC.list2kecvector
+			      (ListPair.map (fn (k,v) => KEC.TUPLE [KEC.LITERAL (KEC.CONSTSTR k), v]) (keys, values))
+	in
+	    exec (KEC.APPLY {func = newTable,
+			     args = KEC.TUPLE [entries]})
+	end)
+      | [a] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
+      | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
 
 val library = [{name="compile", operation=std_compile},
+	       {name="loadModel", operation=loadModel},
+	       {name="simfileSettings", operation=simfileSettings},
 	       {name="transexp", operation=std_transExp},
 	       {name="exp2str", operation=std_exp2str},
 	       {name="addRules", operation=std_addRules},

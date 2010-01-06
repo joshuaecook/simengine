@@ -200,7 +200,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	printf("ERROR: target already set\n");
 	return 1;
       }
-      opts->target = "CPU";
+      opts->target = "cpu";
       //printf("Target CPU\n");
       break;
     case OPENMP:
@@ -208,7 +208,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	printf("ERROR: target already set\n");
 	return 1;
       }
-      opts->target = "OPENMP";
+      opts->target = "openmp";
       //printf("Target Parallel CPU\n");
       break;
     case GPU:
@@ -216,7 +216,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	printf("ERROR: target already set\n");
 	return 1;
       }
-      opts->target = "GPU";
+      opts->target = "gpu";
       //printf("Target GPU\n");
       break;
     case FLOAT:
@@ -281,7 +281,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 
   // Set defaults for any unset options
   if(!opts->target){
-    opts->target = "CPU";
+    opts->target = "cpu";
   }
 
   if(!opts->num_models){

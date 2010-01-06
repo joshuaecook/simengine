@@ -107,6 +107,8 @@ fun std_realpath exec args =
       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
 
 
+fun modtime exec = LibraryUtil.strToRealFun (fn path => Time.toReal (OS.FileSys.modTime path))
+
 val library = [{name="pwd", operation=std_pwd},
 	       {name="chmod", operation=std_chmod},
 	       {name="getPermissions", operation=std_getPermissions},
@@ -117,6 +119,7 @@ val library = [{name="pwd", operation=std_pwd},
 	       {name="isdir", operation=std_isdir},
 	       {name="isfile", operation=std_isfile},
 	       {name="mkdir", operation=std_mkdir},
-	       {name="realpath", operation=std_realpath}]
+	       {name="realpath", operation=std_realpath},
+	       {name="modtime", operation=modtime}]
 
 end

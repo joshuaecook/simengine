@@ -56,7 +56,7 @@ datatype prec = Double | Single
 local val precision' = _import "semeta_precision": meta -> Int32.int;
 in fun precision meta = 
        case precision' meta
-	of 4 => Double | 8 => Single
+	of 4 => Single | 8 => Double
 	 | _ => bug "odd precision"
 end
 end (* Metadata *)
@@ -91,6 +91,11 @@ datatype runparam = Run of {startTime: int,
 			    numModels: int,
 			    inputs: Real64.real vector,
 			    states: Real64.real vector}
+
+fun withSimengine filename f =
+    let val simengine = new filename
+    in f simengine before release simengine
+    end
 
 fun run (engine, Run {startTime, stopTime, numModels, inputs, states}) =
     bug "stub"

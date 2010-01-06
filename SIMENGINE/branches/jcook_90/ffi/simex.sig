@@ -69,5 +69,6 @@ signature SIMEX = sig
 				inputs: Real64.real vector,
 				states: Real64.real vector}
 
+    val withSimengine: string -> (simengine -> 'a) -> 'a
     val run: simengine * runparam -> Result.result
 end

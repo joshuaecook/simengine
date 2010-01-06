@@ -13,11 +13,14 @@ verbose ?=
 # If non-empty, will not echo commands as they are executed
 noecho ?=
 
-SVN_ROOT = https://svn1.hosted-projects.com/simatra/simEngine
-SVN_TRUNK = $(SVN_ROOT)/trunk
+SVN_ROOT = https://svn1.hosted-projects.com/simatra/simEngine/
+SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
 SVN_URL := $(shell svn info $(CURDIR) 2>/dev/null | sed -ne 's/^URL: //p')
+SVN_BRANCH := $(subst $(SVN_ROOT),,$(SVN_URL))
 
-DEBUG := $(or $(debug),$(findstring branch,$(SVN_URL)))
+TRAC_URL := http://www.hosted-projects.com/trac/simatra/simEngine/
+
+DEBUG := $(or $(debug),$(findstring branches,$(SVN_BRANCH)))
 PROFILE := $(if $(profile),$(profile),)
 VERBOSE := $(if $(verbose),$(verbose),)
 NOECHO := $(if $(noecho),@,)
@@ -45,8 +48,12 @@ SMLC = mlton
 SMLFLAGS =
 SMLPPFLAGS =
 SMLTARGET_ARCH = -codegen native
+SMLLEX = mllex
+SMLYACC = mlyacc
 
 COMPILE.sml = $(SMLC) $(SMLFLAGS) $(SMLPPFLAGS) $(SMLTARGET_ARCH)
+LEX.sml = $(SMLLEX)
+YACC.sml = $(SMLYACC)
 
 # The C compiler
 CC = gcc

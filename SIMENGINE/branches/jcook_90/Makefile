@@ -73,7 +73,7 @@ help:
 	$(info ****  make matlab-internal-test - perform a system    ****)
 	$(info ****                              'internal' test     ****)
 	$(info ****                                                  ****)
-ifeq ($(BRANCH),1)
+ifneq ($(findstring branches,$(SVN_BRANCH)),)
 	$(info ****  make update-from-trunk - merges trunk changes   ****)
 	$(info ****                           into branch            ****)
 	$(info ****                                                  ****)
@@ -94,11 +94,6 @@ endif
 # Adjustable Parameters
 # ==============================================================================================
 
-# Compilers
-LINK := $(CC) -fPIC
-
-
-
 SVNSRV = https://svn1.hosted-projects.com/simatra/simEngine
 SVNWEBSRV = http://www.hosted-projects.com/trac/simatra/simEngine
 SVNTRUNK = $(SVNSRV)/trunk
@@ -117,7 +112,6 @@ endif
 
 CP = cp -rf
 
-RMDIR = rm -rf
 SYSTESTDIR = ../testing/frameworks/system
 SYSTEST = systest
 #MAKE = make --no-print-directory
@@ -125,7 +119,7 @@ BROWSER = firefox
 MATLABCMD = $(MATLAB) -nodisplay -nojvm -r 
 
 ifeq ("$(MATLAB)$(OCTAVE)","")
-$(error "Couldn't find MATLAB or GNU octave.")
+$(error Could not locate MATLAB or GNU octave)
 endif
 
 
@@ -366,45 +360,24 @@ COMPILER_PREREQS := check-build-type build-directories links build-system matlab
 # Dynamo Compilation Targets
 # ==============================================================================================
 
+
 src/shell/cool.lex.sml: src/shell/cool.lex
-	$(RM) src/shell/cool.lex.sml
-	mllex src/shell/cool.lex
-	chmod -w src/shell/cool.lex.sml
+	$(LEX.sml) $<
 
 src/shell/cool.grm.sig src/shell/cool.grm.sml: src/shell/cool.grm
-	$(RM) src/shell/cool.grm.*
-	mlyacc src/shell/cool.grm
-	chmod -w src/shell/cool.grm.*
+	$(YACC.sml) $<
 
 src/util/registry/registry.lex.sml: src/util/registry/registry.lex
-	$(RM) src/util/registry/registry.lex.sml
-	mllex src/util/registry/registry.lex
-	chmod -w src/util/registry/registry.lex.sml
+	$(LEX.sml) $<
 
 src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml: src/util/registry/registry.grm
-	$(RM) src/util/registry/registry.grm.*
-	mlyacc src/util/registry/registry.grm
-	chmod -w src/util/registry/registry.grm.*
-
+	$(YACC.sml) $<
 
 $(OUTPUT_FILE): override SMLFLAGS += $(ARGS)
 $(OUTPUT_FILE): $(COMPILER_MLB) $(COMPILER_DEPENDENCIES) $(COMPILER_EXTRA_SOURCES)
 	$(RM) datafiles/$(BUILD_TYPE)-build_options.sml
 	$(MAKE) build_defs
 	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
-
-
-libs:  library/stdlib.so
-
-
-.c.o:
-	gcc $(LINKING_FLAG) -c $? -o $@
-
-library/stdlib.so: src/dll/arithmetic.o src/dll/comparison.o src/dll/math.o
-	gcc $(SHARED_FLAGS) -W1,-soname,stdlib.so -o $@ src/dll/*.o -lc
-
-$(BUILD_DIR)/lib/stdlib.so: library/stdlib.so
-	$(CP) $< $@ 
 
 
 # Compiler Debugging Files
@@ -820,7 +793,7 @@ $(TOP_LEVEL)/build:
 # Subversion Related
 # ==============================================================================================
 
-ifeq ($(BRANCH),1)
+ifneq ($(findstring branches,$(SVN_BRANCH)),)
 update-from-trunk:
 	$(info Updating branch from trunk ...)
 	$(info First updating the branch to make sure it is up to date)
@@ -951,7 +924,7 @@ rpm:
 	@$(RM) $(SPEC)
 	@$(MAKE) $(SPEC)
 	(cd ..; $(RM) $(RPM_TAR_GZ))
-	(cd ..; $(RMDIR) $(RPM_TEMP_DIR))
+	(cd ..; $(RM) $(RPM_TEMP_DIR))
 	(cd ..; tar cfz $(RPM_TAR_GZ) --exclude=\.svn --exclude=\.tar\.gz --exclude=\*\.\*\~ .)
 	$(MKDIR) ../$(RPM_TEMP_DIR)
 	(cd ../$(RPM_TEMP_DIR); tar xfz ../$(RPM_TAR_GZ))
@@ -972,7 +945,7 @@ rpm:
 
 install: system
 	$(info Installing Dynamo in $(INSTALL_BUILD_DIR) ...)
-	@$(RMDIR) $(INSTALL_BUILD_DIR)
+	@$(RM) $(INSTALL_BUILD_DIR)
 	@-$(MKDIR) $(INSTALL_BUILD_DIR)
 	@$(CP) build/* $(INSTALL_BUILD_DIR)
 #	@gzip -d $(INSTALL_BUILD_DIR)/bin/i$(FILENAME)_save.gz
@@ -997,11 +970,11 @@ clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_cle
 	$(RM) src/dll/*.so
 	$(RM) $(BUILD_OPTS) datafiles/*build_options.sml
 	$(RM) $(SPEC)
-	$(RMDIR) $(BUILD)_*
+	$(RM) $(BUILD)_*
 	$(RM) $(BUILD)
-	$(RMDIR) *.dso
+	$(RM) *.dso
 	$(RM) $(SPEC)
-#	$(RMDIR) ../$(RPM_TEMP_DIR)
+#	$(RM) ../$(RPM_TEMP_DIR)
 #	$(RM) ../$(RPM_TAR_GZ)
 	$(RM) install_*.m
 #	$(RM) install_*.p
@@ -1009,14 +982,14 @@ clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_cle
 .PHONY: mostlyclean
 mostlyclean:
 	$(RM) $(FILENAME)
-	$(RM) src/dyn_fe/dynamo.lex.sml
-	$(RM) src/dyn_fe/dynamo.grm.sig
-	$(RM) src/dyn_fe/dynamo.grm.sml
-	$(RM) src/dyn_fe/dynamo.grm.desc
-	$(RM) src/lib_fe/dynlib.lex.sml
-	$(RM) src/lib_fe/dynlib.grm.sig
-	$(RM) src/lib_fe/dynlib.grm.sml
-	$(RM) src/lib_fe/dynlib.grm.desc
+	$(RM) src/shell/cool.lex.sml
+	$(RM) src/shell/cool.grm.desc
+	$(RM) src/shell/cool.grm.sig
+	$(RM) src/shell/cool.grm.sml
+	$(RM) src/util/registry/registry.lex.sml
+	$(RM) src/util/registry/registry.grm.desc
+	$(RM) src/util/registry/registry.grm.sig
+	$(RM) src/util/registry/registry.grm.sml
 
 
 .PHONY: solvers_clean

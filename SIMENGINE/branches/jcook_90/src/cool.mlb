@@ -166,6 +166,7 @@ library/comparison.sml
 library/string.sml
 library/file.sml
 library/filesys.sml
+library/path.sml
 objects/objects.sml
 library/type.sml
 library/function.sml

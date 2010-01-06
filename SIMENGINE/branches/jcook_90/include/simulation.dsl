@@ -1132,22 +1132,53 @@ open Simulation
 import "translate.dsl"
 import "simcompile.dsl"
 
+function compile2 (filename: String, settings: Table)
+  if "dsl" <> LF path_ext (filename) then
+      error ("Unknown type of file " + filename)
+  end
+  var dir = LF path_dir (filename)
+  var file = LF path_file (filename)
+  var modtime = LF modtime (filename)
+  var simfile = (LF path_base file) + ".sim"
+
+  if LF isfile (simfile) then
+      if modtime > LF modtime (simfile) then
+	  var mod = LF loadModel (filename)
+	  mod.template.settings = settings
+	  compile mod
+      else
+	  var simsettings = LF simfileSettings simfile
+	  if not (settings.target == simsettings.target and
+		  settings.precision == simsettings.precision and
+		  settings.num_models == simsettings.num_models) then
+	      var mod = LF loadModel (filename)
+	      mod.template.settings = settings
+	      compile mod
+	  end
+      end
+  else
+      var mod = LF loadModel (filename)
+      mod.template.settings = settings
+      compile mod
+  end
+end
+
 function compile (mod)
   var name = mod.template.name
   var settings = mod.template.settings
 
   var target
 
-  if "CPU" == settings.target then
+  if "cpu" == settings.target then
       target = SimCompile.TargetCPU.new()
-  elseif "OPENMP" == settings.target then
+  elseif "openmp" == settings.target then
       target = SimCompile.TargetOpenMP.new()
-  elseif "PARALLELCPU" == settings.target then
+  elseif "parallelcpu" == settings.target then
       target = SimCompile.TargetOpenMP.new()
-  elseif "CUDA" == settings.target then
+  elseif "cuda" == settings.target then
       target = SimCompile.TargetCUDA.new()
       target.emulate = settings.emulate
-  elseif "GPU" == settings.target then
+  elseif "gpu" == settings.target then
       target = SimCompile.TargetCUDA.new()
       target.emulate = settings.emulate
   else
@@ -1163,7 +1194,7 @@ function compile (mod)
   var stat = LF compile (Translate.model2forest (mod.instantiate()))
 
   var cc
-  if "GPU" <> settings.target and "CUDA" <> settings.target then
+  if "gpu" <> settings.target and "cuda" <> settings.target then
       cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
   else
       SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
