@@ -104,7 +104,7 @@ RM = rm -rf
 SIMPLE_ARGS = -target-link-opt linux -ldl -export-header ffi/ffi-simengine.h
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(verbose),)
-	SIMPLE_ARGS = -verbose 1
+	SIMPLE_ARGS += -verbose 1
 endif
 ifneq ($(sml_typecheck),)
 	SMLPPFLAGS += -stop tc
