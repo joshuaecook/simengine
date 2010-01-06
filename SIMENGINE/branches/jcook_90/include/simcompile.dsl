@@ -159,7 +159,7 @@ namespace SimCompile
       if cc.isempty() then 
 	error "Could not find nvcc. Please ensure that it exists in your path."
       end
-      nvcc = cc[1].rstrip("\n")
+      nvcc = LF realpath (cc[1].rstrip("\n"))
       cudaInstallPath = shell("dirname \$(dirname " + nvcc + ")")[1].rstrip("\n")
     end
 
@@ -175,10 +175,6 @@ namespace SimCompile
 
       m.CFLAGS = ["--compiler-options", "\"" + join(" ", m.CFLAGS) + "\"",
 		  "--ptxas-options", "\"" + join(" ", ptxasFlags) + "\""]
-
-      if arch64 then
-	m.CFLAGS.push_back("-m64")
-      end
 
       // FIXME this is not os-dependent!
       if "darwin" <> osLower then

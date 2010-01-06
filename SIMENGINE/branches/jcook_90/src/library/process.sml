@@ -50,9 +50,13 @@ fun std_popen exec args =
 fun std_preadline exec args =
     case args of
 	[KEC.PROCESS (p, _, _)] =>
-	(case TextIO.inputLine (Child.textIn (Proc.getStdout p)) of
-	    NONE => KEC.UNIT
-	  | SOME s => KEC.LITERAL(KEC.CONSTSTR s))
+	let val (stdout, stderr) = (Child.textIn (Proc.getStdout p), Child.textIn (Proc.getStderr p))
+	in case TextIO.inputLine stdout
+	    of SOME s => KEC.LITERAL (KEC.CONSTSTR s)
+	     | NONE => (case TextIO.inputLine stderr
+			 of SOME s => KEC.LITERAL (KEC.CONSTSTR s) 
+			  | NONE => KEC.UNIT)
+	end
       | [a] => 
 	raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
