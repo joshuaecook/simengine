@@ -16,7 +16,7 @@ exception UnexpectedMethodType
 open Printer
 
 fun log_error (env as (_, _, poslog)) text =
-    (Logger.log_usererror poslog text;
+    (Logger.log_error_with_position poslog text;
      DynException.setErrored())
 
 fun error (env as (_, _, poslog)) text = 

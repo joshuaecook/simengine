@@ -2,7 +2,7 @@ structure Library =
 struct
 
 fun error msg =
-    Logger.log_usererror [PosLog.NOPOS] (Printer.$ msg)
+    Logger.log_error (Printer.$ msg)
 
 val core_library : {name: string, operation: (KEC.exp -> KEC.exp) -> KEC.exp list -> KEC.exp} list = 
     SystemLib.library @

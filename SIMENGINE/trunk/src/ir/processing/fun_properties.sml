@@ -116,9 +116,7 @@ fun vectorizedCodomain (nil: int list list) : int list = nil
 	    else if (size1 = 1) then size2
 	    else if (size2 = 1) then size1
 	    else
-		(Logger.log_internalerror (Printer.$("Arguments have mismatched sizes ("^(Int.toString size1)^","^(Int.toString size2)^")"));
-		 DynException.setErrored(); 
-		 1)
+		(DynException.stdException (("Arguments have mismatched sizes ("^(Int.toString size1)^","^(Int.toString size2)^")"), "FunProperties.vectorizedCodomain.combineSizes", Logger.INTERNAL))
 
     in
 	foldl (fn(a,b) => map combineSizes
@@ -126,6 +124,7 @@ fun vectorizedCodomain (nil: int list list) : int list = nil
 	      first 
 	      rest
     end
+    handle e => DynException.checkpoint "FunProperties.vectorizedCodomain" e
 
 fun safeTail nil = nil
   | safeTail (a::rest) = rest

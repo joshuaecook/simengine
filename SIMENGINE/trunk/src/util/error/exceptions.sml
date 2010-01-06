@@ -59,10 +59,10 @@ fun log_stack e () =
 	[]
 *)				  
 fun log handlelocation (e as InternalError {message, severity, characterization, location}) =
-    (Logger.log characterization severity 
+    (Logger.log_exception characterization severity 
 		(Printer.$("Exception caught at " ^ handlelocation 
 			   ^ " and raised at " ^ location ^ " - (" ^ message ^ ")"));
-     Logger.log_information (log_stack e) Logger.NOGROUP)
+     Logger.log_stack (log_stack e))
   | log handlelocation (e as TooManyErrors) =
     ()
 
@@ -83,7 +83,7 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
 		    | Subscript => "Subscript exception at " ^ handlelocation
 		    | _ => "Unknown exception caught at " ^ handlelocation
     in
-	(Logger.log Logger.OTHER Logger.FAILURE ($(message));
+	(Logger.log_exception Logger.OTHER Logger.FAILURE ($(message));
 	 Logger.log_error (Printer.SUB(log_stack e ())))
     end
 
@@ -119,7 +119,7 @@ fun isErrored() = !terminal_errors
 
 fun assert flag message =
     if not flag then
-	(Logger.log Logger.ASSERTION Logger.FAILURE message;
+	(Logger.log_exception Logger.ASSERTION Logger.FAILURE message;
 	 setErrored())
     else
 	()

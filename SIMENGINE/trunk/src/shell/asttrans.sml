@@ -6,7 +6,7 @@ open Printer
 fun flatten x = foldr (op @) nil x
 
 fun error msg =
-    (Logger.log_usererror (PosLog.new()) msg;
+    (Logger.log_error msg;
      DynException.setErrored())
 fun internalerror msg =
     (Logger.log_failure (Printer.$ msg))

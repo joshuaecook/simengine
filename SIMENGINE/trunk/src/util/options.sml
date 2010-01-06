@@ -84,7 +84,10 @@ type group =  {group: string,
 			 description: string list} list}
 
 open Printer
-	      
+
+val registryFile = ref "none"
+val error = Logger.log_data_error (!registryFile)	
+      
 val argument_groups =
     [{group="Compiler Options",
       tag="compiler",
@@ -586,11 +589,14 @@ fun option2description {short=NONE, long=NONE, xmltag, dyntype, description} =
 			  | INTEGER_VECTOR_T => argcolumn ^ " [<int> ...]"
 			  | REAL_VECTOR_T => argcolumn ^ " [<real> ...]"
 			  | STRING_VECTOR_T => argcolumn ^ " [<string> ...]"
-	val _ = 
-	    if String.size (argcolumn) > desc_column_start then
-		Logger.log Logger.INTERNAL Logger.ERROR ($("argument column size too small for argument " ^ xmltag))
-	    else
-		()
+
+	(*
+	 val _ = 
+	     if String.size (argcolumn) > desc_column_start then
+		 Logger.log Logger.INTERNAL Logger.ERROR ($("argument column size too small for argument " ^ xmltag))
+	     else
+		 ()
+	 *)
 
 	fun whitespace length =
 	    if length <= 0 then
@@ -672,14 +678,14 @@ fun addSetting(name, dyntype, argument, settings) =
 				 SOME i =>
 				 INTEGER i
 			      | NONE =>
-				(Logger.log Logger.DATA Logger.ERROR ($("Argument for '" ^ name ^ "' not a valid integer"));
+				(error ($("Argument for '" ^ name ^ "' not a valid integer"));
 				 raise InvalidArgument))
 			  | REAL_T => 
 			    (case Real.fromString argument of
 				 SOME r =>
 				 REAL r
 			       | NONE =>
-				 (Logger.log Logger.DATA Logger.ERROR ($("Argument for '" ^ name ^ "' not a valid real"));
+				 (error ($("Argument for '" ^ name ^ "' not a valid real"));
 				  raise InvalidArgument))
 			  | STRING_T => 
 			    STRING (argument)
@@ -687,14 +693,14 @@ fun addSetting(name, dyntype, argument, settings) =
 			    (case Int.fromString argument of
 				 SOME i =>
 				 INTEGER_VEC [i]
-			       | NONE => (Logger.log Logger.DATA Logger.ERROR ($("Argument for '" ^ name ^ "' not a valid integer"));
+			       | NONE => (error ($("Argument for '" ^ name ^ "' not a valid integer"));
 					  raise InvalidArgument))
 			  | REAL_VECTOR_T => 
 			    (case Real.fromString argument of
 				 SOME r =>
 				 REAL_VEC [r]
 			       | NONE =>
-				 (Logger.log Logger.DATA Logger.ERROR ($("Argument for '" ^ name ^ "' not a valid real"));
+				 (error ($("Argument for '" ^ name ^ "' not a valid real"));
 				  raise InvalidArgument))
 			  | STRING_VECTOR_T => (* deliminate arguments by a : *)			    
 			    STRING_VEC (*[argument]*) (String.tokens (fn(c)=> c = #":") argument)
@@ -710,7 +716,7 @@ fun addSetting(name, dyntype, argument, settings) =
 	      | combine_vectors (INTEGER_VEC v1, INTEGER_VEC v2) = INTEGER_VEC (v1 @ v2)
 	      | combine_vectors (REAL_VEC v1, REAL_VEC v2) = REAL_VEC (v1 @ v2)
 	      | combine_vectors _ =
-		(Logger.log Logger.INTERNAL Logger.ERROR ($("Argument for vector '" ^ name ^ "' not same type as pre-existing vector"));
+		(error ($("Argument for vector '" ^ name ^ "' not same type as pre-existing vector"));
 		 raise InvalidArgument)
 
 	    fun replace (n,v) nil =
@@ -772,11 +778,11 @@ fun processCommandLineArgs (settings, files, nil) = (settings, files)
 		  else (* entry is a setting *)
 		      let
 			  val (argument, rest) = case rest of
-						     nil => (Logger.log Logger.DATA Logger.ERROR ($("Argument expected for '" ^ (strtail arg) ^ "'"));
+						     nil => (error ($("Argument expected for '" ^ (strtail arg) ^ "'"));
 							     raise ArgFailure)
 						   | argument::rest =>
 						     if isPlusOrMinus (strhead argument) then
-							 (Logger.log Logger.DATA Logger.ERROR ($("Argument expected for '" ^ (strtail arg) ^ "'"));
+							 (error ($("Argument expected for '" ^ (strtail arg) ^ "'"));
 							  raise ArgFailure)
 						     else
 							 (argument, rest)
@@ -785,7 +791,7 @@ fun processCommandLineArgs (settings, files, nil) = (settings, files)
 						 files,
 						 rest)
 		      end)
-	       | NONE => (Logger.log_usererror nil ($("Invalid argument '" ^ (strtail arg) ^ "'"));
+	       | NONE => (Logger.log_error ($("Invalid argument '" ^ (strtail arg) ^ "'"));
 			  DynException.setErrored();
 			  processCommandLineArgs(settings, files, rest)))
 		       
@@ -844,10 +850,11 @@ fun importRegistryEntry (Registry.REG_FLAG(n, f), existingSettings) =
 
 fun importRegistryFile (file) = 
     (if GeneralUtil.isFile file then
-	 (settings := foldl importRegistryEntry (!settings) (DynRegParse.parse(file));
+	 (registryFile := file;
+	  settings := foldl importRegistryEntry (!settings) (DynRegParse.parse(file));
 	  ())
      else
-	 (Logger.log Logger.USER Logger.FAILURE ($("Can't read registry file '"^file^"'"));
+	 (Logger.log_failure ($("Can't read registry file '"^file^"'"));
 	  DynException.setErrored();
 	  DynException.checkToProceed()))
     handle e => DynException.checkpoint "DynamoOptions.importRegistryFile" e

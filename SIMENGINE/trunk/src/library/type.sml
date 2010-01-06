@@ -5,7 +5,7 @@ val TypeMismatch = DynException.TypeMismatch
 and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 
 fun error msg =
-    Logger.log_usererror [PosLog.NOPOS] (Printer.$ msg)
+    Logger.log_error (Printer.$ msg)
 
 fun decell (KEC.CELL (t,KEC.REFERENCE(ref e))) = decell (e)
   | decell (KEC.CELL (t,KEC.GETSET(get, set))) = decell (get())

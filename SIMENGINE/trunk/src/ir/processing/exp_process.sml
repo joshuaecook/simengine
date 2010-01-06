@@ -242,18 +242,14 @@ fun eq2str (lhs, rhs) =
 val raiseExceptions = true
 
 fun error_no_return exp text = 
-    (Logger.log_internalerror (Printer.$("Error when processing '"^(e2s exp)^"': "^(text)));
-     DynException.setErrored();
-     if raiseExceptions then
-	 DynException.stdException("Expression error", "ExpProcess.error_no_return", Logger.INTERNAL)
-     else
-	 ())
+    if raiseExceptions then
+	DynException.stdException("Expression error", "ExpProcess.error_no_return", Logger.INTERNAL)
+    else
+	(Logger.log_error (Printer.$("Error when processing '"^(e2s exp)^"': "^(text)));
+	 DynException.setErrored())
 
 fun error exp text = (error_no_return exp text; 
-		      if raiseExceptions then
-			  DynException.stdException("Expression error", "ExpProcess.error", Logger.INTERNAL)
-		      else
-			  Exp.null)
+		      Exp.null)
 
 fun isFun exp = 
     case exp of

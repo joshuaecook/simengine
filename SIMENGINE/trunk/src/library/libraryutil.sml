@@ -5,7 +5,7 @@ val TypeMismatch = DynException.TypeMismatch
 and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 
 fun error msg =
-    Logger.log_usererror [PosLog.NOPOS] (Printer.$ msg)
+    Logger.log_error (Printer.$ msg)
 
 (* Many of the numeric functions have the same (real -> real) signature with a simple operation.
    This is a helper function for creating library methods of that type. *)

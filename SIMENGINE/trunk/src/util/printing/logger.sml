@@ -5,9 +5,72 @@
  * See the Wiki entry for dynamo logger at:
  *   http://www.simatra-internal.com/doc/doku.php?id=dynamo_logger
  *)
+signature LOGGER =
+sig
 
-structure Logger =
+(* Define the message type used in Logger *)
+type message = Printer.text
+
+(* Define data types used in logger *)
+datatype message_type = 
+	 NOTICE
+       | WARNING
+       | ERROR
+       | FAILURE
+
+datatype characterization =
+	 INTERNAL
+       | DATA
+       | ASSERTION
+       | USER
+       | OTHER
+
+(* any time this is updated, update the logging group in Options.sml*)
+datatype group =
+	 LUT_GEN
+       | SCHEDULING      
+       | LIBRARY
+       | NOGROUP
+
+datatype log_level =
+	 ALL
+       | WARNINGS (* and errors and failures *)
+       | ERRORS (* and failures *)
+       | FAILURES
+
+type logtype = {loglevel: log_level,
+		outstream: TextIO.outstream,
+		output_groups: group list,
+		id: int,
+		name: string}
+
+
+(* Define basic methods for logging events *)
+val log_notice : message -> unit
+val log_warning : message -> unit
+val log_error : message -> unit
+val log_error_with_position : PosLog.pos list -> message -> unit
+val log_failure : message -> unit
+
+(* When reading a data file, such as the registry, use this error routine *)
+val log_data_error : string -> message -> unit (* first argument is the filename, second is the message to print *)
+
+(* for exception handling *)
+val log_stack : (unit -> message list) -> unit
+val log_exception : characterization -> message_type -> message -> unit
+
+(* to creating logging streams and add/remove to the logging list *)
+val log_stdout : (log_level * group list) -> int
+val log_stderr : (log_level * group list) -> int
+val log_add : (string * log_level * group list) -> int (* generic logger *)
+val log_remove : int -> unit
+
+end
+structure Logger : LOGGER =
 struct
+
+(* Define the message type used in Logger *)
+type message = Printer.text
 
 datatype message_type = 
 	 NOTICE
@@ -147,6 +210,9 @@ fun log characterization messagetype message =
 	   else
 	       ())
 	(!logs))
+
+fun log_exception characterization messagetype message =
+    log characterization messagetype message 
 (*
 fun log_lines characterization messagetype nil = ()
   | log_lines characterization messagetype messages =
@@ -210,6 +276,16 @@ fun log_internalerror message =
 	   else
 	       ())
 	(!logs))
+
+fun log_data_error filename message =
+    (error_count := !error_count + 1;
+    app (fn({outstream, loglevel, ...}) =>
+	   if sufficient_loglevel loglevel ERROR then
+	       output_text outstream DATA ERROR (Printer.SUB [Printer.$("Error occurred in data file: " ^ filename),
+							      message])
+	   else
+	       ())
+	(!logs))
     
 fun log_information messageFun group =
     let
@@ -244,6 +320,8 @@ fun log_information messageFun group =
 		    logsToUse
 	    end
     end
+fun log_stack messageFun = 
+    log_information messageFun NOGROUP
 
 fun log_user (poslog: PosLog.pos list) level message =
     let
@@ -293,6 +371,7 @@ fun log_user (poslog: PosLog.pos list) level message =
 	
 fun log_usererror poslog message =
     log_user poslog ERROR message
+val log_error_with_position = log_usererror
 
 fun log_userwarning poslog message =
     log_user poslog WARNING message

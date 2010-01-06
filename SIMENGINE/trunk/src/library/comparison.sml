@@ -6,7 +6,7 @@ and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 and reals2boolfun = LibraryUtil.reals2boolfun
 
 fun error msg =
-    Logger.log_usererror [PosLog.NOPOS] (Printer.$ msg)
+    Logger.log_error (Printer.$ msg)
 
 fun gt _ = reals2boolfun Real.>
 fun ge _ = reals2boolfun Real.>=

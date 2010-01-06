@@ -9,7 +9,7 @@ and ValueError = DynException.ValueError
 and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 
 fun error msg =
-    Logger.log_usererror [PosLog.NOPOS] (Printer.$ msg)
+    Logger.log_error (Printer.$ msg)
 
 fun std_print exec args =
     KEC.UNIT before
@@ -174,7 +174,7 @@ fun std_substring _ args =
 fun std_warning _ args =
     case args of
 	[KEC.LITERAL (KEC.CONSTSTR s)] =>
-	KEC.UNIT before Logger.log_userwarning [PosLog.NOPOS] (Printer.$ s)
+	KEC.UNIT before Logger.log_warning (Printer.$ s)
       | [s] =>
 	raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname s))
       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}

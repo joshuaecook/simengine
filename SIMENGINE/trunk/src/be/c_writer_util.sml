@@ -168,7 +168,8 @@ fun expsym2parts class exp =
 					    
 	    val spatial_iterators = ExpProcess.exp2spatialiterators exp
 	    val n = Symbol.name sym
-
+	    (* there may be delimiters in n *)
+	    val n = Util.repStr (n, "#_", "__")
 	in
 	    {prefix=prefix,
 	     identifier=n,

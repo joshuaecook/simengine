@@ -18,7 +18,7 @@ val termCount: Exp.term -> int (* count the elements of a symbol, list, or tuple
 val symbolSpatialSize: Exp.term -> int (* assumes that the term is a symbol, otherwise returns 1 by default - also, uses dim property to determine size *)
 
 (* When accessing symbols, these methods will return the name in varying different ways *)
-val sym2str : (Symbol.symbol * Property.symbolproperty) -> string (* used for pretty printing *)
+val sym2str : bool -> (Symbol.symbol * Property.symbolproperty) -> string (* used for printing - setting the first argument for true turns on a "prettier" output *)
 val sym2fullstr : (Symbol.symbol * Property.symbolproperty) -> string (* used for pretty printing when not using the default terse output *)
 val sym2c_str : (Symbol.symbol * Property.symbolproperty) -> string (* this is the call to produce a valid c representation of a symbol (works for locals, read states, and write states) *)
 (* these accessors require a term that can only be a symbol *)
@@ -76,7 +76,7 @@ fun sym2symname (Exp.SYMBOL (s, props)) =
 fun sym2term sym =
     Exp.SYMBOL (sym, Property.default_symbolproperty)
 
-fun sym2str (s, props) =
+fun sym2str pretty (s, props) =
     let
 	val scope = Property.getScope props
 	val prefix = case scope of
@@ -94,9 +94,15 @@ fun sym2str (s, props) =
 		      of SOME iters => Iterator.iterators2str iters
 		       | NONE => "")
 
-	val n = prefix ^ ((*case (Property.getRealName props)
+	val n = (if pretty then "" else prefix) ^ (case (Property.getRealName props)
 			   of SOME v => Symbol.name v
-			    | NONE =>*) Symbol.name s)
+			    | NONE =>Symbol.name s)
+
+	(* revert back to the hierarchy for pretty printing *)
+	val n = if pretty then 
+		    Util.repStr (n, "#_", ".")
+		else 
+		    n
 
     in
 	if order < 0 then (* integral *)
@@ -194,17 +200,19 @@ fun sym2c_str (s, props) =
 		else
 		    pre_n
 
+	(* remove any extra hierarchy symbols that may be present *)
+	val n = Util.repStr (n, "#_", "__")
     in
 	if order < 0 then (* integral *)
 	    (*"Int(" ^ n ^ iters ^  ",["^(String.concatWith "," (map Symbol.name vars))^"])"*)
-	    DynException.stdException(("Can't support integrals ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
+	    DynException.stdException(("Can't support integrals ("^(sym2str false (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	else if order = 0 then
 	    prefix ^ n ^ suffix
 	else if order = 1 then
 	    (*"d_" ^ n ^ "_dt"*) (* only support first order derivatives with respect to t *)
 	    prefix ^ n ^ suffix
 	else
-	    DynException.stdException(("Can't support higher order derivative terms ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
+	    DynException.stdException(("Can't support higher order derivative terms ("^(sym2str false (s, props))^")"), "DSL_TERMS.sym2c_str", Logger.INTERNAL)
 	(*else if order > 3 andalso (same vars) then
 	    n ^ "^("^(i2s order)^")" ^ iters
 	else if order > 0 andalso (same vars) then

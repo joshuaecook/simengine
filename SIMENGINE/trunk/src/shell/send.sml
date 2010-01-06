@@ -19,7 +19,7 @@ and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 
 fun error (env as (_, _, poslog)) text = 
     KEC.UNDEFINED
-    before (Logger.log_usererror poslog (text);
+    before (Logger.log_error_with_position poslog (text);
 	    DynException.setErrored())
 
 fun decell (KEC.CELL (_,KEC.REFERENCE c)) = decell (!c)

@@ -70,6 +70,7 @@ struct
 type sym = Symbol.symbol
 val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
+val e2ps = ExpPrinter.exp2prettystr
 
 fun equal a b = a = b
 
@@ -1347,7 +1348,7 @@ fun assignCorrectScope (class: DOF.class) =
 				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name)))
 			     | iters => 
 			       name before
-			       Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."))
+			       Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."))
 			end
 		      |	SOME iter => name (* keep the same *)
 
@@ -1396,7 +1397,7 @@ fun assignCorrectScope (class: DOF.class) =
 				    name
 				  | [iter] => ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter (Exp.TERM name))
 				  | rest => (* this is an error *)
-				    (Logger.log_usererror nil (Printer.$("Particular output '"^(e2s (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) temporal_iterators')) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2s (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2s (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd temporal_iterators'))^"]."));
+				    (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) temporal_iterators')) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd temporal_iterators'))^"]."));
 				     DynException.setErrored();
 				     name)
 				    
@@ -1814,7 +1815,7 @@ and instanceExpressions equation =
 	fun renameWithPrefix pref =
 	    {find = Match.onesym "anysym",
 	     replace = Rewrite.ACTION (Symbol.symbol ("renameWithPrefix:"^(Symbol.name pref)), 
-				       prefixSymbol ((Symbol.name pref) ^ "_")),
+				       prefixSymbol ((Symbol.name pref) ^ "#_")),
 	     test = NONE}
 
 	val renameWithInstanceNamePrefix = renameWithPrefix (ExpProcess.instOrigInstName equation)
