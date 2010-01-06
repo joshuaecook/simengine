@@ -229,11 +229,11 @@ if 1 < nargin
     elseif strcmpi(arg, '-float')
       opts.precision = 'float';
     elseif strcmpi(arg, '-cpu')
-      opts.target = 'CPU';
+      opts.target = 'cpu';
     elseif strcmpi(arg, '-gpu')
-      opts.target = 'GPU';
+      opts.target = 'gpu';
     elseif strcmpi(arg, '-parallel-cpu')
-      opts.target = 'PARALLELCPU';
+      opts.target = 'parallelcpu';
     elseif strcmpi(arg, '-v')
       opts.verbose = true;
     elseif strcmpi(arg, '-quiet')
@@ -264,11 +264,11 @@ if 1 < nargin
 end
 
 if strcmpi(opts.target, '')
-  opts.target = 'CPU';
+  opts.target = 'cpu';
   if 1 < opts.models
 %    switch computer
 %     case {'MACI','MACI64'}
-      opts.target = 'PARALLELCPU';
+      opts.target = 'parallelcpu';
 %     otherwise
 %      opts.target = 'GPU';
 %    end

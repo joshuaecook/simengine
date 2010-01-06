@@ -1154,6 +1154,8 @@ function compile2 (filename: String, settings: Table)
 	      var mod = LF loadModel (filename)
 	      mod.template.settings = settings
 	      compile mod
+	  else
+	      "Compilation Finished Successfully"
 	  end
       end
   else
