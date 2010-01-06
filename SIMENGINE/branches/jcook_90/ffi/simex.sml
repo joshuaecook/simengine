@@ -32,10 +32,16 @@ val _ = _export "heap_update_pointer": (MLton.Pointer.t array * int * MLton.Poin
 
 
 structure API = struct
-type api = DL.symbol
+type api = MLton.Pointer.t
 type meta = MLton.Pointer.t
 
-fun get lib = DL.symbol (lib, "seint")
+fun get lib = 
+    let val getinterface = DL.function (lib, "simengine_getinterface")
+	val wrapper = _import * : DL.function -> unit -> api;
+    in 
+	wrapper getinterface ()
+    end
+
 
 val metadata = _import "seint_metadata": api -> meta;
 val version = _import "seint_version": api -> int;

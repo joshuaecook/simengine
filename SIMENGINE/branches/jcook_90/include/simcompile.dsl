@@ -173,8 +173,8 @@ namespace SimCompile
 	m.LDFLAGS.push_front("-L" + cudaInstallPath + "/lib64")
       end
 
-      m.CFLAGS = ["--compiler-options", "\"" + join(" ", m.CFLAGS) + "\"",
-		  "--ptxas-options", "\"" + join(" ", ptxasFlags) + "\""]
+      m.CFLAGS = ["--compiler-options", join(" ", m.CFLAGS),
+		  "--ptxas-options", join(" ", ptxasFlags)]
 
       // FIXME this is not os-dependent!
       if "darwin" <> osLower then
