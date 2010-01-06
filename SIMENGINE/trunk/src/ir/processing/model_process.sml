@@ -77,6 +77,7 @@ fun log str = if DynamoOptions.isFlagSet "logdof" then
 val i2s = Util.i2s
 
 val e2s = ExpPrinter.exp2str
+val e2ps = ExpPrinter.exp2prettystr
 
 fun isDependentIterator (_, DOF.UPDATE _) = true
   | isDependentIterator (_, DOF.POSTPROCESS _) = true
@@ -474,14 +475,14 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 				  Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
 				  (coeff, remainder)
 				| _ => 
-				  (Logger.log_usererror nil (Printer.$("Cannot factor out state '"^(Symbol.name state)^"' from expression '"^(e2s exp')^"'.  The system may be nonlinear."));
+				  (Logger.log_error (Printer.$("Cannot factor out state '"^(Symbol.name state)^"' from expression '"^(e2ps exp')^"'.  The system may be nonlinear."));
 				   DynException.setErrored();
 				   (ExpBuild.int 0, rhs))
 
 			  (* Verify that remainder and coefficient does not contain 'state' (indicating non-linearity) *)  		
 			  val _ = case Match.findOnce (Match.asym state, ExpBuild.explist [coeff, remainder]) of
 				      SOME e =>
-				      (Logger.log_usererror nil (Printer.$("Cannot use exponential euler because the equation for state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2s eq)));
+				      (Logger.log_error (Printer.$("Cannot use exponential euler because the equation for state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2ps eq)));
 				       DynException.setErrored())
 				    | NONE => ()
 
@@ -697,7 +698,8 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 										  var, 
 										  Match.any "d3"], 
 								  Match.any "d4"],
-					       test=NONE,
+					       (* use a test to make sure that we're only looking at the top most expression *)
+					       test=SOME (fn(exp', matchedPatterns)=>ExpEquality.equiv (exp, exp')),
 					       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.pvar "d2", ExpBuild.pvar "d3"],
 											      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
 					      
@@ -727,25 +729,37 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 			      (* val _ = Array2.update (matrix, rowIndex, columnIndex, ExpProcess.simplify coeff)*)
 
 			      in
-				  remainder
+				  (coeff, remainder)
 			      end
 			      handle e => DynException.checkpoint "ModelProcess.updateShardForSolver.updateMatrix.addEntry" e
 					  
-			  val b_entry = foldl addEntry exp' (SymbolSet.listItems deps)
+			  val (coefficients, b_entry) = foldl (fn(dep, (coefficients, remainder))=> 
+								 let
+								     val (coeff, remainder') = addEntry (dep, remainder)
+								 in
+								     (coeff::coefficients, remainder')
+								 end) ([],exp') (SymbolSet.listItems deps)
 
 			  (* we need to negate the b_entry - since we're constructing Ax-b=0 instead of Ax=b *)
 			  val neg_b_entry = ExpBuild.neg (b_entry)
 
-			  (* Verify that remainder does not contain states with [t+1] iterators (indicating non-linearity) *)  		
+			  (* Verify that remainder/coefficients do not contain states with [t+1] iterators (indicating non-linearity) *)  		
 			  val preds = [("is symbol", ExpProcess.isSymbol),
 				       ("symbol in state syms", fn(exp) => SymbolSet.member (stateSet, ExpProcess.exp2symbol exp)),
 				       ("relative iterator is 1", fn(exp) => case ExpProcess.exp2temporaliterator exp of 
 										 SOME (_, Iterator.RELATIVE 1) => true
 									       | _ => false)]
+
+			  val all_values = ExpBuild.explist (b_entry::coefficients)
 				      
-			  val _ = case Match.findOnce (Match.anysym_with_predlist preds (Symbol.symbol "#pattern"), b_entry) of
+			  (*
+			   val _ = Util.log("Expression: " ^ (e2s exp'))
+			   val _ = Util.log(" -> Coeff: " ^ (e2s (ExpBuild.explist coefficients)))
+			   val _ = Util.log(" -> Remainder: " ^ (e2s b_entry))
+			   *)
+			  val _ = case Match.findOnce (Match.anysym_with_predlist preds (Symbol.symbol "#pattern"), all_values) of
 				      SOME e =>
-				      (Logger.log_usererror nil (Printer.$("Cannot use backwards euler because the equation for state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2s eq)));
+				      (Logger.log_error (Printer.$("Cannot use backwards euler because the equation for state " ^ (Symbol.name state) ^ " is nonlinear.  Eq: " ^ (e2ps eq)));
 				       DynException.setErrored())
 				    | NONE => ()
 
