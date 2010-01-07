@@ -1,0 +1,10 @@
+{
+"allowSWBackend": true, "allowFPBackend": false, "allowHWBackend": false,
+"build": "BRANCH_jcook_90_769",
+"buildBranch": "branches/jcook_90",
+"buildDate": "Thu Jan 7 11:57:24 EST 2010",
+"buildRevision": 769,
+"buildTime": 1262883444,
+"dev_version": true,
+"version": "0.92"
+}

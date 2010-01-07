@@ -1,0 +1,16 @@
+local
+	$(SML_LIB)/basis/basis.mlb
+	token.sml
+	json.lex.sml
+	json.sml
+	parse.sml
+	print.sml
+in
+	signature JSON
+	signature PARSE_JSON
+	signature PRINT_JSON
+
+	structure JSON
+	structure ParseJSON
+	structure PrintJSON
+end
