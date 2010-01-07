@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -299,10 +300,14 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
   return 0;
 }
 
+// Length of string to strip from the end of realpath of simex to produce path for SIMENGINE environment variable
+#define BIN_SIMEX_LEN (strlen("/simex"))
+
 // Compile the DSL model to specified target
-int runsimEngine (const simengine_opts *opts)
+int runsimEngine (const char *simex_bin, const simengine_opts *opts)
 {
   FILE *fp;
+  char simex_path[PATH_MAX];
   char settings[BUFSIZE];
   char simengine[BUFSIZE];
   char readbuffer[BUFSIZE];
@@ -311,9 +316,17 @@ int runsimEngine (const simengine_opts *opts)
 
   // Set up full path to simEngine
   char *simengine_path = getenv("SIMENGINE");
+  // If not set, set based on path of simex (this executable)
   if(!simengine_path){
-    simengine_path = getenv("PWD");
-    setenv("SIMENGINE", simengine_path, 1);
+    int pathlen;
+    // Get path of simex
+    realpath(simex_bin, simex_path);
+    // Strip off the /bin/simex
+    pathlen = strnlen(simex_path, PATH_MAX);
+    simex_path[pathlen-BIN_SIMEX_LEN] = 0;
+    // Set the SIMENGINE variable
+    setenv("SIMENGINE", simex_path, 1);
+    simengine_path = simex_path;
   }
 
   strcpy(simengine, simengine_path);
@@ -583,7 +596,7 @@ int main(int argc, char **argv){
   char libraryname[256] = "./";
   if(!opts.nocompile){
     // Compile the model
-    if(runsimEngine(&opts))
+    if(runsimEngine(argv[0], &opts))
       return 1;
   }
   
