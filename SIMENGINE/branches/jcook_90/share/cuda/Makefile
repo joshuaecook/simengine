@@ -4,6 +4,8 @@ ifeq ($(NVCC),)
 $(error No CUDA compiler found)
 endif
 
+LDFLAGS = -ldl
+
 ifneq ($(DARWIN),)
 TARGET_ARCH = -arch i386
 CUDART_LIBRARY_NAME = libcudart.dylib
