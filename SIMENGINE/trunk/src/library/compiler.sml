@@ -24,6 +24,7 @@ fun std_compile exec args =
 				       SOME f => f
 				     | NONE => raise Aborted
 						  
+	      val _ = DynException.checkToProceed()
 
 	      val (classes, _, _) = forest
 

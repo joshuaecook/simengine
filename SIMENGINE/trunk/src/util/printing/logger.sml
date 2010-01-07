@@ -65,6 +65,10 @@ val log_stderr : (log_level * group list) -> int
 val log_add : (string * log_level * group list) -> int (* generic logger *)
 val log_remove : int -> unit
 
+(* grab error counts *)
+val getErrorCount : unit -> int
+val getWarningCount : unit -> int
+
 end
 structure Logger : LOGGER =
 struct
@@ -263,7 +267,7 @@ fun log_error message =
     (error_count := !error_count + 1;
     app (fn({outstream, loglevel, ...}) =>
 	   if sufficient_loglevel loglevel ERROR then
-	       output_text outstream OTHER ERROR (Printer.SUB [message])
+	       output_text outstream USER ERROR (Printer.SUB [message])
 	   else
 	       ())
 	(!logs))

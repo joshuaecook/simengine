@@ -953,7 +953,8 @@ namespace Simulation
     hidden var userMembers = []
     overload function addConst (name: String, value)
       if exists m in userMembers suchthat m == name then
-        error ("Model member " + name + " has already been defined.")
+        // error ("Model member " + name + " has already been defined.")
+	error ("Model quantity " + name + " has been defined multiple times.")
       else
         LF addconst (self, name, value)
 	userMembers.push_back(name)
