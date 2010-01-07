@@ -171,6 +171,15 @@ fun std_substring _ args =
 	raise TypeMismatch ("expected a string and two numbers but received " ^ (PrettyPrint.kecexp2nickname s) ^ ", " ^ (PrettyPrint.kecexp2nickname pos) ^ ", and " ^ (PrettyPrint.kecexp2nickname len))
       | _ => raise IncorrectNumberOfArguments {expected=3, actual=(length args)}
 
+fun std_failure _ args =
+    case args of
+	[KEC.LITERAL (KEC.CONSTSTR s)] =>
+	KEC.UNIT before (Logger.log_failure (Printer.$ s);
+			 raise DynException.RestartRepl)
+      | [s] =>
+	raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname s))
+      | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
 fun std_warning _ args =
     case args of
 	[KEC.LITERAL (KEC.CONSTSTR s)] =>
@@ -191,6 +200,7 @@ fun std_notice _ args =
 val library = [{name="print", operation=std_print},
 	       {name="strconcat", operation=str_concat},
 	       {name="substring", operation=std_substring},
+	       {name="failure", operation=std_failure},
 	       {name="warning", operation=std_warning},
 	       {name="notice", operation=std_notice},
 	       {name="str_contains", operation=str_contains},

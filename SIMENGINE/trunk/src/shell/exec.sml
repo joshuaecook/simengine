@@ -169,7 +169,7 @@ fun exec_exp parse (depth_count, isLHS) (env(*: (KEC.exp Env.env ref * KEC.exp E
 			  | DynException.ValueError reason
 			   => error env ($("ValueError: " ^ reason))
 			  | DynException.NameError name
-			    => error env ($("Member " ^ name ^ " not found in object " ^ (pretty object))))
+			    => error env ($("Member " ^ name ^ " not found in object " ^ (pretty (exec object)))))
 
 	       | KEC.ERROR message
 		 => (case message of 

@@ -677,13 +677,23 @@ and trans_definition definition =
 							    fakeConstructorStms2)]),
 					      PosLog.NOPOS)
 
+	    val stringRepresentation = "model definition " ^ (Symbol.name name)
+
+	    val tostring = HLEC.DEFINITION(HLEC.DEFFUN(HLEC.REPLACE,
+						       [({args=nil,
+							  name=Symbol.symbol "tostring",
+							  return=NONE},
+							 [HLEC.ACTION(HLEC.EXP (HLEC.LITERAL (HLEC.CONSTSTR (stringRepresentation))), PosLog.NOPOS)])]),
+					   PosLog.NOPOS)
+
 	in
 	    [HLEC.DEFNAMESPACE {name=name,				
 				stms=(HLEC.PUBLIC, hiddenModelTemplateDef) :: 
 				     (HLEC.PUBLIC, hiddenModelTemplate) :: 
 				     (HLEC.PUBLIC, wrapperDef):: 
 				     (HLEC.PUBLIC, fakeconstructor1) :: 
-				     (HLEC.PUBLIC, fakeconstructor2) :: 
+				     (HLEC.PUBLIC, fakeconstructor2) ::
+				     (HLEC.PUBLIC, tostring) ::
 				     nil}]
 	end
 
@@ -800,25 +810,29 @@ and trans_action pos action =
 		    val syms = findSymbols lhs
 
 		    val sym = case syms of
-				  [sym] => sym
-				| _ =>
-				  (error ($"Malformed equation encountered: unexpected number of symbols on left hand side");
-				   raise Skip)
+				  [sym] => SOME sym
+				| _ => NONE
+(*				  (error ($"Malformed equation encountered: the left hand side of an equation can only contain a state, derivative, quantity, or an output.");
+				   raise Skip)*)
 
 		    val dimensions = findDimensions lhs
 		in
-		    [HLEC.ACTION(HLEC.EXP(apply(HLEC.SYMBOL (Symbol.symbol "makeEquation"),
-						[HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name sym)),
-						 HLEC.VECTOR dimensions,
-						 HLEC.LAMBDA{args=syms, body=trans_exp lhs},
-						 HLEC.LAMBDA{args=syms, body=trans_exp rhs}] @ 
-						(case optcond of
-						     NONE => []
-						   | SOME c => [trans_exp c]))),
-				 pos),
-		     HLEC.DEFINITION(HLEC.DEFLOCAL(sym, HLEC.DONTCARE, 
-						   HLEC.SEND {object=HLEC.SYMBOL(Symbol.symbol "self"), message=sym}),
-				     pos)]
+		    case sym of 
+			SOME sym => 
+			[HLEC.ACTION(HLEC.EXP(apply(HLEC.SYMBOL (Symbol.symbol "makeEquation"),
+						    [HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name sym)),
+						     HLEC.VECTOR dimensions,
+						     HLEC.LAMBDA{args=syms, body=trans_exp lhs},
+						     HLEC.LAMBDA{args=syms, body=trans_exp rhs}] @ 
+						    (case optcond of
+							 NONE => []
+						       | SOME c => [trans_exp c]))),
+				     pos),
+			 HLEC.DEFINITION(HLEC.DEFLOCAL(sym, HLEC.DONTCARE, 
+						       HLEC.SEND {object=HLEC.SYMBOL(Symbol.symbol "self"), message=sym}),
+					 pos)]
+		      | NONE => [HLEC.ACTION(HLEC.EXP(HLEC.ERROR (HLEC.LITERAL(HLEC.CONSTSTR ("The left hand side of an equation can only contain a previously unused variable name, a state, a derivative, or an output.")))), 
+					     pos)]
 		end
 
 	     (* | trans_eq (Ast.EQUATION (Ast.SYMBOL name, exp)) =

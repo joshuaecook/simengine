@@ -921,9 +921,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 							        ExpProcess.isInstanceEq exp orelse
 							        ExpProcess.isStateEq exp) rest_exps
 	val _ = if (List.length rest_exps > 0) then
-		    (Logger.log_error($("Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class))));
+		    (Util.log ("Internal Error: Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class)));
 		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (e2s exp))) rest_exps;
-		     DynException.setErrored())
+		     DynException.stdException("Invalid expression(s) in code writer", "CParallelWriter.class2flow_code", Logger.INTERNAL))
 		else
 		    ()
 

@@ -97,7 +97,7 @@ fun kecexp2prettystr (exec : (KEC.exp -> KEC.exp)) (exp: KEC.exp) : string =
 		"0x" ^ padding ^ str ^ ":" ^ (Int.toString bits)
 	    end
 	  | KEC.SYMBOL s 
-	    => "'" ^ (Symbol.name s) ^ "'"
+	    => "Symbol '" ^ (Symbol.name s) ^ "'"
 	  | KEC.LIBFUN (name, args)
 	    => "internal function `" ^ (Symbol.name name) ^ "` " ^ "(" ^ (pretty args) ^ ")"
 	  | KEC.LAMBDA {args, body, ...}

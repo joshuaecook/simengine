@@ -516,9 +516,11 @@ fun createClass classes object =
 		(* check for NaN on inputs *)
 		val _ = app (fn(i) => case i of
 					  KEC.LITERAL(KEC.CONSTREAL (r)) => if Real.isNan r then
-										(Logger.log_error (Printer.$("Value NaN detected on input in submodel " ^(Symbol.name objname)^ ".  Possibly input value was not specified."));
-										 DynException.setErrored())
-									    else ()
+										error ("Value NaN detected on input in submodel " ^
+										       (Symbol.name objname)^ 
+										       ".  Possibly input value was not specified.")
+									    else 
+										()
 					| _ => ()) 
 			    input_exps
 
@@ -703,10 +705,7 @@ fun obj2dofmodel object =
 		    (case computeCapability 
 		      of "1.1" => Target.COMPUTE11
 		       | "1.3" => Target.COMPUTE13
-		       | "9999.9999" => (Logger.log_error (Printer.$("Only the emulation CUDA device has been found.  Please verify the device driver is installed properly and that you have r/w permissions on /dev/nvidia*"));
-					DynException.setErrored();
-					DynException.checkToProceed();
-					Target.COMPUTE11)
+		       | "9999.9999" => error ("Only the emulation CUDA device has been found.  Please verify the device driver is installed properly and that you have r/w permissions on /dev/nvidia*")
 		       | _ => (Logger.log_warning (Printer.$("Unexpected compute capability "^computeCapability^" on CUDA device, reverting to 1.1"));
 			       Target.COMPUTE11),
 		     numMPs,

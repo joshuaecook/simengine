@@ -64,7 +64,7 @@ namespace Simulation
 
     function getInitialValue()
       if not(isdefined (self.initialval)) then
-        error ("Initial value for state '" + name + "' is not specified")
+        error ("Initial value for state " + name + " is not specified")
         0
       else
         self.initialval
@@ -1092,10 +1092,11 @@ namespace Simulation
       //set inputs
       foreach k in table.keys do
         if not (objectContains (m, k)) then
-          error ("submodel " + name + " does not contain input or property " + k)
+          error ("Submodel " + name + " does not contain input or property " + k)
         else
           var value = m.getMember(k)
           if not (istype (type InputBinding, value)) then
+	      error ("Invalid definition of non-input to submodel")
             //ignore for now
           else
             value.setInputVal(table.getValue(k))
@@ -1179,7 +1180,7 @@ function compile (mod)
   if "0" <> ccstat then
       println (cc(1) + " " + join(" ", cc(2)))
       println (join("\n", ccp))
-      error ("OOPS! Compiler returned non-zero exit status " + ccstat)
+      failure ("OOPS! Compiler returned non-zero exit status " + ccstat + ".  Please contact Simatra support for assistance.")
   end
 
   if settings.debug then
@@ -1188,7 +1189,7 @@ function compile (mod)
   var ldp = SimCompile.shellWithStatus(ld(1), ld(2))
   var ldstat = ldp.rev().first().rstrip("\n")
   if "0" <> ldstat then
-      error ("OOPS! Linker returned non-zero exit status " + ldstat)
+      failure ("OOPS! Linker returned non-zero exit status " + ldstat + ".  Please contact Simatra support for assistance.")
   end
 
   stat
