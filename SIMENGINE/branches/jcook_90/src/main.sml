@@ -70,15 +70,24 @@ val defaultOptions = [Logger.LIBRARY]
 val _ = Logger.log_stdout (Logger.WARNINGS, 
 			   defaultOptions(* @ (DynamoParameters.options2groups options)*))
 	
-			    
-	
+(* Get the value of the environment variable SIMENGINE if set, otherwise set and return the variable based on the realpath of simEngine executable *)
+fun getSIMENGINE () = 
+    let
+	val simenginevar = "SIMENGINE"
+	val {dir=exec_dir, file=exec_name} = OS.Path.splitDirFile( case FilePath.getfullpath(CommandLine.name()) of
+								       SOME fp => fp
+								     | NONE => "")
+	fun setSIMENGINE value = value before MLton.ProcEnv.setenv{name=simenginevar, value=value}
+    in
+	case OS.Process.getEnv(simenginevar) of
+	    SOME reg => reg
+	  | NONE => setSIMENGINE(OS.Path.getParent exec_dir)
+    end
+
 val registryfile = case OS.Process.getEnv("SIMENGINEDOL") of
 		       SOME reg => reg
-		     | NONE => (case OS.Process.getEnv("SIMENGINE") of
-				    SOME reg => reg ^ "/data/default.dol"
-				  | NONE => (print ("\nError: Environment variable SIMENGINEDOL or SIMENGINE must be set to determine the location of the Diesel options file (dol)\n");
-					     DynException.setErrored();
-					     ""))
+		     | NONE => OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/default.dol")
+
 val _ = DynException.checkToProceed()
 	
 	
