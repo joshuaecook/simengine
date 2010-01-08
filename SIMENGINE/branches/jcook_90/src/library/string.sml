@@ -119,11 +119,11 @@ fun split "" =
       | str => split_acc (nil, Substring.full str)
     end
 
-fun str_split _ args =
+fun str_split exec args =
     case args of 
 	[KEC.LITERAL (KEC.CONSTSTR s1), KEC.LITERAL (KEC.CONSTSTR s2)] 
-	=> KEC.list2kecvector (map (fn (s) => (KEC.LITERAL (KEC.CONSTSTR s)))
-				   (split s2 s1))
+	=> exec(KEC.list2kecvector (map (fn (s) => (KEC.LITERAL (KEC.CONSTSTR s)))
+					(split s2 s1)))
       | [a, b] 
 	=> raise TypeMismatch ("expected 2 strings but received " ^ (PrettyPrint.kecexp2nickname a) ^ " and " ^ (PrettyPrint.kecexp2nickname b))
       | args => raise IncorrectNumberOfArguments {expected=2, actual=(length args)}

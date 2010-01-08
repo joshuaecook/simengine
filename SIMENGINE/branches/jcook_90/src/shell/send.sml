@@ -455,7 +455,7 @@ fun send isLHS exec env message object =
 		     else
 			 error env ($("Method '" ^ (Symbol.name message) ^ "' invoked on thing that is not an object: " ^ (pretty object)))
     in
-	obj2exp false object
+	(exec (obj2exp false object))
     end
 
 end
