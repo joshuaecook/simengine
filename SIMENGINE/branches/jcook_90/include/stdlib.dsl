@@ -470,7 +470,8 @@ end
 
 namespace Process
   function readline (process) = LF preadline (process)	
-  
+  function readerrline (process) = LF preaderrline (process)  
+
   function read (process)
     var x = []
     var line = LF preadline (process)
@@ -478,6 +479,18 @@ namespace Process
     while line <> () do
       x.push_back line
       line = LF preadline (process)
+    end
+
+    x
+  end
+
+  function readerr (process)
+    var x = []
+    var line = LF preaderrline (process)
+
+    while line <> () do
+      x.push_back line
+      line = LF preaderrline (process)
     end
 
     x

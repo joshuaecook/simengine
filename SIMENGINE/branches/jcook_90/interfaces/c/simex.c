@@ -322,7 +322,7 @@ int runsimEngine (const char *simex_bin, const simengine_opts *opts)
     // Get path of simex
     realpath(simex_bin, simex_path);
     // Strip off the /bin/simex
-    pathlen = strnlen(simex_path, PATH_MAX);
+    pathlen = strlen(simex_path);
     simex_path[pathlen-BIN_SIMEX_LEN] = 0;
     // Set the SIMENGINE variable
     setenv("SIMENGINE", simex_path, 1);

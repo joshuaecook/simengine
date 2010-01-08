@@ -50,12 +50,22 @@ fun std_popen exec args =
 fun std_preadline exec args =
     case args of
 	[KEC.PROCESS (p, _, _)] =>
-	let val (stdout, stderr) = (Child.textIn (Proc.getStdout p), Child.textIn (Proc.getStderr p))
+	let val stdout = Child.textIn (Proc.getStdout p)
 	in case TextIO.inputLine stdout
 	    of SOME s => KEC.LITERAL (KEC.CONSTSTR s)
-	     | NONE => (case TextIO.inputLine stderr
-			 of SOME s => KEC.LITERAL (KEC.CONSTSTR s) 
-			  | NONE => KEC.UNIT)
+	     | NONE => KEC.UNIT
+	end
+      | [a] => 
+	raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
+      | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
+fun std_preaderrline exec args =
+    case args of
+	[KEC.PROCESS (p, _, _)] =>
+	let val stderr = Child.textIn (Proc.getStderr p)
+	in case TextIO.inputLine stderr
+	    of SOME s => KEC.LITERAL (KEC.CONSTSTR s)
+	     | NONE => KEC.UNIT
 	end
       | [a] => 
 	raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
@@ -86,6 +96,7 @@ fun std_preap exec args =
 
 val library = [{name="popen", operation=std_popen},
 	       {name="preadline", operation=std_preadline},
+	       {name="preaderrline", operation = std_preaderrline},
 	       {name="pwrite", operation=std_pwrite},
 	       {name="preap", operation=std_preap}]
 

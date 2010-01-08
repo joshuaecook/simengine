@@ -1,3 +1,12 @@
+/*
+ * device_props
+ *
+ * Copyright (c) 2010 Simatra Modeling Technologies
+ *
+ * Returns a sorted list of available CUDA devices with properties colon delimeted.
+ *
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <dlfcn.h>
@@ -100,14 +109,35 @@ int main(int argc, char **argv){
 	max_gflops_dev = deviceid;
       }
     }
-    // Print one device per line with desired properties colon separated
-    fprintf(stdout, "%d:sm_%d%d:%d:%zd\n",
+    // Print one device per line with properties colon separated
+    fprintf(stdout, "%d:%s:%zd:%zd:%d:%d:%zd:%d:%d,%d,%d:%d,%d,%d:%zd:%d:%d:%d:%zd:%d:%d:%d:%d:%d:%d\n",
 	    max_gflops_dev,
+	    devices[max_gflops_dev].props.name,
+	    // Switch to kB to not overflow an int
+	    devices[max_gflops_dev].props.totalGlobalMem>>10,
+	    devices[max_gflops_dev].props.sharedMemPerBlock,
+	    devices[max_gflops_dev].props.regsPerBlock,
+	    devices[max_gflops_dev].props.warpSize,
+	    devices[max_gflops_dev].props.memPitch,
+	    devices[max_gflops_dev].props.maxThreadsPerBlock,
+	    devices[max_gflops_dev].props.maxThreadsDim[0],
+	    devices[max_gflops_dev].props.maxThreadsDim[1],
+	    devices[max_gflops_dev].props.maxThreadsDim[2],
+	    devices[max_gflops_dev].props.maxGridSize[0],
+	    devices[max_gflops_dev].props.maxGridSize[1],
+	    devices[max_gflops_dev].props.maxGridSize[2],
+	    devices[max_gflops_dev].props.totalConstMem,
 	    devices[max_gflops_dev].props.major,
 	    devices[max_gflops_dev].props.minor,
+	    devices[max_gflops_dev].props.clockRate,
+	    devices[max_gflops_dev].props.textureAlignment,
+	    devices[max_gflops_dev].props.deviceOverlap,
 	    devices[max_gflops_dev].props.multiProcessorCount,
-	    // have to switch to kb so it doesn't overflow an int
-	    devices[max_gflops_dev].props.totalGlobalMem>>10);
+	    devices[max_gflops_dev].props.kernelExecTimeoutEnabled,
+	    devices[max_gflops_dev].props.integrated,
+	    devices[max_gflops_dev].props.canMapHostMemory,
+	    devices[max_gflops_dev].props.computeMode
+	    );
     devices[max_gflops_dev].unsorted = 0;
   }
 

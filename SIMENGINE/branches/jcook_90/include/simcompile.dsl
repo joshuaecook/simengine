@@ -161,6 +161,9 @@ namespace SimCompile
       end
       nvcc = LF realpath (cc[1].rstrip("\n"))
       cudaInstallPath = shell("dirname \$(dirname " + nvcc + ")")[1].rstrip("\n")
+      if Devices.CUDA.numDevices == 0 then
+        error ("Cannot target the GPU : " ^ Devices.CUDA.cudaErr)
+      end
     end
 
     function setupMake (m: Make)
@@ -175,13 +178,13 @@ namespace SimCompile
 
       m.CFLAGS = ["--compiler-options", join(" ", m.CFLAGS),
 		  "--ptxas-options", join(" ", ptxasFlags)]
+      
+      // Currently we use only the first device returned from device_props program
+      // which returns a list of available devices sorted by their GFLOPs
+      var device_arch = Devices.CUDA.getProp(0, "arch")
+      m.CFLAGS.push_front("-arch=" ^ device_arch)
 
-      // FIXME this is not os-dependent!
-      if "darwin" <> osLower then
-	m.CFLAGS.push_front("-arch=sm_13")
-      else
-	m.CFLAGS.push_front("-arch=sm_11")
-      end
+      // TODO: compare arch with precision settings (double is not supported on 1.1)
 
       if emulate then
 	m.CFLAGS.push_front("-deviceemu")
