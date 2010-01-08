@@ -47,7 +47,7 @@ namespace Devices
         end
 
         function getProp(devid, prop)
-            if devid + 1 > numDevices() then
+            if devid > numDevices() or devid < 1 then
                 error("CUDA device " + devid + " error: " + cudaErr)
             else
                 if prop == "arch" then
