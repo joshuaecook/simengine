@@ -23,7 +23,17 @@ val _ = case JSON.member (value, "version")
 	       | NONE => bug ("Expected version to be a string"))
 	  | NONE => bug ("Expected build options to have a version")
 
-val _ = PrintJSON.print (TextIO.stdOut, value)
+val _ = case JSON.member (value, "backends")
+	 of SOME bes =>
+	    (case JSON.elements bes
+	      of SOME nil => bug ("Expected backends to be nonempty")
+	       | SOME elems =>
+		 (case (List.length elems, JSON.toString (List.hd elems))
+		   of (3, SOME "software") => ()
+		    | _ => bug ("Unexpected value in backends"))
+	       | NONE => bug ("Expected backends to be an array"))
+	  | NONE => bug ("Expected build options to have a list of backends")
+
 
 end
 

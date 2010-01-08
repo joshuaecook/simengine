@@ -20,7 +20,17 @@ fun parseValue lex =
       | T.LOBJECT => parseObject lex
       | token => raise Fail ("Token " ^ (T.toString token) ^ " does not represent a value")
 
-and parseArray lex = J.array nil
+and parseArray lex = 
+    let fun loop elements =
+	    let val value = parseValue lex
+	    in case lex ()
+		of T.COMMA => loop (value :: elements)
+		 | T.RARRAY => value :: elements
+		 | token => raise Fail ("Invalid token " ^ (T.toString token) ^ " when trying to parse array")
+	    end
+    in
+	J.array (List.rev (loop nil))
+    end
 
 and parseObject lex = 
     let fun loop members =
