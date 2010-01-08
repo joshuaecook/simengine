@@ -31,7 +31,7 @@ namespace Devices
             var errline = Process.readerrline(p)
             if () == Process.reap(p) then
                 foreach l in lines do
-                    var propvals = l.split(":")
+                    var propvals = l.strip("\n").split(":")
                     var proptable = Table.new([keyval.totuple() foreach keyval in zip(propkeys,propvals)])
                     proplist.push_back(proptable)
                 end
