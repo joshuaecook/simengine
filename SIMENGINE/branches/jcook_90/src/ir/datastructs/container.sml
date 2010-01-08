@@ -29,9 +29,6 @@ val arrayToSize : array -> int
 (* Matrix mappings *)
 val expListToArrayList : Exp.exp list -> array list
 
-
-
-
 end
 
 structure Container:CONTAINER =

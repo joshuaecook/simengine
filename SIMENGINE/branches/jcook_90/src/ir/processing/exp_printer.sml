@@ -208,7 +208,6 @@ fun exp2str e =
     handle e => DynException.checkpoint "ExpProcess.exp2str" e
 
 val _ = Exp.exp2str := exp2str
-val _ = ExpBuild.exp2str := exp2str
 
 
 

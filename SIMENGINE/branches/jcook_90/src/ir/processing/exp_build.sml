@@ -165,21 +165,4 @@ fun apply (func, arg) = Exp.META(Exp.APPLY{func=func, arg=arg})
 fun map (func, args) = Exp.META(Exp.MAP{func=func, args=args})
 fun explist (args) = Exp.CONTAINER(Exp.EXPLIST args)
 
-val exp2str : (Exp.exp -> string) ref = ref (fn(exp)=>"??")
-
-val expCalculus : Exp.exp Calculus.calculus = 
-    {zero= int 0,
-     isZero= (fn(a)=> case a of
-			  Exp.TERM (Exp.INT 0) => true
-			| Exp.TERM (Exp.REAL r) => Real.== (0.0, r)
-			| _ => false),
-     one= int 0,
-     isOne= (fn(a)=> case a of
-			 Exp.TERM (Exp.INT 1) => true
-		       | Exp.TERM (Exp.REAL r) => Real.== (1.0, r)
-		       | _ => false),
-     addition= plus,
-     multiplication= times,
-     toString= !exp2str}
-
 end

@@ -11,7 +11,8 @@ type 'a calculus = {zero: 'a,
 		    isOne: 'a -> bool,
 		    addition: 'a list -> 'a,
 		    multiplication: 'a list -> 'a,
-		    toString: 'a -> string}
+		    toString: 'a -> string,
+		    toJSON: 'a -> mlJS.json_value}
 
 
 val realCalculus : real calculus = 
@@ -21,7 +22,8 @@ val realCalculus : real calculus =
      isOne= (fn(a)=> Real.== (a, 1.0)),
      addition= foldl (op +) 0.0,
      multiplication= foldl (op * ) 1.0,
-     toString= Util.r2s}
+     toString= Util.r2s,
+     toJSON= mlJS.js_float}
 
 val intCalculus : int calculus = 
     {zero=0,
@@ -30,6 +32,7 @@ val intCalculus : int calculus =
      isOne= (fn(a)=> a = 1),
      addition= foldl (op +) 0,
      multiplication= foldl (op * ) 1,
-     toString= Util.i2s}
+     toString= Util.i2s,
+     toJSON= mlJS.js_int}
 
 end

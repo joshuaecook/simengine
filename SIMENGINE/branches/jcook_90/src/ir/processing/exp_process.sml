@@ -1257,7 +1257,7 @@ and fun_to_json (Fun.BUILTIN operation, expressions) =
     end
 
 and term_to_json (Exp.RATIONAL (num, denom)) =
-    js_object [("type", js_string "COMPLEX"),
+    js_object [("type", js_string "RATIONAL"),
 	       ("numerator", js_int num),
 	       ("denominator", js_int denom)]
   | term_to_json (Exp.INT z) = 
@@ -1389,17 +1389,11 @@ and container_to_json (Exp.EXPLIST l) =
     js_object [("type", js_string "ARRAY"),
 	       ("length", js_int (Array.length a)),
 	       ("members", js_array (map to_json (Container.arrayToList a)))]
-  | container_to_json (Exp.MATRIX m) =
-    let
-	val (nrows, ncols) = Matrix.size m
-    in
-	js_object [("type", js_string "MATRIX"),
-		   ("rows", js_int nrows),
-		   ("columns", js_int ncols),
-		   ("members", js_array (map 
-					     (to_json o Exp.CONTAINER o Exp.ARRAY)
-					     (Matrix.toRows m)))]
-    end
+  | container_to_json (Exp.MATRIX m) = Matrix.to_json m
+
+(* now update the Exp.exp2JSON call *)
+val _ = Exp.exp2JSON := to_json
+
 end
 
 end

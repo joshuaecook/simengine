@@ -51,6 +51,7 @@ val optimize : 'a matrix -> unit
 
 (* Helper functions *)
 val toString : 'a matrix -> string list
+val to_json : 'a matrix -> mlJS.json_value
 val infoString : 'a matrix -> string
 val print : 'a matrix -> unit
 val findBandwidth : 'a matrix -> (int * int)
@@ -655,5 +656,43 @@ fun mapi mapfun m =
 	    (fn(r,i)=> map (fn(e,j)=> mapfun (i, j, e)) (StdFun.addCount (array2list r)))
 	    (StdFun.addCount rows)
     end
+
+(* Perform the JSON operations *)
+local open mlJS in
+
+fun array_to_json to_json a =
+    js_array (map to_json (array2list a))    
+
+fun to_json m =
+    case !m of
+	DENSE {data,calculus} => 
+	let
+	    val {toJSON=to_json,...} = calculus
+	    val (nrows, ncols) = size m
+	in
+	    js_object [("type", js_string "MATRIX"),
+		       ("subtype", js_string "DENSE"),
+		       ("rows", js_int nrows),
+		       ("columns", js_int ncols),
+		       ("members", js_array (map 
+						 (array_to_json to_json)
+						 (toRows m)))]
+	end
+      | BANDED {nrows,ncols,upperbw,lowerbw,data,calculus} =>
+	let
+	    val {toJSON=to_json,...} = calculus
+	in
+	    js_object [("type", js_string "MATRIX"),
+		       ("subtype", js_string "BANDED"),
+		       ("rows", js_int nrows),
+		       ("columns", js_int ncols),
+		       ("upperbw", js_int upperbw),
+		       ("lowerbw", js_int lowerbw),
+		       ("members", js_array (map 
+						 (array_to_json to_json)
+						 (toBands m)))]
+	end
+
+end
 
 end
