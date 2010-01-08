@@ -666,7 +666,7 @@ fun obj2dofmodel object =
 			 "cuda"
 		     else
 			 target
-
+(*
 	(* evaluate cuda *)
 	val cuda_namespace = method "CUDA" (KEC.SYMBOL (Symbol.symbol "Devices"))
 	val num_cuda_devices = exp2int (send "numDevices" cuda_namespace NONE)
@@ -699,7 +699,7 @@ fun obj2dofmodel object =
 		end
 	    else
 		(Target.COMPUTE13, 0, 0)
-
+*)
 	val systemproperties = {iterators=temporal_iterators,
 				precision= case (StdFun.toLower precision)
 					    of "single" => DOF.SINGLE
@@ -712,9 +712,9 @@ fun obj2dofmodel object =
 				target= case (StdFun.toLower target)
 					 of "cpu" => Target.CPU
 					  | "openmp" => Target.OPENMP
-					  | "cuda" => Target.CUDA {compute=deviceCapability, 
+					  | "cuda" => Target.CUDA (*{compute=deviceCapability, 
 								   multiprocessors=numMPs, 
-								   globalMemory=globalMemory}
+								   globalMemory=globalMemory} *)
 					  | _ => DynException.stdException
 						     (("Unexpected target value " ^ (target)),
 						      "ModelTranslate.obj2dofmodel", 

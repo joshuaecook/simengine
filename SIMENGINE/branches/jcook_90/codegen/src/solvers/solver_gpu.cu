@@ -40,8 +40,10 @@ __DEVICE__ output_data gpu_od[NUM_MODELS];
 #endif
 
 void gpu_init (void) {
-  // FIXME Add more checking of capabilities and devices available!
-  cudaSetDevice(cutGetMaxGflopsDeviceId());
+#ifndef SIMENGINE_CUDA_DEVICE
+#error SIMENGINE_CUDA_DEVICE not specified for a GPU simulation
+#endif
+  cudaSetDevice(SIMENGINE_CUDA_DEVICE);
 }
 
 void gpu_exit (void) {
@@ -213,7 +215,5 @@ void gpu_finalize_props (solver_props *props) {
 #   endif
   }
 
-
-  // FIXME free device malloc'd memory
 }
 #endif // #ifdef TARGET_GPU

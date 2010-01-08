@@ -1578,7 +1578,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 	      | {target=Target.OPENMP, ...} => 
 		[$(Archive.getC "simengine/exec_cpu.c"),
 		 $(Archive.getC "simengine/exec_parallel_cpu.c")]
-	      | {target=Target.CUDA _, ...} =>
+	      | {target=Target.CUDA, ...} =>
 		[$(Archive.getC "simengine/exec_kernel_gpu.cu"),
 		 $(Archive.getC "simengine/exec_parallel_gpu.cu")]
 
@@ -1590,7 +1590,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 					      [simengine_target_h] @
 
 					      (case props
-						of {target=Target.CUDA _, ...} =>
+						of {target=Target.CUDA, ...} =>
 						   [gpu_util_c]
 						 | _ => []) @
 
@@ -1609,7 +1609,7 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 					      [solvers_h] @
 
 					      (case props
-						of {target=Target.CUDA _, ...} =>
+						of {target=Target.CUDA, ...} =>
 						   [solver_gpu_cu]
 						 | _ => []) @
 

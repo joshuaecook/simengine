@@ -1211,9 +1211,11 @@ function compile (mod)
   end
   var ccp = Process.run(cc(1),cc(2))
   var ccout = Process.read(ccp)
+  var ccerr = Process.readerr(ccp)
   var ccstat = Process.reap(ccp)
   if () <> ccstat then
       println (join("", ccout))
+      println (join("", ccerr))
       error ("OOPS! Compiler returned non-zero exit status " + ccstat)
   end
 
@@ -1222,9 +1224,11 @@ function compile (mod)
   end
   var ldp = Process.run(ld(1), ld(2))
   var ldout = Process.read(ldp)
+  var lderr = Process.readerr(ldp)
   var ldstat = Process.reap(ldp)
   if () <> ldstat then
       println (join("", ldout))
+      println (join("", lderr))
       error ("OOPS! Linker returned non-zero exit status " + ldstat)
   end
 

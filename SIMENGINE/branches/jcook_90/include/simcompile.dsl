@@ -181,8 +181,10 @@ namespace SimCompile
       
       // Currently we use only the first device returned from device_props program
       // which returns a list of available devices sorted by their GFLOPs
+      var device_id = Devices.CUDA.getProp(1, "deviceId")
       var device_arch = Devices.CUDA.getProp(1, "arch")
-      m.CFLAGS.push_front("-arch=" ^ device_arch)
+      m.CFLAGS.push_back("-DSIMENGINE_CUDA_DEVICE=" + device_id)
+      m.CFLAGS.push_front("-arch=" + device_arch)
 
       // TODO: compare arch with precision settings (double is not supported on 1.1)
 

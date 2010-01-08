@@ -972,10 +972,10 @@ fun to_json (model as (classes,instance,properties)) =
 		    
 		fun target_to_json Target.CPU = js_object [("type",js_string "CPU")]
 		  | target_to_json Target.OPENMP = js_object [("type",js_string "OPENMP")]
-		  | target_to_json (Target.CUDA {compute,multiprocessors,globalMemory})
-		    = js_object [("type",js_string "CUDA"),
+		  | target_to_json (Target.CUDA (* {compute,multiprocessors,globalMemory} *))
+		    = js_object [("type",js_string "CUDA")] (* ,
 				 ("computeCapability",js_string (case compute of Target.COMPUTE11 => "1.1" | Target.COMPUTE13 => "1.3")),
-				 ("globalMemory",js_int globalMemory)]
+				 ("globalMemory",js_int globalMemory)] *)
 
 		val js_iterators
 		  = js_array (map iterator_to_json iterators)
