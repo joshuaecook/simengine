@@ -504,8 +504,10 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 
 			  (* the transformation looks like: *)
 			  (* y(t+h) = y(t)*e^(-B*dt)+(A/B)*(1-e^(-B*dt))  *)
-			  val rhs' = add(mul(y, e(mul(neg(B),dt))),
-					 mul(divide(A,B),sub(one, e(mul(neg(B),dt)))))
+			  (*val rhs' = add(mul(y, e(mul(neg(B),dt))),
+					 mul(divide(A,B),sub(one, e(mul(neg(B),dt)))))*)
+			  (* slightly more efficient implementation *)
+			  val rhs' = add(y,mul(sub(divide(A,B),y),sub(one,e(mul(neg(B),dt)))))
 
 			  (* transform the lhs term y'[t] into y[t+1] *)
 			  val lhsterm' = case lhsterm of
