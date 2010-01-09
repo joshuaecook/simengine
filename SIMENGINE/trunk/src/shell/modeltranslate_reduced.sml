@@ -747,6 +747,7 @@ fun translate (execFun, object) =
      else
 	 (SOME (obj2dofmodel object) before DynException.checkToProceed())
 	 handle TranslationError => NONE
+	      | DynException.RestartRepl => NONE
 	      | e => NONE before 
 		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
 		      DynException.checkpoint "ModelTranslate.translate" e))

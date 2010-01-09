@@ -750,7 +750,7 @@ namespace Simulation
     property solver
       get
         if (not (isdefined solver_obj)) then
-          warning "No solver specified for continuous iterator '" + name + "', using default ode45 solver"
+          warning ("No solver specified for continuous iterator '" + name + "', using default ode45 solver")
           ode45
         else
           solver_obj
@@ -758,7 +758,11 @@ namespace Simulation
       end
 
       set(s)
-        solver_obj = s
+	  if continuous then 
+              solver_obj = s
+	  else
+	      error ("Discrete time iterators can not have an integration method (solver) defined")
+	  end
       end
     end
 
@@ -1160,38 +1164,40 @@ function compile (mod)
   target.precision = settings.precision
 
   var stat = LF compile (Translate.model2forest (mod.instantiate()))
+  var compilation_successful = LF str_contains (stat, "Compilation Finished Successfully")
+      
+  if compilation_successful then
+      var cc
+      if "GPU" <> settings.target and "CUDA" <> settings.target then
+	  cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
+      else
+	  SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
+	  cc = target.compile(name + "_parallel.o", [name + "_parallel.cu"])
+      end
 
-  var cc
-  if "GPU" <> settings.target and "CUDA" <> settings.target then
-      cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
-  else
-      SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
-      cc = target.compile(name + "_parallel.o", [name + "_parallel.cu"])
+
+      var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
+
+      if settings.debug then
+	  println(cc(1) + " " + (join(" ", cc(2))))
+      end
+      var ccp = SimCompile.shellWithStatus(cc(1), cc(2))
+      var ccstat = ccp.rev().first().rstrip("\n")
+      if "0" <> ccstat then
+	  println (cc(1) + " " + join(" ", cc(2)))
+	  println (join("\n", ccp))
+	  failure ("OOPS! Compiler returned non-zero exit status " + ccstat + ".  Please contact Simatra support for assistance.")
+      end
+
+      if settings.debug then
+	  println(ld(1) + " " + (join(" ", ld(2))))
+      end
+      var ldp = SimCompile.shellWithStatus(ld(1), ld(2))
+      var ldstat = ldp.rev().first().rstrip("\n")
+      if "0" <> ldstat then
+	  failure ("OOPS! Linker returned non-zero exit status " + ldstat + ".  Please contact Simatra support for assistance.")
+      end
   end
-
-
-  var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
-
-  if settings.debug then
-      println(cc(1) + " " + (join(" ", cc(2))))
-  end
-  var ccp = SimCompile.shellWithStatus(cc(1), cc(2))
-  var ccstat = ccp.rev().first().rstrip("\n")
-  if "0" <> ccstat then
-      println (cc(1) + " " + join(" ", cc(2)))
-      println (join("\n", ccp))
-      failure ("OOPS! Compiler returned non-zero exit status " + ccstat + ".  Please contact Simatra support for assistance.")
-  end
-
-  if settings.debug then
-      println(ld(1) + " " + (join(" ", ld(2))))
-  end
-  var ldp = SimCompile.shellWithStatus(ld(1), ld(2))
-  var ldstat = ldp.rev().first().rstrip("\n")
-  if "0" <> ldstat then
-      failure ("OOPS! Linker returned non-zero exit status " + ldstat + ".  Please contact Simatra support for assistance.")
-  end
-
   stat
 end
 

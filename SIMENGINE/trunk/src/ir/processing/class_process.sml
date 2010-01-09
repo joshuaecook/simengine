@@ -658,6 +658,7 @@ fun createEventIterators (class: DOF.class) =
 	    end			  
 
 	val update_states = class2update_states class
+	val _ = DynException.checkToProceed() (* this is the first time that states are analyzed in exp_process, so there could be some user errors found *)
 	val postprocess_states = class2postprocess_states class
 
 	(* update all the intermediate equations based on the initial condition iterators *)

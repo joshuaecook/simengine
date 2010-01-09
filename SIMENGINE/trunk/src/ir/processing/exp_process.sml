@@ -241,12 +241,15 @@ fun eq2str (lhs, rhs) =
 
 val raiseExceptions = true
 
+fun user_error exp text = 
+	(Logger.log_error (Printer.$("Error when processing '"^(e2s exp)^"': "^(text)));
+	 DynException.setErrored())
+
 fun error_no_return exp text = 
     if raiseExceptions then
 	DynException.stdException("Expression error", "ExpProcess.error_no_return", Logger.INTERNAL)
     else
-	(Logger.log_error (Printer.$("Error when processing '"^(e2s exp)^"': "^(text)));
-	 DynException.setErrored())
+	user_error exp text
 
 fun error exp text = (error_no_return exp text; 
 		      Exp.null)
@@ -492,10 +495,15 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
     (case exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
+	     val derivative = Property.getDerivative props
 	     val iterators = Property.getIterator props
 	 in
-	     case iterators of
-		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	     case (derivative,iterators) of
+		 (NONE, SOME ((iterator, Iterator.RELATIVE 1)::rest)) => iterator = name
+	       | (SOME _, _) => 
+		 (* this user error is caused if the user defines a differential equation with a discrete iterator. It's possible that this could happen later,
+		    and then should be an exception, but without adding specific checks for this case earlier, it would be hard to determine.  *)
+		 (user_error exp "Unexpected derivative found with discrete iterator. Derivatives can only be used with continuous iterators."; false)
 	       | _ => false
 	 end
        | _ => false)
