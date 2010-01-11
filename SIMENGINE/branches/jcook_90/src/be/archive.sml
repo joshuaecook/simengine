@@ -19,10 +19,7 @@ end
 structure Archive : ARCHIVE =
 struct
 
-val simengine = 
-    case (OS.Process.getEnv "SIMENGINE") of
-	SOME x => x
-      | NONE => "./"
+val simengine = getSIMENGINE()
 
 val bin_path = simengine ^ "/bin/"
 val lib_path = simengine ^ "/lib/"

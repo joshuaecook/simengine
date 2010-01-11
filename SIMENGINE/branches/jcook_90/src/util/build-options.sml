@@ -16,10 +16,8 @@ structure BuildOptions:> BUILD_OPTIONS = struct
 
 fun invalid name = raise Fail ("Build options contains invalid data for " ^ name)
 
-local val optionsFile = case OS.Process.getEnv("SIMENGINE")
-			 of SOME path => OS.Path.mkAbsolute {path=OS.Path.fromUnixPath "data/build-options.json",
-							     relativeTo=path}
-			  | NONE => raise Fail ("Environment variable SIMENGINE must be set to locate the build options")
+local val optionsFile = OS.Path.mkAbsolute {path=OS.Path.fromUnixPath "data/build-options.json",
+					    relativeTo=getSIMENGINE()}
 in
 val options = ParseJSON.parseFile optionsFile
 val _ = if JSON.isObject options then ()
