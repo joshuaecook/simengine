@@ -30,6 +30,13 @@ signature JSON = sig
     val toReal: json -> LargeReal.real option
     val toString: json -> string option
 
+    (* Returns the primitive value of a JSON value.
+     * Raises Option if the JSON value does not represent a value of that type. *)
+    val boolVal: json -> bool
+    val intVal: json -> int
+    val realVal: json -> real
+    val stringVal: json -> real
+
     val isArray: json -> bool
     (* Returns SOME nth element of a JSON array.
      * Returns NONE if the value is not a JSON array

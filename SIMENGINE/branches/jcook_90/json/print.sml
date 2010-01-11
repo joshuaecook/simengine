@@ -29,7 +29,7 @@ fun toJSONString json =
 and stringToJSONString json = 
     String.concat ["\"", String.toCString (valOf (JS.toString json)), "\""]
 and realToJSONString json =
-    let val r = valOf (JS.toReal json)
+    let val r = JS.realVal json
     in
 	if Real.isFinite r then
 	    (if 0.0 > r then "-" ^ (Real.toString (~r)) else 
@@ -39,12 +39,12 @@ and realToJSONString json =
 	stringToJSONString (JS.string "Infinity")
     end
 and intToJSONString json =
-    let val z = valOf (JS.toInt json)
+    let val z = JS.intVal json
     in
 	if 0 > z then "-" ^ (IntInf.toString (~z)) else IntInf.toString z
     end
 and boolToJSONString json =
-    if valOf (JS.toBool json) then "true" else "false"
+    if JS.boolVal json then "true" else "false"
 and arrayToJSONString json =
     let val elements = valOf (JS.elements json)
     in

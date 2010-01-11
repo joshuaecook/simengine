@@ -39,6 +39,11 @@ val toInt = fn INT z => SOME z | _ => NONE
 val toReal = fn REAL r => SOME r | _ => NONE
 val toString = fn STRING s => SOME s | _ => NONE
 
+val boolVal = valOf o toBool
+val intVal = valOf o toInt
+val realVal = valOf o toReal
+val stringVal = valOf o toString
+
 val isArray = fn ARRAY _ => true | _ => false
 
 fun nth (ARRAY elems, n) = 

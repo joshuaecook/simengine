@@ -2,7 +2,7 @@ local
 	$(SML_LIB)/basis/basis.mlb
 	json.sig
 	json-parse.sig
-	json-stream.sig
+(*	json-stream.sig *)
 
 	token.sml
 	json.lex.sml
