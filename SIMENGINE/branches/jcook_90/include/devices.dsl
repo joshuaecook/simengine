@@ -27,8 +27,9 @@ namespace Devices
 			    "computeMode"]
 
 	    var p = Process.run(command)
-	    var lines = Process.read(p)
-            var errline = Process.readerrline(p)
+            var allout = Process.readAll(p)
+	    var lines = allout(1)
+            var errline = allout(2)
             if () == Process.reap(p) then
                 foreach l in lines do
                     var propvals = l.strip("\n").split(":")
