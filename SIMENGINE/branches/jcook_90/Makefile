@@ -14,6 +14,7 @@ BUILD_TYPE = software
 # Version # for RPM
 VERSION_NUMBER = 0.92
 BUILD_DATE := $(shell date)
+BUILD_TIME := $(shell date +%s)
 
 DESTDIR = 
 PARTIAL_INSTALL_BUILD_DIR = /usr/local/share/Simatra
@@ -103,7 +104,7 @@ RM = rm -rf
 
 SIMPLE_ARGS = -target-link-opt linux -ldl -export-header ffi/ffi-simengine.h
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
-ifneq ($(verbose),)
+ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1
 endif
 ifneq ($(sml_typecheck),)
@@ -261,7 +262,6 @@ full:
 	@$(MAKE) system BUILD_TYPE=$@
 
 system:
-	@$(MAKE) check-build-type
 	@$(MAKE) build-directories
 	@$(MAKE) links
 	@$(MAKE) build-system
@@ -271,9 +271,8 @@ ifneq ($(DEBUG),)
 endif
 	@$(MAKE) instructions
 
-.PHONY: compiler compiler-snow-leopard
+.PHONY: compiler 
 compiler: 
-	@$(MAKE) check-build-type
 	@$(MAKE) build-directories
 	@$(MAKE) links
 	@$(MAKE) build-system
@@ -312,15 +311,7 @@ else
 DOCUMENTATION_BUILD_FILES = 
 endif
 
-VERILOG_IMPL_FILES = $(BUILD_DIR)/data/impl/top_level_model.v $(BUILD_DIR)/data/impl/top_level_model.ucf $(BUILD_DIR)/data/impl/model_controller.v $(BUILD_DIR)/data/impl/model_llc_wrapper.v $(BUILD_DIR)/data/impl/fifo_commands.vh $(BUILD_DIR)/data/impl/DIFF_CLOCK_OUT.v $(BUILD_DIR)/data/impl/llc_clock.v $(BUILD_DIR)/data/impl/llc_interface.v $(BUILD_DIR)/data/impl/llc_interface.ngc $(BUILD_DIR)/data/impl/llc_fifo.ngc
-VERILOG_SIM_FILES = $(BUILD_DIR)/data/sim/top_level_model_tb.v $(BUILD_DIR)/data/sim/model_controller.v $(BUILD_DIR)/data/sim/model_llc_wrapper.v $(BUILD_DIR)/data/sim/fifo_commands.vh $(BUILD_DIR)/bin/vwrapper
-
-FACTORY_FILES = 
-
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/bin/simlib $(BUILD_DIR)/lib/libcodegen.sim $(MATLAB_BUILD_FILES)
-
-FIXEDPT_BUILD_FILES =  $(BUILD_DIR)/lib/fixpt.h $(BUILD_DIR)/lib/floatpt.h $(BUILD_DIR)/bin/fixpt_report.pl $(BUILD_DIR)/bin/compare_backends.pl $(BUILD_DIR)/bin/compare_sims.pl $(BUILD_DIR)/bin/create_table.pl
-HARDWARE_BUILD_FILES = $(BUILD_DIR)/bin/verify_xflow.pl $(VERILOG_IMPL_FILES) $(VERILOG_SIM_FILES) $(FACTORY_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/bin/simlib $(BUILD_DIR)/lib/libcodegen.sim $(MATLAB_BUILD_FILES)
 
 
 ifeq ($(BUILD_TYPE),software)
@@ -348,14 +339,17 @@ links: $(BUILD_DIR)
 # ==============================================================================================
 
 COMPILER_MLB = src/compiler_exec.mlb
-
-COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/math/*.s* src/ir/processing/*.s* src/ir/patterns/*.s* src/be/*.s* src/library/*.s* src/objects/*.s* src/shell/*.s* src/util/*.s* src/util/error/*.s* src/util/files/*.s* src/util/printing/*.s* src/util/registry/*.s* src/cool.mlb
-
-COMPILER_DEPENDENCIES = $(COMPILER_SOURCE) src/shell/cool.lex.sml src/shell/cool.grm.sig src/shell/cool.grm.sml src/shell/cool.lex src/shell/cool.grm src/util/registry/registry.lex.sml src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml src/util/registry/registry.lex src/util/registry/registry.grm ffi/simex.mlb
-
+COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_MLB))
 COMPILER_EXTRA_SOURCES = ffi/ffi-simengine.c
+COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_SOURCES)
 
-COMPILER_PREREQS := check-build-type build-directories links build-system matlab-files matlab-installer instructions
+# COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/math/*.s* src/ir/processing/*.s* src/ir/patterns/*.s* src/be/*.s* src/library/*.s* src/objects/*.s* src/shell/*.s* src/util/*.s* src/util/error/*.s* src/util/files/*.s* src/util/printing/*.s* src/util/registry/*.s* src/cool.mlb
+
+# COMPILER_DEPENDENCIES = $(COMPILER_SOURCE) src/shell/cool.lex.sml src/shell/cool.grm.sig src/shell/cool.grm.sml src/shell/cool.lex src/shell/cool.grm src/util/registry/registry.lex.sml src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml src/util/registry/registry.lex src/util/registry/registry.grm ffi/simex.mlb
+
+# COMPILER_EXTRA_SOURCES = ffi/ffi-simengine.c
+
+# COMPILER_PREREQS := build-directories links build-system matlab-files matlab-installer instructions
 
 # Dynamo Compilation Targets
 # ==============================================================================================
@@ -375,8 +369,6 @@ src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml: src/util/
 
 $(OUTPUT_FILE): override SMLFLAGS += $(ARGS)
 $(OUTPUT_FILE): $(COMPILER_MLB) $(COMPILER_DEPENDENCIES) $(COMPILER_EXTRA_SOURCES)
-	$(RM) datafiles/$(BUILD_TYPE)-build_options.sml
-	$(MAKE) build_defs
 	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
 
 
@@ -385,13 +377,11 @@ $(OUTPUT_FILE): $(COMPILER_MLB) $(COMPILER_DEPENDENCIES) $(COMPILER_EXTRA_SOURCE
 
 $(BUILD_DIR)/debug/$(FILENAME)_profiletime: override SMLPPFLAGS += $(SIMPLE_ARGS) -profile-stack true -profile time
 $(BUILD_DIR)/debug/$(FILENAME)_profiletimebug/$(FILENAME)_profiletime: $(COMPILER_MLB) $(COMPILER_DEPENDENCIES) $(COMPILER_EXTRA_SOURCES)
-	@$(MAKE) check-build-type
 	-$(COMPILE.sml) -outputs $@ $< $(COMPILER_EXTRA_SOURCES)
 
 
 $(BUILD_DIR)/debug/$(FILENAME)_profilemem: override SMLPPFLAGS += $(SIMPLE_ARGS) -profile alloc
 $(BUILD_DIR)/debug/$(FILENAME)_profilemem: $(COMPILER_MLB) $(COMPILER_DEPENDENCIES)
-	@$(MAKE) check-build-type
 	-$(COMPILE.sml) -outputs $@ $< $(COMPILER_EXTRA_SOURCES)
 
 profiling-tools: 
@@ -512,78 +502,36 @@ install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(L
 # ==============================================================================================
 
 
-.PHONY: check-build-type
-check-build-type:
-ifeq ($(BUILD_TYPE), software)
-	$(info Building software-only release ...)
-else
-ifeq ($(BUILD_TYPE), full)
-	$(info Building full release ...)
-else
-ifeq ($(BUILD_TYPE), enhanced)
-	$(info Building software w/ fixed-point release ...)
-else
-	$(error Unknown build type)
-endif
-endif
-endif
-
-BUILD_OPTS = src/util/build_options.sml
-
-ifeq ($(BUILD_TYPE), software)
-build_defs: datafiles/software-build_options.sml
-	@if ! cmp -s $< $(BUILD_OPTS) ; then \
-	 $(CP) $< $(BUILD_OPTS) ;\
-	fi
-else
-ifeq ($(BUILD_TYPE), enhanced)
-build_defs: datafiles/enhanced-build_options.sml
-	@if ! cmp -s $< $(BUILD_OPTS) ; then \
-	 $(CP) $< $(BUILD_OPTS) ;\
-	fi
-else
-ifeq ($(BUILD_TYPE), full)
-build_defs: datafiles/full-build_options.sml
-	@if ! cmp -s $< $(BUILD_OPTS) ; then \
-	 $(CP) $< $(BUILD_OPTS) ;\
-	fi
-else
-build_defs:
-	$(error Unknown build type)
-endif
-endif
-endif
-
 ifeq ($(BRANCH),1)
 DEV_VERSION = true
 else
 DEV_VERSION = false
 endif
 
-datafiles/software-build_options.sml: datafiles
-	$(info Creating $(BUILD_TYPE) build options file ...)
-	@echo "structure BuildOptions = struct" > $@
-	@echo "val allowSWBackend = true val allowFPBackend = false val allowHWBackend = false val version = \"$(VERSION_NUMBER)\"" >> $@
-	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
-	@echo "val dev_version = $(DEV_VERSION)" >> $@
-	@echo "end" >> $@
+# .PHONY: datafiles/software-build_options.sml
+# datafiles/software-build_options.sml:
+# 	$(info Creating $(BUILD_TYPE) build options file ...)
+# 	@echo "structure BuildOptions = struct" > $@
+# 	@echo "val allowSWBackend = true val allowFPBackend = false val allowHWBackend = false val version = \"$(VERSION_NUMBER)\"" >> $@
+# 	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
+# 	@echo "val build_time = Time.fromSeconds $(BUILD_TIME)" >> $@
+# 	@echo "val dev_version = $(DEV_VERSION)" >> $@
+# 	@echo "end" >> $@
 
-datafiles/enhanced-build_options.sml: datafiles
-	$(info Creating $(BUILD_TYPE) build options file ...)
-	@echo "structure BuildOptions = struct" > $@
-	@echo "val allowSWBackend = true val allowFPBackend = true val allowHWBackend = false val version = \"$(VERSION_NUMBER)\"" >> $@
-	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
-	@echo "val dev_version = $(DEV_VERSION)" >> $@
-	@echo "end" >> $@
-
-datafiles/full-build_options.sml: datafiles
-	$(info Creating $(BUILD_TYPE) build options file ...)
-	@echo "structure BuildOptions = struct" > $@
-	@echo "val allowSWBackend = true val allowFPBackend = true val allowHWBackend = true val version = \"$(VERSION_NUMBER)\"" >> $@
-	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
-	@echo "val dev_version = $(DEV_VERSION)" >> $@
-	@echo "end" >> $@
-
+.PHONY: datafiles/build-options.json
+datafiles/build-options.json:
+	@-unlink $@ 2> /dev/null
+	@touch $@
+	@echo { >> $@
+	@echo \"allowSWBackend\": true, \"allowFPBackend\": false, \"allowHWBackend\": false, >> $@
+	@echo \"build\": \"$(VERSION)\", >> $@
+	@echo \"buildBranch\": \"$(SVN_BRANCH)\", >> $@
+	@echo \"buildDate\": \"$(BUILD_DATE)\", >> $@
+	@echo \"buildRevision\": $(SVN_REVISION), >> $@
+	@echo \"buildTime\": $(BUILD_TIME), >> $@
+	@echo \"devVersion\": $(DEV_VERSION), >> $@
+	@echo \"version\": \"$(VERSION_NUMBER)\" >> $@
+	@echo } >> $@
 
 # Dynamo Library Targets
 # ==============================================================================================
@@ -620,8 +568,9 @@ build_shared: share/*
 	$(CP) $^ $(BUILD_DIR)/share/
 	-$(CP) share/cuda/device_props $(BUILD_DIR)/bin/
 
-$(BUILD_DIR)/data/default.dol: datafiles/default.dol
+$(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
+
 
 $(BUILD_DIR)/bin/simlib: codegen/simlib/simlib.c
 	@$(MAKE) -C codegen simlib/simlib $(ARCH64_FLAG)
@@ -846,98 +795,6 @@ system-test:
 	 fi
 
 
-# DSLC
-# ==============================================================================================
-$(BUILD_DIR)/$(DSLC)/dslc.so: ../dslc/*.c ../dslc/*.h 
-	@(cd ../dslc/ ; make)
-	@$(CP) ../dslc/dslc.so $(BUILD_DIR)/$(DSLC)
-
-# RPM
-# ==============================================================================================
-
-rpm-setup: $(BUILD_DIR)/bin/idynamo.sh
-	$(info Building directories for RPM)
-	@$(MKDIR) ~/rpm
-	@$(MKDIR) ~/rpm/BUILD
-	@$(MKDIR) ~/rpm/RPMS
-	@$(MKDIR) ~/rpm/RPMS/i386
-	@$(MKDIR) ~/rpm/SOURCES
-	@$(MKDIR) ~/rpm/SPECS
-	@$(MKDIR) ~/rpm/SRPMS
-	@echo "%_topdir /home/`whoami`/rpm" > ~/.rpmmacros
-
-SPEC = datafiles/dynamo-$(BUILD_TYPE).spec
-
-$(SPEC):
-	@$(MAKE) BUILD_TYPE=$(BUILD_TYPE) system 
-	@echo "Summary: Simatra Dynamo Compiler" > $@
-	@echo "Name: dynamo" >> $@
-	@echo "Version: $(VERSION_NUMBER)" >> $@
-	@echo "Release: $(VERSION)" >> $@
-	@echo "License: By NDA only" >> $@
-	@echo "Group: Applications/Engineering" >> $@
-	@echo "URL: http://www.simatratechnologies.com" >> $@
-	@echo "Source0: %{name}-%{version}-$(BUILD_TYPE).tar.gz" >> $@
-	@echo "BuildRoot: %{_tmppath}/%{name}-%{version}-root" >> $@
-	@echo "Requires: gnuplot" >> $@
-	@echo "Requires: octave" >> $@
-	@echo " " >> $@
-# The below two lines are because comments were stripped out of the ELF file making the rubyscript2exe script die
-	@echo "%define __spec_install_post :" >> $@
-	@echo "%define debug_package %{nil}" >> $@
-	@echo " " >> $@
-	@echo "%description" >> $@
-	@echo "Dynamo is a dynamical system compiler to aid scientists and engineers to develop " >> $@
-	@echo "mathematical models for describing biological phenomenom." >> $@
-	@echo " " >> $@
-	@echo "%prep" >> $@
-	@echo " " >> $@
-	@echo "%setup -q" >> $@
-	@echo " " >> $@
-	@echo "%build" >> $@
-	@echo "cd oodlc; make VERSION=\"$(VERSION)\" $(BUILD_TYPE)" >> $@
-	@echo " " >> $@
-	@echo "%install" >> $@
-	@echo "rm -rf \$$RPM_BUILD_ROOT" >> $@
-	@echo "cd oodlc; make DESTDIR=\$$RPM_BUILD_ROOT BUILD_TYPE=$(BUILD_TYPE) install" >> $@
-	@echo " " >> $@
-	@echo "%clean" >> $@
-	@echo "rm -rf \$$RPM_BUILD_ROOT" >> $@
-	@echo " " >> $@
-	@echo "%files" >> $@
-	@echo "%defattr(-,root,root,-)" >> $@
-	@echo "$(INSTALL_BIN_DIR)/$(FILENAME)" >> $@
-	@echo "$(INSTALL_BIN_DIR)/i$(FILENAME)" >> $@
-	@find build/ | grep -v '\.svn' | grep -v '\~$$' | grep -v 'idynamo.sh' | sed -e 's|build|$(PARTIAL_INSTALL_BUILD_DIR)|' >> $@
-	@echo "$(INSTALL_BULID_DIR)" >> $@
-	@echo "%doc" >> $@
-	@echo " " >> $@
-	@echo "%changelog" >> $@
-
-RPM_TAR_GZ = dynamo-$(VERSION_NUMBER)-$(BUILD_TYPE).tar.gz
-RPM_DIR = ~/rpm
-RPM_TEMP_DIR = $(FILENAME)-$(VERSION_NUMBER)
-
-rpm:
-	@$(MAKE) rpm-setup
-	$(info Creating rpm ...)
-	@$(RM) $(SPEC)
-	@$(MAKE) $(SPEC)
-	(cd ..; $(RM) $(RPM_TAR_GZ))
-	(cd ..; $(RM) $(RPM_TEMP_DIR))
-	(cd ..; tar cfz $(RPM_TAR_GZ) --exclude=\.svn --exclude=\.tar\.gz --exclude=\*\.\*\~ .)
-	$(MKDIR) ../$(RPM_TEMP_DIR)
-	(cd ../$(RPM_TEMP_DIR); tar xfz ../$(RPM_TAR_GZ))
-# now that we have copied all the source, make one small change to the idynamo script
-	(cd ../$(RPM_TEMP_DIR); mv oodlc/build/bin/idynamo.sh oodlc/build/bin/idynamo)
-	(cd ..; $(RM) $(RPM_TAR_GZ))
-	(cd ..; tar cfz $(RPM_TAR_GZ) $(RPM_TEMP_DIR))
-	$(CP) ../$(RPM_TAR_GZ) $(RPM_DIR)/SOURCES
-	rpmbuild -ba -v $(SPEC)
-	$(info  )
-	$(info RPM Generated successfully)
-	$(info Install the RPM by running the following command as super user)
-	$(info rpm -ihv ~/rpm/RPMS/i386/$(FILENAME)-$(VERSION_NUMBER)-$(VERSION).i386.rpm)
 
 
 # Installer

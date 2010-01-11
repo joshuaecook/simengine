@@ -7,7 +7,8 @@ and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 fun sys_copyright _ args = KEC.LITERAL (KEC.CONSTSTR Globals.copyright)
 fun sys_version _ args = KEC.LITERAL (KEC.CONSTSTR Globals.version)
 fun sys_build _ args = KEC.LITERAL (KEC.CONSTSTR BuildOptions.build)
-fun sys_build_date _ args = KEC.LITERAL (KEC.CONSTSTR BuildOptions.build_date)
+fun sys_build_date _ args = KEC.LITERAL (KEC.CONSTSTR BuildOptions.buildDate)
+fun sys_build_time _ args = KEC.LITERAL (KEC.CONSTREAL (Time.toReal (BuildOptions.buildTime)))
 
 fun sys_path _ args = KEC.list2kecvector (map ((fn (s) => KEC.LITERAL (KEC.CONSTSTR s)))
 					      ((!ParserSettings.filepath) :: 
@@ -30,6 +31,7 @@ val library = [{name="sys_copyright", operation=sys_copyright},
 	       {name="sys_version", operation=sys_version},
 	       {name="sys_build", operation=sys_build},
 	       {name="sys_build_date", operation=sys_build_date},
+	       {name="sys_build_time", operation=sys_build_time},
 	       {name="sys_exit", operation=sys_exit},
 	       {name="sys_path", operation=sys_path}]
 end

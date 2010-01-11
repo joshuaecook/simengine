@@ -1140,9 +1140,10 @@ function compile2 (filename: String, settings: Table)
   var file = LF path_file (filename)
   var modtime = LF modtime (filename)
   var simfile = (LF path_base file) + ".sim"
+  var simmodtime = LF modtime simfile
 
   if LF isfile (simfile) then
-      if modtime > LF modtime (simfile) then
+      if modtime > simmodtime or Sys.buildTime > simmodtime then
 	  var mod = LF loadModel (filename)
 	  mod.template.settings = settings
 	  compile mod

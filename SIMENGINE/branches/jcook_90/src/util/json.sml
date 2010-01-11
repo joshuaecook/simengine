@@ -1,3 +1,5 @@
+structure ParseJSON = ParseJSON(structure JS = JSON structure Token = JSONToken structure Lex = LexJSON)
+
 signature JSON =
 sig
 

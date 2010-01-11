@@ -33,9 +33,9 @@ signature JSON = sig
     (* Returns the primitive value of a JSON value.
      * Raises Option if the JSON value does not represent a value of that type. *)
     val boolVal: json -> bool
-    val intVal: json -> int
-    val realVal: json -> real
-    val stringVal: json -> real
+    val intVal: json -> IntInf.int
+    val realVal: json -> LargeReal.real
+    val stringVal: json -> string
 
     val isArray: json -> bool
     (* Returns SOME nth element of a JSON array.
@@ -51,6 +51,10 @@ signature JSON = sig
      * Returns NONE if the value is not a JSON object
      * or if the object does not have such a member. *)
     val member: json * string -> json option
+    (* Returns a member value of a JSON object
+     * or the given default value if the object has no such member. *)
+    val memberDefault: json * string * {default:json} -> json
+    val memberValue: json * string * (json -> 'a option) -> 'a option
     (* Returns SOME list of member name/value pairs if the value is a JSON object.
      * Returns NONE if the value is not an object. *)
     val members: json -> (string * json) list option

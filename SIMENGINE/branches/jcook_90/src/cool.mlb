@@ -9,6 +9,7 @@ local
   ../ffi/simex.mlb
 
   (* JSON Data Structure *)
+  json/json.mlb
   util/json.sml
 in
 
@@ -18,7 +19,7 @@ shell/symbol.sml
 
 shell/parser_settings.sml
 
-util/build_options.sml
+util/build-options.sml
 
 
 util/general_util.sml

@@ -15,7 +15,9 @@ noecho ?=
 
 SVN_ROOT = https://svn1.hosted-projects.com/simatra/simEngine/
 SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
-SVN_URL := $(shell svn info $(CURDIR) 2>/dev/null | sed -ne 's/^URL: //p')
+SVN_INFO = svn info $(CURDIR) 2>/dev/null
+SVN_URL := $(shell $(SVN_INFO) | sed -n '{s/^URL: //p}')
+SVN_REVISION := $(shell $(SVN_INFO) | sed -n '{s/Revision: //p}')
 SVN_BRANCH := $(subst $(SVN_ROOT),,$(SVN_URL))
 
 TRAC_URL := http://www.hosted-projects.com/trac/simatra/simEngine/
