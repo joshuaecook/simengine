@@ -31,13 +31,21 @@ namespace SimCompile
     /* Returns a tuple of (compiler, options)
      * suitable for application by Process.run(). */
     function compile (outfile: String, args)
-      (CC, ["-c", TARGET_ARCH, "-o", outfile] + CFLAGS + CPPFLAGS + args)
+      if TARGET_ARCH <> "" then
+        (CC, ["-c", TARGET_ARCH, "-o", outfile] + CFLAGS + CPPFLAGS + args)
+      else
+        (CC, ["-c", "-o", outfile] + CFLAGS + CPPFLAGS + args)
+      end
     end
 
     /* Returns a tuple of (linker, options)
      * suitable for application by Process.run(). */
     function link (outfile: String, args)
-      (LD, [TARGET_ARCH, "-o", outfile] + LDFLAGS + args + LDLIBS)
+      if TARGET_ARCH <> "" then
+        (LD, [TARGET_ARCH, "-o", outfile] + LDFLAGS + args + LDLIBS)
+      else
+        (LD, ["-o", outfile] + LDFLAGS + args + LDLIBS)
+      end
     end
   end
 
@@ -153,6 +161,10 @@ namespace SimCompile
     var ptxasFlags = ["-v"]
 
     constructor ()
+      if "darwin" == osLower then
+	error("CUDA GPU target not currently supported on OS X.  Please contact Simatra if you are interested in this feature.")
+      end
+
       super ()
 
       var cc = shell("which nvcc")
@@ -172,10 +184,28 @@ namespace SimCompile
       m.CFLAGS.push_front("-I" + cudaInstallPath + "/include")
       m.LDFLAGS.push_front("-L" + cudaInstallPath + "/lib")
 
-      if "" <> arch64 then
+      // Can't get here because of above check for darwin, but start of code necessary for Mac GPU support
+      // clean this up when moving simEngine and simex to subprocess calls for external interfaces (e.g. Matlab)
+      if osLower == "darwin" then
+        if arch64 then
+          error("Compiler error: nVidia tools do not support 64bit architecture.")
+        else
+          m.TARGET_ARCH = "-arch i386"
+          m.LD = "g++-4.2"
+        end
+      end
+
+      if arch64 then
 	m.LDFLAGS.push_front("-L" + cudaInstallPath + "/lib64")
       end
 
+      // nvcc and gcc have different meanings for ARCH so set them specifically for
+      // each as part of CFLAGS and LDFLAGS and remove the TARGET_ARCH value
+      m.CFLAGS.push_front(m.TARGET_ARCH)
+      m.LDFLAGS.push_front(m.TARGET_ARCH)
+      m.TARGET_ARCH = ""
+
+      // Wrap all gcc flags in --compiler-options when passed to nvcc
       m.CFLAGS = ["--compiler-options", join(" ", m.CFLAGS),
 		  "--ptxas-options", join(" ", ptxasFlags)]
       
@@ -186,7 +216,10 @@ namespace SimCompile
       m.CFLAGS.push_back("-DSIMENGINE_CUDA_DEVICE=" + device_id)
       m.CFLAGS.push_front("-arch=" + device_arch)
 
-      // TODO: compare arch with precision settings (double is not supported on 1.1)
+      // TODO: This check may need to be expanded as more devices/architectures appear (e.g. no devices currently of arch sm_12)
+      if not emulate and precision == "double" and device_arch <> "sm_13" then
+        error("Compiler error: CUDA device does not support double precision. Please set precision to 'single'.")
+      end
 
       if emulate then
 	m.CFLAGS.push_front("-deviceemu")

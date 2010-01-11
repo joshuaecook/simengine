@@ -1208,20 +1208,20 @@ function compile (mod)
   var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
 
   if settings.debug then
-      println(cc(1) + " " + (join(" ", cc(2))))
+      println(cc(1) + " '" + (join("' '", cc(2))) + "'")
   end
   var ccp = Process.run(cc(1),cc(2))
-  var ccout = Process.read(ccp)
-  var ccerr = Process.readerr(ccp)
+  var ccout = 1 //Process.read(ccp)
+  var ccerr = 0 //Process.readerr(ccp)
   var ccstat = Process.reap(ccp)
   if () <> ccstat then
-      println (join("", ccout))
-      println (join("", ccerr))
+      println ("STDOUT:" + join("", ccout))
+      println ("STDERR:" + join("", ccerr))
       error ("OOPS! Compiler returned non-zero exit status " + ccstat)
   end
 
   if settings.debug then
-      println(ld(1) + " " + (join(" ", ld(2))))
+      println(ld(1) + " '" + (join("' '", ld(2))) + "'")
   end
   var ldp = Process.run(ld(1), ld(2))
   var ldout = Process.read(ldp)
