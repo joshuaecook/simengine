@@ -499,11 +499,14 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	     val iterators = Property.getIterator props
 	 in
 	     case (derivative,iterators) of
-		 (NONE, SOME ((iterator, Iterator.RELATIVE 1)::rest)) => iterator = name
-	       | (SOME _, _) => 
-		 (* this user error is caused if the user defines a differential equation with a discrete iterator. It's possible that this could happen later,
-		    and then should be an exception, but without adding specific checks for this case earlier, it would be hard to determine.  *)
-		 (user_error exp "Unexpected derivative found with discrete iterator. Derivatives can only be used with continuous iterators."; false)
+		 (SOME _, SOME ((iterator, _)::rest)) => 
+		 if iterator = name then
+		     (* this user error is caused if the user defines a differential equation with a discrete iterator. It's possible that this could happen later,
+			and then should be an exception, but without adding specific checks for this case earlier, it would be hard to determine.  *)
+		     (user_error exp ("Unexpected derivative found with discrete iterator '"^(Symbol.name name)^"'. Derivatives can only be used with continuous iterators."); false)
+		 else
+		     false
+	       | (NONE, SOME ((iterator, Iterator.RELATIVE 1)::rest)) => iterator = name
 	       | _ => false
 	 end
        | _ => false)
