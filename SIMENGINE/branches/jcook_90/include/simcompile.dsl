@@ -161,10 +161,6 @@ namespace SimCompile
     var ptxasFlags = ["-v"]
 
     constructor ()
-      if "darwin" == osLower then
-	error("CUDA GPU target not currently supported on OS X.  Please contact Simatra if you are interested in this feature.")
-      end
-
       super ()
 
       var cc = shell("which nvcc")
