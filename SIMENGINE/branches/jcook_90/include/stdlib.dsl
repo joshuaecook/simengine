@@ -469,31 +469,50 @@ namespace Relational
 end
 
 namespace Process
-  function readline (process) = LF preadline (process)	
-  function readerrline (process) = LF preaderrline (process)  
+  /* Blocks until a line of text is available on stdout. */
+  function readline (process) = LF preadline (process)
+  /* Blocks until a line of text is available on stderr. */
+  function readerrline (process) = LF preaderrline (process)
+  /* Blocks until a line of text is available on stderr or stdout, 
+   * returns a pair containing the line of text for each corresponding stream. 
+   * The pair may contain () for either element if the corresponding stream 
+   * has no available data. Returns ((),()) when both streams are ended.
+   */
+  function readOutAndErrLine (process) = LF preadOutAndErrLine (process)
 
-  function read (process)
-    var x = []
-    var line = LF preadline (process)
+  /* Reads the entire stdout and stderr buffers and returns two 
+   * vectors of lines of text. */
+  function readAll (process)
+    var out = []
+    var err = []
+    var reading = true
 
-    while line <> () do
-      x.push_back line
-      line = LF preadline (process)
+    while reading do
+      var lines = Process.readOutAndErrLine(process)
+      if () <> lines(1) then
+        out.push_back(lines(1))
+      end
+      if () <> lines(2) then
+        err.push_back(lines(2))
+      end
+      reading = () <> lines(1) or () <> lines(2)
     end
 
-    x
+    (out, err)
+  end
+    
+  /* Reads the entire stdout buffer and returns a vector of lines of text,
+   * discarding any text on stderr. */
+  function read (process)
+    var all = Process.readAll(process)
+    all(1)
   end
 
+  /* Reads the entire stdout buffer and returns a vector of lines of text,
+   * discarding any text on stdout. */
   function readerr (process)
-    var x = []
-    var line = LF preaderrline (process)
-
-    while line <> () do
-      x.push_back line
-      line = LF preaderrline (process)
-    end
-
-    x
+    var all = Process.readAll(process)
+    all(2)
   end
 
   function write (process, text) = LF pwrite (process, text)
