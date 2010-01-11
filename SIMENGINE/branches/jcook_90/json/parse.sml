@@ -1,26 +1,21 @@
-signature PARSE_JSON = sig
-    val parse: TextIO.instream -> JSON.json
-    val parseFile: string -> JSON.json
-end
+functor ParseJSON (S: JSON_PARSE_STRUCTS): JSON_PARSE = struct
+open S
 
-structure ParseJSON: PARSE_JSON = struct
-structure L = LexJSON
-structure T = JSONToken
-structure J = JSON
+structure T = Token
 
-fun parseValue lex = 
+fun parseValue lex =
     case lex ()
-     of T.NULL => J.null
-      | T.TRUE => J.bool true
-      | T.FALSE => J.bool false
-      | T.INT z => J.int z
-      | T.REAL r => J.real r
-      | T.STRING s => J.string s
+     of T.NULL => JS.null
+      | T.TRUE => JS.bool true
+      | T.FALSE => JS.bool false
+      | T.INT z => JS.int z
+      | T.REAL r => JS.real r
+      | T.STRING s => JS.string s
       | T.LARRAY => parseArray lex
       | T.LOBJECT => parseObject lex
       | token => raise Fail ("Token " ^ (T.toString token) ^ " does not represent a value")
 
-and parseArray lex = 
+and parseArray lex =
     let fun loop elements =
 	    let val value = parseValue lex
 	    in case lex ()
@@ -29,20 +24,20 @@ and parseArray lex =
 		 | token => raise Fail ("Invalid token " ^ (T.toString token) ^ " when trying to parse array")
 	    end
     in
-	J.array (List.rev (loop nil))
+	JS.array (List.rev (loop nil))
     end
 
-and parseObject lex = 
+and parseObject lex =
     let fun loop members =
 	    let val pair = parsePair lex
-	    in 
+	    in
 		case lex ()
 		 of T.COMMA => loop (pair :: members)
 		  | T.ROBJECT => pair :: members
 		  | token => raise Fail ("Invalid token " ^ (T.toString token) ^ " when trying to parse object")
 	    end
     in
-	J.object (List.rev (loop nil))
+	JS.object (List.rev (loop nil))
     end
 
 and parsePair lex =
@@ -51,7 +46,7 @@ and parsePair lex =
 	(case lex ()
 	  of T.COLON =>
 	     let val value = parseValue lex
-	     in 
+	     in
 		 (name, value)
 	     end
 	   | token => raise Fail ("Invalid token " ^ (T.toString token) ^ " when trying to parse name/value pair"))
@@ -59,14 +54,14 @@ and parsePair lex =
 
 fun parse instream =
     let fun input n = TextIO.inputN (instream, n)
-	val lex = L.makeLexer input
+	val lex = Lex.makeLexer input
     in
 	parseValue lex
     end
 
 fun parseFile filename =
     let val instream = TextIO.openIn filename
-    in 
+    in
 	parse instream before TextIO.closeIn instream
     end
 

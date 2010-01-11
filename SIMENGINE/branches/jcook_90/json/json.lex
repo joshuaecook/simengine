@@ -43,6 +43,7 @@ hex = {digit} | [a-fA-F];
 
 <INITIAL>"\"" => ( YYBEGIN STRING; continue () );
 <STRING>"\"" => ( YYBEGIN INITIAL; string () );
-<STRING>[^\"]+ => ( addString yytext; continue () );
+<STRING>[^\"]+ => ( (* TODO lexing escape chars within string literals *)
+addString yytext; continue () );
 
 <INITIAL>. => ( continue () );

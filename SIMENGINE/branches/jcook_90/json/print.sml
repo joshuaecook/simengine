@@ -1,52 +1,59 @@
-signature PRINT_JSON = sig
-    val print: TextIO.outstream * JSON.json -> unit
-    val printFile: string * JSON.json -> unit
+(* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. *)
+
+signature JSON_PRINT_STRUCTS = sig
+    structure JS: JSON
 end
 
-structure PrintJSON:> PRINT_JSON = struct
-structure J = JSON
+signature JSON_PRINT = sig
+    include JSON_PRINT_STRUCTS
+    val print: TextIO.outstream * JS.json -> unit
+    val printFile: string * JS.json -> unit
+end
+
+functor PrintJSON (S: JSON_PRINT_STRUCTS): JSON_PRINT = struct
+open S
 
 fun toJSONString json =
-    case J.value json
-     of J.JS_NULL => "null"
-      | J.JS_TRUE => "true"
-      | J.JS_FALSE => "false"
-      | J.JS_OBJECT => objectToJSONString json
-      | J.JS_ARRAY => arrayToJSONString json
-      | J.JS_STRING => stringToJSONString json
-      | J.JS_NUMBER =>
-	if isSome (J.toInt json) then intToJSONString json else
-	if isSome (J.toReal json) then realToJSONString json else
+    case JS.value json
+     of JS.JS_NULL => "null"
+      | JS.JS_TRUE => "true"
+      | JS.JS_FALSE => "false"
+      | JS.JS_OBJECT => objectToJSONString json
+      | JS.JS_ARRAY => arrayToJSONString json
+      | JS.JS_STRING => stringToJSONString json
+      | JS.JS_NUMBER =>
+	if isSome (JS.toInt json) then intToJSONString json else
+	if isSome (JS.toReal json) then realToJSONString json else
 	raise Fail ("Unknown type of JSON value")
 
 and stringToJSONString json = 
-    String.concat ["\"", String.toCString (valOf (J.toString json)), "\""]
+    String.concat ["\"", String.toCString (valOf (JS.toString json)), "\""]
 and realToJSONString json =
-    let val r = valOf (J.toReal json)
+    let val r = valOf (JS.toReal json)
     in
 	if Real.isFinite r then
 	    (if 0.0 > r then "-" ^ (Real.toString (~r)) else 
 	     Real.toString r) else
-	if Real.isNan r then stringToJSONString (J.string "NaN") else
-	if 0.0 > r then stringToJSONString (J.string "-Infinity") else
-	stringToJSONString (J.string "Infinity")
+	if Real.isNan r then stringToJSONString (JS.string "NaN") else
+	if 0.0 > r then stringToJSONString (JS.string "-Infinity") else
+	stringToJSONString (JS.string "Infinity")
     end
 and intToJSONString json =
-    let val z = valOf (J.toInt json)
+    let val z = valOf (JS.toInt json)
     in
 	if 0 > z then "-" ^ (IntInf.toString (~z)) else IntInf.toString z
     end
 and boolToJSONString json =
-    if valOf (J.toBool json) then "true" else "false"
+    if valOf (JS.toBool json) then "true" else "false"
 and arrayToJSONString json =
-    let val elements = valOf (J.elements json)
+    let val elements = valOf (JS.elements json)
     in
 	String.concat ["[", String.concatWith "," (map toJSONString elements), "]"]
     end
 and objectToJSONString json =
-    let val members = ListPair.unzip (valOf (J.members json))
+    let val members = ListPair.unzip (valOf (JS.members json))
 	fun pairToString (name, value) =
-	    String.concat [stringToJSONString (J.string name), ":", toJSONString value]
+	    String.concat [stringToJSONString (JS.string name), ":", toJSONString value]
     in
 	String.concat ["{", String.concatWith "," (ListPair.map pairToString members), "}"]
     end
