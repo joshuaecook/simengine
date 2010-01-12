@@ -72,7 +72,7 @@ int runsimEngine (char *simengine, char *file, char *modelname, struct targetopt
 }
 
 void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {
-  char simenginecmd[1000], file[1000], modelname[1000];
+  char simenginecmd[1000], file[1000], modelname[1000], realmodelname[PATH_MAX];
   char flag[3];
   int verbose;
   int buflen;
@@ -106,6 +106,9 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
     {
       mexErrMsgIdAndTxt("Simatra:argumentError", "Model name argument is not a string");
     }
+  if(NULL == realpath(modelname, realmodelname)){
+    mexErrMsgIdAndTxt("Simatra:argumentError", "Model file does not exist");
+  }
   
   if (nrhs >= 4 && (mxGetString(prhs[3], flag, 3) || (strncmp(flag, "-v", 2) && strncmp(flag, "+v", 2))))
     {
@@ -145,7 +148,7 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
 
 
   
-  plhs[0] = mxCreateDoubleScalar(runsimEngine(simenginecmd, file, modelname, &opts, verbose));
+    plhs[0] = mxCreateDoubleScalar(runsimEngine(simenginecmd, file, realmodelname, &opts, verbose));
   
 }
 /*

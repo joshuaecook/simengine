@@ -15,7 +15,7 @@
 #endif
 
 typedef struct{
-  char *model_file;
+  char model_file[PATH_MAX];
   char *model_name;
   double start_time;
   double stop_time;
@@ -269,7 +269,10 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
     return 1;
   }
 
-  opts->model_file = argv[optind];
+  if(NULL == realpath(argv[optind],  opts->model_file)){
+    printf("ERROR: model file '%s' does not exist.\n", argv[optind]);
+    return 1;
+  }
   opts->model_name = get_model_name(opts->model_file);
   //printf("DSL model file '%s'.\n", opts->model_file);
 

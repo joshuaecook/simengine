@@ -1136,13 +1136,14 @@ function compile2 (filename: String, settings: Table)
   if "dsl" <> Path.ext filename then
       error ("Unknown type of file " + filename)
   end
+  var working_dir = "./"
   var dir = Path.dir filename
   var file = Path.file filename
-  var simfile = (Path.base file) + ".sim"
+  var simfile = Path.join(working_dir, ((Path.base file) + ".sim"))
 
   if FileSystem.isfile (simfile) then
       var modtime = FileSystem.modtime (filename)
-      var simmodtime = FileSystem.modtime simfile
+      var simmodtime = FileSystem.modtime (simfile)
 
       if modtime > simmodtime or Sys.buildTime > simmodtime then
 	  var mod = LF loadModel (filename)
