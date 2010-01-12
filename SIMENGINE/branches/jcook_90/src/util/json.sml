@@ -1,5 +1,18 @@
 structure ParseJSON = ParseJSON(structure JS = JSON structure Token = JSONToken structure Lex = LexJSON)
 
+fun JSONTypedObject (typ, value) =
+    JSON.object [("$type", JSON.string typ),
+		 ("$value", value)]
+
+fun JSONType (typ) = 
+    JSON.object [("$type", JSON.string typ)]
+
+fun JSONSymbol (symbol) =
+    JSON.object [("$symbol", JSON.string (Symbol.name symbol))]
+
+fun JSONOption (toJSON, SOME x) = toJSON x
+  | JSONOption _ = JSON.null
+
 signature JSON =
 sig
 

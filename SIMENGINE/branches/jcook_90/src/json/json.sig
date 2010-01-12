@@ -55,6 +55,7 @@ signature JSON = sig
      * or the given default value if the object has no such member. *)
     val memberDefault: json * string * {default:json} -> json
     val memberValue: json * string * (json -> 'a option) -> 'a option
+    val memberVal: json * string * (json -> 'a) -> 'a
     (* Returns SOME list of member name/value pairs if the value is a JSON object.
      * Returns NONE if the value is not an object. *)
     val members: json -> (string * json) list option

@@ -8,6 +8,8 @@ local
 
   ../ffi/simex.mlb
 
+  shell/symbol.sml
+
   (* JSON Data Structure *)
   json/json.mlb
   util/json.sml
@@ -119,6 +121,11 @@ ir/processing/exp_validate.sml
 ir/processing/exp_process.sml
 (*ir/processing/eq_util.sml*)
 ir/processing/class_process.sml
+
+ir/syntax/fun-syntax.sml
+ir/syntax/exp-syntax.sml
+ir/syntax/class-syntax.sml
+ir/syntax/model-syntax.sml
 
 be/mathematica.sml
 be/mathematica_writer.sml

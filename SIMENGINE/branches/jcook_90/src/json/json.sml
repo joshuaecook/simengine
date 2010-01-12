@@ -61,15 +61,16 @@ fun member (OBJECT members, name) =
        | _ => NONE)
   | member _ = NONE
 
-fun memberDefault (object as OBJECT _, name, {default}) =
-    (case member (object, name)
-      of SOME v => v | NONE => default)
-  | memberDefault (_, _, {default}) = default
+fun memberDefault (object, name, {default}) =
+    getOpt (member (object, name), default)
 
 fun memberValue (object as OBJECT _, name, dejs) =
     (case member (object, name)
       of SOME v => dejs v | NONE => NONE)
   | memberValue _ = NONE
+
+fun memberVal (object, name, dejs) =
+    dejs (valOf (member (object, name)))
 
 val members = fn OBJECT members => SOME members | _ => NONE
 end
