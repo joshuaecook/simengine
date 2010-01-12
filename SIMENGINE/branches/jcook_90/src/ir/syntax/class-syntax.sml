@@ -9,11 +9,11 @@ val int = int o IntInf.fromInt
 
 
 fun toJSON (class as {name, properties, inputs, outputs, iterators, exps}) =
-    object [("name", JSONSymbol name),
+    object [(* ("name", JSONSymbol name), *)
 	    ("properties", string "FIXME"),
 	    ("inputs", array (map inputToJSON (! inputs))),
 	    ("outputs", array (map outputToJSON (! outputs))),
-	    ("iterators", array (map iteratorToJSON iterators)),
+	    (* ("iterators", array (map iteratorToJSON iterators)), *)
 	    ("expressions", array (map ExpSyntax.toJSON (! exps)))]
 
 and inputToJSON {name, default} =
@@ -26,7 +26,7 @@ and outputToJSON {name, contents, condition} =
 	    ("condition", ExpSyntax.toJSON condition)]
 
 and iteratorToJSON {name, low, step, high} =
-    object [("name", JSONSymbol name),
+    object [(* ("name", JSONSymbol name), *)
 	    ("low", real low),
 	    ("step", real step),
 	    ("high", real step)]

@@ -65,8 +65,7 @@ val multicollect : Exp.exp list * Exp.exp -> Exp.exp
 
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
-type sym = Symbol.symbol
-val renameInst : ((sym * sym) * (sym * sym)) -> Exp.exp -> Exp.exp (* Traverse through the expression, updating instance names *)
+val renameInst : ((Symbol.symbol * Symbol.symbol) * (Symbol.symbol * Symbol.symbol)) -> Exp.exp -> Exp.exp (* Traverse through the expression, updating instance names *)
 val exp2size : DOF.classiterator list -> Exp.exp -> int
 val enableEPIndex : bool -> (Symbol.symbol list) -> Exp.exp -> Exp.exp (* Add an EP index property when running an embarrassingly parallel simulation *)
 val assignCorrectScopeOnSymbol : Exp.exp -> Exp.exp (* addes the read and write state attributes based on found derivatives or differential terms *)
@@ -103,7 +102,6 @@ end
 structure ExpProcess : EXPPROCESS =
 struct
 
-type sym = Symbol.symbol
 val i2s = Util.i2s
 val r2s = Util.r2s
 val b2s = Util.b2s

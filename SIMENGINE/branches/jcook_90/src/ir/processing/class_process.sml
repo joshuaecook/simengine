@@ -51,8 +51,8 @@ sig
     val addEPIndexToClass : bool -> DOF.class -> unit (* sets the embarrassingly parallel property on symbols in all but the top level class *)
     val makeSlaveClassProperties : DOF.classproperties -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
     val fixSymbolNames : DOF.class -> unit (* makes all symbol names C-compliant *)
-    type sym = Symbol.symbol
-    val renameInsts :  ((sym * sym) * (sym * sym)) -> DOF.class -> unit (* change all instance names in a class *)
+
+    val renameInsts :  ((Symbol.symbol * Symbol.symbol) * (Symbol.symbol * Symbol.symbol)) -> DOF.class -> unit (* change all instance names in a class *)
     val createEventIterators : DOF.class -> unit (* searches out postprocess and update iterators *)
     val addDelays : DOF.class -> unit (* adds delays to difference equation terms *)
     val addBufferedIntermediates : DOF.class -> unit (* for iterators that read and write to the same state vector, so we add intermediates to break up any loops *)
@@ -67,7 +67,6 @@ end
 structure ClassProcess : CLASSPROCESS = 
 struct
 
-type sym = Symbol.symbol
 val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
 

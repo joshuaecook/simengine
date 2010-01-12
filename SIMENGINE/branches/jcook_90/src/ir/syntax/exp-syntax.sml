@@ -62,12 +62,12 @@ and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
     end
   | termToJSON (Exp.SYMBOL (name, properties)) =
     JSONTypedObject ("Exp.SYMBOL",
-		     object [("name", JSONSymbol name),
+		     object [(* ("name", JSONSymbol name), *)
 			     ("properties", string "FIXME")])
 
 and metaToJSON (Exp.LAMBDA {arg, body}) =
     JSONTypedObject ("Exp.LAMBDA",
-		     object [("argument", JSONSymbol arg),
+		     object [(* ("argument", JSONSymbol arg), *)
 			     ("body", toJSON body)])
   | metaToJSON (Exp.APPLY {func, arg}) =
     JSONTypedObject ("Exp.APPLY",
