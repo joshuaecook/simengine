@@ -26,26 +26,18 @@ namespace SimCompile
     var CPPFLAGS = []
     var LDFLAGS = []
     var LDLIBS = []
-    var TARGET_ARCH = "-m32"
+    var TARGET_ARCH = ["-m32"]
 
     /* Returns a tuple of (compiler, options)
      * suitable for application by Process.run(). */
     function compile (outfile: String, args)
-      if TARGET_ARCH <> "" then
-        (CC, ["-c", TARGET_ARCH, "-o", outfile] + CFLAGS + CPPFLAGS + args)
-      else
-        (CC, ["-c", "-o", outfile] + CFLAGS + CPPFLAGS + args)
-      end
+      (CC, ["-c"] + TARGET_ARCH + ["-o", outfile] + CFLAGS + CPPFLAGS + args)
     end
 
     /* Returns a tuple of (linker, options)
      * suitable for application by Process.run(). */
     function link (outfile: String, args)
-      if TARGET_ARCH <> "" then
-        (LD, [TARGET_ARCH, "-o", outfile] + LDFLAGS + args + LDLIBS)
-      else
-        (LD, ["-o", outfile] + LDFLAGS + args + LDLIBS)
-      end
+      (LD, TARGET_ARCH + ["-o", outfile] + LDFLAGS + args + LDLIBS)
     end
   end
 
@@ -88,10 +80,10 @@ namespace SimCompile
       end
 
       if arch64 then
-        m.TARGET_ARCH = "-m64"
+        m.TARGET_ARCH = ["-m64"]
       end
       if "darwin" == osLower then
-        m.TARGET_ARCH = "-arch i386 -arch x86_64"
+        m.TARGET_ARCH = ["-arch", "i386", "-arch", "x86_64"]
       end
 
       if debug then
@@ -194,7 +186,7 @@ namespace SimCompile
         if arch64 then
           error("Compiler error: nVidia tools do not support 64bit architecture.")
         else
-          m.TARGET_ARCH = "-arch i386"
+          m.TARGET_ARCH = ["-arch", "i386"]
           m.LD = "g++-4.2"
         end
       end
@@ -205,9 +197,9 @@ namespace SimCompile
 
       // nvcc and gcc have different meanings for ARCH so set them specifically for
       // each as part of CFLAGS and LDFLAGS and remove the TARGET_ARCH value
-      m.CFLAGS.push_front(m.TARGET_ARCH)
-      m.LDFLAGS.push_front(m.TARGET_ARCH)
-      m.TARGET_ARCH = ""
+      m.CFLAGS = m.TARGET_ARCH + m.CFLAGS
+      m.LDFLAGS = m.TARGET_ARCH + m.LDFLAGS
+      m.TARGET_ARCH = []
 
       // Wrap all gcc flags in --compiler-options when passed to nvcc
       m.CFLAGS = ["--compiler-options", join(" ", m.CFLAGS),
