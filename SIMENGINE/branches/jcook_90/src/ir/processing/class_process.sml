@@ -61,8 +61,6 @@ sig
     (* Returns the given class with all intermediates inlined and all instance equations expanded.
      * Nb Changes the class's internal references and dependends on a CurrentModel context. *)
     val unify : DOF.class -> DOF.class
-
-    val to_json : DOF.class -> mlJS.json_value
 end
 structure ClassProcess : CLASSPROCESS = 
 struct
@@ -1854,56 +1852,5 @@ and instanceExpressions equation =
 	outputs_exps
     end
 
-
-local open mlJS in
-val js_symbol = js_string o Symbol.name
-
-fun to_json (class as {name, properties, inputs, outputs, iterators, exps}) =
-    let fun input_to_json {name, default} = 
-	    js_object [("name", ExpProcess.term_to_json name),
-		       ("default", case default of SOME exp => ExpProcess.to_json exp | NONE => js_null)]
-
-	fun output_to_json {name, contents, condition} =
-	    js_object [("name", ExpProcess.term_to_json name),
-		       ("contents", js_array (map ExpProcess.to_json contents)),
-		       ("condition", ExpProcess.to_json condition)]
-
-	fun iterator_to_json {name, low, step, high} =
-	    js_object [("name", js_symbol name),
-		       ("low", js_float low),
-		       ("step", js_float step),
-		       ("high", js_float high)]
-
-	val json_properties
-	  = let val {sourcepos, basename, classform, classtype} 
-		  = properties
-
-		val json_classform
-		  = case classform
-		     of DOF.INSTANTIATION {readstates,writestates} =>
-			js_object [("type", js_string "INSTANTIATION"),
-				   ("readStates", js_array (map js_symbol readstates)),
-				   ("writeStates", js_array (map js_symbol writestates))]
-		      | DOF.FUNCTIONAL => js_object [("type", js_string "FUNCTIONAL")]
-
-		val json_classtype
-		  = case classtype
-		     of DOF.MASTER name => js_object [("type", js_string "MASTER"), ("name", js_symbol name)]
-		      | DOF.SLAVE name => js_object [("type", js_string "SLAVE"), ("name", js_symbol name)]
-	    in
-		js_object [("sourcePosition", PosLog.to_json sourcepos),
-			   ("baseName", js_symbol basename),
-			   ("classForm", json_classform),
-			   ("classType", json_classtype)]
-	    end
-    in
-	js_object [("name", js_symbol name),
-		   ("properties", json_properties),
-		   ("inputs", js_array (map input_to_json (!inputs))),
-		   ("outputs", js_array (map output_to_json (!outputs))),
-		   ("iterators", js_array (map iterator_to_json iterators)),
-		   ("expressions", js_array (map ExpProcess.to_json (!exps)))]
-    end
-end
 
 end

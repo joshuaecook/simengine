@@ -51,7 +51,6 @@ val optimize : 'a matrix -> unit
 
 (* Helper functions *)
 val toString : 'a matrix -> string list
-val to_json : 'a matrix -> mlJS.json_value
 val infoString : 'a matrix -> string
 val print : 'a matrix -> unit
 val findBandwidth : 'a matrix -> (int * int)
@@ -93,27 +92,22 @@ fun Arraysub (arr, i) =
 
 
 (* Utility functions for converting between vectors and arrays *)
-fun vector2list v = map 
-			(fn(i)=>Vector.sub (v,i)) 
-			(List.tabulate (Vector.length v, (fn(x)=>x)))
-fun array2list v = map 
-			(fn(i)=>Arraysub (v,i)) 
-			(List.tabulate (Array.length v, (fn(x)=>x)))
-fun list2vector l = Vector.fromList l
-fun list2array l = Array.fromList l
+fun arrayToList array = Array.foldr op:: nil array
+fun vectorToList vector = Vector.foldr op:: nil vector
 
+fun vectorToArray vector = 
+    Array.tabulate (Vector.length vector, fn i => Vector.sub (vector, i))
 
-fun vector2array v = list2array (vector2list v)
 
 fun TwoDArray2list m = 
     let
 	fun TwoDArray2rows m = 
 	     map 
-		 (fn(i)=>vector2array (Array2.row (m, i)))
+		 (fn(i)=>vectorToArray (Array2.row (m, i)))
 		 (List.tabulate (Array2.nRows m, (fn(x)=>x)))
     in
 	Util.flatmap 
-	    array2list
+	    arrayToList
 	    (TwoDArray2rows m)
     end
 
@@ -188,8 +182,8 @@ fun getRow m i =
 		    ()
     in
 	case !m of
-	    DENSE {data=m',...} => vector2array (Array2.row (m', i))
-	  | BANDED _ => list2array
+	    DENSE {data=m',...} => vectorToArray (Array2.row (m', i))
+	  | BANDED _ => Array.fromList
 			    (map
 				 (fn(j)=>getIndex m (i, j))
 				 (List.tabulate (cols, fn(x)=>x)))
@@ -207,8 +201,8 @@ fun getColumn m j =
 		    ()
     in
 	case !m of
-	    DENSE {data=m',...} => vector2array (Array2.column (m', j))
-	  | BANDED _ => list2array
+	    DENSE {data=m',...} => vectorToArray (Array2.column (m', j))
+	  | BANDED _ => Array.fromList
 			    (map
 				 (fn(i)=>getIndex m (i, j))
 				 (List.tabulate (rows, fn(x)=>x)))
@@ -218,7 +212,7 @@ fun getColumn m j =
 fun getElements m = 
     case !m of
 	DENSE {data,...} => TwoDArray2list data 
-      | BANDED {data,...} => Util.flatmap array2list data
+      | BANDED {data,...} => Util.flatmap arrayToList data
 
 (* Pull out the rows from the matrix *)
 fun toRows m = 
@@ -241,7 +235,7 @@ fun toString m =
 	(* convert all rows to strings *)
 	val elements_as_strings = 
 	    map 
-		(fn(a)=>map toStrFnc (array2list a))
+		(fn(a)=>map toStrFnc (arrayToList a))
 		rows
 
 	(* compute the maximum string sizes *)
@@ -315,7 +309,7 @@ fun print m =
 (* convert the rows back to an array2 *)
 fun rows2array2 vectors = 
     let
-	val lists = map array2list vectors
+	val lists = map arrayToList vectors
     in
 	Array2.fromList lists
     end
@@ -470,7 +464,7 @@ fun toPaddedBands m =
 	fun prependZerosArray num_zeros a = 
 	    let
 		val zeros = List.tabulate (num_zeros, fn(x)=>zero)
-		val a' = list2array (zeros @ (array2list a))
+		val a' = Array.fromList (zeros @ (arrayToList a))
 	    in
 		a'
 	    end
@@ -478,7 +472,7 @@ fun toPaddedBands m =
 	fun appendZerosArray num_zeros a = 
 	    let
 		val zeros = List.tabulate (num_zeros, fn(x)=>zero)
-		val a' = list2array (array2list a @ zeros)
+		val a' = Array.fromList (arrayToList a @ zeros)
 	    in
 		a'
 	    end
@@ -501,14 +495,14 @@ fun clone m =
 	DENSE {data,calculus} =>
 	let
 	    val rows = toRows m
-	    val datalist = map array2list rows
+	    val datalist = map arrayToList rows
 	    val data' = Array2.fromList datalist
 	in
 	    ref (DENSE {data=data',calculus=calculus})
 	end
       | BANDED {data,calculus,nrows,ncols,upperbw,lowerbw} =>
 	let
-	    val data' = map (list2array o array2list) data
+	    val data' = map (Array.fromList o arrayToList) data
 	in
 	    ref (BANDED {data=data',calculus=calculus,nrows=nrows,ncols=ncols,upperbw=upperbw,lowerbw=lowerbw})
 	end
@@ -546,7 +540,7 @@ fun optimize m =
 			val _ = Util.log ("Displaying bands")
 			val toStrFcn = #toString (matrix2calculus m)
 			val strs = map 
-				       (fn(b)=>String.concatWith ", " (map toStrFcn (array2list b)))
+				       (fn(b)=>String.concatWith ", " (map toStrFcn (arrayToList b)))
 				       bands
 			val _ = app
 				    (fn(str)=>Util.log ("{"^(str)^"}"))
@@ -653,46 +647,46 @@ fun mapi mapfun m =
 	val rows = toRows m
     in
 	Util.flatmap 
-	    (fn(r,i)=> map (fn(e,j)=> mapfun (i, j, e)) (StdFun.addCount (array2list r)))
+	    (fn(r,i)=> map (fn(e,j)=> mapfun (i, j, e)) (StdFun.addCount (arrayToList r)))
 	    (StdFun.addCount rows)
     end
 
-(* Perform the JSON operations *)
-local open mlJS in
+(* (\* Perform the JSON operations *\) *)
+(* local open mlJS in *)
 
-fun array_to_json to_json a =
-    js_array (map to_json (array2list a))    
+(* fun array_to_json to_json a = *)
+(*     js_array (map to_json (arrayToList a))     *)
 
-fun to_json m =
-    case !m of
-	DENSE {data,calculus} => 
-	let
-	    val {toJSON=to_json,...} = calculus
-	    val (nrows, ncols) = size m
-	in
-	    js_object [("type", js_string "MATRIX"),
-		       ("subtype", js_string "DENSE"),
-		       ("rows", js_int nrows),
-		       ("columns", js_int ncols),
-		       ("members", js_array (map 
-						 (array_to_json to_json)
-						 (toRows m)))]
-	end
-      | BANDED {nrows,ncols,upperbw,lowerbw,data,calculus} =>
-	let
-	    val {toJSON=to_json,...} = calculus
-	in
-	    js_object [("type", js_string "MATRIX"),
-		       ("subtype", js_string "BANDED"),
-		       ("rows", js_int nrows),
-		       ("columns", js_int ncols),
-		       ("upperbw", js_int upperbw),
-		       ("lowerbw", js_int lowerbw),
-		       ("members", js_array (map 
-						 (array_to_json to_json)
-						 (toBands m)))]
-	end
+(* fun to_json m = *)
+(*     case !m of *)
+(* 	DENSE {data,calculus} =>  *)
+(* 	let *)
+(* 	    val {toJSON=to_json,...} = calculus *)
+(* 	    val (nrows, ncols) = size m *)
+(* 	in *)
+(* 	    js_object [("type", js_string "MATRIX"), *)
+(* 		       ("subtype", js_string "DENSE"), *)
+(* 		       ("rows", js_int nrows), *)
+(* 		       ("columns", js_int ncols), *)
+(* 		       ("members", js_array (map  *)
+(* 						 (array_to_json to_json) *)
+(* 						 (toRows m)))] *)
+(* 	end *)
+(*       | BANDED {nrows,ncols,upperbw,lowerbw,data,calculus} => *)
+(* 	let *)
+(* 	    val {toJSON=to_json,...} = calculus *)
+(* 	in *)
+(* 	    js_object [("type", js_string "MATRIX"), *)
+(* 		       ("subtype", js_string "BANDED"), *)
+(* 		       ("rows", js_int nrows), *)
+(* 		       ("columns", js_int ncols), *)
+(* 		       ("upperbw", js_int upperbw), *)
+(* 		       ("lowerbw", js_int lowerbw), *)
+(* 		       ("members", js_array (map  *)
+(* 						 (array_to_json to_json) *)
+(* 						 (toBands m)))] *)
+(* 	end *)
 
-end
+(* end *)
 
 end

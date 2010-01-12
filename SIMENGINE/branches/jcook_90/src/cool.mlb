@@ -122,6 +122,7 @@ ir/processing/exp_process.sml
 (*ir/processing/eq_util.sml*)
 ir/processing/class_process.sml
 
+ir/syntax/matrix-syntax.sml
 ir/syntax/fun-syntax.sml
 ir/syntax/exp-syntax.sml
 ir/syntax/class-syntax.sml

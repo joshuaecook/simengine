@@ -1,6 +1,10 @@
+(* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. *)
+
 structure ClassSyntax: sig
+(* Serialization and deserialization for DOF class data. *)
 
 val toJSON: DOF.class -> JSON.json
+(* TODO implement fromJSON *)
 
 end = struct
 

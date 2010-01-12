@@ -1,6 +1,10 @@
+(* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. *)
+
 structure FunSyntax: sig
+(* Serialization and deserialization for DOF function data. *)
 
 val toJSON: Fun.funtype -> JSON.json
+(* TODO implement fromJSON *)
 
 end = struct
 

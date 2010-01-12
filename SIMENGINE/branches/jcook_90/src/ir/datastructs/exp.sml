@@ -55,7 +55,7 @@ type pattern = (Symbol.symbol * predicate * Pattern.patterncount)
 
 val null = FUN (Fun.BUILTIN Fun.NULL, [])
 val exp2str : (exp -> string) ref = ref (fn(exp)=>"??")
-val exp2JSON : (exp -> mlJS.json_value) ref = ref (fn(exp)=> mlJS.js_null)
+val exp2JSON : (exp -> JSON.json) ref = ref (fn (exp) => JSON.null)
 
 fun calculus () : exp Calculus.calculus = 
     {zero= TERM (INT 0),

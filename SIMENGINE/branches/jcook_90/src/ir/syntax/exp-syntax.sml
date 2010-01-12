@@ -1,14 +1,18 @@
+(* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. *)
+
 structure ExpSyntax: sig
+(* Serialization and deserialization for DOF expression data. *)
 
 val toJSON: Exp.exp -> JSON.json
 val termToJSON: Exp.term -> JSON.json
+(* TODO implemenent fromJSON *)
 (* val fromJSON: JSON.json -> Exp.exp *)
 
 end = struct
 open JSON
 val int = int o IntInf.fromInt
 
-fun symbol s = JSON.object [("$symbol", JSON.string (Symbol.name s))]
+fun symbol s = object [("$symbol", string (Symbol.name s))]
 
 
 fun toJSON (Exp.FUN (operator, operands)) = 
@@ -126,6 +130,11 @@ and containerToJSON (Exp.EXPLIST exps) =
   | containerToJSON (Exp.ARRAY arr) = 
     JSONTypedObject ("Exp.ARRAY", array (map toJSON (Container.arrayToList arr)))
   | containerToJSON (Exp.MATRIX mat) = 
-    JSONTypedObject ("Exp.MATRIX", string "FIXME")
+    JSONTypedObject ("Exp.MATRIX", MatrixSyntax.toJSON mat)
+
+
+
+val _ = Exp.exp2JSON := toJSON
+
 
 end

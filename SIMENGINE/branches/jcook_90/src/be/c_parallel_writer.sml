@@ -1493,23 +1493,21 @@ fun buildC (combinedModel as (classes, inst, props), forkedModels) =
 				  end)
 				  shards
 
-	(* val () =  *)
-	(*     let val model = CurrentModel.getCurrentModel () *)
-	(* 	val filename = "dof-system.json" *)
-        (*         fun subsystem_to_json {top_class, iter, model} = *)
-        (*             let val (iter_name, iter_typ) = iter *)
-        (*             in mlJS.js_object [("top_class", mlJS.js_string (Symbol.name top_class)), *)
-        (*                                ("iterator", mlJS.js_string (Symbol.name iter_name)), *)
-        (*                                ("model", ModelProcess.to_json model)] *)
-        (*             end *)
-	(* 	fun output outstream =  *)
-	(* 	    mlJS.output (outstream, mlJS.js_array (map subsystem_to_json modelShards)) *)
-	(*     in if ModelProcess.isDebugging model then *)
-	(* 	   Printer.withOpenOut filename output *)
-	(*        else () *)
-	(*     end *)
-			   
-
+	local 
+	    open JSON 
+	    fun symbol s = object [("$symbol", string (Symbol.name s))]
+	    fun subsystemToJSON {top_class, iter, model} =
+		object [("topClass", symbol top_class),
+			("iterator", ModelSyntax.iteratorToJSON iter),
+			("model", ModelSyntax.toJSON model)]
+	in
+	val _ = 
+	    if ModelProcess.isDebugging (CurrentModel.getCurrentModel ()) then
+		PrintJSON.printFile ("dof-system.json", 
+				     array (map subsystemToJSON modelShards))
+	    else ()
+	end
+		    
 	val forkedModelsLessUpdate = List.filter (fn{iter=(iter_sym, iter_type),...}=> case iter_type of DOF.UPDATE _ => false | _ => true) modelShards
 	val forkedModelsWithSolvers = List.filter (not o ModelProcess.isDependentIterator o #iter) modelShards
 

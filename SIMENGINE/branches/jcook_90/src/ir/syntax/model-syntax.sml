@@ -1,6 +1,11 @@
+(* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. *)
+
 structure ModelSyntax: sig
+(* Serialization and deserialization for DOF model data. *)
 
 val toJSON: DOF.model -> JSON.json
+val iteratorToJSON: DOF.systemiterator -> JSON.json
+(* TODO implement fromJSON *)
 
 end = struct
 
