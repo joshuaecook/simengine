@@ -588,6 +588,15 @@ namespace FileSystem
   function isfile (file) = LF isfile file
   function mkdir (dir) = LF mkdir dir
   function realpath (file) = LF realpath file
+  function modtime (file) = LF modtime file
+end
+
+namespace Path
+  function dir (path) = LF path_dir path
+  function file (path) = LF path_file path
+  function join (dir, file) = LF path_join (dir, file)
+  function base (path) = LF path_base path
+  function ext (path) = LF path_ext path
 end
 
 open Operations

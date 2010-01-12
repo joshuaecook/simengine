@@ -1133,16 +1133,17 @@ import "translate.dsl"
 import "simcompile.dsl"
 
 function compile2 (filename: String, settings: Table)
-  if "dsl" <> LF path_ext (filename) then
+  if "dsl" <> Path.ext filename then
       error ("Unknown type of file " + filename)
   end
-  var dir = LF path_dir (filename)
-  var file = LF path_file (filename)
-  var modtime = LF modtime (filename)
-  var simfile = (LF path_base file) + ".sim"
-  var simmodtime = LF modtime simfile
+  var dir = Path.dir filename
+  var file = Path.file filename
+  var simfile = (Path.base file) + ".sim"
 
-  if LF isfile (simfile) then
+  if FileSystem.isfile (simfile) then
+      var modtime = FileSystem.modtime (filename)
+      var simmodtime = FileSystem.modtime simfile
+
       if modtime > simmodtime or Sys.buildTime > simmodtime then
 	  var mod = LF loadModel (filename)
 	  mod.template.settings = settings
