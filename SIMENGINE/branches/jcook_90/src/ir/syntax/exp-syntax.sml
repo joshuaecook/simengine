@@ -8,6 +8,8 @@ end = struct
 open JSON
 val int = int o IntInf.fromInt
 
+fun symbol s = JSON.object [("$symbol", JSON.string (Symbol.name s))]
+
 
 fun toJSON (Exp.FUN (operator, operands)) = 
     JSONTypedObject ("Exp.FUN", 
@@ -62,12 +64,51 @@ and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
     end
   | termToJSON (Exp.SYMBOL (name, properties)) =
     JSONTypedObject ("Exp.SYMBOL",
-		     object [(* ("name", JSONSymbol name), *)
-			     ("properties", string "FIXME")])
+		     object [("name", symbol name),
+			     ("properties", symbolPropertiesToJSON properties)])
+
+and symbolPropertiesToJSON {iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index} =
+    object [("derivative", JSONOption (derivativeToJSON, derivative)),
+	    ("epIndex", JSONOption (JSONType o (fn Property.STRUCT_OF_ARRAYS => "Property.STRUCT_OF_ARRAYS" | Property.ARRAY => "Property.ARRAY"), ep_index)),
+	    ("isEvent", bool isevent),
+	    ("isRewriteSymbol", bool isrewritesymbol),
+	    ("iterators", JSONOption (fn its => array (map iteratorToJSON its), iterator)),
+	    ("outputBuffer", bool outputbuffer),
+	    ("scope", scopeToJSON scope),
+	    ("sourcePosition", JSONOption (PosLog.toJSON, sourcepos))]
+
+and derivativeToJSON (degree, iterators) =
+    object [("degree", int degree),
+	    ("iterators", array (map symbol iterators))]
+
+and iteratorToJSON (name, index) =
+    object [("name", symbol name), ("index", iteratorIndexToJSON index)]
+
+and iteratorIndexToJSON (Iterator.RELATIVE z) =
+    JSONTypedObject ("Iterator.RELATIVE", int z)
+  | iteratorIndexToJSON (Iterator.ABSOLUTE z) = 
+    JSONTypedObject ("Iterator.ABSOLUTE", int z)
+  | iteratorIndexToJSON (Iterator.RANGE (low, high)) = 
+    JSONTypedObject ("Iterator.RANGE", object [("low", int low), ("high", int high)])
+  | iteratorIndexToJSON (Iterator.LIST zz) = 
+    JSONTypedObject ("Iterator.LIST", array (map int zz))
+  | iteratorIndexToJSON Iterator.ALL = 
+    JSONType ("Iterator.ALL")
+
+and scopeToJSON Property.LOCAL =
+    JSONType ("Property.LOCAL")
+  | scopeToJSON Property.ITERATOR =
+    JSONType ("Property.ITERATOR")
+  | scopeToJSON (Property.READSTATE name) = 
+    JSONTypedObject ("Iterator.READSTATE", symbol name)
+  | scopeToJSON (Property.READSYSTEMSTATE name) = 
+    JSONTypedObject ("Iterator.READSYSTEMSTATE", symbol name)
+  | scopeToJSON (Property.WRITESTATE name) = 
+    JSONTypedObject ("Iterator.WRITESTATE", symbol name)
 
 and metaToJSON (Exp.LAMBDA {arg, body}) =
     JSONTypedObject ("Exp.LAMBDA",
-		     object [(* ("argument", JSONSymbol arg), *)
+		     object [("argument", symbol arg),
 			     ("body", toJSON body)])
   | metaToJSON (Exp.APPLY {func, arg}) =
     JSONTypedObject ("Exp.APPLY",

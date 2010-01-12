@@ -32,11 +32,10 @@ and realToJSONString json =
     let val r = JS.realVal json
     in
 	if Real.isFinite r then
-	    (if 0.0 > r then "-" ^ (Real.toString (~r)) else 
-	     Real.toString r) else
-	if Real.isNan r then stringToJSONString (JS.string "NaN") else
-	if 0.0 > r then stringToJSONString (JS.string "-Infinity") else
-	stringToJSONString (JS.string "Infinity")
+	    String.translate (fn #"~" => "-" | c => str c) (Real.fmt StringCvt.EXACT r)
+	else if Real.isNan r then stringToJSONString (JS.string "NaN") 
+	else if 0.0 > r then stringToJSONString (JS.string "-Infinity") 
+	else stringToJSONString (JS.string "Infinity")
     end
 and intToJSONString json =
     let val z = JS.intVal json
