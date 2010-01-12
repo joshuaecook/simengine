@@ -85,6 +85,7 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
   opts.num_models = 1;
   opts.debug = FALSE;
   opts.profile = FALSE;
+  opts.emulate = FALSE;
 
   if (nrhs < 3 || nrhs > 9)
     {

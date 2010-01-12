@@ -50,7 +50,7 @@ int main(int argc, char **argv){
 
   cudaRT = dlopen(CUDART_LIBRARY_NAME, RTLD_NOW);
   if(!cudaRT){
-    fprintf(stderr, "Failed to load Cuda runtime environment from libcudart.\n");
+    fprintf(stderr, "Failed to load CUDA runtime environment from libcudart.\n\tIs LD_LIBRARY_PATH environment variable set to include CUDA libraries?\n");
     return DeviceProps_NoCudaRuntime;
   }
 
@@ -58,17 +58,17 @@ int main(int argc, char **argv){
   cudaGetDeviceProperties = (cudaGetDeviceProperties_f)dlsym(cudaRT, "cudaGetDeviceProperties");
 
   if(!cudaGetDeviceCount || !cudaGetDeviceProperties){
-    fprintf(stderr, "Failed to load Cuda functions from libcudart.\n");
+    fprintf(stderr, "Failed to load CUDA functions from libcudart.\n\tThe CUDA library found is incompatible with simEngine.\n");
     return DeviceProps_NoCudaRuntime;
   }
   
   if (cudaSuccess != cudaGetDeviceCount(&ndevices)){
-    fprintf(stderr, "Error obtaining device count.\n");
+    fprintf(stderr, "Error obtaining device count.\n\tThe CUDA library found is incompatible with simEngine.\n");
     return DeviceProps_UnknownError;
   }
 
   if (0 == ndevices){
-    fprintf(stderr, "No suitable devices found.\n");
+    fprintf(stderr, "No suitable devices found.\n\tIs your CUDA driver installed, and have you rebooted since installation?\n");
     return DeviceProps_NoDevices;
   }
 
@@ -77,7 +77,7 @@ int main(int argc, char **argv){
   // Retrieve the properties for all Cuda devices
   for (deviceid = 0; deviceid < ndevices; ++deviceid){
     if (cudaSuccess != cudaGetDeviceProperties(&devices[deviceid-undevices].props, deviceid)){
-      fprintf(stderr, "Error obtaining properties for device %d.\n", deviceid);
+      fprintf(stderr, "Error obtaining properties for device %d.\n\tThe CUDA library found is incompatible with simEngine.\n", deviceid);
       return DeviceProps_UnknownError;
     }
     // Filter out emulation devices
@@ -95,7 +95,7 @@ int main(int argc, char **argv){
   ndevices -= undevices;
 
   if(0 == ndevices){
-    fprintf(stderr, "Only emulation device found.\n");
+    fprintf(stderr, "Only emulation device found.\n\tDo you have a CUDA device?\n\tIs the CUDA driver installed?\n\tHave you rebooted after installing the driver?\n\tDo you have device permissions set to allow CUDA computation?\n");
     return DeviceProps_EmulationOnly;
   }
 

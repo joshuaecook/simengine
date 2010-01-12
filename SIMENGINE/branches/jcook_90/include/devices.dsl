@@ -2,7 +2,8 @@ namespace Devices
     namespace CUDA
 	hidden var command = Environment.getVar("SIMENGINE") + "/bin/device_props"
         hidden var proplist = []
-        var cudaErr = ""
+        var cudaErr = "Device list not initialized"
+        var numDevices = 0
 	hidden function device_props ()
             var propkeys = ["deviceId",
 			    "name",
@@ -29,13 +30,16 @@ namespace Devices
 	    var p = Process.run(command)
             var allout = Process.readAll(p)
 	    var lines = allout(1)
-            var errline = allout(2)
-            if () == Process.reap(p) then
+            var errline = join("", allout(2))
+            var stat = Process.reap p
+            if () == stat then
                 foreach l in lines do
                     var propvals = l.strip("\n").split(":")
                     var proptable = Table.new([keyval.totuple() foreach keyval in zip(propkeys,propvals)])
                     proplist.push_back(proptable)
                 end
+                numDevices = proplist.length()
+                cudaErr = ("Bad device ID.")
             else
                 cudaErr = errline
             end
@@ -43,12 +47,8 @@ namespace Devices
 
         hidden var init = device_props()
 
-	function numDevices ()
-	    proplist.length()
-        end
-
         function getProp(devid, prop)
-            if devid > numDevices() or devid < 1 then
+            if devid > numDevices or devid < 1 then
                 error("CUDA device " + devid + " error: " + cudaErr)
             else
                 if prop == "arch" then

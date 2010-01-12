@@ -160,8 +160,11 @@ namespace SimCompile
     var cudaInstallPath
     var ptxasFlags = ["-v"]
 
-    constructor ()
+    constructor (settings)
       super ()
+
+      precision = settings.precision
+      emulate = settings.emulate
 
       var cc = shell("which nvcc")
       if cc.isempty() then 
@@ -170,7 +173,13 @@ namespace SimCompile
       nvcc = LF realpath (cc[1].rstrip("\n"))
       cudaInstallPath = shell("dirname \$(dirname " + nvcc + ")")[1].rstrip("\n")
       if Devices.CUDA.numDevices == 0 then
-        error ("Cannot target the GPU : " ^ Devices.CUDA.cudaErr)
+        error("Cannot target the GPU : " + Devices.CUDA.cudaErr)
+      end
+      // TODO: This check may need to be expanded as more devices/architectures appear (e.g. no devices currently of arch sm_12)
+      var device_id = Devices.CUDA.getProp(1, "deviceId")
+      var device_arch = Devices.CUDA.getProp(1, "arch")
+      if not emulate and precision == "double" and device_arch <> "sm_13" then
+        error("Compiler error: CUDA device does not support double precision. Please set precision to 'single'.")
       end
     end
 
@@ -180,8 +189,7 @@ namespace SimCompile
       m.CFLAGS.push_front("-I" + cudaInstallPath + "/include")
       m.LDFLAGS.push_front("-L" + cudaInstallPath + "/lib")
 
-      // Can't get here because of above check for darwin, but start of code necessary for Mac GPU support
-      // clean this up when moving simEngine and simex to subprocess calls for external interfaces (e.g. Matlab)
+      // Clean this up when moving simEngine and simex to subprocess calls for external interfaces (e.g. Matlab)
       if osLower == "darwin" then
         if arch64 then
           error("Compiler error: nVidia tools do not support 64bit architecture.")
@@ -211,11 +219,6 @@ namespace SimCompile
       var device_arch = Devices.CUDA.getProp(1, "arch")
       m.CFLAGS.push_back("-DSIMENGINE_CUDA_DEVICE=" + device_id)
       m.CFLAGS.push_front("-arch=" + device_arch)
-
-      // TODO: This check may need to be expanded as more devices/architectures appear (e.g. no devices currently of arch sm_12)
-      if not emulate and precision == "double" and device_arch <> "sm_13" then
-        error("Compiler error: CUDA device does not support double precision. Please set precision to 'single'.")
-      end
 
       if emulate then
 	m.CFLAGS.push_front("-deviceemu")

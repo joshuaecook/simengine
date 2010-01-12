@@ -1180,11 +1180,9 @@ function compile (mod)
   elseif "parallelcpu" == settings.target then
       target = SimCompile.TargetOpenMP.new()
   elseif "cuda" == settings.target then
-      target = SimCompile.TargetCUDA.new()
-      target.emulate = settings.emulate
+      target = SimCompile.TargetCUDA.new(settings)
   elseif "gpu" == settings.target then
-      target = SimCompile.TargetCUDA.new()
-      target.emulate = settings.emulate
+      target = SimCompile.TargetCUDA.new(settings)
   else
       error ("Unknown target " + settings.target)
   end

@@ -80,7 +80,8 @@ fun std_preadOutAndErrLine exec args =
 		 of (SOME _, SOME _) => (TextIO.inputLine stdout, TextIO.inputLine stderr)
 		  | (SOME _, NONE) => (TextIO.inputLine stdout, NONE)
 		  | (NONE, SOME _) => (NONE, TextIO.inputLine stderr)
-		  | (NONE, NONE) => loop ()
+		  | (NONE, NONE) => (Posix.Process.sleep (Time.fromMilliseconds 10); loop ())
+            val _ = Posix.Process.sleep (Time.fromMilliseconds 10)
 	    val (outline, errline) = loop ()
 	in
 	    KEC.TUPLE [if isSome outline then 
