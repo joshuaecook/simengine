@@ -14,7 +14,7 @@ functor PrintJSON (S: JSON_PRINT_STRUCTS): JSON_PRINT = struct
 open S
 
 fun toJSONString json =
-    case JS.value json
+    case JS.jsType json
      of JS.JS_NULL => "null"
       | JS.JS_TRUE => "true"
       | JS.JS_FALSE => "false"
@@ -28,6 +28,7 @@ fun toJSONString json =
 
 and stringToJSONString json = 
     String.concat ["\"", String.toCString (valOf (JS.toString json)), "\""]
+
 and realToJSONString json =
     let val r = JS.realVal json
     in
@@ -37,18 +38,22 @@ and realToJSONString json =
 	else if 0.0 > r then stringToJSONString (JS.string "-Infinity") 
 	else stringToJSONString (JS.string "Infinity")
     end
+
 and intToJSONString json =
     let val z = JS.intVal json
     in
 	if 0 > z then "-" ^ (IntInf.toString (~z)) else IntInf.toString z
     end
+
 and boolToJSONString json =
     if JS.boolVal json then "true" else "false"
+
 and arrayToJSONString json =
     let val elements = valOf (JS.elements json)
     in
 	String.concat ["[", String.concatWith "," (map toJSONString elements), "]"]
     end
+
 and objectToJSONString json =
     let val members = ListPair.unzip (valOf (JS.members json))
 	fun pairToString (name, value) =

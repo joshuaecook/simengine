@@ -10,6 +10,8 @@ val iteratorToJSON: DOF.systemiterator -> JSON.json
 end = struct
 
 open JSON
+open JSONExtensions
+
 val int = int o IntInf.fromInt
 fun symbol s = JSON.object [("$symbol", JSON.string (Symbol.name s))]
 

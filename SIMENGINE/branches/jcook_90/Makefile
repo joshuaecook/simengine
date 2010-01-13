@@ -269,7 +269,6 @@ ifneq ($(DEBUG),)
 	$(info Adding debug options ...)
 	@$(MAKE) debug-files
 endif
-	@$(MAKE) instructions
 
 .PHONY: compiler 
 compiler: 
@@ -280,7 +279,6 @@ compiler:
 #	@$(MAKE) matlab-installer
 	@$(MAKE) $(INSTALL_TGZ)
 	@$(MAKE) install-locally
-	@$(MAKE) instructions
 
 compiler-64:
 	@$(MAKE) compiler ARCH64=x86_64
@@ -508,16 +506,6 @@ else
 DEV_VERSION = false
 endif
 
-# .PHONY: datafiles/software-build_options.sml
-# datafiles/software-build_options.sml:
-# 	$(info Creating $(BUILD_TYPE) build options file ...)
-# 	@echo "structure BuildOptions = struct" > $@
-# 	@echo "val allowSWBackend = true val allowFPBackend = false val allowHWBackend = false val version = \"$(VERSION_NUMBER)\"" >> $@
-# 	@echo "val build=\"$(VERSION)\" val build_date = \"$(BUILD_DATE)\"" >> $@
-# 	@echo "val build_time = Time.fromSeconds $(BUILD_TIME)" >> $@
-# 	@echo "val dev_version = $(DEV_VERSION)" >> $@
-# 	@echo "end" >> $@
-
 .PHONY: datafiles/build-options.json
 datafiles/build-options.json:
 	@-unlink $@ 2> /dev/null
@@ -535,7 +523,6 @@ datafiles/build-options.json:
 
 # Dynamo Library Targets
 # ==============================================================================================
-
 
 $(BUILD_DIR)/lib/core.h: library/core.h
 	$(CP) $< $@ 
@@ -668,15 +655,6 @@ $(BUILD_DIR)/doc: $(BUILD_DIR)
 
 $(BUILD_DIR):
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
-
-.PHONY: instructions
-instructions:
-	$(info  )
-	$(info To execute $(FILENAME), the SIMENGINE environmental variable must be set:)
-	$(info   The current value is $(SIMENGINE))
-	$(info   In (t)csh, use 'setenv SIMENGINE $(CURDIR)/build')
-	$(info   In bash, use 'export SIMENGINE=$(CURDIR)/build')
-	$(info  )
 
 $(BUILD_DIR)/bin/settings.csh:
 	@echo "setenv SIMENGINE '$(INSTALL_BUILD_DIR)'" > $@
@@ -825,7 +803,6 @@ install: system
 clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_clean share_cuda_clean
 	$(RM) src/dll/*.o
 	$(RM) src/dll/*.so
-	$(RM) $(BUILD_OPTS) datafiles/*build_options.sml
 	$(RM) $(SPEC)
 	$(RM) $(BUILD)_*
 	$(RM) $(BUILD)

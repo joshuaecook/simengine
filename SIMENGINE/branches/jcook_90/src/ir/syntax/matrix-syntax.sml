@@ -7,7 +7,10 @@ val toJSON: 'a Matrix.matrix -> JSON.json
 (* TODO implement fromJSON *)
 
 end = struct
+
 open JSON
+open JSONExtensions
+
 val int = int o IntInf.fromInt
 
 fun toJSON (m as ref (Matrix.DENSE {calculus, data})) =

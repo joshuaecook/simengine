@@ -9,6 +9,8 @@ val toJSON: Fun.funtype -> JSON.json
 end = struct
 
 open JSON
+open JSONExtensions
+
 fun symbol s = JSON.object [("$symbol", JSON.string (Symbol.name s))]
 
 

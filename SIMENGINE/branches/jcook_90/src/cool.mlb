@@ -13,6 +13,7 @@ local
   (* JSON Data Structure *)
   json/json.mlb
   util/json.sml
+  util/json-extensions.sml
 in
 
 (* Utilities *)

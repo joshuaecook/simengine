@@ -536,7 +536,7 @@ and trans_definition definition =
 
 
 	    val default_model_settings = 
-		HLEC.TABLE [(Symbol.symbol "target", HLEC.LITERAL (HLEC.CONSTSTR "CPU")),
+		HLEC.TABLE [(Symbol.symbol "target", HLEC.LITERAL (HLEC.CONSTSTR "cpu")),
 			    (Symbol.symbol "precision", HLEC.LITERAL (HLEC.CONSTSTR "double")),
 			    (Symbol.symbol "num_models", HLEC.LITERAL (HLEC.CONSTREAL 1.0)),
 			    (Symbol.symbol "debug", HLEC.LITERAL (HLEC.CONSTBOOL false)),

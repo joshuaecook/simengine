@@ -1,7 +1,7 @@
 (* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. *)
 
 structure JSON:> JSON = struct
-datatype value = JS_NULL | JS_FALSE | JS_TRUE | JS_OBJECT | JS_ARRAY | JS_STRING | JS_NUMBER
+datatype jsType = JS_NULL | JS_FALSE | JS_TRUE | JS_OBJECT | JS_ARRAY | JS_STRING | JS_NUMBER
 datatype json =
 	 NULL
        | TRUE
@@ -12,7 +12,7 @@ datatype json =
        | ARRAY of json list
        | OBJECT of (string * json) list
 
-val value = 
+val jsType = 
  fn NULL => JS_NULL
   | TRUE => JS_TRUE
   | FALSE => JS_FALSE

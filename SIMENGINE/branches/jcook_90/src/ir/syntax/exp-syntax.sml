@@ -9,9 +9,11 @@ val termToJSON: Exp.term -> JSON.json
 (* val fromJSON: JSON.json -> Exp.exp *)
 
 end = struct
-open JSON
-val int = int o IntInf.fromInt
 
+open JSON
+open JSONExtensions
+
+val int = int o IntInf.fromInt
 fun symbol s = object [("$symbol", string (Symbol.name s))]
 
 

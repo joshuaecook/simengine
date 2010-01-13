@@ -3,11 +3,12 @@
 signature JSON = sig
     (* The type of JSON values. *)
     type json
+
     (* The type of JSON value types. *)
-    datatype value = JS_NULL | JS_FALSE | JS_TRUE | JS_OBJECT | JS_ARRAY | JS_STRING | JS_NUMBER
+    datatype jsType = JS_NULL | JS_FALSE | JS_TRUE | JS_OBJECT | JS_ARRAY | JS_STRING | JS_NUMBER
 
     (* Indicates the type of a JSON value. *)
-    val value: json -> value
+    val jsType: json -> jsType
 
     (* The null value. *)
     val null: json
@@ -24,14 +25,21 @@ signature JSON = sig
 
     val isNull: json -> bool
 
-    (* Returns SOME primitive value iff the JSON value represents a value of that type. Returns NONE otherwise. *)
+    (* There is a "safe" way to obtain a data value from behind the JSON abstraction, 
+     * which is to return an option, SOME value iff the JSON object comprises a valid
+     * representation, or NONE in any other case.
+     *
+     * There is an alternative way, raising an Option exception when the JSON object
+     * does not conform to a valid data representation.
+     *)
+
+    (* The "safe" way follows the naming convention to<Type> *)
     val toBool: json -> bool option
     val toInt: json -> IntInf.int option
     val toReal: json -> LargeReal.real option
     val toString: json -> string option
 
-    (* Returns the primitive value of a JSON value.
-     * Raises Option if the JSON value does not represent a value of that type. *)
+    (* The other way follows the convention <type>Val *)
     val boolVal: json -> bool
     val intVal: json -> IntInf.int
     val realVal: json -> LargeReal.real
@@ -53,8 +61,12 @@ signature JSON = sig
     val member: json * string -> json option
     (* Returns a member value of a JSON object
      * or the given default value if the object has no such member. *)
-    val memberDefault: json * string * {default:json} -> json
+    val memberDefault: json * string * {default: json} -> json
+    (* Extracts SOME member value of a JSON object
+     * or NONE if the object does not have such a member. *)
     val memberValue: json * string * (json -> 'a option) -> 'a option
+    (* Attempts to return a member value from a JSON.
+     * Raises Option if the attempt fails. *)
     val memberVal: json * string * (json -> 'a) -> 'a
     (* Returns SOME list of member name/value pairs if the value is a JSON object.
      * Returns NONE if the value is not an object. *)

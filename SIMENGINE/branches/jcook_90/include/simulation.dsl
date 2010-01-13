@@ -1174,9 +1174,7 @@ function compile (mod)
 
   var target
 
-  if "cpu" == settings.target then
-      target = SimCompile.TargetCPU.new()
-  elseif "openmp" == settings.target then
+  if "openmp" == settings.target then
       target = SimCompile.TargetOpenMP.new()
   elseif "parallelcpu" == settings.target then
       target = SimCompile.TargetOpenMP.new()
@@ -1184,8 +1182,12 @@ function compile (mod)
       target = SimCompile.TargetCUDA.new(settings)
   elseif "gpu" == settings.target then
       target = SimCompile.TargetCUDA.new(settings)
+  elseif "cpu" == settings.target then
+      target = SimCompile.TargetCPU.new()
   else
-      error ("Unknown target " + settings.target)
+      warning ("Unknown target " + settings.target + " defaulting to cpu")
+      settings.target = "cpu"
+      target = SimCompile.TargetCPU.new()
   end
 
   target.debug = settings.debug
