@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <mex.h>
@@ -106,8 +107,8 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
     {
       mexErrMsgIdAndTxt("Simatra:argumentError", "Model name argument is not a string");
     }
-  if(NULL == realpath(modelname, realmodelname)){
-    mexErrMsgIdAndTxt("Simatra:argumentError", "Model file does not exist");
+  if(NULL == realpath(file, realmodelname)){
+    mexErrMsgIdAndTxt("Simatra:argumentError", "Model file %s could not be located: %s", modelname, strerror(errno));
   }
   
   if (nrhs >= 4 && (mxGetString(prhs[3], flag, 3) || (strncmp(flag, "-v", 2) && strncmp(flag, "+v", 2))))
