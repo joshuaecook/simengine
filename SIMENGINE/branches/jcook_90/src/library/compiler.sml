@@ -11,6 +11,39 @@ fun log str = if DynamoOptions.isFlagSet "logdof" then
 	      else
 		  ()
 
+(* FIXME this is really ugly and shouldn't be in this file. *)
+(* Ensures that classes within a shard model are in dependency order. *)
+fun orderShard (model, shard as {classes, instance as {classname,...}, iter_sym}) =
+    let val _ = ()
+	val topClass = CurrentModel.withModel model (fn _ => CurrentModel.classname2class classname)
+	val unordered = List.filter (fn c => classname <> ClassProcess.class2classname c) classes
+
+	(* TODO need to filter through uniq? *)
+	val orderedClasses = orderClasses (model, topClass, unordered)
+
+	val _ = print ("*** Ordered classes: ")
+	val _ = print (String.concatWith ", " (map (Symbol.name o ClassProcess.class2classname) orderedClasses))
+	val _ = print ("\n")
+
+    in
+	{classes = rev orderedClasses, instance = instance, iter_sym = iter_sym}
+    end
+
+and orderClasses (model, topClass, nil) = [topClass]
+  | orderClasses (model, topClass, unordered) =
+    let val (instanceClassNames,_) = ListPair.unzip (ClassProcess.class2instnames' topClass)
+	val (instanceClasses, unordered') = 
+	    List.partition (fn c => List.exists (fn cn => ClassProcess.class2classname c = cn) instanceClassNames) unordered
+
+	val _ = print ("*** Instances classes preceeding " ^ (Symbol.name (ClassProcess.class2classname topClass)) ^ ": ")
+	val _ = print (String.concatWith ", " (map (Symbol.name o ClassProcess.class2classname) instanceClasses))
+	val _ = print ("\n")
+
+    in
+	topClass :: (List.concat (map (fn c => orderClasses (model, c, unordered')) instanceClasses))
+    end
+
+
 
 fun std_compile exec args =
     (case args of
@@ -82,6 +115,16 @@ fun std_compile exec args =
 			  end
 		      else
 			  ()
+
+	      val _ = log ("Ordering model classes ...")
+	      val forkedModels =
+		  let val (shards, sysprops) = forkedModels
+		      val shards' = map (fn (shard as {classes,instance,...}) => 
+                          orderShard ((classes,instance,sysprops),shard)) shards
+		  in
+		      (shards', sysprops)
+		  end
+
 
 (*	      val _ = log("Ready to build the following DOF ...")*)
 	      val _ = log("Ready to build ...")

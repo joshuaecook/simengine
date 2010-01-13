@@ -727,6 +727,7 @@ in
 fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
     let
 	val classname = ClassProcess.class2classname class
+	val classTypeName = ClassProcess.classTypeName class
 	val class_iterators = #iterators class
 	val init_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isInitialConditionEq (!exps))
 	val instances = List.filter ExpProcess.isInstanceEq (!exps)
@@ -749,7 +750,7 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 		 (map ($ o (state2member class_iterators)) init_eqs_symbols) @
 		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs_non_empty)) ^")") ::
 		  (map ($ o (instance2member instances)) class_inst_pairs_non_empty))),
-	     $("} statedata_" ^ (Symbol.name classname) ^";")]
+	     $("} statedata_" ^ (Symbol.name classTypeName) ^";")]
     end
     handle e => DynException.checkpoint "CParallelWriter.outputstatestructbyclass_code" e       
 end

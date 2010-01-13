@@ -10,10 +10,6 @@ structure ModelProcess : sig
       a particular back-end, the data structure returned from optimizeModel would be a good one to save.  *)
     val optimizeModel : DOF.model -> unit
 
-    type model_shard = {top_class: Symbol.symbol,
-			iter: DOF.systemiterator,
-			model: DOF.model}
-
     type shard = {classes: DOF.class list,
 		  instance: DOF.instance,
 		  iter_sym: Symbol.symbol}
@@ -59,9 +55,6 @@ structure ModelProcess : sig
 
 end = struct
 
-type model_shard = {top_class: Symbol.symbol,
-		    iter: DOF.systemiterator,
-		    model: DOF.model}
 type shard = {classes: DOF.class list,
 	      instance: DOF.instance,
 	      iter_sym: Symbol.symbol}

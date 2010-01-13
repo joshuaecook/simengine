@@ -5,7 +5,14 @@ sig
     val optimizeClass : DOF.class -> unit
 
     (* Accessor methods *)    
-    val class2instnames : DOF.class -> (Symbol.symbol * Symbol.symbol) list (* return a list of instances within the class as classname/instname tuples *)
+
+
+
+    (* Returns a list of unique instances within the class as classname/instname pairs, mapping names to their original forms. *)
+    val class2instnames : DOF.class -> (Symbol.symbol * Symbol.symbol) list 
+    (* As above, but retains actual names. *)
+    val class2instnames' : DOF.class -> (Symbol.symbol * Symbol.symbol) list 
+
     val class2orig_name : DOF.class -> Symbol.symbol (* the name of the class before it was renamed, for example during ordering *)
     val class2classname : DOF.class -> Symbol.symbol (* returns the class name as stored in the structure, not the "realclassname" *)
     val class2basename : DOF.class -> Symbol.symbol (* the name generated for the class in modeltranslate - this is never adjusted *)
@@ -38,6 +45,10 @@ sig
     (* Indicates whether a class contains states associated with a given iterator. *)
     val hasStatesWithIterator : DOF.systemiterator -> DOF.class -> bool
     val requiresIterator : DOF.systemiterator -> DOF.class -> bool
+
+    (* Returns the classname associated with the MASTER/SLAVE relationship of a given class. *)
+    val classTypeName: DOF.class -> Symbol.symbol
+
 
     (* Functions to modify class properties, usually recursively through the expressions *)
     val applyRewritesToClass : Rewrite.rewrite list -> DOF.class -> unit (* generic rewriting helper *)
@@ -572,6 +583,10 @@ fun isInline ({properties={classform=DOF.FUNCTIONAL,...},...} : DOF.class) = tru
 fun isMaster ({properties={classtype=DOF.MASTER _,...},...} : DOF.class) = true
   | isMaster _ = false
 
+
+fun classTypeName ({properties={classtype=DOF.MASTER name,...},...}: DOF.class) = name
+  | classTypeName ({properties={classtype=DOF.SLAVE name,...},...}) = name
+
 fun class2postprocess_states (class: DOF.class) = 
     let
 	val states = class2states class
@@ -927,6 +942,23 @@ fun class2instnames (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list =
 	map (fn(c,i)=>(name2orig_name c, i)) classes_insts
     end
 
+fun class2instnames' (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list =
+    let
+	val inst_eqs = class2instances class
+	fun classAndInstanceName eqn =
+	    let val {classname, instname, ...} = ExpProcess.deconstructInst eqn
+	    in 
+		(classname, instname)
+	    end
+
+	fun inst2orig_names inst =
+	    (ExpProcess.instOrigClassName inst, ExpProcess.instOrigInstName inst)
+
+	fun uniq_fun ((c1,i1),(c2,i2)) = i1 = i2
+    in 
+	Util.uniquify_by_fun uniq_fun (map classAndInstanceName inst_eqs)
+    end
+	
 fun class2statesize (class: DOF.class) =
     let
 	val {exps,iterators,...} = class
