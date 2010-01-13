@@ -26,7 +26,7 @@ fun std_compile exec args =
 						  
 	      val _ = DynException.checkToProceed()
 
-	      val (classes, _, _) = forest
+	      val (classes, {classname,...}, _) = forest
 
 	      val _ = DOFPrinter.printModel forest
 
@@ -54,7 +54,7 @@ fun std_compile exec args =
 	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
 
 	      val _ = log("Normalizing parallel model ...")
-	      val forkedModels = ModelProcess.forkModel (CurrentModel.getCurrentModel())
+	      val forkedModels = ShardedModel.forkModel (CurrentModel.getCurrentModel())
 
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  let
@@ -84,8 +84,7 @@ fun std_compile exec args =
 		     else ()
 		  end
 
-
-	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel(), forkedModels)
+	      val code = CParallelWriter.buildC (classname, forkedModels)
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
 
 	      val _ = DynException.checkToProceed()

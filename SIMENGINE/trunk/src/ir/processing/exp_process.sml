@@ -499,11 +499,11 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	     val iterators = Property.getIterator props
 	 in
 	     case (derivative,iterators) of
-		 (SOME _, SOME ((iterator, _)::rest)) => 
+		 (SOME (_, _::_), SOME ((iterator, _)::rest)) => 
 		 if iterator = name then
 		     (* this user error is caused if the user defines a differential equation with a discrete iterator. It's possible that this could happen later,
 			and then should be an exception, but without adding specific checks for this case earlier, it would be hard to determine.  *)
-		     (user_error exp ("Unexpected derivative found with discrete iterator '"^(Symbol.name name)^"'. Derivatives can only be used with continuous iterators."); false)
+		     (user_error exp ("Unexpected derivative found with discrete iterator '"^(Symbol.name name)^"'. Derivatives can only be used with continuous iterators."); error_no_return exp "raise exception"; false)
 		 else
 		     false
 	       | (NONE, SOME ((iterator, Iterator.RELATIVE 1)::rest)) => iterator = name
@@ -536,8 +536,9 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
     
 
 fun isStateEqOfIter iter exp =
-    isEquation exp andalso
-    isStateTermOfIter iter (lhs exp)
+    (isEquation exp andalso
+     isStateTermOfIter iter (lhs exp))
+    handle e => DynException.checkpoint ("ExpProcess.isStateEqOfIter [iter="^(Symbol.name (#1 iter))^", exp="^(e2s exp)^"]") e
 
 fun isStateTerm exp = 
     let
@@ -545,9 +546,12 @@ fun isStateTerm exp =
     in
 	List.exists (fn(iter)=>isStateTermOfIter iter exp) iterators
     end
+    handle e => DynException.checkpoint ("ExpProcess.isStateTerm [exp="^(e2s exp)^"]") e
+
 fun isStateEq exp =
-    isEquation exp andalso
-    isStateTerm (lhs exp)
+    (isEquation exp andalso
+     isStateTerm (lhs exp))
+    handle e => DynException.checkpoint ("ExpProcess.isStateEq [exp="^(e2s exp)^"]") e
 
 fun isArrayEq exp =
     isEquation exp andalso
@@ -607,6 +611,7 @@ fun doesEqHaveIterator iter exp =
     in
 	result
     end
+    handle e => DynException.checkpoint "ExpProcess.doesEqHaveIterator" e
 
 fun equation2rewrite exp = 
     if isEquation exp then

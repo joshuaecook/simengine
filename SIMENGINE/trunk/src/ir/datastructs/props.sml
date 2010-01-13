@@ -108,6 +108,17 @@ fun setDerivative props p =
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
+
+fun clearDerivative props = 
+    {iterator=getIterator props,
+     derivative=NONE,
+     sourcepos=getSourcePos props,
+     realname=getRealName props,
+     scope=getScope props,
+     isevent=getIsEvent props,
+     isrewritesymbol=getIsRewriteSymbol props,
+     outputbuffer=isOutputBuffer props,
+     ep_index=getEPIndex props}
 	
 fun setSourcePos props p = 
     {iterator=getIterator props,

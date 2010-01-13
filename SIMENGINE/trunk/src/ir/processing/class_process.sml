@@ -473,6 +473,7 @@ fun class2statesbyiterator iter_sym (class : DOF.class) =
     in
 	Util.uniquify (init_cond_states @ dynamic_states)
     end
+    handle e => DynException.checkpoint "ClassProcess.class2statesbyiterator" e
 
 (* match all the expressions that have that symbol on the lhs *)
 fun symbol2exps (class: DOF.class) sym =
@@ -1046,6 +1047,7 @@ fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
 			  end
 		       ) instance_equations))
     end
+    handle e => DynException.checkpoint "ClassProcess.class2statesizebyiterator" e
 
 
 fun class2instancesbyiterator iter_sym class =

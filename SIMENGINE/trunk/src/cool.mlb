@@ -123,6 +123,7 @@ ir/datastructs/dof_printer.sml
 ir/processing/ordering.sml
 
 ir/processing/model_process.sml
+ir/processing/sharded_model.sml
 
 be/c_writer_util.sml
 (* deprecated writers
