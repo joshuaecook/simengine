@@ -503,7 +503,7 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 		 if iterator = name then
 		     (* this user error is caused if the user defines a differential equation with a discrete iterator. It's possible that this could happen later,
 			and then should be an exception, but without adding specific checks for this case earlier, it would be hard to determine.  *)
-		     (user_error exp ("Unexpected derivative found with discrete iterator '"^(Symbol.name name)^"'. Derivatives can only be used with continuous iterators."); error_no_return exp "raise exception"; false)
+		     (user_error exp ("Unexpected derivative found with discrete iterator '"^(Symbol.name name)^"'. Derivatives can only be used with continuous iterators."); false)
 		 else
 		     false
 	       | (NONE, SOME ((iterator, Iterator.RELATIVE 1)::rest)) => iterator = name
