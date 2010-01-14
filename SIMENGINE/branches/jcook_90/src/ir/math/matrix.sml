@@ -509,7 +509,6 @@ fun clone m =
 
 (* normalize - converts any matrix type into a dense matrix *)
 fun normalize m = 
-    (Util.log ("Calling normalize ...");
      case !m of
 	 DENSE _ => ()
        | BANDED {data,nrows,ncols,upperbw,lowerbw,calculus} =>
@@ -518,7 +517,7 @@ fun normalize m =
 	     val data = rows2array2 rows
 	 in
 	     m := (DENSE {data=data, calculus=calculus})
-	 end)
+	 end
 
 (* optimize - try to find the best internal representation for the given matrix *)
 fun optimize m =
@@ -537,14 +536,14 @@ fun optimize m =
 		if upperbw + lowerbw + 1 < dim then
 		    let
 			val bands = map (getBand m') (List.tabulate (upperbw+lowerbw+1, fn(i)=>i-lowerbw))
-			val _ = Util.log ("Displaying bands")
+			(*val _ = Util.log ("Displaying bands")*)
 			val toStrFcn = #toString (matrix2calculus m)
 			val strs = map 
 				       (fn(b)=>String.concatWith ", " (map toStrFcn (arrayToList b)))
 				       bands
-			val _ = app
+			(*val _ = app
 				    (fn(str)=>Util.log ("{"^(str)^"}"))
-				    strs
+				    strs*)
 		    in
 			m := (BANDED {nrows=nrows,
 				      ncols=ncols,

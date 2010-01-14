@@ -13,7 +13,7 @@ structure Child = Child
 end
 
 fun error msg =
-    Logger.log_usererror [PosLog.NOPOS] (Printer.$ msg)
+    Logger.log_error (Printer.$ msg)
 
 
 fun std_popen exec args =

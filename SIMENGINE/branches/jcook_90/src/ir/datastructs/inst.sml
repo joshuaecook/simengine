@@ -29,8 +29,8 @@ fun inst2props f : FunProps.op_props =
 									    mathematica=(Symbol.name f, FunProps.PREFIX),
 									    expcost=0, (* need to work on this ... *)
 									    codomain=fn(_) => [1]} (*TODO: ??? *)
-	  | NONE => (Logger.log_internalerror (Printer.$("Can't handle operation '" ^ (Symbol.name f) ^ "'. Doesn't exist in current classes: {"
-							 ^(String.concatWith ", " (map (fn{name,...}=>Symbol.name name) classes))^ "}"));
+	  | NONE => (Logger.log_error (Printer.$("Can't handle operation '" ^ (Symbol.name f) ^ "'. Doesn't exist in current classes: {"
+						 ^(String.concatWith ", " (map (fn{name,...}=>Symbol.name name) classes))^ "}"));
 		     DynException.setErrored();
 		     {name=Symbol.name f,
 		      operands=FunProps.FIXED 0,

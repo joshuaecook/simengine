@@ -81,8 +81,7 @@ fun classname2class(sym) : DOF.class =
 	val classnames = map #name (classes())
     in
 	case List.find (fn(class)=> 
-			  #name class = sym (* this is the first option *) 
-			  orelse
+			  #name class = sym orelse
 			  (case #classtype (#properties class) of
 			       DOF.MASTER sym' => sym = sym' (* these are accepted since they just had to be renamed *)
 			     | DOF.SLAVE _ => false (* we are not matching slave classes *))		      

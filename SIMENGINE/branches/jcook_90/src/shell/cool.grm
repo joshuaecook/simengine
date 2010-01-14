@@ -4,14 +4,14 @@ fun callfun (name, args) =
 
 
 fun warning (string) =
-    Logger.log_userwarning nil (Printer.$ string)
+    Logger.log_warning (Printer.$ string)
 
 fun error (string) =
-    (Logger.log_usererror nil (Printer.$ string);
+    (Logger.log_error (Printer.$ string);
      DynException.setErrored())
 
 fun error_at_pos pos (string) =
-    (Logger.log_usererror [pos] (Printer.$ string);
+    (Logger.log_error_with_position [pos] (Printer.$ string);
      DynException.setErrored())
 
 exception StubbedOut
@@ -264,7 +264,7 @@ quantitytype: QUANTITY (Ast.GENERIC_QUANTITY)
 	 | STATE (Ast.STATE_QUANTITY)
 
 equationsdef: EQUATION equation (Ast.EQUATIONS ([equation]))
-	    | EQUATION (Ast.EQUATIONS nil before error_at_pos EQUATIONleft "EQUATION keyword must be followed by an expression. Use an EQUATIONS block to define more than one equation.")
+	    | EQUATION (Ast.EQUATIONS nil before error_at_pos EQUATIONleft "EQUATION keyword must be followed by an equation. Use an EQUATIONS block to define more than one equation.")
 	    | EQUATIONS newlines equations END (Ast.EQUATIONS(equations))
 
 equations: (nil)

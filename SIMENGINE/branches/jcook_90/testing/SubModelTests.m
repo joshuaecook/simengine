@@ -8,12 +8,15 @@ function s = SubModelTests(varargin)
 %
 INTERNAL = 0; RELEASE = 1;
 
-target = varargin{1};
-
-if nargin == 1
-    mode = 1;
+if nargin == 0
+  target = '-cpu';
+  mode = RELEASE;
+elseif nargin == 1
+  target = varargin{1};
+  mode = RELEASE;
 else
-    mode = varargin{2};
+  target = varargin{1};
+  mode = varargin{2};
 end
 
 s = Suite(['Sub-model Feature Tests ' target]);

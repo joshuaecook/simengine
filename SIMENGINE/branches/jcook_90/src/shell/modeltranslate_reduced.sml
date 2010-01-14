@@ -21,9 +21,14 @@ val r2s = Util.r2s
 (* fill in this reference when calling translate/translateExp *)
 val exec = ref (fn(e) => e)
 
+exception TranslationError
+
 fun error (msg) =
     (*TODO: replace *)
-    DynException.stdException (msg, "ModelTranslate", Logger.USER)
+    (*DynException.stdException (msg, "ModelTranslate", Logger.USER)*)
+    (Logger.log_error (Printer.$ msg);
+     DynException.setErrored();
+     raise TranslationError)
 
 (* helper methods *)
 val pretty = PrettyPrint.kecexp2prettystr (!exec)
@@ -197,8 +202,10 @@ and modeloperation_to_dof_exp quantity =
 		    val iterators = 
 			if istype (quantity', "IteratorReference") then
 			    map (fn(e) => Symbol.symbol (exp2str (method "name" e))) (vec2list (method "indices" quantity'))
-			else			    
+			else if istype (quantity', "State") then
 			    [Symbol.symbol (exp2str (method "name" (method "iter" quantity')))]
+			else
+			    error ("Derivative of quantity "^(exp2str (method "name" quantity'))^" not declared as a state is not supported.")
 		    val properties' = Property.setDerivative properties (order, iterators)
 		in
 		    Exp.TERM (Exp.SYMBOL (name, properties'))
@@ -341,23 +348,31 @@ fun createClass classes object =
     let
 	val name =Symbol.symbol (exp2str (method "name" object))
 
+	(* some quick error checking in the class *)
+	(* - start with output counts *)
+	val classOutputs = vec2list (method "contents" (method "outputs" object))
+	val _ = if List.length classOutputs > 0 then
+		    () (* this is good *)
+		else
+		    error ("Model " ^ (Symbol.name name) ^ " does not have any outputs defined.")
+		    
 	fun exp2term (Exp.TERM t) = t
 	  | exp2term _ = Exp.NAN
 
-	fun obj2output object =		    
+	fun obj2output obj =		    
 	    (* object = [name, value] *)
 	    let
-		val value = vecIndex (object, 2)
+		val value = vecIndex (obj, 2)
 		val name = (* check if the output has a supplied temporal iterator.  If not, the value is unit *)
 		    if istype (value, "Output") then
 			case method "iter" (value) of
 			    KEC.UNIT =>
-			    exp2term (ExpBuild.var (exp2str(vecIndex (object, 1))))
-			  | iter => exp2term (ExpBuild.ivar (exp2str(vecIndex (object, 1))) 
+			    exp2term (ExpBuild.var (exp2str(vecIndex (obj, 1))))
+			  | iter => exp2term (ExpBuild.ivar (exp2str(vecIndex (obj, 1))) 
 							    [(Symbol.symbol (exp2str (method "name" iter)), 
 							      Iterator.RELATIVE 0)])
 		    else
-			exp2term (ExpBuild.var (exp2str(vecIndex (object, 1))))
+			exp2term (ExpBuild.var (exp2str(vecIndex (obj, 1))))
 
 		val (contents, condition) =
 		    if istype (value, "Output") then
@@ -374,41 +389,41 @@ fun createClass classes object =
 		 condition=condition}
 	    end
 
-	fun obj2input object =
-	    {name=exp2term (ExpBuild.var (exp2str (method "name" object))),
-	     default=case exp2realoption (method "default" object) of
+	fun obj2input obj =
+	    {name=exp2term (ExpBuild.var (exp2str (method "name" obj))),
+	     default=case exp2realoption (method "default" obj) of
 			 SOME r => SOME (ExpBuild.real r)
 		       | NONE => NONE}
 
-	fun quantity2exp object =
+	fun quantity2exp obj =
 	    (* FIXME add iterators appearing on rhs to symbols on lhs. *)
-	    if (istype (object, "Intermediate")) then
-		let val (lhs, rhs) = (quantity_to_dof_exp (method "lhs" (method "eq" object)),
-				      quantity_to_dof_exp (method "rhs" (method "eq" object)))
+	    if (istype (obj, "Intermediate")) then
+		let val (lhs, rhs) = (quantity_to_dof_exp (method "lhs" (method "eq" obj)),
+				      quantity_to_dof_exp (method "rhs" (method "eq" obj)))
 				     
 		    val rhs_iterators = ExpProcess.iterators_of_expression rhs
 
 		    val (lhs_name, lhs_properties)
 		      = case lhs
 			 of Exp.TERM (Exp.SYMBOL s) => s
-			  | _ => error ("Unexpected expression on lhs of intermediate " ^ (pretty object))
+			  | _ => error ("Unexpected expression on lhs of intermediate " ^ (pretty obj))
 
 		    val lhs_properties' = (*Property.setIterator lhs_properties (map (fn iter_name => (iter_name, Iterator.RELATIVE 0)) (SymbolSet.listItems rhs_iterators))*)lhs_properties
 		in
 		    [ExpBuild.equals (Exp.TERM (Exp.SYMBOL (lhs_name, lhs_properties')), rhs)]
 		end
-	    else if (istype (object, "State")) then
+	    else if (istype (obj, "State")) then
 		let
-		    val hasEquation = exp2bool (send "hasEquation" object NONE)
-		    val name = exp2str (method "name" object)
+		    val hasEquation = exp2bool (send "hasEquation" obj NONE)
+		    val name = exp2str (method "name" obj)
 
 		    val (lhs,rhs) = 
-			(quantity_to_dof_exp (method "lhs" (method "eq" object)),
-			 quantity_to_dof_exp (method "rhs" (method "eq" object)))
+			(quantity_to_dof_exp (method "lhs" (method "eq" obj)),
+			 quantity_to_dof_exp (method "rhs" (method "eq" obj)))
 
 		    val eq = ExpBuild.equals(lhs, rhs)			
 
-		    val timeiterator = (exp2str (method "name" (method "iter" object)))
+		    val timeiterator = (exp2str (method "name" (method "iter" obj)))
 
 		    val spatialiterators = case (ExpProcess.exp2termsymbols lhs) of
 					       [Exp.SYMBOL (sym,props)] => 
@@ -428,9 +443,9 @@ fun createClass classes object =
 						    spatialiterators)
 
 		    val init = ExpBuild.equals(initlhs,
-					       quantity_to_dof_exp (getInitialValue object))
+					       quantity_to_dof_exp (getInitialValue obj))
 
-		    val keccondeqs = vec2list (method "condEqs" object)
+		    val keccondeqs = vec2list (method "condEqs" obj)
 
 		    val sym = ExpBuild.avar name timeiterator
 
@@ -467,10 +482,10 @@ fun createClass classes object =
 		in
 		    init :: (if hasEquation then [eq] else []) @ condeqs
 		end
-	    else if istype (object, "Event") then
+	    else if istype (obj, "Event") then
 		let
-		    val name = ExpBuild.event (exp2str (method "name" object))
-		    val condition = quantity_to_dof_exp (method "condition" object)
+		    val name = ExpBuild.event (exp2str (method "name" obj))
+		    val condition = quantity_to_dof_exp (method "condition" obj)
 		in
 		    [ExpBuild.equals (name, condition)]
 		end
@@ -478,36 +493,38 @@ fun createClass classes object =
 		DynException.stdException ("Unexpected quantity encountered", "ModelTranslate.translate.createClass.quantity2exp", Logger.INTERNAL)			
 		
 
-	fun submodel2exp (object, (submodelclasses, exps)) =
+	fun submodel2exp (obj, (submodelclasses, exps)) =
 	    let			
 		val classes = submodelclasses (* rkw - added this so that the foldl adds classes *)
-		val (class, classes) = getClass (method "modeltemplate" object, classes)
+		val (class, classes) = getClass (method "modeltemplate" obj, classes)
 
 		fun outbinding2name obj = 
 		    (exp2str (method "instanceName" obj)) ^ "." ^ (exp2str (method "name" obj))
 
 		val output_names = map outbinding2name
-				       (vec2list (method "outputs" object))
+				       (vec2list (method "outputs" obj))
 
 		val input_exps = map (fn(inp) => method "inputVal" inp) 
-				     (vec2list (method "inputs" object))
+				     (vec2list (method "inputs" obj))
 
 		val name = #name class
 
-		val objname = Symbol.symbol (exp2str (method "name" object))
+		val objname = Symbol.symbol (exp2str (method "name" obj))
 
 		val lhs = Exp.TUPLE (map (fn(out) => exp2term (ExpBuild.var out)) output_names)
 
 		(* check for NaN on inputs *)
 		val _ = app (fn(i) => case i of
 					  KEC.LITERAL(KEC.CONSTREAL (r)) => if Real.isNan r then
-										(Logger.log_usererror nil (Printer.$("Value NaN detected on input in submodel " ^(Symbol.name objname)^ ".  Possibly input value was not specified."));
-										 DynException.setErrored())
-									    else ()
+										error ("Value NaN detected on input in submodel " ^
+										       (Symbol.name objname)^ 
+										       ".  Possibly input value was not specified.")
+									    else 
+										()
 					| _ => ()) 
 			    input_exps
 
-		val iterators = map (fn(e) => Symbol.symbol (exp2str (method "name" e))) (vec2list (method "dimensions" object))
+		val iterators = map (fn(e) => Symbol.symbol (exp2str (method "name" e))) (vec2list (method "dimensions" obj))
 
 		val rhs = Exp.FUN (Fun.INST {classname=name,
 					     instname=objname,
@@ -554,7 +571,7 @@ fun createClass classes object =
 	({name=name, 
 	  properties={sourcepos=PosLog.NOPOS,basename=name,classform=classform,classtype=DOF.MASTER name},
 	  inputs=ref (map obj2input (vec2list(method "inputs" object))),
-	  outputs=ref (map obj2output (vec2list (method "contents" (method "outputs" object)))),
+	  outputs=ref (map obj2output classOutputs),
 	  iterators=map buildIterator (vec2list (send "getSpatialIterators" object NONE)),
 	  exps=ref exps},
 	 submodelclasses)
@@ -671,7 +688,7 @@ fun obj2dofmodel object =
 	val cuda_namespace = method "CUDA" (KEC.SYMBOL (Symbol.symbol "Devices"))
 	val num_cuda_devices = exp2int (send "numDevices" cuda_namespace NONE)
 	val target = if StdFun.toLower target = "cuda" andalso num_cuda_devices = 0 then
-			 (Logger.log_userwarning nil (Printer.$("No CUDA capable device found, using a parallel CPU implementation instead"));
+			 (Logger.log_warning (Printer.$("No CUDA capable device found, using a parallel CPU implementation instead"));
 			  "openmp")
 		     else
 			 target
@@ -688,11 +705,8 @@ fun obj2dofmodel object =
 		    (case computeCapability 
 		      of "1.1" => Target.COMPUTE11
 		       | "1.3" => Target.COMPUTE13
-		       | "9999.9999" => (Logger.log_usererror nil (Printer.$("Only the emulation CUDA device has been found.  Please verify the device driver is installed properly and that you have r/w permissions on /dev/nvidia*"));
-					DynException.setErrored();
-					DynException.checkToProceed();
-					Target.COMPUTE11)
-		       | _ => (Logger.log_userwarning nil (Printer.$("Unexpected compute capability "^computeCapability^" on CUDA device, reverting to 1.1"));
+		       | "9999.9999" => error ("Only the emulation CUDA device has been found.  Please verify the device driver is installed properly and that you have r/w permissions on /dev/nvidia*")
+		       | _ => (Logger.log_warning (Printer.$("Unexpected compute capability "^computeCapability^" on CUDA device, reverting to 1.1"));
 			       Target.COMPUTE11),
 		     numMPs,
 		     exp2int (send "deviceGlobalMem" cuda_namespace (SOME [int2exp id])))
@@ -726,8 +740,6 @@ fun obj2dofmodel object =
 	(classes, topinstance, systemproperties)
     end
 
-exception TranslationError
-
 fun translate (execFun, object) =
     (exec := execFun;
      if (not (istype (object, "ModelInstance"))) then
@@ -735,6 +747,7 @@ fun translate (execFun, object) =
      else
 	 (SOME (obj2dofmodel object) before DynException.checkToProceed())
 	 handle TranslationError => NONE
+	      | DynException.RestartRepl => NONE
 	      | e => NONE before 
 		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
 		      DynException.checkpoint "ModelTranslate.translate" e))

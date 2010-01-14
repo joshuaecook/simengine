@@ -56,6 +56,7 @@ fun std_compile exec args =
 			  of KEC.LITERAL (KEC.CONSTSTR str) => str
 			   | _ => raise Aborted
 
+(*
 	      val _ = 
 		  (let val sim = Simex.new (name ^ ".sim")
 		       val api = Simex.api sim
@@ -63,6 +64,7 @@ fun std_compile exec args =
 		       print ("Found compiled sim named " ^ (Simex.API.name api) ^ "\n")
 		   end)
 		  handle Fail why => print ("Unable to reuse " ^ (name ^ ".sim") ^ ": " ^ why ^ "\n")
+*)
 			  
 
 
@@ -75,8 +77,9 @@ fun std_compile exec args =
 				       SOME f => f
 				     | NONE => raise Aborted
 						  
+	      val _ = DynException.checkToProceed()
 
-	      val (classes, _, _) = forest
+	      val (classes, {classname,...}, _) = forest
 
 	      val _ = DOFPrinter.printModel forest
 
@@ -99,7 +102,7 @@ fun std_compile exec args =
 	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
 
 	      val _ = log("Normalizing parallel model ...")
-	      val forkedModels = ModelProcess.forkModel (CurrentModel.getCurrentModel())
+	      val forkedModels = ShardedModel.forkModel (CurrentModel.getCurrentModel())
 
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  let
@@ -135,8 +138,7 @@ fun std_compile exec args =
 		      PrintJSON.printFile ("dof-final.json", ModelSyntax.toJSON (CurrentModel.getCurrentModel ()))
 		  else ()
 
-
-	      val code = CParallelWriter.buildC (CurrentModel.getCurrentModel(), forkedModels)
+	      val code = CParallelWriter.buildC (classname, forkedModels)
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
 
 	      val _ = DynException.checkToProceed()

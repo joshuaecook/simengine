@@ -53,16 +53,16 @@ open Printer
 
 fun log_stack e () =
 (*    if (!showStackTrace) then*)
-	[$"  Exception stack trace:",
+	[$"Stack trace:",
 	 (SUB (map (fn(s) => $s) (MLton.Exn.history e)))]
 (*    else
 	[]
 *)				  
 fun log handlelocation (e as InternalError {message, severity, characterization, location}) =
-    (Logger.log characterization severity 
-		(Printer.$("Exception caught at " ^ handlelocation 
-			   ^ " and raised at " ^ location ^ " - (" ^ message ^ ")"));
-     Logger.log_information (log_stack e) Logger.NOGROUP)
+    (Logger.log_exception characterization severity 
+    		(SUB (($("Exception caught at " ^ handlelocation 
+			   ^ " and raised at " ^ location ^ " - (" ^ message ^ ")")) ::
+                      (log_stack e ()))))
   | log handlelocation (e as TooManyErrors) =
     ()
 
@@ -83,7 +83,7 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
 		    | Subscript => "Subscript exception at " ^ handlelocation
 		    | _ => "Unknown exception caught at " ^ handlelocation
     in
-	(Logger.log Logger.OTHER Logger.FAILURE ($(message));
+	(Logger.log_exception Logger.OTHER Logger.FAILURE ($(message));
 	 Logger.log_error (Printer.SUB(log_stack e ())))
     end
 
@@ -119,7 +119,7 @@ fun isErrored() = !terminal_errors
 
 fun assert flag message =
     if not flag then
-	(Logger.log Logger.ASSERTION Logger.FAILURE message;
+	(Logger.log_exception Logger.ASSERTION Logger.FAILURE message;
 	 setErrored())
     else
 	()

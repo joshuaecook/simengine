@@ -3,6 +3,7 @@ sig
  
 (* will print in a full form or a terse form depending on the setting of "usefullform" in the options *)
 val exp2str : Exp.exp -> string
+val exp2prettystr : Exp.exp -> string (* this is for nicer printing for user error messages *)
 
 end
 structure ExpPrinter =
@@ -13,7 +14,7 @@ val r2s = Util.r2s
 val b2s = Util.b2s
 val log = Util.log
 
-fun exp2tersestr (Exp.FUN (f, exps)) = 
+fun exp2tersestr pretty (Exp.FUN (f, exps)) = 
     let
 	fun useParen (Exp.FUN (f', _)) = 
 	    let
@@ -51,50 +52,50 @@ fun exp2tersestr (Exp.FUN (f, exps)) =
 	case (FunProps.fun2textstrnotation f) of
 	    (v, FunProps.INFIX) => 
 	    if FunProps.hasVariableArguments f andalso length exps = 1 then
-		(FunProps.op2name f) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps)) ^ ")"
+		(FunProps.op2name f) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr pretty e,e))) exps)) ^ ")"
 	    else
-		String.concatWith v (map (fn(e)=>addParen ((exp2tersestr e),e)) exps)
-	  | (v, FunProps.PREFIX) => v ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr e,e))) exps))
-	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr e),e)) exps)) ^ " " ^ v
+		String.concatWith v (map (fn(e)=>addParen ((exp2tersestr pretty e),e)) exps)
+	  | (v, FunProps.PREFIX) => v ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr pretty e,e))) exps))
+	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr pretty e),e)) exps)) ^ " " ^ v
 	  | (v, FunProps.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
-		    Util.repStr(str, "$"^(i2s i), addParen (exp2tersestr e, e))
+		    Util.repStr(str, "$"^(i2s i), addParen (exp2tersestr pretty e, e))
 	    in
 		foldl (fn((exp, index),str')=>replaceIndex str' (index+1,exp)) v (Util.addCount exps)
 	    end
 			    
     end
-  | exp2tersestr (Exp.TERM term) =
+  | exp2tersestr pretty (Exp.TERM term) =
     (case term of 
 	 Exp.RATIONAL (n,d) => (i2s n) ^ "/" ^ (i2s d)
        | Exp.INT v => i2s v
        | Exp.REAL v => r2s v
        | Exp.BOOL v => b2s v
-       | Exp.COMPLEX (t1,t2) => if Term.isZero t1 andalso Term.isZero t2 then (exp2tersestr (Exp.TERM (Exp.INT 0)))
-				else if Term.isZero t1 then (exp2tersestr (Exp.TERM t2) ^ " i")
-				else if Term.isZero t2 then exp2tersestr (Exp.TERM t1)
-				else exp2tersestr (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
-       | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr (Exp.TERM t)) l))^")"
+       | Exp.COMPLEX (t1,t2) => if Term.isZero t1 andalso Term.isZero t2 then (exp2tersestr pretty (Exp.TERM (Exp.INT 0)))
+				else if Term.isZero t1 then (exp2tersestr pretty (Exp.TERM t2) ^ " i")
+				else if Term.isZero t2 then exp2tersestr pretty (Exp.TERM t1)
+				else exp2tersestr pretty (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
+       | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr pretty (Exp.TERM t)) l))^")"
        | Exp.RANGE {low, high, step} => 
 	 if Term.isOne step then
-	     (exp2tersestr (Exp.TERM low)) ^ ":" ^ (exp2tersestr (Exp.TERM high))
+	     (exp2tersestr pretty (Exp.TERM low)) ^ ":" ^ (exp2tersestr pretty (Exp.TERM high))
 	 else
-	     (exp2tersestr (Exp.TERM low)) ^ ":" ^ (exp2tersestr (Exp.TERM step)) ^ ":" ^ (exp2tersestr (Exp.TERM high))
-       | Exp.SYMBOL (s, props) => Term.sym2str (s, props)
+	     (exp2tersestr pretty (Exp.TERM low)) ^ ":" ^ (exp2tersestr pretty (Exp.TERM step)) ^ ":" ^ (exp2tersestr pretty (Exp.TERM high))
+       | Exp.SYMBOL (s, props) => Term.sym2str pretty (s, props)
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN"
        | Exp.RANDOM Exp.UNIFORM => "UniformRand"
        | Exp.RANDOM Exp.NORMAL => "NormalRand"
        | Exp.PATTERN p => PatternProcess.pattern2str p)
-  | exp2tersestr (Exp.META meta) =
+  | exp2tersestr pretty (Exp.META meta) =
     (case meta of 
-	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2tersestr e)) ^ " :}"
+	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map (exp2tersestr pretty) e)) ^ " :}"
        | _ => "<unresolved-meta>")
-  | exp2tersestr (Exp.CONTAINER container) =
+  | exp2tersestr pretty (Exp.CONTAINER container) =
     let
-	fun list2str l = String.concatWith ", " (map exp2tersestr l)
+	fun list2str l = String.concatWith ", " (map (exp2tersestr pretty) l)
     in
 	case container of
 	     Exp.EXPLIST e => "{" ^ (list2str e) ^ "}"
@@ -204,8 +205,11 @@ fun exp2str e =
     (if DynamoOptions.isFlagSet("usefullform") then
 	 exp2fullstr e
      else
-	 exp2tersestr e)
+	 exp2tersestr false e)
     handle e => DynException.checkpoint "ExpProcess.exp2str" e
+
+fun exp2prettystr e = 
+    exp2tersestr true e
 
 val _ = Exp.exp2str := exp2str
 

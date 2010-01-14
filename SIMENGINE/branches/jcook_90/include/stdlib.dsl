@@ -3,6 +3,7 @@ function print (s) = LF print (s.tostring())
 function println (s) = print (s.tostring() + "\n")
 function warning (s) = LF warning (s.tostring())
 function notice (s) = LF notice (s.tostring())
+function failure (s) = LF failure (s.tostring())
 end 
 
 

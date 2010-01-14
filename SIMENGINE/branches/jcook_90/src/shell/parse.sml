@@ -35,7 +35,7 @@ struct
 
 	  (* TODO: better characterize syntax errors to distinguish from general user errors *)
 	  fun parseerror(text, pos1, pos2) = 
-	       Logger.log_usererror [pos2, pos1] ($ text)
+	       Logger.log_error_with_position [pos2, pos1] ($ text)
 	      
     (* TODO data input could be more efficient if not restricted to line-at-a-time reading. 
      * The grammar stops parsing at each newline, discarding any remaining data.  

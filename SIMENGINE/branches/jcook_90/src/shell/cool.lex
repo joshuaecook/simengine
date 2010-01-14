@@ -159,7 +159,7 @@ fun lexState () =
 (* Mandatory error and end-of-file handlers. *)
 
 fun error pos text = 
-    (Logger.log_usererror [pos] text; 
+    (Logger.log_error_with_position [pos] text; 
      DynException.setErrored())
 
 fun eof () =

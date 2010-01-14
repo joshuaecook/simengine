@@ -67,7 +67,7 @@ namespace Simulation
 
     function getInitialValue()
       if not(isdefined (self.initialval)) then
-        error ("Initial value for state '" + name + "' is not specified")
+        error ("Initial value for state " + name + " is not specified")
         0
       else
         self.initialval
@@ -753,7 +753,7 @@ namespace Simulation
     property solver
       get
         if (not (isdefined solver_obj)) then
-          warning "No solver specified for continuous iterator '" + name + "', using default ode45 solver"
+          warning ("No solver specified for continuous iterator '" + name + "', using default ode45 solver")
           ode45
         else
           solver_obj
@@ -761,7 +761,11 @@ namespace Simulation
       end
 
       set(s)
-        solver_obj = s
+	  if continuous then 
+              solver_obj = s
+	  else
+	      error ("Discrete time iterators can not have an integration method (solver) defined")
+	  end
       end
     end
 
@@ -956,7 +960,8 @@ namespace Simulation
     hidden var userMembers = []
     overload function addConst (name: String, value)
       if exists m in userMembers suchthat m == name then
-        error ("Model member " + name + " has already been defined.")
+        // error ("Model member " + name + " has already been defined.")
+	error ("Model quantity " + name + " has been defined multiple times.")
       else
         LF addconst (self, name, value)
 	userMembers.push_back(name)
@@ -1094,10 +1099,11 @@ namespace Simulation
       //set inputs
       foreach k in table.keys do
         if not (objectContains (m, k)) then
-          error ("submodel " + name + " does not contain input or property " + k)
+          error ("Submodel " + name + " does not contain input or property " + k)
         else
           var value = m.getMember(k)
           if not (istype (type InputBinding, value)) then
+	      error ("Invalid definition of non-input to submodel")
             //ignore for now
           else
             value.setInputVal(table.getValue(k))
@@ -1197,44 +1203,46 @@ function compile (mod)
   target.precision = settings.precision
 
   var stat = LF compile (Translate.model2forest (mod.instantiate()))
+  var compilation_successful = LF str_contains (stat, "Compilation Finished Successfully")
+      
+  if compilation_successful then
+      var cc
+      if "gpu" <> settings.target and "cuda" <> settings.target then
+	  cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
+      else
+	  SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
+	  cc = target.compile(name + "_parallel.o", [name + "_parallel.cu"])
+      end
 
-  var cc
-  if "gpu" <> settings.target and "cuda" <> settings.target then
-      cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
-  else
-      SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
-      cc = target.compile(name + "_parallel.o", [name + "_parallel.cu"])
-  end
+      var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
 
+      if settings.debug then
+	  println(cc(1) + " " + (join(" ", cc(2))))
+      end
+      var ccp = Process.run(cc(1),cc(2))
+      var ccallout = Process.readAll(ccp)
+      var ccstat = Process.reap(ccp)
+      var ccout = ccallout(1)
+      var ccerr = ccallout(2)
+      if () <> ccstat then
+        println ("STDOUT:" + join("", ccout))
+        println ("STDERR:" + join("", ccerr))
+        error ("OOPS! Compiler returned non-zero exit status " + ccstat)
+      end
 
-  var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
-
-  if settings.debug then
-      println(cc(1) + " '" + (join("' '", cc(2))) + "'")
-  end
-  var ccp = Process.run(cc(1),cc(2))
-  var ccallout = Process.readAll(ccp)
-  var ccstat = Process.reap(ccp)
-  var ccout = ccallout(1)
-  var ccerr = ccallout(2)
-  if () <> ccstat then
-      println ("STDOUT:" + join("", ccout))
-      println ("STDERR:" + join("", ccerr))
-      error ("OOPS! Compiler returned non-zero exit status " + ccstat)
-  end
-
-  if settings.debug then
-      println(ld(1) + " '" + (join("' '", ld(2))) + "'")
-  end
-  var ldp = Process.run(ld(1), ld(2))
-  var ldallout = Process.readAll(ldp) 
-  var ldstat = Process.reap(ldp)
-  var ldout = ldallout(1)
-  var lderr = ldallout(2)
-  if () <> ldstat then
-      println (join("", ldout))
-      println (join("", lderr))
-      error ("OOPS! Linker returned non-zero exit status " + ldstat)
+      if settings.debug then
+          println(ld(1) + " '" + (join("' '", ld(2))) + "'")
+      end
+      var ldp = Process.run(ld(1), ld(2))
+      var ldallout = Process.readAll(ldp) 
+      var ldstat = Process.reap(ldp)
+      var ldout = ldallout(1)
+      var lderr = ldallout(2)
+      if () <> ldstat then
+          println (join("", ldout))
+          println (join("", lderr))
+          error ("OOPS! Linker returned non-zero exit status " + ldstat)
+      end
   end
 
   stat

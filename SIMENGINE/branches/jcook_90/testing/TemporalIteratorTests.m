@@ -3,7 +3,11 @@ function s = TemporalIteratorTests(varargin)
 %   mode can be either 0 for internal or 1 for release
 INTERNAL = 0; RELEASE = 1;
 
-target = varargin{1};
+if nargin > 0
+  target = varargin{1};
+else
+  target = '-cpu';
+end
 
 s = Suite(['Temporal Iterator Feature Tests ' target]);
 s.add(SimpleIteratorTests(target));
@@ -22,6 +26,7 @@ s = Suite(['Simple Iterator Tests ' target]);
 
 s.add(Test('OneTimeIteratorImplicit',@()(simex('models_FeatureTests/OneTimeIteratorTest1.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
 s.add(Test('OneTimeIteratorExplicit',@()(simex('models_FeatureTests/OneTimeIteratorTest2.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
+s.add(Test('OneTimeIteratorRedefine_t',@()(simex('models_FeatureTests/OneTimeIteratorTest3.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
 s.add(Test('OneDiscreteIterator',@()(simex('models_FeatureTests/OneDiscreteIteratorTest1.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
 
 % Parallel tests

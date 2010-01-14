@@ -51,7 +51,7 @@ state hA = 0.5
 state mKCa = 0.5
 state mKd = 0.5
 state mh = 0.5
-state Caconc = 0.05 //uM
+state Caconc = 0.05 with {iter=t_expeuler} //uM
 
 equations
     Vm = {Vclamp_cmd   when Vclamp,
