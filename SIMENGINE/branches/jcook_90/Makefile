@@ -800,7 +800,7 @@ install: system
 
 
 .PHONY: clean
-clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_clean share_cuda_clean
+clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_clean share_cuda_clean testing_clean
 	$(RM) src/dll/*.o
 	$(RM) src/dll/*.so
 	$(RM) $(SPEC)
@@ -825,6 +825,10 @@ mostlyclean:
 	$(RM) src/util/registry/registry.grm.sig
 	$(RM) src/util/registry/registry.grm.sml
 
+
+.PHONY: testing_clean
+testing_clean:
+	find testing -name *.sim -exec rm '{}' +
 
 .PHONY: solvers_clean
 solvers_clean:

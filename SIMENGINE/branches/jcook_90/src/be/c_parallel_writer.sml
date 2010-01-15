@@ -1250,15 +1250,18 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		let fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
 		    val outputs_symbols = Util.uniquify_by_fun cmp (ClassProcess.outputsSymbols class)
 		in
-		    [$(""),
-		     $("// writing output variables"),
-                     $("#if NUM_OUTPUTS > 0"),
-		     $("if (first_iteration) {"),
-		     SUB($("output_data *od = (output_data*)outputs;") ::
-			 (map (fn(t)=> $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-			      outputs_symbols)),
-		     $("}"),
-                     $("#endif")]
+		    if List.null outputs_symbols then
+			[$("// No outputs written")]
+		    else
+			[$(""),
+			 $("// writing output variables"),
+			 $("#if NUM_OUTPUTS > 0"),
+			 $("if (first_iteration) {"),
+			 SUB($("output_data *od = (output_data*)outputs;") ::
+			     (map (fn(t)=> $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+				  outputs_symbols)),
+			 $("}"),
+			 $("#endif")]
 		end
 	    else
 		[$(""),
@@ -1345,13 +1348,13 @@ fun flow_code shardedModel iter_sym =
 			     statewriteprototype,
 			     systemstatereadprototype) =
 			    (if reads_iterator iter class then
-				 "const statedata_" ^ (Symbol.name classTypeName) ^ " *rd_" ^ iter_name ^ ", "
+				 "const statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
 			     else "",
 			     if writes_iterator iter class then
-				 "statedata_" ^ (Symbol.name classTypeName) ^ " *wr_" ^ iter_name ^ ", "
+				 "statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
 			     else "",
 			     if reads_system class then
-				 "const systemstatedata_"^(Symbol.name basename)^" *sys_rd, "
+				 "const systemstatedata_" ^ (Symbol.name basename) ^ " *sys_rd, "
 			     else "")
 
 			val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)
