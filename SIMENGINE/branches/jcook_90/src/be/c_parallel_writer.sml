@@ -1249,17 +1249,26 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    if is_top_class then
 		let fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
 		    val outputs_symbols = Util.uniquify_by_fun cmp (ClassProcess.outputsSymbols class)
+
+		    val (iterators_symbols, outputs_symbols) = List.partition Term.isIterator outputs_symbols
+
 		in
-		    if List.null outputs_symbols then
+		    if List.null outputs_symbols andalso List.null iterators_symbols then
 			[$("// No outputs written")]
 		    else
 			[$(""),
 			 $("// writing output variables"),
 			 $("#if NUM_OUTPUTS > 0"),
 			 $("if (first_iteration) {"),
-			 SUB($("output_data *od = (output_data*)outputs;") ::
-			     (map (fn(t)=> $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-				  outputs_symbols)),
+			 SUB($("output_data *od = (output_data*)outputs;") 
+			     (* FIXME this is a temporary hack to catch reads of system iterator values. *)
+			     :: (map (fn t => $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^
+						(if (Symbol.symbol iter_name) = (Term.sym2curname t) then
+						     (CWriterUtil.exp2c_str (Exp.TERM t))
+						 else ("sys_rd->" ^ (Symbol.name (Term.sym2curname t)) ^ "[ARRAY_IDX]")) ^ ";"))
+				     iterators_symbols) 
+			     @ (map (fn(t)=> $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+				    outputs_symbols)),
 			 $("}"),
 			 $("#endif")]
 		end

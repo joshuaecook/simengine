@@ -10,6 +10,7 @@ val isSymbol: Exp.term -> bool (* matches only a single symbol *)
 val areSymbols: Exp.term -> bool (* can match lists, tuples, and complex numbers containing only symbols *)
 val isScalar: Exp.term -> bool
 val isLocal: Exp.term -> bool (* is this a local symbol, as opposed to being stored in a state vector *)
+val isIterator: Exp.term -> bool
 val isReadState: Exp.term -> bool (* not a local symbol, but rather read in as a state *)
 val isWriteState: Exp.term -> bool (* not a local symbol, but rather written to a state *)
 val isReadSystemState : Exp.term -> bool
@@ -370,6 +371,13 @@ fun isScalar term =
     case term of
 	Exp.TUPLE _ => false
       | _ => true
+
+fun isIterator (Exp.SYMBOL (_, props)) =
+    (case Property.getScope props
+      of Property.ITERATOR => true
+       | _ => false)
+  | isIterator _ = false
+
 
 fun isReadState term =
     case term of
