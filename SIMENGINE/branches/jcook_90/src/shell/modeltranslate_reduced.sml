@@ -347,6 +347,7 @@ fun expHasIterator iter exp =
 fun createClass classes object =
     let
 	val name =Symbol.symbol (exp2str (method "name" object))
+	(*val _ = Logger.log_notice (Printer.$ ("Translating model '"^(Symbol.name name)^"'"))*)
 
 	(* some quick error checking in the class *)
 	(* - start with output counts *)

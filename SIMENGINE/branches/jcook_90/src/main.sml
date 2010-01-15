@@ -36,6 +36,8 @@ fun rep_loop isInteractive textstream env =
 		in
 		    exp'
 		end
+
+	    (*val _ = Logger.log_hash()*)
 	    val (env', kec') = Exec.run (rep_loop false) env kec
 
 	    val _ = if isInteractive then 
@@ -75,6 +77,7 @@ val registryfile = case OS.Process.getEnv("SIMENGINEDOL") of
 		     | NONE => OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/default.dol")
 
 val _ = DynException.checkToProceed()
+
 	
 	
 (* read in registry settings - this will overwrite the command line args imported above *)
@@ -83,7 +86,10 @@ val _ = DynamoOptions.importRegistryFile (registryfile)
 	
 
 	
-val logfiledir = "/tmp" (*TODO: change this*)
+(*val logfiledir = "/tmp" (*TODO: change this*)*)
+val logfiledir = case OS.Process.getEnv("TMPDIR") of
+		     SOME tmpdir => tmpdir
+		   | NONE => "/tmp"
 val username = case OS.Process.getEnv("USER") of
 		   SOME user => user
 		 | NONE => ""
@@ -92,11 +98,20 @@ val log_id = Logger.log_add (logfilename,
 			     Logger.ALL, 
 			     defaultOptions(* @ (DynamoParameters.options2groups options)*))
 
+(* if verbose flag is set, update printing on output *)
+val _ = (if DynamoOptions.isFlagSet "verbose" then
+	     Logger.log_stdout (Logger.ALL,
+				defaultOptions)
+	 else
+	     0)
+    handle DynException.InternalError {message,severity,characterization,location} => (Util.log ("Error caught: " ^ message); 0)
+	 | e => raise e
+
 val _ = (if List.length (CommandLine.arguments()) = 0 then
 	     let
+		 val _ = print (Globals.startupMessage ^ "\n")
 		 val env = PopulatedEnv.new (rep_loop false)
 		 val _ = ParserSettings.setSettings (true, "STDIN", ".")
-		 val _ = print (Globals.startupMessage ^ "\n")
 	     in
 		 rep_loop true TextIO.stdIn env
 	     end
@@ -104,9 +119,9 @@ val _ = (if List.length (CommandLine.arguments()) = 0 then
 	     if List.length (CommandLine.arguments()) = 1 then
 		 if hd(CommandLine.arguments()) = "-batch" then
 		     let
+			 val _ = print (Globals.startupMessage ^ "\n")
 			 val env = PopulatedEnv.new (rep_loop false)
 			 val _ = ParserSettings.setSettings (true, "STDIN", ".")
-			 val _ = print (Globals.startupMessage ^ "\n")
 		     in
 			 rep_loop false TextIO.stdIn env
 		     end

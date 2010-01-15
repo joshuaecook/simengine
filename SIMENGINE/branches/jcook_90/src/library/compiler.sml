@@ -9,7 +9,7 @@ exception Aborted
 fun log str = if DynamoOptions.isFlagSet "logdof" then 
 		  Util.log str
 	      else
-		  ()
+		  Logger.log_notice (Printer.$ str)
 
 (* FIXME this is really ugly and shouldn't be in this file. *)
 (* Ensures that classes within a shard model are in dependency order. *)
@@ -63,6 +63,7 @@ fun std_compile exec args =
 		      else
 			  ()
 
+	      val _ = log "Translating model ..."
 	      val forest = case ModelTranslate.translate(exec, object) of
 				       SOME f => f
 				     | NONE => raise Aborted

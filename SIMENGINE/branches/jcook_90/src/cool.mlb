@@ -22,7 +22,6 @@ util/simengine.sml
 
 shell/symbol.sml
 
-shell/parser_settings.sml
 
 util/build-options.sml
 
@@ -44,6 +43,7 @@ util/printing/printer.sml
 util/printing/logger.sml
 
 util/error/exceptions.sml
+shell/parser_settings.sml
 
 util/globals.sml
 

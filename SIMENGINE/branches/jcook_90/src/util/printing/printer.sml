@@ -14,7 +14,7 @@ fun printtext (outstream, text, i) =
 
 	fun say str = TextIO.output(outstream, str)		      
 	    
-	fun sayln str = (say str; say "\n")
+	fun sayln str = (say str; say "\n"; TextIO.StreamIO.flushOut (TextIO.getOutstream outstream))
 
 	fun ind n =
 	    let 
