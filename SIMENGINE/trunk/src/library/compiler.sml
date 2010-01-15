@@ -9,7 +9,7 @@ exception Aborted
 fun log str = if DynamoOptions.isFlagSet "logdof" then 
 		  Util.log str
 	      else
-		  ()
+		  Logger.log_notice (Printer.$ str)
 
 fun std_compile exec args =
     (case args of
@@ -20,6 +20,7 @@ fun std_compile exec args =
 		      else
 			  ()
 
+	      val _ = log "Translating model ..."
 	      val forest = case ModelTranslate.translate(exec, object) of
 				       SOME f => f
 				     | NONE => raise Aborted

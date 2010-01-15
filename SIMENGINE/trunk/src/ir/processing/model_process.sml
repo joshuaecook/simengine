@@ -62,7 +62,7 @@ end = struct
 fun log str = if DynamoOptions.isFlagSet "logdof" then 
 		  Util.log str
 	      else
-		  ()
+		  Logger.log_notice (Printer.$ str)
 
 val i2s = Util.i2s
 

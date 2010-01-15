@@ -205,13 +205,21 @@ fun flattenExpressionThroughInstances class exp =
     in
 	Match.applyRewritesExp rules exp
     end
-    handle e => DynException.checkpoint "ClassProcess.flattenExpressionThroughInstances" e
+    handle e => DynException.checkpoint ("ClassProcess.flattenExpressionThroughInstances ["^(e2s exp)^"]") e
 
 and flattenEquationThroughInstances class sym =
     let val {name=classname, inputs, ...} = class
+	val iterators = CurrentModel.iterators()
+	val indexable_iterators = List.mapPartial (fn(iter_sym, iter_type)=> case iter_type of
+										 DOF.CONTINUOUS _ => SOME iter_sym
+									       | DOF.DISCRETE _ => SOME iter_sym
+									       | _ => NONE) iterators
     in if isSymInput class sym then
-	ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
-			 Exp.TERM (#name (valOf (List.find (fn {name, ...} => Term.sym2curname name = sym) (! inputs)))))
+	   ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
+			    Exp.TERM (#name (valOf (List.find (fn {name, ...} => Term.sym2curname name = sym) (! inputs)))))
+       else if List.exists (fn(iter_sym)=> sym=iter_sym) indexable_iterators then
+	   ExpBuild.equals (ExpBuild.var (Symbol.name sym),
+			    ExpBuild.var (Symbol.name sym)) (* just an identity equation t = t, which will be converted to t -> t *)
        else
 	   case findMatchingEq class sym
 	    of SOME exp =>
@@ -236,6 +244,7 @@ and flattenEquationThroughInstances class sym =
 		   exp
 	     | NONE => DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenEquationThroughInstances", Logger.INTERNAL)
     end
+    handle e => DynException.checkpoint ("ClassProcess.flattenEquationThroughInstances ["^(Symbol.name sym)^"]") e
 
 (* Constructs a flattened expression by associating the given symbol with an output parameter,
  * then inspecting the instance class to find the class output expression. *)

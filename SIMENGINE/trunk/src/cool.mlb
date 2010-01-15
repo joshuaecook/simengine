@@ -14,7 +14,6 @@ in
 
 shell/symbol.sml
 
-shell/parser_settings.sml
 
 util/build_options.sml
 
@@ -36,6 +35,7 @@ util/printing/printer.sml
 util/printing/logger.sml
 
 util/error/exceptions.sml
+shell/parser_settings.sml
 
 util/globals.sml
 

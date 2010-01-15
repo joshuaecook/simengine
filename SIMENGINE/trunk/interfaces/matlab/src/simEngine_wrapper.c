@@ -61,8 +61,11 @@ int runsimEngine (char *simengine, char *file, char *modelname, struct targetopt
 	{
 	  errored = 0;
 	}
-      if(verbose)
-	mexPrintf("%s", readbuffer);
+      if(verbose) 
+	{
+	  mexPrintf("%s", readbuffer);
+	  mexEvalString("drawnow;"); // to dump string.
+	}
     }
   if(verbose)
     mexPrintf("\n");

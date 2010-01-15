@@ -42,11 +42,12 @@ type logtype = {loglevel: log_level,
 		outstream: TextIO.outstream,
 		output_groups: group list,
 		id: int,
-		name: string}
+		name: Symbol.symbol}
 
 
 (* Define basic methods for logging events *)
 val log_notice : message -> unit
+val log_hash : unit -> unit (* as a notice, it will print a hash to the screen only *)
 val log_warning : message -> unit
 val log_error : message -> unit
 val log_error_with_position : PosLog.pos list -> message -> unit
@@ -106,7 +107,7 @@ type logtype = {loglevel: log_level,
 		outstream: TextIO.outstream,
 		output_groups: group list,
 		id: int,
-		name: string}
+		name: Symbol.symbol}
 
 val logs = ref nil : logtype list ref
 val warning_count = ref 0
@@ -233,6 +234,14 @@ fun log_notice message =
     app (fn({outstream, loglevel, ...}) =>
 	   if sufficient_loglevel loglevel NOTICE then
 	       output_text outstream OTHER NOTICE message
+	   else
+	       ())
+	(!logs)
+
+fun log_hash () =
+    app (fn({outstream, loglevel, name, ...}) =>
+	   if sufficient_loglevel loglevel NOTICE andalso name = (Symbol.symbol "stdout") then
+	       print "#"
 	   else
 	       ())
 	(!logs)
@@ -381,34 +390,47 @@ fun log_userwarning poslog message =
     log_user poslog WARNING message
 
 fun log_stream (name, level, ostream, groups) =
-    let
-	val id = get_next_log_id()
-	val _ = logs := {loglevel=level, outstream=ostream, output_groups=groups, id=id, name=name} :: (!logs)
-		
-	fun CurrentDateTime () = (Date.fromTimeLocal (Posix.ProcEnv.time ())) : Date.date
-	val date = Date.toString (CurrentDateTime())
-		   
-	val _ = if sufficient_loglevel level NOTICE then
-		    output_text ostream OTHER NOTICE (Printer.SUB [Printer.$("== Log '"^name^"' Initialization at " ^ date ^ " ==")])
-		else
-		    ()
-
-    in
-	id
-    end
+    (* first check to see if the log stream exists *)
+    case List.find (fn{name=name',id,...}=>name=name') (!logs) of
+	SOME {id,...} => ((logs := (map (fn(stream as {name=name',loglevel,outstream, output_groups, id})=> 
+					   if name=name' then
+					       {name=name,
+						loglevel=level,
+						outstream=ostream,
+						output_groups=groups,
+						id=id}
+					   else
+					       stream)
+					(!logs)));
+			  id)
+      | NONE => 
+	let (* add it to the logs if it doesn't already exist *)
+	    val id = get_next_log_id()
+	    val _ = logs := {loglevel=level, outstream=ostream, output_groups=groups, id=id, name=name} :: (!logs)
+		    
+	    fun CurrentDateTime () = (Date.fromTimeLocal (Posix.ProcEnv.time ())) : Date.date
+	    val date = Date.toString (CurrentDateTime())
+		       
+	    val _ = if sufficient_loglevel level NOTICE then
+			output_text ostream OTHER NOTICE (Printer.SUB [Printer.$("== Log '"^(Symbol.name name)^"' Initialization at " ^ date ^ " ==")])
+		    else
+			()
+	in
+	    id
+	end
  
 fun log_add (filename, level, groups) = 
     let
 	val ostream = TextIO.openOut (filename)
     in
-	log_stream(filename, level, ostream, groups)
+	log_stream(Symbol.symbol filename, level, ostream, groups)
     end
 
 fun log_stderr (level, groups) =
-    log_stream ("stderr", level, TextIO.stdErr, groups)
+    log_stream (Symbol.symbol "stderr", level, TextIO.stdErr, groups)
 
 fun log_stdout (level, groups) =
-    log_stream ("stdout", level, TextIO.stdOut, groups)
+    log_stream (Symbol.symbol "stdout", level, TextIO.stdOut, groups)
 
 fun log_remove log_id =
     let
