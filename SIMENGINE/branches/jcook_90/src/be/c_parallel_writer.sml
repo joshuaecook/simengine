@@ -22,6 +22,7 @@ exception InternalError
 val i2s = Util.i2s
 val r2s = Util.r2s
 val e2s = ExpPrinter.exp2str
+val e2ps = ExpPrinter.exp2prettystr
 
 fun cstring str = "\"" ^ str ^ "\""
 fun inc x = 1 + x
@@ -1268,7 +1269,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 				val _ = if length contents = 1 then
 					    ()
 					else
-					    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)
+					    (*DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)*)
+					    (Logger.log_error (Printer.$("Output "^(e2ps (Exp.TERM name))^" in model "^(Symbol.name (ClassProcess.class2basename class))^" can not be a grouping of {"^(String.concatWith ", " (map e2ps contents))^"} when used as a submodel"));
+					     DynException.setErrored())
 					    
 				val valid_condition = case condition 
 						       of (Exp.TERM (Exp.BOOL v)) => v
@@ -1276,16 +1279,15 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 				val _ = if valid_condition then
 					    ()
 					else
-					    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(e2s condition)^"' when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)
+					    Logger.log_warning (Printer.$("The condition ("^(e2ps condition)^") for output "^(e2ps (Exp.TERM name))^" in model "^(Symbol.name (ClassProcess.class2basename class))^" is being ignored when used as a submodel"))
+					    (*DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(e2s condition)^"' when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)*)
 					    
 			    in
 				case contents of
 				    [content] =>
 				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
 				  | _ => 
-				    DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), 
-							       "CParallelWriter.class2flow_code", 
-							       Logger.INTERNAL)
+				    $("// invalid output grouping")
 			    end) (Util.addCount (!(#outputs class))))]
 
 	val mapping_back_progs = []

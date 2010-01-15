@@ -90,9 +90,27 @@ fun sym2str pretty (s, props) =
 			      of SOME (order, iters) => (order, iters)
 			       | NONE => (0, [])
 
-	val iters = (case Property.getIterator props
-		      of SOME iters => Iterator.iterators2str iters
-		       | NONE => "")
+	val iters = 
+	    if pretty then
+		(* can't do the following code because of code ordering.  but we should filter out iterators when we do pretty printing *)
+		(*let
+		    val iterators = CurrentModel.iterators()
+		    fun iter2prettyiter iter = 
+			case List.find (fn(iter_sym,_)=> iter=iter_sym) iterators of
+			    SOME (_, DOF.POST_PROCESS iter_sym) => SOME iter_sym
+			  | SOME (_, DOF.UPDATE iter_sym) => SOME iter_sym
+			  | SOME (_, DOF.IMMEDIATE) => NONE
+			  | _ => SOME iter
+		in
+		    (case Property.getIterator props 
+		      of SOME iters => Iterator.iterators2str (List.mapPartial iter2prettyiter iters)
+		       | NONE => "")			 
+		end*)
+		""
+	    else
+		(case Property.getIterator props
+		  of SOME iters => Iterator.iterators2str iters
+		   | NONE => "")
 
 	val n = (if pretty then "" else prefix) ^ (case (Property.getRealName props)
 			   of SOME v => Symbol.name v
