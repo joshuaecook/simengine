@@ -23,6 +23,7 @@ sig
     val class2statesize : DOF.class -> int (* returns the total number of states stored in the class *)
     val class2statesizebyiterator : DOF.systemiterator -> DOF.class -> int (* limit the state count to those associated with a particular temporal iterator *)
     val class2instancesbyiterator : Symbol.symbol -> DOF.class -> Exp.exp list (* grab all the instances that have states matching the specified iterator, determined by calling class2statesizebiterator *)
+    val class2instances : DOF.class -> Exp.exp list 
     val symbol2exps : DOF.class -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val symbolofiter2exps :  DOF.class -> Symbol.symbol -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
@@ -373,7 +374,10 @@ fun findSymbols (class: DOF.class) =
 
 fun findStateSymbols (class: DOF.class) =
     let
-	val exps = !(#exps class)
+	val exps = 
+	    (! (#exps class)) 
+	    @ (List.concat (map (fn {contents, condition, ...} => condition :: contents) (! (#outputs class))))
+	    @ (List.concat (map (fn {default, ...} => if isSome default then [valOf default] else nil) (! (#inputs class))))
 
 	fun exp2symbols exp =
 	    let
@@ -897,10 +901,10 @@ fun addBufferedIntermediates (class: DOF.class) =
 
 fun addEPIndexToClass is_top (class: DOF.class) =
     let
-	(*val _ = Util.log ("Adding EP Indices to class " ^ (Symbol.name (#name class)))*)
-	val master_class = CurrentModel.classname2class (class2orig_name class)
-	val states = findStateSymbols master_class
-	(*val _ = Util.log ("Found States: " ^ (Util.symlist2s states))*)
+	val _ = Util.log ("Adding EP Indices to class " ^ (Symbol.name (#name class)))
+	(* val master_class = CurrentModel.classname2class (class2classname class) *)
+	val states = findStateSymbols class
+	val _ = Util.log ("Found States: " ^ (Util.symlist2s states))
 	val exps = !(#exps class)
 	val exps' = map (ExpProcess.enableEPIndex is_top states) exps
 
@@ -953,9 +957,6 @@ fun class2instnames' (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list 
 	    in 
 		(classname, instname)
 	    end
-
-	fun inst2orig_names inst =
-	    (ExpProcess.instOrigClassName inst, ExpProcess.instOrigInstName inst)
 
 	fun uniq_fun ((c1,i1),(c2,i2)) = i1 = i2
     in 

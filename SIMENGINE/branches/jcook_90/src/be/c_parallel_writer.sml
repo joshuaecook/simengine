@@ -34,45 +34,6 @@ fun test_instance_class test instance =
     in test class
     end
 
-(* Indicates whether a given subsystem has states. *)
-fun subsystem_has_states shardedModel iter_sym =
-    let val model = ShardedModel.toModel shardedModel iter_sym
-	val iterator = ShardedModel.toIterator shardedModel iter_sym
-	val (_,{classname,...},_) = model
-    in CurrentModel.withModel 
-	   model 
-	   (fn _ =>
-	       let val class = CurrentModel.classname2class classname
-	       in has_states iterator class
-	       end)
-    end
-
-(* Indicates whether a given class or any of its instances 
- * has states associated with a given iterator.
- * Nb Presumes a CurrentModel context. *)
-and has_states iter class = 
-    (0 < ClassProcess.class2statesizebyiterator iter class orelse
-     has_instance_states iter class)
-    handle e => DynException.checkpoint ("CParallelWriter.has_states [iter="^(Symbol.name (#1 iter))^"]") e
-
-(* Indicates whether a given class contains any instances 
- * involving states associated with a given iterator.
- * Nb Presumes a CurrentModel context. *)
-and has_instance_states iter class = 
-    let val (iter_sym, _) = iter
-	val instances = ClassProcess.class2instancesbyiterator iter_sym class
-    in List.exists (instance_has_states (has_states iter)) instances
-    end
-    handle e => DynException.checkpoint "CParallelWriter.has_instance_states" e
-
-(* Indicates whether an instance invocation involves states associated with a given iterator.
- * Nb Presumes a CurrentModel context. *)
-and instance_has_states test instance =
-    let val {classname, ...} = ExpProcess.deconstructInst instance
-	val class = CurrentModel.classname2class classname
-    in test class
-    end
-
 (* Indicates whether an output contains any term in its condition or contents
  * which satisfies a given predicate. *)
 fun output_contains_term test output =
@@ -134,6 +95,45 @@ fun reads_system class =
     in List.exists (output_contains_term Term.isReadSystemState) (! outputs) orelse
        List.exists Term.isReadSystemState (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
        List.exists (test_instance_class reads_system) (List.filter ExpProcess.isInstanceEq (! exps))
+    end
+
+(* Indicates whether a given subsystem has states. *)
+fun subsystem_has_states shardedModel iter_sym =
+    let val model = ShardedModel.toModel shardedModel iter_sym
+	val iterator = ShardedModel.toIterator shardedModel iter_sym
+	val (_,{classname,...},_) = model
+    in CurrentModel.withModel 
+	   model 
+	   (fn _ =>
+	       let val class = CurrentModel.classname2class classname
+	       in has_states iterator class
+	       end)
+    end
+
+(* Indicates whether a given class or any of its instances 
+ * has states associated with a given iterator.
+ * Nb Presumes a CurrentModel context. *)
+and has_states iter class = 
+    reads_iterator iter class orelse
+    writes_iterator iter class
+    handle e => DynException.checkpoint ("CParallelWriter.has_states [iter="^(Symbol.name (#1 iter))^"]") e
+
+(* Indicates whether a given class contains any instances 
+ * involving states associated with a given iterator.
+ * Nb Presumes a CurrentModel context. *)
+and has_instance_states iter class = 
+    let val (iter_sym, _) = iter
+	val instances = ClassProcess.class2instancesbyiterator iter_sym class
+    in List.exists (instance_has_states (has_states iter)) instances
+    end
+    handle e => DynException.checkpoint "CParallelWriter.has_instance_states" e
+
+(* Indicates whether an instance invocation involves states associated with a given iterator.
+ * Nb Presumes a CurrentModel context. *)
+and instance_has_states test instance =
+    let val {classname, ...} = ExpProcess.deconstructInst instance
+	val class = CurrentModel.classname2class classname
+    in test class
     end
 
 
@@ -478,7 +478,6 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 
 	fun findStatesInitValues iter_sym basestr (class:DOF.class) = 
 	    let
-		val classname = ClassProcess.class2orig_name class
 		val exps = #exps class
 		(*val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))*)
 		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
@@ -487,7 +486,18 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		    handle e => DynException.checkpoint ("CParallelWriter.simengine_interface.findStatesInitValues.exp2name ["^(e2s exp)^"]") e
 				      
 		val instances = List.filter ExpProcess.isInstanceEq (!exps)
-		val class_inst_pairs = ClassProcess.class2instnames class
+		val class_inst_pairs = 
+		    let 
+			fun uniq_fun ((c1,i1),(c2,i2)) = i1 = i2
+			fun classAndInstanceName eqn =
+			    let val {classname, ...} = ExpProcess.deconstructInst eqn
+			    in 
+				(classname, ExpProcess.instOrigInstName eqn)
+			    end
+		    in
+			Util.uniquify_by_fun uniq_fun (map classAndInstanceName instances)
+		    end
+
 	    in
 		(List.mapPartial (init_condition2pair iter_sym basestr) init_conditions)
 		@ (StdFun.flatmap (findInstanceStatesInitValues iter_sym) class_inst_pairs)
@@ -765,7 +775,7 @@ local
 	ExpProcess.instOrigInstName inst = instname
 
     fun instance2member instances (classname, instname) =
-	let			  
+	let val classTypeName = ClassProcess.classTypeName (CurrentModel.classname2class classname)		  
 	    val index = 
 		case List.find (instanceNamed instname) instances 
 		 of SOME inst' => 
@@ -774,7 +784,7 @@ local
 		    end
 		  | NONE => ";"
 	in
-	    "statedata_" ^ (Symbol.name classname) ^ " " ^ (Symbol.name instname) ^ index
+	    "statedata_" ^ (Symbol.name classTypeName) ^ " " ^ (Symbol.name instname) ^ index
 	end
 in
 fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
@@ -783,16 +793,32 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	val classTypeName = ClassProcess.classTypeName class
 	val class_iterators = #iterators class
 	val init_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isInitialConditionEq (!exps))
-	val instances = List.filter ExpProcess.isInstanceEq (!exps)
-	(*val _ = Util.log ("in outputstatestructbyclass_code: calling class_inst_pairs for class " ^ (Symbol.name (#name class))^ ", number of instances = " ^ (i2s (List.length instances)))*)
-	val class_inst_pairs = ClassProcess.class2instnames class
-	(* val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs)^"}") *)
+	val instances = ClassProcess.class2instances class
+
+	val class_inst_pairs =
+	    let 
+		fun uniq_fun ((c1,i1),(c2,i2)) = i1 = i2
+		fun classAndInstanceName eqn =
+		    let val {classname, ...} = ExpProcess.deconstructInst eqn
+		    in 
+			(classname, ExpProcess.instOrigInstName eqn)
+		    end
+	    in
+		Util.uniquify_by_fun uniq_fun (map classAndInstanceName instances)
+	    end
+
+
+	val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs)^"}")
+	val _ = Util.log ("Returning from class2instnames: all_instances={"^String.concatWith ", " (map (Symbol.name o #2) class_inst_pairs)^"}")
 
 	val class_inst_pairs_non_empty = 
-	    List.filter (ClassProcess.hasStates o CurrentModel.classname2class o #1) class_inst_pairs					 
+	    List.filter (ClassProcess.hasStates o CurrentModel.classname2class o #1) class_inst_pairs
+
+	val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs_non_empty)^"}")
+	val _ = Util.log ("Returning from class2instnames: all_instances={"^String.concatWith ", " (map (Symbol.name o #2) class_inst_pairs_non_empty)^"}")
 
     in
-	if List.null class_inst_pairs_non_empty andalso List.null init_eqs_symbols andalso List.null instances then 
+	if List.null class_inst_pairs andalso List.null init_eqs_symbols then 
 	    [$(""),
 	     $("// Ignoring class '" ^ (Symbol.name (#name class)) ^ "'")]
 	else
@@ -801,8 +827,8 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	     $("typedef struct  {"),	 
 	     SUB($("// states (count="^(i2s (List.length init_eqs_symbols))^")") ::
 		 (map ($ o (state2member class_iterators)) init_eqs_symbols) @
-		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs_non_empty)) ^")") ::
-		  (map ($ o (instance2member instances)) class_inst_pairs_non_empty))),
+		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")") ::
+		  (map ($ o (instance2member instances)) class_inst_pairs))),
 	     $("} statedata_" ^ (Symbol.name classTypeName) ^";")]
     end
     handle e => DynException.checkpoint "CParallelWriter.outputstatestructbyclass_code" e       
@@ -861,9 +887,11 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) =
 		 $("} systemstatedata_internal;"),
                  $("")]
 
-	fun name_and_iterator class (iter as (iter_sym,_)) = 
-	    (Symbol.symbol ((Symbol.name (ClassProcess.class2basename class))^"_"^(Symbol.name iter_sym)), iter)
-	    handle e => DynException.checkpoint "CParallelWriter.outputsystemsteatestruct_code.name_and_iterator" e
+	fun name_and_iterator class =
+	    let val name = ClassProcess.classTypeName class
+	    in
+		fn iter => (name, iter)
+	    end
 
 	fun class_struct_data class =
 	    let val iters = List.filter (fn (it) => has_states it class) iterators
@@ -1163,9 +1191,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			(Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
 			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
 
-		    (* removing below line since the output args could contain don't cares *)
-		    (*val output_symbol_pairs = 
-			Util.addCount (ListPair.zip (map Term.sym2curname outargs, !(#outputs instclass)))*)
+		    (* Output args could contain don't cares *)
 		    val output_term_pairs =
 			Util.addCount (ListPair.zip (outargs, !(#outputs instclass)))
 		    val output_symbol_pairs =
@@ -1201,7 +1227,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val equ_progs = 
 	    [$(""),
 	     $("// writing all intermediate, instance, and differential equation expressions")] @
-	    (Util.flatmap (fn(exp)=> ((*Util.log("printing exp: " ^ (e2s exp)); *)exp2prog exp)) valid_exps)
+	    (Util.flatmap (fn(exp)=> (exp2prog exp)) valid_exps)
 	end
 	    
 	val state_progs = []
@@ -1282,10 +1308,9 @@ fun flow_code shardedModel iter_sym (*{model as (classes,_,_), iter as (iter_sym
 
 	fun class_flow_prototype class = 
 	    let
-		val orig_name = ClassProcess.class2basename class
-	    (* val class_has_states = case iter_type of *)
-	    (* 			   DOF.UPDATE _ => true *)
-	    (* 			 | _ => ClassProcess.class2statesize class > 0 *)
+		val classname = ClassProcess.class2classname class
+		val basename = ClassProcess.class2basename class
+		val classTypeName = ClassProcess.classTypeName class
 	    in
 		if ClassProcess.isInline class then
 		    $("CDATAFORMAT "^(Symbol.name (#name class))^"("^
@@ -1308,13 +1333,13 @@ fun flow_code shardedModel iter_sym (*{model as (classes,_,_), iter as (iter_sym
 			     statewriteprototype,
 			     systemstatereadprototype) =
 			    (if reads_iterator iter class then
-				 "const statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+				 "const statedata_" ^ (Symbol.name classTypeName) ^ " *rd_" ^ iter_name ^ ", "
 			     else "",
 			     if writes_iterator iter class then
-				 "statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
+				 "statedata_" ^ (Symbol.name classTypeName) ^ " *wr_" ^ iter_name ^ ", "
 			     else "",
 			     if reads_system class then
-				 "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd, "
+				 "const systemstatedata_"^(Symbol.name basename)^" *sys_rd, "
 			     else "")
 
 			val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)

@@ -20,11 +20,6 @@ fun orderShard (model, shard as {classes, instance as {classname,...}, iter_sym}
 
 	(* TODO need to filter through uniq? *)
 	val orderedClasses = orderClasses (model, topClass, unordered)
-
-	val _ = print ("*** Ordered classes: ")
-	val _ = print (String.concatWith ", " (map (Symbol.name o ClassProcess.class2classname) orderedClasses))
-	val _ = print ("\n")
-
     in
 	{classes = rev orderedClasses, instance = instance, iter_sym = iter_sym}
     end
@@ -34,11 +29,6 @@ and orderClasses (model, topClass, nil) = [topClass]
     let val (instanceClassNames,_) = ListPair.unzip (ClassProcess.class2instnames' topClass)
 	val (instanceClasses, unordered') = 
 	    List.partition (fn c => List.exists (fn cn => ClassProcess.class2classname c = cn) instanceClassNames) unordered
-
-	val _ = print ("*** Instances classes preceeding " ^ (Symbol.name (ClassProcess.class2classname topClass)) ^ ": ")
-	val _ = print (String.concatWith ", " (map (Symbol.name o ClassProcess.class2classname) instanceClasses))
-	val _ = print ("\n")
-
     in
 	topClass :: (List.concat (map (fn c => orderClasses (model, c, unordered')) instanceClasses))
     end
@@ -121,13 +111,13 @@ fun std_compile exec args =
 
 	      val _ = log ("Ordering model classes ...")
 	      val forkedModels =
-		  let val (shards, sysprops) = forkedModels
+		  let 
+		      val (shards, sysprops) = forkedModels
 		      val shards' = map (fn (shard as {classes,instance,...}) => 
                           orderShard ((classes,instance,sysprops),shard)) shards
-		  in
-		      (shards', sysprops)
+		  in 
+		      (shards', sysprops) 
 		  end
-
 
 (*	      val _ = log("Ready to build the following DOF ...")*)
 	      val _ = log("Ready to build ...")
@@ -137,6 +127,28 @@ fun std_compile exec args =
 		  if ModelProcess.isDebugging (CurrentModel.getCurrentModel()) then
 		      PrintJSON.printFile ("dof-final.json", ModelSyntax.toJSON (CurrentModel.getCurrentModel ()))
 		  else ()
+
+
+	      local 
+		  open JSON open JSONExtensions
+		  fun JSONSymbol (sym) =
+		      object [("$symbol", string (Symbol.name sym))]
+
+		  fun shardToJSON {classes, instance as {name, classname}, iter_sym} =
+		      object [("classes", array (map ClassSyntax.toJSON classes)),
+			      ("instance", object [("classname", JSONSymbol classname),
+						   ("name", JSONOption (JSONSymbol, name))]),
+			      ("iterator", JSONSymbol iter_sym)]
+		  val (shards, sysprops) = forkedModels
+	      in
+	      val () =
+		  if ModelProcess.isDebugging (CurrentModel.getCurrentModel()) then
+		      PrintJSON.printFile ("dof-system.json",
+					   object [("classname", JSONSymbol classname),
+						   ("properties", ModelSyntax.propertiesToJSON sysprops),
+						   ("shards", array (map shardToJSON shards))])
+		  else ()		  
+	      end
 
 	      val code = CParallelWriter.buildC (classname, forkedModels)
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)

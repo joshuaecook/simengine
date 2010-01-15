@@ -27,6 +27,7 @@ fun fromJSONType (json) =
      of SOME s => SOME (JSON_TYPE s)
       | NONE => NONE
 
+
 fun JSONOption (toJSON, SOME x) = toJSON x
   | JSONOption _ = JSON.null
 

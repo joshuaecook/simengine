@@ -5,6 +5,7 @@ structure ModelSyntax: sig
 
 val toJSON: DOF.model -> JSON.json
 val iteratorToJSON: DOF.systemiterator -> JSON.json
+val propertiesToJSON: DOF.systemproperties -> JSON.json
 (* TODO implement fromJSON *)
 
 end = struct
