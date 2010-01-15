@@ -79,13 +79,15 @@ classdef Suite < handle
         function execute_helper(s, level, runall, runfailures)
         % delete any sim files that may exist in the working
         % directory
-        cwd = pwd;
-        try
-          cd(s.Dir);
-          delete('*.sim');
-          cd(cwd);
-        catch          
-          cd(cwd);
+        if s.DeleteSIMs
+          cwd = pwd;
+          try
+            cd(s.Dir);
+            delete('*.sim');
+            cd(cwd);
+          catch          
+            cd(cwd);
+          end
         end
         spaces = blanks(level*2);
             disp(sprintf('\n%sRunning Suite ''%s'' (Total of %d tests)', spaces, s.Name, s.Total));
