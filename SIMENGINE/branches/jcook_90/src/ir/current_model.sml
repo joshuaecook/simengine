@@ -78,17 +78,20 @@ fun top_name() =
 
 fun classname2class(sym) : DOF.class = 
     let
-	val classnames = map #name (classes())
+	val myclasses = classes ()
+	(* First look for a class with a matching name. *)
+	val found = List.find (fn c => sym = #name c) myclasses
     in
-	case List.find (fn(class)=> 
-			  #name class = sym orelse
-			  (case #classtype (#properties class) of
-			       DOF.MASTER sym' => sym = sym' (* these are accepted since they just had to be renamed *)
-			     | DOF.SLAVE _ => false (* we are not matching slave classes *))		      
-		       ) (classes())
-	 of SOME v => v
-	  | NONE => DynException.stdException(("Can't find class with name '"^(Symbol.name sym)^"': ClassList=" ^(Util.symlist2s classnames)),
-					      ("CurrentModel.classname2class"), Logger.INTERNAL)
+	if isSome found then valOf found
+	else
+	    (* Otherwise look for a class that matches the name in a MASTER relationship. *)
+	    case (List.find (fn {properties = {classtype = DOF.MASTER name, ...}, ...} => name = sym
+			      | _ => false)
+			    myclasses)
+	     of SOME c => c
+	      | NONE => 
+		DynException.stdException(("Can't find class with name '"^(Symbol.name sym)^"': ClassList=" ^(Util.symlist2s (map #name myclasses))),
+					  ("CurrentModel.classname2class"), Logger.INTERNAL)
     end
 
 

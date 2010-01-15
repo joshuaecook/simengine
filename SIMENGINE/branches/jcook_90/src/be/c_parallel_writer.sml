@@ -1200,14 +1200,17 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 		    (* Output args could contain don't cares *)
 		    val output_term_pairs =
-			Util.addCount (ListPair.zip (outargs, !(#outputs instclass)))
+			Util.addCount (ListPair.zipEq (outargs, !(#outputs instclass)))
+			handle ListPair.UnequalLengths =>
+			       DynException.stdException(("Outputs of instance call and instance class are not the same length."),
+							 "CParallelWriter.class2flow_code.instaceeq2prog",
+							 Logger.INTERNAL)
 		    val output_symbol_pairs =
 			List.mapPartial (fn((outarg,outs),n)=> if Term.isSymbol outarg then 
 								   SOME ((Term.sym2curname outarg, outs), n)
 							       else 
 								   NONE)
 					output_term_pairs
-
 		in
 		    (map ($ o declare_output) output_symbol_pairs) @
 		    [$("{"),
@@ -1302,7 +1305,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     end
     handle e => DynException.checkpoint "CParallelWriter.class2flow_code" e
 
-fun flow_code shardedModel iter_sym (*{model as (classes,_,_), iter as (iter_sym, iter_type), top_class} : text list * text list *)= 
+fun flow_code shardedModel iter_sym = 
     let
 	val model as (classes, {classname=top_class,...} ,_) = ShardedModel.toModel shardedModel iter_sym
 	val iter as (_,iter_type) = ShardedModel.toIterator shardedModel iter_sym
