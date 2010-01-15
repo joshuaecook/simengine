@@ -23,7 +23,7 @@ s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),
 % Add basic variable tests
 s.add(SyntaxTests);
 s.add(VariableTests);
-% s.add(IteratorTests);
+s.add(IteratorTests);
 % s.add(SolverTests);
 s.add(EquationTests);
 s.add(OutputTests);
@@ -110,6 +110,21 @@ s_iters.add(CreateUserErrorTest('DiscreteIteratorWithSolver', ...
 s_iters.add(CreateUserErrorTest('DiscreteIteratorWithDiffEq', ...
                                 'IteratorSyntaxTest2.dsl', ...
                                 'Unexpected derivative found with discrete iterator'))
+
+end
+
+% Iterator specific error tests
+function s = IteratorTests
+
+s = Suite('Iterator Tests');
+
+s.add(CreateUserErrorTest('UndefinedIterator', 'IteratorTest1.dsl', ...
+                          'Unknown identifier encountered: t_undefined'));
+s.add(CreateUserErrorTest('UndefinedIteratorIndex', 'IteratorTest2.dsl', ...
+                          'Unknown identifier encountered: t_undefined'));
+s.add(CreateUserErrorTest('WrongIteratorIndex', 'IteratorTest3.dsl', ...
+                          ['Quantity .* is already assigned to iterator .* therefore '...
+                          'can not use iterator']));
 
 end
 

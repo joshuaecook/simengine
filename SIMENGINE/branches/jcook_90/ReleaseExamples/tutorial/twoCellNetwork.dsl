@@ -5,7 +5,9 @@
  */
 
 import "neuronWithSynapse.dsl"
-
+println settings
+println (settings.debug)
+settings.debug.logdof.setValue(true)
 model (Vm1, Vm2) = twoCellNetwork(IStim)
 	input IStim with {default = 0}
 	submodel neuron neuron1 with {Iext = IStim}

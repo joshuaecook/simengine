@@ -105,6 +105,8 @@ val b2s = Util.b2s
 val log = Util.log
 val exp2str = ExpPrinter.exp2str
 val e2s = ExpPrinter.exp2str
+val e2ps = ExpPrinter.exp2prettystr
+
 open Printer
 
 (* TODO: Refactor*)
@@ -911,14 +913,33 @@ fun assignIteratorToSymbol (sym, p) exp =
 
 	val isAssigned = if isTemporal then
 			     case iter of
-				 SOME (sym', _) => if sym = sym' then
-						       (* already assigned *)
-						       true
-						   else
-						       (*DynException.stdException(
-						       ("Can't assign iterator '"^(Symbol.name sym)^"' over previously defined iterator on expression '"^(e2s exp)^"'"),
-						       "ExpProcess.assignIteratorToSymbol",
-						       Logger.INTERNAL)*)true
+				 SOME (sym_in_symbol, _) => 
+				 if sym = sym_in_symbol then
+				     (* already assigned *)
+				     true
+				 else
+				     let (* we have to see if it's an update/post process iterator *)
+					 val iter = valOf (List.find (fn(sym',_)=>sym_in_symbol=sym') temporal_iterators)
+					 val correct_sym_in_symbol = case iter of
+									  (_, DOF.UPDATE sym) => sym
+									| (_, DOF.POSTPROCESS sym) => sym
+									| (sym, _) => sym
+					 val iter' = valOf (List.find (fn(sym',_)=>sym=sym') temporal_iterators)
+					 val correct_sym_assignment = case iter' of
+									  (_, DOF.UPDATE sym) => sym
+									| (_, DOF.POSTPROCESS sym) => sym
+									| (sym, _) => sym
+				     in
+					 if correct_sym_in_symbol = correct_sym_assignment then 
+					     true (* it's already assigned and it is matching *)
+					 else
+					     (Logger.log_error (Printer.$ ("Quantity " ^ (e2ps exp) ^ " is already assigned to iterator "^(Symbol.name sym)^", therefore can not use iterator "^(Symbol.name sym_in_symbol)^" to reference quantity.")); (* sym and sym_in_symbol seem backwards.  in general, the iterator passed into assignIteratorToSymbol is correct as it is generated from assignCorrectScope.  The one that was there originally is generally user defined and incorrect. *)
+					      DynException.setErrored();
+					      (*DynException.stdException(
+					       ("Can't assign iterator '"^(Symbol.name sym)^"' over previously defined iterator on expression '"^(e2s exp)^"'"),
+					       "ExpProcess.assignIteratorToSymbol",
+					       Logger.INTERNAL)*)true)
+				     end
 			       | NONE => false
 			 else
 			     List.exists (fn(sym',_)=>sym=sym') (spatial_iterators)

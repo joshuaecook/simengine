@@ -1138,7 +1138,7 @@ open Simulation
 import "translate.dsl"
 import "simcompile.dsl"
 
-function compile2 (filename: String, settings: Table)
+function compile2 (filename: String, compiler_settings: Table)
   if "dsl" <> Path.ext filename then
       error ("Unknown type of file " + filename)
   end
@@ -1153,15 +1153,15 @@ function compile2 (filename: String, settings: Table)
 
       if modtime > simmodtime or Sys.buildTime > simmodtime then
 	  var mod = LF loadModel (filename)
-	  mod.template.settings = settings
+	  mod.template.settings = compiler_settings
 	  compile mod
       else
-	  var simsettings = LF simfileSettings simfile
-	  if not (settings.target == simsettings.target and
-		  settings.precision == simsettings.precision and
-		  settings.num_models == simsettings.num_models) then
+	  var simcompiler_settings = LF simfileSettings simfile
+	  if not (compiler_settings.target == simcompiler_settings.target and
+		  compiler_settings.precision == simcompiler_settings.precision and
+		  compiler_settings.num_models == simcompiler_settings.num_models) then
 	      var mod = LF loadModel (filename)
-	      mod.template.settings = settings
+	      mod.template.settings = compiler_settings
 	      compile mod
 	  else
 	      "Compilation Finished Successfully"
@@ -1169,45 +1169,45 @@ function compile2 (filename: String, settings: Table)
       end
   else
       var mod = LF loadModel (filename)
-      mod.template.settings = settings
+      mod.template.settings = compiler_settings
       compile mod
   end
 end
 
 function compile (mod)
   var name = mod.template.name
-  var settings = mod.template.settings
+  var compiler_settings = mod.template.settings
 
   var target
 
-  if "openmp" == settings.target then
+  if "openmp" == compiler_settings.target then
       target = SimCompile.TargetOpenMP.new()
-  elseif "parallelcpu" == settings.target then
+  elseif "parallelcpu" == compiler_settings.target then
       target = SimCompile.TargetOpenMP.new()
-  elseif "cuda" == settings.target then
-      target = SimCompile.TargetCUDA.new(settings)
-  elseif "gpu" == settings.target then
-      target = SimCompile.TargetCUDA.new(settings)
-  elseif "cpu" == settings.target then
+  elseif "cuda" == compiler_settings.target then
+      target = SimCompile.TargetCUDA.new(compiler_settings)
+  elseif "gpu" == compiler_settings.target then
+      target = SimCompile.TargetCUDA.new(compiler_settings)
+  elseif "cpu" == compiler_settings.target then
       target = SimCompile.TargetCPU.new()
   else
-      warning ("Unknown target " + settings.target + " defaulting to cpu")
-      settings.target = "cpu"
+      warning ("Unknown target " + compiler_settings.target + " defaulting to cpu")
+      compiler_settings.target = "cpu"
       target = SimCompile.TargetCPU.new()
   end
 
-  target.debug = settings.debug
-  target.profile = settings.profile
+  target.debug = compiler_settings.debug
+  target.profile = compiler_settings.profile
 
-  target.num_models = settings.num_models
-  target.precision = settings.precision
+  target.num_models = compiler_settings.num_models
+  target.precision = compiler_settings.precision
 
   var stat = LF compile (Translate.model2forest (mod.instantiate()))
   var compilation_successful = LF str_contains (stat, "Compilation Finished Successfully")
       
   if compilation_successful then
       var cc
-      if "gpu" <> settings.target and "cuda" <> settings.target then
+      if "gpu" <> compiler_settings.target and "cuda" <> compiler_settings.target then
 	  cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
       else
 	  SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
@@ -1216,7 +1216,7 @@ function compile (mod)
 
       var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
 
-      if settings.debug then
+      if compiler_settings.debug then
 	  println(cc(1) + " " + (join(" ", cc(2))))
       end
       var ccp = Process.run(cc(1),cc(2))
@@ -1230,7 +1230,7 @@ function compile (mod)
         error ("OOPS! Compiler returned non-zero exit status " + ccstat)
       end
 
-      if settings.debug then
+      if compiler_settings.debug then
           println(ld(1) + " '" + (join("' '", ld(2))) + "'")
       end
       var ldp = Process.run(ld(1), ld(2))

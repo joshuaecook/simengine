@@ -93,16 +93,16 @@ state last_spike_time = 0
 state last_spike_area = 0
 
 equations
-   last_spike_area = {0 when (Vm[t[-1]] < -40 and Vm[t[-2]] >= -40),
-   		      last_spike_area + (Vm[t[-1]]+40)*(0.05/1000) when (Vm[t[-1]] >= -40 and Vm[t[-1]] <=-15),
-   		      last_spike_area + 20*(0.05/1000) when (Vm[t[-1]] > -15),
+   last_spike_area = {0 when (Vm[t_expeuler[-1]] < -40 and Vm[t_expeuler[-2]] >= -40),
+   		      last_spike_area + (Vm[t_expeuler[-1]]+40)*(0.05/1000) when (Vm[t_expeuler[-1]] >= -40 and Vm[t_expeuler[-1]] <=-15),
+   		      last_spike_area + 20*(0.05/1000) when (Vm[t_expeuler[-1]] > -15),
                       last_spike_area otherwise}
 
-  last_spike_time = {t when (Vm < Vm[t[-1]] and Vm[t[-1]] > Vm[t[-2]]),
+  last_spike_time = {t when (Vm < Vm[t_expeuler[-1]] and Vm[t_expeuler[-1]] > Vm[t_expeuler[-2]]),
                      last_spike_time otherwise}
-  last_spike_height = Vm[t[-1]] when (Vm < Vm[t[-1]] and Vm[t[-1]] > Vm[t[-2]])
+  last_spike_height = Vm[t_expeuler[-1]] when (Vm < Vm[t_expeuler[-1]] and Vm[t_expeuler[-1]] > Vm[t_expeuler[-2]])
 
-  output_data = (Vm < -40 and Vm[t[-1]] >= -40 and t > 10000)
+  output_data = (Vm < -40 and Vm[t_expeuler[-1]] >= -40 and t > 10000)
 end
 
 //time is in msec
