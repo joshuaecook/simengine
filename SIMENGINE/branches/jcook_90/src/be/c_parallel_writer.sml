@@ -787,7 +787,7 @@ local
 	    "statedata_" ^ (Symbol.name classTypeName) ^ " " ^ (Symbol.name instname) ^ index
 	end
 in
-fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
+fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
     let
 	val classname = ClassProcess.class2classname class
 	val classTypeName = ClassProcess.classTypeName class
@@ -812,13 +812,13 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	val _ = Util.log ("Returning from class2instnames: all_instances={"^String.concatWith ", " (map (Symbol.name o #2) class_inst_pairs)^"}")
 
 	val class_inst_pairs_non_empty = 
-	    List.filter (ClassProcess.hasStates o CurrentModel.classname2class o #1) class_inst_pairs
+	    List.filter ((has_states iterator) o CurrentModel.classname2class o #1) class_inst_pairs
 
 	val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs_non_empty)^"}")
 	val _ = Util.log ("Returning from class2instnames: all_instances={"^String.concatWith ", " (map (Symbol.name o #2) class_inst_pairs_non_empty)^"}")
 
     in
-	if List.null class_inst_pairs andalso List.null init_eqs_symbols then 
+	if List.null class_inst_pairs_non_empty andalso List.null init_eqs_symbols then 
 	    [$(""),
 	     $("// Ignoring class '" ^ (Symbol.name (#name class)) ^ "'")]
 	else
@@ -827,29 +827,32 @@ fun outputstatestructbyclass_code (class : DOF.class as {exps, ...}) =
 	     $("typedef struct  {"),	 
 	     SUB($("// states (count="^(i2s (List.length init_eqs_symbols))^")") ::
 		 (map ($ o (state2member class_iterators)) init_eqs_symbols) @
-		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs)) ^")") ::
-		  (map ($ o (instance2member instances)) class_inst_pairs))),
+		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs_non_empty)) ^")") ::
+		  (map ($ o (instance2member instances)) class_inst_pairs_non_empty))),
 	     $("} statedata_" ^ (Symbol.name classTypeName) ^";")]
     end
     handle e => DynException.checkpoint "CParallelWriter.outputstatestructbyclass_code" e       
 end
 
-fun outputstatestruct_code (model:DOF.model as (classes,_,_)) =
-    let
-	fun progs () =
-	    let val master_classes = List.filter (fn (c) => ClassProcess.isMaster c andalso (ClassProcess.hasStates c orelse ClassProcess.hasInstances c)) classes
-	    in
-		List.concat (map outputstatestructbyclass_code master_classes)
-	    end
+(* Nb depends on a CurrentModel context. *)
+fun outputstatestruct_code (iterator: DOF.systemiterator, shard as {classes, ...}) =
+    let 
+	val master_classes = 
+	    List.filter (fn (c) => ClassProcess.isMaster c 
+				   andalso (ClassProcess.hasStates c 
+					    orelse ClassProcess.hasInstances c)) 
+			classes
+	val master_classes = 
+	    Util.uniquify_by_fun (fn (a, b) => (ClassProcess.classTypeName a) = (ClassProcess.classTypeName b))
+				 master_classes
     in
-	CurrentModel.withModel model progs
-    end 
+	List.concat (map (outputstatestructbyclass_code iterator) master_classes)
+    end
     handle e => DynException.checkpoint "CParallelWriter.outputstatestruct_code" e
 
 fun outputsystemstatestruct_code (shardedModel as (shards,_)) =
     let
 	val all_classes = Util.flatmap (fn{classes,...}=>classes) shards
-	val master_classes = List.filter (fn (c) => ClassProcess.isMaster c) all_classes
 	val iterator_symbols = ShardedModel.iterators shardedModel
 	val iterators = map (ShardedModel.toIterator shardedModel) iterator_symbols
 
@@ -919,7 +922,11 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) =
 
 	val per_class_struct_data = 
 	    List.concat (map (fn (shard as {classes, instance, iter_sym}) =>
-              let val masters = List.filter ClassProcess.isMaster classes
+              let 
+		  val masters = List.filter ClassProcess.isMaster classes
+		  val masters =
+		      Util.uniquify_by_fun (fn (a, b) => (ClassProcess.classTypeName a) = (ClassProcess.classTypeName b))
+		  			   masters
                   val model = ShardedModel.toModel shardedModel iter_sym
               in
                   CurrentModel.withModel model (fn _ =>
@@ -1618,9 +1625,10 @@ fun buildC (orig_name, shardedModel) =
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code shardedModel
 	val outputstatestruct_progs = Util.flatmap 
-					  (fn{iter_sym,...} => 
+					  (fn (shard as {iter_sym,...}) => 
 					     let val model = ShardedModel.toModel forkedModelsLessUpdate iter_sym
-					     in CurrentModel.withModel model (fn _=> outputstatestruct_code model)
+						 val iterator = ShardedModel.toIterator shardedModel iter_sym
+					     in CurrentModel.withModel model (fn _=> outputstatestruct_code (iterator, shard))
 					     end)
 					  (#1 forkedModelsLessUpdate) (* pull out just the shards *)
 	val systemstate_progs = outputsystemstatestruct_code forkedModelsLessUpdate
