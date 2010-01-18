@@ -27,6 +27,7 @@ util/build-options.sml
 
 
 util/general_util.sml
+util/sorting.sml
 util/symboltable.sml
 util/unique.sml
 util/testutils.sml

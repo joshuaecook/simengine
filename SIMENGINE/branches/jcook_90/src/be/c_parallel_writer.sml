@@ -477,6 +477,9 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	       else NONE
 	    end
 
+	(* State names and initial value pairs are returned in a sorted order,
+	 * with the class' own states listed first in lexicographic order,
+	 * followed by the class' instance's states in order of the instance name. *)
 	fun findStatesInitValues iter_sym basestr (class:DOF.class) = 
 	    let
 		val exps = #exps class
@@ -499,9 +502,13 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 			Util.uniquify_by_fun uniq_fun (map classAndInstanceName instances)
 		    end
 
+		val stateInits = List.mapPartial (init_condition2pair iter_sym basestr) init_conditions
+		val instanceStateInits = StdFun.flatmap (findInstanceStatesInitValues iter_sym) class_inst_pairs
+
+		val compare = fn ((x,_), (y,_)) => String.compare (x, y)
 	    in
-		(List.mapPartial (init_condition2pair iter_sym basestr) init_conditions)
-		@ (StdFun.flatmap (findInstanceStatesInitValues iter_sym) class_inst_pairs)
+		(Sorting.sorted compare stateInits)
+		@ (Sorting.sorted compare instanceStateInits)
 	    end
 	    handle e => DynException.checkpoint "CParallelWriter.simengine_interface.findStatesInitValues" e
 
@@ -808,16 +815,8 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 		Util.uniquify_by_fun uniq_fun (map classAndInstanceName instances)
 	    end
 
-
-	val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs)^"}")
-	val _ = Util.log ("Returning from class2instnames: all_instances={"^String.concatWith ", " (map (Symbol.name o #2) class_inst_pairs)^"}")
-
 	val class_inst_pairs_non_empty = 
 	    List.filter ((has_states iterator) o CurrentModel.classname2class o #1) class_inst_pairs
-
-	val _ = Util.log ("Returning from class2instnames: all_classes={"^String.concatWith ", " (map (Symbol.name o #1) class_inst_pairs_non_empty)^"}")
-	val _ = Util.log ("Returning from class2instnames: all_instances={"^String.concatWith ", " (map (Symbol.name o #2) class_inst_pairs_non_empty)^"}")
-
     in
 	if List.null class_inst_pairs_non_empty andalso List.null init_eqs_symbols then 
 	    [$(""),

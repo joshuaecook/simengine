@@ -910,10 +910,8 @@ fun addBufferedIntermediates (class: DOF.class) =
 
 fun addEPIndexToClass is_top (class: DOF.class) =
     let
-	val _ = Util.log ("Adding EP Indices to class " ^ (Symbol.name (#name class)))
 	(* val master_class = CurrentModel.classname2class (class2classname class) *)
 	val states = findStateSymbols class
-	val _ = Util.log ("Found States: " ^ (Util.symlist2s states))
 	val exps = !(#exps class)
 	val exps' = map (ExpProcess.enableEPIndex is_top states) exps
 
@@ -1298,15 +1296,15 @@ fun assignCorrectScope (class: DOF.class) =
 	    end
 
 
-	(*val _ = Util.log ("In assignCorrectScope, producing rewriting rules: ")
-	val _ = app (fn(sym, (iter_sym,_))=> Util.log (" -> sym: " ^ (Symbol.name sym) ^ ", iter: " ^ (Symbol.name iter_sym))) symbol_state_iterators*)
-	(*Util.flatmap ExpProcess.exp2symbols state_terms*)
+	(* val _ = Util.log ("In assignCorrectScope, producing rewriting rules: ") *)
+	(* val _ = app (fn(sym, (iter_sym,_))=> Util.log (" -> sym: " ^ (Symbol.name sym) ^ ", iter: " ^ (Symbol.name iter_sym))) symbol_state_iterators *)
+		
 
 	val state_actions = map 
 			  (fn(sym, iter as (itersym, _))=>
 			     {find=Match.asym sym, 
 			      test=NONE, 
-			      replace=Rewrite.ACTION (Symbol.symbol (Symbol.name sym ^ "["^(Symbol.name (#1 iter))^"]"),
+			      replace=Rewrite.ACTION (Symbol.symbol (Symbol.name sym ^ "["^(Symbol.name itersym)^"]"),
 						      (fn(exp)=>ExpProcess.assignCorrectScopeOnSymbol
 								    (ExpProcess.prependIteratorToSymbol itersym exp)))}) 
 			  symbol_state_iterators
