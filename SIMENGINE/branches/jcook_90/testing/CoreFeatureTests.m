@@ -111,6 +111,11 @@ if mode == INTERNAL
     s.add(Test('InitValueasInitthenInput', @()(simex('models_FeatureTests/StateTest6.dsl', 10,[1],input_struct,target)), '-equal', struct('x', [0:10; 2:12]')));
 end
 
+% finally, we should support no states
+s.add(Test('NoStates', @()(simex('models_FeatureTests/StateTest7.dsl', ...
+                                 10, target)), '-equal', struct('x', ...
+                                                  [0:10; 0:10]')))
+
 end
 
 function s = InlineFunctionFeatureTests(target)
