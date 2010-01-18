@@ -83,7 +83,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
   int i;
   int ret = model_flows(props->time[modelid], props->model_states, mem->k1, props, 1, modelid);
 
-  int appropriate_step = FALSE;
+  int appropriate_step = 0;
 
   CDATAFORMAT max_error;
 
@@ -141,7 +141,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
     //CDATAFORMAT norm = max_error;
     CDATAFORMAT norm = sqrt(err_sum/props->statesize);
     appropriate_step = norm <= 1;
-    if (mem->cur_timestep[modelid] == min_timestep) appropriate_step = TRUE;
+    if (mem->cur_timestep[modelid] == min_timestep) appropriate_step = 1;
 
     if (appropriate_step){
       props->next_time[modelid] += mem->cur_timestep[modelid];

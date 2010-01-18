@@ -276,17 +276,16 @@ fun simfileSettings exec args =
      of [KEC.LITERAL (KEC.CONSTSTR path)] =>
 	Simex.withSimengine path (fn simengine =>
 	let val api = Simex.api simengine
-	    val meta = Simex.API.metadata api
 	    val newTable = KEC.SEND {object = KEC.SYMBOL (Symbol.symbol "Table"), 
 				     message = Symbol.symbol "new"}
 
 	    val keys = ["target", "precision", "num_models", "version"]
 	    val values = 
-		[KEC.LITERAL (KEC.CONSTSTR (Simex.API.Metadata.target meta)),
-		 KEC.LITERAL (KEC.CONSTSTR (case Simex.API.Metadata.precision meta
-					     of Simex.API.Metadata.Double => "double"
-					      | Simex.API.Metadata.Single => "float")),
-		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.Metadata.numModels meta))),
+		[KEC.LITERAL (KEC.CONSTSTR (Simex.API.target api)),
+		 KEC.LITERAL (KEC.CONSTSTR (case Simex.API.precision api
+					     of Simex.API.Double => "double"
+					      | Simex.API.Single => "float")),
+		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.numModels api))),
 		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.version api)))]
 
 	    val entries = KEC.list2kecvector

@@ -596,14 +596,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("static const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
 	 $("static const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " (map i2s outputs_num_quantities)) ^ "};"),
 	 $("static const char model_name[] = \"" ^ class_name ^ "\";"),
-	 $("static const char *solvers[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
-	 $("#if defined TARGET_CPU"),  (* These #if statements should be converted to sml conditionals based on compiler options *)
-	 $("static const char target[] = \"cpu\";"),
-	 $("#elif defined TARGET_OPENMP"),
-	 $("static const char target[] = \"openmp\";"),
-	 $("#elif defined TARGET_GPU"),
-	 $("static const char target[] = \"gpu\";"),
-	 $("#endif"),
+	 $("static const char *solver_names[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
 	 $(""),
 	 (* This would be nice but fails in gcc
 	 $("static const unsigned int NUM_INPUTS = "^(i2s (List.length input_names)) ^ ";"),
@@ -1652,8 +1645,19 @@ fun buildC (orig_name, shardedModel) =
 	val fun_prototypes = List.concat (map #1 flow_data)
 	val flow_progs = List.concat (map #2 flow_data)
 	val logoutput_progs = logoutput_code forkedModelsLessUpdate
-	val simengine_target_h = $(Archive.getC "simengine/simengine_target.h")
 	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
+	val precision_h = $(Archive.getC "simengine/precision.h")
+	val memory_layout_h = $(Archive.getC "simengine/memory_layout.h")
+
+	val target_h = 
+	    case sysprops 
+	     of	{target=Target.CPU, ...} =>
+		$(Archive.getC "simengine/cpu.h")
+	      | {target=Target.OPENMP, ...} =>
+		$(Archive.getC "simengine/openmp.h")
+	      | {target=Target.CUDA, ...} =>
+		$(Archive.getC "simengine/gpu.h")
+
 	val solvers_h = $(Archive.getC "solvers/solvers.h")
 	val gpu_util_c = $(Archive.getC "simengine/gpu_util.c")
 	val random_c = $(Archive.getC "simengine/random.c")
@@ -1666,7 +1670,7 @@ fun buildC (orig_name, shardedModel) =
 				  (postprocess_wrapper postprocessModels)
 	val simengine_api_c = $(Archive.getC "simengine/simengine_api.c")
 	val defines_h = $(Archive.getC "simengine/defines.h")
-	val semeta_seint_h = $(Archive.getC "simengine/semeta_seint.h")
+	val seint_h = $(Archive.getC "simengine/seint.h")
 	val output_buffer_h = $(Archive.getC "simengine/output_buffer.h")
 	val init_output_buffer_c = $(Archive.getC "simengine/init_output_buffer.c")
 	val log_outputs_c = $(Archive.getC "simengine/log_outputs.c")
@@ -1688,8 +1692,9 @@ fun buildC (orig_name, shardedModel) =
 
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @
-					      [simengine_target_h] @
-
+					      [precision_h] @
+					      [memory_layout_h] @
+					      [target_h] @
 					      (case sysprops
 						of {target=Target.CUDA, ...} =>
 						   [gpu_util_c]
@@ -1701,7 +1706,7 @@ fun buildC (orig_name, shardedModel) =
 					      [defines_h] @
 					      (* Could be conditional on use of randoms *)
 					      [random_c] @
-					      [semeta_seint_h] @
+					      [seint_h] @
 					      [output_buffer_h] @
 					      outputdatastruct_progs @
 					      outputstatestruct_progs @

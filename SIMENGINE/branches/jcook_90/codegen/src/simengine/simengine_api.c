@@ -1,6 +1,12 @@
 
 #define START_SIZE 1000
 
+// Error messages corresponding to enumerated error codes
+const char *simengine_errors[] = {"Success", 
+				  "Out of memory error",
+				  "Flow computation error",
+				  "Wrong number of models"};
+
 /* Allocates and initializes an array of solver properties, one for each iterator. */
 solver_props* init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
@@ -40,7 +46,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   if(!seresult) return NULL;
 	     
   // Check that the number of models matches
-  if(num_models != semeta.num_models){
+  if(num_models != seint.num_models){
     seresult->status = ERRNUMMDL;
     seresult->status_message = (char*) simengine_errors[ERRNUMMDL];
     seresult->outputs = NULL;
@@ -51,18 +57,18 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 	     
   // Allocate return structures
   if(seint.num_outputs){
-    seresult->outputs = (simengine_output*)se_alloc.malloc(semeta.num_models * seint.num_outputs * sizeof(simengine_output));
+    seresult->outputs = (simengine_output*)se_alloc.malloc(seint.num_models * seint.num_outputs * sizeof(simengine_output));
   }
   else{
     seresult->outputs = NULL;
   }
   if(seint.num_states){
-    seresult->final_states = (double*)se_alloc.malloc(semeta.num_models * seint.num_states * sizeof(double));
+    seresult->final_states = (double*)se_alloc.malloc(seint.num_models * seint.num_states * sizeof(double));
   }
   else{
     seresult->final_states = NULL;
   }
-  seresult->final_time = (double*)se_alloc.malloc(semeta.num_models * sizeof(double));
+  seresult->final_time = (double*)se_alloc.malloc(seint.num_models * sizeof(double));
   if((seint.num_outputs && !seresult->outputs) || (seint.num_states && !seresult->final_states) ||!seresult->final_time){
     seresult->status = ERRMEM;
     seresult->status_message = (char*) simengine_errors[ERRMEM];
@@ -73,22 +79,22 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   }
 	     
   // Copy inputs and state initial values to internal representation
-  for(modelid=0; modelid<semeta.num_models; modelid++){
+  for(modelid=0; modelid<seint.num_models; modelid++){
     for(stateid=0;stateid<seint.num_states;stateid++){
-      model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)];
+      model_states[TARGET_IDX(seint.num_states, seint.num_models, stateid, modelid)] = states[AS_IDX(seint.num_states, seint.num_models, stateid, modelid)];
     }
     for(inputid=0;inputid<seint.num_inputs;inputid++){
-      parameters[TARGET_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)] = inputs[AS_IDX(seint.num_inputs, semeta.num_models, inputid, modelid)];
+      parameters[TARGET_IDX(seint.num_inputs, seint.num_models, inputid, modelid)] = inputs[AS_IDX(seint.num_inputs, seint.num_models, inputid, modelid)];
     }
   }
 	     
   // Initialization of output structures
-  for (modelid = 0; modelid < semeta.num_models; ++modelid) {
+  for (modelid = 0; modelid < seint.num_models; ++modelid) {
     for (outputid = 0; outputid < seint.num_outputs; ++outputid) {
-      seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].alloc = START_SIZE;
-      seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].num_quantities = seint.output_num_quantities[outputid];
-      seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].num_samples = 0;
-      seresult->outputs[AS_IDX(seint.num_outputs, semeta.num_models, outputid, modelid)].data = (double*)se_alloc.malloc(START_SIZE*seint.output_num_quantities[outputid]*sizeof(double));
+      seresult->outputs[AS_IDX(seint.num_outputs, seint.num_models, outputid, modelid)].alloc = START_SIZE;
+      seresult->outputs[AS_IDX(seint.num_outputs, seint.num_models, outputid, modelid)].num_quantities = seint.output_num_quantities[outputid];
+      seresult->outputs[AS_IDX(seint.num_outputs, seint.num_models, outputid, modelid)].num_samples = 0;
+      seresult->outputs[AS_IDX(seint.num_outputs, seint.num_models, outputid, modelid)].data = (double*)se_alloc.malloc(START_SIZE*seint.output_num_quantities[outputid]*sizeof(double));
     }
   }
 
@@ -99,7 +105,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   seresult->status_message = (char*) simengine_errors[seresult->status];
 	     
   // Copy the final time from simulation
-  for(modelid=0; modelid<semeta.num_models; modelid++){
+  for(modelid=0; modelid<seint.num_models; modelid++){
     seresult->final_time[modelid] = props->time[modelid]; // Time from the first solver
   }
 
@@ -107,9 +113,9 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   free_solver_props(props, model_states);
 
   // Copy state values back to state initial value structure
-  for(modelid=0; modelid<semeta.num_models; modelid++){
+  for(modelid=0; modelid<seint.num_models; modelid++){
     for(stateid=0;stateid<seint.num_states;stateid++){
-      seresult->final_states[AS_IDX(seint.num_states, semeta.num_models, stateid, modelid)] = model_states[TARGET_IDX(seint.num_states, semeta.num_models, stateid, modelid)];
+      seresult->final_states[AS_IDX(seint.num_states, seint.num_models, stateid, modelid)] = model_states[TARGET_IDX(seint.num_states, seint.num_models, stateid, modelid)];
     }
   }
 

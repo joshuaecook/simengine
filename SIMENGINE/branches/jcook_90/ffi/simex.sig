@@ -1,32 +1,27 @@
 (* The public API of a compiled simEngine simulation library. *)
-signature SIMENGINE_API_STRUCTS = sig
-    type api
-    type meta
-
-    val version: api -> int
-    val metadata: api -> meta
-end
-
 signature SIMENGINE_API = sig
-    include SIMENGINE_API_STRUCTS
-
-    structure Metadata : sig
-	val hashcode: meta -> Int64.int
-	val numModels: meta -> int
-	val solverNames: meta -> string vector
-	val target: meta -> string
-	datatype prec = Double | Single
-	val precision: meta -> prec
-    end
-
-    val iteratorNames: api -> string vector
-    val defaultStates: api -> Real64.real vector
-    val inputNames: api -> string vector
-    val defaultInputs: api -> Real64.real vector
-    val outputNames: api -> string vector
-    val outputNumQuantities: api -> Int32.int vector
+    type api
 
     val name: api -> string
+    val target: api -> string
+    val solverNames: api -> string vector
+    val iteratorNames: api -> string vector
+    val inputNames: api -> string vector
+    val stateNames: api -> string vector
+    val outputNames: api -> string vector
+    val defaultInputs: api -> Real64.real vector
+    val defaultStates: api -> Real64.real vector
+    val outputNumQuantities: api -> Int32.int vector
+    val version: api -> int
+    datatype prec = Double | Single
+    val precision: api -> prec
+    val numModels: api -> int
+    val numIterators : api -> int
+    val numInputs : api -> int
+    val numStates : api -> int
+    val numOutputs : api -> int
+    val hashcode: api -> Int64.int
+
 end
 
 (* Results returned from a simulation. *)

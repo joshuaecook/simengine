@@ -1,18 +1,7 @@
-const simengine_metadata semeta = {
-  HASHCODE,
-  NUM_MODELS,
-  NUM_SOLVERS,
-  solvers,
-  target,
-  sizeof(CDATAFORMAT)
-};
-
 const simengine_interface seint = {
-  VERSION,
-  NUM_ITERATORS,
-  NUM_INPUTS,
-  NUM_STATES,
-  NUM_OUTPUTS,
+  model_name,
+  target,
+  solver_names,
   iterator_names,
   input_names,
   state_names,
@@ -20,8 +9,14 @@ const simengine_interface seint = {
   default_inputs,
   default_states,
   output_num_quantities,
-  model_name,
-  &semeta
+  VERSION,
+  sizeof(CDATAFORMAT),
+  NUM_MODELS,
+  NUM_ITERATORS,
+  NUM_INPUTS,
+  NUM_STATES,
+  NUM_OUTPUTS,
+  HASHCODE
 };
 
 simengine_alloc se_alloc = { malloc, realloc, free };

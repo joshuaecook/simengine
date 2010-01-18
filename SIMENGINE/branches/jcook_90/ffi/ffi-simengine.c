@@ -7,68 +7,7 @@
  * exported functions (e.g. those use to
  * allocate memory for arrays.) */
 #include "ffi-simengine.h"
-
-typedef struct {
-  const uint64_t hashcode;
-  const uint32_t num_models;
-  const uint32_t num_solvers;
-  const Vector(String8_t) solvers;
-  const String8_t target;
-  const size_t precision;
-} simengine_metadata_t;
-
-typedef struct{
-  const uint32_t version;
-  const uint32_t num_iterators;
-  const uint32_t num_inputs;
-  const uint32_t num_states;
-  const uint32_t num_outputs;
-  const Vector(String8_t) iterator_names;
-  const Vector(String8_t) input_names;
-  const Vector(String8_t) state_names;
-  const Vector(String8_t) output_names;
-  const Vector(Real64_t) default_inputs;
-  const Vector(Real64_t) default_states;
-  const Vector(uint32_t) output_num_quantities;
-  const String8_t name;
-  const simengine_metadata_t *metadata;
-} simengine_interface_t;
-
-
-
-static const char * solvers[] = {"foo","bar"};
-static const simengine_metadata_t semeta = {
-    UINT64_C(0),
-    1,//  NUM_MODELS,
-    2,// NUM_SOLVERS,
-    solvers,
-    "quux",//target,
-    sizeof(double)
-};
-
-static const double default_inputs[] = {42.0, 3.14, 1.61};
-static const double default_states[] = {0.0, 1.0};
-static const char * iterator_names[] = {"t"};
-static const char * input_names[] = {"x0","x1","x2"};
-static const char * state_names[] = {"s0", "s1"};
-static const char * output_names[] = {"y0"};
-static const size_t output_num_quantities[] = {1};
-static const simengine_interface_t seint = {
-    1,//VERSION,
-    1,//NUM_ITERATORS,
-    3,//NUM_INPUTS,
-    2,//NUM_STATES,
-    1,//NUM_OUTPUTS,
-    iterator_names,
-    input_names,
-    state_names,
-    output_names,
-    default_inputs,
-    default_states,
-    output_num_quantities,
-    "dillinger",//model_name,
-    &semeta
-};
+#include "../codegen/src/simengine/simengine_api.h"
 
 Vector(Word64_t) seint_vector64 (size_t length, Word64_t *defaults)
     {
@@ -108,95 +47,90 @@ Vector(String8_t) seint_string_vector (size_t length, char **defaults)
     return strings;
     }
 
-Pointer simengine_interface ()
-    { return &seint; }
+String8 seint_name (Pointer iface)
+    { 
+    char *name = ((simengine_interface *)iface)->name;
+    size_t length = strlen(name);
+    return seint_vector8(length, name);
+    }
 
-Int32_t seint_version (Pointer iface)
-    { return ((simengine_interface_t *)iface)->version; }
+String8 seint_target (Pointer iface)
+    {
+    char *name = ((simengine_interface *)iface)->target;
+    size_t length = strlen(name);
+    return seint_vector8(length, name);
+    }
 
-Int32_t seint_num_iterators (Pointer iface)
-    { return ((simengine_interface_t *)iface)->num_iterators; }
-
-Int32_t seint_num_inputs (Pointer iface)
-    { return ((simengine_interface_t *)iface)->num_inputs; }
-
-Int32_t seint_num_states (Pointer iface)
-    { return ((simengine_interface_t *)iface)->num_states; }
-
-Int32_t seint_num_outputs (Pointer iface)
-    { return ((simengine_interface_t *)iface)->num_outputs; }
+Vector(String8_t) seint_solver_names (Pointer iface)
+    {
+    size_t length = seint_num_iterators(iface);
+    char **solvers = ((simengine_interface *)iface)->solver_names;
+    return seint_string_vector(length, solvers);
+    }
 
 Vector(String8_t) seint_iterator_names (Pointer iface)
     { 
     size_t length = seint_num_iterators(iface);
-    char **iterator_names = ((simengine_interface_t *)iface)->iterator_names;
+    char **iterator_names = ((simengine_interface *)iface)->iterator_names;
     return seint_string_vector(length, iterator_names);
     }
 
 Vector(String8_t) seint_input_names (Pointer iface)
     {
     size_t length = seint_num_inputs(iface);
-    char **input_names = ((simengine_interface_t *)iface)->input_names;
+    char **input_names = ((simengine_interface *)iface)->input_names;
     return seint_string_vector(length, input_names);
     }
 
 Vector(String8_t) seint_output_names (Pointer iface)
     {
     size_t length = seint_num_outputs(iface);
-    char **output_names = ((simengine_interface_t *)iface)->output_names;
+    char **output_names = ((simengine_interface *)iface)->output_names;
     return seint_string_vector(length, output_names);
     }
 
 Vector(Real64_t) seint_default_inputs (Pointer iface)
     {
     size_t length = seint_num_inputs(iface);
-    double *default_inputs = ((simengine_interface_t *)iface)->default_inputs;
+    double *default_inputs = ((simengine_interface *)iface)->default_inputs;
     return seint_vector64(length, default_inputs);
     }
  
 Vector(Real64_t) seint_default_states (Pointer iface)
     { 
     size_t length = seint_num_states(iface);
-    double *default_states = ((simengine_interface_t *)iface)->default_states;
+    double *default_states = ((simengine_interface *)iface)->default_states;
     return seint_vector64(length, default_states);
     }
 
 Vector(Int32_t) seint_output_num_quantities (Pointer iface)
     { 
     size_t length = seint_num_outputs(iface);
-    int *quantities = ((simengine_interface_t *)iface)->output_num_quantities;
+    int *quantities = ((simengine_interface *)iface)->output_num_quantities;
     return seint_vector32(length, quantities);
     }
 
-String8 seint_name (Pointer iface)
-    { 
-    char *name = ((simengine_interface_t *)iface)->name;
-    size_t length = strlen(name);
-    return seint_vector8(length, name);
-    }
+Int32_t seint_version (Pointer iface)
+    { return ((simengine_interface *)iface)->version; }
 
-Pointer seint_metadata (Pointer iface)
-    { return ((simengine_interface_t *)iface)->metadata; }
+Int32_t seint_precision (Pointer iface)
+    { return ((simengine_interface *)iface)->precision; }
 
-Int64_t semeta_hashcode (Pointer meta)
-    { return ((simengine_metadata_t *)meta)->hashcode; }
+Int32_t seint_num_models (Pointer iface)
+    { return ((simengine_interface *)iface)->num_models; }
 
-Int32_t semeta_num_models (Pointer meta)
-    { return ((simengine_metadata_t *)meta)->num_models; }
+Int32_t seint_num_iterators (Pointer iface)
+    { return ((simengine_interface *)iface)->num_iterators; }
 
-String8 semeta_target (Pointer meta)
-    {
-    char *name = ((simengine_metadata_t *)meta)->target;
-    size_t length = strlen(name);
-    return seint_vector8(length, name);
-    }
+Int32_t seint_num_inputs (Pointer iface)
+    { return ((simengine_interface *)iface)->num_inputs; }
 
-Vector(String8_t) semeta_solver_names (Pointer meta)
-    {
-    size_t length = ((simengine_metadata_t *)meta)->num_solvers;
-    char **solvers = ((simengine_metadata_t *)meta)->solvers;
-    return seint_string_vector(length, solvers);
-    }
+Int32_t seint_num_states (Pointer iface)
+    { return ((simengine_interface *)iface)->num_states; }
 
-Int32_t semeta_precision (Pointer meta)
-    { return ((simengine_metadata_t *)meta)->precision; }
+Int32_t seint_num_outputs (Pointer iface)
+    { return ((simengine_interface *)iface)->num_outputs; }
+
+Int64_t seint_hashcode (Pointer iface)
+    { return ((simengine_interface *)iface)->hashcode; }
+

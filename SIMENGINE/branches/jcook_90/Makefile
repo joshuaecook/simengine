@@ -309,7 +309,7 @@ else
 DOCUMENTATION_BUILD_FILES = 
 endif
 
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/bin/simlib $(BUILD_DIR)/lib/libcodegen.sim $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/bin/simlib $(BUILD_DIR)/lib/libcodegen.sim $(BUILD_DIR)/bin/simex $(MATLAB_BUILD_FILES)
 
 
 ifeq ($(BUILD_TYPE),software)
@@ -455,10 +455,6 @@ simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
 $(LOCAL_INSTALL):
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
-$(LOCAL_INSTALL)/simex:
-	@$(MAKE) -C interfaces/c/ simex
-	$(CP) interfaces/c/simex $@
-
 $(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
 	$(CP) $< $@
 	@(cd $(LOCAL_INSTALL); tar xfz simEngine.tgz)
@@ -493,7 +489,7 @@ $(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/src/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
 	$(CP) $< $@	
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m $(LOCAL_INSTALL)/simex
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
 	$(info Local install at $(LOCAL_INSTALL) ready)
 
 # Build type options
@@ -561,7 +557,11 @@ $(BUILD_DIR)/data/%: datafiles/%
 
 $(BUILD_DIR)/bin/simlib: codegen/simlib/simlib.c
 	@$(MAKE) -C codegen simlib/simlib $(ARCH64_FLAG)
-	$(CP) codegen/simlib/simlib $@ 
+	$(CP) codegen/simlib/simlib $@
+
+$(BUILD_DIR)/bin/simex: interfaces/c/simex.c interfaces/c/simex_commandline.c interfaces/c/simex.h codegen/src/simengine/simengine_api.h codegen/src/simengine/memory_layout.h
+	@$(MAKE) -C interfaces/c simex $(ARCH64_FLAG) DEBUG=$(DEBUG)
+	$(CP) interfaces/c/simex $@
 
 
 # User and developer documents

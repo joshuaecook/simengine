@@ -3,7 +3,6 @@
 // manipulating device storage.
 #define SIMENGINE_STORAGE_double
 #define TARGET_CPU
-#include <simengine_target.h>
 #include <simengine_api.h>
 
 #include <stdio.h>
@@ -113,7 +112,7 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 				 "num_inputs", "num_states", "num_outputs", "num_iterators",
 				 "input_names", "state_names", "output_names",
 				 "default_inputs", "default_states", 
-				 "output_num_quantities", "metadata"};
+				 "output_num_quantities"};
     const unsigned int num_meta = 4;
     const char *meta_names[] = {"hashcode", "num_models", "solvers", "precision"};
 
@@ -196,7 +195,7 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 	    ((double *)data)[i] = iface->output_num_quantities[i];
 	    }
 	if (i < iface->num_iterators)
-	    { mxSetCell(solvers, i, mxCreateString(iface->metadata->solvers[i])); }
+	  { mxSetCell(solvers, i, mxCreateString(iface->solver_names[i])); }
 	}
 
     // Creates and initializes the return structure.
@@ -242,7 +241,7 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 
     hashcode = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
     data = mxGetPr(hashcode);
-    memcpy(data, &iface->metadata->hashcode, sizeof(unsigned long long));
+    memcpy(data, &iface->hashcode, sizeof(unsigned long long));
     
     // Creates and initializes the metadata structure
     metadata = mxCreateStructMatrix(1, 1, num_meta, meta_names);
@@ -257,13 +256,13 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
     mxSetField(metadata, 0, "hashcode", hashcode);
 
     mxDestroyArray(mxGetField(metadata, 0, "num_models"));
-    mxSetField(metadata, 0, "num_models", mxCreateDoubleScalar((double)iface->metadata->num_models));
+    mxSetField(metadata, 0, "num_models", mxCreateDoubleScalar((double)iface->num_models));
 
     mxDestroyArray(mxGetField(metadata, 0, "solvers"));
     mxSetField(metadata, 0, "solvers", solvers);
 
     mxDestroyArray(mxGetField(metadata, 0, "precision"));
-    mxSetField(metadata, 0, "precision",  mxCreateDoubleScalar((double)iface->metadata->precision));
+    mxSetField(metadata, 0, "precision",  mxCreateDoubleScalar((double)iface->precision));
     }
 
 void usage(void)
@@ -505,7 +504,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 		break;
 
 	    case ERRNUMMDL:
-		expected = iface->metadata->num_models;
+		expected = iface->num_models;
 		release_simengine();
 		ERROR(Simatra:SIMEX:HELPER:valueError, "Expected to run %d parallel models but received %d.", expected, models);
 		break;

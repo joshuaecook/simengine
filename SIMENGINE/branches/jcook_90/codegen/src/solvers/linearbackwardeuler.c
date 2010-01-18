@@ -9,18 +9,6 @@ typedef struct{
   unsigned int lowerhalfbw;  // Number of lower bands in statesize*statesize matrix for linear solver
 }linearbackwardeuler_opts;
 
-// Matrix and Vector accessor functions
-__HOST__ __DEVICE__
-int MATIDX(int nr, int nc, int r, int c, unsigned int num_models, unsigned int modelid){
-  int idx = TARGET_IDX(nc*nr, num_models, r*nc+c, modelid);
-  return idx;
-}
-
-__HOST__ __DEVICE__
-int VECIDX(int nc, int c, unsigned int num_models, unsigned int modelid){
-  int idx = TARGET_IDX(nc, num_models, c, modelid);
-  return idx;
-}
 
 __DEVICE__
 void lsolver_dense(const int n, CDATAFORMAT *M, CDATAFORMAT *b_x, unsigned int num_models, unsigned int modelid);
@@ -112,25 +100,25 @@ void lsolver_dense(const int n, CDATAFORMAT *M, CDATAFORMAT *b_x, unsigned int n
   /* Clear out lower half of M */
   for(br = bc = 0; br < n-1; br++, bc++){
     for(er = br + 1; er < n; er++){
-      rmult = -M[MATIDX(n,n,er,bc, num_models, modelid)]/M[MATIDX(n,n,br,bc, num_models, modelid)];
+      rmult = -M[MAT_IDX(n,n,er,bc, num_models, modelid)]/M[MAT_IDX(n,n,br,bc, num_models, modelid)];
       for(ec = bc + 1; ec < n; ec++){
-	M[MATIDX(n,n,er,ec, num_models, modelid)] += rmult*M[MATIDX(n,n,br,ec, num_models, modelid)];
+	M[MAT_IDX(n,n,er,ec, num_models, modelid)] += rmult*M[MAT_IDX(n,n,br,ec, num_models, modelid)];
       }
-      b_x[VECIDX(n,er,num_models,modelid)] += rmult*b_x[VECIDX(n,br,num_models,modelid)];
+      b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
     }
   }
 
   /* Clear out upper half of M */
   for(br = bc = n-1; br > 0; br--, bc--){
     for(er = br - 1; er >= 0; er--){
-      rmult = -M[MATIDX(n,n,er,bc, num_models, modelid)]/M[MATIDX(n,n,br,bc, num_models, modelid)];
-      b_x[VECIDX(n,er,num_models,modelid)] += rmult*b_x[VECIDX(n,br,num_models,modelid)];
+      rmult = -M[MAT_IDX(n,n,er,bc, num_models, modelid)]/M[MAT_IDX(n,n,br,bc, num_models, modelid)];
+      b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
     }
   }
 
   /* Produce x from remaining diagonal of M */
   for(idx = 0; idx < n; idx++){
-    b_x[VECIDX(n,idx,num_models,modelid)] = b_x[VECIDX(n,idx,num_models,modelid)]/M[MATIDX(n,n,idx,idx, num_models, modelid)];
+    b_x[VEC_IDX(n,idx,num_models,modelid)] = b_x[VEC_IDX(n,idx,num_models,modelid)]/M[MAT_IDX(n,n,idx,idx, num_models, modelid)];
   }
 }
 
@@ -145,11 +133,11 @@ void lsolver_banded(const int n, const int lbw, const int ubw, CDATAFORMAT *M, C
     for(er = br + 1; er <= MIN(br + lbw, n-1); er++){
       bc = lbw;
       ec = bc - (er-br);
-      rmult = -M[MATIDX(n,bw,er,ec, num_models, modelid)]/M[MATIDX(n,bw,br,bc, num_models, modelid)];
+      rmult = -M[MAT_IDX(n,bw,er,ec, num_models, modelid)]/M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
       for(; bc < bw; ec++, bc++){
-	M[MATIDX(n,bw,er,ec, num_models, modelid)] += rmult*M[MATIDX(n,bw,br,bc, num_models, modelid)];
+	M[MAT_IDX(n,bw,er,ec, num_models, modelid)] += rmult*M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
       }
-      b_x[VECIDX(n,er,num_models,modelid)] += rmult*b_x[VECIDX(n,br,num_models,modelid)];
+      b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
     }
   }
 
@@ -158,13 +146,13 @@ void lsolver_banded(const int n, const int lbw, const int ubw, CDATAFORMAT *M, C
   for(br = n-1; br > 0; br--){
     for(er = br - 1; er >= MAX(br - ubw, 0); er--){
       ec = bc + (br-er);
-      rmult = -M[MATIDX(n,bw,er,ec, num_models, modelid)]/M[MATIDX(n,bw,br,bc, num_models, modelid)];
-      b_x[VECIDX(n,er,num_models,modelid)] += rmult*b_x[VECIDX(n,br,num_models,modelid)];
+      rmult = -M[MAT_IDX(n,bw,er,ec, num_models, modelid)]/M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
+      b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
     }
   }
 
   /* Produce x from remaining diagonal of M */
   for(br = 0; br < n; br++){
-    b_x[VECIDX(n,br,num_models,modelid)] = b_x[VECIDX(n,br,num_models,modelid)]/M[MATIDX(n,bw,br,bc, num_models, modelid)];
+    b_x[VEC_IDX(n,br,num_models,modelid)] = b_x[VEC_IDX(n,br,num_models,modelid)]/M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
   }
 }
