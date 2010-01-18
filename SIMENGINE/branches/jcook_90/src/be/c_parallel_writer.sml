@@ -469,7 +469,6 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
 
 		val instances = ClassProcess.class2instances class
-		val _ = Util.log ("Class " ^(Symbol.name (ClassProcess.class2classname class))^" has "^(Int.toString (List.length instances))^" instances.\n")
 		val class_inst_pairs = 
 		    let 
 			fun sameInstanceName ((c1,i1),(c2,i2)) = i1 = i2
