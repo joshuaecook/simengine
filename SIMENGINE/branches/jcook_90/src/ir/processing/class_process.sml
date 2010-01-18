@@ -1376,7 +1376,18 @@ fun assignCorrectScope (class: DOF.class) =
 			    (* val _ = Util.log ("Finding iterator for output '"^(Symbol.name (Term.sym2curname name))^"'") *)
 			    (* val _ = Util.log ("Found "^(i2s (List.length iters))^" temporal iterators in " ^ (i2s (List.length exps)) ^ " expressions") *)
 			    (* val _ = Util.log (String.concatWith "\n" (map ExpPrinter.exp2str exps)) *)
-			in case Util.uniquify (iters @ used_iters)
+
+			    fun iter2baseiter iter_sym = 
+				let
+				    val (_, iter_type) = CurrentModel.itersym2iter iter_sym
+				in
+				    case iter_type of
+					DOF.UPDATE base_iter => base_iter
+				      | DOF.POSTPROCESS base_iter => base_iter
+				      | _ => iter_sym
+				end
+
+			in case Util.uniquify (map iter2baseiter (iters @ used_iters))
 			    of nil => name
 			     | [iter_sym] => 
 			       (case CurrentModel.itersym2iter iter_sym
@@ -1388,7 +1399,8 @@ fun assignCorrectScope (class: DOF.class) =
 				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name)))
 			     | iters => 
 			       name before
-			       Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."))
+			       (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."));
+				DynException.setErrored())
 			end
 		      |	SOME iter => name (* keep the same *)
 
