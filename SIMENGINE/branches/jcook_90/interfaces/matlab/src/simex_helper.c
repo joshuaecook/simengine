@@ -107,20 +107,17 @@ void mexSimengineResult(const simengine_interface *iface, int noutput, mxArray *
  */
 void mexSimengineInterface(const simengine_interface *iface, mxArray **interface)
     {
-    const unsigned int num_fields = 13;
-    const char *field_names[] = {"version", "name",
-				 "num_inputs", "num_states", "num_outputs", "num_iterators",
-				 "input_names", "state_names", "output_names",
-				 "default_inputs", "default_states", 
-				 "output_num_quantities"};
-    const unsigned int num_meta = 4;
-    const char *meta_names[] = {"hashcode", "num_models", "solvers", "precision"};
+      const unsigned int num_fields = 18;
+      const char *field_names[] = {"name", "target", "solver_names", "iterator_names",
+				   "input_names", "state_names", "output_names",
+				   "default_inputs", "default_states", "output_num_quantities",
+				   "version", "precision", "num_models", "num_iterators",
+				   "num_inputs", "num_states", "num_outputs", "hashcode"};
 
     mxArray *version;
-    mxArray *input_names, *state_names, *output_names, *solvers;
+    mxArray *input_names, *state_names, *output_names, *solver_names, *iterator_names;
     mxArray *default_inputs, *default_states;
     mxArray *output_num_quantities;
-    mxArray *metadata;
     mxArray *hashcode;
     void *data;
     unsigned int i;
@@ -169,13 +166,16 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 
     if (0 < iface->num_iterators)
         { 
-	solvers = mxCreateCellMatrix(1, iface->num_iterators); 
+	solver_names = mxCreateCellMatrix(1, iface->num_iterators); 
+	iterator_names = mxCreateCellMatrix(1, iface->num_iterators);
 	}
     else
 	{
-	solvers = mxCreateCellMatrix(0, 0);
+	solver_names = mxCreateCellMatrix(0, 0);
+	iterator_names = mxCreateCellMatrix(0,0);
 	}
-    assert(solvers != NULL);
+    assert(solver_names != NULL);
+    assert(iterator_names != NULL);
 
     data = mxGetPr(output_num_quantities);
     for (i = 0; i < iface->num_inputs || i < iface->num_states || i < iface->num_outputs || i < iface->num_iterators; ++i)
@@ -195,7 +195,10 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 	    ((double *)data)[i] = iface->output_num_quantities[i];
 	    }
 	if (i < iface->num_iterators)
-	  { mxSetCell(solvers, i, mxCreateString(iface->solver_names[i])); }
+	  { 
+	    mxSetCell(solver_names, i, mxCreateString(iface->solver_names[i]));
+	    mxSetCell(iterator_names, i, mxCreateString(iface->iterator_names[i]));
+	  }
 	}
 
     // Creates and initializes the return structure.
@@ -203,6 +206,9 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 
     mxDestroyArray(mxGetField(*interface, 0, "name"));
     mxSetField(*interface, 0, "name", mxCreateString(iface->name));
+    
+    mxDestroyArray(mxGetField(*interface, 0, "target"));
+    mxSetField(*interface, 0, "target", mxCreateString(iface->target));
     
     mxDestroyArray(mxGetField(*interface, 0, "num_inputs"));
     mxSetField(*interface, 0, "num_inputs", mxCreateDoubleScalar((double)iface->num_inputs));
@@ -234,35 +240,27 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
     mxDestroyArray(mxGetField(*interface, 0, "output_num_quantities"));
     mxSetField(*interface, 0, "output_num_quantities", output_num_quantities);
 
-    // Constructs the metadata
-    version = mxCreateNumericMatrix(1, 1, mxUINT32_CLASS, mxREAL);
-    data = mxGetPr(version);
-    memcpy(data, &iface->version, sizeof(unsigned long));
+    mxDestroyArray(mxGetField(*interface, 0, "version"));
+    mxSetField(*interface, 0, "version", mxCreateDoubleScalar((double)iface->version));
 
     hashcode = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
     data = mxGetPr(hashcode);
     memcpy(data, &iface->hashcode, sizeof(unsigned long long));
     
-    // Creates and initializes the metadata structure
-    metadata = mxCreateStructMatrix(1, 1, num_meta, meta_names);
+    mxDestroyArray(mxGetField(*interface, 0, "hashcode"));
+    mxSetField(*interface, 0, "hashcode", hashcode);
 
-    mxDestroyArray(mxGetField(*interface, 0, "version"));
-    mxSetField(*interface, 0, "version", version);
+    mxDestroyArray(mxGetField(*interface, 0, "num_models"));
+    mxSetField(*interface, 0, "num_models", mxCreateDoubleScalar((double)iface->num_models));
 
-    mxDestroyArray(mxGetField(*interface, 0, "metadata"));
-    mxSetField(*interface, 0, "metadata", metadata);
+    mxDestroyArray(mxGetField(*interface, 0, "solver_names"));
+    mxSetField(*interface, 0, "solver_names", solver_names);
 
-    mxDestroyArray(mxGetField(metadata, 0, "hashcode"));
-    mxSetField(metadata, 0, "hashcode", hashcode);
+    mxDestroyArray(mxGetField(*interface, 0, "iterator_names"));
+    mxSetField(*interface, 0, "iterator_names", iterator_names);
 
-    mxDestroyArray(mxGetField(metadata, 0, "num_models"));
-    mxSetField(metadata, 0, "num_models", mxCreateDoubleScalar((double)iface->num_models));
-
-    mxDestroyArray(mxGetField(metadata, 0, "solvers"));
-    mxSetField(metadata, 0, "solvers", solvers);
-
-    mxDestroyArray(mxGetField(metadata, 0, "precision"));
-    mxSetField(metadata, 0, "precision",  mxCreateDoubleScalar((double)iface->precision));
+    mxDestroyArray(mxGetField(*interface, 0, "precision"));
+    mxSetField(*interface, 0, "precision",  mxCreateDoubleScalar((double)iface->precision));
     }
 
 void usage(void)
