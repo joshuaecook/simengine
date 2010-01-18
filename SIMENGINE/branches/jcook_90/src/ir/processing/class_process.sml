@@ -759,31 +759,32 @@ fun addDelays (class: DOF.class) =
 	fun term2name_delay (t as (Exp.SYMBOL (sym, _))) = 
 	    (case TermProcess.symbol2temporaliterator t of
 		 SOME (iter_sym, Iterator.RELATIVE d) => (sym, iter_sym, ~d)
-	       | _ => DynException.stdException("ClassProcess.addDelays", "Unexpected non-relative iterator", Logger.INTERNAL))
-	  | term2name_delay _ = DynException.stdException("ClassProcess.addDelays", "Unexpected non-symbol term", Logger.INTERNAL)
+	       | _ => DynException.stdException("Unexpected non-relative iterator", "ClassProcess.addDelays.term2name_delay", Logger.INTERNAL))
+	  | term2name_delay _ = DynException.stdException("Unexpected non-symbol term", "ClassProcess.addDelays.term2name_delay", Logger.INTERNAL)
 
 	val term_list = map term2name_delay delayedTerms
 
-	val grouped_term_list = List.foldl (fn((sym,iter_sym,d),l)=>
-					      let
-						  val (match, others) = List.partition (fn(sym',_,_)=>sym=sym') l
-					      in
-						  if List.length match = 0 then
-						      (sym, iter_sym, [d])::l
-						  else 
-						      let
-							  val e as (sym',iter_sym',d_list) = Util.hd match
-						      in
-							  if List.exists (fn(d')=>d=d') d_list then
-							      e::others
-							  else
-							      (sym',iter_sym',d::d_list)::others
-						      end
-					      end)
-					   [] 
-					   term_list
+	val grouped_term_list : (Symbol.symbol * Symbol.symbol * int list) list = (* (Symbol name * iterator symbol * list of delays) list *)
+	    List.foldl (fn((sym,iter_sym,d),l)=>
+			  let
+			      val (match, others) = List.partition (fn(sym',_,_)=>sym=sym') l
+			  in
+			      if List.length match = 0 then
+				  (sym, iter_sym, [d])::l
+			      else 
+				  let
+				      val e as (sym',iter_sym',d_list) = Util.hd match
+				  in
+				      if List.exists (fn(d')=>d=d') d_list then
+					  e::others
+				      else
+					  (sym',iter_sym',d::d_list)::others
+				  end
+			  end)
+		       [] 
+		       term_list
 					   
-	val exps_and_rewrites = 
+	val exps_and_rewrites : (Exp.exp list * Rewrite.rewrite list) list = 
 	    map 
 	    (fn(sym,iter_sym,d_list)=>
 	       let
@@ -792,11 +793,16 @@ fun addDelays (class: DOF.class) =
 								       SOME exp => (ExpProcess.rhs exp, ExpProcess.exp2spatialiterators exp) 
 								     | NONE => (ExpBuild.int 0,[])
 									       
-		   val pp_iter_sym = Iterator.postProcessOf (Symbol.name iter_sym)
+		   val (_, iter_type) = CurrentModel.itersym2iter iter_sym
+		   val pp_iter_sym = case iter_type of
+					 DOF.POSTPROCESS _ => iter_sym (* it's already an iter_sym *)
+				       | DOF.UPDATE _ => DynException.stdException("Unexpected delay of update iterator", "ClassProcess.addDelays.exps_and_rewrites", Logger.INTERNAL)
+				       | _ => Iterator.postProcessOf (Symbol.name iter_sym)
+
 		   fun d2symname d = 
 		       Symbol.symbol ("#intdelay_" ^ (Symbol.name sym) ^ "_" ^ (Util.i2s d))
 		   val init_conditions = map
-					     (fn(d)=>ExpBuild.equals (Exp.TERM (Exp.SYMBOL (d2symname d, (Property.setIterator Property.default_symbolproperty ((Iterator.postProcessOf (Symbol.name iter_sym), Iterator.ABSOLUTE 0)::spatial_iterators)))), init_condition_value))
+					     (fn(d)=>ExpBuild.equals (Exp.TERM (Exp.SYMBOL (d2symname d, (Property.setIterator Property.default_symbolproperty ((pp_iter_sym, Iterator.ABSOLUTE 0)::spatial_iterators)))), init_condition_value))
 					     (List.tabulate (max_d,fn(x)=>x+1))
 
 		   fun sym_props r = Property.setIterator Property.default_symbolproperty ((pp_iter_sym, Iterator.RELATIVE r)::spatial_iterators)
