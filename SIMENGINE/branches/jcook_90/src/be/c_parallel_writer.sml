@@ -155,7 +155,7 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
 	 $("")]
     end
 
-fun init_solver_props top_name pp_classes shardedModel =
+fun init_solver_props top_name pp_classes shardedModel iterators_with_solvers =
     let
         fun free_props iter_sym =
             let
@@ -364,7 +364,7 @@ fun init_solver_props top_name pp_classes shardedModel =
 	[
 	 $("#if defined TARGET_GPU"),
 	 $("void gpu_init_system_states_pointers (solver_props *tmp_props, top_systemstatedata *tmp_system) {"),
-	 SUB(Util.flatmap gpu_init_props (ShardedModel.iterators shardedModel)),
+	 SUB(Util.flatmap gpu_init_props iterators_with_solvers),
 	 $("}"),
 	 $("#endif"),
 	 $(""),
@@ -395,7 +395,7 @@ fun init_solver_props top_name pp_classes shardedModel =
 	      $("unsigned int outputsize = 0;"),
 	      $("#endif"),
 	      $("unsigned int i, modelid;")] @
-	     (Util.flatmap init_props (ShardedModel.iterators shardedModel)) @
+	     (Util.flatmap init_props iterators_with_solvers) @
 	     [$(""),
 	      $("// Initialize all time vectors"),
 	      $("assert(NUM_ITERATORS);"),
@@ -434,7 +434,7 @@ fun init_solver_props top_name pp_classes shardedModel =
              $(""),
              $("// Translate structure arrangement from internal back to external formatting"),
              $("for(modelid=0;modelid<props->num_models;modelid++){"),
-             SUB(map free_props (ShardedModel.iterators shardedModel)),
+             SUB(map free_props iterators_with_solvers),
              $("}"),
              $("free(system_states_int);"),
              $("#endif"),
@@ -1606,6 +1606,9 @@ fun buildC (orig_name, shardedModel) =
 	val forkedModelsLessUpdate = (List.filter (fn{iter_sym,...}=> case itersym2iter iter_sym of (_, DOF.UPDATE _) => false | _ => true) shards, 
 				      sysprops)
 
+	val iteratorsWithSolvers = map
+					 #iter_sym
+					 (List.filter (not o ModelProcess.isDependentIterator o itersym2iter o #iter_sym) shards)
 	val forkedModelsWithSolvers = (List.filter (not o ModelProcess.isDependentIterator o itersym2iter o #iter_sym) shards,
 				       sysprops)
 
@@ -1629,7 +1632,7 @@ fun buildC (orig_name, shardedModel) =
 				    [], (* no additional includes *)
 				    []))
 
-	val init_solver_props_c = init_solver_props orig_name postprocessModels forkedModelsWithSolvers		   
+	val init_solver_props_c = init_solver_props orig_name postprocessModels shardedModel iteratorsWithSolvers		   
 	val simengine_interface_progs = simengine_interface class_name (*combinedModel*) forkedModelsLessUpdate
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code shardedModel

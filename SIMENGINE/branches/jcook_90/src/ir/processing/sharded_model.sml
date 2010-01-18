@@ -653,9 +653,11 @@ fun statesize shardedModel =
     let
 	fun shard2statesize iter_sym = 
 	    let
-		val model = toModel shardedModel iter_sym
+		val model as (classes, {name, classname}, sysprops) = toModel shardedModel iter_sym
+		val statesize = CurrentModel.withModel model (fn()=>ModelProcess.model2statesize model)
+		(*val _ = Util.log ("Shard '"^(Symbol.name iter_sym)^"' has "^(i2s statesize)^" states")*)
 	    in
-		CurrentModel.withModel model (fn()=>ModelProcess.model2statesize model)
+		statesize
 	    end
     in
 	Util.sum (map shard2statesize (iterators shardedModel))
