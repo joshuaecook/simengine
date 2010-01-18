@@ -171,7 +171,7 @@ namespace SimCompile
       var device_id = Devices.CUDA.getProp(1, "deviceId")
       var device_arch = Devices.CUDA.getProp(1, "arch")
       if not emulate and precision == "double" and device_arch <> "sm_13" then
-        error("Compiler error: CUDA device does not support double precision. Please set precision to 'single'.")
+        error("CUDA device does not support double precision. Please set precision to 'single'.")
       end
     end
 
@@ -184,7 +184,7 @@ namespace SimCompile
       // Clean this up when moving simEngine and simex to subprocess calls for external interfaces (e.g. Matlab)
       if osLower == "darwin" then
         if arch64 then
-          error("Compiler error: nVidia tools do not support 64bit architecture.")
+          error("nVidia tools do not support 64bit architecture.")
         else
           m.TARGET_ARCH = ["-arch", "i386"]
           m.LD = "g++-4.2"
