@@ -98,19 +98,6 @@ fun reads_system class =
        List.exists (test_instance_class reads_system) (List.filter ExpProcess.isInstanceEq (! exps))
     end
 
-(* Indicates whether a given subsystem has states. *)
-fun subsystem_has_states shardedModel iter_sym =
-    let val model = ShardedModel.toModel shardedModel iter_sym
-	val iterator = ShardedModel.toIterator shardedModel iter_sym
-	val (_,{classname,...},_) = model
-    in CurrentModel.withModel 
-	   model 
-	   (fn _ =>
-	       let val class = CurrentModel.classname2class classname
-	       in has_states iterator class
-	       end)
-    end
-
 (* Indicates whether a given class or any of its instances 
  * has states associated with a given iterator.
  * Nb Presumes a CurrentModel context. *)
@@ -170,8 +157,6 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
 
 fun init_solver_props top_name pp_classes shardedModel =
     let
-	val need_systemdata = List.exists (subsystem_has_states shardedModel) (ShardedModel.iterators shardedModel)
-
         fun free_props iter_sym =
             let
 		val model = ShardedModel.toModel shardedModel iter_sym
@@ -191,6 +176,7 @@ fun init_solver_props top_name pp_classes shardedModel =
 		val (_,{classname=top_class,...},_) = model
 		fun progs () =
 		    let
+
 			val solverparams = (fn(_,itertype) => case itertype of
 								  DOF.CONTINUOUS solver => (Solver.solver2params solver)
 								| DOF.DISCRETE {sample_period} => [("timestep", Util.r2s sample_period)]
@@ -258,7 +244,7 @@ fun init_solver_props top_name pp_classes shardedModel =
 			(map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
 			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
-			 $("props[ITERATOR_"^itername^"].system_states = " ^ (if need_systemdata then "system_ptr" else "NULL") ^ ";"),
+			 $("props[ITERATOR_"^itername^"].system_states = system_ptr;"),
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].next_time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].count = NULL; // Allocated by discrete solver only, must be NULL otherwise"),
@@ -381,18 +367,16 @@ fun init_solver_props top_name pp_classes shardedModel =
 	 $("#endif"),
 	 $(""),
 	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
-	 SUB((if need_systemdata then
-		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
-		   $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
-                   $("#if defined TARGET_GPU"),
-                   $("systemstatedata_external *system_states_int = (systemstatedata_external*)model_states;"),
-                   $("systemstatedata_external *system_states_next = (systemstatedata_external*)malloc(sizeof(systemstatedata_external));"),
-		   $("#else"),
-                   $("systemstatedata_internal *system_states_int = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
-                   $("systemstatedata_internal *system_states_next = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
-                   $("#endif")]
-	      else nil) @
-	     [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
+	 SUB([$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
+	      $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
+              $("#if defined TARGET_GPU"),
+              $("systemstatedata_external *system_states_int = (systemstatedata_external*)model_states;"),
+              $("systemstatedata_external *system_states_next = (systemstatedata_external*)malloc(sizeof(systemstatedata_external));"),
+	      $("#else"),
+              $("systemstatedata_internal *system_states_int = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
+              $("systemstatedata_internal *system_states_next = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
+              $("#endif"),
+	      $("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
 	      $("output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));"),
 	      $("#if NUM_OUTPUTS > 0"),
 	      $("output_data *od = (output_data*)malloc(NUM_MODELS*sizeof(output_data));"),
@@ -413,12 +397,10 @@ fun init_solver_props top_name pp_classes shardedModel =
 		      $("props[iter].next_time[modelid] = starttime;")],
 		  $("}")],
 	      $("}"),
-	      $("#if NUM_STATES > 0"),
 	      $("#if defined TARGET_GPU"),
 	      $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_external));"),
 	      $("#else"),
 	      $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_internal));"),
-	      $("#endif"),
 	      $("#endif"),
 	      $("return props;")]),
 	 $("}"),
@@ -483,23 +465,21 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	fun findStatesInitValues iter_sym basestr (class:DOF.class) = 
 	    let
 		val exps = #exps class
-		(*val state_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isStateEq (!exps))*)
+
 		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
-		fun exp2name exp = 
-		    Term.sym2curname (ExpProcess.exp2term exp)
-		    handle e => DynException.checkpoint ("CParallelWriter.simengine_interface.findStatesInitValues.exp2name ["^(e2s exp)^"]") e
-				      
-		val instances = List.filter ExpProcess.isInstanceEq (!exps)
+
+		val instances = ClassProcess.class2instances class
+		val _ = Util.log ("Class " ^(Symbol.name (ClassProcess.class2classname class))^" has "^(Int.toString (List.length instances))^" instances.\n")
 		val class_inst_pairs = 
 		    let 
-			fun uniq_fun ((c1,i1),(c2,i2)) = i1 = i2
+			fun sameInstanceName ((c1,i1),(c2,i2)) = i1 = i2
 			fun classAndInstanceName eqn =
 			    let val {classname, ...} = ExpProcess.deconstructInst eqn
 			    in 
 				(classname, ExpProcess.instOrigInstName eqn)
 			    end
 		    in
-			Util.uniquify_by_fun uniq_fun (map classAndInstanceName instances)
+			(*Util.uniquify_by_fun sameInstanceName*) (map classAndInstanceName instances)
 		    end
 
 		val stateInits = List.mapPartial (init_condition2pair iter_sym basestr) init_conditions
@@ -535,7 +515,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		     shards)
 
 	val inputs = ShardedModel.toInputs shardedModel
-	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) inputs(*(!(#inputs top_class))*))
+	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) inputs)
 
 	fun wrap (f, m) x = CurrentModel.withModel m (fn _ => f x)
 
@@ -793,7 +773,13 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 	val classname = ClassProcess.class2classname class
 	val classTypeName = ClassProcess.classTypeName class
 	val class_iterators = #iterators class
+
 	val init_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isInitialConditionEq (!exps))
+	val init_eqs_symbols = 
+	    Sorting.sorted (fn (x, y) => String.compare (Symbol.name (Term.sym2curname (ExpProcess.exp2term x)),
+							 Symbol.name (Term.sym2curname (ExpProcess.exp2term y))))
+			   init_eqs_symbols
+
 	val instances = ClassProcess.class2instances class
 
 	val class_inst_pairs =
@@ -810,6 +796,9 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 
 	val class_inst_pairs_non_empty = 
 	    List.filter ((has_states iterator) o CurrentModel.classname2class o #1) class_inst_pairs
+	val class_inst_pairs_non_empty =
+	    Sorting.sorted (fn ((_,x), (_,y)) => (String.compare (Symbol.name x, Symbol.name y)))
+			   class_inst_pairs_non_empty
     in
 	if List.null class_inst_pairs_non_empty andalso List.null init_eqs_symbols then 
 	    [$(""),
