@@ -358,6 +358,8 @@ fun init_solver_props top_name pp_classes shardedModel =
 		    CurrentModel.withModel model progs
 		else nil
 	    end
+
+	    val total_system_states = ShardedModel.statesize shardedModel
     in
 	[
 	 $("#if defined TARGET_GPU"),
@@ -367,16 +369,23 @@ fun init_solver_props top_name pp_classes shardedModel =
 	 $("#endif"),
 	 $(""),
 	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
-	 SUB([$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
-	      $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
-              $("#if defined TARGET_GPU"),
-              $("systemstatedata_external *system_states_int = (systemstatedata_external*)model_states;"),
-              $("systemstatedata_external *system_states_next = (systemstatedata_external*)malloc(sizeof(systemstatedata_external));"),
-	      $("#else"),
-              $("systemstatedata_internal *system_states_int = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
-              $("systemstatedata_internal *system_states_next = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
-              $("#endif"),
-	      $("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
+	 SUB((if 0 < total_system_states then
+		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
+		   $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
+		   $("#if defined TARGET_GPU"),
+		   $("systemstatedata_external *system_states_int = (systemstatedata_external*)model_states;"),
+		   $("systemstatedata_external *system_states_next = (systemstatedata_external*)malloc(sizeof(systemstatedata_external));"),
+		   $("#else"),
+		   $("systemstatedata_internal *system_states_int = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
+		   $("systemstatedata_internal *system_states_next = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));"),
+		   $("#endif")]
+
+	       else
+		   [$("void *system_ptr = NULL;"),
+		    $("void *system_states_ext = NULL;"),
+		    $("void *system_states_int = NULL;"),
+		    $("void *system_states_next = NULL;")]) @
+	      [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
 	      $("output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));"),
 	      $("#if NUM_OUTPUTS > 0"),
 	      $("output_data *od = (output_data*)malloc(NUM_MODELS*sizeof(output_data));"),
@@ -396,13 +405,16 @@ fun init_solver_props top_name pp_classes shardedModel =
 		      $("props[iter].time[modelid] = starttime;"),
 		      $("props[iter].next_time[modelid] = starttime;")],
 		  $("}")],
-	      $("}"),
-	      $("#if defined TARGET_GPU"),
-	      $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_external));"),
-	      $("#else"),
-	      $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_internal));"),
-	      $("#endif"),
-	      $("return props;")]),
+	      $("}")] @
+	      (if 0 < total_system_states then
+		   [$("#if defined TARGET_GPU"),
+		    $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_external));"),
+		    $("#else"),
+		    $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_internal));"),
+		    $("#endif")]
+	       else
+		   nil) @
+	     [$("return props;")]),
 	 $("}"),
 	 $(""),
 	 $("void free_solver_props(solver_props* props, CDATAFORMAT* model_states){"),
