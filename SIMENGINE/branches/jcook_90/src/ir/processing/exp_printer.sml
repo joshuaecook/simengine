@@ -35,7 +35,14 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	    in
 		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end
-	  | useParen (Exp.TERM _) = false
+	  | useParen (Exp.TERM _) = 
+	    let
+		val (v, notation) = FunProps.fun2textstrnotation f
+	    in
+		case notation of
+		    FunProps.PREFIX => true (* for terms, use parentheses around single elements when applied to functions *)
+		  | _ => false
+	    end
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
 
