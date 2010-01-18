@@ -1440,7 +1440,7 @@ fun model_flows shardedModel =
 
 fun output_code (name, location, block) =
     let
-      val filename = location ^ "/" ^ name ^ "_parallel.c"
+      val filename = location ^ "/" ^ name ^ ".c"
       val _ = Logger.log_notice ($("Generating C source file '"^ filename ^"'"))
       val file = TextIO.openOut (filename)
     in

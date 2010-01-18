@@ -458,7 +458,7 @@ if opts.recompile
   if opts.debug == false
     % clean up generated files
     [igpath fileprefix igext] = fileparts(modelFile);
-    delete([fileprefix '_parallel*'])
+    delete([fileprefix '.c'],[fileprefix '.o'])
   end
 end % end if recompile
 

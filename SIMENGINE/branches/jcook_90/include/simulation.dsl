@@ -1208,13 +1208,13 @@ function compile (mod)
   if compilation_successful then
       var cc
       if "gpu" <> compiler_settings.target and "cuda" <> compiler_settings.target then
-	  cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
+	  cc = target.compile(name + ".o", [name + ".c"])
       else
-	  SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
-	  cc = target.compile(name + "_parallel.o", [name + "_parallel.cu"])
+	  SimCompile.shell("ln", ["-s", name + ".c", name + ".cu"])
+	  cc = target.compile(name + ".o", [name + ".cu"])
       end
 
-      var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
+      var ld = target.link(name + ".sim", name + ".sim", [name + ".o"])
 
       if compiler_settings.debug then
 	  println(cc(1) + " " + (join(" ", cc(2))))
