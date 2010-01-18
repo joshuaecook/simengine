@@ -15,6 +15,13 @@
 static simengine_api *api = NULL;
 static double *inputs = NULL;
 
+void init_simengine (const char *name);
+void release_simengine (void);
+void mexSimengineResult (const simengine_interface *iface, int noutput, mxArray **output, unsigned int models, simengine_result *result);
+void mexSimengineInterface (const simengine_interface *iface, mxArray **interface);
+void usage (void);
+void mexFunction (int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]);
+
 //#define ERROR(ID, MESSAGE, ARG...) {mexPrintf("ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); return; }
 
 /* Loads the given named dynamic library file.
@@ -114,7 +121,6 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 				   "version", "precision", "num_models", "num_iterators",
 				   "num_inputs", "num_states", "num_outputs", "hashcode"};
 
-    mxArray *version;
     mxArray *input_names, *state_names, *output_names, *solver_names, *iterator_names;
     mxArray *default_inputs, *default_states;
     mxArray *output_num_quantities;
@@ -484,6 +490,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         // Matlab.  For some reason, if omp_set_num_threads is called without querying the omp environment first
         // this code fails to compile and link properly on Mac OS X 10.5.
 	int nt = omp_get_num_threads(); // this call in particular is needed
+	nt += 0; // do a no-op to eliminate warnings from the compiler about unused vars
 	int np = omp_get_num_procs();
 	omp_set_num_threads(np);
 
