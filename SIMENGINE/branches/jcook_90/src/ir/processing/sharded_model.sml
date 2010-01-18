@@ -19,6 +19,9 @@ sig
     (* pull out a list of iterator symbols *)
     val iterators : shardedModel -> Symbol.symbol list
 
+    (* compute the state size *)
+    val statesize : shardedModel -> int
+
 end
 structure ShardedModel : SHARDEDMODEL =
 struct
@@ -644,5 +647,18 @@ fun toIterator (shards, sysprops : DOF.systemproperties) iter_sym =
 
 fun iterators (shards : shard list, _) =
     map #iter_sym shards
+
+
+fun statesize shardedModel =
+    let
+	fun shard2statesize iter_sym = 
+	    let
+		val model = toModel shardedModel iter_sym
+	    in
+		CurrentModel.withModel model (fn()=>ModelProcess.model2statesize model)
+	    end
+    in
+	Util.sum (map shard2statesize (iterators shardedModel))
+    end
 
 end
