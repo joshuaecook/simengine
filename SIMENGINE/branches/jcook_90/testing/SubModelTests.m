@@ -21,6 +21,7 @@ end
 
 s = Suite(['Sub-model Feature Tests ' target]);
 s.add(BasicSubModelTests(mode, target));
+s.add(HierarchySubModelTests(mode, target));
 s.add(AlgebraicSubModelTests(target));
 s.add(OrderingTests(target));
 
@@ -43,9 +44,6 @@ s.add(Test('DuplicateSubModelToOutputTest', @()(simex(['models_FeatureTests/' ..
 s.add(Test('SubModelDefaultInputTest', @()(simex(['models_FeatureTests/' ...
                     'SubModelTest5.dsl'], 10,target)), '-equal', ...
            struct('y', [0:10; 0:2:20; 0:2:20; 0:10]')));
-s.add(Test('DeepHierarchy', ...
-            @()(simex(['models_FeatureTests/SubModelTest7.dsl'], 10,target)), ...
-            '-equal', struct('y', [0:10; 0:3:30; 0:8:80; 0:10]')));
 
 INTERNAL = 0; RELEASE = 1;
 
@@ -54,6 +52,24 @@ if mode == INTERNAL
     s.add(Test('SubModelInputToInitTest', @()(simex(['models_FeatureTests/' ...
         'SubModelTest6.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
 end
+
+end
+
+function s = HierarchySubModelTests(mode, target)
+
+s = Suite(['Hierarchy Sub-Model Tests ' target]);
+
+s.add(Test('DeepHierarchy', ...
+            @()(simex(['models_FeatureTests/HierarchySubModelTest1.dsl'], 10,target)), ...
+            '-equal', struct('y', [0:10; 0:3:30; 0:10]')));
+
+s.add(Test('DeepHybridHierarchy', ...
+            @()(simex(['models_FeatureTests/HierarchySubModelTest2.dsl'], 10,target)), ...
+            '-equal', struct('y', [0:10; 0:3:30; 0:10; 0:4:40]')));
+
+s.add(Test('DeeperHierarchy', ...
+            @()(simex(['models_FeatureTests/HierarchySubModelTest3.dsl'], 10,target)), ...
+            '-equal', struct('y', [0:10; 0:3:30; 0:8:80; 0:10]')));
 
 end
 
