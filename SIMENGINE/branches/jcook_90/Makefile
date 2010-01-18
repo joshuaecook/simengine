@@ -102,7 +102,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -target-link-opt linux -ldl -export-header ffi/ffi-simengine.h
+SIMPLE_ARGS = -target-link-opt linux -ldl -export-header src/ffi/ffi-simengine.h
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1
@@ -338,14 +338,14 @@ links: $(BUILD_DIR)
 
 COMPILER_MLB = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_MLB))
-COMPILER_EXTRA_SOURCES = ffi/ffi-simengine.c
+COMPILER_EXTRA_SOURCES = src/ffi/ffi-simengine.c
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_SOURCES)
 
 # COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/math/*.s* src/ir/processing/*.s* src/ir/patterns/*.s* src/be/*.s* src/library/*.s* src/objects/*.s* src/shell/*.s* src/util/*.s* src/util/error/*.s* src/util/files/*.s* src/util/printing/*.s* src/util/registry/*.s* src/cool.mlb
 
-# COMPILER_DEPENDENCIES = $(COMPILER_SOURCE) src/shell/cool.lex.sml src/shell/cool.grm.sig src/shell/cool.grm.sml src/shell/cool.lex src/shell/cool.grm src/util/registry/registry.lex.sml src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml src/util/registry/registry.lex src/util/registry/registry.grm ffi/simex.mlb
+# COMPILER_DEPENDENCIES = $(COMPILER_SOURCE) src/shell/cool.lex.sml src/shell/cool.grm.sig src/shell/cool.grm.sml src/shell/cool.lex src/shell/cool.grm src/util/registry/registry.lex.sml src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml src/util/registry/registry.lex src/util/registry/registry.grm src/ffi/simex.mlb
 
-# COMPILER_EXTRA_SOURCES = ffi/ffi-simengine.c
+# COMPILER_EXTRA_SOURCES = src/ffi/ffi-simengine.c
 
 # COMPILER_PREREQS := build-directories links build-system matlab-files matlab-installer instructions
 

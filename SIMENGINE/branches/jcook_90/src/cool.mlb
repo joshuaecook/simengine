@@ -6,7 +6,7 @@ local
   $(SML_LIB)/basis/mlton.mlb
   $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
 
-  ../ffi/simex.mlb
+  ffi/simex.mlb
 
   shell/symbol.sml
 
