@@ -300,7 +300,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 			     nil) @
 			(if (ModelProcess.hasAlgebraicIterator itersym) then
 			     ([$("system_ptr->states_pp_"^itername^" = system_states_int->states_pp_"^itername^";"),
-                               $("system_ptr->states_pp_"^itername^"_next = system_states_next->states_pp_"^itername^";"),
+                               $("system_ptr->states_pp_"^itername^"_buffer = system_states_next->states_pp_"^itername^";"),
                                $("#if !defined TARGET_GPU"),
                                $("// Translate structure arrangement from external to internal formatting"),
                                $("for(modelid=0;modelid<props->num_models;modelid++){"),
@@ -747,8 +747,8 @@ fun preprocess_wrapper shardedModel preprocessIterators =
 			    val basename = ClassProcess.class2basename class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
-				 if writes_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
+				(if reads_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ ", " else "",
+				 if writes_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ ", " else "",
 				 if reads_system class then "props->system_states, " else "")
 
 			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
@@ -793,11 +793,14 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 			    val basename = ClassProcess.class2basename class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ ", " else "",
-				 if writes_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
+				(if reads_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ "_buffer, " else "",
+				 if writes_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ ", " else "",
 				 if reads_system class then "props->system_states, " else "")
 
 			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
+			    SUB[$("memcpy(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "_buffer," ^
+				  "((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "," ^
+				  "props->pp_statesize * sizeof(CDATAFORMAT));")],
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
@@ -839,8 +842,8 @@ fun postprocess_wrapper shardedModel postprocessIterators =
 			    val basename = ClassProcess.class2basename class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
-				 if writes_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
+				(if reads_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ ", " else "",
+				 if writes_iterator iter class then "((systemstatedata_" ^ (Symbol.name basename) ^ " * )props->system_states)->states_" ^ (Symbol.name iter_name) ^ ", " else "",
 				 if reads_system class then "props->system_states, " else "")
 
 			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
@@ -1019,7 +1022,7 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) =
 	and iter_pair_states_member (classname, iter as (iter_name,iter_typ)) =
 	    case iter_typ of
 		DOF.UPDATE _ => ""
-	      | DOF.ALGEBRAIC _ => "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";" ^ " statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^"_next;"
+	      | DOF.ALGEBRAIC _ => "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";" ^ " statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^"_buffer;"
 	      | _ => "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";"
 	and iter_pair_iter_member iter_pairs (_, (iter_name,DOF.CONTINUOUS _)) =
 	    "CDATAFORMAT *"^(Symbol.name iter_name)^";"

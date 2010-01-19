@@ -24,6 +24,17 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
 	break;
       }
 
+      // Perform any pre-process evaluations
+      if(model_running(props, modelid)){
+	min_time = find_min_time(props, modelid);
+	for(i=0;i<NUM_ITERATORS;i++){
+	  if(props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] == props[i].time[modelid]){
+	    pre_process(&props[i], modelid);
+	  }
+	}
+      }
+
       // Run solvers for all iterators that need to advance
       for(i=0;i<NUM_ITERATORS;i++){
 	if(props[i].next_time[modelid] == props[i].time[modelid]){
@@ -31,6 +42,9 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
 	  if(!props[i].running[modelid]){
 	    model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
 	  }
+	  // Run any in-process algebraic evaluations
+	  in_process(&props[i], modelid);
+	  // Run updates
 	  update(&props[i], modelid);
 	}
       }

@@ -15,6 +15,17 @@ int exec_cpu(solver_props *props, unsigned int modelid){
  
     // Run a set of iterations until the output buffer is full
     while(0 == ((output_buffer *)(props->ob))->full[modelid]){
+      // Perform any pre-process evaluations
+      if(model_running(props, modelid)){
+	min_time = find_min_time(props, modelid);
+	for(i=0;i<NUM_ITERATORS;i++){
+	  if(props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] == props[i].time[modelid]){
+	    pre_process(&props[i], modelid);
+	  }
+	}
+      }
+
       // Run solvers for all iterators that need to advance
       for(i=0;i<NUM_ITERATORS;i++){
 	iter = ITERATORS[i];
@@ -25,6 +36,9 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 	  if(!props[iter].running[modelid]){
 	    model_flows(props[iter].time[modelid], props[iter].model_states, props[iter].next_states, &props[iter], 1, modelid);
 	  }
+	  // Run any in-process algebraic evaluations
+	  in_process(&props[i], modelid);
+	  // Run updates
 	  update(&props[i], modelid);
 	}
       }
