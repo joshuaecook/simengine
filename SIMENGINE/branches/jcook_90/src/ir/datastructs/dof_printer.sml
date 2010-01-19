@@ -175,7 +175,11 @@ fun printModel (model: DOF.model) =
 			      print ("  Solver = CVode (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ", max_order = " ^ (i2s max_order) ^ ", lmm = "^(case lmm of Solver.CV_ADAMS => "CV_ADAMS" | Solver.CV_BDF => "CV_BDF")^", iter = "^(case iter of Solver.CV_NEWTON => "CV_NEWTON" | Solver.CV_FUNCTIONAL => "CV_FUNCTIONAL")^", solv = " ^ (case solv of Solver.CVDENSE => "CVDENSE" | Solver.CVDIAG => "CVDIAG" | Solver.CVBAND {upperhalfbw, lowerhalfbw} => "CVBAND("^(i2s lowerhalfbw)^","^(i2s upperhalfbw)^")") ^ ")\n"))
 		       | DOF.DISCRETE {sample_period} => 
 			 print ("  Discrete with Ts="^(r2s sample_period)^", fs="^(r2s (1.0/sample_period))^"\n")
-		       | DOF.POSTPROCESS iter =>
+		       | DOF.ALGEBRAIC (DOF.PREPROCESS, iter) => 
+			 print ("  Pre processing iterator of " ^ (Symbol.name iter) ^ "\n")
+		       | DOF.ALGEBRAIC (DOF.INPROCESS, iter) => 
+			 print ("  Inline processing iterator of " ^ (Symbol.name iter) ^ "\n")
+		       | DOF.ALGEBRAIC (DOF.POSTPROCESS, iter) =>
 			 print ("  Post processing iterator of " ^ (Symbol.name iter) ^ "\n")
 		       | DOF.UPDATE iter =>
 			 print ("  Updating iterator of " ^ (Symbol.name iter) ^ "\n")

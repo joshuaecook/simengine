@@ -658,7 +658,7 @@ fun obj2dofmodel object =
 					  DOF.CONTINUOUS (transSolver (method "solver" obj))
 				      else
 					  DOF.DISCRETE{sample_period=exp2real(method "sample_period" obj)}),
-		 (Iterator.postProcessOf name, DOF.POSTPROCESS (Symbol.symbol name)),
+		 (Iterator.postProcessOf name, DOF.ALGEBRAIC (DOF.POSTPROCESS, (Symbol.symbol name))),
 		 (Iterator.updateOf name, DOF.UPDATE (Symbol.symbol name))]
 	    end
 

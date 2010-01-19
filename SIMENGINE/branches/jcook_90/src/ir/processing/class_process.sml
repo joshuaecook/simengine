@@ -727,7 +727,7 @@ fun createEventIterators (class: DOF.class) =
 				     (fn(exp)=> ExpProcess.updateTemporalIteratorToSymbol (iter_sym, (fn(sym)=>sym)) exp))}
 
 	val pp_rewrites = map (fn(exp)=>pp2rewrite (ExpProcess.getLHSSymbol exp, valOf (ExpProcess.exp2temporaliterator exp))) 
-			      (List.filter ExpProcess.isPPEq exps'')
+			      (List.filter ExpProcess.isAlgebraicStateEq exps'')
 
 	val rewrite = Match.applyRewritesExp pp_rewrites
 	val exps''' = map rewrite exps''
@@ -795,7 +795,7 @@ fun addDelays (class: DOF.class) =
 									       
 		   val (_, iter_type) = CurrentModel.itersym2iter iter_sym
 		   val pp_iter_sym = case iter_type of
-					 DOF.POSTPROCESS _ => iter_sym (* it's already an iter_sym *)
+					 DOF.ALGEBRAIC _ => iter_sym (* it's already an iter_sym *)
 				       | DOF.UPDATE _ => DynException.stdException("Unexpected delay of update iterator", "ClassProcess.addDelays.exps_and_rewrites", Logger.INTERNAL)
 				       | _ => Iterator.postProcessOf (Symbol.name iter_sym)
 
@@ -862,7 +862,7 @@ back to.  If there is coupling between multiple update equations {x=f(y), y=f(x)
 (* The same is true for post processing.  This function handles both updates and post processing flows. *)
 fun addBufferedIntermediates (class: DOF.class) = 
     let
-	val expfilters = [ExpProcess.isUpdateEq, ExpProcess.isPPEq]
+	val expfilters = [ExpProcess.isUpdateEq, ExpProcess.isAlgebraicStateEq]
 	fun addBufferedIntermediatesByType expfilter = 
 	    let
 		val exps = !(#exps class)
@@ -1389,7 +1389,7 @@ fun assignCorrectScope (class: DOF.class) =
 				in
 				    case iter_type of
 					DOF.UPDATE base_iter => base_iter
-				      | DOF.POSTPROCESS base_iter => base_iter
+				      | DOF.ALGEBRAIC (_, base_iter) => base_iter
 				      | _ => iter_sym
 				end
 
@@ -1399,7 +1399,7 @@ fun assignCorrectScope (class: DOF.class) =
 			       (case CurrentModel.itersym2iter iter_sym
 				 of (_, DOF.UPDATE base_iter) => 
 				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
-				  | (_, DOF.POSTPROCESS base_iter) => 
+				  | (_, DOF.ALGEBRAIC (_,base_iter)) => 
 				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
 				  | _ => 
 				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name)))
@@ -1431,7 +1431,7 @@ fun assignCorrectScope (class: DOF.class) =
 				    val globaliterators = CurrentModel.iterators()
 				    val iterator' =
 					case List.find (fn(s,_) => s = iterator) globaliterators 
-					 of SOME (_, DOF.POSTPROCESS it) => it
+					 of SOME (_, DOF.ALGEBRAIC (_,it)) => it
 					  | SOME (_, DOF.UPDATE it) => it
 					  | SOME _ => iterator
 					  | NONE => DynException.stdException("No global iterator found for temporal iterator " ^ (Symbol.name iterator),

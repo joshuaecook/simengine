@@ -29,7 +29,8 @@ val isInstanceEq : Exp.exp -> bool
 val isFirstOrderDifferentialEq : Exp.exp -> bool
 val isDifferenceEq : Exp.exp -> bool
 val isIntermediateEq : Exp.exp -> bool
-val isPPEq : Exp.exp -> bool
+val isAlgebraicStateEq : Exp.exp -> bool
+(*val isPPEq : Exp.exp -> bool*)
 val isUpdateEq : Exp.exp -> bool
 val isPattern : Exp.exp -> bool
 
@@ -401,6 +402,7 @@ fun isDifferenceEq exp =
     isEquation exp andalso
     isNextVarDifferenceTerm (lhs exp)
 
+(*
 fun isNextPPTerm exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
@@ -419,6 +421,27 @@ fun isNextPPTerm exp =
 fun isPPEq exp =
     isEquation exp andalso
     isNextPPTerm (lhs exp)
+*)
+fun isAlgebraicStateTerm exp =
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val iterators = Property.getIterator props
+	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
+									 DOF.ALGEBRAIC _ => true
+								       | _ => false) (CurrentModel.iterators())
+	in
+	    case iterators of
+		SOME ((iterator, Iterator.RELATIVE 1)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+	      | SOME ((iterator, Iterator.RELATIVE 0)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+	      | _ => false
+	end
+      | _ => false
+
+
+fun isAlgebraicStateEq exp =
+    isEquation exp andalso
+    isAlgebraicStateTerm (lhs exp)
 
 fun isNextUpdateTerm exp =
     case exp of
@@ -507,7 +530,30 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	       | _ => false
 	 end
        | _ => false)
-  | isStateTermOfIter (iter as (name, DOF.POSTPROCESS _)) exp =
+    
+  | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.PREPROCESS, _))) exp =
+    (case exp of
+	 Exp.TERM (Exp.SYMBOL (_, props)) =>
+	 let
+	     val iterators = Property.getIterator props
+	 in
+	     case iterators of
+		 SOME ((iterator, Iterator.RELATIVE 0)::rest) => iterator = name
+	       | _ => false
+	 end
+       | _ => false)
+  | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.INPROCESS, _))) exp =
+    (case exp of
+	 Exp.TERM (Exp.SYMBOL (_, props)) =>
+	 let
+	     val iterators = Property.getIterator props
+	 in
+	     case iterators of
+		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	       | _ => false
+	 end
+       | _ => false)
+  | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.POSTPROCESS, _))) exp =
     (case exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
@@ -567,7 +613,7 @@ fun isIntermediateTerm exp =
 	    val iterators = Property.getIterator props
 	    val all_iterators = CurrentModel.iterators()
 	in
-	    not (isNextPPTerm exp) andalso not (isNextUpdateTerm exp) andalso
+	    not (isAlgebraicStateTerm exp) andalso not (isNextUpdateTerm exp) andalso
 	    case (derivative, iterators) of
 		(SOME _, _) => false
 	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
@@ -922,12 +968,12 @@ fun assignIteratorToSymbol (sym, p) exp =
 					 val iter = valOf (List.find (fn(sym',_)=>sym_in_symbol=sym') temporal_iterators)
 					 val correct_sym_in_symbol = case iter of
 									  (_, DOF.UPDATE sym) => sym
-									| (_, DOF.POSTPROCESS sym) => sym
+									| (_, DOF.ALGEBRAIC (_, sym)) => sym
 									| (sym, _) => sym
 					 val iter' = valOf (List.find (fn(sym',_)=>sym=sym') temporal_iterators)
 					 val correct_sym_assignment = case iter' of
 									  (_, DOF.UPDATE sym) => sym
-									| (_, DOF.POSTPROCESS sym) => sym
+									| (_, DOF.ALGEBRAIC (_,sym)) => sym
 									| (sym, _) => sym
 				     in
 					 if correct_sym_in_symbol = correct_sym_assignment then 
@@ -1061,8 +1107,10 @@ fun assignCorrectScopeOnSymbol exp =
 		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
 		else if isNextVarDifferenceTerm exp then
 		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
-		else if isNextPPTerm exp then
+		else if isAlgebraicStateTerm exp then
 		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
+		(*else if isNextPPTerm exp then
+		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))*)
 		else if isNextUpdateTerm exp then
 		    let
 			val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)

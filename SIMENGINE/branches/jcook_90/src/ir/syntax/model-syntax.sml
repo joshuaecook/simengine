@@ -41,7 +41,11 @@ and iteratorToJSON (name, domain) =
 					     object [("samplePeriod", real sample_period)])
 			  | DOF.UPDATE parent => 
 			    JSONTypedObject ("DOF.UPDATE", symbol parent)
-			  | DOF.POSTPROCESS parent => 
+			  | DOF.ALGEBRAIC (DOF.PREPROCESS, parent) => 
+			    JSONTypedObject ("DOF.PREPROCESS", symbol parent)
+			  | DOF.ALGEBRAIC (DOF.INPROCESS, parent) => 
+			    JSONTypedObject ("DOF.INPROCESS", symbol parent)
+			  | DOF.ALGEBRAIC (DOF.POSTPROCESS, parent) => 
 			    JSONTypedObject ("DOF.POSTPROCESS", symbol parent)
 			  | DOF.IMMEDIATE => 
 			    JSONType ("DOF.IMMEDIATE")))]

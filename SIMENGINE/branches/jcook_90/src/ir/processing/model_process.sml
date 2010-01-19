@@ -35,7 +35,7 @@ structure ModelProcess : sig
     val returnStatelessIterators : unit -> DOF.systemiterator list
 
     val hasUpdateIterator : Symbol.symbol -> bool
-    val hasPostProcessIterator : Symbol.symbol -> bool
+    val hasAlgebraicIterator : Symbol.symbol -> bool
     val requiresMatrixSolution : DOF.systemiterator -> bool
 
     (* Indicates whether an iterator is dependent upon another. *)
@@ -65,7 +65,7 @@ val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
 
 fun isDependentIterator (_, DOF.UPDATE _) = true
-  | isDependentIterator (_, DOF.POSTPROCESS _) = true
+  | isDependentIterator (_, DOF.ALGEBRAIC _) = true
   | isDependentIterator _ = false
 
 fun isImmediateIterator (_, DOF.IMMEDIATE) = true
@@ -73,7 +73,7 @@ fun isImmediateIterator (_, DOF.IMMEDIATE) = true
 
 fun isStatefulIterator (_, DOF.CONTINUOUS _) = true
   | isStatefulIterator (_, DOF.DISCRETE _) = true
-  | isStatefulIterator (_, DOF.POSTPROCESS _) = true
+  | isStatefulIterator (_, DOF.ALGEBRAIC _) = true
   | isStatefulIterator _ = false
 
 fun isStatelessIterator (_, DOF.UPDATE _) = true
@@ -114,12 +114,12 @@ fun unify model =
 
 
     
-fun hasPostProcessIterator iter_sym =
+fun hasAlgebraicIterator iter_sym =
     let
 	val iterators = CurrentModel.iterators()
     in
 	List.exists (fn(_,iter_type)=>case iter_type of
-					  DOF.POSTPROCESS v => v=iter_sym
+					  DOF.ALGEBRAIC (_,v) => v=iter_sym
 					| _ => false) iterators
     end
     
@@ -229,7 +229,7 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 				 (Util.sym2codegensym iter_sym,
 				  case iter_type of
 				      DOF.UPDATE v => DOF.UPDATE (Util.sym2codegensym v)
-				    | DOF.POSTPROCESS v => DOF.POSTPROCESS (Util.sym2codegensym v)
+				    | DOF.ALGEBRAIC (processtype, v) => DOF.ALGEBRAIC (processtype, Util.sym2codegensym v)
 				    | _ => iter_type))
 			      iterators
 			      

@@ -27,6 +27,12 @@ type classproperties = {sourcepos: PosLog.pos,
 			classform: classform,
 			classtype: classtype}
 
+(* All algebraic iterators have a process type which describes when in the execution loop a particular equation will be evaluated *)
+datatype processtype = (* assuming iterator t*)
+	 PREPROCESS (* x[t] = f(x[t]) *)
+       | INPROCESS (* x[t+1] = f(x[t]) *)
+       | POSTPROCESS (* x[t+1] = f(x[t+1]) *)
+
 datatype iteratortype 
   (* A continuous iterator, e.g. t, is in the real domain and
    * has an associated numerical solver. *)
@@ -40,7 +46,8 @@ datatype iteratortype
   (* A postprocess iterator is dependent upon another named iterator. 
    * Postprocess evaluations occur after primary evaluation and 
    * any update evaluations. *)
-  | POSTPROCESS of Symbol.symbol
+  (*| POSTPROCESS of Symbol.symbol*)
+  | ALGEBRAIC of (processtype * Symbol.symbol)
   (* An immediate iterator is used for outputs having no other iterator. *)
   | IMMEDIATE
 
