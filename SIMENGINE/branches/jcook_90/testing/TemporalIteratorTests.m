@@ -34,7 +34,6 @@ s.add(Test('IteratorCNameConflict',@()(simex('models_FeatureTests/OneDiscreteIte
 s.add(Test('OneTimeIteratorImplicit parallel',@()(simex('models_FeatureTests/OneTimeIteratorTest1.dsl',10,zeros(10,1),target)), '-allequal'));
 s.add(Test('OneTimeIteratorExplicit parallel',@()(simex('models_FeatureTests/OneTimeIteratorTest2.dsl',10,zeros(10,1),target)), '-allequal'));
 s.add(Test('OneDiscreteIterator parallel',@()(simex('models_FeatureTests/OneDiscreteIteratorTest1.dsl',10,zeros(10,1),target)), '-allequal'));
-s.add(Test('IteratorCNameConflict parallel',@()(simex('models_FeatureTests/OneDiscreteIteratorTest2.dsl',10,zeros(10,1),target)), '-equal', struct('x', [0:10; 0:10]')));
 
 end
 

@@ -274,30 +274,31 @@ fun init_solver_props top_name pp_classes shardedModel iterators_with_solvers =
 			 $("props[ITERATOR_"^itername^"].ob = ob;"),
 			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
 			 $("")]@ 
+			(case itertype of
+			     DOF.CONTINUOUS _ =>
+			     $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].time;")
+			   | DOF.DISCRETE _ =>
+			     $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].count;")
+			   | _ =>
+			     $("// Ignored "^itername)) ::
 			(if 0 < num_states then
-			     (case itertype of
-				  DOF.CONTINUOUS _ =>
-				  $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].time;")
-				| DOF.DISCRETE _ =>
-				  $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].count;")
-				| _ =>
-				  $("#error BOGUS ITERATOR NOT FILTERED")) ::
-			     [$("system_ptr->states_"^itername^" = system_states_int->states_"^itername^";")] @
-			      (if (ModelProcess.hasPostProcessIterator itersym) then
-				   ([$("system_ptr->states_pp_"^itername^" = system_states_int->states_pp_"^itername^";"),
-                                    $("#if !defined TARGET_GPU"),
-                                    $("// Translate structure arrangement from external to internal formatting"),
-                                    $("for(modelid=0;modelid<props->num_models;modelid++){"),
-                                    SUB[$("memcpy(&system_states_int->states_pp_"^itername^"[modelid], &system_states_ext[modelid].states_pp_"^itername^", sizeof(system_states_ext[modelid].states_pp_"^itername^"));")],
-                                    $("}"),
-                                    $("#endif")])
-			       else nil) @
-                              [$("#if !defined TARGET_GPU"),
+			     [$("system_ptr->states_"^itername^" = system_states_int->states_"^itername^";"),
+                              $("#if !defined TARGET_GPU"),
+                              $("// Translate structure arrangement from external to internal formatting"),
+                              $("for(modelid=0;modelid<props->num_models;modelid++){"),
+                              SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], &system_states_ext[modelid].states_"^itername^", props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
+                              $("}"),
+                              $("#endif")]
+			 else
+			     nil) @
+			(if (ModelProcess.hasPostProcessIterator itersym) then
+			     ([$("system_ptr->states_pp_"^itername^" = system_states_int->states_pp_"^itername^";"),
+                               $("#if !defined TARGET_GPU"),
                                $("// Translate structure arrangement from external to internal formatting"),
                                $("for(modelid=0;modelid<props->num_models;modelid++){"),
-                               SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], &system_states_ext[modelid].states_"^itername^", props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
+                               SUB[$("memcpy(&system_states_int->states_pp_"^itername^"[modelid], &system_states_ext[modelid].states_pp_"^itername^", sizeof(system_states_ext[modelid].states_pp_"^itername^"));")],
                                $("}"),
-                               $("#endif")]
+                               $("#endif")])
 			 else nil)
 		    end
 		    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props.progs" e
@@ -418,39 +419,45 @@ fun init_solver_props top_name pp_classes shardedModel iterators_with_solvers =
 	 $("}"),
 	 $(""),
 	 $("void free_solver_props(solver_props* props, CDATAFORMAT* model_states){"),
-	 SUB[$("unsigned int modelid;"),
+	 SUB([$("unsigned int modelid;"),
              $("unsigned int i;"),
              $("assert(props);"),
-             $(""),
-             $("#if !defined TARGET_GPU && NUM_STATES > 0"),
-             $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
-             $("systemstatedata_internal *system_states_int;"),
-	     $("for(i=0;i<NUM_ITERATORS;i++){"),
-             SUB[$("if(props[i].statesize > 0){"),
-                 SUB[$("system_states_int = (systemstatedata_internal*)props[i].model_states;"),
-                     $("break;")],
-                 $("}")],
-             $("}"),
-             $(""),
-             $("// Translate structure arrangement from internal back to external formatting"),
-             $("for(modelid=0;modelid<props->num_models;modelid++){"),
-             SUB(map free_props iterators_with_solvers),
-             $("}"),
-             $("free(system_states_int);"),
-             $("#endif"),
-             $(""),
-	     $("for(i=0;i<NUM_ITERATORS;i++){"),
-	     SUB[$("Iterator iter = ITERATORS[i];"),
-		 $("if (props[iter].time) free(props[iter].time);"),
-		 $("if (props[iter].next_time) free(props[iter].next_time);"),
-		 (*$("if (props[iter].freeme) free(props[iter].freeme);"),*)
-		 $("if (props[iter].running) free(props[iter].running);")],
-	     $("}"),
-	     $("if (props[0].ob) free(props[0].ob);"),
-	     $("if (props[0].od) free(props[0].od);"),
-	     $("free(props);")],
+             $("")] @
+	 (if 0 < total_system_states then
+              [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
+               $("systemstatedata_internal *system_states_int;"),
+               $("systemstatedata_internal *system_states_next;"),
+	       $("for(i=0;i<NUM_ITERATORS;i++){"),
+               SUB[$("if(props[i].statesize + props[i].pp_statesize > 0){"),
+                   SUB[$("system_states_int = (systemstatedata_internal*)props[i].model_states;"),
+		       $("system_states_next = (systemstatedata_internal*)props[i].next_states;"),
+                       $("break;")],
+                   $("}")],
+               $("}"),
+               $(""),
+               $("#if !defined TARGET_GPU && NUM_STATES > 0"),
+               $("// Translate structure arrangement from internal back to external formatting"),
+               $("for(modelid=0;modelid<props->num_models;modelid++){"),
+               SUB(map free_props iterators_with_solvers),
+               $("}"),
+               $("#endif"),
+	       $("free(system_states_int);"),
+	       $("free(system_states_next);"),
+             $("")]
+	  else
+	      nil) @
+	 [$("for(i=0;i<NUM_ITERATORS;i++){"),
+	  SUB[$("Iterator iter = ITERATORS[i];"),
+	      $("if (props[iter].time) free(props[iter].time);"),
+	      $("if (props[iter].next_time) free(props[iter].next_time);"),
+	      (*$("if (props[iter].freeme) free(props[iter].freeme);"),*)
+	      $("if (props[iter].running) free(props[iter].running);")],
+	  $("}"),
+	  $("if (props[0].ob) free(props[0].ob);"),
+	  $("if (props[0].od) free(props[0].od);"),
+	  $("free(props);"),
 	 $("}"),
-	 $("")]
+	 $("")])]
     end
     handle e => DynException.checkpoint "CParallelWriter.init_solver_props" e
 
@@ -899,34 +906,46 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) =
 
 	fun class_struct_declaration (name, iter_pairs) =
 	    [$("typedef struct {"),
-	     SUB(map ($ o iter_pair_iter_member) iter_pairs),
+	     SUB(map ($ o (iter_pair_iter_member iter_pairs)) iter_pairs),
 	     SUB(map ($ o iter_pair_states_member) iter_pairs),
 	     $("} systemstatedata_"^(Symbol.name name)^";"),$("")]
 	and iter_pair_states_member (classname, iter as (iter_name,iter_typ)) =
 	    case iter_typ of
 		DOF.UPDATE _ => ""
 	      | _ => "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";"
-	and iter_pair_iter_member (_, (iter_name,DOF.CONTINUOUS _)) =
+	and iter_pair_iter_member iter_pairs (_, (iter_name,DOF.CONTINUOUS _)) =
 	    "CDATAFORMAT *"^(Symbol.name iter_name)^";"
-	  | iter_pair_iter_member (_, (iter_name,DOF.DISCRETE _)) = 
+	  | iter_pair_iter_member iter_pairs (_, (iter_name,DOF.DISCRETE _)) = 
 	    "unsigned int *"^(Symbol.name iter_name)^";"
-	  | iter_pair_iter_member _ = 
-	    (*"#error BOGUS ITERATOR NOT FILTERED"*) ""
+	  (* Find the real iterator associated with a postprocess or update *)
+	  | iter_pair_iter_member iter_pairs (x, (iter_name,DOF.POSTPROCESS pp)) = 
+	    let
+		val real_iterator = ShardedModel.toIterator shardedModel pp
+	    in
+		(* We need to check if the "real" iterator has states and will already be injected into the structure definition *)
+		if List.exists (fn(_, (name, _)) => name = (#1 real_iterator)) iter_pairs then
+		    ""
+		else
+		    iter_pair_iter_member iter_pairs (x, real_iterator)
+	    end
+	  | iter_pair_iter_member iter_pairs (_, _) = 
+	    ""
 
 	val per_class_struct_data = 
 	    List.concat (map (fn (shard as {classes, instance, iter_sym}) =>
-              let 
-		  val masters = List.filter ClassProcess.isMaster classes
-		  val masters =
-		      Util.uniquify_by_fun (fn (a, b) => (ClassProcess.classTypeName a) = (ClassProcess.classTypeName b))
-		  			   masters
-                  val model = ShardedModel.toModel shardedModel iter_sym
-              in
-                  CurrentModel.withModel model (fn _ =>
-		    List.filter
-		      (not o List.null o #2)
-		      (map class_struct_data masters))
-              end) shards)
+				 let 
+				     val masters = List.filter ClassProcess.isMaster classes
+				     val masters =
+					 Util.uniquify_by_fun (fn (a, b) => (ClassProcess.classTypeName a) = (ClassProcess.classTypeName b))
+		  					      masters
+				     val model = ShardedModel.toModel shardedModel iter_sym
+				 in
+				     CurrentModel.withModel model (fn _ =>
+								      List.filter
+									  (not o List.null o #2)
+									  (map class_struct_data masters))
+				 end) 
+			     shards)
 
 	val folded_per_class_struct_data = 
 	    foldl 
