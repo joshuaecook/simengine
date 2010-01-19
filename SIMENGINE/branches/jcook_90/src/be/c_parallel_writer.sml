@@ -155,7 +155,7 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
 	 $("")]
     end
 
-fun init_solver_props top_name pp_classes shardedModel iterators_with_solvers =
+fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterators) =
     let
         fun free_props iter_sym =
             let
@@ -199,15 +199,15 @@ fun init_solver_props top_name pp_classes shardedModel iterators_with_solvers =
 
 			val num_pp_states =
 			    if ModelProcess.hasPostProcessIterator itersym then
-				case List.find (fn{iter_sym,...}=> 
+				case List.find (fn(iter_sym)=> 
 						  let 
-						      val (_, iter_type) = ShardedModel.toIterator pp_classes iter_sym
+						      val (_, iter_type) = ShardedModel.toIterator shardedModel iter_sym
 						  in 
 						      (case iter_type of DOF.POSTPROCESS iter_sym => true | _ => false)
 						  end)
-					       (#1 pp_classes) (* grab just the shards from the reduced shardedModel *)
-				 of SOME {iter_sym, ...} => 
-				    let val model = ShardedModel.toModel pp_classes iter_sym
+					       pp_iterators
+				 of SOME iter_sym => 
+				    let val model = ShardedModel.toModel shardedModel iter_sym
 				    in CurrentModel.withModel model (fn _ => ModelProcess.model2statesize model)
 				    end
 				  | NONE => ~1
@@ -331,15 +331,19 @@ fun init_solver_props top_name pp_classes shardedModel iterators_with_solvers =
 			val iterator_pp_states_ptr =
 			    if ModelProcess.hasPostProcessIterator itersym then
 				let val pp_classname = 
-					case List.find (fn{iter_sym,...}=> 
+					case List.find (fn(iter_sym)=> 
 							  let 
-							      val (_, iter_type) = ShardedModel.toIterator pp_classes iter_sym
+							      val (_, iter_type) = ShardedModel.toIterator shardedModel iter_sym
 							  in 
 							      (case iter_type of DOF.POSTPROCESS iter_sym => true | _ => false)
 							  end)
-						       (#1 pp_classes) (* grab just the shards from the reduced shardedModel *)
-					 of SOME {instance={classname,...},...} => 
-					    Symbol.name classname
+						       pp_iterators
+					 of SOME iter_sym => 
+					    let
+						val (_,{classname,...},_) = ShardedModel.toModel shardedModel iter_sym
+					    in
+						Symbol.name classname
+					    end
 					  | NONE => "#error invalid"
 				in 
 				    [$("tmp_system->states_pp_"^itername^" = (statedata_"^pp_classname^" * )(tmp_props[ITERATOR_"^itername^"].model_states + tmp_props[ITERATOR_"^itername^"].statesize);")] 
@@ -1634,6 +1638,9 @@ fun buildC (orig_name, shardedModel) =
 	val updateModels = (List.filter (fn {iter_sym, ...} => case itersym2iter iter_sym of (_, DOF.UPDATE _) => true | _ => false) shards,
 			    sysprops)
 
+	val postprocessIterators = map
+				       #iter_sym
+				       (List.filter (fn {iter_sym, ...} => case itersym2iter iter_sym of (_, DOF.POSTPROCESS _) => true | _ => false) shards)
 	val postprocessModels = (List.filter (fn {iter_sym, ...} => case itersym2iter iter_sym of (_, DOF.POSTPROCESS _) => true | _ => false) shards,
 				 sysprops)
 
@@ -1651,7 +1658,7 @@ fun buildC (orig_name, shardedModel) =
 				    [], (* no additional includes *)
 				    []))
 
-	val init_solver_props_c = init_solver_props orig_name postprocessModels shardedModel iteratorsWithSolvers		   
+	val init_solver_props_c = init_solver_props orig_name shardedModel (iteratorsWithSolvers, postprocessIterators)
 	val simengine_interface_progs = simengine_interface class_name (*combinedModel*) forkedModelsLessUpdate
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code shardedModel
