@@ -1,39 +1,51 @@
+; Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C
+
 (require 'dsl-syntax)
 ;; Abbreviations and common variable names
 ;; paboi: point at beginning of indentation
 ;; state: an Emacs parser state object. Cf `dsl-syntax.el'
+;;
+;; Nb any function beginning with `dsl-indent' may move the point.
 
-
-(defcustom dsl-default-indent 4
+(defcustom dsl-default-indent 2
   "Number of columns for each level of indentation."
   :group 'dsl
   :type '(integer))
 
 
 (defun dsl-indentation-for-parser-state (paboi state)
+  "Returns the appropriate indentation column for the line containing
+  paboi with a given parser state."
   (cond
+   ;; A few special cases can be matched base on parser state data alone.
    ((dsl-parser-string state)
     (dsl-indentation-for-string paboi state))
    ((dsl-parser-comment state)
     (dsl-indentation-for-comment paboi state))
    ((dsl-parser-bo-paren state)
     (dsl-indentation-for-paren paboi state))
-
+   ;; For the rest, more complex matching is needed.
    (t 
-    (dsl-default-indentation paboi state))))
+    (dsl-indentation-for-default paboi state))))
 
 (defun dsl-indentation-for-string (paboi state)
+  "Returns the indentation column for a line within a multiline string."
+  ;; Strings continued across multiple lines are left-justified.
   0)
 
 (defun dsl-indentation-for-comment (paboi state)
-  "Returns the indentation column for a line within a multiline comment."
+  "Returns the indentation column for a line within a multiline
+comment."
   (goto-char paboi)
   (if (not (looking-at "*")) (dsl-indent-relative paboi)
+    ;; Multiline comments are aligned with the `*' in `/*'
     (goto-char (dsl-parser-bo-comment state))
     (+ 1 (current-column))))
 
 (defun dsl-indentation-for-paren (paboi state)
-  "Returns the proper indentation level for a line within a parenthetical."
+  "Returns the proper indentation level for a line within a
+parenthetical."
+  ;; Align one column right of the open parenthesis.
   (goto-char (dsl-parser-bo-paren state))
   (+ 1 (current-column)))
 
@@ -50,48 +62,62 @@
     (forward-comment -1)
     (eq ?= (char-before))))
 
-(defun dsl-default-indentation (paboi state)
+
+
+(defconst dsl-indent-begin-block-keywords-regexp
+  "\\_<\\(namespace\\|class\\|model\\|if\\|else\\|elseif\\|get\\|set\\|property\\|constructor\\|equations\\)\\_>")
+
+(defconst dsl-indent-end-block-keywords-regexp
+  "\\_<end\\|else\\|elseif\\_>")
+
+(defun dsl-indentation-for-default (paboi state)
   (goto-char paboi)
   (cond
-   ((and (looking-at "\\_<end\\|else\\|elseif\\_>") (dsl-parser-last-complete-sexp state))
+   ;; At the end of a block, I should be able to search backwards for
+   ;; the keyword that began the block and use that indentation.
+   ((and (looking-at dsl-indent-end-block-keywords-regexp) 
+	 (dsl-parser-last-complete-sexp state))
     (goto-char (dsl-parser-last-complete-sexp state))
     (back-to-indentation)
-    (if (looking-at "\\_<\\(namespace\\|class\\|model\\|if\\|else\\|get\\|set\\|property\\|constructor\\|equations\\)\\_>")
+    (if (looking-at dsl-indent-begin-block-keywords-regexp)
 	(current-indentation)
-      (max (- (current-indentation) dsl-default-indent) 0)))
+      ;; Stumped. Try to unindent by one step or bump against the left margin.
+      (max 0 (- (current-indentation) dsl-default-indent))))
 
+   ;; If not at the end of a block, the point is probably within a block.
    ((dsl-parser-last-complete-sexp state)
     (goto-char (dsl-parser-last-complete-sexp state))
     (back-to-indentation)
-    (let ((eol (save-excursion (end-of-line) (forward-comment -1))))
+    (let ((eol (save-excursion (end-of-line) (forward-comment -1) (point))))
       (cond
-       ((looking-at "\\_<\\(namespace\\|class\\|model\\|property\\|if\\|else\\|elseif\\|get\\|set\\|constructor\\|equations\\)\\_>")
+       ;; If the previous parsed expression is on a line that
+       ;; begins a block, increment the indentation relative to the
+       ;; previous line.
+       ((looking-at dsl-indent-begin-block-keywords-regexp)
+	(+ dsl-default-indent (current-indentation)))
+       
+       ((and (looking-at "\\_<\\(overload\\|function\\|get\\|set\\|constant\\|var\\)\\_>")
+	     (dsl-equals-at-eol))
+	(message "match-end %s" (- (match-end 0) (current-indentation)))
+	(+ 1 (current-indentation) (- (match-end 0) (match-beginning 0))))
+       
+       ;; If the previous line was not functional definition,
+       ;; increment the indentation relative to the previous line.
+       ((and (looking-at "\\_<\\(overload\\|function\\|get\\|set\\)\\_>")
+	     (not (search-forward "=" eol t)))
 	(+ dsl-default-indent (current-indentation)))
 
-       ((and (looking-at "\\_<\\(overload\\|function\\|constant\\|var\\)\\_>")
-	     (eq ?= (char-before eol)))
+       ((and (looking-at "\\_<\\(foreach\\)\\_>")
+	     (re-search-forward "\\_<do\\_>" eol t))
 	(+ dsl-default-indent (current-indentation)))
-     
-       ((and (looking-at "\\_<\\(overload\\|function\\)\\_>")
-	     (not (search-forward "=" eol t)))
-       (+ dsl-default-indent (current-indentation)))
+       
+       ;; FIXME how to handle multifunction?
 
        (t (current-indentation)))))
 
-    (t (current-indentation))))
+   ;; If all else fails, indent to the same level as the previous expression
+   (t (current-indentation))))
 
-
-(defun dsl-indent-find-tab-stop-rec (column stop-list)
-  (cond
-   ((not stop-list) column)
-   ((< column (car stop-list)) (car stop-list))
-   ((not (cdr stop-list)) column)
-   ((< column (cadr stop-list)) (cadr stop-list))
-   (t
-    (dsl-indent-find-tab-stop-rec column (cdr stop-list)))))
-
-(defun dsl-indent-find-tab-stop (column)
-  (dsl-indent-find-tab-stop-rec column tab-stop-list))
 
 (defun dsl-point-at-boi (&optional line)
   "Returns the point at the beginning of indentation at LINE."
@@ -101,12 +127,11 @@
     (point)))
 
 (defun dsl-calculate-indentation ()
-  "Returns the proper indentation level for the current line."
+  "Returns the proper indentation column for the current line."
   (let* ((inhibit-point-motion-hooks t)
 	 (paboi (dsl-point-at-boi)))
-    (save-excursion
-      (if (= 0 paboi) 0 ; beginning of buffer. First line is always 
-        ; or else start at the current indentation and try to figure it out.
+    (if (= 0 paboi) 0 ; Beginning of buffer. First line is always left-justified.
+      (save-excursion ; Start at the current indentation and try to figure it out.
 	(dsl-indentation-for-parser-state 
 	 paboi (parse-partial-sexp (point-min) paboi))))))
 
@@ -114,7 +139,7 @@
 (defun dsl-indent-line ()
   "Indents the current line."
   (interactive)
-  (let ((column (save-excursion (dsl-calculate-indentation))))
+  (let ((column (dsl-calculate-indentation)))
     (if (<= (current-column) (current-indentation))
 	(indent-line-to column)
       (save-excursion (indent-line-to column)))))

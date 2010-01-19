@@ -15,14 +15,7 @@
   "Keymap used in `dsl-mode' buffers")
 (unless dsl-mode-map
   (let ((map (make-sparse-keymap)))
-
-    ;; TODO make these compatible with simEngine
-    ;; (define-key map "\C-c\C-e" 'dynamo-send-string)
-    ;; (define-key map "\C-c\C-v" 'dynamo-send-region)
-    ;; (define-key map "\C-c\C-c" 'dynamo-send-buffer)
-    ;; (define-key map "\C-c\C-i" 'dynamo-import-file)
-    ;; (define-key map "\C-c!" 'run-dynamo)
-
+    ;; TODO what are useful key mappings for this mode?
     (setq dsl-mode-keymap map)))
 
 
