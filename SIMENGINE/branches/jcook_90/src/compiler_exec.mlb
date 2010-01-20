@@ -5,6 +5,7 @@ local
   $(SML_LIB)/basis/sml-nj.mlb
   $(SML_LIB)/basis/mlton.mlb
   $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+  $(SML_LIB)/smlnj-lib/RegExp/regexp-lib.mlb
 
   cool.mlb
 in

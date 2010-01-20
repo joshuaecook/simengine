@@ -166,6 +166,9 @@ end
 
 function objectContains (obj, member) = exists m in obj.members.tovector() suchthat m==member //exists((lambdafun(m) = m == member), obj.members)
 
+function isRegexpMatch (pattern: String, str: String) = LF ismatch (pattern, str)
+function getRegexpMatches (pattern: String, str: String) = LF getMatches (pattern, str)
+
 function join (sep: String, v: Vector)
   var n = v.length()
 

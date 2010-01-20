@@ -5,6 +5,7 @@ namespace Devices
         var cudaErr = "Device list not initialized"
         var numDevices = 0
 	hidden function device_props ()
+
             var propkeys = ["deviceId",
 			    "name",
 			    "totalGlobalMem",
@@ -32,7 +33,7 @@ namespace Devices
 	    var lines = allout(1)
             var errline = join("", allout(2))
             var stat = Process.reap p
-            if () == stat then
+            if 0 == stat then
                 foreach l in lines do
                     var propvals = l.strip("\n").split(":")
                     var proptable = Table.new([keyval.totuple() foreach keyval in zip(propkeys,propvals)])

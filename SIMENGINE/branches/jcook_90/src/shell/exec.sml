@@ -256,7 +256,7 @@ and exec_stm parse (stm, env as (globalenv, localenv, poslog)) =
 
 	   
       | KEC.ACTION(KEC.ASSIGN (dest, source), pos)
-	=> (execAssignStatment parse env (dest, source) pos
+	=> (execAssignStatement parse env (dest, source) pos
 	    handle DynException.TypeMismatch reason
 		   => error (PosLog.addSystemPos (env, pos)) ($("Type mismatch: " ^ reason)))			       
 
@@ -518,10 +518,10 @@ and execOpenStatement parse env (object, excludes, include_privates) pos =
 
 (* Executes a variable assignment statement.
    Returns (unit,env). *)
-and execAssignStatment parse env (dest, source) pos =
+and execAssignStatement parse env (dest, source) pos =
     let
 	fun execLHS exp = exec_exp parse (0, true) (PosLog.addSystemPos (env, pos), exp)
-	fun execRHS exp = exec_exp parse (0, false) (PosLog.addSystemPos (env, pos), exp)
+	fun execRHS exp = decell(exec_exp parse (0, false) (PosLog.addSystemPos (env, pos), exp))
 
 	val pretty = PrettyPrint.kecexp2prettystr (decell o execRHS)
 	val lhs = execLHS dest

@@ -1225,7 +1225,7 @@ function compile (mod)
       var ccstat = Process.reap(ccp)
       var ccout = ccallout(1)
       var ccerr = ccallout(2)
-      if () <> ccstat then
+      if 0 <> ccstat then
         println ("STDOUT:" + join("", ccout))
         println ("STDERR:" + join("", ccerr))
         error ("OOPS! Compiler returned non-zero exit status " + ccstat)
@@ -1239,7 +1239,7 @@ function compile (mod)
       var ldstat = Process.reap(ldp)
       var ldout = ldallout(1)
       var lderr = ldallout(2)
-      if () <> ldstat then
+      if 0 <> ldstat then
           println (join("", ldout))
           println (join("", lderr))
           error ("OOPS! Linker returned non-zero exit status " + ldstat)

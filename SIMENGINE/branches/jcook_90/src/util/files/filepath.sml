@@ -6,10 +6,11 @@ exception InternalError
 fun getfullpath file =
     let
 	val file' = OS.FileSys.fullPath file
+
     in
 	SOME file'
     end
-    handle OS.SysErr (s, _) => NONE
+    handle OS.SysErr (s, _) => NONE 
 
 fun find file =
     if OS.Path.isAbsolute file then

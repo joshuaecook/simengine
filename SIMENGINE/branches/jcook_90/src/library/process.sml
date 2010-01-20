@@ -76,12 +76,11 @@ fun std_preadOutAndErrLine exec args =
      of [KEC.PROCESS (p, _, _)] =>
 	let val (stdout, stderr) = (Child.textIn (Proc.getStdout p), Child.textIn (Proc.getStderr p))
 	    fun loop () =
-		case (TextIO.canInput (stdout,1), TextIO.canInput (stderr,1))
+		case (TextIO.canInput (stdout,10), TextIO.canInput (stderr,10))
 		 of (SOME _, SOME _) => (TextIO.inputLine stdout, TextIO.inputLine stderr)
 		  | (SOME _, NONE) => (TextIO.inputLine stdout, NONE)
 		  | (NONE, SOME _) => (NONE, TextIO.inputLine stderr)
-		  (* If no data is available, it can't hurt to sleep for a short interval *)
-		  | (NONE, NONE) => (Posix.Process.sleep (Time.fromMilliseconds 10); loop ())
+		  | (NONE, NONE) => (loop ())
 	    val (outline, errline) = loop ()
 	in
 	    KEC.TUPLE [if isSome outline then 
@@ -109,7 +108,7 @@ fun std_preap exec args =
     case args of
 	[KEC.PROCESS (p, _, _)] =>
 	(case Proc.reap p
-	  of Posix.Process.W_EXITED => KEC.UNIT
+	  of Posix.Process.W_EXITED => KEC.LITERAL ( KEC.CONSTREAL 0.0)
 	   | Posix.Process.W_EXITSTATUS w => (KEC.LITERAL o KEC.CONSTREAL o Real.fromInt o Word8.toInt) w
 	   | _ => KEC.UNIT)
       | [a] => 
