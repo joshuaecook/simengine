@@ -794,18 +794,18 @@ fun addDelays (class: DOF.class) =
 								     | NONE => (ExpBuild.int 0,[])
 									       
 		   val (_, iter_type) = CurrentModel.itersym2iter iter_sym
-		   val pp_iter_sym = case iter_type of
-					 DOF.ALGEBRAIC _ => iter_sym (* it's already an iter_sym *)
+		   val inline_iter_sym = case iter_type of
+					 DOF.ALGEBRAIC (_,iter_sym') => Iterator.inProcessOf (Symbol.name iter_sym')
 				       | DOF.UPDATE _ => DynException.stdException("Unexpected delay of update iterator", "ClassProcess.addDelays.exps_and_rewrites", Logger.INTERNAL)
-				       | _ => Iterator.postProcessOf (Symbol.name iter_sym)
+				       | _ => Iterator.inProcessOf (Symbol.name iter_sym)
 
 		   fun d2symname d = 
 		       Symbol.symbol ("#intdelay_" ^ (Symbol.name sym) ^ "_" ^ (Util.i2s d))
 		   val init_conditions = map
-					     (fn(d)=>ExpBuild.equals (Exp.TERM (Exp.SYMBOL (d2symname d, (Property.setIterator Property.default_symbolproperty ((pp_iter_sym, Iterator.ABSOLUTE 0)::spatial_iterators)))), init_condition_value))
+					     (fn(d)=>ExpBuild.equals (Exp.TERM (Exp.SYMBOL (d2symname d, (Property.setIterator Property.default_symbolproperty ((inline_iter_sym, Iterator.ABSOLUTE 0)::spatial_iterators)))), init_condition_value))
 					     (List.tabulate (max_d,fn(x)=>x+1))
 
-		   fun sym_props r = Property.setIterator Property.default_symbolproperty ((pp_iter_sym, Iterator.RELATIVE r)::spatial_iterators)
+		   fun sym_props r = Property.setIterator Property.default_symbolproperty ((inline_iter_sym, Iterator.RELATIVE r)::spatial_iterators)
 		   fun d2lhs_exp d r = Exp.TERM (Exp.SYMBOL (d2symname d, sym_props r))
 		   val pp_equations = map
 					  (fn(d)=>if d = 1 then 
@@ -862,7 +862,7 @@ back to.  If there is coupling between multiple update equations {x=f(y), y=f(x)
 (* The same is true for post processing.  This function handles both updates and post processing flows. *)
 fun addBufferedIntermediates (class: DOF.class) = 
     let
-	val expfilters = [ExpProcess.isUpdateEq, ExpProcess.isAlgebraicStateEq]
+	val expfilters = [ExpProcess.isUpdateEq, ExpProcess.isPreProcessStateEq, ExpProcess.isPostProcessStateEq]
 	fun addBufferedIntermediatesByType expfilter = 
 	    let
 		val exps = !(#exps class)

@@ -46,8 +46,8 @@ val buildTime =
      of SOME z => Time.fromSeconds (IntInf.toLarge z) | _ => invalid "buildTime"
 
 val version =
-    case JSON.memberValue (options, "buildDate", JSON.toString)
-     of SOME s => s | _ => invalid "buildDate"
+    case JSON.memberValue (options, "version", JSON.toString)
+     of SOME s => s | _ => invalid "version"
 
 val devVersion =
     JSON.boolVal (JSON.memberDefault (options, "devVersion", {default=JSON.bool false}))

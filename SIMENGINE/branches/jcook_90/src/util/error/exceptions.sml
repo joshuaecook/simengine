@@ -62,7 +62,7 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
     (Logger.log_exception characterization severity 
     		(SUB (($("Exception caught at " ^ handlelocation 
 			   ^ " and raised at " ^ location ^ " - (" ^ message ^ ")")) ::
-                      (log_stack e ()))))
+                      (*(log_stack e ())*)nil)))
   | log handlelocation (e as TooManyErrors) =
     ()
 

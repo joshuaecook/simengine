@@ -1764,7 +1764,7 @@ fun buildC (orig_name, shardedModel) =
 				    [], (* no additional includes *)
 				    []))
 
-	val init_solver_props_c = init_solver_props orig_name shardedModel (iteratorsWithSolvers, postprocessIterators)
+	val init_solver_props_c = init_solver_props orig_name shardedModel (iteratorsWithSolvers, algebraicIterators)
 	val simengine_interface_progs = simengine_interface class_name (*combinedModel*) forkedModelsLessUpdate
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code shardedModel

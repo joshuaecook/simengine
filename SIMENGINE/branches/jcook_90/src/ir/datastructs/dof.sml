@@ -46,7 +46,6 @@ datatype iteratortype
   (* A postprocess iterator is dependent upon another named iterator. 
    * Postprocess evaluations occur after primary evaluation and 
    * any update evaluations. *)
-  (*| POSTPROCESS of Symbol.symbol*)
   | ALGEBRAIC of (processtype * Symbol.symbol)
   (* An immediate iterator is used for outputs having no other iterator. *)
   | IMMEDIATE

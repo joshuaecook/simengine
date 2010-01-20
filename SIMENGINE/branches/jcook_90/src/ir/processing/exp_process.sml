@@ -30,7 +30,9 @@ val isFirstOrderDifferentialEq : Exp.exp -> bool
 val isDifferenceEq : Exp.exp -> bool
 val isIntermediateEq : Exp.exp -> bool
 val isAlgebraicStateEq : Exp.exp -> bool
-(*val isPPEq : Exp.exp -> bool*)
+val isPreProcessStateEq : Exp.exp -> bool
+val isInProcessStateEq : Exp.exp -> bool
+val isPostProcessStateEq : Exp.exp -> bool
 val isUpdateEq : Exp.exp -> bool
 val isPattern : Exp.exp -> bool
 
@@ -422,13 +424,16 @@ fun isPPEq exp =
     isEquation exp andalso
     isNextPPTerm (lhs exp)
 *)
-fun isAlgebraicStateTerm exp =
+fun isAlgebraicStateTermOfProcessType process exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
-	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
-									 DOF.ALGEBRAIC _ => true
+	    val discrete_iterators = List.filter (fn(sym, itertype)=>case (itertype, process) of 
+									 (DOF.ALGEBRAIC (DOF.PREPROCESS,_), SOME DOF.PREPROCESS) => true
+								       | (DOF.ALGEBRAIC (DOF.INPROCESS,_), SOME DOF.INPROCESS) => true
+								       | (DOF.ALGEBRAIC (DOF.POSTPROCESS,_), SOME DOF.POSTPROCESS) => true
+								       | (DOF.ALGEBRAIC _, NONE) => true
 								       | _ => false) (CurrentModel.iterators())
 	in
 	    case iterators of
@@ -438,10 +443,16 @@ fun isAlgebraicStateTerm exp =
 	end
       | _ => false
 
+fun isAlgebraicStateTerm exp = isAlgebraicStateTermOfProcessType NONE exp
 
-fun isAlgebraicStateEq exp =
+fun isAlgebraicStateEqOfProcessType process exp =
     isEquation exp andalso
-    isAlgebraicStateTerm (lhs exp)
+    isAlgebraicStateTermOfProcessType process (lhs exp)
+
+fun isAlgebraicStateEq exp = isAlgebraicStateEqOfProcessType NONE exp
+fun isPreProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.PREPROCESS) exp
+fun isInProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.INPROCESS) exp
+fun isPostProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.POSTPROCESS) exp
 
 fun isNextUpdateTerm exp =
     case exp of

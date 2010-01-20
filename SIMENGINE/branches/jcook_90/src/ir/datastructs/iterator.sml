@@ -25,6 +25,8 @@ sig
     val iterators2mathematica_str : iterator list -> string (* C writer for multiple iterator *)
     val iter_equiv : (iterator * iterator) -> bool
 
+    val preProcessOf : string -> Symbol.symbol  
+    val inProcessOf : string -> Symbol.symbol  
     val postProcessOf : string -> Symbol.symbol  
     val updateOf : string -> Symbol.symbol
 
@@ -34,17 +36,19 @@ struct
 
 val i2s = Util.i2s
 
-fun eventOf iter = Symbol.symbol ("event_" ^ iter )
-fun postProcessOf iter = 
-    if (String.isPrefix Util.commonPrefix iter) then
-	Symbol.symbol (Util.commonPrefix ^ "pp_" ^ (Util.removePrefix iter))
-    else
-	Symbol.symbol ("pp_" ^ iter)
-fun updateOf iter =
-    if (String.isPrefix Util.commonPrefix iter) then
-	Symbol.symbol (Util.commonPrefix ^ "update_" ^ (Util.removePrefix iter))
-    else
-	Symbol.symbol ("update_" ^ iter)
+fun addPrefix prefix iter = 
+    let val prefix' = prefix ^ "_"
+    in if (String.isPrefix Util.commonPrefix iter) then
+	   Symbol.symbol (Util.commonPrefix ^ prefix' ^ (Util.removePrefix iter))
+       else
+	   Symbol.symbol (prefix' ^ iter)
+    end
+
+fun eventOf iter = addPrefix "event" iter
+fun preProcessOf iter = addPrefix "preProcess" iter
+fun inProcessOf iter = addPrefix "inProcess" iter
+fun postProcessOf iter = addPrefix "postProcess" iter
+fun updateOf iter = addPrefix "update" iter
 
 datatype iteratorindex = ALL
 		       | ABSOLUTE of int
