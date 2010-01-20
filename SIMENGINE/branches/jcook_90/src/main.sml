@@ -49,11 +49,11 @@ fun rep_loop isInteractive textstream env =
 	end
 	handle err as OOLCParse.ParserError
 	       => (Logger.log_error (Printer.$"Parse errors encountered");
-		   DynException.log "Main" err;	     
+		   (*DynException.log "Main" err;	     
 		   if DynamoOptions.isFlagSet("debugexceptions") then
 		       app print (log_stack err ())
 		   else
-		       ();
+		       ();*)
 		   rep_loop isInteractive textstream env)
 	     | DynException.RestartRepl
 	       => if isInteractive then (DynException.resetErrored(); rep_loop isInteractive textstream env) else (KEC.UNIT, env)
@@ -143,6 +143,8 @@ val _ = (if List.length (CommandLine.arguments()) = 0 then
     handle DynException.TooManyErrors => 
 	   GeneralUtil.FAILURE "Too many errors encountered"
 	 | Usage => GeneralUtil.SUCCESS
+	 | OOLCParse.ParserError => 
+	   GeneralUtil.FAILURE "Error found when parsing source code"
 	 |  e => 
 	    (DynException.log "Main" e;
 	     GeneralUtil.FAILURE "An exception was encountered")
