@@ -155,6 +155,7 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
 	 $("")]
     end
 
+(* FIXME the gpu-related code herein is likely not correct. *)
 fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterators) =
     let
         fun free_props iter_sym =
@@ -251,7 +252,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 			(map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
 			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
-			 $("props[ITERATOR_"^itername^"].system_states = system_ptr;"),
+			 $("props[ITERATOR_"^itername^"].system_states = &system_ptrs;"),
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].next_time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].count = NULL; // Allocated by discrete solver only, must be NULL otherwise"),
@@ -283,13 +284,13 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 			 $("")]@ 
 			(case itertype of
 			     DOF.CONTINUOUS _ =>
-			     $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].time;")
+			     $("system_ptrs."^itername^" = props[ITERATOR_"^itername^"].time;")
 			   | DOF.DISCRETE _ =>
-			     $("system_ptr->"^itername^" = props[ITERATOR_"^itername^"].count;")
+			     $("system_ptrs."^itername^" = props[ITERATOR_"^itername^"].count;")
 			   | _ =>
 			     $("// Ignored "^itername)) ::
 			(if 0 < num_states then
-			     [$("system_ptr->states_"^itername^" = system_states_int->states_"^itername^";"),
+			     [$("system_ptrs.states_"^itername^" = system_states_int->states_"^itername^";"),
                               $("#if !defined TARGET_GPU"),
                               $("// Translate structure arrangement from external to internal formatting"),
                               $("for(modelid=0;modelid<props->num_models;modelid++){"),
@@ -298,16 +299,21 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
                               $("#endif")]
 			 else
 			     nil) @
-			(if (ModelProcess.hasAlgebraicIterator itersym) then
-			     ([$("system_ptr->states_pp_"^itername^" = system_states_int->states_pp_"^itername^";"),
-                               $("system_ptr->states_pp_"^itername^"_buffer = system_states_next->states_pp_"^itername^";"),
-                               $("#if !defined TARGET_GPU"),
-                               $("// Translate structure arrangement from external to internal formatting"),
-                               $("for(modelid=0;modelid<props->num_models;modelid++){"),
-                               SUB[$("memcpy(&system_states_int->states_pp_"^itername^"[modelid], &system_states_ext[modelid].states_pp_"^itername^", sizeof(system_states_ext[modelid].states_pp_"^itername^"));")],
-                               $("}"),
-                               $("#endif")])
-			 else nil)
+			(let fun initAlgebraicSystemPointers (iterName, _) =
+				 let val cname = Symbol.name iterName
+				 in
+				 [$("system_ptrs.states_" ^ cname ^ " = system_states_int->states_" ^ cname ^ ";"),
+				   $("system_ptrs.states_" ^ cname ^ "_buffer = system_states_next->states_" ^ cname ^ ";"),
+				   $("#if !defined TARGET_GPU"),
+				   $("// Translate structure arrangement from external to internal formatting"),
+				   $("for(modelid=0;modelid<props->num_models;modelid++){"),
+				   SUB[$("memcpy(&system_states_int->states_" ^ cname ^ "[modelid], &system_states_ext[modelid].states_" ^ cname ^ ", sizeof(system_states_ext[modelid].states_" ^ cname ^ "));")],
+				   $("}"),
+				   $("#endif")]
+				 end
+			 in
+			     List.concat (map initAlgebraicSystemPointers (ModelProcess.algebraicIterators itersym))
+			 end)
 		    end
 		    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props.progs" e
 	    in
@@ -386,7 +392,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 	 $(""),
 	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
 	 SUB((if 0 < total_system_states then
-		  [$("systemstatedata_"^(Symbol.name top_name)^" *system_ptr = (systemstatedata_"^(Symbol.name top_name)^" *)malloc(sizeof(systemstatedata_"^(Symbol.name top_name)^" ));"),
+		  [$("systemstatedata_"^(Symbol.name top_name)^" system_ptrs;"),
 		   $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
 		   $("#if defined TARGET_GPU"),
 		   $("systemstatedata_external *system_states_int = (systemstatedata_external*)model_states;"),
@@ -397,7 +403,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 		   $("#endif")]
 
 	       else
-		   [$("void *system_ptr = NULL;"),
+		   [$("void *system_ptrs = NULL;"),
 		    $("void *system_states_ext = NULL;"),
 		    $("void *system_states_int = NULL;"),
 		    $("void *system_states_next = NULL;")]) @

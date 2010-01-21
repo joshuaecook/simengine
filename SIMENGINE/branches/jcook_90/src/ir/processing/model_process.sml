@@ -38,6 +38,9 @@ structure ModelProcess : sig
     val hasAlgebraicIterator : Symbol.symbol -> bool
     val requiresMatrixSolution : DOF.systemiterator -> bool
 
+    (* Returns the list of algebraic iterators matching a given name. *)
+    val algebraicIterators: Symbol.symbol -> DOF.systemiterator list
+
     (* Indicates whether an iterator is dependent upon another. *)
     val isDependentIterator : DOF.systemiterator -> bool
     val isImmediateIterator : DOF.systemiterator -> bool
@@ -117,6 +120,9 @@ fun hasAlgebraicIterator iter_sym =
 					  DOF.ALGEBRAIC (_,v) => v=iter_sym
 					| _ => false) iterators
     end
+
+fun algebraicIterators iterName =
+    List.filter (fn (_, DOF.ALGEBRAIC (_, name)) => name = iterName | _ => false) (CurrentModel.iterators ())
     
 
 fun pruneModel iter_sym_opt model = 
