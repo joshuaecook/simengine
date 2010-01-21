@@ -744,12 +744,20 @@ namespace Simulation
 
   class TimeIterator extends GenericIterator
     var isContinuous
-    var sample_frequency = 1
+    var sample_frequency 
     constructor (name: String)
       super(name)
+      reset()
     end 
 
     hidden var solver_obj
+
+    function reset ()
+      sample_frequency = 1
+      isContinuous = true
+      solver_obj = undefined
+    end 
+
 
     property solver
       get

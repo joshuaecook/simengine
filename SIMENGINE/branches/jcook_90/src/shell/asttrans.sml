@@ -419,13 +419,32 @@ and trans_definition definition =
 				trans_exp table
 			      | NONE => HLEC.TABLE []
 		    in
-			[HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (sym "makeIterator", [sym2strlit name, table])), PosLog.NOPOS),
-			 HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
-			 HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "iterators"), [HLEC.SYMBOL name])), PosLog.NOPOS)] @ 
-			(case value
-			  of SOME value => 
-			     [HLEC.ACTION (HLEC.EXP (apply (send "setValue" (HLEC.SYMBOL name), [trans_exp value])), PosLog.NOPOS)]
-			   | NONE => [])
+			[HLEC.ACTION(HLEC.COND {cond=HLEC.AND [apply (sym "objectContains",
+                                                                      [sym "self",
+                                                                       HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))]),
+                                                               apply (sym "istype",
+                                                                      [HLEC.TYPEEXP (HLEC.TYPE (Symbol.symbol "TimeIterator")),
+                                                                       HLEC.SYMBOL (name)])],
+						ift=[HLEC.ACTION (HLEC.EXP (apply (send "reset" (HLEC.SYMBOL name),
+                                                                                   [])),
+                                                                  PosLog.NOPOS),
+                                                     HLEC.ACTION (HLEC.EXP (apply (HLEC.SYMBOL name,
+                                                                                   [table])),
+                                                                  PosLog.NOPOS)] @ 
+                                                    (case value
+                                                      of SOME value => 
+                                                         [HLEC.ACTION (HLEC.EXP (apply (send "setValue" (HLEC.SYMBOL name), [trans_exp value])), PosLog.NOPOS)]
+                                                       | NONE => []),
+						iff=[HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (sym "makeIterator", [sym2strlit name, table])), PosLog.NOPOS),
+                                                     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
+                                                     HLEC.ACTION (HLEC.EXP (apply (send "push_back" (sym "iterators"), [HLEC.SYMBOL name])), PosLog.NOPOS)] @ 
+                                                    (case value
+                                                      of SOME value => 
+                                                         [HLEC.ACTION (HLEC.EXP (apply (send "setValue" (HLEC.SYMBOL name), [trans_exp value])), PosLog.NOPOS)]
+                                                       | NONE => [])},
+                                     PosLog.NOPOS)]
+			
+
 		    end
 (*		    [HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (send "new" (sym "SimIterator"), [sym2strlit name])), PosLog.NOPOS),
 		     HLEC.ACTION (HLEC.EXP (apply (addConst, [sym2strlit name, HLEC.SYMBOL name])), PosLog.NOPOS),
