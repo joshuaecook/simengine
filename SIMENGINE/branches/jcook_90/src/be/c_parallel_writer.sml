@@ -1000,85 +1000,90 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) =
 		 $("} systemstatedata_internal;"),
                  $("")]
 
-	fun name_and_iterator class =
-	    let val name = ClassProcess.classTypeName class
+
+	(* Declares a pointer to an iterator value. *)
+	val systemPointerStructureIteratorValue =
+	    fn (sym, DOF.CONTINUOUS _) => SOME ("CDATAFORMAT * " ^ (Symbol.name sym) ^ ";")
+	     | (sym, DOF.DISCRETE _) => SOME ("unsigned int * " ^ (Symbol.name sym) ^ ";")
+	     | _ => NONE
+
+	(* Declares pointers to the states of an iterator. *)
+	fun systemPointerStructureStates (typename, (iter_sym, iter_typ)) =
+	    let val ctype = "statedata_" ^ (Symbol.name typename) ^ " * "
 	    in
-		fn iter => (name, iter)
+		case iter_typ
+		 of DOF.CONTINUOUS _ => 
+		    [ctype ^ "states_" ^ (Symbol.name iter_sym) ^ ";"]
+		  | DOF.DISCRETE _ => 
+		    [ctype ^ "states_" ^ (Symbol.name iter_sym) ^ ";"]
+		  | DOF.ALGEBRAIC _ => 
+		    [ctype ^ "states_" ^ (Symbol.name iter_sym) ^ ";",
+		     ctype ^ "states_" ^ (Symbol.name iter_sym) ^ "_buffer;"]
+		  | _ => nil
 	    end
 
-	fun class_struct_data class =
-	    let val iters = List.filter (fn (it) => has_states it class) iterators
-		val class_name_iterator_pairs = map (name_and_iterator class) iters
-	    in 
-		(ClassProcess.class2basename class, class_name_iterator_pairs) 
-	    end
-	    handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code.class_struct_data" e
-
-	fun class_struct_declaration (name, iter_pairs) =
-	    [$("typedef struct {"),
-	     SUB(map ($ o (iter_pair_iter_member iter_pairs)) iter_pairs),
-	     SUB(map ($ o iter_pair_states_member) iter_pairs),
-	     $("} systemstatedata_"^(Symbol.name name)^";"),$("")]
-	and iter_pair_states_member (classname, iter as (iter_name,iter_typ)) =
-	    case iter_typ of
-		DOF.UPDATE _ => ""
-	      | DOF.ALGEBRAIC _ => "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";" ^ " statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^"_buffer;"
-	      | _ => "statedata_"^(Symbol.name classname)^" *states_"^(Symbol.name iter_name)^";"
-	and iter_pair_iter_member iter_pairs (_, (iter_name,DOF.CONTINUOUS _)) =
-	    "CDATAFORMAT *"^(Symbol.name iter_name)^";"
-	  | iter_pair_iter_member iter_pairs (_, (iter_name,DOF.DISCRETE _)) = 
-	    "unsigned int *"^(Symbol.name iter_name)^";"
-	  (* Find the real iterator associated with a postprocess or update *)
-	  | iter_pair_iter_member iter_pairs (x, (iter_name,DOF.ALGEBRAIC (_,pp))) = 
-	    let
-		val real_iterator = ShardedModel.toIterator shardedModel pp
+	(* Declares a structured data type representing the system of iterators for a class.
+	 * This data type comprises references to the iterator values themselves, followed
+	 * by references to each iterator's states. *)
+	fun systemPointerStructure {basename, typedIterators} =
+	    let 
+		val iterators = map #2 typedIterators
 	    in
-		(* We need to check if the "real" iterator has states and will already be injected into the structure definition *)
-		if List.exists (fn(_, (name, _)) => name = (#1 real_iterator)) iter_pairs then
-		    ""
-		else
-		    iter_pair_iter_member iter_pairs (x, real_iterator)
+		[$("// The system of iterators for class " ^ (Symbol.name basename) ^ "."),
+		 $("typedef struct {"),
+		 SUB (map $
+			  (List.mapPartial systemPointerStructureIteratorValue
+					   iterators)),
+		 SUB (map $
+		 	  (List.concat (map systemPointerStructureStates
+		 			   typedIterators))),
+		 $("} systemstatedata_"^(Symbol.name basename)^";"),$("")]
 	    end
-	  | iter_pair_iter_member iter_pairs (_, _) = 
-	    ""
 
-	val per_class_struct_data = 
-	    List.concat (map (fn (shard as {classes, instance, iter_sym}) =>
-				 let 
-				     val masters = List.filter ClassProcess.isMaster classes
-				     val masters =
-					 Util.uniquify_by_fun (fn (a, b) => (ClassProcess.classTypeName a) = (ClassProcess.classTypeName b))
-		  					      masters
-				     val model = ShardedModel.toModel shardedModel iter_sym
-				 in
-				     CurrentModel.withModel model (fn _ =>
-								      List.filter
-									  (not o List.null o #2)
-									  (map class_struct_data masters))
-				 end) 
-			     shards)
 
-	val folded_per_class_struct_data = 
-	    foldl 
-		(fn((name, iter),name_iter_list)=>
-		   if List.exists (fn(name',_)=> name=name') name_iter_list then
-		       map (fn(name', iter_list)=> if name=name' then
-						       (name', List.concat [iter, iter_list])
-						   else
-						       (name', iter_list)) name_iter_list
-		   else
-		       (name, iter)::name_iter_list)
-		[]
-		per_class_struct_data
+	val classBaseNames = 
+	    let val classes = List.concat (map #classes shards)
+	    in Util.uniquify_by_fun (op =) (map ClassProcess.class2basename classes)
+	    end
+
+	val topClassBaseName =
+	    let 
+		val model = ShardedModel.toModel shardedModel (hd (ShardedModel.iterators shardedModel))
+		val classname = 
+		    let val {instance, ...} = hd shards
+		    in if isSome (#name instance) 
+		       then valOf (#name instance)
+		       else #classname instance
+		    end
+
+		fun prog _ =
+		    let val class = CurrentModel.classname2class classname
+		    in ClassProcess.class2basename class
+		    end
+	    in
+		CurrentModel.withModel model prog
+	    end
+
+	val systems =
+	    map (fn bn => 
+		    let 
+			fun findTypeForIterator (sym,_) =
+			    let val shard = valOf (ShardedModel.findShard (shardedModel, sym))
+				val class = valOf (List.find (fn c => bn = (ClassProcess.class2basename c)) (#classes shard))
+			    in
+				ClassProcess.classTypeName class
+			    end
+			val typedIterators = map (fn it => (findTypeForIterator it, it)) iterators
+		    in
+			systemPointerStructure {basename = bn, typedIterators = typedIterators}
+		    end)
+		classBaseNames
+
 
 	val per_class_struct_prog = 
 	    $("// Per-class system pointer structures") ::
-	    Util.flatmap class_struct_declaration folded_per_class_struct_data @
-	    (case List.rev per_class_struct_data
-	      of top :: rest =>
-		 [$("typedef systemstatedata_"^(Symbol.name (#1 top))^" top_systemstatedata;"),$("")]
-	       | _ => 
-		 [$("typedef void * top_systemstatedata;"),$("")])
+	    (List.concat systems) @
+	    [$("typedef systemstatedata_" ^ (Symbol.name topClassBaseName) ^ " top_systemstatedata;")]
     in
 	top_sys_state_struct_prog @ 
 	per_class_struct_prog

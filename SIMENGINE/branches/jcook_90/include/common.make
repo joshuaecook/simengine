@@ -9,7 +9,7 @@ debug ?=
 # If non-empty, instructs the compiler to produce additional profiling information.
 profile ?=
 # If non-empty, commands will print extra diagnostic information.
-verbose ?=
+verbose ?= 1
 # If non-empty, will not echo commands as they are executed
 noecho ?=
 

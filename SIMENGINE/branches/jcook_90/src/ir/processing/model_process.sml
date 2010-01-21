@@ -48,11 +48,6 @@ structure ModelProcess : sig
 
 end = struct
 
-type shard = {classes: DOF.class list,
-	      instance: DOF.instance,
-	      iter_sym: Symbol.symbol}
-type shardedModel = (shard list * DOF.systemproperties)		    
-
 
 fun log str = if DynamoOptions.isFlagSet "logdof" then 
 		  Util.log str

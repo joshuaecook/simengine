@@ -15,6 +15,8 @@ sig
     val toInputs : shardedModel -> DOF.input list
     val toOutputs : shardedModel -> DOF.output list
     val toIterator : shardedModel -> Symbol.symbol -> DOF.systemiterator
+    (* Returns the shard associated with a given named iterator. *)
+    val findShard: shardedModel * Symbol.symbol -> shard option
 
     (* pull out a list of iterator symbols *)
     val iterators : shardedModel -> Symbol.symbol list
@@ -644,6 +646,9 @@ fun toIterator (shards, sysprops : DOF.systemproperties) iter_sym =
 	  | NONE => DynException.stdException(("Can't find iterator '"^(Symbol.name iter_sym)^"' in shard"),"toIterator",Logger.INTERNAL)
     end
     handle e => DynException.checkpoint "ShardedModel.toIterator" e
+
+fun findShard ((shards, _): shardedModel, iter_sym) =
+    List.find (fn s => iter_sym = #iter_sym s) shards
 
 fun iterators (shards : shard list, _) =
     map #iter_sym shards
