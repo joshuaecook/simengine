@@ -1119,7 +1119,11 @@ fun assignCorrectScopeOnSymbol exp =
 		else if isNextVarDifferenceTerm exp then
 		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
 		else if isAlgebraicStateTerm exp then
-		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
+		    case iter_index of
+			Iterator.RELATIVE 1 => 
+			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
+		      | _ => 
+			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym)))
 		(*else if isNextPPTerm exp then
 		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))*)
 		else if isNextUpdateTerm exp then
