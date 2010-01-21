@@ -119,10 +119,7 @@ fun kecexp2prettystr (exec : (KEC.exp -> KEC.exp)) (exp: KEC.exp) : string =
 	    in
 		case exp' of
 		    KEC.LITERAL (KEC.CONSTSTR s) => s
-		  | _ => pretty exp before 
-			 DynException.stdException("tostring() didn't return a string",
-						   "PrettyPrint.pretty",
-						   Logger.INTERNAL)
+		  | _ => "an object"
 	    end
 	  | KEC.RUNNABLE (funcs)
 	    => "function '" ^ (runnable2name funcs) ^ "' with types " ^ (String.concatWith " | " (map func2str funcs))

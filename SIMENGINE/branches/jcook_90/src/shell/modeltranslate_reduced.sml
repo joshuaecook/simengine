@@ -182,7 +182,7 @@ fun quantity_to_dof_exp (KEC.LITERAL (KEC.CONSTREAL r)) = ExpBuild.real r
 	modeloperation_to_dof_exp quantity
     else if istype (quantity, "SimQuantity") orelse istype (quantity, "Input") then
 	simquantity_to_dof_exp quantity
-    else raise TypeMismatch ("Unexpected type of expression object; received " ^ (pretty quantity))
+    else (raise TypeMismatch ("Unexpected type of expression object; received " ^ (pretty quantity)))
 
 	
 (* Derivatives are reduced to a symbol with a derivative property.
@@ -380,7 +380,11 @@ fun createClass classes object =
 			(case method "contents" value of
 			     KEC.TUPLE args => map quantity_to_dof_exp args
 			   | exp => [quantity_to_dof_exp exp],
-			 quantity_to_dof_exp(method "condition" value))
+			 let
+			     val exp = method "condition" value
+			 in
+			     quantity_to_dof_exp(exp)
+			 end)
 		    else
 			([quantity_to_dof_exp(value)],
 			 Exp.TERM(Exp.BOOL true))
@@ -777,27 +781,24 @@ fun translate (execFun, object) =
 	 raise TypeMismatch ("Expected a Model instance but received " ^ (pretty object))
      else
 	 (SOME (obj2dofmodel object) before DynException.checkToProceed())
-	 handle TranslationError => NONE
+	 handle TranslationError => NONE 
 	      | DynException.RestartRepl => NONE
 	      | e => NONE before 
-		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
-		      DynException.checkpoint "ModelTranslate.translate" e))
+		     (DynException.checkpoint "ModelTranslate.translate" e))
 
 fun translateExp (execFun, exp) =
     (exec := execFun;
      SOME (quantity_to_dof_exp exp))
 	 handle TranslationError => NONE
 	      | e => NONE before 
-		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
-		      DynException.checkpoint "ModelTranslate.translate" e)
+		     (DynException.checkpoint "ModelTranslate.translate" e)
 
 fun reverseExp (execFun, exp) =
     (exec := execFun;
      SOME (dofexp2kecexp exp))
 	 handle TranslationError => NONE
 	      | e => NONE before 
-		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
-		      DynException.checkpoint "ModelTranslate.translate" e)
+		     (DynException.checkpoint "ModelTranslate.translate" e)
      
 
 fun rule2rewriterule (execFun, exp) =
