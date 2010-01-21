@@ -604,6 +604,7 @@ fun classTypeName ({properties={classtype=DOF.MASTER name,...},...}: DOF.class) 
 
 fun class2postprocess_states (class: DOF.class) = 
     let
+	val iterators = CurrentModel.iterators()
 	val states = class2states class
 
 	fun hasInitEq exps =
@@ -615,12 +616,20 @@ fun class2postprocess_states (class: DOF.class) =
 	fun hasUpdateEq exps =
 	    List.exists ExpProcess.isIntermediateEq exps
 
+	fun hasAnotherConflictingIterator exps =
+	    List.exists (fn(exp)=> case ExpProcess.exp2temporaliterator exp of
+				       SOME (iter_sym, _) => (case CurrentModel.itersym2iter iter_sym of
+								  (_, DOF.ALGEBRAIC _) => true
+								| (_, DOF.UPDATE _) => true
+								| _ => false)
+				     | NONE => false) exps
+
 	(* the only difference between a post process state and an update state is that the post process state does not have a state equation *)
 	val post_process_states = 
 	    List.filter
 		(fn(sym)=>
 		   let val exps' = symbol2exps class sym
-		   in (hasInitEq exps') andalso (not (hasStateEq exps'))
+		   in (hasInitEq exps') andalso (not (hasStateEq exps')) andalso (not (hasAnotherConflictingIterator exps'))
 		   end)
 		states
     in

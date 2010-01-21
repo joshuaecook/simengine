@@ -102,8 +102,9 @@ fun reads_system class =
  * has states associated with a given iterator.
  * Nb Presumes a CurrentModel context. *)
 and has_states iter class = 
-    reads_iterator iter class orelse
-    writes_iterator iter class
+    ClassProcess.hasStatesWithIterator iter class
+    (*reads_iterator iter class orelse
+    writes_iterator iter class*)
     handle e => DynException.checkpoint ("CParallelWriter.has_states [iter="^(Symbol.name (#1 iter))^"]") e
 
 (* Indicates whether a given class contains any instances 
@@ -482,15 +483,15 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
     end
     handle e => DynException.checkpoint "CParallelWriter.init_solver_props" e
 
-fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedModel.shardedModel) =
+fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedModel.shardedModel) statefulIterators =
     let
 	(*val top_class = CurrentModel.withModel origModel (fn()=>CurrentModel.classname2class (#classname inst))*)
-	val iterator_names = map (Symbol.name o #iter_sym) shards
-	val solver_names = List.mapPartial (fn{iter_sym,...}=>case ShardedModel.toIterator shardedModel iter_sym of
-								  (_,DOF.CONTINUOUS s) => SOME (Solver.solver2name s)
-								| (_,DOF.DISCRETE _) => SOME "discrete"
-								| (_,DOF.IMMEDIATE) => SOME "immediate"
-								| _ => NONE) shards
+	val iterator_names = map Symbol.name statefulIterators
+	val solver_names = List.mapPartial (fn(iter_sym)=>case ShardedModel.toIterator shardedModel iter_sym of
+							      (_,DOF.CONTINUOUS s) => SOME (Solver.solver2name s)
+							    | (_,DOF.DISCRETE _) => SOME "discrete"
+							    | (_,DOF.IMMEDIATE) => SOME "immediate"
+							    | _ => NONE) statefulIterators
 	fun init_condition2pair iter_sym basestr exp =
 	    let val term = ExpProcess.exp2term (ExpProcess.lhs exp)
 		val rhs = ExpProcess.rhs exp
@@ -542,16 +543,20 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	val (state_names, state_defaults) = 
 	    ListPair.unzip 
 		(Util.flatmap 
-		     (fn{classes, instance={classname,...}, iter_sym}=>
-			CurrentModel.withModel 
-			    (ShardedModel.toModel shardedModel iter_sym)
-			    (fn()=>
-			       let
-				   val class = CurrentModel.classname2class classname
-			       in
-				   findStatesInitValues iter_sym "" class
-			       end))
-		     shards)
+		     (fn(iter_sym)=>
+			let
+			    val model as (_,{classname,...},_) = ShardedModel.toModel shardedModel iter_sym
+			in
+			    CurrentModel.withModel 
+				model
+				(fn()=>
+				   let
+				       val class = CurrentModel.classname2class classname
+				   in
+				       findStatesInitValues iter_sym "" class
+				   end)
+			end)
+		     statefulIterators)
 
 	val inputs = ShardedModel.toInputs shardedModel
 	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) inputs)
@@ -571,7 +576,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	    end
 
 	val output_names = 
-	    Util.uniquify (Util.flatmap (name_subsystem_outputs shardedModel) (ShardedModel.iterators shardedModel))
+	    Util.uniquify (Util.flatmap (name_subsystem_outputs shardedModel) statefulIterators)
 
 	fun output_num_quantities (model, output) =
 	    CurrentModel.withModel model (fn _ =>
@@ -597,7 +602,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 			     in
 				 CurrentModel.withModel model (fn _ => (outputs_from_class (model, CurrentModel.classname2class classname)))
 			     end)
-			 (ShardedModel.iterators shardedModel)
+			 statefulIterators
 
 	val outputs_from_top_classes =
 	    Util.uniquify_by_fun (fn ((_,a:DOF.output),(_,b:DOF.output)) => Term.sym2curname (#name a) = Term.sym2curname (#name b)) outputs_from_top_classes
@@ -966,11 +971,10 @@ fun outputstatestruct_code (iterator: DOF.systemiterator, shard as {classes, ...
     end
     handle e => DynException.checkpoint "CParallelWriter.outputstatestruct_code" e
 
-fun outputsystemstatestruct_code (shardedModel as (shards,_)) =
+fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators =
     let
 	val all_classes = Util.flatmap (fn{classes,...}=>classes) shards
-	val iterator_symbols = ShardedModel.iterators shardedModel
-	val iterators = map (ShardedModel.toIterator shardedModel) iterator_symbols
+	val iterators = map (ShardedModel.toIterator shardedModel) statefulIterators
 
 	fun subsystem_classname_iterator_pair iter_sym =
 	    let val model = ShardedModel.toModel shardedModel iter_sym
@@ -988,7 +992,7 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) =
 	    handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code.subsystem_classname_iterator_pair" e
 
 	val class_names_iterators = 
-	    List.mapPartial subsystem_classname_iterator_pair iterator_symbols
+	    List.mapPartial subsystem_classname_iterator_pair statefulIterators
 
 	val top_sys_state_struct_prog =
 	    if List.null class_names_iterators then []
@@ -1736,6 +1740,9 @@ fun buildC (orig_name, shardedModel) =
 	fun itersym2iter itersym =
 	    ShardedModel.toIterator shardedModel itersym
 
+	val statefulIterators = map
+					 #iter_sym
+					 (List.filter (ModelProcess.isStatefulIterator o itersym2iter o #iter_sym) shards)
 	val forkedModelsLessUpdate = (List.filter (fn{iter_sym,...}=> case itersym2iter iter_sym of (_, DOF.UPDATE _) => false | _ => true) shards, 
 				      sysprops)
 
@@ -1776,17 +1783,18 @@ fun buildC (orig_name, shardedModel) =
 				    []))
 
 	val init_solver_props_c = init_solver_props orig_name shardedModel (iteratorsWithSolvers, algebraicIterators)
-	val simengine_interface_progs = simengine_interface class_name (*combinedModel*) forkedModelsLessUpdate
+	val simengine_interface_progs = simengine_interface class_name shardedModel statefulIterators
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code shardedModel
 	val outputstatestruct_progs = Util.flatmap 
-					  (fn (shard as {iter_sym,...}) => 
-					     let val model = ShardedModel.toModel forkedModelsLessUpdate iter_sym
+					  (fn(iter_sym) => 
+					     let val shard = valOf (ShardedModel.findShard (shardedModel, iter_sym))
+						 val model = ShardedModel.toModel shardedModel iter_sym
 						 val iterator = ShardedModel.toIterator shardedModel iter_sym
 					     in CurrentModel.withModel model (fn _=> outputstatestruct_code (iterator, shard))
 					     end)
-					  (#1 forkedModelsLessUpdate) (* pull out just the shards *)
-	val systemstate_progs = outputsystemstatestruct_code forkedModelsLessUpdate
+					  statefulIterators (* pull out just the shards *)
+	val systemstate_progs = outputsystemstatestruct_code shardedModel statefulIterators
 	val flow_data = map (flow_code shardedModel) (ShardedModel.iterators shardedModel)
 	val fun_prototypes = List.concat (map #1 flow_data)
 	val flow_progs = List.concat (map #2 flow_data)

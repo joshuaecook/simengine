@@ -439,7 +439,7 @@ fun createClass classes object =
 		    val (lhs,rhs) = 
 			(quantity_to_dof_exp (method "lhs" (method "eq" obj)),
 			 quantity_to_dof_exp (method "rhs" (method "eq" obj)))
-		    val lhs' = ExpProcess.updateTemporalIterator (preprocessiterator, Iterator.RELATIVE 0) lhs
+		    val lhs' = ExpProcess.updateTemporalIterator (preprocessiterator, Iterator.RELATIVE 1) lhs
 		    val eq = ExpBuild.equals(lhs', rhs)			
 		    
 		in

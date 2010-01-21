@@ -44,6 +44,7 @@ structure ModelProcess : sig
     (* Indicates whether an iterator is dependent upon another. *)
     val isDependentIterator : DOF.systemiterator -> bool
     val isImmediateIterator : DOF.systemiterator -> bool
+    val isStatefulIterator : DOF.systemiterator -> bool
     val isStatelessIterator : DOF.systemiterator -> bool
 
     val isDebugging : DOF.model -> bool

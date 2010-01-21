@@ -549,7 +549,7 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	     val iterators = Property.getIterator props
 	 in
 	     case iterators of
-		 SOME ((iterator, Iterator.RELATIVE 0)::rest) => iterator = name
+		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
 	       | _ => false
 	 end
        | _ => false)
