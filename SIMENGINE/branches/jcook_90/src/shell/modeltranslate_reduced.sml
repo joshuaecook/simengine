@@ -19,7 +19,7 @@ val i2s = Util.i2s
 val r2s = Util.r2s
 
 (* fill in this reference when calling translate/translateExp *)
-val exec = ref (fn(e) => e)
+val exec = ref (fn(e) => e before DynException.stdException ("exec not filled in properly in model translation", "ModelTranslate.exec", Logger.INTERNAL))
 
 exception TranslationError
 
@@ -31,7 +31,7 @@ fun error (msg) =
      raise TranslationError)
 
 (* helper methods *)
-val pretty = PrettyPrint.kecexp2prettystr (!exec)
+fun pretty (s) = PrettyPrint.kecexp2prettystr (!exec) s
 
 val TypeMismatch = DynException.TypeMismatch
 and ValueError = DynException.ValueError
