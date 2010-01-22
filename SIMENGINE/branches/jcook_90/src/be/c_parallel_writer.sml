@@ -102,7 +102,7 @@ fun reads_system class =
  * has states associated with a given iterator.
  * Nb Presumes a CurrentModel context. *)
 and has_states iter class = 
-    ClassProcess.hasStatesWithIterator iter class
+    ClassProcess.class2statesizebyiterator iter class > 0
     (*reads_iterator iter class orelse
     writes_iterator iter class*)
     handle e => DynException.checkpoint ("CParallelWriter.has_states [iter="^(Symbol.name (#1 iter))^"]") e
