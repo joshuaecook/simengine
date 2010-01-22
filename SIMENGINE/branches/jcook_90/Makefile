@@ -530,7 +530,8 @@ datafiles/build-options.json:
 	@echo \"buildRevision\": $(SVN_REVISION), >> $@
 	@echo \"buildTime\": $(BUILD_TIME), >> $@
 	@echo \"devVersion\": $(DEV_VERSION), >> $@
-	@echo \"version\": \"$(VERSION_NUMBER)\" >> $@
+	@echo \"version\": \"$(VERSION_NUMBER)\", >> $@
+	@echo \"architecture\": \"$(ARCH)\" >> $@
 	@echo } >> $@
 
 # Dynamo Library Targets

@@ -8,6 +8,8 @@ val buildDate: string
 val buildTime: Time.time
 
 val version: string
+val architecture: string
+
 val devVersion: bool
 
 end
@@ -48,6 +50,10 @@ val buildTime =
 val version =
     case JSON.memberValue (options, "version", JSON.toString)
      of SOME s => s | _ => invalid "version"
+
+val architecture =
+    case JSON.memberValue (options, "architecture", JSON.toString)
+     of SOME s => s | _ => invalid "architecture"
 
 val devVersion =
     JSON.boolVal (JSON.memberDefault (options, "devVersion", {default=JSON.bool false}))

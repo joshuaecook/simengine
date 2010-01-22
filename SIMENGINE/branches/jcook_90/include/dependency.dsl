@@ -43,6 +43,8 @@ namespace Dependency
 
 var defaultPaths = [] //TODO: fill in
 
+var architecture = LF sys_architecture ()
+
 var gccPath
 
 function checkFileExistsWithPaths (name, additionalPaths: Vector of String)
