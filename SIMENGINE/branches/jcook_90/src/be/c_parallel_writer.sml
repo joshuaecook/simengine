@@ -1035,10 +1035,10 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 	(* Declares a structured data type representing the system of iterators for a class.
 	 * This data type comprises references to the iterator values themselves, followed
 	 * by references to each iterator's states. *)
-	fun systemPointerStructure {basename, typedIterators} =
-	    let 
+	fun systemPointerStructure {basename, iterators, typedIterators} =
+	    (*let 
 		val iterators = map #2 typedIterators
-	    in
+	    in*)
 		[$("// The system of iterators for class " ^ (Symbol.name basename) ^ "."),
 		 $("typedef struct {"),
 		 SUB (map $
@@ -1048,7 +1048,7 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 		 	  (List.concat (map systemPointerStructureStates
 		 			   typedIterators))),
 		 $("} systemstatedata_"^(Symbol.name basename)^";"),$("")]
-	    end
+	    (*end*)
 
 
 	val classBaseNames = 
@@ -1083,9 +1083,21 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 			    in
 				ClassProcess.classTypeName class
 			    end
-			val typedIterators = map (fn it => (findTypeForIterator it, it)) iterators
+
+			val iterators_with_states = 
+			    List.filter (fn(it as (iter_sym,_))=> 
+					   let
+					       val model as (_,{classname,...},_) = ShardedModel.toModel shardedModel iter_sym
+					       val hasStates = CurrentModel.withModel 
+								   model
+								   (fn()=> has_states it (CurrentModel.classname2class classname))
+					   in
+					       hasStates
+					   end)
+					iterators
+			val typedIterators = map (fn it => (findTypeForIterator it, it)) iterators_with_states
 		    in
-			systemPointerStructure {basename = bn, typedIterators = typedIterators}
+			systemPointerStructure {basename = bn, iterators=iterators, typedIterators = typedIterators}
 		    end)
 		classBaseNames
 
