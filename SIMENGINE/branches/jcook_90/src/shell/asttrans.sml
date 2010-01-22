@@ -32,6 +32,7 @@ val self = sym "self"
 val addConst = send "addConst" self
 val addMethod = send "addMethod" self
 val addVar = send "addVar" self
+val getMember = send "getMember" self
 
 
 fun trans_pattern patt = 
@@ -442,7 +443,9 @@ and trans_definition definition =
                                                       of SOME value => 
                                                          [HLEC.ACTION (HLEC.EXP (apply (send "setValue" (HLEC.SYMBOL name), [trans_exp value])), PosLog.NOPOS)]
                                                        | NONE => [])},
-                                     PosLog.NOPOS)]
+                                     PosLog.NOPOS),
+			 HLEC.DEFINITION (HLEC.DEFLOCAL (name, HLEC.DONTCARE, apply (getMember, [sym2strlit name])),
+					  PosLog.NOPOS)]
 			
 
 		    end
