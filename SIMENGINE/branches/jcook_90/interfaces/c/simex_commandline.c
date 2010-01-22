@@ -522,20 +522,22 @@ int main(int argc, char **argv){
 					     opts.states,
 					     &allocator);
 
-    if (SUCCESS != result->status){
+    if (SUCCESS == result->status){
+      write_outputs(iface, &opts, result);
+
+      write_states(iface, &opts, result);
+
+#ifdef SIMEX_DEBUG
+      // Analyze results only when running multiple identical models
+      if(!opts.inputs_file && !opts.states_file && opts.num_models > 1){
+	analyze_result(iface, result, opts.num_models);
+      }
+#endif
+    }
+    else{
       WARN(Simatra:Simex:runmodel, "Simulation returned error %d: %s\n",
 	      result->status, result->status_message);
     }
-
-    write_outputs(iface, &opts, result);
-    //    write_states(iface, &opts, result);
-
-#ifdef SIMEX_DEBUG
-    // Analyze results only when running multiple identical models
-    if(!opts.inputs_file && !opts.states_file && opts.num_models > 1){
-      analyze_result(iface, result, opts.num_models);
-    }
-#endif
 
     FREE(opts.inputs);
     FREE(opts.states);

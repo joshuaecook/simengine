@@ -1354,7 +1354,7 @@ fun assignCorrectScope (class: DOF.class) =
 	    let fun update_output (output as {name, contents, condition}) =
 		    let
 			val name' = ExpProcess.exp2term (Match.applyRewritesExp actions (ExpProcess.term2exp name))
-			val contents' = map (fn(exp) => Match.applyRewritesExp actions exp) contents
+			val contents' = map (Match.applyRewritesExp actions) contents
 			val condition' = Match.applyRewritesExp actions condition
 		    in
 			{name=name', contents=contents', condition=condition'}
@@ -1363,7 +1363,6 @@ fun assignCorrectScope (class: DOF.class) =
 		map update_output outputs
 	    end
 
-	(*val exps' = map (fn(exp)=>ExpProcess.assignCorrectScope symbols exp) exps*)
 
 	(* write back expression changes *)
 	val _ = (#exps class) := exps'

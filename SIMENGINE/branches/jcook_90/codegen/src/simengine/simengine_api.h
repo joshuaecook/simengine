@@ -56,6 +56,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
 #include <math.h>
 #include <stddef.h>
 #include <omp.h>

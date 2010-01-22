@@ -31,6 +31,11 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   unsigned int modelid;
   unsigned int inputid;
   unsigned int outputid;
+
+
+  // Seed the entropy source
+  seed_entropy_with_time();
+
 	     
   // Set up allocation functions
   if(alloc){
