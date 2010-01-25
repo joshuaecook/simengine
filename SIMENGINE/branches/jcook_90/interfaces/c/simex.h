@@ -45,6 +45,7 @@ typedef struct{
   char *precision;
   double *inputs;
   double *states;
+  int gnuplot;
   // Debugging only options
 #ifdef SIMEX_DEBUG
   int debug;

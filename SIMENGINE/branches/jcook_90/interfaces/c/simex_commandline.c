@@ -20,7 +20,8 @@ typedef enum {
   GPU,
   FLOAT,
   DOUBLE,
-  HELP
+  HELP,
+  GNUPLOT
   // Debugging only options
 #ifdef SIMEX_DEBUG
   ,DEBUG,
@@ -45,6 +46,7 @@ static const struct option long_options[] = {
   {"single", no_argument, 0, FLOAT},
   {"double", no_argument, 0, DOUBLE},
   {"help", no_argument, 0, HELP},
+  {"gnuplot", no_argument, 0, GNUPLOT},
   // Debugging only options
 #ifdef SIMEX_DEBUG
   {"debug", no_argument, 0, DEBUG},
@@ -57,7 +59,7 @@ static const struct option long_options[] = {
 
 // Print the usage help
 void print_usage(){
-  PRINTF("\nusage: simex <model.dsl> [--options]\n"
+  PRINTFE("\nusage: simex <model.dsl> [--options]\n"
 	  "\nIf no options are specified, the model interface is displayed.\n"
 	  "\nWhere options are:\n"
 	  "\t--start <n>\tThe time to start the simulation. (Default = 0)\n"
@@ -65,16 +67,17 @@ void print_usage(){
 	  "\t--models <n>\tThe number of models to run. (Default = 1)\n"
 	  "\t--inputs <file>\t\tThe file to load inputs from. (Default - from model)\n"
 	  "\t--states <file>\t\tThe file to load state initial values. (Default - from model)\n"
-	  "\t--outputs <file>\t\tThe file to write outputs. (Default - console)\n"
+	  "\t--outputs <file>\tThe file to write outputs. (Default - console)\n"
 	  "\t--cpu\t\tRuns the simulation on the CPU. (Default)\n"
 	  "\t--parallelcpu\tRuns the simulation in parallel on all CPUs.\n"
 	  "\t--gpu\t\tRuns the simulation in parallel on the GPU.\n"
 	  "\t--double\tRuns the simulation in double precision. (Default)\n"
 	  "\t--single\tRuns the simulation in single precision.\n"
 	  "\t--float\t\t(same as --single)\n"
+	  "\t--gnuplot\tFormat data for output directly to gnuplot via '| gnuplot -persist'\n"
 #ifdef SIMEX_DEBUG
 	  "\t--debug\t\tEnables debugging information.\n"
-	  "\t--emulate\t\tEnables device emulation (only meaningful with --gpu.)\n"
+	  "\t--emulate\tEnables device emulation (only meaningful with --gpu.)\n"
 	  "\t--profile\tEnables profiling.\n"
 	  "\t--nocompile\tSkip all compilation and just execute simulation.\n"
 #endif
@@ -201,24 +204,30 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       }
       opts->precision = "double";
       break;
+    case GNUPLOT:
+      if(opts->gnuplot){
+	ERROR(Simatra:Simex:parse_args, "Option '--gnuplot' can only be specified once.\n");
+      }
+      opts->gnuplot = 1;
+      break;
 #ifdef SIMEX_DEBUG
       // These debugging options are for internal use only, less error checking is used
       // it doesn't matter if they get set more than once
     case DEBUG:
       opts->debug = 1;
-      PRINTF("Debugging enabled\n");
+      PRINTFE("Debugging enabled\n");
       break;
     case EMULATE:
       opts->emulate = 1;
-      PRINTF("Emulation enabled\n");
+      PRINTFE("Emulation enabled\n");
       break;
     case PROFILE:
       opts->profile = 1;
-      PRINTF("Profiling enabled\n");
+      PRINTFE("Profiling enabled\n");
       break;
     case NOCOMPILE:
       opts->nocompile = 1;
-      PRINTF("Skipping all compilation and executing simulation.\n");
+      PRINTFE("Skipping all compilation and executing simulation.\n");
       break;
 #endif
       // Stop execution if an invalid command line option is found.
@@ -232,9 +241,9 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 
   // Check that exactly one model file is passed to simex
   if(optind+1 < argc){
-    PRINTF("\n");
+    PRINTFE("\n");
     while(optind < argc)
-      PRINTF("\t'%s'\n", argv[optind++]);
+      PRINTFE("\t'%s'\n", argv[optind++]);
     ERROR(Simatra:Simex:parse_args, "Too many model files passed to simex:\n");
   }
   if(optind == argc){
@@ -279,7 +288,7 @@ void analyze_result(const simengine_interface *iface, simengine_result *result, 
   simengine_output *output = result->outputs;
   unsigned int error = 0;
   
-  PRINTF("\nDEBUG: Analyzing Results...  ");
+  PRINTFE("\nDEBUG: Analyzing Results...  ");
 
   for (modelid = 0; modelid < num_models; ++modelid){
     if (0 == modelid) { continue; }
@@ -294,7 +303,7 @@ void analyze_result(const simengine_interface *iface, simengine_result *result, 
       
       if (op1->num_samples != op0->num_samples){
 	// Don't terminate execution, so don't use ERROR()
-	PRINTF("DEBUG ERROR: Difference of sample count from %d to %d: %d\n",
+	PRINTFE("DEBUG ERROR: Difference of sample count from %d to %d: %d\n",
 		modelid-1, modelid, op1->num_samples - op0->num_samples);
 	continue;
       }
@@ -313,13 +322,13 @@ void analyze_result(const simengine_interface *iface, simengine_result *result, 
     }
 
     if (0.0 < fabs(errorNorm - 0.0)){
-      PRINTF("DEBUG ERROR: Difference from models %d and %d: %0.8f\n",
+      PRINTFE("DEBUG ERROR: Difference from models %d and %d: %0.8f\n",
 	      modelid-1, modelid, errorNorm);
       error = 1;
     }
   }
   if(!error){
-    PRINTF("DEBUG: Analysis found no errors.\n");
+    PRINTFE("DEBUG: Analysis found no errors.\n");
   }
 }
 #endif // ifdef SIMEX_DEBUG
@@ -386,12 +395,24 @@ int write_outputs(const simengine_interface *iface, simengine_opts *opts, simeng
 
   unsigned int num_models = opts->num_models;
   unsigned int num_outputs = iface->num_outputs;
+
+  // Format a command string for gnuplot if requested
+  if(opts->gnuplot){
+    for(modelid=0;modelid<num_models;modelid++){
+      for(outputid=0;outputid<num_outputs;outputid++){
+	fprintf(outfile, (modelid + outputid) == 0 ? "plot \"-\" t \"%s - %d\" w l" : 
+		", \"-\" t \"%s - %d\" w l", iface->output_names[outputid], modelid);
+      }
+    }
+    fprintf(outfile, "\n");
+  }
+
   fprintf(outfile, "# Model : %s\n", iface->name);
   for(modelid=0;modelid<num_models;modelid++){
     fprintf(outfile, "# Model number : %d\n", modelid);
     for(outputid=0;outputid<num_outputs;outputid++){
       unsigned int num_samples = result->outputs[modelid*num_outputs+outputid].num_samples;
-      fprintf(outfile, "# Output : %s\n", iface->output_names[outputid]);
+      fprintf(outfile, "\n\n# Output : %s\n", iface->output_names[outputid]);
       for(sampleid=0;sampleid<num_samples;sampleid++){
 	unsigned int num_quantities = result->outputs[modelid*num_outputs+outputid].num_quantities;
 	for(quantid=0;quantid<num_quantities;quantid++){
@@ -399,6 +420,9 @@ int write_outputs(const simengine_interface *iface, simengine_opts *opts, simeng
 	}
 	fprintf(outfile, "\n");
       }
+      // Signal gnuplot to terminate processing for this output
+      if(opts->gnuplot)
+	fprintf(outfile, "e\n");
     }
   }
 
@@ -410,6 +434,7 @@ int write_states(const simengine_interface *iface, simengine_opts *opts, simengi
   FILE *outfile;
   unsigned int num_models = opts->num_models;
   unsigned int num_states = iface->num_states;
+  char **state_names = iface->state_names;
   double *states = result->final_states;
   unsigned int modelid;
   unsigned int stateid;
@@ -418,10 +443,14 @@ int write_states(const simengine_interface *iface, simengine_opts *opts, simengi
   outfile = opts->outputs_file ? opts->outputs_file : stdout;
 
   for (modelid = 0; modelid < num_models; modelid++) {
-    fprintf(outfile, "# Model number : %d\n", modelid);
+    fprintf(outfile, "\n\n# Model number : %d\n", modelid);
+    fprintf(outfile, "# Final states : ");
     for (stateid = 0; stateid < num_states; stateid++) {
-      fprintf(outfile, stateid == 0 ? "%e" : " %e", *states);
-      states++;
+      fprintf(outfile, stateid == 0 ? "%s" : " %s", state_names[stateid]);
+    }
+    fprintf(outfile, "\n# ");
+    for (stateid = 0; stateid < num_states; stateid++) {
+      fprintf(outfile, stateid == 0 ? "%e" : " %e", states[stateid]);
     }
     fprintf(outfile, "\n");
   }

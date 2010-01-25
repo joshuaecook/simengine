@@ -138,6 +138,7 @@ typedef struct {
 #define REALLOC mxRealloc
 #define FREE mxFree
 #define PRINTF mexPrintf
+#define PRINTFE mexPrintf
 #define ERROR(ID, MESSAGE, ARG...) mexErrMsgIdAndTxt(#ID, MESSAGE, ##ARG)
 #define WARN(ID, MESSAGE, ARG...) mexWarnMsgIdAndTxt(#ID, MESSAGE, ##ARG)
 
@@ -147,6 +148,7 @@ typedef struct {
 #define REALLOC realloc
 #define FREE free
 #define PRINTF printf
+#define PRINTFE(ARG...) fprintf(stderr, ##ARG)
 #define ERROR(ID, MESSAGE, ARG...) {fprintf(stderr, "ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); exit(-1); }
 #define WARN(ID, MESSAGE, ARG...) fprintf(stderr, "WARNING (%s): " MESSAGE "\n", #ID, ##ARG)
 #endif

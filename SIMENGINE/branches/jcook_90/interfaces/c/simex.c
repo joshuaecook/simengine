@@ -72,10 +72,10 @@ int runsimEngine (const char *simengine_bin, simengine_opts *opts)
     if (strstr(readbuffer, "Compilation Finished Successfully") != NULL){ // <---- This is a bug waiting to happen!!!! Could be split across buffers
       errored = 0;
     }
-    PRINTF("%s", readbuffer);
+    PRINTFE("%s", readbuffer);
   }
 
-  PRINTF("\n");
+  PRINTFE("\n");
   pclose(fp);
 
   return errored;
