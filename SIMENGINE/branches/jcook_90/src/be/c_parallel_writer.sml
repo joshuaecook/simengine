@@ -1263,7 +1263,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 					    end
 
 			  val (rows, cols) = Matrix.size m'
-			  fun createIdx (i,j) = "MATIDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", NUM_MODELS, modelid)"
+			  fun createIdx (i,j) = "MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", NUM_MODELS, modelid)"
 			  fun createEntry (i, j, exp) = [$("// " ^ (e2s exp)),
 							 $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 
@@ -1277,7 +1277,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
 			  val size = (Container.arrayToSize o Container.expArrayToArray) rhs
 			  val var = CWriterUtil.exp2c_str lhs				  
-			  fun createIdx i = "VECIDX("^(i2s size)^","^(i2s i)^", NUM_MODELS, modelid)"
+			  fun createIdx i = "VEC_IDX("^(i2s size)^","^(i2s i)^", NUM_MODELS, modelid)"
 			  fun createEntry (exp, i) = [$("//" ^ (e2s exp)),
 						      $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 		      in

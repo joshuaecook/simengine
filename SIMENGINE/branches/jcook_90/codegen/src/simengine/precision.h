@@ -12,3 +12,5 @@ typedef double CDATAFORMAT;
 #else
 #error Must define a storage type (SIMENGINE_STORAGE_float or SIMENGINE_STORAGE_double)
 #endif
+
+#define NAN (FLITERAL(0.0)/FLITERAL(0.0))
