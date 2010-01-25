@@ -95,7 +95,7 @@ else
                       'not exist'])
 end
 
-if nargin == 1 || isstr(varargin{2}) % alternative is that you
+if nargin == 1 || ischar(varargin{2}) % alternative is that you
                                      % supply a flag as a second
                                      % arg (not a time)
   varargout = {interface};
@@ -185,8 +185,6 @@ function [dslPath dslName modelFile opts] = get_simex_opts(varargin)
 % file, and a struct containing command options.
 %
 dslPath = '';
-dslName = '';
-modelFile = '';
 opts = struct('models',1, 'target','', 'precision','double', ...
               'verbose',true, 'debug',false, 'profile',false, ...
               'emulate',false, 'recompile',true,'startTime',0, ...
@@ -457,13 +455,18 @@ if opts.recompile
     
   if opts.debug == false
     % clean up generated files
-    [igpath fileprefix igext] = fileparts(modelFile);
-    delete([fileprefix '.c'],[fileprefix '.o'])
+    [igpath fileprefix] = fileparts(modelFile);
+    if exist([fileprefix '.c'])
+      delete([fileprefix '.c'])
+    end
+    if exist([fileprefix '.o'])
+      delete([fileprefix '.o'])
+    end
   end
 end % end if recompile
 
 % TODO what is the path of the resultant DLL?
-[igpath modelname igext] = fileparts(modelFile);
+[igpath modelname] = fileparts(modelFile);
 dllPath = fullfile(pwd, [modelname '.sim']);
 
 % TODO check the shape of the user inputs and start states, other

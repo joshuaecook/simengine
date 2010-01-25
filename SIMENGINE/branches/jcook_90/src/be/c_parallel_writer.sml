@@ -934,7 +934,13 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 	    end
 
 	val class_inst_pairs_non_empty = 
-	    List.filter ((has_states iterator) o CurrentModel.classname2class o #1) class_inst_pairs
+	    List.filter (fn (cn,_) => 
+			    let val class = CurrentModel.classname2class cn
+			    in reads_iterator iterator class orelse
+			       writes_iterator iterator class
+			    end) 
+			class_inst_pairs
+
 	val class_inst_pairs_non_empty =
 	    Sorting.sorted (fn ((_,x), (_,y)) => (String.compare (Symbol.name x, Symbol.name y)))
 			   class_inst_pairs_non_empty
