@@ -1,5 +1,5 @@
 // Solvers Header File
-// Copyright 2009 Simatra Modeling Technologies, L.L.C.
+// Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 
 #ifndef SOLVERS_H
 #define SOLVERS_H
@@ -60,7 +60,7 @@ typedef struct {
   Iterator iterator;
   unsigned int inputsize;
   unsigned int statesize; // Number of states for this solver
-  unsigned int pp_statesize; // Number of postprocess states dependent upon this solver's iterator
+  unsigned int algebraic_statesize; // Number of algebraic states dependent upon this solver's iterator
   unsigned int outputsize;
   unsigned int num_models;
   void *od;

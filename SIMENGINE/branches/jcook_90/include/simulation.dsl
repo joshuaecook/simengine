@@ -1226,7 +1226,7 @@ function compile (mod)
       var ld = target.link(name + ".sim", name + ".sim", [name + ".o"])
 
       if compiler_settings.debug then
-	  println(cc(1) + " " + (join(" ", cc(2))))
+	  println(cc(1) + " '" + (join("' '", cc(2))) + "'")
       end
       var ccp = Process.run(cc(1),cc(2))
       var ccallout = Process.readAll(ccp)

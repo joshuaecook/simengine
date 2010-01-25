@@ -157,7 +157,7 @@ fun header (class_name, iterator_names, solvers, includes, defpairs) =
     end
 
 (* FIXME the gpu-related code herein is likely not correct. *)
-fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterators) =
+fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_iterators) =
     let
         fun free_props iter_sym =
             let
@@ -199,30 +199,22 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 			val solvernameCaps = String.map Char.toUpper solvername
 			val num_states = ModelProcess.model2statesize model 
 
-			val num_pp_states =
-			    if ModelProcess.hasAlgebraicIterator itersym then
-				let
-				    val (matching, unmatched) = 
-					List.partition (fn(iter_sym)=> 
-							  let 
-							      val (_, iter_type) = ShardedModel.toIterator shardedModel iter_sym
-							  in 
-							      (case iter_type of DOF.ALGEBRAIC (_, iter_sym) => true | _ => false)
-							  end)
-						       pp_iterators
-				    fun iter2numstates iter = 
-					let val model = ShardedModel.toModel shardedModel iter_sym
-					in CurrentModel.withModel model (fn _ => ModelProcess.model2statesize model)
-					end
-				in
-				    if List.length matching = 0 then
-					(*~1*) DynException.stdException(("Can't find algebraic states for iterator '"^(Symbol.name itersym)^"'"), "CParallelWriter.init_solver_props.init_props.progs", Logger.INTERNAL)
-				    else
-					Util.sum (map iter2numstates matching)
-				end
-			    else 0
+			val num_algebraic_states =
+			    let 
+				val iters = List.filter (fn it =>
+							    case ShardedModel.toIterator shardedModel it
+							     of (_, DOF.ALGEBRAIC (_, iter_sym')) => iter_sym' = iter_sym
+							      | _ => false)
+							algebraic_iterators
 
-					 
+				fun numIteratorStates it =
+				    let val model = ShardedModel.toModel shardedModel it
+				    in CurrentModel.withModel model (fn _ => ModelProcess.model2statesize model)
+				    end
+			    in
+				Util.sum (map numIteratorStates iters)
+			    end
+
 			val requiresMatrix = case itertype of
 				             DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) => true
 				           | _ => false
@@ -272,10 +264,9 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvernameCaps ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
-			 [$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
-			  $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
-			  $("props[ITERATOR_"^itername^"].pp_statesize = " ^ (Util.i2s num_pp_states) ^ ";"),
-			 (*$("props[ITERATOR_"^itername^"].freeme = props[ITERATOR_"^itername^"].next_states;"),*)
+			[$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
+			 $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
+			 $("props[ITERATOR_"^itername^"].algebraic_statesize = " ^ (Util.i2s num_algebraic_states) ^ ";"),
 			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
 			 $("props[ITERATOR_"^itername^"].num_models = NUM_MODELS;"),
 			 $("props[ITERATOR_"^itername^"].od = od;"),
@@ -303,14 +294,14 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 			(let fun initAlgebraicSystemPointers (iterName, _) =
 				 let val cname = Symbol.name iterName
 				 in
-				 [$("system_ptrs->states_" ^ cname ^ " = system_states_int->states_" ^ cname ^ ";"),
-				   $("system_ptrs->states_" ^ cname ^ "_buffer = system_states_next->states_" ^ cname ^ ";"),
-				   $("#if !defined TARGET_GPU"),
-				   $("// Translate structure arrangement from external to internal formatting"),
-				   $("for(modelid=0;modelid<props->num_models;modelid++){"),
-				   SUB[$("memcpy(&system_states_int->states_" ^ cname ^ "[modelid], &system_states_ext[modelid].states_" ^ cname ^ ", sizeof(system_states_ext[modelid].states_" ^ cname ^ "));")],
-				   $("}"),
-				   $("#endif")]
+				     [$("system_ptrs->states_" ^ cname ^ " = system_states_int->states_" ^ cname ^ ";"),
+				      $("system_ptrs->states_" ^ cname ^ "_buffer = system_states_next->states_" ^ cname ^ ";"),
+				      $("#if !defined TARGET_GPU"),
+				      $("// Translate structure arrangement from external to internal formatting"),
+				      $("for(modelid=0;modelid<props->num_models;modelid++){"),
+				      SUB[$("memcpy(&system_states_int->states_" ^ cname ^ "[modelid], &system_states_ext[modelid].states_" ^ cname ^ ", sizeof(system_states_ext[modelid].states_" ^ cname ^ "));")],
+				      $("}"),
+				      $("#endif")]
 				 end
 			 in
 			     List.concat (map initAlgebraicSystemPointers (ModelProcess.algebraicIterators itersym))
@@ -324,9 +315,17 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 
 	    
 	fun gpu_init_props iter_sym =
-	    let val model = ShardedModel.toModel shardedModel iter_sym
+	    let val model as (_, instance, _) = ShardedModel.toModel shardedModel iter_sym
 		val iterator = ShardedModel.toIterator shardedModel iter_sym
-		val (_,{classname=top_class,...},_) = model
+			       
+		val topClassBaseName = 
+		    let val classname = 
+			    case #name instance 
+			     of SOME x => x | NONE => #classname instance
+		    in
+			CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class classname))
+		    end
+
 		fun progs () = 
 		    let val (itersym, itertype) = iterator
 			val itername = (Symbol.name itersym)
@@ -341,7 +340,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 				$("#error BOGUS ITERATOR NOT FILTERED")
 
 			val iterator_states_ptr =
-			    $("tmp_system->states_"^itername^" = (statedata_"^(Symbol.name top_class)^" * )(tmp_props[ITERATOR_"^itername^"].model_states);")
+			    $("tmp_system->states_"^itername^" = (statedata_"^(Symbol.name topClassBaseName)^" * )(tmp_props[ITERATOR_"^itername^"].model_states);")
 
 			val iterator_pp_states_ptr =
 			    if ModelProcess.hasAlgebraicIterator itersym then
@@ -352,7 +351,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 							  in 
 							      (case iter_type of DOF.ALGEBRAIC (_, iter_sym) => true | _ => false)
 							  end)
-						       pp_iterators
+						       algebraic_iterators
 					 of SOME iter_sym => 
 					    let
 						(* there could be multiple matching algebraic iterators, so take one and create a generic identifier *)
@@ -440,32 +439,31 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 	 $("}"),
 	 $(""),
 	 $("void free_solver_props(solver_props* props, CDATAFORMAT* model_states){"),
-	 SUB([$("unsigned int modelid;"),
-             $("unsigned int i;"),
-             $("assert(props);"),
-             $("")] @
-	 (if 0 < total_system_states then
-              [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
-               $("systemstatedata_internal *system_states_int;"),
-               $("systemstatedata_internal *system_states_next;"),
-	       $("for(i=0;i<NUM_ITERATORS;i++){"),
-               SUB[$("if(props[i].statesize + props[i].pp_statesize > 0){"),
-                   SUB[$("system_states_int = (systemstatedata_internal*)props[i].model_states;"),
-		       $("system_states_next = (systemstatedata_internal*)props[i].next_states;"),
-                       $("break;")],
-                   $("}")],
-               $("}"),
-               $(""),
-               $("#if !defined TARGET_GPU && NUM_STATES > 0"),
-               $("// Translate structure arrangement from internal back to external formatting"),
-               $("for(modelid=0;modelid<props->num_models;modelid++){"),
-               SUB(map free_props iterators_with_solvers),
-               $("}"),
-               $("#endif"),
-	       $("free(system_states_int);"),
-	       $("free(system_states_next);"),
-             $("")]
-	  else
+	 SUB([$("unsigned int i, modelid;"),
+              $("assert(props);"),
+              $("")] @
+	     (if 0 < total_system_states then
+		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
+		   $("systemstatedata_internal *system_states_int;"),
+		   $("systemstatedata_internal *system_states_next;"),
+		   $("for(i=0;i<NUM_ITERATORS;i++){"),
+		   SUB[$("if(props[i].statesize + props[i].algebraic_statesize > 0){"),
+                       SUB[$("system_states_int = (systemstatedata_internal*)props[i].model_states;"),
+			   $("system_states_next = (systemstatedata_internal*)props[i].next_states;"),
+			   $("break;")],
+                       $("}")],
+		   $("}"),
+		   $(""),
+		   $("#if !defined TARGET_GPU && NUM_STATES > 0"),
+		   $("// Translate structure arrangement from internal back to external formatting"),
+		   $("for(modelid=0;modelid<props->num_models;modelid++){"),
+		   SUB(map free_props iterators_with_solvers),
+		   $("}"),
+		   $("#endif"),
+		   $("free(system_states_int);"),
+		   $("free(system_states_next);"),
+		   $("")]
+	      else
 	      nil) @
 	 [$("for(i=0;i<NUM_ITERATORS;i++){"),
 	  SUB[$("Iterator iter = ITERATORS[i];"),
@@ -950,7 +948,7 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 	     $("// Ignoring class '" ^ (Symbol.name (#name class)) ^ "'")]
 	else
 	    [$(""),
-	     $("// Define state structures"),
+	     $("// States for class " ^ (Symbol.name classTypeName)),
 	     $("typedef struct  {"),	 
 	     SUB($("// states (count="^(i2s (List.length init_eqs_symbols))^")") ::
 		 (map ($ o (state2member class_iterators)) init_eqs_symbols) @

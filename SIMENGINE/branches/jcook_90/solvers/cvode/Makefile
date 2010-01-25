@@ -198,6 +198,9 @@ $(CVODE_PATH)/cvode/.libs/%.o: $(SUNDIALS)
 $(CVODE_PATH)/nvec_ser/.libs/%.o: $(SUNDIALS)
 $(CVODE_PATH)/sundials/.libs/%.o: $(SUNDIALS)
 
+$(SUNDIALS_TGZ):
+	curl -o $@ -# $(SUNDIALS_URI)
+
 # Single-precision build within subdirectory
 float: $(SUNDIALS_TGZ)
 	[ -d $@ ] || $(MKDIR) $@
