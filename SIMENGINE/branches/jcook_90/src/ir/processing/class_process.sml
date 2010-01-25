@@ -1198,7 +1198,7 @@ fun propagateSpatialIterators (class: DOF.class) =
 (* takes a symbol name, finds an equation and returns all the iterators *)
 fun sym2iterators (class: DOF.class) sym =
     let
-	val flat_equ = flattenEq class sym
+	val flat_equ = (*flattenEq*)flattenEquationThroughInstances class sym
 	(* val _ = Util.log ("Resulting flat equation: " ^ (e2s flat_equ)) *)
 	val symbols = ExpProcess.exp2termsymbols flat_equ
 
@@ -1493,7 +1493,7 @@ fun assignCorrectScope (class: DOF.class) =
 		SOME t => output
 	      | NONE => 
 		let 
-		    val flatequ = flattenEq class (Term.sym2curname name)
+		    val flatequ = flattenEquationThroughInstances class (Term.sym2curname name)
 		    val terms = (*Util.flatmap*) ExpProcess.exp2termsymbols (*(condition :: contents)*)flatequ
 		    fun isIteratorTerm t =
 			List.exists (fn(iter_sym)=> Term.sym2symname t = iter_sym) indexable_iterators
@@ -1502,7 +1502,8 @@ fun assignCorrectScope (class: DOF.class) =
 					    (isIteratorTerm t)) terms then
 			    name
 			else
-			    ((*Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));*)
+			    (Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));
+			     Util.log(" -> FlatEqu: " ^ (e2s flatequ));
 			     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name)))
 		in
 		    {name = name', contents = contents, condition = condition}
