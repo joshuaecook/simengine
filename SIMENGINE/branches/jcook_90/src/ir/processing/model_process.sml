@@ -206,12 +206,40 @@ fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
     let
 	val {iterators, precision, target, num_models, debug, profile} = properties
 
+	(* is there an algebraic iterator that matches a particular iterator *)
+	val algebraic_iterators = List.filter (fn(_, iter_type)=> case iter_type of DOF.ALGEBRAIC _ => true | _ => false) iterators
+	fun find_matching_algebraic_iterators (iterator as (iter_sym,_)) = 
+	    List.filter (fn(_, iter_type)=> case iter_type of DOF.ALGEBRAIC (_, iter_sym') => iter_sym=iter_sym' | _ => false) algebraic_iterators
+
 	fun filter_iter iterator =
 	    0 < model2statesizebyiterator iterator model orelse
 	    List.exists
 		(fn (class) => 0 < List.length (ClassProcess.outputsByIterator iterator class))
-		classes
+		classes orelse
+	    let
 
+		val matching_iterators = find_matching_algebraic_iterators iterator					 
+		val result = foldl (fn(iterator',result)=> if result then
+							       true
+							   else 
+							       filter_iter iterator') false matching_iterators
+		(* do a quick error check - can't have a variable time step continuous iterator *)
+		val _ = if result then
+			    case iterator of
+				(iter_sym, DOF.CONTINUOUS solver) => if Solver.isVariableStep solver then
+									 (Logger.log_error (Printer.$("If iterator "^(Symbol.name iter_sym)^" has no states, it can not use a variable time step solver.  Iterator "^(Symbol.name iter_sym)^" was set to use the "^(Solver.solver2shortname solver)^" solver."));
+									  DynException.setErrored())
+								     else
+									 ()
+			      | _ => ()
+			else
+			    ()
+
+	    in
+		result
+	    end
+	    
+	(* here are the iterators with states or outputs *)
 	val iterators' = List.filter filter_iter iterators
 
 	val properties' = {iterators=iterators',

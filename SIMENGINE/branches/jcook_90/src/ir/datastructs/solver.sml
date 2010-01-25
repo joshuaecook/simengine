@@ -33,6 +33,9 @@ sig
     val solver2params : solver -> (string * string) list (* this function is used when generating generic solver properties in C *)
     val solver2opts : solver -> (string * string) list (* this function is used to generate solver specific options in C *)
 
+    (* Solver predicates *)
+    val isVariableStep : solver -> bool (* is this a variable time step solver *)
+
     (* Get the default solver if none was specified *)
     val default : solver
 
@@ -143,6 +146,11 @@ fun solver2opts (LINEAR_BACKWARD_EULER {dt, solv}) = linear_backward_euler_solve
     cvode_solver2opts solv
   | solver2opts _ =
     nil
+
+fun isVariableStep (ODE23 _) = true
+  | isVariableStep (ODE45 _) = true
+  | isVariableStep (CVODE _) = true
+  | isVariableStep _ = false
 
 (*
 fun solver2options solver = 
