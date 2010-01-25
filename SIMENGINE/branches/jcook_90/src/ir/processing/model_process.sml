@@ -42,8 +42,10 @@ structure ModelProcess : sig
     val algebraicIterators: Symbol.symbol -> DOF.systemiterator list
 
     (* Indicates whether an iterator is dependent upon another. *)
-    val isDependentIterator : DOF.systemiterator -> bool
+    val isDependentIterator : DOF.systemiterator -> bool 
     val isImmediateIterator : DOF.systemiterator -> bool
+    (* Indicates whether an iterator can produce an output - all iterators except UPDATE *)
+    val isOutputIterator : DOF.systemiterator -> bool
     val isStatefulIterator : DOF.systemiterator -> bool
     val isStatelessIterator : DOF.systemiterator -> bool
 
@@ -69,6 +71,9 @@ fun isDependentIterator (_, DOF.UPDATE _) = true
 
 fun isImmediateIterator (_, DOF.IMMEDIATE) = true
   | isImmediateIterator _ = false
+
+fun isOutputIterator (_, DOF.UPDATE _) = false
+  | isOutputIterator _ = true
 
 fun isStatefulIterator (_, DOF.CONTINUOUS _) = true
   | isStatefulIterator (_, DOF.DISCRETE _) = true

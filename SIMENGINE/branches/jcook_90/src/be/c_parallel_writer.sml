@@ -392,9 +392,9 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 	 $("#endif"),
 	 $(""),
 	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
+	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
-		  [$("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
-		   $("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
+		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
 		   $("#if defined TARGET_GPU"),
 		   $("systemstatedata_external *system_states_int = (systemstatedata_external*)model_states;"),
 		   $("systemstatedata_external *system_states_next = (systemstatedata_external*)malloc(sizeof(systemstatedata_external));"),
@@ -404,8 +404,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
 		   $("#endif")]
 
 	       else
-		   [$("void *system_ptrs = NULL;"),
-		    $("void *system_states_ext = NULL;"),
+		   [$("void *system_states_ext = NULL;"),
 		    $("void *system_states_int = NULL;"),
 		    $("void *system_states_next = NULL;")]) @
 	      [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
@@ -484,15 +483,15 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, pp_iterator
     end
     handle e => DynException.checkpoint "CParallelWriter.init_solver_props" e
 
-fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedModel.shardedModel) statefulIterators =
+fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedModel.shardedModel) outputIterators =
     let
 	(*val top_class = CurrentModel.withModel origModel (fn()=>CurrentModel.classname2class (#classname inst))*)
-	val iterator_names = map Symbol.name statefulIterators
+	val iterator_names = map Symbol.name outputIterators
 	val solver_names = List.mapPartial (fn(iter_sym)=>case ShardedModel.toIterator shardedModel iter_sym of
 							      (_,DOF.CONTINUOUS s) => SOME (Solver.solver2name s)
 							    | (_,DOF.DISCRETE _) => SOME "discrete"
 							    | (_,DOF.IMMEDIATE) => SOME "immediate"
-							    | _ => NONE) statefulIterators
+							    | _ => NONE) outputIterators
 	fun init_condition2pair iter_sym basestr exp =
 	    let val term = ExpProcess.exp2term (ExpProcess.lhs exp)
 		val rhs = ExpProcess.rhs exp
@@ -557,7 +556,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 				       findStatesInitValues iter_sym "" class
 				   end)
 			end)
-		     statefulIterators)
+		     outputIterators)
 
 	val inputs = ShardedModel.toInputs shardedModel
 	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) inputs)
@@ -577,7 +576,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	    end
 
 	val output_names = 
-	    Util.uniquify (Util.flatmap (name_subsystem_outputs shardedModel) statefulIterators)
+	    Util.uniquify (Util.flatmap (name_subsystem_outputs shardedModel) outputIterators)
 
 	fun output_num_quantities (model, output) =
 	    CurrentModel.withModel model (fn _ =>
@@ -603,7 +602,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 			     in
 				 CurrentModel.withModel model (fn _ => (outputs_from_class (model, CurrentModel.classname2class classname)))
 			     end)
-			 statefulIterators
+			 outputIterators
 
 	val outputs_from_top_classes =
 	    Util.uniquify_by_fun (fn ((_,a:DOF.output),(_,b:DOF.output)) => Term.sym2curname (#name a) = Term.sym2curname (#name b)) outputs_from_top_classes
@@ -812,7 +811,7 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
 			    SUB[$("memcpy(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "_buffer," ^
 				  "((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "," ^
-				  "props->pp_statesize * sizeof(CDATAFORMAT));")],
+				  "sizeof(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "[0]));")],
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
@@ -1759,33 +1758,29 @@ fun buildC (orig_name, shardedModel) =
 	fun itersym2iter itersym =
 	    ShardedModel.toIterator shardedModel itersym
 
-	val statefulIterators = map
-					 #iter_sym
-					 (List.filter (ModelProcess.isStatefulIterator o itersym2iter o #iter_sym) shards)
+	val statefulIterators = map #iter_sym
+				    (List.filter (ModelProcess.isStatefulIterator o itersym2iter o #iter_sym) shards)
+	val outputIterators =  map #iter_sym
+				   (List.filter (ModelProcess.isOutputIterator o itersym2iter o #iter_sym) shards)
 	val forkedModelsLessUpdate = (List.filter (fn{iter_sym,...}=> case itersym2iter iter_sym of (_, DOF.UPDATE _) => false | _ => true) shards, 
 				      sysprops)
 
-	val iteratorsWithSolvers = map
-					 #iter_sym
-					 (List.filter (not o ModelProcess.isDependentIterator o itersym2iter o #iter_sym) shards)
+	val iteratorsWithSolvers = map #iter_sym
+				       (List.filter (not o ModelProcess.isDependentIterator o itersym2iter o #iter_sym) shards)
 	val forkedModelsWithSolvers = (List.filter (not o ModelProcess.isDependentIterator o itersym2iter o #iter_sym) shards,
 				       sysprops)
 
 	val updateModels = (List.filter (fn {iter_sym, ...} => case itersym2iter iter_sym of (_, DOF.UPDATE _) => true | _ => false) shards,
 			    sysprops)
 
-	val algebraicIterators = map
-				     #iter_sym
+	val algebraicIterators = map #iter_sym
 				     (List.filter (fn {iter_sym,...} => case itersym2iter iter_sym of (_, DOF.ALGEBRAIC _) => true | _ => false) shards)
-	val preprocessIterators = map
-				     #iter_sym
-				     (List.filter (fn {iter_sym,...} => case itersym2iter iter_sym of (_, DOF.ALGEBRAIC (DOF.PREPROCESS, _)) => true | _ => false) shards)
-	val inprocessIterators = map
-				     #iter_sym
+	val preprocessIterators = map #iter_sym
+				      (List.filter (fn {iter_sym,...} => case itersym2iter iter_sym of (_, DOF.ALGEBRAIC (DOF.PREPROCESS, _)) => true | _ => false) shards)
+	val inprocessIterators = map #iter_sym
 				     (List.filter (fn {iter_sym,...} => case itersym2iter iter_sym of (_, DOF.ALGEBRAIC (DOF.INPROCESS, _)) => true | _ => false) shards)
-	val postprocessIterators = map
-				     #iter_sym
-				     (List.filter (fn {iter_sym,...} => case itersym2iter iter_sym of (_, DOF.ALGEBRAIC (DOF.POSTPROCESS, _)) => true | _ => false) shards)
+	val postprocessIterators = map #iter_sym
+				       (List.filter (fn {iter_sym,...} => case itersym2iter iter_sym of (_, DOF.ALGEBRAIC (DOF.POSTPROCESS, _)) => true | _ => false) shards)
 
 	val class_name = Symbol.name orig_name
 
@@ -1802,7 +1797,7 @@ fun buildC (orig_name, shardedModel) =
 				    []))
 
 	val init_solver_props_c = init_solver_props orig_name shardedModel (iteratorsWithSolvers, algebraicIterators)
-	val simengine_interface_progs = simengine_interface class_name shardedModel statefulIterators
+	val simengine_interface_progs = simengine_interface class_name shardedModel outputIterators
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val outputdatastruct_progs = outputdatastruct_code shardedModel
 	val outputstatestruct_progs = Util.flatmap 
