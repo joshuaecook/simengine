@@ -1091,10 +1091,11 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 			val iterators_with_states = 
 			    List.filter (fn(it as (iter_sym,_))=> 
 					   let
-					       val model as (_,{classname,...},_) = ShardedModel.toModel shardedModel iter_sym
+					       val model as (classes,{classname=top_class,...},_) = ShardedModel.toModel shardedModel iter_sym
+					       val classesOfBaseName = List.filter (fn(c)=> ClassProcess.class2basename c = bn) classes
 					       val hasStates = CurrentModel.withModel 
 								   model
-								   (fn()=> has_states it (CurrentModel.classname2class classname))
+								   (fn()=> List.exists (has_states it) classesOfBaseName)
 					   in
 					       hasStates
 					   end)
