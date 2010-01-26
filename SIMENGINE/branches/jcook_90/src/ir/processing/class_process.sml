@@ -767,27 +767,27 @@ fun addDelays (class: DOF.class) =
 
 	fun term2name_delay (t as (Exp.SYMBOL (sym, _))) = 
 	    (case TermProcess.symbol2temporaliterator t of
-		 SOME (iter_sym, Iterator.RELATIVE d) => (sym, iter_sym, ~d)
+		 SOME (iter_sym, Iterator.RELATIVE d) => {sym=sym, iter_sym=iter_sym, delay= ~d}
 	       | _ => DynException.stdException("Unexpected non-relative iterator", "ClassProcess.addDelays.term2name_delay", Logger.INTERNAL))
 	  | term2name_delay _ = DynException.stdException("Unexpected non-symbol term", "ClassProcess.addDelays.term2name_delay", Logger.INTERNAL)
 
 	val term_list = map term2name_delay delayedTerms
 
-	val grouped_term_list : (Symbol.symbol * Symbol.symbol * int list) list = (* (Symbol name * iterator symbol * list of delays) list *)
-	    List.foldl (fn((sym,iter_sym,d),l)=>
+	val grouped_term_list : {sym: Symbol.symbol, iter_sym: Symbol.symbol, delays: int list} list = (* (Symbol name * iterator symbol * list of delays) list *)
+	    List.foldl (fn({sym,iter_sym,delay},l)=>
 			  let
-			      val (match, others) = List.partition (fn(sym',_,_)=>sym=sym') l
+			      val (match, others) = List.partition (fn{sym=sym',...}=>sym=sym') l
 			  in
 			      if List.length match = 0 then
-				  (sym, iter_sym, [d])::l
+				  {sym=sym, iter_sym=iter_sym, delays=[delay]}::l
 			      else 
 				  let
-				      val e as (sym',iter_sym',d_list) = Util.hd match
+				      val e as {sym=sym',iter_sym=iter_sym',delays=d_list} = Util.hd match
 				  in
-				      if List.exists (fn(d')=>d=d') d_list then
+				      if List.exists (fn(d')=>delay=d') d_list then
 					  e::others
 				      else
-					  (sym',iter_sym',d::d_list)::others
+					  {sym=sym',iter_sym=iter_sym',delays=(delay::d_list)}::others
 				  end
 			  end)
 		       [] 
@@ -795,7 +795,7 @@ fun addDelays (class: DOF.class) =
 					   
 	val exps_and_rewrites : (Exp.exp list * Rewrite.rewrite list) list = 
 	    map 
-	    (fn(sym,iter_sym,d_list)=>
+	    (fn{sym,iter_sym,delays=d_list}=>
 	       let
 		   val max_d = StdFun.max d_list
 		   val (init_condition_value, spatial_iterators) = case List.find (fn(exp)=> ExpProcess.isInitialConditionEq exp) (symbol2exps class sym) of

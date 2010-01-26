@@ -807,16 +807,16 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 				 if reads_system class then "props->system_states, " else "")
 
 			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
-			    SUB[$("memcpy(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "_buffer," ^
-				  "((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "," ^
+			    SUB[$("memcpy(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "_buffer, " ^
+				  "((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ ", " ^
 				  "sizeof(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "[0]));")],
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
+				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], "(*"(props->next_time[modelid], "*) ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
+				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->count[modelid], "(*"(1 + props->count[modelid], "*) ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
