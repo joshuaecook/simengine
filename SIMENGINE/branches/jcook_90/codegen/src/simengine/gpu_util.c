@@ -19,4 +19,16 @@ inline int __cudaSafeCall( cudaError err, const char *file, const int line )
     }
     return 0;
 }
+
+// Device code equivalent for memcpy()
+// http://forums.nvidia.com/index.php?showtopic=97970
+__host__ __device__ void *memoryCopy (void *dest, const void *src, size_t n)
+{
+  unsigned int i;
+  char *d = (char *)dest;
+  char *s = (char *)src;
+  for (i = 0; i < n; i++) { d[i] = s[i]; }
+  return dest;
+}
+
 #endif

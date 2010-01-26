@@ -119,7 +119,7 @@ solver_props *gpu_init_props(solver_props *props){
     tmp_props[i].running = g_running + (i * NUM_MODELS);
 
     // The amount of memory varies for each iterator
-    if (0 < props[i].statesize) {
+    if (0 < props[i].statesize + props[i].algebraic_statesize) {
       tmp_props[i].model_states = ((CDATAFORMAT *)g_model_states) + (states_offset * NUM_MODELS);
       tmp_props[i].next_states = ((CDATAFORMAT *)g_next_states) + (states_offset * NUM_MODELS);
     }
@@ -128,7 +128,7 @@ solver_props *gpu_init_props(solver_props *props){
       tmp_props[i].next_states = NULL;
     }
 
-    states_offset += props[i].statesize + props[i].pp_statesize;
+    states_offset += props[i].statesize + props[i].algebraic_statesize;
 
     // Every iterator shares the same memory
     tmp_props[i].system_states = g_system;

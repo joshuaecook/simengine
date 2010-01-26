@@ -173,9 +173,12 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 
 	fun init_props iter_sym =
 	    let
-		val model = ShardedModel.toModel shardedModel iter_sym
+		val model as (_, instance, _) = ShardedModel.toModel shardedModel iter_sym
+		val topClassName = 
+		    case #name instance 
+		     of SOME x => x | NONE => #classname instance		
+
 		val iterator = ShardedModel.toIterator shardedModel iter_sym
-		val (_,{classname=top_class,...},_) = model
 		fun progs () =
 		    let
 
@@ -218,7 +221,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			val requiresMatrix = case itertype of
 				             DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) => true
 				           | _ => false
-			val c = CurrentModel.classname2class top_class
+			val c = CurrentModel.classname2class topClassName
 			val matrix_exps = ClassProcess.symbol2exps c (Symbol.symbol "#M")
 			(* band size is the number of columns in the banded matrix, set to zero when it is a dense matrix *)
 			val bandsize = case matrix_exps of (* ignored for dense solver *)
@@ -286,20 +289,31 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
                               $("#if !defined TARGET_GPU"),
                               $("// Translate structure arrangement from external to internal formatting"),
                               $("for(modelid=0;modelid<props->num_models;modelid++){"),
-                              SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], &system_states_ext[modelid].states_"^itername^", props[ITERATOR_"^itername^"].statesize*sizeof(CDATAFORMAT));")],
+                              SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], " ^
+				    "&system_states_ext[modelid].states_"^itername^", " ^
+				    "props[ITERATOR_"^itername^"].statesize * sizeof(CDATAFORMAT));")],
                               $("}"),
                               $("#endif")]
 			 else
 			     nil) @
-			(let fun initAlgebraicSystemPointers (iterName, _) =
-				 let val cname = Symbol.name iterName
+			(let fun initAlgebraicSystemPointers (iterName, iterType) =
+				 let 
+				     val (_, instance, _) = ShardedModel.toModel shardedModel iterName
+				     val tcn = 
+					 case #name instance 
+					  of SOME x => x | NONE => #classname instance		
+				     val cname = Symbol.name iterName
 				 in
-				     [$("system_ptrs->states_" ^ cname ^ " = system_states_int->states_" ^ cname ^ ";"),
-				      $("system_ptrs->states_" ^ cname ^ "_buffer = system_states_next->states_" ^ cname ^ ";"),
-				      $("#if !defined TARGET_GPU"),
+				     $("system_ptrs->states_" ^ cname ^ " = system_states_int->states_" ^ cname ^ ";") ::
+				     (case iterType of DOF.ALGEBRAIC (DOF.INPROCESS, _) =>
+						       [$("system_ptrs->states_" ^ cname ^ "_buffer = system_states_next->states_" ^ cname ^ ";")]
+						     | _  => nil) @
+				     [$("#if !defined TARGET_GPU"),
 				      $("// Translate structure arrangement from external to internal formatting"),
 				      $("for(modelid=0;modelid<props->num_models;modelid++){"),
-				      SUB[$("memcpy(&system_states_int->states_" ^ cname ^ "[modelid], &system_states_ext[modelid].states_" ^ cname ^ ", sizeof(system_states_ext[modelid].states_" ^ cname ^ "));")],
+				      SUB[$("memcpy(&system_states_int->states_" ^ cname ^ "[modelid], " ^
+					    "&system_states_ext[modelid].states_" ^ cname ^ ", " ^
+					    "sizeof(statedata_" ^ (Symbol.name tcn) ^ "));")],
 				      $("}"),
 				      $("#endif")]
 				 end
@@ -317,18 +331,17 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	fun gpu_init_props iter_sym =
 	    let val model as (_, instance, _) = ShardedModel.toModel shardedModel iter_sym
 		val iterator = ShardedModel.toIterator shardedModel iter_sym
-			       
+
+		val topClassName = 
+		    case #name instance 
+		     of SOME x => x | NONE => #classname instance		
+	       
 		val topClassBaseName = 
-		    let val classname = 
-			    case #name instance 
-			     of SOME x => x | NONE => #classname instance
-		    in
-			CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class classname))
-		    end
+		    CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class topClassName))
 
 		fun progs () = 
-		    let val (itersym, itertype) = iterator
-			val itername = (Symbol.name itersym)
+		    let val (_, itertype) = iterator
+			val itername = (Symbol.name iter_sym)
 
 			val iterator_value_ptr = 
 			    case itertype of
@@ -340,37 +353,43 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				$("#error BOGUS ITERATOR NOT FILTERED")
 
 			val iterator_states_ptr =
-			    $("tmp_system->states_"^itername^" = (statedata_"^(Symbol.name topClassBaseName)^" * )(tmp_props[ITERATOR_"^itername^"].model_states);")
+			    $("tmp_system->states_"^(itername)^" = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^itername^"].model_states);")
 
-			val iterator_pp_states_ptr =
-			    if ModelProcess.hasAlgebraicIterator itersym then
-				let val pp_classname = 
-					case List.find (fn(iter_sym)=> 
-							  let 
-							      val (_, iter_type) = ShardedModel.toIterator shardedModel iter_sym
-							  in 
-							      (case iter_type of DOF.ALGEBRAIC (_, iter_sym) => true | _ => false)
-							  end)
-						       algebraic_iterators
-					 of SOME iter_sym => 
-					    let
-						(* there could be multiple matching algebraic iterators, so take one and create a generic identifier *)
-						val model as (_,{classname,...},_) = ShardedModel.toModel shardedModel iter_sym
-						val basename = CurrentModel.withModel model (fn()=> ClassProcess.class2basename (CurrentModel.classname2class classname))
-					    in
-						(*Symbol.name classname*)
-						(Symbol.name basename) ^ "_algebraic_" ^ (Symbol.name iter_sym)
-					    end
-					  | NONE => "#error invalid"
-				in 
-				    [$("tmp_system->states_pp_"^itername^" = (statedata_"^pp_classname^" * )(tmp_props[ITERATOR_"^itername^"].model_states + tmp_props[ITERATOR_"^itername^"].statesize);")] 
-				end
-			    else nil
+			val my_algebraic_iterators =
+			    List.filter (fn it =>
+					    case ShardedModel.toIterator shardedModel it
+					     of (_, DOF.ALGEBRAIC (_, iter_sym')) => iter_sym' = iter_sym
+					      | _ => false)
+					algebraic_iterators
+
+			val iterator_algebraic_states_ptrs =
+			    let
+				fun numIteratorStates it =
+				    let val model = ShardedModel.toModel shardedModel it
+				    in CurrentModel.withModel model (fn _ => ModelProcess.model2statesize model)
+				    end
+
+				fun iteratorStatesPtr it =
+				    let val model as (_, instance, _) = ShardedModel.toModel shardedModel it
+					val tcn = 
+					    case #name instance 
+					     of SOME x => x | NONE => #classname instance		
+					val tcbn = 
+					    CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class tcn))
+				    in
+					[$("tmp_system->states_"^(Symbol.name it)^" = (statedata_"^(Symbol.name tcn)^" *)" ^
+					  "(tmp_props[ITERATOR_"^(itername)^"].model_states + algebraic_offset);"),
+					 $("algebraic_offset += " ^ (Int.toString (numIteratorStates it)) ^ ";")]
+				    end
+			    in
+				List.concat (map iteratorStatesPtr my_algebraic_iterators)
+			    end
 			    
 		    in
+			$("algebraic_offset = tmp_props[ITERATOR_"^(itername)^"].statesize;") ::
 			iterator_value_ptr ::
 			iterator_states_ptr ::
-			iterator_pp_states_ptr
+			iterator_algebraic_states_ptrs
 		    end
 
 
@@ -386,6 +405,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	[
 	 $("#if defined TARGET_GPU"),
 	 $("void gpu_init_system_states_pointers (solver_props *tmp_props, top_systemstatedata *tmp_system) {"),
+	 SUB[$("ptrdiff_t algebraic_offset;")],
 	 SUB(Util.flatmap gpu_init_props iterators_with_solvers),
 	 $("}"),
 	 $("#endif"),
@@ -460,8 +480,10 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 		   SUB(map free_props iterators_with_solvers),
 		   $("}"),
 		   $("#endif"),
-		   $("free(system_states_int);"),
-		   $("free(system_states_next);"),
+		   $("#if !defined TARGET_GPU"),
+		   $("if (system_states_int) free(system_states_int);"),
+		   $("#endif"),
+		   $("if (system_states_next) free(system_states_next);"),
 		   $("")]
 	      else
 	      nil) @
@@ -469,7 +491,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	  SUB[$("Iterator iter = ITERATORS[i];"),
 	      $("if (props[iter].time) free(props[iter].time);"),
 	      $("if (props[iter].next_time) free(props[iter].next_time);"),
-	      (*$("if (props[iter].freeme) free(props[iter].freeme);"),*)
 	      $("if (props[iter].running) free(props[iter].running);")],
 	  $("}"),
 	  $("if (props[0].ob) free(props[0].ob);"),
@@ -785,7 +806,11 @@ fun preprocess_wrapper shardedModel preprocessIterators =
 fun inprocess_wrapper shardedModel inprocessIterators =
     let val _ = ()
 	fun call_update iter_sym =
-	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
+	    let val model as (_, instance, _) = ShardedModel.toModel shardedModel iter_sym
+		val topClassName = 
+		    case #name instance 
+		     of SOME x => x | NONE => #classname instance		
+
 		val iter = ShardedModel.toIterator shardedModel iter_sym
 	    in	    
 		CurrentModel.withModel 
@@ -798,7 +823,7 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 				  | _ => 
 				    DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
 
-			    val class = CurrentModel.classname2class top_class
+			    val class = CurrentModel.classname2class topClassName
 			    val basename = ClassProcess.class2basename class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
@@ -807,16 +832,22 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 				 if reads_system class then "props->system_states, " else "")
 
 			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
-			    SUB[$("memcpy(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "_buffer, " ^
-				  "((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ ", " ^
-				  "sizeof(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "[0]));")],
+			    SUB[$("#if defined TARGET_GPU"),
+				$("memoryCopy(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "_buffer," ^
+				  "((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "," ^
+				  "sizeof(statedata_" ^ (Symbol.name topClassName) ^ "));"),
+				$("#else"),
+				$("memcpy(((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "_buffer," ^
+				  "((systemstatedata_" ^ (Symbol.name basename) ^ "*)props->system_states)->states_"^(Symbol.name iter_name) ^ "," ^
+				  "sizeof(statedata_" ^ (Symbol.name topClassName) ^ "));"),
+				$("#endif")],
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], "(*"(props->next_time[modelid], "*) ^
+				SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->count[modelid], "(*"(1 + props->count[modelid], "*) ^
+				SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(1 + props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
@@ -824,7 +855,8 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 	    end
 
     in [$("__HOST__ __DEVICE__ int in_process(solver_props *props, unsigned int modelid) {"),
-	SUB ($("switch (props->iterator) {") ::
+	SUB ($("unsigned int i;") :: 
+	     $("switch (props->iterator) {") ::
 	     List.concat (map call_update inprocessIterators) @
 	     [$("default: return 1;"),
 	      $("}")]),
@@ -1030,9 +1062,12 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 		    [ctype ^ "states_" ^ (Symbol.name iter_sym) ^ ";"]
 		  | DOF.DISCRETE _ => 
 		    [ctype ^ "states_" ^ (Symbol.name iter_sym) ^ ";"]
-		  | DOF.ALGEBRAIC _ => 
+		  | DOF.ALGEBRAIC (DOF.INPROCESS, _) => 
+		    (* In-process iterators require a temporary buffer of states for reads. *)
 		    [ctype ^ "states_" ^ (Symbol.name iter_sym) ^ ";",
 		     ctype ^ "states_" ^ (Symbol.name iter_sym) ^ "_buffer;"]
+		  | DOF.ALGEBRAIC _ => 
+		    [ctype ^ "states_" ^ (Symbol.name iter_sym) ^ ";"]
 		  | _ => nil
 	    end
 
@@ -1040,19 +1075,15 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 	 * This data type comprises references to the iterator values themselves, followed
 	 * by references to each iterator's states. *)
 	fun systemPointerStructure {basename, iterators, typedIterators} =
-	    (*let 
-		val iterators = map #2 typedIterators
-	    in*)
-		[$("// The system of iterators for class " ^ (Symbol.name basename) ^ "."),
-		 $("typedef struct {"),
-		 SUB (map $
-			  (List.mapPartial systemPointerStructureIteratorValue
-					   iterators)),
-		 SUB (map $
-		 	  (List.concat (map systemPointerStructureStates
-		 			   typedIterators))),
-		 $("} systemstatedata_"^(Symbol.name basename)^";"),$("")]
-	    (*end*)
+	    [$("// The system of iterators for class " ^ (Symbol.name basename) ^ "."),
+	     $("typedef struct {"),
+	     SUB (map $
+		      (List.mapPartial systemPointerStructureIteratorValue
+				       iterators)),
+	     SUB (map $
+		      (List.concat (map systemPointerStructureStates
+		 			typedIterators))),
+	     $("} systemstatedata_"^(Symbol.name basename)^";"),$("")]
 
 
 	val classBaseNames = 

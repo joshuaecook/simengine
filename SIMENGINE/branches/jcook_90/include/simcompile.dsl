@@ -151,6 +151,7 @@ namespace SimCompile
     var emulate = false
     var cudaInstallPath
     var ptxasFlags = ["-v"]
+    var openccFlags = ["-v"]//, "-OPT:Olimit=99999"]
 
     constructor (settings)
       super ()
@@ -203,7 +204,8 @@ namespace SimCompile
 
       // Wrap all gcc flags in --compiler-options when passed to nvcc
       m.CFLAGS = ["--compiler-options", join(" ", m.CFLAGS),
-		  "--ptxas-options", join(" ", ptxasFlags)]
+		  "--ptxas-options", join(" ", ptxasFlags),
+		  "--opencc-options", join(" ", openccFlags)]
       
       // Currently we use only the first device returned from device_props program
       // which returns a list of available devices sorted by their GFLOPs
