@@ -45,6 +45,8 @@ var defaultPaths = [] //TODO: fill in
 
 var architecture = LF sys_architecture ()
 
+var possibleArchitectures = ["i386","x86_64","x86-64","80386","i686","ppc64","ppc"]
+
 var gccPath
 
 function checkFileExistsWithPaths (name, additionalPaths: Vector of String)
@@ -128,8 +130,24 @@ overload function checkLibExists (name)
   checkLibExists(name, [])
 end
 
-function getLibArch(path)
-  ""
+function getLibArch(fileCmd, libpath)
+  var p = Process.run (fileCmd, ["-L", libpath])
+  var result = Process.readline(p)
+  
+  var found = false
+
+  var matchedArch = ""
+
+  foreach arch in possibleArchitectures do
+    if not found then
+      if isRegexpMatch (arch, result) then
+        found = true
+        matchedArch = arch
+      end
+    end
+  end
+  
+  matchedArch
 end
 
 
@@ -174,19 +192,19 @@ end
     // libraries
     //libdl
     var libdl_path = checkLibExists("libdl")
-    var libdl_arch = getLibArch(libdl_path)
+    var libdl_arch = getLibArch(file_path, libdl_path)
 
     //libz
     var libz_path = checkLibExists("libz")
-    var libz_arch = getLibArch(libz_path)
+    var libz_arch = getLibArch(file_path, libz_path)
 
     //libgomp
     var libgomp_path = checkLibExists("libgomp")
-    var libgomp_arch = getLibArch(libgomp_path)
+    var libgomp_arch = getLibArch(file_path, libgomp_path)
 
     //libcudart
     var libcudart_path = checkLibExists("libcudart", ["/usr/local/cuda/lib", "/opt/cuda/lib"])
-    var libcudart_arch = getLibArch(libcudart_path)
+    var libcudart_arch = getLibArch(file_path, libcudart_path)
 
     function dep(path, arch, version) = ExternalDep.new(path, arch, version)
 
@@ -228,6 +246,8 @@ end
   end
 
 function buildDependencyFile ()
+  notice "Constructing System Dependency List"
+
   var homedir = Environment.getVar("HOME")
   var directory = Path.join(homedir, ".simatra")
   var file = "dependencies"
