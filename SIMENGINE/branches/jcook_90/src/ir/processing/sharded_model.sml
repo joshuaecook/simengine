@@ -94,16 +94,28 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 								  var, 
 								  Match.any "d3"], 
 						  Match.any "d4"],
-			       test=NONE,
+			       (* use a test to make sure that we're only looking at the top most expression *)
+			       test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp', matched_exp)),
 			       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.pvar "d2", ExpBuild.pvar "d3"],
 									      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+
+			  (* it could be that there is no coefficient in front of the variable *)
+			  val coeff_rewrite_degenerate_case =
+			      {find=ExpBuild.plus[Match.any "d1", 
+						  var, 
+						  Match.any "d4"],
+			       (* use a test to make sure that we're only looking at the top most expression *)
+			       test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp', matched_exp)),
+			       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.int 1,
+									      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+
 			  (* run a rewrite to pull out the coeff and remainder *)
 			  val (coeff, remainder) = 
-			      case Match.applyRewriteExp coeff_rewrite exp' of
+			      case Match.applyRewritesExp [coeff_rewrite, coeff_rewrite_degenerate_case] exp' of
 				  Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
 				  (coeff, remainder)
 				| _ =>
-				  (Logger.log_error (Printer.$("Cannot factor out state '"^(state_str())^"' from expression '"^(e2ps exp')^"'.  The system may be nonlinear."));
+				  (Logger.log_error (Printer.$("Cannot factor out state "^(state_str())^" from expression '"^(e2ps exp')^"'.  The system may be nonlinear."));
 				   DynException.setErrored();
 				   (ExpBuild.int 0, rhs))
 				  
@@ -334,9 +346,18 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 					       test=SOME (fn(exp', matchedPatterns)=>ExpEquality.equiv (exp, exp')),
 					       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.pvar "d2", ExpBuild.pvar "d3"],
 											      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+					  (* it could be that there is no coefficient in front of the variable *)
+					  val coeff_rewrite_degenerate_case =
+					      {find=ExpBuild.plus[Match.any "d1", 
+								  var, 
+								  Match.any "d4"],
+					       (* use a test to make sure that we're only looking at the top most expression *)
+					       test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp', matched_exp)),
+					       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.int 1,
+											      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
 					      
 				      in
-					  case Match.applyRewriteExp coeff_rewrite exp of
+					  case Match.applyRewritesExp [coeff_rewrite, coeff_rewrite_degenerate_case] exp of
 					      Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
 					      (coeff, remainder)
 					    | _ => (ExpBuild.int 0, exp)
