@@ -79,17 +79,17 @@ fun std_preadOutAndErrLine exec args =
 		case (TextIO.canInput (stdout,10), TextIO.canInput (stderr,10))
 		 of 
 		    (SOME x, SOME y) => 
-		    if count = 0 andalso x = 0 andalso y = 0 then
+		    if count > 0 andalso x = 0 andalso y = 0 then
 			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
 		    else
 			(TextIO.inputLine stdout, TextIO.inputLine stderr)
 		  | (SOME x, NONE) => 
-		    if count = 0 andalso x = 0 then
+		    if count > 0 andalso x = 0 then
 			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
 		    else
 			(TextIO.inputLine stdout, NONE)
 		  | (NONE, SOME x) => 
-		    if count = 0 andalso x = 0 then
+		    if count > 0 andalso x = 0 then
 			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
 		    else
 			(NONE, TextIO.inputLine stderr)
