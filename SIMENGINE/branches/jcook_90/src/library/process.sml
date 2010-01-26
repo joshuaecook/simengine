@@ -73,16 +73,30 @@ fun std_preaderrline exec args =
 
 fun std_preadOutAndErrLine exec args =
     case args
-     of [KEC.PROCESS (p, _, _)] =>
+     of [KEC.PROCESS (p, name, args)] =>
 	let val (stdout, stderr) = (Child.textIn (Proc.getStdout p), Child.textIn (Proc.getStderr p))
-	    fun loop () =
+	    fun loop (count) =
 		case (TextIO.canInput (stdout,10), TextIO.canInput (stderr,10))
-		 of (SOME _, SOME _) => (TextIO.inputLine stdout, TextIO.inputLine stderr)
-		  | (SOME _, NONE) => (TextIO.inputLine stdout, NONE)
-		  | (NONE, SOME _) => (NONE, TextIO.inputLine stderr)
-		  (* If no data is available, it can't hurt to sleep for a short interval *)
-		  | (NONE, NONE) => (Posix.Process.sleep (Time.fromMilliseconds 10); loop ())
-	    val (outline, errline) = loop ()
+		 of 
+		    (SOME x, SOME y) => 
+		    if count = 0 andalso x = 0 andalso y = 0 then
+			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
+		    else
+			(TextIO.inputLine stdout, TextIO.inputLine stderr)
+		  | (SOME x, NONE) => 
+		    if count = 0 andalso x = 0 then
+			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
+		    else
+			(TextIO.inputLine stdout, NONE)
+		  | (NONE, SOME x) => 
+		    if count = 0 andalso x = 0 then
+			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
+		    else
+			(NONE, TextIO.inputLine stderr)
+		  (* If no data is available, it can't hurt to sleep for a short interval to avoid pegging the cpu *)
+		  | (NONE, NONE) => (Posix.Process.sleep (Time.fromMilliseconds 10); loop (count))
+
+	    val (outline, errline) = loop (10)
 	in
 	    KEC.TUPLE [if isSome outline then 
 			   KEC.LITERAL (KEC.CONSTSTR (valOf outline))

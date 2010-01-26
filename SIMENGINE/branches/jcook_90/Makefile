@@ -845,7 +845,7 @@ mostlyclean:
 
 .PHONY: testing_clean
 testing_clean:
-	find testing -name *.sim -exec rm '{}' +
+	find testing -name "*.sim" -exec rm '{}' +
 
 .PHONY: solvers_clean
 solvers_clean:
