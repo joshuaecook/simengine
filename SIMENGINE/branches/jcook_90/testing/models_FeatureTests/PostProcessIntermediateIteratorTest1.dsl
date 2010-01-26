@@ -1,4 +1,4 @@
-settings.debug.logdof.setValue(true)
+//settings.debug.logdof.setValue(true)
 model (y) = PostProcessIntermediateIteratorTest1()
 
   equation x = t
