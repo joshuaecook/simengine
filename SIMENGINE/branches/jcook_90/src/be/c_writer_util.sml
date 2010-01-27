@@ -159,6 +159,7 @@ fun expsym2parts class exp =
 			 Property.LOCAL => ""
 		       | Property.READSTATE v => "rd_" ^ (Symbol.name v)
 		       | Property.READSYSTEMSTATE v => "sys_rd->" ^ (Symbol.name v)
+		       | Property.READSYSTEMSTATENEXT v => "sys_rd->" ^ (Symbol.name v) ^ "_next"
 		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name v)
 		       | Property.ITERATOR => "iter"
 

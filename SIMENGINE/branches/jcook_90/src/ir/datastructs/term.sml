@@ -84,6 +84,7 @@ fun sym2str pretty (s, props) =
 			 Property.LOCAL => ""
 		       | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ "."
 		       | Property.READSYSTEMSTATE v => "sys_rd." ^ (Symbol.name v) ^ "."
+		       | Property.READSYSTEMSTATENEXT v => "sys_rd." ^ (Symbol.name v) ^ "_next."
 		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ "."
 		       | Property.ITERATOR => ""
 
@@ -144,6 +145,7 @@ fun sym2fullstr (s, props) =
 			 Property.LOCAL => ""
 		       | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ "."
 		       | Property.READSYSTEMSTATE v => "sys_rd." ^ (Symbol.name v) ^ "."
+		       | Property.READSYSTEMSTATENEXT v => "sys_rd." ^ (Symbol.name v) ^ "_next."
 		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name) v ^ "."
 		       | Property.ITERATOR => ""
 
@@ -194,6 +196,7 @@ fun sym2c_str (s, props) =
 		     of Property.LOCAL => ""
 		      | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ index
 		      | Property.READSYSTEMSTATE v => "sys_rd->states_" ^ (Symbol.name v) ^ index
+		      | Property.READSYSTEMSTATENEXT v => "sys_rd->states_" ^ (Symbol.name v) ^ "_next" ^ index
  		      | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
 		      | Property.ITERATOR => ""
 		end

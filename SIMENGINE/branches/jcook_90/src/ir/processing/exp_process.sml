@@ -1119,11 +1119,19 @@ fun assignCorrectScopeOnSymbol exp =
 		else if isNextVarDifferenceTerm exp then
 		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
 		else if isAlgebraicStateTerm exp then
-		    case iter_index of
-			Iterator.RELATIVE 1 => 
-			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
-		      | _ => 
-			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym)))
+		    case iter_type of
+			DOF.ALGEBRAIC (DOF.PREPROCESS,_) =>
+			(case iter_index of
+			     Iterator.RELATIVE 1 => 
+			     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+			   | _ => 
+			     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATENEXT iter_sym))))
+		      | _ =>
+			(case iter_index of
+			     Iterator.RELATIVE 1 => 
+			     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+			   | _ => 
+			     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym))))
  		else if isNextUpdateTerm exp then
 		    let
 			val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)

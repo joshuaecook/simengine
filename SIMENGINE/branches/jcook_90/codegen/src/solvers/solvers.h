@@ -80,7 +80,7 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
   unsigned int i;
   // Update model states to next value
-  for(i=0;i<props->statesize;i++){
+  for(i=0;i<(props->statesize+props->algebraic_statesize);i++){
     props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
   }
 
