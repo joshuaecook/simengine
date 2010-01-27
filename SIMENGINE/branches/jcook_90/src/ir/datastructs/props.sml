@@ -18,8 +18,12 @@ datatype scope_type
 datatype ep_index_type = STRUCT_OF_ARRAYS | ARRAY
 
 type symbolproperty = {
-     (* The extents of multidimensional data. *)
+     (* Symbols representing state values will have an associated indexed iterator, 
+      * e.g. (ABSOLUTE 0) in an initial value equation or (RELATIVE n) in a dynamic
+      * equation. Spatial iterators, when implemented, will appear here as well. *)
      iterator: Iterator.iterator list option,
+     (* Symbols representing a differential term will have an integer denoting the
+      * order of the derivative and symbol for the respective temporal iterator. *)
      derivative: (int * Symbol.symbol list) option,
      isevent: bool,
      isrewritesymbol: bool,

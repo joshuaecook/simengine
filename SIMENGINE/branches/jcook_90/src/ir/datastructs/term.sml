@@ -393,6 +393,7 @@ fun isReadSystemState term =
     case term
      of Exp.SYMBOL (_, props) => (case Property.getScope props
 				   of Property.READSYSTEMSTATE _ => true
+				    | Property.READSYSTEMSTATENEXT _ => true
 				    | _ => false)
       | _ => false
 					  
