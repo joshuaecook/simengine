@@ -53,8 +53,8 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	    case !m of
 		Matrix.DENSE _ =>
 		let
-		    val _ = print ("dense matrix -> ")
-		    val _ = Matrix.print m
+		    (*val _ = print ("dense matrix -> ")
+		    val _ = Matrix.print m*)
 		    val arrays = Matrix.toRows m
 		in
 		    "{" ^ "\n" ^
@@ -65,11 +65,11 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 		let
 		    val bands = Matrix.toPaddedBands m
 		    val m' = Matrix.fromRows (Exp.calculus()) bands
-		    val _ = print ("matrix bands -> ")
-		    val _ = Matrix.print m'
+		   (* val _ = print ("matrix bands -> ")
+		    val _ = Matrix.print m'*)
 		    val _ = Matrix.transpose m'
-		    val _ = print ("matrix bands (transposed) -> ")
-		    val _ = Matrix.print m'
+		(*val _ = print ("matrix bands (transposed) -> ")
+		    val _ = Matrix.print m'*)
 		in
 		    matrix2str m'
 		end		
