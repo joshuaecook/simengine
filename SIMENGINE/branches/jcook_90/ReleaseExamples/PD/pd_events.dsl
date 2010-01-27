@@ -1,7 +1,7 @@
 /*  
  *   Lobster STG pacing neuron model
  *   Derived from Prinz et al, J Neurophysiol, December 2003
- *   Copyright 2008 Simatra Modeling Technolgies
+ *   Copyright 2008, 2010 Simatra Modeling Technolgies
  */
 
 function xinf(a, b, V) = 1/(1 + exp((V + a)/b))
@@ -106,7 +106,6 @@ equations
 end
 
 //time is in msec
-solver = ode45
 
 output Vm with {condition=t>10000}
 output metrics[t] = (last_spike_time, last_spike_height, last_spike_area) with {condition=output_data}
