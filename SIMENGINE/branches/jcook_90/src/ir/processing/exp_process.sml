@@ -247,7 +247,7 @@ fun user_error exp text =
 
 fun error_no_return exp text = 
     if raiseExceptions then
-	DynException.stdException("Expression error", "ExpProcess.error_no_return", Logger.INTERNAL)
+	DynException.stdException(("Error when processing '"^(e2s exp)^"': "^(text)), "ExpProcess.error_no_return", Logger.INTERNAL)
     else
 	user_error exp text
 
@@ -934,7 +934,7 @@ fun countFuns exp =
     length (Match.findRecursive (Match.anyfun "a", exp))
 
 
-fun expEulerEqReformat(sym, titer, dt, exp) =
+fun expEulerEqReformat (sym, titer, dt, exp) =
     let
 	val a = ExpBuild.plus [ExpBuild.var "d1", ExpBuild.var "d4"]
 	val b = ExpBuild.neg (ExpBuild.times [ExpBuild.var "d2", ExpBuild.var "d3"])
@@ -1104,75 +1104,83 @@ fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t 
 							      Logger.INTERNAL)
 
 fun assignCorrectScopeOnSymbol exp =
-    case exp 
-     of Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
-	let
-	    val iter = TermProcess.symbol2temporaliterator s
-	    val iter' = case iter of 
-			    SOME (iter_sym, iter_index) => SOME (iter_sym, iter_index, #2 (CurrentModel.itersym2iter iter_sym))
-			  | NONE => NONE
-	in
-	    case iter' 
-	     of SOME (iter_sym, iter_index, iter_type) => 
-		if isFirstOrderDifferentialTerm exp then
-		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
-		else if isNextVarDifferenceTerm exp then
-		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
-		else if isAlgebraicStateTerm exp then
-		    case iter_type of
-			DOF.ALGEBRAIC (DOF.PREPROCESS,_) =>
-			(case iter_index of
-			     Iterator.RELATIVE 1 => 
-			     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
-			   | _ => 
-			     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATENEXT iter_sym))))
-		      | _ =>
-			(case iter_index of
-			     Iterator.RELATIVE 1 => 
-			     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
-			   | _ => 
-			     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym))))
- 		else if isNextUpdateTerm exp then
-		    let
-			val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-		    in
-			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name orig_iter)))))
-		    end
-		else if isCurVarDifferenceTerm exp then
-		    let
-			val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
-		    in
-			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
-		    end
-		else if isIntermediateTerm exp then
-		    let
-			val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
-		    in
-			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
-		    end
-		else if isInitialConditionTerm exp then
-		    exp (* this doesn't really apply here ... *)
-		else
-		    error exp "Unexpected expression found when assign correct scope - unknown expression type"
-	      | NONE => (*(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - no temporal iterator"));
-			 DynException.setErrored();*)
-		exp
-	end
-      | _ => error exp "Unexpected expression found when assign correct scope - not a symbol"
+    (case exp 
+      of Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
+	 let
+	     val iter = TermProcess.symbol2temporaliterator s
+	     val iter' = case iter of 
+			     SOME (iter_sym, iter_index) => SOME (iter_sym, iter_index, #2 (CurrentModel.itersym2iter iter_sym))
+			   | NONE => NONE
+	     fun isForwardReference (Iterator.RELATIVE i) = i > 0
+	       | isForwardReference _ = false
+					
+	 in
+	     case iter' 
+	      of SOME (iter_sym, iter_index, iter_type) => 
+		 if isFirstOrderDifferentialTerm exp then
+		     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+		 else if isNextVarDifferenceTerm exp then
+		     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+		 else if isAlgebraicStateTerm exp then
+		     case iter_type of
+			 DOF.ALGEBRAIC (DOF.PREPROCESS,_) =>
+			 (case iter_index of
+			      Iterator.RELATIVE 1 => 
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+			    | _ => 
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATENEXT iter_sym))))
+		       | _ =>
+			 (case iter_index of
+			      Iterator.RELATIVE 1 => 
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+			    | _ => 
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym))))
+ 		 else if isNextUpdateTerm exp then
+		     let
+			 val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		     in
+			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name orig_iter)))))
+		     end
+		 else if isCurVarDifferenceTerm exp then
+		     let
+			 val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
+		     in
+			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
+		     end
+		 else if isIntermediateTerm exp then
+		     let
+			 val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
+		     in
+			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
+		     end
+		 else if isInitialConditionTerm exp then
+		     exp (* this doesn't really apply here ... *)
+		 else if isForwardReference iter_index then
+		     (user_error exp "Invalid positive temporal index found on quantity";
+		      exp)
+		 else
+		     error exp "Unexpected expression found when assign correct scope - unknown expression type"
+	       | NONE => (*(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - no temporal iterator"));
+			    DynException.setErrored();*)
+		 exp
+	 end
+       | _ => error exp "Unexpected expression found when assign correct scope - not a symbol")
+    handle e => DynException.checkpoint "ExpProcess.assignCorrectScopeOnSymbol" e
 
 
 fun assignCorrectScope states exp =
-    if isSymbol exp then
-	let
-	    val sym = Util.hd (exp2symbols exp)
-	in
-	    if List.exists (fn(sym')=>(sym=sym')) states then
-		assignCorrectScopeOnSymbol exp
-	    else
-		exp
-	end
-    else
-	(Match.head exp) (map (assignCorrectScope states) (Match.level exp))
+    (if isSymbol exp then
+	 let
+	     val sym = Util.hd (exp2symbols exp)
+	 in
+	     if List.exists (fn(sym')=>(sym=sym')) states then
+		 assignCorrectScopeOnSymbol exp
+	     else
+		 exp
+	 end
+     else
+	 (Match.head exp) (map (assignCorrectScope states) (Match.level exp)))
+    handle e => DynException.checkpoint "ExpProcess.assignCorrectScope" e
 	
 
 fun enableEPIndex is_top states exp = 
