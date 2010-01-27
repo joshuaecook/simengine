@@ -272,23 +272,41 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 				(fn((sym,_),(sym',_))=>(sym, sym'))
 				(ListPair.zip (iterators, iterators'))
 
-	val rewrites = map
-			   (fn(sym,sym')=>
-			      let
-				  val pred = ("Matching:"^(Symbol.name sym), (fn(exp)=> case ExpProcess.exp2temporaliterator exp of
-											    SOME (iter_sym,_) => iter_sym=sym
-											  | NONE => false))
-				  val find = Match.anysym_with_predlist [PatternProcess.predicate_anysymbol, pred] (Symbol.symbol "a")
-				  val test = NONE
-				  val replace = Rewrite.ACTION (sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol (sym',Util.sym2codegensym) exp))
-			      in
-				  {find=find,
-				   test=test,
-				   replace=replace}
-			      end)
-			   iter_name_map
+	(* replace temporal iterators *)
+	val iterator_rewrites = map
+				    (fn(sym,sym')=>
+				       let
+					   val pred = ("Matching:"^(Symbol.name sym), (fn(exp)=> case ExpProcess.exp2temporaliterator exp of
+												     SOME (iter_sym,_) => iter_sym=sym
+												   | NONE => false))
+					   val find = Match.anysym_with_predlist [PatternProcess.predicate_anysymbol, pred] (Symbol.symbol "a")
+					   val test = NONE
+					   val replace = Rewrite.ACTION (sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol (sym',Util.sym2codegensym) exp))
+				       in
+					   {find=find,
+					    test=test,
+					    replace=replace}
+				       end)
+				    iter_name_map
 
-	val _ = applyRewritesToModel rewrites model
+	fun updateSymbolName new_symbol (Exp.TERM (Exp.SYMBOL (_, props))) = Exp.TERM (Exp.SYMBOL (new_symbol, props))
+	  | updateSymbolName new_symbol _ = DynException.stdException("Unexpected non symbol matched", "ModelProcess.fixTemporalIteratorNames", Logger.INTERNAL)
+				    
+	(* replace iterators used explicitly *)
+	val symbol_rewrites = map
+			      (fn(sym,sym')=>
+				 let
+				     val find = Match.asym sym
+				     val replace = Rewrite.ACTION (sym', updateSymbolName sym')
+				 in
+				     {find=find,
+				      test=NONE,
+				      replace=replace}
+				 end)
+			      iter_name_map
+
+	val _ = applyRewritesToModel iterator_rewrites model
+	val _ = applyRewritesToModel symbol_rewrites model
 	val {iterators,precision,target,num_models,debug,profile} = props
 	val props'={iterators=iterators',precision=precision,target=target,num_models=num_models,debug=debug,profile=profile}
     in
@@ -417,8 +435,8 @@ fun normalizeModel (model:DOF.model) =
 
 	(* remap all names into names that can be written into a back-end *)
 	val _ = log ("Fixing symbol names ...")
-	(*val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
-	val _ = CurrentModel.setCurrentModel(model')*)
+	val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
+	val _ = CurrentModel.setCurrentModel(model')
 	val () = (app ClassProcess.fixSymbolNames (CurrentModel.classes()))
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 

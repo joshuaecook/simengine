@@ -1065,6 +1065,7 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
 			 Property.READSTATE rd_sym => (case changeScopeIterator rd_sym of SOME sym => Property.READSTATE sym | NONE => scope)
 		       | Property.WRITESTATE wr_sym => (case changeScopeIterator wr_sym of SOME sym => Property.WRITESTATE sym | NONE => scope)
 		       | Property.READSYSTEMSTATE rd_sys_sym => (case changeScopeIterator rd_sys_sym of SOME sym => Property.READSYSTEMSTATE sym | NONE => scope)
+		       | Property.READSYSTEMSTATENEXT rd_sys_sym => (case changeScopeIterator rd_sys_sym of SOME sym => Property.READSYSTEMSTATENEXT sym | NONE => scope)
 		       | _ => scope
 
 	val derivative = Property.getDerivative props

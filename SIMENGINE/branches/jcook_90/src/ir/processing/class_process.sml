@@ -93,7 +93,7 @@ fun rewriteClass rewriter class =
 	val exps' = map rewriter exps'
 
 	val outputs' = map (fn{name,contents,condition}=>
-			      {name=name,
+			      {name=(ExpProcess.exp2term o rewriter o ExpProcess.term2exp) name,
 			       contents=map rewriter contents,
 			       condition=rewriter condition})
 			   outputs'
