@@ -13,27 +13,31 @@ fun log str = if DynamoOptions.isFlagSet "logdof" then
 
 (* FIXME this is really ugly and shouldn't be in this file. *)
 (* Ensures that classes within a shard model are in dependency order. *)
-fun orderShard (model, shard as {classes, instance as {classname,...}, iter_sym}) =
-    let val _ = ()
-	val topClass = CurrentModel.withModel model (fn _ => CurrentModel.classname2class classname)
-	val unordered = List.filter (fn c => classname <> ClassProcess.class2classname c) classes
+fun orderShard (model, shard as {classes, instance, iter_sym}) =
+    let 
+	val topClassName = 
+	    case #name instance 
+	     of SOME x => x | NONE => #classname instance		
 
-	(* TODO need to filter through uniq? *)
-	val orderedClasses = orderClasses (model, topClass, unordered)
+	fun sort (c1, c2) =
+	    (* The top class should always appear at the end of the list. *)
+	    if topClassName = ClassProcess.class2classname c1 then GREATER
+	    else if topClassName = ClassProcess.class2classname c2 then LESS
+	    else sort' (c1, c2)
+
+	and sort' (c1, c2) =
+	    (* Other classes appear after their instances. *)
+	    let val (instanceClassNames, _) = 
+		    CurrentModel.withModel model (fn _ => ListPair.unzip (ClassProcess.class2instnames' c1))
+	    in 
+		if List.exists (fn cn => cn = ClassProcess.class2classname c2) instanceClassNames
+		then GREATER else LESS
+	    end
     in
-	{classes = rev orderedClasses, instance = instance, iter_sym = iter_sym}
+	{classes = Sorting.sorted sort classes, 
+	 instance = instance, 
+	 iter_sym = iter_sym}
     end
-
-and orderClasses (model, topClass, nil) = [topClass]
-  | orderClasses (model, topClass, unordered) =
-    let val (instanceClassNames,_) = ListPair.unzip (ClassProcess.class2instnames' topClass)
-	val (instanceClasses, unordered') = 
-	    List.partition (fn c => List.exists (fn cn => ClassProcess.class2classname c = cn) instanceClassNames) unordered
-    in
-	topClass :: (List.concat (map (fn c => orderClasses (model, c, unordered')) instanceClasses))
-    end
-
-
 
 fun std_compile exec args =
     (case args of
@@ -45,17 +49,6 @@ fun std_compile exec args =
 	      val name = case dslname
 			  of KEC.LITERAL (KEC.CONSTSTR str) => str
 			   | _ => raise Aborted
-
-(*
-	      val _ = 
-		  (let val sim = Simex.new (name ^ ".sim")
-		       val api = Simex.api sim
-		   in
-		       print ("Found compiled sim named " ^ (Simex.API.name api) ^ "\n")
-		   end)
-		  handle Fail why => print ("Unable to reuse " ^ (name ^ ".sim") ^ ": " ^ why ^ "\n")
-*)
-			  
 
 
 	      val _ = if DynException.isErrored() then
