@@ -52,6 +52,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
 
       // Write state values back to state storage
       if(model_running(props, modelid)){
+	min_time = find_min_time(props, modelid);
 	for(i=0;i<NUM_ITERATORS;i++){
 	  if(props[i].running[modelid] &&
 	     props[i].next_time[modelid] == min_time &&
