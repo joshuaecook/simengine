@@ -623,7 +623,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 
  	val iters_enumerated = map (fn it => "ITERATOR_"^ it) iterator_names
 
-        val solvers_enumerated = map (fn sol => String.map Char.toUpper sol) solver_names
+        val solvers_enumerated = Util.uniquify (map (fn sol => String.map Char.toUpper sol) solver_names)
 
    in
 	[$("typedef enum {"),
