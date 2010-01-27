@@ -18,7 +18,7 @@ end
 s = Suite('Message Tests');
 
 % Verify the version
-s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),'-regexpmatch', 'v0\.92'));
+s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),'-regexpmatch', 'v0\.93'));
 
 % Add basic variable tests
 s.add(SyntaxTests);
@@ -126,7 +126,7 @@ s.add(CreateUserErrorTest('WrongIteratorIndex', 'IteratorTest3.dsl', ...
                           ['Quantity .* is already assigned to iterator .* therefore '...
                           'can not use iterator']));
 s.add(CreateUserErrorTest('ForwardIndexing', 'IteratorTest4.dsl', ...
-                          ['Invalid positive temporal index found on quantity .*']));
+                          ['Invalid positive temporal index found on quantity']));
 s.add(CreateUserErrorTest('CurrentIndexingOnDiscreteState', 'IteratorTest5.dsl', ...
                           ['Invalid temporal index on discrete state x. Discrete states must be defined as x[n+1] on the left hand side of equation']));
 s.add(CreateUserErrorTest('ForwardIndexingOnDiscreteState', 'IteratorTest6.dsl', ...
