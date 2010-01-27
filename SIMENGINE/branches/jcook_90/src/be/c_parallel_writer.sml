@@ -339,8 +339,9 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			      | _ =>
 				$("#error BOGUS ITERATOR NOT FILTERED")
 
-			val iterator_states_ptr =
-			    $("tmp_system->states_"^(itername)^" = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^itername^"].model_states);")
+			val iterator_states_ptrs =
+			    [$("tmp_system->states_"^(itername)^" = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^itername^"].model_states);"),
+			     $("tmp_system->states_"^(itername)^"_next = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^itername^"].next_states);")]
 
 			val my_algebraic_iterators =
 			    List.filter (fn it =>
@@ -366,6 +367,8 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				    in
 					[$("tmp_system->states_"^(Symbol.name it)^" = (statedata_"^(Symbol.name tcn)^" *)" ^
 					  "(tmp_props[ITERATOR_"^(itername)^"].model_states + algebraic_offset);"),
+					 $("tmp_system->states_"^(Symbol.name it)^"_next = (statedata_"^(Symbol.name tcn)^" *)" ^
+					   "(tmp_props[ITERATOR_"^(itername)^"].next_states + algebraic_offset);"),
 					 $("algebraic_offset += " ^ (Int.toString (numIteratorStates it)) ^ ";")]
 				    end
 			    in
@@ -375,7 +378,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 		    in
 			$("algebraic_offset = tmp_props[ITERATOR_"^(itername)^"].statesize;") ::
 			iterator_value_ptr ::
-			iterator_states_ptr ::
+			iterator_states_ptrs @
 			iterator_algebraic_states_ptrs
 		    end
 

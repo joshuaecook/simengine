@@ -3,7 +3,6 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
   const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;
   
   unsigned int num_iterations, i;
-  Iterator iter;
   CDATAFORMAT min_time;
 	     
   if (modelid < NUM_MODELS) {
@@ -33,7 +32,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
 
       // Run solvers for all iterators that need to advance
       for(i=0;i<NUM_ITERATORS;i++){
-	if(props[iter].running[modelid] && props[i].next_time[modelid] == props[i].time[modelid]){
+	if(props[i].running[modelid] && props[i].next_time[modelid] == props[i].time[modelid]){
 	  solver_eval(&props[i], modelid);
 	  if(!props[i].running[modelid]){
 	    model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
@@ -54,7 +53,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
       // Write state values back to state storage
       if(model_running(props, modelid)){
 	for(i=0;i<NUM_ITERATORS;i++){
-	  if(props[iter].running[modelid] &&
+	  if(props[i].running[modelid] &&
 	     props[i].next_time[modelid] == min_time &&
 	     props[i].next_time[modelid] > props[i].time[modelid]){
 	    solver_writeback(&props[i], modelid);
