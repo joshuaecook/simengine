@@ -207,6 +207,50 @@ fun findMatchingEq (class:DOF.class) sym =
 	     
     end
 
+fun findStatesWithoutScope (class:DOF.class) =
+    let
+	val exps = !(#exps class)
+	val state_equs = List.filter ExpProcess.isStateEq exps
+	val statesyms = map ExpProcess.getLHSSymbol state_equs
+    in
+	statesyms
+    end
+
+
+fun isSymbolAState class sym =
+    let
+	val all_states = findStatesWithoutScope class
+    in
+	List.exists (fn(sym')=>sym=sym') all_states
+    end
+
+fun isTermAState class (Exp.SYMBOL (sym,_)) = isSymbolAState class sym
+  | isTermAState class _ = false
+
+
+(* match all the expressions that have that symbol on the lhs *)
+fun symbol2exps (class: DOF.class) sym =
+    (List.filter 
+	 (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
+	 (!(#exps class)))
+    handle e => DynException.checkpoint "ClassProcess.symbol2exps" e
+
+fun symbolofiter2exps (class: DOF.class) iter_sym sym =
+    (List.filter 
+	 (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
+	 (List.filter (ExpProcess.doesEqHaveIterator iter_sym) (!(#exps class))))
+    handle e => DynException.checkpoint "ClassProcess.symboliter2exps" e
+
+fun symbolofoptiter2exps (class: DOF.class) iter_sym sym =
+    (List.filter 
+	 ((List.exists (equal sym)) o ExpProcess.getLHSSymbols)
+	 (List.filter 
+	      (fn (exp) => (ExpProcess.doesEqHaveIterator iter_sym exp) orelse 
+			   (case ExpProcess.exp2temporaliterator exp of NONE => true | _ => false)) 
+	      (!(#exps class))))
+    handle e => DynException.checkpoint "ClassProcess.symboloptiter2exps" e
+
+
 fun flattenExpressionThroughInstances class exp =
     let val symbols = ExpProcess.exp2symbols exp
 	val equations = map (flattenEquationThroughInstances class) symbols
@@ -218,6 +262,7 @@ fun flattenExpressionThroughInstances class exp =
 
 and flattenEquationThroughInstances class sym =
     let val {name=classname, inputs, ...} = class
+	(*val _ = Util.log ("In class '"^(Symbol.name classname)^"', searching for sym '"^(Symbol.name sym)^"'")*)
 	val iterators = CurrentModel.iterators()
 	val indexable_iterators = List.mapPartial (fn(iter_sym, iter_type)=> case iter_type of
 										 DOF.CONTINUOUS _ => SOME iter_sym
@@ -229,6 +274,22 @@ and flattenEquationThroughInstances class sym =
        else if List.exists (fn(iter_sym)=> sym=iter_sym) indexable_iterators then
 	   ExpBuild.equals (ExpBuild.var (Symbol.name sym),
 			    ExpBuild.var (Symbol.name sym)) (* just an identity equation t = t, which will be converted to t -> t *)
+       else if isSymbolAState class sym then (* if it's a state equation *)
+	   let
+	       val matching_exps = symbol2exps class sym
+	       val lhs_term = case List.find ExpProcess.isInitialConditionEq matching_exps of
+				  SOME init_eq => ExpProcess.getLHSTerm init_eq
+				| NONE => DynException.stdException (("Uncovered state '"^(Symbol.name sym)^"' without initial condition"), "ClassProcess.flattenEquationThroughInstances", Logger.INTERNAL)
+
+	       val iter' = case TermProcess.symbol2temporaliterator lhs_term of
+			       SOME (iter_sym, Iterator.ABSOLUTE 0) => (iter_sym, Iterator.RELATIVE 0)
+			     | _ => DynException.stdException (("Uncovered state '"^(Symbol.name sym)^"' with unexpected iterator"), "ClassProcess.flattenEquationThroughInstances", Logger.INTERNAL)
+
+	       val rhs = ExpProcess.updateTemporalIterator iter' (ExpProcess.term2exp lhs_term)
+	   in
+	       ExpBuild.equals (ExpBuild.var (Symbol.name sym),
+				rhs) (* an identity equation, though the rhs has an iterator *)
+	   end
        else
 	   case findMatchingEq class sym
 	    of SOME exp =>
@@ -246,7 +307,10 @@ and flattenEquationThroughInstances class sym =
 					   of exp => if ExpProcess.isEquation exp then ExpProcess.rhs exp else exp
 				  in {find = Exp.TERM term, replace = Rewrite.RULE replace, test = NONE} 
 				  end
-			  in Match.applyRewritesExp (map make_rule locals) exp
+			      val exp' = Match.applyRewritesExp (map make_rule locals) exp
+			      (*val _ = Util.log (" -> Mapping "^(e2s exp)^" to "^(e2s exp'))*)
+			  in
+			      exp'
 			  end
 		   end
 	       else 
@@ -291,16 +355,6 @@ and flattenInstanceEquation caller sym eqn =
 	   end
     end
 
-fun findStatesWithoutScope (class:DOF.class) =
-    let
-	val exps = !(#exps class)
-	val state_equs = List.filter ExpProcess.isStateEq exps
-	val statesyms = map ExpProcess.getLHSSymbol state_equs
-    in
-	statesyms
-    end
-
-
 (* flattenEq does not pass through instance equations - we need a different one that will pass through instance equations *)
 fun flattenEq (class:DOF.class) sym = 
     if isSymInput class sym then
@@ -310,12 +364,9 @@ fun flattenEq (class:DOF.class) sym =
 	    SOME exp => 
 	    let
 		(*val _ = Util.log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'")*)
-		val all_states = findStatesWithoutScope class
-		fun isState (Exp.SYMBOL (sym,_)) = List.exists (fn(sym')=>sym=sym') all_states
-		  | isState _ = false
 
 		val symbols = ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
-		val local_symbols = List.filter (not o isState) (List.filter Term.isLocal symbols)
+		val local_symbols = List.filter (not o (isTermAState class)) (List.filter Term.isLocal symbols)
 		val matching_equations = map ((findMatchingEq class) o Term.sym2curname) local_symbols
 		(* only use symbols that are from intermediates *)
 		val filtered_symbols = map #1 
@@ -495,28 +546,6 @@ fun class2statesbyiterator iter_sym (class : DOF.class) =
 	Util.uniquify (init_cond_states @ dynamic_states)
     end
     handle e => DynException.checkpoint "ClassProcess.class2statesbyiterator" e
-
-(* match all the expressions that have that symbol on the lhs *)
-fun symbol2exps (class: DOF.class) sym =
-    (List.filter 
-	 (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
-	 (!(#exps class)))
-    handle e => DynException.checkpoint "ClassProcess.symbol2exps" e
-
-fun symbolofiter2exps (class: DOF.class) iter_sym sym =
-    (List.filter 
-	 (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
-	 (List.filter (ExpProcess.doesEqHaveIterator iter_sym) (!(#exps class))))
-    handle e => DynException.checkpoint "ClassProcess.symboliter2exps" e
-
-fun symbolofoptiter2exps (class: DOF.class) iter_sym sym =
-    (List.filter 
-	 ((List.exists (equal sym)) o ExpProcess.getLHSSymbols)
-	 (List.filter 
-	      (fn (exp) => (ExpProcess.doesEqHaveIterator iter_sym exp) orelse 
-			   (case ExpProcess.exp2temporaliterator exp of NONE => true | _ => false)) 
-	      (!(#exps class))))
-    handle e => DynException.checkpoint "ClassProcess.symboloptiter2exps" e
 
 (* return those states that update the value of a state that already has a dynamic equation *)
 fun class2update_states (class : DOF.class) =
@@ -1502,8 +1531,8 @@ fun assignCorrectScope (class: DOF.class) =
 					    (isIteratorTerm t)) terms then
 			    name
 			else
-			    ((*Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));
-			     Util.log(" -> FlatEqu: " ^ (e2s flatequ));*)
+			    (Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));
+			     Util.log(" -> FlatEqu: " ^ (e2s flatequ));
 			     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name)))
 		in
 		    {name = name', contents = contents, condition = condition}
@@ -1573,13 +1602,13 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 		val {name, contents, condition} = output
 		val name' = ExpProcess.term2exp name
 	    in 
-		ExpProcess.doesTermHaveIterator iter_sym name' orelse
+		ExpProcess.doesTermHaveIterator iter_sym name'(* orelse
 		case TermProcess.symbol2temporaliterator name 
 		 of SOME (iter_sym, _) =>
 		    (case CurrentModel.itersym2iter iter_sym
 		      of (_, DOF.IMMEDIATE) => true
 		       | _ => false)
-		  | NONE => false
+		  | NONE => false*)
 	    end
 
 	val outputs' = if top_class then
