@@ -441,6 +441,7 @@ MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhel
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS)
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 MATLAB_FILES += mexinterface
+MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers
 
