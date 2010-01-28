@@ -1293,8 +1293,8 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  fun createEntry (i, j, exp) = [$("// " ^ (e2s exp)),
 							 $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 
-			  val _ = print ("Matrix written -> ")
-			  val _ = Matrix.print m'
+			(*  val _ = print ("Matrix written -> ")
+			  val _ = Matrix.print m'*)
 		      in
 			  List.concat (Matrix.mapi createEntry m')
 		      end
