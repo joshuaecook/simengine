@@ -172,7 +172,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 								| DOF.IMMEDIATE => []
 								| _ => [("ERROR", "Bogus iterator")]) iterator
 			val (itersym, itertype) = iterator
-			val itername = (Symbol.name itersym)
+			val itername = Util.removePrefix (Symbol.name itersym)
 			val solvername = ((fn(_,itertype) => case itertype of
 								 DOF.CONTINUOUS solver => (Solver.solver2name solver)
 							       | DOF.DISCRETE _ => "discrete"
@@ -239,14 +239,14 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			 $("// Initial values moved to model_states first time through the exec"),
 			 $("props[ITERATOR_"^itername^"].model_states = " ^
 			   (if 0 < num_states then
-				"(CDATAFORMAT*)(&system_states_int->states_"^itername^");"
+				"(CDATAFORMAT*)(&system_states_int->states_"^(Symbol.name itersym)^");"
 			    else if 0 < num_algebraic_states then
 				"(CDATAFORMAT*)(&system_states_int->states_"^first_algebraic_iterator^");"
 			    else
 				"NULL;")),
 			 $("props[ITERATOR_"^itername^"].next_states = " ^
 			   (if 0 < num_states then
-				"(CDATAFORMAT*)(&system_states_next->states_"^itername^");"
+				"(CDATAFORMAT*)(&system_states_next->states_"^(Symbol.name itersym)^");"
 			    else if 0 < num_algebraic_states then
 				"(CDATAFORMAT*)(&system_states_next->states_"^first_algebraic_iterator^");"
 			    else
@@ -267,19 +267,19 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			 $("")]@ 
 			(case itertype of
 			     DOF.CONTINUOUS _ =>
-			     $("system_ptrs->"^itername^" = props[ITERATOR_"^itername^"].time;")
+			     $("system_ptrs->"^(Symbol.name itersym)^" = props[ITERATOR_"^itername^"].time;")
 			   | DOF.DISCRETE _ =>
-			     $("system_ptrs->"^itername^" = props[ITERATOR_"^itername^"].count;")
+			     $("system_ptrs->"^(Symbol.name itersym)^" = props[ITERATOR_"^itername^"].count;")
 			   | _ =>
 			     $("// Ignored "^itername)) ::
 			(if 0 < num_states then
-			     [$("system_ptrs->states_"^itername^" = system_states_int->states_"^itername^";"),
-			      $("system_ptrs->states_"^itername^"_next = system_states_next->states_"^itername^";"),
+			     [$("system_ptrs->states_"^(Symbol.name itersym)^" = system_states_int->states_"^(Symbol.name itersym)^";"),
+			      $("system_ptrs->states_"^(Symbol.name itersym)^"_next = system_states_next->states_"^(Symbol.name itersym)^";"),
                               $("#if !defined TARGET_GPU"),
                               $("// Translate structure arrangement from external to internal formatting"),
                               $("for(modelid=0;modelid<props->num_models;modelid++){"),
-                              SUB[$("memcpy(&system_states_int->states_"^itername^"[modelid], " ^
-				    "&system_states_ext[modelid].states_"^itername^", " ^
+                              SUB[$("memcpy(&system_states_int->states_"^(Symbol.name itersym)^"[modelid], " ^
+				    "&system_states_ext[modelid].states_"^(Symbol.name itersym)^", " ^
 				    "props[ITERATOR_"^itername^"].statesize * sizeof(CDATAFORMAT));")],
                               $("}"),
                               $("#endif")]
@@ -333,15 +333,15 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			val iterator_value_ptr = 
 			    case itertype of
 				DOF.CONTINUOUS _ =>
-				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^itername^"].time;")
+				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].time;")
 			      | DOF.DISCRETE _ =>
-				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^itername^"].count;")
+				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].count;")
 			      | _ =>
 				$("#error BOGUS ITERATOR NOT FILTERED")
 
 			val iterator_states_ptrs =
-			    [$("tmp_system->states_"^(itername)^" = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^itername^"].model_states);"),
-			     $("tmp_system->states_"^(itername)^"_next = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^itername^"].next_states);")]
+			    [$("tmp_system->states_"^(itername)^" = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states);"),
+			     $("tmp_system->states_"^(itername)^"_next = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].next_states);")]
 
 			val my_algebraic_iterators =
 			    List.filter (fn it =>
@@ -366,9 +366,9 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 					    CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class tcn))
 				    in
 					[$("tmp_system->states_"^(Symbol.name it)^" = (statedata_"^(Symbol.name tcn)^" *)" ^
-					  "(tmp_props[ITERATOR_"^(itername)^"].model_states + algebraic_offset);"),
+					  "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states + algebraic_offset);"),
 					 $("tmp_system->states_"^(Symbol.name it)^"_next = (statedata_"^(Symbol.name tcn)^" *)" ^
-					   "(tmp_props[ITERATOR_"^(itername)^"].next_states + algebraic_offset);"),
+					   "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].next_states + algebraic_offset);"),
 					 $("algebraic_offset += " ^ (Int.toString (numIteratorStates it)) ^ ";")]
 				    end
 			    in
@@ -376,7 +376,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			    end
 			    
 		    in
-			$("algebraic_offset = tmp_props[ITERATOR_"^(itername)^"].statesize;") ::
+			$("algebraic_offset = tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].statesize;") ::
 			iterator_value_ptr ::
 			iterator_states_ptrs @
 			iterator_algebraic_states_ptrs
@@ -498,12 +498,14 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	(*val top_class = CurrentModel.withModel origModel (fn()=>CurrentModel.classname2class (#classname inst))*)
 	val iterator_names = List.mapPartial (fn(iter_sym)=>case ShardedModel.toIterator shardedModel iter_sym of
 								(_, DOF.ALGEBRAIC _) => NONE
-							      | _ => SOME (Symbol.name iter_sym)) outputIterators
+							      | _ => SOME (Util.removePrefix (Symbol.name iter_sym)))
+					     outputIterators
 	val solver_names = List.mapPartial (fn(iter_sym)=>case ShardedModel.toIterator shardedModel iter_sym of
 							      (_,DOF.CONTINUOUS s) => SOME (Solver.solver2name s)
 							    | (_,DOF.DISCRETE _) => SOME "discrete"
 							    | (_,DOF.IMMEDIATE) => SOME "immediate"
-							    | _ => NONE) outputIterators
+							    | _ => NONE) 
+					   outputIterators
 	fun init_condition2pair iter_sym basestr exp =
 	    let val term = ExpProcess.exp2term (ExpProcess.lhs exp)
 		val rhs = ExpProcess.rhs exp
@@ -745,7 +747,7 @@ fun update_wrapper shardedModel =
 				 if writes_iterator iter class then "(statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
 				 if reads_system class then "props->system_states, " else "")
 
-			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
+			in [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
@@ -789,7 +791,7 @@ fun preprocess_wrapper shardedModel preprocessIterators =
 				 if writes_iterator iter class then "props->system_states->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
 				 if reads_system class then "props->system_states, " else "")
 
-			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
+			in [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
@@ -838,7 +840,7 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 				 if reads_system class then "props->system_states, " else "")
 
 			in
-			    [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
+			    [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
 			     (case base_iter_typ
 			       of DOF.CONTINUOUS _ =>
 				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->time[modelid], " ^
@@ -883,7 +885,7 @@ fun postprocess_wrapper shardedModel postprocessIterators =
 				 if writes_iterator iter class then "props->system_states->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
 				 if reads_system class then "props->system_states, " else "")
 
-			in [$("case ITERATOR_" ^ (Symbol.name base_iter_name) ^ ":"),
+			in [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
@@ -1598,7 +1600,7 @@ fun model_flows shardedModel =
 			    "",
 			if reads_system class then "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states, " else "")
 	       in
-		SUB[$("case ITERATOR_" ^ (Symbol.name iter_sym) ^ ":"),
+		SUB[$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name iter_sym)) ^ ":"),
 		    $("return flow_" ^ (Symbol.name top_class) ^ 
 		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
 	       end)
@@ -1691,7 +1693,7 @@ fun logoutput_code shardedModel =
 
 		val cond = 
 		    (case ExpProcess.exp2temporaliterator (Exp.TERM name) 
-		      of SOME (iter_sym, _) => "(props->iterator == ITERATOR_" ^ (Symbol.name (iter2baseiter iter_sym)) ^ ")"
+		      of SOME (iter_sym, _) => "(props->iterator == ITERATOR_" ^ (Util.removePrefix (Symbol.name (iter2baseiter iter_sym))) ^ ")"
 		       | _ => "1") ^ " && (" ^
 		    (CWriterUtil.exp2c_str (ExpProcess.assignToOutputBuffer condition)) ^ ")"
 
