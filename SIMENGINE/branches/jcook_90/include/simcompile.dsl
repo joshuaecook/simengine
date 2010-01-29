@@ -214,6 +214,12 @@ namespace SimCompile
       m.CFLAGS.push_back("-DSIMENGINE_CUDA_DEVICE=" + device_id)
       m.CFLAGS.push_front("-arch=" + device_arch)
 
+      /* Does device debugging really work? I get strange errors from cuda-gdb.
+      if debug then
+        m.CFLAGS = ["-g", "-G"] + m.CFLAGS
+      end
+      */
+
       if emulate then
 	m.CFLAGS.push_front("-deviceemu")
 	m.CPPFLAGS.push_front("-D__DEVICE_EMULATION__")

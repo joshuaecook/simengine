@@ -1,4 +1,4 @@
-(* Copyright Simatra - 2006 - 2008
+(* Copyright Simatra - 2006 - 2008, 2010
  * exec.sml - Object Oriented Lambda Calculus execution engine
  *
  *)
@@ -58,6 +58,8 @@ fun merge_runnables env (original_exp, new_exp) =
       | _
 	=> (error env ($("Overload attempted with non-function"));
 	    original_exp)
+
+
 
 (* Executes a single expression in a given environment.
    Returns an expression.
@@ -387,6 +389,10 @@ and execLibraryFunction exec env name arg =
    Returns (unit,env). *)
 and execImportStatement parse env file pos =
     let
+	val _ = case ! ImportHook.importHook
+		 of SOME f => f file
+		  | NONE => ()
+
 	val includepaths = (!ParserSettings.filepath) :: map StdFun.expand_env_variables (DynamoOptions.getStringVectorSetting("sourcepath"))
 			   
 	val fullpath = case FilePath.find file includepaths of

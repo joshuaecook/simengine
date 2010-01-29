@@ -256,11 +256,33 @@ fun std_exp2str exec args =
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_exp2str" e 
 
+
+
+val imports: string list ref = ref nil
+
+fun getModelImports _ _ = KEC.TUPLE (map (KEC.LITERAL o KEC.CONSTSTR) (List.rev (! imports)))
+
+
 fun loadModel exec args =
     case args
      of [KEC.LITERAL (KEC.CONSTSTR path)] =>
-	exec (KEC.STMS [KEC.ACTION (KEC.IMPORT path, PosLog.NOPOS),
-			KEC.ACTION ((KEC.EXP o KEC.SYMBOL o Symbol.symbol o OS.Path.base o OS.Path.file) path, PosLog.NOPOS)])
+	let
+	    val _ = imports := nil
+	    fun importing path = imports := path :: (! imports)
+
+	    val object = (KEC.SYMBOL o Symbol.symbol o OS.Path.base o OS.Path.file) path
+
+	    val model = ImportHook.withImportHook importing (fn _ => 
+			exec (KEC.STMS [KEC.ACTION (KEC.IMPORT path, PosLog.NOPOS),
+					KEC.ACTION (KEC.ASSIGN (KEC.SEND {message = Symbol.symbol "imports",
+	    								  object = KEC.SEND {message = Symbol.symbol "template", object = object}},
+								KEC.LIBFUN (Symbol.symbol "getModelImports", KEC.UNIT)),
+	    		    			    PosLog.NOPOS),
+					KEC.ACTION (KEC.EXP object, PosLog.NOPOS)])
+							    ) 
+	in
+	    model
+	end
       | [a] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
       | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
 
@@ -292,6 +314,7 @@ fun simfileSettings exec args =
 
 val library = [{name="compile", operation=std_compile},
 	       {name="loadModel", operation=loadModel},
+	       {name="getModelImports", operation=getModelImports},
 	       {name="simfileSettings", operation=simfileSettings},
 	       {name="transexp", operation=std_transExp},
 	       {name="exp2str", operation=std_exp2str},

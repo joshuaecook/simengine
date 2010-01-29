@@ -173,6 +173,8 @@ be/modelcompile_launcher.sml
 shell/semant.sml
 shell/asttrans.sml
 
+shell/import-hook.sml
+
 library/libraryutil.sml
 library/system.sml
 library/arithmetic.sml

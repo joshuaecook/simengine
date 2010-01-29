@@ -541,7 +541,12 @@ and trans_definition definition =
 			     PosLog.NOPOS)
 	    val modelstms = 
 		(* set name *)
-		HLEC.METHODDEF(HLEC.PUBLIC, HLEC.DEFLOCAL(Symbol.symbol "name", HLEC.DONTCARE, HLEC.LITERAL(HLEC.CONSTSTR (Symbol.name name))))
+		HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFLOCAL (Symbol.symbol "name", HLEC.DONTCARE, HLEC.LITERAL (HLEC.CONSTSTR (Symbol.name name))))
+		:: HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFLOCAL(Symbol.symbol "imports",
+							      HLEC.DONTCARE,
+							      HLEC.TUPLE nil))
+
+
 		:: [] 
 
 	    val template_constructor_stms = 
@@ -569,6 +574,7 @@ and trans_definition definition =
 		HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFLOCAL(Symbol.symbol "settings",
 							   HLEC.DONTCARE,
 							   default_model_settings))
+
 
 	    val templatename = Symbol.symbol ((Symbol.name name) ^ "Template")
 
