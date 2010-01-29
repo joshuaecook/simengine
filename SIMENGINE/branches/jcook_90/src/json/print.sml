@@ -6,6 +6,7 @@ end
 
 signature JSON_PRINT = sig
     include JSON_PRINT_STRUCTS
+    val toString: JS.json -> string
     val print: TextIO.outstream * JS.json -> unit
     val printFile: string * JS.json -> unit
 end
@@ -61,6 +62,8 @@ and objectToJSONString json =
     in
 	String.concat ["{", String.concatWith "," (ListPair.map pairToString members), "}"]
     end
+
+val toString = toJSONString
 
 fun print (outstream, json) =
     TextIO.output (outstream, toJSONString json)

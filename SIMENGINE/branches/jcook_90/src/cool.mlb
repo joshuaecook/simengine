@@ -196,6 +196,7 @@ library/settings.sml
 library/environment.sml
 library/process.sml
 library/regexp.sml
+library/json.sml
 library/library.sml
 
 shell/desugar.sml
