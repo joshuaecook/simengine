@@ -416,7 +416,7 @@ int write_outputs(const simengine_interface *iface, simengine_opts *opts, simeng
       for(sampleid=0;sampleid<num_samples;sampleid++){
 	unsigned int num_quantities = result->outputs[modelid*num_outputs+outputid].num_quantities;
 	for(quantid=0;quantid<num_quantities;quantid++){
-	  fprintf(outfile, "%-10g\t", result->outputs[modelid*num_outputs+outputid].data[sampleid*num_quantities+quantid]);
+	  fprintf(outfile, "%-.16e\t", result->outputs[modelid*num_outputs+outputid].data[sampleid*num_quantities+quantid]);
 	}
 	fprintf(outfile, "\n");
       }
@@ -450,7 +450,7 @@ int write_states(const simengine_interface *iface, simengine_opts *opts, simengi
     }
     fprintf(outfile, "\n# ");
     for (stateid = 0; stateid < num_states; stateid++) {
-      fprintf(outfile, stateid == 0 ? "%e" : " %e", states[stateid]);
+      fprintf(outfile, stateid == 0 ? "%.16e" : " %.16e", states[stateid]);
     }
     fprintf(outfile, "\n");
   }
@@ -470,7 +470,7 @@ void print_interface(const simengine_interface *iface){
   }
   printf("\n%12s : ", "");
   for(i=0;i<iface->num_inputs;i++){
-    printf("%g\t",iface->default_inputs[i]);
+    printf("%.16e\t",iface->default_inputs[i]);
   }
   printf("\n\n%12s : ", "States");
   for(i=0;i<iface->num_states;i++){
@@ -478,7 +478,7 @@ void print_interface(const simengine_interface *iface){
   }
   printf("\n%12s : ", "");
   for(i=0;i<iface->num_states;i++){
-    printf("%g\t", iface->default_states[i]);
+    printf("%.16e\t", iface->default_states[i]);
   }
   printf("\n\n%12s : ", "Outputs");
   for(i=0;i<iface->num_outputs;i++){
