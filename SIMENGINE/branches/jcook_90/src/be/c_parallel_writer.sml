@@ -366,9 +366,9 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 					    CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class tcn))
 				    in
 					[$("tmp_system->states_"^(Symbol.name it)^" = (statedata_"^(Symbol.name tcn)^" *)" ^
-					  "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states + algebraic_offset);"),
+					  "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states + algebraic_offset * NUM_MODELS);"),
 					 $("tmp_system->states_"^(Symbol.name it)^"_next = (statedata_"^(Symbol.name tcn)^" *)" ^
-					   "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].next_states + algebraic_offset);"),
+					   "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].next_states + algebraic_offset * NUM_MODELS);"),
 					 $("algebraic_offset += " ^ (Int.toString (numIteratorStates it)) ^ ";")]
 				    end
 			    in
