@@ -47,22 +47,26 @@ fun rep_loop isInteractive textstream env =
 	in
 	    rep_loop isInteractive textstream env'
 	end
-	handle err as OOLCParse.ParserError
-	       => (Logger.log_error (Printer.$"Parse errors encountered");
+	handle err as OOLCParse.ParserError => 
+	       (Logger.log_error (Printer.$"Parse errors encountered");
 		   (*DynException.log "Main" err;	     
 		   if DynamoOptions.isFlagSet("debugexceptions") then
 		       app print (log_stack err ())
 		   else
 		       ();*)
 		   rep_loop isInteractive textstream env)
-	     | DynException.RestartRepl
-	       => if isInteractive then (DynException.resetErrored(); rep_loop isInteractive textstream env) else (KEC.UNIT, env)
+	     | DynException.RestartRepl => 
+	       if isInteractive then 
+		      (DynException.resetErrored()
+		     ; rep_loop isInteractive textstream env) 
+		  else (KEC.UNIT, env)
 	     | e as DynException.TooManyErrors =>
 	       if isInteractive then
-		   (DynException.resetErrored();
-		    rep_loop isInteractive textstream env)
+		   (DynException.resetErrored()
+		  ; rep_loop isInteractive textstream env)
 	       else
 		   raise e
+	       
 		  
 	
 exception Usage

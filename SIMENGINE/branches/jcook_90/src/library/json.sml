@@ -20,6 +20,12 @@ fun vectorToPair (KEC.VECTOR vec) =
   | vectorToPair object =
     raise TypeMismatch ("expected a Vector but received " ^ (PrettyPrint.kecexp2nickname object))
 
+fun toVector object =
+    KEC.APPLY {func = KEC.SEND {message = Symbol.symbol "tovector",
+				object = object},
+	       args = KEC.UNIT}
+
+
 val expToString =
  fn KEC.LITERAL (KEC.CONSTSTR s) => s
   | object => raise TypeMismatch ("expected a String but received " ^ (PrettyPrint.kecexp2nickname object))
@@ -80,10 +86,23 @@ fun decode exec =
 		else if isSome (JSON.toReal object) 
 		then KEC.LITERAL (KEC.CONSTREAL (JSON.realVal object))
 		else raise TypeMismatch ("Unknown type of JSON value")
-	      | JSON.JS_ARRAY => KEC.TUPLE (map decoded (valOf (JSON.elements object)))
-	      | JSON.JS_OBJECT => (* TODO *) KEC.UNDEFINED 
+	      | JSON.JS_ARRAY => 
+		let val elements = (map decoded (valOf (JSON.elements object)))
+		in
+		    toVector (KEC.TUPLE elements)
+		end
+	      | JSON.JS_OBJECT => 
+		KEC.APPLY {func = KEC.SEND {message = Symbol.symbol "new",
+					    object = KEC.SYMBOL (Symbol.symbol "Table")},
+			   args = KEC.TUPLE [decodedObjectMembers (valOf (JSON.members object))]}
+
+	and decodedObjectMembers members =
+	    let val entries = map (fn (key, value) => KEC.TUPLE [KEC.LITERAL (KEC.CONSTSTR key), decoded value]) members
+	    in
+		toVector (KEC.TUPLE entries)
+	    end
     in
-     fn [KEC.LITERAL (KEC.CONSTSTR json)] => decoded (ParseJSON.parseString json)
+     fn [KEC.LITERAL (KEC.CONSTSTR json)] => exec (decoded (ParseJSON.parseString json))
       | [a] => raise TypeMismatch ("expected a String but received " ^ (PrettyPrint.kecexp2nickname a))
       | args => raise IncorrectNumberOfArguments {expected = 1, actual = length args}
     end
