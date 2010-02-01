@@ -22,4 +22,5 @@ signature JSON_PARSE = sig
 
     val parse: TextIO.instream -> JS.json
     val parseFile: string -> JS.json
+    val parseString: string -> JS.json
 end

@@ -67,10 +67,26 @@ fun encode exec =
     end
 
 fun decode exec =
- fn (* [KEC.LITERAL (KEC.CONSTSTR json)] => decoded (ParseJSON.parseString json) *)
-  (* |  *)[a] => raise TypeMismatch ("expected a String but received " ^ (PrettyPrint.kecexp2nickname a))
-  | args => raise IncorrectNumberOfArguments {expected = 1, actual = length args}
-
+    let
+	fun decoded object =
+	    case JSON.jsType object
+	     of JSON.JS_NULL => KEC.UNIT
+	      | JSON.JS_TRUE => KEC.LITERAL (KEC.CONSTBOOL true)
+	      | JSON.JS_FALSE => KEC.LITERAL (KEC.CONSTBOOL false)
+	      | JSON.JS_STRING => KEC.LITERAL (KEC.CONSTSTR (JSON.stringVal object))
+	      | JSON.JS_NUMBER =>
+		if isSome (JSON.toInt object) 
+		then KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (IntInf.toInt (JSON.intVal object))))
+		else if isSome (JSON.toReal object) 
+		then KEC.LITERAL (KEC.CONSTREAL (JSON.realVal object))
+		else raise TypeMismatch ("Unknown type of JSON value")
+	      | JSON.JS_ARRAY => KEC.TUPLE (map decoded (valOf (JSON.elements object)))
+	      | JSON.JS_OBJECT => (* TODO *) KEC.UNDEFINED 
+    in
+     fn [KEC.LITERAL (KEC.CONSTSTR json)] => decoded (ParseJSON.parseString json)
+      | [a] => raise TypeMismatch ("expected a String but received " ^ (PrettyPrint.kecexp2nickname a))
+      | args => raise IncorrectNumberOfArguments {expected = 1, actual = length args}
+    end
 
 val library = [{name="jsonEncode", operation=encode},
 	       {name="jsonDecode", operation=decode}]

@@ -1,5 +1,5 @@
 # Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.
-include ../include/common.make
+include ../../include/common.make
 
 .PHONY: all
 all: json

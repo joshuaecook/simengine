@@ -54,9 +54,8 @@ and parsePair lex =
 
 fun parse instream =
     let fun input n = TextIO.inputN (instream, n)
-	val lex = Lex.makeLexer input
     in
-	parseValue lex
+	parseValue (Lex.makeLexer input)
     end
 
 fun parseFile filename =
@@ -65,4 +64,19 @@ fun parseFile filename =
 	parse instream before TextIO.closeIn instream
     end
 
+fun parseString string =
+    let 
+	val size = String.size string
+	val pos: int ref = ref 0
+	fun input n =
+	    let val i = ! pos
+	    in if size < i
+	       then ""
+	       else if size < n + i
+	       then String.extract (string, i, NONE)
+	       else String.extract (string, i, SOME (n + i))
+	    end before pos := n + (! pos)
+    in
+	parseValue (Lex.makeLexer input)
+    end
 end

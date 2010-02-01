@@ -28,7 +28,7 @@ fun toJSONString json =
 	raise Fail ("Unknown type of JSON value")
 
 and stringToJSONString json = 
-    String.concat ["\"", String.toCString (valOf (JS.toString json)), "\""]
+    String.concat ["\"", String.toCString (JS.stringVal json), "\""]
 
 and realToJSONString json =
     let val r = JS.realVal json

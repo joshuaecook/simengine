@@ -43,6 +43,11 @@ val _ = case JS.member (value, "backends")
 	  | NONE => bug ("Expected build options to have a list of backends")
 
 
+val _ = case JS.toBool (P.parseString "true")
+	 of SOME true => pass ()
+	  | SOME _ => bug ("Expected parsed string to be true")
+	  | NONE => bug ("Expected parse string to be a boolean")
+
 structure Print = PrintJSON(structure JS = JS)
 val _ = Print.print (TextIO.stdOut, value)
 
