@@ -5,6 +5,7 @@
 #include<assert.h>
 #include<zlib.h>
 
+// Architecture specific includes
 #ifdef DARWIN
 #include<mach-o/loader.h>
 #include<mach-o/nlist.h>
@@ -12,57 +13,66 @@
 #include<elf.h>
 #endif
 
+// Architecture specific routine macro
+#ifdef DARWIN
+#ifdef ARCH64
+#define WRITE_OBJ write_mach_o64
+#else
+#define WRITE_OBJ write_mach_o32
+#endif
+#else
+#ifdef ARCH64
+#define WRITE_OBJ write_elf64
+#else
+#define WRITE_OBJ write_elf32
+#endif
+#endif
+
+enum{ SUCCESS, ERR_OUT_OF_MEMORY, ERR_FOPEN, ERR_DLOPEN, ERR_NO_OBJECT, 
+      ERR_COMPRESS, ERR_DECOMPRESS};
+
 #define NUM_SYMBOLS 2 // FNAME_beg and FNAME_end
 #define BLOCK_SIZE 16384
 
-const void* SELF = NULL;
+static const void* SELF = NULL;
 static void *binary_handle = NULL;
 
-const char beg_sfx[] = "_beg";
-const char end_sfx[] = "_end";
-const int sfx_len = 4;
-const char padding[] = "\0\0\0\0\0\0\0\0";
+static const char beg_sfx[] = "_beg";
+static const char end_sfx[] = "_end";
+static const int sfx_len = 4;
+static const char padding[] = "\0\0\0\0\0\0\0\0";
 
-int open_binary(const char *binary){
+static int open_binary(const char *binary){
   binary_handle = dlopen(binary, RTLD_LAZY);
-  return binary_handle != NULL;
+  if(NULL == binary_handle)
+    return ERR_DLOPEN;
+  else
+    return SUCCESS;
 }
 
-void close_binary(){
+static void close_binary(){
   if(binary_handle){
     dlclose(binary_handle);
     binary_handle = NULL;
   }
 }
 
-inline int round_to_word(int offset){
+static inline int round_to_word(const int offset){
   //if(4 == sizeof(void*))
   return (offset & 0x3) ? offset - (offset & 0x3) + 0x4 : offset;
   //else
   //return (offset & 0x7) ? offset - (offset & 0x7) + 0x8 : offset;
 }
 
-inline int pad_len(int offset){
+static inline int pad_len(const int offset){
   //if(sizeof(void*) == 4)
   return (0x4 - (offset & 0x3)) & 0x3;
   //else
   //return (0x8 - (offset & 0x7)) & 0x7;
 }
 
-void fix_fname(char *fname){
-  int i;
-  int len = strlen(fname);
-
-  for(i=0;i<len;i++){
-    if((fname[i] < 'a' || fname[i] > 'z') &&
-       (fname[i] < 'A' || fname[i] > 'Z') &&
-       (fname[i] < '0' || fname[i] > '9')){
-      fname[i] = '_';
-    }
-  }
-}
 /* Compresses the data passed in via source to a buffer created as dest */
-int compress_data(unsigned char *source, int ssize, unsigned char ** dest, int *dsize){
+static int compress_data(char *source, const int ssize, char ** dest, int *dsize){
   int ret;
   z_stream strm;
 
@@ -77,7 +87,7 @@ int compress_data(unsigned char *source, int ssize, unsigned char ** dest, int *
   if(ret != Z_OK)
     return ret;
 
-  *dest = (unsigned char *)malloc(bsize);
+  *dest = (char *)malloc(bsize);
 
   strm.avail_in = ssize;
   strm.next_in = source;
@@ -95,7 +105,7 @@ int compress_data(unsigned char *source, int ssize, unsigned char ** dest, int *
       /* Reallocate if output buffer is full */
       if(strm.avail_out == 0){
 	bsize += 1024;
-	*dest = (unsigned char *)realloc(*dest, bsize);
+	*dest = (char *)realloc(*dest, bsize);
 	strm.next_out = &((*dest)[*dsize]);
       }
     }while(strm.avail_out == 0);
@@ -106,7 +116,7 @@ int compress_data(unsigned char *source, int ssize, unsigned char ** dest, int *
   return Z_OK;
 }
 
-int decompress_data(unsigned char *source, int ssize, unsigned char **dest, int *dsize)
+static int decompress_data(char *source, const int ssize, char **dest, int *dsize)
 {
     int ret;
     z_stream strm;
@@ -122,7 +132,7 @@ int decompress_data(unsigned char *source, int ssize, unsigned char **dest, int 
     if (ret != Z_OK)
         return ret;
 
-    *dest = (unsigned char *)malloc(bsize);
+    *dest = (char *)malloc(bsize);
 
     strm.avail_in = ssize;
     strm.next_in = source;
@@ -147,7 +157,7 @@ int decompress_data(unsigned char *source, int ssize, unsigned char **dest, int 
             *dsize = bsize - strm.avail_out;
 	    if(strm.avail_out == 0){
 	      bsize += 1024;
-	      *dest = (unsigned char*)realloc(*dest,bsize);
+	      *dest = (char*)realloc(*dest,bsize);
 	      strm.next_out = &((*dest)[*dsize]);
 	    }
         } while (strm.avail_out == 0);
@@ -160,7 +170,7 @@ int decompress_data(unsigned char *source, int ssize, unsigned char **dest, int 
 }
 
 /* report a zlib or i/o error */
-void zerr(int ret)
+static void zerr(const int ret)
 {
     fputs("simlib: ", stderr);
     switch (ret) {
@@ -184,47 +194,8 @@ void zerr(int ret)
     }
 }
 
-// Returns the length of the data stream and sets data to point to the head
-unsigned long extract_binary_file(const char *fname, unsigned char **data){
-  char *fname_fixed;
-  unsigned char *sym_beg;
-  unsigned char *sym_end;
-  unsigned long dsize;
-  int len;
-
-  // Dynamic library must already be open
-  if(!binary_handle){
-    *data = NULL;
-    return 0;
-  }
-
-  len = strlen(fname);
-  // Allocate strings
-  fname_fixed = (char*)malloc(len+1);
-  sym_beg = (unsigned char*)malloc(len+sfx_len+1); // '_' will be prepended by dlsym() in Mach-O
-  sym_end = (unsigned char*)malloc(len+sfx_len+1); // '_' will be prepended by dlsym() in Mach-O
-
-  // Manipulate filename for symbols
-  strcpy(fname_fixed, fname);
-  fix_fname(fname_fixed);
-  strcpy(sym_beg, fname_fixed);
-  strcat(sym_beg, beg_sfx);
-  strcpy(sym_end, fname_fixed);
-  strcat(sym_end, end_sfx);
-
-  // Retrieve data from dynamic library
-  *data = (unsigned char*)dlsym(binary_handle, sym_beg);
-  dsize = (unsigned long)(dlsym(binary_handle, sym_end) - (void*)*data);
-
-  free(fname_fixed);
-  free(sym_beg);
-  free(sym_end);
-
-  return dsize;
-}
-
 #ifdef DARWIN
-char *write_mach_o32(char *fname, int dsize, char *data){
+static int write_mach_o32(FILE *objfile, const char *sym_beg, const char *sym_end, const int dsize, const char *data){
   // Mach-O structures
   struct mach_header mh;
   struct segment_command segc;
@@ -234,13 +205,6 @@ char *write_mach_o32(char *fname, int dsize, char *data){
   struct symtab_command symc;
   struct dysymtab_command dsymc;
   struct nlist nl[NUM_SYMBOLS];
-  // Other vars
-  FILE *objfile;
-  char *fname_fixed;
-  char *ofname;
-  char *sym_beg;
-  char *sym_end;
-  int len = strlen(fname);
 
   // Mach-o Header
   mh.magic = MH_MAGIC;
@@ -284,7 +248,7 @@ char *write_mach_o32(char *fname, int dsize, char *data){
   symc.symoff = sec.reloff; // GENERATED
   symc.nsyms = NUM_SYMBOLS;
   symc.stroff = symc.symoff + symc.nsyms * sizeof(struct nlist); // GENERATED
-  symc.strsize = NUM_SYMBOLS*(len + sfx_len + 1); // GENERATED
+  symc.strsize = NUM_SYMBOLS + strlen(sym_beg) + strlen(sym_end); // GENERATED
 
   // Dynamic Symbol Table
   dsymc.cmd = LC_DYSYMTAB;
@@ -315,32 +279,13 @@ char *write_mach_o32(char *fname, int dsize, char *data){
   nl[0].n_desc = REFERENCE_FLAG_DEFINED | REFERENCED_DYNAMICALLY | N_NO_DEAD_STRIP;
   nl[0].n_value = 0; // Beginning addr symbol (beginning of section, will be relocated on link/load)
 
-  nl[1].n_un.n_strx = len+sfx_len+2; // Character offset into the string table
+  nl[1].n_un.n_strx = strlen(sym_beg)+2; // Character offset into the string table
   nl[1].n_type = N_EXT | N_SECT;
   nl[1].n_sect = 1;
   nl[1].n_desc = REFERENCE_FLAG_DEFINED | REFERENCED_DYNAMICALLY | N_NO_DEAD_STRIP;
   nl[1].n_value = dsize; // Ending addr symbol (end of section, will be relocated on link/load)
 
-  // Allocate strings
-  fname_fixed = (char*)malloc(len+1);
-  ofname = (char*)malloc(len+3);
-  sym_beg = (char*)malloc(len+sfx_len+2);
-  sym_end = (char*)malloc(len+sfx_len+2);
-
-  // Manipulate filename for output filename and symbols
-  strcpy(fname_fixed, fname);
-  fix_fname(fname_fixed);
-  strcpy(ofname, fname_fixed);
-  strcat(ofname, ".o");
-  strcpy(sym_beg, "_"); // Mach-O dlsym() adds an '_' when performing lookup
-  strcat(sym_beg, fname_fixed);
-  strcat(sym_beg, beg_sfx);
-  strcpy(sym_end, "_"); // Mach-O dlsym() adds an '_' when performing lookup
-  strcat(sym_end, fname_fixed);
-  strcat(sym_end, end_sfx);
-
   // Write the Mach-O object
-  objfile = fopen(ofname, "w");
   fwrite(&mh, sizeof(mh), 1, objfile);
   fwrite(&segc, sizeof(segc), 1, objfile);
   fwrite(&sec, sizeof(sec), 1, objfile);
@@ -351,17 +296,11 @@ char *write_mach_o32(char *fname, int dsize, char *data){
   fwrite(nl, NUM_SYMBOLS*sizeof(struct nlist), 1, objfile);
   fwrite(sym_beg, strlen(sym_beg) + 1, 1, objfile);
   fwrite(sym_end, strlen(sym_end) + 1, 1, objfile);
-  fclose(objfile);
 
-  // Free string allocations
-  free(fname_fixed);
-  free(sym_beg);
-  free(sym_end);
-
-  return ofname; // Must be freed externally
+  return SUCCESS; // Must be freed externally
 }
 
-char *write_mach_o64(char *fname, int dsize, char *data){
+static int write_mach_o64(FILE *objfile, const char *sym_beg, const char *sym_end, const int dsize, const char *data){
   // Mach-O structures
   struct mach_header_64 mh;
   struct segment_command_64 segc;
@@ -369,13 +308,6 @@ char *write_mach_o64(char *fname, int dsize, char *data){
   struct symtab_command symc;
   struct dysymtab_command dsymc;
   struct nlist_64 nl[NUM_SYMBOLS];
-  // Other vars
-  FILE *objfile;
-  char *fname_fixed;
-  char *ofname;
-  char *sym_beg;
-  char *sym_end;
-  int len = strlen(fname);
 
   // Mach-o Header
   mh.magic = MH_MAGIC_64;
@@ -418,7 +350,7 @@ char *write_mach_o64(char *fname, int dsize, char *data){
   symc.symoff = sec.reloff; // GENERATED
   symc.nsyms = NUM_SYMBOLS;
   symc.stroff = symc.symoff + symc.nsyms * sizeof(struct nlist_64); // GENERATED
-  symc.strsize = NUM_SYMBOLS*(len + sfx_len + 1); // GENERATED
+  symc.strsize = NUM_SYMBOLS + strlen(sym_beg) + strlen(sym_end); // GENERATED
 
   // Dynamic Symbol Table
   dsymc.cmd = LC_DYSYMTAB;
@@ -449,32 +381,13 @@ char *write_mach_o64(char *fname, int dsize, char *data){
   nl[0].n_desc = REFERENCE_FLAG_DEFINED | REFERENCED_DYNAMICALLY | N_NO_DEAD_STRIP;
   nl[0].n_value = 0; // Beginning addr symbol (beginning of section, will be relocated on link/load)
 
-  nl[1].n_un.n_strx = len+sfx_len+2; // Character offset into the string table
+  nl[1].n_un.n_strx = strlen(sym_beg)+2; // Character offset into the string table
   nl[1].n_type = N_EXT | N_SECT;
   nl[1].n_sect = 1;
   nl[1].n_desc = REFERENCE_FLAG_DEFINED | REFERENCED_DYNAMICALLY | N_NO_DEAD_STRIP;
   nl[1].n_value = dsize; // Ending addr symbol (end of section, will be relocated on link/load)
 
-  // Allocate strings
-  fname_fixed = (char*)malloc(len+1);
-  ofname = (char*)malloc(len+3);
-  sym_beg = (char*)malloc(len+sfx_len+2);
-  sym_end = (char*)malloc(len+sfx_len+2);
-
-  // Manipulate filename for output filename and symbols
-  strcpy(fname_fixed, fname);
-  fix_fname(fname_fixed);
-  strcpy(ofname, fname_fixed);
-  strcat(ofname, ".o");
-  strcpy(sym_beg, "_"); // Mach-O dlsym() adds an '_' when performing lookup
-  strcat(sym_beg, fname_fixed);
-  strcat(sym_beg, beg_sfx);
-  strcpy(sym_end, "_"); // Mach-O dlsym() adds an '_' when performing lookup
-  strcat(sym_end, fname_fixed);
-  strcat(sym_end, end_sfx);
-
   // Write the Mach-O object
-  objfile = fopen(ofname, "w");
   fwrite(&mh, sizeof(mh), 1, objfile);
   fwrite(&segc, sizeof(segc), 1, objfile);
   fwrite(&sec, sizeof(sec), 1, objfile);
@@ -485,46 +398,17 @@ char *write_mach_o64(char *fname, int dsize, char *data){
   fwrite(nl, NUM_SYMBOLS*sizeof(struct nlist_64), 1, objfile);
   fwrite(sym_beg, strlen(sym_beg) + 1, 1, objfile);
   fwrite(sym_end, strlen(sym_end) + 1, 1, objfile);
-  fclose(objfile);
 
-  // Free string allocations
-  free(fname_fixed);
-  free(sym_beg);
-  free(sym_end);
-
-  return ofname; // Must be freed externally
+  return SUCCESS; // Must be freed externally
 }
 
 #else // #ifdef DARWIN
 
-char *write_elf32(char *fname, int dsize, char *data){
+static int write_elf32(FILE *objfile, const char *sym_beg, const char *sym_end, const int dsize, const char *data){
   Elf32_Ehdr eh;
   Elf32_Shdr sh[5];
   const char shstrtab[] = "\0.data\0.shstrtab\0.symtab\0.strtab\0\0\0\0";
   Elf32_Sym sym[NUM_SYMBOLS + 2]; // empty and SECTION symbols
-  // Other vars
-  FILE *objfile;
-  char *fname_fixed;
-  char *ofname;
-  char *sym_beg;
-  char *sym_end;
-  int len = strlen(fname);
-
-  // Allocate strings
-  fname_fixed = (char*)malloc(len+1);
-  ofname = (char*)malloc(len+3);
-  sym_beg = (char*)malloc(len+sfx_len+1);
-  sym_end = (char*)malloc(len+sfx_len+1);
-
-  // Manipulate filename for output filename and symbols
-  strcpy(fname_fixed, fname);
-  fix_fname(fname_fixed);
-  strcpy(ofname, fname_fixed);
-  strcat(ofname, ".o");
-  strcpy(sym_beg, fname_fixed);
-  strcat(sym_beg, beg_sfx);
-  strcpy(sym_end, fname_fixed);
-  strcat(sym_end, end_sfx);
 
   bzero(&eh, sizeof(eh));
   eh.e_ident[EI_MAG0] = ELFMAG0;
@@ -590,7 +474,6 @@ char *write_elf32(char *fname, int dsize, char *data){
   sym[3].st_shndx = 1;
 
   // Write the ELF object
-  objfile = fopen(ofname, "w");
   fwrite(&eh, sizeof(eh), 1, objfile);
   fwrite(data, sh[1].sh_size, 1, objfile);
   fwrite(shstrtab, sh[2].sh_size, 1, objfile);
@@ -599,44 +482,15 @@ char *write_elf32(char *fname, int dsize, char *data){
   fwrite(padding, 1, 1, objfile); // Empty string at beginning of strtab
   fwrite(sym_beg, strlen(sym_beg)+1, 1, objfile);
   fwrite(sym_end, strlen(sym_end)+1, 1, objfile);
-  fclose(objfile);
 
-  // Free string allocations
-  free(fname_fixed);
-  free(sym_beg);
-  free(sym_end);
-
-  return ofname; // Must be freed externally
+  return SUCCESS;
 }
 
-char *write_elf64(char *fname, int dsize, char *data){
+static int write_elf64(FILE *objfile, const char *sym_beg, const char *sym_end, const int dsize, const char *data){
   Elf64_Ehdr eh;
   Elf64_Shdr sh[5];
   const char shstrtab[] = "\0.data\0.shstrtab\0.symtab\0.strtab\0\0\0\0";
   Elf64_Sym sym[NUM_SYMBOLS + 2]; // empty and SECTION symbols
-  // Other vars
-  FILE *objfile;
-  char *fname_fixed;
-  char *ofname;
-  char *sym_beg;
-  char *sym_end;
-  int len = strlen(fname);
-
-  // Allocate strings
-  fname_fixed = (char*)malloc(len+1);
-  ofname = (char*)malloc(len+3);
-  sym_beg = (char*)malloc(len+sfx_len+1);
-  sym_end = (char*)malloc(len+sfx_len+1);
-
-  // Manipulate filename for output filename and symbols
-  strcpy(fname_fixed, fname);
-  fix_fname(fname_fixed);
-  strcpy(ofname, fname_fixed);
-  strcat(ofname, ".o");
-  strcpy(sym_beg, fname_fixed);
-  strcat(sym_beg, beg_sfx);
-  strcpy(sym_end, fname_fixed);
-  strcat(sym_end, end_sfx);
 
   bzero(&eh, sizeof(eh));
   eh.e_ident[EI_MAG0] = ELFMAG0;
@@ -702,7 +556,6 @@ char *write_elf64(char *fname, int dsize, char *data){
   sym[3].st_shndx = 1;
 
   // Write the ELF object
-  objfile = fopen(ofname, "w");
   fwrite(&eh, sizeof(eh), 1, objfile);
   fwrite(data, sh[1].sh_size, 1, objfile);
   fwrite(shstrtab, sh[2].sh_size, 1, objfile);
@@ -711,133 +564,366 @@ char *write_elf64(char *fname, int dsize, char *data){
   fwrite(padding, 1, 1, objfile); // Empty string at beginning of strtab
   fwrite(sym_beg, strlen(sym_beg)+1, 1, objfile);
   fwrite(sym_end, strlen(sym_end)+1, 1, objfile);
-  fclose(objfile);
 
-  // Free string allocations
-  free(fname_fixed);
-  free(sym_beg);
-  free(sym_end);
-
-  return ofname; // Must be freed externally
+  return SUCCESS;
 }
 #endif // #ifdef DARWIN
 
-unsigned long read_binary_file(const char *fname, unsigned char **data){
-  FILE *bfile;
+static int read_binary_file(FILE *bfile, int *length, char **data){
   int alloc_size = BLOCK_SIZE;
-  unsigned long dsize = 0;
-  unsigned char *tmp;
+  char *tmp;
+  *length = 0;
 
   *data = NULL;
 
-  bfile = fopen(fname, "r");
-  if(!bfile) return 0;
-
   // Allocate space for data
-  *data = (unsigned char*)malloc(alloc_size);
+  *data = (char*)malloc(alloc_size);
+  if(NULL == *data){
+    return ERR_OUT_OF_MEMORY;
+  }
 
   while(1){
-    dsize += fread(&((*data)[dsize]), 1, alloc_size - dsize, bfile);
-    if(dsize != alloc_size){
+    *length += fread(&((*data)[*length]), 1, alloc_size - *length, bfile);
+    if(*length != alloc_size){
       // Finished reading
       break;
     }
     else{
       // Resize buffer to read next block
       alloc_size += BLOCK_SIZE;
-      tmp = (unsigned char*)realloc(*data, alloc_size);
+      tmp = (char*)realloc(*data, alloc_size);
       if(!tmp){
 	// Resize failed
 	free(*data);
 	*data = NULL;
-	return 0;
+	return ERR_OUT_OF_MEMORY;
       }
       else
 	*data = tmp;
     }
   }
 
-  fclose(bfile);
-
-  return dsize;
+  return SUCCESS;
 }
 
-void write_obj_files(int numfiles, char **fnames){
+static void fix_fname(char *fname){
   int i;
-  unsigned char *data, *cdata;
-  int dsize, cdsize;
-  char *ofname;
+  int len = strlen(fname);
 
-  for(i=0; i<numfiles; i++){
-    dsize = read_binary_file(fnames[i], &data);
-    if(dsize){
-      compress_data(data,dsize,&cdata,&cdsize);
+  for(i=0;i<len;i++){
+    if((fname[i] < 'a' || fname[i] > 'z') &&
+       (fname[i] < 'A' || fname[i] > 'Z') &&
+       (fname[i] < '0' || fname[i] > '9')){
+      fname[i] = '_';
+    }
+  }
+}
+
+static int write_object(const char *object_name, const int cdsize, const char *cdata, char **object_file_name){
+  int status;
+  FILE *objfile;
+
+  // Allocate strings
+  int len = strlen(object_name);
+  char *oname_fixed = (char*)malloc(len+1);
+  char *sym_beg = (char*)malloc(len+sfx_len+2);
+  char *sym_end = (char*)malloc(len+sfx_len+2);
+  *object_file_name = (char*)malloc(len+3);
+
+  if(NULL == oname_fixed ||
+     NULL == *object_file_name ||
+     NULL == sym_beg ||
+     NULL == sym_end){
+    return ERR_OUT_OF_MEMORY;
+  }
+
+  // Manipulate object name for output filename
+  strcpy(oname_fixed, object_name);
+  fix_fname(oname_fixed);
+  strcpy(*object_file_name, oname_fixed);
+  strcat(*object_file_name, ".o");
+
+  objfile = fopen(*object_file_name, "w");
+  if(NULL == objfile){
+    return ERR_FOPEN;
+  }
+
+  sym_beg[0] = 0;
+  sym_end[0] = 0;
+
 #ifdef DARWIN
-      // Write objects for the same architecture that simlib was compiled for (32bit/64bit)
-      if(4 == sizeof(void*))
-	ofname = write_mach_o32(fnames[i], cdsize, cdata);
-      else
-	ofname = write_mach_o64(fnames[i], cdsize, cdata);
-#else
-      // Write objects for the same architecture that simlib was compiled for (32bit/64bit)
-      if(4 == sizeof(void*))
-	ofname = write_elf32(fnames[i], cdsize, cdata);
-      else
-	ofname = write_elf64(fnames[i], cdsize, cdata);
+  strcpy(sym_beg, "_"); // Mach-O dlsym() adds an '_' when performing lookup
+  strcpy(sym_end, "_"); // Mach-O dlsym() adds an '_' when performing lookup
 #endif
-      printf("%s\n", ofname);
-      free(ofname);
-      free(cdata);
-    }
-    if(data)
-      free(data);
-  }
+
+  // Manipulate object name for symbol names
+  strcat(sym_beg, oname_fixed);
+  strcat(sym_beg, beg_sfx);
+  strcat(sym_end, oname_fixed);
+  strcat(sym_end, end_sfx);   
+
+  status = WRITE_OBJ(objfile, sym_beg, sym_end, cdsize, cdata);
+
+  // Free string allocations
+  free(oname_fixed);
+  free(sym_beg);
+  free(sym_end);
+
+  fclose(objfile);
+
+  return status;
 }
 
-int sim_extract_files(char *library, int numfiles, char **fnames){
-  int i;
-  unsigned char *cdata, *data;
-  int cdsize, dsize;
+// Returns the length of the data stream and sets data to point to the head
+static int extract_binary_file(const char *fname, int *length, char **cdata){
+  int status;
+  char *fname_fixed;
+  char *sym_beg;
+  char *sym_end;
+  int len;
 
-  if(!open_binary(library))
-    return 1;
-
-  // Extract all symbols
-  for(i=0;i<numfiles;i++){
-    cdsize = extract_binary_file(fnames[i], &cdata);
-    if(cdsize){
-      decompress_data(cdata, cdsize, &data, &dsize);
-      fwrite(data, 1, dsize, stdout);
-      free(data);
-    }
+  // Dynamic library must already be open
+  if(NULL == binary_handle){
+    *cdata = NULL;
+    *length = 0;
+    return ERR_DLOPEN;
   }
-  // cdata need not be freed as it points to constant memory in the library
+
+  len = strlen(fname);
+  // Allocate strings
+  fname_fixed = (char*)malloc(len+1);
+  sym_beg = (char*)malloc(len+sfx_len+1); // '_' will be prepended by dlsym() in Mach-O
+  sym_end = (char*)malloc(len+sfx_len+1); // '_' will be prepended by dlsym() in Mach-O
+
+  if(NULL == fname_fixed ||
+     NULL == sym_beg ||
+     NULL == sym_end){
+    return ERR_OUT_OF_MEMORY;
+  }
+
+  // Manipulate filename for symbols
+  strcpy(fname_fixed, fname);
+  fix_fname(fname_fixed);
+  strcpy(sym_beg, fname_fixed);
+  strcat(sym_beg, beg_sfx);
+  strcpy(sym_end, fname_fixed);
+  strcat(sym_end, end_sfx);
+
+  // Retrieve data from dynamic library
+  *cdata = (char*)dlsym(binary_handle, sym_beg);
+  *length = (int)(dlsym(binary_handle, sym_end) - (void*)*cdata);
+
+  free(fname_fixed);
+  free(sym_beg);
+  free(sym_end);
+
+  return SUCCESS;
+}
+
+// simlib API functions
+// *****************************************************************************
+int make_object_from_contents(// Inputs
+			      const char *object_name,
+			      const int length,
+			      char *contents,
+			      // Outputs
+			      char **object_file_name){
+  int status;
+  char *cdata;
+  int cdsize;
+
+  // Compress object contents
+  status = compress_data(contents, length, &cdata, &cdsize);
+  if(Z_OK != status){
+    return ERR_COMPRESS;
+  }
+
+  // Write object contents to object file
+  write_object(object_name, cdsize, cdata, object_file_name);
+
+  // Free compressed contents
+  free(cdata);
+
+  return status;
+}
+
+int make_object_from_file_ptr(// Inputs
+			      const char *object_name,
+			      FILE *file_ptr,
+			      // Outputs
+			      char ** object_file_name){
+  int status;
+  int length;
+  char *contents;
+
+  status = read_binary_file(file_ptr, &length, &contents);
+  if(SUCCESS != status){
+    return status;
+  }
+
+  status = make_object_from_contents(object_name, length, contents, object_file_name);
+
+  free(contents);
+
+  return status;
+}
+
+int make_object_from_file(// Inputs
+			  const char *object_name,
+			  const char *file_name,
+			  // Outputs
+			  char **object_file_name){
+  int status;
+  FILE *file_ptr;
+
+  file_ptr = fopen(file_name, "r");
+  if(NULL == file_ptr){
+    return ERR_FOPEN;
+  }
+  
+  status = make_object_from_file_ptr(object_name, file_ptr, object_file_name);
+
+  fclose(file_ptr);
+
+  return status;
+}
+
+int get_contents_from_archive(// Inputs
+			      const char *archive_name,
+			      const char *object_name,
+			      // Outputs
+			      int *length,
+			      char **contents){
+  int status;
+  // cdata need never be freed as it points to constant memory in the archive
+  char *cdata;
+  int cdsize;
+
+  // Open the archive
+  status = open_binary(archive_name);
+  if(SUCCESS != status)
+    return status;
+
+  // Retrieve the compressed data from the archive
+  status = extract_binary_file(object_name, &cdsize, &cdata);
+  if(SUCCESS != status){
+    close_binary();
+    return status;
+  }
+  if(0 == cdsize){
+    close_binary();
+    return ERR_NO_OBJECT;
+  }
+
+  // Decompress the data
+  status = decompress_data(cdata, cdsize, contents, length);
+  if(Z_OK != status){
+    close_binary();
+    return ERR_DECOMPRESS;
+  }
+
+  // Close the archive
   close_binary();
 
-  return 0;
+  return SUCCESS;
 }
 
-// This program takes the following parameters on the command line
-// usage: simlib SiMagic put <file1> [file2 ... fileN]
-//        simlib SiMagic get <shared object> <file1> [file2 ... fileN]
+int get_file_from_archive(// Inputs
+			  const char *archive_name,
+			  const char *object_name,
+			  const char *file_name){
+  int status;
+  FILE *outfile;
+  int length;
+  char *contents;
+
+  // Open the output file
+  outfile = fopen(file_name, "w");
+  if(NULL == outfile)
+    return ERR_FOPEN;
+
+  // Get the file contents from the archive
+  status = get_contents_from_archive(archive_name, object_name, &length, &contents);
+  if(SUCCESS != status){
+    return status;
+  }
+  // Write the contents to the file
+  fwrite(contents, length, 1, outfile);
+  // Close the file
+  fclose(outfile);
+  // Free the contents in memory
+  free(contents);
+
+  return SUCCESS;
+}
+
+//********************************************************************************
+
+#ifdef SIMLIB_MAIN
+
+void print_usage(const char *binary_name){
+  fprintf(stderr, "usage:\t%s put <objectname> [filename]\n"
+	  "\t%s get <archivename> <objectname> [filename]\n\n"
+	  "\t objectname - name of the object in the archive\n"
+	  "\t filename - optional filename to read/write (default stdin/stdout)\n\n",
+	  binary_name, binary_name);
+}
+
 int main(int argc, char** argv){
-  unsigned long size;
+  int status = SUCCESS;
+  int size;
   void *data;
   int i;
 
-  // Silently ignore attempts to execute with the wrong parameters
-  if(argc < 4) // too few parameters
-    return 0;
-  if(strcmp(argv[1],"SiMagic")) // first parameter must be Magical
-    return 0;
-  if(0==strcmp(argv[2],"put")){
-    write_obj_files(argc - 3, &argv[3]);
-  }
-  if(0==strcmp(argv[2],"get")){
-    if(argc <5) // too few parameters
-      return 0;
-    sim_extract_files(argv[3], argc - 4, &argv[4]);
+  // Show usage if incorrect parameters are supplied
+  if(argc < 3 || argc > 5){
+    print_usage(argv[0]);
+    return status;
   }
 
-  return 0;
+  // Create an object for an archive
+  if(0==strcmp(argv[1],"put")){
+    char *object_file_name;
+
+    if(argc == 5){
+      print_usage(argv[0]);
+      return status;
+    }
+    // Read contents from stdin
+    else if(argc == 3){
+      status = make_object_from_file_ptr(argv[2], stdin, &object_file_name);
+    }
+    // Read contents from file
+    else{
+      status = make_object_from_file(argv[2], argv[3], &object_file_name);
+    }
+
+    if(SUCCESS == status){
+      printf("%s\n", object_file_name);
+      //free(object_file_name);
+    }
+  }
+
+  // Retrieve an object from an archive
+  else if(0==strcmp(argv[1],"get")){
+    if(argc == 3){
+      print_usage(argv[0]);
+      return status;
+    }
+    // Write object to stdout
+    else if(argc == 4){
+      int length;
+      char *contents;
+      status = get_contents_from_archive(argv[2], argv[3], &length, &contents);
+      fwrite(contents, length, 1, stdout);
+      free(contents);
+    }
+    // Write object to file
+    else{
+      status = get_file_from_archive(argv[2], argv[3], argv[4]);
+    }
+  }
+
+  return status;
 }
+#endif // #ifdef SIMLIB_MAIN
