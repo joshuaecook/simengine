@@ -39,7 +39,7 @@ fun readfileList pipein =
 
 fun get fname =
     let
-	val clargs = ["SiMagic", "get", lib_path ^ "libcodegen.sim", fname]
+	val clargs = ["get", lib_path ^ "libcodegen.sim", fname]
 	val proc = 
 	    MLton.Process.create{args = clargs,
 				 env = NONE,
@@ -61,7 +61,7 @@ fun getC fname = "/* " ^ fname ^ " */\n" ^ wrapper ^ (get fname) ^ wrapper
 
 fun mput fnames =
     let
-	val clargs = ["SiMagic", "put", lib_path ^ "libcodegen.*"] @ fnames
+	val clargs = ["put", lib_path ^ "libcodegen.*"] @ fnames
 	val proc = 
 	    MLton.Process.create{args = clargs,
 				 env = NONE,
