@@ -6,7 +6,7 @@
  * as well as the signatures of all
  * exported functions (e.g. those use to
  * allocate memory for arrays.) */
-#include "ffi-simengine.h"
+#include "ffi-exports.h"
 #include "../../codegen/src/simengine/simengine_api.h"
 
 Vector(Word64_t) seint_vector64 (size_t length, Word64_t *defaults)

@@ -6,11 +6,10 @@ in
 		$(SML_LIB)/basis/mlton.mlb
 		$(SML_LIB)/basis/c-types.mlb
 		ffi-exports.sml
-		dl.sml
-		simex.sig
-		simex.sml
+		simlib.sig
+		simlib.sml
 	in
-		signature SIMEX
-		structure Simex
+		signature SIMLIB
+		structure Simlib
 	end
 end

@@ -31,6 +31,30 @@
 enum{ SUCCESS, ERR_OUT_OF_MEMORY, ERR_FOPEN, ERR_DLOPEN, ERR_NO_OBJECT, 
       ERR_COMPRESS, ERR_DECOMPRESS};
 
+// simlib API functions
+int make_object_from_contents(// Inputs
+			      const char *object_name,
+			      const int length,
+			      char *contents,
+			      // Outputs
+			      char **object_file_name);
+int make_object_from_file(// Inputs
+			  const char *object_name,
+			  const char *file_name,
+			  // Outputs
+			  char **object_file_name);
+int get_contents_from_archive(// Inputs
+			      const char *archive_name,
+			      const char *object_name,
+			      // Outputs
+			      int *length,
+			      char **contents);
+int get_file_from_archive(// Inputs
+			  const char *archive_name,
+			  const char *object_name,
+			  const char *file_name);
+
+
 #define NUM_SYMBOLS 2 // FNAME_beg and FNAME_end
 #define BLOCK_SIZE 16384
 
@@ -609,6 +633,7 @@ static int read_binary_file(FILE *bfile, int *length, char **data){
 static void fix_fname(char *fname){
   int i;
   int len = strlen(fname);
+  FILE *bfile, *ofile;
 
   for(i=0;i<len;i++){
     if((fname[i] < 'a' || fname[i] > 'z') &&

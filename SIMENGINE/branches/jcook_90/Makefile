@@ -102,7 +102,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -target-link-opt linux -ldl -export-header src/ffi/ffi-simengine.h
+SIMPLE_ARGS = -target-link-opt linux -ldl -export-header src/ffi/ffi-exports.h
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1

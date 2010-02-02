@@ -1,20 +1,40 @@
-SMLCC := mlton
-SMLPPFLAGS := -verbose 1 -const 'Exn.keepHistory true' -export-header ffi-simengine.h
-BASISEXT := .mlb
+#Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.
+include ../../include/common.make
 
-COMPILE.sml = $(SMLCC) $(SMLFLAGS) $(SMLPPFLAGS) $(TARGET_ARCH)
+SMLPPFLAGS = -verbose 1 -const 'Exn.keepHistory true' -export-header ffi-exports.h
+SMLFLAGS = -link-opt -ldl
+BASISEXT = .mlb
 
-.PHONY: all clean tests
-all: simex
+.PHONY: all clean
+all: simex simlib
 
 clean:
-	$(RM) simex simex-test ffi-simengine.h
+	$(RM) ffi-simengine.h
+	$(RM) simex simex-test 
+	$(RM) simlib simlib-test
 
-simex: $(addsuffix $(BASISEXT),simex) simex.sml dl.sml ffi-simengine.c
+SIMEX_BASIS := $(addsuffix $(BASISEXT),simex)
+SIMEX_SOURCES := $(shell $(SMLC) -stop f $(SIMEX_BASIS))
+
+simex: $(SIMEX_SOURCES) ffi-simengine.c
 	$(COMPILE.sml) -output $@ $< ffi-simengine.c
 
-simex-test: $(addsuffix $(BASISEXT),simex-test) simex-test.sml simex.sml dl.sml ffi-simengine.c
+SIMEX_TEST_BASIS := $(addsuffix $(BASISEXT),simex-test)
+SIMEX_TEST_SOURCES := $(shell $(SMLC) -stop f $(SIMEX_TEST_BASIS))
+
+simex-test: $(SIMEX_TEST_SOURCES) ffi-simengine.c
 	$(COMPILE.sml) -output $@ $< ffi-simengine.c
 
-tests: simex-test
-	./simex-test
+SIMLIB_BASIS := $(addsuffix $(BASISEXT),simlib)
+SIMLIB_SOURCES := $(shell $(SMLC) -stop f $(SIMLIB_BASIS))
+
+simlib: SMLFLAGS += -link-opt "-lz ../../codegen/simlib/simlib.a"
+simlib: $(SIMLIB_SOURCES) ../../codegen/simlib/simlib.a ffi-simlib.c 
+	$(COMPILE.sml) -output $@ $< ffi-simlib.c
+
+SIMLIB_TEST_BASIS := $(addsuffix $(BASISEXT),simlib-test)
+SIMLIB_TEST_SOURCES := $(shell $(SMLC) -stop f $(SIMLIB_TEST_BASIS))
+
+simlib-test: SMLFLAGS += -link-opt "-lz ../../codegen/simlib/simlib.a"
+simlib-test: $(SIMLIB_TEST_SOURCES) ../../codegen/simlib/simlib.a ffi-simlib.c
+	$(COMPILE.sml) -output $@ $< ffi-simlib.c

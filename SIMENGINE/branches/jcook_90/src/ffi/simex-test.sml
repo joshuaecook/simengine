@@ -2,12 +2,10 @@ functor SimexTest (S: SIMEX) = struct
 fun bug why = raise Fail why
 
 structure A = S.API
-structure M = S.API.Metadata
 
 val simengine = S.new "fn.sim"
 
 val api = S.api simengine
-val meta = A.metadata api
 val _ = case A.version api
 	 of 0 => ()
 	  | i => bug ("Expected version to be 0 but got " ^ (Int.toString i))
@@ -66,15 +64,15 @@ val _ = let val outputs = A.outputNames api
 		end
 	end
 
-val _ = case M.hashcode meta
+val _ = case A.hashcode api
 	 of i => print ("Hashcode is " ^ (Int64.toString i) ^ "\n")
 
-val _ = case M.numModels meta
+val _ = case A.numModels api
 	 of 1 => ()
 	  | i => bug ("Expected 1 model but got " ^ (Int.toString i))
 
 
-val _ = let val solvers = M.solverNames meta
+val _ = let val solvers = A.solverNames api
 	in case Vector.length solvers
 	    of 0 => bug ("Expected a non-empty vector of solver names")
 	     | 1 => print ("Solver " ^ (Vector.sub (solvers, 0)) ^ "\n")
@@ -84,12 +82,12 @@ val _ = let val solvers = M.solverNames meta
 	       end
 	end
 
-val _ = case M.target meta
+val _ = case A.target api
 	 of s => print ("Targetting " ^ s ^ "\n")
 
-val _ = case M.precision meta
-	 of M.Double => print ("Double precision\n")
-	  | M.Single => print ("Single precision\n")
+val _ = case A.precision api
+	 of A.Double => print ("Double precision\n")
+	  | A.Single => print ("Single precision\n")
 
 val _ = case A.name api
 	 of "fn" => ()

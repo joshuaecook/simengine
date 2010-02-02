@@ -187,7 +187,7 @@ endif
 	$(COMPILE.mex) -outpu $* $<
 
 ## Other misc tools
-AR = ar rs
+AR = ar rsc
 LN = ln -s
 MKDIR = mkdir -p
 RM = rm -rf

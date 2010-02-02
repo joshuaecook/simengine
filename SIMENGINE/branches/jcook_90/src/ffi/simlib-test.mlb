@@ -1,0 +1,6 @@
+local
+	$(SML_LIB)/basis/basis.mlb
+	simlib.mlb
+in
+	simlib-test.sml
+end

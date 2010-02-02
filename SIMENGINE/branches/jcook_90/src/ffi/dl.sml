@@ -1,4 +1,5 @@
-(* See http://mlton.org/CallingFromSMLToCFunctionPointer *)
+(* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.
+ * See http://mlton.org/CallingFromSMLToCFunctionPointer *)
 signature DYNAMIC_LIBRARY = sig
     (* A handle for a dynmically-loaded library. *)
     type library 
