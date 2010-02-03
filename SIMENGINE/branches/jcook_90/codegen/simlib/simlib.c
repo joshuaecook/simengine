@@ -6,7 +6,7 @@
 #include<zlib.h>
 
 // Architecture specific includes
-#ifdef DARWIN
+#ifdef __APPLE__
 #include<mach-o/loader.h>
 #include<mach-o/nlist.h>
 #else
@@ -14,7 +14,7 @@
 #endif
 
 // Architecture specific routine macro
-#ifdef DARWIN
+#ifdef __APPLE__
 #ifdef ARCH64
 #define WRITE_OBJ write_mach_o64
 #else
@@ -218,7 +218,7 @@ static void zerr(const int ret)
     }
 }
 
-#ifdef DARWIN
+#ifdef __APPLE__
 static int write_mach_o32(FILE *objfile, const char *sym_beg, const char *sym_end, const int dsize, const char *data){
   // Mach-O structures
   struct mach_header mh;
@@ -426,7 +426,7 @@ static int write_mach_o64(FILE *objfile, const char *sym_beg, const char *sym_en
   return SUCCESS; // Must be freed externally
 }
 
-#else // #ifdef DARWIN
+#else // #ifdef __APPLE__
 
 static int write_elf32(FILE *objfile, const char *sym_beg, const char *sym_end, const int dsize, const char *data){
   Elf32_Ehdr eh;
@@ -591,7 +591,7 @@ static int write_elf64(FILE *objfile, const char *sym_beg, const char *sym_end, 
 
   return SUCCESS;
 }
-#endif // #ifdef DARWIN
+#endif // #ifdef __APPLE__
 
 static int read_binary_file(FILE *bfile, int *length, char **data){
   int alloc_size = BLOCK_SIZE;
@@ -676,7 +676,7 @@ static int write_object(const char *object_name, const int cdsize, const char *c
   sym_beg[0] = 0;
   sym_end[0] = 0;
 
-#ifdef DARWIN
+#ifdef __APPLE__
   strcpy(sym_beg, "_"); // Mach-O dlsym() adds an '_' when performing lookup
   strcpy(sym_end, "_"); // Mach-O dlsym() adds an '_' when performing lookup
 #endif
