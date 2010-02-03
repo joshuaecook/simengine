@@ -940,8 +940,12 @@ int main(int argc, char** argv){
       int length;
       char *contents;
       status = get_contents_from_archive(argv[2], argv[3], &length, &contents);
-      fwrite(contents, length, 1, stdout);
-      free(contents);
+      if(SUCCESS == status){
+	fwrite(contents, length, 1, stdout);
+	free(contents);
+      }
+      else
+	return status;
     }
     // Write object to file
     else{
