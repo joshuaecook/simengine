@@ -1,7 +1,6 @@
 // Run a single model to completion on a single processor core
 int exec_cpu(solver_props *props, unsigned int modelid){
   unsigned int i;
-  Iterator iter;
   CDATAFORMAT min_time;
 
   // Initialize all iterators to running
@@ -18,21 +17,19 @@ int exec_cpu(solver_props *props, unsigned int modelid){
 
       // Run any pre-process algebraic evaluations
       for(i=0;i<NUM_ITERATORS;i++){
-	iter = ITERATORS[i];
-	if(props[iter].next_time[modelid] == props[iter].time[modelid]){
+	if(props[i].next_time[modelid] == props[i].time[modelid]){
 	  pre_process(&props[i], modelid);
 	}
       }
 
       // Run solvers for all iterators that need to advance
       for(i=0;i<NUM_ITERATORS;i++){
-	iter = ITERATORS[i];
-	if(props[iter].running[modelid] && props[iter].next_time[modelid] == props[iter].time[modelid]){
-	  if(0 != solver_eval(&props[iter], modelid)) {
+	if(props[i].running[modelid] && props[i].next_time[modelid] == props[i].time[modelid]){
+	  if(0 != solver_eval(&props[i], modelid)) {
 	    return ERRCOMP;
 	  }
-	  if(!props[iter].running[modelid]){
-	    model_flows(props[iter].time[modelid], props[iter].model_states, props[iter].next_states, &props[iter], 1, modelid);
+	  if(!props[i].running[modelid]){
+	    model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
 	  }
 	  // Run any in-process algebraic evaluations
 	  in_process(&props[i], modelid);
@@ -51,10 +48,9 @@ int exec_cpu(solver_props *props, unsigned int modelid){
       if(model_running(props,modelid)){
 	min_time = find_min_time(props, modelid);
 	for(i=0;i<NUM_ITERATORS;i++){
-	  iter = ITERATORS[i];
-	  if(props[iter].running[modelid] && 
-	     props[iter].next_time[modelid] == min_time &&
-	     props[iter].next_time[modelid] != props[iter].time[modelid]){
+	  if(props[i].running[modelid] && 
+	     props[i].next_time[modelid] == min_time &&
+	     props[i].next_time[modelid] != props[i].time[modelid]){
 	    solver_writeback(&props[i], modelid);
 	  }
 	}
