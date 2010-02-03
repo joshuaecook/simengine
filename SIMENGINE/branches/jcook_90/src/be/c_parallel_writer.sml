@@ -515,7 +515,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	    end
 
 	(* State names and initial value pairs are returned in a sorted order,
-	 * with the class' own states listed first in lexicographic order,
+	 * with the class' own states listed first in the order of the state initial values,
 	 * followed by the class' instance's states in order of the instance name. *)
 	fun findStatesInitValues iter_sym basestr (class:DOF.class) = 
 	    let
@@ -541,7 +541,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 
 		val compare = fn ((x,_), (y,_)) => String.compare (x, y)
 	    in
-		(Sorting.sorted compare stateInits)
+		stateInits
 		@ (Sorting.sorted compare instanceStateInits)
 	    end
 	    handle e => DynException.checkpoint "CParallelWriter.simengine_interface.findStatesInitValues" e
@@ -942,10 +942,14 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 	val class_iterators = #iterators class
 
 	val init_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isInitialConditionEq (!exps))
-	val init_eqs_symbols = 
+						       
+	(* can't sort symbols since some processing, especially when matrices are generated, assumes that the state order is fixed.
+	  In particular, the linear backward euler solver reorders the initial values in the same order that it is assuming for the
+	  matrix. *)
+	(*val init_eqs_symbols = 
 	    Sorting.sorted (fn (x, y) => String.compare (Symbol.name (Term.sym2curname (ExpProcess.exp2term x)),
 							 Symbol.name (Term.sym2curname (ExpProcess.exp2term y))))
-			   init_eqs_symbols
+			   init_eqs_symbols*)
 
 	val instances = ClassProcess.class2instances class
 
