@@ -1,23 +1,14 @@
 include ../include/common.make
 
-
 ifneq ($(DARWIN),)
 TARGET_ARCH = -arch i386
 endif
 
-
 .PHONY: all
 all: simlib/simlib simlib/simlib.a codegen
 
-
-
-simlib/simlib.o: CPPFLAGS += $(if $(ARCH64),-DARCH64,)
-
-simlib/simlib-command.o: CPPFLAGS += -DSIMLIB_MAIN $(if $(ARCH64),-DARCH64,)
-simlib/simlib-command.o: simlib/simlib.c
-	$(COMPILE.c) -o $@ $<
-
-simlib/simlib: simlib/simlib-command.o
+simlib/simlib: CPPFLAGS += -DSIMLIB_MAIN
+simlib/simlib: simlib/simlib.c
 	$(LINK.c) -o $@ $< -ldl -lz
 
 simlib/simlib.a: simlib/simlib.a(simlib/simlib.o)
@@ -45,5 +36,4 @@ test: lib/libcodegen.sim
 clean:
 	$(RM) src/*.o 
 	$(RM) lib/libcodegen.sim 
-	$(RM) simlib/simlib simlib/simlib.o simlib/simlib-command.o simlib/simlib.a
-	$(RM) simlib/simlib.dSYM
+	$(RM) simlib/simlib simlib/simlib.a

@@ -198,6 +198,7 @@ $(CVODE_PATH)/cvode/.libs/%.o: $(SUNDIALS)
 $(CVODE_PATH)/nvec_ser/.libs/%.o: $(SUNDIALS)
 $(CVODE_PATH)/sundials/.libs/%.o: $(SUNDIALS)
 
+.SECONDARY: $(SUNDIALS_TGZ)
 $(SUNDIALS_TGZ):
 	curl -o $@ -# $(SUNDIALS_URI)
 

@@ -32,6 +32,9 @@ simlib: SMLFLAGS += -link-opt "-lz ../../codegen/simlib/simlib.a"
 simlib: $(SIMLIB_SOURCES) ../../codegen/simlib/simlib.a ffi-simlib.c 
 	$(COMPILE.sml) -output $@ $< ffi-simlib.c
 
+../../codegen/simlib/simlib.a:
+	$(MAKE) -C ../../codegen simlib/simlib.a
+
 SIMLIB_TEST_BASIS := $(addsuffix $(BASISEXT),simlib-test)
 SIMLIB_TEST_SOURCES := $(shell $(SMLC) -stop f $(SIMLIB_TEST_BASIS))
 

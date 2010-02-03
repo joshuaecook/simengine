@@ -1841,52 +1841,52 @@ fun buildC (orig_name, shardedModel) =
 	val fun_prototypes = List.concat (map #1 flow_data)
 	val flow_progs = List.concat (map #2 flow_data)
 	val logoutput_progs = logoutput_code forkedModelsLessUpdate
-	val simengine_api_h = $(Archive.getC "simengine/simengine_api.h")
-	val precision_h = $(Archive.getC "simengine/precision.h")
-	val memory_layout_h = $(Archive.getC "simengine/memory_layout.h")
+	val simengine_api_h = $(Codegen.getC "simengine/simengine_api.h")
+	val precision_h = $(Codegen.getC "simengine/precision.h")
+	val memory_layout_h = $(Codegen.getC "simengine/memory_layout.h")
 
 	val target_h = 
 	    case sysprops 
 	     of	{target=Target.CPU, ...} =>
-		$(Archive.getC "simengine/cpu.h")
+		$(Codegen.getC "simengine/cpu.h")
 	      | {target=Target.OPENMP, ...} =>
-		$(Archive.getC "simengine/openmp.h")
+		$(Codegen.getC "simengine/openmp.h")
 	      | {target=Target.CUDA, ...} =>
-		$(Archive.getC "simengine/gpu.h")
+		$(Codegen.getC "simengine/gpu.h")
 
-	val solvers_h = $(Archive.getC "solvers/solvers.h")
-	val gpu_util_c = $(Archive.getC "simengine/gpu_util.c")
-	val random_c = $(Archive.getC "simengine/random.c")
-	val solver_gpu_cu = $(Archive.getC ("solvers/solver_gpu.cu"))
+	val solvers_h = $(Codegen.getC "solvers/solvers.h")
+	val gpu_util_c = $(Codegen.getC "simengine/gpu_util.c")
+	val random_c = $(Codegen.getC "simengine/random.c")
+	val solver_gpu_cu = $(Codegen.getC ("solvers/solver_gpu.cu"))
 	val solver_c = $(String.concat (map
-					    (fn(solv)=> Archive.getC ("solvers/"^solv^".c"))
+					    (fn(solv)=> Codegen.getC ("solvers/"^solv^".c"))
 					    unique_solvers))
 	val solver_wrappers_c = solver_wrappers unique_solvers
 	val iterator_wrappers_c = (update_wrapper updateModels) @ 
 				  (preprocess_wrapper shardedModel preprocessIterators) @
 				  (inprocess_wrapper shardedModel inprocessIterators) @
 				  (postprocess_wrapper shardedModel postprocessIterators)
-	val simengine_api_c = $(Archive.getC "simengine/simengine_api.c")
-	val defines_h = $(Archive.getC "simengine/defines.h")
-	val seint_h = $(Archive.getC "simengine/seint.h")
-	val output_buffer_h = $(Archive.getC "simengine/output_buffer.h")
-	val init_output_buffer_c = $(Archive.getC "simengine/init_output_buffer.c")
-	val log_outputs_c = $(Archive.getC "simengine/log_outputs.c")
+	val simengine_api_c = $(Codegen.getC "simengine/simengine_api.c")
+	val defines_h = $(Codegen.getC "simengine/defines.h")
+	val seint_h = $(Codegen.getC "simengine/seint.h")
+	val output_buffer_h = $(Codegen.getC "simengine/output_buffer.h")
+	val init_output_buffer_c = $(Codegen.getC "simengine/init_output_buffer.c")
+	val log_outputs_c = $(Codegen.getC "simengine/log_outputs.c")
 
 	val exec_c = 
 	    case sysprops
 	     of {target=Target.CPU, ...} =>
-		[$(Archive.getC "simengine/exec_cpu.c"),
-		 $(Archive.getC "simengine/exec_serial_cpu.c")]
+		[$(Codegen.getC "simengine/exec_cpu.c"),
+		 $(Codegen.getC "simengine/exec_serial_cpu.c")]
 	      | {target=Target.OPENMP, ...} => 
-		[$(Archive.getC "simengine/exec_cpu.c"),
-		 $(Archive.getC "simengine/exec_parallel_cpu.c")]
+		[$(Codegen.getC "simengine/exec_cpu.c"),
+		 $(Codegen.getC "simengine/exec_parallel_cpu.c")]
 	      | {target=Target.CUDA, ...} =>
-		[$(Archive.getC "simengine/exec_kernel_gpu.cu"),
-		 $(Archive.getC "simengine/exec_parallel_gpu.cu")]
+		[$(Codegen.getC "simengine/exec_kernel_gpu.cu"),
+		 $(Codegen.getC "simengine/exec_parallel_gpu.cu")]
 
 	val model_flows_c = model_flows forkedModelsWithSolvers
-	val exec_loop_c = $(Archive.getC "simengine/exec_loop.c")
+	val exec_loop_c = $(Codegen.getC "simengine/exec_loop.c")
 
 	(* write the code *)
 	val _ = output_code(class_name, ".", (header_progs @

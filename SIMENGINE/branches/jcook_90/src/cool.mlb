@@ -7,7 +7,13 @@ local
   $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
   $(SML_LIB)/smlnj-lib/RegExp/regexp-lib.mlb
 
-  ffi/simex.mlb
+  ann
+	"allowFFI true"
+  in
+	ffi/ffi-exports.sml
+	ffi/simex.mlb
+	ffi/simlib.mlb
+  end
 
   shell/symbol.sml
 
@@ -147,7 +153,7 @@ be/c_writer.sml
 be/mex_writer.sml
 be/mex_ode_writer.sml
 *)
-be/archive.sml
+be/codegen.sml
 be/c_parallel_writer.sml
 
 (*

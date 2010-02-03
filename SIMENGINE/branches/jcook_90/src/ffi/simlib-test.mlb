@@ -1,6 +1,12 @@
-local
-	$(SML_LIB)/basis/basis.mlb
-	simlib.mlb
+ann
+	"allowFFI true"
 in
-	simlib-test.sml
+	local
+		$(SML_LIB)/basis/basis.mlb
+  		$(SML_LIB)/basis/mlton.mlb
+		ffi-exports.sml
+		simlib.mlb
+	in
+		simlib-test.sml
+	end
 end

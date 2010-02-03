@@ -102,7 +102,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -target-link-opt linux -ldl -export-header src/ffi/ffi-exports.h
+SIMPLE_ARGS = -target-link-opt linux -ldl -export-header src/ffi/ffi-exports.h -link-opt codegen/simlib/simlib.a
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1
@@ -355,7 +355,8 @@ links: $(BUILD_DIR)
 COMPILER_MLB = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_MLB))
 COMPILER_EXTRA_SOURCES = src/ffi/ffi-simengine.c
-COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_SOURCES)
+COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a
+COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_SOURCES) $(COMPILER_EXTRA_LIBS)
 
 # COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/math/*.s* src/ir/processing/*.s* src/ir/patterns/*.s* src/be/*.s* src/library/*.s* src/objects/*.s* src/shell/*.s* src/util/*.s* src/util/error/*.s* src/util/files/*.s* src/util/printing/*.s* src/util/registry/*.s* src/cool.mlb
 
@@ -382,7 +383,7 @@ src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml: src/util/
 	$(YACC.sml) $<
 
 $(OUTPUT_FILE): override SMLFLAGS += $(ARGS)
-$(OUTPUT_FILE): $(COMPILER_MLB) $(COMPILER_DEPENDENCIES) $(COMPILER_EXTRA_SOURCES)
+$(OUTPUT_FILE): $(COMPILER_DEPENDENCIES)
 	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
 
 
@@ -447,7 +448,7 @@ solvers/lib/libcvode_%.a: solvers
 
 .PHONY: solvers
 solvers:
-	$(MAKE) -C solvers/cvode all install install
+	$(MAKE) -j -C solvers/cvode all install install
 
 .PHONY: share_cuda
 share_cuda:
@@ -571,6 +572,10 @@ build_shared: share/*
 
 $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
+
+.PHONY: codegen/simlib/simlib.a
+codegen/simlib/simlib.a:
+	$(MAKE) -C codegen simlib/simlib.a
 
 
 $(BUILD_DIR)/bin/simlib: codegen/simlib/simlib.c

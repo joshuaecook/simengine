@@ -1,4 +1,4 @@
-signature ARCHIVE = 
+signature CODEGEN = 
 sig
     (* Returns the contents of an archived file given the name *)
     val get: string -> string
@@ -16,7 +16,7 @@ sig
 
 end
 
-structure Archive : ARCHIVE =
+structure Codegen : CODEGEN =
 struct
 
 val simengine = getSIMENGINE()

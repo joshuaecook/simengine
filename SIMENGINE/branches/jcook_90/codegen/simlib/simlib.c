@@ -15,13 +15,13 @@
 
 // Architecture specific routine macro
 #ifdef __APPLE__
-//#ifdef __X86_64__
+//#ifdef __x86_64__
 //#define WRITE_OBJ write_mach_o64
 //#else
 #define WRITE_OBJ write_mach_o32
 //#endif
 #else
-#ifdef __X86_64__
+#ifdef __x86_64__
 #define WRITE_OBJ write_elf64
 #else
 #define WRITE_OBJ write_elf32
