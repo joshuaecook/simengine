@@ -9,7 +9,7 @@ val makeObjectFromFile' =
     _import "simlib_MakeObjectFromFile": (string * string * string ref) -> status;
 
 val makeObjectFromContents' =
-    _import "simlib_MakeObjectFromContents": (string * int * string * string ref) -> status;
+    _import "simlib_MakeObjectFromContents": (string * Int32.int * string * string ref) -> status;
 
 val getFileFromArchive' =
     _import "simlib_GetFileFromArchive": (string * string * string) -> status;
@@ -17,22 +17,41 @@ val getFileFromArchive' =
 val getContentsFromArchive' =
     _import "simlib_GetContentsFromArchive": (string * string * string ref) -> status;
 
+val errno =
+    _import "simlib_errno": (unit) -> Int32.int;
+
+val strerror =
+    _import "simlib_strerror": (Int32.int) -> string;
+
 (* Appends a NULL byte to the end of a string for C compatibility. *)
 fun cstring name = name ^ (str (chr (Word8.toInt 0w0)))
 
+exception NoSuchObject
+exception Compression
+
 val error =
  fn 0 => NONE
-  | 1 => SOME (Fail ("SIMLIB out of memory error"))
-  | 2 => SOME (Fail ("SIMLIB error opening file"))
-  | 3 => SOME (Fail ("SIMLIB error loading dynamic library"))
-  | 4 => SOME (Fail ("SIMLIB object does not exist in archive"))
-  | 5 => SOME (Fail ("SIMLIB compression error"))
-  | 6 => SOME (Fail ("SIMLIB decompression error"))
-  | n => bug ("unknown error " ^ (Int32.toString n))
+  | 1 => SOME (Fail ("Simlib out of memory"))
+  | 2 => 
+    let val eid = errno ()
+    in
+	SOME (IO.Io {name = "Simlib", function = "fopen", 
+		     cause = OS.SysErr (strerror eid, NONE)})
+    end
+  | 3 => 
+    let val eid = errno ()
+    in
+	SOME (IO.Io {name = "Simlib", function = "dlopen", 
+		     cause = OS.SysErr (strerror eid, NONE)})
+    end
+  | 4 => SOME NoSuchObject
+  | 5 => SOME Compression
+  | 6 => SOME Compression
+  | n => bug ("Simlib unknown error " ^ (Int32.toString n))
 
 fun makeObjectFromFile {filename, objectName} =
     let val objectFilename: string ref = ref ""
-    in case error (makeObjectFromFile' (cstring filename, cstring objectName, objectFilename))
+    in case error (makeObjectFromFile' (cstring objectName, cstring filename, objectFilename))
 	of NONE => ! objectFilename
 	 | SOME exn => raise exn
     end

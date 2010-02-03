@@ -191,7 +191,7 @@ install_libs: $(addprefix ../lib/,$(PRODUCT_LIBS))
 	$(MAKE) -C $< -I $(CURDIR) -f $(realpath $(firstword $(MAKEFILE_LIST))) libcvode.a
 
 libcvode.a: $(CVODE_OBJS)
-	$(AR) $@ $?
+	$(AR) $(ARFLAGS) $@ $?
 
 # CVODE_OBJS
 $(CVODE_PATH)/cvode/.libs/%.o: $(SUNDIALS)
