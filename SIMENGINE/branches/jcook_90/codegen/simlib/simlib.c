@@ -15,13 +15,13 @@
 
 // Architecture specific routine macro
 #ifdef __APPLE__
-#ifdef ARCH64
-#define WRITE_OBJ write_mach_o64
-#else
+//#ifdef __X86_64__
+//#define WRITE_OBJ write_mach_o64
+//#else
 #define WRITE_OBJ write_mach_o32
-#endif
+//#endif
 #else
-#ifdef ARCH64
+#ifdef __X86_64__
 #define WRITE_OBJ write_elf64
 #else
 #define WRITE_OBJ write_elf32
@@ -303,7 +303,7 @@ static int write_mach_o32(FILE *objfile, const char *sym_beg, const char *sym_en
   nl[0].n_desc = REFERENCE_FLAG_DEFINED | REFERENCED_DYNAMICALLY | N_NO_DEAD_STRIP;
   nl[0].n_value = 0; // Beginning addr symbol (beginning of section, will be relocated on link/load)
 
-  nl[1].n_un.n_strx = strlen(sym_beg)+2; // Character offset into the string table
+  nl[1].n_un.n_strx = strlen(sym_beg)+1; // Character offset into the string table
   nl[1].n_type = N_EXT | N_SECT;
   nl[1].n_sect = 1;
   nl[1].n_desc = REFERENCE_FLAG_DEFINED | REFERENCED_DYNAMICALLY | N_NO_DEAD_STRIP;
@@ -835,7 +835,7 @@ int get_contents_from_archive(// Inputs
     close_binary();
     return status;
   }
-  if(0 == cdsize){
+  if(0 >= cdsize){
     close_binary();
     return ERR_NO_OBJECT;
   }
