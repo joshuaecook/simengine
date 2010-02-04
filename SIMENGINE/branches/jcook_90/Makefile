@@ -325,7 +325,7 @@ else
 DOCUMENTATION_BUILD_FILES = 
 endif
 
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/bin/simlib $(BUILD_DIR)/lib/libcodegen.sim $(BUILD_DIR)/bin/simex $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/bin/simlib  $(BUILD_DIR)/lib/libcodegen.sim $(BUILD_DIR)/bin/simex $(MATLAB_BUILD_FILES)
 
 
 ifeq ($(BUILD_TYPE),software)
@@ -420,9 +420,8 @@ $(BUILD_DIR)/%.m: interfaces/matlab/%.m
 $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 	$(CP) $< $@
 
-$(BUILD_DIR)/lib/libcodegen.sim: codegen/src/* codegen/src/*/*
-	@$(MAKE) -C codegen codegen
-	$(CP) codegen/lib/libcodegen.sim $@
+$(BUILD_DIR)/lib/libcodegen.sim: codegen/lib/libcodegen.sim
+	$(CP) $< $@
 
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	$(CP) $< $@
@@ -573,13 +572,20 @@ build_shared: share/*
 $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
-.PHONY: codegen/simlib/simlib.a
-codegen/simlib/simlib.a:
-	$(MAKE) -C codegen simlib/simlib.a
 
+.PHONY: codegen
+codegen:
+	$(MAKE) -C codegen
 
-$(BUILD_DIR)/bin/simlib: codegen/simlib/simlib.c
-	@$(MAKE) -C codegen simlib/simlib $(ARCH64_FLAG)
+.PHONY: codegen_clean
+codegen_clean:
+	$(MAKE) -C codegen clean
+
+codegen/simlib/simlib.a: codegen
+codegen/simlib/simlib: codegen
+codegen/lib/libcodegen.sim: codegen
+
+$(BUILD_DIR)/bin/simlib: codegen
 	$(CP) codegen/simlib/simlib $@
 
 $(BUILD_DIR)/bin/simex: interfaces/c/simex.c interfaces/c/simex_commandline.c interfaces/c/simex.h codegen/src/simengine/simengine_api.h codegen/src/simengine/memory_layout.h
@@ -856,10 +862,6 @@ testing_clean:
 .PHONY: solvers_clean
 solvers_clean:
 	$(MAKE) -C solvers/cvode clean
-
-.PHONY: codegen_clean
-codegen_clean:
-	$(MAKE) -C codegen clean
 
 .PHONY: mexinterface_clean
 mexinterface_clean:
