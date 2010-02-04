@@ -61,7 +61,7 @@ sig
     val assignCorrectScope : DOF.class -> unit (* sets read state or write state properties on symbols *)
     val updateForkedClassScope : DOF.systemiterator -> DOF.class -> unit (* update the scopes on symbols for those reads that are to be read from a per-iterator state structure instead of the system state structure *)
     val addEPIndexToClass : bool -> DOF.class -> unit (* sets the embarrassingly parallel property on symbols in all but the top level class *)
-    val makeSlaveClassProperties : DOF.classproperties -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
+    val makeSlaveClassProperties : DOF.classproperties * Symbol.symbol -> DOF.classproperties (* updates a class to make it a slave class - this is one that shouldn't write any states but can generate intermediates *)
     val fixSymbolNames : DOF.class -> unit (* makes all symbol names C-compliant *)
 
     val renameInsts :  ((Symbol.symbol * Symbol.symbol) * (Symbol.symbol * Symbol.symbol)) -> DOF.class -> unit (* change all instance names in a class *)
@@ -1148,13 +1148,11 @@ fun class2instancesbyiterator iter_sym class =
 	    instances
     end
 	
-fun makeSlaveClassProperties props = 
+fun makeSlaveClassProperties (props, mastername) = 
     let
 	val {classtype, classform, sourcepos, basename} = props
     in
-	{classtype=case classtype of
-		       DOF.MASTER classname => DOF.SLAVE classname
-		     | _ => classtype,
+	{classtype=DOF.SLAVE mastername,
 	 classform=classform,
 	 sourcepos=sourcepos,
 	 basename=basename}

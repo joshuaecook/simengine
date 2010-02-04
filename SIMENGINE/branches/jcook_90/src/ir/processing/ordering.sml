@@ -25,6 +25,11 @@ fun id a = a
 (* Compares two values using the builtin polymorphic equality operator. (Allows partial application.) *)
 fun equals a b = a = b
 
+fun genUniqueName base = 
+    Symbol.symbol (base ^ (Int.toString (Unique.genid())))
+
+fun genMasterName base =
+    Symbol.symbol (base ^ ("__master__"))
 
 fun printClassMap classMap =
     let
@@ -138,7 +143,7 @@ fun buildInstance (class, outputs, inputMap, original_instance_exp) : Exp.exp =
     let
 	val {instname=orig_inst_name, classname=orig_class_name,props,inpargs=oldinputs, outargs=orig_outs} = ExpProcess.deconstructInst original_instance_exp
 
-	val instName = Symbol.symbol ((Symbol.name (orig_inst_name)) ^ (Int.toString (Unique.genid())))
+	val instName = genUniqueName(Symbol.name (orig_inst_name))
 
 	val lhs' = Exp.TUPLE (map (sym2output orig_outs) outputs)
 
@@ -531,6 +536,7 @@ fun orderModel (model:DOF.model)=
 	    end
 
 
+	(* Note: partgroup must either be a list of outputs OR a list containing only the maininstance*)
 	fun buildSplit (instanceClass:DOF.class, orig_instance_exp) (partGroup, (splitMap, classMap, classIOMap, exps)) =
 	    let
 		val _ = print ("calling buildsplit\n")
@@ -544,6 +550,14 @@ fun orderModel (model:DOF.model)=
 
 		val outputs = List.filter (not o isMainInstance) partGroup
 		val mainInstance = List.find isMainInstance partGroup
+
+		(* Sanity check to confirm that we never have a master class (main instance) with outputs *)
+		val _ = if Option.isSome mainInstance andalso length(partGroup) <> 1 then
+			    DynException.stdException ("We cannot have a master class (main instance) with outputs",
+						       "Ordering.orderModel.buildSplit",
+						       Logger.INTERNAL)
+			else
+			    ()
 
 		val candidateClasses = (valOf(SymbolTable.look (splitMap, classname)))
 		    handle e => DynException.checkpoint "Ordering.orderModel.buildSplit.candidateClasses" e
@@ -589,7 +603,10 @@ fun orderModel (model:DOF.model)=
 
 	and buildClass (classMap, splitMap, oldClass:DOF.class, outputMap, includeMainExps) =
 	    let
-		val newname = Symbol.symbol ((Symbol.name (#name oldClass)) ^ (Int.toString (Unique.genid())))
+		val newname = if includeMainExps then 
+				  genMasterName(Symbol.name (#name oldClass))
+			      else
+				  genUniqueName(Symbol.name (#name oldClass))
 
 		val expMap = (valOf(SymbolTable.look(classMap, #name oldClass)))
 		    handle e => DynException.checkpoint "Ordering.orderModel.buildClass.expMap" e
@@ -886,7 +903,7 @@ fun orderModel (model:DOF.model)=
 				properties= if includeMainExps then
 						#properties oldClass
 					    else (* convert it to a slave of the orignal *)
-						ClassProcess.makeSlaveClassProperties (#properties oldClass),
+						ClassProcess.makeSlaveClassProperties (#properties oldClass, genMasterName(Symbol.name (#name oldClass))),
 				iterators= #iterators oldClass,
 				inputs= ref inputs,
 				outputs=ref outputs,
