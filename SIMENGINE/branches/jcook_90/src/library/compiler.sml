@@ -294,13 +294,13 @@ fun simfileSettings exec args =
 	    val newTable = KEC.SEND {object = KEC.SYMBOL (Symbol.symbol "Table"), 
 				     message = Symbol.symbol "new"}
 
-	    val keys = ["target", "precision", "num_models", "version"]
+	    val keys = ["target", "precision", "parallel_models", "version"]
 	    val values = 
 		[KEC.LITERAL (KEC.CONSTSTR (Simex.API.target api)),
 		 KEC.LITERAL (KEC.CONSTSTR (case Simex.API.precision api
 					     of Simex.API.Double => "double"
 					      | Simex.API.Single => "float")),
-		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.numModels api))),
+		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.parallelModels api))),
 		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.version api)))]
 
 	    val entries = KEC.list2kecvector

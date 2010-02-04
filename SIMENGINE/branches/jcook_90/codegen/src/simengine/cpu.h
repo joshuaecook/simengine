@@ -3,7 +3,7 @@
 #define TARGET CPU
 #define TARGET_IDX AS_IDX
 #define STRUCT_IDX modelid
-#define STRUCT_SIZE NUM_MODELS
+#define STRUCT_SIZE PARALLEL_MODELS
 #define ARRAY_IDX 0
 #define ARRAY_SIZE 1
 #define __DEVICE__

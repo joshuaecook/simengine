@@ -118,7 +118,7 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
       const char *field_names[] = {"name", "target", "solver_names", "iterator_names",
 				   "input_names", "state_names", "output_names",
 				   "default_inputs", "default_states", "output_num_quantities",
-				   "version", "precision", "num_models", "num_iterators",
+				   "version", "precision", "parallel_models", "num_iterators",
 				   "num_inputs", "num_states", "num_outputs", "hashcode"};
 
     mxArray *input_names, *state_names, *output_names, *solver_names, *iterator_names;
@@ -256,8 +256,8 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
     mxDestroyArray(mxGetField(*interface, 0, "hashcode"));
     mxSetField(*interface, 0, "hashcode", hashcode);
 
-    mxDestroyArray(mxGetField(*interface, 0, "num_models"));
-    mxSetField(*interface, 0, "num_models", mxCreateDoubleScalar((double)iface->num_models));
+    mxDestroyArray(mxGetField(*interface, 0, "parallel_models"));
+    mxSetField(*interface, 0, "parallel_models", mxCreateDoubleScalar((double)iface->parallel_models));
 
     mxDestroyArray(mxGetField(*interface, 0, "solver_names"));
     mxSetField(*interface, 0, "solver_names", solver_names);
@@ -506,12 +506,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 	    case ERRCOMP:
 		release_simengine();
 		ERROR(Simatra:SIMEX:HELPER:runtimeError, "An error occurred during simulation computation.");
-		break;
-
-	    case ERRNUMMDL:
-		expected = iface->num_models;
-		release_simengine();
-		ERROR(Simatra:SIMEX:HELPER:valueError, "Expected to run %d parallel models but received %d.", expected, models);
 		break;
 	    }
 

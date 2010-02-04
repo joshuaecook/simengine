@@ -57,7 +57,7 @@ type systemiterator = (Symbol.symbol * iteratortype)
 type systemproperties = {iterators: systemiterator list, 
 			 precision: precisiontype,
 			 target: Target.target,
-			 num_models: int,
+			 parallel_models: int,
 			 debug: bool,
 			 profile: bool}
 

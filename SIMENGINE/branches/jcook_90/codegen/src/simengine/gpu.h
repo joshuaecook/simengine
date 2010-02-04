@@ -8,7 +8,7 @@
 #define STRUCT_IDX 0
 #define STRUCT_SIZE 1
 #define ARRAY_IDX modelid
-#define ARRAY_SIZE NUM_MODELS
+#define ARRAY_SIZE PARALLEL_MODELS
 #define __DEVICE__ __device__
 #define __HOST__ __host__
 #define __GLOBAL__ __global__

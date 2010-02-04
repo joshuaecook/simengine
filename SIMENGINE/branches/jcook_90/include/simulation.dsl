@@ -1167,8 +1167,7 @@ function compile2 (filename: String, compiler_settings: Table)
       else
 	  var simcompiler_settings = LF simfileSettings simfile
 	  if not (compiler_settings.target == simcompiler_settings.target and
-		  compiler_settings.precision == simcompiler_settings.precision and
-		  compiler_settings.num_models == simcompiler_settings.num_models) then
+		  compiler_settings.precision == simcompiler_settings.precision) then
 	      var mod = LF loadModel (filename)
 	      mod.template.settings = compiler_settings
 	      compile mod
@@ -1190,9 +1189,9 @@ function compile (mod)
   var target
 
   if "openmp" == compiler_settings.target then
-      target = SimCompile.TargetOpenMP.new()
+      target = SimCompile.TargetOpenMP.new(compiler_settings)
   elseif "parallelcpu" == compiler_settings.target then
-      target = SimCompile.TargetOpenMP.new()
+      target = SimCompile.TargetOpenMP.new(compiler_settings)
   elseif "cuda" == compiler_settings.target then
       target = SimCompile.TargetCUDA.new(compiler_settings)
   elseif "gpu" == compiler_settings.target then
@@ -1208,7 +1207,6 @@ function compile (mod)
   target.debug = compiler_settings.debug
   target.profile = compiler_settings.profile
 
-  target.num_models = compiler_settings.num_models
   target.precision = compiler_settings.precision
 
   var stat = LF compile (Translate.model2forest (mod.instantiate()))

@@ -34,7 +34,7 @@ val empty_model:DOF.model
 		 (Symbol.symbol "n", DOF.DISCRETE {sample_period=1.0})],
       precision=DOF.DOUBLE,
       target=Target.CPU,
-      num_models=1,
+      parallel_models=1,
       debug=false,
       profile=false})
 

@@ -35,7 +35,7 @@ in fun precision api =
 	of 4 => Single | 8 => Double
 	 | _ => bug "odd precision"
 end
-val numModels = _import "seint_num_models": api -> Int32.int;
+val parallelModels = _import "seint_parallel_models": api -> Int32.int;
 val numIterators = _import "seint_num_iterators": api -> Int32.int;
 val numInputs = _import "seint_num_inputs": api -> Int32.int;
 val numStates = _import "seint_num_states": api -> Int32.int;

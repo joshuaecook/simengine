@@ -139,10 +139,10 @@ fun printModel (model: DOF.model) =
 
 	    end
 
-	fun printSystemProperties {iterators,precision,target,num_models,debug,profile} =
+	fun printSystemProperties {iterators,precision,target,parallel_models,debug,profile} =
 	    (print (" precision: "^(case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")^"\n");
 	     print (" target: "^(Target.target2str target)^"\n");
-	     print (" number of models: "^(i2s num_models)^"\n");
+	     print (" number of parallel models: "^(i2s parallel_models)^"\n");
 	     (if debug then print (" DEBUG mode enabled\n") else ());
 	     (if profile then print (" PROFILE mode enabled\n") else ());
 	     app

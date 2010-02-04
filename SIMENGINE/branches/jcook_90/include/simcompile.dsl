@@ -44,10 +44,10 @@ namespace SimCompile
   /* A target-specific Make configuration.
    * A derived class shall exist for each supported target backend. */
   class Target
-    var num_models = 1
     var debug = false
     var profile = false
     var precision = "double"
+    var parallelModels = 1
     var cFlags = ["-W", "-Wall", "-fPIC", "-fopenmp"]
     var cppFlags = []
     var ldFlags = []
@@ -62,7 +62,7 @@ namespace SimCompile
       m.LDFLAGS = ldFlags.clone ()
       m.LDLIBS = ldLibs.clone ()
 
-      m.CPPFLAGS.push_front("-DNUM_MODELS=" + (num_models.tostring()))
+      m.CPPFLAGS.push_front("-DPARALLEL_MODELS=" + (parallelModels.tostring()))
 
       if "double" <> precision then
         m.CPPFLAGS.push_back("-DSIMENGINE_STORAGE_float")
@@ -135,6 +135,12 @@ namespace SimCompile
   end
 
   class TargetOpenMP extends Target
+    constructor (settings)
+      super ()
+      parallelModels = Devices.OPENMP.numProcessors()
+      settings.parallel_models = parallelModels
+    end
+
     function setupMake (m: Make)
       if "double" <> precision then
 	m.LDLIBS.push_back("-lcvode_float")
@@ -156,6 +162,10 @@ namespace SimCompile
     constructor (settings)
       super ()
 
+      // MP * warp size * 4 to keep high residency (probably needs tweaking)
+      parallelModels = Devices.CUDA.getProp(1, "multiProcessorCount").tonumber() * 32 * 4
+      settings.parallel_models = parallelModels
+
       precision = settings.precision
       emulate = settings.emulate
 
@@ -172,7 +182,9 @@ namespace SimCompile
       var device_id = Devices.CUDA.getProp(1, "deviceId")
       var device_arch = Devices.CUDA.getProp(1, "arch")
       if not emulate and precision == "double" and device_arch <> "sm_13" then
-        error("CUDA device does not support double precision. Please set precision to 'single'.")
+        warning("CUDA device does not support double precision. Defaulting to single precision float.")
+        precision = "float"
+        settings.precision = "float"
       end
     end
 

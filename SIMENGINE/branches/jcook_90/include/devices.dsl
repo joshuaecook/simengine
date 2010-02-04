@@ -61,4 +61,8 @@ namespace Devices
         end
 
     end // namespace CUDA
+
+    namespace OPENMP
+      function numProcessors() = LF openmpGetNumProcessors()
+    end
 end

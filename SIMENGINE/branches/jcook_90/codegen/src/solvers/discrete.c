@@ -5,7 +5,7 @@ __HOST__
 int discrete_init(solver_props *props){
 # if defined TARGET_GPU
 # else
-  props->count = (unsigned int*)calloc(props->num_models,sizeof(unsigned int));
+  props->count = (unsigned int*)calloc(PARALLEL_MODELS,sizeof(unsigned int));
 # endif
   return 0;
 }

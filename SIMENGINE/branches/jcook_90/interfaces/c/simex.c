@@ -40,7 +40,7 @@ int runsimEngine (const char *simengine_bin, simengine_opts *opts)
   set_names(opts);
 
   // Construct the settings to pass to simEngine
-  snprintf(settings, BUFSIZE, "{target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s,emulate=%s}", 
+  snprintf(settings, BUFSIZE, "{target=\\\"%s\\\",precision=\\\"%s\\\",parallel_models=%d,debug=%s,profile=%s,emulate=%s}", 
 	   opts->target, opts->precision, opts->num_models,
 #ifdef SIMEX_DEBUG
 	   opts->debug ? "true" : "false", 

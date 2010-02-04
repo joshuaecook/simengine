@@ -25,10 +25,10 @@ int linearbackwardeuler_init(solver_props *props){
   // Allocates GPU global memory for solver's persistent data
   switch(opts->lsolver){
   case LSOLVER_DENSE:
-    cutilSafeCall(cudaMalloc((void **)&mem, props->num_models * props->statesize * props->statesize * sizeof(CDATAFORMAT)));
+    cutilSafeCall(cudaMalloc((void **)&mem, PARALLEL_MODELS * props->statesize * props->statesize * sizeof(CDATAFORMAT)));
     break;
   case LSOLVER_BANDED:
-    cutilSafeCall(cudaMalloc((void **)&mem, props->num_models * props->statesize * bandwidth * sizeof(CDATAFORMAT)));
+    cutilSafeCall(cudaMalloc((void **)&mem, PARALLEL_MODELS * props->statesize * bandwidth * sizeof(CDATAFORMAT)));
     break;
   default:
     return 1;
@@ -36,10 +36,10 @@ int linearbackwardeuler_init(solver_props *props){
 #else // CPU and OPENMP targets
   switch(opts->lsolver){
   case LSOLVER_DENSE:
-    mem = (solver_mem *)malloc(props->num_models * props->statesize * props->statesize * sizeof(CDATAFORMAT));
+    mem = (solver_mem *)malloc(PARALLEL_MODELS * props->statesize * props->statesize * sizeof(CDATAFORMAT));
     break;
   case LSOLVER_BANDED:
-    mem = (solver_mem *)malloc(props->num_models * props->statesize * bandwidth * sizeof(CDATAFORMAT));
+    mem = (solver_mem *)malloc(PARALLEL_MODELS * props->statesize * bandwidth * sizeof(CDATAFORMAT));
     break;
   default:
     return 1;
@@ -67,10 +67,10 @@ int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
   // Run the specified linear solver
   switch(opts->lsolver){
   case LSOLVER_DENSE:
-    lsolver_dense(props->statesize, M, props->next_states, props->num_models, modelid);
+    lsolver_dense(props->statesize, M, props->next_states, PARALLEL_MODELS, modelid);
     break;
   case LSOLVER_BANDED:
-    lsolver_banded(props->statesize, opts->lowerhalfbw, opts->upperhalfbw, M, props->next_states, props->num_models, modelid);
+    lsolver_banded(props->statesize, opts->lowerhalfbw, opts->upperhalfbw, M, props->next_states, PARALLEL_MODELS, modelid);
     break;
   default:
     return 1;

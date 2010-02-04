@@ -703,7 +703,7 @@ fun obj2dofmodel object =
 	(*val key_value_pairs = vec2list (method "contents" (method "settings" (method "modeltemplate" object)))*)
 	val precision = exp2str (method "precision" (method "settings" (method "modeltemplate" object)))
 	val target = exp2str (method "target" (method "settings" (method "modeltemplate" object)))
-	val num_models = exp2int (method "num_models" (method "settings" (method "modeltemplate" object)))
+	val parallel_models = exp2int (method "parallel_models" (method "settings" (method "modeltemplate" object)))
 	val debug = exp2bool (method "debug" (method "settings" (method "modeltemplate" object)))
 	val profile = exp2bool (method "profile" (method "settings" (method "modeltemplate" object)))
 		      
@@ -768,7 +768,7 @@ fun obj2dofmodel object =
 						     (("Unexpected target value " ^ (target)),
 						      "ModelTranslate.obj2dofmodel", 
 						      Logger.INTERNAL),
-				num_models=num_models,
+				parallel_models=parallel_models,
 				debug=debug,
 				profile=profile}
     in

@@ -3,7 +3,7 @@ signature SIMENGINE_INTERFACE = sig
 	type t
 	datatype precision = FLOAT | DOUBLE
 	val hashcode: t -> Int64.int
-	val numModels: t -> Int32.int
+	val parallelModels: t -> Int32.int
 	val solvers: t -> string vector
 	val target: t -> string
 	val precision: t -> precision
@@ -53,7 +53,7 @@ structure Metadata = struct
 type t = MLton.Pointer.t
 datatype precision = FLOAT | DOUBLE
 val hashcode = _import "semeta_hashcode": t -> Int64.int;
-val numModels = _import "semeta_num_models": t -> Int32.int;
+val parallelModels = _import "semeta_parallel_models": t -> Int32.int;
 val solvers = _import "semeta_solvers": t -> string vector;
 val target = _import "semeta_target": t -> string;
 val precision' = _import "semeta_precision": t -> Int32.int;

@@ -561,12 +561,12 @@ fun forkModel (model:DOF.model) =
 
 	val sysprops' =
 	    let 
-		val {iterators, precision, target, num_models, debug, profile} = sysprops
+		val {iterators, precision, target, parallel_models, debug, profile} = sysprops
 	    in
 		{iterators = iterators',
 		 precision = precision,
 		 target = target, 
-		 num_models = num_models,
+		 parallel_models = parallel_models,
 		 debug = debug,
 		 profile = profile}
 	    end

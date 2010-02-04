@@ -15,7 +15,7 @@ signature SIMENGINE_API = sig
     val version: api -> int
     datatype prec = Double | Single
     val precision: api -> prec
-    val numModels: api -> int
+    val parallelModels: api -> int
     val numIterators : api -> int
     val numInputs : api -> int
     val numStates : api -> int

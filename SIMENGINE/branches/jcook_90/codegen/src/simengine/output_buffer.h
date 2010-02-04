@@ -11,15 +11,14 @@
  *
  * The 'ptr' and 'end' pointers are references to positions within 'buffer.'
  */
-#ifdef NUM_MODELS
 #define BUFFER_LEN 8000
 typedef struct{
-  unsigned int finished[NUM_MODELS];
-  unsigned int full[NUM_MODELS];
-  unsigned int count[NUM_MODELS];
-  void *ptr[NUM_MODELS];
-  void *end[NUM_MODELS];
-  CDATAFORMAT buffer[BUFFER_LEN*NUM_MODELS];
+  unsigned int finished[PARALLEL_MODELS];
+  unsigned int full[PARALLEL_MODELS];
+  unsigned int count[PARALLEL_MODELS];
+  void *ptr[PARALLEL_MODELS];
+  void *end[PARALLEL_MODELS];
+  CDATAFORMAT buffer[PARALLEL_MODELS*BUFFER_LEN];
 } output_buffer;
 
 typedef struct {
@@ -27,4 +26,3 @@ typedef struct {
   unsigned int num_quantities;
   CDATAFORMAT quantities[];
 } output_buffer_data;
-#endif

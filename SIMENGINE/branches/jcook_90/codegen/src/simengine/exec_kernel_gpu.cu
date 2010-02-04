@@ -5,7 +5,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props){
   unsigned int num_iterations, i;
   CDATAFORMAT min_time;
 	     
-  if (modelid < NUM_MODELS) {
+  if (modelid < props->num_models) {
 
     // Initialize output buffer to store output data
     init_output_buffer(props->ob, modelid);

@@ -13,7 +13,7 @@
 
 
 // Solver indexing mode for states
-#define STATE_IDX TARGET_IDX(props->statesize, props->num_models, i, modelid)
+#define STATE_IDX TARGET_IDX(props->statesize, PARALLEL_MODELS, i, modelid)
 
 // Properties data structure
 // ============================================================================================================

@@ -34,7 +34,7 @@ int runsimEngine (char *simengine, char *file, char *modelname, struct targetopt
   // debug: FALSE=0 | TRUE=1
   // profile: FALSE=0 | TRUE=1
   char settings[1000];
-  snprintf(settings, 1000, "{target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s,emulate=%s}", 
+  snprintf(settings, 1000, "{target=\\\"%s\\\",precision=\\\"%s\\\",parallel_models=%d,debug=%s,profile=%s,emulate=%s}", 
 	   opts->target, opts->precision, opts->num_models, 
 	   opts->debug ? "true" : "false", 
 	   opts->profile ? "true" : "false",

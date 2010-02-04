@@ -116,8 +116,8 @@ Int32_t seint_version (Pointer iface)
 Int32_t seint_precision (Pointer iface)
     { return ((simengine_interface *)iface)->precision; }
 
-Int32_t seint_num_models (Pointer iface)
-    { return ((simengine_interface *)iface)->num_models; }
+Int32_t seint_parallel_models (Pointer iface)
+    { return ((simengine_interface *)iface)->parallel_models; }
 
 Int32_t seint_num_iterators (Pointer iface)
     { return ((simengine_interface *)iface)->num_iterators; }

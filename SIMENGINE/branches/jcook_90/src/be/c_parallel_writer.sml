@@ -233,8 +233,8 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
 			 $("props[ITERATOR_"^itername^"].system_states = system_ptrs;"),
-			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
-			 $("props[ITERATOR_"^itername^"].next_time = (CDATAFORMAT*)malloc(NUM_MODELS*sizeof(CDATAFORMAT));"),
+			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(PARALLEL_MODELS*sizeof(CDATAFORMAT));"),
+			 $("props[ITERATOR_"^itername^"].next_time = (CDATAFORMAT*)malloc(PARALLEL_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].count = NULL; // Allocated by discrete solver only, must be NULL otherwise"),
 			 $("// Initial values moved to model_states first time through the exec"),
 			 $("props[ITERATOR_"^itername^"].model_states = " ^
@@ -259,11 +259,11 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			 $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
 			 $("props[ITERATOR_"^itername^"].algebraic_statesize = " ^ (Util.i2s num_algebraic_states) ^ ";"),
 			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
-			 $("props[ITERATOR_"^itername^"].num_models = NUM_MODELS;"),
+			 $("props[ITERATOR_"^itername^"].num_models = num_models;"),
 			 $("props[ITERATOR_"^itername^"].od = od;"),
 			 $("props[ITERATOR_"^itername^"].ob_size = sizeof(output_buffer);"),
 			 $("props[ITERATOR_"^itername^"].ob = ob;"),
-			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(NUM_MODELS*sizeof(int));"),
+			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(PARALLEL_MODELS*sizeof(int));"),
 			 $("")]@ 
 			(case itertype of
 			     DOF.CONTINUOUS _ =>
@@ -277,7 +277,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			      $("system_ptrs->states_"^(Symbol.name itersym)^"_next = system_states_next->states_"^(Symbol.name itersym)^";"),
                               $("#if !defined TARGET_GPU"),
                               $("// Translate structure arrangement from external to internal formatting"),
-                              $("for(modelid=0;modelid<props->num_models;modelid++){"),
+                              $("for(modelid=0;modelid<num_models;modelid++){"),
                               SUB[$("memcpy(&system_states_int->states_"^(Symbol.name itersym)^"[modelid], " ^
 				    "&system_states_ext[modelid].states_"^(Symbol.name itersym)^", " ^
 				    "props[ITERATOR_"^itername^"].statesize * sizeof(CDATAFORMAT));")],
@@ -297,7 +297,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				      $("system_ptrs->states_" ^ cname ^ "_next = system_states_next->states_" ^ cname ^ ";"),
 				      $("#if !defined TARGET_GPU"),
 				      $("// Translate structure arrangement from external to internal formatting"),
-				      $("for(modelid=0;modelid<props->num_models;modelid++){"),
+				      $("for(modelid=0;modelid<num_models;modelid++){"),
 				      SUB[$("memcpy(&system_states_int->states_" ^ cname ^ "[modelid], " ^
 					    "&system_states_ext[modelid].states_" ^ cname ^ ", " ^
 					    "sizeof(statedata_" ^ (Symbol.name tcn) ^ "));")],
@@ -366,9 +366,9 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 					    CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class tcn))
 				    in
 					[$("tmp_system->states_"^(Symbol.name it)^" = (statedata_"^(Symbol.name tcn)^" *)" ^
-					  "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states + algebraic_offset * NUM_MODELS);"),
+					  "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states + algebraic_offset * PARALLEL_MODELS);"),
 					 $("tmp_system->states_"^(Symbol.name it)^"_next = (statedata_"^(Symbol.name tcn)^" *)" ^
-					   "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].next_states + algebraic_offset * NUM_MODELS);"),
+					   "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].next_states + algebraic_offset * PARALLEL_MODELS);"),
 					 $("algebraic_offset += " ^ (Int.toString (numIteratorStates it)) ^ ";")]
 				    end
 			    in
@@ -400,7 +400,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
@@ -419,7 +419,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	      [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
 	      $("output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));"),
 	      $("#if NUM_OUTPUTS > 0"),
-	      $("output_data *od = (output_data*)malloc(NUM_MODELS*sizeof(output_data));"),
+	      $("output_data *od = (output_data*)malloc(PARALLEL_MODELS*sizeof(output_data));"),
 	      $("unsigned int outputsize = sizeof(output_data)/sizeof(CDATAFORMAT);"),
 	      $("#else"),
 	      $("void *od = NULL;"),
@@ -431,7 +431,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	      $("// Initialize all time vectors"),
 	      $("assert(NUM_ITERATORS);"),
 	      $("for(i=0;i<NUM_ITERATORS;i++){"),
-	      SUB[$("for(modelid=0;modelid<NUM_MODELS;modelid++){"),
+	      SUB[$("for(modelid=0;modelid<num_models;modelid++){"),
 		  SUB[$("Iterator iter = ITERATORS[i];"),
 		      $("props[iter].time[modelid] = starttime;"),
 		      $("props[iter].next_time[modelid] = starttime;")],
@@ -1044,7 +1044,7 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 		 (* Should make the following conditional on whether we are targetting CPU or OPENMP (not GPU) *)
 		 $("// System State Structure (internal ordering)"),
 		 $("typedef struct {"),
-		 SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ "[NUM_MODELS];")) class_names_iterators),
+		 SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ "[PARALLEL_MODELS];")) class_names_iterators),
 		 $("} systemstatedata_internal;"),
                  $("")]
 
@@ -1221,7 +1221,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val input_automatic_var =
 	    if is_top_class then
 		fn ({name,default},i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, NUM_MODELS, " ^ (i2s i) ^ ", modelid)];")
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, " ^ (i2s i) ^ ", modelid)];")
 	    else
 		fn ({name,default},i) => 
 		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
@@ -1293,7 +1293,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 					    end
 
 			  val (rows, cols) = Matrix.size m'
-			  fun createIdx (i,j) = "MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", NUM_MODELS, modelid)"
+			  fun createIdx (i,j) = "MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", PARALLEL_MODELS, modelid)"
 			  fun createEntry (i, j, exp) = [$("// " ^ (e2s exp)),
 							 $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 
@@ -1307,7 +1307,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
 			  val size = (Container.arrayToSize o Container.expArrayToArray) rhs
 			  val var = CWriterUtil.exp2c_str lhs				  
-			  fun createIdx i = "VEC_IDX("^(i2s size)^","^(i2s i)^", NUM_MODELS, modelid)"
+			  fun createIdx i = "VEC_IDX("^(i2s size)^","^(i2s i)^", PARALLEL_MODELS, modelid)"
 			  fun createEntry (exp, i) = [$("//" ^ (e2s exp)),
 						      $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 		      in
@@ -1876,8 +1876,7 @@ fun buildC (orig_name, shardedModel) =
 	val exec_c = 
 	    case sysprops
 	     of {target=Target.CPU, ...} =>
-		[$(Codegen.getC "simengine/exec_cpu.c"),
-		 $(Codegen.getC "simengine/exec_serial_cpu.c")]
+		[$(Codegen.getC "simengine/exec_cpu.c")]
 	      | {target=Target.OPENMP, ...} => 
 		[$(Codegen.getC "simengine/exec_cpu.c"),
 		 $(Codegen.getC "simengine/exec_parallel_cpu.c")]

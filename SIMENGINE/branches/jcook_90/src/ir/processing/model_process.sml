@@ -204,7 +204,7 @@ fun model2statesizebyiterator (iter:DOF.systemiterator) (model:DOF.model) =
 
 fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
     let
-	val {iterators, precision, target, num_models, debug, profile} = properties
+	val {iterators, precision, target, parallel_models, debug, profile} = properties
 
 	(* is there an algebraic iterator that matches a particular iterator *)
 	val algebraic_iterators = List.filter (fn(_, iter_type)=> case iter_type of DOF.ALGEBRAIC _ => true | _ => false) iterators
@@ -245,7 +245,7 @@ fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
 	val properties' = {iterators=iterators',
 			   precision=precision,
 			   target=target,
-			   num_models=num_models,
+			   parallel_models=parallel_models,
 			   debug=debug,
 			   profile=profile}
 	val model' = (classes, top_inst, properties')
@@ -258,7 +258,7 @@ fun applyRewritesToModel rewrites (model as (classes,_,_)) =
 
 fun fixTemporalIteratorNames (model as (classes, inst, props)) =
     let
-	val {iterators,precision,target,num_models,debug,profile} = props
+	val {iterators,precision,target,parallel_models,debug,profile} = props
 	val iterators' =  map 
 			      (fn(iter_sym, iter_type)=>
 				 (Util.sym2codegensym iter_sym,
@@ -307,8 +307,8 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 
 	val _ = applyRewritesToModel iterator_rewrites model
 	val _ = applyRewritesToModel symbol_rewrites model
-	val {iterators,precision,target,num_models,debug,profile} = props
-	val props'={iterators=iterators',precision=precision,target=target,num_models=num_models,debug=debug,profile=profile}
+	val {iterators,precision,target,parallel_models,debug,profile} = props
+	val props'={iterators=iterators',precision=precision,target=target,parallel_models=parallel_models,debug=debug,profile=profile}
     in
 	(classes, inst, props')
     end

@@ -102,7 +102,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -target-link-opt linux -ldl -export-header src/ffi/ffi-exports.h -link-opt codegen/simlib/simlib.a
+SIMPLE_ARGS = -target-link-opt linux -ldl -export-header src/ffi/ffi-exports.h -link-opt codegen/simlib/simlib.a -fopenmp
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1

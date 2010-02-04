@@ -62,7 +62,7 @@ int cvode_init(solver_props *props){
   assert(props->statesize > 0);
 
   cvode_opts *opts = (cvode_opts*)&props->opts;
-  cvode_mem *mem = (cvode_mem*) malloc(props->num_models*sizeof(cvode_mem));
+  cvode_mem *mem = (cvode_mem*) malloc(PARALLEL_MODELS*sizeof(cvode_mem));
   unsigned int modelid;
 
   props->mem = mem;

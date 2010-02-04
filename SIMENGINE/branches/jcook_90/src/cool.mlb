@@ -8,11 +8,12 @@ local
   $(SML_LIB)/smlnj-lib/RegExp/regexp-lib.mlb
 
   ann
-	"allowFFI true"
+      "allowFFI true"
   in
-	ffi/ffi-exports.sml
-	ffi/simex.mlb
-	ffi/simlib.mlb
+      ffi/ffi-exports.sml
+      ffi/simex.mlb
+      ffi/devices.sml
+      ffi/simlib.mlb
   end
 
   shell/symbol.sml
@@ -201,6 +202,7 @@ library/settings.sml
 (*library/precision.sml*)
 library/environment.sml
 library/process.sml
+library/devices.sml
 library/regexp.sml
 library/json.sml
 library/library.sml

@@ -22,6 +22,7 @@ val core_library : {name: string, operation: (KEC.exp -> KEC.exp) -> KEC.exp lis
     (*PrecisionLib.library @*)
     EnvironmentLib.library @
     ProcessLib.library @
+    DevicesLib.library @
     JSONLib.library @
     RegExpLib.library @
     CompilerLib.library

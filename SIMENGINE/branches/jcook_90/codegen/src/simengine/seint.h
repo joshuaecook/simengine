@@ -11,7 +11,7 @@ const simengine_interface seint = {
   output_num_quantities,
   VERSION,
   sizeof(CDATAFORMAT),
-  NUM_MODELS,
+  PARALLEL_MODELS,
   NUM_ITERATORS,
   NUM_INPUTS,
   NUM_STATES,

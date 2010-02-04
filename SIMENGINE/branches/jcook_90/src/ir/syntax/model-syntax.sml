@@ -22,10 +22,10 @@ fun toJSON (classes, instance as {name, classname}, properties) =
 				 ("classname", symbol classname)]),
 	    ("properties", propertiesToJSON properties)]
 
-and propertiesToJSON {debug, iterators, num_models, precision, profile, target} =
+and propertiesToJSON {debug, iterators, parallel_models, precision, profile, target} =
     object [("debug", bool debug),
 	    ("iterators", array (map iteratorToJSON iterators)),
-	    ("numModels", int num_models),
+	    ("parallelModels", int parallel_models),
 	    ("precision", JSONType (case precision of DOF.SINGLE => "DOF.SINGLE" | DOF.DOUBLE => "DOF.DOUBLE")),
 	    ("profile", bool profile),
 	    ("target", targetToJSON target)]

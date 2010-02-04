@@ -20,11 +20,11 @@ int rk4_init(solver_props *props){
   // Allocate GPU space for mem and pointer fields of mem (other than props)
   cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(rk4_mem)));
   props->mem = dmem;
-  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.k4, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k4, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
 
   // Copy mem structure to GPU
   cutilSafeCall(cudaMemcpy(dmem, &tmem, sizeof(rk4_mem), cudaMemcpyHostToDevice));
@@ -34,11 +34,11 @@ int rk4_init(solver_props *props){
   rk4_mem *mem = (rk4_mem*)malloc(sizeof(rk4_mem));
 
   props->mem = mem;
-  mem->k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k2 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k3 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k4 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k1 = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->k2 = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->k3 = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->k4 = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->temp = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
 #endif
 
   return 0;
