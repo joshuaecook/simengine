@@ -5,7 +5,19 @@ struct
 datatype target 
   = CPU (* generic C target *)
   | OPENMP (* using the underlying OpenMP libraries *)
-  | CUDA (* of {compute: computecapability, (* right now, this can be 1.1 or 1.3 *)
+  | CUDA (*of {arch: cudaArchitecture,
+	     deviceId: int,
+	     emulate: bool}*)
+
+and cudaArchitecture 
+  = COMPUTE_10
+  | COMPUTE_11
+  | COMPUTE_12
+  | COMPUTE_13
+  | COMPUTE_20
+
+
+(* of {compute: computecapability, (* right now, this can be 1.1 or 1.3 *)
 	     multiprocessors: int, (* number of multiprocessors *)
 	     globalMemory: int (* amount of global memory *)} *)
 

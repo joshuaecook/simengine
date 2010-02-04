@@ -102,7 +102,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -target-link-opt linux -ldl -export-header src/ffi/ffi-exports.h -link-opt codegen/simlib/simlib.a -fopenmp
+SIMPLE_ARGS = -target-link-opt "-ldl -lz" -export-header src/ffi/ffi-exports.h -link-opt codegen/simlib/simlib.a -fopenmp
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1
@@ -352,19 +352,12 @@ links: $(BUILD_DIR)
 # Compiler Dependencies
 # ==============================================================================================
 
-COMPILER_MLB = src/compiler_exec.mlb
-COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_MLB))
-COMPILER_EXTRA_SOURCES = src/ffi/ffi-simengine.c
+COMPILER_BASIS = src/compiler_exec.mlb
+COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_BASIS))
+COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c)
 COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_SOURCES) $(COMPILER_EXTRA_LIBS)
 
-# COMPILER_SOURCE = src/*.s* src/ir/*.s* src/ir/datastructs/*.s* src/ir/math/*.s* src/ir/processing/*.s* src/ir/patterns/*.s* src/be/*.s* src/library/*.s* src/objects/*.s* src/shell/*.s* src/util/*.s* src/util/error/*.s* src/util/files/*.s* src/util/printing/*.s* src/util/registry/*.s* src/cool.mlb
-
-# COMPILER_DEPENDENCIES = $(COMPILER_SOURCE) src/shell/cool.lex.sml src/shell/cool.grm.sig src/shell/cool.grm.sml src/shell/cool.lex src/shell/cool.grm src/util/registry/registry.lex.sml src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml src/util/registry/registry.lex src/util/registry/registry.grm src/ffi/simex.mlb
-
-# COMPILER_EXTRA_SOURCES = src/ffi/ffi-simengine.c
-
-# COMPILER_PREREQS := build-directories links build-system matlab-files matlab-installer instructions
 
 # Dynamo Compilation Targets
 # ==============================================================================================
@@ -391,12 +384,12 @@ $(OUTPUT_FILE): $(COMPILER_DEPENDENCIES)
 # ==============================================================================================
 
 $(BUILD_DIR)/debug/$(FILENAME)_profiletime: override SMLPPFLAGS += $(SIMPLE_ARGS) -profile-stack true -profile time
-$(BUILD_DIR)/debug/$(FILENAME)_profiletimebug/$(FILENAME)_profiletime: $(COMPILER_MLB) $(COMPILER_DEPENDENCIES) $(COMPILER_EXTRA_SOURCES)
+$(BUILD_DIR)/debug/$(FILENAME)_profiletimebug/$(FILENAME)_profiletime: $(COMPILER_DEPENDENCIES)
 	-$(COMPILE.sml) -outputs $@ $< $(COMPILER_EXTRA_SOURCES)
 
 
 $(BUILD_DIR)/debug/$(FILENAME)_profilemem: override SMLPPFLAGS += $(SIMPLE_ARGS) -profile alloc
-$(BUILD_DIR)/debug/$(FILENAME)_profilemem: $(COMPILER_MLB) $(COMPILER_DEPENDENCIES)
+$(BUILD_DIR)/debug/$(FILENAME)_profilemem: $(COMPILER_DEPENDENCIES)
 	-$(COMPILE.sml) -outputs $@ $< $(COMPILER_EXTRA_SOURCES)
 
 profiling-tools: 

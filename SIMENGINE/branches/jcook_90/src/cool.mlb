@@ -149,24 +149,13 @@ ir/processing/model_process.sml
 ir/processing/sharded_model.sml
 
 be/c_writer_util.sml
-(* deprecated writers
-be/c_writer.sml
-be/mex_writer.sml
-be/mex_ode_writer.sml
-*)
 be/codegen.sml
+be/manifest.sml
+be/archive.sig
+be/archive.sml
 be/c_parallel_writer.sml
 
-(*
 
-be/datastructs/dfexp.sml
-be/datastructs/expgraph.sml
-be/datastructs/pegraph.sml
-be/datastructs/ptegraph.sml
-be/datastructs/schedgraph.sml
-
-be/datastructs/sys.sig
-*)
 
 (* Model Construction and Interactive Shell *)
 
@@ -205,6 +194,7 @@ library/process.sml
 library/devices.sml
 library/regexp.sml
 library/json.sml
+library/archive.sml
 library/library.sml
 
 shell/desugar.sml
