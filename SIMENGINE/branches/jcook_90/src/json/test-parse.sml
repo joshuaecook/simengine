@@ -48,6 +48,11 @@ val _ = case JS.toBool (P.parseString "true")
 	  | SOME _ => bug ("Expected parsed string to be true")
 	  | NONE => bug ("Expected parse string to be a boolean")
 
+val _ = case JS.elements (P.parseString "[]")
+	 of SOME nil => pass ()
+	  | SOME _ => bug ("Expected parsed string to be an empty list")
+	  | NONE => bug ("Expected parsing string to succeed")
+
 structure Print = PrintJSON(structure JS = JS)
 val _ = Print.print (TextIO.stdOut, value)
 

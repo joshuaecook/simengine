@@ -3,6 +3,8 @@ open S
 
 structure T = Token
 
+exception NoValue of T.token
+
 fun parseValue lex =
     case lex ()
      of T.NULL => JS.null
@@ -13,7 +15,7 @@ fun parseValue lex =
       | T.STRING s => JS.string s
       | T.LARRAY => parseArray lex
       | T.LOBJECT => parseObject lex
-      | token => raise Fail ("Token " ^ (T.toString token) ^ " does not represent a value")
+      | token => raise NoValue token
 
 and parseArray lex =
     let fun loop elements =
@@ -23,6 +25,7 @@ and parseArray lex =
 		 | T.RARRAY => value :: elements
 		 | token => raise Fail ("Invalid token " ^ (T.toString token) ^ " when trying to parse array")
 	    end
+	    handle NoValue (T.RARRAY) => elements
     in
 	JS.array (List.rev (loop nil))
     end
