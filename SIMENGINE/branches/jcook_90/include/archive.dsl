@@ -9,29 +9,17 @@ namespace Archive
 
   constant VERSION = 0
 
-  class Executable
-    var target // see SimCompile.Target
-    var cSourceFilename
-
-    constructor (aTarget, aCSourceFilename)
-      this.target = aTarget
-      this.cSourceFilename = aCSourceFilename
-    end
-  end
-
   class Archive
     var dirty
     var filename
     var manifest
     var workingPath
-    var version
 
     constructor (isDirty, aFilename, aWorkingPath, aManifest)
-      this.dity = isDirty
-      this.filename = aFilename
-      this.workingPath = aWorkingPath
-      this.manifest = aManifest
-      this.version = VERSION
+      dirty = isDirty
+      filename = aFilename
+      workingPath = aWorkingPath
+      manifest = aManifest
     end
   end
 
@@ -39,39 +27,40 @@ namespace Archive
   // Returns () if a file with that name doesn't exist or
   // if the file is not a valid archive.
   function openArchive (filename)
-    var manifest = JSON.decode (Simlib.getContentsFromArchive (filename, "MANIFEST.json"))
-    Archive.new (false, filename, "FIXME/needs/a/temp/path", manifest)
+    var manifest = Simlib.getContentsFromArchive (filename, "MANIFEST.json")
+    if () == manifest then ()
+    else
+      Archive.new (false, filename, Path.join (FileSystem.pwd (), ".simatra"), JSON.decode manifest)
+    end
   end
 
   function createManifest (dolFilename, dslFilenames, environment, executables)
-    {creationDate = 0, // FIXME current time
+    {creationDate = Time.timestampInSeconds (),
      dolFilename = dolFilename,
      dslFilenames = dslFilenames,
      environment = environment,
-     executables = executables}
+     executables = executables,
+     version = VERSION}
   end
 
   // Creates a new archive with a given filename. 
   // It is an error to attempt to create an archive if a file with that name already exists.
-  function createArchive (filename, dolFilename, dslFilenames, executable)
-    var target = executable.target
-
+  function createArchive (filename, dolFilename, dslFilenames, target, compiler_settings)
     var environment = {FIXME="needs environment"}
 
-    var manifest = createManifest (dolFilename, dslFilenames, environment, [executable])
+    var manifest = createManifest (dolFilename, dslFilenames, environment, [compiler_settings])
 
-    Archive.new (true, filename, "FIXME/needs/a/temp/path", manifest)
+    Archive.new (true, filename, Path.join (FileSystem.pwd (), ".simatra"), manifest)
 
     var manifest_o = Simlib.makeObjectFromContents ("MANIFEST.json", JSON.encode (manifest))
 
-    var cfile = executable.cSourceFilename
+    var cfile = compiler_settings.cSourceFilename
     var ofile = Path.base (Path.file cfile)
 
-    var cc = target.compile (ofile, cfile)
+    var cc = target.compile (ofile, [cfile])
     compile (cc(1), cc(2))
-    var ofile_o = Simlib.makeObjectFromFile (ofile, ofile)
 
-    var ld = target.link (Path.file filename, filename, [manifest_o, ofile_o])
+    var ld = target.link (Path.file filename, filename, [manifest_o, ofile])
     link (ld(1), ld(2))
 
     filename
@@ -117,7 +106,7 @@ namespace Archive
   function creationDate (archive) = archive.manifest.creationDate
 
   // Returns the pathname of the DOL settings file used when compiling.
-  function dolFilename (archive) = archive.manifest.dolFilenames
+  function dolFilename (archive) = archive.manifest.dolFilename
 
   // Returns the vector of pathnames for all files making up this model.
   // The first element will be an absolute path to the main DSL file.

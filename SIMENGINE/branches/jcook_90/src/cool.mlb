@@ -159,10 +159,6 @@ be/c_parallel_writer.sml
 (*shell/modeltranslate2.sml*)
 shell/modeltranslate_reduced.sml
 
-(*
-be/modelcompile_launcher.sml
-*)
-
 shell/semant.sml
 shell/asttrans.sml
 
@@ -185,7 +181,6 @@ library/vector.sml
 library/malleability.sml
 library/compiler.sml
 library/settings.sml
-(*library/precision.sml*)
 library/environment.sml
 library/process.sml
 library/devices.sml

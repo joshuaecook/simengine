@@ -1180,7 +1180,7 @@ function compile2 (filename: String, compiler_settings: Table)
 	  end
 	  
 	  if upToDate then
-	    needsToCompile = isArchiveCompatibileWithCompilerSettings (archive, compiler_settings)
+	    needsToCompile = not (isArchiveCompatibileWithCompilerSettings (archive, compiler_settings))
 	  end
 	end
       end
@@ -1236,9 +1236,10 @@ function compile (filename, compiler_settings)
 	  SimCompile.shell("ln", ["-s", cname, name + ".cu"])
 	  cname = name + ".cu"
       end
+
+      compiler_settings.add("cSourceFilename", cname)
       
-      var executable = Archive.Executable.new (target, cname)
-      simfile = Archive.createArchive(name + ".sim", settings.compiler.registry, mod.template.imports, executable)
+      simfile = Archive.createArchive(name + ".sim", settings.compiler.registry.value, mod.template.imports, target, compiler_settings)
   end
 
   stat
