@@ -6,6 +6,7 @@ fun error msg =
 
 val core_library : {name: string, operation: (KEC.exp -> KEC.exp) -> KEC.exp list -> KEC.exp} list = 
     SystemLib.library @
+    TimeLib.library @
     ArithmeticLib.library @
     ComparisonLib.library @
     TrigonometryLib.library @

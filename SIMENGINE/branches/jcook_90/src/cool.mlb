@@ -195,6 +195,7 @@ library/devices.sml
 library/regexp.sml
 library/json.sml
 library/archive.sml
+library/time.sml
 library/library.sml
 
 shell/desugar.sml

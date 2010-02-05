@@ -603,6 +603,11 @@ namespace Path
   function ext (path) = LF path_ext path
 end
 
+namespace Time
+  function timestampInSeconds() = LF timestampSeconds ()
+  function timestampString() = LF timestampString ()
+end
+
 open Operations
 open Relational
 open Text
