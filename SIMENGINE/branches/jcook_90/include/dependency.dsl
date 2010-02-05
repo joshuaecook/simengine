@@ -156,7 +156,11 @@ end
 
     // commands
     //ar
-    var ar_path = checkCmdExists ("ar")
+    //var ar_path = checkCmdExists ("ar")
+
+    //ln
+    var ln_path = checkCmdExists ("ln")
+
     //uname
     var uname_path = checkCmdExists ("uname")
 
@@ -182,8 +186,8 @@ end
     var file_version = parseCmdForVersion ("file-([0-9]+.[0-9]+)", file_path, ["--version"])
 
     //make = "Make ([0-9]+.[0-9]+)" with --version
-    var make_path = checkCmdExists ("make")
-    var make_version = parseCmdForVersion ("Make ([0-9]+.[0-9]+)", make_path, ["--version"])
+    //var make_path = checkCmdExists ("make")
+    //var make_version = parseCmdForVersion ("Make ([0-9]+.[0-9]+)", make_path, ["--version"])
 
     //sh = "version ([0-9]+.[0-9]+.[0-9]+)" with --version
     var sh_path = checkCmdExists ("sh")
@@ -208,12 +212,13 @@ end
 
     function dep(path, arch, version) = ExternalDep.new(path, arch, version)
 
-    var deps = {ar        = dep(ar_path, (), ()),
+    var deps = {//ar        = dep(ar_path, (), ()),
+	        ln        = dep(ln_path, (), ()),
                 uname     = dep(uname_path, (), ()),
                 gcc       = dep(gcc_path, (), gcc_version),
                 nvcc      = dep(nvcc_path, (), nvcc_version),
                 file      = dep(file_path, (), file_version),
-                make      = dep(make_path, (), make_version),
+                //make      = dep(make_path, (), make_version),
                 sh        = dep(sh_path, (), sh_version),
                 libdl     = dep(libdl_path, libdl_arch, ()),
                 libz      = dep(libz_path, libz_arch, ()),
