@@ -61,7 +61,7 @@ namespace Archive
     var main = dslFilenames.first ()
     var imports = dslFilenames.rest ()
     var dir = Path.dir (main)
-    var main_o = Simlib.makeObjectFromFile (main, main)
+    var main_o = Simlib.makeObjectFromFile (Path.file main, main)
     var import_os = []
     foreach i in imports do
       var path = Path.join (dir, i)
