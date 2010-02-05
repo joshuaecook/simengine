@@ -1,4 +1,12 @@
 namespace Archive
+
+  namespace Simlib
+    function makeObjectFromFile(objectName, filename) = LF makeObjectFromFile(objectName, filename)
+    function makeObjectFromContents(objectName, data) = LF makeObjectFromContents(objectName, data)
+    function getFileFromArchive(archive, objectName, filename) = LF getFileFromArchive(archive, objectName, filename)
+    function getContentsFromArchive(archive, objectName) = LF getContentsFromArchive(archive, objectName)
+  end
+
   constant VERSION = 0
 
   class Executable

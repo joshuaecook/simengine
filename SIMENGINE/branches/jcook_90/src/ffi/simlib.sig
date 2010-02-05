@@ -4,9 +4,9 @@ signature SIMLIB = sig
     exception NoSuchObject
     exception Compression
 
-    val makeObjectFromFile: {filename: string, objectName: string} -> string
+    val makeObjectFromFile: {objectName: string, filename: string} -> string
     val makeObjectFromContents: {objectName: string, data: string} -> string
-    val getFileFromArchive: {archive: string, filename: string, objectName: string} -> unit
+    val getFileFromArchive: {archive: string, objectName: string, filename: string} -> unit
     val getContentsFromArchive: {archive: string, objectName: string} -> string
 
 end

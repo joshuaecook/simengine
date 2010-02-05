@@ -49,7 +49,7 @@ val error =
   | 6 => SOME Compression
   | n => bug ("Simlib unknown error " ^ (Int32.toString n))
 
-fun makeObjectFromFile {filename, objectName} =
+fun makeObjectFromFile {objectName, filename} =
     let val objectFilename: string ref = ref ""
     in case error (makeObjectFromFile' (cstring objectName, cstring filename, objectFilename))
 	of NONE => ! objectFilename
@@ -63,7 +63,7 @@ fun makeObjectFromContents {objectName, data} =
 	 | SOME exn => raise exn
     end
 
-fun getFileFromArchive {archive, filename, objectName} =
+fun getFileFromArchive {archive, objectName, filename} =
     case error (getFileFromArchive' (cstring archive, cstring objectName, cstring filename))
      of NONE => ()
       | SOME exn => raise exn

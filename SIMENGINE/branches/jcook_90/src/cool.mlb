@@ -190,6 +190,7 @@ library/environment.sml
 library/process.sml
 library/devices.sml
 library/regexp.sml
+library/simlib.sml
 library/json.sml
 library/time.sml
 library/library.sml
