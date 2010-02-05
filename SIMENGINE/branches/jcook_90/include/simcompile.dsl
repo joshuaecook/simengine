@@ -5,19 +5,19 @@ namespace SimCompile
   /* Executes a command in a shell.
    * Enables a sequence of processes connected by pipes to be
    * run in a single subprocess. */
-  function shell (command: String)
-    var p = Process.run("sh", ["-c", command])
+  function shell (command: String, argv: Vector of String)
+    var p = Process.run(command, argv)
     var out = Process.read(p)
     Process.reap(p)
     out
   end
 
-  overload function shell (command: String, args: Vector)
-    shell (command + " " + join(" ", args))
+  overload function shell (command: String)
+    shell (command, [])
   end
 
-  var osLower = shell("uname -s | tr [:upper:] [:lower:]")[1].rstrip("\n")
-  var arch64 = not(shell("uname -m | grep 64").isempty())
+  var osLower = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+  var arch64 = shell("uname", ["-m"])[1].contains("64")
 
   class Make
     var CC = "gcc"
@@ -169,12 +169,12 @@ namespace SimCompile
       precision = settings.precision
       emulate = settings.emulate
 
-      var cc = shell("which nvcc")
+      var cc = shell("which", ["nvcc"])
       if cc.isempty() then 
 	error "Could not find nvcc. Please ensure that it exists in your path."
       end
       nvcc = LF realpath (cc[1].rstrip("\n"))
-      cudaInstallPath = shell("dirname \$(dirname " + nvcc + ")")[1].rstrip("\n")
+      cudaInstallPath = Path.dir (Path.dir (nvcc))
       if Devices.CUDA.numDevices == 0 then
         error("Cannot target the GPU : " + Devices.CUDA.cudaErr)
       end

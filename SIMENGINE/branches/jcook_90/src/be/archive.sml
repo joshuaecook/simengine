@@ -51,7 +51,7 @@ fun openArchive filename =
 fun close archive = bug "stub"
 
 fun new {filename, dolFilename, dslFilenames, environment, executable} =
-    A {dirty = ref false,
+    A {dirty = ref true,
        filename = filename,
        manifest = Manifest.new {dolFilename = dolFilename, 
 				dslFilenames = dslFilenames, 

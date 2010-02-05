@@ -2,6 +2,7 @@
 structure Target =
 struct
 
+(* TODO encode more metadata in this datatype. *)
 datatype target 
   = CPU (* generic C target *)
   | OPENMP (* using the underlying OpenMP libraries *)

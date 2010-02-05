@@ -1151,40 +1151,57 @@ function compile2 (filename: String, compiler_settings: Table)
   if "dsl" <> Path.ext filename then
       error ("Unknown type of file " + filename)
   end
-  var working_dir = "./"
+  var working_dir = FileSystem.pwd ()
   var dir = Path.dir filename
   var file = Path.file filename
   var simfile = Path.join(working_dir, ((Path.base file) + ".sim"))
 
-  if FileSystem.isfile (simfile) then
-      var modtime = FileSystem.modtime (filename)
-      var simmodtime = FileSystem.modtime (simfile)
+  var needsToCompile = true
 
-      if modtime > simmodtime or Sys.buildTime > simmodtime then
-	  var mod = LF loadModel (filename)
-	  mod.template.settings = compiler_settings
-	  compile mod
-      else
-	  var simcompiler_settings = LF simfileSettings simfile
-	  if not (compiler_settings.target == simcompiler_settings.target and
-		  compiler_settings.precision == simcompiler_settings.precision) then
-	      var mod = LF loadModel (filename)
-	      mod.template.settings = compiler_settings
-	      compile mod
-	  else
-	      "Compilation Finished Successfully"
+  // Opening an archive succeeds if the file exists and a manifest can be read.
+  var archive = Archive.openArchive (simfile)
+  if () <> archive then
+    // .sim must be newer than the simEngine compiler
+    var creation = Archive.creationDate (archive)
+    if creation > Sys.buildTime then
+      // .sim must be using the same DOL file and be younger than it
+      var dol = Archive.dolFilename (archive)
+      // TODO check the name of the DOL file
+      if creation > FileSystem.modtime (dol) then
+	// .sim must be younger than each imported DSL file
+	var dsls = Archive.dslFilenames (archive)
+	var main = dsls.first () // an absolute path
+        var imports = dsls.rest () // paths relative to main
+	
+	if filename == main then
+	  var upToDate = creation > FileSystem.modtime (main)
+	  foreach i in imports do
+	    upToDate = upToDate and (creation > FileSystem.modetime (i))
 	  end
+	  
+	  if upToDate then
+	    needsToCompile = isArchiveCompatibileWithCompilerSettings (archive, compiler_settings)
+	  end
+	end
       end
+    end
+  end
+
+  if needsToCompile then
+    compile (filename, compiler_settings)
   else
-      var mod = LF loadModel (filename)
-      mod.template.settings = compiler_settings
-      compile mod
+    "Compilation Finished Successfully"
   end
 end
 
-function compile (mod)
+function isArchiveCompatibileWithCompilerSettings (archive, compiler_settings)
+  false
+end
+
+function compile (filename, compiler_settings)
+  var mod = LF loadModel (filename)
   var name = mod.template.name
-  var compiler_settings = mod.template.settings
+  mod.template.settings = compiler_settings
 
   var target
 

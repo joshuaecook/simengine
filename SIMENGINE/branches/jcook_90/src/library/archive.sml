@@ -33,7 +33,7 @@ fun kecDescriptor archive =
 fun archiveOpen exec =
  fn [KEC.LITERAL (KEC.CONSTSTR filename)] =>
     (kecDescriptor (Archive.openArchive filename)
-     handle _ => exec (KEC.ERROR (KEC.LITERAL (KEC.CONSTSTR ("unable to open archive \"" ^ filename ^ "\"")))))
+     handle _ => KEC.UNIT)
   | [a] => raise TypeMismatch ("expected a string but received " ^ (nick a))
   | args => raise IncorrectNumberOfArguments {expected = 1, actual = length args}
 
@@ -41,11 +41,14 @@ fun archiveOpen exec =
 fun archiveCreate exec =
     fn [KEC.LITERAL (KEC.CONSTSTR filename),
 	KEC.LITERAL (KEC.CONSTSTR dolFilename),
-	dslFilenames] =>
+	dslFilenames,
+        executable] =>
        let val exe = Manifest.EXE {debug = true,
-				   target = Target.CPU,
+				   cSourceFilename = "",
+				   objectFilename = "",
 				   precision = DOF.DOUBLE,
-				   profile = false}
+				   profile = false,
+				   target = Target.CPU}
        in
 	   kecDescriptor (Archive.new {filename = filename,
 				       dolFilename = dolFilename,
@@ -53,7 +56,7 @@ fun archiveCreate exec =
 				       environment = nil,
 				       executable = exe})
        end
-     | [a,b,c] => raise TypeMismatch ("expected a string, a string, and a sequence of strings but received " ^ (String.concatWith ", " [nick a, nick b]) ^ ", and " ^ (nick c))
+     | [a,b,c, d] => raise TypeMismatch ("expected a string, a string, a sequence of strings, and an Executable object but received " ^ (String.concatWith ", " [nick a, nick b, nick c]) ^ ", and " ^ (nick d))
      | args => raise IncorrectNumberOfArguments {expected = 3, actual = length args}
 
 fun archivefun (f: (Archive.archive -> KEC.exp)) =

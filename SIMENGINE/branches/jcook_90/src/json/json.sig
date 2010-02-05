@@ -65,7 +65,7 @@ signature JSON = sig
     (* Extracts SOME member value of a JSON object
      * or NONE if the object does not have such a member. *)
     val memberValue: json * string * (json -> 'a option) -> 'a option
-    (* Attempts to return a member value from a JSON.
+    (* Attempts to return a member value from a JSON object.
      * Raises Option if the attempt fails. *)
     val memberVal: json * string * (json -> 'a) -> 'a
     (* Returns SOME list of member name/value pairs if the value is a JSON object.
