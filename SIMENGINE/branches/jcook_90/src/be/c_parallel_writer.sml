@@ -976,9 +976,9 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 			    end) 
 			class_inst_pairs
 
-	val class_inst_pairs_non_empty =
+	(*val class_inst_pairs_non_empty =
 	    Sorting.sorted (fn ((_,x), (_,y)) => (String.compare (Symbol.name x, Symbol.name y)))
-			   class_inst_pairs_non_empty
+			   class_inst_pairs_non_empty*)
     in
 	if List.null class_inst_pairs_non_empty andalso List.null init_eqs_symbols then 
 	    [$(""),
