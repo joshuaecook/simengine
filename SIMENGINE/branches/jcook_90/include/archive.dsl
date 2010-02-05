@@ -55,7 +55,7 @@ namespace Archive
     var manifest_o = Simlib.makeObjectFromContents ("MANIFEST.json", JSON.encode (manifest))
 
     var cfile = compiler_settings.cSourceFilename
-    var cfile_o = Simlib.makeObjectFromFile (cfile, cfile)
+    var cfile_o = Simlib.makeObjectFromFile (Path.file cfile, cfile)
     var ofile = Path.base (Path.file cfile)
 
     var main = dslFilenames.first ()
@@ -76,9 +76,9 @@ namespace Archive
     var ld = target.link (Path.file filename, filename, objects)
     link (ld(1), ld(2))
 
-    Path.rmfile (cfile)
+    FileSystem.rmfile (cfile)
     foreach o in objects do
-      Path.rmfile (o)
+      FileSystem.rmfile (o)
     end
 
     filename
