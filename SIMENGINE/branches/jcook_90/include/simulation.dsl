@@ -1166,8 +1166,9 @@ function compile2 (filename: String, compiler_settings: Table)
     if creation > Sys.buildTime then
       // .sim must be using the same DOL file and be younger than it
       var dol = Archive.dolFilename (archive)
-      // TODO check the name of the DOL file
-      if creation > FileSystem.modtime (dol) then
+      if creation > FileSystem.modtime (dol) and dol == settings.compiler.registry.value then
+	// TODO check environment and version of SIM
+
 	// .sim must be younger than each imported DSL file
 	var dsls = Archive.dslFilenames (archive)
 	var main = dsls.first () // an absolute path
@@ -1176,7 +1177,10 @@ function compile2 (filename: String, compiler_settings: Table)
 	if filename == main then
 	  var upToDate = creation > FileSystem.modtime (main)
 	  foreach i in imports do
-	    upToDate = upToDate and (creation > FileSystem.modetime (i))
+	    var path = Path.join (dir, i)
+	    upToDate = (upToDate and 
+			FileSystem.isfile (path) and
+			creation > FileSystem.modtime (path))
 	  end
 	  
 	  if upToDate then
@@ -1190,15 +1194,31 @@ function compile2 (filename: String, compiler_settings: Table)
   if needsToCompile then
     compile (filename, compiler_settings)
   else
+    if compiler_settings.debug then
+      println ("reusing existing SIM")
+    end
     "Compilation Finished Successfully"
   end
 end
 
 function isArchiveCompatibileWithCompilerSettings (archive, compiler_settings)
-  false
+  function compatible (executable)
+    ((executable.target == compiler_settings.target) and
+     (executable.precision == compiler_settings.precision) and
+     (executable.debug or not(compiler_settings.debug)) and
+     (executable.profile == compiler_settings.profile) and
+     (not("cuda" == executable.target or "gpu" == executable.target) 
+      or executable.emulate == compiler_settings.emulate))
+  end
+
+  () <> Archive.findExecutable (archive, compatible)
 end
 
 function compile (filename, compiler_settings)
+  if compiler_settings.debug then
+    println ("compiling " + filename)
+  end
+
   var mod = LF loadModel (filename)
   var name = mod.template.name
   var cname = name + ".c"

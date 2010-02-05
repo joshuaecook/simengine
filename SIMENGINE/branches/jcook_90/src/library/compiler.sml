@@ -260,7 +260,12 @@ fun std_exp2str exec args =
 
 val imports: string list ref = ref nil
 
-fun getModelImports _ _ = KEC.TUPLE (map (KEC.LITERAL o KEC.CONSTSTR) (List.rev (! imports)))
+fun toVector object =
+    KEC.APPLY {func = KEC.SEND {message = Symbol.symbol "tovector",
+				object = object},
+	       args = KEC.UNIT}
+
+fun getModelImports exec _ = exec (toVector (KEC.TUPLE (map (KEC.LITERAL o KEC.CONSTSTR) (List.rev (! imports)))))
 
 
 fun loadModel exec args =

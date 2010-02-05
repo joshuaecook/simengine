@@ -55,13 +55,31 @@ namespace Archive
     var manifest_o = Simlib.makeObjectFromContents ("MANIFEST.json", JSON.encode (manifest))
 
     var cfile = compiler_settings.cSourceFilename
+    var cfile_o = Simlib.makeObjectFromFile (cfile, cfile)
     var ofile = Path.base (Path.file cfile)
+
+    var main = dslFilenames.first ()
+    var imports = dslFilenames.rest ()
+    var dir = Path.dir (main)
+    var main_o = Simlib.makeObjectFromFile (main, main)
+    var import_os = []
+    foreach i in imports do
+      var path = Path.join (dir, i)
+      import_os.push_back (Simlib.makeObjectFromFile (i, path))
+    end
 
     var cc = target.compile (ofile, [cfile])
     compile (cc(1), cc(2))
 
-    var ld = target.link (Path.file filename, filename, [manifest_o, ofile])
+    var objects = [ofile, manifest_o, cfile_o, main_o] + import_os
+    
+    var ld = target.link (Path.file filename, filename, objects)
     link (ld(1), ld(2))
+
+    Path.rmfile (cfile)
+    foreach o in objects do
+      Path.rmfile (o)
+    end
 
     filename
   end
