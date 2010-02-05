@@ -325,7 +325,7 @@ else
 DOCUMENTATION_BUILD_FILES = 
 endif
 
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/bin/simlib  $(BUILD_DIR)/lib/libcodegen.sim $(BUILD_DIR)/bin/simex $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/lib/libcodegen.sim $(BUILD_DIR)/bin/simex $(MATLAB_BUILD_FILES)
 
 
 ifeq ($(BUILD_TYPE),software)
@@ -577,9 +577,6 @@ codegen_clean:
 codegen/simlib/simlib.a: codegen
 codegen/simlib/simlib: codegen
 codegen/lib/libcodegen.sim: codegen
-
-$(BUILD_DIR)/bin/simlib: codegen
-	$(CP) codegen/simlib/simlib $@
 
 $(BUILD_DIR)/bin/simex: interfaces/c/simex.c interfaces/c/simex_commandline.c interfaces/c/simex.h codegen/src/simengine/simengine_api.h codegen/src/simengine/memory_layout.h
 	@$(MAKE) -C interfaces/c simex $(ARCH64_FLAG) DEBUG=$(DEBUG)
