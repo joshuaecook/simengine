@@ -38,9 +38,10 @@ and iteratorToJSON {name, low, step, high} =
 	    ("step", real step),
 	    ("high", real step)]
 
-and propertiesToJSON {basename, classform, classtype, sourcepos} =
+and propertiesToJSON {basename, preshardname, classform, classtype, sourcepos} =
     object [("baseName", symbol basename),
 	    ("classForm", classFormToJSON classform),
+	    ("preShardName", symbol preshardname),
 	    ("classType", classTypeToJSON classtype),
 	    ("sourcePosition", PosLog.toJSON sourcepos)]
 
@@ -50,8 +51,8 @@ and classFormToJSON DOF.FUNCTIONAL = JSONType ("DOF.FUNCTIONAL")
 		     object [("readStates", array (map symbol readstates)),
 			     ("writeStates", array (map symbol writestates))])
 
-and classTypeToJSON (DOF.MASTER name) =
-    JSONTypedObject ("DOF.MASTER", symbol name)
+and classTypeToJSON (DOF.MASTER (*name*)) =
+    JSONTypedObject ("DOF.MASTER", symbol (*name*)(Symbol.symbol "-"))
   | classTypeToJSON (DOF.SLAVE name) = 
     JSONTypedObject ("DOF.SLAVE", symbol name)
 

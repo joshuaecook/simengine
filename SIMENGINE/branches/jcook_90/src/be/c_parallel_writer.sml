@@ -519,6 +519,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 * followed by the class' instance's states in order of the instance name. *)
 	fun findStatesInitValues iter_sym basestr (class:DOF.class) = 
 	    let
+		(*val _ = Util.log ("In " ^ (Symbol.name (#name class)))*)
 		val exps = #exps class
 
 		val init_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
@@ -529,6 +530,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 			fun sameInstanceName ((c1,i1),(c2,i2)) = i1 = i2
 			fun classAndInstanceName eqn =
 			    let val {classname, ...} = ExpProcess.deconstructInst eqn
+				(*val _ = Util.log (" -> Found classname = " ^ (Symbol.name classname))*)
 			    in 
 				(classname, ExpProcess.instOrigInstName eqn)
 			    end
@@ -537,12 +539,13 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		    end
 
 		val stateInits = List.mapPartial (init_condition2pair iter_sym basestr) init_conditions
+		(*val _ = app (fn(sym,_)=> Util.log (" -> Found state: " ^ (sym))) stateInits*)
 		val instanceStateInits = StdFun.flatmap (findInstanceStatesInitValues iter_sym) class_inst_pairs
 
 		val compare = fn ((x,_), (y,_)) => String.compare (x, y)
 	    in
 		stateInits
-		@ (Sorting.sorted compare instanceStateInits)
+		@ ((*Sorting.sorted compare*) instanceStateInits)
 	    end
 	    handle e => DynException.checkpoint "CParallelWriter.simengine_interface.findStatesInitValues" e
 
@@ -1089,7 +1092,7 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 
 	val classBaseNames = 
 	    let val classes = List.concat (map #classes shards)
-	    in Util.uniquify_by_fun (op =) (map ClassProcess.class2basename classes)
+	    in Util.uniquify_by_fun (op =) (map ClassProcess.class2preshardname classes)
 	    end
 
 	val topClassBaseName =
@@ -1115,16 +1118,18 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 		    let 
 			fun findTypeForIterator (sym,_) =
 			    let val shard = valOf (ShardedModel.findShard (shardedModel, sym))
-				val class = valOf (List.find (fn c => bn = (ClassProcess.class2basename c)) (#classes shard))
+				val class = valOf (List.find (fn c => bn = (ClassProcess.class2preshardname c)) (#classes shard))
 			    in
 				ClassProcess.classTypeName class
 			    end
+			    handle Option => DynException.stdException(("Option error: " ^ (Symbol.name sym)), "CParallelWriter.outputsystemstatestruct_code.findTypeForIterator", Logger.INTERNAL)
+				 | e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code.findTypeForIterator" e
 
 			val iterators_with_states = 
 			    List.filter (fn(it as (iter_sym,_))=> 
 					   let
 					       val model as (classes,{classname=top_class,...},_) = ShardedModel.toModel shardedModel iter_sym
-					       val classesOfBaseName = List.filter (fn(c)=> ClassProcess.class2basename c = bn) classes
+					       val classesOfBaseName = List.filter (fn(c)=> ClassProcess.class2preshardname c = bn) classes
 					       val hasStates = CurrentModel.withModel 
 								   model
 								   (fn()=> List.exists (has_states it) classesOfBaseName)
@@ -1159,7 +1164,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	(*val _ = Util.log("After adding EP indices")
 	val _ = DOFPrinter.printClass class*)
 
-	val orig_name = ClassProcess.class2basename class
+	(* the original name here refers to the class name with all of the states - if it's a master class, it's that class, otherwise it's the master class 
+	   that the slave class points to.  class2orig_name looks at the classtype property to determine what the original name should be.*)
+	val orig_name = (*ClassProcess.class2basename class*) ClassProcess.class2preshardname class
 
 	(* val has_states = case iter_type of  *)
 	(* 		     DOF.UPDATE _ => true *)
@@ -1512,6 +1519,7 @@ fun flow_code shardedModel iter_sym =
 	    let
 		val classname = ClassProcess.class2classname class
 		val basename = ClassProcess.class2basename class
+		val mastername = ClassProcess.class2preshardname class
 		val classTypeName = ClassProcess.classTypeName class
 	    in
 		if ClassProcess.isInline class then
@@ -1535,13 +1543,13 @@ fun flow_code shardedModel iter_sym =
 			     statewriteprototype,
 			     systemstatereadprototype) =
 			    (if reads_iterator iter class then
-				 "const statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+				 "const statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
 			     else "",
 			     if writes_iterator iter class then
-				 "statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
+				 "statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
 			     else "",
 			     if reads_system class then
-				 "const systemstatedata_" ^ (Symbol.name basename) ^ " *sys_rd, "
+				 "const systemstatedata_" ^ (Symbol.name mastername) ^ " *sys_rd, "
 			     else "")
 
 			val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)

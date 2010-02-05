@@ -867,9 +867,13 @@ fun fun2textstrnotation f =
 	    (str, notation)
 	end
       | INST {classname,props,...} => 
-	case InstProps.getRealClassName props of
-	    SOME sym => ((Symbol.name sym) ^ "<"^(Symbol.name classname)^">", PREFIX)
-	  | NONE => (Symbol.name classname, PREFIX)
+	case (InstProps.getRealInstName props, InstProps.getRealClassName props) of
+	    (SOME inst_sym, SOME class_sym) =>
+	    if classname = class_sym then
+		((Symbol.name inst_sym) ^ "<"^(Symbol.name classname)^">", PREFIX)
+	    else
+		((Symbol.name inst_sym) ^ "<"^(Symbol.name classname)^":"^(Symbol.name class_sym)^">", PREFIX)
+	  | _ => (Symbol.name classname, PREFIX)
 
 fun fun2cstrnotation f =
     case f 

@@ -16,6 +16,8 @@ sig
     val class2orig_name : DOF.class -> Symbol.symbol (* the name of the class before it was renamed, for example during ordering *)
     val class2classname : DOF.class -> Symbol.symbol (* returns the class name as stored in the structure, not the "realclassname" *)
     val class2basename : DOF.class -> Symbol.symbol (* the name generated for the class in modeltranslate - this is never adjusted *)
+    val class2preshardname : DOF.class -> Symbol.symbol
+    val class2mastername : DOF.class -> Symbol.symbol
     val findSymbols : DOF.class -> SymbolSet.set (* return a list of every unique symbol name used in the class - helpful for global renaming *)
     val class2states : DOF.class -> Symbol.symbol list (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
     (* grab all the states in the class, determined by looking at initial conditions and/or state eq *)
@@ -55,6 +57,7 @@ sig
     val applyRewritesToClass : Rewrite.rewrite list -> DOF.class -> unit (* generic rewriting helper *)
     val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
     val updateRealClassName : DOF.class -> Symbol.symbol -> DOF.class 
+    val updatePreShardName : DOF.classproperties -> Symbol.symbol -> DOF.classproperties
     val pruneClass : (DOF.systemiterator option * bool) -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
     val propagateSpatialIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
     val propagateStateIterators : DOF.class -> unit (* propagates just state iterators through equations into outputs *)
@@ -125,21 +128,38 @@ fun duplicateClass (class: DOF.class) new_name =
 
 fun updateRealClassName (class: DOF.class) new_name =
     let
-	val {name, properties={sourcepos,basename,classform,classtype}, inputs, outputs, exps, iterators} = class
+	val {name, properties={sourcepos,basename,preshardname,classform,classtype}, inputs, outputs, exps, iterators} = class
 	val classtype' = case classtype of
-			      DOF.MASTER _ => DOF.MASTER new_name
+			     DOF.MASTER => DOF.MASTER
+			     (* DOF.MASTER _ => DOF.MASTER new_name*)
 			    | DOF.SLAVE _ => DOF.SLAVE new_name
     in
-	{name=name,
+	{name=name, (* this was already updated in duplicateClass *)
 	 iterators=iterators,
 	 properties={sourcepos=sourcepos,
 		     basename=basename, (* this remains the same as it was previously defined in modeltranslate *)
+		     preshardname=preshardname,
 		     classform=classform,
 		     classtype=classtype'}, (* this is updated *)
 	 inputs=inputs,
 	 outputs=outputs,
 	 exps=exps}
     end	
+
+fun updatePreShardName (props as {sourcepos,basename,preshardname,classform,classtype}) new_name =
+    {sourcepos=sourcepos,
+     basename=basename,
+     preshardname=new_name,
+     classform=classform,
+     classtype=classtype}
+
+fun class2preshardname ({properties={preshardname,...},...}:DOF.class) = preshardname
+
+fun class2mastername ({properties={preshardname,classtype,...},...}:DOF.class) =
+    case classtype of
+	DOF.MASTER => preshardname
+      | DOF.SLAVE mastername => mastername
+
 
 fun renameInsts (syms as ((name, new_name),(orig_name, new_orig_name))) (class: DOF.class) =
     let	
@@ -507,10 +527,11 @@ fun fixSymbolNames (class: DOF.class) =
 
 fun class2orig_name (class : DOF.class) =
     let
-	val {properties={classtype,...},...} = class
+	val {name,properties={classtype,...},...} = class
     in
 	case classtype of
-	    DOF.MASTER c => c
+	    DOF.MASTER => name
+	   (* DOF.MASTER c => c *)
 	  | DOF.SLAVE c => c
     end
 
@@ -624,11 +645,11 @@ fun outputsSymbolsByIterator iterator (class : DOF.class) =
 fun isInline ({properties={classform=DOF.FUNCTIONAL,...},...} : DOF.class) = true
   | isInline _ = false
 
-fun isMaster ({properties={classtype=DOF.MASTER _,...},...} : DOF.class) = true
+fun isMaster ({properties={classtype=DOF.MASTER ,...},...} : DOF.class) = true
   | isMaster _ = false
 
 
-fun classTypeName ({properties={classtype=DOF.MASTER name,...},...}: DOF.class) = name
+fun classTypeName ({name,properties={classtype=DOF.MASTER,...},...}: DOF.class) = name
   | classTypeName ({properties={classtype=DOF.SLAVE name,...},...}) = name
 
 fun class2postprocess_states (class: DOF.class) = 
@@ -989,8 +1010,8 @@ fun class2instnames (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list =
 	val all_classes = CurrentModel.classes()
 	fun name2orig_name orig_name = 
 	    case List.find (fn{name,...}=>name=orig_name) all_classes of
-		SOME {properties={classtype,...},...} => (case classtype of 
-							     DOF.MASTER c => c 
+		SOME {name,properties={classtype,...},...} => (case classtype of 
+							     DOF.MASTER (*c => c*) => name
 							   | DOF.SLAVE c => c)
 	      | _ => orig_name
 
@@ -1150,9 +1171,10 @@ fun class2instancesbyiterator iter_sym class =
 	
 fun makeSlaveClassProperties (props, mastername) = 
     let
-	val {classtype, classform, sourcepos, basename} = props
+	val {classtype, classform, preshardname, sourcepos, basename} = props
     in
 	{classtype=DOF.SLAVE mastername,
+	 preshardname=preshardname,
 	 classform=classform,
 	 sourcepos=sourcepos,
 	 basename=basename}

@@ -9,7 +9,7 @@ type inputproperties =
   
 (* The master/slave relationship between classes enforces ordering. *)    
 datatype classtype
-  = MASTER of Symbol.symbol
+  = MASTER (*of Symbol.symbol*)
   | SLAVE of Symbol.symbol
 
 
@@ -24,6 +24,7 @@ datatype classform
 
 type classproperties = {sourcepos: PosLog.pos,
 			basename: Symbol.symbol,
+			preshardname: Symbol.symbol,
 			classform: classform,
 			classtype: classtype}
 

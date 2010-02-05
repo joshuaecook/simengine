@@ -602,7 +602,7 @@ fun createClass classes object =
 
     in
 	({name=name, 
-	  properties={sourcepos=PosLog.NOPOS,basename=name,classform=classform,classtype=DOF.MASTER name},
+	  properties={sourcepos=PosLog.NOPOS,basename=name,preshardname=name,classform=classform,classtype=DOF.MASTER (*name*)},
 	  inputs=ref (map obj2input (vec2list(method "inputs" object))),
 	  outputs=ref (map obj2output classOutputs),
 	  iterators=map buildIterator (vec2list (send "getSpatialIterators" object NONE)),

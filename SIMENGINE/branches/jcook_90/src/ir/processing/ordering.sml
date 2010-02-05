@@ -897,13 +897,18 @@ fun orderModel (model:DOF.model)=
 		val inputMap = map inp2pos neededoldinputs
 		val inputs = map (fn(i) => List.nth(oldinputs, i)) inputMap
 
-
-
+		val properties' = ClassProcess.updatePreShardName (#properties oldClass) newname
+			     
 		val newclass = {name=newname,
 				properties= if includeMainExps then
-						#properties oldClass
+						properties'
 					    else (* convert it to a slave of the orignal *)
-						ClassProcess.makeSlaveClassProperties (#properties oldClass, genMasterName(Symbol.name (#name oldClass))),
+						let
+						    val master_name = genMasterName(Symbol.name (#name oldClass))
+						    val properties' = ClassProcess.updatePreShardName (#properties oldClass) master_name
+						in
+						    ClassProcess.makeSlaveClassProperties (properties', master_name)
+						end,
 				iterators= #iterators oldClass,
 				inputs= ref inputs,
 				outputs=ref outputs,
@@ -1010,12 +1015,13 @@ fun orderModel (model:DOF.model)=
 	fun splitClasses (class: DOF.class, (splitMap, classMap, classIOMap)) =
 	    let
 		val _ = print ("===splitting class: " ^ (Symbol.name (#name class)) ^ "\n")
-		val (instance_exps, other_exps) = List.partition ExpProcess.isInstanceEq (!(#exps class))
+		val (init_exps, other_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
+		val (instance_exps, other_exps) = List.partition ExpProcess.isInstanceEq other_exps
 
 		val (instance_exps', (splitMap', classMap', classIOMap')) 
 		  = foldl (processInstance class) (nil, (splitMap, classMap, classIOMap)) instance_exps
 
-		val _ = #exps class := instance_exps' @ other_exps
+		val _ = #exps class := init_exps @ instance_exps' @ other_exps
 
 		val _ = print ("class map keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap'))) ^ "\n")
 		val _ = print ("===about to reprocess splitting class: " ^ (Symbol.name (#name class)) ^ "\n")
