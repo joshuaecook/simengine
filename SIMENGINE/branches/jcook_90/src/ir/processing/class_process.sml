@@ -1813,7 +1813,7 @@ fun optimizeClass (class: DOF.class) =
 		if orig_cost <= new_cost then
 		    exps
 		else
-		    (Util.log ("  Basic simplification improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)));
+		    (Logger.log_notice (Printer.$ ("  Basic simplification improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost))));
 		     exps')
 	    end
 
@@ -1829,7 +1829,7 @@ fun optimizeClass (class: DOF.class) =
 		if orig_cost <= new_cost then
 		    exps
 		else
-		    (Util.log ("  Factoring improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)));
+		    (Logger.log_notice (Printer.$ ("  Factoring improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost))));
 		     exps'')
 	    end
 
@@ -1847,7 +1847,7 @@ fun optimizeClass (class: DOF.class) =
 		if orig_cost <= new_cost then
 		    exps
 		else
-		    (Util.log ("  Expanding and factoring improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)));
+		    (Logger.log_notice (Printer.$ ("  Expanding and factoring improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost))));
 		     exps''')
 	    end
 
