@@ -150,9 +150,6 @@ ir/processing/sharded_model.sml
 
 be/c_writer_util.sml
 be/codegen.sml
-be/manifest.sml
-be/archive.sig
-be/archive.sml
 be/c_parallel_writer.sml
 
 
@@ -194,7 +191,6 @@ library/process.sml
 library/devices.sml
 library/regexp.sml
 library/json.sml
-library/archive.sml
 library/time.sml
 library/library.sml
 

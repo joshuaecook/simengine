@@ -13,7 +13,6 @@ datatype manifest
      and executable 
        = EXE of {debug: bool,
 		 cSourceFilename: string,
-		 objectFilename: string,
 		 precision: DOF.precisiontype,
 		 profile: bool,
 		 target: Target.target}
@@ -55,10 +54,9 @@ local
 	  | "CUDA" => Target.CUDA
 	  | _ => raise Option
 
-    fun executableToJSON (EXE {debug, cSourceFilename, objectFilename, precision, profile, target}) =
+    fun executableToJSON (EXE {debug, cSourceFilename,precision, profile, target}) =
 	JSON.object [("debug", bool debug),
 		     ("cSourceFilename", string cSourceFilename),
-		     ("objectFilename", string objectFilename),
 		     ("precision", string (case precision of DOF.DOUBLE => "DOUBLE" | DOF.SINGLE => "SINGLE")),
 		     ("profile", bool profile),
 		     ("target", targetToJSON target)]
@@ -67,7 +65,6 @@ local
 	if isObject json then
 	    EXE {debug = memberVal (json, "debug", boolVal),
 		 cSourceFilename = memberVal (json, "cSourceFilename", stringVal),
-		 objectFilename = memberVal (json, "objectFilename", stringVal),
 		 precision = case memberVal (json, "precision", stringVal)
 			      of "DOUBLE" => DOF.DOUBLE | "SINGLE" => DOF.SINGLE | _ => raise Option,
 		 profile = memberVal (json, "profile", boolVal),
