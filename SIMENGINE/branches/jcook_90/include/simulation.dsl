@@ -1201,6 +1201,7 @@ end
 function compile (filename, compiler_settings)
   var mod = LF loadModel (filename)
   var name = mod.template.name
+  var cname = name + ".c"
   mod.template.settings = compiler_settings
 
   var target
@@ -1228,45 +1229,16 @@ function compile (filename, compiler_settings)
 
   var stat = LF compile (Translate.model2forest (mod.instantiate()))
   var compilation_successful = LF str_contains (stat, "Compilation Finished Successfully")
+  var simfile
       
   if compilation_successful then
-      var cc
-      if "gpu" <> compiler_settings.target and "cuda" <> compiler_settings.target then
-	  cc = target.compile(name + ".o", [name + ".c"])
-      else
-	  SimCompile.shell("ln", ["-s", name + ".c", name + ".cu"])
-	  cc = target.compile(name + ".o", [name + ".cu"])
+      if "gpu" == compiler_settings.target or "cuda" == compiler_settings.target then
+	  SimCompile.shell("ln", ["-s", cname, name + ".cu"])
+	  cname = name + ".cu"
       end
-
-      var ld = target.link(name + ".sim", name + ".sim", [name + ".o"])
-
-      if compiler_settings.debug then
-	  println(cc(1) + " '" + (join("' '", cc(2))) + "'")
-      end
-      var ccp = Process.run(cc(1),cc(2))
-      var ccallout = Process.readAll(ccp)
-      var ccstat = Process.reap(ccp)
-      var ccout = ccallout(1)
-      var ccerr = ccallout(2)
-      if 0 <> ccstat then
-        println ("STDOUT:" + join("", ccout))
-        println ("STDERR:" + join("", ccerr))
-        error ("OOPS! Compiler returned non-zero exit status " + ccstat)
-      end
-
-      if compiler_settings.debug then
-          println(ld(1) + " '" + (join("' '", ld(2))) + "'")
-      end
-      var ldp = Process.run(ld(1), ld(2))
-      var ldallout = Process.readAll(ldp) 
-      var ldstat = Process.reap(ldp)
-      var ldout = ldallout(1)
-      var lderr = ldallout(2)
-      if 0 <> ldstat then
-          println (join("", ldout))
-          println (join("", lderr))
-          error ("OOPS! Linker returned non-zero exit status " + ldstat)
-      end
+      
+      var executable = Archive.Executable.new (target, cname)
+      simfile = Archive.createArchive(name + ".sim", settings.compiler.registry, mod.template.imports, executable)
   end
 
   stat
