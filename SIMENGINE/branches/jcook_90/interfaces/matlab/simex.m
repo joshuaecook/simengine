@@ -57,9 +57,6 @@
 %        Enables the compiler to produce extra debugging
 %        information.
 %
-%      '-dontrecompile'
-%        Tells the compiler to not recompile the model.
-%
 %      '-profile'
 %        Enables the compiler to produce extra profiling
 %        information.
@@ -187,7 +184,7 @@ function [dslPath dslName modelFile opts] = get_simex_opts(varargin)
 dslPath = '';
 opts = struct('models',1, 'target','', 'precision','double', ...
               'verbose',true, 'debug',false, 'profile',false, ...
-              'emulate',false, 'recompile',true,'startTime',0, ...
+              'emulate',false, 'startTime',0, ...
               'endTime',0, 'inputs',struct(), 'states',[], ...
               'simengine','', 'solver', []);
 
@@ -242,8 +239,6 @@ if 1 < nargin
       opts.emulate = true;
     elseif strcmpi(arg, '-profile')
       opts.profile = true;
-    elseif strcmpi(arg, '-dontrecompile')
-      opts.recompile = false;
     elseif length(arg) > 8 && strcmpi(arg(1:8), '-solver=')
       opts.solver = arg(9:end);
       if not(exist(opts.solver)) 
@@ -422,55 +417,40 @@ setenv('SIMENGINE', opts.simengine);
 %disp(['simEngine: ' simengine ', modelFile: ' modelFile ', dslName: ' ...
 %       dslName])
 
-if opts.recompile
-  if opts.verbose 
-    verbose_flag = '+v';
-  else
-    verbose_flag = '-v';
-  end
-  if opts.debug 
-    debug_flag = '+d';
-  else
-    debug_flag = '-d';
-  end
-  if opts.profile 
-    profile_flag = '+p';
-  else
-    profile_flag = '-p';
-  end
+if opts.verbose 
+  verbose_flag = '+v';
+else
+  verbose_flag = '-v';
+end
+if opts.debug 
+  debug_flag = '+d';
+else
+  debug_flag = '-d';
+end
+if opts.profile 
+  profile_flag = '+p';
+else
+  profile_flag = '-p';
+end
   
-  tic;
-    status = simEngine_wrapper(simengine, modelFile, dslName, ...
-                               verbose_flag, debug_flag, ...
-                               profile_flag, opts.target, opts.precision, ...
-                               opts.models);    
-  elapsed = toc;
-  verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
-               'seconds.'], opts);
+tic;
+  status = simEngine_wrapper(simengine, modelFile, dslName, ...
+                             verbose_flag, debug_flag, ...
+                             profile_flag, opts.target, opts.precision, ...
+                             opts.models);    
+elapsed = toc;
+verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
+             'seconds.'], opts);
     
-  if 0 ~= status
-    error('Simatra:SIMEX:compileError', ...
-          'Compilation returned status code %d.', status);
-  end
-    
-  if opts.debug == false
-    % clean up generated files
-    [igpath fileprefix] = fileparts(modelFile);
-    if exist([fileprefix '.c'])
-      delete([fileprefix '.c'])
-    end
-    if exist([fileprefix '.o'])
-      delete([fileprefix '.o'])
-    end
-  end
-end % end if recompile
+if 0 ~= status
+  error('Simatra:SIMEX:compileError', ...
+        'Compilation returned status code %d.', status);
+end
 
 % TODO what is the path of the resultant DLL?
 [igpath modelname] = fileparts(modelFile);
 dllPath = fullfile(pwd, [modelname '.sim']);
 
-% TODO check the shape of the user inputs and start states, other
-% parameters, and recompile the model if necessary.
 end
 
 %%
