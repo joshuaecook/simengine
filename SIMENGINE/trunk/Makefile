@@ -12,7 +12,7 @@ BUILD_TYPE = software
 #DEBUG = true
 
 # Version # for RPM
-VERSION_NUMBER = 0.93dev
+VERSION_NUMBER = 0.93
 BUILD_DATE := $(shell date)
 BUILD_TIME := $(shell date +%s)
 
