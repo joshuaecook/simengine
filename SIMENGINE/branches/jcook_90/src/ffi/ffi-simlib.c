@@ -11,9 +11,9 @@
  * allocate memory for arrays.) */
 #include "ffi-exports.h"
 
-Int32_t simlib_MakeObjectFromContents (String8_t objectName, Int32_t length, String8_t contents, Pointer objectFilename);
-Int32_t simlib_MakeObjectFromFile (String8_t objectName, String8_t filename, Pointer objectFilename);
-Int32_t simlib_GetContentsFromArchive (String8_t archiveName, String8_t objectName, Pointer contents);
+Int32_t simlib_MakeObjectFromContents (String8_t objectName, Int32_t length, String8_t contents);
+Int32_t simlib_MakeObjectFromFile (String8_t objectName, String8_t filename);
+Int32_t simlib_GetContentsFromArchive (String8_t archiveName, String8_t objectName);
 Int32_t simlib_GetFileFromArchive (String8_t archiveName, String8_t objectName, String8_t filename);
 
 /* A vector of 8-bit words is appropriate for MLton's string type. */
@@ -34,13 +34,14 @@ Int32_t simlib_errno (void)
     return errno;
     }
 
-String8_t simlib_strerror (Int32_t errnum)
+void simlib_strerror (Int32_t errnum)
     {
     char *message = strerror(errnum);
-    return gcallocVector8(strlen(message), message);
+    make_the_string(strlen(message), message);
+    //return gcallocVector8(strlen(message), message);
     }
 
-Int32_t simlib_MakeObjectFromContents (String8_t objectName, Int32_t length, String8_t contents, Pointer objectFilename)
+Int32_t simlib_MakeObjectFromContents (String8_t objectName, Int32_t length, String8_t contents)
     {
     int status;
     char *ofn = NULL;
@@ -49,15 +50,16 @@ Int32_t simlib_MakeObjectFromContents (String8_t objectName, Int32_t length, Str
     status = make_object_from_contents(objectName, length, contents, &ofn);
     if (0 == status && NULL != ofn)
 	{
-	ofn_len = strlen(ofn);
-	*((char **)objectFilename) = gcallocVector8(ofn_len, ofn);
+	make_the_string(strlen(ofn), ofn);
+	//ofn_len = strlen(ofn);
+	//*((char **)objectFilename) = gcallocVector8(ofn_len, ofn);
 	}
     if (ofn) free(ofn);
 
     return status;
     }
 
-Int32_t simlib_MakeObjectFromFile (String8_t objectName, String8_t filename, Pointer objectFilename)
+Int32_t simlib_MakeObjectFromFile (String8_t objectName, String8_t filename)
     {
     int status;
     size_t length;
@@ -66,15 +68,16 @@ Int32_t simlib_MakeObjectFromFile (String8_t objectName, String8_t filename, Poi
     status = make_object_from_file(objectName, filename, &ofn);
     if (0 == status && NULL != ofn)
 	{
-	length = strlen(ofn);
-	*((char **)objectFilename) = gcallocVector8(length, ofn);
+	make_the_string(strlen(ofn), ofn);
+	//length = strlen(ofn);
+	//*((char **)objectFilename) = gcallocVector8(length, ofn);
 	}
     if (ofn) free(ofn);
 
     return status;
     }
 
-Int32_t simlib_GetContentsFromArchive (String8_t archiveName, String8_t objectName, Pointer contents)
+Int32_t simlib_GetContentsFromArchive (String8_t archiveName, String8_t objectName)
     {
     int status;
     char *data = NULL;
@@ -82,7 +85,8 @@ Int32_t simlib_GetContentsFromArchive (String8_t archiveName, String8_t objectNa
     status = get_contents_from_archive(archiveName, objectName, &length, &data);
     if (0 == status && NULL != data)
 	{
-	*((char **)contents) = gcallocVector8(length, data);
+	make_the_string(length, data);
+	//*((char **)contents) = gcallocVector8(length, data);
 	}
     if (data) free(data);
     

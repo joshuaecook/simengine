@@ -19,9 +19,14 @@ val simlib = bin_path ^ "simlib"
 val wrapper = "/******************************************************************************/\n"
 
 fun get fname =
-    Simlib.getContentsFromArchive {archive = (lib_path ^ "libcodegen.sim"),
-				   objectName = fname}
-    handle Simlib.NoSuchObject => "#error file '" ^ fname ^ "' not found in " ^ lib_path ^ "libcodegen.sim"
+    let val contents =  Simlib.getContentsFromArchive {archive = (lib_path ^ "libcodegen.sim"),
+						       objectName = fname}
+    in
+	if 0 < String.size contents then
+	    contents
+	else "#error file '" ^ fname ^ "' has zero length in " ^ lib_path ^ "libcodegen.sim\n"
+    end
+    handle Simlib.NoSuchObject => "#error file '" ^ fname ^ "' not found in " ^ lib_path ^ "libcodegen.sim\n"
 
 fun getC fname = "/* " ^ fname ^ " */\n" ^ wrapper ^ (get fname) ^ wrapper
 

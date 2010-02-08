@@ -6,6 +6,7 @@ local
   $(SML_LIB)/basis/mlton.mlb
   $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
   $(SML_LIB)/smlnj-lib/RegExp/regexp-lib.mlb
+  $(SML_LIB)/basis/c-types.mlb
 
   ann
       "allowFFI true"
@@ -13,7 +14,8 @@ local
       ffi/ffi-exports.sml
       ffi/simex.mlb
       ffi/devices.sml
-      ffi/simlib.mlb
+      ffi/simlib.sig
+      ffi/simlib.sml
   end
 
   shell/symbol.sml
