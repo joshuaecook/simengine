@@ -43,7 +43,7 @@ int user_fun_wrapper(CDATAFORMAT t, N_Vector y, N_Vector ydot, void *userdata){
 	      NV_DATA_S(ydot) - (modelid*props->statesize), // and this ptr arithmetic adjusts to compensate
 	      props, mem->first_iteration, modelid);
 
-  mem->first_iteration = FALSE;
+  mem->first_iteration = 0;
 
   return CV_SUCCESS;
 }
@@ -62,7 +62,7 @@ int cvode_init(solver_props *props){
   assert(props->statesize > 0);
 
   cvode_opts *opts = (cvode_opts*)&props->opts;
-  cvode_mem *mem = (cvode_mem*) malloc(props->num_models*sizeof(cvode_mem));
+  cvode_mem *mem = (cvode_mem*) malloc(PARALLEL_MODELS*sizeof(cvode_mem));
   unsigned int modelid;
 
   props->mem = mem;
@@ -144,14 +144,14 @@ int cvode_eval(solver_props *props, unsigned int modelid){
     }
 
     CDATAFORMAT stop_time = MIN(props->time[modelid] + props->timestep, props->stoptime);
-    mem->first_iteration = TRUE;
+    mem->first_iteration = 1;
     if(CVode(mem->cvmem, stop_time, mem->y0, &(props->next_time[modelid]), CV_NORMAL) != CV_SUCCESS){
       PRINTF( "CVODE failed to make a fixed step in model %d.\n", modelid);
       return 1;
     }
   }
   else {
-    mem->first_iteration = TRUE;
+    mem->first_iteration = 1;
     if(CVode(mem->cvmem, props->stoptime, mem->y0, &(props->next_time[modelid]), CV_ONE_STEP) != CV_SUCCESS){
       PRINTF( "CVODE failed to make a step in model %d.\n", modelid);
       return 1;

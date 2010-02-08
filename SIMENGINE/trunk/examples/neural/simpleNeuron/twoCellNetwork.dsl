@@ -2,7 +2,7 @@
 
 import "neuron.dsl"
 
-model (Vm1, Vm2) = twoCellNetwork(stimulusCurrent)
+model (Vm1, Vm2, I) = twoCellNetwork(stimulusCurrent)
 	submodel neuron neuron1 with {IStim = stimulusCurrent}
 	submodel neuron neuron2
 
@@ -13,6 +13,7 @@ model (Vm1, Vm2) = twoCellNetwork(stimulusCurrent)
 
 	output Vm1 = neuron1.Vm
 	output Vm2 = neuron2.Vm
+	output I = (neuron1.INa, neuron2.INa)
 
     solver = forwardeuler
 	solver.dt = .001

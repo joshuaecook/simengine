@@ -19,7 +19,7 @@ val i2s = Util.i2s
 val r2s = Util.r2s
 
 (* fill in this reference when calling translate/translateExp *)
-val exec = ref (fn(e) => e)
+val exec = ref (fn(e) => e before DynException.stdException ("exec not filled in properly in model translation", "ModelTranslate.exec", Logger.INTERNAL))
 
 exception TranslationError
 
@@ -31,7 +31,7 @@ fun error (msg) =
      raise TranslationError)
 
 (* helper methods *)
-val pretty = PrettyPrint.kecexp2prettystr (!exec)
+fun pretty (s) = PrettyPrint.kecexp2prettystr (!exec) s
 
 val TypeMismatch = DynException.TypeMismatch
 and ValueError = DynException.ValueError
@@ -182,7 +182,7 @@ fun quantity_to_dof_exp (KEC.LITERAL (KEC.CONSTREAL r)) = ExpBuild.real r
 	modeloperation_to_dof_exp quantity
     else if istype (quantity, "SimQuantity") orelse istype (quantity, "Input") then
 	simquantity_to_dof_exp quantity
-    else raise TypeMismatch ("Unexpected type of expression object; received " ^ (pretty quantity))
+    else (raise TypeMismatch ("Unexpected type of expression object; received " ^ (pretty quantity)))
 
 	
 (* Derivatives are reduced to a symbol with a derivative property.
@@ -311,7 +311,7 @@ and simquantity_to_dof_exp quantity =
 
     else if (istype (quantity, "Random")) andalso isdefined (method "iter" quantity) then
 	((*Util.log("Found random quantity: " ^ (exp2str (method "name" quantity)));*)
-	 ExpBuild.ivar (exp2str (method "name" quantity)) [(Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)])
+	 ExpBuild.ivar (exp2str (method "name" quantity)) [(Iterator.preProcessOf (exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)])
 
     else if (istype (quantity, "State")) andalso isdefined (method "iter" quantity) then
 	ExpBuild.ivar (exp2str (method "name" quantity)) [(Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)]
@@ -380,7 +380,11 @@ fun createClass classes object =
 			(case method "contents" value of
 			     KEC.TUPLE args => map quantity_to_dof_exp args
 			   | exp => [quantity_to_dof_exp exp],
-			 quantity_to_dof_exp(method "condition" value))
+			 let
+			     val exp = method "condition" value
+			 in
+			     quantity_to_dof_exp(exp)
+			 end)
 		    else
 			([quantity_to_dof_exp(value)],
 			 Exp.TERM(Exp.BOOL true))
@@ -412,6 +416,34 @@ fun createClass classes object =
 		    val lhs_properties' = (*Property.setIterator lhs_properties (map (fn iter_name => (iter_name, Iterator.RELATIVE 0)) (SymbolSet.listItems rhs_iterators))*)lhs_properties
 		in
 		    [ExpBuild.equals (Exp.TERM (Exp.SYMBOL (lhs_name, lhs_properties')), rhs)]
+		end
+	    else if (istype (obj, "Random")) then 
+		(* we treat Random numbers like states so to ensure that the same random number is read from the same name 
+                   in a given iteration *)
+		let
+		    (* pull out the name of the random value defined *)
+		    val name = exp2str (method "name" obj)
+
+		    (* create the initial condition *)
+		    val timeiterator = (exp2str (method "name" (method "iter" obj)))
+		    val spatialiterators = []
+		    val preprocessiterator = Iterator.preProcessOf timeiterator
+		    val initlhs = ExpBuild.initavar(name, 
+						    Symbol.name preprocessiterator,
+						    spatialiterators)
+		    val init = ExpBuild.equals(initlhs,
+					       quantity_to_dof_exp (getInitialValue obj))
+
+
+		    (* create the equation to generate random numbers *)
+		    val (lhs,rhs) = 
+			(quantity_to_dof_exp (method "lhs" (method "eq" obj)),
+			 quantity_to_dof_exp (method "rhs" (method "eq" obj)))
+		    val lhs' = ExpProcess.updateTemporalIterator (preprocessiterator, Iterator.RELATIVE 1) lhs
+		    val eq = ExpBuild.equals(lhs', rhs)			
+		    
+		in
+		    [init, eq]
 		end
 	    else if (istype (obj, "State")) then
 		let
@@ -570,7 +602,7 @@ fun createClass classes object =
 
     in
 	({name=name, 
-	  properties={sourcepos=PosLog.NOPOS,basename=name,classform=classform,classtype=DOF.MASTER name},
+	  properties={sourcepos=PosLog.NOPOS,basename=name,preshardname=name,classform=classform,classtype=DOF.MASTER (*name*)},
 	  inputs=ref (map obj2input (vec2list(method "inputs" object))),
 	  outputs=ref (map obj2output classOutputs),
 	  iterators=map buildIterator (vec2list (send "getSpatialIterators" object NONE)),
@@ -658,7 +690,9 @@ fun obj2dofmodel object =
 					  DOF.CONTINUOUS (transSolver (method "solver" obj))
 				      else
 					  DOF.DISCRETE{sample_period=exp2real(method "sample_period" obj)}),
-		 (Iterator.postProcessOf name, DOF.POSTPROCESS (Symbol.symbol name)),
+		 (Iterator.preProcessOf name, DOF.ALGEBRAIC (DOF.PREPROCESS, (Symbol.symbol name))),
+		 (Iterator.inProcessOf name, DOF.ALGEBRAIC (DOF.INPROCESS, (Symbol.symbol name))),
+		 (Iterator.postProcessOf name, DOF.ALGEBRAIC (DOF.POSTPROCESS, (Symbol.symbol name))),
 		 (Iterator.updateOf name, DOF.UPDATE (Symbol.symbol name))]
 	    end
 
@@ -669,7 +703,7 @@ fun obj2dofmodel object =
 	(*val key_value_pairs = vec2list (method "contents" (method "settings" (method "modeltemplate" object)))*)
 	val precision = exp2str (method "precision" (method "settings" (method "modeltemplate" object)))
 	val target = exp2str (method "target" (method "settings" (method "modeltemplate" object)))
-	val num_models = exp2int (method "num_models" (method "settings" (method "modeltemplate" object)))
+	val parallel_models = exp2int (method "parallel_models" (method "settings" (method "modeltemplate" object)))
 	val debug = exp2bool (method "debug" (method "settings" (method "modeltemplate" object)))
 	val profile = exp2bool (method "profile" (method "settings" (method "modeltemplate" object)))
 		      
@@ -684,7 +718,7 @@ fun obj2dofmodel object =
 			 "cuda"
 		     else
 			 target
-
+(*
 	(* evaluate cuda *)
 	val cuda_namespace = method "CUDA" (KEC.SYMBOL (Symbol.symbol "Devices"))
 	val num_cuda_devices = exp2int (send "numDevices" cuda_namespace NONE)
@@ -714,7 +748,7 @@ fun obj2dofmodel object =
 		end
 	    else
 		(Target.COMPUTE13, 0, 0)
-
+*)
 	val systemproperties = {iterators=temporal_iterators,
 				precision= case (StdFun.toLower precision)
 					    of "single" => DOF.SINGLE
@@ -727,14 +761,14 @@ fun obj2dofmodel object =
 				target= case (StdFun.toLower target)
 					 of "cpu" => Target.CPU
 					  | "openmp" => Target.OPENMP
-					  | "cuda" => Target.CUDA {compute=deviceCapability, 
+					  | "cuda" => Target.CUDA (*{compute=deviceCapability, 
 								   multiprocessors=numMPs, 
-								   globalMemory=globalMemory}
+								   globalMemory=globalMemory} *)
 					  | _ => DynException.stdException
 						     (("Unexpected target value " ^ (target)),
 						      "ModelTranslate.obj2dofmodel", 
 						      Logger.INTERNAL),
-				num_models=num_models,
+				parallel_models=parallel_models,
 				debug=debug,
 				profile=profile}
     in
@@ -747,27 +781,24 @@ fun translate (execFun, object) =
 	 raise TypeMismatch ("Expected a Model instance but received " ^ (pretty object))
      else
 	 (SOME (obj2dofmodel object) before DynException.checkToProceed())
-	 handle TranslationError => NONE
+	 handle TranslationError => NONE 
 	      | DynException.RestartRepl => NONE
 	      | e => NONE before 
-		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
-		      DynException.checkpoint "ModelTranslate.translate" e))
+		     (DynException.checkpoint "ModelTranslate.translate" e))
 
 fun translateExp (execFun, exp) =
     (exec := execFun;
      SOME (quantity_to_dof_exp exp))
 	 handle TranslationError => NONE
 	      | e => NONE before 
-		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
-		      DynException.checkpoint "ModelTranslate.translate" e)
+		     (DynException.checkpoint "ModelTranslate.translate" e)
 
 fun reverseExp (execFun, exp) =
     (exec := execFun;
      SOME (dofexp2kecexp exp))
 	 handle TranslationError => NONE
 	      | e => NONE before 
-		     (app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
-		      DynException.checkpoint "ModelTranslate.translate" e)
+		     (DynException.checkpoint "ModelTranslate.translate" e)
      
 
 fun rule2rewriterule (execFun, exp) =

@@ -57,9 +57,6 @@
 %        Enables the compiler to produce extra debugging
 %        information.
 %
-%      '-dontrecompile'
-%        Tells the compiler to not recompile the model.
-%
 %      '-profile'
 %        Enables the compiler to produce extra profiling
 %        information.
@@ -95,7 +92,7 @@ else
                       'not exist'])
 end
 
-if nargin == 1 || isstr(varargin{2}) % alternative is that you
+if nargin == 1 || ischar(varargin{2}) % alternative is that you
                                      % supply a flag as a second
                                      % arg (not a time)
   varargout = {interface};
@@ -185,11 +182,9 @@ function [dslPath dslName modelFile opts] = get_simex_opts(varargin)
 % file, and a struct containing command options.
 %
 dslPath = '';
-dslName = '';
-modelFile = '';
 opts = struct('models',1, 'target','', 'precision','double', ...
               'verbose',true, 'debug',false, 'profile',false, ...
-              'emulate',false, 'recompile',true,'startTime',0, ...
+              'emulate',false, 'startTime',0, ...
               'endTime',0, 'inputs',struct(), 'states',[], ...
               'simengine','', 'solver', []);
 
@@ -229,11 +224,11 @@ if 1 < nargin
     elseif strcmpi(arg, '-float')
       opts.precision = 'float';
     elseif strcmpi(arg, '-cpu')
-      opts.target = 'CPU';
+      opts.target = 'cpu';
     elseif strcmpi(arg, '-gpu')
-      opts.target = 'GPU';
+      opts.target = 'gpu';
     elseif strcmpi(arg, '-parallel-cpu')
-      opts.target = 'PARALLELCPU';
+      opts.target = 'parallelcpu';
     elseif strcmpi(arg, '-v')
       opts.verbose = true;
     elseif strcmpi(arg, '-quiet')
@@ -244,8 +239,6 @@ if 1 < nargin
       opts.emulate = true;
     elseif strcmpi(arg, '-profile')
       opts.profile = true;
-    elseif strcmpi(arg, '-dontrecompile')
-      opts.recompile = false;
     elseif length(arg) > 8 && strcmpi(arg(1:8), '-solver=')
       opts.solver = arg(9:end);
       if not(exist(opts.solver)) 
@@ -264,11 +257,11 @@ if 1 < nargin
 end
 
 if strcmpi(opts.target, '')
-  opts.target = 'CPU';
+  opts.target = 'cpu';
   if 1 < opts.models
 %    switch computer
 %     case {'MACI','MACI64'}
-      opts.target = 'PARALLELCPU';
+      opts.target = 'parallelcpu';
 %     otherwise
 %      opts.target = 'GPU';
 %    end
@@ -424,50 +417,40 @@ setenv('SIMENGINE', opts.simengine);
 %disp(['simEngine: ' simengine ', modelFile: ' modelFile ', dslName: ' ...
 %       dslName])
 
-if opts.recompile
-  if opts.verbose 
-    verbose_flag = '+v';
-  else
-    verbose_flag = '-v';
-  end
-  if opts.debug 
-    debug_flag = '+d';
-  else
-    debug_flag = '-d';
-  end
-  if opts.profile 
-    profile_flag = '+p';
-  else
-    profile_flag = '-p';
-  end
+if opts.verbose 
+  verbose_flag = '+v';
+else
+  verbose_flag = '-v';
+end
+if opts.debug 
+  debug_flag = '+d';
+else
+  debug_flag = '-d';
+end
+if opts.profile 
+  profile_flag = '+p';
+else
+  profile_flag = '-p';
+end
   
-  tic;
-    status = simEngine_wrapper(simengine, modelFile, dslName, ...
-                               verbose_flag, debug_flag, ...
-                               profile_flag, opts.target, opts.precision, ...
-                               opts.models);    
-  elapsed = toc;
-  verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
-               'seconds.'], opts);
+tic;
+  status = simEngine_wrapper(simengine, modelFile, dslName, ...
+                             verbose_flag, debug_flag, ...
+                             profile_flag, opts.target, opts.precision, ...
+                             opts.models);    
+elapsed = toc;
+verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
+             'seconds.'], opts);
     
-  if 0 ~= status
-    error('Simatra:SIMEX:compileError', ...
-          'Compilation returned status code %d.', status);
-  end
-    
-  if opts.debug == false
-    % clean up generated files
-    [igpath fileprefix igext] = fileparts(modelFile);
-    delete([fileprefix '_parallel*'])
-  end
-end % end if recompile
+if 0 ~= status
+  error('Simatra:SIMEX:compileError', ...
+        'Compilation returned status code %d.', status);
+end
 
 % TODO what is the path of the resultant DLL?
-[igpath modelname igext] = fileparts(modelFile);
+[igpath modelname] = fileparts(modelFile);
 dllPath = fullfile(pwd, [modelname '.sim']);
 
-% TODO check the shape of the user inputs and start states, other
-% parameters, and recompile the model if necessary.
 end
 
 %%

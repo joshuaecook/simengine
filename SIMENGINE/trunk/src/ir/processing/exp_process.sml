@@ -29,7 +29,10 @@ val isInstanceEq : Exp.exp -> bool
 val isFirstOrderDifferentialEq : Exp.exp -> bool
 val isDifferenceEq : Exp.exp -> bool
 val isIntermediateEq : Exp.exp -> bool
-val isPPEq : Exp.exp -> bool
+val isAlgebraicStateEq : Exp.exp -> bool
+val isPreProcessStateEq : Exp.exp -> bool
+val isInProcessStateEq : Exp.exp -> bool
+val isPostProcessStateEq : Exp.exp -> bool
 val isUpdateEq : Exp.exp -> bool
 val isPattern : Exp.exp -> bool
 
@@ -65,8 +68,7 @@ val multicollect : Exp.exp list * Exp.exp -> Exp.exp
 
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
-type sym = Symbol.symbol
-val renameInst : ((sym * sym) * (sym * sym)) -> Exp.exp -> Exp.exp (* Traverse through the expression, updating instance names *)
+val renameInst : ((Symbol.symbol * Symbol.symbol) * (Symbol.symbol * Symbol.symbol)) -> Exp.exp -> Exp.exp (* Traverse through the expression, updating instance names *)
 val exp2size : DOF.classiterator list -> Exp.exp -> int
 val enableEPIndex : bool -> (Symbol.symbol list) -> Exp.exp -> Exp.exp (* Add an EP index property when running an embarrassingly parallel simulation *)
 val assignCorrectScopeOnSymbol : Exp.exp -> Exp.exp (* addes the read and write state attributes based on found derivatives or differential terms *)
@@ -96,20 +98,18 @@ val sortStatesByDependencies : (Symbol.symbol * Exp.exp * SymbolSet.set) list ->
 (* useful helper functions *)
 val uniq : Symbol.symbol -> Symbol.symbol (* given a sym, create a unique sym name *)
 
-val to_json : Exp.exp -> mlJS.json_value
-val term_to_json : Exp.term -> mlJS.json_value
-
 end
 structure ExpProcess : EXPPROCESS =
 struct
 
-type sym = Symbol.symbol
 val i2s = Util.i2s
 val r2s = Util.r2s
 val b2s = Util.b2s
 val log = Util.log
 val exp2str = ExpPrinter.exp2str
 val e2s = ExpPrinter.exp2str
+val e2ps = ExpPrinter.exp2prettystr
+
 open Printer
 
 (* TODO: Refactor*)
@@ -247,7 +247,7 @@ fun user_error exp text =
 
 fun error_no_return exp text = 
     if raiseExceptions then
-	DynException.stdException("Expression error", "ExpProcess.error_no_return", Logger.INTERNAL)
+	DynException.stdException(("Error when processing '"^(e2s exp)^"': "^(text)), "ExpProcess.error_no_return", Logger.INTERNAL)
     else
 	user_error exp text
 
@@ -404,6 +404,7 @@ fun isDifferenceEq exp =
     isEquation exp andalso
     isNextVarDifferenceTerm (lhs exp)
 
+(*
 fun isNextPPTerm exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
@@ -422,6 +423,36 @@ fun isNextPPTerm exp =
 fun isPPEq exp =
     isEquation exp andalso
     isNextPPTerm (lhs exp)
+*)
+fun isAlgebraicStateTermOfProcessType process exp =
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val iterators = Property.getIterator props
+	    val discrete_iterators = List.filter (fn(sym, itertype)=>case (itertype, process) of 
+									 (DOF.ALGEBRAIC (DOF.PREPROCESS,_), SOME DOF.PREPROCESS) => true
+								       | (DOF.ALGEBRAIC (DOF.INPROCESS,_), SOME DOF.INPROCESS) => true
+								       | (DOF.ALGEBRAIC (DOF.POSTPROCESS,_), SOME DOF.POSTPROCESS) => true
+								       | (DOF.ALGEBRAIC _, NONE) => true
+								       | _ => false) (CurrentModel.iterators())
+	in
+	    case iterators of
+		SOME ((iterator, Iterator.RELATIVE 1)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+	      | SOME ((iterator, Iterator.RELATIVE 0)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+	      | _ => false
+	end
+      | _ => false
+
+fun isAlgebraicStateTerm exp = isAlgebraicStateTermOfProcessType NONE exp
+
+fun isAlgebraicStateEqOfProcessType process exp =
+    isEquation exp andalso
+    isAlgebraicStateTermOfProcessType process (lhs exp)
+
+fun isAlgebraicStateEq exp = isAlgebraicStateEqOfProcessType NONE exp
+fun isPreProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.PREPROCESS) exp
+fun isInProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.INPROCESS) exp
+fun isPostProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.POSTPROCESS) exp
 
 fun isNextUpdateTerm exp =
     case exp of
@@ -510,7 +541,30 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	       | _ => false
 	 end
        | _ => false)
-  | isStateTermOfIter (iter as (name, DOF.POSTPROCESS _)) exp =
+    
+  | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.PREPROCESS, _))) exp =
+    (case exp of
+	 Exp.TERM (Exp.SYMBOL (_, props)) =>
+	 let
+	     val iterators = Property.getIterator props
+	 in
+	     case iterators of
+		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	       | _ => false
+	 end
+       | _ => false)
+  | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.INPROCESS, _))) exp =
+    (case exp of
+	 Exp.TERM (Exp.SYMBOL (_, props)) =>
+	 let
+	     val iterators = Property.getIterator props
+	 in
+	     case iterators of
+		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	       | _ => false
+	 end
+       | _ => false)
+  | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.POSTPROCESS, _))) exp =
     (case exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
@@ -570,7 +624,7 @@ fun isIntermediateTerm exp =
 	    val iterators = Property.getIterator props
 	    val all_iterators = CurrentModel.iterators()
 	in
-	    not (isNextPPTerm exp) andalso not (isNextUpdateTerm exp) andalso
+	    not (isAlgebraicStateTerm exp) andalso not (isNextUpdateTerm exp) andalso
 	    case (derivative, iterators) of
 		(SOME _, _) => false
 	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
@@ -880,7 +934,7 @@ fun countFuns exp =
     length (Match.findRecursive (Match.anyfun "a", exp))
 
 
-fun expEulerEqReformat(sym, titer, dt, exp) =
+fun expEulerEqReformat (sym, titer, dt, exp) =
     let
 	val a = ExpBuild.plus [ExpBuild.var "d1", ExpBuild.var "d4"]
 	val b = ExpBuild.neg (ExpBuild.times [ExpBuild.var "d2", ExpBuild.var "d3"])
@@ -916,14 +970,33 @@ fun assignIteratorToSymbol (sym, p) exp =
 
 	val isAssigned = if isTemporal then
 			     case iter of
-				 SOME (sym', _) => if sym = sym' then
-						       (* already assigned *)
-						       true
-						   else
-						       (*DynException.stdException(
-						       ("Can't assign iterator '"^(Symbol.name sym)^"' over previously defined iterator on expression '"^(e2s exp)^"'"),
-						       "ExpProcess.assignIteratorToSymbol",
-						       Logger.INTERNAL)*)true
+				 SOME (sym_in_symbol, _) => 
+				 if sym = sym_in_symbol then
+				     (* already assigned *)
+				     true
+				 else
+				     let (* we have to see if it's an update/post process iterator *)
+					 val iter = valOf (List.find (fn(sym',_)=>sym_in_symbol=sym') temporal_iterators)
+					 val correct_sym_in_symbol = case iter of
+									  (_, DOF.UPDATE sym) => sym
+									| (_, DOF.ALGEBRAIC (_, sym)) => sym
+									| (sym, _) => sym
+					 val iter' = valOf (List.find (fn(sym',_)=>sym=sym') temporal_iterators)
+					 val correct_sym_assignment = case iter' of
+									  (_, DOF.UPDATE sym) => sym
+									| (_, DOF.ALGEBRAIC (_,sym)) => sym
+									| (sym, _) => sym
+				     in
+					 if correct_sym_in_symbol = correct_sym_assignment then 
+					     true (* it's already assigned and it is matching *)
+					 else
+					     (Logger.log_error (Printer.$ ("Quantity " ^ (e2ps exp) ^ " is already assigned to iterator "^(Symbol.name sym)^", therefore can not use iterator "^(Symbol.name sym_in_symbol)^" to reference quantity.")); (* sym and sym_in_symbol seem backwards.  in general, the iterator passed into assignIteratorToSymbol is correct as it is generated from assignCorrectScope.  The one that was there originally is generally user defined and incorrect. *)
+					      DynException.setErrored();
+					      (*DynException.stdException(
+					       ("Can't assign iterator '"^(Symbol.name sym)^"' over previously defined iterator on expression '"^(e2s exp)^"'"),
+					       "ExpProcess.assignIteratorToSymbol",
+					       Logger.INTERNAL)*)true)
+				     end
 			       | NONE => false
 			 else
 			     List.exists (fn(sym',_)=>sym=sym') (spatial_iterators)
@@ -992,6 +1065,7 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
 			 Property.READSTATE rd_sym => (case changeScopeIterator rd_sym of SOME sym => Property.READSTATE sym | NONE => scope)
 		       | Property.WRITESTATE wr_sym => (case changeScopeIterator wr_sym of SOME sym => Property.WRITESTATE sym | NONE => scope)
 		       | Property.READSYSTEMSTATE rd_sys_sym => (case changeScopeIterator rd_sys_sym of SOME sym => Property.READSYSTEMSTATE sym | NONE => scope)
+		       | Property.READSYSTEMSTATENEXT rd_sys_sym => (case changeScopeIterator rd_sys_sym of SOME sym => Property.READSYSTEMSTATENEXT sym | NONE => scope)
 		       | _ => scope
 
 	val derivative = Property.getDerivative props
@@ -1031,63 +1105,83 @@ fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t 
 							      Logger.INTERNAL)
 
 fun assignCorrectScopeOnSymbol exp =
-    case exp 
-     of Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
-	let
-	    val iter = TermProcess.symbol2temporaliterator s
-	    val iter' = case iter of 
-			    SOME (iter_sym, iter_index) => SOME (iter_sym, iter_index, #2 (CurrentModel.itersym2iter iter_sym))
-			  | NONE => NONE
-	in
-	    case iter' 
-	     of SOME (iter_sym, iter_index, iter_type) => 
-		if isFirstOrderDifferentialTerm exp then
-		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
-		else if isNextVarDifferenceTerm exp then
-		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
-		else if isNextPPTerm exp then
-		    Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^ *)(Symbol.name iter_sym))))))
-		else if isNextUpdateTerm exp then
-		    let
-			val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
-		    in
-			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol ((*"wr_" ^*) (Symbol.name orig_iter))))))
-		    end
-		else if isCurVarDifferenceTerm exp then
-		    let
-			val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
-		    in
-			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
-		    end
-		else if isIntermediateTerm exp then
-		    let
-			val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
-		    in
-			Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
-		    end
-		else if isInitialConditionTerm exp then
-		    exp (* this doesn't really apply here ... *)
-		else
-		    error exp "Unexpected expression found when assign correct scope - unknown expression type"
-	      | NONE => (*(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - no temporal iterator"));
-			 DynException.setErrored();*)
-		exp
-	end
-      | _ => error exp "Unexpected expression found when assign correct scope - not a symbol"
+    (case exp 
+      of Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
+	 let
+	     val iter = TermProcess.symbol2temporaliterator s
+	     val iter' = case iter of 
+			     SOME (iter_sym, iter_index) => SOME (iter_sym, iter_index, #2 (CurrentModel.itersym2iter iter_sym))
+			   | NONE => NONE
+	     fun isForwardReference (Iterator.RELATIVE i) = i > 0
+	       | isForwardReference _ = false
+					
+	 in
+	     case iter' 
+	      of SOME (iter_sym, iter_index, iter_type) => 
+		 if isFirstOrderDifferentialTerm exp then
+		     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+		 else if isNextVarDifferenceTerm exp then
+		     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+		 else if isAlgebraicStateTerm exp then
+		     case iter_type of
+			 DOF.ALGEBRAIC (DOF.PREPROCESS,_) =>
+			 (case iter_index of
+			      Iterator.RELATIVE 1 => 
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+			    | _ => 
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATENEXT iter_sym))))
+		       | _ =>
+			 (case iter_index of
+			      Iterator.RELATIVE 1 => 
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+			    | _ => 
+			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym))))
+ 		 else if isNextUpdateTerm exp then
+		     let
+			 val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
+		     in
+			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name orig_iter)))))
+		     end
+		 else if isCurVarDifferenceTerm exp then
+		     let
+			 val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
+		     in
+			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
+		     end
+		 else if isIntermediateTerm exp then
+		     let
+			 val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
+		     in
+			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
+		     end
+		 else if isInitialConditionTerm exp then
+		     exp (* this doesn't really apply here ... *)
+		 else if isForwardReference iter_index then
+		     (user_error exp "Invalid positive temporal index found on quantity";
+		      exp)
+		 else
+		     error exp "Unexpected expression found when assign correct scope - unknown expression type"
+	       | NONE => (*(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - no temporal iterator"));
+			    DynException.setErrored();*)
+		 exp
+	 end
+       | _ => error exp "Unexpected expression found when assign correct scope - not a symbol")
+    handle e => DynException.checkpoint "ExpProcess.assignCorrectScopeOnSymbol" e
 
 
 fun assignCorrectScope states exp =
-    if isSymbol exp then
-	let
-	    val sym = Util.hd (exp2symbols exp)
-	in
-	    if List.exists (fn(sym')=>(sym=sym')) states then
-		assignCorrectScopeOnSymbol exp
-	    else
-		exp
-	end
-    else
-	(Match.head exp) (map (assignCorrectScope states) (Match.level exp))
+    (if isSymbol exp then
+	 let
+	     val sym = Util.hd (exp2symbols exp)
+	 in
+	     if List.exists (fn(sym')=>(sym=sym')) states then
+		 assignCorrectScopeOnSymbol exp
+	     else
+		 exp
+	 end
+     else
+	 (Match.head exp) (map (assignCorrectScope states) (Match.level exp)))
+    handle e => DynException.checkpoint "ExpProcess.assignCorrectScope" e
 	
 
 fun enableEPIndex is_top states exp = 
@@ -1106,17 +1200,6 @@ fun enableEPIndex is_top states exp =
 	end
     else
 	(Match.head exp) (map (enableEPIndex is_top states) (Match.level exp))
-(*
-    case exp of
-	Exp.FUN (funtype, args) => Exp.FUN (funtype, map (enableEPIndex is_top states) args)
-      | Exp.TERM (Exp.SYMBOL (sym, props)) => 
-	if List.exists (fn(sym')=>sym=sym') states then
-	    Exp.TERM (Exp.SYMBOL (sym, Property.setEPIndex props (SOME (if is_top then Property.STRUCT_OF_ARRAYS else Property.ARRAY))))
-	else
-	    exp
-      | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist, dimlist))
-      | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o (enableEPIndex is_top states) o Exp.TERM) termlist))
-      | _ => exp*)
 
 
 (* find symbols and assign to output buffer *)
@@ -1131,14 +1214,6 @@ fun assignToOutputBuffer exp =
     else
 	(Match.head exp) (map assignToOutputBuffer (Match.level exp))
 	    
-(*    case exp of
-	Exp.FUN (funtype, args) => Exp.FUN (funtype, map assignToOutputBuffer args)
-      | Exp.TERM (Exp.SYMBOL (sym, props)) => 
-	Exp.TERM (Exp.SYMBOL (sym, Property.setOutputBuffer props true))
-      | Exp.TERM (Exp.LIST (termlist, dimlist)) => Exp.TERM (Exp.LIST (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist, dimlist))
-      | Exp.TERM (Exp.TUPLE termlist) => Exp.TERM (Exp.TUPLE (map (exp2term o assignToOutputBuffer o Exp.TERM) termlist))
-      | _ => exp*)
-
 
 fun analyzeRelations relations = 
     let
@@ -1234,184 +1309,5 @@ fun sortStatesByDependencies nil =
 	sortRelations ([], relations, [])
     end
     handle e => DynException.checkpoint "ExpProcess.sortStatesByDependencies" e
-
-
-local open mlJS in
-fun jsValOf js (SOME x) = js x
-  | jsValOf _ NONE = js_null
-
-val js_symbol = js_string o Symbol.name
-
-fun to_json (Exp.FUN (typ, expressions)) = fun_to_json (typ, expressions)
-  | to_json (Exp.TERM term) = term_to_json term
-  | to_json (Exp.META meta) = meta_to_json meta
-  | to_json (Exp.CONTAINER c) = container_to_json c
-
-and fun_to_json (Fun.BUILTIN operation, expressions) =
-    js_object [("type", js_string "BUILTIN"),
-	       ("operation", js_string (#name (FunProps.op2props operation))),
-	       ("operands", js_array (map to_json expressions))]
-  | fun_to_json (Fun.INST {classname,instname,props}, expressions) = 
-    let val {sourcepos,realclassname,realinstname,iterators,inline} 
-	  = props
-
-	val json_properties = js_object [("inline", js_boolean inline),
-					 ("iterators", js_array (map js_symbol iterators)),
-					 ("realInstanceName", jsValOf js_symbol realinstname),
-					 ("realClassName", jsValOf js_symbol realclassname),
-					 ("sourcePosition", jsValOf PosLog.to_json sourcepos)]
-    in
-	js_object [("type", js_string "INSTANCE"),
-		   ("className", js_string (Symbol.name classname)),
-		   ("instanceName", js_string (Symbol.name instname)),
-		   ("properties", json_properties),
-		   ("operands", js_array (map to_json expressions))]
-    end
-
-and term_to_json (Exp.RATIONAL (num, denom)) =
-    js_object [("type", js_string "COMPLEX"),
-	       ("numerator", js_int num),
-	       ("denominator", js_int denom)]
-  | term_to_json (Exp.INT z) = 
-    js_object [("type", js_string "INT"),
-	       ("value", js_int z)]
-  | term_to_json (Exp.REAL r) = 
-    js_object [("type", js_string "REAL"),
-	       ("value", js_float r)]
-  | term_to_json (Exp.BOOL b) = 
-    js_object [("type", js_string "BOOL"),
-	       ("value", js_boolean b)]
-  | term_to_json (Exp.RANDOM Exp.UNIFORM) =
-    js_object [("type", js_string "UNIFORM_RAND")]
-  | term_to_json (Exp.RANDOM Exp.NORMAL) =
-    js_object [("type", js_string "NORMAL_RAND")]
-  | term_to_json (Exp.COMPLEX (r, i)) = 
-    js_object [("type", js_string "COMPLEX"),
-	       ("real", term_to_json r),
-	       ("imaginary", term_to_json i)]
-  | term_to_json (Exp.TUPLE terms) =
-    js_object [("type", js_string "TUPLE"),
-	       ("terms", js_array (map term_to_json terms))]
-  | term_to_json (Exp.RANGE {low, high, step}) = 
-    js_object [("type", js_string "RANGE"),
-	       ("low", term_to_json low),
-	       ("step", term_to_json step),
-	       ("high", term_to_json high)]
-  | term_to_json (Exp.SYMBOL (name, properties)) = 
-    let val {iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index}
-	  = properties
-
-	val json_iterators
-	  = case iterator 
-	     of SOME iters => 
-		let fun iterator_to_json (name, index) =
-			js_object [("name", js_symbol name),
-				   ("index", iterator_index_to_json index)]
-
-		    and iterator_index_to_json (Iterator.RELATIVE z) =
-			js_object [("type", js_string "RELATIVE"), ("value", js_int z)]
-		      | iterator_index_to_json (Iterator.ABSOLUTE z) = 
-			js_object [("type", js_string "ABSOLUTE"), ("value", js_int z)]
-		      | iterator_index_to_json (Iterator.RANGE (low, high)) = 
-			js_object [("type", js_string "RANGE"), ("low", js_int low), ("high", js_int high)]
-		      | iterator_index_to_json (Iterator.LIST zz) = 
-			js_object [("type", js_string "LIST"), ("values", js_array (map js_int zz))]
-		      | iterator_index_to_json Iterator.ALL = 
-			js_object [("type", js_string "ALL")]
-		in
-		    js_array (map iterator_to_json iters)
-		end
-	      | NONE => js_null
-
-	val json_scope
-	  = case scope
-	     of Property.LOCAL => 
-		js_object [("type", js_string "LOCAL")]
-	      | Property.READSTATE name => 
-		js_object [("type", js_string "READSTATE"), ("name", js_symbol name)]
-	      | Property.READSYSTEMSTATE name => 
-		js_object [("type", js_string "READSYSTEMSTATE"), ("iterator", js_symbol name)]
-	      | Property.WRITESTATE name => 
-		js_object [("type", js_string "WRITESTATE"), ("name", js_symbol name)]
-	      | Property.ITERATOR => 
-		js_object [("type", js_string "ITERATOR")]
-
-	val json_derivative
-	  = case derivative
-	     of SOME (degree, symbols) =>
-		js_object [("degree", js_int degree),("iterators", js_array (map js_symbol symbols))]
-	      | NONE => js_null
-
-	val json_properties
-	  = js_object [("iterators", json_iterators),
-		       ("derivative", json_derivative),
-		       ("isEvent", js_boolean isevent),
-		       ("sourcePosition", jsValOf PosLog.to_json sourcepos),
-		       ("realName", jsValOf js_symbol realname),
-		       ("scope", json_scope),
-		       ("outputBuffer", js_boolean outputbuffer),
-		       ("parallelIndex", jsValOf (js_string o (fn Property.ARRAY => "ARRAY" | Property.STRUCT_OF_ARRAYS => "STRUCT_OF_ARRAYS")) ep_index)]
-    in
-	js_object [("type", js_string "SYMBOL"),
-		   ("name", js_string (Symbol.name name)),
-		   ("properties", json_properties)]
-    end
-  | term_to_json Exp.DONTCARE =
-    js_object [("type", js_string "DONTCARE")]
-  | term_to_json Exp.INFINITY = 
-    js_object [("type", js_string "INFINITY")]
-  | term_to_json Exp.NAN = 
-    js_object [("type", js_string "NAN")]
-  | term_to_json (Exp.PATTERN (name, predicate, arity)) = 
-    let val json_arity 
-	  = case arity 
-	     of Pattern.ONE => js_object [("type", js_string "ONE")]
-	      | Pattern.ONE_OR_MORE => js_object [("type", js_string "ONE_OR_MORE")]
-	      | Pattern.ZERO_OR_MORE => js_object [("type", js_string "ZERO_OR_MORE")]
-	      | Pattern.SPECIFIC_COUNT count => 
-		js_object [("type", js_string "COUNT"), ("count", js_int count)]
-	      | Pattern.SPECIFIC_RANGE (low, high) => 
-		js_object [("type", js_string "RANGE"), ("low", js_int low), ("high", js_int high)]
-    in
-	js_object [("type", js_string "PATTERN"),
-		   ("predicate", js_string "FIXME"),
-		   ("arity", json_arity)]
-    end
-
-and meta_to_json (Exp.LAMBDA {arg, body}) =
-    js_object [("type", js_string "LAMBDA"),
-	       ("argument", js_symbol arg),
-	       ("body", to_json body)]
-  | meta_to_json (Exp.APPLY {func, arg}) = 
-    js_object [("type", js_string "APPLY"),
-	       ("function", to_json func),
-	       ("argument", to_json arg)]
-  | meta_to_json (Exp.MAP {func, args}) =  
-    js_object [("type", js_string "MAP"),
-	       ("function", to_json func),
-	       ("arguments", to_json args)]
-  | meta_to_json (Exp.SEQUENCE members) =  
-    js_object [("type", js_string "SEQUENCE"),
-	       ("members", js_array (map to_json members))]
-   
-and container_to_json (Exp.EXPLIST l) =
-    js_object [("type", js_string "EXPLIST"),
-	       ("members", js_array (map to_json l))]
-  | container_to_json (Exp.ARRAY a) =
-    js_object [("type", js_string "ARRAY"),
-	       ("length", js_int (Array.length a)),
-	       ("members", js_array (map to_json (Container.arrayToList a)))]
-  | container_to_json (Exp.MATRIX m) =
-    let
-	val (nrows, ncols) = Matrix.size m
-    in
-	js_object [("type", js_string "MATRIX"),
-		   ("rows", js_int nrows),
-		   ("columns", js_int ncols),
-		   ("members", js_array (map 
-					     (to_json o Exp.CONTAINER o Exp.ARRAY)
-					     (Matrix.toRows m)))]
-    end
-end
 
 end

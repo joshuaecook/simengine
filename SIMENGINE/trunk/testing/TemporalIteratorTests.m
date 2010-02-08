@@ -28,6 +28,7 @@ s.add(Test('OneTimeIteratorImplicit',@()(simex('models_FeatureTests/OneTimeItera
 s.add(Test('OneTimeIteratorExplicit',@()(simex('models_FeatureTests/OneTimeIteratorTest2.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
 s.add(Test('OneTimeIteratorRedefine_t',@()(simex('models_FeatureTests/OneTimeIteratorTest3.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
 s.add(Test('OneDiscreteIterator',@()(simex('models_FeatureTests/OneDiscreteIteratorTest1.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
+s.add(Test('IteratorCNameConflict',@()(simex('models_FeatureTests/OneDiscreteIteratorTest2.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
 
 % Parallel tests
 s.add(Test('OneTimeIteratorImplicit parallel',@()(simex('models_FeatureTests/OneTimeIteratorTest1.dsl',10,zeros(10,1),target)), '-allequal'));
@@ -66,12 +67,22 @@ s.add(Test('TwoDelayUsingPPTimeIterator', ...
 
 s.add(Test('TwoDelayUsingPPTimeIterator',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1.dsl',10)),'-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
 s.add(Test('TwoDelayUsingPPContinuousIterator',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest2.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
-s.add(Test('PPIteratorAlone',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest4.dsl',10)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 1:11]')));
+s.add(Test('PPIteratorAlone',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest4.dsl',10)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:10]')));
 s.add(Test('TwoDelayUsingIndex', ...
            @()(simex('models_FeatureTests/PostProcessContinuousIteratorTest3.dsl',10,target)), ...
            '-equal', struct('y', [0:10; 0:10; 0 0 0:8]')));
 s.add(Test('TwoDelayUsingPPDiscreteNIterator',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest1.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
-s.add(Test('TwoDelayUsingPPOtherDiscreteIterator',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest2.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
+s.add(Test('TwoDelayUsingPPOtherDiscreteIterator',@ ...
+           ()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest2.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0:9; 0 0 0:8]')));
+s.add(Test('TwoDelayUsingPPIntermediateIterator', @ ...
+           ()(simex('models_FeatureTests/PostProcessIntermediateIteratorTest1.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0 0:8]')));
+s.add(Test('TwoDelayofPPIterator', @ ...
+           ()(simex('models_FeatureTests/PostProcessIntermediateIteratorTest2.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0 0:8]')));
+s.add(Test('TwoDelayofUpdateIterator', @ ...
+           ()(simex('models_FeatureTests/PostProcessIntermediateIteratorTest3.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0 0:8]')));
+y = [0:10; 0:10; [0 0:9]; 0:10; [0 0:9]]';
+s.add(Test('TwoIteratorCoupledDelays', @ ...
+           ()(simex('models_FeatureTests/InProcessIteratorTest1.dsl',10,target)), '-equal', struct('y_t1', y, 'y_t2', y)))
 
 % Parallel tests
 s.add(Test('TwoDelayUsingPPTimeIterator parallel',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1.dsl',10,zeros(10,3),target)),'-allequal'));

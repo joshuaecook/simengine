@@ -141,6 +141,12 @@ val argument_groups =
 		dyntype=STRING_VECTOR_T,
 		description=["Location to look for library files"]},
 
+	       {short = NONE,
+		long = SOME "registry",
+		xmltag = "registry",
+		dyntype = STRING_T,
+		description = ["Pathname of compiler settings registry file"]},
+
 	       {short=NONE,
 		long=SOME "srcpath",
 		xmltag="sourcepath",
@@ -169,7 +175,7 @@ val argument_groups =
      {group="Debugging Options",
       tag="debug",
       description=["Options only available in the debug-only version of the system"],
-      visible=BuildOptions.dev_version,
+      visible=BuildOptions.devVersion,
       options=[{short=NONE,
 		long =SOME "debugexceptions",
 		xmltag="debugexceptions",
@@ -228,7 +234,7 @@ val argument_groups =
      {group="Logging Options",
       tag="logging",
       description=["Options to control logging of various pieces of information"],
-      visible=BuildOptions.dev_version,
+      visible=BuildOptions.devVersion,
       options=[{short=NONE,
 		long = SOME "logranges",
 		xmltag="logranges",
@@ -857,7 +863,9 @@ fun importRegistryEntry (Registry.REG_FLAG(n, f), existingSettings) =
 fun importRegistryFile (file) = 
     (if GeneralUtil.isFile file then
 	 (registryFile := file;
-	  settings := foldl importRegistryEntry (!settings) (DynRegParse.parse(file));
+	  settings := foldl importRegistryEntry 
+			    (! settings) 
+			    ((Registry.REG_SETTING ("registry", Registry.REG_STRING file)) :: (DynRegParse.parse(file)));
 	  ())
      else
 	 (Logger.log_failure ($("Can't read registry file '"^file^"'"));

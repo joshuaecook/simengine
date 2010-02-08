@@ -64,23 +64,24 @@ function e = RunMRGSerialvsParallel
     model = fullfile(simexamplepath, 'MRG/axon.dsl');
     runtime = 2;
     Istim = [0 100 200];
+    oserial = zeros(size(Istim));
     % precompile
     simex(model);
     % Run one input at a time and concatenate the results
     for i = 1:length(Istim)
         inputs.Istim = Istim(i);
-        oserial1(i) = simex(model, runtime, inputs, '-quiet', '-dontrecompile');
+        oserial1(i) = simex(model, runtime, inputs, '-dontrecompile');
     end
     inputs.Istim = Istim;
     % Run all the inputs serially in a single simex invocation
-    oserial2 = simex(model, runtime, inputs, '-quiet', '-cpu');
+    oserial2 = simex(model, runtime, inputs, '-cpu');
     e = equiv(oserial1, oserial2);
     if not(e)
         return;
     end
 
     % Run all the inputs in parallel
-    oparallel = simex(model, runtime, inputs, '-quiet', '-parallelcpu');
+    oparallel = simex(model, runtime, inputs, '-parallelcpu');
     
     e = equiv(oserial1, oparallel);
 end

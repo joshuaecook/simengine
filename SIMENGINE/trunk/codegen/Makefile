@@ -1,42 +1,39 @@
-OSLOWER=$(shell uname -s|tr [:upper:] [:lower:])
+include ../include/common.make
 
-# define a special architecture if ARCH64 is defined
-ifneq ($(ARCH64),)
-ifeq ($(OSLOWER),darwin)
-CFLAG64 = -arch x86_64
-else
-CFLAG64 = -m64
-endif
+ifneq ($(DARWIN),)
+TARGET_ARCH = -arch i386
 endif
 
-all: codegen
+.PHONY: all
+all: simlib/simlib simlib/simlib.a codegen
 
+simlib/simlib: CPPFLAGS += -DSIMLIB_MAIN
 simlib/simlib: simlib/simlib.c
-ifeq ($(OSLOWER),linux)
-	@cd simlib; gcc -g -o simlib simlib.c -ldl -lz
-else ifeq ($(OSLOWER),darwin)
-	@cd simlib; gcc -g -o simlib -DDARWIN simlib.c -ldl -lz $(CFLAG64)
-else
-	@echo "Host '$(OSLOWER)' not supported."
-endif
+	$(LINK.c) -o $@ $< -ldl -lz
+
+simlib/simlib.a: simlib/simlib.a(simlib/simlib.o)
 
 lib/libcodegen.sim: simlib/simlib src/solvers/* src/simengine/*
 # Create the intermediate objects from all source files
-	@cd src; for i in `ls solvers/* simengine/*`; do ../simlib/simlib SiMagic put $$i;done
+	cd src; for i in `ls solvers/* simengine/*`; do ../simlib/simlib put $$i $$i;done
 # Create the libcodegen library for the target platform
 ifeq ($(OSLOWER),linux)
-	@cd lib; gcc -shared -Wl,-soname,libcodegen.sim -o libcodegen.sim ../src/*.o
+	cd lib; $(LINK.c) -shared -Wl,-soname,libcodegen.sim -o libcodegen.sim ../src/*.o
 else ifeq ($(OSLOWER),darwin)
-	@cd lib; gcc -dynamiclib -Wl,-install_name,libcodegen.sim -o libcodegen.sim ../src/*.o $(CFLAG64)
+	cd lib; $(LINK.c) -dynamiclib -Wl,-install_name,libcodegen.sim -o libcodegen.sim ../src/*.o
 else
-	@echo "Host '$(OSLOWER)' not supported."
+	$(error Host $(OSLOWER) not supported.)
 endif
 
+.PHONY: codegen
 codegen: lib/libcodegen.sim
 
+.PHONY: test
 test: lib/libcodegen.sim
-	@./simlib/simlib SiMagic get ./lib/libcodegen.* solvers/solvers.h
+	@./simlib/simlib get ./lib/libcodegen.* solvers/solvers.h
 
+.PHONY: clean
 clean:
-	@rm -f src/*.o lib/libcodegen.sim simlib/simlib
-	@rm -rf simlib/simlib.dSYM
+	$(RM) src/*.o 
+	$(RM) lib/libcodegen.sim 
+	$(RM) simlib/simlib simlib/simlib.a

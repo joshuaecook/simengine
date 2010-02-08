@@ -1,4 +1,18 @@
 #include<stdlib.h>
+#include<sys/time.h>
+#include<string.h>
+
+void seed_entropy (long int seed) {
+  srand48(seed);
+}
+
+void seed_entropy_with_time (void) {
+  struct timeval tv;
+  if (0 != gettimeofday(&tv, NULL)){
+    ERROR(Simatra:PRNG, "Failed while getting current time: %s.", strerror(errno));
+  }
+  seed_entropy(tv.tv_sec);
+}
 
 // Produce a uniform random number on the interval [0,1)
 CDATAFORMAT uniform_random_unsafe(){

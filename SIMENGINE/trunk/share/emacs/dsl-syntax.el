@@ -1,3 +1,5 @@
+; Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C
+
 (defvar dsl-mode-syntax-table nil
   "Syntax table used in `dsl-mode' buffers")
 
@@ -23,17 +25,18 @@
 
 
 (defvar dsl-keyword-symbols
-  '(LF and by class constant constructor do do else elseif end enumeration equation equations exists extends forall foreach foreach function get given global hidden if import in input interface lambdafun let model multifunction namespace of open operator or otherwise output overload parameter public quantity replace returns satisfies set state stateful submodel suchthat then to tunable type var visible when while with))
+  '(LF and by class constant constructor do do else elseif end enumeration equation equations exists extends forall foreach foreach function get given global hidden if import in input interface iterator lambdafun let model multifunction namespace of open operator or otherwise output overload parameter public quantity replace returns satisfies set state stateful submodel suchthat then to tunable type var visible when while with))
 
-;; A few keywords are in here because they look like values or
-;; functions. Others appear because they are in the standard library.
+; A few keywords are in here because they look like values or
+; functions. Others appear because they are in the standard library.
 (defvar dsl-builtin-symbols
   '(assert error false notice print println solver true undefined warning))
 
-(defvar dsl-type-symbols
-  '(Binary Boolean Number Object String Tuple Vector forwardeuler rk4
-  ode23 ode45))
+(defvar dsl-solver-symbols
+  '(forwardeuler cvode linearbackwardeuler ode23 ode45 rk4))
 
+(defvar dsl-type-symbols
+  '(Binary Boolean Number Object String Tuple Vector))
 
 (defvar dsl-id-pattern
   "\\_<\\w+\\_>")

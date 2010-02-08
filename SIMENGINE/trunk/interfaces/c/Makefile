@@ -1,20 +1,19 @@
 include ../../include/common.make
 
-#OSLOWER=$(shell uname -s|tr [:upper:] [:lower:])
-
-# define a special architecture if ARCH64 is defined
-ifneq ($(ARCH64),)
-ifeq ($(OSLOWER),darwin)
-CFLAG64 = -arch x86_64
-else
-CFLAG64 = -m64
-endif
-endif
+.PHONY: all clean
 
 all: simex
 
-simex: simex.c
-	$(CC) -g -I../../codegen/src/simengine -o $@ $< -ldl $(CFLAG64)
-
 clean:
-	rm -rf simex simex.dSYM
+	$(RM) simex
+
+ifneq ($(DEBUG),"")
+SIMEX_DEBUG = -DSIMEX_DEBUG
+else
+SIMEX_DEBUG =
+endif
+
+simex: override CFLAGS += -I../../codegen/src/simengine
+simex: simex.c simex.h simex_commandline.c ../../codegen/src/simengine/simengine_api.h ../../codegen/src/simengine/memory_layout.h
+	$(LINK.c) -o $@ simex.c simex_commandline.c -ldl $(SIMEX_DEBUG)
+

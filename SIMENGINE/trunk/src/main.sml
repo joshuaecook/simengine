@@ -47,22 +47,26 @@ fun rep_loop isInteractive textstream env =
 	in
 	    rep_loop isInteractive textstream env'
 	end
-	handle err as OOLCParse.ParserError
-	       => (Logger.log_error (Printer.$"Parse errors encountered");
-		   DynException.log "Main" err;	     
+	handle err as OOLCParse.ParserError => 
+	       (Logger.log_error (Printer.$"Parse errors encountered");
+		   (*DynException.log "Main" err;	     
 		   if DynamoOptions.isFlagSet("debugexceptions") then
 		       app print (log_stack err ())
 		   else
-		       ();
+		       ();*)
 		   rep_loop isInteractive textstream env)
-	     | DynException.RestartRepl
-	       => if isInteractive then (DynException.resetErrored(); rep_loop isInteractive textstream env) else (KEC.UNIT, env)
+	     | DynException.RestartRepl => 
+	       if isInteractive then 
+		      (DynException.resetErrored()
+		     ; rep_loop isInteractive textstream env) 
+		  else (KEC.UNIT, env)
 	     | e as DynException.TooManyErrors =>
 	       if isInteractive then
-		   (DynException.resetErrored();
-		    rep_loop isInteractive textstream env)
+		   (DynException.resetErrored()
+		  ; rep_loop isInteractive textstream env)
 	       else
 		   raise e
+	       
 		  
 	
 exception Usage
@@ -72,15 +76,10 @@ val defaultOptions = [Logger.LIBRARY]
 val _ = Logger.log_stdout (Logger.WARNINGS, 
 			   defaultOptions(* @ (DynamoParameters.options2groups options)*))
 	
-			    
-	
 val registryfile = case OS.Process.getEnv("SIMENGINEDOL") of
 		       SOME reg => reg
-		     | NONE => (case OS.Process.getEnv("SIMENGINE") of
-				    SOME reg => reg ^ "/data/default.dol"
-				  | NONE => (print ("\nError: Environment variable SIMENGINEDOL or SIMENGINE must be set to determine the location of the Diesel options file (dol)\n");
-					     DynException.setErrored();
-					     ""))
+		     | NONE => OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/default.dol")
+
 val _ = DynException.checkToProceed()
 
 	
@@ -148,6 +147,8 @@ val _ = (if List.length (CommandLine.arguments()) = 0 then
     handle DynException.TooManyErrors => 
 	   GeneralUtil.FAILURE "Too many errors encountered"
 	 | Usage => GeneralUtil.SUCCESS
+	 | OOLCParse.ParserError => 
+	   GeneralUtil.FAILURE "Error found when parsing source code"
 	 |  e => 
 	    (DynException.log "Main" e;
 	     GeneralUtil.FAILURE "An exception was encountered")

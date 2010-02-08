@@ -20,7 +20,7 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
     if (outputid > seint.num_outputs) { return 1; }
     if (seint.output_num_quantities[outputid] != nquantities) { return 1; }
 		 
-    output = &outputs[AS_IDX(seint.num_outputs,semeta.num_models,outputid,modelid)];
+    output = &outputs[AS_IDX(seint.num_outputs,PARALLEL_MODELS,outputid,modelid)];
 		 
     if (output->num_samples == output->alloc) {
       output->alloc *= 2;

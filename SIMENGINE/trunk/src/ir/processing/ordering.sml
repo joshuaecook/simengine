@@ -25,6 +25,11 @@ fun id a = a
 (* Compares two values using the builtin polymorphic equality operator. (Allows partial application.) *)
 fun equals a b = a = b
 
+fun genUniqueName base = 
+    Symbol.symbol (base ^ (Int.toString (Unique.genid())))
+
+fun genMasterName base =
+    Symbol.symbol (base ^ ("__master__"))
 
 fun printClassMap classMap =
     let
@@ -138,7 +143,7 @@ fun buildInstance (class, outputs, inputMap, original_instance_exp) : Exp.exp =
     let
 	val {instname=orig_inst_name, classname=orig_class_name,props,inpargs=oldinputs, outargs=orig_outs} = ExpProcess.deconstructInst original_instance_exp
 
-	val instName = Symbol.symbol ((Symbol.name (orig_inst_name)) ^ (Int.toString (Unique.genid())))
+	val instName = genUniqueName(Symbol.name (orig_inst_name))
 
 	val lhs' = Exp.TUPLE (map (sym2output orig_outs) outputs)
 
@@ -531,6 +536,7 @@ fun orderModel (model:DOF.model)=
 	    end
 
 
+	(* Note: partgroup must either be a list of outputs OR a list containing only the maininstance*)
 	fun buildSplit (instanceClass:DOF.class, orig_instance_exp) (partGroup, (splitMap, classMap, classIOMap, exps)) =
 	    let
 		val _ = print ("calling buildsplit\n")
@@ -544,6 +550,14 @@ fun orderModel (model:DOF.model)=
 
 		val outputs = List.filter (not o isMainInstance) partGroup
 		val mainInstance = List.find isMainInstance partGroup
+
+		(* Sanity check to confirm that we never have a master class (main instance) with outputs *)
+		val _ = if Option.isSome mainInstance andalso length(partGroup) <> 1 then
+			    DynException.stdException ("We cannot have a master class (main instance) with outputs",
+						       "Ordering.orderModel.buildSplit",
+						       Logger.INTERNAL)
+			else
+			    ()
 
 		val candidateClasses = (valOf(SymbolTable.look (splitMap, classname)))
 		    handle e => DynException.checkpoint "Ordering.orderModel.buildSplit.candidateClasses" e
@@ -589,7 +603,10 @@ fun orderModel (model:DOF.model)=
 
 	and buildClass (classMap, splitMap, oldClass:DOF.class, outputMap, includeMainExps) =
 	    let
-		val newname = Symbol.symbol ((Symbol.name (#name oldClass)) ^ (Int.toString (Unique.genid())))
+		val newname = if includeMainExps then 
+				  genMasterName(Symbol.name (#name oldClass))
+			      else
+				  genUniqueName(Symbol.name (#name oldClass))
 
 		val expMap = (valOf(SymbolTable.look(classMap, #name oldClass)))
 		    handle e => DynException.checkpoint "Ordering.orderModel.buildClass.expMap" e
@@ -880,13 +897,18 @@ fun orderModel (model:DOF.model)=
 		val inputMap = map inp2pos neededoldinputs
 		val inputs = map (fn(i) => List.nth(oldinputs, i)) inputMap
 
-
-
+		val properties' = ClassProcess.updatePreShardName (#properties oldClass) newname
+			     
 		val newclass = {name=newname,
 				properties= if includeMainExps then
-						#properties oldClass
+						properties'
 					    else (* convert it to a slave of the orignal *)
-						ClassProcess.makeSlaveClassProperties (#properties oldClass),
+						let
+						    val master_name = genMasterName(Symbol.name (#name oldClass))
+						    val properties' = ClassProcess.updatePreShardName (#properties oldClass) master_name
+						in
+						    ClassProcess.makeSlaveClassProperties (properties', master_name)
+						end,
 				iterators= #iterators oldClass,
 				inputs= ref inputs,
 				outputs=ref outputs,
@@ -993,12 +1015,13 @@ fun orderModel (model:DOF.model)=
 	fun splitClasses (class: DOF.class, (splitMap, classMap, classIOMap)) =
 	    let
 		val _ = print ("===splitting class: " ^ (Symbol.name (#name class)) ^ "\n")
-		val (instance_exps, other_exps) = List.partition ExpProcess.isInstanceEq (!(#exps class))
+		val (init_exps, other_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
+		val (instance_exps, other_exps) = List.partition ExpProcess.isInstanceEq other_exps
 
 		val (instance_exps', (splitMap', classMap', classIOMap')) 
 		  = foldl (processInstance class) (nil, (splitMap, classMap, classIOMap)) instance_exps
 
-		val _ = #exps class := instance_exps' @ other_exps
+		val _ = #exps class := init_exps @ instance_exps' @ other_exps
 
 		val _ = print ("class map keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap'))) ^ "\n")
 		val _ = print ("===about to reprocess splitting class: " ^ (Symbol.name (#name class)) ^ "\n")

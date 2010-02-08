@@ -25,16 +25,16 @@ int bogacki_shampine_init(solver_props *props){
   // Allocate GPU space for mem and pointer fields of mem (other than props)
   cutilSafeCall(cudaMalloc((void**)&dmem, sizeof(bogacki_shampine_mem)));
   props->mem = dmem;
-  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.k4, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.z_next_states, props->statesize*props->num_models*sizeof(CDATAFORMAT)));
-  cutilSafeCall(cudaMalloc((void**)&tmem.cur_timestep, props->num_models*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k1, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k2, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k3, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.k4, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.temp, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.z_next_states, props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT)));
+  cutilSafeCall(cudaMalloc((void**)&tmem.cur_timestep, PARALLEL_MODELS*sizeof(CDATAFORMAT)));
 
   // Create a local copy of the initial timestep and initialize
-  temp_cur_timestep = (CDATAFORMAT*)malloc(props->num_models*sizeof(CDATAFORMAT));
+  temp_cur_timestep = (CDATAFORMAT*)malloc(PARALLEL_MODELS*sizeof(CDATAFORMAT));
   for(i=0; i<props->num_models; i++)
     temp_cur_timestep[i] = props->timestep;
 
@@ -50,15 +50,15 @@ int bogacki_shampine_init(solver_props *props){
   bogacki_shampine_mem *mem = (bogacki_shampine_mem*)malloc(sizeof(bogacki_shampine_mem));
 
   props->mem = mem;
-  mem->k1 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k2 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k3 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->k4 = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->temp = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
-  mem->z_next_states = (CDATAFORMAT*)malloc(props->statesize*props->num_models*sizeof(CDATAFORMAT));
+  mem->k1 = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->k2 = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->k3 = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->k4 = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->temp = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
+  mem->z_next_states = (CDATAFORMAT*)malloc(props->statesize*PARALLEL_MODELS*sizeof(CDATAFORMAT));
 
   // Allocate and initialize timesteps
-  mem->cur_timestep = (CDATAFORMAT*)malloc(props->num_models*sizeof(CDATAFORMAT));
+  mem->cur_timestep = (CDATAFORMAT*)malloc(PARALLEL_MODELS*sizeof(CDATAFORMAT));
   for(i=0; i<props->num_models; i++)
     mem->cur_timestep[i] = props->timestep;
 #endif
@@ -83,7 +83,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
   int i;
   int ret = model_flows(props->time[modelid], props->model_states, mem->k1, props, 1, modelid);
 
-  int appropriate_step = FALSE;
+  int appropriate_step = 0;
 
   CDATAFORMAT max_error;
 
@@ -141,7 +141,7 @@ int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
     //CDATAFORMAT norm = max_error;
     CDATAFORMAT norm = sqrt(err_sum/props->statesize);
     appropriate_step = norm <= 1;
-    if (mem->cur_timestep[modelid] == min_timestep) appropriate_step = TRUE;
+    if (mem->cur_timestep[modelid] == min_timestep) appropriate_step = 1;
 
     if (appropriate_step){
       props->next_time[modelid] += mem->cur_timestep[modelid];

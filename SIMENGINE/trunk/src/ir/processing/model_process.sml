@@ -10,10 +10,6 @@ structure ModelProcess : sig
       a particular back-end, the data structure returned from optimizeModel would be a good one to save.  *)
     val optimizeModel : DOF.model -> unit
 
-(*    type model_shard = {top_class: Symbol.symbol,
-			iter: DOF.systemiterator,
-			model: DOF.model}*)
-
     (* normalizeModel and normalizeParallelModel: a normalization step for writing into a C back-end.  This 
       function performs transformations that are used solely for fitting within a back-end.  This
       can include renaming symbols to fit within compiler rules or adding code generation flags. *)
@@ -39,24 +35,24 @@ structure ModelProcess : sig
     val returnStatelessIterators : unit -> DOF.systemiterator list
 
     val hasUpdateIterator : Symbol.symbol -> bool
-    val hasPostProcessIterator : Symbol.symbol -> bool
+    val hasAlgebraicIterator : Symbol.symbol -> bool
     val requiresMatrixSolution : DOF.systemiterator -> bool
 
+    (* Returns the list of algebraic iterators matching a given name. *)
+    val algebraicIterators: Symbol.symbol -> DOF.systemiterator list
+
     (* Indicates whether an iterator is dependent upon another. *)
-    val isDependentIterator : DOF.systemiterator -> bool
+    val isDependentIterator : DOF.systemiterator -> bool 
     val isImmediateIterator : DOF.systemiterator -> bool
+    (* Indicates whether an iterator can produce an output - all iterators except UPDATE *)
+    val isOutputIterator : DOF.systemiterator -> bool
+    val isStatefulIterator : DOF.systemiterator -> bool
     val isStatelessIterator : DOF.systemiterator -> bool
 
     val isDebugging : DOF.model -> bool
     val isProfiling : DOF.model -> bool
 
-    val to_json : DOF.model -> mlJS.json_value
-
 end = struct
-
-(*type model_shard = {top_class: Symbol.symbol,
-		    iter: DOF.systemiterator,
-		    model: DOF.model}*)
 
 
 fun log str = if DynamoOptions.isFlagSet "logdof" then 
@@ -70,15 +66,18 @@ val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
 
 fun isDependentIterator (_, DOF.UPDATE _) = true
-  | isDependentIterator (_, DOF.POSTPROCESS _) = true
+  | isDependentIterator (_, DOF.ALGEBRAIC _) = true
   | isDependentIterator _ = false
 
 fun isImmediateIterator (_, DOF.IMMEDIATE) = true
   | isImmediateIterator _ = false
 
+fun isOutputIterator (_, DOF.UPDATE _) = false
+  | isOutputIterator _ = true
+
 fun isStatefulIterator (_, DOF.CONTINUOUS _) = true
   | isStatefulIterator (_, DOF.DISCRETE _) = true
-  | isStatefulIterator (_, DOF.POSTPROCESS _) = true
+  | isStatefulIterator (_, DOF.ALGEBRAIC _) = true
   | isStatefulIterator _ = false
 
 fun isStatelessIterator (_, DOF.UPDATE _) = true
@@ -119,14 +118,17 @@ fun unify model =
 
 
     
-fun hasPostProcessIterator iter_sym =
+fun hasAlgebraicIterator iter_sym =
     let
 	val iterators = CurrentModel.iterators()
     in
 	List.exists (fn(_,iter_type)=>case iter_type of
-					  DOF.POSTPROCESS v => v=iter_sym
+					  DOF.ALGEBRAIC (_,v) => v=iter_sym
 					| _ => false) iterators
     end
+
+fun algebraicIterators iterName =
+    List.filter (fn (_, DOF.ALGEBRAIC (_, name)) => name = iterName | _ => false) (CurrentModel.iterators ())
     
 
 fun pruneModel iter_sym_opt model = 
@@ -202,20 +204,48 @@ fun model2statesizebyiterator (iter:DOF.systemiterator) (model:DOF.model) =
 
 fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
     let
-	val {iterators, precision, target, num_models, debug, profile} = properties
+	val {iterators, precision, target, parallel_models, debug, profile} = properties
+
+	(* is there an algebraic iterator that matches a particular iterator *)
+	val algebraic_iterators = List.filter (fn(_, iter_type)=> case iter_type of DOF.ALGEBRAIC _ => true | _ => false) iterators
+	fun find_matching_algebraic_iterators (iterator as (iter_sym,_)) = 
+	    List.filter (fn(_, iter_type)=> case iter_type of DOF.ALGEBRAIC (_, iter_sym') => iter_sym=iter_sym' | _ => false) algebraic_iterators
 
 	fun filter_iter iterator =
 	    0 < model2statesizebyiterator iterator model orelse
 	    List.exists
 		(fn (class) => 0 < List.length (ClassProcess.outputsByIterator iterator class))
-		classes
+		classes orelse
+	    let
 
+		val matching_iterators = find_matching_algebraic_iterators iterator					 
+		val result = foldl (fn(iterator',result)=> if result then
+							       true
+							   else 
+							       filter_iter iterator') false matching_iterators
+		(* do a quick error check - can't have a variable time step continuous iterator *)
+		val _ = if result then
+			    case iterator of
+				(iter_sym, DOF.CONTINUOUS solver) => if Solver.isVariableStep solver then
+									 (Logger.log_error (Printer.$("If iterator "^(Symbol.name iter_sym)^" has no states, it can not use a variable time step solver.  Iterator "^(Symbol.name iter_sym)^" was set to use the "^(Solver.solver2shortname solver)^" solver."));
+									  DynException.setErrored())
+								     else
+									 ()
+			      | _ => ()
+			else
+			    ()
+
+	    in
+		result
+	    end
+	    
+	(* here are the iterators with states or outputs *)
 	val iterators' = List.filter filter_iter iterators
 
 	val properties' = {iterators=iterators',
 			   precision=precision,
 			   target=target,
-			   num_models=num_models,
+			   parallel_models=parallel_models,
 			   debug=debug,
 			   profile=profile}
 	val model' = (classes, top_inst, properties')
@@ -228,13 +258,13 @@ fun applyRewritesToModel rewrites (model as (classes,_,_)) =
 
 fun fixTemporalIteratorNames (model as (classes, inst, props)) =
     let
-	val {iterators,precision,target,num_models,debug,profile} = props
+	val {iterators,precision,target,parallel_models,debug,profile} = props
 	val iterators' =  map 
 			      (fn(iter_sym, iter_type)=>
 				 (Util.sym2codegensym iter_sym,
 				  case iter_type of
 				      DOF.UPDATE v => DOF.UPDATE (Util.sym2codegensym v)
-				    | DOF.POSTPROCESS v => DOF.POSTPROCESS (Util.sym2codegensym v)
+				    | DOF.ALGEBRAIC (processtype, v) => DOF.ALGEBRAIC (processtype, Util.sym2codegensym v)
 				    | _ => iter_type))
 			      iterators
 			      
@@ -242,25 +272,43 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 				(fn((sym,_),(sym',_))=>(sym, sym'))
 				(ListPair.zip (iterators, iterators'))
 
-	val rewrites = map
-			   (fn(sym,sym')=>
-			      let
-				  val pred = ("Matching:"^(Symbol.name sym), (fn(exp)=> case ExpProcess.exp2temporaliterator exp of
-											    SOME (iter_sym,_) => iter_sym=sym
-											  | NONE => false))
-				  val find = Match.anysym_with_predlist [PatternProcess.predicate_anysymbol, pred] (Symbol.symbol "a")
-				  val test = NONE
-				  val replace = Rewrite.ACTION (sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol (sym',Util.sym2codegensym) exp))
-			      in
-				  {find=find,
-				   test=test,
-				   replace=replace}
-			      end)
-			   iter_name_map
+	(* replace temporal iterators *)
+	val iterator_rewrites = map
+				    (fn(sym,sym')=>
+				       let
+					   val pred = ("Matching:"^(Symbol.name sym), (fn(exp)=> case ExpProcess.exp2temporaliterator exp of
+												     SOME (iter_sym,_) => iter_sym=sym
+												   | NONE => false))
+					   val find = Match.anysym_with_predlist [PatternProcess.predicate_anysymbol, pred] (Symbol.symbol "a")
+					   val test = NONE
+					   val replace = Rewrite.ACTION (sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol (sym',Util.sym2codegensym) exp))
+				       in
+					   {find=find,
+					    test=test,
+					    replace=replace}
+				       end)
+				    iter_name_map
 
-	val _ = applyRewritesToModel rewrites model
-	val {iterators,precision,target,num_models,debug,profile} = props
-	val props'={iterators=iterators',precision=precision,target=target,num_models=num_models,debug=debug,profile=profile}
+	fun updateSymbolName new_symbol (Exp.TERM (Exp.SYMBOL (_, props))) = Exp.TERM (Exp.SYMBOL (new_symbol, props))
+	  | updateSymbolName new_symbol _ = DynException.stdException("Unexpected non symbol matched", "ModelProcess.fixTemporalIteratorNames", Logger.INTERNAL)
+				    
+	(* replace iterators used explicitly *)
+	val symbol_rewrites = map
+			      (fn(sym,sym')=>
+				 let
+				     val find = Match.asym sym
+				     val replace = Rewrite.ACTION (sym', updateSymbolName sym')
+				 in
+				     {find=find,
+				      test=NONE,
+				      replace=replace}
+				 end)
+			      iter_name_map
+
+	val _ = applyRewritesToModel iterator_rewrites model
+	val _ = applyRewritesToModel symbol_rewrites model
+	val {iterators,precision,target,parallel_models,debug,profile} = props
+	val props'={iterators=iterators',precision=precision,target=target,parallel_models=parallel_models,debug=debug,profile=profile}
     in
 	(classes, inst, props')
     end
@@ -387,8 +435,8 @@ fun normalizeModel (model:DOF.model) =
 
 	(* remap all names into names that can be written into a back-end *)
 	val _ = log ("Fixing symbol names ...")
-	(*val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
-	val _ = CurrentModel.setCurrentModel(model')*)
+	val model' = fixTemporalIteratorNames(CurrentModel.getCurrentModel())
+	val _ = CurrentModel.setCurrentModel(model')
 	val () = (app ClassProcess.fixSymbolNames (CurrentModel.classes()))
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 
@@ -418,65 +466,5 @@ fun isProfiling model =
     in #profile props
     end
 
-local open mlJS in
-fun to_json (model as (classes,instance,properties)) =
-    let val json_classes
-	  = js_array (map ClassProcess.to_json classes)
-	    
-	val json_instance 
-	  = let val {name,classname}
-		  = instance
-		val js_name 
-		  = case name 
-		     of SOME n => js_string (Symbol.name n) 
-		      | NONE => js_null
-	    in
-		js_object [("name",js_name),
-			   ("classname",js_string (Symbol.name classname))]
-	    end
-
-	val json_properties
-	  = let val {iterators,precision,target,num_models,debug,profile}
-		  = properties
-
-		fun iterator_to_json (name, typ) = 
-		    js_object (("name",js_string (Symbol.name name)) ::
-			       (case typ
-				 of DOF.CONTINUOUS solver => [("type", js_string "CONTINUOUS"),
-							      ("solver", js_object (("name", js_string (Solver.solver2name solver)) ::
-										    (map (fn (key,value) => (key, js_string value)) (Solver.solver2params solver))))]
-				  | DOF.DISCRETE {sample_period} => [("type",js_string "DISCRETE"),
-								     ("sample_period",js_float sample_period)]
-				  | DOF.UPDATE parent => [("type",js_string "UPDATE"),
-							  ("parent",js_string (Symbol.name parent))]
-				  | DOF.POSTPROCESS parent => [("type",js_string "UPDATE"),
-							       ("parent",js_string (Symbol.name parent))]
-				  | DOF.IMMEDIATE => [("type", js_string "IMMEDIATE")]))
-		    
-		fun target_to_json Target.CPU = js_object [("type",js_string "CPU")]
-		  | target_to_json Target.OPENMP = js_object [("type",js_string "OPENMP")]
-		  | target_to_json (Target.CUDA {compute,multiprocessors,globalMemory})
-		    = js_object [("type",js_string "CUDA"),
-				 ("computeCapability",js_string (case compute of Target.COMPUTE11 => "1.1" | Target.COMPUTE13 => "1.3")),
-				 ("globalMemory",js_int globalMemory)]
-
-		val js_iterators
-		  = js_array (map iterator_to_json iterators)
-	    in
-		js_object [("iterators",js_iterators),
-			   ("precision",js_string (case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")),
-			   ("target",target_to_json target),
-			   ("num_models",js_int num_models),
-			   ("debug",js_boolean debug),
-			   ("profile",js_boolean profile)]
-	    end
-    in
-	js_object [("classes",json_classes),
-		   ("instance",json_instance),
-		   ("properties",json_properties)]
-    end
-
-
-end
 
 end

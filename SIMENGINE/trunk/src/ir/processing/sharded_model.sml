@@ -15,9 +15,14 @@ sig
     val toInputs : shardedModel -> DOF.input list
     val toOutputs : shardedModel -> DOF.output list
     val toIterator : shardedModel -> Symbol.symbol -> DOF.systemiterator
+    (* Returns the shard associated with a given named iterator. *)
+    val findShard: shardedModel * Symbol.symbol -> shard option
 
     (* pull out a list of iterator symbols *)
     val iterators : shardedModel -> Symbol.symbol list
+
+    (* compute the state size *)
+    val statesize : shardedModel -> int
 
 end
 structure ShardedModel : SHARDEDMODEL =
@@ -89,16 +94,28 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 								  var, 
 								  Match.any "d3"], 
 						  Match.any "d4"],
-			       test=NONE,
+			       (* use a test to make sure that we're only looking at the top most expression *)
+			       test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp', matched_exp)),
 			       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.pvar "d2", ExpBuild.pvar "d3"],
 									      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+
+			  (* it could be that there is no coefficient in front of the variable *)
+			  val coeff_rewrite_degenerate_case =
+			      {find=ExpBuild.plus[Match.any "d1", 
+						  var, 
+						  Match.any "d4"],
+			       (* use a test to make sure that we're only looking at the top most expression *)
+			       test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp', matched_exp)),
+			       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.int 1,
+									      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+
 			  (* run a rewrite to pull out the coeff and remainder *)
 			  val (coeff, remainder) = 
-			      case Match.applyRewriteExp coeff_rewrite exp' of
+			      case Match.applyRewritesExp [coeff_rewrite, coeff_rewrite_degenerate_case] exp' of
 				  Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
 				  (coeff, remainder)
 				| _ =>
-				  (Logger.log_error (Printer.$("Cannot factor out state '"^(state_str())^"' from expression '"^(e2ps exp')^"'.  The system may be nonlinear."));
+				  (Logger.log_error (Printer.$("Cannot factor out state "^(state_str())^" from expression '"^(e2ps exp')^"'.  The system may be nonlinear."));
 				   DynException.setErrored();
 				   (ExpBuild.int 0, rhs))
 				  
@@ -329,9 +346,18 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 					       test=SOME (fn(exp', matchedPatterns)=>ExpEquality.equiv (exp, exp')),
 					       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.pvar "d2", ExpBuild.pvar "d3"],
 											      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+					  (* it could be that there is no coefficient in front of the variable *)
+					  val coeff_rewrite_degenerate_case =
+					      {find=ExpBuild.plus[Match.any "d1", 
+								  var, 
+								  Match.any "d4"],
+					       (* use a test to make sure that we're only looking at the top most expression *)
+					       test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp', matched_exp)),
+					       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.int 1,
+											      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
 					      
 				      in
-					  case Match.applyRewriteExp coeff_rewrite exp of
+					  case Match.applyRewritesExp [coeff_rewrite, coeff_rewrite_degenerate_case] exp of
 					      Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
 					      (coeff, remainder)
 					    | _ => (ExpBuild.int 0, exp)
@@ -535,12 +561,12 @@ fun forkModel (model:DOF.model) =
 
 	val sysprops' =
 	    let 
-		val {iterators, precision, target, num_models, debug, profile} = sysprops
+		val {iterators, precision, target, parallel_models, debug, profile} = sysprops
 	    in
 		{iterators = iterators',
 		 precision = precision,
 		 target = target, 
-		 num_models = num_models,
+		 parallel_models = parallel_models,
 		 debug = debug,
 		 profile = profile}
 	    end
@@ -642,7 +668,25 @@ fun toIterator (shards, sysprops : DOF.systemproperties) iter_sym =
     end
     handle e => DynException.checkpoint "ShardedModel.toIterator" e
 
+fun findShard ((shards, _): shardedModel, iter_sym) =
+    List.find (fn s => iter_sym = #iter_sym s) shards
+
 fun iterators (shards : shard list, _) =
     map #iter_sym shards
+
+
+fun statesize shardedModel =
+    let
+	fun shard2statesize iter_sym = 
+	    let
+		val model as (classes, {name, classname}, sysprops) = toModel shardedModel iter_sym
+		val statesize = CurrentModel.withModel model (fn()=>ModelProcess.model2statesize model)
+		(*val _ = Util.log ("Shard '"^(Symbol.name iter_sym)^"' has "^(i2s statesize)^" states")*)
+	    in
+		statesize
+	    end
+    in
+	Util.sum (map shard2statesize (iterators shardedModel))
+    end
 
 end

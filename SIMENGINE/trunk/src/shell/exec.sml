@@ -1,4 +1,4 @@
-(* Copyright Simatra - 2006 - 2008
+(* Copyright Simatra - 2006 - 2008, 2010
  * exec.sml - Object Oriented Lambda Calculus execution engine
  *
  *)
@@ -58,6 +58,8 @@ fun merge_runnables env (original_exp, new_exp) =
       | _
 	=> (error env ($("Overload attempted with non-function"));
 	    original_exp)
+
+
 
 (* Executes a single expression in a given environment.
    Returns an expression.
@@ -256,7 +258,7 @@ and exec_stm parse (stm, env as (globalenv, localenv, poslog)) =
 
 	   
       | KEC.ACTION(KEC.ASSIGN (dest, source), pos)
-	=> (execAssignStatment parse env (dest, source) pos
+	=> (execAssignStatement parse env (dest, source) pos
 	    handle DynException.TypeMismatch reason
 		   => error (PosLog.addSystemPos (env, pos)) ($("Type mismatch: " ^ reason)))			       
 
@@ -387,6 +389,10 @@ and execLibraryFunction exec env name arg =
    Returns (unit,env). *)
 and execImportStatement parse env file pos =
     let
+	val _ = case ! ImportHook.importHook
+		 of SOME f => f file
+		  | NONE => ()
+
 	val includepaths = (!ParserSettings.filepath) :: map StdFun.expand_env_variables (DynamoOptions.getStringVectorSetting("sourcepath"))
 			   
 	val fullpath = case FilePath.find file includepaths of
@@ -518,10 +524,10 @@ and execOpenStatement parse env (object, excludes, include_privates) pos =
 
 (* Executes a variable assignment statement.
    Returns (unit,env). *)
-and execAssignStatment parse env (dest, source) pos =
+and execAssignStatement parse env (dest, source) pos =
     let
 	fun execLHS exp = exec_exp parse (0, true) (PosLog.addSystemPos (env, pos), exp)
-	fun execRHS exp = exec_exp parse (0, false) (PosLog.addSystemPos (env, pos), exp)
+	fun execRHS exp = decell(exec_exp parse (0, false) (PosLog.addSystemPos (env, pos), exp))
 
 	val pretty = PrettyPrint.kecexp2prettystr (decell o execRHS)
 	val lhs = execLHS dest

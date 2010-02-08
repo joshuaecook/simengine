@@ -5,6 +5,7 @@ sig
   type stms = KEC.stm list
 
   val parse : TextIO.instream -> stms
+  exception ParserError
 end
 
 structure OOLCParse = 

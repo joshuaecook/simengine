@@ -264,7 +264,7 @@ quantitytype: QUANTITY (Ast.GENERIC_QUANTITY)
 	 | STATE (Ast.STATE_QUANTITY)
 
 equationsdef: EQUATION equation (Ast.EQUATIONS ([equation]))
-	    | EQUATION (Ast.EQUATIONS nil before error_at_pos EQUATIONleft "EQUATION keyword must be followed by an equation. Use an EQUATIONS block to define more than one equation.")
+	    | EQUATION (Ast.EQUATIONS nil before error_at_pos EQUATIONleft "EQUATION keyword must be followed by an expression. Use an EQUATIONS block to define more than one equation.")
 	    | EQUATIONS newlines equations END (Ast.EQUATIONS(equations))
 
 equations: (nil)

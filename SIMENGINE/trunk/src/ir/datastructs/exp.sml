@@ -55,6 +55,7 @@ type pattern = (Symbol.symbol * predicate * Pattern.patterncount)
 
 val null = FUN (Fun.BUILTIN Fun.NULL, [])
 val exp2str : (exp -> string) ref = ref (fn(exp)=>"??")
+val exp2JSON : (exp -> JSON.json) ref = ref (fn (exp) => JSON.null)
 
 fun calculus () : exp Calculus.calculus = 
     {zero= TERM (INT 0),
@@ -69,7 +70,8 @@ fun calculus () : exp Calculus.calculus =
 		       | _ => false),
      addition= (fn(l)=>FUN (Fun.BUILTIN Fun.ADD, l)),
      multiplication= (fn(l)=>FUN (Fun.BUILTIN Fun.MUL, l)),
-     toString= !exp2str}
+     toString= !exp2str,
+     toJSON= !exp2JSON}
 
 
 end

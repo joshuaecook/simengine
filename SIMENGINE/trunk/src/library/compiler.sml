@@ -11,10 +11,46 @@ fun log str = if DynamoOptions.isFlagSet "logdof" then
 	      else
 		  Logger.log_notice (Printer.$ str)
 
+(* FIXME this is really ugly and shouldn't be in this file. *)
+(* Ensures that classes within a shard model are in dependency order. *)
+fun orderShard (model, shard as {classes, instance, iter_sym}) =
+    let 
+	val topClassName = 
+	    case #name instance 
+	     of SOME x => x | NONE => #classname instance		
+
+	fun sort (c1, c2) =
+	    (* The top class should always appear at the end of the list. *)
+	    if topClassName = ClassProcess.class2classname c1 then GREATER
+	    else if topClassName = ClassProcess.class2classname c2 then LESS
+	    else sort' (c1, c2)
+
+	and sort' (c1, c2) =
+	    (* Other classes appear after their instances. *)
+	    let val (instanceClassNames, _) = 
+		    CurrentModel.withModel model (fn _ => ListPair.unzip (ClassProcess.class2instnames' c1))
+	    in 
+		if List.exists (fn cn => cn = ClassProcess.class2classname c2) instanceClassNames
+		then GREATER else LESS
+	    end
+    in
+	{classes = Sorting.sorted sort classes, 
+	 instance = instance, 
+	 iter_sym = iter_sym}
+    end
+
 fun std_compile exec args =
     (case args of
 	 [object] => 
 	 (let
+	      val dslname = exec (KEC.SEND {message = Symbol.symbol "name",
+					    object = KEC.SEND {message = Symbol.symbol "modeltemplate",
+							       object = object}})
+	      val name = case dslname
+			  of KEC.LITERAL (KEC.CONSTSTR str) => str
+			   | _ => raise Aborted
+
+
 	      val _ = if DynException.isErrored() then
 			  raise Aborted
 		      else
@@ -27,21 +63,21 @@ fun std_compile exec args =
 						  
 	      val _ = DynException.checkToProceed()
 
-	      val (classes, {classname,...}, _) = forest
-
 	      val _ = DOFPrinter.printModel forest
+
+	      (* here, we can validate the model to catch issues that can't be found elsewhere *)
+	      val _ = CurrentModel.setCurrentModel forest
+	      val _ = ModelValidate.validate forest
+	      val _ = DynException.checkToProceed()
+
+	      val (classes, {classname,...}, _) = forest
 
 	      val _ = CurrentModel.setCurrentModel forest
 
 	      val () = 
-		  let val model = CurrentModel.getCurrentModel ()
-		      val filename = "dof.json"
-		      fun output outstream = mlJS.output (outstream, ModelProcess.to_json model)
-		  in if ModelProcess.isDebugging model then
-			 Printer.withOpenOut filename output
-		     else ()
-		  end
-
+		  if ModelProcess.isDebugging (CurrentModel.getCurrentModel ()) then
+		      PrintJSON.printFile ("dof.json", ModelSyntax.toJSON (CurrentModel.getCurrentModel ()))
+		  else ()
 
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  (log ("Optimizing model ...");
@@ -72,18 +108,46 @@ fun std_compile exec args =
 		      else
 			  ()
 
+	      val _ = log ("Ordering model classes ...")
+	      val forkedModels =
+		  let 
+		      val (shards, sysprops) = forkedModels
+		      val shards' = map (fn (shard as {classes,instance,...}) => 
+                          orderShard ((classes,instance,sysprops),shard)) shards
+		  in 
+		      (shards', sysprops) 
+		  end
+
 (*	      val _ = log("Ready to build the following DOF ...")*)
 	      val _ = log("Ready to build ...")
 (*	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())*)
 
 	      val () = 
-		  let val model = CurrentModel.getCurrentModel ()
-		      val filename = "dof-final.json"
-		      fun output outstream = mlJS.output (outstream, ModelProcess.to_json model)
-		  in if ModelProcess.isDebugging model then
-			 Printer.withOpenOut filename output
-		     else ()
-		  end
+		  if ModelProcess.isDebugging (CurrentModel.getCurrentModel()) then
+		      PrintJSON.printFile ("dof-final.json", ModelSyntax.toJSON (CurrentModel.getCurrentModel ()))
+		  else ()
+
+
+	      local 
+		  open JSON open JSONExtensions
+		  fun JSONSymbol (sym) =
+		      object [("$symbol", string (Symbol.name sym))]
+
+		  fun shardToJSON {classes, instance as {name, classname}, iter_sym} =
+		      object [("classes", array (map ClassSyntax.toJSON classes)),
+			      ("instance", object [("classname", JSONSymbol classname),
+						   ("name", JSONOption (JSONSymbol, name))]),
+			      ("iterator", JSONSymbol iter_sym)]
+		  val (shards, sysprops) = forkedModels
+	      in
+	      val () =
+		  if ModelProcess.isDebugging (CurrentModel.getCurrentModel()) then
+		      PrintJSON.printFile ("dof-system.json",
+					   object [("classname", JSONSymbol classname),
+						   ("properties", ModelSyntax.propertiesToJSON sysprops),
+						   ("shards", array (map shardToJSON shards))])
+		  else ()		  
+	      end
 
 	      val code = CParallelWriter.buildC (classname, forkedModels)
 (*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
@@ -196,9 +260,72 @@ fun std_exp2str exec args =
 
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_exp2str" e 
-    
+
+
+
+val imports: string list ref = ref nil
+
+fun toVector object =
+    KEC.APPLY {func = KEC.SEND {message = Symbol.symbol "tovector",
+				object = object},
+	       args = KEC.UNIT}
+
+fun getModelImports exec _ = exec (toVector (KEC.TUPLE (map (KEC.LITERAL o KEC.CONSTSTR) (List.rev (! imports)))))
+
+
+fun loadModel exec args =
+    case args
+     of [KEC.LITERAL (KEC.CONSTSTR path)] =>
+	let
+	    val _ = imports := nil
+	    fun importing path = imports := path :: (! imports)
+
+	    val object = (KEC.SYMBOL o Symbol.symbol o OS.Path.base o OS.Path.file) path
+
+	    val model = ImportHook.withImportHook importing (fn _ => 
+			exec (KEC.STMS [KEC.ACTION (KEC.IMPORT path, PosLog.NOPOS),
+					KEC.ACTION (KEC.ASSIGN (KEC.SEND {message = Symbol.symbol "imports",
+	    								  object = KEC.SEND {message = Symbol.symbol "template", object = object}},
+								KEC.LIBFUN (Symbol.symbol "getModelImports", KEC.UNIT)),
+	    		    			    PosLog.NOPOS),
+					KEC.ACTION (KEC.EXP object, PosLog.NOPOS)])
+							    ) 
+	in
+	    model
+	end
+      | [a] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
+      | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
+fun simfileSettings exec args =
+    case args
+     of [KEC.LITERAL (KEC.CONSTSTR path)] =>
+	Simex.withSimengine path (fn simengine =>
+	let val api = Simex.api simengine
+	    val newTable = KEC.SEND {object = KEC.SYMBOL (Symbol.symbol "Table"), 
+				     message = Symbol.symbol "new"}
+
+	    val keys = ["target", "precision", "parallel_models", "version"]
+	    val values = 
+		[KEC.LITERAL (KEC.CONSTSTR (Simex.API.target api)),
+		 KEC.LITERAL (KEC.CONSTSTR (case Simex.API.precision api
+					     of Simex.API.Double => "double"
+					      | Simex.API.Single => "float")),
+		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.parallelModels api))),
+		 KEC.LITERAL (KEC.CONSTREAL (Real.fromInt (Simex.API.version api)))]
+
+	    val entries = KEC.list2kecvector
+			      (ListPair.map (fn (k,v) => KEC.TUPLE [KEC.LITERAL (KEC.CONSTSTR k), v]) (keys, values))
+	in
+	    exec (KEC.APPLY {func = newTable,
+			     args = KEC.TUPLE [entries]})
+	end)
+      | [a] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
+      | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
 
 val library = [{name="compile", operation=std_compile},
+	       {name="loadModel", operation=loadModel},
+	       {name="getModelImports", operation=getModelImports},
+	       {name="simfileSettings", operation=simfileSettings},
 	       {name="transexp", operation=std_transExp},
 	       {name="exp2str", operation=std_exp2str},
 	       {name="addRules", operation=std_addRules},

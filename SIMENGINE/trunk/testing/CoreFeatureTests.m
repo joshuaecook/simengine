@@ -44,7 +44,8 @@ s.add(Test('OutputIntermediateDirectly',@()(simex('models_FeatureTests/OutputTes
 s.add(Test('OutputGroups',@()(simex('models_FeatureTests/OutputTest3.dsl', 10, target)), '-equal', struct('y', [0:10; 0:10; -(0:10)]')));
 s.add(Test('OutputCondition',@()(simex('models_FeatureTests/OutputTest4.dsl', 10, target)), '-equal', struct('y', [5:10; 5:10]')));
 s.add(Test('OutputTwoValues',@()(simex('models_FeatureTests/OutputTest5.dsl', 10, target)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:2:20]')));
-s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10, target)), '-equal', struct()));
+% This now produces a user error
+%s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10, target)), '-equal', struct()));
 s.add(Test('DuplicateOutputNames',@()(simex('models_FeatureTests/OutputTest7.dsl')), '-regexpmatch', 'Duplicate output'));
 s.add(Test('OutputTime', @()(simex('models_FeatureTests/OutputTest8.dsl', ...
                                    10, target)), '-equal', struct('times', [0 3 6 9; 0 3 6 9]')));
@@ -109,6 +110,11 @@ if mode == INTERNAL
     s.add(Test('InitValueasInputthenInit', @()(simex('models_FeatureTests/StateTest6.dsl', 10,input_struct,[1],target)), '-equal', struct('x', [0:10; 1:11]')));
     s.add(Test('InitValueasInitthenInput', @()(simex('models_FeatureTests/StateTest6.dsl', 10,[1],input_struct,target)), '-equal', struct('x', [0:10; 2:12]')));
 end
+
+% finally, we should support no states
+s.add(Test('NoStates', @()(simex('models_FeatureTests/StateTest7.dsl', ...
+                                 10, target)), '-equal', struct('x', ...
+                                                  [0:10; 0:10]')))
 
 end
 

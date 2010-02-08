@@ -6,6 +6,7 @@ fun error msg =
 
 val core_library : {name: string, operation: (KEC.exp -> KEC.exp) -> KEC.exp list -> KEC.exp} list = 
     SystemLib.library @
+    TimeLib.library @
     ArithmeticLib.library @
     ComparisonLib.library @
     TrigonometryLib.library @
@@ -13,6 +14,7 @@ val core_library : {name: string, operation: (KEC.exp -> KEC.exp) -> KEC.exp lis
     FileLib.library @
     FileSysLib.library @
     FunctionLib.library @
+    PathLib.library @
     TypeLib.library @
     BooleanLib.library @
     VectorLib.library @
@@ -21,6 +23,10 @@ val core_library : {name: string, operation: (KEC.exp -> KEC.exp) -> KEC.exp lis
     (*PrecisionLib.library @*)
     EnvironmentLib.library @
     ProcessLib.library @
+    DevicesLib.library @
+    JSONLib.library @
+    SIMLIBLib.library @
+    RegExpLib.library @
     CompilerLib.library
 
 structure LibraryMap = BinaryMapFn (struct

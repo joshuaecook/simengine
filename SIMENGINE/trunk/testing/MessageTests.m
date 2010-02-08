@@ -18,14 +18,15 @@ end
 s = Suite('Message Tests');
 
 % Verify the version
-s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),'-regexpmatch', 'v0\.92'));
+s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),'-regexpmatch', 'v0\.93'));
 
 % Add basic variable tests
 s.add(SyntaxTests);
 s.add(VariableTests);
-% s.add(IteratorTests);
+s.add(IteratorTests);
 % s.add(SolverTests);
 s.add(EquationTests);
+s.add(OutputTests);
 
 
 end
@@ -112,6 +113,31 @@ s_iters.add(CreateUserErrorTest('DiscreteIteratorWithDiffEq', ...
 
 end
 
+% Iterator specific error tests
+function s = IteratorTests
+
+s = Suite('Iterator Tests');
+
+s.add(CreateUserErrorTest('UndefinedIterator', 'IteratorTest1.dsl', ...
+                          'Unknown identifier encountered: t_undefined'));
+s.add(CreateUserErrorTest('UndefinedIteratorIndex', 'IteratorTest2.dsl', ...
+                          'Unknown identifier encountered: t_undefined'));
+s.add(CreateUserErrorTest('WrongIteratorIndex', 'IteratorTest3.dsl', ...
+                          ['Quantity .* is already assigned to iterator .* therefore '...
+                          'can not use iterator']));
+s.add(CreateUserErrorTest('ForwardIndexing', 'IteratorTest4.dsl', ...
+                          ['Invalid positive temporal index found on quantity']));
+s.add(CreateUserErrorTest('CurrentIndexingOnDiscreteState', 'IteratorTest5.dsl', ...
+                          ['Invalid temporal index on discrete state x. Discrete states must be defined as x.n.1. on the left hand side of equation']));
+s.add(CreateUserErrorTest('ForwardIndexingOnDiscreteState', 'IteratorTest6.dsl', ...
+                          ['Invalid temporal index on discrete state x. Discrete states must be defined as x.n.1. on the left hand side of equation']));
+s.add(CreateUserErrorTest('InvalidIndexExpression', 'IteratorTest7.dsl', ...
+                          ['Invalid index detected on index of x']));
+s.add(CreateUserErrorTest('InvalidIteratorOnState', 'IteratorTest8.dsl', ...
+                          ['Temporal iterators can not be used as part of a state declaration']));
+
+end
+
 function s = VariableTests
 
 % Define a suite to check for undefined or over defined variables
@@ -143,6 +169,27 @@ s.add(CreateUserErrorTest('DuplicatedOutput', 'VariableTest9.dsl', ...
 
 end
 
+% Output Tests - find errors in outputs in single models and sub
+% models
+function s = OutputTests
+
+s = Suite('Output Tests');
+
+s.add(CreateUserErrorTest('OutputWithoutEquation', 'OutputTest1.dsl', ...
+                          ['Model quantity y has no equation associated '...
+                           'with it']));
+s.add(CreateUserErrorTest('OutputContentWithoutEquation', 'OutputTest2.dsl', ...
+                          'Unknown identifier encountered: x'));
+s.add(CreateUserErrorTest('OutputConditionWithoutEquation', 'OutputTest3.dsl', ...
+                          'Unknown identifier encountered: x'));
+s.add(CreateUserErrorTest('OutputContentsThroughSubmodels', 'OutputTest4.dsl', ...
+                          'Output .* in model .* can not be a grouping'));
+s.add(CreateUserWarningTest('OutputContentsThroughSubmodels', 'OutputTest5.dsl', ...
+                            'The condition .* for output .* in model .* is being ignored'));
+
+
+end
+
 % Equation Tests - find errors in equations
 function s = EquationTests
 
@@ -165,6 +212,23 @@ t2 = Test('AppropriateMessage', @()(dispAndReturn(t1.Output)), '-regexpmatch', .
           expectedstring);
 t3 = Test('NoFailure', @()(dispAndReturn(t1.Output)), '-regexpmatch', 'FAILURE:|Exception');
 t3.ExpectFail = true;
+
+s.add(t1);
+s.add(t2);
+s.add(t3);
+
+end
+
+% CreateUserWarningTest - Creates a test case (suite) to search for
+% a warning message
+function s = CreateUserWarningTest(id, dslmodel, expectedstring)
+dsl = fullfile('models_MessageTests', dslmodel);
+
+s = Suite(id);
+t1 = Test('Completes', @()(simex(dsl)), '-withouterror');
+t2 = Test('UserWarning', @()(dispAndReturn(t1.Output)), '-regexpmatch', 'WARNING');
+t3 = Test('AppropriateMessage', @()(dispAndReturn(t1.Output)), '-regexpmatch', ...
+          expectedstring);
 
 s.add(t1);
 s.add(t2);

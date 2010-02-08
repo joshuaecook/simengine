@@ -1,5 +1,5 @@
 // Solvers Header File
-// Copyright 2009 Simatra Modeling Technologies, L.L.C.
+// Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 
 #ifndef SOLVERS_H
 #define SOLVERS_H
@@ -13,7 +13,7 @@
 
 
 // Solver indexing mode for states
-#define STATE_IDX TARGET_IDX(props->statesize, props->num_models, i, modelid)
+#define STATE_IDX TARGET_IDX(props->statesize, PARALLEL_MODELS, i, modelid)
 
 // Properties data structure
 // ============================================================================================================
@@ -60,7 +60,7 @@ typedef struct {
   Iterator iterator;
   unsigned int inputsize;
   unsigned int statesize; // Number of states for this solver
-  unsigned int pp_statesize; // Number of postprocess states dependent upon this solver's iterator
+  unsigned int algebraic_statesize; // Number of algebraic states dependent upon this solver's iterator
   unsigned int outputsize;
   unsigned int num_models;
   void *od;
@@ -80,7 +80,7 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
   unsigned int i;
   // Update model states to next value
-  for(i=0;i<props->statesize;i++){
+  for(i=0;i<(props->statesize+props->algebraic_statesize);i++){
     props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
   }
 
@@ -128,24 +128,5 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid){
   }
   return 0;
 }
-
-int immediate_init(solver_props *props) {
-  return 0;
-}
-
-__DEVICE__ int immediate_eval(solver_props *props, unsigned int modelid) {
-  props->running[modelid] = props->time[modelid] < props->stoptime;
-  if (!props->running[modelid])
-    return 0;
-
-  props->next_time[modelid] = props->stoptime;
-
-  return model_flows(props->time[modelid], props->model_states, props->next_states, props, 1, modelid);
-}
-
-int immediate_free(solver_props *props) {
-  return 0;
-}
-
 
 #endif // SOLVERS_H

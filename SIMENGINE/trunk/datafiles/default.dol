@@ -24,7 +24,7 @@
 <hwtarget = "ml402">
 <logdof = false>
 <termrewritelimit = 25>
-<optimize = false>
+<optimize = true>
 <logrewrites = false>
 <generateC = true>
 <generateMathematica = false>

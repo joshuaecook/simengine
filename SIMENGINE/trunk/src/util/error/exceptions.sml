@@ -53,16 +53,16 @@ open Printer
 
 fun log_stack e () =
 (*    if (!showStackTrace) then*)
-	[$"  Exception stack trace:",
+	[$"Stack trace:",
 	 (SUB (map (fn(s) => $s) (MLton.Exn.history e)))]
 (*    else
 	[]
 *)				  
 fun log handlelocation (e as InternalError {message, severity, characterization, location}) =
     (Logger.log_exception characterization severity 
-		(Printer.$("Exception caught at " ^ handlelocation 
-			   ^ " and raised at " ^ location ^ " - (" ^ message ^ ")"));
-     Logger.log_stack (log_stack e))
+    		(SUB (($("Exception caught at " ^ handlelocation 
+			   ^ " and raised at " ^ location ^ " - (" ^ message ^ ")")) ::
+                      (*(log_stack e ())*)nil)))
   | log handlelocation (e as TooManyErrors) =
     ()
 

@@ -1,4 +1,4 @@
-model (Vm) = neuron(IStim)
+model (Vm,INa,IK,Ileak) = neuron(IStim)
    input IStim with {default = 0}
    
    constant Cm = 1

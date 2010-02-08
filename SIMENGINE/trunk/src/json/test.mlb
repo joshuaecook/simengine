@@ -1,0 +1,11 @@
+local
+	$(SML_LIB)/basis/basis.mlb
+	json.mlb
+
+	test.sml
+	test-parse.sml
+	
+	all-tests.sml
+in
+	structure AllTests
+end

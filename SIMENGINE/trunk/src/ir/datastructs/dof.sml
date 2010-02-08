@@ -9,7 +9,7 @@ type inputproperties =
   
 (* The master/slave relationship between classes enforces ordering. *)    
 datatype classtype
-  = MASTER of Symbol.symbol
+  = MASTER (*of Symbol.symbol*)
   | SLAVE of Symbol.symbol
 
 
@@ -24,8 +24,15 @@ datatype classform
 
 type classproperties = {sourcepos: PosLog.pos,
 			basename: Symbol.symbol,
+			preshardname: Symbol.symbol,
 			classform: classform,
 			classtype: classtype}
+
+(* All algebraic iterators have a process type which describes when in the execution loop a particular equation will be evaluated *)
+datatype processtype = (* assuming iterator t*)
+	 PREPROCESS (* x[t] = f(x[t]) *)
+       | INPROCESS (* x[t+1] = f(x[t]) *)
+       | POSTPROCESS (* x[t+1] = f(x[t+1]) *)
 
 datatype iteratortype 
   (* A continuous iterator, e.g. t, is in the real domain and
@@ -40,7 +47,7 @@ datatype iteratortype
   (* A postprocess iterator is dependent upon another named iterator. 
    * Postprocess evaluations occur after primary evaluation and 
    * any update evaluations. *)
-  | POSTPROCESS of Symbol.symbol
+  | ALGEBRAIC of (processtype * Symbol.symbol)
   (* An immediate iterator is used for outputs having no other iterator. *)
   | IMMEDIATE
 
@@ -51,7 +58,7 @@ type systemiterator = (Symbol.symbol * iteratortype)
 type systemproperties = {iterators: systemiterator list, 
 			 precision: precisiontype,
 			 target: Target.target,
-			 num_models: int,
+			 parallel_models: int,
 			 debug: bool,
 			 profile: bool}
 

@@ -1,5 +1,4 @@
 int exec_loop(solver_props *props){
-  Iterator iterid;
   int i;
   int status = SUCCESS;
 
@@ -8,13 +7,12 @@ int exec_loop(solver_props *props){
   gpu_init();
 # endif
   for(i=0;i<NUM_ITERATORS;i++){
-    Iterator iterid = ITERATORS[i];
-    solver_init(&props[iterid]);
+    solver_init(&props[i]);
   }
 
   // Execute the model(s) on the appropriate target
 #if defined(TARGET_CPU)
-  status = exec_serial_cpu(props);
+  status = exec_cpu(props, 0);
 #elif defined(TARGET_OPENMP)
   status = exec_parallel_cpu(props);
 #elif defined(TARGET_GPU)
@@ -25,8 +23,7 @@ int exec_loop(solver_props *props){
 
   // Free solvers for all iterators
   for(i=0;i<NUM_ITERATORS;i++){
-    Iterator iterid = ITERATORS[i];
-    solver_free(&props[iterid]);
+    solver_free(&props[i]);
   }
 # if defined TARGET_GPU
   gpu_exit();

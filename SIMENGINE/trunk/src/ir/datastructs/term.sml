@@ -10,6 +10,7 @@ val isSymbol: Exp.term -> bool (* matches only a single symbol *)
 val areSymbols: Exp.term -> bool (* can match lists, tuples, and complex numbers containing only symbols *)
 val isScalar: Exp.term -> bool
 val isLocal: Exp.term -> bool (* is this a local symbol, as opposed to being stored in a state vector *)
+val isIterator: Exp.term -> bool
 val isReadState: Exp.term -> bool (* not a local symbol, but rather read in as a state *)
 val isWriteState: Exp.term -> bool (* not a local symbol, but rather written to a state *)
 val isReadSystemState : Exp.term -> bool
@@ -83,6 +84,7 @@ fun sym2str pretty (s, props) =
 			 Property.LOCAL => ""
 		       | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ "."
 		       | Property.READSYSTEMSTATE v => "sys_rd." ^ (Symbol.name v) ^ "."
+		       | Property.READSYSTEMSTATENEXT v => "sys_rd." ^ (Symbol.name v) ^ "_next."
 		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ "."
 		       | Property.ITERATOR => ""
 
@@ -90,9 +92,27 @@ fun sym2str pretty (s, props) =
 			      of SOME (order, iters) => (order, iters)
 			       | NONE => (0, [])
 
-	val iters = (case Property.getIterator props
-		      of SOME iters => Iterator.iterators2str iters
-		       | NONE => "")
+	val iters = 
+	    if pretty then
+		(* can't do the following code because of code ordering.  but we should filter out iterators when we do pretty printing *)
+		(*let
+		    val iterators = CurrentModel.iterators()
+		    fun iter2prettyiter iter = 
+			case List.find (fn(iter_sym,_)=> iter=iter_sym) iterators of
+			    SOME (_, DOF.POST_PROCESS iter_sym) => SOME iter_sym
+			  | SOME (_, DOF.UPDATE iter_sym) => SOME iter_sym
+			  | SOME (_, DOF.IMMEDIATE) => NONE
+			  | _ => SOME iter
+		in
+		    (case Property.getIterator props 
+		      of SOME iters => Iterator.iterators2str (List.mapPartial iter2prettyiter iters)
+		       | NONE => "")			 
+		end*)
+		""
+	    else
+		(case Property.getIterator props
+		  of SOME iters => Iterator.iterators2str iters
+		   | NONE => "")
 
 	val n = (if pretty then "" else prefix) ^ (case (Property.getRealName props)
 			   of SOME v => Symbol.name v
@@ -125,6 +145,7 @@ fun sym2fullstr (s, props) =
 			 Property.LOCAL => ""
 		       | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ "."
 		       | Property.READSYSTEMSTATE v => "sys_rd." ^ (Symbol.name v) ^ "."
+		       | Property.READSYSTEMSTATENEXT v => "sys_rd." ^ (Symbol.name v) ^ "_next."
 		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name) v ^ "."
 		       | Property.ITERATOR => ""
 
@@ -175,6 +196,7 @@ fun sym2c_str (s, props) =
 		     of Property.LOCAL => ""
 		      | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ index
 		      | Property.READSYSTEMSTATE v => "sys_rd->states_" ^ (Symbol.name v) ^ index
+		      | Property.READSYSTEMSTATENEXT v => "sys_rd->states_" ^ (Symbol.name v) ^ "_next" ^ index
  		      | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
 		      | Property.ITERATOR => ""
 		end
@@ -353,6 +375,13 @@ fun isScalar term =
 	Exp.TUPLE _ => false
       | _ => true
 
+fun isIterator (Exp.SYMBOL (_, props)) =
+    (case Property.getScope props
+      of Property.ITERATOR => true
+       | _ => false)
+  | isIterator _ = false
+
+
 fun isReadState term =
     case term of
 	Exp.SYMBOL (_, props) => (case (Property.getScope props) of
@@ -364,6 +393,7 @@ fun isReadSystemState term =
     case term
      of Exp.SYMBOL (_, props) => (case Property.getScope props
 				   of Property.READSYSTEMSTATE _ => true
+				    | Property.READSYSTEMSTATENEXT _ => true
 				    | _ => false)
       | _ => false
 					  

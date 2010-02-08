@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <mex.h>
@@ -33,13 +34,13 @@ int runsimEngine (char *simengine, char *file, char *modelname, struct targetopt
   // debug: FALSE=0 | TRUE=1
   // profile: FALSE=0 | TRUE=1
   char settings[1000];
-  snprintf(settings, 1000, "%s.template.settings = {target=\\\"%s\\\",precision=\\\"%s\\\",num_models=%d,debug=%s,profile=%s,emulate=%s}", 
-	   modelname, opts->target, opts->precision, opts->num_models, 
+  snprintf(settings, 1000, "{target=\\\"%s\\\",precision=\\\"%s\\\",parallel_models=%d,debug=%s,profile=%s,emulate=%s}", 
+	   opts->target, opts->precision, opts->num_models, 
 	   opts->debug ? "true" : "false", 
 	   opts->profile ? "true" : "false",
 	   opts->emulate ? "true" : "false");
 
-  snprintf(cmdline, 1000, "sh -c 'echo \"import \\\"%s\\\"\n%s\nprint(compile(%s))\" | %s -batch 2>& 1'", file, settings, modelname, simengine);
+  snprintf(cmdline, 1000, "sh -c 'echo \"print(compile2(\\\"%s\\\", %s))\" | %s -batch 2>& 1'", file, settings, simengine);
 
   /* we must flush because the man page says we should before a popen call */
   fflush(stdin);
@@ -75,7 +76,7 @@ int runsimEngine (char *simengine, char *file, char *modelname, struct targetopt
 }
 
 void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, const mxArray *prhs[ ]) {
-  char simenginecmd[1000], file[1000], modelname[1000];
+  char simenginecmd[1000], file[1000], modelname[1000], realmodelname[PATH_MAX];
   char flag[3];
   int verbose;
   int buflen;
@@ -88,6 +89,7 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
   opts.num_models = 1;
   opts.debug = FALSE;
   opts.profile = FALSE;
+  opts.emulate = FALSE;
 
   if (nrhs < 3 || nrhs > 9)
     {
@@ -108,6 +110,9 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
     {
       mexErrMsgIdAndTxt("Simatra:argumentError", "Model name argument is not a string");
     }
+  if(NULL == realpath(file, realmodelname)){
+    mexErrMsgIdAndTxt("Simatra:argumentError", "Model file %s could not be located: %s", modelname, strerror(errno));
+  }
   
   if (nrhs >= 4 && (mxGetString(prhs[3], flag, 3) || (strncmp(flag, "-v", 2) && strncmp(flag, "+v", 2))))
     {
@@ -147,7 +152,7 @@ void mexFunction(int nlhs __attribute__ ((unused)), mxArray *plhs[ ],int nrhs, c
 
 
   
-  plhs[0] = mxCreateDoubleScalar(runsimEngine(simenginecmd, file, modelname, &opts, verbose));
+    plhs[0] = mxCreateDoubleScalar(runsimEngine(simenginecmd, file, realmodelname, &opts, verbose));
   
 }
 /*

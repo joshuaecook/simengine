@@ -6,12 +6,12 @@
 __DEVICE__ solver_props gpu_solver_props[NUM_ITERATORS];
 
 // Needs to be copied host-to-device and device-to-host. May be __shared__?
-__DEVICE__ CDATAFORMAT gpu_time[NUM_MODELS * NUM_ITERATORS];
+__DEVICE__ CDATAFORMAT gpu_time[PARALLEL_MODELS * NUM_ITERATORS];
 
 // Does not need to be copied. May be __shared__?
-__DEVICE__ CDATAFORMAT gpu_next_time[NUM_MODELS * NUM_ITERATORS];
+__DEVICE__ CDATAFORMAT gpu_next_time[PARALLEL_MODELS * NUM_ITERATORS];
 
-__DEVICE__ unsigned int gpu_count[NUM_MODELS * NUM_ITERATORS];
+__DEVICE__ unsigned int gpu_count[PARALLEL_MODELS * NUM_ITERATORS];
 
 #if NUM_STATES > 0
 // Needs to be coped device-to-host.
@@ -26,22 +26,24 @@ __DEVICE__ systemstatedata_external gpu_next_states[1];
 
 #if NUM_INPUTS > 0
 // Needs to be copied host-to-device.
-__DEVICE__ CDATAFORMAT gpu_inputs[NUM_MODELS * NUM_INPUTS];
+__DEVICE__ CDATAFORMAT gpu_inputs[PARALLEL_MODELS * NUM_INPUTS];
 #endif
 
 // Needs to be copied device-to-host? May be __shared__?
-__DEVICE__ int gpu_running[NUM_MODELS * NUM_ITERATORS];
+__DEVICE__ int gpu_running[PARALLEL_MODELS * NUM_ITERATORS];
 
 // Needs to be copied device-to-host after each bunch of iterations.
 __DEVICE__ output_buffer gpu_ob[1];
 
 #if NUM_OUTPUTS > 0
-__DEVICE__ output_data gpu_od[NUM_MODELS];
+__DEVICE__ output_data gpu_od[PARALLEL_MODELS];
 #endif
 
 void gpu_init (void) {
-  // FIXME Add more checking of capabilities and devices available!
-  cudaSetDevice(cutGetMaxGflopsDeviceId());
+#ifndef SIMENGINE_CUDA_DEVICE
+#error SIMENGINE_CUDA_DEVICE not specified for a GPU simulation
+#endif
+  cudaSetDevice(SIMENGINE_CUDA_DEVICE);
 }
 
 void gpu_exit (void) {
@@ -96,37 +98,42 @@ solver_props *gpu_init_props(solver_props *props){
   char *g_od = NULL;
 # endif
 
-  // A temporary host duplicate of the time vectors.
-  CDATAFORMAT tmp_time[NUM_MODELS * NUM_ITERATORS];
-
   // A temporary host duplicate of the solver properties which will be copied to device global memory.
   solver_props tmp_props[NUM_ITERATORS];
   memcpy(tmp_props, props, NUM_ITERATORS * sizeof(solver_props));
+
+  // These temporary host buffers are used to translate the
+  // non-contiguous host memory into a contiguous region of
+  // device memory.
+  CDATAFORMAT tmp_time[PARALLEL_MODELS * NUM_ITERATORS];
+  int tmp_running[PARALLEL_MODELS * NUM_ITERATORS];
+
 
   // Reassigns pointers within the duplicate properties structures to locations in device global memory.
   unsigned int i, states_offset = 0;
   for (i = 0; i < NUM_ITERATORS; i++) {
     // Copies start time to temporary host buffer.
-    memcpy(tmp_time + (i * NUM_MODELS), props[i].time, NUM_MODELS * sizeof(CDATAFORMAT));
+    memcpy(tmp_time + (i * PARALLEL_MODELS), props[i].time, PARALLEL_MODELS * sizeof(CDATAFORMAT));
+    memcpy(tmp_running + (i * PARALLEL_MODELS), props[i].running, PARALLEL_MODELS * sizeof(int));
 
     // Each iterator has its own area of memory, all of the equal sizes
-    tmp_props[i].time = g_time + (i * NUM_MODELS);
-    tmp_props[i].next_time = g_next_time + (i * NUM_MODELS);
+    tmp_props[i].time = g_time + (i * PARALLEL_MODELS);
+    tmp_props[i].next_time = g_next_time + (i * PARALLEL_MODELS);
     // FIXME only discrete iterators need count
-    tmp_props[i].count = g_count + (i * NUM_MODELS);
-    tmp_props[i].running = g_running + (i * NUM_MODELS);
+    tmp_props[i].count = g_count + (i * PARALLEL_MODELS);
+    tmp_props[i].running = g_running + (i * PARALLEL_MODELS);
 
     // The amount of memory varies for each iterator
-    if (0 < props[i].statesize) {
-      tmp_props[i].model_states = ((CDATAFORMAT *)g_model_states) + (states_offset * NUM_MODELS);
-      tmp_props[i].next_states = ((CDATAFORMAT *)g_next_states) + (states_offset * NUM_MODELS);
+    if (0 < props[i].statesize + props[i].algebraic_statesize) {
+      tmp_props[i].model_states = ((CDATAFORMAT *)g_model_states) + (states_offset * PARALLEL_MODELS);
+      tmp_props[i].next_states = ((CDATAFORMAT *)g_next_states) + (states_offset * PARALLEL_MODELS);
     }
     else {
       tmp_props[i].model_states = NULL;
       tmp_props[i].next_states = NULL;
     }
 
-    states_offset += props[i].statesize + props[i].pp_statesize;
+    states_offset += props[i].statesize + props[i].algebraic_statesize;
 
     // Every iterator shares the same memory
     tmp_props[i].system_states = g_system;
@@ -150,7 +157,7 @@ solver_props *gpu_init_props(solver_props *props){
     // Finds the first iterator with states. 
     // Its pointer will reference the beginning of state memory.
 #   if NUM_STATES > 0
-    if (0 < props[i].statesize) {
+    if (0 < props[i].statesize + props[i].algebraic_statesize) {
       cutilSafeCall(cudaMemcpy(g_model_states, props[i].model_states, sizeof(systemstatedata_external), cudaMemcpyHostToDevice));
       cutilSafeCall(cudaMemcpy(g_next_states, props[i].model_states, sizeof(systemstatedata_external), cudaMemcpyHostToDevice));
       break;
@@ -164,20 +171,17 @@ solver_props *gpu_init_props(solver_props *props){
 # endif
 
   // Copies initial times to device.
-  cutilSafeCall(cudaMemcpy(g_time, tmp_time, NUM_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
-  cutilSafeCall(cudaMemcpy(g_next_time, tmp_time, NUM_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(g_time, tmp_time, PARALLEL_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(g_next_time, tmp_time, PARALLEL_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+
+  cutilSafeCall(cudaMemcpy(g_running, tmp_running, PARALLEL_MODELS * NUM_ITERATORS * sizeof(int), cudaMemcpyHostToDevice));
+
 
 # if NUM_INPUTS > 0
   // Copies inputs to device.
-  cutilSafeCall(cudaMemcpy(g_inputs, props->inputs, NUM_MODELS * NUM_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(g_inputs, props->inputs, PARALLEL_MODELS * NUM_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 # endif
 
-  // Copies running flags to device
-  int tmp_running[NUM_MODELS * NUM_ITERATORS];
-  for (i = 0; i < NUM_ITERATORS; i++) {
-    memcpy(tmp_running + (i * NUM_MODELS), props[i].running, NUM_MODELS * sizeof(int));
-  }
-  cutilSafeCall(cudaMemcpy(g_running, tmp_running, NUM_MODELS * NUM_ITERATORS * sizeof(int), cudaMemcpyHostToDevice));
 
   // Copies properties to device.
   cutilSafeCall(cudaMemcpy(g_props, tmp_props, NUM_ITERATORS * sizeof(solver_props), cudaMemcpyHostToDevice));
@@ -192,13 +196,13 @@ solver_props *gpu_init_props(solver_props *props){
 void gpu_finalize_props (solver_props *props) {
   unsigned int i;
   // A temporary host duplicate of the time vectors.
-  CDATAFORMAT tmp_time[NUM_MODELS * NUM_ITERATORS];
+  CDATAFORMAT tmp_time[PARALLEL_MODELS * NUM_ITERATORS];
 
   // Copies final times from the device
-  cutilSafeCall(cudaMemcpy(tmp_time, props[0].gpu.time, NUM_MODELS * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(tmp_time, props[0].gpu.time, PARALLEL_MODELS * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
   for (i = 0; i < NUM_ITERATORS; i++) {
     // Each iterator has its own area of memory
-    memcpy(props[i].time, tmp_time + (i * NUM_MODELS), NUM_MODELS * sizeof(CDATAFORMAT));
+    memcpy(props[i].time, tmp_time + (i * PARALLEL_MODELS), PARALLEL_MODELS * sizeof(CDATAFORMAT));
   }
 
   // Copies final states from the device
@@ -206,14 +210,12 @@ void gpu_finalize_props (solver_props *props) {
     // Finds the first iterator with states. 
     // Its pointer will reference the beginning of state memory.
 #   if NUM_STATES > 0
-    if (0 < props[i].statesize) {
+    if (0 < props[i].statesize + props[i].algebraic_statesize) {
       cutilSafeCall(cudaMemcpy(props[i].model_states, props[i].gpu.model_states, sizeof(systemstatedata_external), cudaMemcpyDeviceToHost));
       break;
     }
 #   endif
   }
 
-
-  // FIXME free device malloc'd memory
 }
 #endif // #ifdef TARGET_GPU

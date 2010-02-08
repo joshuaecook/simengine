@@ -50,11 +50,62 @@ fun std_popen exec args =
 fun std_preadline exec args =
     case args of
 	[KEC.PROCESS (p, _, _)] =>
-	(case TextIO.inputLine (Child.textIn (Proc.getStdout p)) of
-	    NONE => KEC.UNIT
-	  | SOME s => KEC.LITERAL(KEC.CONSTSTR s))
+	let val stdout = Child.textIn (Proc.getStdout p)
+	in case TextIO.inputLine stdout
+	    of SOME s => KEC.LITERAL (KEC.CONSTSTR s)
+	     | NONE => KEC.UNIT
+	end
       | [a] => 
 	raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
+      | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
+fun std_preaderrline exec args =
+    case args of
+	[KEC.PROCESS (p, _, _)] =>
+	let val stderr = Child.textIn (Proc.getStderr p)
+	in case TextIO.inputLine stderr
+	    of SOME s => KEC.LITERAL (KEC.CONSTSTR s)
+	     | NONE => KEC.UNIT
+	end
+      | [a] => 
+	raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
+      | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
+fun std_preadOutAndErrLine exec args =
+    case args
+     of [KEC.PROCESS (p, name, args)] =>
+	let val (stdout, stderr) = (Child.textIn (Proc.getStdout p), Child.textIn (Proc.getStderr p))
+	    fun loop (count) =
+		case (TextIO.canInput (stdout,10), TextIO.canInput (stderr,10))
+		 of 
+		    (SOME x, SOME y) => 
+		    if count > 0 andalso x = 0 andalso y = 0 then
+			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
+		    else
+			(TextIO.inputLine stdout, TextIO.inputLine stderr)
+		  | (SOME x, NONE) => 
+		    if count > 0 andalso x = 0 then
+			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
+		    else
+			(TextIO.inputLine stdout, NONE)
+		  | (NONE, SOME x) => 
+		    if count > 0 andalso x = 0 then
+			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
+		    else
+			(NONE, TextIO.inputLine stderr)
+		  (* If no data is available, it can't hurt to sleep for a short interval to avoid pegging the cpu *)
+		  | (NONE, NONE) => (Posix.Process.sleep (Time.fromMilliseconds 10); loop (count))
+
+	    val (outline, errline) = loop (10)
+	in
+	    KEC.TUPLE [if isSome outline then 
+			   KEC.LITERAL (KEC.CONSTSTR (valOf outline))
+		       else KEC.UNIT,
+		       if isSome errline then 
+			   KEC.LITERAL (KEC.CONSTSTR (valOf errline))
+		       else KEC.UNIT]
+	end
+      | [a] => raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
 
 fun std_pwrite exec args =
@@ -71,8 +122,10 @@ fun std_pwrite exec args =
 fun std_preap exec args =
     case args of
 	[KEC.PROCESS (p, _, _)] =>
-	(Proc.reap p;
-	 KEC.UNIT)
+	(case Proc.reap p
+	  of Posix.Process.W_EXITED => KEC.LITERAL ( KEC.CONSTREAL 0.0)
+	   | Posix.Process.W_EXITSTATUS w => (KEC.LITERAL o KEC.CONSTREAL o Real.fromInt o Word8.toInt) w
+	   | _ => KEC.UNIT)
       | [a] => 
 	raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
@@ -80,6 +133,8 @@ fun std_preap exec args =
 
 val library = [{name="popen", operation=std_popen},
 	       {name="preadline", operation=std_preadline},
+	       {name="preaderrline", operation = std_preaderrline},
+	       {name="preadOutAndErrLine", operation = std_preadOutAndErrLine},
 	       {name="pwrite", operation=std_pwrite},
 	       {name="preap", operation=std_preap}]
 

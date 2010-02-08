@@ -1,3 +1,6 @@
+/* Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
+ * For more information, please visit http://simatratechnologies.com/
+ */
 import "integration.dsl"
 
 namespace Simulation
@@ -118,7 +121,7 @@ namespace Simulation
 
     constructor (name: String)
       self.name = name      
-      self.setEquation(Equation.new(self', 0))
+//      self.setEquation(Equation.new(self', 0))
 //      self.eq = DifferentialEquation.new(1, self, 0) 
 
 //      reset()
@@ -547,6 +550,7 @@ namespace Simulation
 
       constructor (name)
 	  super(name)
+	  self.hasEq = true
       end      
 
       property iter
@@ -740,12 +744,20 @@ namespace Simulation
 
   class TimeIterator extends GenericIterator
     var isContinuous
-    var sample_frequency = 1
+    var sample_frequency 
     constructor (name: String)
       super(name)
+      reset()
     end 
 
     hidden var solver_obj
+
+    function reset ()
+      sample_frequency = 1
+      isContinuous = true
+      solver_obj = undefined
+    end 
+
 
     property solver
       get
@@ -1135,69 +1147,121 @@ open Simulation
 import "translate.dsl"
 import "simcompile.dsl"
 
-function compile (mod)
+function compile2 (filename: String, compiler_settings: Table)
+  if "dsl" <> Path.ext filename then
+      error ("Unknown type of file " + filename)
+  end
+  var working_dir = FileSystem.pwd ()
+  var dir = Path.dir filename
+  var file = Path.file filename
+  var simfile = Path.join(working_dir, ((Path.base file) + ".sim"))
+
+  var needsToCompile = true
+
+  // Opening an archive succeeds if the file exists and a manifest can be read.
+  var archive = Archive.openArchive (simfile)
+  if () <> archive then
+    // .sim must be newer than the simEngine compiler
+    var creation = Archive.creationDate (archive)
+    if creation > Sys.buildTime then
+      // .sim must be using the same DOL file and be younger than it
+      var dol = Archive.dolFilename (archive)
+      if creation > FileSystem.modtime (dol) and dol == settings.compiler.registry.value then
+	// TODO check environment and version of SIM
+
+	// .sim must be younger than each imported DSL file
+	var dsls = Archive.dslFilenames (archive)
+	var main = dsls.first () // an absolute path
+        var imports = dsls.rest () // paths relative to main
+	
+	if filename == main then
+	  var upToDate = creation > FileSystem.modtime (main)
+	  foreach i in imports do
+	    var path = Path.join (dir, i)
+	    upToDate = (upToDate and 
+			FileSystem.isfile (path) and
+			creation > FileSystem.modtime (path))
+	  end
+	  
+	  if upToDate then
+	    needsToCompile = not (isArchiveCompatibileWithCompilerSettings (archive, compiler_settings))
+	  end
+	end
+      end
+    end
+  end
+
+  if needsToCompile then
+    compile (filename, compiler_settings)
+  else
+    if compiler_settings.debug then
+      println ("reusing existing SIM")
+    end
+    "Compilation Finished Successfully"
+  end
+end
+
+function isArchiveCompatibileWithCompilerSettings (archive, compiler_settings)
+  function compatible (executable)
+    ((executable.target == compiler_settings.target) and
+     (executable.precision == compiler_settings.precision) and
+     (executable.debug or not(compiler_settings.debug)) and
+     (executable.profile == compiler_settings.profile) and
+     (not("cuda" == executable.target or "gpu" == executable.target) 
+      or executable.emulate == compiler_settings.emulate))
+  end
+
+  () <> Archive.findExecutable (archive, compatible)
+end
+
+function compile (filename, compiler_settings)
+  if compiler_settings.debug then
+    println ("compiling " + filename)
+  end
+
+  var mod = LF loadModel (filename)
   var name = mod.template.name
-  var settings = mod.template.settings
+  var cname = name + ".c"
+  mod.template.settings = compiler_settings
 
   var target
 
-  if "CPU" == settings.target then
+  if "openmp" == compiler_settings.target then
+      target = SimCompile.TargetOpenMP.new(compiler_settings)
+  elseif "parallelcpu" == compiler_settings.target then
+      target = SimCompile.TargetOpenMP.new(compiler_settings)
+  elseif "cuda" == compiler_settings.target then
+      target = SimCompile.TargetCUDA.new(compiler_settings)
+  elseif "gpu" == compiler_settings.target then
+      target = SimCompile.TargetCUDA.new(compiler_settings)
+  elseif "cpu" == compiler_settings.target then
       target = SimCompile.TargetCPU.new()
-  elseif "OPENMP" == settings.target then
-      target = SimCompile.TargetOpenMP.new()
-  elseif "PARALLELCPU" == settings.target then
-      target = SimCompile.TargetOpenMP.new()
-  elseif "CUDA" == settings.target then
-      target = SimCompile.TargetCUDA.new()
-      target.emulate = settings.emulate
-  elseif "GPU" == settings.target then
-      target = SimCompile.TargetCUDA.new()
-      target.emulate = settings.emulate
   else
-      error ("Unknown target " + settings.target)
+      warning ("Unknown target " + compiler_settings.target + " defaulting to cpu")
+      compiler_settings.target = "cpu"
+      target = SimCompile.TargetCPU.new()
   end
 
-  target.debug = settings.debug
-  target.profile = settings.profile
+  target.debug = compiler_settings.debug
+  target.profile = compiler_settings.profile
 
-  target.num_models = settings.num_models
-  target.precision = settings.precision
+  target.precision = compiler_settings.precision
 
   var stat = LF compile (Translate.model2forest (mod.instantiate()))
   var compilation_successful = LF str_contains (stat, "Compilation Finished Successfully")
+  var simfile
       
   if compilation_successful then
-      var cc
-      if "GPU" <> settings.target and "CUDA" <> settings.target then
-	  cc = target.compile(name + "_parallel.o", [name + "_parallel.c"])
-      else
-	  SimCompile.shell("ln", ["-s", name + "_parallel.c", name + "_parallel.cu"])
-	  cc = target.compile(name + "_parallel.o", [name + "_parallel.cu"])
+      if "gpu" == compiler_settings.target or "cuda" == compiler_settings.target then
+	  SimCompile.shell("ln", ["-s", cname, name + ".cu"])
+	  cname = name + ".cu"
       end
 
-
-      var ld = target.link(name + ".sim", name + ".sim", [name + "_parallel.o"])
-
-      if settings.debug then
-	  println(cc(1) + " " + (join(" ", cc(2))))
-      end
-      var ccp = SimCompile.shellWithStatus(cc(1), cc(2))
-      var ccstat = ccp.rev().first().rstrip("\n")
-      if "0" <> ccstat then
-	  println (cc(1) + " " + join(" ", cc(2)))
-	  println (join("\n", ccp))
-	  failure ("OOPS! Compiler returned non-zero exit status " + ccstat + ".  Please contact Simatra support for assistance.")
-      end
-
-      if settings.debug then
-	  println(ld(1) + " " + (join(" ", ld(2))))
-      end
-      var ldp = SimCompile.shellWithStatus(ld(1), ld(2))
-      var ldstat = ldp.rev().first().rstrip("\n")
-      if "0" <> ldstat then
-	  failure ("OOPS! Linker returned non-zero exit status " + ldstat + ".  Please contact Simatra support for assistance.")
-      end
+      compiler_settings.add("cSourceFilename", cname)
+      
+      simfile = Archive.createArchive(name + ".sim", settings.compiler.registry.value, mod.template.imports, target, compiler_settings)
   end
+
   stat
 end
 

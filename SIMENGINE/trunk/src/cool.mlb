@@ -5,20 +5,39 @@ local
   $(SML_LIB)/basis/sml-nj.mlb
   $(SML_LIB)/basis/mlton.mlb
   $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+  $(SML_LIB)/smlnj-lib/RegExp/regexp-lib.mlb
+  $(SML_LIB)/basis/c-types.mlb
+
+  ann
+      "allowFFI true"
+  in
+      ffi/ffi-exports.sml
+      ffi/simex.mlb
+      ffi/devices.sml
+      ffi/simlib.sig
+      ffi/simlib.sml
+  end
+
+  shell/symbol.sml
 
   (* JSON Data Structure *)
+  json/json.mlb
   util/json.sml
+  util/json-extensions.sml
 in
 
 (* Utilities *)
 
+util/simengine.sml
+
 shell/symbol.sml
 
 
-util/build_options.sml
+util/build-options.sml
 
 
 util/general_util.sml
+util/sorting.sml
 util/symboltable.sml
 util/unique.sml
 util/testutils.sml
@@ -115,6 +134,12 @@ ir/processing/exp_process.sml
 (*ir/processing/eq_util.sml*)
 ir/processing/class_process.sml
 
+ir/syntax/matrix-syntax.sml
+ir/syntax/fun-syntax.sml
+ir/syntax/exp-syntax.sml
+ir/syntax/class-syntax.sml
+ir/syntax/model-syntax.sml
+
 be/mathematica.sml
 be/mathematica_writer.sml
 
@@ -124,38 +149,23 @@ ir/processing/ordering.sml
 
 ir/processing/model_process.sml
 ir/processing/sharded_model.sml
+ir/processing/model_validate.sml
 
 be/c_writer_util.sml
-(* deprecated writers
-be/c_writer.sml
-be/mex_writer.sml
-be/mex_ode_writer.sml
-*)
-be/archive.sml
+be/codegen.sml
 be/c_parallel_writer.sml
 
-(*
 
-be/datastructs/dfexp.sml
-be/datastructs/expgraph.sml
-be/datastructs/pegraph.sml
-be/datastructs/ptegraph.sml
-be/datastructs/schedgraph.sml
-
-be/datastructs/sys.sig
-*)
 
 (* Model Construction and Interactive Shell *)
 
 (*shell/modeltranslate2.sml*)
 shell/modeltranslate_reduced.sml
 
-(*
-be/modelcompile_launcher.sml
-*)
-
 shell/semant.sml
 shell/asttrans.sml
+
+shell/import-hook.sml
 
 library/libraryutil.sml
 library/system.sml
@@ -165,6 +175,7 @@ library/comparison.sml
 library/string.sml
 library/file.sml
 library/filesys.sml
+library/path.sml
 objects/objects.sml
 library/type.sml
 library/function.sml
@@ -173,9 +184,13 @@ library/vector.sml
 library/malleability.sml
 library/compiler.sml
 library/settings.sml
-(*library/precision.sml*)
 library/environment.sml
 library/process.sml
+library/devices.sml
+library/regexp.sml
+library/simlib.sml
+library/json.sml
+library/time.sml
 library/library.sml
 
 shell/desugar.sml

@@ -64,14 +64,14 @@ fun genlist2str data2str [data] =
 val symbollist2str = genlist2str Symbol.name
 val contents2str = genlist2str e2s
 
-fun printClass (class as {name, properties={sourcepos, basename, classform, classtype}, inputs, outputs, iterators, exps}) =
+fun printClass (class as {name, properties={sourcepos, basename, preshardname, classform, classtype}, inputs, outputs, iterators, exps}) =
     (case classtype of
 	 DOF.SLAVE orig_class_name => 
 	 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")
-       | DOF.MASTER orig_class_name => if orig_class_name = name then
+       | DOF.MASTER (*orig_class_name*) =>(* if orig_class_name = name then*)
 					   print ("Class Name: " ^ (Symbol.name (name)) ^ "\n")
-				       else
-					   print ("Class Name: " ^ (Symbol.name (name)) ^ " (Master class of '"^(Symbol.name orig_class_name)^"')\n");
+				      (* else
+					   print ("Class Name: " ^ (Symbol.name (name)) ^ " (Master class of '"^(Symbol.name orig_class_name)^"')\n")*);
      (case classform of
 	  DOF.FUNCTIONAL => 
 	  print (" |-> Functional class\n")
@@ -139,10 +139,10 @@ fun printModel (model: DOF.model) =
 
 	    end
 
-	fun printSystemProperties {iterators,precision,target,num_models,debug,profile} =
+	fun printSystemProperties {iterators,precision,target,parallel_models,debug,profile} =
 	    (print (" precision: "^(case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")^"\n");
 	     print (" target: "^(Target.target2str target)^"\n");
-	     print (" number of models: "^(i2s num_models)^"\n");
+	     print (" number of parallel models: "^(i2s parallel_models)^"\n");
 	     (if debug then print (" DEBUG mode enabled\n") else ());
 	     (if profile then print (" PROFILE mode enabled\n") else ());
 	     app
@@ -175,7 +175,11 @@ fun printModel (model: DOF.model) =
 			      print ("  Solver = CVode (dt = " ^ (Real.toString dt) ^ ", abs_tolerance = " ^ (Real.toString abs_tolerance) ^", rel_tolerance = " ^ (Real.toString rel_tolerance) ^ ", max_order = " ^ (i2s max_order) ^ ", lmm = "^(case lmm of Solver.CV_ADAMS => "CV_ADAMS" | Solver.CV_BDF => "CV_BDF")^", iter = "^(case iter of Solver.CV_NEWTON => "CV_NEWTON" | Solver.CV_FUNCTIONAL => "CV_FUNCTIONAL")^", solv = " ^ (case solv of Solver.CVDENSE => "CVDENSE" | Solver.CVDIAG => "CVDIAG" | Solver.CVBAND {upperhalfbw, lowerhalfbw} => "CVBAND("^(i2s lowerhalfbw)^","^(i2s upperhalfbw)^")") ^ ")\n"))
 		       | DOF.DISCRETE {sample_period} => 
 			 print ("  Discrete with Ts="^(r2s sample_period)^", fs="^(r2s (1.0/sample_period))^"\n")
-		       | DOF.POSTPROCESS iter =>
+		       | DOF.ALGEBRAIC (DOF.PREPROCESS, iter) => 
+			 print ("  Pre processing iterator of " ^ (Symbol.name iter) ^ "\n")
+		       | DOF.ALGEBRAIC (DOF.INPROCESS, iter) => 
+			 print ("  Inline processing iterator of " ^ (Symbol.name iter) ^ "\n")
+		       | DOF.ALGEBRAIC (DOF.POSTPROCESS, iter) =>
 			 print ("  Post processing iterator of " ^ (Symbol.name iter) ^ "\n")
 		       | DOF.UPDATE iter =>
 			 print ("  Updating iterator of " ^ (Symbol.name iter) ^ "\n")

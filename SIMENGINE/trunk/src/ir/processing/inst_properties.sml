@@ -1,8 +1,6 @@
 structure InstProps = 
 struct
 
-type iteratorname = Symbol.symbol
-type instname = Symbol.symbol
 
 (*datatype instform = FUNCTIONAL
 		  | FUNCTIONAL_BY_REF

@@ -53,8 +53,25 @@ for i=1:length(testInfos)
                 o = simex(info.model, info.time, info.inputs, info.states);
             end
             figure;
-            simplot(reduceDataSet(o));
+            subplot(2,1,1);
+            if isempty(info.outputs) 
+              simplot(o);
+            else
+              o2 = struct();
+              for i=1:length(info.outputs)
+                id = info.outputs{i};
+                o2.(id) = o.(id);
+              end
+              simplot(o2);
+            end
             title(sprintf('Plot of ''%s''',info.name));
+            subplot(2,1,2);
+            if isempty(info.outputs) 
+              simplot(reduceDataSet(o));
+            else
+              simplot(reduceDataSet(o2));
+            end
+            title(sprintf('Plot of ''%s'' (reduced data)',info.name));
         case CREATE,
             if isempty(info.states)
                 o = simex(info.model, info.time, info.inputs);
@@ -96,6 +113,7 @@ t(i).name = 'FN';
 t(i).model = fullfile(simexamplepath, 'FN/fn.dsl');
 t(i).inputs = struct();
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 100;
 
 % HH Model
@@ -104,6 +122,7 @@ t(i).name = 'HH';
 t(i).model = fullfile(simexamplepath, 'HH/hh.dsl');
 t(i).inputs = struct();
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 100;
 
 % BRK Model Iext = 10
@@ -112,6 +131,7 @@ t(i).name = 'BRK_I10';
 t(i).model = fullfile(simexamplepath, 'BRK/brk.dsl');
 t(i).inputs = struct('Iext', 10);
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 100;
 
 % BRK Model Iext = 30
@@ -120,15 +140,35 @@ t(i).name = 'BRK_I30';
 t(i).model = fullfile(simexamplepath, 'BRK/brk.dsl');
 t(i).inputs = struct('Iext', 30);
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 100;
 
-% STG Model
+% Segment test
+i = i + 1;
+t(i).name = 'Segment';
+t(i).model = fullfile(simexamplepath, 'MRG/segment.dsl');
+t(i).inputs = struct('Istim', 8);
+t(i).states = [];
+t(i).outputs = {'VmAxonal_L', 'VmAxonal_R'};
+t(i).time = 200;
+
+% PD Model
 i = i + 1;
 t(i).name = 'PD';
 t(i).model = fullfile(simexamplepath, 'PD/pd.dsl');
 t(i).inputs = struct();
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 1500;
+
+% PD Events Model
+i = i + 1;
+t(i).name = 'PDEvents';
+t(i).model = fullfile(simexamplepath, 'PD/pd_events.dsl');
+t(i).inputs = struct();
+t(i).states = [];
+t(i).outputs = {'metrics'};
+t(i).time = 10300;
 
 % Timing Network Model (HN)
 % Have to remove this test - it's just too sensitive to variations
@@ -146,6 +186,7 @@ t(i).name = 'Leaky Membrane';
 t(i).model = fullfile(simexamplepath, 'tutorial/leakyMembrane.dsl');
 t(i).inputs = struct('Iext',0);
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 1;
 
 % Two Cell Network (Tutorial)
@@ -154,6 +195,7 @@ t(i).name = 'Two Cell Network';
 t(i).model = fullfile(simexamplepath, 'tutorial/twoCellNetwork.dsl');
 t(i).inputs = struct();
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 100;
 
 % Van der Pol
@@ -162,6 +204,7 @@ t(i).name = 'Van der Pol';
 t(i).model = fullfile(simexamplepath, 'VDP/vdpex.dsl');
 t(i).inputs = struct();
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 3000;
 
 % Lorenz
@@ -170,15 +213,17 @@ t(i).name = 'Lorenz';
 t(i).model = fullfile(simexamplepath, 'lorenz/lorenz.dsl');
 t(i).inputs = struct();
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 25;
 
-% Purine
-i = i + 1;
-t(i).name = 'Purine';
-t(i).model = fullfile(simexamplepath, 'purine/purine.dsl');
-t(i).inputs = struct();
-t(i).states = [];
-t(i).time = 1;
+% $$$ % Purine
+% $$$ i = i + 1;
+% $$$ t(i).name = 'Purine';
+% $$$ t(i).model = fullfile(simexamplepath, 'purine/purine.dsl');
+% $$$ t(i).inputs = struct();
+% $$$ t(i).states = [];
+% $$$ t(i).outputs = {};
+% $$$ t(i).time = 1;
 
 % Yeast
 i = i + 1;
@@ -186,6 +231,7 @@ t(i).name = 'Yeast';
 t(i).model = fullfile(simexamplepath, 'yeast/yeast.dsl');
 t(i).inputs = struct();
 t(i).states = [];
+t(i).outputs = {};
 t(i).time = 1;
 
 

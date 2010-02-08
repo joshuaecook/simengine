@@ -9,6 +9,7 @@ classdef Suite < handle
         Name;
         ExitOnFailure = false;
         ExitOnError = false;
+        DeleteSIMs = true;
     end
     
     properties (SetAccess = private)
@@ -19,6 +20,7 @@ classdef Suite < handle
         Errored = 0;
         Skipped = 0;
         Time = 0;
+        Dir
     end
     
     % define the instance methods
@@ -27,6 +29,7 @@ classdef Suite < handle
         % define the constructor
         function s = Suite(name, varargin)
             s.Name = name;
+            s.Dir = pwd;
             if nargin == 2
                 if iscell(varargin{1})
                     s.Tests = varargin{1};
@@ -74,7 +77,19 @@ classdef Suite < handle
         end
         
         function execute_helper(s, level, runall, runfailures)
-            spaces = blanks(level*2);
+        % delete any sim files that may exist in the working
+        % directory
+        if s.DeleteSIMs
+          cwd = pwd;
+          try
+            cd(s.Dir);
+            delete('*.sim');
+            cd(cwd);
+          catch          
+            cd(cwd);
+          end
+        end
+        spaces = blanks(level*2);
             disp(sprintf('\n%sRunning Suite ''%s'' (Total of %d tests)', spaces, s.Name, s.Total));
             localtime = tic;
             cont = true;

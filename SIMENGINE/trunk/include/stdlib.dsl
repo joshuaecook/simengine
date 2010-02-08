@@ -166,6 +166,9 @@ end
 
 function objectContains (obj, member) = exists m in obj.members.tovector() suchthat m==member //exists((lambdafun(m) = m == member), obj.members)
 
+function isRegexpMatch (pattern: String, str: String) = LF ismatch (pattern, str)
+function getRegexpMatches (pattern: String, str: String) = LF getMatches (pattern, str)
+
 function join (sep: String, v: Vector)
   var n = v.length()
 
@@ -470,18 +473,50 @@ namespace Relational
 end
 
 namespace Process
-  function readline (process) = LF preadline (process)	
-  
-  function read (process)
-    var x = []
-    var line = LF preadline (process)
+  /* Blocks until a line of text is available on stdout. */
+  function readline (process) = LF preadline (process)
+  /* Blocks until a line of text is available on stderr. */
+  function readerrline (process) = LF preaderrline (process)
+  /* Blocks until a line of text is available on stderr or stdout, 
+   * returns a pair containing the line of text for each corresponding stream. 
+   * The pair may contain () for either element if the corresponding stream 
+   * has no available data. Returns ((),()) when both streams are ended.
+   */
+  function readOutAndErrLine (process) = LF preadOutAndErrLine (process)
 
-    while line <> () do
-      x.push_back line
-      line = LF preadline (process)
+  /* Reads the entire stdout and stderr buffers and returns two 
+   * vectors of lines of text. */
+  function readAll (process)
+    var out = []
+    var err = []
+    var reading = true
+
+    while reading do
+      var lines = Process.readOutAndErrLine(process)
+      if () <> lines(1) then
+        out.push_back(lines(1))
+      end
+      if () <> lines(2) then
+        err.push_back(lines(2))
+      end
+      reading = () <> lines(1) or () <> lines(2)
     end
 
-    x
+    (out, err)
+  end
+    
+  /* Reads the entire stdout buffer and returns a vector of lines of text,
+   * discarding any text on stderr. */
+  function read (process)
+    var all = Process.readAll(process)
+    all(1)
+  end
+
+  /* Reads the entire stdout buffer and returns a vector of lines of text,
+   * discarding any text on stdout. */
+  function readerr (process)
+    var all = Process.readAll(process)
+    all(2)
   end
 
   function write (process, text) = LF pwrite (process, text)
@@ -557,6 +592,20 @@ namespace FileSystem
   function isfile (file) = LF isfile file
   function mkdir (dir) = LF mkdir dir
   function realpath (file) = LF realpath file
+  function modtime (file) = LF modtime file
+end
+
+namespace Path
+  function dir (path) = LF path_dir path
+  function file (path) = LF path_file path
+  function join (dir, file) = LF path_join (dir, file)
+  function base (path) = LF path_base path
+  function ext (path) = LF path_ext path
+end
+
+namespace Time
+  function timestampInSeconds() = LF timestampSeconds ()
+  function timestampString() = LF timestampString ()
 end
 
 open Operations
@@ -568,3 +617,5 @@ open Types
 import "sys.dsl"
 import "environment.dsl"
 import "devices.dsl"
+import "archive.dsl"
+import "json.dsl"
