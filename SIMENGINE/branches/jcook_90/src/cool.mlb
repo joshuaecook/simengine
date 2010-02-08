@@ -149,6 +149,7 @@ ir/processing/ordering.sml
 
 ir/processing/model_process.sml
 ir/processing/sharded_model.sml
+ir/processing/model_validate.sml
 
 be/c_writer_util.sml
 be/codegen.sml

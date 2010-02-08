@@ -56,7 +56,7 @@ namespace Archive
 
     var cfile = compiler_settings.cSourceFilename
     var cfile_o = Simlib.makeObjectFromFile (Path.file cfile, cfile)
-    var ofile = Path.base (Path.file cfile)
+    var ofile = (Path.base (Path.file cfile)) + ".o"
 
     var main = dslFilenames.first ()
     var imports = dslFilenames.rest ()
@@ -72,7 +72,6 @@ namespace Archive
     compile (cc(1), cc(2))
 
     var objects = [ofile, manifest_o, cfile_o, main_o] + import_os
-    
     var ld = target.link (Path.file filename, filename, objects)
     link (ld(1), ld(2))
 

@@ -63,9 +63,14 @@ fun std_compile exec args =
 						  
 	      val _ = DynException.checkToProceed()
 
-	      val (classes, {classname,...}, _) = forest
-
 	      val _ = DOFPrinter.printModel forest
+
+	      (* here, we can validate the model to catch issues that can't be found elsewhere *)
+	      val _ = CurrentModel.setCurrentModel forest
+	      val _ = ModelValidate.validate forest
+	      val _ = DynException.checkToProceed()
+
+	      val (classes, {classname,...}, _) = forest
 
 	      val _ = CurrentModel.setCurrentModel forest
 
