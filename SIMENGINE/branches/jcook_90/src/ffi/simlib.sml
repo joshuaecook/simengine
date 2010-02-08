@@ -5,17 +5,17 @@ fun bug y = raise Fail y
 type status = Int32.int
 
 (* Nb, strings passed as parameters must be null-terminated. *)
-val makeObjectFromFile' = 
-    _import "simlib_MakeObjectFromFile": (string * string) -> status;
-
 val makeObjectFromContents' =
-    _import "simlib_MakeObjectFromContents": (string * Int32.int * string) -> status;
+    _import "simlib_MakeObjectFromContents": (string * Int32.int * string * string ref) -> status;
+
+val makeObjectFromFile' = 
+    _import "simlib_MakeObjectFromFile": (string * string * string ref) -> status;
+
+val getContentsFromArchive' =
+    _import "simlib_GetContentsFromArchive": (string * string * string ref) -> status;
 
 val getFileFromArchive' =
     _import "simlib_GetFileFromArchive": (string * string * string) -> status;
-
-val getContentsFromArchive' =
-    _import "simlib_GetContentsFromArchive": (string * string) -> status;
 
 val errno =
     _import "simlib_errno": (unit) -> Int32.int;
@@ -49,24 +49,30 @@ val error =
   | 6 => SOME Compression
   | n => bug ("Simlib unknown error " ^ (Int32.toString n))
 
-fun makeObjectFromFile {objectName, filename} =
-    case error (makeObjectFromFile' (cstring objectName, cstring filename))
-     of NONE => FFIExports.getTheString ()
-      | SOME exn => raise exn
-
 fun makeObjectFromContents {objectName, data} =
-    case error (makeObjectFromContents' (cstring objectName, String.size data, data))
-     of NONE => FFIExports.getTheString ()
-      | SOME exn => raise exn
+    let val objectFilename: string ref = ref ""
+    in case error (makeObjectFromContents' (cstring objectName, String.size data, data, objectFilename))
+	of NONE => ! objectFilename
+	 | SOME exn => raise exn
+    end
+
+fun makeObjectFromFile {objectName, filename} =
+    let val objectFilename: string ref = ref ""
+    in case error (makeObjectFromFile' (cstring objectName, cstring filename, objectFilename))
+	of NONE => ! objectFilename
+	 | SOME exn => raise exn
+    end
+
+fun getContentsFromArchive {archive, objectName} =
+    let val contents: string ref = ref ""
+    in case error (getContentsFromArchive' (cstring archive, cstring objectName, contents))
+	of NONE => ! contents
+	 | SOME exn => raise exn
+    end
 
 fun getFileFromArchive {archive, objectName, filename} =
     case error (getFileFromArchive' (cstring archive, cstring objectName, cstring filename))
      of NONE => ()
-      | SOME exn => raise exn
-
-fun getContentsFromArchive {archive, objectName} =
-    case error (getContentsFromArchive' (cstring archive, cstring objectName))
-     of NONE => FFIExports.getTheString ()
       | SOME exn => raise exn
 
 

@@ -4,17 +4,12 @@
  * from external libraries. *)
 structure FFIExports = struct
 
-local
-    structure Ptr = MLton.Pointer
-    val theString: string ref = ref ""
-in
+fun makeString (size: int, bytes: MLton.Pointer.t) =
+    Byte.bytesToString (Vector.tabulate (size, fn i => MLton.Pointer.getWord8 (bytes, i)))
 
-fun getTheString () = ! theString
+val _ = _export "make_string": (int * MLton.Pointer.t -> string) -> unit;
+    makeString
 
-fun makeTheString (size: int, ptr: Ptr.t) =
-    theString := Vector.tabulate (size, (fn i => (chr o Word8.toInt o Ptr.getWord8) (ptr, i)))
-
-end
 
 val _ = _export "heap_alloc_word8": (int * Word8.word -> Word8.word array) -> unit;
     Array.array
@@ -35,10 +30,6 @@ val _ = _export "heap_alloc_pointer": (int * MLton.Pointer.t -> MLton.Pointer.t 
     Array.array
 val _ = _export "heap_update_pointer": (MLton.Pointer.t array * int * MLton.Pointer.t -> unit) -> unit;
     Array.update
-
-val _ = _export "make_the_string": (int * MLton.Pointer.t -> unit) -> unit;
-    makeTheString
-
 
 
 end (* structure FFIExports *)
