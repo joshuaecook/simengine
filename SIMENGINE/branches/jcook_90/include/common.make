@@ -48,6 +48,9 @@ endif
 # The SML compiler
 SMLC = mlton
 SMLFLAGS =
+ifneq ($(DEBUG),)
+SMLFLAGS += -cc-opt "-g"
+endif
 SMLPPFLAGS =
 SMLTARGET_ARCH = -codegen native
 SMLLEX = mllex
