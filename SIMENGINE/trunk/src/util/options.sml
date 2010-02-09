@@ -225,10 +225,17 @@ val argument_groups =
 		dyntype=INTEGER_T,
 		description=["Set limit for number of iterations through evaluating one term rewrite"]},
 	       {short=SOME #"O",
-		long=SOME "Optimiziation",
+		long=SOME "Optimization",
 		xmltag="optimize",
 		dyntype=FLAG_T,
-		description=["Enable/disable optimizations"]}]},
+		description=["Enable/disable optimizations"]},
+	       {short=NONE,
+		long=SOME "Flatten",
+		xmltag="flatten",
+		dyntype=FLAG_T,
+		description=["Enable/disable flatten"]}
+     
+     ]},
      
 
      {group="Logging Options",
