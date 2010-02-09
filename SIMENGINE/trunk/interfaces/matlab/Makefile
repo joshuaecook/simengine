@@ -25,9 +25,9 @@ clean:
 simex_helper: override CFLAGS += -fPIC -fopenmp -std=gnu99
 simex_helper: override LDFLAGS += $(SHARED_FLAGS)
 simex_helper: override MEXFLAGS += $(INCLUDES) $(LDLIBS)
-simex_helper: src/$(SIMEX_HELPER_OBJ)
+simex_helper: $(addprefix src/,$(SIMEX_HELPER_OBJ))
 
 simEngine_wrapper: override CFLAGS += -fPIC -std=gnu99 $(OPENMP_CFLAGS) $(INCLUDES)
 simEngine_wrapper: override LDFLAGS += $(SHARED_FLAGS)
 simEngine_wrapper: override MEXFLAGS += $(INCLUDES) $(LDLIBS)
-simEngine_wrapper: src/$(SIMENGINE_WRAPPER_OBJ)
+simEngine_wrapper: $(addprefix src/,$(SIMENGINE_WRAPPER_OBJ))
