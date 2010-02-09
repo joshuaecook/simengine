@@ -124,23 +124,7 @@ $(error Could not locate MATLAB or GNU octave)
 endif
 
 
-# Determines the appropriate MEX extension for the current platform.
-export MEXEXT
 
-ifneq ($(MATLAB),)
-MEXEXT := .$(shell MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mexext)
-endif
-
-#ifneq ($(OCTAVE),)
-#MEXEXT += .mex
-#endif
-
-# Add the Mac 64-bit version if required
-ifneq ($(DARWIN),)
-ifneq ($(ARCH64),)
-MEXEXT += .mexmaci64
-endif
-endif
 
 # File Names and Locations
 # ==============================================================================================
@@ -384,7 +368,7 @@ $(OUTPUT_FILE): $(COMPILER_DEPENDENCIES)
 # ==============================================================================================
 
 $(BUILD_DIR)/debug/$(FILENAME)_profiletime: override SMLPPFLAGS += $(SIMPLE_ARGS) -profile-stack true -profile time
-$(BUILD_DIR)/debug/$(FILENAME)_profiletimebug/$(FILENAME)_profiletime: $(COMPILER_DEPENDENCIES)
+$(BUILD_DIR)/debug/$(FILENAME)_profiletime: $(COMPILER_DEPENDENCIES)
 	-$(COMPILE.sml) -outputs $@ $< $(COMPILER_EXTRA_SOURCES)
 
 
@@ -392,6 +376,7 @@ $(BUILD_DIR)/debug/$(FILENAME)_profilemem: override SMLPPFLAGS += $(SIMPLE_ARGS)
 $(BUILD_DIR)/debug/$(FILENAME)_profilemem: $(COMPILER_DEPENDENCIES)
 	-$(COMPILE.sml) -outputs $@ $< $(COMPILER_EXTRA_SOURCES)
 
+.PHONY: profiling-tools
 profiling-tools: 
 	@$(MAKE) $(BUILD_DIR)/debug/$(FILENAME)_profiletime 
 	@$(MAKE) $(BUILD_DIR)/debug/$(FILENAME)_profilemem
@@ -448,14 +433,16 @@ share_cuda:
 	$(MAKE) -C share/cuda all
 
 
-$(BUILD_DIR)/simex_helper.%: interfaces/matlab/src/simex_helper.%
+$(BUILD_DIR)/simex_helper.mex%: interfaces/matlab/src/simex_helper.mex%
 	$(CP) $< $@
 
-$(BUILD_DIR)/simEngine_wrapper.%: interfaces/matlab/src/simEngine_wrapper.%
+$(BUILD_DIR)/simEngine_wrapper.mex%: interfaces/matlab/src/simEngine_wrapper.mex%
 	$(CP) $< $@
 
-matlab-files: $(MATLAB_FILES)
+.PHONY: matlab-files
+matlab-files: $(BUILD_DIR) $(MATLAB_FILES)
 
+.PHONY: matlab-installer
 matlab-installer: $(MATLAB_FILES)
 
 simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*

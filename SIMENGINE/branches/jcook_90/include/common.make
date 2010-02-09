@@ -150,7 +150,15 @@ endif
 # Every possible MEX extension
 ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex
 
-COMPILE.mex = $(MEX) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
+# Determines the appropriate MEX extension for the current platform.
+ifneq ($(MATLAB),)
+ifneq ($(DARWIN),)
+MEXEXT = .mexmaci .mexmaci64
+else
+MEXEXT := .$(shell MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mexext)
+endif
+endif
+export MEXEXT
 
 MEXFLAGS += CFLAGS="$(CFLAGS) $(CWARNINGS)" LDFLAGS="$(LDFLAGS)"
 ifneq ($(DEBUG),)
@@ -161,6 +169,8 @@ MEXFLAGS += -v
 endif
 
 # Rules for compiling various MEX targets
+COMPILE.mex = $(MEX) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
+
 %.mexglx: override MEXTARGET_ARCH = -glnx86
 %.mexglx: %.c
 	$(COMPILE.mex) -output $* $<
@@ -170,10 +180,16 @@ endif
 	$(COMPILE.mex) -output $* $<
 
 %.mexmaci: override MEXTARGET_ARCH = -maci
+%.mexmaci: override MEX := MACI64=0 $(MEX)
+%.mexmaci: override CFLAGS += -m32
+%.mexmaci: override LDFLAGS += -m32
 %.mexmaci: %.c
 	$(COMPILE.mex) -output $* $<
 
 %.mexmaci64: override MEXTARGET_ARCH = -maci64
+%.mexmaci: override MEX := MACI64=1 $(MEX)
+%.mexmaci: override CFLAGS += -m64
+%.mexmaci: override LDFLAGS += -m64
 %.mexmaci64: %.c
 	$(COMPILE.mex) -output $* $<
 
