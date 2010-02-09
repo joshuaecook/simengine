@@ -187,9 +187,9 @@ COMPILE.mex = $(MEX) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
 	$(COMPILE.mex) -output $* $<
 
 %.mexmaci64: override MEXTARGET_ARCH = -maci64
-%.mexmaci: override MEX := MACI64=1 $(MEX)
-%.mexmaci: override CFLAGS += -m64
-%.mexmaci: override LDFLAGS += -m64
+%.mexmaci64: override MEX := MACI64=1 $(MEX)
+%.mexmaci64: override CFLAGS += -m64
+%.mexmaci64: override LDFLAGS += -m64
 %.mexmaci64: %.c
 	$(COMPILE.mex) -output $* $<
 
