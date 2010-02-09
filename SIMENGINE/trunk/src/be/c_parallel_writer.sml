@@ -1356,14 +1356,15 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    fun systemstatedata_iterator (iter as (iter_name, _)) =
 			systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
 		    and systemstatedata_states (iter as (iter_name, _)) =
-			systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name orig_instname)^";"
+			[systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name orig_instname)^";",
+			 systemdata^"."^"states_"^(Symbol.name iter_name)^"_next = &sys_rd->states_"^(Symbol.name iter_name)^"_next[STRUCT_IDX]."^(Symbol.name orig_instname)^";"]
 
 		    val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
 		    val state_iters = List.filter (fn it => ClassProcess.requiresIterator it instclass) (ModelProcess.returnStatefulIterators ())
 
 		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^systemdata^";"),
 					  SUB(map ($ o systemstatedata_iterator) iters),
-					  SUB(map ($ o systemstatedata_states) state_iters)]
+					  SUB(map $ (Util.flatmap systemstatedata_states state_iters))]
 
 		    val calling_name = "flow_" ^ (Symbol.name classname)
 
