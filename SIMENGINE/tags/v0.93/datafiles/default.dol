@@ -25,6 +25,7 @@
 <logdof = false>
 <termrewritelimit = 25>
 <optimize = true>
+<flatten = false>
 <logrewrites = false>
 <generateC = true>
 <generateMathematica = false>

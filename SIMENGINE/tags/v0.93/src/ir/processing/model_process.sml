@@ -329,7 +329,8 @@ fun requiresFlattening () =
 	      | DOF.CONTINUOUS (Solver.EXPONENTIAL_EULER _) => true
 	      | _ => false
     in
-	List.exists solverRequiresFlattening iterators
+	(DynamoOptions.isFlagSet "flatten") orelse
+	(List.exists solverRequiresFlattening iterators)
     end
 
 			

@@ -127,6 +127,8 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
 
       | (Exp.INFINITY, Exp.INFINITY) => matchCandidates
       | (Exp.NAN, Exp.NAN) => matchCandidates
+      | (Exp.RANDOM Exp.UNIFORM, Exp.RANDOM Exp.UNIFORM) => matchCandidates
+      | (Exp.RANDOM Exp.NORMAL, Exp.RANDOM Exp.NORMAL) => matchCandidates
       | (Exp.DONTCARE, _) => matchCandidates
       | (_, Exp.DONTCARE) => matchCandidates
       (* now handle some of the other cases *)

@@ -375,8 +375,7 @@ fun repeatApplyRewritesExp rewrites exp =
 			     
 	    fun repeatApplyRewritesExp_helper limit rewrites exp =
 		if limit = 0 then
-		    (Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit)));
-		     Logger.log_warning(Printer.$("  exp = " ^ (ExpPrinter.exp2str exp)));
+		    (Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit) ^ " (expression: "^(ExpPrinter.exp2prettystr exp)^")"));
 		     exp)
 		else
 		    let

@@ -75,7 +75,9 @@ namespace Archive
     var ld = target.link (Path.file filename, filename, objects)
     link (ld(1), ld(2))
 
-    FileSystem.rmfile (cfile)
+    if compiler_settings.debug == false then
+      FileSystem.rmfile (cfile)
+    end
     foreach o in objects do
       FileSystem.rmfile (o)
     end
