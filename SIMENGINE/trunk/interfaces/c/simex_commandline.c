@@ -6,6 +6,13 @@
 
 #include "simex.h"
 
+#include <time.h>
+unsigned long long getnanos(){
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  return (unsigned long long) ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
+
 // Command line option parsing enumeration
 typedef enum {
   NO_OPTION,
@@ -460,9 +467,16 @@ int write_states(const simengine_interface *iface, simengine_opts *opts, simengi
 void print_interface(const simengine_interface *iface){
   unsigned int i;
   printf("\nModel : %s\n\n", iface->name);
+  printf("Target : %s\tPrecision: %s\tParallel models: %d\n\n",
+	 iface->target, (iface->precision == sizeof(float)) ? "float" : "double",
+	 iface->parallel_models);
   printf("%12s : ", "Iterators");
   for(i=0;i<iface->num_iterators;i++){
     printf("%s\t", iface->iterator_names[i]);
+  }
+  printf("\n%12s : ", "Solvers");
+  for(i=0;i<iface->num_iterators;i++){
+    printf("%s\t", iface->solver_names[i]);
   }
   printf("\n\n%12s : ", "Inputs");
   for(i=0;i<iface->num_inputs;i++){
@@ -505,6 +519,7 @@ const char *findsimEngine(const char *simex_bin){
 // Main program of simex command line
 int main(int argc, char **argv){
   simengine_opts opts;
+  unsigned long long start_time, end_time;
 
   if(argc == 1){
     // Print usage
@@ -524,9 +539,14 @@ int main(int argc, char **argv){
   }
   else
 #endif
-    // Compile the model
-    if(runsimEngine(findsimEngine(argv[0]), &opts))
-      return 1; // Compilation failed
+    {
+      start_time = getnanos();
+      // Compile the model
+      if(runsimEngine(findsimEngine(argv[0]), &opts))
+	return 1; // Compilation failed
+      end_time = getnanos();
+      PRINTFE("Compilation time: %g seconds\n", (end_time-start_time)/1.0e9);
+    }
     
   simengine_api *api = init_simulation(&opts);
   const simengine_interface *iface = api->getinterface();
@@ -544,12 +564,15 @@ int main(int argc, char **argv){
       return 1;
     }
 
+    start_time = getnanos();
     simengine_result *result = api->runmodel(opts.start_time,
 					     opts.stop_time,
 					     opts.num_models,
 					     opts.inputs,
 					     opts.states,
 					     &allocator);
+    end_time = getnanos();
+    PRINTFE("Simulation time: %g seconds\n", (end_time-start_time)/1.0e9);
 
     if (SUCCESS == result->status){
       write_outputs(iface, &opts, result);

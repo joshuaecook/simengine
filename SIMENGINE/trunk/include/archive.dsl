@@ -69,10 +69,16 @@ namespace Archive
     end
 
     var cc = target.compile (ofile, [cfile])
+    if compiler_settings.debug == true then
+      println ("Compile: " + cc(1) + " '" + join("' '", cc(2)) + "'")
+    end
     compile (cc(1), cc(2))
 
     var objects = [ofile, manifest_o, cfile_o, main_o] + import_os
     var ld = target.link (Path.file filename, filename, objects)
+    if compiler_settings.debug == true then
+      println ("Link: " + ld(1) + " '" + join("' '", ld(2)) + "'")
+    end
     link (ld(1), ld(2))
 
     if compiler_settings.debug == false then

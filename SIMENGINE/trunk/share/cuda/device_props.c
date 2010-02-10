@@ -50,7 +50,9 @@ int main(int argc, char **argv){
 
   cudaRT = dlopen(CUDART_LIBRARY_NAME, RTLD_NOW);
   if(!cudaRT){
-    fprintf(stderr, "Failed to load CUDA runtime environment from libcudart.\n\tIs LD_LIBRARY_PATH environment variable set to include CUDA libraries?\n");
+    fprintf(stderr, "Failed to load CUDA runtime environment from %s.\n"
+	    "\tIs LD_LIBRARY_PATH environment variable set to include CUDA libraries?\n",
+	    CUDART_LIBRARY_NAME);
     return DeviceProps_NoCudaRuntime;
   }
 
@@ -58,7 +60,9 @@ int main(int argc, char **argv){
   cudaGetDeviceProperties = (cudaGetDeviceProperties_f)dlsym(cudaRT, "cudaGetDeviceProperties");
 
   if(!cudaGetDeviceCount || !cudaGetDeviceProperties){
-    fprintf(stderr, "Failed to load CUDA functions from libcudart.\n\tThe CUDA library found is incompatible with simEngine.\n");
+    fprintf(stderr, "Failed to load CUDA functions from %s.\n"
+	    "\tThe CUDA library found is incompatible with simEngine.\n",
+	    CUDART_LIBRARY_NAME);
     return DeviceProps_NoCudaRuntime;
   }
   
@@ -95,7 +99,11 @@ int main(int argc, char **argv){
   ndevices -= undevices;
 
   if(0 == ndevices){
-    fprintf(stderr, "Only emulation device found.\n\tDo you have a CUDA device?\n\tIs the CUDA driver installed?\n\tHave you rebooted after installing the driver?\n\tDo you have device permissions set to allow CUDA computation?\n");
+    fprintf(stderr, "Only emulation device found.\n"
+	    "\tDo you have a CUDA device?\n"
+	    "\tIs the CUDA driver installed?\n"
+	    "\tHave you rebooted after installing the driver?\n"
+	    "\tDo you have device permissions set to allow CUDA computation?\n");
     return DeviceProps_EmulationOnly;
   }
 
