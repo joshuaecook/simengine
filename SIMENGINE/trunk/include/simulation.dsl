@@ -1166,7 +1166,7 @@ function compile2 (filename: String, compiler_settings: Table)
     if creation > Sys.buildTime then
       // .sim must be using the same DOL file and be younger than it
       var dol = Archive.dolFilename (archive)
-      if creation > FileSystem.modtime (dol) and dol == settings.compiler.registry.value then
+      if FileSystem.isfile(dol) and creation > FileSystem.modtime (dol) and dol == settings.compiler.registry.value then
 	// TODO check environment and version of SIM
 
 	// .sim must be younger than each imported DSL file
