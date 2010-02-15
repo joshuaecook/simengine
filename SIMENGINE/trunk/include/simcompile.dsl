@@ -16,8 +16,7 @@ namespace SimCompile
     shell (command, [])
   end
 
-  var osLower = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
-  var arch64 = shell("uname", ["-m"])[1].contains("64")
+  var arch64 = Sys.architecture.contains("64")
 
   class Make
     var CC = "gcc"
@@ -56,6 +55,8 @@ namespace SimCompile
     function make ()
       var simEngine = Environment.getVar("SIMENGINE")
       var m = Make.new()
+      var osLower = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
 
       m.CFLAGS = cFlags.clone ()
       m.CPPFLAGS = cppFlags.clone ()
@@ -111,6 +112,8 @@ namespace SimCompile
 
     function link (soname: String, outfile: String, args)
       var m = make()
+      var osLower = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
       if "darwin" <> osLower then
 	m.LDFLAGS.push_back("-shared")
 	m.LDFLAGS.push_back("-Wl,-soname,"+soname)
@@ -189,6 +192,8 @@ namespace SimCompile
     end
 
     function setupMake (m: Make)
+      var osLower = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
       m.CC = nvcc
       m.CPPFLAGS.push_back("-DTARGET_GPU")
       m.CFLAGS.push_front("-I" + cudaInstallPath + "/include")

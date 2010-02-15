@@ -43,7 +43,7 @@ namespace Dependency
 
 var defaultPaths = [] //TODO: fill in
 
-var architecture = LF sys_architecture ()
+var architecture = Sys.architecture
 
 var possibleArchitectures = ["i386","x86_64","x86-64","80386","i686","ppc64","ppc"]
 
