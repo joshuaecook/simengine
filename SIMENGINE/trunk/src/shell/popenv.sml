@@ -26,7 +26,7 @@ fun new (parse) =
 								  (KEC.APPLY {func=KEC.SYMBOL(Symbol.symbol "initObjWithTable"),
 									      args=KEC.TUPLE [KEC.SYMBOL(Symbol.symbol "self"),
 											      KEC.SYMBOL(Symbol.symbol "table")]}))]) :: 
-	    (map import ["stdlib.dsl", "simulation.dsl", "rules.dsl"(*, "integration.dsl"*), "dependency.dsl", "startup.dsl"]) @
+	    (map import ["stdlib.dsl", "simulation.dsl", "rules.dsl", "dependency.dsl"]) @
 	    (map (fn(stm) => DIRECTDEF stm) (ShellOptions.getOptionsInit()))
 
 	fun process_def (DIRECTDEF stm, env) =

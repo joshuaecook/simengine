@@ -1,13 +1,6 @@
-(* exception FAIL *)
-(* fun handler _ = *)
-(*     (print "hello world\n"; *)
-(*      TextIO.flushOut(TextIO.stdOut); *)
-(*      raise FAIL) *)
+structure Main = struct
 
-(* MLton.Signal.setHandler(Posix.Signal.int, handler) *)
-
-(* WARNING: If you do not know what you are doing, DO NOT REMOVE OR CHANGE THIS LINE *)
-(*val _ = ModelCompileLauncher.compile_hook := ModelCompile.compile*)
+exception Usage
 
 
 fun log_stack e () =
@@ -69,87 +62,90 @@ fun rep_loop isInteractive textstream env =
 	       
 		  
 	
-exception Usage
 
 val defaultOptions = [Logger.LIBRARY]
 
-val _ = Logger.log_stdout (Logger.WARNINGS, 
-			   defaultOptions(* @ (DynamoParameters.options2groups options)*))
-	
-val registryfile = case OS.Process.getEnv("SIMENGINEDOL") of
-		       SOME reg => reg
-		     | NONE => OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/default.dol")
 
-val _ = DynException.checkToProceed()
 
-	
-	
-(* read in registry settings - this will overwrite the command line args imported above *)
-val _ = DynamoOptions.importRegistryFile (registryfile)
-	before DynException.checkToProceed()
-	
+fun main (name, argv) =
+    let
+	val log = Logger.log_stdout (Logger.WARNINGS, defaultOptions)
 
-	
-(*val logfiledir = "/tmp" (*TODO: change this*)*)
-val logfiledir = case OS.Process.getEnv("TMPDIR") of
-		     SOME tmpdir => tmpdir
-		   | NONE => "/tmp"
-val username = case OS.Process.getEnv("USER") of
-		   SOME user => user
-		 | NONE => ""
-val logfilename = logfiledir ^ "/simEngine-" ^ username ^ ".log"
-val log_id = Logger.log_add (logfilename,
-			     Logger.ALL, 
-			     defaultOptions(* @ (DynamoParameters.options2groups options)*))
+	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
+		before DynException.checkToProceed ()
 
-(* if verbose flag is set, update printing on output *)
-val _ = (if DynamoOptions.isFlagSet "verbose" then
-	     Logger.log_stdout (Logger.ALL,
-				defaultOptions)
-	 else
-	     0)
-    handle DynException.InternalError {message,severity,characterization,location} => (Util.log ("Error caught: " ^ message); 0)
-	 | e => raise e
+	val env = PopulatedEnv.new (rep_loop false)
 
-val _ = (if List.length (CommandLine.arguments()) = 0 then
-	     let
-		 val _ = print (Globals.startupMessage ^ "\n")
-		 val env = PopulatedEnv.new (rep_loop false)
-		 val _ = ParserSettings.setSettings (true, "STDIN", ".")
-	     in
-		 rep_loop true TextIO.stdIn env
-	     end
-	 else
-	     if List.length (CommandLine.arguments()) = 1 then
-		 if hd(CommandLine.arguments()) = "-batch" then
-		     let
-			 val _ = print (Globals.startupMessage ^ "\n")
-			 val env = PopulatedEnv.new (rep_loop false)
-			 val _ = ParserSettings.setSettings (true, "STDIN", ".")
-		     in
-			 rep_loop false TextIO.stdIn env
-		     end
-		 else
-		     let
-			 val filename = (hd (CommandLine.arguments()))
-			 val file = TextIO.openIn filename
-			 val (name, path) = GeneralUtil.filepath_split filename
-			 val env = PopulatedEnv.new (rep_loop false)
-			 val _ = ParserSettings.setSettings (false, name, path)
-		     in
-			 rep_loop false file env
-		     end
-	     else
-		 (print ("Usage: " ^ CommandLine.name() ^ " [optional filename]\n\n");
-		  raise Usage);
-	GeneralUtil.SUCCESS)
-	before (Logger.log_remove log_id)
+	(* Save/restore the world. *)
+	val _ = if not MLton.Profile.isOn then
+		    ignore (MLton.World.save (getSIMENGINESEW ()))
+		else ()
+
+	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
+		before DynException.checkToProceed ()
+
+	(* Execute the startup file. *)
+	val (env, _) = Exec.run (rep_loop false) env
+				[KEC.ACTION ((KEC.IMPORT "startup.dsl"), PosLog.NOPOS)]
+
+	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
+
+	val log = if DynamoOptions.isFlagSet "verbose" then
+		      Logger.log_stdout (Logger.ALL, defaultOptions)
+		  else
+		      Logger.log_stdout (Logger.WARNINGS, defaultOptions)
+    in
+	case argv
+	 of [] =>
+	    let
+		val dir = OS.FileSys.fullPath (OS.Path.currentArc)
+	    in
+		ParserSettings.setSettings (true, "STDIN", dir)
+	      ; print (Globals.startupMessage ^ "\n")
+	      ; rep_loop true TextIO.stdIn env
+	    end
+	  | ["-batch"] => 
+	    let
+		val dir = OS.FileSys.fullPath (OS.Path.currentArc)
+	    in
+		ParserSettings.setSettings (true, "STDIN", dir)
+	      ; print (Globals.startupMessage ^ "\n")
+	      ; rep_loop false TextIO.stdIn env
+	    end
+	  | [filename] => 
+	    let
+		val filename = OS.FileSys.fullPath filename
+		val {dir, file} = OS.Path.splitDirFile filename
+		val stream = TextIO.openIn filename
+	    in
+		ParserSettings.setSettings (false, file, dir)
+	      ; rep_loop false stream env
+	    end
+	  | _ =>
+	    (print ("Usage: " ^ name ^ " [optional filename]\n\n")
+	   ; raise Usage)
+      ; Logger.log_remove userLog
+      ; Logger.log_remove log
+      ; GeneralUtil.SUCCESS
+    end
     handle DynException.TooManyErrors => 
 	   GeneralUtil.FAILURE "Too many errors encountered"
-	 | Usage => GeneralUtil.SUCCESS
 	 | OOLCParse.ParserError => 
 	   GeneralUtil.FAILURE "Error found when parsing source code"
-	 |  e => 
-	    (DynException.log "Main" e;
-	     GeneralUtil.FAILURE "An exception was encountered")
+	 | Usage => GeneralUtil.SUCCESS
+	 | e => 
+	   (DynException.log "Main" e
+	  ; GeneralUtil.FAILURE "An exception was encountered")
 
+
+
+end
+
+
+
+val _ = 
+    if MLton.Profile.isOn then
+	Main.main (CommandLine.name (), CommandLine.arguments ())
+    else
+	MLton.World.load (getSIMENGINESEW ())
+    handle _ => Main.main (CommandLine.name (), CommandLine.arguments ())

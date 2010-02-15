@@ -18,3 +18,37 @@ fun getSIMENGINE () =
 	    SOME reg => reg
 	  | NONE => setSIMENGINE()
     end
+
+fun getSIMENGINEDOL () =
+    let
+	val var = "SIMENGINEDOL"
+    in
+	case OS.Process.getEnv var of
+	    SOME reg => reg
+	  | NONE => OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/default.dol")
+    end
+
+fun getSIMENGINESEW () =
+    let
+	val var = "SIMENGINESEW"
+    in
+	case OS.Process.getEnv var of
+	    SOME reg => reg
+	  | NONE => OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/default.sew")
+    end
+
+
+fun getSIMENGINELOG () =
+    let
+	val var = "SIMENGINELOG"
+    in
+	case OS.Process.getEnv var of
+	    SOME reg => reg
+	  | NONE => 
+	    let 
+		val dir = case OS.Process.getEnv "TMPDIR" of SOME x => x | _ => OS.Path.fromUnixPath "/tmp"
+		val file = case OS.Process.getEnv "USER" of SOME x => "simEngine-" ^ x ^ ".log" | _ => "simEngine.log"
+	    in
+		OS.Path.concat (dir, file)
+	    end
+    end

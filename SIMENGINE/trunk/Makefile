@@ -22,7 +22,8 @@ INSTALL_BUILD_DIR = $(DESTDIR)$(PARTIAL_INSTALL_BUILD_DIR)
 INSTALL_BIN_DIR = $(DESTDIR)/usr/local/bin
 
 # Operating system and architecture inspection
-UNAME := $(shell uname -s)
+UNAME_KERNEL := $(shell uname -s)
+UNAME_MACHINE := $(shell uname -m)
 
 # Cross compiling flag for Leopard to Snow Leopard
 ifneq ($(ARCH64),)
@@ -135,10 +136,10 @@ OUTPUT_FILE = $(BUILD_DIR)/bin/$(FILENAME)
 # Platform Specific Parameters
 # ==============================================================================================
 
-ifeq ($(UNAME), CYGWIN_NT-5.1)
+ifeq ($(UNAME_KERNEL), CYGWIN_NT-5.1)
 LINKING_FLAG=
 else
-ifeq ($(UNAME), MINGW32_NT-5.1)
+ifeq ($(UNAME_KERNEL), MINGW32_NT-5.1)
 LINKING_FLAG=
 else
 LINKING_FLAG=-lm -fPIC
@@ -146,19 +147,19 @@ endif
 endif
 
 
-ifeq ($(UNAME), CYGWIN_NT-5.1)
+ifeq ($(UNAME_KERNEL), CYGWIN_NT-5.1)
 BUILD_DIR=$(BUILD)_cyg_$(BUILD_TYPE)
 PLATFORM=cyg
 else
-ifeq ($(UNAME), MINGW32_NT-5.1)
+ifeq ($(UNAME_KERNEL), MINGW32_NT-5.1)
 BUILD_DIR=$(BUILD)_mingw_$(BUILD_TYPE)
 PLATFORM=mingw
 else
-ifeq ($(UNAME), Darwin)
+ifeq ($(UNAME_KERNEL), Darwin)
 BUILD_DIR=$(BUILD)_mac_$(BUILD_TYPE)
 PLATFORM=mac
 else
-ifeq ($(UNAME), Linux)
+ifeq ($(UNAME_KERNEL), Linux)
 BUILD_DIR=$(BUILD)_lin_$(BUILD_TYPE)
 PLATFORM=lin
 else
@@ -272,9 +273,11 @@ endif
 
 .PHONY: compiler 
 compiler: 
+	@-[ -f $(BUILD_DIR)/data/default.sew ] && $(RM) $(BUILD_DIR)/data/default.sew
 	@$(MAKE) build-directories
 	@$(MAKE) links
 	@$(MAKE) build-system
+	@$(MAKE) $(BUILD_DIR)/data/default.sew
 	@$(MAKE) matlab-files
 	@$(MAKE) $(INSTALL_TGZ)
 	@$(MAKE) $(DSL_EL)
@@ -367,19 +370,20 @@ $(OUTPUT_FILE): $(COMPILER_DEPENDENCIES)
 # Compiler Debugging Files
 # ==============================================================================================
 
-$(BUILD_DIR)/debug/$(FILENAME)_profiletime: override SMLPPFLAGS += $(SIMPLE_ARGS) -profile-stack true -profile time
-$(BUILD_DIR)/debug/$(FILENAME)_profiletime: $(COMPILER_DEPENDENCIES)
-	-$(COMPILE.sml) -outputs $@ $< $(COMPILER_EXTRA_SOURCES)
+$(BUILD_DIR)/debug/$(FILENAME)_profiletime: override SMLFLAGS += $(SIMPLE_ARGS) -profile-stack true -profile time
+$(BUILD_DIR)/debug/$(FILENAME)_profiletime: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug
+	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
 
+$(BUILD_DIR)/debug/$(FILENAME)_profilemem: override SMLFLAGS += $(SIMPLE_ARGS) -profile alloc
+$(BUILD_DIR)/debug/$(FILENAME)_profilemem: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug
+	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
 
-$(BUILD_DIR)/debug/$(FILENAME)_profilemem: override SMLPPFLAGS += $(SIMPLE_ARGS) -profile alloc
-$(BUILD_DIR)/debug/$(FILENAME)_profilemem: $(COMPILER_DEPENDENCIES)
-	-$(COMPILE.sml) -outputs $@ $< $(COMPILER_EXTRA_SOURCES)
+$(BUILD_DIR)/debug/$(FILENAME)_profilebranch: override SMLFLAGS += $(SIMPLE_ARGS) -profile-branch true -profile count
+$(BUILD_DIR)/debug/$(FILENAME)_profilebranch: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug
+	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
 
 .PHONY: profiling-tools
-profiling-tools: 
-	@$(MAKE) $(BUILD_DIR)/debug/$(FILENAME)_profiletime 
-	@$(MAKE) $(BUILD_DIR)/debug/$(FILENAME)_profilemem
+profiling-tools: $(addprefix $(BUILD_DIR)/debug/$(FILENAME),_profiletime _profilemem _profilebranch)
 
 DEBUG_FILES = #$(BUILD_DIR)/debug/compiler_unittest $(BUILD_DIR)/debug/compiler_componenttest $(BUILD_DIR)/debug/fixpt2real
 
@@ -512,7 +516,7 @@ datafiles/build-options.json:
 	@echo \"buildTime\": $(BUILD_TIME), >> $@
 	@echo \"devVersion\": $(DEV_VERSION), >> $@
 	@echo \"version\": \"$(VERSION_NUMBER)\", >> $@
-	@echo \"architecture\": \"$(ARCH)\" >> $@
+	@echo \"architecture\": \"$(UNAME_MACHINE)\" >> $@
 	@echo } >> $@
 
 # Dynamo Library Targets
@@ -552,6 +556,8 @@ build_shared: share/*
 $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
+$(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
+	$(BUILD_DIR)/bin/$(FILENAME) < /dev/null
 
 .PHONY: codegen
 codegen:
@@ -807,13 +813,8 @@ install: system
 
 .PHONY: clean
 clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_clean share_cuda_clean testing_clean
-	$(RM) src/dll/*.o
-	$(RM) src/dll/*.so
-	$(RM) $(SPEC)
 	$(RM) $(BUILD)_*
 	$(RM) $(BUILD)
-	$(RM) *.dso
-	$(RM) $(SPEC)
 #	$(RM) ../$(RPM_TEMP_DIR)
 #	$(RM) ../$(RPM_TAR_GZ)
 	$(RM) install_*.m
