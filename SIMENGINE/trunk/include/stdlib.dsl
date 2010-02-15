@@ -616,6 +616,5 @@ open Types
 
 import "sys.dsl"
 import "environment.dsl"
-import "devices.dsl"
 import "archive.dsl"
 import "json.dsl"
