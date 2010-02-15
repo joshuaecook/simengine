@@ -111,8 +111,9 @@ else
   
   % User data are transposed before passing in to the simulation.
   if 0 == inputsM
-    userInputs = zeros(interface.num_inputs, models);
-    for i=1:interface.num_inputs
+    numInputs = length(interface.input_names);
+    userInputs = zeros(numInputs, models);
+    for i=1:numInputs
       userInputs(i,:) = interface.default_inputs.(interface.input_names{i}) * ones(1, models);
     end
   elseif 1 == inputsM && models ~= inputsM
@@ -122,7 +123,7 @@ else
   end
   
   if 0 == statesM
-    if 0 < interface.num_states
+    if 0 < length(interface.state_names)
       userStates = transpose(interface.default_states) * ones(1, models);
     else
       userStates = [];
@@ -362,7 +363,7 @@ for fieldid=1:length(fieldnames)
   end
 end
 
-userInputs = zeros(models, interface.num_inputs);
+userInputs = zeros(models, length(interface.input_names));
 for fieldid=1:length(fieldnames)
   fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
@@ -400,9 +401,9 @@ end
 userStates = [];
 
 if 0 < statesRows && 0 < statesCols
-  if statesCols ~= interface.num_states
+  if statesCols ~= length(interface.state_names)
     error('Simatra:SIMEX:argumentError', ...
-          'Y0 must contain %d columns.', interface.num_states);
+          'Y0 must contain %d columns.', length(interface.state_names));
   end
   userStates = double(states);
 end
