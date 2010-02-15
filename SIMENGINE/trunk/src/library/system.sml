@@ -33,7 +33,7 @@ val library = [{name="sys_copyright", operation=sys_copyright},
 	       {name="sys_build", operation=sys_build},
 	       {name="sys_build_date", operation=sys_build_date},
 	       {name="sys_build_time", operation=sys_build_time},
-	       {name="sys_architecture", operation=sys_build_time},
+	       {name="sys_architecture", operation=sys_architecture},
 	       {name="sys_exit", operation=sys_exit},
 	       {name="sys_path", operation=sys_path}]
 end
