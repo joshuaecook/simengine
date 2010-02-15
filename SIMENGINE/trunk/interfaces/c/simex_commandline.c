@@ -5,13 +5,25 @@
  */
 
 #include "simex.h"
-
 #include <time.h>
+
+#ifdef __APPLE__
+#include <mach/mach_time.h>
+unsigned long long getnanos(){
+  static mach_timebase_info_data_t info = {0,0};  
+
+  if (info.denom == 0)  
+    mach_timebase_info(&info);  
+
+  return mach_absolute_time() * (info.numer / info.denom);  
+}
+#else
 unsigned long long getnanos(){
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
   return (unsigned long long) ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 }
+#endif
 
 // Command line option parsing enumeration
 typedef enum {
@@ -441,7 +453,7 @@ int write_states(const simengine_interface *iface, simengine_opts *opts, simengi
   FILE *outfile;
   unsigned int num_models = opts->num_models;
   unsigned int num_states = iface->num_states;
-  char **state_names = iface->state_names;
+  const char **state_names = iface->state_names;
   double *states = result->final_states;
   unsigned int modelid;
   unsigned int stateid;
