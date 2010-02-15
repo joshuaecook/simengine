@@ -114,17 +114,16 @@ void mexSimengineResult(const simengine_interface *iface, int noutput, mxArray *
  */
 void mexSimengineInterface(const simengine_interface *iface, mxArray **interface)
     {
-      const unsigned int num_fields = 18;
-      const char *field_names[] = {"name", "target", "solver_names", "iterator_names",
-				   "input_names", "state_names", "output_names",
-				   "default_inputs", "default_states", "output_num_quantities",
-				   "version", "precision", "parallel_models", "num_iterators",
-				   "num_inputs", "num_states", "num_outputs", "hashcode"};
+    const unsigned int num_fields = 11;
+    const char *field_names[] = {"name", "target", "precision", 
+				 "solver_names", "iterator_names",
+				 "input_names", "default_inputs", 
+				 "state_names", "default_states", 
+				 "output_names", "output_num_quantities"};
 
     mxArray *input_names, *state_names, *output_names, *solver_names, *iterator_names;
     mxArray *default_inputs, *default_states;
     mxArray *output_num_quantities;
-    mxArray *hashcode;
     void *data;
     unsigned int i;
 
@@ -216,17 +215,14 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
     mxDestroyArray(mxGetField(*interface, 0, "target"));
     mxSetField(*interface, 0, "target", mxCreateString(iface->target));
     
-    mxDestroyArray(mxGetField(*interface, 0, "num_inputs"));
-    mxSetField(*interface, 0, "num_inputs", mxCreateDoubleScalar((double)iface->num_inputs));
+    mxDestroyArray(mxGetField(*interface, 0, "precision"));
+    mxSetField(*interface, 0, "precision",  mxCreateString(8 == iface->precision ? "double" : "single"));
 
-    mxDestroyArray(mxGetField(*interface, 0, "num_states"));
-    mxSetField(*interface, 0, "num_states", mxCreateDoubleScalar((double)iface->num_states));
+    mxDestroyArray(mxGetField(*interface, 0, "solver_names"));
+    mxSetField(*interface, 0, "solver_names", solver_names);
 
-    mxDestroyArray(mxGetField(*interface, 0, "num_outputs"));
-    mxSetField(*interface, 0, "num_outputs", mxCreateDoubleScalar((double)iface->num_outputs));
-
-    mxDestroyArray(mxGetField(*interface, 0, "num_iterators"));
-    mxSetField(*interface, 0, "num_iterators", mxCreateDoubleScalar((double)iface->num_iterators));
+    mxDestroyArray(mxGetField(*interface, 0, "iterator_names"));
+    mxSetField(*interface, 0, "iterator_names", iterator_names);
 
     mxDestroyArray(mxGetField(*interface, 0, "input_names"));
     mxSetField(*interface, 0, "input_names", input_names);
@@ -245,28 +241,6 @@ void mexSimengineInterface(const simengine_interface *iface, mxArray **interface
 
     mxDestroyArray(mxGetField(*interface, 0, "output_num_quantities"));
     mxSetField(*interface, 0, "output_num_quantities", output_num_quantities);
-
-    mxDestroyArray(mxGetField(*interface, 0, "version"));
-    mxSetField(*interface, 0, "version", mxCreateDoubleScalar((double)iface->version));
-
-    hashcode = mxCreateNumericMatrix(1, 1, mxUINT64_CLASS, mxREAL);
-    data = mxGetPr(hashcode);
-    memcpy(data, &iface->hashcode, sizeof(unsigned long long));
-    
-    mxDestroyArray(mxGetField(*interface, 0, "hashcode"));
-    mxSetField(*interface, 0, "hashcode", hashcode);
-
-    mxDestroyArray(mxGetField(*interface, 0, "parallel_models"));
-    mxSetField(*interface, 0, "parallel_models", mxCreateDoubleScalar((double)iface->parallel_models));
-
-    mxDestroyArray(mxGetField(*interface, 0, "solver_names"));
-    mxSetField(*interface, 0, "solver_names", solver_names);
-
-    mxDestroyArray(mxGetField(*interface, 0, "iterator_names"));
-    mxSetField(*interface, 0, "iterator_names", iterator_names);
-
-    mxDestroyArray(mxGetField(*interface, 0, "precision"));
-    mxSetField(*interface, 0, "precision",  mxCreateDoubleScalar((double)iface->precision));
     }
 
 void usage(void)
