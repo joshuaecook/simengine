@@ -454,8 +454,17 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
               $("")] @
 	     (if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
-		   $("systemstatedata_internal *system_states_int;"),
-		   $("systemstatedata_internal *system_states_next;"),
+		   $("#ifdef TARGET_GPU"),
+		   $("systemstatedata_external *system_states_next = NULL;"),
+		   $("for(i=0;i<NUM_ITERATORS;i++){"),
+		   SUB[$("if(props[i].statesize + props[i].algebraic_statesize > 0){"),
+                       SUB[$("system_states_next = (systemstatedata_external*)props[i].next_states;"),
+			   $("break;")],
+                       $("}")],
+		   $("}"),
+		   $("#else"),
+		   $("systemstatedata_internal *system_states_int = NULL;"),
+		   $("systemstatedata_internal *system_states_next = NULL;"),
 		   $("for(i=0;i<NUM_ITERATORS;i++){"),
 		   SUB[$("if(props[i].statesize + props[i].algebraic_statesize > 0){"),
                        SUB[$("system_states_int = (systemstatedata_internal*)props[i].model_states;"),
@@ -463,6 +472,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			   $("break;")],
                        $("}")],
 		   $("}"),
+		   $("#endif"),
 		   $(""),
 		   $("#if !defined TARGET_GPU && NUM_STATES > 0"),
 		   $("// Translate structure arrangement from internal back to external formatting"),
@@ -1045,10 +1055,12 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 		 $("} systemstatedata_external;"),
                  $(""),
 		 (* Should make the following conditional on whether we are targetting CPU or OPENMP (not GPU) *)
+		 $("#ifndef TARGET_GPU"),
 		 $("// System State Structure (internal ordering)"),
 		 $("typedef struct {"),
 		 SUB(map (fn(classname, iter_sym, _) => $("statedata_" ^ (Symbol.name classname) ^ " states_" ^ (Symbol.name iter_sym) ^ "[PARALLEL_MODELS];")) class_names_iterators),
 		 $("} systemstatedata_internal;"),
+		 $("#endif"),
                  $("")]
 
 
