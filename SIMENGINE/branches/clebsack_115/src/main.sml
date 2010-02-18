@@ -67,7 +67,21 @@ val defaultOptions = [Logger.LIBRARY]
 
 
 
-fun main (name, argv) =
+(* This is essentially the same as MLton.World.load
+ * except we keep the list of command line arguments. *)
+fun resume () =
+    let val sew = getSIMENGINESEW ()
+    in
+	if OS.FileSys.access (sew, [OS.FileSys.A_READ]) then
+	    let val c = CommandLine.name ()
+	    in
+		Posix.Process.exec (c, [c, "@MLton", "load-world", sew, "--"] @ (CommandLine.arguments ()))
+	    end
+	else raise Fail ("Cannot load SEW file " ^ sew)
+    end
+
+
+fun main () =
     let
 	val log = Logger.log_stdout (Logger.WARNINGS, defaultOptions)
 
@@ -77,9 +91,12 @@ fun main (name, argv) =
 	val env = PopulatedEnv.new (rep_loop false)
 
 	(* Save/restore the world. *)
-	val _ = if not MLton.Profile.isOn then
-		    ignore (MLton.World.save (getSIMENGINESEW ()))
-		else ()
+	val _ = 
+	    if not MLton.Profile.isOn then
+		ignore (MLton.World.save (getSIMENGINESEW ()))
+	    else ()
+
+	val (name, argv) = (CommandLine.name (), CommandLine.arguments ())
 
 	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
 		before DynException.checkToProceed ()
@@ -94,36 +111,51 @@ fun main (name, argv) =
 		      Logger.log_stdout (Logger.ALL, defaultOptions)
 		  else
 		      Logger.log_stdout (Logger.WARNINGS, defaultOptions)
+
+	val dir = OS.FileSys.fullPath (OS.Path.currentArc)
+
+	fun indexOf list =
+	    let val tab = ListPair.zipEq (List.tabulate (length list, fn n => n), list)
+	    in
+	     fn f => 
+		case List.find (fn (_, x) => f x) tab
+		 of SOME (n, _) => SOME n
+		  | NONE => NONE
+	    end
+
+	fun strEquals x y =
+	    case String.compare (x, y) of EQUAL => true | _ => false
     in
-	case argv
-	 of [] =>
-	    let
-		val dir = OS.FileSys.fullPath (OS.Path.currentArc)
-	    in
-		ParserSettings.setSettings (true, "STDIN", dir)
-	      ; print (Globals.startupMessage ^ "\n")
-	      ; rep_loop true TextIO.stdIn env
-	    end
-	  | ["-batch"] => 
-	    let
-		val dir = OS.FileSys.fullPath (OS.Path.currentArc)
-	    in
-		ParserSettings.setSettings (true, "STDIN", dir)
-	      ; print (Globals.startupMessage ^ "\n")
-	      ; rep_loop false TextIO.stdIn env
-	    end
-	  | [filename] => 
-	    let
-		val filename = OS.FileSys.fullPath filename
-		val {dir, file} = OS.Path.splitDirFile filename
-		val stream = TextIO.openIn filename
-	    in
-		ParserSettings.setSettings (false, file, dir)
-	      ; rep_loop false stream env
-	    end
-	  | _ =>
-	    (print ("Usage: " ^ name ^ " [optional filename]\n\n")
-	   ; raise Usage)
+	case indexOf argv (strEquals "-model")
+	 of SOME n => 
+	    (* Noninteractive operating on a model definition. *)
+	    (KEC.UNIT, env)
+	  | NONE => 
+	    case indexOf argv (strEquals "-batch")
+	     of SOME n =>
+		let val filename = if length argv > n + 1 then List.nth (argv, 1 + n) else "-"
+		in 
+		    if #"-" <> String.sub (filename, 0) then
+			(* Noninteractive reading from a file. *)
+			let
+			    val filename = OS.FileSys.fullPath filename
+			    val {dir, file} = OS.Path.splitDirFile filename
+			    val stream = TextIO.openIn filename
+			in
+			    ParserSettings.setSettings (false, file, dir)
+			  ; rep_loop false stream env
+			end
+		    else
+			(* Noninteractive reading from STDIN. *)
+			(ParserSettings.setSettings (true, "STDIN", dir)
+		       ; print (Globals.startupMessage ^ "\n")
+		       ; rep_loop false TextIO.stdIn env)
+		end
+	      | NONE =>
+		(* Interactive reading from STDIN. *)
+		(ParserSettings.setSettings (true, "STDIN", dir)
+	       ; print (Globals.startupMessage ^ "\n")
+	       ; rep_loop true TextIO.stdIn env)
       ; Logger.log_remove userLog
       ; Logger.log_remove log
       ; GeneralUtil.SUCCESS
@@ -141,11 +173,9 @@ fun main (name, argv) =
 
 end
 
-
-
-val _ = 
+val _ =
     if MLton.Profile.isOn then
-	Main.main (CommandLine.name (), CommandLine.arguments ())
+	Main.main ()
     else
-	MLton.World.load (getSIMENGINESEW ())
-    handle _ => Main.main (CommandLine.name (), CommandLine.arguments ())
+	Main.resume ()
+    handle _ => Main.main ()
