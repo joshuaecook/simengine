@@ -1147,8 +1147,49 @@ open Simulation
 import "translate.dsl"
 import "simcompile.dsl"
 
-function compile2 (filename: String, compiler_settings: Table)
-  if "dsl" <> Path.ext filename then
+var default_compiler_settings = {target = "parallelcpu",
+				 precision = "double",
+				 parallel_models = 1,
+				 start = 0,
+				 debug = false, 
+				 emulate = false,
+				 profile = false}
+
+function validateCompilerSettings(compiler_settings: Table)
+  // Check if user specified a start time but no stop time
+  if objectContains(compiler_settings, "start") and not(objectContains(compiler_settings, "stop")) then
+    error("Specifying a start time has no meaning without a corresponding stop time.")
+  end
+
+  // Add any defaults for settings that were not set from the command-line
+  foreach key in default_compiler_settings.keys do
+    if not(objectContains(compiler_settings, key)) then
+      compiler_settings.add(key, default_compiler_settings.getValue(key))
+    end
+  end
+
+  // Check if user specified a stop time less than the start time
+  if objectContains(compiler_settings, "stop") and compiler_settings.stop <= compiler_settings.start then
+    error("Stop time must be greater than the start time.")
+  end
+
+  // Set the full realpath of the model file
+  if not(objectContains(compiler_settings, "modelfile")) then
+    false
+  else
+    var modelfilepath = FileSystem.realpath(compiler_settings.modelfile)
+    if () == modelfilepath then
+      error("The model file '" + compiler_settings.modelfile + "' does not exist.")
+    else
+      compiler_settings.modelfile = modelfilepath
+    end
+    true
+  end
+end
+
+function compile2 (compiler_settings: Table)
+  var filename = compiler_settings.modelfile
+  if "dsl" <> Path.ext(filename) then
       error ("Unknown type of file " + filename)
   end
   var working_dir = FileSystem.pwd ()
@@ -1207,7 +1248,7 @@ function isArchiveCompatibileWithCompilerSettings (archive, compiler_settings)
      (executable.precision == compiler_settings.precision) and
      (executable.debug or not(compiler_settings.debug)) and
      (executable.profile == compiler_settings.profile) and
-     (not("cuda" == executable.target or "gpu" == executable.target) 
+     (not("cuda" == executable.target)
       or executable.emulate == compiler_settings.emulate))
   end
 

@@ -176,7 +176,7 @@ namespace SimCompile
       if cc.isempty() then 
 	error "Could not find nvcc. Please ensure that it exists in your path."
       end
-      nvcc = LF realpath (cc[1].rstrip("\n"))
+      nvcc = FileSystem.realpath (cc[1].rstrip("\n"))
       cudaInstallPath = Path.dir (Path.dir (nvcc))
       if Devices.CUDA.numDevices == 0 then
         error("Cannot target the GPU : " + Devices.CUDA.cudaErr)
