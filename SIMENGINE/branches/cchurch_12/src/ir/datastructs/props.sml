@@ -22,6 +22,7 @@ type symbolproperty = {
       * e.g. (ABSOLUTE 0) in an initial value equation or (RELATIVE n) in a dynamic
       * equation. Spatial iterators, when implemented, will appear here as well. *)
      iterator: Iterator.iterator list option,
+     arrayindex: (int * Iterator.iteratorindex) list,
      (* Symbols representing a differential term will have an integer denoting the
       * order of the derivative and symbol for the respective temporal iterator. *)
      derivative: (int * Symbol.symbol list) option,
@@ -38,6 +39,7 @@ type symbolproperty = {
 
 val default_symbolproperty = 
     {iterator=NONE,
+     arrayindex=[(1, Iterator.ABSOLUTE 1)],
      derivative=NONE,
      sourcepos=NONE,
      realname=NONE,
@@ -53,6 +55,8 @@ fun getSpecificIterator props itersym =
     case getIterator props of
 	SOME iters => List.find (fn(sym,_)=>sym=itersym) iters
       | NONE => NONE
+
+fun getArrayIndex (props:symbolproperty) = #arrayindex props
 
 fun getDerivative (props:symbolproperty) = #derivative props
 
@@ -72,6 +76,7 @@ fun getEPIndex (props:symbolproperty) = #ep_index props
 
 fun setIsEvent props flag = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -83,6 +88,7 @@ fun setIsEvent props flag =
 
 fun setIsRewriteSymbol props flag = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -94,6 +100,7 @@ fun setIsRewriteSymbol props flag =
 	
 fun setIterator props p = 
     {iterator=SOME p,
+     arrayindex=getArrayIndex props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -103,8 +110,22 @@ fun setIterator props p =
      outputbuffer=isOutputBuffer props,
      ep_index=getEPIndex props}
 	
+fun setArrayIndex props p =
+    {iterator=getIterator props,
+     arrayindex=p,
+     derivative=getDerivative props,
+     sourcepos=getSourcePos props,
+     realname=getRealName props,
+     scope=getScope props,
+     isevent=getIsEvent props,
+     isrewritesymbol=getIsRewriteSymbol props,
+     outputbuffer=isOutputBuffer props,
+     ep_index=getEPIndex props}
+    
+
 fun setDerivative props p = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=SOME p,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -116,6 +137,7 @@ fun setDerivative props p =
 
 fun clearDerivative props = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=NONE,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -127,6 +149,7 @@ fun clearDerivative props =
 	
 fun setSourcePos props p = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=getDerivative props,
      sourcepos=SOME p,
      realname=getRealName props,
@@ -138,6 +161,7 @@ fun setSourcePos props p =
 	
 fun setRealName props p = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=SOME p,
@@ -149,6 +173,7 @@ fun setRealName props p =
 
 fun setScope props p = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -160,6 +185,7 @@ fun setScope props p =
 
 fun setOutputBuffer props p = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
@@ -171,6 +197,7 @@ fun setOutputBuffer props p =
 
 fun setEPIndex props p = 
     {iterator=getIterator props,
+     arrayindex=getArrayIndex props,
      derivative=getDerivative props,
      sourcepos=getSourcePos props,
      realname=getRealName props,
