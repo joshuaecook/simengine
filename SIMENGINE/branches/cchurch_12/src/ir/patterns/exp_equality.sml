@@ -115,15 +115,20 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
 			     (* check the iterator lists *)
 			     (case (Property.getIterator p1, Property.getIterator p2)
 			       of (NONE, NONE) => true
-				| (NONE, SOME []) => true
-				| (SOME [], NONE) => true
-				| (SOME l1, SOME l2) => 
-				  (* check the size *)
-				  length l1 = length l2
-				  andalso
-				  List.all Iterator.iter_equiv (ListPair.zip (l1, l2))
-
-				| _ => false))
+				| (SOME i1, SOME i2) => Iterator.iter_equiv (i1, i2)
+				| _ => false)
+			     andalso
+			    (* check the spatial iterators *)
+			     let
+				 val ai1 = Property.getArrayIndex p1
+				 val ai2 = Property.getArrayIndex p2
+					   
+				 val zipped = ListPair.zip (ai1, ai2)
+			     in
+				 List.length ai1 = List.length ai2
+				 andalso
+				 List.all (fn((dim1,index1),(dim2,index2))=>dim1=dim2 andalso Iterator.iterindex_equiv (index1,index2)) zipped
+			     end)
 
       | (Exp.INFINITY, Exp.INFINITY) => matchCandidates
       | (Exp.NAN, Exp.NAN) => matchCandidates

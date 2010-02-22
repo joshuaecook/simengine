@@ -391,11 +391,12 @@ fun normalizeModel (model:DOF.model) =
 	val () = app ClassProcess.propagatetemporalIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 *)
+(*		
 	val _ = log ("Propagating spatial iterators ...")
 	val () = app ClassProcess.propagateSpatialIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
-
+*)
 	val _ = log ("Pruning excess iterators ...")
 	val () = pruneIterators (CurrentModel.getCurrentModel())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())

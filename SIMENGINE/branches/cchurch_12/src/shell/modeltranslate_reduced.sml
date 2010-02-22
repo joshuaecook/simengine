@@ -265,6 +265,10 @@ and simquantity_to_dof_exp quantity =
 			error ("Incorrect number of indices encountered on index of " ^ name ^ ": expected " ^ (Int.toString (length namedargs)) ^ " and received " ^ (Int.toString (length args)))
 		    else
 			()
+	    val  _ = if length namedargs > 1 then
+			 error ("Can not define more than one iterator per symbol quantity on " ^ name)
+		     else
+			 ()
 
 	    fun buildIndex (iterator, arg) =
 		if istype (arg, "Number") then
@@ -293,7 +297,7 @@ and simquantity_to_dof_exp quantity =
 	    Exp.TERM (Exp.SYMBOL (Symbol.symbol name, 
 				  (Property.setIterator 
 				       Property.default_symbolproperty 
-				       (map buildIndex namedargs))))
+				       (buildIndex (Util.hd namedargs)))))
 	end
 
     else if (istype (quantity, "SymbolPattern")) then
@@ -311,10 +315,10 @@ and simquantity_to_dof_exp quantity =
 
     else if (istype (quantity, "Random")) andalso isdefined (method "iter" quantity) then
 	((*Util.log("Found random quantity: " ^ (exp2str (method "name" quantity)));*)
-	 ExpBuild.ivar (exp2str (method "name" quantity)) [(Iterator.preProcessOf (exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)])
+	 ExpBuild.ivar (exp2str (method "name" quantity)) (Iterator.preProcessOf (exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0))
 
     else if (istype (quantity, "State")) andalso isdefined (method "iter" quantity) then
-	ExpBuild.ivar (exp2str (method "name" quantity)) [(Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)]
+	ExpBuild.ivar (exp2str (method "name" quantity)) (Symbol.symbol(exp2str(method "name" (method "iter" quantity))), Iterator.RELATIVE 0)
     else if (istype (quantity, "Symbol")) then
         ExpBuild.pvar(exp2str (method "name" quantity))
     else if (istype (quantity, "RandomValue")) then
@@ -337,8 +341,7 @@ fun expHasIterator iter exp =
 	   case exp' of
 	       Exp.SYMBOL (_, props) => 
 	       (case Property.getIterator props of
-		    SOME iters =>
-		    (List.exists (fn(s,p) => s = iter) iters)
+		    SOME (s,p) => s = iter
 		  | NONE => false)
 	     | _ => DynException.stdException(("Invalid initial condition generated, lhs is not a symbol: " ^ (e2s exp)), "ModelTranslate.expHasIterator", Logger.INTERNAL))
 	(ExpProcess.getLHSTerms exp)
@@ -370,8 +373,8 @@ fun createClass classes object =
 			    KEC.UNIT =>
 			    exp2term (ExpBuild.var (exp2str(vecIndex (obj, 1))))
 			  | iter => exp2term (ExpBuild.ivar (exp2str(vecIndex (obj, 1))) 
-							    [(Symbol.symbol (exp2str (method "name" iter)), 
-							      Iterator.RELATIVE 0)])
+							    (Symbol.symbol (exp2str (method "name" iter)), 
+							     Iterator.RELATIVE 0))
 		    else
 			exp2term (ExpBuild.var (exp2str(vecIndex (obj, 1))))
 
@@ -426,11 +429,8 @@ fun createClass classes object =
 
 		    (* create the initial condition *)
 		    val timeiterator = (exp2str (method "name" (method "iter" obj)))
-		    val spatialiterators = []
 		    val preprocessiterator = Iterator.preProcessOf timeiterator
-		    val initlhs = ExpBuild.initavar(name, 
-						    Symbol.name preprocessiterator,
-						    spatialiterators)
+		    val initlhs = ExpBuild.ivar name (preprocessiterator, Iterator.ABSOLUTE 0)
 		    val init = ExpBuild.equals(initlhs,
 					       quantity_to_dof_exp (getInitialValue obj))
 
@@ -458,6 +458,8 @@ fun createClass classes object =
 
 		    val timeiterator = (exp2str (method "name" (method "iter" obj)))
 
+		    (* TODO: make this change later *)
+				       (*
 		    val spatialiterators = case (ExpProcess.exp2termsymbols lhs) of
 					       [Exp.SYMBOL (sym,props)] => 
 					       (case Property.getIterator props of
@@ -470,10 +472,10 @@ fun createClass classes object =
 					     | _ => error "Invalid number of symbols on left hand side of equation"
 						 
 		    val spatialiterators = map (Symbol.name o #1) spatialiterators
-   
+					*)
 		    val initlhs = ExpBuild.initavar(name, 
 						    if hasEquation then timeiterator else Symbol.name(Iterator.postProcessOf timeiterator),
-						    spatialiterators)
+						    (*spatialiterators*) [])
 
 		    val init = ExpBuild.equals(initlhs,
 					       quantity_to_dof_exp (getInitialValue obj))
@@ -486,21 +488,21 @@ fun createClass classes object =
 				      nil => 
 				      if hasEquation then nil
 				      else
-					  [ExpBuild.equals (ExpBuild.ivar name [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1)],
-							    ExpBuild.ivar name [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 0)])]
+					  [ExpBuild.equals (ExpBuild.ivar name (Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1),
+							    ExpBuild.ivar name (Iterator.postProcessOf timeiterator, Iterator.RELATIVE 0))]
 				    | keccondeqs => 
 				      let
 					  val (lhs, defaultval) = 
 					      if hasEquation then
 						  (ExpBuild.ivar name
-								[(Iterator.updateOf timeiterator, Iterator.RELATIVE 1)],
+								(Iterator.updateOf timeiterator, Iterator.RELATIVE 1),
 						   ExpBuild.ivar name
-								[(Iterator.updateOf timeiterator, Iterator.RELATIVE 0)])
+								(Iterator.updateOf timeiterator, Iterator.RELATIVE 0))
 					      else
 						  (ExpBuild.ivar name
-								 [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1)],
+								 (Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1),
 						   ExpBuild.ivar name
-								 [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 0)])
+								 (Iterator.postProcessOf timeiterator, Iterator.RELATIVE 0))
 
 					  fun buildIf (condeq, exp) =
 					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),

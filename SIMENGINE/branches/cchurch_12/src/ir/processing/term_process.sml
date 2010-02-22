@@ -11,22 +11,22 @@ struct
 
 fun symbol2temporaliterator term = 
     let
-	val iterators = CurrentModel.iterators()
+(*	val iterators = CurrentModel.iterators()*)
 (*	val _ = Util.log("Global iterators = " ^ (Util.symlist2s (map #1 iterators)))*)
     in
 	case term of
-	    Exp.SYMBOL (sym, props) => 
-	    (case Property.getIterator props of
-		 SOME iters => 
+	    Exp.SYMBOL (sym, props) => Property.getIterator props
+(*	    (case Property.getIterator props of
+		 SOME iter => 
 		 List.find 
 		     (fn (sym, _) => List.exists (fn(sym',_)=> sym = sym') iterators) 
 		     iters
-	       | NONE => NONE)
+	       | NONE => NONE)*)
 	  | _ => NONE
     end
 
-fun symbol2spatialiterators term = 
-    case symbol2temporaliterator term of
+fun symbol2spatialiterators term = []
+(*    case symbol2temporaliterator term of
 	SOME (itersym,_) => 
 	 (case term of
 	      Exp.SYMBOL (_, props) => 
@@ -39,7 +39,7 @@ fun symbol2spatialiterators term =
 		     (case Property.getIterator props of
 			  SOME iters => iters
 			| NONE => [])
-		   | _ => [])
+		   | _ => [])*)
 
 
 end

@@ -394,7 +394,7 @@ fun isNextVarDifferenceTerm exp =
 								       | _ => false) (CurrentModel.iterators())
 	in
 	    case iterators of
-		SOME ((iterator, Iterator.RELATIVE 1)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+		SOME (iterator, Iterator.RELATIVE 1) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
 	      | _ => false
 	end
       | _ => false
@@ -428,7 +428,7 @@ fun isAlgebraicStateTermOfProcessType process exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
-	    val iterators = Property.getIterator props
+	    val iterator = Property.getIterator props
 	    val discrete_iterators = List.filter (fn(sym, itertype)=>case (itertype, process) of 
 									 (DOF.ALGEBRAIC (DOF.PREPROCESS,_), SOME DOF.PREPROCESS) => true
 								       | (DOF.ALGEBRAIC (DOF.INPROCESS,_), SOME DOF.INPROCESS) => true
@@ -436,9 +436,9 @@ fun isAlgebraicStateTermOfProcessType process exp =
 								       | (DOF.ALGEBRAIC _, NONE) => true
 								       | _ => false) (CurrentModel.iterators())
 	in
-	    case iterators of
-		SOME ((iterator, Iterator.RELATIVE 1)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
-	      | SOME ((iterator, Iterator.RELATIVE 0)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+	    case iterator of
+		SOME (iterator, Iterator.RELATIVE 1) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+	      | SOME (iterator, Iterator.RELATIVE 0) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
 	      | _ => false
 	end
       | _ => false
@@ -458,13 +458,13 @@ fun isNextUpdateTerm exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
-	    val iterators = Property.getIterator props
+	    val iterator = Property.getIterator props
 	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
 									 DOF.UPDATE _ => true
 								       | _ => false) (CurrentModel.iterators())
 	in
-	    case iterators of
-		SOME ((iterator, Iterator.RELATIVE 1)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+	    case iterator of
+		SOME (iterator, Iterator.RELATIVE 1) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
 	      | _ => false
 	end
       | _ => false
@@ -481,13 +481,13 @@ fun isCurVarDifferenceTerm exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
-	    val iterators = Property.getIterator props
+	    val iterator = Property.getIterator props
 	    val discrete_iterators = List.filter (fn(sym, itertype)=>case itertype of 
 									 DOF.DISCRETE _ => true
 								       | _ => false) (CurrentModel.iterators())
 	in
-	    case iterators of
-		SOME ((iterator, Iterator.RELATIVE 0)::rest) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
+	    case iterator of
+		SOME (iterator, Iterator.RELATIVE 0) => List.exists (fn(sym, _)=> iterator = sym) discrete_iterators
 	      | _ => false
 	end
       | _ => false
@@ -497,11 +497,11 @@ fun isInitialConditionTerm exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
-	    val iterators = Property.getIterator props
+	    val iterator = Property.getIterator props
 	    val all_iterators = CurrentModel.iterators()
 	in
-	    case iterators of
-		SOME ((itersym, Iterator.ABSOLUTE 0)::rest) => List.exists (fn(sym,_)=>sym=itersym) all_iterators
+	    case iterator of
+		SOME (itersym, Iterator.ABSOLUTE 0) => List.exists (fn(sym,_)=>sym=itersym) all_iterators
 	      | _ => false
 	end
       | _ => false
@@ -527,17 +527,17 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
 	     val derivative = Property.getDerivative props
-	     val iterators = Property.getIterator props
+	     val temporaliterator = Property.getIterator props
 	 in
-	     case (derivative,iterators) of
-		 (SOME (_, _::_), SOME ((iterator, _)::rest)) => 
+	     case (derivative,temporaliterator) of
+		 (SOME (_, _::_), SOME (iterator, _)) => 
 		 if iterator = name then
 		     (* this user error is caused if the user defines a differential equation with a discrete iterator. It's possible that this could happen later,
 			and then should be an exception, but without adding specific checks for this case earlier, it would be hard to determine.  *)
 		     (user_error exp ("Unexpected derivative found with discrete iterator '"^(Symbol.name name)^"'. Derivatives can only be used with continuous iterators."); false)
 		 else
 		     false
-	       | (NONE, SOME ((iterator, Iterator.RELATIVE 1)::rest)) => iterator = name
+	       | (NONE, SOME (iterator, Iterator.RELATIVE 1)) => iterator = name
 	       | _ => false
 	 end
        | _ => false)
@@ -546,10 +546,10 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
     (case exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
-	     val iterators = Property.getIterator props
+	     val iterator = Property.getIterator props
 	 in
-	     case iterators of
-		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	     case iterator of
+		 SOME (iterator, Iterator.RELATIVE 1) => iterator = name
 	       | _ => false
 	 end
        | _ => false)
@@ -557,10 +557,10 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
     (case exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
-	     val iterators = Property.getIterator props
+	     val iterator = Property.getIterator props
 	 in
-	     case iterators of
-		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	     case iterator of
+		 SOME (iterator, Iterator.RELATIVE 1) => iterator = name
 	       | _ => false
 	 end
        | _ => false)
@@ -568,10 +568,10 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
     (case exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
-	     val iterators = Property.getIterator props
+	     val iterator = Property.getIterator props
 	 in
-	     case iterators of
-		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	     case iterator of
+		 SOME (iterator, Iterator.RELATIVE 1) => iterator = name
 	       | _ => false
 	 end
        | _ => false)
@@ -579,10 +579,10 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
     (case exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
-	     val iterators = Property.getIterator props
+	     val iterator = Property.getIterator props
 	 in
-	     case iterators of
-		 SOME ((iterator, Iterator.RELATIVE 1)::rest) => iterator = name
+	     case iterator of
+		 SOME (iterator, Iterator.RELATIVE 1) => iterator = name
 	       | _ => false
 	 end
        | _ => false)
@@ -621,14 +621,14 @@ fun isIntermediateTerm exp =
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val derivative = Property.getDerivative props
-	    val iterators = Property.getIterator props
+	    val iterator = Property.getIterator props
 	    val all_iterators = CurrentModel.iterators()
 	in
 	    not (isAlgebraicStateTerm exp) andalso not (isNextUpdateTerm exp) andalso
-	    case (derivative, iterators) of
+	    case (derivative, iterator) of
 		(SOME _, _) => false
-	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
-	      | (_, SOME ((itersym, Iterator.RELATIVE 1)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
+	      | (_, SOME ((itersym, Iterator.ABSOLUTE _))) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
+	      | (_, SOME ((itersym, Iterator.RELATIVE 1))) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
 	      | (_, _) => true
 	end
       | _ => false
@@ -653,7 +653,7 @@ fun doesTermHaveIterator iter exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	(case (Property.getIterator props) of
-	     SOME iters => List.exists (fn(sym,_)=>sym=iter) iters
+	     SOME (sym,_) => sym=iter
 	   | NONE => false)
       | _ => false
 
@@ -787,7 +787,7 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 		      of Property.ITERATOR => SymbolSet.singleton name
 		       | _ => SymbolSet.empty,
 		     case Property.getIterator properties
-		      of SOME iters => SymbolSet.fromList (map #1 iters)
+		      of SOME (iter_sym,_) => SymbolSet.singleton iter_sym
 		       | _ => SymbolSet.empty)
 
   | iterators_of_expression (Exp.TERM (Exp.TUPLE terms)) = 
@@ -1006,22 +1006,25 @@ fun assignIteratorToSymbol (sym, p) exp =
 	    exp
 	else
 	    let
-		val (exp_sym, props, iterators) = case (exp2term exp) of
+		val (exp_sym, props, iterator) = case (exp2term exp) of
 						      Exp.SYMBOL (exp_sym, props) => 
 						      (exp_sym, props, Property.getIterator props)
 						    | _ => DynException.stdException(("Unexpected non symbol '"^(e2s exp)^"'"),
 										     "ExpProcess.assignIteratorToSymbol", 
 										     Logger.INTERNAL)
 
+(*
 		val iterators' = 
 		    case p of
-			PREPEND => (case iterators of
-					SOME iters => (sym, Iterator.RELATIVE 0)::iters (* prepend the iterator in this case *)
+			PREPEND => (case iterator of
+					SOME iter => (sym, Iterator.RELATIVE 0) @ [iter] (* prepend the iterator in this case *)
 				      | NONE => [(sym, Iterator.RELATIVE 0)]) (* create a new list *)
-		      | APPEND => (case iterators of
-				       SOME iters => iters @ [(sym, Iterator.RELATIVE 0)] (* prepend the iterator in this case *)
+		      | APPEND => (case iterator of
+				       SOME iter => [iter] @ [(sym, Iterator.RELATIVE 0)] (* prepend the iterator in this case *)
 				     | NONE => [(sym, Iterator.RELATIVE 0)]) (* create a new list *)
 
+*)
+		val iterators' = (sym, Iterator.RELATIVE 0)
 	    in
 		Exp.TERM (Exp.SYMBOL (exp_sym, Property.setIterator props iterators'))
 	    end
@@ -1047,7 +1050,7 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
 							      "ExpProcess.updateTemporalIteratorToSymbol",
 							      Logger.INTERNAL)
 
-	val iterators' = (sym, iter_index)::spatial_iterators
+	val iterators' = (sym, iter_index)(*::spatial_iterators*)
 	val props = Term.sym2props (exp2term exp)
 
 	fun changeScopeIterator cur_scope_iter =
@@ -1095,8 +1098,8 @@ fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t 
 				 | NONE => DynException.stdException("No temporal iterator found",
 								     "updateTemporalIterator",
 								     Logger.INTERNAL)
-	val spatialiterators = exp2spatialiterators exp
-	val props' = Property.setIterator props (iter::spatialiterators)
+	(*val spatialiterators = exp2spatialiterators exp*)
+	val props' = Property.setIterator props (iter(*::spatialiterators*))
     in
 	Exp.TERM (Exp.SYMBOL (sym, props'))
     end

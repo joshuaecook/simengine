@@ -24,6 +24,7 @@ sig
     val iterator2mathematica_str : iterator -> string (* C writer for iterator *)
     val iterators2mathematica_str : iterator list -> string (* C writer for multiple iterator *)
     val iter_equiv : (iterator * iterator) -> bool
+    val iterindex_equiv : (iteratorindex * iteratorindex) -> bool
 
     val preProcessOf : string -> Symbol.symbol  
     val inProcessOf : string -> Symbol.symbol  
@@ -118,12 +119,8 @@ fun iterators2mathematica_str iterators =
 	""
 
 
-
-fun iter_equiv (i1 as (s1, t1), i2 as (s2, t2)) =
-    (* check the symbol *)
-    s1 = s2
-    andalso
-    (case (t1, t2)
+fun iterindex_equiv (t1, t2) =
+    case (t1, t2)
       of (ALL, ALL) => true
        | (ABSOLUTE a, ABSOLUTE b) => a=b
        | (RELATIVE a, RELATIVE b) => a=b
@@ -131,6 +128,12 @@ fun iter_equiv (i1 as (s1, t1), i2 as (s2, t2)) =
        | (LIST l1, LIST l2) => (length l1) = (length l2)
 			       andalso 
 			       List.all (fn(a,b)=>a=b) (ListPair.zip (l1, l2))
-       | _ => false)
+       | _ => false
+
+fun iter_equiv (i1 as (s1, t1), i2 as (s2, t2)) =
+    (* check the symbol *)
+    s1 = s2
+    andalso
+    iterindex_equiv (t1, t2)
     
 end

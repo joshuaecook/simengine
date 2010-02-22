@@ -21,7 +21,7 @@ type symbolproperty = {
      (* Symbols representing state values will have an associated indexed iterator, 
       * e.g. (ABSOLUTE 0) in an initial value equation or (RELATIVE n) in a dynamic
       * equation. Spatial iterators, when implemented, will appear here as well. *)
-     iterator: Iterator.iterator list option,
+     iterator: Iterator.iterator (*list*) option,
      arrayindex: (int * Iterator.iteratorindex) list,
      (* Symbols representing a differential term will have an integer denoting the
       * order of the derivative and symbol for the respective temporal iterator. *)
@@ -53,9 +53,9 @@ fun getIterator (props:symbolproperty) = #iterator props
 	
 fun getSpecificIterator props itersym = 
     case getIterator props of
-	SOME iters => List.find (fn(sym,_)=>sym=itersym) iters
+	SOME (iter as (itersym',_)) => if itersym' = itersym then SOME iter else NONE
       | NONE => NONE
-
+		
 fun getArrayIndex (props:symbolproperty) = #arrayindex props
 
 fun getDerivative (props:symbolproperty) = #derivative props

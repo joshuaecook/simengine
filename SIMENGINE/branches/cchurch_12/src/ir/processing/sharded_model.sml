@@ -158,21 +158,21 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 							 SOME (1, symlist) => ()
 						       | _ => DynException.stdException (("Original equation '"^(e2s eq)^"' is not a first order differential equation"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
 						 val props' = Property.clearDerivative props
-						 val iterators = Property.getIterator props'
-						 val iterators' = case iterators of
-								      SOME iters =>
-								      (map (fn(sym,index)=>
-									      if sym=itername then
-										  case index of
-										      Iterator.RELATIVE 0 => (sym, Iterator.RELATIVE 1)
-										    | _ => DynException.stdException(("Unexpected iterator found in lhs symbol"), 
-"ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", 
-														     Logger.INTERNAL) iters
-									      else
-										  (sym, index))
-									   iters)
-								    | NONE => DynException.stdException (("Original equation '"^(e2s eq)^"' does not have any defined iterators"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
-						 val props'' = Property.setIterator props' iterators'
+						 val iterator = Property.getIterator props'
+						 val iterator' = case iterator of
+								     SOME (sym, index) =>
+								     if sym=itername then
+									 case index of
+									     Iterator.RELATIVE 0 => (sym, Iterator.RELATIVE 1)
+									   | _ => DynException.stdException(("Unexpected iterator found in lhs symbol"),
+ 													    "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", 
+													    Logger.INTERNAL)
+								     else
+									 (sym, index)
+								   | NONE => DynException.stdException (("Original equation '"^(e2s eq)^"' does not have any defined iterators"),
+													"ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState",
+													Logger.INTERNAL)
+						 val props'' = Property.setIterator props' iterator'
 					     in
 						 Exp.SYMBOL (sym, props'')
 					     end

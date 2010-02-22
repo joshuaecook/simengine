@@ -78,7 +78,7 @@ and symbolPropertiesToJSON {iterator, arrayindex, derivative, isevent, isrewrite
 	    ("epIndex", JSONOption (JSONType o (fn Property.STRUCT_OF_ARRAYS => "Property.STRUCT_OF_ARRAYS" | Property.ARRAY => "Property.ARRAY"), ep_index)),
 	    ("isEvent", bool isevent),
 	    ("isRewriteSymbol", bool isrewritesymbol),
-	    ("iterators", JSONOption (fn its => array (map iteratorToJSON its), iterator)),
+	    ("iterator", JSONOption (iteratorToJSON, iterator)),
 	    ("arrayindex", array (map (fn(dim, index)=> object [("dim", int dim), ("index", iteratorIndexToJSON index)]) arrayindex)),
 	    ("outputBuffer", bool outputbuffer),
 	    ("scope", scopeToJSON scope),
