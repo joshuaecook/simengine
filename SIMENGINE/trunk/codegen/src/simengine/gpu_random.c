@@ -6,22 +6,18 @@
  * where q = 103 and p = 250. That is, a generalized feedback shift
  * register GFSR(250,103).
  *
- * Uses 32 bits of entropy to produce a random value with a period of
+ * Uses 31 bits of entropy to produce a random value with a period of
  * 2 ** 249. This algorithm requires another source of randomness to
  * seed its buffer which retains the last 250 generated values.
  *
- * Based on a public domain implementation by Michael Brundage.
- * The reference was optimized for PPC, so this implementation
- * could possibly be improved wrt GPU instruction sets.
+ * Based on a (buggy) public domain implementation by Michael Brundage.
  *
  * See http://www.taygeta.com/rwalks/node2.html
  * See http://www.qbrundage.com/michaelb/pubs/essays/random_number_generation.html
  */
 #define R250_LENGTH 250
-#define R250_MAX 0xFFFFFFFFUL
-
-#define R250_Q (103 * sizeof(unsigned long))
-#define R250_P (R250_LENGTH * sizeof(unsigned long) - R250_Q)
+#define R250_OFFSET 103
+#define R250_MAX RAND_MAX
 
 // The initial seed and memo of previously computed random values.
 __DEVICE__ unsigned long gpu_r250_buffer[PARALLEL_MODELS * R250_LENGTH];
@@ -54,7 +50,11 @@ __HOST__ void gpu_random_init (unsigned int instances)
 	    }
 
 	// I believe my reference contained a bug in the following
-	// section by shifting in the opposite direction. -Josh
+	// section by shifting in the opposite direction. 
+	// Additionally, the original seems to assume that rand()
+	// produces 32 bits of randomness when it only provides 31
+	// bits. -Josh
+
 	// Original author's comment: Establish linear independence of
 	// the bit columns by setting the diagonal bits and clearing
 	// all bits above.
@@ -64,7 +64,7 @@ __HOST__ void gpu_random_init (unsigned int instances)
 	    maskB ^= maskA;
 	    maskA <<= 1;
 	    }
-	init_buffer[0] = maskA;
+	init_buffer[0] = 0;
 	}
 
     cutilSafeCall(cudaGetSymbolAddress((void **)&g_gaussian_buffer, gpu_gaussian_buffer));
@@ -82,21 +82,24 @@ __HOST__ void gpu_random_init (unsigned int instances)
 // Returns a uniformly-distributed random number on the interval [0,1)
 __DEVICE__ CDATAFORMAT gpu_uniform_random (unsigned int instances, unsigned int instanceId)
     {
-    unsigned char *buffer = (unsigned char *)(gpu_r250_buffer + instanceId);
+    // My reference did some clever prescaling of buffer offsets which
+    // seemed to cause problems on the GPU. The justification for the
+    // cleverness was wrt optimizing for PPC, so I assume that it is
+    // not particularly optimal for GPU. -Josh
+    unsigned long *buffer = gpu_r250_buffer + instanceId;
     unsigned long *tmp;
     unsigned long r;
     unsigned int i = gpu_r250_position[instanceId];
-    int j = i - R250_P;
-    if (j < 0) j = i + R250_P;
+    int j = i - R250_OFFSET;
+    if (j < 0) j = j + R250_LENGTH;
 
-    // i and j are prescaled by sizeof(unsigned long)
-    tmp = (unsigned long *)(buffer + (i * instances));
-    r = *(unsigned long *)(buffer + (j * instances));
+    tmp = buffer + (i * instances);
+    r = *(buffer + (j * instances));
     r = r ^ *tmp;
     *tmp = r;
 
-    gpu_r250_position[instanceId] += (i == (R250_LENGTH - 1) * sizeof(unsigned long)) ? -i : sizeof(unsigned long);
-
+    gpu_r250_position[instanceId] += (i == R250_LENGTH - 1) ? -i : 1;
+    
     return r / (FLITERAL(1.) * R250_MAX);
     }
 
