@@ -19,8 +19,21 @@
 #define R250_OFFSET 103
 #define R250_MAX RAND_MAX
 
+#ifdef SIMENGINE_STORAGE_float
+typedef unsigned int r250_invalid;
+const r250_invalid R250_INVALID = 0xFFFFFFFFUL;
+#else
+typedef unsigned long long r250_invalid;
+const r250_invalid R250_INVALID = 0xFFFFFFFFFFFFFFFFULL;
+#endif
+
+const unsigned char R250_INVALID_BYTE = 0xFF;
+
+#define R250_IS_VALID(ADDR) (R250_INVALID ^ *((r250_invalid *)(ADDR)))
+#define R250_INVALIDATE(ADDR) (*((r250_invalid *)(ADDR)) = R250_INVALID)
+
 // The initial seed and memo of previously computed random values.
-__DEVICE__ unsigned long gpu_r250_buffer[PARALLEL_MODELS * R250_LENGTH];
+__DEVICE__ unsigned int gpu_r250_buffer[PARALLEL_MODELS * R250_LENGTH];
 // Indexes into the above buffer.
 __DEVICE__ unsigned int gpu_r250_position[PARALLEL_MODELS];
 
@@ -29,14 +42,14 @@ __DEVICE__ CDATAFORMAT gpu_gaussian_buffer[PARALLEL_MODELS];
 
 __HOST__ void gpu_random_init (unsigned int instances)
     {
-    unsigned long *init_buffer;
-    unsigned long *g_buffer;
+    unsigned int *init_buffer;
+    unsigned int *g_buffer;
     unsigned int *g_position;
     CDATAFORMAT *g_gaussian_buffer;
-    unsigned long maskA, maskB;
+    unsigned int maskA, maskB;
     unsigned int i, pos;
 
-    init_buffer = (unsigned long *)malloc(instances * R250_LENGTH * sizeof(unsigned long));
+    init_buffer = (unsigned int *)malloc(instances * R250_LENGTH * sizeof(unsigned int));
 
     for (i = 0; i < instances; i++)
 	{
@@ -71,12 +84,11 @@ __HOST__ void gpu_random_init (unsigned int instances)
     cutilSafeCall(cudaGetSymbolAddress((void **)&g_position, gpu_r250_position));
     cutilSafeCall(cudaGetSymbolAddress((void **)&g_buffer, gpu_r250_buffer));
 
-    cutilSafeCall(cudaMemcpy(g_buffer, init_buffer, instances * R250_LENGTH * sizeof(unsigned long), cudaMemcpyHostToDevice));
+    cutilSafeCall(cudaMemcpy(g_buffer, init_buffer, instances * R250_LENGTH * sizeof(unsigned int), cudaMemcpyHostToDevice));
     cutilSafeCall(cudaMemset(g_position, 0, instances * sizeof(unsigned int)));
     // Cleverly fills the gaussian buffer with a pattern of bytes that
-    // will appear as negative values in floating point. Any byte in
-    // the range 0x80 to 0xFE will work.
-    cutilSafeCall(cudaMemset(g_gaussian_buffer, 0x80, instances * sizeof(CDATAFORMAT)));
+    // will appear as an invalid value in floating point.
+    cutilSafeCall(cudaMemset(g_gaussian_buffer, R250_INVALID_BYTE, instances * sizeof(CDATAFORMAT)));
     }
 
 // Returns a uniformly-distributed random number on the interval [0,1)
@@ -86,9 +98,9 @@ __DEVICE__ CDATAFORMAT gpu_uniform_random (unsigned int instances, unsigned int 
     // seemed to cause problems on the GPU. The justification for the
     // cleverness was wrt optimizing for PPC, so I assume that it is
     // not particularly optimal for GPU. -Josh
-    unsigned long *buffer = gpu_r250_buffer + instanceId;
-    unsigned long *tmp;
-    unsigned long r;
+    unsigned int *buffer = gpu_r250_buffer + instanceId;
+    unsigned int *tmp;
+    unsigned int r;
     unsigned int i = gpu_r250_position[instanceId];
     int j = i - R250_OFFSET;
     if (j < 0) j = j + R250_LENGTH;
@@ -111,7 +123,13 @@ __DEVICE__ CDATAFORMAT gpu_gaussian_random (unsigned int instances, unsigned int
     CDATAFORMAT x1, x2;
     CDATAFORMAT w;
 
-    if (grandom < FLITERAL(0.))
+    if (R250_IS_VALID(&grandom))
+	{
+	// Return the previously-computed value and invalidate the
+	// stored buffer.
+	R250_INVALIDATE(gpu_gaussian_buffer + instanceId);
+	}
+    else
 	{
 	// Compute 2 new values and hold one
 	w = FLITERAL(1.);
@@ -125,11 +143,6 @@ __DEVICE__ CDATAFORMAT gpu_gaussian_random (unsigned int instances, unsigned int
 	w = FLITERAL(1.) / rsqrt(FLITERAL(-2.) * log(w) / w);
 	grandom = x1 * w;
 	gpu_gaussian_buffer[instanceId] = x2 * w;
-	}
-    else
-	{
-	// Return the previously-computed value
-	gpu_gaussian_buffer[instanceId] = FLITERAL(-1.);
 	}
 
     return grandom;
