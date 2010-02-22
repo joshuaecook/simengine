@@ -1,141 +1,77 @@
 namespace CommandLine
-  function parseCommandLine() = parseOptions(getCommandLine())
-
-  function printUsage()
-    println("\nsimEngine usage:\n\n" +
-	    "\tSimulation mode: run a simulation from a Diesel model\n" +
-	    "\t\tsimEngine [options] -model <modelfile.dsl>\n\n" +
-	    "\tBatch mode: execute Diesel code from file or STDIN\n" +
-	    "\t\tsimEngine [options] -batch <file.dsl>\n" +
-	    "\t\tsimEngine [options] -batch\n\n" +
-	    "\tInteractive mode: run simEngine as an interactive environment\n" +
-	    "\t\tsimEngine [options]\n\n"+
-	    "Currently available options include:\n\n" +
-	    "-start <n>" +
-	    "-stop <n>" +
-	    "-inputs <file>" +
-	    "-states <file>" +
-	    "-outputs <file>" +
-	    "-cpu" +
-	    "-parallelcpu" +
-	    "-gpu" +
-	    "-double" +
-	    "-float" +
-	    "-single" +
-	    "-help")
+  function parseCommandLine(booleanOptionNames, numberOptionNames, stringOptionNames)
+    parseOptions(getCommandLine(), booleanOptionNames, numberOptionNames, stringOptionNames)
   end
 
   function getCommandLine() = LF getCommandLine()
 
-  function parseOptions(options)
-    var options_list = options
-    var options_table = {}
-    var option_name
+  function parseOptions(options, booleanOptionNames, numberOptionNames, stringOptionNames)
+    var optionsList = options // local copy of options that will be successively removed as parsed
+    var optionsTable = {} // return value table of key/value option pairs
+    var optionName // currently processed option name
 
-    function getOptionValue()
-      var option_value
-      if options_list.length() == 0 then
-	error("Missing value for option '" + option_name + "'.")
+    // Ensure that an option that requires a string value has a string value (not another option name)
+    // removes value from the optionsList
+    function getOptionValueString()
+      var optionValue
+      if optionsList.length() == 0 then
+	error("Missing value for option '" + optionName + "'.")
       else
-	option_value = options_list.first()
-	options_list = options_list.rest()
-	if "-" == option_value.first() then
-	error("Missing value for option '" + option_name + "'.")
+	optionValue = optionsList.first()
+	optionsList = optionsList.rest()
+	if "-" == optionValue.first() then
+	error("Missing value for option '" + optionName + "'.")
 	end
       end
-      option_value
+      optionValue
     end
 
+    // Ensure that an option that requires a number, has a value that is a number
+    // removes value from the optionsList
     function getOptionValueNumber()
-      var option_value
-      if options_list.length() == 0 then
-	error("Missing value for option '" + option_name + "'.")
+      var optionValue
+      if optionsList.length() == 0 then
+	error("Missing value for option '" + optionName + "'.")
       else
-	option_value = options_list.first().tonumber()
-	options_list = options_list.rest()
-	if () == option_value then
-	  error("Option value for '" + option_name + "' must be a number.")
+	optionValue = optionsList.first().tonumber()
+	optionsList = optionsList.rest()
+	if () == optionValue then
+	  error("Option value for '" + optionName + "' must be a number.")
 	else
-	  option_value
+	  optionValue
 	end
       end
     end
 
+    // Ensure that an option is only specified once and add it to the parsed options
     function addOption(name, value)
-      if exists key in options_table.keys suchthat key == name then
-	error("Conflicting option '" + option_name + "' for previously set " + name + ".")
+      if exists key in optionsTable.keys suchthat key == name then
+	error("Option '" + optionName + "' may only be specified once.")
       end
-      options_table.add(name, value)
+      optionsTable.add(name, value)
     end
 
-    while(options_list.length() > 0) do
-      option_name = options_list.first()
-      options_list = options_list.rest()
+    while(optionsList.length() > 0) do
+      optionName = optionsList.first()
+      optionsList = optionsList.rest()
 
-      // Model file for compilation
-      if "-model" == option_name then
-	addOption("modelfile", getOptionValue())
+      if optionName.first() <> "-" then
+	error("Options must be preceeded with a '-'.  Invalid option '" + optionName + "'.")
+      end
 
-      elseif "-start" == option_name then
-	addOption("start", getOptionValueNumber())
+      // Strip the '-' for comparison
+      optionName = optionName.rest()
 
-      elseif "-stop" == option_name then
-	addOption("stop", getOptionValueNumber())
-
-      elseif "-instances" == option_name then
-	addOption("instances", getOptionValueNumber())
-
-      elseif "-inputs" == option_name then
-	addOption("inputs", getOptionValue())
-
-      elseif "-states" == option_name then
-	addOption("states", getOptionValue())
-
-      elseif "-outputs" == option_name then
-	addOption("outputs", getOptionValue())
-
-      elseif "-cpu" == option_name then
-	addOption("target", "cpu")
-
-      elseif "-parallelcpu" == option_name then
-	addOption("target", "openmp")
-
-      elseif "-gpu" == option_name then
-	addOption("target", "cuda")
-
-      elseif "-float" == option_name then
-	addOption("precision", "float")
-
-      elseif "-single" == option_name then
-	addOption("precision", "float")
-
-      elseif "-double" == option_name then
-	addOption("precision", "double")
-
-      elseif "-help" == option_name then
-	addOption("help", true)
-
-      elseif "-gnuplot" == option_name then
-	addOption("gnuplot", true)
-
-// How do we make these options unavailabe for release?
-      elseif "-debug" == option_name then
-	addOption("debug", true)
-
-      elseif "-emulate" == option_name then
-	addOption("emulate", true)
-
-      elseif "-profile" == option_name then
-	addOption("profile", true)
-
-      elseif "-nocompile" == option_name then
-	addOption("nocompile", true)
-// ****************************************************
-
+      if exists name in booleanOptionNames suchthat name == optionName then
+	addOption(optionName, true)
+      elseif exists name in numberOptionNames suchthat name == optionName then
+	addOption(optionName, getOptionValueNumber())
+      elseif exists name in stringOptionNames suchthat name == optionName then
+	addOption(optionName, getOptionValueString())
       else
-	error("Unrecognized option " + option_name)
+	error("Unrecognized option '-" + optionName + "'")
       end
     end
-    options_table
+    optionsTable
   end
 end
