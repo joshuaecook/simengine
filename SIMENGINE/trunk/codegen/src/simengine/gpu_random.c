@@ -23,9 +23,12 @@
 #define R250_Q (103 * sizeof(unsigned long))
 #define R250_P (R250_LENGTH * sizeof(unsigned long) - R250_Q)
 
+// The initial seed and memo of previously computed random values.
 __DEVICE__ unsigned long gpu_r250_buffer[PARALLEL_MODELS * R250_LENGTH];
+// Indexes into the above buffer.
 __DEVICE__ unsigned int gpu_r250_position[PARALLEL_MODELS];
 
+// Buffers intermediate results of computing a gaussian distribution.
 __DEVICE__ CDATAFORMAT gpu_gaussian_buffer[PARALLEL_MODELS];
 
 __HOST__ void gpu_random_init (unsigned int instances)
@@ -50,9 +53,8 @@ __HOST__ void gpu_random_init (unsigned int instances)
 	    init_buffer[pos * instances + i] = rand();
 	    }
 
-	// I believe my reference implementation contained a bug in
-	// the following section by shifting in the opposite
-	// direction. -Josh
+	// I believe my reference contained a bug in the following
+	// section by shifting in the opposite direction. -Josh
 	// Original author's comment: Establish linear independence of
 	// the bit columns by setting the diagonal bits and clearing
 	// all bits above.
@@ -80,15 +82,16 @@ __HOST__ void gpu_random_init (unsigned int instances)
 // Returns a uniformly-distributed random number on the interval [0,1)
 __DEVICE__ CDATAFORMAT gpu_uniform_random (unsigned int instances, unsigned int instanceId)
     {
-    unsigned char *buffer = (unsigned char *)gpu_r250_buffer;
+    unsigned char *buffer = (unsigned char *)(gpu_r250_buffer + instanceId);
     unsigned long *tmp;
     unsigned long r;
     unsigned int i = gpu_r250_position[instanceId];
     int j = i - R250_P;
     if (j < 0) j = i + R250_P;
 
-    tmp = (unsigned long *)(buffer + (i * instances) + instanceId);
-    r = *(unsigned long *)(buffer + (j * instances) + instanceId);
+    // i and j are prescaled by sizeof(unsigned long)
+    tmp = (unsigned long *)(buffer + (i * instances));
+    r = *(unsigned long *)(buffer + (j * instances));
     r = r ^ *tmp;
     *tmp = r;
 
@@ -115,6 +118,7 @@ __DEVICE__ CDATAFORMAT gpu_gaussian_random (unsigned int instances, unsigned int
 	    x2 = 2 * gpu_uniform_random(instances, instanceId) - 1;
 	    w = x1 * x1 + x2 * x2;
 	    } while (w >= FLITERAL(1.));
+
 	w = FLITERAL(1.) / rsqrt(FLITERAL(-2.) * log(w) / w);
 	grandom = x1 * w;
 	gpu_gaussian_buffer[instanceId] = x2 * w;
