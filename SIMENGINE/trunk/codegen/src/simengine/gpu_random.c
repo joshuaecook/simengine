@@ -40,7 +40,7 @@ __DEVICE__ unsigned int gpu_r250_position[PARALLEL_MODELS];
 // Buffers intermediate results of computing a gaussian distribution.
 __DEVICE__ CDATAFORMAT gpu_gaussian_buffer[PARALLEL_MODELS];
 
-__HOST__ void gpu_random_init (unsigned int instances)
+__HOST__ void gpu_random_init (unsigned int instances, unsigned int seed)
     {
     unsigned int *init_buffer;
     unsigned int *g_buffer;
@@ -50,6 +50,7 @@ __HOST__ void gpu_random_init (unsigned int instances)
     unsigned int i, pos;
 
     init_buffer = (unsigned int *)malloc(instances * R250_LENGTH * sizeof(unsigned int));
+    srand(seed);
 
     for (i = 0; i < instances; i++)
 	{
@@ -77,7 +78,7 @@ __HOST__ void gpu_random_init (unsigned int instances)
 	    maskB ^= maskA;
 	    maskA <<= 1;
 	    }
-	init_buffer[0] = 0;
+	init_buffer[i] = 0;
 	}
 
     cutilSafeCall(cudaGetSymbolAddress((void **)&g_gaussian_buffer, gpu_gaussian_buffer));
@@ -116,7 +117,7 @@ __DEVICE__ CDATAFORMAT gpu_uniform_random (unsigned int instances, unsigned int 
     }
 
 
-
+// Returns a normally-distributed random number centered at 0 on the interval (-Inf, Inf)
 __DEVICE__ CDATAFORMAT gpu_gaussian_random (unsigned int instances, unsigned int instanceId)
     {
     CDATAFORMAT grandom = gpu_gaussian_buffer[instanceId];
@@ -140,7 +141,7 @@ __DEVICE__ CDATAFORMAT gpu_gaussian_random (unsigned int instances, unsigned int
 	    w = x1 * x1 + x2 * x2;
 	    } while (w >= FLITERAL(1.));
 
-	w = FLITERAL(1.) / rsqrt(FLITERAL(-2.) * log(w) / w);
+	w = pow(FLITERAL(-2.) * log(w) / w, FLITERAL(0.5));
 	grandom = x1 * w;
 	gpu_gaussian_buffer[instanceId] = x2 * w;
 	}
