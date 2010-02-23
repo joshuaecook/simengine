@@ -9,6 +9,7 @@ sig
     val forkModel : DOF.model -> shardedModel
 				 
     val updateShardForSolver : DOF.systemproperties -> (shard * DOF.systemiterator) -> (shard * DOF.systemiterator)
+    val combineDiscreteShards : shardedModel -> shardedModel
 
     (* shardedModel utilities *)
     val toModel : shardedModel -> Symbol.symbol -> DOF.model
@@ -39,6 +40,7 @@ fun log str = if DynamoOptions.isFlagSet "logdof" then
 	      else
 		  ()
 val i2s = Util.i2s
+val r2s = Util.r2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
 
@@ -486,6 +488,112 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 		  (shard', iter')
 	      end
 	      handle e => DynException.checkpoint "ShardedModel.updateShardForSolver.[LINEAR_BACKWARD_EULER]" e)
+	   | Solver.FORWARD_EULER {dt=dtval} => 
+	     if DynamoOptions.isFlagSet "aggregate" then
+		 let
+		     (* at this point, there should be just one flattened class *)
+		     val flatclass = case model of
+					 ([class], _, _) => class
+				       | _ => DynException.stdException ("Flattening resulted in more than one class", 
+									 "ShardedModel.updateSHardForSolver.EXPONENTIAL_EULER", 
+									 Logger.INTERNAL)
+
+		     (* get list of all states *)
+		     val states = ClassProcess.class2states flatclass
+		     val stateSet = SymbolSet.fromList states
+
+		     (* grab all the equations *)
+		     val exps = !(#exps flatclass)
+
+		     (* rewrite each equation, one state at a time *) 
+		     fun rewriteEquationForForwardEuler (state, eq) =
+			 let
+			     (* pull out the LHS term *)
+			     val lhsterm = ExpProcess.getLHSTerm eq
+
+			     (* for debugging *)
+			     fun state_str() = e2ps (Exp.TERM lhsterm)
+
+			     fun setAsReadState (Exp.TERM (Exp.SYMBOL (sym, props))) =
+				 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSTATE itername)))
+			       | setAsReadState _ = DynException.stdException("Unexpected non-symbol",
+									      "ShardedModel.updateShardForSolver.rewriteEquationForExponentialEuler.setAsReadState",
+									      Logger.INTERNAL)
+			     fun varfromsym sym = 
+				 setAsReadState (ExpBuild.avar (Symbol.name sym) (Symbol.name itername))
+			     val var = varfromsym state
+
+			     (* first thing is to factor out the state from the rhs of the equation *)
+			     val rhs = ExpProcess.rhs eq
+
+			     (* make code easier to read *)
+			     val y = var
+			     val dt = ExpBuild.real dtval
+			     fun add(a,b) = ExpBuild.plus [a, b]
+			     fun mul(a,b) = ExpBuild.times [a, b]
+
+			     (* forward euler -> y' = f(y) -> y[n+1] = y[n] + dt*f(y[n]) *)
+			     val rhs' = add(y, mul(dt, rhs))
+
+			     (* transform the lhs term y'[t] into y[t+1] *)
+			     val lhsterm' = case lhsterm of
+						Exp.SYMBOL (sym, props) => 
+						let
+						    val derivative = Property.getDerivative props
+						    val derivative' = 
+							case derivative of
+							    SOME (1, symlist) => ()
+							  | _ => DynException.stdException (("Original equation '"^(e2s eq)^"' is not a first order differential equation"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
+						    val props' = Property.clearDerivative props
+						    val iterators = Property.getIterator props'
+						    val iterators' = case iterators of
+									 SOME iters =>
+									 (map (fn(sym,index)=>
+										 if sym=itername then
+										     case index of
+											 Iterator.RELATIVE 0 => (sym, Iterator.RELATIVE 1)
+										       | _ => DynException.stdException(("Unexpected iterator found in lhs symbol"), 
+															"ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", 
+															Logger.INTERNAL) iters
+										 else
+										     (sym, index))
+									      iters)
+								       | NONE => DynException.stdException (("Original equation '"^(e2s eq)^"' does not have any defined iterators"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
+						    val props'' = Property.setIterator props' iterators'
+						in
+						    Exp.SYMBOL (sym, props'')
+						end
+					      | _ => DynException.stdException(("No valid symbol found"),
+									       "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState",
+									       Logger.INTERNAL)
+
+			     (* Create updated equation *)
+			     val eq' = ExpBuild.equals (Exp.TERM lhsterm', ExpProcess.simplify rhs')
+				       
+			 in
+			     eq'
+			 end
+			 handle e => DynException.checkpoint ("ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].rewriteEquationForExponentialEuler [state="^(Symbol.name state)^"]") e
+
+		     (* loop through each equation, pulling out differential equations for remapping *)
+		     val exps' = map (fn(eq)=> 
+					if ExpProcess.isFirstOrderDifferentialEq eq then
+					    rewriteEquationForForwardEuler (ExpProcess.getLHSSymbol eq, eq)
+					else
+					    eq)
+				     exps
+
+		     (* update exps in class *)
+		     val _ = #exps flatclass := exps'
+
+		     (* change the form of the iterator *)
+		     val iter' = (itername, DOF.DISCRETE {sample_period=dtval})
+
+		 in
+		     (shard, iter')
+		 end
+	     else
+		 (shard, iter)
 	   | _ => (shard, iter))
     end
   | updateShardForSolver systemproperties (shard, iter) = (shard, iter)
@@ -688,5 +796,209 @@ fun statesize shardedModel =
     in
 	Util.sum (map shard2statesize (iterators shardedModel))
     end
+
+(* combine discrete iterators - here we take iterators that have the same time step and are either discrete iterators, 
+continuous iterators (of type FORWARD_EULER or EXPONENTIAL_EULER), algebraic iterators, and update iterators and aggregate
+them in one iterator. When the aggregate option is enabled, the continuous iterators will already be converted into discrete
+iterators in the updateShardforSolver function. The main function called is combineDiscreteIterators.  *)
+local
+    fun sameSymbolinTerms (Exp.SYMBOL (sym1,_), Exp.SYMBOL (sym2, _)) = sym1=sym2
+      | sameSymbolinTerms _ = false
+
+    (* where do you want the position of expressions to be - for preprocess, it's before, everything else is after *)			      
+    datatype pos = BEFORE | AFTER
+
+    (* this is a helper function that will combine the contents of shard2 into shard1 *)
+    fun combineTwoShards before_iters ((shard1 as {classes=classes1, instance=instance1, iter_sym=iter_sym1}: shard),
+				       (shard2 as {classes=classes2, instance=instance2, iter_sym=iter_sym2}: shard)) position = 
+	let
+	    (* there should be a one-to-one mapping of classes within each shard *)
+	    val all_class_names = Util.intersection (map ClassProcess.class2preshardname classes1, 
+						     map ClassProcess.class2preshardname classes2)
+	    (* create a one-to-one mapping of class names *)
+	    fun empty_class (name, props) = {name=name, properties=props, inputs=ref [], outputs=ref [], iterators=[], exps=ref []}
+	    val mapped_classes = map (fn(name)=> case (List.find (fn(c)=>ClassProcess.class2preshardname c = name) classes1, 
+						       List.find (fn(c)=>ClassProcess.class2preshardname c = name) classes2) of 
+						     (SOME c1, SOME c2) => (c1, c2)
+						   | (SOME (c1 as {name, properties, ...}), NONE) => (c1, empty_class (name, properties))
+						   | (NONE, SOME (c2 as {name, properties, ...})) => (empty_class (name, properties), c2)
+						   | (NONE, NONE) => DynException.stdException(("Unexpected class name: "^(Symbol.name name)),
+											       "ShardedModel.combineTwoShards", Logger.INTERNAL))
+				     all_class_names
+
+	    (* merge each of the classes independently per shard *)
+	    val classes' = 
+		map
+		    (fn(c1 as {name as name1, properties, inputs=inputs1, outputs=outputs1, iterators=iters1, exps=exps1},
+			c2 as {name=name2, inputs=inputs2, outputs=outputs2, iterators=iters2, exps=exps2, ...})=>
+		       let
+			   val _ = if ClassProcess.class2preshardname c1 = ClassProcess.class2preshardname c2 then
+				       ()
+				   else
+				       DynException.stdException(("Unexpected differing class names: "^(Symbol.name name1)^" != " ^ (Symbol.name name2)),
+								 "ShardedModel.combineTwoShards", Logger.INTERNAL)
+
+				       
+
+			   (* create a change iterator function *)
+			   fun updateIterator exp = 
+			       let
+				   val rewrite_symbol = {find=Match.onesym "#a",
+							 test=NONE,
+							 replace=Rewrite.ACTION (Symbol.symbol "RewriteIterator", 
+										 (fn(exp)=>if ExpProcess.hasTemporalIterator exp then
+											       ExpProcess.renameTemporalIteratorForAggregating (before_iters, iter_sym1) exp
+											   else
+											       exp))}
+				   val rewrite_iterators = map (fn(sym')=> {find=Match.asym sym',
+									    test=NONE,
+									    replace=Rewrite.RULE (ExpBuild.var (Symbol.name iter_sym1))}) before_iters
+			       in
+				   Match.applyRewritesExp (rewrite_iterators @ [rewrite_symbol]) exp
+			       end
+
+			   (* combine inputs *)
+			   val unmatched_inputs = List.filter (fn{name,...}=> not (List.exists (fn{name=name',...}=> sameSymbolinTerms (name,name')) (!inputs1))) (!inputs2)
+			   fun updateInput {name, default} = 
+			       {name=(ExpProcess.exp2term o updateIterator o ExpProcess.term2exp) name,
+				default= case default of 
+					     SOME d => SOME (updateIterator d)
+					   | NONE => NONE}
+			   val inputs' = map updateInput ((!inputs1) @ unmatched_inputs)
+
+			   (* combine outputs *)
+			   val unmatched_outputs = List.filter (fn{name,...}=> not (List.exists (fn{name=name',...}=> sameSymbolinTerms(name,name')) (!outputs1))) (!outputs2)
+			   fun updateOutput {name,contents,condition} =
+			       {name=(ExpProcess.exp2term o updateIterator o ExpProcess.term2exp) name,
+				contents=map updateIterator contents,
+				condition=updateIterator condition}
+			   val outputs' = map updateOutput ((!outputs1) @ unmatched_outputs)
+
+			   (* combine iterators *)
+			   val unmatched_iterators = List.filter (fn{name,...}=> not (List.exists (fn{name=name',...}=> name=name') iters1)) iters2
+			   val iters' = iters1 @ unmatched_iterators
+
+			   (* combine exps *)
+			   val (init_eqs1, rest1) = List.partition ExpProcess.isInitialConditionEq (!exps1)
+			   val (init_eqs2, rest2) = List.partition ExpProcess.isInitialConditionEq (!exps2)
+			   val exps' = map 
+					   updateIterator 
+					   (case position of
+						BEFORE => init_eqs2 @ init_eqs1 @ rest2 @ rest1 
+					      | AFTER => init_eqs1 @ init_eqs2 @ rest1 @ rest2)
+			       
+			   (* update references *)
+			   val _ = inputs1 := inputs'
+			   val _ = outputs1 := outputs'
+			   val _ = exps1 := exps'
+		       in
+			   {name=name,
+			    properties=properties,
+			    inputs=inputs1,
+			    outputs=outputs1,
+			    iterators=iters',
+			    exps=exps1}
+		       end)
+		    mapped_classes
+
+	    val instance' = instance1
+	    val iter_sym' = iter_sym1
+	in
+	    (* return the new combined shard *)
+	    {classes=classes', 
+	     instance=instance',
+	     iter_sym=iter_sym'}
+	end
+in
+fun combineDiscreteShards (shardedModel as (_, sysprops)) =
+    let
+	(* create a table of iterators *)
+	fun isIndependent (_, DOF.CONTINUOUS _) = true
+	  | isIndependent (_, DOF.DISCRETE _) = true
+	  | isIndependent _ = false
+	fun isDependentOn sym (_, DOF.ALGEBRAIC (_, sym')) = sym=sym'
+	  | isDependentOn sym (_, DOF.UPDATE sym') = sym=sym'
+	  | isDependentOn sym (_, DOF.IMMEDIATE) = true
+	  | isDependentOn sym _ = false
+	val iter_list : (DOF.systemiterator list) = map (toIterator shardedModel) (iterators shardedModel)
+	val independent_iterators : (DOF.systemiterator list)  = List.filter isIndependent iter_list
+	val iterator_dependencies : (Symbol.symbol * DOF.systemiterator list) list = 
+	    map 
+		(fn(iter_sym, _)=> (iter_sym, List.filter (isDependentOn iter_sym) iter_list))
+		independent_iterators
+
+	(* first combine all iterators with the same time step *)
+	fun iterator_to_timestep (x, DOF.DISCRETE {sample_period}) = SOME (x, sample_period)
+	  | iterator_to_timestep _ = NONE
+
+	(* combine_dependent_shards merges the algebraic iterators and update iterator into the original discrete shard *)
+	fun combine_dependent_shards all_iters (base_shard, []) = base_shard
+	  | combine_dependent_shards all_iters (base_shard, (iter_sym, DOF.ALGEBRAIC (DOF.PREPROCESS, _))::rest) = combine_dependent_shards all_iters (combineTwoShards all_iters (base_shard, valOf (findShard (shardedModel, iter_sym))) BEFORE, rest)
+	  | combine_dependent_shards all_iters (base_shard, (iter_sym, _)::rest) = combine_dependent_shards all_iters (combineTwoShards all_iters (base_shard, valOf (findShard (shardedModel, iter_sym))) AFTER, rest)
+
+	(* combine_independent_shards merges each of the discrete iterators into one shard, combining all the dependent shards found in the process into one list *)
+	fun combine_independent_shards all_iters nil = DynException.stdException("Can't combine nil shards", "ShardedModel.combineDiscreteIterators.combine_independent_shards", Logger.INTERNAL)
+	  | combine_independent_shards all_iters ((shard, dependent_iterators)::nil) = (shard, dependent_iterators)
+	  | combine_independent_shards all_iters ((shard1, dependent_iterators1)::(shard2, dependent_iterators2)::rest) = 
+	    combine_independent_shards all_iters ((combineTwoShards all_iters (shard1, shard2) AFTER, 
+						   dependent_iterators1 @ dependent_iterators2)::rest)
+
+	val iters_with_dt : ((Symbol.symbol * DOF.systemiterator list) * real) list = (List.mapPartial (fn(mapping as (iter_sym, _))=> iterator_to_timestep (mapping, #2 (toIterator shardedModel iter_sym))) iterator_dependencies)
+	(* group all shards by unique timesteps - only merge if the time step is the same *)
+	val unique_dt_list : real list = Util.uniquify_by_fun Real.== (map (fn(_, dt)=> dt) iters_with_dt)
+
+	(* merge all the shards here - create a list of all iterator symbols that have been merged *)
+	val (reducedShards, all_iterator_symbols) = 
+	    ListPair.unzip 
+		(map
+		     (fn(dt)=>  
+			let
+			    val matching_iterators = map #1 (List.filter (fn(_, dt') => Real.== (dt,dt')) iters_with_dt)
+			    val all_iterator_symbols = Util.uniquify (Util.flatmap (fn(iter_sym, iter_dependency_list)=> iter_sym::(map (fn(iter_sym, _)=> iter_sym) iter_dependency_list)) matching_iterators)
+			    (*val _ = Util.log ("Updating matching iterator symbols: " ^ (Util.symlist2s all_iterator_symbols))*)
+			    val combined_independent = combine_independent_shards all_iterator_symbols (map (fn(iter_sym, dependent_iterators)=> (valOf (findShard (shardedModel, iter_sym)), dependent_iterators)) matching_iterators)
+			    val combined_dependent = combine_dependent_shards all_iterator_symbols combined_independent
+			in
+			    (combined_dependent, all_iterator_symbols)
+			end)
+		     unique_dt_list)
+	val all_iterator_symbols = Util.uniquify (List.concat all_iterator_symbols)
+
+	(* now create a new shard list based on the ones that have been reduced down and the remaining ones that have been untouched *)
+	val shard_list = reducedShards @ 
+			 (map (fn(iter_sym, _)=> valOf (findShard (shardedModel, iter_sym)))
+			      (List.filter (fn(iter_sym,_)=> not (List.exists (fn(iter_sym')=> iter_sym=iter_sym') all_iterator_symbols)) iter_list))
+				   
+
+	(* update the system properties with the new iterator information *)
+	val shard_list_iterators = map #iter_sym shard_list
+	val {iterators, precision, target, parallel_models, debug, profile} = sysprops
+	val iterators' = List.filter (fn(iter_sym, _)=> List.exists (fn(iter_sym')=>iter_sym=iter_sym') shard_list_iterators) iterators
+	val sysprops' = {iterators=iterators',
+			 precision=precision,
+			 target=target,
+			 parallel_models=parallel_models,
+			 debug=debug,
+			 profile=profile}
+
+
+	(* for debugging *)
+	val iter_count = List.length shard_list
+	val _ = app
+		    (fn({classes,instance,iter_sym},n)=>	
+		       let
+			   val model' = (classes, instance, sysprops')
+		       in
+			   (CurrentModel.setCurrentModel(model');
+			    log("\n==================   () Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") (After aggregating shards) =====================");
+			    DOFPrinter.printModel model')
+		       end)
+		    (StdFun.addCount shard_list)
+
+
+    in
+	(shard_list, sysprops')
+    end
+end
 
 end

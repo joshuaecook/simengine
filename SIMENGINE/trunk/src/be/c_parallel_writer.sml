@@ -756,7 +756,7 @@ fun update_wrapper shardedModel =
 			    val basename = ClassProcess.class2basename class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "(const statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
+				(if reads_iterator iter class then "("^(*"const "^*)"statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
 				 if writes_iterator iter class then "(statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
 				 if reads_system class then "props->system_states, " else "")
 
@@ -1198,7 +1198,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	     statewriteprototype,
 	     systemstatereadprototype) =
 	    (if reads_iterator iter class then
-		 "const statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+		 (*"const " ^ *)"statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
 	     else "",
 	     if writes_iterator iter class then
 		 "statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
@@ -1229,7 +1229,8 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val (initvalue_exps, rest_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
 	val (valid_exps, rest_exps) = List.partition (fn(exp)=> ExpProcess.isIntermediateEq exp orelse
 							        ExpProcess.isInstanceEq exp orelse
-							        ExpProcess.isStateEq exp) rest_exps
+							        ExpProcess.isStateEq exp orelse
+								ExpProcess.isReadStateEq exp) rest_exps
 	val _ = if (List.length rest_exps > 0) then
 		    (Util.log ("Internal Error: Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class)));
 		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (e2s exp))) rest_exps;
@@ -1278,6 +1279,8 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    differenceeq2prog exp
 		else if (ExpProcess.isInstanceEq exp) then
 		    instanceeq2prog exp
+		else if (ExpProcess.isReadStateEq exp) then
+		    differenceeq2prog exp
 		else
 		    DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.class2flow_code.equ_progs", Logger.INTERNAL)
 
@@ -1556,7 +1559,7 @@ fun flow_code shardedModel iter_sym =
 			     statewriteprototype,
 			     systemstatereadprototype) =
 			    (if reads_iterator iter class then
-				 "const statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+				 (*"const " ^ *)"statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
 			     else "",
 			     if writes_iterator iter class then
 				 "statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
@@ -1616,7 +1619,7 @@ fun model_flows shardedModel =
 	       let val class = CurrentModel.classname2class top_class
 		   val basename = ClassProcess.class2basename class
 		   val (statereads, statewrites, systemstatereads) =
-		       (if reads_iterator iter class then "(const statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
+		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
 			if writes_iterator iter class then 
 			    "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " 
 			else if requiresMatrix then
@@ -1633,7 +1636,7 @@ fun model_flows shardedModel =
 
     in
 	[$"",
-	 $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, const CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, const unsigned int first_iteration, const unsigned int modelid){"),
+	 $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, "(*const *)^"CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, const unsigned int first_iteration, const unsigned int modelid){"),
 	 SUB($("switch(props->iterator){") ::
 	     (map subsystem_flow_call (ShardedModel.iterators shardedModel)) @
 	     [$("default: return 1;"),

@@ -327,6 +327,7 @@ fun requiresFlattening () =
 	    case iter_type of
 		DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) => true
 	      | DOF.CONTINUOUS (Solver.EXPONENTIAL_EULER _) => true
+	      | DOF.CONTINUOUS (Solver.FORWARD_EULER _) => DynamoOptions.isFlagSet "aggregate"
 	      | _ => false
     in
 	(DynamoOptions.isFlagSet "flatten") orelse

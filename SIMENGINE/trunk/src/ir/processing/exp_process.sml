@@ -34,6 +34,7 @@ val isPreProcessStateEq : Exp.exp -> bool
 val isInProcessStateEq : Exp.exp -> bool
 val isPostProcessStateEq : Exp.exp -> bool
 val isUpdateEq : Exp.exp -> bool
+val isReadStateEq : Exp.exp -> bool (* checks whether the equation writes to a "read" state *)
 val isPattern : Exp.exp -> bool
 
 val isIntermediateTerm : Exp.exp -> bool
@@ -49,6 +50,7 @@ val prependIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val appendIteratorToSymbol : Symbol.symbol -> Exp.exp -> Exp.exp
 val updateTemporalIteratorToSymbol : (Symbol.symbol * (Symbol.symbol -> Symbol.symbol)) -> Exp.exp -> Exp.exp (* update temporal iterators, requires a new iterator name, and a change function that can create a name (just used for update iterators to change scopes).  This requires that an Exp.TERM (Exp.SYMBOL) is passed in. *)
 val updateTemporalIterator : Iterator.iterator -> Exp.exp -> Exp.exp (* changes the temporal iterator of a symbol to a new temporal iterator *)
+val renameTemporalIteratorForAggregating : (Symbol.symbol list * Symbol.symbol) -> Exp.exp -> Exp.exp
 val exp2spatialiterators : Exp.exp -> Iterator.iterator list
 val exp2temporaliterator : Exp.exp -> Iterator.iterator option
 
@@ -473,6 +475,25 @@ fun isUpdateEq exp =
     isEquation exp andalso
     isNextUpdateTerm (lhs exp)
     
+fun isStateBufferTerm (Exp.TERM (Exp.SYMBOL (_, props))) =
+    (case Property.getScope props of
+	Property.READSYSTEMSTATE _ => true
+      | Property.READSTATE _ => true
+      | Property.WRITESTATE _ => true
+      | Property.READSYSTEMSTATENEXT _ => true
+      | _ => false)
+  | isStateBufferTerm _ = false
+
+fun isReadStateTerm (Exp.TERM (Exp.SYMBOL (_, props))) =
+    (case Property.getScope props of
+	Property.READSYSTEMSTATE _ => true
+      | _ => false)
+  | isReadStateTerm _ = false
+
+fun isReadStateEq exp =
+    isEquation exp andalso
+    isReadStateTerm (lhs exp)
+
 fun isPattern (Exp.TERM(Exp.PATTERN _)) = true
   | isPattern _ = false
 
@@ -622,9 +643,12 @@ fun isIntermediateTerm exp =
 	let
 	    val derivative = Property.getDerivative props
 	    val iterators = Property.getIterator props
+	    val islocal = case Property.getScope props of
+			    Property.LOCAL => true
+			  | _ => false
 	    val all_iterators = CurrentModel.iterators()
 	in
-	    not (isAlgebraicStateTerm exp) andalso not (isNextUpdateTerm exp) andalso
+	    islocal andalso not (isAlgebraicStateTerm exp) andalso not (isNextUpdateTerm exp) andalso
 	    case (derivative, iterators) of
 		(SOME _, _) => false
 	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
@@ -1104,6 +1128,97 @@ fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t 
 							      "ExpProcess.updateTemporalIterator",
 							      Logger.INTERNAL)
 
+(* here is a special function that will fix all the temporal iterators as is required for aggregating shards.  This is called by a rewrite rule in ShardedModel.combineDiscreteShards *)
+(* this only works across symbols - the term rewriter will match only symbols *)
+fun renameTemporalIteratorForAggregating (before_iter_sym_list, after_iter_sym) exp =
+    (* first check to see if it is an iterator *)
+    case exp of
+	Exp.TERM (Exp.SYMBOL (sym, props)) => 
+	if List.exists (fn(sym')=>sym=sym') before_iter_sym_list then
+	    Exp.TERM (Exp.SYMBOL (after_iter_sym, props))
+	else
+	    (case exp2temporaliterator exp of
+		 SOME (iter_sym, iter_index) => if List.exists (fn(sym')=>iter_sym=sym') before_iter_sym_list then
+						    replaceIterator {before_iter_sym=iter_sym,
+								     before_iter_sym_list=before_iter_sym_list,
+								     after_iter_sym=after_iter_sym,
+								     sym=sym,
+								     symprops = props,
+								     iter_index=iter_index,
+								     exp=exp}
+						else 
+						    exp (* not an iterator that matters *)
+	       | NONE => exp) (* does not have a temporal iterator *)
+      | _ => exp (* not a symbol *)
+and replaceIterator {before_iter_sym, before_iter_sym_list, after_iter_sym, sym, symprops, iter_index, exp} =
+    let
+	fun needsReplacing iter_sym = List.exists (fn(iter_sym')=>iter_sym=iter_sym') before_iter_sym_list
+	fun updateIterSym iter_sym = if needsReplacing iter_sym then
+					 after_iter_sym
+				     else
+					 iter_sym
+
+	val (_, iter_type) = CurrentModel.itersym2iter before_iter_sym
+	val isPostProcess = case iter_type of DOF.ALGEBRAIC (DOF.POSTPROCESS, _) => true | _ => false
+	val isPreProcess = case iter_type of DOF.ALGEBRAIC (DOF.PREPROCESS, _) => true | _ => false
+	val isUpdate = case iter_type of DOF.UPDATE _ => true | _ => false
+
+	val spatial_iterators = exp2spatialiterators exp
+	(* ignore derivative property - shouldn't exist *)
+	val scope = Property.getScope symprops
+
+	(* update the iter index depending on whether it is pre process or post process*)
+	val iter_index' = if isPreProcess then
+			      case iter_index of
+				  Iterator.RELATIVE 1 => Iterator.RELATIVE 0
+				| _ => iter_index
+			  else if isPostProcess orelse isUpdate then
+			      case iter_index of
+				  Iterator.RELATIVE 0 => Iterator.RELATIVE 1
+				| _ => iter_index
+			  else
+			      iter_index
+
+	(* update the scope *)
+	val updated_sym = updateIterSym sym
+	val scope' = case scope of
+			 Property.READSTATE sym => 
+			 (case iter_index' of
+			      Iterator.RELATIVE 0 => 
+			      Property.READSTATE (updateIterSym sym)
+			    | Iterator.RELATIVE 1 => 
+			      Property.WRITESTATE (updateIterSym sym)
+			    | _ => DynException.stdException("Unexpected iterator1", "ExpProcess.replaceIterator", Logger.INTERNAL))
+		       | Property.READSYSTEMSTATE sym => 
+			 let val updated_sym = updateIterSym sym
+			 in if updated_sym = sym then
+				scope
+			    else
+				Property.READSTATE updated_sym
+			 end
+		       | Property.READSYSTEMSTATENEXT sym =>
+			 let val updated_sym = updateIterSym sym
+			 in if updated_sym = sym then
+				scope
+			    else
+				Property.READSTATE updated_sym
+			 end
+		       | Property.WRITESTATE sym => 			 
+			 (case iter_index' of
+			      Iterator.RELATIVE 0 => 
+			      Property.READSTATE (updateIterSym sym)
+			    | Iterator.RELATIVE 1 => 
+			      Property.WRITESTATE (updateIterSym sym)
+			    | _ => DynException.stdException("Unexpected iterator2", "ExpProcess.replaceIterator", Logger.INTERNAL))
+		       | _ => scope
+
+	(* update system properties *)
+	val symprops' = Property.setIterator (Property.setScope symprops scope') ((updateIterSym before_iter_sym, iter_index')::spatial_iterators)
+
+    in
+	Exp.TERM (Exp.SYMBOL (sym, symprops'))
+    end
+
 fun assignCorrectScopeOnSymbol exp =
     (case exp 
       of Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
@@ -1148,7 +1263,7 @@ fun assignCorrectScopeOnSymbol exp =
 		     in
 			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
 		     end
-		 else if isIntermediateTerm exp then
+		 else if isIntermediateTerm exp orelse isStateBufferTerm exp then
 		     let
 			 val iter_sym' = case iter_type of DOF.UPDATE v => v | _ => iter_sym
 		     in
@@ -1160,7 +1275,7 @@ fun assignCorrectScopeOnSymbol exp =
 		     (user_error exp "Invalid positive temporal index found on quantity";
 		      exp)
 		 else
-		     error exp "Unexpected expression found when assign correct scope - unknown expression type"
+		     error exp "Unexpected expression found when assigning correct scope - unknown expression type"
 	       | NONE => (*(Logger.log_error($("Unexpected expression '"^(e2s exp)^"' found when assigning correct scope - no temporal iterator"));
 			    DynException.setErrored();*)
 		 exp

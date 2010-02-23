@@ -26,6 +26,7 @@
 <termrewritelimit = 25>
 <optimize = true>
 <flatten = false>
+<aggregate = false>
 <logrewrites = false>
 <generateC = true>
 <generateMathematica = false>

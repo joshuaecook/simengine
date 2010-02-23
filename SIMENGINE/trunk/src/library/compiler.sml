@@ -93,6 +93,16 @@ fun std_compile exec args =
 	      val _ = log("Normalizing parallel model ...")
 	      val forkedModels = ShardedModel.forkModel (CurrentModel.getCurrentModel())
 
+	      val forkedModels = if DynamoOptions.isFlagSet "aggregate" then
+				     let
+					 val _ = log("Aggregating iterators ...")
+					 val forkedModels' = ShardedModel.combineDiscreteShards forkedModels
+				     in
+					 forkedModels'
+				     end
+				 else
+				     forkedModels
+
 	      val _ = if DynamoOptions.isFlagSet "optimize" then
 			  let
 			      val (shards, sysprops) = forkedModels
