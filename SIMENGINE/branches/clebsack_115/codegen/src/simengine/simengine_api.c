@@ -162,11 +162,11 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       break;
     case INSTANCES:
       if(opts->num_models){
-	ERROR(Simatra:Simex:parse_args, "Number of models can only be specified once.\n");
+	ERROR(Simatra:Simex:parse_args, "Number of model instances can only be specified once.\n");
       }
       opts->num_models = atoi(optarg);
       if(opts->num_models < 1){
-	ERROR(Simatra:Simex:parse_args, "Invalid number of models %d\n", opts->num_models);
+	ERROR(Simatra:Simex:parse_args, "Invalid number of model instances %d\n", opts->num_models);
       }
       break;
     case INPUT_FILE:
@@ -213,7 +213,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       // are not understood. Otherwise a typo could lead to executing a simulation
       // with undesired default options.
     default:
-      ERROR(Simatra:Simex:parse_args, "Invalid argument %s\n", argv[optind]);
+      ERROR(Simatra:Simex:parse_args, "Invalid argument\n");
     }
   }
 

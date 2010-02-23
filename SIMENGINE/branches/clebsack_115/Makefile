@@ -103,7 +103,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -link-opt "-ldl -lz" -export-header src/ffi/ffi-exports.h -link-opt "codegen/simlib/simlib.a -fopenmp"
+SIMPLE_ARGS = -link-opt "-ldl -lz" -export-header src/ffi/ffi-exports.h -link-opt "codegen/simlib/simlib.a -fopenmp -rdynamic"
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1
@@ -309,7 +309,7 @@ else
 DOCUMENTATION_BUILD_FILES = 
 endif
 
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/lib/libcodegen.sim $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
 
 
 ifeq ($(BUILD_TYPE),software)
@@ -338,9 +338,9 @@ links: $(BUILD_DIR)
 
 COMPILER_BASIS = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_BASIS))
-COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c)
+COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c) codegen/src/*.o
 COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a
-COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_SOURCES) $(COMPILER_EXTRA_LIBS)
+COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
 
 
 # Dynamo Compilation Targets
@@ -397,9 +397,6 @@ $(BUILD_DIR)/%.m: interfaces/matlab/%.m
 	$(CP) $< $@
 
 $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
-	$(CP) $< $@
-
-$(BUILD_DIR)/lib/libcodegen.sim: codegen/lib/libcodegen.sim
 	$(CP) $< $@
 
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
@@ -563,7 +560,7 @@ codegen_clean:
 
 codegen/simlib/simlib.a: codegen
 codegen/simlib/simlib: codegen
-codegen/lib/libcodegen.sim: codegen
+codegen/src/*.o: codegen
 
 # User and developer documents
 # ==============================================================================================

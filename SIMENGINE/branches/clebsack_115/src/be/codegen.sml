@@ -10,27 +10,20 @@ end
 structure Codegen : CODEGEN =
 struct
 
-val simengine = getSIMENGINE()
-
-val bin_path = simengine ^ "/bin/"
-val lib_path = simengine ^ "/lib/"
-val simlib = bin_path ^ "simlib"
-
 val wrapper = "/******************************************************************************/\n"
 
 fun get fname =
-    let val contents =  Simlib.getContentsFromArchive {archive = (lib_path ^ "libcodegen.sim"),
+    let val contents =  Simlib.getContentsFromArchive {archive = "",
 						       objectName = fname}
     in
 	if 0 < String.size contents then
 	    contents
-	else "#error file '" ^ fname ^ "' has zero length in " ^ lib_path ^ "libcodegen.sim\n"
+	else "#error file '" ^ fname ^ "' has zero length in codegen library\n"
     end
-    handle Simlib.NoSuchObject => "#error file '" ^ fname ^ "' not found in " ^ lib_path ^ "libcodegen.sim\n"
+    handle Simlib.NoSuchObject => "#error file '" ^ fname ^ "' not found in codegen library\n"
 
 fun getC fname = "/* " ^ fname ^ " */\n" ^ wrapper ^ (get fname) ^ wrapper
 
 fun apply_args replace_rules str =
     foldl (fn((from, to),str')=> Util.repStr(str', from, to)) str replace_rules
-
 end
