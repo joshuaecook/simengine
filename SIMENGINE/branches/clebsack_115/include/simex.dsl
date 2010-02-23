@@ -32,14 +32,14 @@ import "command_line.dsl"
 
     /* Returns a tuple of (compiler, options)
      * suitable for application by Process.run(). */
-    function compile (outfile: String, args)
-      (CC, ["-c"] + TARGET_ARCH + ["-o", outfile] + CFLAGS + CPPFLAGS + args)
+    function compile (exfile: String, args)
+      (CC, TARGET_ARCH + ["-o", exfile] + CFLAGS + CPPFLAGS + LDFLAGS + args + LDLIBS)
     end
 
     /* Returns a tuple of (linker, options)
      * suitable for application by Process.run(). */
     function link (outfile: String, args)
-      (LD, TARGET_ARCH + ["-o", outfile] + LDFLAGS + args + LDLIBS)
+      (LD, TARGET_ARCH + ["-o", outfile] + LDFLAGS + args)
     end
   end
 
@@ -55,11 +55,18 @@ import "command_line.dsl"
     var ldFlags = []
     var ldLibs = ["-ldl", "-lm", "-lgomp"]
 
+    constructor(compilerSettings)
+      debug = compilerSettings.debug
+      profile = compilerSettings.profile
+      precision = compilerSettings.precision
+    end
+
+    function getOsLower() = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
     function make ()
       var simEngine = Environment.getVar("SIMENGINE")
       var m = Make.new()
-      var osLower = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
-
+      var osLower = getOsLower()
 
       m.CFLAGS = cFlags.clone ()
       m.CPPFLAGS = cppFlags.clone ()
@@ -115,7 +122,7 @@ import "command_line.dsl"
 
     function link (soname: String, outfile: String, args)
       var m = make()
-      var osLower = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+      var osLower = getOsLower()
 
       if "darwin" <> osLower then
 	m.LDFLAGS.push_back("-shared")
@@ -129,6 +136,9 @@ import "command_line.dsl"
   end
 
   class TargetCPU extends Target
+    constructor(compilerSettings)
+      super(compilerSettings)
+    end
     function setupMake (m: Make)
       if "double" <> precision then
 	m.LDLIBS.push_back("-lcvode_float")
@@ -141,10 +151,10 @@ import "command_line.dsl"
   end
 
   class TargetOpenMP extends Target
-    constructor (settings)
-      super ()
+    constructor(compilerSettings)
+      super (compilerSettings)
       parallelModels = Devices.OPENMP.numProcessors()
-      settings.parallel_models = parallelModels
+      compilerSettings.parallel_models = parallelModels
     end
 
     function setupMake (m: Make)
@@ -165,15 +175,15 @@ import "command_line.dsl"
     var ptxasFlags = ["-v"]
     var openccFlags = ["-v"]//, "-OPT:Olimit=99999"]
 
-    constructor (settings)
-      super ()
+    constructor(compilerSettings)
+      super (compilerSettings)
 
       // MP * warp size * 4 to keep high residency (probably needs tweaking)
       parallelModels = Devices.CUDA.getProp(1, "multiProcessorCount").tonumber() * 32 * 4
-      settings.parallel_models = parallelModels
+      compilerSettings.parallel_models = parallelModels
 
-      precision = settings.precision
-      emulate = settings.emulate
+      precision = compilerSettings.precision
+      emulate = compilerSettings.emulate
 
       var cc = shell("which", ["nvcc"])
       if cc.isempty() then 
@@ -190,7 +200,7 @@ import "command_line.dsl"
       if not emulate and precision == "double" and device_arch <> "sm_13" then
         warning("CUDA device does not support double precision. Defaulting to single precision float.")
         precision = "float"
-        settings.precision = "float"
+        compilerSettings.precision = "float"
       end
     end
 
@@ -315,8 +325,24 @@ import "command_line.dsl"
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
 	autoRecompile(modelFile, compilerSettings)
+	if objectContains(simulationSettings, "stop") then
+	  simulate(FileSystem.realpath(compilerSettings.exfile), simulationSettings)
+	else
+	  println("Not running: " + compilerSettings.exfile + " " + simulationSettings.contents.tostring())
+	end
       end
     end
+  end
+
+  function simulate(simulation, simulationSettings)
+    var simexCommands = []
+    foreach setting in simulationSettings.keys do
+      simexCommands.push_back("--" + setting)
+      if simulationSettings.getValue(setting) <> true then
+	simexCommands.push_back(simulationSettings.getValue(setting).tostring())
+      end
+    end
+    print(join("", shell(simulation, simexCommands)))
   end
 
   function printUsage()
@@ -375,6 +401,22 @@ import "command_line.dsl"
       compilerSettings.add("precision", precisionOptions.getValue(precisions.first()))
     end
 
+    if objectContains(commandLineOptions, "debug") then
+      compilerSettings.add("debug", true)
+    end
+
+    if objectContains(commandLineOptions, "emulate") then
+      if("cuda" == compilerSettings.target) then
+	compilerSettings.add("emulate", true)
+      else
+	error("Emulation is only valid for the GPU.")
+      end
+    end
+
+    if objectContains(commandLineOptions, "profile") then
+      compilerSettings.add("profile", true)
+    end
+
     // Add any defaults for settings that were not set from the command-line
     foreach key in defaultCompilerSettings.keys do
       if not(objectContains(compilerSettings, key)) then
@@ -399,7 +441,7 @@ import "command_line.dsl"
     end
 
     // Set all the simulations settings from the commandLineOptions
-    if copyOptions(commandLineOptions, simulationSettings, ["start", "stop", "instances", "inputs", "states", "outputs"]) then
+    if copyOptions(commandLineOptions, simulationSettings, ["start", "stop", "instances", "inputs", "states", "outputs", "gnuplot"]) then
       if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")
@@ -428,8 +470,9 @@ import "command_line.dsl"
 	end
       end
       simulationSettings
+    else
+      ()
     end
-    ()
   end
 
   function autoRecompile (filename: String, compilerSettings: Table)
@@ -442,6 +485,19 @@ import "command_line.dsl"
     var simfile = Path.join(working_dir, ((Path.base file) + ".sim"))
 
     var needsToCompile = true
+
+    var target
+
+    // Instantiating a target could override compilerSettings based on target type (i.e. precision = float for GPU arch_11)
+    if "openmp" == compilerSettings.target then
+      target = TargetOpenMP.new(compilerSettings)
+    elseif "cuda" == compilerSettings.target then
+      target = TargetCUDA.new(compilerSettings)
+    elseif "cpu" == compilerSettings.target then
+      target = TargetCPU.new(compilerSettings)
+    else
+      error ("Unknown target " + compilerSettings.target)
+    end
 
     // Opening an archive succeeds if the file exists and a manifest can be read.
     var archive = Archive.openArchive (simfile)
@@ -477,64 +533,47 @@ import "command_line.dsl"
     end
 
     if needsToCompile then
-      compile (filename, compilerSettings)
+      compile (filename, target, compilerSettings)
     else
       if compilerSettings.debug then
 	println ("reusing existing SIM")
       end
-      "Compilation Finished Successfully"
     end
   end
 
   function isArchiveCompatibileWithCompilerSettings (archive, compilerSettings)
     function compatible (executable)
-      ((executable.target == compilerSettings.target) and
-       (executable.precision == compilerSettings.precision) and
-       (executable.debug or not(compilerSettings.debug)) and
-       (executable.profile == compilerSettings.profile) and
-       (not("cuda" == executable.target)
-	or executable.emulate == compilerSettings.emulate))
+      var compat = ((executable.target == compilerSettings.target) and
+		    (executable.precision == compilerSettings.precision) and
+		    (executable.debug or not(compilerSettings.debug)) and
+		    (executable.profile == compilerSettings.profile) and
+		    (not("cuda" == executable.target)
+		     or executable.emulate == compilerSettings.emulate))
+      if compat then
+	compilerSettings.add("exfile", executable.exfile)
+      end
+      compat
     end
 
     () <> Archive.findExecutable (archive, compatible)
   end
 
-  function compile (filename, compilerSettings)
+  function compile (filename, target, compilerSettings)
     if compilerSettings.debug then
-      println ("compiling " + filename)
+      println ("Compiling " + filename)
     end
-
-    println("Loading model from: " + filename)
 
     var mod = LF loadModel (filename)
     var name = mod.template.name
     var cname = name + ".c"
     mod.template.settings = compilerSettings
 
-    var target
-
-    if "openmp" == compilerSettings.target then
-      target = TargetOpenMP.new(compilerSettings)
-    elseif "cuda" == compilerSettings.target then
-      target = TargetCUDA.new(compilerSettings)
-    elseif "cpu" == compilerSettings.target then
-      target = TargetCPU.new()
-    else
-      error ("Unknown target " + compilerSettings.target)
-    end
-
-    target.debug = compilerSettings.debug
-    target.profile = compilerSettings.profile
-
-    target.precision = compilerSettings.precision
-
     var instantiatedModel = mod.instantiate()
     var stat = LF compile (instantiatedModel)
-    var compilation_successful = LF str_contains (stat, "Compilation Finished Successfully")
     var simfile
     
-    if compilation_successful then
-      if "gpu" == compilerSettings.target or "cuda" == compilerSettings.target then
+    if true == stat then
+      if "cuda" == compilerSettings.target then
 	shell("ln", ["-s", cname, name + ".cu"])
 	cname = name + ".cu"
       end
@@ -542,6 +581,8 @@ import "command_line.dsl"
       compilerSettings.add("cSourceFilename", cname)
       
       simfile = Archive.createArchive(name + ".sim", settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
+    else
+      error(stat)
     end
 
     stat

@@ -26,7 +26,7 @@ int log_outputs(output_buffer *ob, simengine_output *outputs, unsigned int model
       output->alloc *= 2;
 #pragma omp critical
       {
-	output->data = (double*)se_alloc.realloc(output->data, output->num_quantities * output->alloc * sizeof(double));
+	output->data = (double*)realloc(output->data, output->num_quantities * output->alloc * sizeof(double));
       }
       if (!output->data)
 	{ return 1; }

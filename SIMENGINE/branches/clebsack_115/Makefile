@@ -172,9 +172,6 @@ endif
 
 # Creates lists of MATLAB/Octave targets for each available MEX type
 SIMENGINE_WRAPPER = $(addprefix simEngine_wrapper,$(MEXEXT))
-SIMEX_HELPER = $(addprefix simex_helper,$(MEXEXT))
-SIMEX_HELPER_BUILD = $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER))
-
 
 # Branching Related Parameters
 # ==============================================================================================
@@ -312,7 +309,7 @@ else
 DOCUMENTATION_BUILD_FILES = 
 endif
 
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/lib/libcodegen.sim $(BUILD_DIR)/bin/simex $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/lib/libcodegen.sim $(MATLAB_BUILD_FILES)
 
 
 ifeq ($(BUILD_TYPE),software)
@@ -423,7 +420,7 @@ MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhel
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS)
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 MATLAB_FILES += mexinterface
-MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
+MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers
 
@@ -436,9 +433,6 @@ share_cuda:
 	$(info Running target cuda_utils)
 	$(MAKE) -C share/cuda all
 
-
-$(BUILD_DIR)/simex_helper.mex%: interfaces/matlab/src/simex_helper.mex%
-	$(CP) $< $@
 
 $(BUILD_DIR)/simEngine_wrapper.mex%: interfaces/matlab/src/simEngine_wrapper.mex%
 	$(CP) $< $@
@@ -490,7 +484,7 @@ $(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/src/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
 	$(CP) $< $@	
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
 	$(info Local install at $(LOCAL_INSTALL) ready)
 
 # Build type options
@@ -570,11 +564,6 @@ codegen_clean:
 codegen/simlib/simlib.a: codegen
 codegen/simlib/simlib: codegen
 codegen/lib/libcodegen.sim: codegen
-
-$(BUILD_DIR)/bin/simex: interfaces/c/simex.c interfaces/c/simex_commandline.c interfaces/c/simex.h codegen/src/simengine/simengine_api.h codegen/src/simengine/memory_layout.h
-	@$(MAKE) -C interfaces/c simex $(ARCH64_FLAG) DEBUG=$(DEBUG)
-	$(CP) interfaces/c/simex $@
-
 
 # User and developer documents
 # ==============================================================================================
@@ -812,7 +801,7 @@ install: system
 
 
 .PHONY: clean
-clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_clean share_cuda_clean testing_clean
+clean: mostlyclean solvers_clean codegen_clean mexinterface_clean share_cuda_clean testing_clean
 	$(RM) $(BUILD)_*
 	$(RM) $(BUILD)
 #	$(RM) ../$(RPM_TEMP_DIR)
@@ -844,10 +833,6 @@ solvers_clean:
 .PHONY: mexinterface_clean
 mexinterface_clean:
 	$(MAKE) -C interfaces/matlab clean
-
-.PHONY: cinterface_clean
-cinterface_clean:
-	$(MAKE) -C interfaces/c clean
 
 .PHONY: share_cuda_clean
 share_cuda_clean:
