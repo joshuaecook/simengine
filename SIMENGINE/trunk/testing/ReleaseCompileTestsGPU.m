@@ -7,7 +7,7 @@ buildenginepath = which('simex');
 % determine the example path
 examplepath = fullfile(installpath, 'examples');
 
-dsl_files_str = ls('-1',fullfile(examplepath,'/*/*.dsl'));
+dsl_files_str = [ls('-1',fullfile(examplepath,'/*/*.dsl')) ls('-1',fullfile(examplepath,'/*/*/*.dsl'))];
 dsl_files = strread(dsl_files_str, '%s', 'delimiter', sprintf('\n'));
 
 % create a suite of tests
