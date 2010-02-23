@@ -1,3 +1,5 @@
+// Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.
+
 namespace Archive
 
   namespace Simlib

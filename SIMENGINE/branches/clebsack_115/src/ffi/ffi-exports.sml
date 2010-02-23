@@ -7,12 +7,24 @@ structure FFIExports = struct
 local
     structure Ptr = MLton.Pointer
     val theString: string ref = ref ""
+    val theStrings: string list ref = ref nil
 in
 
 fun getTheString () = ! theString
 
 fun makeTheString (size: int, ptr: Ptr.t) =
     theString := Vector.tabulate (size, (fn i => (chr o Word8.toInt o Ptr.getWord8) (ptr, i)))
+
+fun pushAString (size: int, ptr: Ptr.t) =
+    let val str = Vector.tabulate (size, (fn i => (chr o Word8.toInt o Ptr.getWord8) (ptr, i)))
+    in
+	theStrings := str :: (! theStrings)
+    end
+
+fun popAString () =
+    case ! theStrings
+     of str :: strs => SOME str before theStrings := strs
+      | _ => NONE
 
 end
 
@@ -38,6 +50,9 @@ val _ = _export "heap_update_pointer": (MLton.Pointer.t array * int * MLton.Poin
 
 val _ = _export "make_the_string": (int * MLton.Pointer.t -> unit) -> unit;
     makeTheString
+
+val _ = _export "push_a_string": (int * MLton.Pointer.t -> unit) -> unit;
+    pushAString
 
 
 

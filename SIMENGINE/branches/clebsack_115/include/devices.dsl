@@ -1,10 +1,14 @@
 namespace Devices
     namespace CUDA
-	hidden var command = Environment.getVar("SIMENGINE") + "/bin/device_props"
+        hidden var initialized = false
+
         hidden var proplist = []
         var cudaErr = "Device list not initialized"
         var numDevices = 0
 	hidden function device_props ()
+	/* FIXME recognize and report errors */
+	    var lines = LF cudaDeviceProps ()
+	    cudaErr = LF cudaDevicePropsError ()
 
             var propkeys = ["deviceId",
 			    "name",
@@ -28,29 +32,29 @@ namespace Devices
 			    "canMapHostMemory",
 			    "computeMode"]
 
-	    var p = Process.run(command)
-            var allout = Process.readAll(p)
-	    var lines = allout(1)
-            var errline = join("", allout(2))
-            var stat = Process.reap p
-            if 0 == stat then
-                foreach l in lines do
-                    var propvals = l.strip("\n").split(":")
-                    var proptable = Table.new([keyval.totuple() foreach keyval in zip(propkeys,propvals)])
-                    proplist.push_back(proptable)
-                end
-                numDevices = proplist.length()
-                cudaErr = ("Bad device ID.")
-            else
-                cudaErr = errline
+            foreach l in lines do
+              var propvals = l.split(":")
+              var proptable = Table.new([keyval.totuple() foreach keyval in zip(propkeys,propvals)])
+              proplist.push_back(proptable)
             end
+            numDevices = proplist.length()
+	    if 0 < numDevices then
+	      cudaErr = "Invalid CUDA device id"
+	    end
         end
 
-        hidden var init = device_props()
+        function init ()
+	  if not initialized then
+	    device_props ()
+	    initialized = true
+	  end
+	end
 
         function getProp(devid, prop)
-            if devid > numDevices or devid < 1 then
-                error("CUDA device " + devid + " error: " + cudaErr)
+	    if 0 == numDevices then
+              error("CUDA device " + devid + " error: " + cudaErr)
+            elseif devid > numDevices or devid < 1 then
+	      error("Invalid CUDA device id")
             else
                 if prop == "arch" then
                   "sm_" + (proplist[devid].getValue("major")) + (proplist[devid].getValue("minor"))
@@ -64,5 +68,9 @@ namespace Devices
 
     namespace OPENMP
       function numProcessors() = LF openmpGetNumProcessors()
+    end
+
+    function init ()
+      CUDA.init ()
     end
 end

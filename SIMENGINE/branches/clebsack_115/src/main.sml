@@ -126,7 +126,7 @@ fun main () =
 	fun strEquals x y =
 	    case String.compare (x, y) of EQUAL => true | _ => false
     in
-	case indexOf argv (strEquals "-model")
+	case indexOf argv (strEquals "-simex")
 	 of SOME n => 
 	    (* Noninteractive operating on a model definition. *)
 	    (KEC.UNIT, env)
@@ -135,7 +135,7 @@ fun main () =
 	     of SOME n =>
 		let val filename = if length argv > n + 1 then List.nth (argv, 1 + n) else "-"
 		in 
-		    if #"-" <> String.sub (filename, 0) then
+		    if "-" <> filename orelse 0 < String.size filename andalso #"-" <> String.sub (filename, 0) then
 			(* Noninteractive reading from a file. *)
 			let
 			    val filename = OS.FileSys.fullPath filename

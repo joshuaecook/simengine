@@ -130,6 +130,12 @@ CUDA_LDFLAGS := -L$(CUDA_INSTALL_PATH)/lib64 $(CUDA_LDFLAGS)
 endif
 CUDA_LDLIBS = -lcudart
 endif
+ifneq ($(DARWIN),)
+CUDART_LIBRARY_NAME = libcudart.dylib
+else
+CUDART_LIBRARY_NAME = libcudart.so
+endif
+
 
 # MATLAB and the MEX compiler
 MATLAB := $(shell which matlab 2>/dev/null)

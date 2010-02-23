@@ -123,7 +123,7 @@ typedef enum {
 #endif
 
 // This is a fix for Darwin which does not define __finite
-#ifdef isfinite
+#ifdef __APPLE__
 #define __finite isfinite
 #endif
 

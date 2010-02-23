@@ -285,7 +285,7 @@ import "command_line.dsl"
 				"gpuid",
 				"gpublocksize"]
 
-  var stringOptionNamesAlways = ["model",
+  var stringOptionNamesAlways = ["simex",
 				 "inputs",
 				 "states",
 				 "outputs"]
@@ -348,7 +348,7 @@ import "command_line.dsl"
   function printUsage()
     println("\nsimEngine usage:\n\n" +
 	    "\tSimulation mode: run a simulation from a Diesel model\n" +
-	    "\t\tsimEngine [options] -model <modelfile.dsl>\n\n" +
+	    "\t\tsimEngine [options] -simex <modelfile.dsl>\n\n" +
 	    "\tBatch mode: execute Diesel code from file or STDIN\n" +
 	    "\t\tsimEngine [options] -batch <file.dsl>\n" +
 	    "\t\tsimEngine [options] -batch\n\n" +
@@ -372,12 +372,12 @@ import "command_line.dsl"
 
   function getModelFile(commandLineOptions: Table)
     // Set the full realpath of the model file
-    if not(objectContains(commandLineOptions, "model")) then
+    if not(objectContains(commandLineOptions, "simex")) then
       ()
     else
-      var modelfilepath = FileSystem.realpath(commandLineOptions.getValue("model"))
+      var modelfilepath = FileSystem.realpath(commandLineOptions.getValue("simex"))
       if () == modelfilepath then
-	error("The model file '" + commandLineOptions.getValue("model") + "' does not exist.")
+	error("The model file '" + commandLineOptions.getValue("simex") + "' does not exist.")
       end
       modelfilepath
     end
@@ -390,7 +390,7 @@ import "command_line.dsl"
     if targets.length() > 1 then
       error("Only one target option can be specified.")
     elseif targets.length() == 1 then
-      compilerSettings.add("target", targetOptions.getValue(targets.first()))
+      compilerSettings.add("target", targets.first())
     end
 
     // Check for a single valid precision

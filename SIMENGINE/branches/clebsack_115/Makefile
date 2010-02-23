@@ -103,7 +103,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -link-opt "-ldl -lz" -export-header src/ffi/ffi-exports.h -link-opt "codegen/simlib/simlib.a -fopenmp -rdynamic"
+SIMPLE_ARGS = -link-opt "-ldl -lz" -export-header src/ffi/ffi-exports.h -link-opt "$(COMPILER_EXTRA_LIBS) -fopenmp -rdynamic"
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1
@@ -338,8 +338,8 @@ links: $(BUILD_DIR)
 
 COMPILER_BASIS = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_BASIS))
-COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c) codegen/src/*.o
-COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a
+COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c) codegen/src/*.o
+COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
 
 
@@ -427,9 +427,20 @@ solvers:
 
 .PHONY: share_cuda
 share_cuda:
-	$(info Running target cuda_utils)
-	$(MAKE) -C share/cuda all
+	$(MAKE) -C share/cuda
 
+.PHONY: share_cuda_clean
+share_cuda_clean:
+	$(MAKE) -C share/cuda clean
+
+share/cuda/device_props.a: share_cuda
+
+# share/cuda/device_props.o: LDFLAGS = -ldl
+# share/cuda/device_props.o: CPPFLAGS = $(CUDA_INCLUDES) -DCUDART_LIBRARY_NAME='"$(CUDART_LIBRARY_NAME)"'
+
+
+$(BUILD_DIR)/simex_helper.mex%: interfaces/matlab/src/simex_helper.mex%
+	$(CP) $< $@
 
 $(BUILD_DIR)/simEngine_wrapper.mex%: interfaces/matlab/src/simEngine_wrapper.mex%
 	$(CP) $< $@
@@ -538,17 +549,16 @@ build_includes: include/* solvers
 #	@$(MKDIR) $(BUILD_DIR)/include/solvers/
 #	@cp -fL solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
 
-build_shared: share/*
+build_shared: $(DSL_EL)
 	$(info Populating shared files...)
-	@$(MAKE) share_cuda
-	$(CP) $^ $(BUILD_DIR)/share/
-	-$(CP) share/cuda/device_props $(BUILD_DIR)/bin/
+	[ -d $(BUILD_DIR)/share/emacs ] || $(MKDIR) $(BUILD_DIR)/share/emacs
+	$(CP) $(DSL_EL) $(BUILD_DIR)/share/emacs
 
 $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	$(BUILD_DIR)/bin/$(FILENAME) < /dev/null
+	$(BUILD_DIR)/bin/$(FILENAME) -batch < /dev/null
 
 .PHONY: codegen
 codegen:
@@ -830,10 +840,6 @@ solvers_clean:
 .PHONY: mexinterface_clean
 mexinterface_clean:
 	$(MAKE) -C interfaces/matlab clean
-
-.PHONY: share_cuda_clean
-share_cuda_clean:
-	$(MAKE) -C share/cuda clean
 
 .PHONY: clean-all
 clean-all:

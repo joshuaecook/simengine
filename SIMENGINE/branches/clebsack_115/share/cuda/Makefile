@@ -14,10 +14,15 @@ CUDART_LIBRARY_NAME = libcudart.so
 endif
 
 INCLUDES = $(CUDA_INCLUDES)
-CPPFLAGS = $(INCLUDES) -g -DCUDART_LIBRARY_NAME='"$(CUDART_LIBRARY_NAME)"'
+CPPFLAGS = $(INCLUDES) -DCUDART_LIBRARY_NAME='"$(CUDART_LIBRARY_NAME)"'
 
 .PHONY: all clean
-all: device_props
+all: device_props device_props.a
+
+device_props: CPPFLAGS += -DDEVICE_PROPS_MAIN
+
+device_props.a: device_props.a(device_props.o)
+
 clean:
 	$(RM) *.o *.linkinfo
-	$(RM) device_props
+	$(RM) device_props device_props.a
