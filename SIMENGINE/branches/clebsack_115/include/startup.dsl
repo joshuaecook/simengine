@@ -1,5 +1,9 @@
-var systemDependencies = Dependency.getDependencies()
-Devices.init()
+var systemDependencies
 
-//Simex.runModel()
-runModel()
+function startup ()
+  systemDependencies = Dependency.getDependencies()
+  Devices.init()
+
+  //Simex.runModel()
+  runModel()
+end

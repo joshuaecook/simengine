@@ -103,7 +103,10 @@ fun main () =
 
 	(* Execute the startup file. *)
 	val (env, _) = Exec.run (rep_loop false) env
-				[KEC.ACTION ((KEC.IMPORT "startup.dsl"), PosLog.NOPOS)]
+				[KEC.ACTION 
+				     (KEC.EXP (KEC.APPLY {func=KEC.SYMBOL (Symbol.symbol "startup"),
+							  args=KEC.UNIT}),
+				      PosLog.NOPOS)]
 
 	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
 
