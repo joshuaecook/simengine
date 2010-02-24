@@ -19,6 +19,7 @@ val base_env: (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env) * PosLo
 val simatra_url = "http://www.simatratechnologies.com"
 
 fun CurrentDateTime () = (Date.fromTimeLocal (Posix.ProcEnv.time ())) : Date.date
+val compile_date = CurrentDateTime()
 val year = Date.year (CurrentDateTime())
 
 val copyright = "Copyright "^(Int.toString year)^" Simatra Modeling Technologies, L.L.C."

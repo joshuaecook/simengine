@@ -86,6 +86,11 @@ util/graphs/dfg.sml*)
 
 ir/datastructs/sys.sig
 ir/util.sml
+
+(* licensing and feature set *)
+util/license.sml
+util/features.sml
+
 ir/math/calculus.sml
 ir/math/matrix.sml
 ir/datastructs/target.sml
