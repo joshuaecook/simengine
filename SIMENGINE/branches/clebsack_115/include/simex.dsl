@@ -279,7 +279,8 @@ import "command_line.dsl"
 
   var numberOptionNamesAlways = ["instances",
 				 "start",
-				 "stop"]
+				 "stop",
+				 "seed"]
 
   var numberOptionNamesDebug = ["parallelmodels",
 				"gpuid",
@@ -357,6 +358,7 @@ import "command_line.dsl"
 	    "Currently available options include:\n\n" +
 	    "-start <n>" +
 	    "-stop <n>" +
+	    "-seed <n>" +
 	    "-inputs <file>" +
 	    "-states <file>" +
 	    "-outputs <file>" +
@@ -441,7 +443,7 @@ import "command_line.dsl"
     end
 
     // Set all the simulations settings from the commandLineOptions
-    if copyOptions(commandLineOptions, simulationSettings, ["start", "stop", "instances", "inputs", "states", "outputs", "gnuplot"]) then
+    if copyOptions(commandLineOptions, simulationSettings, ["start", "stop", "seed", "instances", "inputs", "states", "outputs", "gnuplot"]) then
       if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")

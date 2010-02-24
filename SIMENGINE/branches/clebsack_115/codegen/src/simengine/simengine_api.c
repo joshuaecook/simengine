@@ -3,6 +3,7 @@
 static const struct option long_options[] = {
   {"start", required_argument, 0, START},
   {"stop", required_argument, 0, STOP},
+  {"seed", required_argument, 0, SEED},
   {"instances", required_argument, 0, INSTANCES},
   {"inputs", required_argument, 0, INPUT_FILE},
   {"states", required_argument, 0, STATE_INIT_FILE},
@@ -37,10 +38,6 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 
   int models_executed;
   int models_per_batch;
-
-
-  // Seed the entropy source
-  seed_entropy_with_time();
 
 	     
   // Create result structure
@@ -98,6 +95,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 
     // Initialize the solver properties and internal simulation memory structures
     solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, parameters, model_states, &seresult->outputs[AS_IDX(seint.num_outputs, num_models, 0, models_executed)]);
+    random_init(models_per_batch);
     // Run the model
     seresult->status = exec_loop(props);
     seresult->status_message = (char*) simengine_errors[seresult->status];
@@ -159,6 +157,13 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       if(!__finite(opts->stop_time)){
 	ERROR(Simatra:Simex:parse_args, "Stop time is invalid %f.\n", opts->stop_time);
       }
+      break;
+    case SEED:
+      if(opts->seeded){
+	ERROR(Simatra:Simex:parse_args, "Random seed can only be specified once.\n");
+      }
+      opts->seeded = 1;
+      opts->seed = atoi(optarg);
       break;
     case INSTANCES:
       if(opts->num_models){
@@ -430,6 +435,13 @@ int main(int argc, char **argv){
   else{
     if(get_states_inputs(iface, &opts)){
       return 1;
+    }
+
+    // Seed the entropy source
+    if (opts.seeded) {
+      seed_entropy(opts.seed);
+    } else {
+      seed_entropy_with_time();
     }
 
     simengine_result *result = simengine_runmodel(opts.start_time,

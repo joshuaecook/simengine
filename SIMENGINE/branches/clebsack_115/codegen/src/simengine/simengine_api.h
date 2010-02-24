@@ -71,6 +71,8 @@ typedef struct{
 typedef struct{
   double start_time;
   double stop_time;
+  int seeded;
+  int seed;
   int num_models;
   FILE *inputs_file;             
   FILE *states_file;
@@ -88,6 +90,7 @@ typedef enum {
   NO_OPTION,
   START,
   STOP,
+  SEED,
   INSTANCES,
   INPUT_FILE,
   STATE_INIT_FILE,
