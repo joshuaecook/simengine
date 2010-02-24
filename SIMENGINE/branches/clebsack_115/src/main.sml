@@ -96,7 +96,7 @@ fun main () =
 		ignore (MLton.World.save (getSIMENGINESEW ()))
 	    else ()
 
-	val (name, argv) = (CommandLine.name (), CommandLine.arguments ())
+	val argv = CommandLine.arguments ()
 
 	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
 		before DynException.checkToProceed ()
@@ -139,8 +139,12 @@ fun main () =
 			(* Noninteractive reading from a file. *)
 			let
 			    val filename = OS.FileSys.fullPath filename
+					   handle _ => (print ("Unable to locate " ^ filename ^ "\n")
+						      ; raise Usage)
 			    val {dir, file} = OS.Path.splitDirFile filename
 			    val stream = TextIO.openIn filename
+					   handle _ => (print ("Unable to read " ^ filename ^ "\n")
+						      ; raise Usage)
 			in
 			    ParserSettings.setSettings (false, file, dir)
 			  ; rep_loop false stream env
@@ -164,7 +168,9 @@ fun main () =
 	   GeneralUtil.FAILURE "Too many errors encountered"
 	 | OOLCParse.ParserError => 
 	   GeneralUtil.FAILURE "Error found when parsing source code"
-	 | Usage => GeneralUtil.SUCCESS
+	 | Usage => 
+	   GeneralUtil.FAILURE ("usage: " ^ (CommandLine.name ()) ^ " -batch [file]\n" ^
+				"       " ^ (CommandLine.name ()) ^ " [option] -simex model")
 	 | e => 
 	   (DynException.log "Main" e
 	  ; GeneralUtil.FAILURE "An exception was encountered")
@@ -174,8 +180,11 @@ fun main () =
 end
 
 val _ =
-    if MLton.Profile.isOn then
-	Main.main ()
-    else
-	Main.resume ()
-    handle _ => Main.main ()
+    case (if MLton.Profile.isOn then
+	      Main.main ()
+	  else
+	      (Main.resume () handle _ => Main.main ()))
+     of GeneralUtil.SUCCESS => ()
+      | GeneralUtil.FAILURE message => 
+	(print (message ^ "\n")
+       ; OS.Process.exit OS.Process.failure)
