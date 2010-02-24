@@ -50,8 +50,14 @@ namespace CommandLine
       end
       optionsTable.add(name, value)
     end
+    
+    var batchmode = (exists option in optionsList suchthat "-batch" == option)
 
-    while(optionsList.length() > 0) do
+    if batchmode and optionsList.length() > 2 or (optionsList.length() == 2 and "-" == optionsList[2].first()) then
+      warning("In batch mode, all other command line options are ignored.")
+    end
+
+    while(not(batchmode) and optionsList.length() > 0) do
       optionName = optionsList.first()
       optionsList = optionsList.rest()
 
