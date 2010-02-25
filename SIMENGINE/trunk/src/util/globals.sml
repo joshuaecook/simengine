@@ -25,13 +25,14 @@ val year = Date.year (CurrentDateTime())
 val copyright = "Copyright "^(Int.toString year)^" Simatra Modeling Technologies, L.L.C."
 
 val short_name = "simEngine"
-val name = short_name ^ " Simulation Compiler"
+val name = short_name ^ " Dynamical System Compiler"
 val version = BuildOptions.version
 val extension = ".dso"
+val edition = ref "N/A"
 
-val startupMessage =
-    (name ^ " v" ^ version ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
-     ^ "[built: " ^ BuildOptions.buildDate ^ "]\n"
+fun startupMessage() =
+    (name ^ " v" ^ version ^ ", " ^ (!edition) ^ " Edition" ^ "\n"
+     ^ "[built: " ^ BuildOptions.buildDate ^ "]" ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
      ^ copyright)
     
 

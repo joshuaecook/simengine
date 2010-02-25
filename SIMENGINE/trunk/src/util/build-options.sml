@@ -8,6 +8,8 @@ val buildDate: string
 val buildTime: Time.time
 
 val version: string
+val majorVersion: int
+val minorVersion: int
 val architecture: string
 
 val devVersion: bool
@@ -50,6 +52,14 @@ val buildTime =
 val version =
     case JSON.memberValue (options, "version", JSON.toString)
      of SOME s => s | _ => invalid "version"
+
+val majorVersion =
+    case JSON.memberValue (options, "majorVersion", JSON.toInt)
+     of SOME i => IntInf.toInt i | _ => invalid "majorVersion"
+
+val minorVersion =
+    case JSON.memberValue (options, "minorVersion", JSON.toInt)
+     of SOME i => IntInf.toInt i | _ => invalid "minorVersion"
 
 val architecture =
     case JSON.memberValue (options, "architecture", JSON.toString)

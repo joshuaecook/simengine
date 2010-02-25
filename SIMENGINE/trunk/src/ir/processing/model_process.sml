@@ -15,6 +15,9 @@ structure ModelProcess : sig
       can include renaming symbols to fit within compiler rules or adding code generation flags. *)
     val normalizeModel : DOF.model -> unit
 
+    (* prune unused iterators from the system *)
+    val pruneIterators : DOF.model -> unit
+
     (* model2statesizebyiterator: Computes the total state space of the model on a per iterator basis *)
     val model2statesize : DOF.model -> int
     val model2statesizebyiterator : DOF.systemiterator -> DOF.model -> int
@@ -29,6 +32,8 @@ structure ModelProcess : sig
 
 	
     (* Iterator related functions - these all grab the iterators from CurrentModel *)
+    val returnContinuousIterators : unit -> DOF.systemiterator list
+    val returnUserIterators : unit -> DOF.systemiterator list
     val returnIndependentIterators : unit -> DOF.systemiterator list
     val returnDependentIterators : unit -> DOF.systemiterator list
     val returnStatefulIterators : unit -> DOF.systemiterator list
@@ -65,6 +70,13 @@ val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
 
+fun isContinuousIterator (_, DOF.CONTINUOUS _) = true
+  | isContinuousIterator _ = false
+
+fun isUserIterator (_, DOF.CONTINUOUS _) = true
+  | isUserIterator (_, DOF.DISCRETE _) = true
+  | isUserIterator _ = false
+
 fun isDependentIterator (_, DOF.UPDATE _) = true
   | isDependentIterator (_, DOF.ALGEBRAIC _) = true
   | isDependentIterator _ = false
@@ -85,6 +97,12 @@ fun isStatelessIterator (_, DOF.UPDATE _) = true
   | isStatelessIterator _ = false
 
 val isStatefulIterator = not o isStatelessIterator
+
+fun returnContinuousIterators () = 
+    List.filter isContinuousIterator (CurrentModel.iterators())
+
+fun returnUserIterators () = 
+    List.filter isUserIterator (CurrentModel.iterators())
 
 fun returnIndependentIterators () =
     List.filter (not o isDependentIterator) (CurrentModel.iterators ())

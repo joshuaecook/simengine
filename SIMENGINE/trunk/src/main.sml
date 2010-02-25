@@ -94,6 +94,19 @@ fun main (name, argv) =
 		      Logger.log_stdout (Logger.ALL, defaultOptions)
 		  else
 		      Logger.log_stdout (Logger.WARNINGS, defaultOptions)
+
+	(* Show the startup message *)
+	val _ = print (Globals.startupMessage() ^ "\n")
+
+	(* Verify the license file *)
+	val _ = License.verifyNotRestricted () (* check to make sure that there the user/hostid/network/site specification is correct *)
+
+	(* now verify that the version is correct *)
+	val _ = License.isValidVersion (BuildOptions.majorVersion, BuildOptions.minorVersion)
+
+	(* verify that it is not expired *)
+	val _ = License.verifyExpired ()
+
     in
 	case argv
 	 of [] =>
@@ -101,7 +114,6 @@ fun main (name, argv) =
 		val dir = OS.FileSys.fullPath (OS.Path.currentArc)
 	    in
 		ParserSettings.setSettings (true, "STDIN", dir)
-	      ; print (Globals.startupMessage ^ "\n")
 	      ; rep_loop true TextIO.stdIn env
 	    end
 	  | ["-batch"] => 
@@ -109,7 +121,6 @@ fun main (name, argv) =
 		val dir = OS.FileSys.fullPath (OS.Path.currentArc)
 	    in
 		ParserSettings.setSettings (true, "STDIN", dir)
-	      ; print (Globals.startupMessage ^ "\n")
 	      ; rep_loop false TextIO.stdIn env
 	    end
 	  | [filename] => 

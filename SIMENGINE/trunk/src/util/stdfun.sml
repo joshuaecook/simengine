@@ -589,6 +589,12 @@ fun extract (s, i, opt) =
        | NONE => substring (s, i, (String.size s)-i))
     handle e => (DynException.log "StdFun.extract" e; raise e)
 
+fun dropNewLine str =
+    if String.isSuffix "\n" str then
+	extract (str, 0, SOME (String.size str - 1))
+    else
+	str
+
 fun stringRev str =
     implode (rev (explode str))
 

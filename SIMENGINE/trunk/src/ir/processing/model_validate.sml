@@ -3,6 +3,7 @@ sig
 
     (* Run checks on the model that aren't caught anywhere else *)
     val validate : DOF.model -> unit
+    val validateLicensing : DOF.model -> unit
 
 end
 structure ModelValidate : MODELVALIDATE =
@@ -85,15 +86,56 @@ fun properLHSDiscreteState () =
 	executeTestOverModel classToExpsWithDiscreteIterators (find, messageFun, messageType)
     end
 
-fun validate model = 
+fun verifyTarget Target.CPU = ()
+  | verifyTarget Target.OPENMP = Features.verifyEnabled Features.MULTI_CORE
+  | verifyTarget Target.CUDA = Features.verifyEnabled Features.GPU
+
+fun verifySolver (DOF.CONTINUOUS (Solver.EXPONENTIAL_EULER _)) = Features.verifyEnabled Features.EXPONENTIAL_EULER
+  | verifySolver (DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _)) = Features.verifyEnabled Features.BACKWARD_EULER
+  | verifySolver _ = ()
+
+fun validate (model as (classes, instance, sysprops))= 
     CurrentModel.withModel model
     (fn () => 
 	let
+	    (* perform some basic tests for licensing *)
+	    (* check if the target is supported *)
+	    val {target,...} = sysprops
+	    val _ = verifyTarget target
+
+	    (* check that the number of states is acceptable *)
+	    val _ = Features.verifyEnabled (Features.NUM_STATES (ModelProcess.model2statesize model))
+
+	    (* verify that the solvers are all supported *)
+	    val _ = app (verifySolver o #2) (ModelProcess.returnContinuousIterators())
+			    
 	    (* verify that the terms on the LHS are appropriate *)
 	    val _ = properLHSDiscreteState ()
 	in
 	    ()
 	end)
     handle e => DynException.checkpoint "ModelValidate.validate" e
+
+fun validateLicensing (model as (_, _, sysprops))= 
+    CurrentModel.withModel model
+    (fn () => 
+	let
+	    (* perform some basic tests for licensing *)
+	    (* check if the target is supported *)
+	    val {target,...} = sysprops
+	    val _ = verifyTarget target
+
+	    (* check that the number of states is acceptable *)
+	    val _ = Features.verifyEnabled (Features.NUM_STATES (ModelProcess.model2statesize model))
+			    
+	    (* check that the number of iterators is acceptable *)
+	    val _ = Features.verifyEnabled (Features.NUM_ITERATORS (List.length (ModelProcess.returnUserIterators())))
+
+	    (* verify that the solvers are all supported *)
+	    val _ = app (verifySolver o #2) (ModelProcess.returnContinuousIterators())
+	in
+	    ()
+	end
+    )
 
 end

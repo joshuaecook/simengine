@@ -12,8 +12,11 @@ BUILD_TYPE = software
 #DEBUG = true
 
 # Version # for RPM
-VERSION_NUMBER = 0.93
-BUILD_DATE := $(shell date)
+MAJOR_VERSION = 0
+MINOR_VERSION = 93
+VERSION_REVISION = #a
+VERSION_NUMBER = $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
+BUILD_DATE := $(shell date +'%a %b %d %H:%M:%S %Y')
 BUILD_TIME := $(shell date +%s)
 
 DESTDIR = 
@@ -516,6 +519,9 @@ datafiles/build-options.json:
 	@echo \"buildTime\": $(BUILD_TIME), >> $@
 	@echo \"devVersion\": $(DEV_VERSION), >> $@
 	@echo \"version\": \"$(VERSION_NUMBER)\", >> $@
+	@echo \"majorVersion\": $(MAJOR_VERSION), >> $@
+	@echo \"minorVersion\": $(MINOR_VERSION), >> $@
+	@echo \"versionRevision\": \"$(VERSION_REVISION)\", >> $@
 	@echo \"architecture\": \"$(UNAME_MACHINE)\" >> $@
 	@echo } >> $@
 

@@ -88,6 +88,7 @@ ir/datastructs/sys.sig
 ir/util.sml
 
 (* licensing and feature set *)
+util/process.sml
 util/license.sml
 util/features.sml
 

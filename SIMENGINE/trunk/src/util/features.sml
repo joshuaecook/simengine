@@ -80,7 +80,6 @@ fun verifyEnabled feature =
 	()
     else
 	(Logger.log_error(Printer.$("Feature '"^(toString feature)^"' is not available under a '"^(License.ClassToString())^"' license"));
-	 DynException.setErrored();
-	 DynException.checkToProceed())
+	 DynException.setErrored())
 
 end

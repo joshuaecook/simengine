@@ -90,6 +90,9 @@ fun std_compile exec args =
 	      val _ = log("Normalizing model ...")
 	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
 
+	      (* checking license *)
+	      val _ = ModelValidate.validateLicensing (CurrentModel.getCurrentModel())
+
 	      val _ = log("Normalizing parallel model ...")
 	      val forkedModels = ShardedModel.forkModel (CurrentModel.getCurrentModel())
 
