@@ -43,7 +43,12 @@ void gpu_init (void) {
 #ifndef SIMENGINE_CUDA_DEVICE
 #error SIMENGINE_CUDA_DEVICE not specified for a GPU simulation
 #endif
-  cutilSafeCall(cudaSetDevice(SIMENGINE_CUDA_DEVICE));
+  if(global_gpuid > 0){
+    cutilSafeCall(cudaSetDevice(global_gpuid));
+  }
+  else{
+    cutilSafeCall(cudaSetDevice(SIMENGINE_CUDA_DEVICE));
+  }
 }
 
 void gpu_exit (void) {

@@ -7,6 +7,7 @@ static const struct option long_options[] = {
   {"start", required_argument, 0, START},
   {"stop", required_argument, 0, STOP},
   {"seed", required_argument, 0, SEED},
+  {"gpuid", required_argument, 0, GPUID},
   {"instances", required_argument, 0, INSTANCES},
   {"instance_offset", required_argument, 0, INSTANCE_OFFSET},
   {"inputs", required_argument, 0, INPUT_FILE},
@@ -19,7 +20,9 @@ static const struct option long_options[] = {
 
 static int binary_files = 0;
 static unsigned int global_modelid_offset = 0;
+static int global_gpuid = -1;
 
+#define MAX_NUM_MODELS (0x00ffffff)
 #define START_SIZE 1000
 
 // Error messages corresponding to enumerated error codes
@@ -154,6 +157,13 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       opts->seeded = 1;
       opts->seed = atoi(optarg);
       break;
+    case GPUID:
+      if(opts->gpuid){
+	ERROR(Simatra:Simex:parse_args, "GPU ID can only be specified once.\n");
+      }
+      opts->gpuid = 1;
+      global_gpuid = atoi(optarg);
+      break;
     case INSTANCES:
       if(opts->num_models){
 	ERROR(Simatra:Simex:parse_args, "Number of model instances can only be specified once.\n");
@@ -227,16 +237,28 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
     opts->outputs_dirname = "simex_output";
   }
 
-  int status = mkdir(opts->outputs_dirname, 0777);
-  if(status){
-    if(errno != EEXIST){
-      ERROR(Simatra:Simex:parse_args, "Output directory '%s' already exists, refusing to overwrite.", opts->outputs_dirname);
-    }
-    else{
-      ERROR(Simatra:Simex:parse_args, "Could not create output directory %s.\n",
-	    opts->outputs_dirname);
-    }
+  if(mkdir(opts->outputs_dirname, 0777)){
+    // TODO: allow multiple processes to share the same output directory
+    ERROR(Simatra:Simex:parse_args, "Could not create output directory %s.\n",
+	  opts->outputs_dirname);
   }
+
+  if(opts->num_models > MAX_NUM_MODELS){
+    ERROR(Simatra:Simex:parse_args, "Number of model instances must be less than %d, requested %d.\n", MAX_NUM_MODELS, opts->num_models);
+  }
+  if(global_modelid_offset > MAX_NUM_MODELS){
+    ERROR(Simatra:Simex:parse_args, "Model instance offset must be less than %d, requested %d.\n", MAX_NUM_MODELS, global_modelid_offset);
+  }
+
+  long long sanity_check = 0;
+  sanity_check += global_modelid_offset;
+  sanity_check += opts->num_models;
+
+  if(sanity_check > MAX_NUM_MODELS){
+    ERROR(Simatra:Simex:parse_args, "Number of model instances (%d) too large for requested model instance offset (%d).\n"
+	  "Maximum number of models is %d.\n", opts->num_models, global_modelid_offset, MAX_NUM_MODELS);
+  }
+  
 
   // Successful parsing of command line arguments
   return 0;
@@ -361,6 +383,79 @@ void print_interface(const simengine_interface *iface){
   printf("\n\n");
 }
 
+
+#define BYTE(val,n) ((val>>(n<<3))&0xff) // Also used in log_outputs
+
+void make_model_output_directories(simengine_opts *opts){
+  // Make sure a directory for the model exists
+  char model_dirname[PATH_MAX];
+  unsigned int modelid, full_modelid;
+
+  for(modelid=0;modelid<opts->num_models;modelid++){
+    full_modelid = modelid+global_modelid_offset;
+    sprintf(model_dirname, "%s", opts->outputs_dirname);
+    int i;
+    for(i=2;i>=0;i--){
+      sprintf((model_dirname + strlen(model_dirname)), "/%02x", BYTE(full_modelid, i));
+      // Only need to check return value on mkdir because we created the top level directory outputs_dirname
+      if(mkdir(model_dirname, 0777)){
+	if(errno != EEXIST || i == 0){
+	  ERROR(Simatra::Simex::make_model_output_directories, "could not create directory '%s'\n", model_dirname);
+	}
+      }
+    }
+  }
+}
+
+void write_states_time(const simengine_interface *iface, simengine_opts *opts, simengine_result *result){
+  // Make sure a directory for the model exists
+  char model_dirname[PATH_MAX];
+  struct stat model_dir_exist;
+  unsigned int modelid, stateid;
+
+  for(modelid=0;modelid<opts->num_models;modelid++){
+    unsigned int full_modelid = modelid+global_modelid_offset;
+    sprintf(model_dirname, "%s", opts->outputs_dirname);
+    int i;
+    for(i=2;i>=0;i--){
+      sprintf((model_dirname + strlen(model_dirname)), "/%02x", BYTE(full_modelid, i));
+    }
+    char states_time_filename[PATH_MAX];
+    FILE *states_time_file;
+
+    // Write final states
+    sprintf(states_time_filename, "%s/%s", model_dirname, "final-states");
+    states_time_file = fopen(states_time_filename, "w");
+    if(NULL == states_time_file){
+      ERROR(Simatra::Simex::log_outputs, "could not open file '%s'\n", states_time_filename);
+    }
+    if(binary_files){
+      fwrite(result->final_states + modelid*iface->num_states, sizeof(double), iface->num_states, states_time_file);
+    }
+    else{
+      for(stateid=0;stateid<iface->num_states;stateid++){
+	fprintf(states_time_file, "%s%-.16e", ((stateid == 0) ? "" : "\t"), result->final_states[modelid*iface->num_states + stateid]);
+      }
+      fprintf(states_time_file, "\n");
+    }
+    fclose(states_time_file);
+
+    // Write final time
+    sprintf(states_time_filename, "%s/%s", model_dirname, "final-time");
+    states_time_file = fopen(states_time_filename, "w");
+    if(NULL == states_time_file){
+      ERROR(Simatra::Simex::log_outputs, "could not open file '%s'\n", states_time_filename);
+    }
+    if(binary_files){
+      fwrite(result->final_time + modelid, sizeof(double), 1, states_time_file);
+    }
+    else{
+      fprintf(states_time_file, "%-.16e\n", result->final_time[modelid]);
+    }
+    fclose(states_time_file);
+  }
+}
+
 // Main program of simex command line
 int main(int argc, char **argv){
   simengine_opts opts;
@@ -396,6 +491,8 @@ int main(int argc, char **argv){
       seed_entropy_with_time();
     }
 
+    make_model_output_directories(&opts);
+
     simengine_result *result = simengine_runmodel(opts.start_time,
 						  opts.stop_time,
 						  opts.num_models,
@@ -404,7 +501,7 @@ int main(int argc, char **argv){
 						  opts.outputs_dirname);
 
     if (SUCCESS == result->status){
-      //write_states(iface, &opts, result);
+      write_states_time(iface, &opts, result);
     }
     else{
       WARN(Simatra:Simex:runmodel, "Simulation returned error %d: %s\n",

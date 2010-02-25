@@ -299,6 +299,8 @@ import "command_line.dsl"
 				 emulate = false,
 				 profile = false}
 
+  // The following parameters are parsed by simEngine but then passed along to the simulation executable
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed", "gpuid"]
   var defaultSimulationSettings = {start = 0,
 				   instances = 1}
 
@@ -450,7 +452,7 @@ import "command_line.dsl"
     end
 
     // Set all the simulations settings from the commandLineOptions
-    if copyOptions(commandLineOptions, simulationSettings, ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed"]) then
+    if copyOptions(commandLineOptions, simulationSettings, simulationSettingNames) then
       if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")
