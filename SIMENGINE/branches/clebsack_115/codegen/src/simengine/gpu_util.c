@@ -13,9 +13,9 @@
 inline int __cudaSafeCall( cudaError err, const char *file, const int line )
 {
     if( cudaSuccess != err) {
-        fprintf(stderr, "cudaSafeCall() Runtime API error in file <%s>, line %i : %s.\n",
-                file, line, cudaGetErrorString( err) );
-        return 1;
+      ERROR(Simatra:Simex:CUDA, 
+	    "cutilSafeCall() Runtime API error in file <%s>, line %i : %s.\n",
+	    file, line, cudaGetErrorString( err) );
     }
     return 0;
 }

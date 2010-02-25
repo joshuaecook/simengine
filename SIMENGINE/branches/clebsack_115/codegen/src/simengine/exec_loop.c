@@ -10,6 +10,8 @@ int exec_loop(solver_props *props){
     solver_init(&props[i]);
   }
 
+  random_init(props->num_models);
+
   // Execute the model(s) on the appropriate target
 #if defined(TARGET_CPU)
   status = exec_cpu(props, 0);

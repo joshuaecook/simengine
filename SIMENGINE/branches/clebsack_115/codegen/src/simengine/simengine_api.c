@@ -85,7 +85,6 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 
     // Initialize the solver properties and internal simulation memory structures
     solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, parameters, model_states, outputs_dirname, models_executed+global_modelid_offset);
-    random_init(models_per_batch);
     // Run the model
     seresult->status = exec_loop(props);
     seresult->status_message = (char*) simengine_errors[seresult->status];

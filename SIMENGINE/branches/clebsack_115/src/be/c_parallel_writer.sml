@@ -1914,15 +1914,15 @@ fun buildC (orig_name, shardedModel) =
 					      [precision_h] @
 					      [memory_layout_h] @
 					      [target_h] @
+					      simengine_interface_progs @
+
+					      [simengine_api_h] @
+					      [defines_h] @
 					      (case sysprops
 						of {target=Target.CUDA, ...} =>
 						   [gpu_util_c]
 						 | _ => []) @
 
-					      simengine_interface_progs @
-
-					      [simengine_api_h] @
-					      [defines_h] @
 					      (* Could be conditional on use of randoms *)
 					      [random_c] @
 					      [seint_h] @
