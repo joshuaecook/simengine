@@ -20,7 +20,6 @@ static const struct option long_options[] = {
 
 static int binary_files = 0;
 static unsigned int global_modelid_offset = 0;
-static int global_gpuid = -1;
 
 #define MAX_NUM_MODELS (0x00ffffff)
 #define START_SIZE 1000
