@@ -57,8 +57,8 @@ int exec_cpu(solver_props *props, unsigned int modelid){
       }
     }
     // Log outputs from buffer to external api interface
-    // All iterators share references to a single output buffer and outputs structure.
-    if(0 != log_outputs((output_buffer*)props[0].ob, props[0].outputs, modelid)){
+    // All iterators share references to a single output buffer and outputs dirname.
+    if(0 != log_outputs(props->ob, props->outputs_dirname, props->modelid_offset, modelid)){
       return ERRMEM;
     }
   }

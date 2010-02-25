@@ -55,7 +55,7 @@ typedef struct {
   // freeme is not currently used.
   //  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states; 
   CDATAFORMAT *inputs;
-  simengine_output *outputs;
+  char *outputs_dirname;
   Solver solver;
   Iterator iterator;
   unsigned int inputsize;
@@ -65,6 +65,7 @@ typedef struct {
   unsigned int num_models;
   void *od;
   unsigned int ob_size;
+  unsigned int modelid_offset;
   output_buffer *ob;
   gpu_data gpu;
   int *running;

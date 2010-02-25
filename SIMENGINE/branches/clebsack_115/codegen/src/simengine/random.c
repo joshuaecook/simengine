@@ -16,10 +16,6 @@
  */
 /* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. */
 
-#include<stdlib.h>
-#include<sys/time.h>
-#include<string.h>
-
 #define R250_LENGTH 250
 #define R250_OFFSET 103
 #define R250_MAX RAND_MAX

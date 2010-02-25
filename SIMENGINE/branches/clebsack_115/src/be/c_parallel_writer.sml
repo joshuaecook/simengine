@@ -252,7 +252,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			    else
 				"NULL;")),
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
-			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
+			 $("props[ITERATOR_"^itername^"].outputs_dirname = outputs_dirname;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvernameCaps ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
 			[$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
@@ -260,6 +260,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			 $("props[ITERATOR_"^itername^"].algebraic_statesize = " ^ (Util.i2s num_algebraic_states) ^ ";"),
 			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
 			 $("props[ITERATOR_"^itername^"].num_models = num_models;"),
+			 $("props[ITERATOR_"^itername^"].modelid_offset = modelid_offset;"),
 			 $("props[ITERATOR_"^itername^"].od = od;"),
 			 $("props[ITERATOR_"^itername^"].ob_size = sizeof(output_buffer);"),
 			 $("props[ITERATOR_"^itername^"].ob = ob;"),
@@ -400,7 +401,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, char* outputs_dirname, unsigned int modelid_offset){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),

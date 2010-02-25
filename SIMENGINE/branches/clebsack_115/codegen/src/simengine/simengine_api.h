@@ -17,11 +17,14 @@
 #include <stddef.h>
 #include <omp.h>
 #include <getopt.h>
+#include <sys/time.h>
+#include <limits.h>
 
 // Error codes
 enum{ SUCCESS,
       ERRMEM,
-      ERRCOMP};
+      ERRCOMP,
+      ERRFILE};
 
 typedef struct{
   const char *name;
@@ -44,17 +47,6 @@ typedef struct{
   const unsigned long long hashcode;
 } simengine_interface;
 
-/* Output data are stored interleaved.
- * The data of an output with Q quantities over T samples would look like
- *     [q0t0, q1t0, ... qQt0, q0t1, q1t1, ... qQt1, ... qQtT]
- */
-typedef struct{
-  unsigned int alloc;
-  unsigned int num_quantities;
-  unsigned int num_samples;
-  double *data;
-} simengine_output;
-
 /* Model outputs are stored consecutively.
  * The results of M models with N outputs would look like
  *     [m0o0, m0o1, ... m0oN, m1o0, m1o1, ... m1oN, ... mMoN]
@@ -62,7 +54,6 @@ typedef struct{
 typedef struct{
   unsigned int status;
   char *status_message;
-  simengine_output *outputs;
   double *final_states;
   double *final_time;
 } simengine_result;
@@ -74,15 +65,11 @@ typedef struct{
   int seeded;
   int seed;
   int num_models;
-  FILE *inputs_file;             
-  FILE *states_file;
-  FILE *outputs_file;
   char *inputs_filename;
   char *states_filename;
-  char *outputs_filename;
+  char *outputs_dirname;
   double *inputs;
   double *states;
-  int gnuplot;
 } simengine_opts;
 
 // Command line option parsing enumeration
@@ -92,10 +79,11 @@ typedef enum {
   STOP,
   SEED,
   INSTANCES,
+  INSTANCE_OFFSET,
   INPUT_FILE,
   STATE_INIT_FILE,
-  OUTPUT_FILE,
-  GNUPLOT,
+  OUTPUT_DIR,
+  BINARY,
   HELP
 } clopts;
 

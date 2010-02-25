@@ -205,7 +205,7 @@ import "command_line.dsl"
     end
 
     function setupMake (m: Make)
-      var osLower = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+      var osLower = getOsLower()
 
       m.CC = nvcc
       m.CPPFLAGS.push_back("-DTARGET_GPU")
@@ -268,7 +268,7 @@ import "command_line.dsl"
 			  double = "double"}
 
   var booleanOptionNamesAlways = ["help",
-				  "gnuplot"] +
+				  "binary"] +
 				  targetOptions.keys +
 				  precisionOptions.keys
 
@@ -343,7 +343,14 @@ import "command_line.dsl"
 	simexCommands.push_back(simulationSettings.getValue(setting).tostring())
       end
     end
-    print(join("", shell(simulation, simexCommands)))
+    var p = Process.run(simulation, simexCommands)
+    var allout = Process.readAll(p)
+    var stat = Process.reap(p)
+    var stdout = allout(1)
+    var stderr = allout(2)
+    if (0 <> stat) then
+      error(join("", stderr))
+    end
   end
 
   function printUsage()
@@ -443,7 +450,7 @@ import "command_line.dsl"
     end
 
     // Set all the simulations settings from the commandLineOptions
-    if copyOptions(commandLineOptions, simulationSettings, ["start", "stop", "seed", "instances", "inputs", "states", "outputs", "gnuplot"]) then
+    if copyOptions(commandLineOptions, simulationSettings, ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed"]) then
       if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")

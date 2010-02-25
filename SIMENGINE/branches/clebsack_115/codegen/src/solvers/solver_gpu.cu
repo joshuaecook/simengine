@@ -137,7 +137,8 @@ solver_props *gpu_init_props(solver_props *props){
 
     // Every iterator shares the same memory
     tmp_props[i].system_states = g_system;
-    tmp_props[i].outputs = NULL; // not needed?
+    tmp_props[i].outputs_dirname = NULL; // not needed
+    tmp_props[i].modelid_offset = 0; // not needed
     tmp_props[i].inputs = g_inputs;
     tmp_props[i].ob = g_ob;
     tmp_props[i].od = g_od;

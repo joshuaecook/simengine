@@ -169,6 +169,8 @@ fun main () =
     end
     handle DynException.TooManyErrors => 
 	   GeneralUtil.FAILURE "Too many errors encountered"
+	 | DynException.RestartRepl => 
+	   GeneralUtil.FAILURE "Error occurred in standard library"
 	 | OOLCParse.ParserError => 
 	   GeneralUtil.FAILURE "Error found when parsing source code"
 	 | Usage => 
