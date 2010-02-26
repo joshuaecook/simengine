@@ -115,7 +115,8 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 }
 
 // Print the interface to the simulation
-void print_interface(const simengine_interface *iface){
+void print_interface(){
+  const simengine_interface *iface = &seint;
   unsigned int i;
   printf("\nModel : %s\n\n", iface->name);
   printf("Target : %s\tPrecision: %s\tParallel models: %d\n\n",
@@ -487,7 +488,7 @@ int main(int argc, char **argv){
 
   // Just print the model interface
   if(opts.stop_time == opts.start_time){
-    print_interface(iface);
+    print_interface();
     return 0;
   }
   // Run the model simulation

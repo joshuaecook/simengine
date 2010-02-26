@@ -24,7 +24,7 @@ val r2s = Util.r2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
 
-fun cstring str = "\"" ^ str ^ "\""
+fun cstring str = "\"" ^ (String.toCString str) ^ "\""
 fun inc x = 1 + x
 
 (* Indicates whether the class of a given instance satisfies a test.
@@ -521,7 +521,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	    let val term = ExpProcess.exp2term (ExpProcess.lhs exp)
 		val rhs = ExpProcess.rhs exp
 	    in if Term.isInitialValue term iter_sym then
-		   SOME ((if "" = basestr then "" else basestr ^ ".") ^ (Term.sym2name term), CWriterUtil.exp2c_str rhs)
+		   SOME ((if "" = basestr then "" else basestr ^ ".") ^ (Term.sym2name term), rhs)
 	       else NONE
 	    end
 
@@ -644,6 +644,35 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 
         val solvers_enumerated = Util.uniquify (map (fn sol => String.map Char.toUpper sol) solver_names)
 
+	local 
+	    open JSON
+	    val int = int o IntInf.fromInt
+
+	    fun defaultToJSON NONE = null
+	      | defaultToJSON (SOME (Exp.TERM t)) =
+		(case t
+		  of Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt 4)
+		   | Exp.INT z => int z
+		   | Exp.REAL r => real r
+		   | Exp.NAN => real (0.0 / 0.0)
+		   | Exp.INFINITY => real (1.0 / 0.0)
+		   | Exp.BOOL b => bool b
+		   | _ => raise Fail ("Don't know how to encode this default in JSON"))
+	      | defaultToJSON _ = raise Fail ("Don't know how to encode this default in JSON")
+	in
+	val jsonInterface = 
+	    object [("name", string class_name),
+		    ("inputs", array (map (string o Term.sym2name) input_names)),
+		    ("defaultInputs", array (map defaultToJSON input_defaults)),
+		    ("states", array (map string state_names)),
+		    ("defaultStates", array (map (defaultToJSON o SOME) state_defaults)),
+		    ("outputs", array (map string output_names)),
+		    ("outputNumQuantities", array (map int outputs_num_quantities)),
+		    ("hashcode", string "0000000000000000"),
+		    ("version", int 0)]
+		    
+	end
+
    in
 	[$("typedef enum {"),
 	 SUB(map (fn(sol) => $((sol ^ ","))) solvers_enumerated),
@@ -662,7 +691,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("static const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
 	 $("static const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
 	 $("static const double default_inputs[] = {" ^ (String.concatWith ", " default_inputs) ^ "};"),
-	 $("static const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
+	 $("static const double default_states[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str state_defaults)) ^ "};"),
 	 $("static const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " (map i2s outputs_num_quantities)) ^ "};"),
 	 $("static const char model_name[] = \"" ^ class_name ^ "\";"),
 	 $("static const char *solver_names[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
@@ -678,7 +707,10 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("#define HASHCODE 0x0000000000000000ULL"),
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
 	 $("#define VERSION 0"),
-	 $("")]
+	 $(""),
+	 $("static const char *json_interface = " ^
+	   (cstring (PrintJSON.toString jsonInterface)) ^
+	   ";")]
     end
     handle e => DynException.checkpoint "CParallelWriter.simengine_interface" e
 
