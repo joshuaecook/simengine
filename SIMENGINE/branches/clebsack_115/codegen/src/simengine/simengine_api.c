@@ -7,7 +7,9 @@ static const struct option long_options[] = {
   {"start", required_argument, 0, START},
   {"stop", required_argument, 0, STOP},
   {"seed", required_argument, 0, SEED},
+#ifdef TARGET_GPU
   {"gpuid", required_argument, 0, GPUID},
+#endif
   {"instances", required_argument, 0, INSTANCES},
   {"instance_offset", required_argument, 0, INSTANCE_OFFSET},
   {"inputs", required_argument, 0, INPUT_FILE},
@@ -156,6 +158,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       opts->seeded = 1;
       opts->seed = atoi(optarg);
       break;
+#ifdef TARGET_GPU
     case GPUID:
       if(opts->gpuid){
 	ERROR(Simatra:Simex:parse_args, "GPU ID can only be specified once.\n");
@@ -163,6 +166,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       opts->gpuid = 1;
       global_gpuid = atoi(optarg);
       break;
+#endif
     case INSTANCES:
       if(opts->num_models){
 	ERROR(Simatra:Simex:parse_args, "Number of model instances can only be specified once.\n");

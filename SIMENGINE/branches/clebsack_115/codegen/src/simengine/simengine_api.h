@@ -64,7 +64,9 @@ typedef struct{
   double stop_time;
   int seeded;
   int seed;
+#ifdef TARGET_GPU
   int gpuid;
+#endif
   int num_models;
   char *inputs_filename;
   char *states_filename;
@@ -79,7 +81,9 @@ typedef enum {
   START,
   STOP,
   SEED,
+#ifdef TARGET_GPU
   GPUID,
+#endif
   INSTANCES,
   INSTANCE_OFFSET,
   INPUT_FILE,

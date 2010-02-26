@@ -198,7 +198,7 @@ int main(int argc, char **argv){
 
   int status = getDeviceProps(&ndevices, &props);
   if (DeviceProps_Success != status) {
-    fprintf(stderr, devicePropsError());
+    fprintf(stderr, "%s", devicePropsError());
     fprintf(stderr, "\n");
     return status;
   }
