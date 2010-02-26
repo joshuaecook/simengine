@@ -302,7 +302,7 @@ import "command_line.dsl"
 				 profile = false}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
-  var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed", "gpuid", "interface", "json-interface"]
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed", "gpuid"]
   var defaultSimulationSettings = {start = 0,
 				   instances = 1}
 
@@ -330,10 +330,10 @@ import "command_line.dsl"
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
 	autoRecompile(modelFile, compilerSettings)
-	if objectContains(simulationSettings, "stop") then
+	if () <> simulationSettings then
 	  simulate(FileSystem.realpath(compilerSettings.exfile), simulationSettings)
 	else
-	  println("Not running: " + compilerSettings.exfile + " " + simulationSettings.contents.tostring())
+	  println("Not running: " + compilerSettings.exfile)
 	end
       end
     end
@@ -355,10 +355,9 @@ import "command_line.dsl"
     var stderr = allout(2)
     if (0 <> stat) then
       error(join("", stderr))
-    end
     // Return the interface from the executable if requested
-    if objectContains(simulationSettings, "interface") or objectContains(simulationSettings, "json-interface") then
-      println(join("", stdout))
+    elseif objectContains(simulationSettings, "interface") or objectContains(simulationSettings, "json-interface") then
+      print(join("", stdout))
     end
   end
 
@@ -460,10 +459,14 @@ import "command_line.dsl"
       copied
     end
 
-    // Set all the simulations settings from the commandLineOptions
-    if copyOptions(commandLineOptions, simulationSettings, simulationSettingNames) then
-      if not(objectContains(simulationSettings, "stop")) and not(objectContains(simulationSettings, "interface")) and
-	not(objectContains(simulationSettings, "json-interface")) then
+    // Check to see if only the interface is requested
+    if objectContains(commandLineOptions, "interface") then
+      simulationSettings.add("interface", true)
+    elseif objectContains(commandLineOptions, "json-interface") then
+      simulationSettings.add("json-interface", true)
+    // Set all the simulation settings from the commandLineOptions
+    elseif copyOptions(commandLineOptions, simulationSettings, simulationSettingNames) then
+      if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time or interface request was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")
       else
@@ -490,6 +493,8 @@ import "command_line.dsl"
 	  error("Number of model instances must be an integer value of 1 or more.")
 	end
       end
+    end
+    if simulationSettings.keys.length() > 0 then
       simulationSettings
     else
       ()
