@@ -96,15 +96,15 @@ model (paddle1, paddle2, ball, scores, reset, angle_l, angle_r) = pong()
 
     // determine impacts and divert angle
     equations
-	impact_l = b.x <= (X_P1+1) and (p1.pos+HALF >= b.y and p1.pos-HALF <= b.y)
-	impact_r = b.x >= (X_P2-1) and (p2.pos+HALF >= b.y and p2.pos-HALF <= b.y)
-	divert_angle = {-(b.x - p1.pos)*pi/16 when impact_l,
-			-(b.x - p2.pos)*pi/16 when impact_r,
-			0 otherwise}
+	impact_l = dx < 0 and (b.x < (X_P1+1) /*and b.x > (X_P1-1)*/) and (p1.pos+HALF >= b.y and p1.pos-HALF <= b.y)
+	impact_r = dx > 0 and (b.x > (X_P2-1) /*and b.x < (X_P2+1)*/) and (p2.pos+HALF >= b.y and p2.pos-HALF <= b.y)
+	divert_angle = {-(b.y - p1.pos)*pi/16 when impact_l,
+			(b.y - p2.pos)*pi/16 when impact_r,
+			 0 otherwise}
     end    
 
-    b.impact_l = impact_l
-    b.impact_r = impact_r
+    b.impact_l = impact_l and not(impact_l[t[-1]])
+    b.impact_r = impact_r and not(impact_r[t[-1]])
     b.divert_angle = divert_angle
 
     // count points
@@ -113,13 +113,15 @@ model (paddle1, paddle2, ball, scores, reset, angle_l, angle_r) = pong()
     equation reset = score or t == 0
     equation reset_d = reset[t[-1]]
     b.reset = reset or reset_d
-    equation player1 = player1 + {score when x < X_SIZE/2, 0 otherwise}
-    equation player2 = player2 + {score when x > X_SIZE/2, 0 otherwise}
+    equation player1 = player1 + {score when x > X_SIZE/2, 0 otherwise}
+    equation player2 = player2 + {score when x < X_SIZE/2, 0 otherwise}
 
     output reset with {condition=reset}
     output scores = (player1, player2)
-    output angle_l = b.angle_v with {condition=impact_l}
-    output angle_r = b.angle_v with {condition=impact_r}
+    //output angle_l = b.angle_v with {condition=impact_l[t[-2]]}
+    //output angle_r = b.angle_v with {condition=impact_r[t[-2]]}
+    output angle_l = divert_angle with {condition=impact_l}
+    output angle_r = divert_angle with {condition=impact_r}
     
     solver=forwardeuler{dt=0.01}
 end
