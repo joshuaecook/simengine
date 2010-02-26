@@ -16,6 +16,8 @@ static const struct option long_options[] = {
   {"states", required_argument, 0, STATE_INIT_FILE},
   {"outputs", required_argument, 0, OUTPUT_DIR},
   {"binary", no_argument, 0, BINARY},
+  {"interface", no_argument, 0, INTERFACE},
+  {"json-interface", no_argument, 0, JSON_INTERFACE},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
@@ -110,6 +112,44 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   }
 
   return seresult;
+}
+
+// Print the interface to the simulation
+void print_interface(const simengine_interface *iface){
+  unsigned int i;
+  printf("\nModel : %s\n\n", iface->name);
+  printf("Target : %s\tPrecision: %s\tParallel models: %d\n\n",
+	 iface->target, (iface->precision == sizeof(float)) ? "float" : "double",
+	 iface->parallel_models);
+  printf("%12s : ", "Iterators");
+  for(i=0;i<iface->num_iterators;i++){
+    printf("%s\t", iface->iterator_names[i]);
+  }
+  printf("\n%12s : ", "Solvers");
+  for(i=0;i<iface->num_iterators;i++){
+    printf("%s\t", iface->solver_names[i]);
+  }
+  printf("\n\n%12s : ", "Inputs");
+  for(i=0;i<iface->num_inputs;i++){
+    printf("%s\t", iface->input_names[i]);
+  }
+  printf("\n%12s : ", "");
+  for(i=0;i<iface->num_inputs;i++){
+    printf("%.16e\t",iface->default_inputs[i]);
+  }
+  printf("\n\n%12s : ", "States");
+  for(i=0;i<iface->num_states;i++){
+    printf("%s\t", iface->state_names[i]);
+  }
+  printf("\n%12s : ", "");
+  for(i=0;i<iface->num_states;i++){
+    printf("%.16e\t", iface->default_states[i]);
+  }
+  printf("\n\n%12s : ", "Outputs");
+  for(i=0;i<iface->num_outputs;i++){
+    printf("%s[%d]\t", iface->output_names[i], iface->output_num_quantities[i]);
+  }
+  printf("\n\n");
 }
 
 // Parse the command line arguments into the options that are accepted by simex
@@ -208,6 +248,14 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	ERROR(Simatra:Simex:parse_args, "Option '--binary' can only be specified once.\n");
       }
       binary_files = 1;
+      break;
+    case INTERFACE:
+      print_interface();
+      exit(0);
+      break;
+    case JSON_INTERFACE:
+      printf(json_interface);
+      exit(0);
       break;
       // Stop execution if an invalid command line option is found.
       // Force the user to correct the error instead of ignoring options that
@@ -347,45 +395,6 @@ int get_states_inputs(const simengine_interface *iface, simengine_opts *opts){
 
   return 0;
 }
-
-// Print the interface to the simulation
-void print_interface(const simengine_interface *iface){
-  unsigned int i;
-  printf("\nModel : %s\n\n", iface->name);
-  printf("Target : %s\tPrecision: %s\tParallel models: %d\n\n",
-	 iface->target, (iface->precision == sizeof(float)) ? "float" : "double",
-	 iface->parallel_models);
-  printf("%12s : ", "Iterators");
-  for(i=0;i<iface->num_iterators;i++){
-    printf("%s\t", iface->iterator_names[i]);
-  }
-  printf("\n%12s : ", "Solvers");
-  for(i=0;i<iface->num_iterators;i++){
-    printf("%s\t", iface->solver_names[i]);
-  }
-  printf("\n\n%12s : ", "Inputs");
-  for(i=0;i<iface->num_inputs;i++){
-    printf("%s\t", iface->input_names[i]);
-  }
-  printf("\n%12s : ", "");
-  for(i=0;i<iface->num_inputs;i++){
-    printf("%.16e\t",iface->default_inputs[i]);
-  }
-  printf("\n\n%12s : ", "States");
-  for(i=0;i<iface->num_states;i++){
-    printf("%s\t", iface->state_names[i]);
-  }
-  printf("\n%12s : ", "");
-  for(i=0;i<iface->num_states;i++){
-    printf("%.16e\t", iface->default_states[i]);
-  }
-  printf("\n\n%12s : ", "Outputs");
-  for(i=0;i<iface->num_outputs;i++){
-    printf("%s[%d]\t", iface->output_names[i], iface->output_num_quantities[i]);
-  }
-  printf("\n\n");
-}
-
 
 #define BYTE(val,n) ((val>>(n<<3))&0xff) // Also used in log_outputs
 

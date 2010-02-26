@@ -268,7 +268,9 @@ import "command_line.dsl"
 			  double = "double"}
 
   var booleanOptionNamesAlways = ["help",
-				  "binary"] +
+				  "binary",
+				  "interface",
+				  "json-interface"] +
 				  targetOptions.keys +
 				  precisionOptions.keys
 
@@ -300,7 +302,7 @@ import "command_line.dsl"
 				 profile = false}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
-  var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed", "gpuid"]
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed", "gpuid", "interface", "json-interface"]
   var defaultSimulationSettings = {start = 0,
 				   instances = 1}
 
@@ -340,6 +342,7 @@ import "command_line.dsl"
   function simulate(simulation, simulationSettings)
     var simexCommands = []
     foreach setting in simulationSettings.keys do
+      // C command-line options use "--" instead of "-" (artifact of getopt library)
       simexCommands.push_back("--" + setting)
       if simulationSettings.getValue(setting) <> true then
 	simexCommands.push_back(simulationSettings.getValue(setting).tostring())
@@ -352,6 +355,10 @@ import "command_line.dsl"
     var stderr = allout(2)
     if (0 <> stat) then
       error(join("", stderr))
+    end
+    // Return the interface from the executable if requested
+    if objectContains(simulationSettings, "interface") or objectContains(simulationSettings, "json-interface") then
+      println(join("", stdout))
     end
   end
 
@@ -371,6 +378,8 @@ import "command_line.dsl"
 	    "-inputs <file>" +
 	    "-states <file>" +
 	    "-outputs <file>" +
+	    "-interface" +
+	    "-json-interface" +
 	    "-cpu" +
 	    "-parallelcpu" +
 	    "-gpu" +
@@ -453,8 +462,9 @@ import "command_line.dsl"
 
     // Set all the simulations settings from the commandLineOptions
     if copyOptions(commandLineOptions, simulationSettings, simulationSettingNames) then
-      if not(objectContains(simulationSettings, "stop")) then
-	// If any simulation options were set but no stop time was, tell the user this doesn't make sense
+      if not(objectContains(simulationSettings, "stop")) and not(objectContains(simulationSettings, "interface")) and
+	not(objectContains(simulationSettings, "json-interface")) then
+	// If any simulation options were set but no stop time or interface request was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")
       else
 

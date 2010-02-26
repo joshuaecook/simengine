@@ -90,6 +90,8 @@ typedef enum {
   STATE_INIT_FILE,
   OUTPUT_DIR,
   BINARY,
+  INTERFACE,
+  JSON_INTERFACE,
   HELP
 } clopts;
 
