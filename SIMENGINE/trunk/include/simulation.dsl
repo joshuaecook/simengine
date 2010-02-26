@@ -899,8 +899,8 @@ namespace Simulation
 
     function tostring ()
       var str = self.class.name + "("
-      str = str + "name=" + self.inputDef.getName()
-      str = str + ", value=" + self.inputVal
+      str = str + "name=" + (self.inputDef.getName())
+      str = str + ", value=" + (self.inputVal)
       str + ")"
     end
 
@@ -1110,12 +1110,11 @@ namespace Simulation
         if not (objectContains (m, k)) then
           error ("Submodel " + name + " does not contain input or property " + k)
         else
-          var value = m.getMember(k)
-          if not (istype (type InputBinding, value)) then
-	      error ("Invalid definition of non-input to submodel")
-            //ignore for now
+          if not (exists ib in m.inputs suchthat ib.inputDef.getName() == k) then
+	    error ("Invalid definition of non-input to submodel: " + k)
           else
-            value.setInputVal(table.getValue(k))
+            var value = m.getMember(k)
+            m ({}.add(k, (table.getValue(k)))) //we use this indirect assignment via table application because direct assignment using a property cannot be done with getMember
           end
         end
       end

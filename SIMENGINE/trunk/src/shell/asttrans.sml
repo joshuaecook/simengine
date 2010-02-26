@@ -607,7 +607,7 @@ and trans_definition definition =
 			in
 			    [HLEC.METHODDEF (HLEC.HIDDEN, HLEC.DEFLOCAL(Symbol.symbol id, HLEC.DONTCARE, HLEC.UNDEFINED)),
 			     HLEC.METHODDEF (HLEC.PUBLIC, HLEC.DEFPROPERTY {name=sym,
-									    read=SOME [HLEC.ACTION (HLEC.EXP var, PosLog.NOPOS)],
+									    read=SOME [HLEC.ACTION (HLEC.EXP (send "inputVal" var), PosLog.NOPOS)],
 									    write=SOME (Symbol.symbol "arg", 
 											[HLEC.ACTION (HLEC.EXP (apply (send "setInputVal" var, [HLEC.SYMBOL (Symbol.symbol "arg")])), 
 												      PosLog.NOPOS)])})
@@ -633,7 +633,7 @@ and trans_definition definition =
 							      PosLog.NOPOS),
 						 HLEC.ACTION (HLEC.EXP (HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "push_back",
 												   object=HLEC.SYMBOL (Symbol.symbol "inputs")},
-										   args=HLEC.TUPLE[HLEC.SEND{message=arg, object=HLEC.SYMBOL (Symbol.symbol "self")}]}),
+										   args=HLEC.TUPLE[HLEC.SEND{message=Symbol.symbol ((Symbol.name arg) ^ "_var"), object=HLEC.SYMBOL (Symbol.symbol "self")}]}),
 							      PosLog.NOPOS)])
 		     (#args header)))
 		@ 

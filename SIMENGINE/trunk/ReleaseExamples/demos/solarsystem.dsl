@@ -1,4 +1,4 @@
-//settings.debug.logdof.setValue(true)
+settings.ir.aggregate.setValue(true)
 
 model (x,y,amass,x_vel, y_vel) = planet (mass, externalForceX, externalForceY, initX, initY, initXv, initYv)
 
@@ -33,7 +33,7 @@ model (x,y,amass,x_vel, y_vel) = planet (mass, externalForceX, externalForceY, i
   equation amass=mass
 end
 
-model (moondata, earthdata, sundata/*, xs,ys,xvs,yvs*/) = solarsystem
+model (moondata, earthdata, sundata, mercurydata, venusdata, marsdata, jupiterdata, saturndata, uranusdata, neptunedata) = solarsystem
   constant G = 6.67e-11
 
   function connectPlanets (planets)
@@ -48,34 +48,56 @@ model (moondata, earthdata, sundata/*, xs,ys,xvs,yvs*/) = solarsystem
           var xcoeff = (planet.x*1e3-otherplanet.x*1e3) / distance
           var ycoeff = (planet.y*1e3-otherplanet.y*1e3) / distance
 
-          planet.externalForceX = planet.externalForceX.inputVal + xcoeff * force
-          planet.externalForceY = planet.externalForceY.inputVal + ycoeff * force
+          planet.externalForceX = planet.externalForceX + xcoeff * force
+          planet.externalForceY = planet.externalForceY + ycoeff * force
         end
       end
     end
   end
 
 
+// all numbers taken fron Wikipedia, mass in kg, velocity in km/s
 
-constant AU = 1.52e8
+constant AU = 1.52e8 //km
 constant moondist = 3.84e5
 constant earthspeed = 29.783  //km/s
 constant moonspeed = 1.022 //km/s 
+  submodel planet sun with {mass=1.989e30, initX = 0, initY=0}
+
+  submodel planet mercury with {mass=3.3e23,initX = 0, initY = 0.387*AU, initXv=47.87}
+  submodel planet venus with {mass=4.868e24,initX = 0, initY = 0.723*AU, initXv=35.02}
+
   submodel planet earth with {mass=5.9e24,initX = 0, initY = AU, initXv=earthspeed}
   submodel planet moon with {mass=7.36e22, initX = 0, initY = AU-moondist, initXv = earthspeed+moonspeed}
 
-  submodel planet sun with {mass=1.989e30, initX = 0, initY=0}
+  submodel planet mars with {mass=6.419e23,initX = 0, initY = 1.523*AU, initXv=24.08}
 
-  connectPlanets [sun, earth, moon]
-//  connectPlanets [earth, sun]
+  submodel planet jupiter with {mass=1.8986e27, initX = 0, initY = 5.2*AU, initXv=13.07}
+  submodel planet saturn with {mass=5.685e26, initX = 0, initY = 9.58*AU, initXv=9.69}
+  submodel planet uranus with {mass=8.6810e25, initX = 0, initY = 19.23*AU, initXv=6.81}
+  submodel planet neptune with {mass=1.024e26, initX = 0, initY = 30.1*AU, initXv=5.43}
 
-  iterator t2 with {continuous, solver=forwardeuler {dt=24*60*60}}
+
+  connectPlanets [sun, earth, moon, mercury,venus,mars, jupiter, saturn, uranus, neptune]
+
+  //t2 is used to perform downsampling of the outputs
+  iterator t2 with {continuous, solver=forwardeuler {dt=24*60*60}} // output every day
 
   output earthdata[t2]= (earth.x, earth.y)
   output moondata[t2] = (moon.x, moon.y)
 
   output sundata[t2] = (sun.x, sun.y)
 
-  solver=forwardeuler {dt=60}
+  output mercurydata[t2] = (mercury.x, mercury.y)
+  output venusdata[t2] = (venus.x, venus.y)
+  output marsdata[t2] = (mars.x, mars.y)
+
+  output jupiterdata[t2] = (jupiter.x, jupiter.y)
+  output saturndata[t2] = (saturn.x, saturn.y)
+  output uranusdata[t2] = (uranus.x, uranus.y)
+  output neptunedata[t2] = (neptune.x, neptune.y)
+
+
+  solver= rk4 {dt=15*60} // update every 15 minutes
 end
 
