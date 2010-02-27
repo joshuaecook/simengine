@@ -74,9 +74,13 @@ fun writes_iterator (_, DOF.UPDATE iter_sym) class =
     in writes_iterator iter class end
 
   | writes_iterator iter class =
-    let val {exps, ...} = class
-    in List.exists (term_writes_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
-       List.exists (test_instance_class (writes_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
+    let val {exps, name, ...} = class
+	val result = List.exists (term_writes_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
+		     List.exists (test_instance_class (writes_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
+	(*val _ = Util.log ("Testing writes_iterator for class="^(Symbol.name name)^", iterator=" ^ (Symbol.name (#1 iter)) ^"  -> " ^ (Util.b2s result))*)
+
+    in
+	result
     end
 
 and term_writes_iterator iter (Exp.SYMBOL (_, props)) =
@@ -966,23 +970,30 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 
 	val instances = ClassProcess.class2instances class
 
+	fun classAndInstanceName eqn =
+	    let val {classname, ...} = ExpProcess.deconstructInst eqn
+	    in 
+		(classname, ExpProcess.instOrigInstName eqn)
+	    end
 	val class_inst_pairs =
 	    let 
 		fun uniq_fun ((c1,i1),(c2,i2)) = i1 = i2
-		fun classAndInstanceName eqn =
-		    let val {classname, ...} = ExpProcess.deconstructInst eqn
-		    in 
-			(classname, ExpProcess.instOrigInstName eqn)
-		    end
 	    in
 		Util.uniquify_by_fun uniq_fun (map classAndInstanceName instances)
 	    end
 
 	val class_inst_pairs_non_empty = 
-	    List.filter (fn (cn,_) => 
-			    let val class = CurrentModel.classname2class cn
-			    in reads_iterator iterator class orelse
-			       writes_iterator iterator class
+	    List.filter (fn (cn,instname) => 
+			    let 
+				val matching_classes = List.filter
+							   (fn(_, instname')=>instname=instname')
+							   (map classAndInstanceName instances)
+				(*val class = CurrentModel.classname2class cn*)
+			    in 
+				List.exists (fn(c)=> 
+					       reads_iterator iterator c orelse
+					       writes_iterator iterator c) 
+					    (map (fn(cn,_)=>CurrentModel.classname2class cn) matching_classes)
 			    end) 
 			class_inst_pairs
 
