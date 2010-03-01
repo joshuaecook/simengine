@@ -120,7 +120,7 @@ else
   disp([interface.name ' simulation completed in ' num2str(elapsed) ' seconds.']);  
 
   outputs = {};
-  finalStates = zeros(opts.instances, length(interface.outputs));
+  finalStates = zeros(opts.instances, length(interface.states));
   finalTimes = zeros(1, opts.instances);
   for modelid = 1:opts.instances
     for outputid = 1:length(interface.outputs)
