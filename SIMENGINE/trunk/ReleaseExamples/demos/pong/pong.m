@@ -1,26 +1,42 @@
+% PONG
+%  Simulates a game of pong using simEngine and then visualizing the
+%  results in Matlab
+%
+% Copyright 2010 Simatra Modeling Technologies 
+%
 function o = pong
+
+% Execute simEngine and save the results to output structure 'o'
 o = simex('pong.dsl', 1000);
 
+% After finishing, show the final score of the game
 disp(sprintf('Score %d vs. %d', o.scores(end,2), o.scores(end,3)));
-%return;
 
+% Some constants shared in the DSL file and in this function for placement
+% of elements
 paddle_length = 6;
 paddle_width = 2;
 half = paddle_length/2;
 x_p1 = 3;
 x_p2 = 97;
+x_size = 100;
+y_size = 30;
 
+% Draw to the same figure, turning off the axis and setting a black
+% background
 figure(1)
 axis off;
-rectangle('Position', [0 0 100 30], 'FaceColor', 'Black');
+rectangle('Position', [0 0 x_size y_size], 'FaceColor', 'Black');
 
-ball = @(x,y)([x-1 y-1 200/100 60/100]);
+% Define the initial positions of the two paddles
 paddle1 = [x_p1-1 0 paddle_width paddle_length];
 paddle2 = [x_p2-1 0 paddle_width paddle_length];
 
 
-
+% Look at every 10th output to make it run faster
 for i=1:10:length(o.ball(:,1))
+    
+    % Allow time for the screen to be refreshed
     pause(0.001)
     
     % Recreate background
@@ -47,13 +63,5 @@ for i=1:10:length(o.ball(:,1))
     paddle2(2) = o.paddle2(i,2)-half;
     rectangle('Position', paddle2, 'FaceColor', 'Green');
 end
-
-% figure(2)
-% subplot(1,2,1)
-% plot(0,0,'+',cos(o.angle_l(:,2)), sin(o.angle_l(:,2)),'*')
-% axis([-1,1,-1,1])
-% subplot(1,2,2)
-% plot(0,0,'+',cos(o.angle_r(:,2)), sin(o.angle_r(:,2)),'*')
-% axis([-1,1,-1,1])
 
 end
