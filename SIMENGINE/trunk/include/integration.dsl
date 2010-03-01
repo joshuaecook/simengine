@@ -57,11 +57,11 @@ class Integrators
     end
       //function midpoint(dt)
     property midpoint
-      get = Solver.new("midpoint", dt, 0, 0)
+      get = Solver.new("midpoint", 0.1, 0, 0)
     end
       //function heun(dt)
     property heun
-      get = Solver.new("heun", dt, 0, 0)
+      get = Solver.new("heun", 0.1, 0, 0)
     end
     property ode23
       get = Solver.new("ode23", 0.1, 1e-6, 1e-3)

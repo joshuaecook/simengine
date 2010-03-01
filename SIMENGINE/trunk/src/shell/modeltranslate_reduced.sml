@@ -653,8 +653,8 @@ fun obj2dofmodel object =
                                                                                                        lowerhalfbw = exp2int (method "lbe_lowerhalfbw" solverobj)})
 									       }
 		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
-		       (* | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
-		       | "heun" => Solver.HEUN {dt = exp2real(method "dt" solverobj)}*)
+		       | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
+		       | "heun" => Solver.HEUN {dt = exp2real(method "dt" solverobj)}
 		       | "ode23" => Solver.ODE23 {dt = exp2real(method "dt" solverobj),
 						  abs_tolerance = exp2real(method "abstol" solverobj),
 						  rel_tolerance = exp2real(method "reltol" solverobj)}
