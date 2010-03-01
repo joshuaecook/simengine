@@ -128,9 +128,11 @@ else
       outputFile = fullfile(modelDir, interface.outputs{outputid});
       m = memmapfile(outputFile, 'format', 'double');
       outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
-      finalStatesFile = fullfile(modelDir, 'final-states');
-      m = memmapfile(finalStatesFile, 'format', 'double');
-      finalStates(modelid,:) = m.Data;
+      if(length(interface.states) > 0)
+	finalStatesFile = fullfile(modelDir, 'final-states');
+	m = memmapfile(finalStatesFile, 'format', 'double');
+	finalStates(modelid,:) = m.Data;
+      end
       finalTimeFile = fullfile(modelDir, 'final-time');
       m = memmapfile(finalTimeFile, 'format', 'double');
       finalTimes(modelid) = m.Data;
@@ -406,8 +408,9 @@ end
 function [result] = compile_model(opts)
   [status, result] = system([opts.simengine ' -simex ' opts.model ' ' opts.args]);
   if status
-    error(result)
+    disp(result); % Needed for regular expression matching in test framework
+    error(['Could not compile model ' opts.model]);
   else
-    disp(result)
+    disp(result);
   end
 end

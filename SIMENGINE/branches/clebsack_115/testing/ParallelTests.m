@@ -24,12 +24,12 @@ end
 
 
 function e = DuplicateStates(model, runtime, precision, target, number)
-    m = simex(model, '-quiet');
-    states = zeros(number, length(m.default_states));
+    m = simex(model);
+    states = zeros(number, length(m.defaultStates));
     for i=1:number
-        states(i,:) = m.default_states;
+        states(i,:) = m.defaultStates;
     end
-    o = simex(model, runtime, states, precision, target, '-quiet');
+    o = simex(model, runtime, states, precision, target);
     e = all_equiv(o);
 end
 
