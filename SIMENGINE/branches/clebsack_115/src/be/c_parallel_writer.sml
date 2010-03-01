@@ -1678,9 +1678,8 @@ fun model_flows shardedModel =
     handle e => DynException.checkpoint "CParallelWriter.model_flows" e
 
 
-fun output_code (name, location, block) =
+fun output_code (filename, block) =
     let
-      val filename = location ^ "/" ^ name ^ ".c"
       val _ = Logger.log_notice ($("Generating C source file '"^ filename ^"'"))
       val file = TextIO.openOut (filename)
     in
@@ -1942,47 +1941,50 @@ fun buildC (orig_name, shardedModel) =
 	val exec_loop_c = $(Codegen.getC "simengine/exec_loop.c")
 
 	(* write the code *)
-	val _ = output_code(class_name, ".", (header_progs @
-					      [precision_h] @
-					      [memory_layout_h] @
-					      [target_h] @
-					      simengine_interface_progs @
+	val filename = "./" ^ class_name ^ (case sysprops of
+						{target=Target.CUDA, ...} => ".cu"
+					      | _ => ".c")
+	val _ = output_code(filename, (header_progs @
+				       [precision_h] @
+				       [memory_layout_h] @
+				       [target_h] @
+				       simengine_interface_progs @
 
-					      [simengine_api_h] @
-					      [defines_h] @
-					      (case sysprops
-						of {target=Target.CUDA, ...} =>
-						   [gpu_util_c]
-						 | _ => []) @
+				       [simengine_api_h] @
+				       [defines_h] @
+				       (case sysprops
+					 of {target=Target.CUDA, ...} =>
+					    [gpu_util_c]
+					  | _ => []) @
 
-					      (* Could be conditional on use of randoms *)
-					      [random_c] @
-					      [seint_h] @
-					      [output_buffer_h] @
-					      outputdatastruct_progs @
-					      outputstatestruct_progs @
-					      systemstate_progs @
-					      fun_prototypes @
-					      [solvers_h] @
+				       (* Could be conditional on use of randoms *)
+				       [random_c] @
+				       [seint_h] @
+				       [output_buffer_h] @
+				       outputdatastruct_progs @
+				       outputstatestruct_progs @
+				       systemstate_progs @
+				       fun_prototypes @
+				       [solvers_h] @
 
-					      (case sysprops
-						of {target=Target.CUDA, ...} =>
-						   [solver_gpu_cu]
-						 | _ => []) @
+				       (case sysprops
+					 of {target=Target.CUDA, ...} =>
+					    [solver_gpu_cu]
+					  | _ => []) @
 
-					      [solver_c] @
-					      (*iteratordatastruct_progs @*)
-					      solver_wrappers_c @
-					      iterator_wrappers_c @
-					      [init_output_buffer_c] @
-					      [simengine_api_c] @
-					      init_solver_props_c @
-					      logoutput_progs @
-					      [log_outputs_c] @
-					      exec_c @
-					      flow_progs @
-					      model_flows_c @
-					      [exec_loop_c]))
+				       [solver_c] @
+				       (*iteratordatastruct_progs @*)
+				       solver_wrappers_c @
+				       iterator_wrappers_c @
+				       [init_output_buffer_c] @
+				       [simengine_api_c] @
+				       init_solver_props_c @
+				       logoutput_progs @
+				       [log_outputs_c] @
+				       exec_c @
+				       flow_progs @
+				       model_flows_c @
+				       [exec_loop_c]))
     in
 	SUCCESS
     end

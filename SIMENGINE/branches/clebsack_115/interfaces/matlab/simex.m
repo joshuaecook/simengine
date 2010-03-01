@@ -197,7 +197,7 @@ if 1 < nargin
       error('Simatra:SIMEX:argumentError', ...
             'All additional arguments must be non-empty strings.');
     else
-      opts.args = [opts.args ' ' arg]
+      opts.args = [opts.args ' ' arg];
     end
   end
   

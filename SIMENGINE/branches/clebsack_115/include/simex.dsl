@@ -594,7 +594,12 @@ import "command_line.dsl"
 
     var mod = LF loadModel (filename)
     var name = mod.template.name
-    var cname = name + ".c"
+    var cname = ""
+    if "cuda" == compilerSettings.target then
+      cname = name + ".cu"
+    else
+      cname = name + ".c"
+    end
     mod.template.settings = compilerSettings
 
     var instantiatedModel = mod.instantiate()
@@ -602,11 +607,6 @@ import "command_line.dsl"
     var simfile
     
     if true == stat then
-      if "cuda" == compilerSettings.target then
-	shell("ln", ["-s", cname, name + ".cu"])
-	cname = name + ".cu"
-      end
-
       compilerSettings.add("cSourceFilename", cname)
       
       simfile = Archive.createArchive(name + ".sim", settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
