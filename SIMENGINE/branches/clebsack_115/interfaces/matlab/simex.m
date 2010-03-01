@@ -97,7 +97,7 @@ else
     if -1 == inputFileID
       error(['Could not open inputs file: ' inputsFile]);
     end
-    fwrite(inputFileID, userInputs, 'double');
+    fwrite(inputFileID, userInputs', 'double');
     fclose(inputFileID);
   end
 
@@ -109,7 +109,7 @@ else
     if -1 == stateFileID
       error(['Could not open inputs file: ' statesFile]);
     end
-    fwrite(stateFileID, userStates, 'double');
+    fwrite(stateFileID, userStates', 'double');
     fclose(stateFileID);
   end
 
@@ -119,27 +119,28 @@ else
   
   disp([interface.name ' simulation completed in ' num2str(elapsed) ' seconds.']);  
 
-  outputs = {}; 
+  outputs = {};
+  finalStates = zeros(opts.instances, length(interface.outputs));
+  finalTimes = zeros(1, opts.instances);
   for modelid = 1:opts.instances
     for outputid = 1:length(interface.outputs)
-      outputFile = fullfile(opts.outputs, modelidToPath(modelid-1), interface.outputs{outputid});
+      modelDir = fullfile(opts.outputs, modelidToPath(modelid-1));
+      outputFile = fullfile(modelDir, interface.outputs{outputid});
       m = memmapfile(outputFile, 'format', 'double');
       outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
+      finalStatesFile = fullfile(modelDir, 'final-states');
+      m = memmapfile(finalStatesFile, 'format', 'double');
+      finalStates(modelid,:) = m.Data;
+      finalTimeFile = fullfile(modelDir, 'final-time');
+      m = memmapfile(finalTimeFile, 'format', 'double');
+      finalTimes(modelid) = m.Data;
     end
   end
-  % Output data are transposed before returning.
-%  fnames = fieldnames(output);
-%  for i=1:length(output)
-%    for f=1:length(fnames)
-%      output(i).(fnames{f}) = ...
-%          transpose(output(i).(fnames{f}));
-%    end
-%  end
 
   % Cleanup the temporary files
   rmdir(opts.outputs, 's');
            
-  varargout = {outputs}; %{output transpose(y1) t1};
+  varargout = {outputs finalStates finalTimes};
 end
 end
 
@@ -362,8 +363,11 @@ end
 % Retrieve the interface from a simulation object and translate it into a format
 % amenable to Matlab use
 function [interface] = get_interface(opts)
-  opts.args = [opts.args ' -json-interface'];
-  [json_interface] = compile_model(opts);
+  simex_interface_json = 'simex_interface.json';
+  opts.args = [opts.args ' -json-interface ' simex_interface_json];
+  compile_model(opts);
+  json_interface = fileread(simex_interface_json);
+  delete(simex_interface_json);
   interface = parse_json(json_interface);
 
   % Convert default inputs to a structure
@@ -403,5 +407,7 @@ function [result] = compile_model(opts)
   [status, result] = system([opts.simengine ' -simex ' opts.model ' ' opts.args]);
   if status
     error(result)
+  else
+    disp(result)
   end
 end

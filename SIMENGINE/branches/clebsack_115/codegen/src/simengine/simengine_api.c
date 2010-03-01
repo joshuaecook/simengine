@@ -17,7 +17,7 @@ static const struct option long_options[] = {
   {"outputs", required_argument, 0, OUTPUT_DIR},
   {"binary", no_argument, 0, BINARY},
   {"interface", no_argument, 0, INTERFACE},
-  {"json-interface", no_argument, 0, JSON_INTERFACE},
+  {"json-interface", required_argument, 0, JSON_INTERFACE},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
@@ -255,8 +255,15 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       exit(0);
       break;
     case JSON_INTERFACE:
-      printf(json_interface);
-      exit(0);
+      {
+	FILE *json_file;
+	json_file = fopen(optarg, "w");
+	if(!json_file){
+	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.\n", optarg);
+	}
+	fprintf(json_file, "%s", json_interface);
+	exit(0);
+      }
       break;
       // Stop execution if an invalid command line option is found.
       // Force the user to correct the error instead of ignoring options that
@@ -290,9 +297,12 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
   }
 
   if(mkdir(opts->outputs_dirname, 0777)){
-    // TODO: allow multiple processes to share the same output directory
-    ERROR(Simatra:Simex:parse_args, "Could not create output directory %s.\n",
-	  opts->outputs_dirname);
+    struct stat dirname_stat;
+    if(stat(opts->outputs_dirname, &dirname_stat) || !(dirname_stat.st_mode&S_IFDIR)){
+      // TODO: allow multiple processes to share the same output directory
+      ERROR(Simatra:Simex:parse_args, "Could not create output directory %s.\n",
+	    opts->outputs_dirname);
+    }
   }
 
   if(opts->num_models > MAX_NUM_MODELS){

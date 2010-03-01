@@ -269,8 +269,7 @@ import "command_line.dsl"
 
   var booleanOptionNamesAlways = ["help",
 				  "binary",
-				  "interface",
-				  "json-interface"] +
+				  "interface"] +
 				  targetOptions.keys +
 				  precisionOptions.keys
 
@@ -291,7 +290,8 @@ import "command_line.dsl"
   var stringOptionNamesAlways = ["simex",
 				 "inputs",
 				 "states",
-				 "outputs"]
+                                 "outputs",
+                                 "json-interface"]
   var stringOptionNamesDebug = []
 
   var defaultCompilerSettings = {target = "openmp",
@@ -353,10 +353,11 @@ import "command_line.dsl"
     var stat = Process.reap(p)
     var stdout = allout(1)
     var stderr = allout(2)
+    FileSystem.rmfile(simulation)
     if (0 <> stat) then
       error(join("", stderr))
     // Return the interface from the executable if requested
-    elseif objectContains(simulationSettings, "interface") or objectContains(simulationSettings, "json-interface") then
+    elseif objectContains(simulationSettings, "interface") then
       print(join("", stdout))
     end
   end
@@ -463,7 +464,7 @@ import "command_line.dsl"
     if objectContains(commandLineOptions, "interface") then
       simulationSettings.add("interface", true)
     elseif objectContains(commandLineOptions, "json-interface") then
-      simulationSettings.add("json-interface", true)
+      simulationSettings.add("json-interface", commandLineOptions.getValue("json-interface"))
     // Set all the simulation settings from the commandLineOptions
     elseif copyOptions(commandLineOptions, simulationSettings, simulationSettingNames) then
       if not(objectContains(simulationSettings, "stop")) then
@@ -561,6 +562,8 @@ import "command_line.dsl"
     if needsToCompile then
       compile (filename, target, compilerSettings)
     else
+      Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.exfile, compilerSettings.exfile)
+      shell("chmod", ["+x", compilerSettings.exfile])
       if compilerSettings.debug then
 	println ("reusing existing SIM")
       end
