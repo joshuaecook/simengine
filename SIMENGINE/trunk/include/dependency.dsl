@@ -241,6 +241,12 @@ end
        warning ("gcc version greater than 4.1 required, " + deps.gcc.version + " found")
      end
 
+     // check nvcc is not a symbolic link
+     if nvcc_path <> FileSystem.realpath nvcc_path then
+       depsFailed = true
+       warning ("nvcc installation corrupted: nvcc cannot be a symbolic link")
+     end
+
      //check architectures
 
      if depsFailed then
