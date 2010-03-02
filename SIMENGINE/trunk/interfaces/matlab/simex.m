@@ -126,8 +126,13 @@ else
     for outputid = 1:length(interface.outputs)
       modelDir = fullfile(opts.outputs, modelidToPath(modelid-1));
       outputFile = fullfile(modelDir, interface.outputs{outputid});
-      m = memmapfile(outputFile, 'format', 'double');
-      outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
+      try
+        m = memmapfile(outputFile, 'format', 'double');
+        outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
+      catch
+        % this means there is no data in the output file
+        outputs(modelid).(interface.outputs{outputid}) = [];
+      end
       if(length(interface.states) > 0)
 	finalStatesFile = fullfile(modelDir, 'final-states');
 	m = memmapfile(finalStatesFile, 'format', 'double');
