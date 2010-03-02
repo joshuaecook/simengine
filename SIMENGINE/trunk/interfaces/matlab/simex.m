@@ -3,7 +3,6 @@
 %   Usage:
 %       M = SIMEX(MODEL)
 %       [OUT Y1 T1] = SIMEX(MODEL, TIME, INPUTS, Y0, ...)
-%       [T Y] = SIMEX(MODEL, TIME, INPUTS, Y0, '-solver=MATLABODE')
 %
 %   Description:
 %    SIMEX compiles the model defined in the DSL file into a
@@ -34,10 +33,6 @@
 %
 %      Additional optional parameters may follow:
 %
-%      '-outdir'
-%        The next parameter must be a path which specifies the
-%        directory in which the compiled model will be saved.
-%
 %      '-double'
 %        Constructs a simulation engine that computes in
 %        double-precision floating point. (This is the default.)
@@ -48,25 +43,11 @@
 %
 %      '-cpu'
 %        Constructs a serialized cpu-based simulation engine.
+%
+%      '-parallelcpu'
+%        Constructs a multiprocessor cpu-based simulation engine.
 %        (This is the default.)
 %
-%      '-parallel-cpu'
-%        Constructs a multiprocessor cpu-based simulation engine.
-%
-%      '-debug'
-%        Enables the compiler to produce extra debugging
-%        information.
-%
-%      '-profile'
-%        Enables the compiler to produce extra profiling
-%        information.
-%
-%      '-solver=MATLABODE'
-%        Utilize a particular solver builtin to MATLAB, such as
-%        ode15s, ode23t, and ode45.
-%
-%      '-quiet'
-%        Do not display output from the simEngine compiler
 %
 %    M = SIMEX(MODEL) compiles MODEL as above and returns a
 %    model description structure M containing information
@@ -82,15 +63,9 @@ if nargin == 0
   return;
 end
 
-[dslPath dslName modelFile opts] = get_simex_opts(varargin{:});
+opts = get_simex_opts(varargin{:});
 
-if exist(modelFile, 'file')
-  dllPath = invoke_compiler(dslPath, dslName, modelFile, opts);
-  interface = simex_helper(dllPath, '-query');
-else
-  error('Simatra:SIMEX:rgumentError', ['File ''' modelFile ''' does ' ...
-                      'not exist'])
-end
+interface = get_interface(opts);
 
 if nargin == 1 || ischar(varargin{2}) % alternative is that you
                                      % supply a flag as a second
@@ -108,89 +83,95 @@ else
     error('Simatra:SIMEX:argumentError', ...
           'When INPUTS and Y0 both contain more than 1 row, they must have the same number of rows.');
   end
-  
-  % User data are transposed before passing in to the simulation.
-  if 0 == inputsM
-    numInputs = length(interface.input_names);
-    userInputs = zeros(numInputs, models);
-    for i=1:numInputs
-      userInputs(i,:) = interface.default_inputs.(interface.input_names{i}) * ones(1, models);
-    end
-  elseif 1 == inputsM && models ~= inputsM
-    userInputs = transpose(userInputs) * ones(1, models);
-  else
-    userInputs = transpose(userInputs);
+
+  % Make sure directory exists if we need to write inputs or states
+  if inputsM | statesM
+    mkdir(opts.outputs);
   end
   
-  if 0 == statesM
-    if 0 < length(interface.state_names)
-      userStates = transpose(interface.default_states) * ones(1, models);
-    else
-      userStates = [];
+  % Write inputs to file
+  if 0 < inputsM
+    inputsFile = fullfile(opts.outputs, 'inputs');
+    opts.args = [opts.args ' -inputs ' inputsFile];
+    inputFileID = fopen(inputsFile, 'w');
+    if -1 == inputFileID
+      error(['Could not open inputs file: ' inputsFile]);
     end
-  elseif 1 == statesM && models ~= statesM
-    userStates = transpose(userStates) * ones(1, models);
-  else
-    userStates = transpose(userStates);
+    fwrite(inputFileID, userInputs', 'double');
+    fclose(inputFileID);
   end
-  
+
+  % Write states to file
+  if 0 < statesM
+    statesFile = fullfile(opts.outputs, 'states');
+    opts.args = [opts.args ' -states ' statesFile];
+    stateFileID = fopen(statesFile, 'w');
+    if -1 == stateFileID
+      error(['Could not open inputs file: ' statesFile]);
+    end
+    fwrite(stateFileID, userStates', 'double');
+    fclose(stateFileID);
+  end
+
   tic;
-    if opts.solver % use a MATLAB ODE solver
-      simex_helper(dllPath, userInputs); % Initialize evalflow DLL
-      try
-        [t, y] = feval(opts.solver, @simex_helper, [opts.startTime opts.endTime], ...
-                       userStates);
-      catch me
-        me
-      end
-      simex_helper(dllPath, userInputs); % Cleanup evalflow DLL
-      varargout = {t, y};
-      elapsed = toc;
-      verbose_out([dslName ' simulation using ' opts.solver ' completed in ' num2str(elapsed) ' ' ...
-            'seconds.'], opts);
-      return;
-    else
-      [output y1 t1] = simex_helper(dllPath, [opts.startTime opts.endTime], ...
-                                    userInputs, userStates);
-    end
+  simulate_model(opts);
   elapsed = toc;
   
-  verbose_out([dslName ' simulation completed in ' num2str(elapsed) ...
-               ' seconds.'], opts);
-  
+  disp([interface.name ' simulation completed in ' num2str(elapsed) ' seconds.']);  
 
-  % Output data are transposed before returning.
-  fnames = fieldnames(output);
-  for i=1:length(output)
-    for f=1:length(fnames)
-      output(i).(fnames{f}) = ...
-          transpose(output(i).(fnames{f}));
+  outputs = {};
+  finalStates = zeros(opts.instances, length(interface.states));
+  finalTimes = zeros(1, opts.instances);
+  for modelid = 1:opts.instances
+    for outputid = 1:length(interface.outputs)
+      modelDir = fullfile(opts.outputs, modelidToPath(modelid-1));
+      outputFile = fullfile(modelDir, interface.outputs{outputid});
+      m = memmapfile(outputFile, 'format', 'double');
+      outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
+      if(length(interface.states) > 0)
+	finalStatesFile = fullfile(modelDir, 'final-states');
+	m = memmapfile(finalStatesFile, 'format', 'double');
+	finalStates(modelid,:) = m.Data;
+      end
+      finalTimeFile = fullfile(modelDir, 'final-time');
+      m = memmapfile(finalTimeFile, 'format', 'double');
+      finalTimes(modelid) = m.Data;
     end
   end
+
+  % Cleanup the temporary files
+  rmdir(opts.outputs, 's');
            
-  varargout = {output transpose(y1) t1};
+  varargout = {outputs finalStates finalTimes};
 end
 end
 
-%% 
-function [dslPath dslName modelFile opts] = get_simex_opts(varargin)
+function [val] = stringByte(number, b)
+  val = num2str(bitand(bitshift(number, -(b*8)),255), '%02x');
+end
+
+function [path] = modelidToPath(modelid)
+  path = fullfile(stringByte(modelid,2),stringByte(modelid,1),stringByte(modelid,0));
+end
+
+%%
+function [opts] = get_simex_opts(varargin)
 %
 % GET_SIMEX_OPTS parses the options from the command
 % invocation.
 %
-% Returns the target output directory, the name of the DSL input
-% model file (sans extension,) the path of the DSL input model
-% file, and a struct containing command options.
-%
-dslPath = '';
-opts = struct('models',1, 'target','', 'precision','double', ...
-              'verbose',true, 'debug',false, 'profile',false, ...
-              'emulate',false, 'startTime',0, ...
-              'endTime',0, 'inputs',struct(), 'states',[], ...
-              'simengine','', 'solver', []);
+
+% Make sure the temporary directory simex uses doesn't exist
+% if it is there it probably means a previous invocation crashed
+opts = struct('simengine','', 'model', '', 'instances',1, 'startTime',0, ...
+              'stopTime',0, 'inputs',struct(), 'states',[], ...
+              'outputs', '', 'args', '-binary');
 
 [seroot] = fileparts(which('simex'));
-opts.simengine = seroot;
+opts.simengine = fullfile(seroot, 'bin', 'simEngine');
+
+% Specify a temporary directory for results
+opts.outputs = ['simex' num2str(now,'%16f')];
 
 if 1 > nargin
   help('simex')
@@ -198,12 +179,11 @@ if 1 > nargin
         'SIMEX requires an input model file name.');
 end
 
-modelFile = realpath(varargin{1});
-[pathName dslName] = fileparts(modelFile);
+opts.model = realpath(varargin{1});
 
 if 1 < nargin
   if isnumeric(varargin{2})
-    [opts.startTime opts.endTime] = get_time(varargin{2});
+    [opts.startTime opts.stopTime] = get_time(varargin{2});
     start_index = 3;
   else
     start_index = 2;
@@ -218,73 +198,22 @@ if 1 < nargin
     elseif ~(ischar(arg) || isempty(arg))
       error('Simatra:SIMEX:argumentError', ...
             'All additional arguments must be non-empty strings.');
-    elseif strcmpi(arg, '-double')
-      opts.precision = 'double';
-    elseif strcmpi(arg, '-single')
-      opts.precision = 'float';
-    elseif strcmpi(arg, '-float')
-      opts.precision = 'float';
-    elseif strcmpi(arg, '-cpu')
-      opts.target = 'cpu';
-    elseif strcmpi(arg, '-gpu')
-      opts.target = 'gpu';
-    elseif strcmpi(arg, '-parallel-cpu')
-      opts.target = 'parallelcpu';
-    elseif strcmpi(arg, '-v')
-      opts.verbose = true;
-    elseif strcmpi(arg, '-quiet')
-      opts.verbose = false;
-    elseif strcmpi(arg, '-debug')
-      opts.debug = true;
-    elseif strcmpi(arg, '-emulate')
-      opts.emulate = true;
-    elseif strcmpi(arg, '-profile')
-      opts.profile = true;
-    elseif length(arg) > 8 && strcmpi(arg(1:8), '-solver=')
-      opts.solver = arg(9:end);
-      if not(exist(opts.solver)) 
-        error('Simatra:SIMEX:argumentError', ...
-              '%s is not a valid matlab ode solver', opts.solver);
-      end
+    else
+      opts.args = [opts.args ' ' arg];
     end
   end
   
-  models = max(1, size(opts.states,1));
+  opts.instances = max(1, size(opts.states,1));
   fnames = fieldnames(opts.inputs);
   for fid = 1:size(fnames)
-    models = max([models size(opts.inputs.(fnames{fid}))]);
-  end
-  opts.models = models;
-end
-
-if strcmpi(opts.target, '')
-  opts.target = 'cpu';
-  if 1 < opts.models
-%    switch computer
-%     case {'MACI','MACI64'}
-      opts.target = 'parallelcpu';
-%     otherwise
-%      opts.target = 'GPU';
-%    end
+    opts.instances = max([opts.instances size(opts.inputs.(fnames{fid}))]);
   end
 end
 
-if isempty(dslPath)
-  dslPath = pwd;
-elseif 7 ~= exist(dslPath, 'dir')
-  error('Simatra:SIMEX:fileNotFoundError', ...
-        'The destination directory %s does not exist.', mexPath);
 end
 
-% if 2 ~=  exist(modelFile, 'file')
-%   error('Simatra:SIMEX:fileNotFoundError', ...
-%         'The input model file %s does not exist.', modelFile);
-% end
-
-end
-
-%% 
-function [startTime endTime] = get_time(userTime)
+%%
+function [startTime stopTime] = get_time(userTime)
 % GET_TIME returns a 2-element array containing the time limit for
 % a simulation run.
 [rows cols] = size(userTime);
@@ -292,15 +221,15 @@ function [startTime endTime] = get_time(userTime)
 switch (rows * cols)
  case 1
   startTime = 0;
-  endTime = double(userTime);
+  stopTime = double(userTime);
   if userTime < 0
     error('Simatra:SIMEX:argumentError', ...
           'TIME must be greater than zero.');
   end
  case 2
   startTime = double(userTime(1));
-  endTime = double(userTime(2));
-  if endTime < startTime
+  stopTime = double(userTime(2));
+  if stopTime < startTime
     error('Simatra:SIMEX:argumentError', ...
           'TIME(2) must be greater than TIME(1).');
   end
@@ -309,7 +238,7 @@ switch (rows * cols)
 end
 end
 
-%% 
+%%
 function [userInputs] = vet_user_inputs(interface, inputs)
 % VET_USER_INPUTS verifies that the user-supplied inputs are valid.
 % Returns a MxN matrix where N is the number of model inputs.
@@ -321,11 +250,11 @@ end
 
 models = 0;
 
-fieldnames = interface.input_names;
+fieldnames = interface.inputs;
 for fieldid=1:length(fieldnames)
   fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
-    if isnan(interface.default_inputs.(fieldname))
+    if isnan(interface.defaultInputs.(fieldname))
       error('Simatra:valueError', 'INPUTS.%s has no default value and must be specified.', fieldname);
     end
     continue
@@ -363,11 +292,11 @@ for fieldid=1:length(fieldnames)
   end
 end
 
-userInputs = zeros(models, length(interface.input_names));
+userInputs = zeros(models, length(interface.inputs));
 for fieldid=1:length(fieldnames)
   fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
-    userInputs(1:models, fieldid) = interface.default_inputs.(fieldname) * ones(models, 1);
+    userInputs(1:models, fieldid) = interface.defaultInputs.(fieldname) * ones(models, 1);
     continue
   end
   
@@ -383,7 +312,7 @@ end
 
 end
 
-%% 
+%%
 function [userStates] = vet_user_states(interface, states)
 % VET_USER_STATES verifies that the user-supplied initial states
 % contain valid data.
@@ -401,70 +330,27 @@ end
 userStates = [];
 
 if 0 < statesRows && 0 < statesCols
-  if statesCols ~= length(interface.state_names)
+  if statesCols ~= length(interface.states)
     error('Simatra:SIMEX:argumentError', ...
-          'Y0 must contain %d columns.', length(interface.state_names));
+          'Y0 must contain %d columns.', length(interface.states));
   end
   userStates = double(states);
 end
 
 end
 
-%% 
-function [dllPath] = invoke_compiler(dslPath, dslName, modelFile, opts)
-simengine = fullfile(opts.simengine, 'bin', 'simEngine');
-setenv('SIMENGINE', opts.simengine);
 
-%disp(['simEngine: ' simengine ', modelFile: ' modelFile ', dslName: ' ...
-%       dslName])
-
-if opts.verbose 
-  verbose_flag = '+v';
-else
-  verbose_flag = '-v';
-end
-if opts.debug 
-  debug_flag = '+d';
-else
-  debug_flag = '-d';
-end
-if opts.profile 
-  profile_flag = '+p';
-else
-  profile_flag = '-p';
-end
-  
-tic;
-  status = simEngine_wrapper(simengine, modelFile, dslName, ...
-                             verbose_flag, debug_flag, ...
-                             profile_flag, opts.target, opts.precision, ...
-                             opts.models);    
-elapsed = toc;
-verbose_out(['simEngine compiler completed in ' num2str(elapsed) ' ' ...
-             'seconds.'], opts);
-    
-if 0 ~= status
-  error('Simatra:SIMEX:compileError', ...
-        'Compilation returned status code %d.', status);
-end
-
-% TODO what is the path of the resultant DLL?
-[igpath modelname] = fileparts(modelFile);
-dllPath = fullfile(pwd, [modelname '.sim']);
-
-end
-
-%%
+%%
 function [abspath] = realpath(relpath, root)
 % REALPATH returns a fully-qualified absolute path for a given
 % relative path. The ROOT parameter is optional. If given, RELPATH
 % is taken as relative to ROOT. If omitted, RELPATH is treated as
 % relative to the current working directory.
-[dir file ext ver] = fileparts(relpath);
-if isempty(dir)
-    dir = '.';
+[dirname file ext ver] = fileparts(relpath);
+if isempty(dirname)
+    dirname = '.';
 end 
-command = ['cd ' dir ';'...
+command = ['cd ' dirname ';'...
            ' echo $(pwd)/' file ext ver ';'];
 if nargin > 1
   command = ['cd ' root '; ' command];
@@ -473,9 +359,58 @@ end
 abspath = strtrim(abspath);
 end
 
-%%
-function [] = verbose_out(x, opts)
-  if opts.verbose
-    disp(x)
+%function [] = write_file(filename, matrix)
+%end
+
+% Retrieve the interface from a simulation object and translate it into a format
+% amenable to Matlab use
+function [interface] = get_interface(opts)
+  simex_interface_json = 'simex_interface.json';
+  opts.args = [opts.args ' -json-interface ' simex_interface_json];
+  compile_model(opts);
+  json_interface = fileread(simex_interface_json);
+  delete(simex_interface_json);
+  interface = parse_json(json_interface);
+
+  % Convert default inputs to a structure
+  defaultInputs = interface.defaultInputs;
+  interface.defaultInputs = {};
+  for i = 1:length(defaultInputs)
+    interface.defaultInputs.(interface.inputs{i}) = defaultInputs{i};
+  end
+
+  % Convert default states to a flat vector
+  defaultStates = interface.defaultStates;
+  interface.defaultStates = zeros(1, length(defaultStates));
+  for i = 1:length(defaultStates)
+    interface.defaultStates(i) = defaultStates{i};
+  end
+
+  % Convert output sizes to a flat vector
+  outputNumQuantities = interface.outputNumQuantities;
+  interface.outputNumQuantities = zeros(1, length(outputNumQuantities));
+  for i = 1:length(outputNumQuantities)
+    interface.outputNumQuantities(i) = outputNumQuantities{i};
+  end
+
+  % Remove fields that have no meaning to user
+  interface = rmfield(interface, {'hashcode', 'version'});
+end
+
+function [] = simulate_model(opts)
+  opts.args = [opts.args ' -start ' num2str(opts.startTime)];
+  opts.args = [opts.args ' -stop ' num2str(opts.stopTime)];
+  opts.args = [opts.args ' -instances ' num2str(opts.instances)];
+  opts.args = [opts.args ' -outputs ' opts.outputs];
+  compile_model(opts);
+end
+
+function [result] = compile_model(opts)
+  [status, result] = system([opts.simengine ' -simex ' opts.model ' ' opts.args]);
+  if status
+    disp(result); % Needed for regular expression matching in test framework
+    error(['Could not compile model ' opts.model]);
+  else
+    disp(result);
   end
 end

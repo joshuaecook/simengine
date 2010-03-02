@@ -106,7 +106,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -link-opt "-ldl -lz" -export-header src/ffi/ffi-exports.h -link-opt "codegen/simlib/simlib.a -fopenmp"
+SIMPLE_ARGS = -link-opt "-ldl -lz" -export-header src/ffi/ffi-exports.h -link-opt "$(COMPILER_EXTRA_LIBS) -fopenmp -rdynamic"
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1
@@ -175,9 +175,6 @@ endif
 
 # Creates lists of MATLAB/Octave targets for each available MEX type
 SIMENGINE_WRAPPER = $(addprefix simEngine_wrapper,$(MEXEXT))
-SIMEX_HELPER = $(addprefix simex_helper,$(MEXEXT))
-SIMEX_HELPER_BUILD = $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER))
-
 
 # Branching Related Parameters
 # ==============================================================================================
@@ -315,7 +312,7 @@ else
 DOCUMENTATION_BUILD_FILES = 
 endif
 
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(BUILD_DIR)/lib/libcodegen.sim $(BUILD_DIR)/bin/simex $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
 
 
 ifeq ($(BUILD_TYPE),software)
@@ -344,9 +341,9 @@ links: $(BUILD_DIR)
 
 COMPILER_BASIS = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_BASIS))
-COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c)
-COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a
-COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_SOURCES) $(COMPILER_EXTRA_LIBS)
+COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c) codegen/src/*.o
+COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a
+COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
 
 
 # Dynamo Compilation Targets
@@ -405,9 +402,6 @@ $(BUILD_DIR)/%.m: interfaces/matlab/%.m
 $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 	$(CP) $< $@
 
-$(BUILD_DIR)/lib/libcodegen.sim: codegen/lib/libcodegen.sim
-	$(CP) $< $@
-
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	$(CP) $< $@
 
@@ -422,11 +416,11 @@ mexinterface:
 pcode: $(INSTALL_FILENAME).p
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
-MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS)
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 MATLAB_FILES += mexinterface
-MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER))
+MATLAB_FILES += $(addprefix $(BUILD_DIR)/,$(SIMENGINE_WRAPPER))
 
 solvers/lib/libcvode_%.a: solvers
 
@@ -436,8 +430,16 @@ solvers:
 
 .PHONY: share_cuda
 share_cuda:
-	$(info Running target cuda_utils)
-	$(MAKE) -C share/cuda all
+	$(MAKE) -C share/cuda
+
+.PHONY: share_cuda_clean
+share_cuda_clean:
+	$(MAKE) -C share/cuda clean
+
+share/cuda/device_props.a: share_cuda
+
+# share/cuda/device_props.o: LDFLAGS = -ldl
+# share/cuda/device_props.o: CPPFLAGS = $(CUDA_INCLUDES) -DCUDART_LIBRARY_NAME='"$(CUDART_LIBRARY_NAME)"'
 
 
 $(BUILD_DIR)/simex_helper.mex%: interfaces/matlab/src/simex_helper.mex%
@@ -493,7 +495,7 @@ $(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/src/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
 	$(CP) $< $@	
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMEX_HELPER) $(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
+install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(addprefix $(LOCAL_INSTALL)/,$(SIMENGINE_WRAPPER)) $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
 	$(info Local install at $(LOCAL_INSTALL) ready)
 
 # Build type options
@@ -553,17 +555,16 @@ build_includes: include/* solvers
 #	@$(MKDIR) $(BUILD_DIR)/include/solvers/
 #	@cp -fL solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
 
-build_shared: share/*
+build_shared: $(DSL_EL)
 	$(info Populating shared files...)
-	@$(MAKE) share_cuda
-	$(CP) $^ $(BUILD_DIR)/share/
-	-$(CP) share/cuda/device_props $(BUILD_DIR)/bin/
+	[ -d $(BUILD_DIR)/share/emacs ] || $(MKDIR) $(BUILD_DIR)/share/emacs
+	$(CP) $(DSL_EL) $(BUILD_DIR)/share/emacs
 
 $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	$(BUILD_DIR)/bin/$(FILENAME) < /dev/null
+	$(BUILD_DIR)/bin/$(FILENAME) -batch < /dev/null
 
 .PHONY: codegen
 codegen:
@@ -575,12 +576,7 @@ codegen_clean:
 
 codegen/simlib/simlib.a: codegen
 codegen/simlib/simlib: codegen
-codegen/lib/libcodegen.sim: codegen
-
-$(BUILD_DIR)/bin/simex: interfaces/c/simex.c interfaces/c/simex_commandline.c interfaces/c/simex.h codegen/src/simengine/simengine_api.h codegen/src/simengine/memory_layout.h
-	@$(MAKE) -C interfaces/c simex $(ARCH64_FLAG) DEBUG=$(DEBUG)
-	$(CP) interfaces/c/simex $@
-
+codegen/src/*.o: codegen
 
 # User and developer documents
 # ==============================================================================================
@@ -818,7 +814,7 @@ install: system
 
 
 .PHONY: clean
-clean: mostlyclean solvers_clean codegen_clean mexinterface_clean cinterface_clean share_cuda_clean testing_clean
+clean: mostlyclean solvers_clean codegen_clean mexinterface_clean share_cuda_clean testing_clean
 	$(RM) $(BUILD)_*
 	$(RM) $(BUILD)
 #	$(RM) ../$(RPM_TEMP_DIR)
@@ -850,14 +846,6 @@ solvers_clean:
 .PHONY: mexinterface_clean
 mexinterface_clean:
 	$(MAKE) -C interfaces/matlab clean
-
-.PHONY: cinterface_clean
-cinterface_clean:
-	$(MAKE) -C interfaces/c clean
-
-.PHONY: share_cuda_clean
-share_cuda_clean:
-	$(MAKE) -C share/cuda clean
 
 .PHONY: clean-all
 clean-all:

@@ -29,11 +29,11 @@ s = Suite('All Tests');
 
 % Pull in each of the other test suites
 s.add(ReleaseCompileTests)
-%s.add(ReleaseCompileTestsGPU)
+s.add(ReleaseCompileTestsGPU)
 
 % Add full simulation tests
 s.add(ReleaseSimulateTests)
-%s.add(ReleaseSimulateTestsGPU)
+s.add(ReleaseSimulateTestsGPU)
 
 % Add tests for each solver
 s.add(SolverTests)
@@ -46,10 +46,10 @@ end
 % Add feature tests
 if mode == INTERNAL
     s.add(FeatureTests('-cpu'));
-    %s.add(FeatureTests('-gpu'));
+    s.add(FeatureTests('-gpu'));
 else
     s.add(FeatureTests('-cpu','-release'));
-    %s.add(FeatureTests('-gpu','-release'));
+    s.add(FeatureTests('-gpu','-release'));
 end
 
 % Add message tests (for checking compiler output)

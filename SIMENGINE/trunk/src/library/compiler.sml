@@ -168,7 +168,7 @@ fun std_compile exec args =
 	      val _ = DynException.checkToProceed()
 	  in 
 	      case code of
-		  CParallelWriter.SUCCESS => KEC.LITERAL(KEC.CONSTSTR "\nCompilation Finished Successfully\n")
+		  CParallelWriter.SUCCESS => KEC.LITERAL(KEC.CONSTBOOL true)
 		| CParallelWriter.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
 	  end 
 	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n"))

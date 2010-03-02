@@ -101,8 +101,8 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
 	in
 	    base_str ^ (if List.length iter_strs > 0 then "["^(String.concatWith ", " iter_strs)^"]" else "")
 	end
-  | term2c_str (Exp.RANDOM Exp.UNIFORM) = "uniform_random()"
-  | term2c_str (Exp.RANDOM Exp.NORMAL) = "gaussian_random()"
+  | term2c_str (Exp.RANDOM Exp.UNIFORM) = "uniform_random(PARALLEL_MODELS, modelid)"
+  | term2c_str (Exp.RANDOM Exp.NORMAL) = "gaussian_random(PARALLEL_MODELS, modelid)"
   | term2c_str Exp.DONTCARE = "_"
   | term2c_str term =
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)

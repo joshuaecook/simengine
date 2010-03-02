@@ -67,6 +67,11 @@ static const int sfx_len = 4;
 static const char padding[] = "\0\0\0\0\0\0\0\0";
 
 static int open_binary(const char *binary){
+  // If no binary was specified (explicit NULL or empty string)
+  // open the main executable
+  if(binary == NULL || 0 == strlen(binary)){
+    binary = NULL;
+  }
   binary_handle = dlopen(binary, RTLD_LAZY);
   if(NULL == binary_handle)
     return ERR_DLOPEN;

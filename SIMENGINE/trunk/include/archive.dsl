@@ -1,3 +1,5 @@
+// Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.
+
 namespace Archive
 
   namespace Simlib
@@ -45,18 +47,19 @@ namespace Archive
 
   // Creates a new archive with a given filename. 
   // It is an error to attempt to create an archive if a file with that name already exists.
-  function createArchive (filename, dolFilename, dslFilenames, target, compiler_settings)
+  function createArchive (filename, dolFilename, dslFilenames, target, compilerSettings)
     var environment = {FIXME="needs environment"}
 
-    var manifest = createManifest (dolFilename, dslFilenames, environment, [compiler_settings])
+    var cfile = compilerSettings.cSourceFilename
+    var cfile_o = Simlib.makeObjectFromFile (Path.file cfile, cfile)
+    var exfile = (Path.base (Path.file cfile))
+    compilerSettings.add("exfile", exfile)
+
+    var manifest = createManifest (dolFilename, dslFilenames, environment, [compilerSettings])
 
     Archive.new (true, filename, Path.join (FileSystem.pwd (), ".simatra"), manifest)
 
     var manifest_o = Simlib.makeObjectFromContents ("MANIFEST.json", JSON.encode (manifest))
-
-    var cfile = compiler_settings.cSourceFilename
-    var cfile_o = Simlib.makeObjectFromFile (Path.file cfile, cfile)
-    var ofile = (Path.base (Path.file cfile)) + ".o"
 
     var main = dslFilenames.first ()
     var imports = dslFilenames.rest ()
@@ -68,20 +71,21 @@ namespace Archive
       import_os.push_back (Simlib.makeObjectFromFile (i, path))
     end
 
-    var cc = target.compile (ofile, [cfile])
-    if compiler_settings.debug == true then
+    var cc = target.compile (exfile, [cfile])
+    if compilerSettings.debug == true then
       println ("Compile: " + cc(1) + " '" + join("' '", cc(2)) + "'")
     end
     compile (cc(1), cc(2))
+    var exfile_o = Simlib.makeObjectFromFile (Path.file exfile, exfile)
 
-    var objects = [ofile, manifest_o, cfile_o, main_o] + import_os
+    var objects = [exfile_o, manifest_o, cfile_o, main_o] + import_os
     var ld = target.link (Path.file filename, filename, objects)
-    if compiler_settings.debug == true then
+    if compilerSettings.debug == true then
       println ("Link: " + ld(1) + " '" + join("' '", ld(2)) + "'")
     end
     link (ld(1), ld(2))
 
-    if compiler_settings.debug == false then
+    if compilerSettings.debug == false then
       FileSystem.rmfile (cfile)
     end
     foreach o in objects do

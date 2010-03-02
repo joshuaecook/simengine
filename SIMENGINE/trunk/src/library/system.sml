@@ -11,10 +11,11 @@ fun sys_build_date _ args = KEC.LITERAL (KEC.CONSTSTR BuildOptions.buildDate)
 fun sys_build_time _ args = KEC.LITERAL (KEC.CONSTREAL (Time.toReal (BuildOptions.buildTime)))
 fun sys_architecture _ args = KEC.LITERAL (KEC.CONSTSTR BuildOptions.architecture)
 
-fun sys_path _ args = KEC.list2kecvector (map ((fn (s) => KEC.LITERAL (KEC.CONSTSTR s)))
-					      ((!ParserSettings.filepath) :: 
-					       map StdFun.expand_env_variables 
-						   (DynamoOptions.getStringVectorSetting("sourcepath"))))
+fun sys_path exec args = 
+    exec (KEC.list2kecvector (map ((fn (s) => KEC.LITERAL (KEC.CONSTSTR s)))
+				  ((!ParserSettings.filepath) :: 
+				   map StdFun.expand_env_variables 
+				       (DynamoOptions.getStringVectorSetting("sourcepath")))))
 
 fun sys_exit _ args =
     (case args of

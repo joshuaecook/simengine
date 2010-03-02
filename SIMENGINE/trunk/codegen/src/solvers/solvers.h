@@ -55,7 +55,7 @@ typedef struct {
   // freeme is not currently used.
   //  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states; 
   CDATAFORMAT *inputs;
-  simengine_output *outputs;
+  char *outputs_dirname;
   Solver solver;
   Iterator iterator;
   unsigned int inputsize;
@@ -65,6 +65,7 @@ typedef struct {
   unsigned int num_models;
   void *od;
   unsigned int ob_size;
+  unsigned int modelid_offset;
   output_buffer *ob;
   gpu_data gpu;
   int *running;
@@ -78,10 +79,20 @@ __DEVICE__ int model_flows(CDATAFORMAT iterval, CDATAFORMAT *y, CDATAFORMAT *dyd
 __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 
 __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
-  unsigned int i;
+  unsigned int i, index;
+  CDATAFORMAT *algebraic_states, *algebraic_next_states;
   // Update model states to next value
-  for(i=0;i<(props->statesize+props->algebraic_statesize);i++){
-    props->model_states[STATE_IDX] = props->next_states[STATE_IDX];
+  for(i=0; i<props->statesize; i++){
+    index = TARGET_IDX(props->statesize, PARALLEL_MODELS, i, modelid);
+    props->model_states[index] = props->next_states[index];
+  }
+
+  algebraic_states = props->model_states + (props->statesize * PARALLEL_MODELS);
+  algebraic_next_states = props->next_states + (props->statesize * PARALLEL_MODELS);
+
+  for (i = 0; i < props->algebraic_statesize; i++) {
+    index = TARGET_IDX(props->algebraic_statesize, PARALLEL_MODELS, i, modelid);
+    algebraic_states[index] = algebraic_next_states[index];
   }
 
   // Update solver time to next value

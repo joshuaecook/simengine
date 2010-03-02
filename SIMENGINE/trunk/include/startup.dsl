@@ -1,2 +1,9 @@
-var systemDependencies = Dependency.getDependencies()
-import "devices.dsl"
+var systemDependencies
+
+function startup ()
+  systemDependencies = Dependency.getDependencies()
+  Devices.init()
+
+  //Simex.runModel()
+  runModel()
+end

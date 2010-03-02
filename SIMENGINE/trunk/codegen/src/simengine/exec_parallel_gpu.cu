@@ -29,7 +29,7 @@ int exec_parallel_gpu(solver_props *props){
     active_models = 0;
     // Copy data to external api interface
     for(modelid = 0; modelid < props->num_models; modelid++){
-      if(0 != log_outputs(props->ob, props->outputs, modelid)) return ERRMEM;
+      if(0 != log_outputs(props->ob, props->outputs_dirname, props->modelid_offset, modelid)) return ERRMEM;
 
       active_models |= !props->ob->finished[modelid];
     }

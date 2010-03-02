@@ -18,5 +18,3 @@ const simengine_interface seint = {
   NUM_OUTPUTS,
   HASHCODE
 };
-
-simengine_alloc se_alloc = { malloc, realloc, free };

@@ -29,10 +29,6 @@ s.getTest('Model-neuronWithSynapse').ExpectFail = true;
 % These tests use cvode and we should add a compiler error message to check against, but for now, just expect them to fail on the GPU
 s.getTest('Model-timingNetwork').ExpectFail = true;
 s.getTest('Model-lorenz').ExpectFail = true;
-s.getTest('Model-axon').ExpectFail = true;
-s.getTest('Model-flut').ExpectFail = true;
-s.getTest('Model-node').ExpectFail = true;
-s.getTest('Model-segment').ExpectFail = true;
 s.getTest('Model-purine').ExpectFail = true;
 
 end

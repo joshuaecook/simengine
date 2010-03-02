@@ -25,8 +25,12 @@ fun env_setVar _ args =
 	setEnv {name=name, value=value}
       | [a, b] => raise TypeMismatch ("expected 2 strings but received " ^ (PrettyPrint.kecexp2nickname a) ^ " and " ^ (PrettyPrint.kecexp2nickname b))
       | args => raise IncorrectNumberOfArguments {expected=2, actual=(length args)}
+
+fun env_getCommandLine exec args =
+    exec (KEC.list2kecvector (map (KEC.LITERAL o KEC.CONSTSTR) (CommandLine.arguments ())))
 		      
 val library = [{name="getEnv", operation=env_getVar},
-	       {name="setEnv", operation=env_setVar}]
+	       {name="setEnv", operation=env_setVar},
+	       {name="getCommandLine", operation=env_getCommandLine}]
 	      
 end

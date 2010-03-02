@@ -24,7 +24,7 @@ val r2s = Util.r2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
 
-fun cstring str = "\"" ^ str ^ "\""
+fun cstring str = "\"" ^ (String.toCString str) ^ "\""
 fun inc x = 1 + x
 
 (* Indicates whether the class of a given instance satisfies a test.
@@ -256,7 +256,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			    else
 				"NULL;")),
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
-			 $("props[ITERATOR_"^itername^"].outputs = outputs;"),
+			 $("props[ITERATOR_"^itername^"].outputs_dirname = outputs_dirname;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvernameCaps ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
 			[$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
@@ -264,6 +264,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			 $("props[ITERATOR_"^itername^"].algebraic_statesize = " ^ (Util.i2s num_algebraic_states) ^ ";"),
 			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
 			 $("props[ITERATOR_"^itername^"].num_models = num_models;"),
+			 $("props[ITERATOR_"^itername^"].modelid_offset = modelid_offset;"),
 			 $("props[ITERATOR_"^itername^"].od = od;"),
 			 $("props[ITERATOR_"^itername^"].ob_size = sizeof(output_buffer);"),
 			 $("props[ITERATOR_"^itername^"].ob = ob;"),
@@ -404,7 +405,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, simengine_output *outputs){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, char* outputs_dirname, unsigned int modelid_offset){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
@@ -524,7 +525,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	    let val term = ExpProcess.exp2term (ExpProcess.lhs exp)
 		val rhs = ExpProcess.rhs exp
 	    in if Term.isInitialValue term iter_sym then
-		   SOME ((if "" = basestr then "" else basestr ^ ".") ^ (Term.sym2name term), CWriterUtil.exp2c_str rhs)
+		   SOME ((if "" = basestr then "" else basestr ^ ".") ^ (Term.sym2name term), rhs)
 	       else NONE
 	    end
 
@@ -647,6 +648,35 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 
         val solvers_enumerated = Util.uniquify (map (fn sol => String.map Char.toUpper sol) solver_names)
 
+	local 
+	    open JSON
+	    val int = int o IntInf.fromInt
+
+	    fun defaultToJSON NONE = null
+	      | defaultToJSON (SOME (Exp.TERM t)) =
+		(case t
+		  of Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt 4)
+		   | Exp.INT z => int z
+		   | Exp.REAL r => real r
+		   | Exp.NAN => real (0.0 / 0.0)
+		   | Exp.INFINITY => real (1.0 / 0.0)
+		   | Exp.BOOL b => bool b
+		   | _ => raise Fail ("Don't know how to encode this default in JSON"))
+	      | defaultToJSON _ = raise Fail ("Don't know how to encode this default in JSON")
+	in
+	val jsonInterface = 
+	    object [("name", string class_name),
+		    ("inputs", array (map (string o Term.sym2name) input_names)),
+		    ("defaultInputs", array (map defaultToJSON input_defaults)),
+		    ("states", array (map string state_names)),
+		    ("defaultStates", array (map (defaultToJSON o SOME) state_defaults)),
+		    ("outputs", array (map string output_names)),
+		    ("outputNumQuantities", array (map int outputs_num_quantities)),
+		    ("hashcode", string "0000000000000000"),
+		    ("version", int 0)]
+		    
+	end
+
    in
 	[$("typedef enum {"),
 	 SUB(map (fn(sol) => $((sol ^ ","))) solvers_enumerated),
@@ -665,7 +695,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("static const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
 	 $("static const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
 	 $("static const double default_inputs[] = {" ^ (String.concatWith ", " default_inputs) ^ "};"),
-	 $("static const double default_states[] = {" ^ (String.concatWith ", " state_defaults) ^ "};"),
+	 $("static const double default_states[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str state_defaults)) ^ "};"),
 	 $("static const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " (map i2s outputs_num_quantities)) ^ "};"),
 	 $("static const char model_name[] = \"" ^ class_name ^ "\";"),
 	 $("static const char *solver_names[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
@@ -681,7 +711,10 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("#define HASHCODE 0x0000000000000000ULL"),
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
 	 $("#define VERSION 0"),
-	 $("")]
+	 $(""),
+	 $("static const char *json_interface = " ^
+	   (cstring (PrintJSON.toString jsonInterface)) ^
+	   ";")]
     end
     handle e => DynException.checkpoint "CParallelWriter.simengine_interface" e
 
@@ -1659,9 +1692,8 @@ fun model_flows shardedModel =
     handle e => DynException.checkpoint "CParallelWriter.model_flows" e
 
 
-fun output_code (name, location, block) =
+fun output_code (filename, block) =
     let
-      val filename = location ^ "/" ^ name ^ ".c"
       val _ = Logger.log_notice ($("Generating C source file '"^ filename ^"'"))
       val file = TextIO.openOut (filename)
     in
@@ -1923,47 +1955,50 @@ fun buildC (orig_name, shardedModel) =
 	val exec_loop_c = $(Codegen.getC "simengine/exec_loop.c")
 
 	(* write the code *)
-	val _ = output_code(class_name, ".", (header_progs @
-					      [precision_h] @
-					      [memory_layout_h] @
-					      [target_h] @
-					      (case sysprops
-						of {target=Target.CUDA, ...} =>
-						   [gpu_util_c]
-						 | _ => []) @
+	val filename = "./" ^ class_name ^ (case sysprops of
+						{target=Target.CUDA, ...} => ".cu"
+					      | _ => ".c")
+	val _ = output_code(filename, (header_progs @
+				       [precision_h] @
+				       [memory_layout_h] @
+				       [target_h] @
+				       simengine_interface_progs @
 
-					      simengine_interface_progs @
+				       [simengine_api_h] @
+				       [defines_h] @
+				       (case sysprops
+					 of {target=Target.CUDA, ...} =>
+					    [gpu_util_c]
+					  | _ => []) @
 
-					      [simengine_api_h] @
-					      [defines_h] @
-					      (* Could be conditional on use of randoms *)
-					      [random_c] @
-					      [seint_h] @
-					      [output_buffer_h] @
-					      outputdatastruct_progs @
-					      outputstatestruct_progs @
-					      systemstate_progs @
-					      fun_prototypes @
-					      [solvers_h] @
+				       (* Could be conditional on use of randoms *)
+				       [random_c] @
+				       [seint_h] @
+				       [output_buffer_h] @
+				       outputdatastruct_progs @
+				       outputstatestruct_progs @
+				       systemstate_progs @
+				       fun_prototypes @
+				       [solvers_h] @
 
-					      (case sysprops
-						of {target=Target.CUDA, ...} =>
-						   [solver_gpu_cu]
-						 | _ => []) @
+				       (case sysprops
+					 of {target=Target.CUDA, ...} =>
+					    [solver_gpu_cu]
+					  | _ => []) @
 
-					      [solver_c] @
-					      (*iteratordatastruct_progs @*)
-					      solver_wrappers_c @
-					      iterator_wrappers_c @
-					      [init_output_buffer_c] @
-					      [simengine_api_c] @
-					      init_solver_props_c @
-					      logoutput_progs @
-					      [log_outputs_c] @
-					      exec_c @
-					      flow_progs @
-					      model_flows_c @
-					      [exec_loop_c]))
+				       [solver_c] @
+				       (*iteratordatastruct_progs @*)
+				       solver_wrappers_c @
+				       iterator_wrappers_c @
+				       [init_output_buffer_c] @
+				       [simengine_api_c] @
+				       init_solver_props_c @
+				       logoutput_progs @
+				       [log_outputs_c] @
+				       exec_c @
+				       flow_progs @
+				       model_flows_c @
+				       [exec_loop_c]))
     in
 	SUCCESS
     end

@@ -39,11 +39,18 @@ __DEVICE__ output_buffer gpu_ob[1];
 __DEVICE__ output_data gpu_od[PARALLEL_MODELS];
 #endif
 
+static int global_gpuid = -1;
+
 void gpu_init (void) {
 #ifndef SIMENGINE_CUDA_DEVICE
 #error SIMENGINE_CUDA_DEVICE not specified for a GPU simulation
 #endif
-  cudaSetDevice(SIMENGINE_CUDA_DEVICE);
+  if(global_gpuid > 0){
+    cutilSafeCall(cudaSetDevice(global_gpuid));
+  }
+  else{
+    cutilSafeCall(cudaSetDevice(SIMENGINE_CUDA_DEVICE));
+  }
 }
 
 void gpu_exit (void) {
@@ -137,7 +144,8 @@ solver_props *gpu_init_props(solver_props *props){
 
     // Every iterator shares the same memory
     tmp_props[i].system_states = g_system;
-    tmp_props[i].outputs = NULL; // not needed?
+    tmp_props[i].outputs_dirname = NULL; // not needed
+    tmp_props[i].modelid_offset = 0; // not needed
     tmp_props[i].inputs = g_inputs;
     tmp_props[i].ob = g_ob;
     tmp_props[i].od = g_od;
