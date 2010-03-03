@@ -105,6 +105,8 @@ and scopeToJSON Property.LOCAL =
     JSONType ("Property.LOCAL")
   | scopeToJSON Property.ITERATOR =
     JSONType ("Property.ITERATOR")
+  | scopeToJSON Property.SYSTEMITERATOR =
+    JSONType ("Property.SYSTEMITERATOR")
   | scopeToJSON (Property.READSTATE name) = 
     JSONTypedObject ("Iterator.READSTATE", symbol name)
   | scopeToJSON (Property.READSYSTEMSTATE name) = 

@@ -96,9 +96,11 @@ and term_writes_iterator iter (Exp.SYMBOL (_, props)) =
  * reads any states from the system scope.
  * Nb Presumes a CurrentModel context. *)
 fun reads_system class =
-    let val {exps, outputs, ...} = class
-    in List.exists (output_contains_term Term.isReadSystemState) (! outputs) orelse
-       List.exists Term.isReadSystemState (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
+    let 
+	val {exps, outputs, ...} = class
+	val p = fn x => Term.isReadSystemState x orelse Term.isReadSystemIterator x
+    in List.exists (output_contains_term p) (! outputs) orelse
+       List.exists p (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
        List.exists (test_instance_class reads_system) (List.filter ExpProcess.isInstanceEq (! exps))
     end
 
@@ -107,8 +109,6 @@ fun reads_system class =
  * Nb Presumes a CurrentModel context. *)
 and has_states iter class = 
     ClassProcess.class2statesizebyiterator iter class > 0
-    (*reads_iterator iter class orelse
-    writes_iterator iter class*)
     handle e => DynException.checkpoint ("CParallelWriter.has_states [iter="^(Symbol.name (#1 iter))^"]") e
 
 (* Indicates whether a given class contains any instances 
@@ -405,7 +405,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, char* outputs_dirname, unsigned int modelid_offset){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, char* outputs_dirname, unsigned int modelid_offset){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
@@ -1419,10 +1419,12 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			 systemdata^"."^"states_"^(Symbol.name iter_name)^"_next = &sys_rd->states_"^(Symbol.name iter_name)^"_next[STRUCT_IDX]."^(Symbol.name orig_instname)^";"]
 
 		    val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
-		    val state_iters = List.filter (fn it => ClassProcess.requiresIterator it instclass) (ModelProcess.returnStatefulIterators ())
+		    val state_iters = List.filter (fn it => has_states it instclass) (ModelProcess.returnStatefulIterators ())
 
 		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^systemdata^";"),
+					  $("// iterator pointers"),
 					  SUB(map ($ o systemstatedata_iterator) iters),
+					  $("// state pointers"),
 					  SUB(map $ (Util.flatmap systemstatedata_states state_iters))]
 
 		    val calling_name = "flow_" ^ (Symbol.name classname)

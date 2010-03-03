@@ -14,6 +14,7 @@ val isIterator: Exp.term -> bool
 val isReadState: Exp.term -> bool (* not a local symbol, but rather read in as a state *)
 val isWriteState: Exp.term -> bool (* not a local symbol, but rather written to a state *)
 val isReadSystemState : Exp.term -> bool
+val isReadSystemIterator : Exp.term -> bool
 val isInitialValue: Exp.term -> Symbol.symbol -> bool (* returns if it is an initial value for a given iterator *)
 val termCount: Exp.term -> int (* count the elements of a symbol, list, or tuple *)
 val symbolSpatialSize: Exp.term -> int (* assumes that the term is a symbol, otherwise returns 1 by default - also, uses dim property to determine size *)
@@ -86,6 +87,7 @@ fun sym2str pretty (s, props) =
 		       | Property.READSYSTEMSTATE v => "sys_rd." ^ (Symbol.name v) ^ "."
 		       | Property.READSYSTEMSTATENEXT v => "sys_rd." ^ (Symbol.name v) ^ "_next."
 		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ "."
+		       | Property.SYSTEMITERATOR => "sys_rd."
 		       | Property.ITERATOR => ""
 
 	val (order, vars) = case Property.getDerivative props
@@ -147,6 +149,7 @@ fun sym2fullstr (s, props) =
 		       | Property.READSYSTEMSTATE v => "sys_rd." ^ (Symbol.name v) ^ "."
 		       | Property.READSYSTEMSTATENEXT v => "sys_rd." ^ (Symbol.name v) ^ "_next."
 		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name) v ^ "."
+		       | Property.SYSTEMITERATOR => "sys_rd."
 		       | Property.ITERATOR => ""
 
 	val (order, vars) = case Property.getDerivative props
@@ -198,6 +201,7 @@ fun sym2c_str (s, props) =
 		      | Property.READSYSTEMSTATE v => "sys_rd->states_" ^ (Symbol.name v) ^ index
 		      | Property.READSYSTEMSTATENEXT v => "sys_rd->states_" ^ (Symbol.name v) ^ "_next" ^ index
  		      | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
+		      | Property.SYSTEMITERATOR => "sys_rd->"
 		      | Property.ITERATOR => ""
 		end
 
@@ -205,7 +209,9 @@ fun sym2c_str (s, props) =
 			 ""
 		     else
 			 case ep_index 
-			  of SOME _ => "[ARRAY_IDX]"
+			  of SOME _ => 
+			     (case scope of Property.SYSTEMITERATOR => "[modelid]"
+					  | _ => "[ARRAY_IDX]")
 			   | NONE => ""
 
 	val (order, vars) = case Property.getDerivative props
@@ -396,6 +402,14 @@ fun isReadSystemState term =
 				    | Property.READSYSTEMSTATENEXT _ => true
 				    | _ => false)
       | _ => false
+
+fun isReadSystemIterator term =
+    case term
+     of Exp.SYMBOL (_, props) => (case Property.getScope props
+				   of Property.SYSTEMITERATOR => true
+				    | _ => false)
+      | _ => false
+    
 					  
 fun isWriteState term =
     case term of

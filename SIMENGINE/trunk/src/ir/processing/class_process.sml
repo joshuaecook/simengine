@@ -1374,23 +1374,30 @@ fun assignCorrectScope (class: DOF.class) =
 			  symbol_state_iterators
 
 
-	val iter_actions = map
-			       (fn(sym)=>
-				  {find=Match.asym sym,
-				   test=NONE,
-				   replace=Rewrite.ACTION (sym,
-							   (fn(exp)=> 
-							      case exp of
-								  Exp.TERM (Exp.SYMBOL (sym', props))=> 
-								  Exp.TERM (Exp.SYMBOL (sym', 
-											Property.setScope 
-											    props 
-											    Property.ITERATOR))
-									| _ => DynException.stdException
-										   ("Unexpected expression",
-										    "ClassProcess.assignCorrectScope.iter_actions", 
-										    Logger.INTERNAL)))})
-			       indexable_iterators
+	(* Any symbol representing the value of an iterator must be scoped accordingly.
+	 * A solver reading its own iterator uses the ITERATOR scope.
+	 * A solver reading another iterator must read via the system pointers using the SYSTEMITERATOR scope. *)
+	fun makeIteratorRule sym =
+	    let 
+		fun action (Exp.TERM (Exp.SYMBOL (s, p))) =
+		    (case List.find (fn (_, (iter_sym, _)) => iter_sym = s) symbol_state_iterators
+		      of SOME _ => Exp.TERM (Exp.SYMBOL (s, Property.setScope p Property.ITERATOR))
+		       | NONE => 
+			 let 
+			     val p' = Property.setScope p Property.SYSTEMITERATOR
+			     val p' = Property.setEPIndex p' (SOME Property.ARRAY)
+			 in
+			     Exp.TERM (Exp.SYMBOL (s, p'))
+			 end)
+		  | action _ = DynException.stdException
+				   ("Unexpected expression",
+				    "ClassProcess.assignCorrectScope.iter_actions", 
+				    Logger.INTERNAL)
+	    in
+		{find = Match.asym sym, test = NONE, replace = Rewrite.ACTION (sym, action)}
+	    end
+
+	val iter_actions = map makeIteratorRule indexable_iterators
 
 
 	val actions = state_actions @ iter_actions

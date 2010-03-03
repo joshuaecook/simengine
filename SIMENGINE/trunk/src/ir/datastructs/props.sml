@@ -14,6 +14,7 @@ datatype scope_type
   | READSYSTEMSTATENEXT of Symbol.symbol (* symbol here is the iterator to pull from *)
   | WRITESTATE of Symbol.symbol (* needs to be written back to output structure *)
   | ITERATOR (* if it is an iterator, it needs to be prepended as such *)
+  | SYSTEMITERATOR (* iterator value read from another solver *)
 
 datatype ep_index_type = STRUCT_OF_ARRAYS | ARRAY
 

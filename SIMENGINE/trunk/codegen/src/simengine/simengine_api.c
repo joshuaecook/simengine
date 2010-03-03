@@ -35,7 +35,7 @@ const char *simengine_errors[] = {"Success",
                                   "Could not open output file."};
 
 /* Allocates and initializes an array of solver properties, one for each iterator. */
-solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, char *outputs_dirname, unsigned int modelid_offset);
+solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, char *outputs_dirname, unsigned int modelid_offset);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
 int exec_loop(solver_props *props);
 
@@ -50,8 +50,8 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   unsigned int inputid;
   unsigned int outputid;
 
-  int models_executed;
-  int models_per_batch;
+  unsigned int models_executed;
+  unsigned int models_per_batch;
 
 	     
   // Create result structure

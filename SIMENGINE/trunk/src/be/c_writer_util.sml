@@ -150,35 +150,6 @@ fun exp2parallelfor (class:DOF.class) exp =
 	expandprogs2parallelfor class (exp, [base_stm])
     end
 
-fun expsym2parts class exp = 
-    case exp of 
-	Exp.TERM (s as (Exp.SYMBOL (sym, props))) => 
-	let
-	    val scope = Property.getScope props
-	    val prefix = case scope of
-			 Property.LOCAL => ""
-		       | Property.READSTATE v => "rd_" ^ (Symbol.name v)
-		       | Property.READSYSTEMSTATE v => "sys_rd->" ^ (Symbol.name v)
-		       | Property.READSYSTEMSTATENEXT v => "sys_rd->" ^ (Symbol.name v) ^ "_next"
-		       | Property.WRITESTATE v => "wr_" ^ (Symbol.name v)
-		       | Property.ITERATOR => "iter"
-
-	    (*val (order, vars) = case Property.getDerivative props
-				 of SOME (order, iters) => (order, iters)
-				  | NONE => (0, [])*)
-					    
-	    val spatial_iterators = ExpProcess.exp2spatialiterators exp
-	    val n = Symbol.name sym
-	    (* there may be delimiters in n *)
-	    val n = Util.repStr (n, "#_", "__")
-	in
-	    {prefix=prefix,
-	     identifier=n,
-	     iterators=Iterator.iterators2c_str spatial_iterators}
-	end
-      | _ => DynException.stdException(("Can't extract parts from non symbol expression '"^(e2s exp)^"'"),
-				       "CWriterUtil.expsym2parts",
-				       Logger.INTERNAL)
 
 fun log_c_exps (header, exps) = 
     (log "";
