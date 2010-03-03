@@ -1347,7 +1347,10 @@ fun assignCorrectScope (class: DOF.class) =
 		    map (fn(exp, iter)=>
 			   case iter of
 			       SOME i => i
-			     | NONE => DynException.stdException(("State '"^(e2s exp)^"' does not have temporal iterator associated with it"), "ClassProcess.assignCorrectScope", Logger.INTERNAL))
+			     | NONE => DynException.stdException
+					   ("State '"^(e2s exp)^"' does not have temporal iterator associated with it",
+					    "ClassProcess.assignCorrectScope", 
+					    Logger.INTERNAL))
 			(ListPair.zip (state_terms, state_iterators_options))
 
 		(* we have to prune update iterators *)
@@ -1373,22 +1376,13 @@ fun assignCorrectScope (class: DOF.class) =
 								    (ExpProcess.prependIteratorToSymbol itersym exp)))}) 
 			  symbol_state_iterators
 
-
 	(* Any symbol representing the value of an iterator must be scoped accordingly.
-	 * A solver reading its own iterator uses the ITERATOR scope.
-	 * A solver reading another iterator must read via the system pointers using the SYSTEMITERATOR scope. *)
+	 * All iterator symbols are scoped via ITERATOR here.
+	 * When the model is sharded later, non-local iterators will be scoped via SYSTEMITERATOR. *)
 	fun makeIteratorRule sym =
 	    let 
 		fun action (Exp.TERM (Exp.SYMBOL (s, p))) =
-		    (case List.find (fn (_, (iter_sym, _)) => iter_sym = s) symbol_state_iterators
-		      of SOME _ => Exp.TERM (Exp.SYMBOL (s, Property.setScope p Property.ITERATOR))
-		       | NONE => 
-			 let 
-			     val p' = Property.setScope p Property.SYSTEMITERATOR
-			     val p' = Property.setEPIndex p' (SOME Property.ARRAY)
-			 in
-			     Exp.TERM (Exp.SYMBOL (s, p'))
-			 end)
+		    Exp.TERM (Exp.SYMBOL (s, Property.setScope p Property.ITERATOR))
 		  | action _ = DynException.stdException
 				   ("Unexpected expression",
 				    "ClassProcess.assignCorrectScope.iter_actions", 
@@ -1577,6 +1571,55 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 	val exps = !(#exps class)
 	val outputs = !(#outputs class)
 
+
+	val state_equations = List.filter ExpProcess.isStateEq exps
+	val state_terms = map ExpProcess.lhs state_equations
+	val symbols = map (Term.sym2curname o ExpProcess.exp2term) state_terms
+	val state_iterators_options = map (TermProcess.symbol2temporaliterator o ExpProcess.exp2term) state_terms
+	val iterators = CurrentModel.iterators()
+	val indexable_iterators = List.mapPartial (fn(iter_sym, iter_type)=> case iter_type of
+										 DOF.CONTINUOUS _ => SOME iter_sym
+									       | DOF.DISCRETE _ => SOME iter_sym
+									       | _ => NONE) iterators
+
+	(* Finds any non-local iterators and scopes them via SYSTEMITERATOR. *)
+	val systemIteratorRule =
+	    let
+		fun isIndexableIteratorSymbol (Exp.TERM (Exp.SYMBOL (sym, _)))  =
+		    (case List.find (fn iter_sym => iter_sym = sym) indexable_iterators
+		      of SOME _ => true | NONE => false)
+		  | isIndexableIteratorSymbol _ = false
+
+		fun isMyIteratorSymbol (Exp.TERM (Exp.SYMBOL (sym, _))) =
+		    (case iter_type
+		      of DOF.UPDATE base => base = sym
+		       | DOF.ALGEBRAIC (_, base) => base = sym
+		       | _ => sym = iter_sym)
+		  | isMyIteratorSymbol _ = false
+
+		fun predicate (exp, _) = 
+		    isIndexableIteratorSymbol exp andalso not (isMyIteratorSymbol exp)
+							  
+		fun action (Exp.TERM (Exp.SYMBOL (sym, props))) =
+		    let 
+			val props' = Property.setScope props Property.SYSTEMITERATOR
+			val props' = Property.setEPIndex props' (SOME Property.ARRAY)
+		    in
+			Exp.TERM (Exp.SYMBOL (sym, props'))
+		    end
+		  | action _ = 
+		    DynException.stdException
+			("Unexpected expression",
+			 "ClassProcess.assignCorrectScope.iter_actions", 
+			 Logger.INTERNAL)
+	    in
+		{find = Match.onesym "an iterator?",
+		 test = SOME predicate,
+		 replace = Rewrite.ACTION (iter_sym, action)}
+	    end
+
+
+
 	val new_scope = Property.READSTATE (Symbol.symbol (case iter_type of 
 							       DOF.UPDATE v => (Symbol.name v)
 							     | _ => (Symbol.name iter_sym)))
@@ -1599,20 +1642,30 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 				  | _ => false))
 
 	val find = Match.anysym_with_predlist [pred] (Symbol.symbol "a")
+
 	val action = (fn(exp)=>
 			case exp of 
 			    Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (sym, Property.setScope props new_scope))
 			  | _ => exp)
-	val rewrite = {find=find, test=NONE, replace=Rewrite.ACTION (Symbol.symbol ("UpdateForkedClassIterTo:"^(Symbol.name iter_sym)),action)}
-	val exps' = map (Match.applyRewriteExp rewrite) exps
+
+	val rule = {find=find, test=NONE, 
+		    replace=Rewrite.ACTION (Symbol.symbol ("UpdateForkedClassIterTo:"^(Symbol.name iter_sym)), 
+					    action)}
+
+
+	val rewrite = Match.applyRewritesExp [rule, systemIteratorRule]
+
+	val exps' = map rewrite exps
+
 	val outputs' = map (fn{name, contents, condition}=>
-			      {name=name, (* shouldn't have to update this term *)
-			       contents=map (Match.applyRewriteExp rewrite) contents,
-			       condition=Match.applyRewriteExp rewrite condition}) outputs
+			      {name = name, (* shouldn't have to update this term *)
+			       contents = map rewrite contents,
+			       condition = rewrite condition}) outputs
+
 
     in
-	(#exps class := exps';
-	 #outputs class := outputs')
+	( #exps class := exps'
+	; #outputs class := outputs')
     end
 
 (* FIXME define this algorithm more clearly. *)
