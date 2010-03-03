@@ -61,6 +61,7 @@ and term_reads_iterator iter (Exp.SYMBOL (name, props)) =
     let val (iter_sym, _) = iter
     in case Property.getScope props
 	of Property.READSTATE iter_sym' => iter_sym = iter_sym'
+	 | Property.READSYSTEMSTATE iter_sym' => iter_sym = iter_sym'
 	 | _ => false
     end
   | term_reads_iterator _ _ = false
@@ -1419,7 +1420,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			 systemdata^"."^"states_"^(Symbol.name iter_name)^"_next = &sys_rd->states_"^(Symbol.name iter_name)^"_next[STRUCT_IDX]."^(Symbol.name orig_instname)^";"]
 
 		    val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
-		    val state_iters = List.filter (fn it => has_states it instclass) (ModelProcess.returnStatefulIterators ())
+		    val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
 
 		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^systemdata^";"),
 					  $("// iterator pointers"),
