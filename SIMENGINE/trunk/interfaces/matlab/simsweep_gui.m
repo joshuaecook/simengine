@@ -62,7 +62,7 @@ guidata(hObject, handles);
 
 % UIWAIT makes simsweep_gui wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
-enable_gpu = false;
+enable_gpu = true;
 if not(enable_gpu)
     set(handles.TargetMenu, 'String', {'CPU', 'PARALLEL-CPU'});
 end
