@@ -65,6 +65,14 @@ end
 
 opts = get_simex_opts(varargin{:});
 
+% Make sure directory exists if we need to write inputs or states
+if ~mkdir(opts.outputs);
+  error('Simatra:SIMEX:mkdir', ['Could not create temporary directory ' opts.outputs]);
+end
+  
+% Cleanup the temporary files
+c = onCleanup(@()rmdir(opts.outputs, 's'));
+           
 interface = get_interface(opts);
 
 if nargin == 1 || ischar(varargin{2}) % alternative is that you
@@ -84,11 +92,6 @@ else
           'When INPUTS and Y0 both contain more than 1 row, they must have the same number of rows.');
   end
 
-  % Make sure directory exists if we need to write inputs or states
-  if inputsM | statesM
-    mkdir(opts.outputs);
-  end
-  
   % Write inputs to file
   if 0 < inputsM
     inputsFile = fullfile(opts.outputs, 'inputs');
@@ -130,13 +133,17 @@ else
         m = memmapfile(outputFile, 'format', 'double');
         outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
       catch
-        % this means there is no data in the output file
+        % this means there is no data in the output file which can happen for conditional outputs
         outputs(modelid).(interface.outputs{outputid}) = [];
       end
       if(length(interface.states) > 0)
 	finalStatesFile = fullfile(modelDir, 'final-states');
-	m = memmapfile(finalStatesFile, 'format', 'double');
-	finalStates(modelid,:) = m.Data;
+        try
+	  m = memmapfile(finalStatesFile, 'format', 'double');
+	  finalStates(modelid,:) = m.Data;
+        catch
+          warning(['Simatra:Simex', 'Simulation did not finish, no final states were written for model instance ' modelid '.'])
+        end
       end
       finalTimeFile = fullfile(modelDir, 'final-time');
       m = memmapfile(finalTimeFile, 'format', 'double');
@@ -144,9 +151,6 @@ else
     end
   end
 
-  % Cleanup the temporary files
-  rmdir(opts.outputs, 's');
-           
   varargout = {outputs finalStates finalTimes};
 end
 end
@@ -176,7 +180,7 @@ opts = struct('simengine','', 'model', '', 'instances',1, 'startTime',0, ...
 opts.simengine = fullfile(seroot, 'bin', 'simEngine');
 
 % Specify a temporary directory for results
-opts.outputs = ['simex' num2str(now,'%16f')];
+opts.outputs = ['.simex' num2str(now,'%16f')];
 
 if 1 > nargin
   help('simex')
@@ -364,17 +368,13 @@ end
 abspath = strtrim(abspath);
 end
 
-%function [] = write_file(filename, matrix)
-%end
-
 % Retrieve the interface from a simulation object and translate it into a format
 % amenable to Matlab use
 function [interface] = get_interface(opts)
-  simex_interface_json = 'simex_interface.json';
+  simex_interface_json = fullfile(opts.outputs, 'simex_interface.json');
   opts.args = [opts.args ' -json-interface ' simex_interface_json];
   compile_model(opts);
   json_interface = fileread(simex_interface_json);
-  delete(simex_interface_json);
   interface = parse_json(json_interface);
 
   % Convert default inputs to a structure
@@ -411,11 +411,45 @@ function [] = simulate_model(opts)
 end
 
 function [result] = compile_model(opts)
-  [status, result] = system([opts.simengine ' -simex ' opts.model ' ' opts.args]);
-  if status
-    disp(result); % Needed for regular expression matching in test framework
-    error(['Could not compile model ' opts.model]);
+  command = [opts.simengine ' -simex ' opts.model ' ' opts.args];
+  logfile = fullfile(opts.outputs, 'logfile');
+  launchBackground(command, logfile);
+end
+
+function launchBackground(command, logfile)
+system(['touch ' logfile]);
+command = [command '&>' logfile ' & echo $!'];
+[status, pid] = system(command);
+% Ignore the newline
+pid = num2str(str2num(pid));
+
+c = onCleanup(@()cleanupBackgroundProcess(pid, logfile));
+
+outputlen = 0;
+while(processRunning(pid))
+  log = fileread(logfile);
+  if length(log) > outputlen
+    fprintf('%s', log(outputlen+1:end));
+    outputlen = length(log);
   else
-    disp(result);
+    pause(0.1);
   end
+end
+log = fileread(logfile);
+if length(log) > outputlen
+  fprintf('%s', log(outputlen+1:end));
+  outputlen = length(log);
+end
+end
+
+function [running] = processRunning(pid)
+[stat, result] = system(['ps -p ' pid]);
+running = not(stat);
+end
+
+function cleanupBackgroundProcess(pid, logfile)
+if(processRunning(pid))
+  % User stopped simulation
+  system(['kill -SIGINT ' pid]);
+end
 end
