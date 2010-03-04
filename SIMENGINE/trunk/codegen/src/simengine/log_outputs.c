@@ -1,5 +1,10 @@
 // Separates data from the output buffer into the respective files for each output
 
+void check_keep_running(){
+  if(getppid() == 1)
+    ERROR(Simatra::Simex::Simulation, "Parent process terminated.  Simulation will not continue to run when orphaned.");
+}
+
 #define BYTE(val,n) ((val>>(n<<3))&0xff)
 
 int log_outputs(output_buffer *ob, char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
@@ -8,6 +13,8 @@ int log_outputs(output_buffer *ob, char *outputs_dirname, unsigned int modelid_o
   output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN));
 
   FILE *output_files[seint.num_outputs];
+
+  check_keep_running();
 
   // Only do any work if there is data in the buffer, should greatly speed up models with conditional outputs
   if(ndata){

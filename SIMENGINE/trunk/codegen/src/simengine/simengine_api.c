@@ -479,6 +479,13 @@ void write_states_time(const simengine_interface *iface, simengine_opts *opts, s
   }
 }
 
+#include<signal.h>
+
+// Only used to trap SIGSEGV to provide user with an intelligible error message
+void signal_handler(int signal){
+  ERROR(Simatra::Simex::Simulation, "Simulation performed an illegal memory access and was terminated.");
+}
+
 // Main program of simex command line
 int main(int argc, char **argv){
   simengine_opts opts;
@@ -488,6 +495,9 @@ int main(int argc, char **argv){
     //print_usage();
     return 0;
   }
+
+  // Register signal handler to trap segmentation faults
+  signal(SIGSEGV, signal_handler);
 
   // Parse command line arguments
   if(parse_args(argc, argv, &opts)){

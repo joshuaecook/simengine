@@ -69,9 +69,13 @@ opts = get_simex_opts(varargin{:});
 if ~mkdir(opts.outputs);
   error('Simatra:SIMEX:mkdir', ['Could not create temporary directory ' opts.outputs]);
 end
-  
-% Cleanup the temporary files
-c = onCleanup(@()rmdir(opts.outputs, 's'));
+
+if opts.debug
+  disp(['Creating temporary directory ' opts.outputs ' to store results and compiled objects.']);
+else
+  % Cleanup the temporary files
+  c = onCleanup(@()removeTempDirectory(opts.outputs));
+end
            
 interface = get_interface(opts);
 
@@ -85,7 +89,6 @@ else
   
   inputsM = size(userInputs,1);
   statesM = size(userStates,1);
-  models = max([1 inputsM statesM]);
 
   if 1 < inputsM && 1 < statesM && inputsM ~= statesM
     error('Simatra:SIMEX:argumentError', ...
@@ -136,11 +139,11 @@ else
         % this means there is no data in the output file which can happen for conditional outputs
         outputs(modelid).(interface.outputs{outputid}) = [];
       end
-      if(length(interface.states) > 0)
-	finalStatesFile = fullfile(modelDir, 'final-states');
+      if(~isempty(interface.states))
+	    finalStatesFile = fullfile(modelDir, 'final-states');
         try
-	  m = memmapfile(finalStatesFile, 'format', 'double');
-	  finalStates(modelid,:) = m.Data;
+	      m = memmapfile(finalStatesFile, 'format', 'double');
+	      finalStates(modelid,:) = m.Data;
         catch
           warning(['Simatra:Simex', 'Simulation did not finish, no final states were written for model instance ' modelid '.'])
         end
@@ -153,6 +156,13 @@ else
 
   varargout = {outputs finalStates finalTimes};
 end
+end
+
+function removeTempDirectory(directory)
+  status = rmdir(directory, 's');
+  if ~status
+    disp(['Could not remove directory: ' directory])
+  end
 end
 
 function [val] = stringByte(number, b)
@@ -174,7 +184,7 @@ function [opts] = get_simex_opts(varargin)
 % if it is there it probably means a previous invocation crashed
 opts = struct('simengine','', 'model', '', 'instances',1, 'startTime',0, ...
               'stopTime',0, 'inputs',struct(), 'states',[], ...
-              'outputs', '', 'args', '-binary');
+              'outputs', '', 'debug', false, 'args', '-binary');
 
 [seroot] = fileparts(which('simex'));
 opts.simengine = fullfile(seroot, 'bin', 'simEngine');
@@ -204,6 +214,9 @@ if 1 < nargin
       opts.inputs = arg;
     elseif isnumeric(arg)
       opts.states = arg;
+    elseif strcmpi(arg, '-debug')
+      opts.args = [opts.args ' ' arg];
+      opts.debug = true;
     elseif ~(ischar(arg) || isempty(arg))
       error('Simatra:SIMEX:argumentError', ...
             'All additional arguments must be non-empty strings.');
@@ -364,7 +377,7 @@ command = ['cd ' dirname ';'...
 if nargin > 1
   command = ['cd ' root '; ' command];
 end
-[status, abspath] = system(command);
+[~, abspath] = system(command);
 abspath = strtrim(abspath);
 end
 
@@ -406,12 +419,11 @@ function [] = simulate_model(opts)
   opts.args = [opts.args ' -start ' num2str(opts.startTime)];
   opts.args = [opts.args ' -stop ' num2str(opts.stopTime)];
   opts.args = [opts.args ' -instances ' num2str(opts.instances)];
-  opts.args = [opts.args ' -outputs ' opts.outputs];
   compile_model(opts);
 end
 
-function [result] = compile_model(opts)
-  command = [opts.simengine ' -simex ' opts.model ' ' opts.args];
+function compile_model(opts)
+  command = [opts.simengine ' -simex ' opts.model ' -outputs ' opts.outputs ' ' opts.args];
   logfile = fullfile(opts.outputs, 'logfile');
   launchBackground(command, logfile);
 end
@@ -419,11 +431,11 @@ end
 function launchBackground(command, logfile)
 system(['touch ' logfile]);
 command = [command '&>' logfile ' & echo $!'];
-[status, pid] = system(command);
+[~, pid] = system(command);
 % Ignore the newline
 pid = num2str(str2num(pid));
 
-c = onCleanup(@()cleanupBackgroundProcess(pid, logfile));
+c = onCleanup(@()cleanupBackgroundProcess(pid));
 
 outputlen = 0;
 while(processRunning(pid))
@@ -438,18 +450,20 @@ end
 log = fileread(logfile);
 if length(log) > outputlen
   fprintf('%s', log(outputlen+1:end));
-  outputlen = length(log);
 end
 end
 
 function [running] = processRunning(pid)
-[stat, result] = system(['ps -p ' pid]);
+[stat, ~] = system(['ps -p ' pid ' &>/dev/null']);
 running = not(stat);
 end
 
-function cleanupBackgroundProcess(pid, logfile)
-if(processRunning(pid))
-  % User stopped simulation
-  system(['kill -SIGINT ' pid]);
-end
+function cleanupBackgroundProcess(pid)
+  % kill is called unconditionally, on CTRL+C the simulation is stopped
+  % For normal execution, the process will have exited and the kill won't do anything
+  command = sprintf('kill -9 %s', pid);
+  [stat, result] = system(command);
+  if ~stat
+    disp('User terminated simulation.')
+  end
 end

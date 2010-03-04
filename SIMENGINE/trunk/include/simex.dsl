@@ -94,7 +94,7 @@ import "command_line.dsl"
         m.TARGET_ARCH = ["-m64"]
       end
       if "darwin" == osLower then
-        m.TARGET_ARCH = ["-arch", "i386", "-arch", "x86_64"]
+        m.TARGET_ARCH = ["-arch", "x86_64"]
       end
 
       if debug then
@@ -212,17 +212,10 @@ import "command_line.dsl"
       m.CFLAGS.push_front("-I" + cudaInstallPath + "/include")
       m.LDFLAGS.push_front("-L" + cudaInstallPath + "/lib")
 
-      // Clean this up when moving simEngine and simex to subprocess calls for external interfaces (e.g. Matlab)
       if osLower == "darwin" then
-        if arch64 then
-          error("nVidia tools do not support 64bit architecture.")
-        else
-          m.TARGET_ARCH = ["-arch", "i386"]
-          m.LD = "g++-4.2"
-        end
-      end
-
-      if arch64 then
+        m.TARGET_ARCH = ["-arch", "i386"] // nVidia tools don't support 64bit on Darwin
+        m.LD = "g++-4.2"
+      elseif arch64 then
 	m.LDFLAGS.push_front("-L" + cudaInstallPath + "/lib64")
       end
 
@@ -299,12 +292,14 @@ import "command_line.dsl"
 				 parallel_models = 1,
 				 debug = false, 
 				 emulate = false,
-				 profile = false}
+				 profile = false,
+				 outputs = "simex_outputs"}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
   var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed", "gpuid"]
   var defaultSimulationSettings = {start = 0,
-				   instances = 1}
+				   instances = 1,
+				   outputs = "simex_outputs"}
 
   function runModel()
     var booleanOptionNames = booleanOptionNamesAlways
@@ -329,9 +324,9 @@ import "command_line.dsl"
       if () <> modelFile then
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
-	autoRecompile(modelFile, compilerSettings)
+	var exfile = autoRecompile(modelFile, compilerSettings)
 	if () <> simulationSettings then
-	  simulate(FileSystem.realpath(compilerSettings.exfile), simulationSettings)
+	  simulate(FileSystem.realpath(exfile), simulationSettings)
 	else
 	  println("Not running: " + compilerSettings.exfile)
 	end
@@ -418,7 +413,12 @@ import "command_line.dsl"
     if precisions.length() > 1 then
       error("Only one precision option can be specified. (" + join(", ", precisionOptions.keys) + ")")
     elseif precisions.length() == 1 then
-      compilerSettings.add("precision", precisionOptions.getValue(precisions.first()))
+      compilerSettings.add("precision", precisions.first())
+    end
+
+    // Check for a specified output directory, also used for temporary compiler files
+    if objectContains(commandLineOptions, "outputs") then
+      compilerSettings.add("outputs", commandLineOptions.outputs)
     end
 
     if objectContains(commandLineOptions, "debug") then
@@ -559,15 +559,28 @@ import "command_line.dsl"
       end
     end
 
+    // Make sure the outputs directory exists, may be created before simEngine is called
+    // otherwise, create it
+    if not(FileSystem.isdir(compilerSettings.outputs)) then
+      FileSystem.mkdir(compilerSettings.outputs)
+      if not(FileSystem.isdir(compilerSettings.outputs)) then
+	error("Could not create directory " + compilerSettings.outputs)
+      end
+    end
+
+    var exfile
     if needsToCompile then
       compile (filename, target, compilerSettings)
+      exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
     else
-      Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.exfile, compilerSettings.exfile)
-      shell("chmod", ["+x", compilerSettings.exfile])
+      exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
+      Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.exfile, exfile)
+      shell("chmod", ["+x", exfile])
       if compilerSettings.debug then
 	println ("reusing existing SIM")
       end
     end
+    exfile
   end
 
   function isArchiveCompatibileWithCompilerSettings (archive, compilerSettings)
@@ -592,6 +605,9 @@ import "command_line.dsl"
       println ("Compiling " + filename)
     end
 
+    // Change working directory to outputs directory
+    FileSystem.chdir(compilerSettings.outputs)
+
     var mod = LF loadModel (filename)
     var name = mod.template.name
     var cname = ""
@@ -609,10 +625,15 @@ import "command_line.dsl"
     if true == stat then
       compilerSettings.add("cSourceFilename", cname)
       
-      simfile = Archive.createArchive(name + ".sim", settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
+      simfile = Archive.createArchive(Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
     else
+      // Restore working directory
+      FileSystem.chdir("..")
       error(stat)
     end
+
+    // Restore working directory
+    FileSystem.chdir("..")
 
     stat
   end
