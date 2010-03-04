@@ -2,17 +2,17 @@
 
 import "harmonics.dsl"
 
-model (Vm) = chord (tonic)
+model (Vm) = chord (tonic, third, fifth)
 
-input tonic with {default = 55} // 55Hz = A1
+input tonic with {default = 110} // 110Hz = A2
+input third with {default = 4/5} // major third
+input fifth with {default = 3/2} // major fifth
 
 submodel harmonics root with {fundamental = tonic}
-submodel harmonics third with {fundamental = 5/4 * tonic}
-submodel harmonics fifth with {fundamental = 3/2 * tonic}
+submodel harmonics three with {fundamental = third * tonic}
+submodel harmonics five with {fundamental = fifth * tonic}
 submodel harmonics octave with {fundamental = 2 * tonic}
 
-output Vm = root.Vm + third.Vm + fifth.Vm + octave.Vm
-
-solver = rk4{dt=1/4096} // 4kHz sampling frequency
+output Vm = 1/4 * (root.Vm + three.Vm + five.Vm + octave.Vm)
 
 end

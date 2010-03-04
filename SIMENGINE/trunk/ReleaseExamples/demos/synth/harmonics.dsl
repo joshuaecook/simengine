@@ -14,8 +14,12 @@ submodel lfo fifth with {w = 5 * fundamental, phi = 0}
 submodel lfo sixth with {w = 6 * fundamental, phi = 0}
 submodel lfo seventh with {w = 7 * fundamental, phi = 0}
 
-output Vm = first.y + (second.y/2) + (third.y/4) + (fourth.y/8) + (fifth.y/16) + (sixth.y/32) + (seventh.y/64)
-
-solver = rk4{dt=1/4096}
+output Vm = (1/2 * first.y +
+	     1/4 * second.y +
+	     1/8 * third.y +
+	     1/16 * fourth.y +
+	     1/32 * fifth.y +
+	     1/64 * sixth.y +
+	     1/128 * seventh.y)
 
 end
