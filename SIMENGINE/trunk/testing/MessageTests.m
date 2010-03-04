@@ -64,6 +64,8 @@ s_states.add(CreateUserErrorTest('UndefinedProperty', 'StateSyntaxTest4.dsl', ..
                                  'Member SomeProperty not found in object .*x'));
 s_states.add(CreateUserErrorTest('NoWithForProperties', 'StateSyntaxTest5.dsl', ...
                                  'Adding WITH keyword'));
+s_states.add(CreateUserErrorTest('InputInitialValue', 'StateSyntaxTest6.dsl', ...
+                                 'Input values for states not defined'));
 
 % Now create tests for equations
 s_equs = Suite('Equation Syntax Tests');

@@ -48,10 +48,8 @@ s.add(Test('SubModelDefaultInputTest', @()(simex(['models_FeatureTests/' ...
 INTERNAL = 0; RELEASE = 1;
 
 % this is related to init values driven by inputs
-if mode == INTERNAL
-    s.add(Test('SubModelInputToInitTest', @()(simex(['models_FeatureTests/' ...
-        'SubModelTest6.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
-end
+s.add(Test('SubModelInputToInitTest', @()(simex(['models_FeatureTests/' ...
+                    'SubModelTest6.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
 
 end
 
