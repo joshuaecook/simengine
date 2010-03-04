@@ -654,7 +654,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	    val int = int o IntInf.fromInt
 
 	    fun defaultToJSON NONE = null
-	      | defaultToJSON (SOME (Exp.TERM t)) =
+	      | defaultToJSON (SOME (exp as Exp.TERM t)) =
 		(case t
 		  of Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt 4)
 		   | Exp.INT z => int z
@@ -662,8 +662,12 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		   | Exp.NAN => real (0.0 / 0.0)
 		   | Exp.INFINITY => real (1.0 / 0.0)
 		   | Exp.BOOL b => bool b
-		   | _ => raise Fail ("Don't know how to encode this default in JSON"))
-	      | defaultToJSON _ = raise Fail ("Don't know how to encode this default in JSON")
+		   | _ => DynException.stdException (("Don't know how to encode this default ("^(e2s exp)^") in JSON"),
+						     "CParallelWriter.simEngine",
+						     Logger.INTERNAL))
+	      | defaultToJSON _ = DynException.stdException (("Don't know how to encode no defaults in JSON"),
+							     "CParallelWriter.simEngine",
+							     Logger.INTERNAL)
 	in
 	val jsonInterface = 
 	    object [("name", string class_name),
