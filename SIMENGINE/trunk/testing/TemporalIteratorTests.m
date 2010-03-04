@@ -125,7 +125,8 @@ s.add(Test('TwoSolversWithIntermediate',@()(simex('models_FeatureTests/TwoTempor
 s.add(Test('TwoCoupledIterators',@()(simex('models_FeatureTests/TwoTemporalIteratorTest8.dsl',10,target)),'-equal', struct('x1', [0:10; [0 2.^(0:9)]]','x2', [0:10; [1 2.^(0:9)]]')));
 s.add(Test('TwoCoupledIteratorsInSubModel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest9.dsl',10,target)),'-equal', struct('x1', [0:10; [0 2.^(0:9)]]','x2', [0:10; [1 2.^(0:9)]]')));
 s.add(Test('TwoIteratorsAsLiterals',@ ...
-           ()(simex('models_FeatureTests/TwoTemporalIteratorTest10.dsl',10,target)),'-equal', struct('x1', [0:10; [0 2.^(1:10)]]', 'x2', [0:10; [0 2.^(1:10)]]')));
+           ()(simex(['models_FeatureTests/' ...
+                    'TwoTemporalIteratorTest10.dsl'],10,target)),'-equal', struct('x1', [0:10; [0 cumsum(0:2:18)]]', 'x2', [0:10; [0 cumsum(0:2:18)]]')));
 s.add(Test('TwoIteratorsAsLiteralsInOutput',@ ...
            ()(simex('models_FeatureTests/TwoTemporalIteratorTest11.dsl',10,target)),'-equal', struct('x1', [0:10; 0:2:20]', 'x2', [0:10; 0:2:20]')));
 
