@@ -1068,7 +1068,7 @@ namespace Simulation
 	var q = Intermediate.new(name)
         self.addConst(name, q)
 	if not (istype (type Vector of SimIterator, dimensions)) then
-	   error "Indexes on an intermediate equation must be iterators"
+	   error "Indices on an intermediate equation must be iterators"
         else
           q.dimensions = [d.name foreach d in dimensions]
         end
