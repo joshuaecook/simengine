@@ -110,6 +110,13 @@ fun main () =
 	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
 		before DynException.checkToProceed ()
 
+	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
+
+	val log = if DynamoOptions.isFlagSet "verbose" then
+		      Logger.log_stdout (Logger.ALL, defaultOptions)
+		  else
+		      Logger.log_stdout (Logger.WARNINGS, defaultOptions)
+
 	(* Execute the startup file. *)
 	val (env, _) = Exec.run (rep_loop false) env
 				[KEC.ACTION 
@@ -117,12 +124,8 @@ fun main () =
 							  args=KEC.UNIT}),
 				      PosLog.NOPOS)]
 
-	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
+	val _ = Logger.log_notice (Printer.$("Starting up simEngine ..."))
 
-	val log = if DynamoOptions.isFlagSet "verbose" then
-		      Logger.log_stdout (Logger.ALL, defaultOptions)
-		  else
-		      Logger.log_stdout (Logger.WARNINGS, defaultOptions)
 
 	val dir = OS.FileSys.fullPath (OS.Path.currentArc)
 
