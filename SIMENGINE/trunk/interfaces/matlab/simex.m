@@ -145,7 +145,7 @@ else
 	      m = memmapfile(finalStatesFile, 'format', 'double');
 	      finalStates(modelid,:) = m.Data;
         catch
-          warning(['Simatra:Simex', 'Simulation did not finish, no final states were written for model instance ' modelid '.'])
+          warning(['Simatra:Simex', 'Simulation did not finish, no final states were written for model instance ' num2str(modelid) '.'])
         end
       end
       finalTimeFile = fullfile(modelDir, 'final-time');
@@ -430,7 +430,7 @@ end
 
 function launchBackground(command, logfile)
 system(['touch ' logfile]);
-command = [command '&>' logfile ' & echo $!'];
+command = [command ' &>' logfile ' & echo $!'];
 [~, pid] = system(command);
 % Ignore the newline
 pid = num2str(str2num(pid));
