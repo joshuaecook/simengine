@@ -52,7 +52,7 @@ void open_progress_file(const char *outputs_dirname, double **progress, int *pro
   for(i=0; i<num_models; i++){
     write(*progress_fd, &tmp, sizeof(double));
   }
-  *progress = mmap(NULL, num_models * sizeof(double), PROT_READ|PROT_WRITE, MAP_SHARED, *progress_fd, 0);
+  *progress = (double*)mmap(NULL, num_models * sizeof(double), PROT_READ|PROT_WRITE, MAP_SHARED, *progress_fd, 0);
 
   if((long long int)*progress == -1){
     ERROR(Simatra::Simex::Simulation, "Could not map progress file into memory.");
