@@ -257,7 +257,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			    else
 				"NULL;")),
 			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
-			 $("props[ITERATOR_"^itername^"].outputs_dirname = outputs_dirname;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvernameCaps ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
 			[$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
@@ -406,7 +405,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, char* outputs_dirname, unsigned int modelid_offset){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, unsigned int modelid_offset){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),

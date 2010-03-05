@@ -55,7 +55,6 @@ typedef struct {
   // freeme is not currently used.
   //  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states; 
   CDATAFORMAT *inputs;
-  char *outputs_dirname;
   Solver solver;
   Iterator iterator;
   unsigned int inputsize;

@@ -144,7 +144,6 @@ solver_props *gpu_init_props(solver_props *props){
 
     // Every iterator shares the same memory
     tmp_props[i].system_states = g_system;
-    tmp_props[i].outputs_dirname = NULL; // not needed
     tmp_props[i].modelid_offset = 0; // not needed
     tmp_props[i].inputs = g_inputs;
     tmp_props[i].ob = g_ob;
@@ -207,7 +206,7 @@ void gpu_finalize_props (solver_props *props) {
   CDATAFORMAT tmp_time[PARALLEL_MODELS * NUM_ITERATORS];
 
   // Copies final times from the device
-  cutilSafeCall(cudaMemcpy(tmp_time, props[0].gpu.time, PARALLEL_MODELS * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(tmp_time, props[0].gpu.time, NUM_ITERATORS * PARALLEL_MODELS * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
   for (i = 0; i < NUM_ITERATORS; i++) {
     // Each iterator has its own area of memory
     memcpy(props[i].time, tmp_time + (i * PARALLEL_MODELS), PARALLEL_MODELS * sizeof(CDATAFORMAT));

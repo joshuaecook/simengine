@@ -139,18 +139,18 @@ else
         % this means there is no data in the output file which can happen for conditional outputs
         outputs(modelid).(interface.outputs{outputid}) = [];
       end
-      if(~isempty(interface.states))
-	    finalStatesFile = fullfile(modelDir, 'final-states');
-        try
-	      m = memmapfile(finalStatesFile, 'format', 'double');
-	      finalStates(modelid,:) = m.Data;
-        catch
-          warning(['Simatra:Simex', 'Simulation did not finish, no final states were written for model instance ' num2str(modelid) '.'])
+      try
+        if(~isempty(interface.states))
+          finalStatesFile = fullfile(modelDir, 'final-states');
+          m = memmapfile(finalStatesFile, 'format', 'double');
+          finalStates(modelid,:) = m.Data;
         end
+        finalTimeFile = fullfile(modelDir, 'final-time');
+        m = memmapfile(finalTimeFile, 'format', 'double');
+        finalTimes(modelid) = m.Data;
+      catch
+        warning('Simatra:Simex', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.\nFinal states are invalid.'])
       end
-      finalTimeFile = fullfile(modelDir, 'final-time');
-      m = memmapfile(finalTimeFile, 'format', 'double');
-      finalTimes(modelid) = m.Data;
     end
   end
 
@@ -377,7 +377,7 @@ command = ['cd ' dirname ';'...
 if nargin > 1
   command = ['cd ' root '; ' command];
 end
-[~, abspath] = system(command);
+[stat, abspath] = system(command);
 abspath = strtrim(abspath);
 end
 
@@ -386,9 +386,16 @@ end
 function [interface] = get_interface(opts)
   simex_interface_json = fullfile(opts.outputs, 'simex_interface.json');
   opts.args = [opts.args ' -json-interface ' simex_interface_json];
-  compile_model(opts);
-  json_interface = fileread(simex_interface_json);
-  interface = parse_json(json_interface);
+  status = compile_model(opts);
+  if(status)
+    error(['Simatra:Simex:simulate_model Model compilation failed (' num2str(status) ').'])
+  end
+  try
+    json_interface = fileread(simex_interface_json);
+    interface = parse_json(json_interface);
+  catch
+    error('Simatra:Simex:get_interface', 'Could not open interface file.')
+  end
 
   % Convert default inputs to a structure
   defaultInputs = interface.defaultInputs;
@@ -419,27 +426,50 @@ function [] = simulate_model(opts)
   opts.args = [opts.args ' -start ' num2str(opts.startTime)];
   opts.args = [opts.args ' -stop ' num2str(opts.stopTime)];
   opts.args = [opts.args ' -instances ' num2str(opts.instances)];
-  compile_model(opts);
+  status = compile_model(opts);
+  if(status)
+    error('Simatra:Simex:simulate_model',['Model simulation failed (' num2str(status) ').'])
+  end
 end
 
-function compile_model(opts)
+function [status] = compile_model(opts)
   command = [opts.simengine ' -simex ' opts.model ' -outputs ' opts.outputs ' ' opts.args];
-  logfile = fullfile(opts.outputs, 'logfile');
-  launchBackground(command, logfile);
+  status = launchBackground(command, opts.outputs);
 end
 
-function launchBackground(command, logfile)
-system(['touch ' logfile]);
-command = [command ' &>' logfile ' & echo $!'];
-[~, pid] = system(command);
+function [status] = launchBackground(command, workingDir)
+logFile = fullfile(workingDir, 'logfile');
+progressFile = fullfile(workingDir, 'progress');
+statusFile = fullfile(workingDir, 'status');
+pidFile = fullfile(workingDir, 'pid');
+
+system(['touch ' logFile]);
+command = ['(' command ' &>' logFile ' & pid=$! ; echo $pid > ' pidFile ' ; wait $pid; echo $? > ' statusFile ')&']
+[stat, ignore] = system(command);
+while ~exist(pidFile)
+  pause(0.1);
+end
 % Ignore the newline
-pid = num2str(str2num(pid));
+pid = num2str(str2num(fileread(pidFile)));
 
 c = onCleanup(@()cleanupBackgroundProcess(pid));
 
 outputlen = 0;
+messagelen = 0;
 while(processRunning(pid))
-  log = fileread(logfile);
+  if(~exist('m') & exist(progressFile))
+    m = memmapfile(progressFile, 'format', 'double');
+  end
+  if(exist('m'))
+    progress = 100*sum(m.Data)/length(m.Data);
+    message = sprintf('Simulating: %0.2f %%', progress);
+    messagelen = statusBar(message, messagelen);
+  end
+  try
+    log = fileread(logFile);
+  catch
+    error('Simatra:Simex:launchBackground', 'Process log file does not exist.')
+  end
   if length(log) > outputlen
     fprintf('%s', log(outputlen+1:end));
     outputlen = length(log);
@@ -447,14 +477,24 @@ while(processRunning(pid))
     pause(0.1);
   end
 end
-log = fileread(logfile);
+try
+  log = fileread(logFile);
+catch
+  error('Simatra:Simex:launchBackground', 'Process log file does not exist.')
+end
 if length(log) > outputlen
   fprintf('%s', log(outputlen+1:end));
 end
+try
+  status = str2num(fileread(statusFile));
+catch
+  error('Simatra:Simex:launchBackground', 'Process status file does not exist.')
+end
+messagelen = statusBar('', messagelen);
 end
 
 function [running] = processRunning(pid)
-[stat, ~] = system(['ps -p ' pid ' &>/dev/null']);
+[stat, ignored] = system(['ps -p ' pid ' -o pid=']);
 running = not(stat);
 end
 
@@ -466,4 +506,25 @@ function cleanupBackgroundProcess(pid)
   if ~stat
     disp('User terminated simulation.')
   end
+end
+
+function [messageLength] = statusBar(message, previousLength)
+try
+  dt = javaMethod('getInstance', 'com.mathworks.mde.desk.MLDesktop');
+  if dt.hasMainFrame
+    dt.setStatusText(message);
+  else
+    textStatusBar(message, previousLength);
+  end
+catch
+  textStatusBar(message, previousLength);
+end
+messageLength = length(message);
+end
+
+function textStatusBar(message, previousLength)
+    for i = 1:previousLength
+        fprintf('\b');
+    end
+    fprintf('%s', message);
 end

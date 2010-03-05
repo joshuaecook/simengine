@@ -7,7 +7,7 @@ void check_keep_running(){
 
 #define BYTE(val,n) ((val>>(n<<3))&0xff)
 
-int log_outputs(output_buffer *ob, char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+int log_outputs(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
   unsigned int outputid, nquantities, dataid, quantityid;
   unsigned int ndata = ob->count[modelid];
   output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN));

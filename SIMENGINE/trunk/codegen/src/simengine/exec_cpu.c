@@ -1,5 +1,5 @@
 // Run a single model to completion on a single processor core
-int exec_cpu(solver_props *props, unsigned int modelid){
+int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid){
   unsigned int i;
   CDATAFORMAT min_time;
 
@@ -58,9 +58,10 @@ int exec_cpu(solver_props *props, unsigned int modelid){
     }
     // Log outputs from buffer to external api interface
     // All iterators share references to a single output buffer and outputs dirname.
-    if(0 != log_outputs(props->ob, props->outputs_dirname, props->modelid_offset, modelid)){
+    if(0 != log_outputs(props->ob, outputs_dirname, props->modelid_offset, modelid)){
       return ERRMEM;
     }
+    progress[modelid] = (props->time[modelid] - props->starttime) / (props->stoptime - props->starttime);
   }
   
   return SUCCESS;

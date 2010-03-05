@@ -15,10 +15,14 @@
 #include <errno.h>
 #include <math.h>
 #include <stddef.h>
+#include <unistd.h>
 #include <omp.h>
 #include <getopt.h>
 #include <sys/time.h>
 #include <limits.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/types.h>
 
 // Error codes
 enum{ SUCCESS,
