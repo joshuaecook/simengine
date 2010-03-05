@@ -472,7 +472,7 @@ fun createClass classes object =
 		    val spatialiterators = map (Symbol.name o #1) spatialiterators
    
 		    val initlhs = ExpBuild.initavar(name, 
-						    if hasEquation then timeiterator else Symbol.name(Iterator.postProcessOf timeiterator),
+						    if hasEquation then timeiterator else Symbol.name(Iterator.inProcessOf timeiterator),
 						    spatialiterators)
 
 		    val init = ExpBuild.equals(initlhs,
@@ -486,8 +486,8 @@ fun createClass classes object =
 				      nil => 
 				      if hasEquation then nil
 				      else
-					  [ExpBuild.equals (ExpBuild.ivar name [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1)],
-							    ExpBuild.ivar name [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 0)])]
+					  [ExpBuild.equals (ExpBuild.ivar name [(Iterator.inProcessOf timeiterator, Iterator.RELATIVE 1)],
+							    ExpBuild.ivar name [(Iterator.inProcessOf timeiterator, Iterator.RELATIVE 0)])]
 				    | keccondeqs => 
 				      let
 					  val (lhs, defaultval) = 
@@ -498,9 +498,9 @@ fun createClass classes object =
 								[(Iterator.updateOf timeiterator, Iterator.RELATIVE 0)])
 					      else
 						  (ExpBuild.ivar name
-								 [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 1)],
+								 [(Iterator.inProcessOf timeiterator, Iterator.RELATIVE 1)],
 						   ExpBuild.ivar name
-								 [(Iterator.postProcessOf timeiterator, Iterator.RELATIVE 0)])
+								 [(Iterator.inProcessOf timeiterator, Iterator.RELATIVE 0)])
 
 					  fun buildIf (condeq, exp) =
 					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),

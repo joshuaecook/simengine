@@ -742,6 +742,36 @@ fun createEventIterators (class: DOF.class) =
 		ExpBuild.equals (lhs', ExpProcess.rhs exp)
 	    end			  
 
+
+	fun in_exp exp = 
+	    let
+		val lhs = ExpProcess.lhs exp
+
+		val spatial = ExpProcess.exp2spatialiterators exp
+		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
+				  SOME eq => eq
+				| NONE => DynException.stdException ("Unexpected lack of initial condition", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+
+		val temporal = case ExpProcess.exp2temporaliterator (init_eq) of
+				   SOME v => #1 v
+				 | _ => DynException.stdException ("Unexpected init condition w/o temporal iterator", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+		val lhs' = 
+		    case lhs of 
+			Exp.TERM (Exp.SYMBOL (sym, props)) => 
+			if ExpProcess.isInitialConditionEq exp then
+			    Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.inProcessOf (Symbol.name temporal),(*iterindex*)Iterator.ABSOLUTE
+																		   0)::spatial)))
+			else if ExpProcess.isIntermediateEq exp then
+			    Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.inProcessOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE
+																		   1)::spatial)))
+			else
+			    DynException.stdException ("Unexpected non-intermediate and non-initial condition equation",
+						       "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+	    in
+		ExpBuild.equals (lhs', ExpProcess.rhs exp)
+	    end		
+
 	val update_states = class2update_states class
 	val _ = DynException.checkToProceed() (* this is the first time that states are analyzed in exp_process, so there could be some user errors found *)
 	val postprocess_states = class2postprocess_states class
@@ -755,7 +785,7 @@ fun createEventIterators (class: DOF.class) =
 					  if List.exists (fn(sym)=>sym=lhs_sym) update_states then
 					      update_exp exp
 					  else if List.exists (fn(sym)=>sym=lhs_sym) postprocess_states then
-					      pp_exp exp
+					      (*pp_exp exp*) in_exp exp
 					  else
 					      exp
 				      end
@@ -770,7 +800,7 @@ fun createEventIterators (class: DOF.class) =
 					  val lhs_sym = ExpProcess.getLHSSymbol exp
 				      in
 					  if List.exists (fn(sym)=>sym=lhs_sym) postprocess_states then
-					      pp_exp exp
+					      (*pp_exp exp*) in_exp exp
 					  else
 					      exp
 				      end
@@ -808,6 +838,8 @@ fun addDelays (class: DOF.class) =
     let
 	val exps = !(#exps class)
 	val outputs = !(#outputs class)
+	val states = class2states class
+	fun isState sym = List.exists (fn(sym')=>sym=sym') states
 
 	val allTerms = (Util.flatmap ExpProcess.exp2termsymbols exps) @
 		       (Util.flatmap (fn{name,contents,condition}=>(ExpProcess.exp2termsymbols condition) @
@@ -817,27 +849,27 @@ fun addDelays (class: DOF.class) =
 
 	fun term2name_delay (t as (Exp.SYMBOL (sym, _))) = 
 	    (case TermProcess.symbol2temporaliterator t of
-		 SOME (iter_sym, Iterator.RELATIVE d) => {sym=sym, iter_sym=iter_sym, delay= ~d}
+		 SOME (iter_sym, Iterator.RELATIVE d) => {sym=sym, iter_sym=iter_sym, delay= ~d, is_state=isState sym}
 	       | _ => DynException.stdException("Unexpected non-relative iterator", "ClassProcess.addDelays.term2name_delay", Logger.INTERNAL))
 	  | term2name_delay _ = DynException.stdException("Unexpected non-symbol term", "ClassProcess.addDelays.term2name_delay", Logger.INTERNAL)
 
 	val term_list = map term2name_delay delayedTerms
 
-	val grouped_term_list : {sym: Symbol.symbol, iter_sym: Symbol.symbol, delays: int list} list = (* (Symbol name * iterator symbol * list of delays) list *)
-	    List.foldl (fn({sym,iter_sym,delay},l)=>
+	val grouped_term_list : {sym: Symbol.symbol, iter_sym: Symbol.symbol, delays: int list, is_state: bool} list = (* (Symbol name * iterator symbol * list of delays) list *)
+	    List.foldl (fn({sym,iter_sym,delay,is_state},l)=>
 			  let
 			      val (match, others) = List.partition (fn{sym=sym',...}=>sym=sym') l
 			  in
 			      if List.length match = 0 then
-				  {sym=sym, iter_sym=iter_sym, delays=[delay]}::l
+				  {sym=sym, iter_sym=iter_sym, delays=[delay], is_state=is_state}::l
 			      else 
 				  let
-				      val e as {sym=sym',iter_sym=iter_sym',delays=d_list} = Util.hd match
+				      val e as {sym=sym',iter_sym=iter_sym',delays=d_list, is_state=is_state} = Util.hd match
 				  in
 				      if List.exists (fn(d')=>delay=d') d_list then
 					  e::others
 				      else
-					  {sym=sym',iter_sym=iter_sym',delays=(delay::d_list)}::others
+					  {sym=sym',iter_sym=iter_sym',delays=(delay::d_list),is_state=is_state}::others
 				  end
 			  end)
 		       [] 
@@ -845,7 +877,7 @@ fun addDelays (class: DOF.class) =
 					   
 	val exps_and_rewrites : (Exp.exp list * Rewrite.rewrite list) list = 
 	    map 
-	    (fn{sym,iter_sym,delays=d_list}=>
+	    (fn{sym,iter_sym,delays=d_list,is_state}=>
 	       let
 		   val max_d = StdFun.max d_list
 		   val (init_condition_value, spatial_iterators) = case List.find (fn(exp)=> ExpProcess.isInitialConditionEq exp) (symbol2exps class sym) of
@@ -870,9 +902,14 @@ fun addDelays (class: DOF.class) =
 					  (fn(d)=>if d = 1 then 
 						      ExpBuild.equals (d2lhs_exp d 1, 
 								       Exp.TERM (Exp.SYMBOL (sym, 
-											     Property.setIterator 
-												 Property.default_symbolproperty 
-												 ((iter_sym, Iterator.RELATIVE 0)::spatial_iterators))))
+											     if is_state then
+												 Property.setIterator 
+												     Property.default_symbolproperty 
+												     ((iter_sym, Iterator.RELATIVE 0)::spatial_iterators)
+											     else
+												 Property.setIterator
+												     Property.default_symbolproperty
+												     spatial_iterators)))
 						  else
 						      ExpBuild.equals (d2lhs_exp d 1,
 								       d2lhs_exp (d-1) 0))

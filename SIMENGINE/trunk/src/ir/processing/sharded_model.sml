@@ -910,8 +910,11 @@ local
 	     iter_sym=iter_sym'}
 	end
 
+    fun iter_sym2next_iter_sym sym =
+	Symbol.symbol ("#next__" ^ (Symbol.name sym))
+
     (* make all iterators that are include in iters to be set to be RELATIVE 1 if currently set to RELATIVE 0 *)
-    fun applyIteratorRewrites (pos, iters) (shard : shard as {classes,...}) =
+    fun applyIteratorRewrites (pos, iters, new_iter_sym) (shard : shard as {classes,...}) =
 	let
 	    val id = Symbol.symbol "ApplyPostIteratorRewrites"
 
@@ -939,8 +942,19 @@ local
 			   replace=Rewrite.ACTION (id, case pos of 
 							   AFTER => update_exp_to_post
 							 | BEFORE => update_exp_to_pre)}
+	    val next_sym = iter_sym2next_iter_sym new_iter_sym
+
+	    val iterator_rewrite = case pos of 
+				       AFTER => [{find=Match.onesym "#i",
+						  test=SOME (fn(exp,_) => case exp of
+									      Exp.TERM (Exp.SYMBOL (sym, props)) => List.exists (fn(sym')=> sym=sym') iters
+									    | _ => false),
+						  replace=Rewrite.ACTION (id, fn(exp) => case exp of 
+											     Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (next_sym, props))
+											   | _ => exp)}]
+				     | BEFORE => []
 	in
-	    app (ClassProcess.applyRewritesToClass [rewrite]) classes
+	    app (ClassProcess.applyRewritesToClass (rewrite::iterator_rewrite)) classes
 	end
 
 in
@@ -990,6 +1004,10 @@ fun combineDiscreteShards (shardedModel as (_, sysprops)) =
 			    val matching_iterators = map #1 (List.filter (fn(_, dt') => Real.== (dt,dt')) iters_with_dt)
 			    val all_iterator_symbols = Util.uniquify (Util.flatmap (fn(iter_sym, iter_dependency_list)=> iter_sym::(map (fn(iter_sym, _)=> iter_sym) iter_dependency_list)) matching_iterators)
 
+			    val new_iter_sym = case matching_iterators of
+						   (iter_sym,_)::_ => iter_sym
+						 | _ => DynException.stdException("No iterators of a given sample period", "ShardedModel.combineDiscreteIterators", Logger.INTERNAL)
+
 			    (* update the iterators to from n->n+1 or n+1->n depending on if needed *)
 			    val _ = 
 				app 
@@ -998,11 +1016,11 @@ fun combineDiscreteShards (shardedModel as (_, sysprops)) =
 					   (fn(iter_sym', iter_type) => 
 					      case iter_type of 
 						  DOF.UPDATE _ => 
-						  applyIteratorRewrites (AFTER, all_iterator_symbols) (valOf (findShard (shardedModel, iter_sym')))
+						  applyIteratorRewrites (AFTER, all_iterator_symbols, new_iter_sym) (valOf (findShard (shardedModel, iter_sym')))
 						| DOF.ALGEBRAIC (DOF.POSTPROCESS, _) => 
-						  applyIteratorRewrites (AFTER, all_iterator_symbols) (valOf (findShard (shardedModel, iter_sym')))
+						  applyIteratorRewrites (AFTER, all_iterator_symbols, new_iter_sym) (valOf (findShard (shardedModel, iter_sym')))
 						| DOF.ALGEBRAIC (DOF.PREPROCESS, _) => 
-						  applyIteratorRewrites (BEFORE, all_iterator_symbols) (valOf (findShard (shardedModel, iter_sym')))
+						  applyIteratorRewrites (BEFORE, all_iterator_symbols, new_iter_sym) (valOf (findShard (shardedModel, iter_sym')))
 						| _ => ())
 					   sys_iters)
 				    matching_iterators
@@ -1010,6 +1028,16 @@ fun combineDiscreteShards (shardedModel as (_, sysprops)) =
 			    (*val _ = Util.log ("Updating matching iterator symbols: " ^ (Util.symlist2s all_iterator_symbols))*)
 			    val combined_independent = combine_independent_shards all_iterator_symbols (map (fn(iter_sym, dependent_iterators)=> (valOf (findShard (shardedModel, iter_sym)), dependent_iterators)) matching_iterators)
 			    val combined_dependent = combine_dependent_shards all_iterator_symbols combined_independent
+
+			    (* create a next time equation used for post process and update states *)
+			    val next_time_exp = ExpBuild.equals (ExpBuild.var (Symbol.name (iter_sym2next_iter_sym new_iter_sym)),
+								 ExpBuild.plus [ExpBuild.var (Symbol.name new_iter_sym), ExpBuild.real dt])
+						
+			    (* update shard to include next time expression *)
+			    fun updateClass (c as {exps,...}) = 
+				exps := (next_time_exp::(!exps))
+			    val _ = app updateClass (#classes combined_dependent)
+				
 			in
 			    (combined_dependent, all_iterator_symbols)
 			end)

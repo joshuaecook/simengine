@@ -12,7 +12,7 @@ end
 s = Suite(['Temporal Iterator Feature Tests ' target]);
 s.add(SimpleIteratorTests(target));
 s.add(UpdateIteratorTests(target));
-s.add(PostProcessIteratorTests(target));
+s.add(AlgebraicIteratorTests(target));
 s.add(MultipleTemporalIteratorTests(target));
 s.add(MultipleIteratorsSubModelTests(target));
 s.add(ImmediateIteratorTests(target));
@@ -58,9 +58,9 @@ s.add(Test('UpdateOtherDiscreteIterator parallel',@()(simex('models_FeatureTests
 
 end
 
-function s = PostProcessIteratorTests(target)
+function s = AlgebraicIteratorTests(target)
 
-s = Suite(['Post Process Iterator Tests ' target]);
+s = Suite(['Algebraic Iterator Tests ' target]);
 
 s.add(Test('TwoDelayUsingPPTimeIterator', ...
            @()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1.dsl',10,target)), ...
@@ -192,5 +192,7 @@ d = diff(o.y(:,2));
 result = result && all(d >= 1 & d <= 2);
 end
 s.add(Test('AggregateRandom',@CheckRandomOutput));
+s.add(Test('AggregateUpdateWithTime', @ ...
+           ()(simex('models_FeatureTests/AggregateIteratorTest7.dsl',10,target)), '-equal', struct('y', [0:10; [0:5 0 0 0 0 0]; [0 0:5 0 0 0 0]]')));
 
 end
