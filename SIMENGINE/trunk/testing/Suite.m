@@ -9,7 +9,7 @@ classdef Suite < handle
         Name;
         ExitOnFailure = false;
         ExitOnError = false;
-        DeleteSIMs = true;
+        DeleteSIMs = true;     
     end
     
     properties (SetAccess = private)
@@ -20,6 +20,7 @@ classdef Suite < handle
         Errored = 0;
         Skipped = 0;
         Time = 0;
+        Enabled = true;
         Dir
     end
     
@@ -65,15 +66,20 @@ classdef Suite < handle
         
         % execute tests
         function Execute(s, varargin)
-            if nargin == 2 && ischar(varargin{1})
-                switch lower(varargin{1})
-                    case '-all'
-                        execute_helper(s, 0, true, true);
-                    otherwise
-                        error('Suite:Execute:ArgumentError', 'Only -all is a supported argument');
+            if s.Enabled
+                if nargin == 2 && ischar(varargin{1})
+                    switch lower(varargin{1})
+                        case '-all'
+                            execute_helper(s, 0, true, true);
+                        otherwise
+                            error('Suite:Execute:ArgumentError', 'Only -all is a supported argument');
+                    end
+
                 end
+                execute_helper(s, 0, false, true);
+            else
+                s.Skipped = s.Skipped + length(s);
             end
-            execute_helper(s, 0, false, true);
         end
         
         function execute_helper(s, level, runall, runfailures)
@@ -150,11 +156,15 @@ classdef Suite < handle
                     s.Skipped = s.Skipped - ss.Skipped;
                     % Now re-execute as necessary
                     if cont
-                        ss.execute_helper(level+1, runall, runfailures);
-                        s.Passed = s.Passed + ss.Passed;
-                        s.Failed = s.Failed + ss.Failed;
-                        s.Errored = s.Errored + ss.Errored;
-                        s.Skipped = s.Skipped + ss.Skipped;
+                        if ss.Enabled 
+                            ss.execute_helper(level+1, runall, runfailures);
+                            s.Passed = s.Passed + ss.Passed;
+                            s.Failed = s.Failed + ss.Failed;
+                            s.Errored = s.Errored + ss.Errored;
+                            s.Skipped = s.Skipped + ss.Skipped;
+                        else
+                            s.Skipped = s.Skipped + length(ss);
+                        end
                     else
                         s.Skipped = s.Skipped + length(ss);
                     end
@@ -267,6 +277,12 @@ classdef Suite < handle
             error('Simatra:Suite:TestNotFound', 'Can''t find test with name ''%s''',name);
         end
         
+        function enable(s)
+            s.Enabled = true;
+        end
+        function disable(s)
+            s.Enabled = false;
+        end
         
     end % end methods
     
