@@ -119,12 +119,8 @@ else
     fclose(stateFileID);
   end
 
-  tic;
   simulate_model(opts);
-  elapsed = toc;
   
-  disp([interface.name ' simulation completed in ' num2str(elapsed) ' seconds.']);  
-
   outputs = {};
   finalStates = zeros(opts.instances, length(interface.states));
   finalTimes = zeros(1, opts.instances);
@@ -444,7 +440,7 @@ statusFile = fullfile(workingDir, 'status');
 pidFile = fullfile(workingDir, 'pid');
 
 system(['touch ' logFile]);
-command = ['(' command ' &>' logFile ' & pid=$! ; echo $pid > ' pidFile ' ; wait $pid; echo $? > ' statusFile ')&']
+command = ['(' command ' &>' logFile ' & pid=$! ; echo $pid > ' pidFile ' ; wait $pid; echo $? > ' statusFile ')&'];
 [stat, ignore] = system(command);
 while ~exist(pidFile)
   pause(0.1);
