@@ -487,6 +487,7 @@ fun isStateBufferTerm (Exp.TERM (Exp.SYMBOL (_, props))) =
 fun isReadStateTerm (Exp.TERM (Exp.SYMBOL (_, props))) =
     (case Property.getScope props of
 	Property.READSYSTEMSTATE _ => true
+      | Property.READSTATE _ => true (* is the case for pre-process iterators when aggregated *)
       | _ => false)
   | isReadStateTerm _ = false
 
