@@ -442,11 +442,13 @@ pidFile = fullfile(workingDir, 'pid');
 system(['touch ' logFile]);
 command = ['(' command ' &>' logFile ' & pid=$! ; echo $pid > ' pidFile ' ; wait $pid; echo $? > ' statusFile ')&'];
 [stat, ignore] = system(command);
-while ~exist(pidFile)
+while ~exist(pidFile) | ~length(fileread(pidFile))
   pause(0.1);
 end
 % Ignore the newline
 pid = num2str(str2num(fileread(pidFile)));
+% Remove the file to prevent crosstalk across launchBackground calls
+delete(pidFile);
 
 c = onCleanup(@()cleanupBackgroundProcess(pid));
 
