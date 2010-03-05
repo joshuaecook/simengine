@@ -131,7 +131,7 @@ else
       try
         m = memmapfile(outputFile, 'format', 'double');
         outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
-      catch
+      catch it
         % this means there is no data in the output file which can happen for conditional outputs
         outputs(modelid).(interface.outputs{outputid}) = [];
       end
@@ -144,7 +144,7 @@ else
         finalTimeFile = fullfile(modelDir, 'final-time');
         m = memmapfile(finalTimeFile, 'format', 'double');
         finalTimes(modelid) = m.Data;
-      catch
+      catch it
         warning('Simatra:Simex', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.\nFinal states are invalid.'])
       end
     end
@@ -389,7 +389,7 @@ function [interface] = get_interface(opts)
   try
     json_interface = fileread(simex_interface_json);
     interface = parse_json(json_interface);
-  catch
+  catch it
     error('Simatra:Simex:get_interface', 'Could not open interface file.')
   end
 
@@ -397,14 +397,24 @@ function [interface] = get_interface(opts)
   defaultInputs = interface.defaultInputs;
   interface.defaultInputs = {};
   for i = 1:length(defaultInputs)
-    interface.defaultInputs.(interface.inputs{i}) = defaultInputs{i};
+    % Ensure any "NaN", "-Inf", or "Inf" strings are converted to numbers.
+    if isa(defaultInputs{i}, 'char')
+        interface.defaultInputs.(interface.inputs{i}) = str2num(defaultInputs{i});
+    else
+        interface.defaultInputs.(interface.inputs{i}) = defaultInputs{i};  
+    end
   end
 
   % Convert default states to a flat vector
   defaultStates = interface.defaultStates;
   interface.defaultStates = zeros(1, length(defaultStates));
   for i = 1:length(defaultStates)
-    interface.defaultStates(i) = defaultStates{i};
+    % Ensure any "NaN", "-Inf", or "Inf" strings are converted to numbers.
+    if isa(defaultStates{i}, 'char')
+        interface.defaultStates(i) = str2num(defaultStates{i});
+    else
+        interface.defaultStates(i) = defaultStates{i};
+    end
   end
 
   % Convert output sizes to a flat vector
