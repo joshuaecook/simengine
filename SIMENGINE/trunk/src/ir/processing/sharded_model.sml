@@ -909,6 +909,40 @@ local
 	     instance=instance',
 	     iter_sym=iter_sym'}
 	end
+
+    (* make all iterators that are include in iters to be set to be RELATIVE 1 if currently set to RELATIVE 0 *)
+    fun applyIteratorRewrites (pos, iters) (shard : shard as {classes,...}) =
+	let
+	    val id = Symbol.symbol "ApplyPostIteratorRewrites"
+
+	    fun update_exp_to_post (Exp.TERM (Exp.SYMBOL (sym, props as {iterator=SOME ((iter_sym,Iterator.RELATIVE 0)::rest),...}))) =
+		let
+		    val props' = Property.setIterator props ((iter_sym,Iterator.RELATIVE 1)::rest)
+		in
+		    Exp.TERM (Exp.SYMBOL (sym, props'))
+		end
+	      | update_exp_to_post exp = exp
+
+	    fun update_exp_to_pre (Exp.TERM (Exp.SYMBOL (sym, props as {iterator=SOME ((iter_sym,Iterator.RELATIVE 1)::rest),...}))) =
+		let
+		    val props' = Property.setIterator props ((iter_sym,Iterator.RELATIVE 0)::rest)
+		in
+		    Exp.TERM (Exp.SYMBOL (sym, props'))
+		end
+	      | update_exp_to_pre exp = exp
+
+	    val rewrite = {find=Match.onesym "#a",
+			   test=SOME (fn(exp,_)=> case (pos, ExpProcess.exp2temporaliterator exp) of
+						      (AFTER, SOME (iter_sym, Iterator.RELATIVE 0)) => List.exists (fn(sym)=>iter_sym=sym) iters
+						    | (BEFORE, SOME (iter_sym, Iterator.RELATIVE 1)) => List.exists (fn(sym)=>iter_sym=sym) iters
+						    | _ => false),
+			   replace=Rewrite.ACTION (id, case pos of 
+							   AFTER => update_exp_to_post
+							 | BEFORE => update_exp_to_pre)}
+	in
+	    app (ClassProcess.applyRewritesToClass [rewrite]) classes
+	end
+
 in
 fun combineDiscreteShards (shardedModel as (_, sysprops)) =
     let
@@ -955,6 +989,24 @@ fun combineDiscreteShards (shardedModel as (_, sysprops)) =
 			let
 			    val matching_iterators = map #1 (List.filter (fn(_, dt') => Real.== (dt,dt')) iters_with_dt)
 			    val all_iterator_symbols = Util.uniquify (Util.flatmap (fn(iter_sym, iter_dependency_list)=> iter_sym::(map (fn(iter_sym, _)=> iter_sym) iter_dependency_list)) matching_iterators)
+
+			    (* update the iterators to from n->n+1 or n+1->n depending on if needed *)
+			    val _ = 
+				app 
+				    (fn(iter_sym, sys_iters)=> 
+				       app 
+					   (fn(iter_sym', iter_type) => 
+					      case iter_type of 
+						  DOF.UPDATE _ => 
+						  applyIteratorRewrites (AFTER, all_iterator_symbols) (valOf (findShard (shardedModel, iter_sym')))
+						| DOF.ALGEBRAIC (DOF.POSTPROCESS, _) => 
+						  applyIteratorRewrites (AFTER, all_iterator_symbols) (valOf (findShard (shardedModel, iter_sym')))
+						| DOF.ALGEBRAIC (DOF.PREPROCESS, _) => 
+						  applyIteratorRewrites (BEFORE, all_iterator_symbols) (valOf (findShard (shardedModel, iter_sym')))
+						| _ => ())
+					   sys_iters)
+				    matching_iterators
+
 			    (*val _ = Util.log ("Updating matching iterator symbols: " ^ (Util.symlist2s all_iterator_symbols))*)
 			    val combined_independent = combine_independent_shards all_iterator_symbols (map (fn(iter_sym, dependent_iterators)=> (valOf (findShard (shardedModel, iter_sym)), dependent_iterators)) matching_iterators)
 			    val combined_dependent = combine_dependent_shards all_iterator_symbols combined_independent

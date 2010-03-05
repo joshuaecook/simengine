@@ -1169,7 +1169,7 @@ and replaceIterator {before_iter_sym, before_iter_sym_list, after_iter_sym, sym,
 	val scope = Property.getScope symprops
 
 	(* update the iter index depending on whether it is pre process or post process*)
-	val iter_index' = if isPreProcess then
+	val iter_index' = (*if isPreProcess then
 			      case iter_index of
 				  Iterator.RELATIVE 1 => Iterator.RELATIVE 0
 				| _ => iter_index
@@ -1177,11 +1177,10 @@ and replaceIterator {before_iter_sym, before_iter_sym_list, after_iter_sym, sym,
 			      case iter_index of
 				  Iterator.RELATIVE 0 => Iterator.RELATIVE 1
 				| _ => iter_index
-			  else
+			  else*) (* this is not needed here since this is done in combineDiscreteIterators *)
 			      iter_index
 
 	(* update the scope *)
-	val updated_sym = updateIterSym sym
 	val scope' = case scope of
 			 Property.READSTATE sym => 
 			 (case iter_index' of
@@ -1192,17 +1191,21 @@ and replaceIterator {before_iter_sym, before_iter_sym_list, after_iter_sym, sym,
 			    | _ => DynException.stdException("Unexpected iterator1", "ExpProcess.replaceIterator", Logger.INTERNAL))
 		       | Property.READSYSTEMSTATE sym => 
 			 let val updated_sym = updateIterSym sym
-			 in if updated_sym = sym then
+			 in if (*updated_sym = sym*) not(needsReplacing sym) then
 				scope
 			    else
-				Property.READSTATE updated_sym
+				case iter_index' of
+				    Iterator.RELATIVE 1 => Property.WRITESTATE updated_sym
+				  | _ => Property.READSTATE updated_sym
 			 end
 		       | Property.READSYSTEMSTATENEXT sym =>
 			 let val updated_sym = updateIterSym sym
-			 in if updated_sym = sym then
+			 in if (*updated_sym = sym*) not(needsReplacing sym) then
 				scope
 			    else
-				Property.READSTATE updated_sym
+				case iter_index' of
+				    Iterator.RELATIVE 1 => Property.WRITESTATE updated_sym
+				  | _ => Property.READSTATE updated_sym
 			 end
 		       | Property.WRITESTATE sym => 			 
 			 (case iter_index' of
