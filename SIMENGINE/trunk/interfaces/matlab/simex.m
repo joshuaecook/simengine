@@ -485,6 +485,12 @@ if length(log) > outputlen
 end
 try
   status = str2num(fileread(statusFile));
+  % Prevent any crosstalk between launchBackground calls
+  delete(statusFile);
+  if(exist(progressFile))
+    delete(progressFile);
+  end
+  delete(logFile);
 catch
   error('Simatra:Simex:launchBackground', 'Process status file does not exist.')
 end
