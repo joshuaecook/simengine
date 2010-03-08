@@ -350,7 +350,7 @@ import "command_line.dsl"
     var stderr = allout(2)
     FileSystem.rmfile(simulation)
     if (0 <> stat) then
-      error(join("", stderr))
+      failure(join("", stderr))
     // Return the interface from the executable if requested
     elseif objectContains(simulationSettings, "interface") then
       print(join("", stdout))
