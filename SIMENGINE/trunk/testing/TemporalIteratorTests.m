@@ -98,7 +98,8 @@ function s = ImmediateIteratorTests(target)
 
 s = Suite(['Immediate Iterator Tests ' target]);
 
-s.add(Test('constant -> output', @()(simex('models_FeatureTests/ImmediateIteratorTest1.dsl', 1,target)), '-equal', struct('G', [0:1; 9.80665 * ones(1,2)]')));
+% Switched the next test to approxequal instead of equal to handle the GPU test on a compute 1.1 card which will default to single precision
+s.add(Test('constant -> output', @()(simex('models_FeatureTests/ImmediateIteratorTest1.dsl', 1,target)), '-approxequal', struct('G', [0:1; 9.80665 * ones(1,2)]')));
 s.add(Test('immediate intermediate -> output', @()(simex('models_FeatureTests/ImmediateIteratorTest2.dsl', 1,target)), '-approxequal', struct('F', [0:1; 2942 * ones(1,2)]')));
 s.add(Test('immediate intermediate -> submodel -> output', @()(simex('models_FeatureTests/ImmediateIteratorTest3.dsl', 1,target)), '-approxequal', struct('F', [0:1; 2942 * ones(1,2)]')));
 s.add(Test('top input -> submodel -> immediate intermediate -> output', @()(simex('models_FeatureTests/ImmediateIteratorTest4.dsl', 1,target)), '-approxequal', struct('F', [0:1; 2942 * ones(1,2)]')));
