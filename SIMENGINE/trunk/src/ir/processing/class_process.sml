@@ -314,7 +314,7 @@ and flattenEquationThroughInstances class sym =
 	   case findMatchingEq class sym
 	    of SOME exp =>
 	       if ExpProcess.isInstanceEq exp then
-		   flattenInstanceEquation class sym exp
+		   leafTermSymbolsOfInstanceEquation class sym exp
 	       else if ExpProcess.isIntermediateEq exp then
 		   let val locals = List.filter Term.isLocal (ExpProcess.exp2termsymbols (ExpProcess.rhs exp))
 		       (* val _ = Util.log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'") *)
@@ -339,40 +339,52 @@ and flattenEquationThroughInstances class sym =
     end
     handle e => DynException.checkpoint ("ClassProcess.flattenEquationThroughInstances ["^(Symbol.name sym)^"]") e
 
-(* Constructs a flattened expression by associating the given symbol with an output parameter,
- * then inspecting the instance class to find the class output expression. *)
-and flattenInstanceEquation caller sym eqn =
-    let val {classname, outargs, inpargs, ...} = ExpProcess.deconstructInst eqn
+(* Constructs a smashed expression by associating the given symbol with an output parameter,
+ * then inspecting the instance class to find the class output expression. 
+ *
+ * The resulting expression is the output name itself if the output symbol has an iterator defined.
+ * Otherwise returned an expression "x=(...)" where the rhs is a tuple containing all leaf term symbols
+ * driving the output.
+ *)
+and leafTermSymbolsOfInstanceEquation caller sym eqn =
+    let
+	val {classname, outargs, inpargs, ...} = ExpProcess.deconstructInst eqn
 	val class = CurrentModel.classname2class classname
 	val {outputs, inputs, ...} = class
 	val output_ix = case List.find (fn (x,_) => Term.sym2curname x = sym) (Util.addCount outargs)
 			 of SOME (_, index) => index
 			  | NONE => 
-			    DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenInstanceEquation", Logger.INTERNAL)
+			    DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), 
+						      "ClassProcess.leafTermSymbolsOfInstanceEquation", 
+						      Logger.INTERNAL)
 	val {name, contents, condition} = List.nth (! outputs, output_ix)
 
-	(* val _ = Util.log ("flattenInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'") *)
-    in case TermProcess.symbol2temporaliterator name
-	of SOME _ => ExpBuild.equals (ExpBuild.var (Symbol.name sym), Exp.TERM name)
-	 | NONE => 
-	   let val terms = 
-		   List.concat (map (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) (condition :: contents))
-	       val terms = 
-		   Util.flatmap (fn t => 
-		   if isSymInput class (Term.sym2curname t) then
-		       let val input_ix = case List.find (fn ({name, ...}, _) => Term.sym2curname name = Term.sym2curname t) (Util.addCount (! inputs))
-					   of SOME (_, index) => index
-					    | NONE => 
-					      DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenInstanceEquation", Logger.INTERNAL)
-			   val inp = List.nth (inpargs, input_ix)
-		       in ExpProcess.exp2termsymbols (flattenExpressionThroughInstances caller inp)
-		       end
-		   else [t]
-	           ) terms
-	   in		   
-	       ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
-				Exp.TERM (if 1 = List.length terms then List.hd terms else Exp.TUPLE terms))
-	   end
+	(* val _ = Util.log ("leafTermSymbolsOfInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'") *)
+    in 
+	case TermProcess.symbol2temporaliterator name
+	 of SOME _ => ExpBuild.equals (ExpBuild.var (Symbol.name sym), Exp.TERM name)
+	  | NONE => 
+	    let 
+		val terms = 
+		    List.concat (map (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) (condition :: contents))
+		(* Outputs connected to inputs are traced back to the caller. *)
+		val terms = 
+		    Util.flatmap (fn t => 
+				     if isSymInput class (Term.sym2curname t) then
+					 let val input_ix = case List.find (fn ({name, ...}, _) => Term.sym2curname name = Term.sym2curname t) (Util.addCount (! inputs))
+							     of SOME (_, index) => index
+							      | NONE => 
+								DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.leafTermSymbolsOfInstanceEquation", Logger.INTERNAL)
+					     val inp = List.nth (inpargs, input_ix)
+					 in 
+					     ExpProcess.exp2termsymbols (flattenExpressionThroughInstances caller inp)
+					 end
+				     else [t]
+				 ) terms
+	    in		   
+		ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
+				 Exp.TERM (if 1 = List.length terms then List.hd terms else Exp.TUPLE terms))
+	    end
     end
 
 (* flattenEq does not pass through instance equations - we need a different one that will pass through instance equations *)
@@ -1467,7 +1479,18 @@ fun assignCorrectScope (class: DOF.class) =
 		val name = 
 		    case TermProcess.symbol2temporaliterator name 
 		     of NONE => 
-			let val exps = map (flattenExpressionThroughInstances class) (condition' :: contents')
+			let 
+			    val exps = map (flattenExpressionThroughInstances class) (condition' :: contents')
+
+			    (* Flattening an output expressions may result in a TUPLE
+			     * if the output is grouped. Further flatten any TUPLE into
+			     * its component terms. *)
+			    fun flattenTuples (Exp.TERM (Exp.TUPLE terms)) = map Exp.TERM terms
+			      | flattenTuples exp = [exp]
+
+			    val exps = List.concat (map flattenTuples exps)
+
+				       
 			    val iters = map 
 					    (fn(iter_sym,_)=>iter_sym) 
 					    (List.mapPartial ExpProcess.exp2temporaliterator exps)
