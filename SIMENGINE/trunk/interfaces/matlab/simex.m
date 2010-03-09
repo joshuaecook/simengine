@@ -145,7 +145,7 @@ else
         m = memmapfile(finalTimeFile, 'format', 'double');
         finalTimes(modelid) = m.Data;
       catch it
-        warning('Simatra:Simex', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.\nFinal states are invalid.'])
+        error('Simatra:Simex', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.'])
       end
     end
   end

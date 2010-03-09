@@ -327,7 +327,7 @@ import "command_line.dsl"
 	var exfile = autoRecompile(modelFile, compilerSettings)
 	if () <> simulationSettings then
 	  var simulation = FileSystem.realpath(exfile)
-	  simulate(simulation, simulationSettings)
+	  simulate(simulation, simulationSettings, compilerSettings.debug)
 	  if not(compilerSettings.debug) then
 	    FileSystem.rmfile(simulation)
 	  end
@@ -338,7 +338,7 @@ import "command_line.dsl"
     end
   end
 
-  function simulate(simulation, simulationSettings)
+  function simulate(simulation, simulationSettings, debug)
     var simexCommands = []
     foreach setting in simulationSettings.keys do
       // C command-line options use "--" instead of "-" (artifact of getopt library)
@@ -346,6 +346,9 @@ import "command_line.dsl"
       if simulationSettings.getValue(setting) <> true then
 	simexCommands.push_back(simulationSettings.getValue(setting).tostring())
       end
+    end
+    if debug then
+      println("Run: " + simulation + " " + (join(" ", simexCommands)))
     end
     var p = Process.run(simulation, simexCommands)
     var allout = Process.readAll(p)
