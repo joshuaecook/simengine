@@ -342,12 +342,16 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].time;")
 			      | DOF.DISCRETE _ =>
 				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].count;")
+			      | DOF.IMMEDIATE =>
+				$("// no iterator value for 'always'")
 			      | _ =>
 				$("#error BOGUS ITERATOR NOT FILTERED")
 
 			val iterator_states_ptrs =
-			    [$("tmp_system->states_"^(itername)^" = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states);"),
-			     $("tmp_system->states_"^(itername)^"_next = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].next_states);")]
+			    if 0 < ModelProcess.model2statesize (CurrentModel.getCurrentModel ()) then
+				[$("tmp_system->states_"^(itername)^" = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states);"),
+				 $("tmp_system->states_"^(itername)^"_next = (statedata_"^(Symbol.name topClassName)^" * )(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].next_states);")]
+			    else nil
 
 			val my_algebraic_iterators =
 			    List.filter (fn it =>
@@ -387,13 +391,8 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			iterator_states_ptrs @
 			iterator_algebraic_states_ptrs
 		    end
-
-
-		val num_states = CurrentModel.withModel model (fn _ => ModelProcess.model2statesize model)
 	    in
-		if 0 < num_states then
-		    CurrentModel.withModel model progs
-		else nil
+		CurrentModel.withModel model progs
 	    end
 
 	    val total_system_states = ShardedModel.statesize shardedModel
@@ -1140,15 +1139,20 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 	 * This data type comprises references to the iterator values themselves, followed
 	 * by references to each iterator's states. *)
 	fun systemPointerStructure {basename, iterators, typedIterators} =
-	    [$("// The system of iterators for class " ^ (Symbol.name basename) ^ "."),
-	     $("typedef struct {"),
-	     SUB (map $
-		      (List.mapPartial systemPointerStructureIteratorValue
-				       iterators)),
-	     SUB (map $
-		      (List.concat (map systemPointerStructureStates
-		 			typedIterators))),
-	     $("} systemstatedata_"^(Symbol.name basename)^";"),$("")]
+	    if List.null iterators andalso List.null typedIterators then
+		[$("// Class " ^ (Symbol.name basename) ^ " is stateless."),
+		 $("typedef void * systemstatedata_" ^ (Symbol.name basename) ^ ";"),$("")]
+	    else
+
+		[$("// The system of iterators for class " ^ (Symbol.name basename) ^ "."),
+		 $("typedef struct {"),
+		 SUB (map $
+			  (List.mapPartial systemPointerStructureIteratorValue
+					   iterators)),
+		 SUB (map $
+			  (List.concat (map systemPointerStructureStates
+		 			    typedIterators))),
+		 $("} systemstatedata_"^(Symbol.name basename)^";"),$("")]
 
 
 	val classBaseNames = 
