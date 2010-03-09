@@ -326,7 +326,11 @@ import "command_line.dsl"
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
 	var exfile = autoRecompile(modelFile, compilerSettings)
 	if () <> simulationSettings then
-	  simulate(FileSystem.realpath(exfile), simulationSettings)
+	  var simulation = FileSystem.realpath(exfile)
+	  simulate(simulation, simulationSettings)
+	  if not(compilerSettings.debug) then
+	    FileSystem.rmfile(simulation)
+	  end
 	else
 	  println("Not running: " + compilerSettings.exfile)
 	end
@@ -348,7 +352,6 @@ import "command_line.dsl"
     var stat = Process.reap(p)
     var stdout = allout(1)
     var stderr = allout(2)
-    FileSystem.rmfile(simulation)
     if (0 <> stat) then
       failure(join("", stderr))
     // Return the interface from the executable if requested
@@ -443,6 +446,17 @@ import "command_line.dsl"
 	compilerSettings.add(key, defaultCompilerSettings.getValue(key))
       end
     end
+
+    // Set up the name of the c source file
+    var name = Path.base(Path.file (commandLineOptions.simex))
+    var cname = ""
+    if "cuda" == compilerSettings.target then
+      cname = name + ".cu"
+    else
+      cname = name + ".c"
+    end
+    compilerSettings.add("cSourceFilename", cname)
+
     compilerSettings
   end
 
@@ -573,11 +587,14 @@ import "command_line.dsl"
       compile (filename, target, compilerSettings)
       exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
     else
+      var cfile = Path.join(compilerSettings.outputs, compilerSettings.cSourceFilename)
       exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
       Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.exfile, exfile)
       shell("chmod", ["+x", exfile])
       if compilerSettings.debug then
 	println ("reusing existing SIM")
+	// Extract C file for debugging
+	Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.cSourceFilename, cfile)
       end
     end
     exfile
@@ -610,12 +627,6 @@ import "command_line.dsl"
 
     var mod = LF loadModel (filename)
     var name = mod.template.name
-    var cname = ""
-    if "cuda" == compilerSettings.target then
-      cname = name + ".cu"
-    else
-      cname = name + ".c"
-    end
     mod.template.settings = compilerSettings
 
     var instantiatedModel = mod.instantiate()
@@ -623,8 +634,6 @@ import "command_line.dsl"
     var simfile
     
     if true == stat then
-      compilerSettings.add("cSourceFilename", cname)
-      
       simfile = Archive.createArchive(Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
     else
       // Restore working directory

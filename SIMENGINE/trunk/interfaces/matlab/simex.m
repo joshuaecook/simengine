@@ -498,13 +498,13 @@ try
   % Prevent any crosstalk between launchBackground calls
   delete(statusFile);
   if(exist(progressFile))
+    messagelen = statusBar('', messagelen);
     delete(progressFile);
   end
   delete(logFile);
 catch
   error('Simatra:Simex:launchBackground', 'Process status file does not exist.')
 end
-messagelen = statusBar('', messagelen);
 end
 
 function [running] = processRunning(pid)
@@ -537,8 +537,20 @@ messageLength = length(message);
 end
 
 function textStatusBar(message, previousLength)
+    % Backup over previous message
     for i = 1:previousLength
         fprintf('\b');
     end
-    fprintf('%s', message);
+    % Wipe the previous message with spaces
+    for i = 1:previousLength
+        fprintf(' ');
+    end
+    % Backup over spaces
+    for i = 1:previousLength
+        fprintf('\b');
+    end
+    % Print a new message if available
+    if length(message)
+      fprintf('%s', message);
+    end
 end

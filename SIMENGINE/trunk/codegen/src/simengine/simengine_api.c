@@ -324,7 +324,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
     opts->num_models = 1;
   }
   if(!opts->outputs_dirname){
-    opts->outputs_dirname = "simex_output";
+    opts->outputs_dirname = "simex_outputs";
   }
 
   if(mkdir(opts->outputs_dirname, 0777)){
