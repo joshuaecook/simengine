@@ -81,6 +81,8 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
 		    | Size => "Size exception at " ^ handlelocation
 		    | Span => "Span exception at " ^ handlelocation
 		    | Subscript => "Subscript exception at " ^ handlelocation
+		    | OS.Path.Path => "Path exception at " ^ handlelocation
+		    | OS.Path.InvalidArc => "Path.InvalidArc exception at " ^ handlelocation
 		    | _ => "Unknown exception caught at " ^ handlelocation
     in
 	(Logger.log_exception Logger.OTHER Logger.FAILURE ($(message));
