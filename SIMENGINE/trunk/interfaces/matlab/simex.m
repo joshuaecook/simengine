@@ -103,7 +103,9 @@ else
     if -1 == inputFileID
       error(['Could not open inputs file: ' inputsFile]);
     end
-    fwrite(inputFileID, userInputs', 'double');
+    for i = size(userInputs, 1):opts.instances
+      fwrite(inputFileID, userInputs', 'double');
+    end
     fclose(inputFileID);
   end
 
@@ -115,7 +117,9 @@ else
     if -1 == stateFileID
       error(['Could not open inputs file: ' statesFile]);
     end
-    fwrite(stateFileID, userStates', 'double');
+    for i = size(userStates,1):opts.instances
+      fwrite(stateFileID, userStates', 'double');
+    end
     fclose(stateFileID);
   end
 
