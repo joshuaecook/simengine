@@ -562,10 +562,9 @@ import "command_line.dsl"
 	  if filename == main then
 	    var upToDate = creation > FileSystem.modtime (main)
 	    foreach i in imports do
-	      var path = Path.join (dir, i)
 	      upToDate = (upToDate and 
-			  FileSystem.isfile (path) and
-			  creation > FileSystem.modtime (path))
+			  FileSystem.isfile i and
+			  creation > FileSystem.modtime i)
 	    end
 	    
 	    if upToDate then
