@@ -273,10 +273,14 @@ fun symbolofoptiter2exps (class: DOF.class) iter_sym sym =
 
 fun flattenExpressionThroughInstances class exp =
     let val symbols = ExpProcess.exp2symbols exp
+	(*val _ = Util.log (" - Symbols: " ^ (Util.list2str Symbol.name symbols))*)
 	val equations = map (flattenEquationThroughInstances class) symbols
+	(*val _ = Util.log (" - Equations: " ^ (Util.list2str e2s equations))*)
 	val rules = map ExpProcess.equation2rewrite equations
+	val exp' = Match.applyRewritesExp rules exp
+	(*val _ = Util.log (" - Transform '"^(e2s exp)^"' to '"^(e2s exp')^"'")*)
     in
-	Match.applyRewritesExp rules exp
+	exp'
     end
     handle e => DynException.checkpoint ("ClassProcess.flattenExpressionThroughInstances ["^(e2s exp)^"]") e
 
@@ -620,6 +624,7 @@ fun outputsByIterator iterator (class: DOF.class) =
 	    end
     in List.filter has_iterator (! outputs)
     end
+    handle e => DynException.checkpoint "ClassProcess.outputsByIterator" e
 
 fun outputSymbols output =
     let val {contents, condition, ...} = output
@@ -697,6 +702,7 @@ fun class2postprocess_states (class: DOF.class) =
     in
 	post_process_states
     end
+    handle e => DynException.checkpoint "ClassProcess.class2postprocess_states" e
 
 fun createEventIterators (class: DOF.class) =
     let
@@ -997,25 +1003,27 @@ fun addBufferedIntermediates (class: DOF.class) =
 			filterEqs
 
 		(* foreach of the dependentEqs, split them into two equations.  Ordering doesn't matter since there will be an ordering pass later... *)
-		val splitDependentEqs = Util.flatmap 
-						  (fn(eqs)=>
-						     let
-							 val lhs = ExpProcess.lhs eqs
-							 val rhs = ExpProcess.rhs eqs
-							 val gen_symbol = 
-							     case ExpProcess.getLHSSymbols eqs of
-								 [sym] => "#updateintermediate_" ^ (Symbol.name sym)
-							       | nil => DynException.stdException(("Unexpectedly no symbols on lhs of expression " ^ (ExpPrinter.exp2str eqs)), 
-												  "ClassProcess.addBufferedIntermediates.addBufferedIntermediatesByType", Logger.INTERNAL)
-							       | _ => DynException.stdException(("Can not handle a tuple on lhs of update expression " ^ (ExpPrinter.exp2str eqs)), 
-												"ClassProcess.addBufferedIntermediates.addBufferedIntermediatesByType", Logger.INTERNAL)
-						     in
-							 [ExpBuild.equals (ExpBuild.var gen_symbol, rhs),
-							  ExpBuild.equals (lhs, ExpBuild.var gen_symbol)]
-						     end) 
-						  dependentEqs
+		val (intermediateEqus, writeEqs) = 
+		    ListPair.unzip 
+			(map
+			     (fn(eqs)=>
+				let
+				    val lhs = ExpProcess.lhs eqs
+				    val rhs = ExpProcess.rhs eqs
+				    val gen_symbol = 
+					case ExpProcess.getLHSSymbols eqs of
+					    [sym] => "#updateintermediate_" ^ (Symbol.name sym)
+					  | nil => DynException.stdException(("Unexpectedly no symbols on lhs of expression " ^ (ExpPrinter.exp2str eqs)), 
+									     "ClassProcess.addBufferedIntermediates.addBufferedIntermediatesByType", Logger.INTERNAL)
+					  | _ => DynException.stdException(("Can not handle a tuple on lhs of update expression " ^ (ExpPrinter.exp2str eqs)), 
+									   "ClassProcess.addBufferedIntermediates.addBufferedIntermediatesByType", Logger.INTERNAL)
+				in
+				    (ExpBuild.equals (ExpBuild.var gen_symbol, rhs),
+				     ExpBuild.equals (lhs, ExpBuild.var gen_symbol))
+				end) 
+			     dependentEqs)
 	    in
-		(#exps class) := (restEqs @ independentEqs @ splitDependentEqs)
+		(#exps class) := (restEqs @ independentEqs @ intermediateEqus @ writeEqs)
 	    end
     in
 	app addBufferedIntermediatesByType expfilters
@@ -1590,6 +1598,7 @@ fun assignCorrectScope (class: DOF.class) =
 	    in
 		{name=name', contents=contents', condition=condition'}
 	    end
+	    handle e => DynException.checkpoint ("ClassProcess.AssignCorrectScope.update_output2 [name="^(e2s (Exp.TERM name))^"]") e
 
 	val outputs = !(#outputs class)
 	val outputs' = map update_output2 outputs
@@ -1624,7 +1633,7 @@ fun assignCorrectScope (class: DOF.class) =
     in
 	()
     end
-    handle e => DynException.checkpoint "ClassProcess.assignCorrectScope" e
+    handle e => DynException.checkpoint ("ClassProcess.assignCorrectScope [class="^(Symbol.name (#name class))^"]") e
 
 fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
     let
@@ -1728,7 +1737,16 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 	; #outputs class := outputs')
     end
 
-(* FIXME define this algorithm more clearly. *)
+(* 
+ * pruneClass - prunes equations in the class that are not needed, modifies class in memory
+ * 
+ * input args:
+ *   iter_option: (DOF.systemiterator option) - if specified, only maintains those outputs/states with the matching iterator, otherwise all outputs/states are maintained
+ *   top_class: bool - redundant, and needs to be removed
+ *   class: DOF.class - input class
+ *
+ * output args: none
+ *)
 fun pruneClass (iter_option, top_class) (class: DOF.class) = 
     let
 	(* pull out useful quantities *)
@@ -1738,11 +1756,12 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 	val outputs = !(#outputs class)
 
 	fun filter_output iterator output =
-	    let val (iter_sym, _) = iterator
+	    let val (iter_sym, iter_type) = iterator
 		val {name, contents, condition} = output
 		val name' = ExpProcess.term2exp name
 	    in 
-		ExpProcess.doesTermHaveIterator iter_sym name'(* orelse
+		ExpProcess.doesTermHaveIterator iter_sym name'
+	    (* orelse
 		case TermProcess.symbol2temporaliterator name 
 		 of SOME (iter_sym, _) =>
 		    (case CurrentModel.itersym2iter iter_sym

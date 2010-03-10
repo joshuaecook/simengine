@@ -780,19 +780,19 @@ fun exp2spatialiterators exp =
 	  | _ => []
 
 fun exp2temporaliterator exp = 
-    if isEquation exp then
-	exp2temporaliterator (lhs exp)
-    else
-	case exp of 
-	    Exp.TERM (term as (Exp.SYMBOL (sym, props))) => 
-	    TermProcess.symbol2temporaliterator term
-	  | Exp.TERM (term as (Exp.TUPLE (termlist))) => 
-	    (case Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (List.mapPartial (exp2temporaliterator o Exp.TERM) termlist) of
-		 [] => NONE
-	       | [iter] => SOME iter
-	       | _ => DynException.stdException(("Too many temporal iterators found in tuple: " ^ (e2s exp)), "ExpProcess.exp2temporaliterator", Logger.INTERNAL))
-	  | _ => NONE
-
+    (if isEquation exp then
+	 exp2temporaliterator (lhs exp)
+     else
+	 case exp of 
+	     Exp.TERM (term as (Exp.SYMBOL (sym, props))) => 
+	     TermProcess.symbol2temporaliterator term
+	   | Exp.TERM (term as (Exp.TUPLE (termlist))) => 
+	     (case Util.uniquify_by_fun (fn((a,_),(a',_))=>a=a') (List.mapPartial (exp2temporaliterator o Exp.TERM) termlist) of
+		  [] => NONE
+		| [iter] => SOME iter
+		| _ => DynException.stdException(("Too many temporal iterators found in tuple: " ^ (e2s exp)), "ExpProcess.exp2temporaliterator", Logger.INTERNAL))
+	   | _ => NONE)
+    handle e => DynException.checkpoint ("ExpProcess.exp2temporaliterator ["^(e2s exp)^"]") e
 
 fun hasTemporalIterator exp =
     case exp2temporaliterator exp

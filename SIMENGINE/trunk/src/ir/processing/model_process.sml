@@ -395,12 +395,6 @@ fun normalizeModel (model:DOF.model) =
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 
-	(* add intermediates for update equations if required - they are reading and writing to the same vector so we have to make sure that ordering doesn't matter. *)
-	val _ = log ("Adding buffered intermediates ...")
-	val () = app ClassProcess.addBufferedIntermediates (CurrentModel.classes())
-	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
-	val _ = DynException.checkToProceed()
-
 	val _ = log ("Assigning correct scope ...")
 	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
@@ -469,6 +463,14 @@ fun normalizeModel (model:DOF.model) =
 	val () = ClassProcess.addEPIndexToClass true top_class
 
 	val _ = DynException.checkToProceed()
+
+	(* add intermediates for update equations if required - they are reading and writing to the same vector so we have to make sure that ordering doesn't matter. *)
+	val _ = log ("Adding buffered intermediates ...")
+	val () = app ClassProcess.addBufferedIntermediates (CurrentModel.classes())
+	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = DynException.checkToProceed()
+
+
 
     in
 	() (* all changes are in the model, we don't have to return this model *)

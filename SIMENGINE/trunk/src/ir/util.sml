@@ -26,11 +26,17 @@ fun b2s x =
     if x then "true"
     else "false"
 
-fun l2s (l: string list) =
+(*fun l2s (l: string list) =
     "[" ^ (String.concatWith ", " l) ^ "]"
 
 fun symlist2s (l: Symbol.symbol list) =
-    "[" ^ (String.concatWith ", " (map Symbol.name l)) ^ "]"
+    "[" ^ (String.concatWith ", " (map Symbol.name l)) ^ "]"*)
+
+fun list2str strfun l =
+    "[" ^ (String.concatWith ", " (map strfun l)) ^ "]"
+
+val symlist2s = list2str Symbol.name 
+val l2s = list2str (fn(x)=>x)
 
 val commonPrefix = "mdlvar__"
 val internalPrefix = "intmdlvar__"
