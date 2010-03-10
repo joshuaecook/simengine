@@ -389,15 +389,15 @@ and execLibraryFunction exec env name arg =
    Returns (unit,env). *)
 and execImportStatement parse env file pos =
     let
-	val _ = case ! ImportHook.importHook
-		 of SOME f => f file
-		  | NONE => ()
-
 	val includepaths = (!ParserSettings.filepath) :: map StdFun.expand_env_variables (DynamoOptions.getStringVectorSetting("sourcepath"))
 			   
 	val fullpath = case FilePath.find file includepaths of
 			   SOME path => path
 			 | NONE => raise DynException.ImportError (file, includepaths)
+
+	val _ = case ! ImportHook.importHook
+		 of SOME f => f fullpath
+		  | NONE => ()
 
 	val instream = TextIO.openIn fullpath
 
