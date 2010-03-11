@@ -7,7 +7,7 @@
 function o = pong
 
 % Execute simEngine and save the results to output structure 'o'
-o = simex('pong.dsl', 1000);
+o = simex('pong.dsl', 300);
 
 % After finishing, show the final score of the game
 disp(sprintf('Score %d vs. %d', o.scores(end,2), o.scores(end,3)));

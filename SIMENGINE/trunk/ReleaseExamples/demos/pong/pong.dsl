@@ -10,7 +10,7 @@ constant PADDLE_HEIGHT = 6
 constant HALF_PADDLE = 3
 constant BALL_SPEED = 7
 constant PADDLE_SPEED = 10
-
+settings.ir.aggregate.setValue(true)
 /*
  * pong_paddle - simulates the motion of the pong paddle up and down on the screen
  *
@@ -30,6 +30,7 @@ model (pos) = pong_paddle(ball_x, ball_y, approaching)
 
     // define the change in position over time as the velocity
     equation pos' = v
+    equation v' = 0
 
     // define "update" equations that will adjust the state variables after they are computed if a condition is set
     equations
