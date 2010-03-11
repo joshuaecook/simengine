@@ -144,7 +144,8 @@ fun main () =
 	case indexOf argv (strEquals "-simex")
 	 of SOME n => 
 	    (* Noninteractive operating on a model definition. *)
-	    (KEC.UNIT, env)
+	    ((*print (Globals.startupMessage() ^ "\n")
+	   ;*) (KEC.UNIT, env))
 	  | NONE => 
 	    case indexOf argv (strEquals "-batch")
 	     of SOME n =>
