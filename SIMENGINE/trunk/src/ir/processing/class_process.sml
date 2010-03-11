@@ -1500,14 +1500,13 @@ fun assignCorrectScope (class: DOF.class) =
 			    val exps = List.concat (map flattenTuples exps)
 
 				       
-			    val iters = map 
-					    (fn(iter_sym,_)=>iter_sym) 
-					    (List.mapPartial ExpProcess.exp2temporaliterator exps)
+			    val iters = SymbolSet.listItems (foldl SymbolSet.union SymbolSet.empty (map ExpProcess.iterators_of_expression exps))
 			    (* grab the iterators used in expression (ex. y = x when t > 10) *)
 			    val symbolset = SymbolSet.flatmap ExpProcess.exp2symbolset exps
 			    val used_iters = List.filter (fn(iter_sym)=>SymbolSet.exists (fn(sym)=>sym=iter_sym) symbolset) indexable_iterators
 			    (* val _ = Util.log ("Finding iterator for output '"^(Symbol.name (Term.sym2curname name))^"'") *)
-			    (* val _ = Util.log ("Found "^(i2s (List.length iters))^" temporal iterators in " ^ (i2s (List.length exps)) ^ " expressions") *)
+			    (* val _ = Util.log ("Found "^(i2s (List.length iters))^" temporal iterators in " ^ (i2s (List.length exps)) ^ " expressions:") *)
+			    (* val _ = Util.log ("\t"^(String.concatWith "\n\t" (map ExpPrinter.exp2prettystr exps))) *)
 			    (* val _ = Util.log (String.concatWith "\n" (map ExpPrinter.exp2str exps)) *)
 
 			    fun iter2baseiter iter_sym = 
