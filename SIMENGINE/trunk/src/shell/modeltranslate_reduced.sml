@@ -379,6 +379,7 @@ fun createClass classes object =
 		    if istype (value, "Output") then
 			(case method "contents" value of
 			     KEC.TUPLE args => map quantity_to_dof_exp args
+			   | KEC.UNIT => []
 			   | exp => [quantity_to_dof_exp exp],
 			 let
 			     val exp = method "condition" value
@@ -783,8 +784,9 @@ fun translate (execFun, object) =
 	 (SOME (obj2dofmodel object) before DynException.checkToProceed())
 	 handle TranslationError => NONE 
 	      | DynException.RestartRepl => NONE
-	      | e => NONE before 
-		     (DynException.checkpoint "ModelTranslate.translate" e))
+	      | DynException.TypeMismatch m => NONE before DynException.stdException(("Unexpected type mismatch <"^m^">"), "ModelTranslate.translate", Logger.INTERNAL)
+	      | e => NONE before DynException.stdException("Unexpected exception caught", "ModelTranslate.translate", Logger.INTERNAL))
+    handle e => DynException.checkpoint "ModelTranslate.translate" e
 
 fun translateExp (execFun, exp) =
     (exec := execFun;

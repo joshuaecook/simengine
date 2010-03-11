@@ -218,9 +218,10 @@ fun findMatchingEq (class:DOF.class) sym =
 	  | NONE => (* check outputs *)
 	    (case (List.find (fn{name,...}=> Term.sym2curname name = sym) outputs) of
 		 SOME {name, contents, condition} => (case contents of
-							  [] => DynException.stdException(("No equations define output '"^(e2s (Exp.TERM name))^"'"),
+							  [] => (*DynException.stdException(("No equations define output '"^(e2s (Exp.TERM name))^"'"),
 											  "ClassProcess.findMatchingEq",
-											  Logger.INTERNAL)
+											  Logger.INTERNAL)*)
+							  SOME (ExpBuild.equals (Exp.TERM name, ExpBuild.explist []))
 							| [oneexp] => SOME (ExpBuild.equals (Exp.TERM name, oneexp))
 							| rest => SOME (ExpBuild.equals (Exp.TERM name, ExpBuild.explist rest)))
 	       | NONE => NONE)
