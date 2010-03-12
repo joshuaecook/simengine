@@ -175,7 +175,7 @@ fun std_failure _ args =
     case args of
 	[KEC.LITERAL (KEC.CONSTSTR s)] =>
 	KEC.UNIT before (Logger.log_failure (Printer.$ s);
-			 raise DynException.RestartRepl)
+			 raise DynException.InternalFailure)
       | [s] =>
 	raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname s))
       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}

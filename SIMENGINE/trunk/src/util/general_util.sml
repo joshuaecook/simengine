@@ -3,7 +3,9 @@ struct
 
 datatype status =
 	 SUCCESS 
-       | FAILURE of string
+       | IGNORE
+       | USAGE
+       | FAILURE of string option
 
 (*TODO: use paths*)
 fun filepath_split (filename) =

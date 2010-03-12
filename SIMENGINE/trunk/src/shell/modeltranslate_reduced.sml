@@ -784,8 +784,7 @@ fun translate (execFun, object) =
 	 (SOME (obj2dofmodel object) before DynException.checkToProceed())
 	 handle TranslationError => NONE 
 	      | DynException.RestartRepl => NONE
-	      | DynException.TypeMismatch m => NONE before DynException.stdException(("Unexpected type mismatch <"^m^">"), "ModelTranslate.translate", Logger.INTERNAL)
-	      | e => NONE before DynException.stdException("Unexpected exception caught", "ModelTranslate.translate", Logger.INTERNAL))
+	      | DynException.TypeMismatch m => NONE)
     handle e => DynException.checkpoint "ModelTranslate.translate" e
 
 fun translateExp (execFun, exp) =

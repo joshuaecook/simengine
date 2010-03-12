@@ -67,7 +67,7 @@ opts = get_simex_opts(varargin{:});
 
 % Make sure directory exists if we need to write inputs or states
 if ~mkdir(opts.outputs);
-  error('Simatra:SIMEX:mkdir', ['Could not create temporary directory ' opts.outputs]);
+  simexError('mkdir', ['Could not create temporary directory ' opts.outputs]);
 end
 
 if opts.debug
@@ -91,7 +91,7 @@ else
   statesM = size(userStates,1);
 
   if 1 < inputsM && 1 < statesM && inputsM ~= statesM
-    error('Simatra:SIMEX:argumentError', ...
+    simexError('argumentError', ...
           'When INPUTS and Y0 both contain more than 1 row, they must have the same number of rows.');
   end
 
@@ -101,7 +101,7 @@ else
     opts.args = [opts.args ' -inputs ' inputsFile];
     inputFileID = fopen(inputsFile, 'w');
     if -1 == inputFileID
-      error(['Could not open inputs file: ' inputsFile]);
+      simFailure('writeInputs', ['Could not open inputs file: ' inputsFile]);
     end
     for i = size(userInputs, 1):opts.instances
       fwrite(inputFileID, userInputs', 'double');
@@ -115,7 +115,7 @@ else
     opts.args = [opts.args ' -states ' statesFile];
     stateFileID = fopen(statesFile, 'w');
     if -1 == stateFileID
-      error(['Could not open inputs file: ' statesFile]);
+      simFailure('writeStates', ['Could not open inputs file: ' statesFile]);
     end
     for i = size(userStates,1):opts.instances
       fwrite(stateFileID, userStates', 'double');
@@ -149,7 +149,7 @@ else
         m = memmapfile(finalTimeFile, 'format', 'double');
         finalTimes(modelid) = m.Data;
       catch it
-        error('Simatra:Simex', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.'])
+        simFailure('finishSim', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.'])
       end
     end
   end
@@ -161,7 +161,7 @@ end
 function removeTempDirectory(directory)
   status = rmdir(directory, 's');
   if ~status
-    disp(['Could not remove directory: ' directory])
+    warning(['Could not remove directory: ' directory])
   end
 end
 
@@ -184,7 +184,8 @@ function [opts] = get_simex_opts(varargin)
 % if it is there it probably means a previous invocation crashed
 opts = struct('simengine','', 'model', '', 'instances',1, 'startTime',0, ...
               'stopTime',0, 'inputs',struct(), 'states',[], ...
-              'outputs', '', 'debug', false, 'args', '-binary');
+              'outputs', '', 'debug', false, 'args', '-binary', ...
+              'dslfile', '');
 
 [seroot] = fileparts(which('simex'));
 opts.simengine = fullfile(seroot, 'bin', 'simEngine');
@@ -194,11 +195,12 @@ opts.outputs = ['.simex' num2str(now,'%16f')];
 
 if 1 > nargin
   help('simex')
-  error('Simatra:SIMEX:argumentError', ...
+  simexError('argumentError', ...
         'SIMEX requires an input model file name.');
 end
 
-opts.model = realpath(varargin{1});
+opts.dslfile = varargin{1};
+opts.model = realpath(opts.dslfile);
 
 if 1 < nargin
   if isnumeric(varargin{2})
@@ -218,7 +220,7 @@ if 1 < nargin
       opts.args = [opts.args ' ' arg];
       opts.debug = true;
     elseif ~(ischar(arg) || isempty(arg))
-      error('Simatra:SIMEX:argumentError', ...
+      simexError('argumentError', ...
             'All additional arguments must be non-empty strings.');
     else
       opts.args = [opts.args ' ' arg];
@@ -245,14 +247,14 @@ switch (rows * cols)
   startTime = 0;
   stopTime = double(userTime);
   if userTime < 0
-    error('Simatra:SIMEX:argumentError', ...
+    simexError('argumentError', ...
           'TIME must be greater than zero.');
   end
  case 2
   startTime = double(userTime(1));
   stopTime = double(userTime(2));
   if stopTime < startTime
-    error('Simatra:SIMEX:argumentError', ...
+    simexError('argumentError', ...
           'TIME(2) must be greater than TIME(1).');
   end
  otherwise
@@ -266,7 +268,7 @@ function [userInputs] = vet_user_inputs(interface, inputs)
 % Returns a MxN matrix where N is the number of model inputs.
 % M is the number of parallel models.
 if ~isstruct(inputs)
-  error('Simatra:typeError', ...
+  simexError('typeError', ...
         'Expected INPUTS to be a structure.')
 end
 
@@ -277,7 +279,7 @@ for fieldid=1:length(fieldnames)
   fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
     if isnan(interface.defaultInputs.(fieldname))
-      error('Simatra:valueError', 'INPUTS.%s has no default value and must be specified.', fieldname);
+      simexError('valueError', ['INPUTS.' fieldname ' has no default value and must be specified.']);
     end
     continue
   end
@@ -285,26 +287,26 @@ for fieldid=1:length(fieldnames)
   field = inputs.(fieldname);
   
   if ~isnumeric(field)
-    error('Simatra:typeError', 'Expected INPUTS.%s to be numeric.', fieldname);
+    simexError('typeError', ['Expected INPUTS.' fieldname ' to be numeric.']);
   elseif issparse(field)
-    error('Simatra:typeError', 'Did not expect INPUTS.%s to be sparse.', fieldname);
+    simexError('typeError', ['Did not expect INPUTS.' fieldname ' to be sparse.']);
 %  elseif iscomplex(field)
 %    warning('Simatra:warning', 'Ignoring imaginary components of INPUTS.%s.', fieldname);
   elseif any(isnan(field))
-    error('Simatra:valueError', 'INPUTS.%s may not contain NaN values.', fieldname);
+    simexError('valueError', ['INPUTS.' fieldname 'may not contain NaN values.']);
   end
   
   if ~isscalar(field)
     [rows cols] = size(field);
     if 2 < ndims(field)
-      error('Simatra:valueError', 'INPUTS.%s may not have more than 2 dimensions.', fieldname);
+      simexError('valueError', ['INPUTS.' fieldname ' may not have more than 2 dimensions.']);
     elseif ~(1 == rows || 1 == cols)
-      error('Simatra:valueError', 'Expected INPUTS.%s to be a vector or scalar.', fieldname);
+      simexError('valueError', ['Expected INPUTS.' fieldname 'to be a vector or scalar.']);
     end
     
     if 1 < models
       if models ~= length(field)
-        error('Simatra:valueError', 'All non-scalar fields must have the same length.');
+        simexError('valueError', 'All non-scalar fields must have the same length.');
       end
     else
       models = max(rows, cols);
@@ -328,7 +330,7 @@ for fieldid=1:length(fieldnames)
   elseif length(field) == models
     userInputs(1:models, fieldid) = double(field);
   else
-    error('Simatra:valueError', 'Expected INPUTS.%s to have length %d.', fieldname, models);
+    simexError('valueError', ['Expected INPUTS.' fieldname ' to have length ' num2str(models) '.']);
   end
 end
 
@@ -339,13 +341,13 @@ function [userStates] = vet_user_states(interface, states)
 % VET_USER_STATES verifies that the user-supplied initial states
 % contain valid data.
 if ~isnumeric(states)
-  error('Simatra:typeError', 'Expected Y0 to be numeric.');
+  simexError('typeError', 'Expected Y0 to be numeric.');
 elseif issparse(states)
-  error('Simatra:typeError', 'Did not expect Y0 to be sparse.');
+  simexError('typeError', 'Did not expect Y0 to be sparse.');
 %elseif iscomplex(states)
 %  warning('Simatra:warning', 'Ignoring imaginary components of Y0.');
 elseif any(isnan(states))
-  error('Simatra:valueError', 'Y0 may not contain NaN values.');
+  simexError('valueError', 'Y0 may not contain NaN values.');
 end
 
 [statesRows statesCols] = size(states);
@@ -353,8 +355,8 @@ userStates = [];
 
 if 0 < statesRows && 0 < statesCols
   if statesCols ~= length(interface.states)
-    error('Simatra:SIMEX:argumentError', ...
-          'Y0 must contain %d columns.', length(interface.states));
+    simexError('argumentError', ...
+          ['Y0 must contain ' length(interface.states) ' columns.']);
   end
   userStates = double(states);
 end
@@ -387,14 +389,17 @@ function [interface] = get_interface(opts)
   simex_interface_json = fullfile(opts.outputs, 'simex_interface.json');
   opts.args = [opts.args ' -json-interface ' simex_interface_json];
   status = compile_model(opts);
-  if(status)
-    error(['Simatra:Simex:simulate_model Model compilation failed (' num2str(status) ').'])
+  if(128 == status)
+    simEngineError('compileModel', ['Model ''' opts.dslfile ''' can not be '...
+                        'compiled']);
+  elseif (status)
+    simFailure('compileModel', ['SimEngine internal error.']);    
   end
   try
     json_interface = fileread(simex_interface_json);
     interface = parse_json(json_interface);
   catch it
-    error('Simatra:Simex:get_interface', 'Could not open interface file.')
+    simFailure('get_interface', 'Could not open interface file.')
   end
 
   % Convert default inputs to a structure
@@ -437,8 +442,12 @@ function [] = simulate_model(opts)
   opts.args = [opts.args ' -stop ' num2str(opts.stopTime)];
   opts.args = [opts.args ' -instances ' num2str(opts.instances)];
   status = compile_model(opts);
-  if(status)
-    error('Simatra:Simex:simulate_model',['Model simulation failed (' num2str(status) ').'])
+  if(128 == status)
+    simexError('simulateModel',['Model ''' opts.dslfile ''' failed '...
+                        'during simulation.'])
+  elseif (status)
+    simFailure('simulateModel',['Model ''' opts.dslfile ''' failed '...
+                        'during simulation.'])    
   end
 end
 
@@ -480,7 +489,7 @@ while(processRunning(pid))
   try
     log = fileread(logFile);
   catch
-    error('Simatra:Simex:launchBackground', 'Process log file does not exist.')
+    simFailure('launchBackground', 'Process log file does not exist.')
   end
   if length(log) > outputlen
     fprintf('%s', log(outputlen+1:end));
@@ -492,7 +501,7 @@ end
 try
   log = fileread(logFile);
 catch
-  error('Simatra:Simex:launchBackground', 'Process log file does not exist.')
+  simFailure('launchBackground', 'Process log file does not exist.')
 end
 if length(log) > outputlen
   fprintf('%s', log(outputlen+1:end));
@@ -507,7 +516,7 @@ try
   end
   delete(logFile);
 catch
-  error('Simatra:Simex:launchBackground', 'Process status file does not exist.')
+  simFailure('launchBackground', 'Process status file does not exist.')
 end
 end
 
@@ -558,3 +567,24 @@ function textStatusBar(message, previousLength)
       fprintf('%s', message);
     end
 end
+
+% Create uniform error messages from simex
+function e = simError(product, id, msg)
+stack = struct('file', which('simex'), 'name', 'simex', 'line', 1);
+e = struct('identifier', ['Simatra:' product ':' id], 'message', msg, ...
+           'stack', stack);
+error(e);
+end
+
+function e = simexError(id, msg)
+simError('simex', id, msg)
+end
+
+function e = simEngineError(id, msg)
+simError('simEngine', id, msg)
+end
+
+function e = simFailure(id, msg)
+simError('simex', id, ['Internal Failure: ' msg '  Please contact support@simatratechnologies.com for assistance.'])
+end
+

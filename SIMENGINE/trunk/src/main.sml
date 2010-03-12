@@ -180,18 +180,12 @@ fun main () =
       ; Logger.log_remove log
       ; GeneralUtil.SUCCESS
     end
-    handle DynException.TooManyErrors => 
-	   GeneralUtil.FAILURE "Too many errors encountered"
-	 | DynException.RestartRepl => 
-	   GeneralUtil.FAILURE "Error occurred in standard library"
-	 | OOLCParse.ParserError => 
-	   GeneralUtil.FAILURE "Error found when parsing source code"
-	 | Usage => 
-	   GeneralUtil.FAILURE ("usage: " ^ (CommandLine.name ()) ^ " -batch [file]\n" ^
-				"       " ^ (CommandLine.name ()) ^ " [option] -simex model")
+    handle DynException.RestartRepl => GeneralUtil.IGNORE
+	 | Usage => GeneralUtil.USAGE
+	 | DynException.InternalFailure => GeneralUtil.FAILURE NONE
 	 | e => 
 	   (DynException.log "Main" e
-	  ; GeneralUtil.FAILURE "An exception was encountered")
+	  ; GeneralUtil.FAILURE (SOME "An exception was encountered"))
 
 
 
@@ -203,6 +197,13 @@ val _ =
 	  else
 	      (Main.resume () handle _ => Main.main ()))
      of GeneralUtil.SUCCESS => ()
-      | GeneralUtil.FAILURE message => 
+      | GeneralUtil.USAGE => Util.log ("usage: " ^ (CommandLine.name ()) ^ " -batch [file]\n" ^
+				       "       " ^ (CommandLine.name ()) ^ " [option] -simex model" ^
+				       "       " ^ (CommandLine.name ()) ^ " [option] -simex model [-start startime] -stop stoptime")
+      (* normally will return exit status 0, but if there's a user error, it will return exit status 128, otherwise exit status 1 for a failure *)
+      | GeneralUtil.IGNORE => (Posix.Process.exit 0w128) (* something had to happen to cause mlton to exit, generally a user error *)
+      | GeneralUtil.FAILURE NONE => (Posix.Process.exit 0w1) (* internal failure occurred, likely a call to std_failure from DSL *)
+      | GeneralUtil.FAILURE (SOME message) => 
 	(print (message ^ "\n")
-       ; OS.Process.exit OS.Process.failure)
+       ; Posix.Process.exit 0w1)
+	

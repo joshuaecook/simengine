@@ -32,13 +32,13 @@ import "command_line.dsl"
 
     /* Returns a tuple of (compiler, options)
      * suitable for application by Process.run(). */
-    function compile (exfile: String, args)
+    function configureCompile (exfile: String, args)
       (CC, TARGET_ARCH + ["-o", exfile] + CFLAGS + CPPFLAGS + LDFLAGS + args + LDLIBS)
     end
 
     /* Returns a tuple of (linker, options)
      * suitable for application by Process.run(). */
-    function link (outfile: String, args)
+    function configureLink (outfile: String, args)
       (LD, TARGET_ARCH + ["-o", outfile] + LDFLAGS + args)
     end
   end
@@ -117,7 +117,7 @@ import "command_line.dsl"
 
     function compile (outfile: String, args)
       var m = make ()
-      m.compile(outfile, args)
+      m.configureCompile(outfile, args)
     end
 
     function link (soname: String, outfile: String, args)
@@ -131,7 +131,7 @@ import "command_line.dsl"
 	m.LDFLAGS.push_back("-dynamiclib")
 	m.LDFLAGS.push_back("-Wl,-install_name,"+soname)
       end
-      m.link(outfile, args)
+      m.configureLink(outfile, args)
     end
   end
 
@@ -325,14 +325,14 @@ import "command_line.dsl"
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
 	var exfile = autoRecompile(modelFile, compilerSettings)
-	if () <> simulationSettings then
+	if () <> simulationSettings and "" <> exfile then
 	  var simulation = FileSystem.realpath(exfile)
 	  simulate(simulation, simulationSettings, compilerSettings.debug)
 	  if not(compilerSettings.debug) then
 	    FileSystem.rmfile(simulation)
 	  end
 	else
-	  println("Not running: " + compilerSettings.exfile)
+	  //println("Not running: " + compilerSettings.exfile)
 	end
       end
     end
@@ -529,7 +529,6 @@ import "command_line.dsl"
     var simfile = Path.join(working_dir, ((Path.base file) + ".sim"))
 
     var needsToCompile = true
-
     var target
 
     // Instantiating a target could override compilerSettings based on target type (i.e. precision = float for GPU arch_11)
@@ -570,6 +569,7 @@ import "command_line.dsl"
 	    if upToDate then
 	      needsToCompile = not (isArchiveCompatibileWithCompilerSettings (archive, compilerSettings))
 	    end
+
 	  end
 	end
       end
@@ -586,8 +586,12 @@ import "command_line.dsl"
 
     var exfile
     if needsToCompile then
-      compile (filename, target, compilerSettings)
-      exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
+      var success = compile (filename, target, compilerSettings)
+      if success == 0 then
+	  exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
+      else
+	  exfile = ""
+      end
     else
       var cfile = Path.join(compilerSettings.outputs, compilerSettings.cSourceFilename)
       exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
@@ -635,12 +639,21 @@ import "command_line.dsl"
     var stat = LF compile (instantiatedModel)
     var simfile
     
-    if true == stat then
+    if 0 == stat then
       simfile = Archive.createArchive(Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
-    else
-      // Restore working directory
-      FileSystem.chdir("..")
-      error(stat)
+      println("Compilation completed succesfully")
+    else 
+	// Restore working directory
+	FileSystem.chdir("..")
+
+	// Show the error code
+	if 1 == stat then
+	    failure("Error encountered in translation of DSL model")
+	elseif 2 == stat then
+	    failure("Error encountered in compilation of DSL model")
+	else
+	    failure("Unexpected error <"+stat+"> during compilation")
+	end
     end
 
     // Restore working directory

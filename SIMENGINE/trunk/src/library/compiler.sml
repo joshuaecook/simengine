@@ -168,13 +168,16 @@ fun std_compile exec args =
 	      val _ = DynException.checkToProceed()
 	  in 
 	      case code of
-		  CParallelWriter.SUCCESS => KEC.LITERAL(KEC.CONSTBOOL true)
-		| CParallelWriter.FAILURE f => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: " ^ f ^ "\n"))
+		  CParallelWriter.SUCCESS => error_code 0
+		| CParallelWriter.FAILURE f => error_code 255 (* CAN BE REMOVED - NEVER OCCURS *)
 	  end 
-	  handle Aborted => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to errors\n"))
-	       | TooManyErrors => KEC.LITERAL(KEC.CONSTSTR ("\nFailure: Compilation stopped due to too many errors\n")))
+	  handle Aborted => error_code 1 (* this is from between DSL and the DOF translation *)
+	       | TooManyErrors => error_code 2 (* this is between DOF translation and code generation *)
+	       (*| DynException.InternalFailure => error_code 3 (* this is caused by an exception being raised or by a failure library function call in DSL - can be caught in main instead *)*))
+        
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_compile" e
+and error_code code = KEC.LITERAL(KEC.CONSTREAL (Real.fromInt code))
 
 fun std_transExp exec args =
     (case args of

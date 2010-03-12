@@ -30,7 +30,9 @@ namespace Archive
   // if the file is not a valid archive.
   function openArchive (filename)
     var manifest = Simlib.getContentsFromArchive (filename, "MANIFEST.json")
-    if () == manifest then ()
+    if () == manifest then 
+	// turn this into a failure
+	warning("Couldn't read manifest from " + filename)
     else
       Archive.new (false, filename, Path.join (FileSystem.pwd (), ".simatra"), JSON.decode manifest)
     end

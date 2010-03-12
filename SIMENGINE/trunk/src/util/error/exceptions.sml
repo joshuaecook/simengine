@@ -16,6 +16,9 @@ exception TooManyErrors
 (* Raised when an error occurs within an action and the repl should restart. *)
 exception RestartRepl
 
+(* Raised when there is an internal failure *)
+exception InternalFailure
+
 (* Raised when an operation or function is applied to an object of an inappropriate type.
    The associated string is a message giving details about the type mismatch. *)
 exception TypeMismatch of string
