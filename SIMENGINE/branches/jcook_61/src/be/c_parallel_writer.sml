@@ -810,14 +810,14 @@ fun update_wrapper shardedModel =
 			    val basename = ClassProcess.class2basename class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "("^(*"const "^*)"statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
+				(if reads_iterator iter class then "("^(*"const "^*)"statedata_" ^ basename_iter ^ " * )props->model_states, " else "",
 				 if writes_iterator iter class then "(statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
 				 if reads_system class then "props->system_states, " else "")
 
 			in [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
+				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
