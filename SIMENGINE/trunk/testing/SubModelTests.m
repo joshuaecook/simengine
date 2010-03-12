@@ -24,6 +24,7 @@ s.add(BasicSubModelTests(mode, target));
 s.add(HierarchySubModelTests(mode, target));
 s.add(AlgebraicSubModelTests(target));
 s.add(OrderingTests(target));
+s.add(IteratorSubModelTests(target))'
 
 end
 
@@ -102,6 +103,22 @@ s.add(Test('InterconnectedModelTest1', @()(simex(['models_FeatureTests/' ...
 s.add(Test('InterconnectedModelTest2', @()(simex(['models_FeatureTests/' ...
                     'OrderingTest4.dsl'], 10,target)), '-equal', ...
             struct('y', [0:10; 2.^(0:10); 2.^(0:10)]')));
+end
+
+function s = IteratorSubModelTests(target)
+
+s = Suite(['Iterator Sub Model Tests ' target]);
+
+s.add(Test('IteratorOnIntermediate', ...
+            @()(simex(['models_FeatureTests/IteratorSubModelTest1.dsl'], 10,target)), ...
+            '-equal', struct('y', [0:10; 0:10; [0 0:9]]')));
+s.add(Test('IteratorOnOutput', ...
+            @()(simex(['models_FeatureTests/IteratorSubModelTest2.dsl'], 10,target)), ...
+            '-equal', struct('y', [0:10; 0:10; [0 0:9]]')));
+s.add(Test('IteratorOnInput', ...
+            @()(simex(['models_FeatureTests/IteratorSubModelTest3.dsl'], 10,target)), ...
+            '-equal', struct('y', [0:10; 0:10; [0 0:9]]')));
+
 
 end
 
