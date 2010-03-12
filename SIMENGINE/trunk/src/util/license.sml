@@ -57,7 +57,7 @@ sig
     val default : license
 
 end
-structure License =
+structure License : LICENSE =
 struct
 
 (* customer information encoded in the license *)

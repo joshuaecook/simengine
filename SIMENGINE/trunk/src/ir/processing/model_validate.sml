@@ -110,7 +110,13 @@ fun validate (model as (classes, instance, sysprops))=
 	    val _ = app (verifySolver o #2) (ModelProcess.returnContinuousIterators())
 			    
 	    (* verify that the terms on the LHS are appropriate *)
+	    (* TODO: could this be elaborated on?  what is 'appropriate'? *)
 	    val _ = properLHSDiscreteState ()
+
+	    val modelClone = ModelProcess.duplicateModel model (fn(s) => s)
+	    val _ = Ordering.orderModel modelClone
+
+	    val _ = CurrentModel.setCurrentModel model
 	in
 	    ()
 	end)

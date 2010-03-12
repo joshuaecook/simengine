@@ -382,7 +382,6 @@ fun normalizeModel (model:DOF.model) =
 		else
 		    ()
 
-
 	(* assign correct scopes for each symbol *)
 	val _ = log ("Creating event iterators ...")
 	val () = app ClassProcess.createEventIterators (CurrentModel.classes())
