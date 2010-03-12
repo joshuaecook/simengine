@@ -1,6 +1,4 @@
 settings.ir.aggregate.setValue(true)
-settings.debug.logrewrites.setValue(true)
-settings.debug.logdof.setValue(true)
 
 model (x,y,amass,x_vel, y_vel) = planet (mass, externalForceX, externalForceY, initX, initY, initXv, initYv)
 
