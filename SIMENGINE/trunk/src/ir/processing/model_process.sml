@@ -260,7 +260,19 @@ fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
 	(* here are the iterators with states or outputs *)
 	val iterators' = List.filter filter_iter iterators
 
-	val properties' = {iterators=iterators',
+	(* remove undefined iterators *)
+	fun convertUndefined (iter_sym, DOF.CONTINUOUS Solver.UNDEFINED) = 
+	    let
+		(* set ODE45 as a default solver, should work in most cases *)
+		val solver' = Solver.ODE45 {dt=0.1, abs_tolerance=0.000001, rel_tolerance=0.001}
+		val _ = Logger.log_warning (Printer.$("No solver specified for continuous iterator '"^(Symbol.name iter_sym)^"', using default ode45 solver"))
+	    in
+		(iter_sym, DOF.CONTINUOUS solver')
+	    end
+	  | convertUndefined iter = iter
+	val iterators'' = map convertUndefined iterators'				      
+
+	val properties' = {iterators=iterators'',
 			   precision=precision,
 			   target=target,
 			   parallel_models=parallel_models,
@@ -270,6 +282,7 @@ fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
     in
 	CurrentModel.setCurrentModel(model')
     end
+    handle e => DynException.checkpoint "ModelProcess.pruneIterators" e
 
 fun applyRewritesToModel rewrites (model as (classes,_,_)) =
     app (fn(c)=>ClassProcess.applyRewritesToClass rewrites c) classes

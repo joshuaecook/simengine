@@ -84,6 +84,9 @@ class Integrators
     property cvode_nonstiff
       get = Solver.new("cvode", 0, 1e-6, 1e-6) {cv_lmm = "CV_ADAMS", cv_iter = "CV_FUNCTIONAL", cv_maxorder = 12}
     end
+    property undefined_solver
+      get = Solver.new("undefined", 0, 0, 0)
+    end
 //    property mycvode
 //      get = Solver.new (yada) {cvode_var1 = blabla}
 //    end

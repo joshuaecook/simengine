@@ -26,6 +26,7 @@ sig
 	   | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
 		       lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver,
 		       max_order: int}
+	   | UNDEFINED
 		      
     (* Solver accessor methods *)
     val solver2name : solver -> string (* name of the solver *)
@@ -67,6 +68,7 @@ datatype solver =
        | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
 		   lmm: cvode_lmm, iter: cvode_iter, solv: cvode_solver,
 		   max_order: int}
+       | UNDEFINED
 
 val i2s = Util.i2s
 val r2s = Util.r2s
@@ -83,6 +85,7 @@ fun solver2name (FORWARD_EULER _) = "forwardeuler"
   | solver2name (ODE23 _) = (*"ode23"*) "bogacki_shampine"
   | solver2name (ODE45 _) = (*"ode45"*) "dormand_prince"
   | solver2name (CVODE _) = "cvode"
+  | solver2name (UNDEFINED) = "undefined"
 
 (* these are defined in solvers.c *)
 fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
@@ -94,6 +97,7 @@ fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
   | solver2shortname (ODE23 _) = "ode23" (*"bogacki_shampine"*)
   | solver2shortname (ODE45 _) = "ode45" (*"dormand_prince"*)
   | solver2shortname (CVODE _) = "cvode"
+  | solver2shortname (UNDEFINED) = "undefined"
 
 fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
 					  ("abstol", "0.0"),
@@ -125,6 +129,8 @@ fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
     [("timestep", r2s dt),
      ("abstol", r2s abs_tolerance),
      ("reltol", r2s rel_tolerance)]
+  | solver2params (UNDEFINED) = []
+
 
 fun linear_backward_euler_solver2opts LSOLVER_DENSE = [("lsolver", "LSOLVER_DENSE")]
   | linear_backward_euler_solver2opts (LSOLVER_BANDED {lowerhalfbw, upperhalfbw}) = [("lsolver", "LSOLVER_BANDED"),

@@ -681,6 +681,7 @@ fun obj2dofmodel object =
 											lowerhalfbw=exp2int (method "cv_lowerhalfbw" solverobj)}
 							   | s => (Logger.log_warning (Printer.$("Invalid solver method '"^s^"' chosen: Valid options are CVDENSE, CVDIAG or CVBAND.  Defaulting to CVDENSE"));Solver.CVDENSE)
 							 }
+		       | "undefined" => Solver.UNDEFINED
 		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
 	fun buildTemporalIterator (obj) =
