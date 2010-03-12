@@ -1,5 +1,5 @@
 //<targetlocation = "./work">
-<verbose = false>
+<verbose = true>
 <targetlocation = "ModelSystem">
 <softwareonly = false>
 <fixedptonly = false>
