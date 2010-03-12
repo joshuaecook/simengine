@@ -307,7 +307,7 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 				       end)
 				    iter_name_map
 
-	fun updateSymbolName new_symbol (Exp.TERM (Exp.SYMBOL (_, props))) = Exp.TERM (Exp.SYMBOL (new_symbol, props))
+	fun updateSymbolName new_symbol (Exp.TERM (Exp.SYMBOL (prev_symbol, props))) = Exp.TERM (Exp.SYMBOL (new_symbol, Property.setRealName props prev_symbol))
 	  | updateSymbolName new_symbol _ = DynException.stdException("Unexpected non symbol matched", "ModelProcess.fixTemporalIteratorNames", Logger.INTERNAL)
 				    
 	(* replace iterators used explicitly *)
