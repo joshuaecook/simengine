@@ -4,6 +4,7 @@ struct
 val TypeMismatch = DynException.TypeMismatch
 and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 
+fun sys_startupMessage _ args = KEC.LITERAL (KEC.CONSTSTR (Globals.startupMessage()))
 fun sys_copyright _ args = KEC.LITERAL (KEC.CONSTSTR Globals.copyright)
 fun sys_version _ args = KEC.LITERAL (KEC.CONSTSTR Globals.version)
 fun sys_build _ args = KEC.LITERAL (KEC.CONSTSTR BuildOptions.build)
@@ -34,7 +35,8 @@ fun sys_exit _ args =
     handle e => DynException.checkpoint "SystemLib.sys_exit" e
 
 				       
-val library = [{name="sys_copyright", operation=sys_copyright},
+val library = [{name="sys_startupMessage", operation=sys_startupMessage},
+	       {name="sys_copyright", operation=sys_copyright},
 	       {name="sys_version", operation=sys_version},
 	       {name="sys_build", operation=sys_build},
 	       {name="sys_build_date", operation=sys_build_date},

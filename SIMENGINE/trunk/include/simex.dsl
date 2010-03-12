@@ -302,6 +302,8 @@ import "command_line.dsl"
 				   outputs = "simex_outputs"}
 
   function runModel()
+    println(LF sys_startupMessage())
+    
     var booleanOptionNames = booleanOptionNamesAlways
     var numberOptionNames = numberOptionNamesAlways
     var stringOptionNames = stringOptionNamesAlways
