@@ -45,8 +45,8 @@ function power (x: Number, y: Number) = exp(y * ln(x))
 function sum (x: Vector of Number) = foldl (lambdafun(a,b) = a + b) 0 x
 function prod (x: Vector of Number) = foldl (lambdafun(a,b) = a * b) 1 x
 
-function deg2rad (x: Number) = x / (180 / pi)
-function rad2deg (x: Number) = x * (180 / pi)
+function deg2rad (x) = x / (180 / pi)
+function rad2deg (x) = x * (180 / pi)
 
 function sin (x: Number) = LF sin (x)
 function cos (x: Number) = LF cos (x)
@@ -607,6 +607,42 @@ namespace Time
   function timestampInSeconds() = LF timestampSeconds ()
   function timestampString() = LF timestampString ()
 end
+/*
+namespace Licensing
+  function loadLicense () 
+    //logic to pull in license goes here
+    var license = ""
+
+    LF applyLicense license
+  end
+
+  function verify ()
+    LF verifyLicense ()
+  end
+
+  // licensing check performed at startup
+  function startupCheck ()
+    Licensing.loadLicense()
+    Licensing.verify()
+  end
+
+end
+
+/*    function isFunctionidVersion (major, minor) = 
+
+    function isExpired () = LF
+    function isTrial () = 
+    function isBasic () = 
+    function isStandard () = 
+    function isProfessional () = 
+    function isDevelopment () = 
+
+    (* verify that the license is functionid by checking the restriction, returning an error if the restriction is not met *)
+    function verifyNotRestricted : unit -> unit
+    function verifyFunctionidVersion : (int * int) -> unit
+    function verifyExpired : unit -> unit
+*/
+
 
 open Operations
 open Relational

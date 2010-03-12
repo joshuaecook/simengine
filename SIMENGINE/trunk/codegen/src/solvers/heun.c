@@ -68,7 +68,6 @@ __DEVICE__
 int heun_eval(solver_props *props, unsigned int modelid){
   int i;
   int ret;
-  printf("evaluating at time = %d\n", props->next_time[modelid]);
   // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
   props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
   if(!props->running[modelid])
@@ -90,8 +89,6 @@ int heun_eval(solver_props *props, unsigned int modelid){
   }
 
   props->next_time[modelid] += props->timestep;
-
-  printf("done evaluating at time = %d\n\n", props->next_time[modelid]);
 
   return ret;
 }

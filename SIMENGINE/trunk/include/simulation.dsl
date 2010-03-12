@@ -316,11 +316,14 @@ namespace Simulation
   overload function logn(arg: ModelOperation) = ModelOperation.new ("logn", 2, logn, 0, [arg])
   overload function logn(arg: SimQuantity) = ModelOperation.new ("logn", 2, logn, 0, [arg])
 
-  overload function deg2rad (arg: ModelOperation) = ModelOperation.new ("deg2rad", 1, deg2rad, 0, [arg])
-  overload function deg2rad (arg: SimQuantity) = ModelOperation.new ("deg2rad", 1, deg2rad, 0, [arg])
+//  overload function deg2rad (arg: ModelOperation) = ModelOperation.new ("deg2rad", 1, deg2rad, 0, [arg])
+//  overload function deg2rad (arg: SimQuantity) = ModelOperation.new ("deg2rad", 1, deg2rad, 0, [arg])
 
-  overload function rad2deg (arg: ModelOperation) = ModelOperation.new ("rad2deg", 1, rad2deg, 0, [arg])
-  overload function rad2deg (arg: SimQuantity) = ModelOperation.new ("rad2deg", 1, rad2deg, 0, [arg])
+//  overload function rad2deg (arg: ModelOperation) = ModelOperation.new ("rad2deg", 1, rad2deg, 0, [arg])
+//  overload function rad2deg (arg: SimQuantity) = ModelOperation.new ("rad2deg", 1, rad2deg, 0, [arg])
+
+  function deg2rad (x) = x / (180 / pi)
+  function rad2deg (x) = x * (180 / pi)
 
   // Trigonometry
 
