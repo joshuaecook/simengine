@@ -652,21 +652,18 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	    open JSON
 	    val int = int o IntInf.fromInt
 
+	    (* Emits unrepresentable values as NAN *)
 	    fun defaultToJSON NONE = null
 	      | defaultToJSON (SOME (exp as Exp.TERM t)) =
 		(case t
-		  of Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt 4)
-		   | Exp.INT z => int z
-		   | Exp.REAL r => real r
-		   | Exp.NAN => real (0.0 / 0.0)
+		  of Exp.BOOL b => bool b
 		   | Exp.INFINITY => real (1.0 / 0.0)
-		   | Exp.BOOL b => bool b
-		   | _ => DynException.stdException (("Don't know how to encode this default ("^(e2s exp)^") in JSON"),
-						     "CParallelWriter.simEngine",
-						     Logger.INTERNAL))
-	      | defaultToJSON _ = DynException.stdException (("Don't know how to encode no defaults in JSON"),
-							     "CParallelWriter.simEngine",
-							     Logger.INTERNAL)
+		   | Exp.INT z => int z
+		   | Exp.NAN => real (0.0 / 0.0)
+		   | Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt 4)
+		   | Exp.REAL r => real r
+		   | _ => real (0.0 / 0.0))
+	      | defaultToJSON _ = real (0.0 / 0.0)
 	in
 	val jsonInterface = 
 	    object [("name", string class_name),
@@ -679,6 +676,22 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		    ("hashcode", string "0000000000000000"),
 		    ("version", int 0)]
 		    
+	end
+
+	local
+	    (* Emits non-constant values as NAN *)
+	    fun stateDefaultToConstant (exp as Exp.TERM t) =
+		(case t 
+		  of Exp.BOOL _ => exp
+		   | Exp.INFINITY => exp
+		   | Exp.INT _ => exp
+		   | Exp.NAN => exp
+		   | Exp.RATIONAL _ => exp
+		   | Exp.REAL _ => exp
+		   | _ => Exp.TERM Exp.NAN)
+	      | stateDefaultToConstant _ = Exp.TERM Exp.NAN
+	in
+	val stateDefaultConstants = map stateDefaultToConstant state_defaults
 	end
 
    in
@@ -699,7 +712,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("static const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
 	 $("static const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
 	 $("static const double default_inputs[] = {" ^ (String.concatWith ", " default_inputs) ^ "};"),
-	 $("static const double default_states[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str state_defaults)) ^ "};"),
+	 $("static const double default_states[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str stateDefaultConstants)) ^ "};"),
 	 $("static const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " (map i2s outputs_num_quantities)) ^ "};"),
 	 $("static const char model_name[] = \"" ^ class_name ^ "\";"),
 	 $("static const char *solver_names[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
