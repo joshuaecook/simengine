@@ -2,6 +2,7 @@
 int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid){
   unsigned int i;
   CDATAFORMAT min_time;
+  unsigned int first_iteration = 1;
 
   // Initialize all iterators to running
   for(i=0;i<NUM_ITERATORS;i++){
@@ -18,7 +19,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
     while(model_running(props, modelid) && 0 == ((output_buffer *)(props->ob))->full[modelid]){
 
       for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].running[modelid] && props[i].next_time[modelid] == props[i].time[modelid]){
+	if(props[i].running[modelid] && (first_iteration || props[i].next_time[modelid] != props[i].time[modelid])){
 	  update(&props[i], modelid);
 	}
       }
@@ -28,26 +29,31 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	min_time = find_min_time(props, modelid);
 	for(i=0;i<NUM_ITERATORS;i++){
 	  if(props[i].running[modelid] && 
-	     props[i].next_time[modelid] == min_time &&
-	     props[i].next_time[modelid] == props[i].time[modelid]){
+	     (first_iteration ||
+	      (props[i].next_time[modelid] == min_time &&
+	       props[i].next_time[modelid] != props[i].time[modelid]))){
 	    solver_writeback(&props[i], modelid);
 	  }
 	}
       }
 
-      for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].running[modelid] && props[i].next_time[modelid] == props[i].time[modelid]){
-	  post_process(&props[i], modelid);
+      if (!first_iteration) {
+	for(i=0;i<NUM_ITERATORS;i++){
+	  if(props[i].running[modelid] && props[i].next_time[modelid] != props[i].time[modelid]){
+	    post_process(&props[i], modelid);
+	  }
 	}
-      }
 
 #if NUM_OUTPUTS > 0
-      for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].running[modelid] && props[i].next_time[modelid] == props[i].time[modelid]){
-	  buffer_outputs(&props[i], modelid);
+	for(i=0;i<NUM_ITERATORS;i++){
+	  if(props[i].running[modelid] && props[i].next_time[modelid] != props[i].time[modelid]){
+	    buffer_outputs(&props[i], modelid);
+	    iterator_advance(&props[i], modelid);
+	  }
 	}
-      }
 #endif
+      }
+      first_iteration = 0;
 
       for(i=0;i<NUM_ITERATORS;i++){
 	if(props[i].running[modelid] && props[i].next_time[modelid] == props[i].time[modelid]){

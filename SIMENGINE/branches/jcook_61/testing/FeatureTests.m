@@ -37,7 +37,7 @@ if nargin == 2
     end
 end
 
-s = Suite('Feature Tests');
+s = Suite(['Feature Tests ' target]);
 s.add(CoreFeatureTests(target,mode));
 s.add(MathFeatureTests(target,mode));
 s.add(SubModelTests(target,mode));
