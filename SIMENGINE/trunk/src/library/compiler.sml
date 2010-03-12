@@ -42,13 +42,13 @@ fun orderShard (model, shard as {classes, instance, iter_sym}) =
 fun std_compile exec args =
     (case args of
 	 [object] => 
-	 (let
+	 ((let
 	      val dslname = exec (KEC.SEND {message = Symbol.symbol "name",
 					    object = KEC.SEND {message = Symbol.symbol "modeltemplate",
 							       object = object}})
 	      val name = case dslname
-			  of KEC.LITERAL (KEC.CONSTSTR str) => str
-			   | _ => raise Aborted
+			   of KEC.LITERAL (KEC.CONSTSTR str) => str
+			    | _ => raise Aborted
 
 
 	      val _ = if DynException.isErrored() then
@@ -170,13 +170,14 @@ fun std_compile exec args =
 	      case code of
 		  CParallelWriter.SUCCESS => error_code 0
 		| CParallelWriter.FAILURE f => error_code 255 (* CAN BE REMOVED - NEVER OCCURS *)
-	  end 
+	  end)
 	  handle Aborted => error_code 1 (* this is from between DSL and the DOF translation *)
-	       | TooManyErrors => error_code 2 (* this is between DOF translation and code generation *)
-	       (*| DynException.InternalFailure => error_code 3 (* this is caused by an exception being raised or by a failure library function call in DSL - can be caught in main instead *)*))
+	       | DynException.TooManyErrors => error_code 2 (* this is between DOF translation and code generation *)
+	       | DynException.InternalError _ => error_code 3 (* this is a stdException being raised *)
+	       | DynException.InternalFailure => error_code 4 (* this is a failure library function call in DSL - can be caught in main instead *))
         
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
-    handle e => DynException.checkpoint "CompilerLib.std_compile" e
+    (*handle e => DynException.checkpoint "CompilerLib.std_compile" e*)
 and error_code code = KEC.LITERAL(KEC.CONSTREAL (Real.fromInt code))
 
 fun std_transExp exec args =

@@ -21,7 +21,12 @@ fun sys_exit _ args =
     (case args of
 	 [KEC.LITERAL(KEC.CONSTREAL (r))] => 
 	 let
-	     val _ = OS.Process.exit (if (Real.floor r) = 0 then OS.Process.success else OS.Process.failure)
+	     val i = Real.floor r
+	     val _ = if i < 0 orelse i > 255 then
+			 raise DynException.TypeMismatch ("Expecting 8-bit integer, but received "^(StdFun.real2str r))
+		     else 
+			 ()
+	     val _ = Posix.Process.exit (Word8.fromInt i)
 	 in
 	     KEC.LITERAL(KEC.CONSTREAL (r))
 	 end

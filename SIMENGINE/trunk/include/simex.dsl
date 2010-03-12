@@ -590,6 +590,7 @@ import "command_line.dsl"
       if success == 0 then
 	  exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
       else
+	  LF sys_exit(128)
 	  exfile = ""
       end
     else
@@ -642,18 +643,23 @@ import "command_line.dsl"
     if 0 == stat then
       simfile = Archive.createArchive(Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
       println("Compilation completed succesfully")
-    else 
+    elseif 2 >= stat then
+	// Show the error code
+	if 1  == stat then
+	    println("Error encountered in translation of DSL model")
+	elseif 2 == stat then
+	    println("Error encountered in compilation of DSL model")
+	end
+    elseif 3 == stat then
 	// Restore working directory
 	FileSystem.chdir("..")
 
-	// Show the error code
-	if 1 == stat then
-	    failure("Error encountered in translation of DSL model")
-	elseif 2 == stat then
-	    failure("Error encountered in compilation of DSL model")
-	else
-	    failure("Unexpected error <"+stat+"> during compilation")
-	end
+	failure("Unexpected internal exception was generated during compilation")
+    elseif 4 == stat then
+	// Restore working directory
+	FileSystem.chdir("..")
+
+	failure("Unexpected DSL failure was generated during compilation")
     end
 
     // Restore working directory
