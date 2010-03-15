@@ -15,6 +15,17 @@ model (I) = VoltageSource(V1, V2, Vs)
       
 end
 
+model (I) = Ground(V1)
+
+      // Create a small internal resistance (10 mOhm)
+      constant Rinternal = 0.0001
+      
+      // Create a state for I, have it adjust as necessary to produce the desired voltage
+      state I = 0
+      equation I' = (-V1)/Rinternal  
+
+end
+
 model (I) = CurrentSource(V1, V2, Is)
       
       equation I = Is      
