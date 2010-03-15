@@ -685,12 +685,12 @@ fun name2work_dir name =
 	val sysname = formatSysName name
 	val dir = DynamoOptions.getStringSetting "targetlocation"
 
-	val work_dir = 	if DynamoOptions.isFlagSet "appendsysname" then
+	val work_dir = 	(*if DynamoOptions.isFlagSet "appendsysname" then
 			    if dir = "" then
 				sysname
 			    else
 				dir ^ "_" ^ sysname
-			else
+			else*)
 			    dir
     in
 	if String.isSuffix Globals.extension work_dir then

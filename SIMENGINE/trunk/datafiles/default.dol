@@ -1,80 +1,41 @@
-//<targetlocation = "./work">
-<verbose = false>
-<targetlocation = "ModelSystem">
-<softwareonly = false>
-<fixedptonly = false>
-<appendsysname = false>
-<force = true>
-<targetname = "dynout">
-<librarypath = "$SIMENGINE/lib">
-<sourcepath = "$SIMENGINE/include">
-<stdlibrary = "stdlib.dld">
-<inputprecision = "">
-<interpreterstackdepth = 2000.0>
-<debugexceptions = false>
-<literaltolerance = 0.01>
-<maxbitwidth = 62>
-<lutaggregate = 1>
-<lutthreshold = 29>
-<lutdepth = 1024>
-<lutmaxwidth = 18>
-<iobitwidth = 58>
-<conservativeprecision = false>
-<normalizeprecision = true>
-<hwtarget = "ml402">
-<logdof = false>
-<termrewritelimit = 25>
-<optimize = true>
-<flatten = false>
-<aggregate = false>
-<logrewrites = false>
-<generateC = true>
-<generateMathematica = false>
-<logluts = false>
-<logranges = false>
-<logprecision = false>
-<logdrt = false>
-<logschedule = true>
-<logmemusage = true>
-<lognetlist = false>
-<logcorrelations = false>
-<logcorrelationscsv = false>
-<logschedtab = true>
-<hwwrap = false> // turned off until fully tested
-<prunenetlist = true>
-<outputrate = 1>
-<gapscale = 0.8>
-<multscale = 0.95>
-<ramscale = 0.7>
-<skip_area_check = false>
-<schedulerpasslimit = 5>
-<preOrderScheduling = false>
-<usefullform = false>
-//metrics
-<weightInpWidth = 1>
-<weightInpFrac = 1>
-<weightInpSign = 1>
-<weightInpType = 1>
-<weightInpUniqueSrcs = 15>
-<weightInpDly = 1>
-<weightOpCycleTime = 4>
-<weightOpScheduled = 1>
-<weightOpLat = 10>
-<weightOpUsedInTree = 10>
-// changed OpType to a very high value until ticket #186 is solved
-<weightOpType = 1>
-// <weightOpType = 1000>
-<weightOpLimRsrcs = 0>
-<weightOpCorrelation = 5>
-<weightOutNumSinks = 1>
-<weightOutSinkType = 1>
+// simEngine Registry - Default options for the compiler
 
-//hardware target
-<deviceFamily = "virtex4">
-<devicePart = "xc4vsx35">
-<deviceSpeed = "-10">
-<devicePackage = "ff668">
-<clkfreq = 60>
-<sysclkdiv = 3>
-<jtagPort = "usb21">
-<IPAddress = "192.168.1.75">
+// verbose: displays extra info during compilation/simulation
+<verbose = false>
+
+// force: causes all directories/files to be overwritten
+<force = true>
+
+// targetname: choose the name/directory of the output sim file, otherwise a default is chosen
+<targetname = "">
+
+// librarypath: the directory simEngine will look for when searching for libraries to link against
+<librarypath = "$SIMENGINE/lib">
+
+// sourcepath: the directory where additional DSL source files are located
+<sourcepath = "$SIMENGINE/include">
+
+// interpreterstackdepth: a recursion limit for the builtin DSL execution engine, increase this for large models
+<interpreterstackdepth = 10000.0>
+
+// logdof, logrewrites: debugging information on internal data structures
+<logdof = false>
+<logrewrites = false>
+
+// termrewritelimit: a recursion limit for our term rewriter in our internal computer algebra system.  Large expressions might require a larger limit.
+<termrewritelimit = 25>
+
+// optimize: implement the internal expression optimization, otherwise leave equations mostly in tact
+<optimize = true>
+
+// flatten: flatten the internal representation - can speed up some smaller models, can also increase compilation time for larger models
+<flatten = false>
+
+// aggregate: aggregate multiple iterators with the same fixed time step into one iterator to improve performance
+<aggregate = false>
+
+// generateMathematica: generates a mathematica description of the model
+<generateMathematica = false>
+
+// useFullForm: when writing expressions to the screen, show it using a more verbose functional form
+<usefullform = false>

@@ -42,11 +42,6 @@ fun rep_loop isInteractive textstream env =
 	end
 	handle err as OOLCParse.ParserError => 
 	       (Logger.log_error (Printer.$"Parse errors encountered");
-		   (*DynException.log "Main" err;	     
-		   if DynamoOptions.isFlagSet("debugexceptions") then
-		       app print (log_stack err ())
-		   else
-		       ();*)
 		   rep_loop isInteractive textstream env)
 	     | DynException.RestartRepl => 
 	       if isInteractive then 
@@ -109,6 +104,13 @@ fun main () =
 
 	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
 		before DynException.checkToProceed ()
+
+	(* read in command line arguments to DynamoOptions *)
+	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))
+	val _ = DynamoOptions.importCommandLineArgs argv*)
+
+	(* initialize the exec *)
+	val _ = Exec.execInit()
 
 	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
 

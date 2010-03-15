@@ -8,7 +8,7 @@ struct
 
 (* TODO: replace with usage of global settable by user *)
 (*       replace exception with reasonable error report *)
-val max_depth = 10000
+val max_depth = ref 10000
 exception MaxStackDepthExceeded
 
 exception UnexpectedMethodType
@@ -69,7 +69,7 @@ fun merge_runnables env (original_exp, new_exp) =
    TODO: fill in doc for other types of expressions.
  *)
 fun exec_exp parse (depth_count, isLHS) (env(*: (KEC.exp Env.env ref * KEC.exp Env.env list * PosLog.pos list)*), exp) =
-    if depth_count > max_depth then
+    if depth_count > (!max_depth) then
 	raise MaxStackDepthExceeded
     else
 	let 
@@ -596,5 +596,9 @@ fun run parse env stms =
 	(env, recursive_decell(retval)) 
     end
     
+
+(* set all references as required by execInit *)
+fun execInit() =
+    max_depth := DynamoOptions.getIntegerSetting "interpreterstackdepth"
 
 end
