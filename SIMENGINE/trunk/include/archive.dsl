@@ -87,9 +87,9 @@ namespace Archive
 
     if compilerSettings.debug == false then
       FileSystem.rmfile (cfile)
-    end
-    foreach o in objects do
-      FileSystem.rmfile (o)
+      foreach o in objects do
+        FileSystem.rmfile (o)
+      end
     end
 
     filename

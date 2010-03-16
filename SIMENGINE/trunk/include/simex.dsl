@@ -29,6 +29,7 @@ import "command_line.dsl"
     var LDFLAGS = []
     var LDLIBS = []
     var TARGET_ARCH = ["-m32"]
+    var LD_TARGET_ARCH = ["-m32"]
 
     /* Returns a tuple of (compiler, options)
      * suitable for application by Process.run(). */
@@ -39,7 +40,7 @@ import "command_line.dsl"
     /* Returns a tuple of (linker, options)
      * suitable for application by Process.run(). */
     function configureLink (outfile: String, args)
-      (LD, TARGET_ARCH + ["-o", outfile] + LDFLAGS + args)
+      (LD, LD_TARGET_ARCH + ["-o", outfile] + LDFLAGS + args)
     end
   end
 
@@ -92,9 +93,12 @@ import "command_line.dsl"
 
       if arch64 then
         m.TARGET_ARCH = ["-m64"]
+        m.LD_TARGET_ARCH = ["-m64"]
       end
       if "darwin" == osLower then
         m.TARGET_ARCH = ["-arch", "x86_64"]
+        // mlton built for i386 on Mac and simlib needs to call into *.sim.  no need for universal binary
+        m.LD_TARGET_ARCH = ["-arch", "i386"]
       end
 
       if debug then
