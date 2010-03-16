@@ -837,7 +837,7 @@ fun update_wrapper shardedModel =
     end
 
 fun preprocess_wrapper shardedModel preprocessIterators =
-    let val _ = ()
+    let 
 	fun call_update iter_sym =
 	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
 		val iter = ShardedModel.toIterator shardedModel iter_sym

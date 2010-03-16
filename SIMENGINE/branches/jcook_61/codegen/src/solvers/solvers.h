@@ -78,6 +78,8 @@ __DEVICE__ int model_flows(CDATAFORMAT iterval, CDATAFORMAT *y, CDATAFORMAT *dyd
 __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 
 __DEVICE__ void iterator_advance(solver_props *props, const unsigned int modelid){
+  props->running[modelid] = props->next_time[modelid] < props->stoptime;
+
   // Update solver time to next value
   props->time[modelid] = props->next_time[modelid];
 

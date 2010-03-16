@@ -1,5 +1,5 @@
 // Forward Euler Integration Method
-// Copyright 2009 Simatra Modeling Technologies, L.L.C.
+// Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 
 __HOST__
 int forwardeuler_init(solver_props *props){
@@ -10,7 +10,7 @@ int forwardeuler_init(solver_props *props){
 __DEVICE__
 int forwardeuler_eval(solver_props *props, unsigned int modelid){
   // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
-  props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
+  //props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
   if(!props->running[modelid])
     return 0;
 
