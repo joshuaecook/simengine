@@ -5,7 +5,7 @@
 %   RELEASESIMULATETESTS('-create') will create template mat files
 %   s = RELEASESIMULATETESTS will return the test suite
 %
-% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 %
 function s = ReleaseSimulateTests(varargin)
 
@@ -184,7 +184,7 @@ t(i).time = 10300;
 i = i + 1;
 t(i).name = 'Leaky Membrane';
 t(i).model = fullfile(simexamplepath, 'tutorial/leakyMembrane.dsl');
-t(i).inputs = struct('Iext',0);
+t(i).inputs = struct('I_ext',0);
 t(i).states = [];
 t(i).outputs = {};
 t(i).time = 1;
