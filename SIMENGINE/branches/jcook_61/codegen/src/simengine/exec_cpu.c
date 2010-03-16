@@ -57,11 +57,17 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       // Capture outputs for final iteration
       for(i=0;i<NUM_ITERATORS;i++){
 	if (last_iteration[i]) {
+	  last_iteration[i] = 0;
+
+	  pre_process(&props[i], modelid);
 	  model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
+	  in_process(&props[i], modelid);
+	  update(&props[i], modelid);
+	  post_process(&props[i], modelid);
+
 #if NUM_OUTPUTS > 0
 	  buffer_outputs(&props[i], modelid);
 #endif
-	  last_iteration[i] = 0;
 	}
       }
 
