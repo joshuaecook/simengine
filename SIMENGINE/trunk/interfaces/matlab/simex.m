@@ -98,7 +98,7 @@ else
   % Write inputs to file
   if 0 < inputsM
     inputsFile = fullfile(opts.outputs, 'inputs');
-    opts.args = [opts.args ' -inputs ' inputsFile];
+    opts.args = [opts.args ' --inputs ' inputsFile];
     inputFileID = fopen(inputsFile, 'w');
     if -1 == inputFileID
       simFailure('writeInputs', ['Could not open inputs file: ' inputsFile]);
@@ -112,7 +112,7 @@ else
   % Write states to file
   if 0 < statesM
     statesFile = fullfile(opts.outputs, 'states');
-    opts.args = [opts.args ' -states ' statesFile];
+    opts.args = [opts.args ' --states ' statesFile];
     stateFileID = fopen(statesFile, 'w');
     if -1 == stateFileID
       simFailure('writeStates', ['Could not open inputs file: ' statesFile]);
@@ -184,8 +184,8 @@ function [opts] = get_simex_opts(varargin)
 % if it is there it probably means a previous invocation crashed
 opts = struct('simengine','', 'model', '', 'instances',1, 'startTime',0, ...
               'stopTime',0, 'inputs',struct(), 'states',[], ...
-              'outputs', '', 'debug', false, 'args', '-binary', ...
-              'dslfile', '');
+              'outputs', '', 'debug', false, 'args', '--binary', ...
+              'dslfile', '', 'target', '', 'precision', '');
 
 [seroot] = fileparts(which('simex'));
 opts.simengine = fullfile(seroot, 'bin', 'simEngine');
@@ -217,14 +217,63 @@ if 1 < nargin
     elseif isnumeric(arg)
       opts.states = arg;
     elseif strcmpi(arg, '-debug')
-      opts.args = [opts.args ' ' arg];
+      opts.args = [opts.args ' -' arg];
       opts.debug = true;
+    elseif strcmpi(arg, '-cpu')
+      if isempty(opts.target)
+        opts.target = 'cpu';
+      else
+        simexError('argumentError', ['SIMEX requires only one simulation target '...
+                   'to be specified, while two (' opts.target ', cpu) were specified.']);
+      end
+    elseif strcmpi(arg, '-parallelcpu')
+      if isempty(opts.target)
+        opts.target = 'parallelcpu';
+      else
+        simexError('argumentError', ['SIMEX requires only one simulation target '...
+                   'to be specified, while two (' opts.target ', parallelcpu) were specified.']);
+      end
+    elseif strcmpi(arg, '-gpu')
+      if isempty(opts.target)
+        opts.target = 'gpu';
+      else
+        simexError('argumentError', ['SIMEX requires only one simulation target '...
+                   'to be specified, while two (' opts.target ', gpu) were specified.']);
+      end
+    elseif strcmpi(arg, '-single') || strcmpi(arg, '-float')
+      if isempty(opts.precision)
+        opts.precision = 'single';
+      else
+        simexError('argumentError', ['SIMEX requires only one precision '...
+                   'to be specified, while two (-' opts.precision ', ' ...
+                            arg ') were specified.']);
+      end
+    elseif strcmpi(arg, '-double')
+      if isempty(opts.precision)
+        opts.precision = 'double';
+      else
+        simexError('argumentError', ['SIMEX requires only one precision '...
+                   'to be specified, while two (-' opts.precision ', ' ...
+                            arg ') were specified.']);
+      end
     elseif ~(ischar(arg) || isempty(arg))
       simexError('argumentError', ...
             'All additional arguments must be non-empty strings.');
     else
-      opts.args = [opts.args ' ' arg];
+      if length(arg) > 2 && arg(1) == '-' && arg(2) ~= '-' 
+        % require two dashes for arguments longer than one character inside simEngine
+        opts.args = [opts.args ' -' arg];
+      else
+        opts.args = [opts.args ' ' arg];
+      end
     end
+  end
+
+  if ~isempty(opts.target)
+    opts.args = [opts.args ' --target ' opts.target];
+  end
+  if ~isempty(opts.precision)
+    opts.args = [opts.args ' --precision ' opts.precision];
   end
   
   opts.instances = max(1, size(opts.states,1));
@@ -387,7 +436,7 @@ end
 % amenable to Matlab use
 function [interface] = get_interface(opts)
   simex_interface_json = fullfile(opts.outputs, 'simex_interface.json');
-  opts.args = [opts.args ' -json-interface ' simex_interface_json];
+  opts.args = [opts.args ' --json-interface ' simex_interface_json];
   status = compile_model(opts);
   if(128 == status)
     simEngineError('compileModel', ['Model ''' opts.dslfile ''' can not be '...
@@ -397,9 +446,13 @@ function [interface] = get_interface(opts)
   end
   try
     json_interface = fileread(simex_interface_json);
+  catch it
+    simFailure('get_interface', 'Could not read interface file.')    
+  end
+  try
     interface = parse_json(json_interface);
   catch it
-    simFailure('get_interface', 'Could not open interface file.')
+    simFailure('get_interface', 'Could not parse interface file.')
   end
 
   % Convert default inputs to a structure
@@ -438,9 +491,9 @@ function [interface] = get_interface(opts)
 end
 
 function [] = simulate_model(opts)
-  opts.args = [opts.args ' -start ' num2str(opts.startTime)];
-  opts.args = [opts.args ' -stop ' num2str(opts.stopTime)];
-  opts.args = [opts.args ' -instances ' num2str(opts.instances)];
+  opts.args = [opts.args ' --start ' num2str(opts.startTime)];
+  opts.args = [opts.args ' --stop ' num2str(opts.stopTime)];
+  opts.args = [opts.args ' --instances ' num2str(opts.instances)];
   status = compile_model(opts);
   if(128 == status)
     simexError('simulateModel',['Model ''' opts.dslfile ''' failed '...
@@ -452,7 +505,7 @@ function [] = simulate_model(opts)
 end
 
 function [status] = compile_model(opts)
-  command = [opts.simengine ' -simex ' opts.model ' -outputs ' opts.outputs ' ' opts.args];
+  command = [opts.simengine ' --simex ' opts.model ' --outputdir ' opts.outputs ' ' opts.args];
   status = launchBackground(command, opts.outputs);
 end
 

@@ -544,7 +544,7 @@ $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	$(BUILD_DIR)/bin/$(FILENAME) -batch < /dev/null
+	$(BUILD_DIR)/bin/$(FILENAME) --batch - < /dev/null
 
 .PHONY: codegen
 codegen:

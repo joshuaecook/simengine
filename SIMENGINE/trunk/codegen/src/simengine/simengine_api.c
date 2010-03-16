@@ -14,7 +14,7 @@ static const struct option long_options[] = {
   {"instance_offset", required_argument, 0, INSTANCE_OFFSET},
   {"inputs", required_argument, 0, INPUT_FILE},
   {"states", required_argument, 0, STATE_INIT_FILE},
-  {"outputs", required_argument, 0, OUTPUT_DIR},
+  {"outputdir", required_argument, 0, OUTPUT_DIR},
   {"binary", no_argument, 0, BINARY},
   {"interface", no_argument, 0, INTERFACE},
   {"json-interface", required_argument, 0, JSON_INTERFACE},

@@ -57,9 +57,9 @@ import "command_line.dsl"
     var ldLibs = ["-ldl", "-lm", "-lgomp"]
 
     constructor(compilerSettings)
-      debug = compilerSettings.debug
-      profile = compilerSettings.profile
-      precision = compilerSettings.precision
+      debug = settings.simulation_debug.debug.getValue()
+      profile = settings.simulation_debug.profile.getValue()
+      precision = settings.simulation.precision.getValue()
     end
 
     function getOsLower() = shell("uname",["-s"])[1].rstrip("\n").translate("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
@@ -158,7 +158,8 @@ import "command_line.dsl"
     constructor(compilerSettings)
       super (compilerSettings)
       parallelModels = Devices.OPENMP.numProcessors()
-      compilerSettings.parallel_models = parallelModels
+      //compilerSettings.parallel_models = parallelModels
+      settings.simulation.parallel_models.setValue(parallelModels)
     end
 
     function setupMake (m: Make)
@@ -184,10 +185,11 @@ import "command_line.dsl"
 
       // MP * warp size * 4 to keep high residency (probably needs tweaking)
       parallelModels = Devices.CUDA.getProp(1, "multiProcessorCount").tonumber() * 32 * 4
-      compilerSettings.parallel_models = parallelModels
+      //compilerSettings.parallel_models = parallelModels
+      settings.simulation.parallel_models.setValue(parallelModels)
 
-      precision = compilerSettings.precision
-      emulate = compilerSettings.emulate
+      precision = settings.simulation.precision.getValue()
+      emulate = settings.simulation_debug.emulate.getValue()
 
       var cc = shell("which", ["nvcc"])
       if cc.isempty() then 
@@ -204,7 +206,7 @@ import "command_line.dsl"
       if not emulate and precision == "double" and device_arch <> "sm_13" then
         warning("CUDA device does not support double precision. Defaulting to single precision float.")
         precision = "float"
-        compilerSettings.precision = "float"
+        settings.simulation.precision.setValue("float")
       end
     end
 
@@ -287,23 +289,25 @@ import "command_line.dsl"
   var stringOptionNamesAlways = ["simex",
 				 "inputs",
 				 "states",
-                                 "outputs",
-                                 "json-interface"]
+                                 "outputdir",
+                                 "json-interface",
+				 "target",
+				 "precision"]
   var stringOptionNamesDebug = []
 
-  var defaultCompilerSettings = {target = "openmp",
-				 precision = "double",
-				 parallel_models = 1,
-				 debug = false, 
-				 emulate = false,
-				 profile = false,
-				 outputs = "simex_outputs"}
+  function defaultCompilerSettings() = {target = /*"openmp"*/ settings.simulation.target.getValue(),
+					precision = /*"double"*/settings.simulation.precision.getValue(),
+					parallel_models = /*1*/settings.simulation.parallel_models.getValue(),
+					debug = /*false*/settings.simulation_debug.debug.getValue(), 
+					emulate = /*false*/settings.simulation_debug.emulate.getValue(),
+					profile = /*false*/settings.simulation_debug.profile.getValue(),
+					outputdir = "simex_outputs"}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
-  var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputs", "binary", "seed", "gpuid"]
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputdir", "binary", "seed", "gpuid"]
   var defaultSimulationSettings = {start = 0,
 				   instances = 1,
-				   outputs = "simex_outputs"}
+				   outputdir = "simex_outputs"}
 
   function runModel()
     println(LF sys_startupMessage())
@@ -334,7 +338,7 @@ import "command_line.dsl"
 	if () <> simulationSettings and "" <> exfile then
 	  var simulation = FileSystem.realpath(exfile)
 	  simulate(simulation, simulationSettings, compilerSettings.debug)
-	  if not(compilerSettings.debug) then
+	  if not(settings.simulation_debug.debug.getValue()) then
 	    FileSystem.rmfile(simulation)
 	  end
 	else
@@ -384,7 +388,7 @@ import "command_line.dsl"
 	    "-seed <n>" +
 	    "-inputs <file>" +
 	    "-states <file>" +
-	    "-outputs <file>" +
+	    "-outputdir <file>" +
 	    "-interface" +
 	    "-json-interface" +
 	    "-cpu" +
@@ -429,8 +433,8 @@ import "command_line.dsl"
     end
 
     // Check for a specified output directory, also used for temporary compiler files
-    if objectContains(commandLineOptions, "outputs") then
-      compilerSettings.add("outputs", commandLineOptions.outputs)
+    if objectContains(commandLineOptions, "outputdir") then
+      compilerSettings.add("outputdir", commandLineOptions.outputdir)
     end
 
     if objectContains(commandLineOptions, "debug") then
@@ -438,7 +442,7 @@ import "command_line.dsl"
     end
 
     if objectContains(commandLineOptions, "emulate") then
-      if("cuda" == compilerSettings.target) then
+      if("gpu" == settings.simulation.target.getValue()) then
 	compilerSettings.add("emulate", true)
       else
 	error("Emulation is only valid for the GPU.")
@@ -450,16 +454,17 @@ import "command_line.dsl"
     end
 
     // Add any defaults for settings that were not set from the command-line
-    foreach key in defaultCompilerSettings.keys do
+    var defaults = defaultCompilerSettings()
+    foreach key in defaults.keys do
       if not(objectContains(compilerSettings, key)) then
-	compilerSettings.add(key, defaultCompilerSettings.getValue(key))
+	compilerSettings.add(key, defaults.getValue(key))
       end
     end
 
     // Set up the name of the c source file
     var name = Path.base(Path.file (commandLineOptions.simex))
     var cname = ""
-    if "cuda" == compilerSettings.target then
+    if "gpu" == settings.simulation.target.getValue() then
       cname = name + ".cu"
     else
       cname = name + ".c"
@@ -538,14 +543,15 @@ import "command_line.dsl"
     var target
 
     // Instantiating a target could override compilerSettings based on target type (i.e. precision = float for GPU arch_11)
-    if "openmp" == compilerSettings.target then
+    var target_setting = settings.simulation.target.getValue()
+    if /*"openmp" == compilerSettings.target*/"parallelcpu" == target_setting then
       target = TargetOpenMP.new(compilerSettings)
-    elseif "cuda" == compilerSettings.target then
+    elseif /*"cuda" == compilerSettings.target*/"gpu" == target_setting then
       target = TargetCUDA.new(compilerSettings)
-    elseif "cpu" == compilerSettings.target then
+    elseif "cpu" == /*compilerSettings.target*/ target_setting then
       target = TargetCPU.new(compilerSettings)
     else
-      error ("Unknown target " + compilerSettings.target)
+      error ("Unknown target " + /*compilerSettings.target*/ target_setting)
     end
 
     // Opening an archive succeeds if the file exists and a manifest can be read.
@@ -570,23 +576,39 @@ import "command_line.dsl"
 	      upToDate = (upToDate and 
 			  FileSystem.isfile i and
 			  creation > FileSystem.modtime i)
+	      if FileSystem.isfile i then 
+		  if creation < FileSystem.modtime i then
+		      notice ("Source file <"+i+"> is not up to date")
+		  end
+	      end
+		  
 	    end
 	    
 	    if upToDate then
-	      needsToCompile = not (isArchiveCompatibileWithCompilerSettings (archive, compilerSettings))
-	    end
-
+	      needsToCompile = not (isArchiveCompatibleWithCompilerSettings (archive, compilerSettings))
+	      if needsToCompile then
+		  notice ("Precompiled SIM file is not compatible with compiler settings")
+	      end
+	    end	    
+	  else
+	    notice ("Filename <"+filename+"> is not the same as the main function <"+main+">")
 	  end
+	else
+	  notice ("DOL registry file is not up to date")
 	end
+      else
+	notice ("Build time is more recent than the SIM file creation date")
       end
+    else
+      notice ("No SIM file has been found, must be compiled")
     end
 
     // Make sure the outputs directory exists, may be created before simEngine is called
     // otherwise, create it
-    if not(FileSystem.isdir(compilerSettings.outputs)) then
-      FileSystem.mkdir(compilerSettings.outputs)
-      if not(FileSystem.isdir(compilerSettings.outputs)) then
-	error("Could not create directory " + compilerSettings.outputs)
+    if not(FileSystem.isdir(compilerSettings.outputdir)) then
+      FileSystem.mkdir(compilerSettings.outputdir)
+      if not(FileSystem.isdir(compilerSettings.outputdir)) then
+	error("Could not create directory " + compilerSettings.outputdir)
       end
     end
 
@@ -594,17 +616,17 @@ import "command_line.dsl"
     if needsToCompile then
       var success = compile (filename, target, compilerSettings)
       if success == 0 then
-	  exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
+	  exfile = Path.join(compilerSettings.outputdir, compilerSettings.exfile)
       else
 	  LF sys_exit(128)
 	  exfile = ""
       end
     else
-      var cfile = Path.join(compilerSettings.outputs, compilerSettings.cSourceFilename)
-      exfile = Path.join(compilerSettings.outputs, compilerSettings.exfile)
+      var cfile = Path.join(compilerSettings.outputdir, compilerSettings.cSourceFilename)
+      exfile = Path.join(compilerSettings.outputdir, compilerSettings.exfile)
       Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.exfile, exfile)
       shell("chmod", ["+x", exfile])
-      if compilerSettings.debug then
+      if settings.simulation_debug.debug.getValue() then
 	println ("reusing existing SIM")
 	// Extract C file for debugging
 	Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.cSourceFilename, cfile)
@@ -613,14 +635,24 @@ import "command_line.dsl"
     exfile
   end
 
-  function isArchiveCompatibileWithCompilerSettings (archive, compilerSettings)
+  function isArchiveCompatibleWithCompilerSettings (archive, compilerSettings)
     function compatible (executable)
-      var compat = ((executable.target == compilerSettings.target) and
-		    (executable.precision == compilerSettings.precision) and
-		    (executable.debug or not(compilerSettings.debug)) and
-		    (executable.profile == compilerSettings.profile) and
-		    (not("cuda" == executable.target)
-		     or executable.emulate == compilerSettings.emulate))
+      var target_setting = settings.simulation.target.getValue()
+      var precision_setting = settings.simulation.precision.getValue()
+      var debug_setting = settings.simulation_debug.debug.getValue()
+      var profile_setting = settings.simulation_debug.profile.getValue()
+      var emulate_setting = settings.simulation_debug.emulate.getValue()
+
+      if executable.target <> target_setting then
+	  notice ("Target setting '"+target_setting+"' is not equal to the archive setting '"+executable.target+"'")
+      end
+
+      var compat = ((executable.target == target_setting) and
+		    (executable.precision == precision_setting) and
+		    (executable.debug or not(debug_setting)) and
+		    (executable.profile == profile_setting) and
+		    (not("gpu" == executable.target)
+		     or executable.emulate == emulate_setting))
       if compat then
 	compilerSettings.add("exfile", executable.exfile)
       end
@@ -631,12 +663,12 @@ import "command_line.dsl"
   end
 
   function compile (filename, target, compilerSettings)
-    if compilerSettings.debug then
+    if settings.simulation_debug.debug.getValue() then
       println ("Compiling " + filename)
     end
 
-    // Change working directory to outputs directory
-    FileSystem.chdir(compilerSettings.outputs)
+    // Change working directory to outputdir directory
+    FileSystem.chdir(compilerSettings.outputdir)
 
     var mod = LF loadModel (filename)
     var name = mod.template.name

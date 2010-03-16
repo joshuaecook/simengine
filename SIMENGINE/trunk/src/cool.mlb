@@ -64,6 +64,7 @@ util/registry/registry.grm.sml
 util/registry/registry.lex.sml
 util/registry/registry_parser.sml
 util/options.sml
+util/options_process.sml
 
 util/files/filepath.sml
 util/files/directory.sml

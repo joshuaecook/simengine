@@ -421,6 +421,7 @@ fun log_stream (name, level, ostream, groups) =
  
 fun log_add (filename, level, groups) = 
     let
+	(*val _ = print ("Adding '"^filename^"' as a log location\n")*)
 	val ostream = TextIO.openOut (filename)
     in
 	log_stream(Symbol.symbol filename, level, ostream, groups)

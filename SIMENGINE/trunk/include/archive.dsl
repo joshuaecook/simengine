@@ -72,7 +72,7 @@ namespace Archive
     end
 
     var cc = target.compile (exfile, [cfile])
-    if compilerSettings.debug == true then
+    if settings.simulation_debug.debug.getValue() == true then
       println ("Compile: " + cc(1) + " '" + join("' '", cc(2)) + "'")
     end
     compile (cc(1), cc(2))
@@ -80,12 +80,12 @@ namespace Archive
 
     var objects = [exfile_o, manifest_o, cfile_o, main_o] + import_os
     var ld = target.link (Path.file filename, filename, objects)
-    if compilerSettings.debug == true then
+    if settings.simulation_debug.debug.getValue() == true then
       println ("Link: " + ld(1) + " '" + join("' '", ld(2)) + "'")
     end
     link (ld(1), ld(2))
 
-    if compilerSettings.debug == false then
+    if settings.simulation_debug.debug.getValue() == false then
       FileSystem.rmfile (cfile)
       foreach o in objects do
         FileSystem.rmfile (o)

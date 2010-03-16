@@ -18,15 +18,15 @@ fun std_setsetting exec args =
 	      (*check that the value is the correct type.  If so, convert it and assign in *)
 	      val _ =
 		  (case (DynamoOptions.getTypeForSetting name, value) of
-		       (DynamoOptions.FLAG_T, KEC.LITERAL (KEC.CONSTBOOL b)) 
+		       (OptionsList.FLAG_T, KEC.LITERAL (KEC.CONSTBOOL b)) 
 		       => DynamoOptions.setSetting(DynamoOptions.FLAG (name, b))
-		     | (DynamoOptions.INTEGER_T, KEC.LITERAL (KEC.CONSTREAL r))
+		     | (OptionsList.INTEGER_T, KEC.LITERAL (KEC.CONSTREAL r))
 		       => DynamoOptions.setSetting(DynamoOptions.SETTING(name, DynamoOptions.INTEGER (Real.floor r)))
-		     | (DynamoOptions.REAL_T, KEC.LITERAL (KEC.CONSTREAL r))
+		     | (OptionsList.REAL_T, KEC.LITERAL (KEC.CONSTREAL r))
 		       => DynamoOptions.setSetting(DynamoOptions.SETTING(name, DynamoOptions.REAL (r)))
-		     | (DynamoOptions.STRING_T, KEC.LITERAL (KEC.CONSTSTR s))
+		     | (OptionsList.STRING_T, KEC.LITERAL (KEC.CONSTSTR s))
 		       => DynamoOptions.setSetting(DynamoOptions.SETTING(name, DynamoOptions.STRING s))
-		     | (DynamoOptions.INTEGER_VECTOR_T, KEC.VECTOR v)
+		     | (OptionsList.INTEGER_VECTOR_T, KEC.VECTOR v)
 		       => 
 		       let
 			   fun entry2int (KEC.LITERAL(KEC.CONSTREAL r)) =
@@ -38,7 +38,7 @@ fun std_setsetting exec args =
 		       in
 			   DynamoOptions.setSetting(DynamoOptions.SETTING(name, DynamoOptions.INTEGER_VEC iv))
 		       end
-		     | (DynamoOptions.REAL_VECTOR_T, KEC.VECTOR v)
+		     | (OptionsList.REAL_VECTOR_T, KEC.VECTOR v)
 		       =>
 		       let
 			   fun entry2real (KEC.LITERAL(KEC.CONSTREAL r)) =
@@ -50,7 +50,7 @@ fun std_setsetting exec args =
 		       in
 			   DynamoOptions.setSetting(DynamoOptions.SETTING(name, DynamoOptions.REAL_VEC rv))
 		       end
-		     | (DynamoOptions.STRING_VECTOR_T, KEC.VECTOR v)
+		     | (OptionsList.STRING_VECTOR_T, KEC.VECTOR v)
 		       =>
 		       let
 			   fun entry2str (KEC.LITERAL(KEC.CONSTSTR s)) =

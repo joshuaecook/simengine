@@ -1,4 +1,9 @@
 // simEngine Registry - Default options for the compiler
+// Copyright 2007-2010 Simatra Modeling Technologies
+
+// **********************************************************************
+//                         General simEngine Options
+// **********************************************************************
 
 // verbose: displays extra info during compilation/simulation
 <verbose = false>
@@ -6,8 +11,68 @@
 // force: causes all directories/files to be overwritten
 <force = true>
 
+// batch: run commands directly from a particular file
+<batch = "">
+
+// **********************************************************************
+//                             Simulation Options
+// **********************************************************************
+
+// simex: compile model and execute the simulation
+<simex = "">
+
+// compile: compile DSL model into a SIM file
+<compile = "">
+
+// simulate: simulate resulting SIM file
+<simulate = "">
+
+// target: simulation target platform - can be cpu, gpu, or parallelcpu
+<target = "parallelcpu">
+
+// precision: set the precision of the simulation
+<precision = "double">
+
+// start: start time for a simulation
+<start = 0.0>
+
+// stop: stop time for a simulation
+<stop = 0.0>
+
+// instances: number of instances running in parallel
+<instances = 1>
+
+// parallel_models: number of instances supported by the hardware in parallel blocks
+<parallel_models = 1>
+
+// seed: integer number specifying the seed to use for simulations, use -1 for automatic seed
+<seed = -1>
+
+// binary: specifies the way data is generated in simulations, by default in ascii mode
+<binary = false>
+
+// inputfile: file where inputs are read from
+<inputfile = "">
+
+// statefile: file where states are read from
+<statefile = "">
+
+// **********************************************************************
+//               Additional Simulation Options for Debugging
+// **********************************************************************
+
+<debug = false>
+<emulate = false>
+<profile = false>
+<nocompile = false>
+
+// **********************************************************************
+//                             Additional Options
+// **********************************************************************
+
+
 // targetname: choose the name/directory of the output sim file, otherwise a default is chosen
-<targetname = "">
+<outputname = "">
 
 // librarypath: the directory simEngine will look for when searching for libraries to link against
 <librarypath = "$SIMENGINE/lib">

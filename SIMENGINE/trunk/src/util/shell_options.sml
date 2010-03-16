@@ -85,7 +85,7 @@ datatype dynvalue = INTEGER of int
 						stms=map build_setting (DynamoOptions.getSettingsForGroup group)},
 			     PosLog.NOPOS))
 
-	val stms = map build_group (DynamoOptions.getGroupsList())
+	val stms = map build_group (OptionsList.getGroupsList())
 		   
     in			
 	Desugar.hlec2kec ([HLEC.DEFINITION (HLEC.DEFNAMESPACE {name=Symbol.symbol "settings",

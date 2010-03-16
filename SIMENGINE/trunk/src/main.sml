@@ -91,6 +91,9 @@ fun main () =
 		ignore (MLton.World.save (getSIMENGINESEW ()))
 	    else ()
 
+	(* set up a user log in /tmp *)
+	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
+
 	(* Verify the license file *)
 	val _ = License.verifyNotRestricted () (* check to make sure that there the user/hostid/network/site specification is correct *)
 
@@ -106,18 +109,18 @@ fun main () =
 		before DynException.checkToProceed ()
 
 	(* read in command line arguments to DynamoOptions *)
-	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))
-	val _ = DynamoOptions.importCommandLineArgs argv*)
+	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))*)
+	val _ = Logger.log_notice (Printer.$("Arguments to simEngine: " ^ (Util.l2s argv)))
+	val _ = DynamoOptions.importCommandLineArgs argv
 
 	(* initialize the exec *)
+	val env = PopulatedEnv.importSettings (rep_loop false) env
 	val _ = Exec.execInit()
 
-	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
-
 	val log = if DynamoOptions.isFlagSet "verbose" then
-		      Logger.log_stdout (Logger.ALL, defaultOptions)
+		       Logger.log_stdout (Logger.ALL, defaultOptions)
 		  else
-		      Logger.log_stdout (Logger.WARNINGS, defaultOptions)
+		       Logger.log_stdout (Logger.WARNINGS, defaultOptions)
 
 	(* Execute the startup file. *)
 	val (env, _) = Exec.run (rep_loop false) env
@@ -143,13 +146,13 @@ fun main () =
 	fun strEquals x y =
 	    case String.compare (x, y) of EQUAL => true | _ => false
     in
-	case indexOf argv (strEquals "-simex")
+	case indexOf argv (strEquals "--simex")
 	 of SOME n => 
 	    (* Noninteractive operating on a model definition. *)
 	    ((*print (Globals.startupMessage() ^ "\n")
 	   ;*) (KEC.UNIT, env))
 	  | NONE => 
-	    case indexOf argv (strEquals "-batch")
+	    case indexOf argv (strEquals "--batch")
 	     of SOME n =>
 		let val filename = if length argv > n + 1 then List.nth (argv, 1 + n) else "-"
 		in 

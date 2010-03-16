@@ -51,7 +51,7 @@ namespace CommandLine
       optionsTable.add(name, value)
     end
     
-    var batchmode = (exists option in optionsList suchthat "-batch" == option)
+    var batchmode = (exists option in optionsList suchthat "--batch" == option)
 
     if batchmode and optionsList.length() > 2 or (optionsList.length() == 2 and "-" == optionsList[2].first()) then
       warning("In batch mode, all other command line options are ignored.")
@@ -66,7 +66,14 @@ namespace CommandLine
       end
 
       // Strip the '-' for comparison
-      optionName = optionName.rest()
+      function removeLeadingDash(str)
+        if "-" == str.first() then
+	    removeLeadingDash(str.rest())
+	else
+	    str
+	end
+      end
+      optionName = removeLeadingDash(optionName)
 
       if exists name in booleanOptionNames suchthat name == optionName then
 	addOption(optionName, true)
@@ -75,7 +82,8 @@ namespace CommandLine
       elseif exists name in stringOptionNames suchthat name == optionName then
 	addOption(optionName, getOptionValueString())
       else
-	error("Unrecognized option '-" + optionName + "'")
+	// assume it's processed further up
+	//error("Unrecognized option '-" + optionName + "'")
       end
     end
     optionsTable
