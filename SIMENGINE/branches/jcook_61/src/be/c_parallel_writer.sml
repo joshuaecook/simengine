@@ -660,7 +660,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		   | Exp.INFINITY => real (1.0 / 0.0)
 		   | Exp.INT z => int z
 		   | Exp.NAN => real (0.0 / 0.0)
-		   | Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt 4)
+		   | Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt d)
 		   | Exp.REAL r => real r
 		   | _ => real (0.0 / 0.0))
 	      | defaultToJSON _ = real (0.0 / 0.0)

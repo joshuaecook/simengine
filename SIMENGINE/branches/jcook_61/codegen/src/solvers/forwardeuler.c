@@ -9,11 +9,6 @@ int forwardeuler_init(solver_props *props){
 
 __DEVICE__
 int forwardeuler_eval(solver_props *props, unsigned int modelid){
-  // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
-  //props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
-  if(!props->running[modelid])
-    return 0;
-
   int ret = model_flows(props->time[modelid], props->model_states, props->next_states, props, 1, modelid);
 
   int i;

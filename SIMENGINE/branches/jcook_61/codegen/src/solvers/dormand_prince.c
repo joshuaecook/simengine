@@ -1,5 +1,5 @@
 // Dormand-Prince (ode45) Integration Method
-// Copyright 2009 Simatra Modeling Technologies, L.L.C.
+// Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 //
 //#include "stdio.h"
 
@@ -81,13 +81,6 @@ __DEVICE__
 int dormand_prince_eval(solver_props *props, unsigned int modelid){
   CDATAFORMAT max_timestep = props->timestep*1024;
   CDATAFORMAT min_timestep = props->timestep/1024;
-
-  //fprintf(stderr, "ts=%g\n", mem->cur_timestep[modelid]);
-
-  // Stop the solver if we have reached the stoptime
-  props->running[modelid] = props->time[modelid] < props->stoptime;
-  if(!props->running[modelid])
-    return 0;
 
   dormand_prince_mem *mem = (dormand_prince_mem*)props->mem;
   int i;

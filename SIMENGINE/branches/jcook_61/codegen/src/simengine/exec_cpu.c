@@ -2,7 +2,7 @@
 int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid){
   unsigned int i;
   CDATAFORMAT min_time;
-  unsigned int first_iteration = 1;
+  unsigned int before_first_iteration = 1;
   unsigned int last_iteration[NUM_ITERATORS] = {0};
   unsigned int dirty[NUM_ITERATORS] = {0};
 
@@ -19,51 +19,39 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
  
     // Run a set of iterations until the output buffer is full or the simulation is complete
     while (1) {
+      // Find the nearest next_time and catch up
       min_time = find_min_time(props, modelid);
 
-      // Update phase: x[t+dt] = f(x[t+dt])
+      // Update and postprocess phase: x[t+dt] = f(x[t+dt])
       // Always occurs before the first iteration and after every subsequent iteration.
       for(i=0;i<NUM_ITERATORS;i++){
 	dirty[i] = 0;
-	if(props[i].running[modelid] && (first_iteration || props[i].time[modelid] < min_time)){
+	if(props[i].running[modelid] && (before_first_iteration || props[i].time[modelid] < min_time)){
 	  update(&props[i], modelid);
 	  dirty[i] = 1;
 	}	  
+	if(props[i].running[modelid] && props[i].time[modelid] < min_time){
+	  post_process(&props[i], modelid);
+	  dirty[i] = 1;
+	}
       }
       for(i=0;i<NUM_ITERATORS;i++){
 	if (dirty[i]) {
 	  solver_writeback(&props[i], modelid);
 	}
       }
+      before_first_iteration = 0;
 
-      if (!first_iteration) {
-	// Postprocess phase: x[t+dt] = f(x[t+dt])
-	for(i=0;i<NUM_ITERATORS;i++){
-	  dirty[i] = 0;
-	  if(props[i].running[modelid] && props[i].time[modelid] < min_time){
-	    post_process(&props[i], modelid);
-	    dirty[i] = 1;
-	  }
-	}
-	for(i=0;i<NUM_ITERATORS;i++){
-	  if (dirty[i]) {
-	    solver_writeback(&props[i], modelid);
-	  }
-	}
-
-	// Write any available output data to the buffer
-	// and advance the iterator.
-	for(i=0;i<NUM_ITERATORS;i++){
-	  if(props[i].running[modelid] && props[i].time[modelid] < min_time){
+      // Write any available output data to the buffer
+      // and advance the iterator.
+      for(i=0;i<NUM_ITERATORS;i++){
+	if(props[i].running[modelid] && props[i].time[modelid] < min_time){
 #if NUM_OUTPUTS > 0
-	    buffer_outputs(&props[i], modelid);
+	  buffer_outputs(&props[i], modelid);
 #endif
-	    // Now time == next_time iff next_time <= stop_time
-	    iterator_advance(&props[i], modelid);
-	  }
+	  // Now time == next_time
+	  iterator_advance(&props[i], modelid);
 	}
-      } else {
-	first_iteration = 0;
       }
 
       // Capture outputs for final iteration

@@ -1,5 +1,5 @@
 // Runga-Kutta (4th order) Integration Method
-// Copyright 2009 Simatra Modeling Technologies, L.L.C.
+// Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 
 typedef struct {
   CDATAFORMAT *k1;
@@ -48,11 +48,6 @@ __DEVICE__
 int rk4_eval(solver_props *props, unsigned int modelid){
   int i;
   int ret;
-
-  // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
-  props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
-  if(!props->running[modelid])
-    return 0;
 
   rk4_mem *mem = (rk4_mem*)props->mem;
 

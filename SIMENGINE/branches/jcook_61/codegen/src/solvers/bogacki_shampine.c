@@ -1,5 +1,5 @@
 // Bogacki-Shampine (ode23) Integration Method
-// Copyright 2009 Simatra Modeling Technologies, L.L.C.
+// Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 
 typedef struct {
   CDATAFORMAT *k1;
@@ -70,13 +70,6 @@ __DEVICE__
 int bogacki_shampine_eval(solver_props *props, unsigned int modelid){
   CDATAFORMAT max_timestep = props->timestep*1024;
   CDATAFORMAT min_timestep = props->timestep/1024;
-
-  //fprintf(stderr, "ts=%g\n", mem->cur_timestep[modelid]);
-
-  // Stop the solver if we have reached the stoptime
-  props->running[modelid] = props->time[modelid] < props->stoptime;
-  if(!props->running[modelid])
-    return 0;
 
   bogacki_shampine_mem *mem = (bogacki_shampine_mem*)props->mem;
 
