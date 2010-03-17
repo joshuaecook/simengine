@@ -41,12 +41,10 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       // Update occurs before the first iteration and after every subsequent iteration.
       for(i=0;i<NUM_ITERATORS;i++){
 	if(props[i].running[modelid] && (before_first_iteration || props[i].next_time[modelid] == min_time)){
-	  update(&props[i], modelid);
-	  dirty_states[i] = 1;
+	  dirty_states[i] = 0 == update(&props[i], modelid);
 	}	  
 	if(props[i].running[modelid] && (!before_first_iteration && props[i].next_time[modelid] == min_time)){
-	  post_process(&props[i], modelid);
-	  dirty_states[i] = 1;
+	  dirty_states[i] = 0 == post_process(&props[i], modelid);
 	}
       }
 
@@ -99,8 +97,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       // Preprocess phase: x[t] = f(x[t])
       for(i=0;i<NUM_ITERATORS;i++){
 	if(props[i].running[modelid] && props[i].time[modelid] == min_time){
-	  pre_process(&props[i], modelid);
-	  dirty_states[i] = 1;
+	  dirty_states[i] = 0 == pre_process(&props[i], modelid);
 	}
       }
 
