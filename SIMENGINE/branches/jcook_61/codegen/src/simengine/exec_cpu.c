@@ -4,7 +4,8 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   CDATAFORMAT min_time;
   unsigned int before_first_iteration = 1;
   unsigned int last_iteration[NUM_ITERATORS] = {0};
-  unsigned int dirty[NUM_ITERATORS] = {0};
+  unsigned int dirty_states[NUM_ITERATORS] = {0};
+  unsigned int ready_outputs[NUM_ITERATORS] = {0};
 
   // Initialize all iterators to running
   for(i=0;i<NUM_ITERATORS;i++){
@@ -22,35 +23,45 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       // Find the nearest next_time and catch up
       min_time = find_min_time(props, modelid);
 
-      // Update and postprocess phase: x[t+dt] = f(x[t+dt])
-      // Always occurs before the first iteration and after every subsequent iteration.
+      // Buffer any available outputs
       for(i=0;i<NUM_ITERATORS;i++){
-	dirty[i] = 0;
-	if(props[i].running[modelid] && (before_first_iteration || props[i].time[modelid] < min_time)){
-	  update(&props[i], modelid);
-	  dirty[i] = 1;
-	}	  
-	if(props[i].running[modelid] && props[i].time[modelid] < min_time){
-	  post_process(&props[i], modelid);
-	  dirty[i] = 1;
-	}
-      }
-      for(i=0;i<NUM_ITERATORS;i++){
-	if (dirty[i]) {
-	  solver_writeback(&props[i], modelid);
-	}
-      }
-      before_first_iteration = 0;
-
-      // Write any available output data to the buffer
-      // and advance the iterator.
-      for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].running[modelid] && props[i].time[modelid] < min_time){
+	if (ready_outputs[i]) {
 #if NUM_OUTPUTS > 0
 	  buffer_outputs(&props[i], modelid);
 #endif
+	  ready_outputs[i] = 0;
+	}
+	if (dirty_states[i] && (!before_first_iteration && props[i].next_time[modelid] == min_time)) {
+	  solver_writeback(&props[i], modelid);
+	  dirty_states[i] = 0;
+	}
+      }
+
+      // Update and postprocess phase: x[t+dt] = f(x[t+dt])
+      // Update occurs before the first iteration and after every subsequent iteration.
+      for(i=0;i<NUM_ITERATORS;i++){
+	if(props[i].running[modelid] && (before_first_iteration || props[i].next_time[modelid] == min_time)){
+	  update(&props[i], modelid);
+	  dirty_states[i] = 1;
+	}	  
+	if(props[i].running[modelid] && (!before_first_iteration && props[i].next_time[modelid] == min_time)){
+	  post_process(&props[i], modelid);
+	  dirty_states[i] = 1;
+	}
+      }
+
+      // Advance the iterator.
+      for(i=0;i<NUM_ITERATORS;i++){
+	if(props[i].running[modelid] && (!before_first_iteration && props[i].next_time[modelid] == min_time)){
 	  // Now time == next_time
 	  last_iteration[i] = solver_advance(&props[i], modelid);
+	}
+      }
+
+      for(i=0;i<NUM_ITERATORS;i++){
+	if (dirty_states[i] && props[i].next_time[modelid] == min_time) {
+	  solver_writeback(&props[i], modelid);
+	  dirty_states[i] = 0;
 	}
       }
 
@@ -62,8 +73,10 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	  pre_process(&props[i], modelid);
 	  model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
 	  in_process(&props[i], modelid);
-	  update(&props[i], modelid);
-	  post_process(&props[i], modelid);
+	  
+	  // Updates and postprocess should not write to the output data structure (right?)
+	  /* update(&props[i], modelid); */
+	  /* post_process(&props[i], modelid); */
 
 #if NUM_OUTPUTS > 0
 	  buffer_outputs(&props[i], modelid);
@@ -75,44 +88,41 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       if (!model_running(props, modelid)) {
 	break;
       }
+
       // Cannot continue if the output buffer is full
       if (((output_buffer *)(props->ob))->full[modelid]) {
 	break;
       }
 
+      before_first_iteration = 0;
+
       // Preprocess phase: x[t] = f(x[t])
       for(i=0;i<NUM_ITERATORS;i++){
-	dirty[i] = 0;
 	if(props[i].running[modelid] && props[i].time[modelid] == min_time){
 	  pre_process(&props[i], modelid);
-	  dirty[i] = 1;
+	  dirty_states[i] = 1;
 	}
       }
+
       for(i=0;i<NUM_ITERATORS;i++){
-	if (dirty[i]) {
+	if (dirty_states[i] && props[i].time[modelid] == min_time) {
 	  solver_writeback(&props[i], modelid);
+	  dirty_states[i] = 0;
 	}
       }
 
       // Main solver evaluation phase, including inprocess.
       // x[t+dt] = f(x[t])
       for(i=0;i<NUM_ITERATORS;i++){
-	dirty[i] = 0;
 	if(props[i].running[modelid] && props[i].time[modelid] == min_time){
 	  if(0 != solver_eval(&props[i], modelid)) {
 	    return ERRCOMP;
 	  }
 	  // Now next_time == time + dt
-	  dirty[i] = 1;
+	  dirty_states[i] = 1;
+	  ready_outputs[i] = 1;
 	  // Run any in-process algebraic evaluations
 	  in_process(&props[i], modelid);
-	}
-      }
-
-      // Write state values back to state storage
-      for(i=0;i<NUM_ITERATORS;i++){
-	if (dirty[i]) {
-	  solver_writeback(&props[i], modelid);
 	}
       }
     }

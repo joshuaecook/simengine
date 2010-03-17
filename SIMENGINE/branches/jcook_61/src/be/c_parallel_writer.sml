@@ -817,7 +817,7 @@ fun update_wrapper shardedModel =
 			in [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
 			    case base_iter_typ
 			     of DOF.CONTINUOUS _ =>
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
+				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 

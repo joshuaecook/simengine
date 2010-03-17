@@ -4,7 +4,7 @@
  *   Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
  */
 
-model (Vm) = leakyMembrane(Iext, Vm0)
+model (Vm) = leakyMembrane(Iext)
    input Iext
    
    constant Cm = 0.5

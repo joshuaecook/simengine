@@ -84,7 +84,8 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 // Return indicates when the last iteration has occurred.
 __DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
   int last_iteration = props->running[modelid];
-  props->running[modelid] = props->next_time[modelid] + props->timestep < props->stoptime;
+  props->running[modelid] = (props->next_time[modelid] < props->stoptime) &&
+    (props->next_time[modelid] + props->timestep <= props->stoptime);
   last_iteration ^= props->running[modelid];
 
   // Update solver time to next value
