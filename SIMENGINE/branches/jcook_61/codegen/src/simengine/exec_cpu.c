@@ -50,7 +50,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	  buffer_outputs(&props[i], modelid);
 #endif
 	  // Now time == next_time
-	  iterator_advance(&props[i], modelid);
+	  last_iteration[i] = solver_advance(&props[i], modelid);
 	}
       }
 
@@ -104,9 +104,6 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	  }
 	  // Now next_time == time + dt
 	  dirty[i] = 1;
-	  if(props[i].next_time[modelid] >= props->stoptime){
-	    last_iteration[i] = 1;
-	  }
 	  // Run any in-process algebraic evaluations
 	  in_process(&props[i], modelid);
 	}

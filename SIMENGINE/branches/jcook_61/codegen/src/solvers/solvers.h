@@ -77,8 +77,15 @@ __DEVICE__ int model_flows(CDATAFORMAT iterval, CDATAFORMAT *y, CDATAFORMAT *dyd
 
 __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 
-__DEVICE__ void iterator_advance(solver_props *props, const unsigned int modelid){
-  props->running[modelid] = props->next_time[modelid] < props->stoptime;
+
+// Advances the iterator value of a solver for a given model id.
+// Unsets the running flag if the solver would overstep the stop time
+// on the next iteration.
+// Return indicates when the last iteration has occurred.
+__DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
+  int last_iteration = props->running[modelid];
+  props->running[modelid] = props->next_time[modelid] + props->timestep < props->stoptime;
+  last_iteration ^= props->running[modelid];
 
   // Update solver time to next value
   props->time[modelid] = props->next_time[modelid];
@@ -87,6 +94,8 @@ __DEVICE__ void iterator_advance(solver_props *props, const unsigned int modelid
   if(props->count){
     props->count[modelid]++;
   }
+
+  return last_iteration;
 }
 
 __DEVICE__ void solver_writeback(solver_props *props, const unsigned int modelid){
