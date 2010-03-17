@@ -290,7 +290,7 @@ import "command_line.dsl"
 				 "inputs",
 				 "states",
                                  "outputdir",
-                                 "json-interface",
+                                 "json_interface",
 				 "target",
 				 "precision"]
   var stringOptionNamesDebug = []
@@ -301,16 +301,16 @@ import "command_line.dsl"
 					debug = /*false*/settings.simulation_debug.debug.getValue(), 
 					emulate = /*false*/settings.simulation_debug.emulate.getValue(),
 					profile = /*false*/settings.simulation_debug.profile.getValue(),
-					outputdir = "simex_outputs"}
+					outputdir = /*"simex_outputs"*/settings.simulation.outputdir.getValue()}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
   var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputdir", "binary", "seed", "gpuid"]
-  var defaultSimulationSettings = {start = 0,
-				   instances = 1,
-				   outputdir = "simex_outputs"}
+  function defaultSimulationSettings() = {start = 0,
+					  instances = 1,
+					  outputdir = /*"simex_outputs"*/settings.compiler.outputdir.getValue()}
+
 
   function runModel()
-    println(LF sys_startupMessage())
     
     var booleanOptionNames = booleanOptionNamesAlways
     var numberOptionNames = numberOptionNamesAlways
@@ -326,10 +326,20 @@ import "command_line.dsl"
 
     var commandLineSettings = CommandLine.parseCommandLine(booleanOptionNames, numberOptionNames, stringOptionNames)
 
+    var simexFile = settings.general.simex.getValue()
+    var compileFile = settings.general.compile.getValue()
+    var simulateFile = settings.general.simulate.getValue()
+    // verify mutual exclusion
+    if ((simexFile <> "" and compileFile <> "") or
+	(simexFile <> "" and simulateFile <> "") or
+	(compileFile <> "" and  simulateFile <> "")) then
+	error("Only one option of -simex, -compile, and -simulate is supported at one time")
+    end
+
     if objectContains(commandLineSettings, "help") then
-      printUsage()
-    else
-      var modelFile = getModelFile(commandLineSettings)
+      printUsage(LF settingsHelp())
+    elseif simexFile <> "" then
+      var modelFile = FileSystem.realpath(simexFile)
       // If a model was passed as a parameter, compile and/or execute it
       if () <> modelFile then
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
@@ -337,15 +347,38 @@ import "command_line.dsl"
 	var exfile = autoRecompile(modelFile, compilerSettings)
 	if () <> simulationSettings and "" <> exfile then
 	  var simulation = FileSystem.realpath(exfile)
-	  simulate(simulation, simulationSettings, compilerSettings.debug)
+	  simulate(simulation, simulationSettings, settings.simulation_debug.debug.getValue())
 	  if not(settings.simulation_debug.debug.getValue()) then
 	    FileSystem.rmfile(simulation)
 	  end
 	else
 	  //println("Not running: " + compilerSettings.exfile)
 	end
+      else
+	error("The model file '" + simexFile + "' does not exist.")
       end
+    elseif compileFile <> "" then
+      var modelFile = FileSystem.realpath(compileFile)
+      // If a model was passed as a parameter, compile and/or execute it
+      if () <> modelFile then
+	var compilerSettings = validateCompilerSettings(commandLineSettings)
+	var simulationSettings = validateSimulationSettings(commandLineSettings)
+	var exfile = autoRecompile(modelFile, compilerSettings)
+      else
+	error("The model file '" + compileFile + "' does not exist.")
+      end
+    elseif simulateFile <> "" then
+      var simFile = FileSystem.realpath(simulateFile)
+      if () <> simFile then
+	// TODO: add support for this mode
+	error("The simulate flag is not currently supported by simEngine")
+      else
+	error("The simulation file '" + simulateFile + "' does not exist")
+      end
+    else
+      // don't do anything..
     end
+
   end
 
   function simulate(simulation, simulationSettings, debug)
@@ -373,42 +406,46 @@ import "command_line.dsl"
     end
   end
 
-  function printUsage()
+  function printUsage(settingshelp)
     println("\nsimEngine usage:\n\n" +
 	    "\tSimulation mode: run a simulation from a Diesel model\n" +
-	    "\t\tsimEngine [options] -simex <modelfile.dsl>\n\n" +
+	    "\t\tsimEngine [options] --simex <modelfile.dsl>\n\n" +
 	    "\tBatch mode: execute Diesel code from file or STDIN\n" +
-	    "\t\tsimEngine [options] -batch <file.dsl>\n" +
-	    "\t\tsimEngine [options] -batch\n\n" +
+	    "\t\tsimEngine [options] --batch <file.dsl>\n" +
+	    "\t\tsimEngine [options] --batch -\n\n" +
 	    "\tInteractive mode: run simEngine as an interactive environment\n" +
 	    "\t\tsimEngine [options]\n\n"+
 	    "Currently available options include:\n\n" +
-	    "-start <n>" +
+	    settingshelp + "\n\n" +
+	    "For further information, please visit us at www.simatratechnologies.com.\n"
+	    /*"-start <n>" +
 	    "-stop <n>" +
 	    "-seed <n>" +
 	    "-inputs <file>" +
 	    "-states <file>" +
 	    "-outputdir <file>" +
 	    "-interface" +
-	    "-json-interface" +
+	    "-json_interface" +
 	    "-cpu" +
 	    "-parallelcpu" +
 	    "-gpu" +
 	    "-double" +
 	    "-float" +
 	    "-single" +
-	    "-help")
+	    "-help"*/)
     // FIXME: automatically add the available options from the actual options above
   end
 
   function getModelFile(commandLineOptions: Table)
+    var simex = settings.general.simex.getValue()
+
     // Set the full realpath of the model file
-    if not(objectContains(commandLineOptions, "simex")) then
+    if /*not(objectContains(commandLineOptions, "simex"))*/ simex=="" then
       ()
     else
-      var modelfilepath = FileSystem.realpath(commandLineOptions.getValue("simex"))
+      var modelfilepath = FileSystem.realpath(simex)
       if () == modelfilepath then
-	error("The model file '" + commandLineOptions.getValue("simex") + "' does not exist.")
+	error("The model file '" + simex + "' does not exist.")
       end
       modelfilepath
     end
@@ -417,30 +454,44 @@ import "command_line.dsl"
   function validateCompilerSettings(commandLineOptions: Table)
     var compilerSettings = {}
     // Check for a single valid target
+    // this is now done in simex.m and on the command line since only one option can be specified with --target
+    /*
     var targets = [targetOptions.getValue(target) foreach target in targetOptions.keys when objectContains(commandLineOptions, target)]
     if targets.length() > 1 then
       error("Only one target option can be specified.")
     elseif targets.length() == 1 then
       compilerSettings.add("target", targets.first())
     end
+     */
 
     // Check for a single valid precision
+    // this is now done in simex.m and on the command line since only one option can be specified with --precision
+    /*
     var precisions = [precisionOptions.getValue(precision) foreach precision in precisionOptions.keys when objectContains(commandLineOptions, precision)]
     if precisions.length() > 1 then
       error("Only one precision option can be specified. (" + join(", ", precisionOptions.keys) + ")")
     elseif precisions.length() == 1 then
       compilerSettings.add("precision", precisions.first())
     end
+    */
 
     // Check for a specified output directory, also used for temporary compiler files
-    if objectContains(commandLineOptions, "outputdir") then
-      compilerSettings.add("outputdir", commandLineOptions.outputdir)
-    end
+    //if objectContains(commandLineOptions, "outputdir") then
+    //  compilerSettings.add("outputdir", commandLineOptions.outputdir)
+    //end
 
-    if objectContains(commandLineOptions, "debug") then
-      compilerSettings.add("debug", true)
-    end
+    //if objectContains(commandLineOptions, "debug") then
+    //  compilerSettings.add("debug", true)
+    //end
 
+    if settings.simulation_debug.emulate.getValue() then
+	if "gpu" == settings.simulation.target.getValue() then
+	    // this is ok
+	else
+	    error("Emulation is only valid for the GPU.")
+	end
+    end
+    /*
     if objectContains(commandLineOptions, "emulate") then
       if("gpu" == settings.simulation.target.getValue()) then
 	compilerSettings.add("emulate", true)
@@ -448,18 +499,18 @@ import "command_line.dsl"
 	error("Emulation is only valid for the GPU.")
       end
     end
-
-    if objectContains(commandLineOptions, "profile") then
-      compilerSettings.add("profile", true)
-    end
+     */
+    //if objectContains(commandLineOptions, "profile") then
+    //  compilerSettings.add("profile", true)
+    //end
 
     // Add any defaults for settings that were not set from the command-line
-    var defaults = defaultCompilerSettings()
-    foreach key in defaults.keys do
-      if not(objectContains(compilerSettings, key)) then
-	compilerSettings.add(key, defaults.getValue(key))
-      end
-    end
+    //var defaults = defaultCompilerSettings()
+    //foreach key in defaults.keys do
+    //  if not(objectContains(compilerSettings, key)) then
+    //  compilerSettings.add(key, defaults.getValue(key))
+    //  end
+    //end
 
     // Set up the name of the c source file
     var name = Path.base(Path.file (commandLineOptions.simex))
@@ -469,7 +520,8 @@ import "command_line.dsl"
     else
       cname = name + ".c"
     end
-    compilerSettings.add("cSourceFilename", cname)
+    settings.compiler.cSourceFilename.setValue(cname)
+    //compilerSettings.add("cSourceFilename", cname)
 
     compilerSettings
   end
@@ -491,8 +543,8 @@ import "command_line.dsl"
     // Check to see if only the interface is requested
     if objectContains(commandLineOptions, "interface") then
       simulationSettings.add("interface", true)
-    elseif objectContains(commandLineOptions, "json-interface") then
-      simulationSettings.add("json-interface", commandLineOptions.getValue("json-interface"))
+    elseif objectContains(commandLineOptions, "json_interface") then
+      simulationSettings.add("json_interface", /*commandLineOptions.getValue("json-interface")*/settings.compiler.json_interface.getValue())
     // Set all the simulation settings from the commandLineOptions
     elseif copyOptions(commandLineOptions, simulationSettings, simulationSettingNames) then
       if not(objectContains(simulationSettings, "stop")) then
@@ -506,9 +558,9 @@ import "command_line.dsl"
 	end
 
 	// Add any defaults for settings that were not set from the command-line
-	foreach key in defaultSimulationSettings.keys do
+	foreach key in defaultSimulationSettings().keys do
 	  if not(objectContains(simulationSettings, key)) then
-	    simulationSettings.add(key, defaultSimulationSettings.getValue(key))
+	    simulationSettings.add(key, defaultSimulationSettings().getValue(key))
 	  end
 	end
 
@@ -528,6 +580,19 @@ import "command_line.dsl"
     else
       ()
     end
+  end
+
+  // populateCompilerSettings - adds settings from the global settings structure into compiler settings
+  // everything in here will be added to the generated archive manifest
+  function populateCompilerSettings(compilerSettings)
+    compilerSettings.add("target", settings.simulation.target.getValue())
+    compilerSettings.add("precision", settings.simulation.precision.getValue())
+    compilerSettings.add("optimize", settings.optimization.optimize.getValue())
+    compilerSettings.add("aggregate", settings.optimization.aggregate.getValue())
+    compilerSettings.add("flatten", settings.optimization.flatten.getValue())
+    compilerSettings.add("debug", settings.simulation_debug.debug.getValue())
+    compilerSettings.add("profile", settings.simulation_debug.profile.getValue())
+    compilerSettings.add("emulate", settings.simulation_debug.emulate.getValue())
   end
 
   function autoRecompile (filename: String, compilerSettings: Table)
@@ -605,31 +670,33 @@ import "command_line.dsl"
 
     // Make sure the outputs directory exists, may be created before simEngine is called
     // otherwise, create it
-    if not(FileSystem.isdir(compilerSettings.outputdir)) then
-      FileSystem.mkdir(compilerSettings.outputdir)
-      if not(FileSystem.isdir(compilerSettings.outputdir)) then
-	error("Could not create directory " + compilerSettings.outputdir)
+    if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
+      FileSystem.mkdir(settings.compiler.outputdir.getValue())
+      if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
+	error("Could not create directory " + settings.compiler.outputdir.getValue())
       end
     end
 
     var exfile
     if needsToCompile then
+      populateCompilerSettings(compilerSettings)
       var success = compile (filename, target, compilerSettings)
       if success == 0 then
-	  exfile = Path.join(compilerSettings.outputdir, compilerSettings.exfile)
+	  exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
       else
 	  LF sys_exit(128)
 	  exfile = ""
       end
     else
-      var cfile = Path.join(compilerSettings.outputdir, compilerSettings.cSourceFilename)
-      exfile = Path.join(compilerSettings.outputdir, compilerSettings.exfile)
+      //var cfile = Path.join(compilerSettings.outputdir, compilerSettings.cSourceFilename)
+      var cfile = Path.join(settings.compiler.outputdir.getValue(), settings.compiler.cSourceFilename.getValue())
+      exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
       Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.exfile, exfile)
       shell("chmod", ["+x", exfile])
       if settings.simulation_debug.debug.getValue() then
 	println ("reusing existing SIM")
 	// Extract C file for debugging
-	Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.cSourceFilename, cfile)
+	Archive.Simlib.getFileFromArchive(archive.filename, settings.compiler.cSourceFilename.getValue(), cfile)
       end
     end
     exfile
@@ -642,19 +709,37 @@ import "command_line.dsl"
       var debug_setting = settings.simulation_debug.debug.getValue()
       var profile_setting = settings.simulation_debug.profile.getValue()
       var emulate_setting = settings.simulation_debug.emulate.getValue()
+      var optimize_setting = settings.optimization.optimize.getValue()
+      var aggregate_setting = settings.optimization.aggregate.getValue()
+      var flatten_setting = settings.optimization.flatten.getValue()
 
       if executable.target <> target_setting then
 	  notice ("Target setting '"+target_setting+"' is not equal to the archive setting '"+executable.target+"'")
+      end
+      if executable.precision <> precision_setting then
+	  notice ("Precision setting '"+precision_setting+"' is not equal to the archive setting '"+executable.precision+"'")
+      end
+      if executable.debug <> debug_setting then
+	  notice ("Debug setting '"+debug_setting+"' is not equal to the archive setting '"+executable.debug+"'")
+      end
+      if executable.profile <> profile_setting then
+	  notice ("Profile setting '"+profile_setting+"' is not equal to the archive setting '"+executable.profile+"'")
+      end
+      if executable.emulate <> emulate_setting then
+	  notice ("Emulate setting '"+emulate_setting+"' is not equal to the archive setting '"+executable.emulate+"'")
       end
 
       var compat = ((executable.target == target_setting) and
 		    (executable.precision == precision_setting) and
 		    (executable.debug or not(debug_setting)) and
 		    (executable.profile == profile_setting) and
+		    (executable.optimize == optimize_setting) and
+		    (executable.aggregate == aggregate_setting) and
+		    (executable.flatten == flatten_setting) and
 		    (not("gpu" == executable.target)
 		     or executable.emulate == emulate_setting))
       if compat then
-	compilerSettings.add("exfile", executable.exfile)
+	  compilerSettings.add("exfile", executable.exfile)
       end
       compat
     end
@@ -668,7 +753,7 @@ import "command_line.dsl"
     end
 
     // Change working directory to outputdir directory
-    FileSystem.chdir(compilerSettings.outputdir)
+    FileSystem.chdir(settings.compiler.outputdir.getValue())
 
     var mod = LF loadModel (filename)
     var name = mod.template.name

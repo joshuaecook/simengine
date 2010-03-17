@@ -33,7 +33,9 @@ namespace Archive
     if () == manifest then 
 	// This is something that is unexpected, so it can be classified as a failure.  However, 
 	// we can work around this issue, so we can instead issue a warning.
-	warning("Failure reading read manifest from " + filename + ".  A new SIM file will be generated.")
+	if FileSystem.isfile(filename) then
+	    warning("Failure reading read manifest from " + filename + ".  A new SIM file will be generated.")
+	end
     else
       Archive.new (false, filename, Path.join (FileSystem.pwd (), ".simatra"), JSON.decode manifest)
     end
@@ -53,7 +55,7 @@ namespace Archive
   function createArchive (filename, dolFilename, dslFilenames, target, compilerSettings)
     var environment = {FIXME="needs environment"}
 
-    var cfile = compilerSettings.cSourceFilename
+    var cfile = settings.compiler.cSourceFilename.getValue()
     var cfile_o = Simlib.makeObjectFromFile (Path.file cfile, cfile)
     var exfile = (Path.base (Path.file cfile))
     compilerSettings.add("exfile", exfile)

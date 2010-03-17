@@ -436,7 +436,7 @@ end
 % amenable to Matlab use
 function [interface] = get_interface(opts)
   simex_interface_json = fullfile(opts.outputs, 'simex_interface.json');
-  opts.args = [opts.args ' --json-interface ' simex_interface_json];
+  opts.args = [opts.args ' --json_interface ' simex_interface_json];
   status = compile_model(opts);
   if(128 == status)
     simEngineError('compileModel', ['Model ''' opts.dslfile ''' can not be '...
@@ -494,6 +494,8 @@ function [] = simulate_model(opts)
   opts.args = [opts.args ' --start ' num2str(opts.startTime)];
   opts.args = [opts.args ' --stop ' num2str(opts.stopTime)];
   opts.args = [opts.args ' --instances ' num2str(opts.instances)];
+  opts.args = [opts.args ' --startupmessage=false'];
+  
   status = compile_model(opts);
   if(128 == status)
     simexError('simulateModel',['Model ''' opts.dslfile ''' failed '...

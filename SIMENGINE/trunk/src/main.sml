@@ -129,8 +129,10 @@ fun main () =
 							  args=KEC.UNIT}),
 				      PosLog.NOPOS)]
 
-	val _ = Logger.log_notice (Printer.$("Starting up simEngine ..."))
-
+	val _ = if DynamoOptions.isFlagSet "startupmessage" then
+		    Logger.log_notice (Printer.$("Starting up simEngine ..."))
+		else
+		    ()
 
 	val dir = OS.FileSys.fullPath (OS.Path.currentArc)
 
@@ -145,42 +147,49 @@ fun main () =
 
 	fun strEquals x y =
 	    case String.compare (x, y) of EQUAL => true | _ => false
+
+	local
+	    fun isDefined setting =
+		DynamoOptions.getStringSetting setting <> ""
+	in
+	fun nonInterativeOption () =
+	    isDefined "simex" orelse
+	    isDefined "compile" orelse
+	    isDefined "simulate"
+	end
+	val batchFile = DynamoOptions.getStringSetting "batch"
+
     in
-	case indexOf argv (strEquals "--simex")
-	 of SOME n => 
+	if nonInterativeOption () then
+	    ((*Util.log "non interactive";*)
 	    (* Noninteractive operating on a model definition. *)
-	    ((*print (Globals.startupMessage() ^ "\n")
-	   ;*) (KEC.UNIT, env))
-	  | NONE => 
-	    case indexOf argv (strEquals "--batch")
-	     of SOME n =>
-		let val filename = if length argv > n + 1 then List.nth (argv, 1 + n) else "-"
-		in 
-		    if "-" <> filename orelse 0 < String.size filename andalso #"-" <> String.sub (filename, 0) then
-			(* Noninteractive reading from a file. *)
-			let
-			    val filename = OS.FileSys.fullPath filename
-					   handle _ => (print ("Unable to locate " ^ filename ^ "\n")
-						      ; raise Usage)
-			    val {dir, file} = OS.Path.splitDirFile filename
-			    val stream = TextIO.openIn filename
-					   handle _ => (print ("Unable to read " ^ filename ^ "\n")
-						      ; raise Usage)
-			in
-			    ParserSettings.setSettings (false, file, dir)
-			  ; rep_loop false stream env
-			end
-		    else
-			(* Noninteractive reading from STDIN. *)
-			(ParserSettings.setSettings (true, "STDIN", dir)
-		       ; print (Globals.startupMessage() ^ "\n")
-		       ; rep_loop false TextIO.stdIn env)
+	    (KEC.UNIT, env))
+	else if batchFile <> "" then
+	    ((*Util.log "batch mode ...";*)
+	    if "-" <> batchFile orelse 0 < String.size batchFile andalso #"-" <> String.sub (batchFile, 0) then
+		(* Noninteractive reading from a file. *)
+		let
+		    val filename = OS.FileSys.fullPath batchFile
+			handle _ => (print ("Unable to locate " ^ batchFile ^ "\n")
+				   ; raise Usage)
+		    val {dir, file} = OS.Path.splitDirFile filename
+		    val stream = TextIO.openIn filename
+			handle _ => (print ("Unable to read " ^ filename ^ "\n")
+				   ; raise Usage)
+		in
+		    ParserSettings.setSettings (false, file, dir)
+		  ; rep_loop false stream env
 		end
-	      | NONE =>
-		(* Interactive reading from STDIN. *)
+	    else
+		(* Noninteractive reading from STDIN. *)
 		(ParserSettings.setSettings (true, "STDIN", dir)
-	       ; print (Globals.startupMessage() ^ "\n")
-	       ; rep_loop true TextIO.stdIn env)
+	       (*; print (Globals.startupMessage() ^ "\n")*)
+	       ; rep_loop false TextIO.stdIn env))
+	else
+	    (* Interactive reading from STDIN. *)
+	    ((*Util.log("interactive ...");*)ParserSettings.setSettings (true, "STDIN", dir)
+	   (*; print (Globals.startupMessage() ^ "\n")*)
+	   ; rep_loop true TextIO.stdIn env)
       ; Logger.log_remove userLog
       ; Logger.log_remove log
       ; GeneralUtil.SUCCESS

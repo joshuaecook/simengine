@@ -703,11 +703,17 @@ fun obj2dofmodel object =
 	    (foldl (op @) nil (map buildTemporalIterator (vec2list (send "getTemporalIterators" (method "modeltemplate" object) NONE))))
 
 	(*val key_value_pairs = vec2list (method "contents" (method "settings" (method "modeltemplate" object)))*)
-	val precision = exp2str (method "precision" (method "settings" (method "modeltemplate" object)))
+	(*val precision = exp2str (method "precision" (method "settings" (method "modeltemplate" object)))
 	val target = exp2str (method "target" (method "settings" (method "modeltemplate" object)))
 	val parallel_models = exp2int (method "parallel_models" (method "settings" (method "modeltemplate" object)))
 	val debug = exp2bool (method "debug" (method "settings" (method "modeltemplate" object)))
-	val profile = exp2bool (method "profile" (method "settings" (method "modeltemplate" object)))
+	val profile = exp2bool (method "profile" (method "settings" (method "modeltemplate" object)))*)
+	val precision = DynamoOptions.getStringSetting "precision"
+	val target = DynamoOptions.getStringSetting "target"
+	val parallel_models = DynamoOptions.getIntegerSetting "parallel_models"
+	val debug = DynamoOptions.isFlagSet "debug"
+	val profile = DynamoOptions.isFlagSet "profile"
+			
 		      
 	(* only support openmp right now *)
 	val target = if StdFun.toLower target = "parallelcpu" then

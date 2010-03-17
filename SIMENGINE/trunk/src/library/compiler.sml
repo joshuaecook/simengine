@@ -339,10 +339,16 @@ fun simfileSettings exec args =
       | [a] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
       | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
 
+fun settingsHelp exec args =
+    case args 
+     of nil => KEC.LITERAL (KEC.CONSTSTR (DynamoOptions.optionsdescription "simEngine"))
+      | args => raise IncorrectNumberOfArguments {expected=0, actual=(length args)}
+
 val library = [{name="compile", operation=std_compile},
 	       {name="loadModel", operation=loadModel},
 	       {name="getModelImports", operation=getModelImports},
 	       {name="simfileSettings", operation=simfileSettings},
+	       {name="settingsHelp", operation=settingsHelp},
 	       {name="transexp", operation=std_transExp},
 	       {name="exp2str", operation=std_exp2str},
 	       {name="addRules", operation=std_addRules},

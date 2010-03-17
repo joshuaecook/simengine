@@ -17,7 +17,7 @@ static const struct option long_options[] = {
   {"outputdir", required_argument, 0, OUTPUT_DIR},
   {"binary", no_argument, 0, BINARY},
   {"interface", no_argument, 0, INTERFACE},
-  {"json-interface", required_argument, 0, JSON_INTERFACE},
+  {"json_interface", required_argument, 0, JSON_INTERFACE},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
@@ -454,7 +454,7 @@ void make_model_output_directories(simengine_opts *opts){
       // Only need to check return value on mkdir because we created the top level directory outputs_dirname
       if(mkdir(model_dirname, 0777)){
 	if(errno != EEXIST || i == 0){
-	  ERROR(Simatra::Simex::make_model_output_directories, "could not create directory '%s'\n", model_dirname);
+	  ERROR(Simatra::Simex::make_model_output_directories, "Output directory '%s' already exists, remove manually or specify a new output directory with the --outputdir <directory name> option\n", opts->outputs_dirname);
 	}
       }
     }

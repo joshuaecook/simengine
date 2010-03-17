@@ -57,6 +57,17 @@
 // statefile: file where states are read from
 <statefile = "">
 
+
+// **********************************************************************
+//                          GPU Simulation Options
+// **********************************************************************
+
+// gpuid: specifies the id of the GPU that the simulation should run on
+<gpuid = 0>
+
+// gpublocksize: set the block size on the GPU - override on the command line
+<gpublocksize = 64>
+
 // **********************************************************************
 //               Additional Simulation Options for Debugging
 // **********************************************************************
@@ -65,14 +76,18 @@
 <emulate = false>
 <profile = false>
 <nocompile = false>
+<cSourceFilename = false>
 
 // **********************************************************************
 //                             Additional Options
 // **********************************************************************
 
 
-// targetname: choose the name/directory of the output sim file, otherwise a default is chosen
+// outputname: choose the name/directory of the output sim file, otherwise a default is chosen
 <outputname = "">
+
+// outputdir: choose the directory for generated output files, including temporary file locations
+<outputdir = "simex_outputs">
 
 // librarypath: the directory simEngine will look for when searching for libraries to link against
 <librarypath = "$SIMENGINE/lib">
@@ -98,6 +113,9 @@
 
 // aggregate: aggregate multiple iterators with the same fixed time step into one iterator to improve performance
 <aggregate = false>
+
+// startupmessage: display the program information on startup
+<startupmessage = true>
 
 // generateMathematica: generates a mathematica description of the model
 <generateMathematica = false>
