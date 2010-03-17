@@ -24,7 +24,7 @@ s.add(BasicSubModelTests(mode, target));
 s.add(HierarchySubModelTests(mode, target));
 s.add(AlgebraicSubModelTests(target));
 s.add(OrderingTests(target));
-s.add(IteratorSubModelTests(target))'
+s.add(IteratorSubModelTests(target));
 
 end
 
