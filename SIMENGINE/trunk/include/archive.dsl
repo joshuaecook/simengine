@@ -31,8 +31,9 @@ namespace Archive
   function openArchive (filename)
     var manifest = Simlib.getContentsFromArchive (filename, "MANIFEST.json")
     if () == manifest then 
-	// turn this into a failure
-	warning("Couldn't read manifest from " + filename)
+	// This is something that is unexpected, so it can be classified as a failure.  However, 
+	// we can work around this issue, so we can instead issue a warning.
+	warning("Failure reading read manifest from " + filename + ".  A new SIM file will be generated.")
     else
       Archive.new (false, filename, Path.join (FileSystem.pwd (), ".simatra"), JSON.decode manifest)
     end
