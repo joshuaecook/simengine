@@ -11,7 +11,7 @@ model (Vm) = leakyMembrane(Iext)
    constant gleak = 8
    constant Eleak = -60
 
-   state Vm = Vm0
+   state Vm = -45
 
    equations
      Ileak = gleak*(Vm - Eleak)
