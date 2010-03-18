@@ -29,9 +29,11 @@ val name = short_name ^ " Dynamical System Compiler"
 val version = BuildOptions.version
 val extension = ".dso"
 val edition = ref "N/A"
+val licenseHolder = ref "N/A"
 
 fun startupMessage() =
     (name ^ " v" ^ version ^ ", " ^ (!edition) ^ " Edition" ^ "\n"
+     ^ "Licensed to: " ^ (!licenseHolder) ^ "\n"
      ^ "[built: " ^ BuildOptions.buildDate ^ "]" ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
      ^ copyright)
     

@@ -30,6 +30,8 @@ val restriction = attr L.restriction
 val maxMinorVersion = attr L.maxMinorVersion
 val maxMajorVersion = attr L.maxMajorVersion
 val expirationDate = attr L.expirationDate
+val customerName = attr L.customerName
+val customerOrganization = attr L.customerOrganization
 end
 
 fun versionToString () =
@@ -40,7 +42,24 @@ fun versionToString () =
       | L.PROFESSIONAL => "Professional"
       | L.DEVELOPMENT => "Development"
 
-fun set license = (current := license; Globals.edition := (versionToString()))
+fun licenseHolderToString () =
+    let
+	val name = customerName()
+	val org = customerOrganization()
+	val nameOrg = if org <> "" then
+			  name ^ " of " ^ org
+		      else
+			  name
+	val restr = restriction()
+    in
+	case restr of
+	    L.SITE site => site
+	  | L.HOSTID _ => nameOrg ^ " (single computer)"
+	  | L.USERNAME user => nameOrg ^ " (user: " ^ user ^ ")"
+	  | L.LICENSESERVER server => nameOrg ^ " (Floating license from server '" ^ server ^ "')"
+    end
+
+fun set license = (current := license; Globals.edition := (versionToString()); Globals.licenseHolder := (licenseHolderToString()))
 
 fun isBasic () = 
     case version ()
@@ -161,17 +180,21 @@ fun verifyNotRestricted () =
 fun findLicense () =
     let
 	(* TODO - Error checking... Check for license in user directory? *)
-	val licenseFile = OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/license.lic")
+	val licenseFileMain = OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/license.key")
+	val licenseFileUser = OS.Path.concat (valOf (OS.Process.getEnv("HOME")), OS.Path.fromUnixPath ".simatra/license.key")
+
 	fun readFile filename =
 	    let val instream = TextIO.openIn filename
 	    in TextIO.inputAll instream
 	       before TextIO.closeIn instream
 	    end
-	val licenseData = readFile licenseFile
+
+	val license = License.licenseFromData(readFile licenseFileMain)
+	    handle _ => License.licenseFromData(readFile licenseFileUser)
+	    handle _ => L.default
     in
-	set(License.licenseFromData(licenseData))
+	set(license)
     end
-    handle _ => set(L.default)
 
 fun findAndVerify () =
     let
