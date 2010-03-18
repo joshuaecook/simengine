@@ -1,6 +1,11 @@
 signature EXPPROCESS =
 sig
 
+(* A visitor is a type of function which, 
+ * when given an expression and some value,
+ * returns a new value. *)
+type 'a visitor = Exp.exp * 'a -> 'a
+
 (* Commonly used functions *)
 val exp2term : Exp.exp -> Exp.term (* must be of term expression, otherwise this fails *)
 val term2exp : Exp.term -> Exp.exp
@@ -103,6 +108,9 @@ val uniq : Symbol.symbol -> Symbol.symbol (* given a sym, create a unique sym na
 end
 structure ExpProcess : EXPPROCESS =
 struct
+
+type 'a visitor = Exp.exp * 'a -> 'a
+
 
 val i2s = Util.i2s
 val r2s = Util.r2s
@@ -1257,7 +1265,11 @@ fun assignCorrectScopeOnSymbol exp =
 			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
 		     end
 		 else if isInitialConditionTerm exp then
-		     exp (* this doesn't really apply here ... *)
+		     let val props = Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))
+			 val props = Property.setEPIndex props (SOME Property.STRUCT_OF_ARRAYS)
+		     in
+			 Exp.TERM (Exp.SYMBOL (sym, props))
+		     end
 		 else if isForwardReference iter_index then
 		     (user_error exp "Invalid positive temporal index found on quantity";
 		      exp)
