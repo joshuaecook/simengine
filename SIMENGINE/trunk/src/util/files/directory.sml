@@ -178,7 +178,7 @@ fun mkDir dir =
 			 OS.FileSys.mkDir(dir) handle _ => (Logger.log_error ($("Can't create directory '"^dir^"'"));
 							    DynException.setErrored()))
 		    else
-			(Logger.log_error ($("Directory '"^dir^"' exists, use +f or +force to overwrite"));
+			(Logger.log_error ($("Directory '"^dir^"' exists, use -f or --force to overwrite"));
 			 DynException.setErrored())
 		else
 		    (Logger.log_notice ($("Creating directory '"^dir^"'"));

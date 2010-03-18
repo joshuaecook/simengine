@@ -336,7 +336,7 @@ import "command_line.dsl"
 	error("Only one option of -simex, -compile, and -simulate is supported at one time")
     end
 
-    if objectContains(commandLineSettings, "help") then
+    if settings.general.help.getValue() then
       printUsage(LF settingsHelp())
     elseif simexFile <> "" then
       var modelFile = FileSystem.realpath(simexFile)
@@ -416,7 +416,7 @@ import "command_line.dsl"
 	    "\tInteractive mode: run simEngine as an interactive environment\n" +
 	    "\t\tsimEngine [options]\n\n"+
 	    "Currently available options include:\n\n" +
-	    settingshelp + "\n\n" +
+	    settingshelp + "\n" +
 	    "For further information, please visit us at www.simatratechnologies.com.\n"
 	    /*"-start <n>" +
 	    "-stop <n>" +
@@ -540,13 +540,38 @@ import "command_line.dsl"
       copied
     end
 
+    function createSimulationTable (tableDest)	
+	if objectContains(settings.simulation, "start") then
+	    tableDest.add("start", settings.simulation.start.getValue())
+	end	
+	if objectContains(settings.simulation, "stop") then
+	    tableDest.add("stop", settings.simulation.stop.getValue())
+	end	
+	tableDest.add("instances", settings.simulation.instances.getValue())
+	if objectContains(settings.simulation, "inputfile") then
+	    tableDest.add("inputs", settings.simulation.inputfile.getValue())
+	end
+	if objectContains(settings.simulation, "statefile") then
+	    tableDest.add("states", settings.simulation.statefile.getValue())
+	end
+	tableDest.add("outputdir", settings.compiler.outputdir.getValue())
+	tableDest.add("binary", settings.simulation.binary.getValue())
+	if "gpu" == settings.simulation.target.getValue() then
+	    tableDest.add("gpuid", settings.gpu.gpuid.getValue())
+	end
+	if objectContains(settings.simulation, "seed") then
+	    tableDest.add("seed", settings.simulation.seed.getValue())
+	end	
+	true
+    end
+
     // Check to see if only the interface is requested
     if objectContains(commandLineOptions, "interface") then
       simulationSettings.add("interface", true)
     elseif objectContains(commandLineOptions, "json_interface") then
       simulationSettings.add("json_interface", /*commandLineOptions.getValue("json-interface")*/settings.compiler.json_interface.getValue())
     // Set all the simulation settings from the commandLineOptions
-    elseif copyOptions(commandLineOptions, simulationSettings, simulationSettingNames) then
+    elseif /*copyOptions(commandLineOptions, simulationSettings, simulationSettingNames)*/createSimulationTable(simulationSettings) then
       if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time or interface request was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")

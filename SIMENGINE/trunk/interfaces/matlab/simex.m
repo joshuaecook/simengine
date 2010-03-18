@@ -199,8 +199,10 @@ if 1 > nargin
         'SIMEX requires an input model file name.');
 end
 
-opts.dslfile = varargin{1};
-opts.model = realpath(opts.dslfile);
+if exist(varargin{1},'file');
+  opts.dslfile = varargin{1};
+  opts.model = realpath(opts.dslfile);
+end
 
 if 1 < nargin
   if isnumeric(varargin{2})
@@ -210,11 +212,15 @@ if 1 < nargin
     start_index = 2;
   end
 
+  % Set a flag to indicate that a flag was found, so that a numeric
+  % option would be ignored
+  previous_unknown_flag = false;
+  
   for count=start_index:nargin
     arg = varargin{count};
     if isstruct(arg)
       opts.inputs = arg;
-    elseif isnumeric(arg)
+    elseif isnumeric(arg) && ~previous_unknown_flag
       opts.states = arg;
     elseif strcmpi(arg, '-debug')
       opts.args = [opts.args ' -' arg];
@@ -256,15 +262,32 @@ if 1 < nargin
                    'to be specified, while two (-' opts.precision ', ' ...
                             arg ') were specified.']);
       end
-    elseif ~(ischar(arg) || isempty(arg))
+    elseif ~(ischar(arg) || isempty(arg)) && ~previous_unknown_flag
       simexError('argumentError', ...
             'All additional arguments must be non-empty strings.');
     else
-      if length(arg) > 2 && arg(1) == '-' && arg(2) ~= '-' 
+      if ischar(arg) && length(arg) > 2 && arg(1) == '-' && arg(2) ~= '-' 
         % require two dashes for arguments longer than one character inside simEngine
         opts.args = [opts.args ' -' arg];
+        previous_unknown_flag = true;
       else
-        opts.args = [opts.args ' ' arg];
+        if isnumeric(arg) 
+          if length(arg) > 1
+            str = num2str(arg(1))
+            for i=2:(length(arg))
+              str = [str ',' num2str(i)];
+            end
+            opts.args = [opts.args ' ['  str ']'];
+          else
+            opts.args = [opts.args ' ' num2str(arg)];
+          end
+        elseif ischar(arg)
+          opts.args = [opts.args ' ' arg];
+        else
+          simexError('argumentError', ['SIMEX argument has unexpected '...
+                              'type']);
+        end          
+        previous_unknown_flag = false;
       end
     end
   end
@@ -363,13 +386,16 @@ for fieldid=1:length(fieldnames)
   elseif 0 == models
     models = 1;
   end
+  models
 end
 
 userInputs = zeros(models, length(interface.inputs));
 for fieldid=1:length(fieldnames)
   fieldname = fieldnames{fieldid};
   if ~isfield(inputs, fieldname)
-    userInputs(1:models, fieldid) = interface.defaultInputs.(fieldname) * ones(models, 1);
+    val = interface.defaultInputs.(fieldname);
+    parallel_val = val * ones(models, 1);
+    userInputs(1:models, fieldid) = val;
     continue
   end
   
@@ -508,6 +534,9 @@ end
 
 function [status] = compile_model(opts)
   command = [opts.simengine ' --simex ' opts.model ' --outputdir ' opts.outputs ' ' opts.args];
+  if opts.debug
+    disp(['Running <' command '>'])
+  end
   status = launchBackground(command, opts.outputs);
 end
 

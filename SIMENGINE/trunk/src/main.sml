@@ -149,7 +149,8 @@ fun main () =
 	fun nonInteractiveOption () =
 	    isDefined "simex" orelse
 	    isDefined "compile" orelse
-	    isDefined "simulate"
+	    isDefined "simulate" orelse
+	    DynamoOptions.isFlagSet "help"
 	end
 	val batchFile = DynamoOptions.getStringSetting "batch"
 

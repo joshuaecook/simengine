@@ -342,10 +342,16 @@ links: $(BUILD_DIR)
 # Compiler Dependencies
 # ==============================================================================================
 
+ifeq ($(UNAME_KERNEL), Darwin)
+CRYPTO_LIB = /opt/local/lib/libcrypto.a
+else
+CRYPTO_LIB = /usr/lib/libcrypto.a
+endif
+
 COMPILER_BASIS = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_BASIS))
 COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c ffi-license.c) codegen/src/*.o
-COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a /usr/lib/libcrypto.a simatra.o
+COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a $(CRYPTO_LIB) simatra.o
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
 
 

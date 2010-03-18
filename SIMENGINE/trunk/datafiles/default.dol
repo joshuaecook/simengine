@@ -28,7 +28,7 @@
 <simulate = "">
 
 // target: simulation target platform - can be cpu, gpu, or parallelcpu
-<target = "parallelcpu">
+<target = "cpu">
 
 // precision: set the precision of the simulation
 <precision = "double">
@@ -46,16 +46,13 @@
 <parallel_models = 1>
 
 // seed: integer number specifying the seed to use for simulations, use -1 for automatic seed
-<seed = -1>
+//<seed = -1>
+
+// seeded: flag specifying that the --seed option value is used
+<seeded = false>
 
 // binary: specifies the way data is generated in simulations, by default in ascii mode
 <binary = false>
-
-// inputfile: file where inputs are read from
-<inputfile = "">
-
-// statefile: file where states are read from
-<statefile = "">
 
 
 // **********************************************************************
@@ -122,3 +119,6 @@
 
 // useFullForm: when writing expressions to the screen, show it using a more verbose functional form
 <usefullform = false>
+
+// help: show usage information
+<help = false>

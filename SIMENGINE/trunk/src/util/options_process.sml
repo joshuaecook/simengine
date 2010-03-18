@@ -101,8 +101,14 @@ fun option2description {short=NONE, long=NONE, xmltag, dyntype, description} =
   | option2description {short, long, xmltag, dyntype, description} =
     let
 	val prefix = case dyntype of
-			 FLAG_T => "[+/-]"
-		       | _ => "-"
+			 (*FLAG_T => "[+/-]"
+		       | *)_ => "-"
+
+	val longprefix = "--"
+
+	val suffix = case dyntype of
+			 FLAG_T => "[=false]"
+		       | _ => ""
 
 	val argcolumn = "  "
 	val argcolumn = case short of
@@ -112,7 +118,7 @@ fun option2description {short=NONE, long=NONE, xmltag, dyntype, description} =
 			    (SOME _, SOME _) => argcolumn ^ ", "
 			  | _ => argcolumn
 	val argcolumn = case long of
-			    SOME long => argcolumn ^ prefix ^ long
+			    SOME long => argcolumn ^ longprefix ^ long ^ suffix
 			  | _ => argcolumn
 	val argcolumn = case dyntype of 
 			    FLAG_T => argcolumn
@@ -147,7 +153,7 @@ fun option2description {short=NONE, long=NONE, xmltag, dyntype, description} =
 
 fun group2description {group, visible, options, ...} =
     if visible then
-	group :: (GeneralUtil.flatten (map option2description options))
+	(group :: (GeneralUtil.flatten (map option2description options))) @ [""]
     else
 	[]
 
@@ -238,14 +244,14 @@ fun addSetting(name, dyntype, argument, settings) =
 				 SOME i =>
 				 INTEGER i
 			      | NONE =>
-				(error ($("Argument for '" ^ name ^ "' not a valid integer"));
+				(error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid integer"));
 				 raise InvalidArgument))
 			  | REAL_T => 
 			    (case Real.fromString argument of
 				 SOME r =>
 				 REAL r
 			       | NONE =>
-				 (error ($("Argument for '" ^ name ^ "' not a valid real"));
+				 (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid real"));
 				  raise InvalidArgument))
 			  | STRING_T => 
 			    STRING (argument)
@@ -253,14 +259,14 @@ fun addSetting(name, dyntype, argument, settings) =
 			    (case Int.fromString argument of
 				 SOME i =>
 				 INTEGER_VEC [i]
-			       | NONE => (error ($("Argument for '" ^ name ^ "' not a valid integer"));
+			       | NONE => (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid integer"));
 					  raise InvalidArgument))
 			  | REAL_VECTOR_T => 
 			    (case Real.fromString argument of
 				 SOME r =>
 				 REAL_VEC [r]
 			       | NONE =>
-				 (error ($("Argument for '" ^ name ^ "' not a valid real"));
+				 (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid real"));
 				  raise InvalidArgument))
 			  | STRING_VECTOR_T => (* deliminate arguments by a : *)			    
 			    STRING_VEC (*[argument]*) (String.tokens (fn(c)=> c = #":") argument)
