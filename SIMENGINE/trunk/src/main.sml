@@ -95,13 +95,7 @@ fun main () =
 	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
 
 	(* Verify the license file *)
-	val _ = License.verifyNotRestricted () (* check to make sure that there the user/hostid/network/site specification is correct *)
-
-	(* now verify that the version is correct *)
-	val _ = License.isValidVersion (BuildOptions.majorVersion, BuildOptions.minorVersion)
-
-	(* verify that it is not expired *)
-	val _ = License.verifyExpired ()
+	val _ = CurrentLicense.findAndVerify()
 
 	val argv = CommandLine.arguments ()
 
@@ -152,7 +146,7 @@ fun main () =
 	    fun isDefined setting =
 		DynamoOptions.getStringSetting setting <> ""
 	in
-	fun nonInterativeOption () =
+	fun nonInteractiveOption () =
 	    isDefined "simex" orelse
 	    isDefined "compile" orelse
 	    isDefined "simulate"
@@ -160,7 +154,7 @@ fun main () =
 	val batchFile = DynamoOptions.getStringSetting "batch"
 
     in
-	if nonInterativeOption () then
+	if nonInteractiveOption () then
 	    ((*Util.log "non interactive";*)
 	    (* Noninteractive operating on a model definition. *)
 	    (KEC.UNIT, env))

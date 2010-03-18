@@ -286,6 +286,12 @@ compiler-64:
 pcode-64:
 	@$(MAKE) pcode ARCH64=x86_64
 
+ifneq ($(PRIVATE_KEY),)
+createLicense: codegen src/createLicense.mlb src/ffi/ffi-license.c src/ffi/createLicense.sml src/ffi/license.sml src/ffi/ffi-exports.sml $(PRIVATE_KEY)
+	./codegen/simlib/simlib put simatra_private $(PRIVATE_KEY)
+	mlton -output $@ -cc-opt "-DENABLE_ENCODE" -link-opt "-lcrypto codegen/simlib/simlib.a simatra_private.o -rdynamic" src/createLicense.mlb src/ffi/ffi-license.c 
+endif
+
 # Build Directory per Build Type
 # ==============================================================================================
 
@@ -338,8 +344,8 @@ links: $(BUILD_DIR)
 
 COMPILER_BASIS = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_BASIS))
-COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c) codegen/src/*.o
-COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a
+COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c ffi-license.c) codegen/src/*.o
+COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a /usr/lib/libcrypto.a simatra.o
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
 
 
@@ -557,6 +563,9 @@ codegen_clean:
 codegen/simlib/simlib.a: codegen
 codegen/simlib/simlib: codegen
 codegen/src/*.o: codegen
+
+simatra.o: src/ffi/simatra_public.key
+	./codegen/simlib/simlib put simatra src/ffi/simatra_public.key
 
 # User and developer documents
 # ==============================================================================================

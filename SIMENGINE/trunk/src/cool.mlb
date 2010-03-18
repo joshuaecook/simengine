@@ -16,6 +16,7 @@ local
       ffi/devices.sml
       ffi/simlib.sig
       ffi/simlib.sml
+      ffi/license.sml
   end
 
   shell/symbol.sml
@@ -90,7 +91,7 @@ ir/util.sml
 
 (* licensing and feature set *)
 util/process.sml
-util/license.sml
+util/current-license.sml
 util/features.sml
 
 ir/math/calculus.sml
