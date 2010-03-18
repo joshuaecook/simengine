@@ -616,9 +616,7 @@ namespace Simulation
       end
 
       function getInitialValue()
-         // we want to grab the rhs, but this is not supported, so let's just make it zero
-         //getEq().rhs
-         0
+         getEq().rhs
       end
 
       function getEq()

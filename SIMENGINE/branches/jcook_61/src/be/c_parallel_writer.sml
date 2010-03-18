@@ -62,7 +62,6 @@ and term_reads_iterator iter (Exp.SYMBOL (name, props)) =
     in case Property.getScope props
 	of Property.READSTATE iter_sym' => iter_sym = iter_sym'
 	 | Property.READSYSTEMSTATE iter_sym' => iter_sym = iter_sym'
-	 | Property.READSYSTEMSTATENEXT iter_sym' => iter_sym = iter_sym'
 	 | _ => false
     end
   | term_reads_iterator _ _ = false

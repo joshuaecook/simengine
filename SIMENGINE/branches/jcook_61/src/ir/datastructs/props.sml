@@ -11,7 +11,6 @@ datatype scope_type
   = LOCAL
   | READSTATE of Symbol.symbol (* needs to be pulled out of input structure *)
   | READSYSTEMSTATE of Symbol.symbol (* symbol here is the iterator to pull from  *)
-  | READSYSTEMSTATENEXT of Symbol.symbol (* symbol here is the iterator to pull from *)
   | WRITESTATE of Symbol.symbol (* needs to be written back to output structure *)
   | ITERATOR (* if it is an iterator, it needs to be prepended as such *)
   | SYSTEMITERATOR (* iterator value read from another solver *)

@@ -111,8 +111,6 @@ and scopeToJSON Property.LOCAL =
     JSONTypedObject ("Iterator.READSTATE", symbol name)
   | scopeToJSON (Property.READSYSTEMSTATE name) = 
     JSONTypedObject ("Iterator.READSYSTEMSTATE", symbol name)
-  | scopeToJSON (Property.READSYSTEMSTATENEXT name) = 
-    JSONTypedObject ("Iterator.READSYSTEMSTATENEXT", symbol name)
   | scopeToJSON (Property.WRITESTATE name) = 
     JSONTypedObject ("Iterator.WRITESTATE", symbol name)
 
