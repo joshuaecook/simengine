@@ -40,8 +40,6 @@ sig
     val maxMajorVersion: license -> int
     val expirationDate: license -> Date.date option
     val version: license -> version
-    val enhancements: license -> enhancements
-
 
     (* low level routines to convert Licenses to/from internal SML structure and external string format *)
     val licenseFromData : string -> license
@@ -63,7 +61,7 @@ datatype restriction = USERNAME of string
 		     | LICENSESERVER of string
 		     | SITE of string
 
-type enhancements = {}
+type enhancements = {} (* Container for add-on features, i.e. Penguin target *)
 
 datatype license = LICENSE of
 	 {product: product,
@@ -95,26 +93,31 @@ val version = acc #version
 val enhancements = acc #enhancements
 end
 
-val basic_license = 
+(* Default to a basic license *)
+val default =
     make {product=SIMENGINE,
-	     customerID=0,
-	     customerName="Free User",
-	     customerOrganization="Personal",
-	     restriction=SITE "Anywhere",
-	     serialNumber=0,
-	     maxMajorVersion=1,
-	     maxMinorVersion=1,
-	     expirationDate=NONE,
-	     version=BASIC,
-	     enhancements={}}
-
-val default = basic_license
+	  customerID=0,
+	  customerName="Free User",
+	  customerOrganization="",
+	  restriction=SITE "Free Evaluation License",
+	  serialNumber=0,
+	  maxMajorVersion=9999,
+	  maxMinorVersion=9999,
+	  expirationDate=NONE,
+	  version=BASIC,
+	  enhancements={}}
 
 
-
+(* Sanity check to identify a decoded license as valid data *)
 val currentLicenseHeader = 0x00cafe00
 
+(* Unencrypted license keys are limited to a total of ~240 bytes (2048 bit RSA key minus space used
+   to encode length of encrypted data) 
+   This value limits the total size of the three encoded strings to a total of 180 bytes accounting
+   for the 13 integer fields plus some wiggle room for future changes. *)
+val maxKeyStringLength = 180
 
+(* Fuctions that provide composed RSA encryption/decrytion and base64 encoding/decoding *)
 val licenseDecode' = 
     _import "license_Decode": (Int32.int * string) -> Int32.int;
 
@@ -131,6 +134,7 @@ fun licenseEncode licenseData =
      of 0 => FFIExports.getTheString () 
       | n => raise Fail ("Failed to encode license; error " ^ (Int.toString n))
 
+(* Serialization/deserialization functions for packing/unpacking integers and strings together to/from a string of bytes *)
 fun bytesToInt bytes =
     LargeWord.toInt (PackWord32Big.subVec (bytes, 0))
 
@@ -150,10 +154,6 @@ fun enqInt (str, int) =
 fun deqStr (str, len) = (String.extract(str, len, NONE), String.extract(str, 0, SOME len))
 
 fun enqStr (str, s) = String.concat [str, s]
-
-
-
-
 
 
 (* Decomposes a packed string license format into the SML license type *)
@@ -215,10 +215,21 @@ fun licenseFromData data =
 	lic
     end
 
+(* Composes a packed string license format from the SML license type *)
 fun licenseToData (LICENSE
 		       {product, customerID, customerName, customerOrganization, restriction, serialNumber,
 			maxMajorVersion, maxMinorVersion, expirationDate, version, enhancements}) = 
     let
+	val (restrictionCode, restriction) = case restriction of
+						 USERNAME s => (0, s)
+					       | HOSTID s => (1, s)
+					       | LICENSESERVER s => (2, s)
+					       | SITE s => (3, s)
+	val _ = if (String.size(customerName) + String.size(customerOrganization) + String.size(restriction)) > maxKeyStringLength then
+		    raise InvalidLicenseFile
+		else
+		    ()
+
 	val licenseData = ""
 	val licenseData = enqInt(licenseData, currentLicenseHeader)
 	val product = case product of
@@ -235,11 +246,6 @@ fun licenseToData (LICENSE
 	val licenseData = enqInt(licenseData, maxMajorVersion)
 	val licenseData = enqInt(licenseData, maxMinorVersion)
 	val licenseData = enqInt(licenseData, customerID)
-	val (restrictionCode, restriction) = case restriction of
-						 USERNAME s => (0, s)
-					       | HOSTID s => (1, s)
-					       | LICENSESERVER s => (2, s)
-					       | SITE s => (3, s)
 	val licenseData = enqInt(licenseData, restrictionCode)
 	val expiration = case expirationDate of
 			     NONE => 0

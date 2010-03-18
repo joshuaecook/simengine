@@ -47,7 +47,7 @@ fun licenseHolderToString () =
 	val name = customerName()
 	val org = customerOrganization()
 	val nameOrg = if org <> "" then
-			  name ^ " of " ^ org
+			  name ^ ", " ^ org
 		      else
 			  name
 	val restr = restriction()
