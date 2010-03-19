@@ -1684,7 +1684,7 @@ fun state_init_code shardedModel iter_sym =
 			     in
 				 if hasInitialValueEquation instclass then
 				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
-				      SUB(initSysreads @
+				      SUB((if reads_system instclass then initSysreads else []) @
 					  [$("init_states_" ^ (Symbol.name classname) ^ "(" ^
 					     reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^
 					     "modelid);")]),
