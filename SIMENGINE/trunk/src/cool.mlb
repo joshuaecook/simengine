@@ -163,8 +163,6 @@ be/c_writer_util.sml
 be/codegen.sml
 be/c_parallel_writer.sml
 
-
-
 (* Model Construction and Interactive Shell *)
 
 (*shell/modeltranslate2.sml*)
@@ -174,6 +172,8 @@ shell/semant.sml
 shell/asttrans.sml
 
 shell/import-hook.sml
+
+compiler/compile.sml
 
 library/libraryutil.sml
 library/system.sml

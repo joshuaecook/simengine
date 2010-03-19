@@ -6,6 +6,10 @@ and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
 
 exception Aborted
 
+datatype phase = TRANSLATION | COMPILATION | CODEGENERATION
+exception CompilationError of phase
+exception CompilationFailure of phase
+
 fun log str = if DynamoOptions.isFlagSet "logdof" then 
 		  Util.log str
 	      else
@@ -15,141 +19,38 @@ fun std_compile exec args =
     (case args of
 	 [object] => 
 	 ((let
-	      val dslname = exec (KEC.SEND {message = Symbol.symbol "name",
-					    object = KEC.SEND {message = Symbol.symbol "modeltemplate",
-							       object = object}})
-	      val name = case dslname
-			   of KEC.LITERAL (KEC.CONSTSTR str) => str
-			    | _ => raise Aborted
+	       (* Translation Phase *)
+	       val forest as (_,{classname,...},_) = 
+		   case Compile.dslObjectToDOF (exec, object) of
+		       (f, Compile.SUCCESS) => f
+		     | (_, Compile.USERERROR) => raise (CompilationError TRANSLATION)
+		     | (_, Compile.EXCEPTION) => raise (CompilationFailure TRANSLATION)
 
+	      (* Compilation Phase *)
+	      val forkedModels = 
+		  case Compile.DOFToShardedModel forest of
+		       (f, Compile.SUCCESS) => f
+		     | (_, Compile.USERERROR) => raise (CompilationError COMPILATION)
+		     | (_, Compile.EXCEPTION) => raise (CompilationFailure COMPILATION)
 
-	      val _ = if DynException.isErrored() then
-			  raise Aborted
-		      else
-			  ()
+	      (* Code Generation Phase *)
+	      val () = case Compile.ShardedModelToCodeGen (classname, forkedModels) of
+			   Compile.SUCCESS => ()
+			 | Compile.USERERROR => raise (CompilationError CODEGENERATION)
+			 | Compile.EXCEPTION => raise (CompilationFailure CODEGENERATION)
 
-	      val _ = log "Translating model ..."
-	      val forest = case ModelTranslate.translate(exec, object) of
-				       SOME f => f
-				     | NONE => raise Aborted
-						  
-	      val _ = DynException.checkToProceed()
-
-	      val _ = DOFPrinter.printModel forest
-
-	      (* here, we can validate the model to catch issues that can't be found elsewhere *)
-	      val _ = CurrentModel.setCurrentModel forest
-	      val _ = ModelValidate.validate forest
-	      val _ = DynException.checkToProceed()
-
-	      val (classes, {classname,...}, _) = forest
-
-	      val _ = CurrentModel.setCurrentModel forest
-
-	      val () = 
-		  if ModelProcess.isDebugging (CurrentModel.getCurrentModel ()) then
-		      PrintJSON.printFile ("dof.json", ModelSyntax.toJSON (CurrentModel.getCurrentModel ()))
-		  else ()
-
-	      val _ = if DynamoOptions.isFlagSet "optimize" then
-			  (log ("Optimizing model ...");
-			   ModelProcess.optimizeModel (CurrentModel.getCurrentModel());
-			   DOFPrinter.printModel(CurrentModel.getCurrentModel()))
-(*			  handle e => (app (fn(s) => print("    " ^ s ^ "\n")) (MLton.Exn.history e))*)
-		      else
-			  ()
-
-	      val _ = log("Normalizing model ...")
-	      val _ = ModelProcess.normalizeModel (CurrentModel.getCurrentModel())
-
-	      (* checking license *)
-	      val _ = ModelValidate.validateLicensing (CurrentModel.getCurrentModel())
-
-	      val _ = log("Normalizing parallel model ...")
-	      val forkedModels = ShardedModel.forkModel (CurrentModel.getCurrentModel())
-
-	      val forkedModels = if DynamoOptions.isFlagSet "aggregate" then
-				     let
-					 val _ = log("Aggregating iterators ...")
-					 val forkedModels' = ShardedModel.combineDiscreteShards forkedModels
-				     in
-					 forkedModels'
-				     end
-				 else
-				     forkedModels
-
-	      val _ = if DynamoOptions.isFlagSet "optimize" then
-			  let
-			      val (shards, sysprops) = forkedModels
-			      fun toModel {classes, instance, ...} = (classes, instance, sysprops)
-			  in
-			      (log ("Optimizing model ...");
-			       app 
-				   (fn(shard) => 
-				      (CurrentModel.withModel (toModel shard)
-							      (fn() => ModelProcess.optimizeModel (toModel shard)))) 
-				   shards)
-			  end
-		      else
-			  ()
-
-	      val _ = log ("Ordering model classes ...")
-	      val forkedModels =
-		  let 
-		      val (shards, sysprops) = forkedModels
-		      val shards' = map (fn (shard as {classes,instance,...}) => 
-                          ShardedModel.orderShard ((classes,instance,sysprops),shard)) shards
-		  in 
-		      (shards', sysprops) 
-		  end
-
-(*	      val _ = log("Ready to build the following DOF ...")*)
-	      val _ = log("Ready to build ...")
-(*	      val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())*)
-
-	      val () = 
-		  if ModelProcess.isDebugging (CurrentModel.getCurrentModel()) then
-		      PrintJSON.printFile ("dof-final.json", ModelSyntax.toJSON (CurrentModel.getCurrentModel ()))
-		  else ()
-
-
-	      local 
-		  open JSON open JSONExtensions
-		  fun JSONSymbol (sym) =
-		      object [("$symbol", string (Symbol.name sym))]
-
-		  fun shardToJSON {classes, instance as {name, classname}, iter_sym} =
-		      object [("classes", array (map ClassSyntax.toJSON classes)),
-			      ("instance", object [("classname", JSONSymbol classname),
-						   ("name", JSONOption (JSONSymbol, name))]),
-			      ("iterator", JSONSymbol iter_sym)]
-		  val (shards, sysprops) = forkedModels
-	      in
-	      val () =
-		  if ModelProcess.isDebugging (CurrentModel.getCurrentModel()) then
-		      PrintJSON.printFile ("dof-system.json",
-					   object [("classname", JSONSymbol classname),
-						   ("properties", ModelSyntax.propertiesToJSON sysprops),
-						   ("shards", array (map shardToJSON shards))])
-		  else ()		  
-	      end
-
-	      val code = CParallelWriter.buildC (classname, forkedModels)
-(*	      val code = CWriter.buildC(CurrentModel.getCurrentModel())*)
-
-	      val _ = DynException.checkToProceed()
 	  in 
-	      case code of
-		  CParallelWriter.SUCCESS => error_code 0
-		| CParallelWriter.FAILURE f => error_code 255 (* CAN BE REMOVED - NEVER OCCURS *)
+	       error_code 0
 	  end)
-	  handle Aborted => error_code 1 (* this is from between DSL and the DOF translation *)
-	       | DynException.TooManyErrors => error_code 2 (* this is between DOF translation and code generation *)
-	       | DynException.InternalError _ => error_code 3 (* this is a stdException being raised *)
-	       | DynException.InternalFailure => error_code 4 (* this is a failure library function call in DSL - can be caught in main instead *))
-        
+	  handle CompilationError TRANSLATION => error_code 1
+	       | CompilationError COMPILATION => error_code 2
+	       | CompilationError CODEGENERATION => error_code 3
+	       | CompilationFailure TRANSLATION => error_code 4
+	       | CompilationFailure COMPILATION => error_code 5
+	       | CompilationFailure CODEGENERATION => error_code 6
+	       | DynException.InternalFailure => error_code 7)        
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
-    (*handle e => DynException.checkpoint "CompilerLib.std_compile" e*)
+
 and error_code code = KEC.LITERAL(KEC.CONSTREAL (Real.fromInt code))
 
 fun std_transExp exec args =

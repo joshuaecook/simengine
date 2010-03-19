@@ -2,6 +2,9 @@
 signature CURRENTMODEL =
 sig
 
+    (* Default empty model *)
+    val empty_model : DOF.model
+
    (* Primary accessor and modifier *) 
     val getCurrentModel: unit -> DOF.model
     val setCurrentModel: DOF.model -> unit

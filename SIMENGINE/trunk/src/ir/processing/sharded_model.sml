@@ -5,6 +5,8 @@ sig
 		  instance: DOF.instance,
 		  iter_sym: Symbol.symbol}
     type shardedModel = (shard list * DOF.systemproperties)
+
+    val empty_shardedModel : shardedModel
 			
     val forkModel : DOF.model -> shardedModel
 				 
@@ -46,6 +48,14 @@ val i2s = Util.i2s
 val r2s = Util.r2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
+
+(* define an empty sharded model useful for return when a current sharded model is invalid *)
+val empty_shardedModel = 
+    let
+	val (_, _, emptySysProps) = CurrentModel.empty_model
+    in
+	([], emptySysProps)
+    end
 
 (* Ensures that classes within a shard model are in dependency order. *)
 fun orderShard (model, shard as {classes, instance, iter_sym} : shard) =

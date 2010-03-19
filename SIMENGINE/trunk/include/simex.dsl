@@ -793,19 +793,28 @@ import "command_line.dsl"
     if 0 == stat then
       simfile = Archive.createArchive(Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
       println("Compilation completed succesfully")
-    elseif 2 >= stat then
+    elseif 3 >= stat then
 	// Show the error code
 	if 1  == stat then
 	    println("Error encountered in translation of DSL model")
 	elseif 2 == stat then
 	    println("Error encountered in compilation of DSL model")
+	elseif 3 == stat then
+	    println("Error encountered in code generation of DSL model")
 	end
-    elseif 3 == stat then
+    elseif 6 >= stat then
 	// Restore working directory
 	FileSystem.chdir("..")
 
-	failure("Unexpected internal exception was generated during compilation")
-    elseif 4 == stat then
+	if 4 == stat then
+	    failure("Unexpected internal exception was generated during translation")
+	elseif 5 == stat then
+	    failure("Unexpected internal exception was generated during compilation")
+	elseif 6 == stat then
+	    failure("Unexpected internal exception was generated during code generation")
+	end
+
+    elseif 7 == stat then
 	// Restore working directory
 	FileSystem.chdir("..")
 

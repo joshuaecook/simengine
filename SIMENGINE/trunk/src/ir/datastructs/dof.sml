@@ -87,5 +87,5 @@ type instance = {name: Symbol.symbol option,
 (* The instance identifies the outermost class. *)
 type model = class list * instance * systemproperties
 
-	
+
 end
