@@ -161,7 +161,9 @@ end
 function removeTempDirectory(directory)
   status = rmdir(directory, 's');
   if ~status
-    warning(['Could not remove directory: ' directory])
+    warning(['Could not remove temporary directory: ' directory '. ' ...
+             'Please remove this directory manually as it is no ' ...
+             'longer needed by simEngine'])
   end
 end
 
@@ -365,7 +367,7 @@ for fieldid=1:length(fieldnames)
 %  elseif iscomplex(field)
 %    warning('Simatra:warning', 'Ignoring imaginary components of INPUTS.%s.', fieldname);
   elseif any(isnan(field))
-    simexError('valueError', ['INPUTS.' fieldname 'may not contain NaN values.']);
+    simexError('valueError', ['INPUTS.' fieldname ' may not contain NaN values.']);
   end
   
   if ~isscalar(field)
@@ -373,7 +375,7 @@ for fieldid=1:length(fieldnames)
     if 2 < ndims(field)
       simexError('valueError', ['INPUTS.' fieldname ' may not have more than 2 dimensions.']);
     elseif ~(1 == rows || 1 == cols)
-      simexError('valueError', ['Expected INPUTS.' fieldname 'to be a vector or scalar.']);
+      simexError('valueError', ['Expected INPUTS.' fieldname ' to be a vector or scalar.']);
     end
     
     if 1 < models
