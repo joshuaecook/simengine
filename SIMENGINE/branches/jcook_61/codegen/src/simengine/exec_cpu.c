@@ -10,13 +10,11 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   // Initialize all iterators to running
   for(i=0;i<NUM_ITERATORS;i++){
     props[i].running[modelid] = 1;
-    dirty_states[i] = init_states(props[i].model_states, props[i].next_states, &props[i], modelid);
   }
+  init_states(props, modelid);
   for(i=0;i<NUM_ITERATORS;i++){
-    if (dirty_states[i] && props[i].next_time[modelid] == min_time) {
-      solver_writeback(&props[i], modelid);
-      dirty_states[i] = 0;
-    }
+    solver_writeback(&props[i], modelid);
+    dirty_states[i] = 0;
   }
 
   // TODO Initialize non-constant state initial values
@@ -52,7 +50,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	  dirty_states[i] = 0 == update(&props[i], modelid);
 	}	  
 	if(props[i].running[modelid] && (!before_first_iteration && props[i].next_time[modelid] == min_time)){
-	  dirty_states[i] = 0 == post_process(&props[i], modelid);
+	  dirty_states[i] |= 0 == post_process(&props[i], modelid);
 	}
       }
 

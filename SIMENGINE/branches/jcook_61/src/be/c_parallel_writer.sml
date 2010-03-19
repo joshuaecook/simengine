@@ -1813,8 +1813,8 @@ fun init_states shardedModel =
 			     let val class = CurrentModel.classname2class top_class
 				 val basename = ClassProcess.class2basename class
 				 val (reads, writes, sysreads) =
-				     ("(statedata_" ^ (Symbol.name top_class) ^ " *)y",
-				      "(statedata_" ^ (Symbol.name top_class) ^ " *)dydt",
+				     ("(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ ")",
+				      "(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
 				      "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states")
 			     in
 				 $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
@@ -1824,7 +1824,7 @@ fun init_states shardedModel =
 	    end
 
     in
-	[$("__HOST__ __DEVICE__ int init_states(CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, const unsigned int modelid){"),
+	[$("__HOST__ __DEVICE__ int init_states(solver_props *props, const unsigned int modelid){"),
 	 SUB(map subsystem_init_call (ShardedModel.iterators shardedModel)),
 	 SUB[$("return 0;")],
 	 $("}"),
