@@ -670,6 +670,8 @@ import "command_line.dsl"
 		  if creation < FileSystem.modtime i then
 		      notice ("Source file <"+i+"> is not up to date")
 		  end
+	      else
+		  notice ("Source file <"+i+"> no longer exists")
 	      end
 		  
 	    end
