@@ -123,11 +123,18 @@ fun main () =
 		       Logger.log_stdout (Logger.WARNINGS, defaultOptions)
 
 	(* Execute the startup file. *)
-	val (env, _) = Exec.run (rep_loop false) env
-				[KEC.ACTION 
-				     (KEC.EXP (KEC.APPLY {func=KEC.SYMBOL (Symbol.symbol "startup"),
-							  args=KEC.UNIT}),
-				      PosLog.NOPOS)]
+	fun startup env = 
+	    let
+		val (env, _) = Exec.run (rep_loop false) env
+					[KEC.ACTION 
+					     (KEC.EXP (KEC.APPLY {func=KEC.SYMBOL (Symbol.symbol "startup"),
+								  args=KEC.UNIT}),
+					      PosLog.NOPOS)]
+	    in
+		env
+	    end
+
+	val env = Profile.time "simEngine" startup env
 
 	val _ = if DynamoOptions.isFlagSet "startupmessage" then
 		    Logger.log_notice (Printer.$("Starting up simEngine ..."))

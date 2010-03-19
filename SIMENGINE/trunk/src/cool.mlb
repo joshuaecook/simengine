@@ -89,6 +89,8 @@ util/graphs/dfg.sml*)
 ir/datastructs/sys.sig
 ir/util.sml
 
+util/profile.sml
+
 (* licensing and feature set *)
 util/process.sml
 util/current-license.sml

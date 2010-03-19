@@ -20,7 +20,7 @@ fun std_compile exec args =
 	 [object] => 
 	 ((let
 	       (* Translation Phase *)
-	       val forest as (_,{classname,...},_) = 
+	       val forest as (_,{classname=name,...},_) = 
 		   case Compile.dslObjectToDOF (exec, object) of
 		       (f, Compile.SUCCESS) => f
 		     | (_, Compile.USERERROR) => raise (CompilationError TRANSLATION)
@@ -34,7 +34,7 @@ fun std_compile exec args =
 		     | (_, Compile.EXCEPTION) => raise (CompilationFailure COMPILATION)
 
 	      (* Code Generation Phase *)
-	      val () = case Compile.ShardedModelToCodeGen (classname, forkedModels) of
+	      val () = case Compile.ShardedModelToCodeGen (name, forkedModels) of
 			   Compile.SUCCESS => ()
 			 | Compile.USERERROR => raise (CompilationError CODEGENERATION)
 			 | Compile.EXCEPTION => raise (CompilationFailure CODEGENERATION)
@@ -52,6 +52,9 @@ fun std_compile exec args =
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
 
 and error_code code = KEC.LITERAL(KEC.CONSTREAL (Real.fromInt code))
+
+val std_compile = Profile.timeTwoCurryArgs "Model Compiling" std_compile
+
 
 fun std_transExp exec args =
     (case args of
@@ -185,6 +188,8 @@ fun loadModel exec args =
 	end
       | [a] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
       | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
+val loadModel = Profile.timeTwoCurryArgs "Model Loading" loadModel
 
 fun simfileSettings exec args =
     case args

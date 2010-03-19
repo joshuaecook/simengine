@@ -33,6 +33,8 @@ fun dslObjectToDOF (exec, object) =
     handle DynException.TooManyErrors => (CurrentModel.empty_model, USERERROR)
 	 | DynException.InternalError _ => (CurrentModel.empty_model, EXCEPTION)
 
+val dslObjectToDOF = Profile.time "Translation" dslObjectToDOF
+
 
 (* DOFToShardedModel: compile the DOF representation, perform optimizations, create a sharded model representation *)
 fun DOFToShardedModel forest = 
@@ -109,6 +111,8 @@ fun DOFToShardedModel forest =
     handle DynException.TooManyErrors => (ShardedModel.empty_shardedModel, USERERROR)
 	 | DynException.InternalError _ => (ShardedModel.empty_shardedModel, EXCEPTION)
 
+val DOFToShardedModel = Profile.time "Compilation" DOFToShardedModel
+
 fun ShardedModelToCodeGen (name, shardedModel) =
     let
 	val stat = case CParallelWriter.buildC (name, shardedModel) of
@@ -122,5 +126,6 @@ fun ShardedModelToCodeGen (name, shardedModel) =
     handle DynException.TooManyErrors => USERERROR
 	 | DynException.InternalError _ => EXCEPTION
 
+val ShardedModelToCodeGen = Profile.time "Code Generation" ShardedModelToCodeGen
 
 end
