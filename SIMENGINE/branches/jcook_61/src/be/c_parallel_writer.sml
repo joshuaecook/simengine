@@ -1817,20 +1817,16 @@ fun init_states shardedModel =
 				      "(statedata_" ^ (Symbol.name top_class) ^ " *)dydt",
 				      "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states")
 			     in
-				 SUB[$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name iter_sym)) ^ ":"),
-				     $("return init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
-				       reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
-				       "modelid);")]
+				 $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
+				   reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
+				   "modelid)) { return 1; }")
 			     end)
 	    end
 
     in
 	[$("__HOST__ __DEVICE__ int init_states(CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, const unsigned int modelid){"),
-	 SUB($("switch(props->iterator){") ::
-	     (map subsystem_init_call (ShardedModel.iterators shardedModel)) @
-	     [$("default: return 1;"),
-	      $("}")]
-	    ),
+	 SUB(map subsystem_init_call (ShardedModel.iterators shardedModel)),
+	 SUB[$("return 0;")],
 	 $("}"),
 	 $("")]
     end
@@ -2142,7 +2138,7 @@ fun buildC (orig_name, shardedModel) =
 		 $(Codegen.getC "simengine/exec_parallel_gpu.cu")]
 
 	val model_flows_c = model_flows forkedModelsWithSolvers
-	val init_states_c = init_states forkedModelsWithSolvers
+	val init_states_c = init_states forkedModelsLessUpdate
 	val exec_loop_c = $(Codegen.getC "simengine/exec_loop.c")
 
 	(* write the code *)
