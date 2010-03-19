@@ -11,34 +11,6 @@ fun log str = if DynamoOptions.isFlagSet "logdof" then
 	      else
 		  Logger.log_notice (Printer.$ str)
 
-(* FIXME this is really ugly and shouldn't be in this file. *)
-(* Ensures that classes within a shard model are in dependency order. *)
-fun orderShard (model, shard as {classes, instance, iter_sym}) =
-    let 
-	val topClassName = 
-	    case #name instance 
-	     of SOME x => x | NONE => #classname instance		
-
-	fun sort (c1, c2) =
-	    (* The top class should always appear at the end of the list. *)
-	    if topClassName = ClassProcess.class2classname c1 then GREATER
-	    else if topClassName = ClassProcess.class2classname c2 then LESS
-	    else sort' (c1, c2)
-
-	and sort' (c1, c2) =
-	    (* Other classes appear after their instances. *)
-	    let val (instanceClassNames, _) = 
-		    CurrentModel.withModel model (fn _ => ListPair.unzip (ClassProcess.class2instnames' c1))
-	    in 
-		if List.exists (fn cn => cn = ClassProcess.class2classname c2) instanceClassNames
-		then GREATER else LESS
-	    end
-    in
-	{classes = Sorting.sorted sort classes, 
-	 instance = instance, 
-	 iter_sym = iter_sym}
-    end
-
 fun std_compile exec args =
     (case args of
 	 [object] => 
@@ -126,7 +98,7 @@ fun std_compile exec args =
 		  let 
 		      val (shards, sysprops) = forkedModels
 		      val shards' = map (fn (shard as {classes,instance,...}) => 
-                          orderShard ((classes,instance,sysprops),shard)) shards
+                          ShardedModel.orderShard ((classes,instance,sysprops),shard)) shards
 		  in 
 		      (shards', sysprops) 
 		  end

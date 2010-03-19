@@ -25,6 +25,9 @@ sig
     (* compute the state size *)
     val statesize : shardedModel -> int
 
+    (* order the classes in a particular shared *)
+    val orderShard : (DOF.model * shard) -> shard
+
 end
 structure ShardedModel : SHARDEDMODEL =
 struct
@@ -43,6 +46,33 @@ val i2s = Util.i2s
 val r2s = Util.r2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
+
+(* Ensures that classes within a shard model are in dependency order. *)
+fun orderShard (model, shard as {classes, instance, iter_sym} : shard) =
+    let 
+	val topClassName = 
+	    case #name instance 
+	     of SOME x => x | NONE => #classname instance		
+
+	fun sort (c1, c2) =
+	    (* The top class should always appear at the end of the list. *)
+	    if topClassName = ClassProcess.class2classname c1 then GREATER
+	    else if topClassName = ClassProcess.class2classname c2 then LESS
+	    else sort' (c1, c2)
+
+	and sort' (c1, c2) =
+	    (* Other classes appear after their instances. *)
+	    let val (instanceClassNames, _) = 
+		    CurrentModel.withModel model (fn _ => ListPair.unzip (ClassProcess.class2instnames' c1))
+	    in 
+		if List.exists (fn cn => cn = ClassProcess.class2classname c2) instanceClassNames
+		then GREATER else LESS
+	    end
+    in
+	{classes = Sorting.sorted sort classes, 
+	 instance = instance, 
+	 iter_sym = iter_sym}
+    end
 
 
 fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, iter as (itername, DOF.CONTINUOUS solvertype)) =
