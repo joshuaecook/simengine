@@ -204,6 +204,11 @@ end
 if exist(varargin{1},'file');
   opts.dslfile = varargin{1};
   opts.model = realpath(opts.dslfile);
+elseif ~strcmpi(varargin{1}, '-help')
+  simexError('argumentError', ['No such file <' varargin{1} '> ' ...
+                      'exists.  Please specify a DSL model filename as the ' ...
+                      'first argument.'])
+  
 end
 
 if 1 < nargin
