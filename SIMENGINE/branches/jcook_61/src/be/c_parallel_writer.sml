@@ -1634,7 +1634,7 @@ fun state_init_code shardedModel iter_sym =
 		     else "void *sys_rd")
 	    in
 		"__HOST__ __DEVICE__ int init_states_" ^ (Symbol.name (#name class)) ^
-		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", const unsigned int modelid)"
+		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", CDATAFORMAT *inputs, const unsigned int modelid)"
 	    end
 
 	fun stateInitFunction (iter as (iter_sym, iter_typ)) isTopClass class =
@@ -1642,6 +1642,16 @@ fun state_init_code shardedModel iter_sym =
 		val iter_name = Symbol.name (case iter_type of
 						 DOF.UPDATE v => v
 					       | _ => iter_sym)
+
+		val inputs = Util.addCount (!(#inputs class))
+
+		val inputLocalVar =
+		    if isTopClass then
+		     fn ({name,default}, i) => 
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, " ^ (i2s i) ^ ", modelid)];")
+		    else
+		     fn ({name,default}, i) => 
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
 
 		val ivqCode = ClassProcess.foldInitialValueEquations
 				  (fn (eqn, code) =>
@@ -1677,17 +1687,25 @@ fun state_init_code shardedModel iter_sym =
 
 				 val dereference = if isTopClass then "[STRUCT_IDX]." else "->"
 
+
+
 				 val (reads, writes, sysreads) = 
 				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
 				      if writes_iterator iter instclass then "&wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
 				      if reads_system instclass then "&" ^ sysreadsName else "NULL")
+
+				 val inpvar = if List.null inpargs then "NULL" else Unique.unique "sub_inputs"
 			     in
 				 if hasInitialValueEquation instclass then
 				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
-				      SUB((if reads_system instclass then initSysreads else []) @
+				      SUB((if not (List.null inpargs) then
+					       $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];") ::
+					       map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";")) (Util.addCount inpargs)
+					   else []) @
+					  (if reads_system instclass then initSysreads else []) @
 					  [$("init_states_" ^ (Symbol.name classname) ^ "(" ^
 					     reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^
-					     "modelid);")]),
+					     inpvar ^ ", modelid);")]),
 				      $("}")] @
 				     code
 				 else code
@@ -1695,6 +1713,7 @@ fun state_init_code shardedModel iter_sym =
 			 nil class
 	    in
 		[$((stateInitPrototype class) ^ "{"),
+		 SUB(map inputLocalVar inputs),
 		 SUB(ivqCode),
 		 SUB(instCode),
 		 SUB[$("return 0;")],
@@ -1820,7 +1839,7 @@ fun init_states shardedModel =
 				 if hasInitialValueEquation class then
 				     $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
 				       reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
-				       "modelid)) { return 1; }")
+				       "props->inputs, modelid)) { return 1; }")
 				 else
 				     $("// no initial values for " ^ (Symbol.name top_class))
 			     end)
