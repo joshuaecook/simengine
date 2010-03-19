@@ -345,7 +345,11 @@ links: $(BUILD_DIR)
 ifeq ($(UNAME_KERNEL), Darwin)
 CRYPTO_LIB = /opt/local/lib/libcrypto.a
 else
+ifneq ($(ARCH64),)
+CRYPTO_LIB = /usr/lib64/libcrypto.a
+else
 CRYPTO_LIB = /usr/lib/libcrypto.a
+endif
 endif
 
 COMPILER_BASIS = src/compiler_exec.mlb
