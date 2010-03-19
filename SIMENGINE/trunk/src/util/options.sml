@@ -308,12 +308,7 @@ val argument_groups =
 		long =SOME "profile",
 		xmltag="profile",
 		dyntype=FLAG_T,
-		description=["Enable/disable profiling mode"]},     
-	       {short=NONE,
-		long =SOME "nocompile",
-		xmltag="nocompile",
-		dyntype=FLAG_T,
-		description=["Enable/disable manual no recompilation"]}]}]
+		description=["Enable/disable profiling mode"]}]}]
 
 fun getGroupsList () =
     argument_groups

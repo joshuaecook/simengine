@@ -72,7 +72,6 @@
 <debug = false>
 <emulate = false>
 <profile = false>
-<nocompile = false>
 <cSourceFilename = false>
 
 // **********************************************************************
