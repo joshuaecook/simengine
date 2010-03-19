@@ -83,6 +83,12 @@ fun main () =
 	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
 		before DynException.checkToProceed ()
 
+	(* read in command line arguments to DynamoOptions *)
+	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))*)
+	val argv = CommandLine.arguments ()
+	val _ = Logger.log_notice (Printer.$("Arguments to simEngine: " ^ (Util.l2s argv)))
+	val _ = DynamoOptions.importCommandLineArgs argv
+
 	val env = PopulatedEnv.new (rep_loop false)
 
 	(* Save/restore the world. *)

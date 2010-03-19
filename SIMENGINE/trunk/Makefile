@@ -542,7 +542,7 @@ $(BUILD_DIR)/lib/llc_protocol.c: ../dslc/llc_protocol.c
 
 build_includes: include/* solvers
 	$(info Populating standard includes ...)
-	@$(CP) include/* $(BUILD_DIR)/include/
+#	@$(CP) include/* $(BUILD_DIR)/include/
 	@$(CP) -r solvers/include/* $(BUILD_DIR)/include
 #	@$(MKDIR) $(BUILD_DIR)/include/solvers/
 #	@cp -fL solvers/target_GPU_float/*.cu $(BUILD_DIR)/include/solvers/
@@ -556,7 +556,7 @@ $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	$(BUILD_DIR)/bin/$(FILENAME) --batch - < /dev/null
+	$(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath `pwd`/include < /dev/null
 
 .PHONY: codegen
 codegen:
