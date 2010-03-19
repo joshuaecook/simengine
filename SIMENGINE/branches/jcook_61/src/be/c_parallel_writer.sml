@@ -1817,9 +1817,12 @@ fun init_states shardedModel =
 				      "(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
 				      "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states")
 			     in
-				 $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
-				   reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
-				   "modelid)) { return 1; }")
+				 if hasInitialValueEquation class then
+				     $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
+				       reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
+				       "modelid)) { return 1; }")
+				 else
+				     $("// no initial values for " ^ (Symbol.name top_class))
 			     end)
 	    end
 
@@ -1844,11 +1847,11 @@ fun model_flows shardedModel =
 		   val basename = ClassProcess.class2basename class
 		   val (statereads, statewrites, systemstatereads) =
 		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
-			if writes_iterator iter class then 
-			    "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " 
-			else if requiresMatrix then
+			if requiresMatrix then
 			    "(CDATAFORMAT* ) props->mem, dydt, "
-			else
+			else if writes_iterator iter class then 
+			    "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " 
+			else 
 			    "",
 			if reads_system class then "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states, " else "")
 	       in
@@ -2138,7 +2141,10 @@ fun buildC (orig_name, shardedModel) =
 		 $(Codegen.getC "simengine/exec_parallel_gpu.cu")]
 
 	val model_flows_c = model_flows forkedModelsWithSolvers
-	val init_states_c = init_states forkedModelsLessUpdate
+	val init_states_c = init_states 
+				(List.filter (fn{iter_sym,...}=> case itersym2iter iter_sym of (_, DOF.IMMEDIATE) => false | _ => true) (#1 forkedModelsLessUpdate), 
+				 sysprops)
+
 	val exec_loop_c = $(Codegen.getC "simengine/exec_loop.c")
 
 	(* write the code *)
