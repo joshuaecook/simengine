@@ -154,7 +154,20 @@ fun std_exp2str exec args =
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_exp2str" e 
 
-
+fun std_profile (exec:KEC.exp->KEC.exp) (args:KEC.exp list) : KEC.exp =
+    (case args of
+	 [KEC.LITERAL (KEC.CONSTSTR name), exp, arg] => 
+	 let
+	     val exec' = Profile.time name exec
+	 in
+	     exec' (KEC.APPLY {func = exp,
+			      args = case arg of 
+					 KEC.TUPLE entries => arg
+				       | KEC.UNIT => KEC.TUPLE []
+				       | _ => KEC.TUPLE [arg]})
+	 end
+       | [a, _, _] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
+       | _ => raise IncorrectNumberOfArguments {expected=3, actual=(length args)})
 
 val imports: string list ref = ref nil
 
@@ -224,6 +237,7 @@ fun settingsHelp exec args =
 
 val library = [{name="compile", operation=std_compile},
 	       {name="loadModel", operation=loadModel},
+	       {name="profileTime", operation=std_profile},
 	       {name="getModelImports", operation=getModelImports},
 	       {name="simfileSettings", operation=simfileSettings},
 	       {name="settingsHelp", operation=settingsHelp},

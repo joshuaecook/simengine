@@ -30,7 +30,7 @@ fun time message fcn arg =
 	in
 	    result
 	end
-	handle e => DynException.checkpoint "Profile.time" e
+	(*handle e => DynException.checkpoint "Profile.time" e*)
     else
 	fcn arg
 

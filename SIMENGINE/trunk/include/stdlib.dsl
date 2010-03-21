@@ -607,6 +607,12 @@ namespace Time
   function timestampInSeconds() = LF timestampSeconds ()
   function timestampString() = LF timestampString ()
 end
+
+namespace Profile
+  // the time function invokes fcn applied with the passed args and returns the normal result. When the --profile flag
+  // is set, then the system will return the time spent in that function
+  function time(string_id, fcn, args) = LF profileTime (string_id, fcn, args)
+end
 /*
 namespace Licensing
   function loadLicense () 
