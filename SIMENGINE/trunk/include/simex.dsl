@@ -515,7 +515,7 @@ import "command_line.dsl"
     //end
 
     // Set up the name of the c source file
-    var name = Path.base(Path.file (commandLineOptions.simex))
+    var name = Path.base(Path.file (settings.general.simex.getValue()))
     var cname = ""
     if "gpu" == settings.simulation.target.getValue() then
       cname = name + ".cu"
@@ -570,7 +570,7 @@ import "command_line.dsl"
     // Check to see if only the interface is requested
     if objectContains(commandLineOptions, "interface") then
       simulationSettings.add("interface", true)
-    elseif objectContains(commandLineOptions, "json_interface") then
+    elseif /*objectContains(commandLineOptions, "json_interface")*/objectContains(settings.compiler, "json_interface") then
       simulationSettings.add("json_interface", /*commandLineOptions.getValue("json-interface")*/settings.compiler.json_interface.getValue())
     // Set all the simulation settings from the commandLineOptions
     elseif /*copyOptions(commandLineOptions, simulationSettings, simulationSettingNames)*/createSimulationTable(simulationSettings) then
@@ -593,7 +593,7 @@ import "command_line.dsl"
 
 	// Check if user specified a stop time less than the start time
 	if simulationSettings.stop <= simulationSettings.start then
-	  error("Stop time must be greater than the start time.")
+	  error("Stop time "+simulationSettings.stop+" must be greater than the start time "+simulationSettings.start+".")
 	end
 
 	// Check for a valid number of instances
