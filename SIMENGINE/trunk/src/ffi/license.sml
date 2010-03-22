@@ -226,7 +226,7 @@ fun licenseToData (LICENSE
 					       | LICENSESERVER s => (2, s)
 					       | SITE s => (3, s)
 	val _ = if (String.size(customerName) + String.size(customerOrganization) + String.size(restriction)) > maxKeyStringLength then
-		    raise InvalidLicenseFile
+		    raise Fail "Total length of Name, Organization and Restriction Value strings exceeds limit."
 		else
 		    ()
 

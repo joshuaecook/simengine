@@ -9,9 +9,10 @@ in
   ann
       "allowFFI true"
   in
-    ffi/ffi-exports.sml
-    ffi/license.sml
+    ../ffi/ffi-exports.sml
+    ../ffi/license.sml
   end
 
-  ffi/createLicense.sml
+  cgi.sml
+  createLicense.sml
 end

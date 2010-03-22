@@ -157,14 +157,14 @@ fun verifyNotRestricted () =
 			      if user = user' then
 				  () (* passes *)
 			      else
-				  defaultLicenseWarning "This software is not licensed for the current user."
+				  defaultLicenseWarning ("This software is licensed to " ^ (customerName()) ^ "," ^ (customerOrganization()) ^ " (" ^ user ^ ") and cannot be run by the current user (" ^ user' ^ ").")
 			    | NONE =>
 			      defaultLicenseWarning "This software can not determine the current user of the system to validate license.")
 			 
       | L.HOSTID mac_str => 
 	(let
 	     val (status, text) = Process.system("/sbin/ifconfig", ["-a"])
-	     val matches = List.exists (fn(str)=>String.isSubstring mac_str (StdFun.toLower str)) text
+	     val matches = List.exists (fn(str)=>String.isSubstring (StdFun.toLower mac_str) (StdFun.toLower str)) text
 	 in
 	     if matches then
 		 () (* found host id *)
@@ -179,7 +179,6 @@ fun verifyNotRestricted () =
 
 fun findLicense () =
     let
-	(* TODO - Error checking... Check for license in user directory? *)
 	val licenseFileMain = OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/license.key")
 	val licenseFileUser = OS.Path.concat (valOf (OS.Process.getEnv("HOME")), OS.Path.fromUnixPath ".simatra/license.key")
 

@@ -591,7 +591,10 @@ fun extract (s, i, opt) =
 
 fun dropNewLine str =
     if String.isSuffix "\n" str then
-	extract (str, 0, SOME (String.size str - 1))
+	if (String.size str) = 1 then
+	    ""
+	else
+	    extract (str, 0, SOME (String.size str - 1))
     else
 	str
 
