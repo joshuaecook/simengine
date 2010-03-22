@@ -1,6 +1,6 @@
 model (a) = subby (init)
   state a = init
-  equation a' = -a
+  equation a' = 1
 end
 
 model (x,y) = StateInit2

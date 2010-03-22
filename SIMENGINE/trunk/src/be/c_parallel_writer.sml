@@ -1724,14 +1724,14 @@ fun state_init_code shardedModel iter_sym =
 					 SymbolSet.member (symset, Term.sym2curname name)
 				     end
 
-				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn ({name, ...}, names) => name :: names) nil class
+				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn ({name, ...}, names) => name :: names) nil instclass
 				 val inpargs: Exp.exp list = 
 				     map (fn (name, arg) =>
 					     if hasInitialValueEquation (ivqReadsInput name) instclass then
 						 arg
 					     else
 						 Exp.TERM Exp.NAN)
-					 (ListPair.zip (inpnames, inpargs))
+					 (ListPair.zipEq (inpnames, inpargs))
 
 				 val (reads, writes, sysreads) = 
 				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
@@ -1751,7 +1751,8 @@ fun state_init_code shardedModel iter_sym =
 						   (Util.addCount (ListPair.zip (inpnames, inpargs)))
 					   else []) @
 					  (if reads_system instclass then initSysreads else []) @
-					  [$("init_states_" ^ (Symbol.name classname) ^ "(" ^
+					  [$("// " ^ (ExpPrinter.exp2str eqn)),
+					   $("init_states_" ^ (Symbol.name classname) ^ "(" ^
 					     reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^
 					     inpvar ^ ", modelid);")]),
 				      $("}")] @
