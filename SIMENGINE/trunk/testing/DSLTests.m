@@ -23,7 +23,7 @@ function [result] = run(strvec)
   for i = 1:length(strvec)
     s = strcat(s, strvec{i}, '\n');
   end
-  str = strcat('printf "', s, '" | ', simexamplepath ,'/../bin/simEngine -batch');
+  str = strcat('printf "', s, '" | ', simexamplepath ,'/../bin/simEngine --batch -');
   
   function [res] = systemWrapper()
     status = system(str);
@@ -120,7 +120,7 @@ end
 function s = DSLDiffTests(mode)
 INTERNAL = 0; RELEASE = 1;
 
-simpath = [fullfile(simexamplepath, '../bin', 'simEngine') ' -batch'];
+simpath = [fullfile(simexamplepath, '../bin', 'simEngine') ' --startupmessage=false --batch'];
 
 s = Suite('DSL Diff Tests');
 s.add(Test('Assignments', @()(0 == system([simpath ' DSLTests/difftests/assignments.dsl | diff - DSLTests/difftests/assignments.ok']))));
