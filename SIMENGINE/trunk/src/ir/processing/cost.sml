@@ -24,7 +24,10 @@ fun exp2generalcost deep exp =
 	    let
 		val args_size = Util.sum (map exp2cost args)
 		val c = CurrentModel.classname2class classname
-		val inst_size = class2cost c
+		val inst_size = if deep then
+				    class2cost c
+				else
+				    0
 	    in
 		args_size + inst_size
 	    end
