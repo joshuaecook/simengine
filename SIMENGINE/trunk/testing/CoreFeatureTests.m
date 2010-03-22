@@ -103,18 +103,28 @@ s.add(Test('MultilineEquations (zero states)', @()(simex('models_FeatureTests/St
 s.add(Test('InitValueasConstant', @()(simex('models_FeatureTests/StateTest5.dsl', 10,[1], target)), '-equal', struct('x', [0:10; 1:11]')));
 
 % We should eventually support initial values driven by states
-if mode == INTERNAL
-    s.add(Test('InitValueasInput', @()(simex('models_FeatureTests/StateTest4.dsl', 10, target)), '-equal', struct('x', [0:10; 0:10]')));
-    s.add(Test('InitValueasInputWithValue', @()(simex('models_FeatureTests/StateTest4.dsl', 10,[1], target)), '-equal', struct('x', [0:10; 1:11]')));
-    input_struct = struct('init', 2);
-    s.add(Test('InitValueasInputthenInit', @()(simex('models_FeatureTests/StateTest6.dsl', 10,input_struct,[1],target)), '-equal', struct('x', [0:10; 1:11]')));
-    s.add(Test('InitValueasInitthenInput', @()(simex('models_FeatureTests/StateTest6.dsl', 10,[1],input_struct,target)), '-equal', struct('x', [0:10; 2:12]')));
-end
+s.add(Test('InitValueasInput', @()(simex('models_FeatureTests/StateTest4.dsl', 10, target)), '-equal', struct('x', [0:10; 0:10]')));
+s.add(Test('InitValueasInputWithValue', @()(simex('models_FeatureTests/StateTest4.dsl', 10,[1], target)), '-equal', struct('x', [0:10; 1:11]')));
+input_struct = struct('init', 2);
+s.add(Test('InitValueasInputthenInit', @()(simex('models_FeatureTests/StateTest6.dsl', 10,input_struct,[1],target)), '-equal', struct('x', [0:10; 1:11]')));
+s.add(Test('InitValueasInitthenInput', @()(simex('models_FeatureTests/StateTest6.dsl', 10,[1],input_struct,target)), '-equal', struct('x', [0:10; 2:12]')));
 
 % finally, we should support no states
 s.add(Test('NoStates', @()(simex('models_FeatureTests/StateTest7.dsl', ...
                                  10, target)), '-equal', struct('x', ...
                                                   [0:10; 0:10]')))
+
+si = Suite(['State Initial Values']);
+s.add(si);
+si.add(Test('TopInitialValueInput', ...
+            @()(simex('models_FeatureTests/StateInit1.dsl', 10, struct('init',1))), ...
+            '-equal', struct('x', [0:10; 1:11]')));
+si.add(Test('SubmodelInitialValueInput', ...
+            @()(simex('models_FeatureTests/StateInit2.dsl', 10)), ...
+            '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 1:11]')));
+si.add(Test('SubmodelInitialValueTopInput', ...
+            @()(simex('models_FeatureTests/StateInit3.dsl', 10, struct('init',1))), ...
+            '-equal', struct('x', [0:10; 2:-2:-18]', 'y', [0:10; 1:-1:-9]')));
 
 end
 
