@@ -345,11 +345,11 @@ import "command_line.dsl"
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
 	//var exfile = autoRecompile(modelFile, compilerSettings)
-	var exfile = Profile.time ("autoRecompile", autoRecompile, (modelFile, compilerSettings))
+	var exfile = profileTime ("autoRecompile", autoRecompile, (modelFile, compilerSettings))
 	if () <> simulationSettings and "" <> exfile then
 	  var simulation = FileSystem.realpath(exfile)
 	  //simulate(simulation, simulationSettings, settings.simulation_debug.debug.getValue())
-	  Profile.time ("simulating", simulate, (simulation, simulationSettings, settings.simulation_debug.debug.getValue()))
+	  profileTime ("simulating", simulate, (simulation, simulationSettings, settings.simulation_debug.debug.getValue()))
 	  if not(settings.simulation_debug.debug.getValue()) then
 	    FileSystem.rmfile(simulation)
 	  end

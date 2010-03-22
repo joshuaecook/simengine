@@ -10,5 +10,5 @@ function startup ()
   end
 
   //Simex.runModel()
-  Profile.time ("Running Model", runModel, ())
+  profileTime ("Running Model", runModel, ())
 end

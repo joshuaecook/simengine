@@ -109,6 +109,18 @@ fun validate (model as (classes, instance, sysprops))=
 	    (* verify that the solvers are all supported *)
 	    val _ = app (verifySolver o #2) (ModelProcess.returnContinuousIterators())
 			    
+	    (* for profiling, report expression counts *)
+	    val _ = if DynamoOptions.isFlagSet "profile" then
+			let
+			    val total_cost = Cost.model2cost model
+			    val unique_cost = Cost.model2uniquecost model
+			in
+			    Util.log("Expression Total Cost: "^ (Util.i2s total_cost) ^ "; Unique Cost: " ^ (Util.i2s unique_cost))
+			end
+		    else
+			()
+
+
 	    (* verify that the terms on the LHS are appropriate *)
 	    (* TODO: could this be elaborated on?  what is 'appropriate'? *)
 	    val _ = properLHSDiscreteState ()
