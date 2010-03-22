@@ -1,3 +1,4 @@
+settings.debug.logdof.setValue(true)
 model (y) = DerivativeTest1()
 
       state x = 0

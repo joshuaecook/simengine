@@ -43,6 +43,7 @@ sig
      * function to each expression.
      *)
     val foldExpressions: 'a ExpProcess.visitor -> 'a -> DOF.class -> 'a
+    val foldInputs: (DOF.input * 'a -> 'a) -> 'a -> DOF.class -> 'a
 
     (* foldInitialValueEquations visit zero class
      * Like foldExpressions, but visits only initial value equations.
@@ -675,6 +676,9 @@ fun outputsSymbolsByIterator iterator (class : DOF.class) =
 
 fun 'a foldExpressions f (a: 'a) (class: DOF.class) =
     foldl f a (! (#exps class))
+
+fun 'a foldInputs f (a: 'a) (class: DOF.class) =
+    foldl f a (! (#inputs class))
 
 fun foldInitialValueEquations f =
     foldExpressions (fn (exp, a) => if ExpProcess.isInitialConditionEq exp then f (exp, a) else a)

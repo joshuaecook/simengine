@@ -16,7 +16,29 @@ datatype status =
 	 SUCCESS 
        | FAILURE of string
 
-open Printer
+fun $ line = Layout.str line
+fun SUB text = Layout.indent (Layout.align text, 2)
+
+(* Parenthesises and separates a list of layouts. *)
+fun series (start, finish, sep) layouts =
+    Layout.seq [Layout.str start, 
+		Layout.mayAlign (Layout.separateRight (layouts, sep)), 
+		Layout.str finish]
+
+(* Quotes a C string verbatim. *)
+fun quote str = 
+    Layout.seq [Layout.str "\"", 
+		Layout.str (String.toCString str),
+		Layout.str "\""]
+
+(* Terminates a C statement with a semicolon. *)
+fun stmt layout =
+    Layout.seq [layout, Layout.str ";"]
+
+fun statements layouts =
+    Layout.align (map stmt layouts)
+
+
 exception InternalError
 
 val i2s = Util.i2s
@@ -130,24 +152,31 @@ and instance_has_states test instance =
     in test class
     end
 
-
-
-fun hasInitialValueEquation class =
-    (ClassProcess.foldInitialValueEquations
-	 (fn (eqn, _) => true)
-	 false class) orelse
-    (ClassProcess.foldInstanceEquations
-	 (fn (eqn, _) => instanceHasInitialValueEquation eqn)
-	 false class)
-
-and instanceHasInitialValueEquation instance =
-    let 
-	val {classname, ...} = ExpProcess.deconstructInst instance
-	val class = CurrentModel.classname2class classname
+fun searchExpressionsDepthFirst p (class: DOF.class) =
+    let
+	fun dfs nil = NONE
+	  | dfs (exp::exps) =
+	    if ExpProcess.isInstanceEq exp then
+		let val {classname, ...} = ExpProcess.deconstructInst exp
+		    val class' = CurrentModel.classname2class classname
+		in
+		    case searchExpressionsDepthFirst p class'
+		     of SOME exp => SOME exp
+		      | NONE => dfs exps
+		end
+	    else if p exp then
+		SOME exp
+	    else
+		dfs exps
     in
-	hasInitialValueEquation class
+	dfs (! (#exps class))
     end
 
+
+fun hasInitialValueEquation f class =
+    isSome (searchExpressionsDepthFirst
+		(fn exp => ExpProcess.isInitialConditionEq exp andalso f exp)
+		class)
 
 (* ====================  HEADER  ==================== *)
 
@@ -710,7 +739,6 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	in
 	val stateDefaultConstants = map stateDefaultToConstant state_defaults
 	end
-
    in
 	[$("typedef enum {"),
 	 SUB(map (fn(sol) => $((sol ^ ","))) solvers_enumerated),
@@ -1686,8 +1714,24 @@ fun state_init_code shardedModel iter_sym =
 				      SUB(map $ (Util.flatmap systemstatedata_states state_iters))]
 
 				 val dereference = if isTopClass then "[STRUCT_IDX]." else "->"
+											   
+				 (* This may not be a sufficient test.
+				  * What if the expression refers to another expression
+				  * which, in turn, reads the input? *)
+				 fun ivqReadsInput name eqn =
+				     let val symset = ExpProcess.exp2symbolset eqn
+				     in
+					 SymbolSet.member (symset, Term.sym2curname name)
+				     end
 
-
+				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn ({name, ...}, names) => name :: names) nil class
+				 val inpargs: Exp.exp list = 
+				     map (fn (name, arg) =>
+					     if hasInitialValueEquation (ivqReadsInput name) instclass then
+						 arg
+					     else
+						 Exp.TERM Exp.NAN)
+					 (ListPair.zip (inpnames, inpargs))
 
 				 val (reads, writes, sysreads) = 
 				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
@@ -1696,11 +1740,15 @@ fun state_init_code shardedModel iter_sym =
 
 				 val inpvar = if List.null inpargs then "NULL" else Unique.unique "sub_inputs"
 			     in
-				 if hasInitialValueEquation instclass then
+				 if hasInitialValueEquation (fn _ => true) instclass then
 				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
 				      SUB((if not (List.null inpargs) then
 					       $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];") ::
-					       map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";")) (Util.addCount inpargs)
+					       map (fn ((inpname, inparg), idx) => $("/* " ^ (Term.sym2name inpname) ^ " */" ^
+										     inpvar ^ "[" ^ (i2s idx) ^ "] " ^ 
+										     " = " ^ 
+										     CWriterUtil.exp2c_str inparg ^ ";")) 
+						   (Util.addCount (ListPair.zip (inpnames, inpargs)))
 					   else []) @
 					  (if reads_system instclass then initSysreads else []) @
 					  [$("init_states_" ^ (Symbol.name classname) ^ "(" ^
@@ -1725,7 +1773,7 @@ fun state_init_code shardedModel iter_sym =
 	    (fn _ =>
 		let
 		    val topclass = CurrentModel.classname2class top_class
-		    val ivqClasses = List.filter hasInitialValueEquation classes
+		    val ivqClasses = List.filter (hasInitialValueEquation (fn _ => true)) classes
 		    val prototypes = map ((fn p => $(p^";")) o stateInitPrototype) ivqClasses
 		    val functions = map (fn c => stateInitFunction iter (#name c = #name topclass) c) ivqClasses
 		in
@@ -1809,7 +1857,7 @@ fun flow_code shardedModel iter_sym =
 							   
 				       val flow_progs = List.concat (map (fn(c)=>
 									    if ClassProcess.isInline c then
-										(Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
+										(Logger.log_error (Printer.$("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
 										 DynException.setErrored();
 										 [])
 									    else
@@ -1836,7 +1884,7 @@ fun init_states shardedModel =
 				      "(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
 				      "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states")
 			     in
-				 if hasInitialValueEquation class then
+				 if hasInitialValueEquation (fn _ => true) class then
 				     $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
 				       reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
 				       "props->inputs, modelid)) { return 1; }")
@@ -1896,11 +1944,14 @@ fun model_flows shardedModel =
 
 fun output_code (filename, block) =
     let
-      val _ = Logger.log_notice ($("Generating C source file '"^ filename ^"'"))
+      val _ = Logger.log_notice (Printer.$("Generating C source file '"^ filename ^"'"))
       val file = TextIO.openOut (filename)
     in
-      Printer.printtexts (file, block, 0)
+	Printer.printLayout (Layout.align block) file
+	
+      (* printer.printtexts (file, block, 0) *)
       before TextIO.closeOut file
+      handle exn => (TextIO.closeOut file; raise exn)
     end
 
 fun logoutput_code shardedModel =

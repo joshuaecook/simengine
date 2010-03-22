@@ -8,6 +8,16 @@ fun text2str ($(str)) =
   | text2str (SUB(progs)) =
     String.concatWith "\n" (map text2str progs)
 
+fun takeWhile f nil = nil
+  | takeWhile f (x::xs) =
+    if f x then x :: (takeWhile f xs) else takeWhile f xs
+
+
+fun printLayout layout outstream =
+    Layout.output (layout, outstream)
+
+
+
 fun printtext (outstream, text, i) =
     let
 	val indent_factor = 2

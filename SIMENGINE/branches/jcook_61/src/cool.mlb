@@ -8,6 +8,10 @@ local
   $(SML_LIB)/smlnj-lib/RegExp/regexp-lib.mlb
   $(SML_LIB)/basis/c-types.mlb
 
+  (* MLton-style Layout printer *)
+  util/layout.sig
+  util/layout.sml
+
   ann
       "allowFFI true"
   in
