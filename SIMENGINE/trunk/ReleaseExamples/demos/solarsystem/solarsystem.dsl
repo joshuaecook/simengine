@@ -1,5 +1,3 @@
-settings.ir.aggregate.setValue(true)
-
 model (x,y,amass,x_vel, y_vel) = planet (mass, externalForceX, externalForceY, initX, initY, initXv, initYv)
 
   input externalForceX with {default=0}

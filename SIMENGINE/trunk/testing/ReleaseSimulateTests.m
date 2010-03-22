@@ -5,7 +5,7 @@
 %   RELEASESIMULATETESTS('-create') will create template mat files
 %   s = RELEASESIMULATETESTS will return the test suite
 %
-% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 %
 function s = ReleaseSimulateTests(varargin)
 

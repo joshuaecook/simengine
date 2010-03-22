@@ -92,7 +92,7 @@ s.add(Test('TwoDelayUsingPPIntermediateIterator', @ ...
 s.add(Test('TwoDelayofPPIterator', @ ...
            ()(simex('models_FeatureTests/PostProcessIntermediateIteratorTest2.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0 0:8]')));
 s.add(Test('TwoDelayofUpdateIterator', @ ...
-           ()(simex('models_FeatureTests/PostProcessIntermediateIteratorTest3.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; 0 0 0:8]')));
+           ()(simex('models_FeatureTests/PostProcessIntermediateIteratorTest3.dsl',10,target)), '-equal', struct('y', [0:10; 1:11; 0 0 1:9]')));
 y = [0:10; 0:10; [0 0:9]; 0:10; [0 0:9]]';
 s.add(Test('TwoIteratorCoupledDelays', @ ...
            ()(simex('models_FeatureTests/InProcessIteratorTest1.dsl',10,target)), '-equal', struct('y_t1', y, 'y_t2', y)))
@@ -132,7 +132,9 @@ s.add(Test('TwoSameTemporalIterators', @()(simex('models_FeatureTests/TwoTempora
 s.add(Test('TwoSolversSameDT', @()(simex('models_FeatureTests/TwoTemporalIteratorTest2.dsl',10,target)), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:10; 0:2:20]')));
 s.add(Test('OneSolverTwoSynchDTs', @()(simex('models_FeatureTests/TwoTemporalIteratorTest3.dsl',10,target)), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:0.5:10; 0:1:20]')));
 s.add(Test('TwoSolversTwoSynchDTs', @()(simex('models_FeatureTests/TwoTemporalIteratorTest4.dsl',10,target)), '-equal', struct('x1', [0:10; 0:10]', 'x2', [0:0.5:10; 0:1:20]')));
-s.add(Test('TwoSolversTwoSynchDTsWithOutputs', @()(simex('models_FeatureTests/TwoTemporalIteratorTest4b.dsl',10,target)), '-equal', struct('y1', [0:10; 0:10; 0:2:20]', 'y2', [0:0.5:10; floor(0:0.5:10); 0:1:20]')));
+s.add(Test('TwoSolversTwoSynchDTsWithOutputs', ...
+           @()(simex('models_FeatureTests/TwoTemporalIteratorTest4b.dsl',10,target)), ...
+           '-equal', struct('y1', [0:10; 0:10; 0:2:20]', 'y2', [0:0.5:10; floor(0:0.5:10); 0:1:20]')));
 s.add(Test('OneSolverTwoASynchDTs',@()(simex('models_FeatureTests/TwoTemporalIteratorTest5.dsl',100,target)),'-equal',struct('y1',[0:10:100;0:10:100; floor((0:10:100)/3)*6]','y2',[0:3:100; floor((0:3:100)/10)*10; 0:(2*3):200]')));
 s.add(Test('TwoSolversTwoASynchDTs',@()(simex('models_FeatureTests/TwoTemporalIteratorTest6.dsl',100,target)),'-equal',struct('y1',[0:10:100;0:10:100; floor((0:10:100)/3)*6]','y2',[0:3:100;floor((0:3:100)/10)*10; 0:(2*3):200]')));
 s.add(Test('TwoSolversWithIntermediate',@()(simex('models_FeatureTests/TwoTemporalIteratorTest7.dsl',10,target)),'-equal', struct('y', [0:10; 0:10; 0:2:20; 0:3:30]')));

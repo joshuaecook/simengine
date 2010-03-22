@@ -25,5 +25,6 @@ end
 % The below test won't pass because the model name is different than the
 % file name.  This is expected
 s.getTest('Model-neuronWithSynapse').ExpectFail = true;
+s.getTest('Model-circuit_elements').ExpectFail = true;
 
 end

@@ -74,10 +74,32 @@ typedef struct {
 
 // Pre-declaration of model_flows, the interface between the solver and the model
 __DEVICE__ int model_flows(CDATAFORMAT iterval, CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid);
-
+__DEVICE__ int init_states(solver_props *props, const unsigned int modelid);
 __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 
-__DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
+
+// Advances the iterator value of a solver for a given model id.
+// Unsets the running flag if the solver would overstep the stop time
+// on the next iteration.
+// Return indicates when the last iteration has occurred.
+__DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
+  int last_iteration = props->running[modelid];
+  props->running[modelid] = (props->next_time[modelid] < props->stoptime) &&
+    (props->next_time[modelid] + props->timestep <= props->stoptime);
+  last_iteration ^= props->running[modelid];
+
+  // Update solver time to next value
+  props->time[modelid] = props->next_time[modelid];
+
+  // Only discrete iterators have a count field
+  if(props->count){
+    props->count[modelid]++;
+  }
+
+  return last_iteration;
+}
+
+__DEVICE__ void solver_writeback(solver_props *props, const unsigned int modelid){
   unsigned int i, index;
   CDATAFORMAT *algebraic_states, *algebraic_next_states;
   // Update model states to next value
@@ -92,14 +114,6 @@ __DEVICE__ void solver_writeback(solver_props *props, unsigned int modelid){
   for (i = 0; i < props->algebraic_statesize; i++) {
     index = TARGET_IDX(props->algebraic_statesize, PARALLEL_MODELS, i, modelid);
     algebraic_states[index] = algebraic_next_states[index];
-  }
-
-  // Update solver time to next value
-  props->time[modelid] = props->next_time[modelid];
-
-  // Only discrete iterators have a count field
-  if(props->count){
-    props->count[modelid]++;
   }
 }
 

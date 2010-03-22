@@ -428,9 +428,9 @@ fun createClass classes object =
 		    (* create the initial condition *)
 		    val timeiterator = (exp2str (method "name" (method "iter" obj)))
 		    val spatialiterators = []
-		    val preprocessiterator = Iterator.preProcessOf timeiterator
+		    val inprocessiterator = Iterator.inProcessOf timeiterator
 		    val initlhs = ExpBuild.initavar(name, 
-						    Symbol.name preprocessiterator,
+						    Symbol.name inprocessiterator,
 						    spatialiterators)
 		    val init = ExpBuild.equals(initlhs,
 					       quantity_to_dof_exp (getInitialValue obj))
@@ -440,7 +440,7 @@ fun createClass classes object =
 		    val (lhs,rhs) = 
 			(quantity_to_dof_exp (method "lhs" (method "eq" obj)),
 			 quantity_to_dof_exp (method "rhs" (method "eq" obj)))
-		    val lhs' = ExpProcess.updateTemporalIterator (preprocessiterator, Iterator.RELATIVE 1) lhs
+		    val lhs' = ExpProcess.updateTemporalIterator (inprocessiterator, Iterator.RELATIVE 1) lhs
 		    val eq = ExpBuild.equals(lhs', rhs)			
 		    
 		in

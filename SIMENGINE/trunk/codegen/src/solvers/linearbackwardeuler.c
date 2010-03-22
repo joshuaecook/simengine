@@ -56,11 +56,6 @@ int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
   CDATAFORMAT* M = (CDATAFORMAT *)props->mem;
   linearbackwardeuler_opts *opts = (linearbackwardeuler_opts*)&props->opts;
 
-  // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
-  props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
-  if(!props->running[modelid])
-    return 0;
-
   // Produce the matrix M and vector b
   int ret = model_flows(props->time[modelid], props->model_states, props->next_states/*b_x*/, props, 1, modelid);
 

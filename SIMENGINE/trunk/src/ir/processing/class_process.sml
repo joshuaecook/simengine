@@ -37,6 +37,20 @@ sig
 
     val findInput : DOF.class -> Symbol.symbol -> DOF.input option
 
+    (* foldExpressions visit zero class
+     * Visits each expression in a given class.
+     * Analogous to List.foldl, returns the reduction of successively applying the visitor
+     * function to each expression.
+     *)
+    val foldExpressions: 'a ExpProcess.visitor -> 'a -> DOF.class -> 'a
+    val foldInputs: (DOF.input * 'a -> 'a) -> 'a -> DOF.class -> 'a
+
+    (* foldInitialValueEquations visit zero class
+     * Like foldExpressions, but visits only initial value equations.
+     *)
+    val foldInitialValueEquations: 'a ExpProcess.visitor -> 'a -> DOF.class -> 'a
+    val foldInstanceEquations: 'a ExpProcess.visitor -> 'a -> DOF.class -> 'a
+
     (* Indicates whether a class is a functional form. *)
     val isInline : DOF.class -> bool
     (* Indicates whether a class is a master class. *)
@@ -659,6 +673,18 @@ fun outputsSymbolsByIterator iterator (class : DOF.class) =
 	    ((ExpProcess.doesTermHaveIterator iter_sym) o ExpProcess.term2exp)
 	    class
     end
+
+fun 'a foldExpressions f (a: 'a) (class: DOF.class) =
+    foldl f a (! (#exps class))
+
+fun 'a foldInputs f (a: 'a) (class: DOF.class) =
+    foldl f a (! (#inputs class))
+
+fun foldInitialValueEquations f =
+    foldExpressions (fn (exp, a) => if ExpProcess.isInitialConditionEq exp then f (exp, a) else a)
+
+fun foldInstanceEquations f =
+    foldExpressions (fn (exp, a) => if ExpProcess.isInstanceEq exp then f (exp, a) else a)
 
 fun isInline ({properties={classform=DOF.FUNCTIONAL,...},...} : DOF.class) = true
   | isInline _ = false

@@ -10,7 +10,7 @@ constant PADDLE_HEIGHT = 6
 constant HALF_PADDLE = 3
 constant BALL_SPEED = 7
 constant PADDLE_SPEED = 10
-settings.ir.aggregate.setValue(true)
+
 /*
  * pong_paddle - simulates the motion of the pong paddle up and down on the screen
  *
@@ -188,7 +188,7 @@ model (paddle1, paddle2, ball, scores) = pong()
     equation score = {1 when (x <= 0 or x >= SCREEN_WIDTH), 0 otherwise}
     equation reset = score or t == 0
     equation reset_d = reset[t[-1]]
-    b.reset = reset or reset_d
+    b.reset = reset_d
     equation player1 = player1 + {score when x > SCREEN_WIDTH/2, 0 otherwise}
     equation player2 = player2 + {score when x < SCREEN_WIDTH/2, 0 otherwise}
 

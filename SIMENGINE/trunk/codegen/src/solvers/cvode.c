@@ -130,11 +130,6 @@ int cvode_eval(solver_props *props, unsigned int modelid){
   cvode_mem *mem = props->mem;
   mem = &mem[modelid];
 
-  // Stop the solver if the stop time has been reached
-  props->running[modelid] = (props->time[modelid] + props->timestep) < props->stoptime;
-  if(!props->running[modelid])
-    return 0;
-
   // if a positive dt is specified, then we will have this function return after it reaches the next time point,
   // otherwise, it will just run one iteration and return
   if(props->timestep > 0) {

@@ -16,7 +16,29 @@ datatype status =
 	 SUCCESS 
        | FAILURE of string
 
-open Printer
+fun $ line = Layout.str line
+fun SUB text = Layout.indent (Layout.align text, 2)
+
+(* Parenthesises and separates a list of layouts. *)
+fun series (start, finish, sep) layouts =
+    Layout.seq [Layout.str start, 
+		Layout.mayAlign (Layout.separateRight (layouts, sep)), 
+		Layout.str finish]
+
+(* Quotes a C string verbatim. *)
+fun quote str = 
+    Layout.seq [Layout.str "\"", 
+		Layout.str (String.toCString str),
+		Layout.str "\""]
+
+(* Terminates a C statement with a semicolon. *)
+fun stmt layout =
+    Layout.seq [layout, Layout.str ";"]
+
+fun statements layouts =
+    Layout.align (map stmt layouts)
+
+
 exception InternalError
 
 val i2s = Util.i2s
@@ -62,7 +84,6 @@ and term_reads_iterator iter (Exp.SYMBOL (name, props)) =
     in case Property.getScope props
 	of Property.READSTATE iter_sym' => iter_sym = iter_sym'
 	 | Property.READSYSTEMSTATE iter_sym' => iter_sym = iter_sym'
-	 | Property.READSYSTEMSTATENEXT iter_sym' => iter_sym = iter_sym'
 	 | _ => false
     end
   | term_reads_iterator _ _ = false
@@ -131,8 +152,31 @@ and instance_has_states test instance =
     in test class
     end
 
+fun searchExpressionsDepthFirst p (class: DOF.class) =
+    let
+	fun dfs nil = NONE
+	  | dfs (exp::exps) =
+	    if ExpProcess.isInstanceEq exp then
+		let val {classname, ...} = ExpProcess.deconstructInst exp
+		    val class' = CurrentModel.classname2class classname
+		in
+		    case searchExpressionsDepthFirst p class'
+		     of SOME exp => SOME exp
+		      | NONE => dfs exps
+		end
+	    else if p exp then
+		SOME exp
+	    else
+		dfs exps
+    in
+	dfs (! (#exps class))
+    end
 
 
+fun hasInitialValueEquation f class =
+    isSome (searchExpressionsDepthFirst
+		(fn exp => ExpProcess.isInitialConditionEq exp andalso f exp)
+		class)
 
 (* ====================  HEADER  ==================== *)
 
@@ -529,6 +573,8 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	       else NONE
 	    end
 
+
+
 	(* State names and initial value pairs are returned in a sorted order,
 	 * with the class' own states listed first in the order of the state initial values,
 	 * followed by the class' instance's states in order of the instance name. *)
@@ -571,7 +617,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	fun default2c_str (SOME v) = CWriterUtil.exp2c_str v
 	  | default2c_str NONE = 
 	    DynException.stdException("Unexpected non-default value for input", "CParallelWriter.simEngineInterface", Logger.INTERNAL)
-	    
+	
 	val (state_names, state_defaults) = 
 	    ListPair.unzip 
 		(Util.flatmap 
@@ -652,21 +698,18 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	    open JSON
 	    val int = int o IntInf.fromInt
 
+	    (* Emits unrepresentable values as NAN *)
 	    fun defaultToJSON NONE = null
 	      | defaultToJSON (SOME (exp as Exp.TERM t)) =
 		(case t
-		  of Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt 4)
-		   | Exp.INT z => int z
-		   | Exp.REAL r => real r
-		   | Exp.NAN => real (0.0 / 0.0)
+		  of Exp.BOOL b => bool b
 		   | Exp.INFINITY => real (1.0 / 0.0)
-		   | Exp.BOOL b => bool b
-		   | _ => DynException.stdException (("Don't know how to encode this default ("^(e2s exp)^") in JSON"),
-						     "CParallelWriter.simEngine",
-						     Logger.INTERNAL))
-	      | defaultToJSON _ = DynException.stdException (("Don't know how to encode no defaults in JSON"),
-							     "CParallelWriter.simEngine",
-							     Logger.INTERNAL)
+		   | Exp.INT z => int z
+		   | Exp.NAN => real (0.0 / 0.0)
+		   | Exp.RATIONAL (n, d) => real (Real.fromInt n / Real.fromInt d)
+		   | Exp.REAL r => real r
+		   | _ => real (0.0 / 0.0))
+	      | defaultToJSON _ = real (0.0 / 0.0)
 	in
 	val jsonInterface = 
 	    object [("name", string class_name),
@@ -681,6 +724,21 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		    
 	end
 
+	local
+	    (* Emits non-constant values as NAN *)
+	    fun stateDefaultToConstant (exp as Exp.TERM t) =
+		(case t 
+		  of Exp.BOOL _ => exp
+		   | Exp.INFINITY => exp
+		   | Exp.INT _ => exp
+		   | Exp.NAN => exp
+		   | Exp.RATIONAL _ => exp
+		   | Exp.REAL _ => exp
+		   | _ => Exp.TERM Exp.NAN)
+	      | stateDefaultToConstant _ = Exp.TERM Exp.NAN
+	in
+	val stateDefaultConstants = map stateDefaultToConstant state_defaults
+	end
    in
 	[$("typedef enum {"),
 	 SUB(map (fn(sol) => $((sol ^ ","))) solvers_enumerated),
@@ -699,7 +757,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("static const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
 	 $("static const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
 	 $("static const double default_inputs[] = {" ^ (String.concatWith ", " default_inputs) ^ "};"),
-	 $("static const double default_states[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str state_defaults)) ^ "};"),
+	 $("static const double default_states[] = {" ^ (String.concatWith ", " (map CWriterUtil.exp2c_str stateDefaultConstants)) ^ "};"),
 	 $("static const unsigned int output_num_quantities[] = {" ^ (String.concatWith ", " (map i2s outputs_num_quantities)) ^ "};"),
 	 $("static const char model_name[] = \"" ^ class_name ^ "\";"),
 	 $("static const char *solver_names[] = {" ^ (String.concatWith ", " (map cstring solver_names)) ^ "};"),
@@ -777,8 +835,10 @@ fun solver_wrappers solvers =
 	Util.flatmap create_wrapper methods_params
     end
 
+
+
 fun update_wrapper shardedModel =
-    let val _ = ()
+    let 
 	fun call_update iter_sym =
 	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
 		val iter = ShardedModel.toIterator shardedModel iter_sym
@@ -797,7 +857,7 @@ fun update_wrapper shardedModel =
 			    val basename = ClassProcess.class2basename class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "("^(*"const "^*)"statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
+				(if reads_iterator iter class then "("^(*"const "^*)"statedata_" ^ basename_iter ^ " * )props->model_states, " else "",
 				 if writes_iterator iter class then "(statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
 				 if reads_system class then "props->system_states, " else "")
 
@@ -824,7 +884,7 @@ fun update_wrapper shardedModel =
     end
 
 fun preprocess_wrapper shardedModel preprocessIterators =
-    let val _ = ()
+    let 
 	fun call_update iter_sym =
 	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
 		val iter = ShardedModel.toIterator shardedModel iter_sym
@@ -1575,6 +1635,153 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     end
     handle e => DynException.checkpoint "CParallelWriter.class2flow_code" e
 
+fun state_init_code shardedModel iter_sym =
+    let 
+	val model as (classes, {classname=top_class,...} ,_) = ShardedModel.toModel shardedModel iter_sym
+	val iter as (_,iter_type) = ShardedModel.toIterator shardedModel iter_sym
+	val iter_name = Symbol.name (case iter_type of
+					 DOF.UPDATE v => v
+				       | _ => iter_sym)
+
+	fun stateInitPrototype class =
+	    let
+		val classname = ClassProcess.class2classname class
+		val basename = ClassProcess.class2basename class
+		val mastername = ClassProcess.class2preshardname class
+		val classTypeName = ClassProcess.classTypeName class
+
+		val (reads, writes, sysreads) = 
+		    (if reads_iterator iter class then
+			 (*"const " ^ *)"statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name
+		     else "void *rd_" ^ iter_name,
+		     if writes_iterator iter class then
+			 "statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name
+		     else "void *wr_" ^ iter_name,
+		     if reads_system class then
+			 "const systemstatedata_" ^ (Symbol.name mastername) ^ " *sys_rd"
+		     else "void *sys_rd")
+	    in
+		"__HOST__ __DEVICE__ int init_states_" ^ (Symbol.name (#name class)) ^
+		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", CDATAFORMAT *inputs, const unsigned int modelid)"
+	    end
+
+	fun stateInitFunction (iter as (iter_sym, iter_typ)) isTopClass class =
+	    let
+		val iter_name = Symbol.name (case iter_type of
+						 DOF.UPDATE v => v
+					       | _ => iter_sym)
+
+		val inputs = Util.addCount (!(#inputs class))
+
+		val inputLocalVar =
+		    if isTopClass then
+		     fn ({name,default}, i) => 
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, " ^ (i2s i) ^ ", modelid)];")
+		    else
+		     fn ({name,default}, i) => 
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
+
+		val ivqCode = ClassProcess.foldInitialValueEquations
+				  (fn (eqn, code) =>
+				      ($((CWriterUtil.exp2c_str eqn) ^ ";")) :: code)
+				  nil class
+
+		val instCode = ClassProcess.foldInstanceEquations
+			 (fn (eqn, code) => 
+			     let
+				 val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst eqn
+				 val instclass = CurrentModel.classname2class classname
+				 val orig_instname = case InstProps.getRealInstName props of
+							 SOME v => v
+						       | NONE => instname
+
+				 val sysreadsName = Unique.unique "subsys_rd"
+
+				 fun systemstatedata_iterator (iter as (iter_name, _)) =
+				     sysreadsName^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
+				 and systemstatedata_states (iter as (iter_name, _)) =
+				     [sysreadsName^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name orig_instname)^";",
+				      sysreadsName^"."^"states_"^(Symbol.name iter_name)^"_next = &sys_rd->states_"^(Symbol.name iter_name)^"_next[STRUCT_IDX]."^(Symbol.name orig_instname)^";"]
+
+				 val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
+				 val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
+
+				 val initSysreads =
+				     [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^sysreadsName^";"),
+				      $("// iterator pointers"),
+				      SUB(map ($ o systemstatedata_iterator) iters),
+				      $("// state pointers"),
+				      SUB(map $ (Util.flatmap systemstatedata_states state_iters))]
+
+				 val dereference = if isTopClass then "[STRUCT_IDX]." else "->"
+											   
+				 (* This may not be a sufficient test.
+				  * What if the expression refers to another expression
+				  * which, in turn, reads the input? *)
+				 fun ivqReadsInput name eqn =
+				     let val symset = ExpProcess.exp2symbolset eqn
+				     in
+					 SymbolSet.member (symset, Term.sym2curname name)
+				     end
+
+				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn ({name, ...}, names) => name :: names) nil class
+				 val inpargs: Exp.exp list = 
+				     map (fn (name, arg) =>
+					     if hasInitialValueEquation (ivqReadsInput name) instclass then
+						 arg
+					     else
+						 Exp.TERM Exp.NAN)
+					 (ListPair.zip (inpnames, inpargs))
+
+				 val (reads, writes, sysreads) = 
+				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
+				      if writes_iterator iter instclass then "&wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
+				      if reads_system instclass then "&" ^ sysreadsName else "NULL")
+
+				 val inpvar = if List.null inpargs then "NULL" else Unique.unique "sub_inputs"
+			     in
+				 if hasInitialValueEquation (fn _ => true) instclass then
+				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
+				      SUB((if not (List.null inpargs) then
+					       $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];") ::
+					       map (fn ((inpname, inparg), idx) => $("/* " ^ (Term.sym2name inpname) ^ " */" ^
+										     inpvar ^ "[" ^ (i2s idx) ^ "] " ^ 
+										     " = " ^ 
+										     CWriterUtil.exp2c_str inparg ^ ";")) 
+						   (Util.addCount (ListPair.zip (inpnames, inpargs)))
+					   else []) @
+					  (if reads_system instclass then initSysreads else []) @
+					  [$("init_states_" ^ (Symbol.name classname) ^ "(" ^
+					     reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^
+					     inpvar ^ ", modelid);")]),
+				      $("}")] @
+				     code
+				 else code
+			     end)
+			 nil class
+	    in
+		[$((stateInitPrototype class) ^ "{"),
+		 SUB(map inputLocalVar inputs),
+		 SUB(ivqCode),
+		 SUB(instCode),
+		 SUB[$("return 0;")],
+		 $("}")]
+	    end
+    in
+	CurrentModel.withModel
+	    model
+	    (fn _ =>
+		let
+		    val topclass = CurrentModel.classname2class top_class
+		    val ivqClasses = List.filter (hasInitialValueEquation (fn _ => true)) classes
+		    val prototypes = map ((fn p => $(p^";")) o stateInitPrototype) ivqClasses
+		    val functions = map (fn c => stateInitFunction iter (#name c = #name topclass) c) ivqClasses
+		in
+		    (prototypes, List.concat functions)
+		end)
+    end
+
+
 fun flow_code shardedModel iter_sym = 
     let
 	val model as (classes, {classname=top_class,...} ,_) = ShardedModel.toModel shardedModel iter_sym
@@ -1650,17 +1857,49 @@ fun flow_code shardedModel iter_sym =
 							   
 				       val flow_progs = List.concat (map (fn(c)=>
 									    if ClassProcess.isInline c then
-										(Logger.log_error ($("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
+										(Logger.log_error (Printer.$("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
 										 DynException.setErrored();
 										 [])
 									    else
 										class2flow_code (c,#name c = #name topclass, iter)) classes)
 				   in
-				       ([$("// Functions prototypes for flow code")] @ fundecl_progs, flow_progs)
+				       ([$("// Functions prototypes for flow code of "^(Symbol.name iter_sym))] @ fundecl_progs, flow_progs)
 				   end
 				   handle e => DynException.checkpoint "CParallelWriter.flow_code.anonymous_fun" e)
     end
     handle e => DynException.checkpoint "CParallelWriter.flow_code" e
+
+fun init_states shardedModel =
+    let
+	fun subsystem_init_call iter_sym =
+	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
+		val iter = ShardedModel.toIterator shardedModel iter_sym
+		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
+	    in CurrentModel.withModel
+		   model (fn _ =>
+			     let val class = CurrentModel.classname2class top_class
+				 val basename = ClassProcess.class2basename class
+				 val (reads, writes, sysreads) =
+				     ("(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ ")",
+				      "(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
+				      "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states")
+			     in
+				 if hasInitialValueEquation (fn _ => true) class then
+				     $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
+				       reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
+				       "props->inputs, modelid)) { return 1; }")
+				 else
+				     $("// no initial values for " ^ (Symbol.name top_class))
+			     end)
+	    end
+
+    in
+	[$("__HOST__ __DEVICE__ int init_states(solver_props *props, const unsigned int modelid){"),
+	 SUB(map subsystem_init_call (ShardedModel.iterators shardedModel)),
+	 SUB[$("return 0;")],
+	 $("}"),
+	 $("")]
+    end
 
 
 (* TODO remove the iterval parameter from IMMEDIATE flows. *)
@@ -1675,11 +1914,11 @@ fun model_flows shardedModel =
 		   val basename = ClassProcess.class2basename class
 		   val (statereads, statewrites, systemstatereads) =
 		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
-			if writes_iterator iter class then 
-			    "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " 
-			else if requiresMatrix then
+			if requiresMatrix then
 			    "(CDATAFORMAT* ) props->mem, dydt, "
-			else
+			else if writes_iterator iter class then 
+			    "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " 
+			else 
 			    "",
 			if reads_system class then "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states, " else "")
 	       in
@@ -1705,11 +1944,14 @@ fun model_flows shardedModel =
 
 fun output_code (filename, block) =
     let
-      val _ = Logger.log_notice ($("Generating C source file '"^ filename ^"'"))
+      val _ = Logger.log_notice (Printer.$("Generating C source file '"^ filename ^"'"))
       val file = TextIO.openOut (filename)
     in
-      Printer.printtexts (file, block, 0)
+	Printer.printLayout (Layout.align block) file
+	
+      (* printer.printtexts (file, block, 0) *)
       before TextIO.closeOut file
+      handle exn => (TextIO.closeOut file; raise exn)
     end
 
 fun logoutput_code shardedModel =
@@ -1915,9 +2157,14 @@ fun buildC (orig_name, shardedModel) =
 					     end)
 					  statefulIterators (* pull out just the shards *)
 	val systemstate_progs = outputsystemstatestruct_code shardedModel statefulIterators
+	val state_init_data = map (state_init_code shardedModel) (ShardedModel.iterators shardedModel)
+	val state_init_prototypes = List.concat (map #1 state_init_data)
+	val state_init_functions = List.concat (map #2 state_init_data)
+
 	val flow_data = map (flow_code shardedModel) (ShardedModel.iterators shardedModel)
 	val fun_prototypes = List.concat (map #1 flow_data)
 	val flow_progs = List.concat (map #2 flow_data)
+
 	val logoutput_progs = logoutput_code forkedModelsLessUpdate
 	val simengine_api_h = $(Codegen.getC "simengine/simengine_api.h")
 	val precision_h = $(Codegen.getC "simengine/precision.h")
@@ -1940,10 +2187,11 @@ fun buildC (orig_name, shardedModel) =
 					    (fn(solv)=> Codegen.getC ("solvers/"^solv^".c"))
 					    unique_solvers))
 	val solver_wrappers_c = solver_wrappers unique_solvers
-	val iterator_wrappers_c = (update_wrapper updateModels) @ 
-				  (preprocess_wrapper shardedModel preprocessIterators) @
-				  (inprocess_wrapper shardedModel inprocessIterators) @
-				  (postprocess_wrapper shardedModel postprocessIterators)
+	val iterator_wrappers_c = 
+	    (update_wrapper updateModels) @ 
+	    (preprocess_wrapper shardedModel preprocessIterators) @
+	    (inprocess_wrapper shardedModel inprocessIterators) @
+	    (postprocess_wrapper shardedModel postprocessIterators)
 	val simengine_api_c = $(Codegen.getC "simengine/simengine_api.c")
 	val defines_h = $(Codegen.getC "simengine/defines.h")
 	val seint_h = $(Codegen.getC "simengine/seint.h")
@@ -1963,6 +2211,10 @@ fun buildC (orig_name, shardedModel) =
 		 $(Codegen.getC "simengine/exec_parallel_gpu.cu")]
 
 	val model_flows_c = model_flows forkedModelsWithSolvers
+	val init_states_c = init_states 
+				(List.filter (fn{iter_sym,...}=> case itersym2iter iter_sym of (_, DOF.IMMEDIATE) => false | _ => true) (#1 forkedModelsLessUpdate), 
+				 sysprops)
+
 	val exec_loop_c = $(Codegen.getC "simengine/exec_loop.c")
 
 	(* write the code *)
@@ -1989,6 +2241,7 @@ fun buildC (orig_name, shardedModel) =
 				       outputdatastruct_progs @
 				       outputstatestruct_progs @
 				       systemstate_progs @
+				       state_init_prototypes @
 				       fun_prototypes @
 				       [solvers_h] @
 
@@ -2007,6 +2260,8 @@ fun buildC (orig_name, shardedModel) =
 				       logoutput_progs @
 				       [log_outputs_c] @
 				       exec_c @
+				       state_init_functions @
+				       init_states_c @
 				       flow_progs @
 				       model_flows_c @
 				       [exec_loop_c]))

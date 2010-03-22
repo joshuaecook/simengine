@@ -1,6 +1,11 @@
 signature EXPPROCESS =
 sig
 
+(* A visitor is a type of function which, 
+ * when given an expression and some value,
+ * returns a new value. *)
+type 'a visitor = Exp.exp * 'a -> 'a
+
 (* Commonly used functions *)
 val exp2term : Exp.exp -> Exp.term (* must be of term expression, otherwise this fails *)
 val term2exp : Exp.term -> Exp.exp
@@ -103,6 +108,9 @@ val uniq : Symbol.symbol -> Symbol.symbol (* given a sym, create a unique sym na
 end
 structure ExpProcess : EXPPROCESS =
 struct
+
+type 'a visitor = Exp.exp * 'a -> 'a
+
 
 val i2s = Util.i2s
 val r2s = Util.r2s
@@ -480,7 +488,6 @@ fun isStateBufferTerm (Exp.TERM (Exp.SYMBOL (_, props))) =
 	Property.READSYSTEMSTATE _ => true
       | Property.READSTATE _ => true
       | Property.WRITESTATE _ => true
-      | Property.READSYSTEMSTATENEXT _ => true
       | _ => false)
   | isStateBufferTerm _ = false
 
@@ -1092,7 +1099,6 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
 			 Property.READSTATE rd_sym => (case changeScopeIterator rd_sym of SOME sym => Property.READSTATE sym | NONE => scope)
 		       | Property.WRITESTATE wr_sym => (case changeScopeIterator wr_sym of SOME sym => Property.WRITESTATE sym | NONE => scope)
 		       | Property.READSYSTEMSTATE rd_sys_sym => (case changeScopeIterator rd_sys_sym of SOME sym => Property.READSYSTEMSTATE sym | NONE => scope)
-		       | Property.READSYSTEMSTATENEXT rd_sys_sym => (case changeScopeIterator rd_sys_sym of SOME sym => Property.READSYSTEMSTATENEXT sym | NONE => scope)
 		       | _ => scope
 
 	val derivative = Property.getDerivative props
@@ -1200,15 +1206,6 @@ and replaceIterator {before_iter_sym, before_iter_sym_list, after_iter_sym, sym,
 				    Iterator.RELATIVE 1 => Property.WRITESTATE updated_sym
 				  | _ => Property.READSTATE updated_sym
 			 end
-		       | Property.READSYSTEMSTATENEXT sym =>
-			 let val updated_sym = updateIterSym sym
-			 in if (*updated_sym = sym*) not(needsReplacing sym) then
-				scope
-			    else
-				case iter_index' of
-				    Iterator.RELATIVE 1 => Property.WRITESTATE updated_sym
-				  | _ => Property.READSTATE updated_sym
-			 end
 		       | Property.WRITESTATE sym => 			 
 			 (case iter_index' of
 			      Iterator.RELATIVE 0 => 
@@ -1244,19 +1241,11 @@ fun assignCorrectScopeOnSymbol exp =
 		 else if isNextVarDifferenceTerm exp then
 		     Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
 		 else if isAlgebraicStateTerm exp then
-		     case iter_type of
-			 DOF.ALGEBRAIC (DOF.PREPROCESS,_) =>
-			 (case iter_index of
-			      Iterator.RELATIVE 1 => 
-			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
-			    | _ => 
-			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATENEXT iter_sym))))
-		       | _ =>
-			 (case iter_index of
-			      Iterator.RELATIVE 1 => 
-			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
-			    | _ => 
-			      Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym))))
+		     case iter_index of
+			 Iterator.RELATIVE 1 => 
+			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))))
+		       | _ => 
+			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym)))
  		 else if isNextUpdateTerm exp then
 		     let
 			 val orig_iter = case iter_type of DOF.UPDATE v => v | _ => DynException.stdException("Unexpected non update iterator", "ExpProcess.assignCorrectScope", Logger.INTERNAL)
@@ -1276,7 +1265,11 @@ fun assignCorrectScopeOnSymbol exp =
 			 Exp.TERM (Exp.SYMBOL (sym, Property.setScope props (Property.READSYSTEMSTATE iter_sym')))
 		     end
 		 else if isInitialConditionTerm exp then
-		     exp (* this doesn't really apply here ... *)
+		     let val props = Property.setScope props (Property.WRITESTATE (Symbol.symbol (Symbol.name iter_sym)))
+			 val props = Property.setEPIndex props (SOME Property.STRUCT_OF_ARRAYS)
+		     in
+			 Exp.TERM (Exp.SYMBOL (sym, props))
+		     end
 		 else if isForwardReference iter_index then
 		     (user_error exp "Invalid positive temporal index found on quantity";
 		      exp)

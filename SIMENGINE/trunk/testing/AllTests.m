@@ -27,29 +27,12 @@ end
 % Define the all tests suite
 s = Suite('All Tests');
 
-% Pull in each of the other test suites
-s.add(ReleaseCompileTests)
-s.add(ReleaseCompileTestsGPU)
-
-% Add full simulation tests
-s.add(ReleaseSimulateTests)
-s.add(ReleaseSimulateTestsGPU)
-
-% Add tests for each solver
-s.add(SolverTests)
-
-% Additional compilation tests for internal use
-if mode == INTERNAL
-    s.add(InternalCompileTests)
-end
-
-% Add feature tests
-if mode == INTERNAL
-    s.add(FeatureTests('-cpu'));
-    s.add(FeatureTests('-gpu'));
+if mode == RELEASE
+  s.add(AllCPUTests('-release'))
+  s.add(AllGPUTests('-release'))
 else
-    s.add(FeatureTests('-cpu','-release'));
-    s.add(FeatureTests('-gpu','-release'));
+  s.add(AllCPUTests)
+  s.add(AllGPUTests)
 end
 
 % Add message tests (for checking compiler output)

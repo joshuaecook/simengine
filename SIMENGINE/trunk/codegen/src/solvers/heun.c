@@ -68,10 +68,6 @@ __DEVICE__
 int heun_eval(solver_props *props, unsigned int modelid){
   int i;
   int ret;
-  // Stop the simulation if the next step will be beyond the stoptime (this will hit the stoptime exactly for even multiples unless there is rounding error)
-  props->running[modelid] = props->time[modelid] + props->timestep <= props->stoptime;
-  if(!props->running[modelid])
-    return 0;
 
   heun_mem *mem = (heun_mem*)props->mem;
 
