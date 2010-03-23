@@ -112,10 +112,12 @@ fun main () =
 	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))*)
 	val _ = Logger.log_notice (Printer.$("Arguments to simEngine: " ^ (Util.l2s argv)))
 	val _ = DynamoOptions.importCommandLineArgs argv
+	val _ = Profile.mark()
 
 	(* initialize the exec *)
 	val env = PopulatedEnv.importSettings (rep_loop false) env
 	val _ = Exec.execInit()
+	val _ = Profile.mark()
 
 	val log = if DynamoOptions.isFlagSet "verbose" then
 		       Logger.log_stdout (Logger.ALL, defaultOptions)
@@ -135,6 +137,7 @@ fun main () =
 	    end
 
 	val env = Profile.time "simEngine" startup env
+	val _ = Profile.mark()
 
 	val _ = if DynamoOptions.isFlagSet "startupmessage" then
 		    Logger.log_notice (Printer.$("Starting up simEngine ..."))
@@ -166,6 +169,7 @@ fun main () =
 	    DynamoOptions.isFlagSet "help"
 	end
 	val batchFile = DynamoOptions.getStringSetting "batch"
+	val _ = Profile.displayTimes()
 
     in
 	if nonInteractiveOption () then

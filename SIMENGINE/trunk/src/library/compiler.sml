@@ -19,12 +19,15 @@ fun std_compile exec args =
     (case args of
 	 [object] => 
 	 ((let
+	       val _ = Profile.mark()
+
 	       (* Translation Phase *)
 	       val forest as (_,{classname=name,...},_) = 
 		   case Compile.dslObjectToDOF (exec, object) of
 		       (f, Compile.SUCCESS) => f
 		     | (_, Compile.USERERROR) => raise (CompilationError TRANSLATION)
 		     | (_, Compile.EXCEPTION) => raise (CompilationFailure TRANSLATION)
+	       val _ = Profile.mark()
 
 	      (* Compilation Phase *)
 	      val forkedModels = 
@@ -32,12 +35,14 @@ fun std_compile exec args =
 		       (f, Compile.SUCCESS) => f
 		     | (_, Compile.USERERROR) => raise (CompilationError COMPILATION)
 		     | (_, Compile.EXCEPTION) => raise (CompilationFailure COMPILATION)
+	       val _ = Profile.mark()
 
 	      (* Code Generation Phase *)
 	      val () = case Compile.ShardedModelToCodeGen (name, forkedModels) of
 			   Compile.SUCCESS => ()
 			 | Compile.USERERROR => raise (CompilationError CODEGENERATION)
 			 | Compile.EXCEPTION => raise (CompilationFailure CODEGENERATION)
+	       val _ = Profile.mark()
 
 	  in 
 	       error_code 0

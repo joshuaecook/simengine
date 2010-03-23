@@ -648,55 +648,58 @@ import "command_line.dsl"
 
     // Opening an archive succeeds if the file exists and a manifest can be read.
     var archive = Archive.openArchive (simfile)
-    if () <> archive then
-      // .sim must be newer than the simEngine compiler
-      var creation = Archive.creationDate (archive)
-      if creation > Sys.buildTime then
-	// .sim must be using the same DOL file and be younger than it
-	var dol = Archive.dolFilename (archive)
-	if FileSystem.isfile(dol) and creation > FileSystem.modtime (dol) and dol == settings.compiler.registry.value then
-	  // TODO check environment and version of SIM
+    // Check to make sure that regenerateTimings is not set
+    if settings.logging.regenerateTimings.getValue() == false then
+      if () <> archive then
+	// .sim must be newer than the simEngine compiler
+	var creation = Archive.creationDate (archive)
+	if creation > Sys.buildTime then
+	  // .sim must be using the same DOL file and be younger than it
+	  var dol = Archive.dolFilename (archive)
+	  if FileSystem.isfile(dol) and creation > FileSystem.modtime (dol) and dol == settings.compiler.registry.value then
+	    // TODO check environment and version of SIM
 
-	  // .sim must be younger than each imported DSL file
-	  var dsls = Archive.dslFilenames (archive)
-	  var main = dsls.first () // an absolute path
-          var imports = dsls.rest () // paths relative to main
-	  
-	  if filename == main then
-	    var upToDate = creation > FileSystem.modtime (main)
-	    foreach i in imports do
-	      upToDate = (upToDate and 
-			  FileSystem.isfile i and
-			  creation > FileSystem.modtime i)
-	      if FileSystem.isfile i then 
-		  if creation < FileSystem.modtime i then
-		      notice ("Source file <"+i+"> is not up to date")
-		  end
-	      else
-		  notice ("Source file <"+i+"> no longer exists")
-	      end
-		  
-	    end
+	    // .sim must be younger than each imported DSL file
+	    var dsls = Archive.dslFilenames (archive)
+	    var main = dsls.first () // an absolute path
+	    var imports = dsls.rest () // paths relative to main
 	    
-	    if upToDate then
-	      needsToCompile = not (isArchiveCompatibleWithCompilerSettings (archive, compilerSettings))
-	      if needsToCompile then
-		  notice ("Precompiled SIM file is not compatible with compiler settings")
+	    if filename == main then
+	      var upToDate = creation > FileSystem.modtime (main)
+	      foreach i in imports do
+		upToDate = (upToDate and 
+			    FileSystem.isfile i and
+			    creation > FileSystem.modtime i)
+		if FileSystem.isfile i then 
+		  if creation < FileSystem.modtime i then
+		    notice ("Source file <"+i+"> is not up to date")
+		  end
+		else
+		  notice ("Source file <"+i+"> no longer exists")
+		end
 	      end
-	    end	    
+	    
+	      if upToDate then
+		needsToCompile = not (isArchiveCompatibleWithCompilerSettings (archive, compilerSettings))
+		if needsToCompile then
+		  notice ("Precompiled SIM file is not compatible with compiler settings")
+		end
+	      end	    
+	    else
+	      notice ("Filename <"+filename+"> is not the same as the main function <"+main+">")			
+	    end
 	  else
-	    notice ("Filename <"+filename+"> is not the same as the main function <"+main+">")
+	    notice ("DOL registry file is not up to date")
 	  end
 	else
-	  notice ("DOL registry file is not up to date")
+	  notice ("Build time is more recent than the SIM file creation date")
 	end
       else
-	notice ("Build time is more recent than the SIM file creation date")
+	notice ("No SIM file has been found, must be compiled")
       end
     else
-      notice ("No SIM file has been found, must be compiled")
+      notice ("Always recompiling when regenerateTimings flag is set to true")
     end
-
     // Make sure the outputs directory exists, may be created before simEngine is called
     // otherwise, create it
     if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
@@ -711,10 +714,10 @@ import "command_line.dsl"
       populateCompilerSettings(compilerSettings)
       var success = compile (filename, target, compilerSettings)
       if success == 0 then
-	  exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
+	exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
       else
-	  LF sys_exit(128)
-	  exfile = ""
+	LF sys_exit(128)
+	exfile = ""
       end
     else
       //var cfile = Path.join(compilerSettings.outputdir, compilerSettings.cSourceFilename)

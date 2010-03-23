@@ -486,7 +486,7 @@ end
 function [interface] = get_interface(opts)
   simex_interface_json = fullfile(opts.outputs, 'simex_interface.json');
   opts.args = [opts.args ' --json_interface ' simex_interface_json];
-  status = compile_model(opts);
+  status = compile_model(opts, 'Compiling');
   if(128 == status)
     simEngineError('compileModel', ['Model ''' opts.dslfile ''' can not be '...
                         'compiled']);
@@ -545,7 +545,7 @@ function [] = simulate_model(opts)
   opts.args = [opts.args ' --instances ' num2str(opts.instances)];
   opts.args = [opts.args ' --startupmessage=false'];
   
-  status = compile_model(opts);
+  status = compile_model(opts, 'Simulating');
   if(128 == status)
     simexError('simulateModel',['Model ''' opts.dslfile ''' failed '...
                         'during simulation.'])
@@ -555,15 +555,15 @@ function [] = simulate_model(opts)
   end
 end
 
-function [status] = compile_model(opts)
+function [status] = compile_model(opts, progress_string)
   command = [opts.simengine ' --simex ' opts.model ' --outputdir ' opts.outputs ' ' opts.args];
   if opts.debug
     disp(['Running <' command '>'])
   end
-  status = launchBackground(command, opts.outputs);
+  status = launchBackground(command, opts.outputs, progress_string);
 end
 
-function [status] = launchBackground(command, workingDir)
+function [status] = launchBackground(command, workingDir, progress_string)
 logFile = fullfile(workingDir, 'logfile');
 progressFile = fullfile(workingDir, 'progress');
 statusFile = fullfile(workingDir, 'status');
@@ -586,11 +586,14 @@ outputlen = 0;
 messagelen = 0;
 while(processRunning(pid))
   if(~exist('m','var') && exist(progressFile,'file'))
-    m = memmapfile(progressFile, 'format', 'double');
+    fileinfo = dir(progressFile);
+    if fileinfo.bytes >= 8 
+      m = memmapfile(progressFile, 'format', 'double');
+    end
   end
   if(exist('m','var'))
     progress = 100*sum(m.Data)/length(m.Data);
-    message = sprintf('Simulating: %0.2f %%', progress);
+    message = sprintf('%s: %0.2f %%', progress_string, progress);
     messagelen = statusBar(message, messagelen);
   end
   try
@@ -605,6 +608,7 @@ while(processRunning(pid))
     pause(0.1);
   end
 end
+%clear m
 try
   log = fileread(logFile);
 catch it

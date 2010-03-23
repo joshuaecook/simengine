@@ -400,17 +400,20 @@ fun normalizeModel (model:DOF.model) =
 	val () = app ClassProcess.createEventIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
+	val _ = Profile.mark()
 
 	(* expand out delays *)
 	val _ = log ("Adding delays to difference equations")
 	val () = app ClassProcess.addDelays (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
+	val _ = Profile.mark()
 
 	val _ = log ("Assigning correct scope ...")
 	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
+	val _ = Profile.mark()
 
 (*	val _ = log ("Propagating temporal iterators ...")
 	val () = app ClassProcess.propagatetemporalIterators (CurrentModel.classes())
@@ -420,11 +423,13 @@ fun normalizeModel (model:DOF.model) =
 	val () = app ClassProcess.propagateSpatialIterators (CurrentModel.classes())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
+	val _ = Profile.mark()
 
 	val _ = log ("Pruning excess iterators ...")
 	val () = pruneIterators (CurrentModel.getCurrentModel())
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
+	val _ = Profile.mark()
 
 	(* generate all offsets for instances *)
 	(*val () = app ClassProcess.generateOffsets classes*)
@@ -456,6 +461,7 @@ fun normalizeModel (model:DOF.model) =
 
 	val _ = log ("Ordering model ...")
 	val _ = Ordering.orderModel(CurrentModel.getCurrentModel())
+	val _ = Profile.mark()
 
 	val _ = DynException.checkToProceed()
 
@@ -465,6 +471,7 @@ fun normalizeModel (model:DOF.model) =
 	val _ = CurrentModel.setCurrentModel(model')
 	val () = (app ClassProcess.fixSymbolNames (CurrentModel.classes()))
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = Profile.mark()
 
 
 	val _ = DynException.checkToProceed()
@@ -475,6 +482,7 @@ fun normalizeModel (model:DOF.model) =
 	val () = ClassProcess.addEPIndexToClass true top_class
 
 	val _ = DynException.checkToProceed()
+	val _ = Profile.mark()
 
 	(* add intermediates for update equations if required - they are reading and writing to the same vector so we have to make sure that ordering doesn't matter. *)
 	val _ = log ("Adding buffered intermediates ...")

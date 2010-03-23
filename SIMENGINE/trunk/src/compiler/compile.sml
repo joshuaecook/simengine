@@ -51,6 +51,7 @@ fun DOFToShardedModel forest =
 	(* here, we can validate the model to catch issues that can't be found elsewhere *)
 	val _ = ModelValidate.validate forest
 	val _ = DynException.checkToProceed()
+	val _ = Profile.mark()
 
 	(* if the optimize flag is set, spend some time trying to reduce the equations *)
 	val _ = if DynamoOptions.isFlagSet "optimize" then
@@ -59,15 +60,18 @@ fun DOFToShardedModel forest =
 		     DOFPrinter.printModel(model()))
 		else
 		    ()
+	val _ = Profile.mark()
 
 	val _ = log("Normalizing model ...")
 	val _ = ModelProcess.normalizeModel (model())
+	val _ = Profile.mark()
 
 	(* check license after all the processing is performed to make sure that the model is acceptable *)
 	val _ = ModelValidate.validateLicensing (model())
 
 	val _ = log("Normalizing parallel model ...")
 	val forkedModels = ShardedModel.forkModel (model())
+	val _ = Profile.mark()
 
 	val forkedModels = if DynamoOptions.isFlagSet "aggregate" then
 			       let
@@ -94,6 +98,7 @@ fun DOFToShardedModel forest =
 		    end
 		else
 		    ()
+	val _ = Profile.mark()
 
 	val _ = log ("Ordering model classes ...")
 	val forkedModels =

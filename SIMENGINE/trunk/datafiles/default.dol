@@ -101,6 +101,12 @@
 // termrewritelimit: a recursion limit for our term rewriter in our internal computer algebra system.  Large expressions might require a larger limit.
 <termrewritelimit = 25>
 
+// compilerTimingData: a vector of timings to use for displaying the percent complete
+<compilerTimingData = [5.32195971933E-4, 0.814676960914, 0.840755267037, 0.842085229343, 0.852750253711, 0.852802865286, 0.852837688419, 0.853154212112, 0.853494956223, 0.85384308706, 0.870151016825, 0.870530553807, 0.870581808636, 0.870585878873, 0.917103555457, 0.919122392712, 0.919123849957, 0.919689361568, 1]>
+
+// regenerateTimings: recreate the timing data
+<regenerateTimings = false>
+
 // optimize: implement the internal expression optimization, otherwise leave equations mostly in tact
 <optimize = true>
 
