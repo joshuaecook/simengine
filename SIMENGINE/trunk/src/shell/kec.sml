@@ -173,7 +173,7 @@ fun list2kecvector nil =
     let
 	val newarray = Array.fromList(list)
 		       
-	val array_size = Real.floor(Math.pow(2.0, Real.realCeil(Math.ln(Real.fromInt (length list)) / (Math.ln(2.0)))))
+	val array_size = Real.floor(Math.pow(2.0, Real.realCeil(Math.ln(Real.fromInt (length list) + 1.0) / (Math.ln(2.0)))))
 			 
 	val front_pad_size = Int.div (array_size, 2)
 	val back_pad_size = Int.div (array_size, 2)
@@ -187,8 +187,9 @@ fun list2kecvector nil =
 		front_pad_size = ref front_pad_size,
 		back_pad_size = ref back_pad_size}
     end
-(*
 
+(*
+fun list2kecvector list =
     let
 	fun pushVector items =
 	    foldl (fn(i, v) => APPLY{func=SEND{message=Symbol.symbol "push_back", object=v},

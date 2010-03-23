@@ -50,17 +50,18 @@ fun std_push_front _ args =
 	 (if !front_index = 0 then (* need to resize *)
 	      let
 		  val array' = Array.array (!front_pad_size * 2 + !back_pad_size, KEC.UNDEFINED)
-		  val front_index' = !front_pad_size - 1
-		  val _ = Array.copy{src= !array, dst=array', di= 0}
-		  val back_index' = front_index' + Array.length(!array)
+		  val front_index' = !front_pad_size
+		  val _ = Array.copy{src= !array, dst=array', di= front_index'}
+		  val back_index' = front_index' + !back_index 
 				    
 		  val _ = array := array'
 		  val _ = front_index := front_index'
 		  val _ = back_index := back_index'
 		  val _ = front_pad_size := !front_pad_size * 2
-			  
+
 		  val _ = Array.update(!array, !front_index-1, exp)
 		  val _ = front_index := !front_index - 1
+
 	      in
 		  KEC.VECTOR arg
 	      end
@@ -80,7 +81,7 @@ fun std_push_front _ args =
 fun std_push_back _ args =
     (case args of
 	 [KEC.VECTOR (arg as {array, front_index, front_pad_size, back_index, back_pad_size}), exp] => 
-	 (if !back_index = (Array.length(!array) - 1) then (* need to resize *)
+	 (if !back_index >= (Array.length(!array) - 1) then (* need to resize *)
 	     let
 		 val array' = Array.array (!front_pad_size + !back_pad_size * 2 , KEC.UNDEFINED)
 		 val _ = Array.copy{src= !array, dst=array', di= 0}
@@ -90,6 +91,7 @@ fun std_push_back _ args =
 
 		  val _ = Array.update(!array, !back_index, exp)
 		  val _ = back_index := !back_index + 1
+
 	     in
 		 KEC.VECTOR arg
 	     end
