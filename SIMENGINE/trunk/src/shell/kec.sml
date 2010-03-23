@@ -116,12 +116,12 @@ and property = {name: Symbol.symbol,
 			 closure: exp Env.env} list) option}
  
 
-		    
+
 val emptyvector =
     let
 	(* This is parameterized to make changes to this code easier.  The compiler should optimize this all away *)
-	val default_vector_size = 64
-
+	val default_vector_size = 64			  
+		    
 	fun find_pad_size size =
 	    (Int.div(size,2), Int.div(size,2), size)
 
@@ -167,7 +167,28 @@ val emptyvector =
     end
 *)
 
-fun list2kecvector list =
+fun list2kecvector nil = 
+    LIBFUN(Symbol.symbol "deepclone", emptyvector)
+  | list2kecvector list =
+    let
+	val newarray = Array.fromList(list)
+		       
+	val array_size = Real.floor(Math.pow(2.0, Real.realCeil(Math.ln(Real.fromInt (length list)) / (Math.ln(2.0)))))
+			 
+	val front_pad_size = Int.div (array_size, 2)
+	val back_pad_size = Int.div (array_size, 2)
+			    
+	val finalarray = Array.array(array_size, UNDEFINED)
+	val _ = Array.copy {src=newarray, dst=finalarray, di = 0}
+    in
+	VECTOR {array=ref finalarray, 
+		front_index= ref 0,
+		back_index= ref (length list),
+		front_pad_size = ref front_pad_size,
+		back_pad_size = ref back_pad_size}
+    end
+(*
+
     let
 	fun pushVector items =
 	    foldl (fn(i, v) => APPLY{func=SEND{message=Symbol.symbol "push_back", object=v},
@@ -177,6 +198,7 @@ fun list2kecvector list =
     in
 	(pushVector list) 
     end
+*)
 
 fun kecvector2list {array, front_index, back_index, front_pad_size, back_pad_size} =
     GeneralUtil.listSlice (GeneralUtil.array2list (!array)) (!front_index, !back_index)
