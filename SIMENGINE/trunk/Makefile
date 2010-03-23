@@ -222,7 +222,7 @@ else
 LOCAL_INSTALL = local-install
 endif
 
-INSTALL_TGZ = "simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER).tgz"
+INSTALL_TGZ = simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER).tgz
 simEngine_%.tgz: $(OUTPUT_FILE) build/* build/*/*
 	$(info Creating $@ for packaging)
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)
@@ -418,14 +418,14 @@ $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	$(CP) $< $@
 
-%.p: interfaces/matlab/%.m
-	@($(MATLABCMD) "pcode $<; exit")
+$(BUILD_DIR)/%.p: interfaces/matlab/%.m
+	-@($(MATLABCMD) "cd $(BUILD_DIR); pcode $<; exit")
 
 pcode: $(INSTALL_FILENAME).p
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
-MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS)
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/simex.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 
 solvers/lib/libcvode_%.a: solvers
@@ -457,9 +457,8 @@ simEngine.tgz: $(OUTPUT_FILE) build/* build/*/*
 $(LOCAL_INSTALL):
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
-$(LOCAL_INSTALL)/simEngine.tgz: simEngine.tgz
-	$(CP) $< $@
-	@(cd $(LOCAL_INSTALL); tar xfz simEngine.tgz)
+expand_tgz:
+	@(cd $(LOCAL_INSTALL); tar xfz ../$(INSTALL_TGZ))
 
 $(LOCAL_INSTALL)/compile_tests.m: interfaces/matlab/compile_tests.m
 	$(CP) $< $@
@@ -491,7 +490,8 @@ $(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/src/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
 	$(CP) $< $@	
 
-install-locally: $(LOCAL_INSTALL) $(LOCAL_INSTALL)/simEngine.tgz $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_INSTALL)/simex.m
+install-locally: $(LOCAL_INSTALL) 
+	@$(MAKE) expand_tgz $(LOCAL_INSTALL)/compile_tests.m 
 	$(info Local install at $(LOCAL_INSTALL) ready)
 
 # Build type options
