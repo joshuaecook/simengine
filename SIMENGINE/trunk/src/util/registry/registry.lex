@@ -72,6 +72,9 @@ WS      = [\012\ \t];
 <INITIAL>"<"    => (Tokens.LTHAN(getpos la yypos 0, getpos la yypos 1));
 <INITIAL>"/"    => (Tokens.SLASH(getpos la yypos 0, getpos la yypos 1));
 <INITIAL>"="    => (Tokens.EQ(getpos la yypos 0, getpos la yypos 1));
+<INITIAL>"["    => (Tokens.LBRACKET(getpos la yypos 0, getpos la yypos 1));
+<INITIAL>"]"    => (Tokens.RBRACKET(getpos la yypos 0, getpos la yypos 1));
+<INITIAL>","    => (Tokens.COMMA(getpos la yypos 0, getpos la yypos 1));
 
 
 <INITIAL>{INT} => ((* Rule to match integers. *)

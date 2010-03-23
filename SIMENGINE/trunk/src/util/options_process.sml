@@ -236,7 +236,7 @@ fun addSetting(name, dyntype, argument, settings) =
 	exception InvalidArgument 
     in
 	let
-	    
+	    val split_str = String.tokens (fn(c)=>c= #":")
 	    val settings' = removeEntry (name, settings)
 	    val value = case dyntype of
 			    INTEGER_T => 
@@ -256,20 +256,29 @@ fun addSetting(name, dyntype, argument, settings) =
 			  | STRING_T => 
 			    STRING (argument)
 			  | INTEGER_VECTOR_T =>
-			    (case Int.fromString argument of
-				 SOME i =>
-				 INTEGER_VEC [i]
-			       | NONE => (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid integer"));
-					  raise InvalidArgument))
+			    let
+				val i_vec_opt = map Int.fromString (split_str argument)
+				val _ = List.find (fn(i) => case i of
+								SOME _ => false 
+							      | NONE => (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' does not have all valid integers"));
+									 raise InvalidArgument)) i_vec_opt
+				val i_vec = List.mapPartial (fn(i)=>i) i_vec_opt
+			    in
+				INTEGER_VEC i_vec
+			    end
 			  | REAL_VECTOR_T => 
-			    (case Real.fromString argument of
-				 SOME r =>
-				 REAL_VEC [r]
-			       | NONE =>
-				 (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid real"));
-				  raise InvalidArgument))
+			    let
+				val r_vec_opt = map Real.fromString (split_str argument)
+				val _ = List.find (fn(r) => case r of
+								SOME _ => false 
+							      | NONE => (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' does not have all valid numbers"));
+									 raise InvalidArgument)) r_vec_opt
+				val r_vec = List.mapPartial (fn(r)=>r) r_vec_opt
+			    in
+				REAL_VEC r_vec
+			    end
 			  | STRING_VECTOR_T => (* deliminate arguments by a : *)			    
-			    STRING_VEC (*[argument]*) (String.tokens (fn(c)=> c = #":") argument)
+			    STRING_VEC (*[argument]*) (split_str argument)
 			  | FLAG_T =>
 			    DynException.stdException ("A flag dyntype is unexpected for a setting", "DynamoOptions.addSetting", Logger.INTERNAL)
 			    
@@ -398,11 +407,11 @@ fun importCommandLineArgs (args) =
 		     DynException.setErrored();
 		     [])
 
-fun importRegistryEntry (Registry.REG_FLAG(n, f), existingSettings) =
+fun importRegistryEntry file (Registry.REG_FLAG(n, f), existingSettings) =
     (addFlag(n, f, existingSettings)
      handle e => (DynException.log "DynamoOptions.importRegistryEntry(FLAG, ...)" e;
 		  existingSettings))
-  | importRegistryEntry (Registry.REG_SETTING(n, f), existingSettings) =
+  | importRegistryEntry file (Registry.REG_SETTING(n, f), existingSettings) =
     let
 	val (dyntype,arg) = case f of
 				Registry.REG_NUMBER r 
@@ -411,6 +420,19 @@ fun importRegistryEntry (Registry.REG_FLAG(n, f), existingSettings) =
 				      | INTEGER_T => (INTEGER_T, Int.toString (Real.floor r))
 				      | REAL_VECTOR_T => (REAL_VECTOR_T, Real.toString r)
 				      | INTEGER_VECTOR_T => (INTEGER_VECTOR_T, Int.toString (Real.floor r))
+				      | _ => DynException.stdException ("Setting '" ^ n ^ "' had non-numerical argument", 
+									"DynamoOptions.importRegistryEntry", 
+									Logger.DATA))
+			      | Registry.REG_NUMBER_VECTOR rlist 
+				=> (case typeOfSetting n of
+				   	REAL_T => (Logger.log_data_error file (Printer.$("Setting '"^n^"' had an unexpected vectorized argument when a scalar value was expected."));
+						  DynException.setErrored();
+						  (REAL_T, "0.0"))
+				      | INTEGER_T => (Logger.log_data_error file (Printer.$("Setting '"^n^"' had an unexpected vectorized argument when a scalar value was expected."));
+						      DynException.setErrored();
+						      (INTEGER_T, "0"))
+				      | REAL_VECTOR_T => (REAL_VECTOR_T, String.concatWith ":" (map Real.toString rlist))
+				      | INTEGER_VECTOR_T => (INTEGER_VECTOR_T, String.concatWith ":" (map (Int.toString o Real.floor) rlist))
 				      | _ => DynException.stdException ("Setting '" ^ n ^ "' had non-numerical argument", 
 									"DynamoOptions.importRegistryEntry", 
 									Logger.DATA))
@@ -432,7 +454,7 @@ fun importRegistryEntry (Registry.REG_FLAG(n, f), existingSettings) =
 fun importRegistryFile (file) = 
     (if GeneralUtil.isFile file then
 	 (registryFile := file;
-	  settings := foldl importRegistryEntry 
+	  settings := foldl (importRegistryEntry file)
 			    (! settings) 
 			    ((Registry.REG_SETTING ("registry", Registry.REG_STRING file)) :: (DynRegParse.parse(file)));
 	  ())

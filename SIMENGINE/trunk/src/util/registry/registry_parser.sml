@@ -51,7 +51,8 @@ struct
 
 		  val file_name = (#file_name la)
 	      in
-		  print ("ERROR @ " ^ file_name ^":" ^ line ^ ":" ^ col ^ ": " ^ s ^ "\n")
+		  (Logger.log_data_error file_name (Printer.$(s ^ " on line "^line^", col "^col));
+		   DynException.setErrored())
 	      end
 
 	  val lexer = LrParser.Stream.streamify (Lex.makeLexer get la)
