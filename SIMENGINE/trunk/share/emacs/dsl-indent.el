@@ -65,7 +65,7 @@ parenthetical."
 
 
 (defconst dsl-indent-begin-block-keywords-regexp
-  "\\_<\\(namespace\\|class\\|model\\|if\\|else\\|elseif\\|get\\|set\\|property\\|constructor\\|equations\\)\\_>")
+  "\\_<\\(namespace\\|class\\|model\\|if\\|else\\|elseif\\|get\\|set\\|property\\|constructor\\|equations\\|foreach\\|while\\)\\_>")
 
 (defconst dsl-indent-end-block-keywords-regexp
   "\\_<end\\|else\\|elseif\\_>")
