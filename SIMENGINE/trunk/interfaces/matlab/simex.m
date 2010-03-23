@@ -1,57 +1,73 @@
 %SIMEX   Executes a high-performance software simulation engine using the SIMENGINE compiler.
 %
 %   Usage:
-%       M = SIMEX(MODEL)
-%       [OUT Y1 T1] = SIMEX(MODEL, TIME, INPUTS, Y0, ...)
+%       [OUT Y1 T1] = SIMEX(DSL, TIME, INPUTS, ...)
+%       [OUT Y1 T1] = SIMEX(DSL, TIME, INPUTS, '-resume', Y0, ...)
+%       M = SIMEX(DSL)
 %
 %   Description:
 %    SIMEX compiles the model defined in the DSL file into a
-%    high-performance software simulation engine. SIMEX generates a
-%    specially tuned executable version of the model for the selected computing
-%    platform and executes the simulation with the given parameters.
+%    high-performance software simulation engine.
 %
-%    SIMEX(MODEL, TIME, INPUTS, Y0, ...) accepts the following options, all
+%    SIMEX(DSL, TIME, ...) accepts the following options, all
 %    of which are optional except for the file name of the DSL model and the
 %    time to execute the simulation.
 %
-%      MODEL is a full pathname to a DSL model file.
+%      DSL is a full pathname to a DSL model file.
 %
 %      TIME is the simulation time limit. If scalar, it specifies a
 %      simulation starting at T=0 proceeding to T=TIME. TIME must be
-%      greater than zero. Otherwise, TIME may be a 2-element array
-%      specifying a simulation starting at T=TIME(1) proceeding to
-%      T=TIME(2). TIME(2) must be greater than TIME(1).
+%      greater than zero.
+%
+%      TIME may be a 2-element array specifying a simulation
+%      starting at T=TIME(1) proceeding to T=TIME(2). TIME(2) must
+%      be greater than TIME(1) and TIME(1) must be greater than
+%      zero.
 %
 %      INPUTS is a structure containing model parameter values. The
 %      field names of the structure correspond to model parameter names.
-%      The associated values may be scalar or they may be arrays of
-%      length N indicating that N parallel simulations are run. All
-%      non-scalar values must have the same length. In parallel
-%      simulations, all models receive the same value for scalar inputs.
+%      The associated values may be scalar or they may be cell arrays of
+%      length M indicating that M parallel simulations are to be
+%      executed. All cell arrays must be the same size. In parallel
+%      simulations, scalar inputs are replicated for all models.
 %
-%      Y0 is an array of model initial state values.
+%      '-resume'
+%        The simulation will continue from the initial state vector
+%        specified in Y0. All state initial values specified within
+%        the model are ignored.
+%
+%        Y0 is an array of model initial state values. It should be
+%        the value returned in Y1 from a previous execution. If
+%        parallel inputs are given, the number of rows in Y0 must
+%        be the same as the number of elements in the input cell array.
 %
 %      Additional optional parameters may follow:
 %
-%      '-double'
+%      '-float'
 %        Constructs a simulation engine that computes in
-%        double-precision floating point. (This is the default.)
+%        lower-precision floating point.
 %
-%      '-single' '-float'
-%        Constructs a simulation engine that computes in
-%        single-precision floating point.
+%      '-gpu'
+%        Constructs a parallel simulation engine capable of
+%        executing on a GPU.
 %
-%      '-cpu'
-%        Constructs a serialized cpu-based simulation engine.
+%      Up to three values are returned:
 %
-%      '-parallelcpu'
-%        Constructs a multiprocessor cpu-based simulation engine.
-%        (This is the default.)
+%      OUT is a structure containing model output values. The field
+%      names of the structure correspond to model output names. The
+%      field values are cell arrays of length M where M is the
+%      number of parallel simulations.
 %
+%      Y1 is an N-by-M matrix of final state values where N is the
+%      number of states in a model and M is the number of parallel
+%      simulations.
 %
-%    M = SIMEX(MODEL) compiles MODEL as above and returns a
+%      T1 is a scalar value representing the time at which the
+%      simulation ended.
+%
+%    M = SIMEX(DSL) compiles DSL as above and returns a
 %    model description structure M containing information
-%    which describes the model states, parameters, and outputs.
+%    which describes the model states, inputs, and outputs.
 %
 % Copyright 2009 Simatra Modeling Technologies, L.L.C.
 % For more information, please visit http://www.simatratechnologies.com
@@ -556,7 +572,7 @@ pidFile = fullfile(workingDir, 'pid');
 system(['touch ' logFile]);
 command = ['(' command ' &>' logFile ' & pid=$! ; echo $pid > ' pidFile ' ; wait $pid; echo $? > ' statusFile ')&'];
 [stat, ignore] = system(command);
-while ~exist(pidFile) | ~length(fileread(pidFile))
+while ~exist(pidFile,'file') || isempty(fileread(pidFile))
   pause(0.1);
 end
 % Ignore the newline
@@ -569,17 +585,17 @@ c = onCleanup(@()cleanupBackgroundProcess(pid));
 outputlen = 0;
 messagelen = 0;
 while(processRunning(pid))
-  if(~exist('m') & exist(progressFile))
+  if(~exist('m','var') && exist(progressFile,'file'))
     m = memmapfile(progressFile, 'format', 'double');
   end
-  if(exist('m'))
+  if(exist('m','var'))
     progress = 100*sum(m.Data)/length(m.Data);
     message = sprintf('Simulating: %0.2f %%', progress);
     messagelen = statusBar(message, messagelen);
   end
   try
     log = fileread(logFile);
-  catch
+  catch it
     simFailure('launchBackground', 'Process log file does not exist.')
   end
   if length(log) > outputlen
@@ -591,7 +607,7 @@ while(processRunning(pid))
 end
 try
   log = fileread(logFile);
-catch
+catch it
   simFailure('launchBackground', 'Process log file does not exist.')
 end
 if length(log) > outputlen
@@ -601,12 +617,12 @@ try
   status = str2num(fileread(statusFile));
   % Prevent any crosstalk between launchBackground calls
   delete(statusFile);
-  if(exist(progressFile))
+  if(exist(progressFile,'file'))
     messagelen = statusBar('', messagelen);
     delete(progressFile);
   end
   delete(logFile);
-catch
+catch it
   simFailure('launchBackground', 'Process status file does not exist.')
 end
 end
@@ -634,7 +650,7 @@ try
   else
     textStatusBar(message, previousLength);
   end
-catch
+catch it
   textStatusBar(message, previousLength);
 end
 messageLength = length(message);
@@ -654,7 +670,7 @@ function textStatusBar(message, previousLength)
         fprintf('\b');
     end
     % Print a new message if available
-    if length(message)
+    if ~isempty(message)
       fprintf('%s', message);
     end
 end
