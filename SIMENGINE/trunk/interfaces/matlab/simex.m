@@ -22,7 +22,7 @@
 %      TIME may be a 2-element array specifying a simulation
 %      starting at T=TIME(1) proceeding to T=TIME(2). TIME(2) must
 %      be greater than TIME(1) and TIME(1) must be greater than
-%      zero.
+%      or equal to zero.
 %
 %      INPUTS is a structure containing model parameter values. The
 %      field names of the structure correspond to model parameter names.
