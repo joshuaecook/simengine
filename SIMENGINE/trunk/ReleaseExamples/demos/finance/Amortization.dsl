@@ -29,7 +29,7 @@ model (payments, totalPayments, principal) = Amortization(loan, years, mortgage_
 
     // Create two states, one to track total payments, the other to track the principal remaining
     state totalPayments = 0 with {iter=period}
-    state principal = 0 /* set this to the loan value externally */ with {iter=period}
+    state principal = loan /* set this to the loan value externally */ with {iter=period}
 
     // Each of the equations to define the model
     equations

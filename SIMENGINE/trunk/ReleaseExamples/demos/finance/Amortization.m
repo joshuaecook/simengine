@@ -46,22 +46,28 @@ end
 % the mortgage to produce an amortization table
 function table = ComputeAmortization(loan, years)
 
-% Run simex to pull information from the simulation
-siminfo = simex('Amortization.dsl');
-states = siminfo.defaultStates;
-states(find(strcmp(siminfo.states,'principal'))) = loan;
-
 % Run two simulations in parallel by setting mortgage type to 0 and 1
 loan_information = struct('loan', loan, 'years', years, 'mortgage_type', [0 1]);
 
 % Execute the parallel simulation
-[table, final_states] = simex('Amortization.dsl', years*12, states, loan_information);
+table = simex('Amortization.dsl', years*12, loan_information);
 
 % Compute some statistics gathered from the simulation
-totalPayments = final_states(:,find(strcmp(siminfo.states,'totalPayments')));
-disp(sprintf('                         Fixed        Adjustable'));
-disp(sprintf('Total Payments      = $%9.2f      $%9.2f', totalPayments(1), totalPayments(2)));
-principal = final_states(:,find(strcmp(siminfo.states,'principal')));
-disp(sprintf('Remaining Principal = $%9.2f      $%9.2f', round(round(principal(1)*100))/100, round(round(principal(2)*100))/100));
+disp(' ')
+disp(sprintf('                     Year       Fixed        Adjustable'));
+years = [5 10 30];
+for i=1:length(years)
+  periods = years(i)*12+1;
+  disp(sprintf('Total Payments        %2d     $%9.2f      $%9.2f', ...
+               years(i), table(1).totalPayments(periods,2), table(2).totalPayments(periods,2)));
+end
+disp(' ');
+for i=1:length(years)
+  periods = years(i)*12+1;
+  disp(sprintf('Remaining Principal   %2d     $%9.2f      $%9.2f', ...
+               years(i), round(round(table(1).principal(periods,2)* ...
+                                     100))/100, round(round(table(2).principal(periods,2)*100))/100));
+end
+disp(' ');
 
 end
