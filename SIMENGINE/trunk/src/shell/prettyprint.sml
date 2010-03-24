@@ -15,11 +15,6 @@ fun stream2str (KEC.INSTREAM _) = "input"
 
 exception ImpossibleListType
 
-fun keclist2list (KEC.VECTOR vec) =
-    KEC.kecvector2list vec
-  | keclist2list _ = 
-    raise ImpossibleListType
-
 fun member2name (KEC.METHOD (name, _, _)) = name
   | member2name (KEC.VAR {name, ...}) = name
   | member2name (KEC.CONSTANT (name, _, _)) = name
@@ -108,6 +103,8 @@ fun kecexp2prettystr (exec : (KEC.exp -> KEC.exp)) (exp: KEC.exp) : string =
 	    => "{" ^ (pretty ift) ^ " WHEN " ^ (pretty cond) ^", " ^ (pretty iff) ^ " OTHERWISE}"
 	  | KEC.VECTOR vec
 	    => "[" ^ (String.concatWith ", " (map (fn(e) => pretty (e)) (KEC.kecvector2list vec))) ^ "]"
+	  | KEC.VECTORLITERAL vec
+	    => "[" ^ (String.concatWith ", " (map (fn(e) => pretty (e)) vec)) ^ "]"
 	  | KEC.TUPLE exps 
 	    => "(" ^ (String.concatWith ", " (map pretty exps)) ^ ")"
 	  | KEC.UNIT
@@ -193,6 +190,8 @@ and kecexp2debugstr (exp: KEC.exp) : string =
 	    => "{" ^ (kecexp2debugstr ift) ^ " WHEN " ^ (kecexp2debugstr cond) ^", " ^ (kecexp2debugstr iff) ^ " OTHERWISE}"
 	  | KEC.VECTOR vec
 	    => "[" ^ (String.concatWith ", " (map (fn(e) => kecexp2debugstr (e)) (KEC.kecvector2list vec))) ^ "]"
+	  | KEC.VECTORLITERAL vec
+	    => "[" ^ (String.concatWith ", " (map (fn(e) => kecexp2debugstr (e)) vec)) ^ "]"
 	  | KEC.TUPLE exps 
 	    => "(" ^ (String.concatWith ", " (map kecexp2debugstr exps)) ^")"
 	  | KEC.UNIT
@@ -257,6 +256,8 @@ fun kecexp2nickname exp =
       | KEC.IFEXP _
 	=> "an unresolved conditional expression"
       | KEC.VECTOR _
+	=> "a vector"
+      | KEC.VECTORLITERAL _
 	=> "a vector"
       | KEC.UNIT
 	=> "an empty value"

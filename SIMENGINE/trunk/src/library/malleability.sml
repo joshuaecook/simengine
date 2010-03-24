@@ -253,6 +253,8 @@ fun std_deepclone exec args =
 		       | SOME newvec =>
 			 KEC.VECTOR (newvec)
 		    )
+		  | KEC.VECTORLITERAL v
+		    => originalexp
 		  | KEC.TUPLE exps
 		    => KEC.TUPLE (map cloneExp exps)
 		  | KEC.UNIT 
