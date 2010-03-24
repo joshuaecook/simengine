@@ -52,17 +52,21 @@ fun timeTwoCurryArgs message fcn arg1 arg2 =
 val progressFileStream = ref NONE
 fun write_progress_file r =
     let
-	val _ = case (!progressFileStream) of
-		    SOME s => 
-		    let
-			val pos = BinIO.getPosOut s
-			val _ = BinIO.output (s, PackRealLittle.toBytes r)
-			val _ = BinIO.setPosOut (s, pos)
-		    in
-			()
-		    end
-		  | NONE => (progressFileStream := SOME (BinIO.openOut (DynamoOptions.getStringSetting("outputdir") ^ "/progress"));
-			     write_progress_file r)
+	val dir = DynamoOptions.getStringSetting("outputdir")
+	val _ = if Directory.isDir dir then 
+		    case (!progressFileStream) of
+			SOME s => 
+			let
+			    val pos = BinIO.getPosOut s
+			    val _ = BinIO.output (s, PackRealLittle.toBytes r)
+			    val _ = BinIO.setPosOut (s, pos)
+			in
+			    ()
+			end
+		      | NONE => (progressFileStream := SOME (BinIO.openOut (dir ^ "/progress"));
+				 write_progress_file r)
+		else
+		    () (* can't do anything until the directory is created *)
     in
 	()
     end
