@@ -138,7 +138,6 @@ function vector_index (athing, args: Vector)
 end
 
 overload function vector_index (vector: Vector, args: Vector)
-
   if args.isempty() then
     vector
   else
@@ -223,20 +222,20 @@ end
 overload function operator_add (a: Vector of _, b: Vector of _) = LF vecconcat (a, b)
 
 
-function app (v, f)  
-  function apply (v)
-    if v.isempty() then
-      ()
-    else
-      f(v.first())
-      apply (v.rest())
-    end
-  end
+function app (v, f)
+   function apply (v, index)
+     if index > v.length() then
+       ()
+     else
+       f(v[index])
+       apply (v, index+1)
+     end
+   end
 
   if LF istype (type Vector, v) then
-    apply(v)
+    apply(v, 1)
   elseif objectContains(v, "tovector") then
-    apply(v.tovector())
+    apply(v.tovector(), 1)
   else
     error ("Cannot iterate over non-iterable quantity: " + v)
   end

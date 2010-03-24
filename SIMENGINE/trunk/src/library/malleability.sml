@@ -229,11 +229,12 @@ fun std_deepclone exec args =
 		    => KEC.IFEXP {cond=cloneExp cond, 
 				  ift=cloneExp ift, 
 				  iff=cloneExp iff}
-		  | KEC.VECTOR {array, front_index, back_index, front_pad_size, back_pad_size}
+		  | KEC.VECTOR (vec as {array, front_index, back_index, front_pad_size, back_pad_size})
 		    => 
 		    (case findVector array of
 			 NONE =>
 			 let
+
 			     val vecref' = {array=ref (Array.fromList[]), front_index=ref 0, back_index=ref 0, front_pad_size = ref 0, back_pad_size = ref 0}
 			     val _ = addVector (array, vecref')
 			     val arrayCopy = Array.array(Array.length(!array), KEC.UNDEFINED)

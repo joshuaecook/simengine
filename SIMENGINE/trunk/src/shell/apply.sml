@@ -95,7 +95,7 @@ fun apply exec env lambda args =
 
 (*	    val _ = print ("Lambda args = " ^ (String.concatWith ", " (lamargs)) ^ "\n")*)
 	in
-	    exec (env', body)
+	    exec (env', (*MalleabilityLib.std_deepclone (fn(exp) => exec (env, exp)) [body]*) body)
 (*	    exec (foldl (Env.local_add pretty) (Env.replace_local (env, closure)) (arg_bindings), body)*)
 	end
 
@@ -139,9 +139,16 @@ fun apply exec env lambda args =
 		let
 		    val {name, args, return, stms, closure} = 
 			case List.find (typematch_args o (map arg_pattern) o fun_args) funs of
-			    SOME func => func
+			    SOME func => func 
 			  (* TODO: detect incorrect number of arguments and raise appropriately. *)
 			  | NONE => raise TypeMismatch ("received " ^ (pretty args) ^ " as arguments to " ^ (pretty lambda))
+		    fun arg2str (name, typ) =
+			(Symbol.name name) ^ ":" ^ 
+			(case typ of
+			     KEC.TYPE n => (Symbol.name n)
+			   | KEC.DONTCARE => "_"
+			   | _ => "??")
+
 		in
 		    (return, KEC.LAMBDA {args=map arg_name args,
 					 body=KEC.STMS stms,

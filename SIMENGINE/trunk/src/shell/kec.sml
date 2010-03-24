@@ -56,6 +56,7 @@ and exp =
   | APPLY     of {func:exp, args:exp}
   | IFEXP     of {cond: exp, ift: exp, iff: exp}
   | VECTOR    of {array:exp Array.array ref, front_index: int ref, back_index: int ref, front_pad_size: int ref, back_pad_size: int ref}
+  | VECTORLITERAL  of exp list
   | TUPLE     of exp list
   | UNIT      
   | UNDEFINED
@@ -117,10 +118,12 @@ and property = {name: Symbol.symbol,
  
 
 
-val emptyvector =
+
+val default_vector_size = 64			  
+
+fun buildEmptyVector() =
     let
 	(* This is parameterized to make changes to this code easier.  The compiler should optimize this all away *)
-	val default_vector_size = 64			  
 		    
 	fun find_pad_size size =
 	    (Int.div(size,2), Int.div(size,2), size)
@@ -167,13 +170,17 @@ val emptyvector =
     end
 *)
 
-fun list2kecvector nil = 
-    LIBFUN(Symbol.symbol "deepclone", emptyvector)
-  | list2kecvector list =
+fun buildVector nil = 
+    (*LIBFUN(Symbol.symbol "deepclone", emptyvector) emptyvector*)
+    buildEmptyVector()
+  | buildVector list =
     let
 	val newarray = Array.fromList(list)
 		       
-	val array_size = Real.floor(Math.pow(2.0, Real.realCeil(Math.ln(Real.fromInt (length list) + 1.0) / (Math.ln(2.0)))))
+	fun max (x,y) = if x > y then x else y
+
+	val array_size = max(Real.floor(Math.pow(2.0, Real.realCeil(Math.ln(Real.fromInt (length list) + 1.0) / (Math.ln(2.0))))),
+			     default_vector_size)
 			 
 	val front_pad_size = Int.div (array_size, 2)
 	val back_pad_size = Int.div (array_size, 2)
@@ -188,6 +195,7 @@ fun list2kecvector nil =
 		back_pad_size = ref back_pad_size}
     end
 
+fun list2kecvector list = VECTORLITERAL list
 (*
 fun list2kecvector list =
     let
@@ -200,6 +208,23 @@ fun list2kecvector list =
 	(pushVector list) 
     end
 *)
+
+fun restOfVector {array, front_index, back_index, front_pad_size, back_pad_size} =
+    let
+	val restArray = Array.array(!front_pad_size + !back_pad_size, UNDEFINED)
+	val _ = Array.copy {src= !array, dst=restArray, di = 0}
+	
+	val front_index' = if !back_index - !front_index > 0 then
+			       !front_index + 1
+			   else
+			       !front_index
+    in
+	VECTOR {array=ref restArray,
+		front_index = ref (front_index'),
+		back_index = ref (!back_index),
+		front_pad_size = ref (!front_pad_size),
+		back_pad_size = ref (!back_pad_size)}
+    end
 
 fun kecvector2list {array, front_index, back_index, front_pad_size, back_pad_size} =
     GeneralUtil.listSlice (GeneralUtil.array2list (!array)) (!front_index, !back_index)

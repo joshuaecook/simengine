@@ -100,6 +100,9 @@ fun exec_exp parse (depth_count, isLHS) (env(*: (KEC.exp Env.env ref * KEC.exp E
 	       | KEC.TUPLE exps 
 		 => KEC.TUPLE (map (decell o exec) exps)
 
+	       | KEC.VECTORLITERAL exps 
+		 => KEC.buildVector exps
+
 	       | KEC.VECTOR exps 
 		 => KEC.VECTOR (exps)
 		    before Array.appi (fn (i,x) => Array.update(!(#array exps), i, decell (exec (x)))) 

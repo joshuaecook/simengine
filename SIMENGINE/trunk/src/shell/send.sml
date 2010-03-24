@@ -340,7 +340,13 @@ fun send isLHS exec env message object =
 		   | "rest" => method message (if (!(#back_index exps)) - (!(#front_index exps)) = 0 then
 						   KEC.ERROR (str2exp "Cannot access remaining elements of empty vector")
 					       else
-						   KEC.list2kecvector (tl (KEC.kecvector2list exps)))
+						   let
+						       val vec = KEC.restOfVector(exps)
+(*						       val list = (KEC.kecvector2list exps)
+						       val vec = KEC.buildVector (tl list)*)
+						   in
+						       vec
+						   end)
 		   | "at" => argmethod message [(Symbol.symbol "index", KEC.TYPE (Symbol.symbol "Number"))] 
 				       (libfun "index" [object, sym "index"])
 		   | "()" => argmethod message [(Symbol.symbol "index", KEC.TYPE (Symbol.symbol "Vector"))] 
