@@ -418,8 +418,8 @@ $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	$(CP) $< $@
 
-$(BUILD_DIR)/%.p: interfaces/matlab/%.m
-	-@($(MATLABCMD) "cd $(BUILD_DIR); pcode $<; exit")
+$(BUILD_DIR)/%.p: $(BUILD_DIR)/%.m
+	-($(MATLABCMD) "cd $(BUILD_DIR); pcode $*; exit")
 
 pcode: $(INSTALL_FILENAME).p
 
