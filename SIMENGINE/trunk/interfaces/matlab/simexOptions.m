@@ -32,20 +32,19 @@ function [options] = simexOptions (dsl, varargin)
   % Create a new temporary data path
   options.outputs = ['.simex' num2str(now,'%16f')];
 
-  if 1 < length(userOptions)
+  if 0 < length(userOptions)
       if isnumeric(userOptions{1})
           [options.startTime options.stopTime] = getTime(userOptions{1});
           userOptions = userOptions(2:length(userOptions));
       end
   end
   
-  if 1 < length(userOptions)
+  if 0 < length(userOptions)
       if isstruct(userOptions{1})
           options.inputs = userOptions{1};
           userOptions = userOptions(2:length(userOptions));
       end
   end
-      
       
   while ~isempty(userOptions)
       [options, userOptions] = getOption(options, userOptions);

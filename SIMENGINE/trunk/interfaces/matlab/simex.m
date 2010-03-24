@@ -79,6 +79,7 @@ function [varargout] = simex(dsl, varargin)
 %
     options = simexOptions(dsl, varargin{:});
     makeOutputDirectory (options);
+    onCleanup(@()(cleanUp(options)));
     interface = simInterface (options);
     
     if 1 == nargin || ischar(varargin{1})
@@ -95,18 +96,18 @@ function makeOutputDirectory (options)
     if ~mkdir(options.outputs)
         simexError('mkdir', ['Could not create temporary data directory ' options.outputs]);
     end
-    if ~options.debug
-        onCleanup(@()(cleanUp(options)));
-    else
+    if options.debug
         disp(['Created temporary data directory ' options.outputs]);
     end
 end
 
 function cleanUp (options)
-    status = rmdir(options.outputs, 's');
-    if ~status
-        warning(['Could not remove temporary data directory: ' directory '. ' ...
-                 'Please remove this directory manually as it is no ' ...
-                 'longer needed by simEngine'])
+    if ~options.debug
+        status = rmdir(options.outputs, 's');
+        if ~status
+            warning(['Could not remove temporary data directory: ' directory '. ' ...
+                     'Please remove this directory manually as it is no ' ...
+                     'longer needed by simEngine'])
+        end
     end
 end
