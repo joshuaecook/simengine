@@ -930,6 +930,11 @@ namespace Simulation
       end
     end
     
+    overload operator () (arg: Vector)
+      IteratorReference.new(self, arg)
+    end
+
+
   end
 
   class ModelInstance
