@@ -409,7 +409,6 @@ for fieldid=1:length(fieldnames)
   elseif 0 == models
     models = 1;
   end
-  models
 end
 
 userInputs = zeros(models, length(interface.inputs));
