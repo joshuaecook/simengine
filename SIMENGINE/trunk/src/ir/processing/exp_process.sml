@@ -749,7 +749,9 @@ fun exp2size iterator_list exp : int =
 				       
 			   in
 			       (*Term.symbolSpatialSize t*)
-			       Util.prod (map iterator2size spatial_iterators)
+			       (*Util.prod (map iterator2size spatial_iterators)*)
+			       (* TODO: We're not supporting spatial iterators anyway... *)
+			       1
 			   end
 		       else 
 			       1 (* out of default - need to do something better here *)
