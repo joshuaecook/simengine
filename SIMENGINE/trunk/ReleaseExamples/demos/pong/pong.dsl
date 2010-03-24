@@ -3,6 +3,7 @@
  *
  * Copyright 2010 Simatra Modeling Technologies
  */
+
 // definitions
 constant SCREEN_WIDTH = 100
 constant SCREEN_HEIGHT = 30
@@ -86,13 +87,6 @@ model (x, y, v_x, v_y) = pong_ball(impact_l, impact_r, reset, divert_angle)
 	v_y' = 0
     end
 
-    // define a few helper functions using inline function notation that will be used later
-    equations
-    	max(x,y) => {x when x >= y, y otherwise}
-	min(x,y) => {x when x <= y, y otherwise}
-	bound(v, h, l) => max(min(v, h), l)
-    end
-
     // Reflect the ball off the paddle. Reflect only if an impact occurs, which is passed in as an input.
     // Depending on where the ball hits the paddle, a divert angle will be calculated and passed in as a
     // parameter.
@@ -172,13 +166,16 @@ model (paddle1, paddle2, ball, scores) = pong()
 
     // determine impacts and divert angle
     equations
-	impact_l = dx < 0 and (b.x < (X_P1+1) /*and b.x > (X_P1-1)*/) and (p1.pos+HALF_PADDLE >= b.y and p1.pos-HALF_PADDLE <= b.y)
-	impact_r = dx > 0 and (b.x > (X_P2-1) /*and b.x < (X_P2+1)*/) and (p2.pos+HALF_PADDLE >= b.y and p2.pos-HALF_PADDLE <= b.y)
-	divert_angle = {-(b.y - p1.pos)*pi/16 when impact_l,
-			(b.y - p2.pos)*pi/16 when impact_r,
-			 0 otherwise}
+      // an impact is when the ball touches a paddle.  This impact will cause a velocity reversal and an angle diversion
+      impact_l = dx < 0 and b.x < (X_P1+1) and b.x > X_P1 and p1.pos+HALF_PADDLE >= b.y and p1.pos-HALF_PADDLE <= b.y
+      impact_r = dx > 0 and b.x > (X_P2-1) and b.x < X_P2 and p2.pos+HALF_PADDLE >= b.y and p2.pos-HALF_PADDLE <= b.y
+      // based on where the ball hits the paddle, compute an angle offset
+      divert_angle = {-(b.y - p1.pos)*pi/16 when impact_l,
+		      (b.y - p2.pos)*pi/16 when impact_r,
+		      0 otherwise}
     end    
 
+    // verify that only one impact is recorded
     b.impact_l = impact_l and not(impact_l[t[-1]])
     b.impact_r = impact_r and not(impact_r[t[-1]])
     b.divert_angle = divert_angle
@@ -186,13 +183,16 @@ model (paddle1, paddle2, ball, scores) = pong()
     // count points
     state score = 0
     equation score = {1 when (x <= 0 or x >= SCREEN_WIDTH), 0 otherwise}
+
+    // produce resets that will start the ball in the center of the screen
     equation reset = score or t == 0
-    equation reset_d = reset[t[-1]]
-    b.reset = reset_d
+    b.reset = reset[t[-1]]
+
+    // tally up the players scores
     equation player1 = player1 + {score when x > SCREEN_WIDTH/2, 0 otherwise}
     equation player2 = player2 + {score when x < SCREEN_WIDTH/2, 0 otherwise}
 
-    // define outputs of the system
+    // define a score quantity that includes both players scores in one output at each time point
     output scores = (player1, player2)
     
     // set the solver to forward euler

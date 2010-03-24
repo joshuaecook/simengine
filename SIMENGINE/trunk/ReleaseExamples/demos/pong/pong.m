@@ -7,7 +7,7 @@
 function o = pong
 
 % Execute simEngine and save the results to output structure 'o'
-o = simex('pong.dsl', 300);
+o = simex('pong.dsl', 500);
 
 % After finishing, show the final score of the game
 disp(sprintf('Score %d vs. %d', o.scores(end,2), o.scores(end,3)));
@@ -34,10 +34,10 @@ paddle2 = [x_p2-1 0 paddle_width paddle_length];
 
 
 % Look at every 10th output to make it run faster
-for i=1:10:length(o.ball(:,1))
+for i=1:20:length(o.ball(:,1))
     
     % Allow time for the screen to be refreshed
-    pause(0.001)
+    pause(0.01)
     
     % Recreate background
     clf % clear the figure
@@ -45,8 +45,8 @@ for i=1:10:length(o.ball(:,1))
     line([50 50], [0 30], 'LineStyle', '--', 'LineWidth', 2, 'Color', 'Green');    
     
     % Add player scores
-    text(3,28, num2str(int32(o.scores(i,2))), 'Color', 'Green', 'FontSize', 20, 'FontName', 'Courier');
-    text(96,28, num2str(int32(o.scores(i,3))), 'Color', 'Green', 'FontSize', 20, 'FontName', 'Courier');    
+    text(7,28, num2str(int32(o.scores(i,2))), 'Color', 'Green', 'FontSize', 20, 'FontName', 'Courier');
+    text(92,28, num2str(int32(o.scores(i,3))), 'Color', 'Green', 'FontSize', 20, 'FontName', 'Courier');    
 
     % Add count down
     text(92,1, num2str(floor(o.ball(end,1)-o.ball(i,1))), 'Color', 'Green', 'FontSize', 20, 'FontName', 'Courier');
