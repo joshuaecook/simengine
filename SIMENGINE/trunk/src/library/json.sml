@@ -47,20 +47,19 @@ fun encode exec =
 	      | KEC.VECTOR vec => JSON.array (map encoded (vectorToList vec))
 	      | KEC.OBJECT _ =>
 		if not (TypeLib.check exec (KEC.TYPE (Symbol.symbol "Table"), object))
-		then raise TypeMismatch ("unable to encode " ^ (PrettyPrint.kecexp2nickname object))
+		then raise TypeMismatch ("Unable to encode objects of type other than Table.")
 		else
 		    let val contents = exec (KEC.SEND {message = Symbol.symbol "contents", object = object})
 		    in
 			JSON.object (encodedTableContents contents)
 		    end
 	      | object =>
-		raise TypeMismatch ("unable to encode " ^ (PrettyPrint.kecexp2nickname object))
+		raise TypeMismatch ("Unable to encode " ^ (PrettyPrint.kecexp2nickname object))
 
 	and encodedTableContents contents =
 	    case contents
 	     of KEC.VECTOR vec =>
-		let 
-		    val (keys, values) = ListPair.unzip (map vectorToPair (vectorToList vec))
+		let val (keys, values) = ListPair.unzip (map vectorToPair (vectorToList vec))
 		in
 		    ListPair.zip (map expToString keys, map encoded values)
 		end

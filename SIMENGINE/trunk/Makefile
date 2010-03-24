@@ -270,15 +270,15 @@ endif
 
 .PHONY: compiler 
 compiler: 
-	@-[ -f $(BUILD_DIR)/data/default.sew ] && $(RM) $(BUILD_DIR)/data/default.sew
-	@$(MAKE) build-directories
-	@$(MAKE) links
-	@$(MAKE) build-system
-	@$(MAKE) $(BUILD_DIR)/data/default.sew
-	@$(MAKE) matlab-files
-	@$(MAKE) $(INSTALL_TGZ)
-	@$(MAKE) $(DSL_EL)
-	@$(MAKE) install-locally
+	-$(RM) $(BUILD_DIR)/data/default.sew
+	$(MAKE) build-directories
+	$(MAKE) links
+	$(MAKE) build-system
+	$(MAKE) $(BUILD_DIR)/data/default.sew
+	$(MAKE) matlab-files
+	$(MAKE) $(INSTALL_TGZ)
+	$(MAKE) $(DSL_EL)
+	$(MAKE) install-locally
 
 compiler-64:
 	@$(MAKE) compiler ARCH64=x86_64
@@ -406,8 +406,19 @@ debug-files: $(DEBUG_FILES)
 # ==============================================================================================
 
 
+SIMEX_M_FILES = $(addsuffix .m,simex2 simError simexError simEngineError simexOptions simInterface simCompile launchBackground statusBar simEngine)
+
+MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
+
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/simex.p
+MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
+
 $(BUILD_DIR)/bin/%: interfaces/matlab/bin/%
 	$(CP) $< $@
+
+$(BUILD_DIR)/simex.m: $(addprefix interfaces/matlab/,$(SIMEX_M_FILES))
+	cat $(addprefix interfaces/matlab/,$(SIMEX_M_FILES)) > $@
 
 $(BUILD_DIR)/%.m: interfaces/matlab/%.m
 	$(CP) $< $@
@@ -422,11 +433,6 @@ $(BUILD_DIR)/%.p: $(BUILD_DIR)/%.m
 	-($(MATLABCMD) "cd $(BUILD_DIR); pcode $*; exit")
 
 pcode: $(INSTALL_FILENAME).p
-
-MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
-MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/, parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/simex.p
-MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 
 solvers/lib/libcvode_%.a: solvers
 
@@ -463,8 +469,9 @@ expand_tgz:
 $(LOCAL_INSTALL)/compile_tests.m: interfaces/matlab/compile_tests.m
 	$(CP) $< $@
 
-$(LOCAL_INSTALL)/simex.m: interfaces/matlab/simex.m
-	$(CP) $< $@
+$(LOCAL_INSTALL)/simex.m: $(addprefix interfaces/matlab/,$(SIMEX_M_FILES))
+	$(error $(SIMEX_M_FILES))
+	cat $^ > $@
 
 $(LOCAL_INSTALL)/%.mexmaci: interfaces/matlab/src/%.mexmaci
 	$(CP) $< $@	
