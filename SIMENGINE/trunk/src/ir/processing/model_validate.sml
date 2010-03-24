@@ -86,6 +86,37 @@ fun properLHSDiscreteState () =
 	executeTestOverModel classToExpsWithDiscreteIterators (find, messageFun, messageType)
     end
 
+fun noRHSDerivatives () =
+    let
+	fun class2rhsexps (c as {exps, outputs, ...}) = 
+	    let
+		fun output2exps {condition, contents, ...} = condition::contents
+	    in
+		map ExpProcess.rhs (!exps) @ 
+		Util.flatmap output2exps (!outputs)
+	    end
+
+	val find = Match.anysym_with_predlist
+		       [("testderivative", 
+			 (fn(exp)=> case exp of
+					Exp.TERM (Exp.SYMBOL (_, props)) => 
+					(case Property.getDerivative props of
+					     SOME (0, _) => false
+					   | NONE => false
+					   | _ => true)
+				      | _ => false))]
+		       (Symbol.symbol "#a")
+
+	fun messageFun (exp as Exp.TERM (Exp.SYMBOL (sym, _))) =
+	    "Invalid derivative reference on symbol '"^(Symbol.name sym)^"'.  Derivatives are currently not supported on the right-hand-side of equations.  Please visit the FAQ at www.simatratechnologies.com for more information."
+	  | messageFun _ = 
+	    DynException.stdException("Invalid found expression", "ModelValidate.noRHSDerivatives", Logger.INTERNAL)
+
+	val messageType = ERROR
+    in
+	executeTestOverModel class2rhsexps (find, messageFun, messageType)
+    end
+
 fun verifyTarget Target.CPU = ()
   | verifyTarget Target.OPENMP = Features.verifyEnabled Features.MULTI_CORE
   | verifyTarget Target.CUDA = Features.verifyEnabled Features.GPU
@@ -121,9 +152,11 @@ fun validate (model as (classes, instance, sysprops))=
 			()
 
 
-	    (* verify that the terms on the LHS are appropriate *)
-	    (* TODO: could this be elaborated on?  what is 'appropriate'? *)
+	    (* verify that the LHS of equations have difference equation terms that only reference [n+1] or [n] *)
 	    val _ = properLHSDiscreteState ()
+
+	    (* verify that no derivatives are used on the rhs of equations or in the outputs *)
+	    val _ = noRHSDerivatives ()
 
 	    val modelClone = ModelProcess.duplicateModel model (fn(s) => s)
 	    val _ = Ordering.orderModel modelClone

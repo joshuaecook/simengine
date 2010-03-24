@@ -1,4 +1,4 @@
-model (y) = DerivativeTest1()
+model (y) = EquationTest3()
 
       state x = 0
       equation x' = 1

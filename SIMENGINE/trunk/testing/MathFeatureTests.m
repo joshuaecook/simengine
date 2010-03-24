@@ -26,15 +26,20 @@ end
 
 function s = DerivativeTests(mode, target)
 
+% set when we support derivatives on rhs of equations
+ARE_DERIVATIVES_SUPPORTED = false;
+
 s = Suite(['Derivative Tests ' target]);
 
-s.add(Test('OutputDerivative', @()(simex(['models_FeatureTests/' ...
-                    'DerivativeTest1.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:1:10; ones(1,11)]')));
-s.add(Test('IntermediateDerivative', @()(simex(['models_FeatureTests/' ...
-                    'DerivativeTest2.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:1:10; ones(1,11)]')));
+if ARE_DERIVATIVES_SUPPORTED
+  s.add(Test('OutputDerivative', @()(simex(['models_FeatureTests/' ...
+                      'DerivativeTest1.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:1:10; ones(1,11)]')));
+  s.add(Test('IntermediateDerivative', @()(simex(['models_FeatureTests/' ...
+                      'DerivativeTest2.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:1:10; ones(1,11)]')));
+  s.add(Test('DerivativeWithBackwardEuler', @()(simex(['models_FeatureTests/' ...
+                      'DerivativeTest4.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:1:10; ones(1,11)]')));
+end
 s.add(Test('ForcedDerivative', @()(simex(['models_FeatureTests/' ...
                     'DerivativeTest3.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:1:10; ones(1,11)]')));
-s.add(Test('DerivativeWithBackwardEuler', @()(simex(['models_FeatureTests/' ...
-                    'DerivativeTest4.dsl'], 10,target)), '-equal', struct('y', [0:10; 0:1:10; ones(1,11)]')));
 
 end
