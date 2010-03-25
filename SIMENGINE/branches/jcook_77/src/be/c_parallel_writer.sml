@@ -1354,7 +1354,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val input_automatic_var =
 	    if is_top_class then
 		fn ({name,default},i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, " ^ (i2s i) ^ ", modelid)];")
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
 	    else
 		fn ({name,default},i) => 
 		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
@@ -2198,6 +2198,7 @@ fun buildC (orig_name, shardedModel) =
 	val seint_h = $(Codegen.getC "simengine/seint.h")
 	val output_buffer_h = $(Codegen.getC "simengine/output_buffer.h")
 	val init_output_buffer_c = $(Codegen.getC "simengine/init_output_buffer.c")
+	val inputs_c = $(Codegen.getC "simengine/inputs.c")
 	val log_outputs_c = $(Codegen.getC "simengine/log_outputs.c")
 
 	val exec_c = 
@@ -2259,6 +2260,7 @@ fun buildC (orig_name, shardedModel) =
 				       [simengine_api_c] @
 				       init_solver_props_c @
 				       logoutput_progs @
+				       [inputs_c] @
 				       [log_outputs_c] @
 				       exec_c @
 				       state_init_functions @

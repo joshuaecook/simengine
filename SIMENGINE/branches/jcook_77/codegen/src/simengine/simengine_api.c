@@ -67,9 +67,10 @@ void close_progress_file(double *progress, int progress_fd, unsigned int num_mod
 // simengine_runmodel()
 //
 //    executes the model for the given parameters, states and simulation time
-simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, const char *outputs_dirname){
+simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, const char *outputs_dirname){
   CDATAFORMAT model_states[PARALLEL_MODELS * NUM_STATES];
-  CDATAFORMAT parameters[PARALLEL_MODELS * NUM_INPUTS];
+  CDATAFORMAT scalar_inputs[PARALLEL_MODELS * NUM_SCALAR_INPUTS];
+  sampled_input_t sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
   unsigned int stateid;
   unsigned int modelid;
   unsigned int inputid;
@@ -109,13 +110,11 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     models_per_batch = MIN(num_models - models_executed, PARALLEL_MODELS);
     
     // Copy inputs and state initial values to internal representation
+    unsigned int modelid_offset = global_modelid_offset + models_executed;
     for(modelid=0; modelid<models_per_batch; modelid++){
-      for(stateid=0;stateid<seint.num_states;stateid++){
-	model_states[TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid)] = states[AS_IDX(seint.num_states, num_models, stateid, models_executed + modelid)];
-      }
-      for(inputid=0;inputid<seint.num_inputs;inputid++){
-	parameters[TARGET_IDX(seint.num_inputs, PARALLEL_MODELS, inputid, modelid)] = inputs[AS_IDX(seint.num_inputs, num_models, inputid, models_executed + modelid)];
-      }
+      initialize_states(model_states, outputs_dirname, modelid_offset, modelid);
+      initialize_scalar_inputs(scalar_inputs, outputs_dirname, modelid_offset, modelid);
+      initialize_sampled_inputs(sampled_inputs, outputs_dirname, modelid_offset, modelid, start_time);
     }
 
     // Initialize the solver properties and internal simulation memory structures
@@ -440,7 +439,8 @@ int get_states_inputs(const simengine_interface *iface, simengine_opts *opts){
 
 #define BYTE(val,n) ((val>>(n<<3))&0xff) // Also used in log_outputs
 
-void make_model_output_directories(simengine_opts *opts){
+// This will create model directories for inputs/outputs if they weren't created before calling this simulation
+void make_model_directories(simengine_opts *opts){
   // Make sure a directory for the model exists
   char model_dirname[PATH_MAX];
   unsigned int modelid, full_modelid;
@@ -449,14 +449,20 @@ void make_model_output_directories(simengine_opts *opts){
     full_modelid = modelid+global_modelid_offset;
     sprintf(model_dirname, "%s", opts->outputs_dirname);
     int i;
+    // FIXME: This attempts to create the upper level directories for every leaf directory, should check based on modulus and only call mkdir once for each directory
     for(i=2;i>=0;i--){
       sprintf((model_dirname + strlen(model_dirname)), "/%02x", BYTE(full_modelid, i));
       // Only need to check return value on mkdir because we created the top level directory outputs_dirname
       if(mkdir(model_dirname, 0777)){
-	if(errno != EEXIST || i == 0){
-	  ERROR(Simatra::Simex::make_model_output_directories, "Output directory '%s' already exists, remove manually or specify a new output directory with the --outputdir <directory name> option\n", opts->outputs_dirname);
+	if(errno != EEXIST){
+	  ERROR(Simatra::Simex::make_model_directories, "Could not create intermediate directory '%s'\n", model_dirname);
 	}
       }
+    }
+    // Create the outputs directory
+    sprintf((model_dirname + model_dirname_len), "/outputs");
+    if(mkdir(model_dirname, 0777)){
+	  ERROR(Simatra::Simex::make_model_directories, "Output directory '%s' already exists, remove manually or specify a new output directory with the --outputdir <directory name> option\n", opts->outputs_dirname);
     }
   }
 }
@@ -555,7 +561,7 @@ int main(int argc, char **argv){
       seed_entropy_with_time();
     }
 
-    make_model_output_directories(&opts);
+    make_model_directories(&opts);
 
     simengine_result *result = simengine_runmodel(opts.start_time,
 						  opts.stop_time,
