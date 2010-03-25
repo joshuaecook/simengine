@@ -100,12 +100,21 @@ function [options, restUserOptions] = getOption(options, userOptions)
   end
   
   switch opt(2:length(opt))
-    case 'float'
+    case 'double'
+      options.precision = 'double';
+      options.args = [options.args ' --precision double'];
+    case {'float','single'}
       options.precision = 'float';
       options.args = [options.args ' --precision float'];
     case 'gpu'
       options.target = 'gpu';
       options.args = [options.args ' --target gpu'];
+    case 'cpu'
+      options.target = 'cpu';
+      options.args = [options.args ' --target cpu'];
+    case 'parallelcpu'
+      options.target = 'parallelcpu';
+      options.args = [options.args ' --target parallelcpu'];
     case 'resume'
       options.resume = true;
       if ~isnumeric(userOptions{2})
