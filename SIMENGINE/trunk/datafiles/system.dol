@@ -1,0 +1,132 @@
+// simEngine Registry - Default options for the compiler
+// Copyright 2007-2010 Simatra Modeling Technologies
+
+// **********************************************************************
+//                         General simEngine Options
+// **********************************************************************
+
+// verbose: displays extra info during compilation/simulation
+<verbose = false>
+
+// force: causes all directories/files to be overwritten
+<force = true>
+
+// batch: run commands directly from a particular file
+<batch = "">
+
+// **********************************************************************
+//                             Simulation Options
+// **********************************************************************
+
+// simex: compile model and execute the simulation
+<simex = "">
+
+// compile: compile DSL model into a SIM file
+<compile = "">
+
+// simulate: simulate resulting SIM file
+<simulate = "">
+
+// target: simulation target platform - can be cpu, gpu, or parallelcpu
+<target = "cpu">
+
+// precision: set the precision of the simulation
+<precision = "double">
+
+// start: start time for a simulation
+<start = 0.0>
+
+// stop: stop time for a simulation
+<stop = 0.0>
+
+// instances: number of instances running in parallel
+<instances = 1>
+
+// parallel_models: number of instances supported by the hardware in parallel blocks
+<parallel_models = 1>
+
+// seed: integer number specifying the seed to use for simulations, use -1 for automatic seed
+//<seed = -1>
+
+// seeded: flag specifying that the --seed option value is used
+<seeded = false>
+
+// binary: specifies the way data is generated in simulations, by default in ascii mode
+<binary = false>
+
+
+// **********************************************************************
+//                          GPU Simulation Options
+// **********************************************************************
+
+// gpuid: specifies the id of the GPU that the simulation should run on
+<gpuid = 0>
+
+// gpublocksize: set the block size on the GPU - override on the command line
+<gpublocksize = 64>
+
+// **********************************************************************
+//               Additional Simulation Options for Debugging
+// **********************************************************************
+
+<debug = false>
+<emulate = false>
+<profile = false>
+<cSourceFilename = false>
+
+// **********************************************************************
+//                             Additional Options
+// **********************************************************************
+
+
+// outputname: choose the name/directory of the output sim file, otherwise a default is chosen
+<outputname = "">
+
+// outputdir: choose the directory for generated output files, including temporary file locations
+<outputdir = "simex_outputs">
+
+// librarypath: the directory simEngine will look for when searching for libraries to link against
+<librarypath = "$SIMENGINE/lib">
+
+// sourcepath: the directory where additional DSL source files are located
+<sourcepath = "$SIMENGINE/include">
+
+// interpreterstackdepth: a recursion limit for the builtin DSL execution engine, increase this for large models
+<interpreterstackdepth = 10000.0>
+
+// logdof, logrewrites: debugging information on internal data structures
+<logdof = false>
+<logrewrites = false>
+
+// logsettings: debug the values of passed in options
+<logsettings = false>
+
+// termrewritelimit: a recursion limit for our term rewriter in our internal computer algebra system.  Large expressions might require a larger limit.
+<termrewritelimit = 25>
+
+// compilerTimingData: a vector of timings to use for displaying the percent complete
+<compilerTimingData = [5.32195971933E-4, 0.814676960914, 0.840755267037, 0.842085229343, 0.852750253711, 0.852802865286, 0.852837688419, 0.853154212112, 0.853494956223, 0.85384308706, 0.870151016825, 0.870530553807, 0.870581808636, 0.870585878873, 0.917103555457, 0.919122392712, 0.919123849957, 0.919689361568, 1]>
+
+// regenerateTimings: recreate the timing data
+<regenerateTimings = false>
+
+// optimize: implement the internal expression optimization, otherwise leave equations mostly in tact
+<optimize = true>
+
+// flatten: flatten the internal representation - can speed up some smaller models, can also increase compilation time for larger models
+<flatten = false>
+
+// aggregate: aggregate multiple iterators with the same fixed time step into one iterator to improve performance
+<aggregate = false>
+
+// startupmessage: display the program information on startup
+<startupmessage = true>
+
+// generateMathematica: generates a mathematica description of the model
+<generateMathematica = false>
+
+// useFullForm: when writing expressions to the screen, show it using a more verbose functional form
+<usefullform = false>
+
+// help: show usage information
+<help = false>
