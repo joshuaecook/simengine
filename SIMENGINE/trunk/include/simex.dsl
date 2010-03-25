@@ -796,7 +796,7 @@ import "command_line.dsl"
     var simfile
     
     if 0 == stat then
-      simfile = Archive.createArchive(Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings)
+      simfile = profileTime ("Create SIM File", Archive.createArchive, (Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings))
       println("Compilation completed succesfully")
     elseif 3 >= stat then
 	// Show the error code
