@@ -21,11 +21,36 @@ fun getSIMENGINE () =
 
 fun getSIMENGINEDOL () =
     let
-	val var = "SIMENGINEDOL"
+	val var = "SIMENGINEGLOBALDOL"
     in
 	case OS.Process.getEnv var of
 	    SOME reg => reg
-	  | NONE => OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/default.dol")
+	  | NONE => OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/global.dol")
+    end
+
+fun isFile file =
+    (OS.FileSys.fileSize file;
+     true)
+    handle _ => false
+
+fun getSIMENGINELOCALDOL () =
+    let
+	val var = "SIMENGINEDOL"
+    in
+	case OS.Process.getEnv var of
+	    SOME reg => SOME reg
+	  | NONE => (case OS.Process.getEnv "HOME" of
+			 SOME home => 
+			 let
+			     val dol = OS.Path.concat (home, 
+						       (OS.Path.fromUnixPath ".simatra/local.dol"))
+			 in
+			     if isFile dol then
+				 SOME dol
+			     else
+				 NONE
+			 end
+		       | NONE => NONE)
     end
 
 fun getSIMENGINESEW () =

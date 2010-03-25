@@ -240,9 +240,17 @@ fun settingsHelp exec args =
      of nil => KEC.LITERAL (KEC.CONSTSTR (DynamoOptions.optionsdescription "simEngine"))
       | args => raise IncorrectNumberOfArguments {expected=0, actual=(length args)}
 
+fun logSettings exec args =
+    case args 
+     of nil => (DynamoOptions.logSettings();
+		KEC.UNIT)
+      | args => raise IncorrectNumberOfArguments {expected=0, actual=(length args)}
+
+
 val library = [{name="compile", operation=std_compile},
 	       {name="loadModel", operation=loadModel},
 	       {name="profileTime", operation=std_profile},
+	       {name="logSettings", operation=logSettings},
 	       {name="getModelImports", operation=getModelImports},
 	       {name="simfileSettings", operation=simfileSettings},
 	       {name="settingsHelp", operation=settingsHelp},

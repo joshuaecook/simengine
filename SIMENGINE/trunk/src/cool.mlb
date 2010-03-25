@@ -33,11 +33,10 @@ in
 
 (* Utilities *)
 
-util/simengine.sml
 
 shell/symbol.sml
 
-
+util/simengine.sml
 util/build-options.sml
 
 

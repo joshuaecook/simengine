@@ -315,7 +315,7 @@ else
 DOCUMENTATION_BUILD_FILES = 
 endif
 
-COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/default.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
+COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/global.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
 
 
 ifeq ($(BUILD_TYPE),software)
@@ -406,7 +406,7 @@ debug-files: $(DEBUG_FILES)
 # ==============================================================================================
 
 
-SIMEX_M_FILES = $(addsuffix .m,simex simError simexError simEngineError simexOptions simInterface simCompile launchBackground statusBar simEngine)
+SIMEX_M_FILES = $(addsuffix .m,simex simError simexError simFailure simEngineError simexOptions simInterface simCompile launchBackground statusBar simEngine)
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
@@ -567,7 +567,7 @@ $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	$(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath `pwd`/include < /dev/null
+	(SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath `pwd`/include < /dev/null)
 
 .PHONY: codegen
 codegen:

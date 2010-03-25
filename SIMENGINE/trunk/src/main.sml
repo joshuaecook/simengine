@@ -80,8 +80,11 @@ fun main () =
     let
 	val log = Logger.log_stdout (Logger.WARNINGS, defaultOptions)
 
-	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
-		before DynException.checkToProceed ()
+	val _ = case  getSIMENGINELOCALDOL () (* in this case, it's going to be the system one *) of
+		    SOME file => DynamoOptions.importRegistryFile file
+		  | NONE => (Logger.log_failure(Printer.$("Can't read system registry file"));
+			     DynException.setErrored())
+		    before DynException.checkToProceed ()
 
 	(* read in command line arguments to DynamoOptions *)
 	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))*)
@@ -105,9 +108,14 @@ fun main () =
 
 	val argv = CommandLine.arguments ()
 
+	(* Read the global registry file in the installation directory *)
 	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
 		before DynException.checkToProceed ()
-
+	(* Read the local registry file in your .simatra directory *)
+	val _ = case getSIMENGINELOCALDOL() of
+		    SOME dol => DynamoOptions.importRegistryFile dol
+		  | NONE => ()
+		
 	(* read in command line arguments to DynamoOptions *)
 	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))*)
 	val _ = Logger.log_notice (Printer.$("Arguments to simEngine: " ^ (Util.l2s argv)))

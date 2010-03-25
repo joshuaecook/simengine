@@ -2,7 +2,8 @@ structure Library =
 struct
 
 fun error msg =
-    Logger.log_error (Printer.$ msg)
+    (Logger.log_error (Printer.$ msg);
+     raise DynException.RestartRepl)
 
 val core_library : {name: string, operation: (KEC.exp -> KEC.exp) -> KEC.exp list -> KEC.exp} list = 
     SystemLib.library @
@@ -50,7 +51,7 @@ fun exec exec name (args: KEC.exp list) =
 	val {name, operation}*)
 	val operation = case LibraryMap.find(libmap, name) of
 			    SOME operation => operation
-			  | NONE => raise StubbedOut before error ("UNKNOWN LIB FUN: " ^ (Symbol.name name)) (*TODO: make a reasonable error msg here *)
+			  | NONE => error ("UNKNOWN LIB FUN: " ^ (Symbol.name name)) (*TODO: make a reasonable error msg here *)
     in
 	operation exec args
     end

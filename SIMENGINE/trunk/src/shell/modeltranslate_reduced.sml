@@ -205,7 +205,7 @@ and modeloperation_to_dof_exp quantity =
 			else if istype (quantity', "State") then
 			    [Symbol.symbol (exp2str (method "name" (method "iter" quantity')))]
 			else
-			    error ("Derivative of quantity "^(pretty quantity')^" not declared as a state is not supported.")
+			    error ("Derivative of quantity "^(exp2str (method "name" quantity'))^" not declared as a state is not supported.")
 		    val properties' = Property.setDerivative properties (order, iterators)
 		in
 		    Exp.TERM (Exp.SYMBOL (name, properties'))

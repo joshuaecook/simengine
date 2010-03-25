@@ -40,6 +40,9 @@ val getTagForGroup : string -> string
 val getDescriptionForSetting : string -> string list
 val getTypeForSetting : string -> OptionsList.dyntype
 val setSetting: dynoption -> unit
+
+val logSettings: unit -> unit
+
 end
 
 structure DynamoOptions : OPTIONSPROCESS =
@@ -459,7 +462,7 @@ fun importRegistryFile (file) =
 			    ((Registry.REG_SETTING ("registry", Registry.REG_STRING file)) :: (DynRegParse.parse(file)));
 	  ())
      else
-	 (Logger.log_failure ($("Can't read registry file '"^file^"'"));
+	 (error ($("Can't read registry file '"^file^"'"));
 	  DynException.setErrored();
 	  DynException.checkToProceed()))
     handle e => DynException.checkpoint "DynamoOptions.importRegistryFile" e
@@ -615,4 +618,41 @@ fun setSetting (SETTING(name, value)) =
     
   | setSetting (FLAG(name, value)) =
     settings := addFlag(name, value, !settings)
+
+(* logSettings: display the settings on the screen in a table-like format.  This can be invoked with the -logoptions command line flag. *)
+fun logSettings () =
+    let
+	fun settingToID (FLAG (id, _)) = id
+	  | settingToID (SETTING (id, _)) = id
+
+	val max_size = foldl (fn(a,b)=> if a > b then a else b) 0 (map (String.size o settingToID) (!settings))
+	fun padstr len str = 
+	    let
+		val size = String.size str
+	    in
+		if len >= size then
+		    str ^ (String.concat (List.tabulate (len-size, fn(x)=>" ")))
+		else
+		    DynException.stdException("Unexpected string input", "OptionsProcess.logSettings.padstr", Logger.INTERNAL)
+	    end
+	val padstr = padstr (max_size+2)
+	    
+	fun disp_setting (FLAG (id, bool))= padstr (id ^ ": ") ^ (GeneralUtil.bool2str bool)
+	  | disp_setting (SETTING (id, optval))= padstr (id ^ ": ") ^
+						 (case optval of
+						      INTEGER i => GeneralUtil.int2str i
+						    | REAL r => GeneralUtil.real2str r
+						    | STRING s => "\"" ^ s ^ "\""
+						    | INTEGER_VEC ivec => GeneralUtil.list2str GeneralUtil.int2str ivec
+						    | REAL_VEC rvec => GeneralUtil.list2str GeneralUtil.real2str rvec
+						    | STRING_VEC svec => GeneralUtil.strlist2str svec)
+	    
+    in
+	(print("\nSystem Options\n");
+	 print("--------------------------------\n");
+	 (app (fn(s)=> print(disp_setting s ^ "\n")) (!settings));
+	 print("\n\n"))
+    end
+
+
 end
