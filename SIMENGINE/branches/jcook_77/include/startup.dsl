@@ -1,0 +1,14 @@
+var systemDependencies
+
+function startup ()
+  systemDependencies = Dependency.getDependencies()
+  Devices.init()
+
+  // Display start up message
+  if settings.general.startupmessage.getValue() then
+      println(LF sys_startupMessage())
+  end
+
+  //Simex.runModel()
+  profileTime ("Running Model", runModel, ())
+end

@@ -1,0 +1,85 @@
+<html>
+  <head><title>simEngine License Key Generator</title></head>
+  <body>
+    <center>
+      <h2>simEngine License Key Generator</h2>
+    </center>
+    <form action="http://babbage/cgi-bin/createLicense.cgi" method="POST">
+      <table width="500" align="center" bgcolor="#c0c0c0">
+	<tr>
+	  <th align="right">Customer Name:</th>
+	  <td align="left"><input type="text" name="customerName" /></td>
+	</tr>
+	<tr>
+	  <th align="right">Customer Organization:</th>
+	  <td align="left"><input type="text" name="customerOrganization" /></td>
+	</tr>
+	<tr>
+	  <th align="right" width="50%">Customer ID:</th>
+	  <td align="left"><input type="text" name="customerID" /></td>
+	</tr>
+	<tr>
+	  <th align="right">Serial Number:</th>
+	  <td align="left"><input type="text" name="serialNumber" /></td>
+	</tr>
+	<tr>
+	  <th align="right">Product Version:</th>
+	  <td align="left"><input type="radio" name="versionCode" value="0" />Basic</td>
+	</tr>
+	<tr>
+	  <td></td>
+	  <td align="left"><input type="radio" checked="checked" name="versionCode" value="1" />Standard</td>
+	</tr>
+	<tr>
+	  <td></td>
+	  <td align="left"><input type="radio" name="versionCode" value="2" />Professional</td>
+	</tr>
+	<tr>
+	  <td></td>
+	  <td align="left"><input type="radio" name="versionCode" value="3" />Trial</td>
+	</tr>
+	<tr>
+	  <td></td>
+	  <td align="left"><input type="radio" name="versionCode" value="4" />Development</td>
+	</tr>
+	<tr>
+	  <th align="right">Max Major Version:</th>
+	  <td align="left"><input type="text" name="maxMajorVersion" /></td>
+	</tr>
+	<tr>
+	  <th align="right">Max Minor Version:</th>
+	  <td align="left"><input type="text" name="maxMinorVersion" /></td>
+	</tr>
+	<tr>
+	  <th align="right">Expiration Date:</th>
+	  <td align="left"><input type="text" name="date" value="0" /></td>
+	</tr>
+	<tr>
+	  <th align="right">Restriction type:</th>
+	  <td align="left"><input type="radio" name="restriction" value="0" checked="checked"/>User name</td>
+	</tr>
+	<tr>
+	  <td></td>
+	  <td align="left"><input type="radio" name="restriction" value="1" />Host ID</td>
+	</tr>
+	<!-- This option is not enabled
+	<tr>
+	  <td></td>
+	  <td align="left"><input type="radio" name="restriction" value="2" /> License Server</td>
+	</tr>
+	-->
+	<tr>
+	  <td></td>
+	  <td align="left"><input type="radio" name="restriction" value="3" />Site License</td>
+	</tr>
+	<tr>
+	  <th align="right">Restriction Value:</th>
+	  <td align="left"><input type="text" name="restrictionString" /></td>
+	</tr>
+      </table>
+      <center>
+	<input type="submit" value="Create License" />
+      </center>
+    </form>
+  </body>
+</html>

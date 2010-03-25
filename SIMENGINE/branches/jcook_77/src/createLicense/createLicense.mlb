@@ -1,0 +1,18 @@
+local
+  (* import Basis Library *)
+  $(SML_LIB)/basis/basis.mlb
+  $(SML_LIB)/basis/sml-nj.mlb
+  $(SML_LIB)/basis/mlton.mlb
+  $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+  $(SML_LIB)/basis/c-types.mlb
+in
+  ann
+      "allowFFI true"
+  in
+    ../ffi/ffi-exports.sml
+    ../ffi/license.sml
+  end
+
+  cgi.sml
+  createLicense.sml
+end
