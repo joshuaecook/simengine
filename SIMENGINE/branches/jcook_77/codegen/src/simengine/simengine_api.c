@@ -12,8 +12,6 @@ static const struct option long_options[] = {
 #endif
   {"instances", required_argument, 0, INSTANCES},
   {"instance_offset", required_argument, 0, INSTANCE_OFFSET},
-  {"inputs", required_argument, 0, INPUT_FILE},
-  {"states", required_argument, 0, STATE_INIT_FILE},
   {"outputdir", required_argument, 0, OUTPUT_DIR},
   {"binary", no_argument, 0, BINARY},
   {"interface", no_argument, 0, INTERFACE},
@@ -35,7 +33,7 @@ const char *simengine_errors[] = {"Success",
                                   "Could not open output file."};
 
 /* Allocates and initializes an array of solver properties, one for each iterator. */
-solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, unsigned int modelid_offset);
+solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
 int exec_loop(solver_props *props, const char *outputs_dir, double *progress);
 
@@ -69,8 +67,6 @@ void close_progress_file(double *progress, int progress_fd, unsigned int num_mod
 //    executes the model for the given parameters, states and simulation time
 simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, const char *outputs_dirname){
   CDATAFORMAT model_states[PARALLEL_MODELS * NUM_STATES];
-  CDATAFORMAT scalar_inputs[PARALLEL_MODELS * NUM_SCALAR_INPUTS];
-  sampled_input_t sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
   unsigned int stateid;
   unsigned int modelid;
   unsigned int inputid;
@@ -113,12 +109,11 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     unsigned int modelid_offset = global_modelid_offset + models_executed;
     for(modelid=0; modelid<models_per_batch; modelid++){
       initialize_states(model_states, outputs_dirname, modelid_offset, modelid);
-      initialize_scalar_inputs(scalar_inputs, outputs_dirname, modelid_offset, modelid);
-      initialize_sampled_inputs(sampled_inputs, outputs_dirname, modelid_offset, modelid, start_time);
+      initialize_inputs(outputs_dirname, modelid_offset, modelid, start_time);
     }
 
     // Initialize the solver properties and internal simulation memory structures
-    solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, parameters, model_states, models_executed+global_modelid_offset);
+    solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset);
     // Run the model
     seresult->status = exec_loop(props, outputs_dirname, progress + models_executed);
     seresult->status_message = (char*) simengine_errors[seresult->status];
@@ -253,20 +248,6 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       }
       global_modelid_offset = atoi(optarg);
       break;
-    case INPUT_FILE:
-      if(opts->inputs_filename){
-	ERROR(Simatra:Simex:parse_args, "Only one inputs file can be specified. '%s' OR '%s'\n", 
-	      opts->inputs_filename, optarg);
-      }
-      opts->inputs_filename = optarg;
-      break;
-    case STATE_INIT_FILE:
-      if(opts->states_filename){
-	ERROR(Simatra:Simex:parse_args, "Only one states file can be specified. '%s' OR '%s'\n", 
-	      opts->states_filename, optarg);
-      }
-      opts->states_filename = optarg;
-      break;
     case OUTPUT_DIR:
       if(opts->outputs_dirname){
 	ERROR(Simatra:Simex:parse_args, "Only one output file can be specified. '%s' OR '%s'\n", 
@@ -356,87 +337,6 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
   return 0;
 }
 
-// Reads states and inputs from files
-int get_states_inputs(const simengine_interface *iface, simengine_opts *opts){
-  unsigned int modelid;
-  FILE *inputs_file = NULL;
-  FILE *states_file = NULL;
-
-  if(opts->inputs_filename){
-    inputs_file = fopen(opts->inputs_filename, "r");
-    if(!inputs_file){
-      ERROR(Simatra:Simex:parse_args, "Could not open state initial value file '%s'.\n", opts->states_filename);
-    }
-  }
-
-  opts->inputs = NMALLOC(opts->num_models * iface->num_inputs, double);
-  // Check for an input file
-  if(inputs_file){
-    int i;
-    // Read inputs from file
-    for(i=0;i<opts->num_models * iface->num_inputs; i++){
-      if(binary_files){
-	if(1 != fread(&(opts->inputs[i]), sizeof(double), 1, inputs_file)){
-	  ERROR(Simatra:Simex:get_states_inputs, "failed to read input %d of %d from '%s'.\n", i+1,
-		opts->num_models * iface->num_inputs, opts->inputs_filename);
-	}
-      }
-      else{
-	if(1 != fscanf(inputs_file, "%lf", &(opts->inputs[i]))){
-	  ERROR(Simatra:Simex:get_states_inputs, "failed to read input %d of %d from '%s'.\n", i+1,
-		opts->num_models * iface->num_inputs, opts->inputs_filename);
-	}
-      }
-    }
-    fclose(inputs_file);
-  }
-  else{
-    // Copy inputs from default inputs
-    for (modelid = 0; modelid < opts->num_models; ++modelid){
-      memcpy(&(opts->inputs[AS_IDX(iface->num_inputs, opts->num_models, 0, modelid)]),
-	     iface->default_inputs, iface->num_inputs * sizeof(double));
-    }
-  }
-  
-  if(opts->states_filename){
-    states_file = fopen(opts->states_filename, "r");
-    if(!states_file){
-      ERROR(Simatra:Simex:parse_args, "Could not open state initial value file '%s'.\n", opts->states_filename);
-    }
-  }
-
-  opts->states = NMALLOC(opts->num_models * iface->num_states, double);
-  // Check for a state initial value file
-  if(states_file){
-    int i;
-    // Read states from file
-    for(i=0;i<opts->num_models * iface->num_states; i++){
-      if(binary_files){
-	if(1 != fread(&(opts->states[i]), sizeof(double), 1, states_file)){
-	  ERROR(Simatra:Simex:get_states_inputs, "failed to read state %d of %d from '%s'.\n", i+1,
-		opts->num_models * iface->num_states, opts->states_filename);
-	}
-      }
-      else{
-	if(1 != fscanf(states_file, "%lf", &(opts->states[i]))){
-	  ERROR(Simatra:Simex:get_states_inputs, "failed to read state %d of %d from '%s'.\n", i+1,
-		opts->num_models * iface->num_states, opts->states_filename);
-	}
-      }
-    }
-    fclose(states_file);
-  }
-  else{
-    // Copy states from default states
-    for (modelid = 0; modelid < opts->num_models; ++modelid){
-      memcpy(&(opts->states[AS_IDX(iface->num_states, opts->num_models, 0, modelid)]),
-	     iface->default_states, iface->num_states * sizeof(double));
-    }
-  }
-
-  return 0;
-}
-
 #define BYTE(val,n) ((val>>(n<<3))&0xff) // Also used in log_outputs
 
 // This will create model directories for inputs/outputs if they weren't created before calling this simulation
@@ -460,14 +360,14 @@ void make_model_directories(simengine_opts *opts){
       }
     }
     // Create the outputs directory
-    sprintf((model_dirname + model_dirname_len), "/outputs");
+    sprintf((model_dirname + strlen(model_dirname)), "/outputs");
     if(mkdir(model_dirname, 0777)){
 	  ERROR(Simatra::Simex::make_model_directories, "Output directory '%s' already exists, remove manually or specify a new output directory with the --outputdir <directory name> option\n", opts->outputs_dirname);
     }
   }
 }
 
-void write_states_time(const simengine_interface *iface, simengine_opts *opts, simengine_result *result){
+void write_states_time(simengine_opts *opts, simengine_result *result){
   // Make sure a directory for the model exists
   char model_dirname[PATH_MAX];
   struct stat model_dir_exist;
@@ -475,11 +375,7 @@ void write_states_time(const simengine_interface *iface, simengine_opts *opts, s
 
   for(modelid=0;modelid<opts->num_models;modelid++){
     unsigned int full_modelid = modelid+global_modelid_offset;
-    sprintf(model_dirname, "%s", opts->outputs_dirname);
-    int i;
-    for(i=2;i>=0;i--){
-      sprintf((model_dirname + strlen(model_dirname)), "/%02x", BYTE(full_modelid, i));
-    }
+    modelid_dirname(opts->outputs_dirname, model_dirname, full_modelid);
     char states_time_filename[PATH_MAX];
     FILE *states_time_file;
 
@@ -490,11 +386,11 @@ void write_states_time(const simengine_interface *iface, simengine_opts *opts, s
       ERROR(Simatra::Simex::log_outputs, "could not open file '%s'\n", states_time_filename);
     }
     if(binary_files){
-      fwrite(result->final_states + modelid*iface->num_states, sizeof(double), iface->num_states, states_time_file);
+      fwrite(result->final_states + modelid*seint.num_states, sizeof(double), seint.num_states, states_time_file);
     }
     else{
-      for(stateid=0;stateid<iface->num_states;stateid++){
-	fprintf(states_time_file, "%s%-.16e", ((stateid == 0) ? "" : "\t"), result->final_states[modelid*iface->num_states + stateid]);
+      for(stateid=0;stateid<seint.num_states;stateid++){
+	fprintf(states_time_file, "%s%-.16e", ((stateid == 0) ? "" : "\t"), result->final_states[modelid*seint.num_states + stateid]);
       }
       fprintf(states_time_file, "\n");
     }
@@ -541,7 +437,9 @@ int main(int argc, char **argv){
     return 1; // Command line parsing failed
   }
     
-  const simengine_interface *iface = &seint;
+
+  if(!binary_files)
+    ERROR(Simatra:Simex:main, "--binary not specified and ascii data is not currently supported.\n");
 
   // Just print the model interface
   if(opts.stop_time == opts.start_time){
@@ -550,10 +448,6 @@ int main(int argc, char **argv){
   }
   // Run the model simulation
   else{
-    if(get_states_inputs(iface, &opts)){
-      return 1;
-    }
-
     // Seed the entropy source
     if (opts.seeded) {
       seed_entropy(opts.seed);
@@ -566,20 +460,16 @@ int main(int argc, char **argv){
     simengine_result *result = simengine_runmodel(opts.start_time,
 						  opts.stop_time,
 						  opts.num_models,
-						  opts.inputs,
-						  opts.states,
 						  opts.outputs_dirname);
 
     if (SUCCESS == result->status){
-      write_states_time(iface, &opts, result);
+      write_states_time(&opts, result);
     }
     else{
       WARN(Simatra:Simex:runmodel, "Simulation returned error %d: %s\n",
 	      result->status, result->status_message);
     }
 
-    FREE(opts.inputs);
-    FREE(opts.states);
     return 0;
   }
 }

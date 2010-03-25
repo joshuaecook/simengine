@@ -8,6 +8,8 @@ const simengine_interface seint = {
   output_names,
   default_inputs,
   default_states,
+  NULL,
+  NULL,
   output_num_quantities,
   VERSION,
   sizeof(CDATAFORMAT),

@@ -29,6 +29,9 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       // Find the nearest next_time and catch up
       min_time = find_min_time(props, modelid);
 
+      // Advance any sampled inputs
+      advance_sampled_inputs(outputs_dirname, min_time, props->modelid_offset, modelid);
+
       // Buffer any available outputs
       for(i=0;i<NUM_ITERATORS;i++){
 	if (ready_outputs[i]) {

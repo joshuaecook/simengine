@@ -301,7 +301,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				"(CDATAFORMAT*)(&system_states_next->states_"^first_algebraic_iterator^");"
 			    else
 				"NULL;")),
-			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvernameCaps ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
 			[$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
@@ -449,7 +448,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, unsigned int modelid_offset){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
@@ -866,11 +865,11 @@ fun update_wrapper shardedModel =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -910,11 +909,11 @@ fun preprocess_wrapper shardedModel preprocessIterators =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -959,11 +958,11 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 			       of DOF.CONTINUOUS _ =>
 				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->time[modelid], " ^
 					 statereads ^ statewrites ^ systemstatereads ^
-					 "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 				| DOF.DISCRETE _ => 
 				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->count[modelid], " ^
 					 statereads ^ statewrites ^ systemstatereads ^
-					 "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 				| _ => $("#error BOGUS ITERATOR"))]
 			end)
 	    end
@@ -1004,11 +1003,11 @@ fun postprocess_wrapper shardedModel postprocessIterators =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -1662,7 +1661,7 @@ fun state_init_code shardedModel iter_sym =
 		     else "void *sys_rd")
 	    in
 		"__HOST__ __DEVICE__ int init_states_" ^ (Symbol.name (#name class)) ^
-		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", CDATAFORMAT *inputs, const unsigned int modelid)"
+		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", const unsigned int modelid)"
 	    end
 
 	fun stateInitFunction (iter as (iter_sym, iter_typ)) isTopClass class =
@@ -1676,7 +1675,7 @@ fun state_init_code shardedModel iter_sym =
 		val inputLocalVar =
 		    if isTopClass then
 		     fn ({name,default}, i) => 
-			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, " ^ (i2s i) ^ ", modelid)];")
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
 		    else
 		     fn ({name,default}, i) => 
 			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
@@ -1888,7 +1887,7 @@ fun init_states shardedModel =
 				 if hasInitialValueEquation (fn _ => true) class then
 				     $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
 				       reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
-				       "props->inputs, modelid)) { return 1; }")
+				       "modelid)) { return 1; }")
 				 else
 				     $("// no initial values for " ^ (Symbol.name top_class))
 			     end)
@@ -1925,7 +1924,7 @@ fun model_flows shardedModel =
 	       in
 		SUB[$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name iter_sym)) ^ ":"),
 		    $("return flow_" ^ (Symbol.name top_class) ^ 
-		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
+		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "NULL, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
 	       end)
 	    end
 

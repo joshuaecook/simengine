@@ -30,6 +30,12 @@ enum{ SUCCESS,
       ERRCOMP,
       ERRFILE};
 
+typedef enum {
+  SAMPLED_ERROR,
+  SAMPLED_HOLD,
+  SAMPLED_REPEAT
+} sampled_eof_option_t;
+
 typedef struct{
   const char *name;
   const char *target;
@@ -40,6 +46,8 @@ typedef struct{
   const char **output_names;
   const double *default_inputs;
   const double *default_states;
+  const double *sampled_input_timesteps;
+  const sampled_eof_option_t *sampled_input_eof_options;
   const unsigned int *output_num_quantities;
   const unsigned int version; // Switch this to be the return value of simengine_getinterface(&seint)?
   const unsigned int precision;
@@ -72,11 +80,7 @@ typedef struct{
   int gpuid;
 #endif
   int num_models;
-  char *inputs_filename;
-  char *states_filename;
   char *outputs_dirname;
-  double *inputs;
-  double *states;
 } simengine_opts;
 
 // Command line option parsing enumeration
@@ -90,8 +94,6 @@ typedef enum {
 #endif
   INSTANCES,
   INSTANCE_OFFSET,
-  INPUT_FILE,
-  STATE_INIT_FILE,
   OUTPUT_DIR,
   BINARY,
   INTERFACE,
