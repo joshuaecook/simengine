@@ -50,11 +50,43 @@ function [options] = simexOptions (dsl, varargin)
       [options, userOptions] = getOption(options, userOptions);
   end
 
-  options.instances = max([1 size(options.states, 1)]);
-  fnames = fieldnames(options.inputs);
-  for fid = 1:size(fnames)
-      options.instances = max([options.instances size(options.inputs.(fnames{fid}))]);
+  instances = max(size(options.inputs));
+  if 1 == instances
+      % Determine the number of instances by looking for cell
+      % arrays within the input structure
+      names = fieldnames(options.inputs);
+      for inputid = 1:size(names)
+          value = options.inputs.(names{inputid})
+
+          if iscell(value)
+              [rows cols] = size(value);
+              if 2 < ndims(value)
+                  simexError('valueError', ['INPUTS.' fieldname ' may not have more than 2 dimensions.']);
+              elseif 1 ~= min([rows cols])
+                  simexError('valueError', ['INPUTS.' field ' must have one scalar dimension.']);
+              end
+              if 1 == instances
+                  instances = max([rows cols]);
+              elseif instances ~= max([rows cols])
+                  simexError('valueError', 'All cell array INPUT fields must have the same length.');
+              end
+          elseif ~isscalar(value)
+              simexError('valueError', ['INPUTS.' field ' must be a scalar or cell array.']);
+          end
+      end
+  else
+      simexError('argumentError', 'Unexpected dimensions of INPUTS.');
   end
+
+  options.instances = instances;
+
+  instances = max([1 size(options.states,1)]);
+  if 0 ~= instances && 1 ~= instances && options.instances ~= instances
+      simexError('argumentError', ...
+                 ['Y0 must contain 1 or ' options.instances ' rows.']);
+  end
+  
+  options.instances = max([instances options.instances]);
 end
 
 
