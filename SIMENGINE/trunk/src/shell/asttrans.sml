@@ -117,15 +117,15 @@ and trans_exp (exp : Ast.exp) : HLEC.exp =
 
       | Ast.VECTOR exps
 	=> 
-	if List.exists (fn(e) => case e of Ast.NAMEDPATTERN _ => true | _ => false) exps then
+(*	if List.exists (fn(e) => case e of Ast.NAMEDPATTERN _ => true | _ => false) exps then
 	    HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "VectorPattern")},
 		       args=HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "clone", 
 						      object=(HLEC.VECTOR (map trans_exp exps))},
 				       args=HLEC.UNIT}}
 	else
 	    HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "clone", 
-				      object=(HLEC.VECTOR (map trans_exp exps))},
-		       args=HLEC.UNIT}
+				      object=( *)HLEC.VECTOR (map trans_exp exps)(* )},
+		       args=HLEC.UNIT}*)
 
       | Ast.NAMEDPATTERN (id, exp)
 	=> HLEC.APPLY{func=HLEC.SEND {message=Symbol.symbol "new", object=HLEC.SYMBOL (Symbol.symbol "Pattern")},

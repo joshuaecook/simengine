@@ -98,30 +98,48 @@ class Wildcard
 end
 
 function operator_exists (predicate, vector)
-  if vector.isempty() then
-    false
-  else
-    predicate (vector[1]) or operator_exists(predicate, vector.rest())
+  var index = 1
+
+  function existsCheck (index)
+    if vector.length() < index then
+      false
+    else
+      predicate (vector[index]) or existsCheck (index+1)
+    end
   end
+  
+  existsCheck(1)
 end
 
 function operator_forall (predicate, vector)
-  if vector.isempty() then
-    true
-  else
-    predicate (vector[1]) and operator_forall(predicate, vector.rest())
+  var index = 1
+
+  function forallCheck (index)
+    if vector.length() < index then
+      true
+    else
+      predicate (vector[index]) and forallCheck (index+1)
+    end
   end
+  
+  forallCheck(1)
 end
 
 
   function foldl (f)
     function init (aggregate)
       function compute (vector: Vector)
-        if vector.isempty() then
+        var result = aggregate
+
+        foreach element in vector do
+          result = f(element, result)
+        end
+        result
+/*        if vector.isempty() then
           aggregate
         else
           foldl f (f(vector.first(), aggregate)) (vector.rest())
-        end
+        end*/
       end
       compute
     end
@@ -138,7 +156,34 @@ function vector_index (athing, args: Vector)
 end
 
 overload function vector_index (vector: Vector, args: Vector)
-  if args.isempty() then
+  var result = vector
+
+  function handleArg (index)
+//  foreach arg in args do
+    if (index > args.length()) then
+      result
+    else
+      constant arg = args.at(index)
+
+      if LF istype (type Number, arg) then
+        result = result.at(arg)
+      elseif LF istype (type Interval, arg) then
+        result = result.slice (arg.low, arg.high)
+      elseif LF istype (type Wildcard, arg) then
+        // do nothing
+      elseif LF istype (type Vector of Number, arg) then
+        error "set selection from a vector is not supported yet"
+      else
+        error "Invalid type on vector index"
+      end
+
+      handleArg (index+1)
+    end    
+  end
+ 
+  handleArg(1)
+
+/*  if args.isempty() then
     vector
   else
     function applyArg (slice:Interval)
@@ -159,11 +204,11 @@ overload function vector_index (vector: Vector, args: Vector)
 
     applyArg (args.first())
   end
-
+*/
 end
 
 
-function objectContains (obj, member) = exists m in obj.members.tovector() suchthat m==member //exists((lambdafun(m) = m == member), obj.members)
+function objectContains (obj, member) = LF hasmember (obj, member) //exists m in obj.members.tovector() suchthat m==member //exists((lambdafun(m) = m == member), obj.members)
 
 function isRegexpMatch (pattern: String, str: String) = LF ismatch (pattern, str)
 function getRegexpMatches (pattern: String, str: String) = LF getMatches (pattern, str)
@@ -253,10 +298,20 @@ multifunction
 end
 
 function filter(f, v) = filter(f, v.tovector())
-overload function filter(f, v: Vector) =
+overload function filter(f, v: Vector)
+  var results = []
+  foreach element in v do
+    if f(element) then
+      results.push_back element
+    end
+  end
+  results
+/*
   {v when v.isempty(),
    filter(f, v.rest()).push_front(v.first()) when f(v.first()),
    filter(f, v.rest()) otherwise}
+*/
+end
 
 // Types
 function istype (typ, quant) = LF istype (typ, quant)

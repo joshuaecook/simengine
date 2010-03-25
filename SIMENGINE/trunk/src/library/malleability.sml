@@ -45,7 +45,6 @@ fun std_addAndSetVar exec args =
 	 => raise TypeMismatch ("expected an object,  a string, and a value, but received " ^ (PrettyPrint.kecexp2nickname a) ^ " and " ^ (PrettyPrint.kecexp2nickname b))
        | _ => raise IncorrectNumberOfArguments {expected=3, actual=(length args)}
 
-
 fun std_addconst exec args =
     case args of
 	 [KEC.OBJECT {members, allPublic}, KEC.LITERAL (KEC.CONSTSTR name), exp] => 
@@ -89,6 +88,18 @@ fun std_addmethod exec args =
 	 raise TypeMismatch ("expected an object, a string, and a function but received " ^ (PrettyPrint.kecexp2nickname a) ^ ", " ^ (PrettyPrint.kecexp2nickname b) ^ ", and " ^ (PrettyPrint.kecexp2nickname c))
        | _ => raise IncorrectNumberOfArguments {expected=3, actual=(length args)}
 
+fun std_hasmember exec args =
+    case args of
+	[KEC.OBJECT {members=ref obj, allPublic}, KEC.LITERAL (KEC.CONSTSTR name)] => 
+	let
+	    val sym = Symbol.symbol name
+	in
+	    KEC.LITERAL(KEC.CONSTBOOL (List.exists (fn (m) => sym = (Objects.memberName m)) obj))
+	end
+      | [a, b] 
+	=> raise TypeMismatch ("expected an object and a string but received " ^ (PrettyPrint.kecexp2nickname a) ^ " and " ^ (PrettyPrint.kecexp2nickname b))
+      | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)}
+		   
 fun std_getmember exec args =
     case args of
 	 [object, KEC.LITERAL (KEC.CONSTSTR membername)] => 
@@ -403,6 +414,7 @@ val library = [{name="addvar", operation=std_addvar},
 	       {name="addconst", operation=std_addconst},
 	       {name="addmethod", operation=std_addmethod},
 	       {name="getmember", operation=std_getmember},
+	       {name="hasmember", operation=std_hasmember},
 	       {name="setmember", operation=std_setmember},
 	       {name="clone", operation=std_clone},
 	       {name="deepclone", operation=std_deepclone}]

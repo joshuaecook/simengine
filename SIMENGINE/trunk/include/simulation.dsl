@@ -1082,9 +1082,9 @@ namespace Simulation
 	
 	self.quantities.push_back (q)
 	if not condvalid then
-          self.getMember(name).setEquation(Equation.new(lhs q, rhs q))        
+          q.setEquation(Equation.new(lhs q, rhs q))        
         else
-  	  self.getMember(name).setEquation(EventDrivenEquation.new(lhs q, rhs q, cond))        
+  	  q.setEquation(EventDrivenEquation.new(lhs q, rhs q, cond))        
         end
       end
     end
@@ -1109,22 +1109,16 @@ namespace Simulation
       m.setName(name)
       m.dimensions = dimensions
 
-      submodels.push_back (m)
-
-
-      //set inputs
+      //verify that keys are only setting inputs
       foreach k in table.keys do
-        if not (objectContains (m, k)) then
-          error ("Submodel " + name + " does not contain input or property " + k)
-        else
-          if not (exists ib in m.inputs suchthat ib.inputDef.getName() == k) then
-	    error ("Invalid definition of non-input to submodel: " + k)
-          else
-            var value = m.getMember(k)
-            m ({}.add(k, (table.getValue(k)))) //we use this indirect assignment via table application because direct assignment using a property cannot be done with getMember
-          end
+        if not (exists ib in m.inputs suchthat ib.inputDef.getName() == k) then
+          error ("Invalid definition of non-input to submodel: " + k)
         end
       end
+
+      m table
+
+      submodels.push_back (m)
     end
   end
   

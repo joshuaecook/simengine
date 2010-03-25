@@ -149,6 +149,8 @@ fun apply exec env lambda args =
 			   | KEC.DONTCARE => "_"
 			   | _ => "??")
 
+(*		    val _ = print ("Looked up function to call: " ^ (Symbol.name name) ^ "\n")*)
+
 		in
 		    (return, KEC.LAMBDA {args=map arg_name args,
 					 body=KEC.STMS stms,

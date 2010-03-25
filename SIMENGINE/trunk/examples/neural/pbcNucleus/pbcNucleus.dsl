@@ -665,3 +665,4 @@ solver.dt = 0.001
 println "Done with pbcNucleus"
 
 end
+println "out of file"
