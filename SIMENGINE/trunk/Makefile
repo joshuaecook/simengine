@@ -222,7 +222,7 @@ else
 LOCAL_INSTALL = local-install
 endif
 
-INSTALL_TGZ = simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER).tgz
+INSTALL_TGZ = simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER)_$(VERSION).tgz
 simEngine_%.tgz: $(OUTPUT_FILE) build/* build/*/*
 	$(info Creating $@ for packaging)
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)

@@ -797,7 +797,7 @@ import "command_line.dsl"
     
     if 0 == stat then
       simfile = profileTime ("Create SIM File", Archive.createArchive, (Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings))
-      println("Compilation completed succesfully")
+      println("Compilation completed successfully")
     elseif 3 >= stat then
 	// Show the error code
 	if 1  == stat then
