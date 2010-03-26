@@ -78,7 +78,9 @@ fun printClass (class as {name, properties={sourcepos, basename, preshardname, c
 	| DOF.INSTANTIATION {readstates, writestates} => 
 	  print (" |-> States read: "^ (symbollist2str readstates) ^ ", States written: " ^(symbollist2str writestates)^ "\n"));
      print(" |-> Class cost: " ^ (i2s (Cost.class2cost class)) ^ "\n");
-     print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,default} => e2s (Exp.TERM name) ^ (case default of SOME v => (" = "^(e2s v)) | NONE => "")) (!inputs))) ^ "\n");
+     print ("  Inputs: " ^ 
+	    (String.concatWith ", " (map (fn input => e2s (Exp.TERM (DOF.Input.name input)) ^ 
+						      (case DOF.Input.default input of SOME v => (" = "^(e2s v)) | NONE => "")) (!inputs))) ^ "\n");
      print ("  Equations:\n");
      app (fn(e) => 
 	    let
@@ -99,8 +101,11 @@ fun printClass (class as {name, properties={sourcepos, basename, preshardname, c
 		    print(prefix ^ (e2s e) ^ "\n")
 	    end
 	 ) (!exps);
-     print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => (e2s (Exp.TERM name)) ^ " = " ^ (contents2str contents) ^ " when " ^ (e2s condition)) 
-							 (!outputs))) ^ "\n");
+     print ("  Outputs: " ^ 
+	    (String.concatWith ", " (map (fn output => (e2s (Exp.TERM (DOF.Output.name output))) ^
+						       " = " ^ (contents2str (DOF.Output.contents output)) ^ 
+						       " when " ^ (e2s (DOF.Output.condition output)))
+					 (!outputs))) ^ "\n");
      print ("  Iterators: " ^ (String.concatWith ", " (map (fn({name,low,step,high})=>(Symbol.name name) ^ "=" ^ (Real.toString low) ^ ":" ^ (Real.toString step) ^ ":" ^ (Real.toString high)) iterators)) ^ "\n");
      print ("  Symbols: {"^(String.concatWith ", " (SymbolSet.toStrList (ClassProcess.findSymbols class)))^"}\n"))
     
@@ -132,8 +137,8 @@ fun printModel (model: DOF.model) =
 	    in
 		(print ("  Name: " ^ (case name of SOME name => Symbol.name name | NONE => "NONE") ^ "\n");
 		 print ("  Class: " ^ (Symbol.name classname) ^ "\n");
-		 print ("  Inputs: " ^ (String.concatWith ", " (map (fn{name,...} => e2s (Exp.TERM name)) (!(#inputs class)))) ^ "\n");
-		 print ("  Outputs: " ^ (String.concatWith ", " (map (fn({name, contents, condition}) => e2s (Exp.TERM name)) (!(#outputs class)))) ^ "\n");
+		 print ("  Inputs: " ^ (String.concatWith ", " (map (e2s o Exp.TERM o DOF.Input.name) (!(#inputs class)))) ^ "\n");
+		 print ("  Outputs: " ^ (String.concatWith ", " (map (e2s o Exp.TERM o DOF.Output.name) (!(#outputs class)))) ^ "\n");
 		 print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n");
 		 print ("  State Count: "^(i2s num_states)^"\n"))
 

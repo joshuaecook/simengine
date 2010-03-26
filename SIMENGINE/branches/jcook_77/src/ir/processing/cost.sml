@@ -43,8 +43,9 @@ and class2generalcost deep (c:DOF.class) =
 	val exps = !(#exps c)
 	val outputs = !(#outputs c)
     in
-	Util.sum ((map exp2cost (List.mapPartial #default inputs)) @
-		  (map exp2cost (map #condition outputs @ (Util.flatmap #contents outputs))) @
+	Util.sum ((map exp2cost (List.mapPartial DOF.Input.default inputs)) @
+		  (map exp2cost (map DOF.Output.condition outputs @ 
+				 (Util.flatmap DOF.Output.contents outputs))) @
 		  (map exp2cost exps))
     end
 

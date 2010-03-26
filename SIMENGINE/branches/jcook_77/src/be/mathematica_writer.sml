@@ -50,7 +50,7 @@ fun class2mexp top_class (class: DOF.class) =
 	val state_equs = List.filter ExpProcess.isStateEq rest_eqs
 	val state_names = map ExpProcess.getLHSSymbol state_equs
 	(* we also need to make each output unique *)
-	val output_names = map (Term.sym2symname o #name) outputs
+	val output_names = map (Term.sym2symname o DOF.Output.name) outputs
 
 	(* if it's the top class, we're going to grab all the states *)
 	val output_names = if top_class then
@@ -72,17 +72,17 @@ fun class2mexp top_class (class: DOF.class) =
 			   else
 			       output_names
 
-	val input_names = map (Term.sym2symname o #name) inputs
+	val input_names = map (Term.sym2symname o DOF.Input.name) inputs
 	(* designate every variable that will be made local *)
 	val local_vars = List.filter (fn(sym)=>not(List.exists (fn(sym')=>sym=sym') input_names)) (Util.uniquify (state_names @ output_names @ local_instance_symbols))
 
 	(* grab the output equations *)
 	val output_equs = List.mapPartial
-			      (fn{name,contents,...}=>
-			      case contents of 
+			      (fn output =>
+			      case DOF.Output.contents output of 
 				  nil => NONE
-				| [content] => SOME (ExpBuild.equals (ExpProcess.term2exp name, content))
-				| _ => SOME (ExpBuild.equals (ExpProcess.term2exp name, ExpBuild.explist contents)))
+				| [content] => SOME (ExpBuild.equals (ExpProcess.term2exp (DOF.Output.name output), content))
+				| contents => SOME (ExpBuild.equals (ExpProcess.term2exp (DOF.Output.name output), ExpBuild.explist contents)))
 			      outputs
 	val output_mequs = map exp2mexp output_equs
 			       
@@ -128,16 +128,16 @@ fun class2mexp top_class (class: DOF.class) =
 								  Exp.TUPLE (if top_class then
 										 (map sym2term output_names)
 									     else
-										 (map #name outputs))])
+										 (map DOF.Output.name outputs))])
 
 
     in
 	Mathematica.MDELAYASSIGN 
 	    {lhs=Mathematica.MFUN 
 		     {name=name,
-		      args=map (fn{name,default}=>
-				  (Term.sym2symname name, 
-				   case default of 
+		      args=map (fn input =>
+				  (Term.sym2symname (DOF.Input.name input), 
+				   case DOF.Input.default input of 
 				       SOME e => SOME (Mathematica.MEXP e)
 				     | NONE => NONE)) inputs},
 	     rhs=Mathematica.MODULE

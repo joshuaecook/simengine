@@ -84,20 +84,25 @@ fun printClassIOMap classIOMap =
 	()
     end
 
-fun inp2sym {name, ...} =
-    case ExpProcess.exp2symbols (Exp.TERM (name)) of
-	[sym] => sym
-      | _ => DynException.stdException("Class has an input that is not a single symbol", 
-				       "Ordering.inp2sym", 
-				       Logger.INTERNAL)
+fun inp2sym input =
+    let val name = DOF.Input.name input
+    in
+	case ExpProcess.exp2symbols (Exp.TERM (name)) of
+	    [sym] => sym
+	  | _ => DynException.stdException("Class has an input that is not a single symbol", 
+					   "Ordering.inp2sym", 
+					   Logger.INTERNAL)
+    end
 
-fun out2sym {name, contents, condition} = 
-    case ExpProcess.exp2symbols (Exp.TERM (name)) of
-	[sym] => sym
-      | _ => DynException.stdException("Class has an output that's name is not a single symbol", 
-				       "Ordering.out2sym", 
-				       Logger.INTERNAL)
-
+fun out2sym output = 
+    let val name = DOF.Output.name output
+    in
+	case ExpProcess.exp2symbols (Exp.TERM (name)) of
+	    [sym] => sym
+	  | _ => DynException.stdException("Class has an output that's name is not a single symbol", 
+					   "Ordering.out2sym", 
+					   Logger.INTERNAL)
+    end
 
 fun term2sym term =
     case ExpProcess.exp2symbols (Exp.TERM (term)) of
@@ -265,7 +270,7 @@ fun orderClass classMap (class:DOF.class) =
 	val sortable_exps = map (pairExpWithDeps mapping) other_exps
 
 	val availSyms = (GeneralUtil.flatten (map (ExpProcess.exp2symbols o ExpProcess.lhs) (init_exps @ master_init_exps @ state_exps)))
-			@ (map (term2sym o #name) (!(#inputs class)))
+			@ (map (term2sym o DOF.Input.name) (!(#inputs class)))
 			@ (map #1 (CurrentModel.iterators()))
 			@ (map #name (#iterators class))
 
@@ -315,19 +320,25 @@ fun orderModel (model:DOF.model)=
 			 handle SortFailed => raise SortFailed 
 	     | e => DynException.checkpoint "Ordering.orderModel.addExpToExpMap.ioMap" e
 
-		     fun inp2sym {name, ...} =
-			 case ExpProcess.exp2symbols (Exp.TERM (name)) of
-			     [sym] => sym
-			   | _ => DynException.stdException("Class " ^ (Symbol.name classname) ^ " has an input that is not a single symbol", 
-							    "Ordering.orderModel.addExpToExpMap.inp2sym", 
-							    Logger.INTERNAL)
+		     fun inp2sym input =
+			 let val name = DOF.Input.name input
+			 in
+			     case ExpProcess.exp2symbols (Exp.TERM (name)) of
+				 [sym] => sym
+			       | _ => DynException.stdException("Class " ^ (Symbol.name classname) ^ " has an input that is not a single symbol", 
+								"Ordering.orderModel.addExpToExpMap.inp2sym", 
+								Logger.INTERNAL)
+			 end
 
-		     fun out2sym {name, ...} = 
-			 case ExpProcess.exp2symbols (Exp.TERM (name)) of
-			     [sym] => sym
-			   | _ => DynException.stdException("Class " ^ (Symbol.name classname) ^ " has an output that's name is not a single symbol", 
-							    "Ordering.orderModel.addExpToExpMap.out2sym", 
-							    Logger.INTERNAL)
+		     fun out2sym output = 
+			 let val name = DOF.Output.name output
+			 in
+			     case ExpProcess.exp2symbols (Exp.TERM (name)) of
+				 [sym] => sym
+			       | _ => DynException.stdException("Class " ^ (Symbol.name classname) ^ " has an output that's name is not a single symbol", 
+								"Ordering.orderModel.addExpToExpMap.out2sym", 
+								Logger.INTERNAL)
+			 end
 
 		     val lhs = ListPair.zip (ExpProcess.exp2symbols (ExpProcess.lhs exp),
 					     map out2sym (!(#outputs class)))
@@ -447,8 +458,9 @@ fun orderModel (model:DOF.model)=
 		     (* construct classIOMap mappings*)
 
 
-		     fun addIOMapEntry ({name, contents, condition}, ioMap) =
+		     fun addIOMapEntry (output, ioMap) =
 			 let
+			     val (name, condition, contents) = (DOF.Output.name output, DOF.Output.condition output, DOF.Output.contents output)
 			     val namesym = 
 				 case ExpProcess.exp2symbols (Exp.TERM (name)) of
 				     [sym] => sym
@@ -469,7 +481,7 @@ fun orderModel (model:DOF.model)=
 			     (* TODO: prune this down to only inputs *)
 			     fun symIsInput s =
 				 let
-				     val inputsyms = map (term2sym o #name) (!(#inputs class))
+				     val inputsyms = map (term2sym o DOF.Input.name) (!(#inputs class))
 				 in
 				     List.exists (equals s) inputsyms
 				 end
@@ -660,8 +672,8 @@ fun orderModel (model:DOF.model)=
 		fun output2deps output =
 		    let
 			val usedSyms =
-			    SymbolSet.union(foldl SymbolSet.union SymbolSet.empty (map (SymbolSet.fromList o ExpProcess.exp2symbols) (#contents output)),
-					    SymbolSet.fromList (ExpProcess.exp2symbols (#condition output)))
+			    SymbolSet.union(foldl SymbolSet.union SymbolSet.empty (map (SymbolSet.fromList o ExpProcess.exp2symbols) (DOF.Output.contents output)),
+					    SymbolSet.fromList (ExpProcess.exp2symbols (DOF.Output.condition output)))
 		    in
 			foldl SymbolSet.union SymbolSet.empty (map depsOfUsedSym (SymbolSet.listItems usedSyms))
 		    end

@@ -90,7 +90,7 @@ fun noRHSDerivatives () =
     let
 	fun class2rhsexps (c as {exps, outputs, ...}) = 
 	    let
-		fun output2exps {condition, contents, ...} = condition::contents
+		fun output2exps output = (DOF.Output.condition output) :: (DOF.Output.contents output)
 	    in
 		map ExpProcess.rhs (!exps) @ 
 		Util.flatmap output2exps (!outputs)

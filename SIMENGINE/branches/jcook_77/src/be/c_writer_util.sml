@@ -165,9 +165,9 @@ fun log_c_eqs (header, eqs) =
      printtexts (TextIO.stdOut, List.concat (map (fn(e)=>(eq2c_progs e)) eqs), 0);
      log ("-----------------------------------------------------------------"))
 *)
-fun outputs2uniqueoutputsymbols (outputs:DOF.output list) = 
+fun outputs2uniqueoutputsymbols (outputs:DOF.Output.output list) = 
     let
-	val exps = Util.flatmap (fn {contents, condition, ...} => condition :: contents) outputs
+	val exps = Util.flatmap (fn output => (DOF.Output.condition output) :: (DOF.Output.contents output)) outputs
 	val all_symbols = Util.flatmap ExpProcess.exp2termsymbols exps
 	val sym_mapping = map (fn(term)=>(term, Term.sym2curname term)) all_symbols
 	fun cmp_fun ((_,s1),(_,s2))= s1 = s2
@@ -178,7 +178,7 @@ fun outputs2uniqueoutputsymbols (outputs:DOF.output list) =
 fun class2uniqueoutputsymbols (class:DOF.class) = 
     let
 	val outputs = !(#outputs class)
-	val exps = Util.flatmap (fn {contents, condition, ...} => condition :: contents) outputs
+	val exps = Util.flatmap (fn output => (DOF.Output.condition output) :: (DOF.Output.contents output)) outputs
 	val all_symbols = Util.flatmap ExpProcess.exp2termsymbols exps
 	val sym_mapping = map (fn(term)=>(term, Term.sym2curname term)) all_symbols
 	fun cmp_fun ((_,s1),(_,s2))= s1 = s2
