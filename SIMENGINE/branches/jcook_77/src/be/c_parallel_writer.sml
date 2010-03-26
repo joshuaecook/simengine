@@ -60,7 +60,7 @@ fun test_instance_class test instance =
 (* Indicates whether an output contains any term in its condition or contents
  * which satisfies a given predicate. *)
 fun output_contains_term test output =
-    let val {condition, contents, ...} = output
+    let val (condition, contents) = (DOF.Output.condition output, DOF.Output.contents output)
 	val terms = Util.flatmap ExpProcess.exp2termsymbols (condition :: contents)
     in List.exists test terms
     end
@@ -636,7 +636,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		     outputIterators)
 
 	val inputs = ShardedModel.toInputs shardedModel
-	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) inputs)
+	val (input_names, input_defaults) = ListPair.unzip (map (fn input => (DOF.Input.name input, DOF.Input.default input)) inputs)
 
 	fun wrap (f, m) x = CurrentModel.withModel m (fn _ => f x)
 
@@ -648,7 +648,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		CurrentModel.withModel model (fn _ =>
 						 let val class = CurrentModel.classname2class classname
 						     val {outputs, ...} = class
-						 in map (Term.sym2name o #name) (! outputs)
+						 in map (Term.sym2name o DOF.Output.name) (! outputs)
 						 end)
 	    end
 
@@ -657,7 +657,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 
 	fun output_num_quantities (model, output) =
 	    CurrentModel.withModel model (fn _ =>
-	    let val {name, contents, ...} = output
+	    let val (name, contents) = (DOF.Output.name output, DOF.Output.contents output)
 	    in case TermProcess.symbol2temporaliterator name
 		of SOME (iter_sym, _) => inc (List.length contents)
 		 | _ => List.length contents
@@ -667,7 +667,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	fun outputs_from_class (model, class) =
 	    let val {outputs, ...} = class
 	    in 
-		map (fn (output as {name, ...}) => (model, output))
+		map (fn (output) => (model, output))
 		    (! outputs)
 	    end
 
@@ -682,7 +682,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 			 outputIterators
 
 	val outputs_from_top_classes =
-	    Util.uniquify_by_fun (fn ((_,a:DOF.output),(_,b:DOF.output)) => Term.sym2curname (#name a) = Term.sym2curname (#name b)) outputs_from_top_classes
+	    Util.uniquify_by_fun (fn ((_,a),(_,b)) => Term.sym2curname (DOF.Output.name a) = Term.sym2curname (DOF.Output.name b)) outputs_from_top_classes
 
 
 	val outputs_num_quantities = map output_num_quantities outputs_from_top_classes
@@ -1352,11 +1352,11 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val input_automatic_var =
 	    if is_top_class then
-		fn ({name,default},i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
+		fn (input,i) => 
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
 	    else
-		fn ({name,default},i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
+		fn (input,i) => 
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
 
 	val eqn_symbolset = 
 	    SymbolSet.flatmap ExpProcess.exp2symbolset valid_exps
@@ -1510,9 +1510,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 		    fun declare_output ((sym,_),_) = "CDATAFORMAT "^(Symbol.name sym)^";"
 
-		    fun assign_output ((sym, {name, contents, condition}), idx) =
+		    fun assign_output ((sym, output), idx) =
 			(Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
-			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
+			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (DOF.Output.contents output)))
 
 		    (* Output args could contain don't cares *)
 		    val output_term_pairs =
@@ -1591,8 +1591,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		[$(""),
 		 $("// writing output data "),
 		 SUB(map 
-			 (fn({name,contents,condition},i)=> 
+			 (fn(output,i)=> 
 			    let
+				val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 				val _ = if length contents = 1 then
 					    ()
 					else
@@ -1674,11 +1675,11 @@ fun state_init_code shardedModel iter_sym =
 
 		val inputLocalVar =
 		    if isTopClass then
-		     fn ({name,default}, i) => 
-			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
+		     fn (input, i) => 
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
 		    else
-		     fn ({name,default}, i) => 
-			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
+		     fn (input, i) => 
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
 
 		val ivqCode = ClassProcess.foldInitialValueEquations
 				  (fn (eqn, code) =>
@@ -1722,8 +1723,8 @@ fun state_init_code shardedModel iter_sym =
 				     in
 					 SymbolSet.member (symset, Term.sym2curname name)
 				     end
-
-				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn ({name, ...}, names) => name :: names) nil instclass
+				     
+				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn (input, names) => (DOF.Input.name input) :: names) nil instclass
 				 val inpargs: Exp.exp list = 
 				     map (fn (name, arg) =>
 					     if hasInitialValueEquation (ivqReadsInput name) instclass then
@@ -1805,7 +1806,7 @@ fun flow_code shardedModel iter_sym =
 		      (String.concatWith 
 			   ", " 
 			   (map 
-				(fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) 
+				(fn input=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))))
 				(!(#inputs class))))^");")
 		else
 		    let
@@ -1998,7 +1999,7 @@ fun logoutput_code shardedModel =
 
 
 	fun output_prog (output, index) =
-	    let val {name, contents, condition} = output
+	    let val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 		val num_quantities = 
 		    case TermProcess.symbol2temporaliterator name
 		     of SOME (iter_sym, _) => inc (List.length contents)
@@ -2062,7 +2063,7 @@ fun logoutput_code shardedModel =
 	fun outputs_from_class (model, class) =
 	    let val {outputs, ...} = class
 	    in 
-		map (fn (output as {name, ...}) => (model, output))
+		map (fn (output) => (model, output))
 		    (! outputs)
 	    end
 
@@ -2075,7 +2076,7 @@ fun logoutput_code shardedModel =
 			 (#1 shardedModel)
 
 	val outputs_from_top_classes =
-	    Util.uniquify_by_fun (fn ((_,a:DOF.output),(_,b:DOF.output)) => Term.sym2curname (#name a) = Term.sym2curname (#name b)) outputs_from_top_classes
+	    Util.uniquify_by_fun (fn ((_,a),(_,b)) => Term.sym2curname (DOF.Output.name a) = Term.sym2curname (DOF.Output.name b)) outputs_from_top_classes
 
 	val output_exps = 
 	    Util.flatmap (fn ((model, output), index) => CurrentModel.withModel model (fn _ => output_prog (output, index)))
@@ -2083,7 +2084,7 @@ fun logoutput_code shardedModel =
 
 
 	val total_output_quantities =
-	    List.foldr op+ 0 (map (List.length o #contents) outputs)
+	    List.foldr op+ 0 (map (List.length o DOF.Output.contents) outputs)
 
     in
         if total_output_quantities > 0 then
