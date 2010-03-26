@@ -1143,7 +1143,7 @@ fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t 
 (* this only works across symbols - the term rewriter will match only symbols *)
 fun renameTemporalIteratorForAggregating (before_iter_sym_list, after_iter_sym) exp =
     (* first check to see if it is an iterator *)
-    case exp of
+    (case exp of
 	Exp.TERM (Exp.SYMBOL (sym, props)) => 
 	if List.exists (fn(sym')=>sym=sym') before_iter_sym_list then
 	    Exp.TERM (Exp.SYMBOL (after_iter_sym, props))
@@ -1160,7 +1160,9 @@ fun renameTemporalIteratorForAggregating (before_iter_sym_list, after_iter_sym) 
 						else 
 						    exp (* not an iterator that matters *)
 	       | NONE => exp) (* does not have a temporal iterator *)
-      | _ => exp (* not a symbol *)
+      | _ => exp) (* not a symbol *)
+    handle e => DynException.checkpoint "ExpProcess.renameTemporalIteratorForAggregating" e
+
 and replaceIterator {before_iter_sym, before_iter_sym_list, after_iter_sym, sym, symprops, iter_index, exp} =
     let
 	fun needsReplacing iter_sym = List.exists (fn(iter_sym')=>iter_sym=iter_sym') before_iter_sym_list
@@ -1178,51 +1180,42 @@ and replaceIterator {before_iter_sym, before_iter_sym_list, after_iter_sym, sym,
 	(* ignore derivative property - shouldn't exist *)
 	val scope = Property.getScope symprops
 
-	(* update the iter index depending on whether it is pre process or post process*)
-	val iter_index' = (*if isPreProcess then
-			      case iter_index of
-				  Iterator.RELATIVE 1 => Iterator.RELATIVE 0
-				| _ => iter_index
-			  else if isPostProcess orelse isUpdate then
-			      case iter_index of
-				  Iterator.RELATIVE 0 => Iterator.RELATIVE 1
-				| _ => iter_index
-			  else*) (* this is not needed here since this is done in combineDiscreteIterators *)
-			      iter_index
-
 	(* update the scope *)
 	val scope' = case scope of
 			 Property.READSTATE sym => 
-			 (case iter_index' of
+			 (case iter_index of
 			      Iterator.RELATIVE 0 => 
 			      Property.READSTATE (updateIterSym sym)
 			    | Iterator.RELATIVE 1 => 
 			      Property.WRITESTATE (updateIterSym sym)
-			    | _ => DynException.stdException("Unexpected iterator1", "ExpProcess.replaceIterator", Logger.INTERNAL))
+			    | _ => DynException.stdException(("Unexpected iterator1 ['"^(e2s exp)^"']"), "ExpProcess.replaceIterator", Logger.INTERNAL))
 		       | Property.READSYSTEMSTATE sym => 
 			 let val updated_sym = updateIterSym sym
-			 in if (*updated_sym = sym*) not(needsReplacing sym) then
+			 in if not(needsReplacing sym) then
 				scope
 			    else
-				case iter_index' of
+				case iter_index of
 				    Iterator.RELATIVE 1 => Property.WRITESTATE updated_sym
 				  | _ => Property.READSTATE updated_sym
 			 end
 		       | Property.WRITESTATE sym => 			 
-			 (case iter_index' of
+			 (case iter_index of
 			      Iterator.RELATIVE 0 => 
 			      Property.READSTATE (updateIterSym sym)
 			    | Iterator.RELATIVE 1 => 
 			      Property.WRITESTATE (updateIterSym sym)
-			    | _ => DynException.stdException("Unexpected iterator2", "ExpProcess.replaceIterator", Logger.INTERNAL))
+			    | Iterator.ABSOLUTE 0 => (* initial values for states will have this iterator type and need to be updated *)
+			      Property.WRITESTATE (updateIterSym sym)
+			    | _ => DynException.stdException(("Unexpected iterator2 ['"^(e2s exp)^"']"), "ExpProcess.replaceIterator", Logger.INTERNAL))
 		       | _ => scope
 
 	(* update system properties *)
-	val symprops' = Property.setIterator (Property.setScope symprops scope') ((updateIterSym before_iter_sym, iter_index')::spatial_iterators)
+	val symprops' = Property.setIterator (Property.setScope symprops scope') ((updateIterSym before_iter_sym, iter_index)::spatial_iterators)
 
     in
 	Exp.TERM (Exp.SYMBOL (sym, symprops'))
     end
+    handle e => DynException.checkpoint ("ExpProcess.replaceIterator [from '"^(Symbol.name before_iter_sym)^"' to '"^(Symbol.name after_iter_sym)^"']") e
 
 fun assignCorrectScopeOnSymbol exp =
     (case exp 
