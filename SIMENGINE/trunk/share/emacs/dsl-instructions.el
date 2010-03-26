@@ -4,7 +4,8 @@
 ;; ============
 ;;
 ;; Modify your Emacs initialization file:
-;; 1. Add the path to this file to `load-path'.
+;; 1. Add the path to this file to `load-path':
+;;    (add-to-list 'load-path "/the/path/where/you/saved/this/")
 ;; 2. Instruct Emacs to use `dsl-mode' for editing DSL files:
 ;;    (autoload 'dsl-mode "dsl" "Major mode for editing DSL files" t)
 ;;    (add-to-list 'auto-mode-alist '("\\.dsl\\'" . dsl-mode))

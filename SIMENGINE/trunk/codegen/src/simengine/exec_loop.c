@@ -1,4 +1,4 @@
-int exec_loop(solver_props *props, const char *outputs_dirname, double *progress){
+int exec_loop(solver_props *props, const char *outputs_dirname, double *progress, int resuming){
   int i;
   int status = SUCCESS;
 
@@ -14,9 +14,9 @@ int exec_loop(solver_props *props, const char *outputs_dirname, double *progress
 
   // Execute the model(s) on the appropriate target
 #if defined(TARGET_CPU)
-  status = exec_cpu(props, outputs_dirname, progress, 0);
+  status = exec_cpu(props, outputs_dirname, progress, 0, resuming);
 #elif defined(TARGET_OPENMP)
-  status = exec_parallel_cpu(props, outputs_dirname, progress);
+  status = exec_parallel_cpu(props, outputs_dirname, progress, resuming);
 #elif defined(TARGET_GPU)
   status = exec_parallel_gpu(props, outputs_dirname, progress);
 #else

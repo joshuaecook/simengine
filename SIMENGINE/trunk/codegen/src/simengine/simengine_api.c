@@ -37,7 +37,7 @@ const char *simengine_errors[] = {"Success",
 /* Allocates and initializes an array of solver properties, one for each iterator. */
 solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, unsigned int modelid_offset);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
-int exec_loop(solver_props *props, const char *outputs_dir, double *progress);
+int exec_loop(solver_props *props, const char *outputs_dir, double *progress, int resuming);
 
 void open_progress_file(const char *outputs_dirname, double **progress, int *progress_fd, unsigned int num_models){
   char progress_filename[PATH_MAX];
@@ -67,7 +67,7 @@ void close_progress_file(double *progress, int progress_fd, unsigned int num_mod
 // simengine_runmodel()
 //
 //    executes the model for the given parameters, states and simulation time
-simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, const char *outputs_dirname){
+simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, double *inputs, double *states, const char *outputs_dirname, int resuming){
   CDATAFORMAT model_states[PARALLEL_MODELS * NUM_STATES];
   CDATAFORMAT parameters[PARALLEL_MODELS * NUM_INPUTS];
   unsigned int stateid;
@@ -121,7 +121,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     // Initialize the solver properties and internal simulation memory structures
     solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, parameters, model_states, models_executed+global_modelid_offset);
     // Run the model
-    seresult->status = exec_loop(props, outputs_dirname, progress + models_executed);
+    seresult->status = exec_loop(props, outputs_dirname, progress + models_executed, resuming);
     seresult->status_message = (char*) simengine_errors[seresult->status];
 
     // Copy the final time from simulation
@@ -562,7 +562,8 @@ int main(int argc, char **argv){
 						  opts.num_models,
 						  opts.inputs,
 						  opts.states,
-						  opts.outputs_dirname);
+						  opts.outputs_dirname,
+						  opts.states_filename != NULL);
 
     if (SUCCESS == result->status){
       write_states_time(iface, &opts, result);

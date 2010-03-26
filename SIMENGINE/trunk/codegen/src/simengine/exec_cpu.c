@@ -1,5 +1,5 @@
 // Run a single model to completion on a single processor core
-int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid){
+int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid, int resuming){
   unsigned int i;
   CDATAFORMAT min_time;
   unsigned int before_first_iteration = 1;
@@ -11,13 +11,14 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   for(i=0;i<NUM_ITERATORS;i++){
     props[i].running[modelid] = 1;
   }
-  init_states(props, modelid);
-  for(i=0;i<NUM_ITERATORS;i++){
-    solver_writeback(&props[i], modelid);
-    dirty_states[i] = 0;
+  if (!resuming) {
+    // Call state initialization functions if the initial states
+    // have not already been specified.
+    init_states(props, modelid);
+    for(i=0;i<NUM_ITERATORS;i++){
+      solver_writeback(&props[i], modelid);
+    }
   }
-
-  // TODO Initialize non-constant state initial values
 
   // Run simulation to completion
   while(model_running(props, modelid)){
