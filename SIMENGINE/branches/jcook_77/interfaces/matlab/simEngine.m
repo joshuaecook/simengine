@@ -2,8 +2,10 @@ function [outputs y1 t1] = simEngine (interface, options)
 %  SIMENGINE Executes a compiled simulation
     writeUserInputs(options);
     writeUserStates(options);
+    
+    options.args
         
-    [outputs y1 t1] = simulateModel(options);
+    [outputs y1 t1] = simulateModel(interface, options);
 end
 
 %%
@@ -19,18 +21,18 @@ function writeUserInputs (options)
     
     names = fieldnames(inputs);
     
-    if 1 == max(size(inputs))
-        %% INPUTS given as a struct of scalars or cell arrays
-        for modelid = 1:options.instances
-            modelPath = modelidToPath(modelid-1);
-            mkdir(fullfile(options.outputs, modelPath), 'inputs');
-            for inputid = 1:length(names)
-                filename = fullfile(options.outputs, modelPath, 'inputs', names{inputid});
-                fid = fopen(filename, 'w');
-                if -1 == fid
-                    simFailure('simEngine', ['Unable to write inputs file ' filename]);
-                end
-                
+    for modelid = 1:options.instances
+        modelPath = modelidToPath(modelid-1);
+        mkdir(fullfile(options.outputs, modelPath), 'inputs');
+        for inputid = 1:length(names)
+            filename = fullfile(options.outputs, modelPath, 'inputs', names{inputid});
+            fid = fopen(filename, 'w');
+            if -1 == fid
+                simFailure('simEngine', ['Unable to write inputs file ' filename]);
+            end
+            
+            if 1 == max(size(inputs))
+                % INPUTS given as a structure of scalars or cell arrays
                 value = inputs.(names{inputid});
                 if iscell(value)
                     if 1 == length(value)
@@ -41,11 +43,12 @@ function writeUserInputs (options)
                 else
                     fwrite(fid, value, 'double');
                 end
-                fclose(fid);
+            else
+                value = inputs(modelid).(names{inputid});
+                fwrite(fid, value, 'double');
             end
+            fclose(fid);
         end
-    else
-        simexError('argumentError', 'Unexpected dimensions of INPUTS.');
     end
 end
 %%
@@ -70,7 +73,7 @@ function writeUserStates (options)
         end
     end
 end
-function [outputs y1 t1] = readSimulationData (options)
+function [outputs y1 t1] = readSimulationData (interface, options)
 % READSIMULATIONDATA Reads the outputs, final states, and final
 % times files by memory mapping.
 
@@ -82,7 +85,7 @@ function [outputs y1 t1] = readSimulationData (options)
     for modelid = 1:options.instances
         for outputid = 1:length(interface.outputs)
             modelDir = fullfile(options.outputs, modelidToPath(modelid-1));
-            outputFile = fullfile(modelDir, interface.outputs{outputid});
+            outputFile = fullfile(modelDir, 'outputs', interface.outputs{outputid});
             try
                 m = memmapfile(outputFile, 'format', 'double');
                 outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
@@ -106,7 +109,7 @@ function [outputs y1 t1] = readSimulationData (options)
     end
 end
 %%
-function [outputs y1 t1] = simulateModel(opts)
+function [outputs y1 t1] = simulateModel(interface, opts)
   opts.args = [opts.args ' --start ' num2str(opts.startTime)];
   opts.args = [opts.args ' --stop ' num2str(opts.stopTime)];
   opts.args = [opts.args ' --instances ' num2str(opts.instances)];
@@ -114,7 +117,7 @@ function [outputs y1 t1] = simulateModel(opts)
   
   simCompile(opts, 'Simulating');
   
-  [outputs y1 t1] = readSimulationData(opts);
+  [outputs y1 t1] = readSimulationData(interface, opts);
 end
 %%
 function [val] = stringByte(number, b)
