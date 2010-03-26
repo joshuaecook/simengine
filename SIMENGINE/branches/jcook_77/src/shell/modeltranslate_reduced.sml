@@ -402,7 +402,12 @@ fun createClass classes object =
 		 default=case exp2realoption (method "default" obj) of
 			     SOME r => SOME (ExpBuild.real r)
 			   | NONE => NONE,
-		 behaviour=DOF.Input.HOLD}
+		 behaviour=case exp2str (method "when_exhausted" obj)
+			    of "cycle" => DOF.Input.CYCLE
+			     | "halt" => DOF.Input.HALT
+			     | "hold" => DOF.Input.HOLD
+			     | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
+
 
 	fun quantity2exp obj =
 	    (* FIXME add iterators appearing on rhs to symbols on lhs. *)

@@ -910,14 +910,36 @@ namespace Simulation
 
   class Input extends SimQuantity
     var name
+    var iter
     var defaultValue
+    var when_exhausted
+    
 
     constructor (name)
       self.name = name
       defaultValue = NaN
+      when_exhausted = "hold"
     end
 
-    property default
+    property cycle_when_exhausted
+      set (it)
+	if it then when_exhausted = "cycle" end
+      end
+    end
+
+    property halt_when_exhausted
+      set (it)
+	if it then when_exhausted = "halt" end
+      end
+    end
+ 
+    property hold_when_exhausted
+      set (it)
+	if it then when_exhausted = "hold" end
+      end
+    end
+
+   property default
       get
         defaultValue
       end
@@ -933,8 +955,6 @@ namespace Simulation
     overload operator () (arg: Vector)
       IteratorReference.new(self, arg)
     end
-
-
   end
 
   class ModelInstance
