@@ -62,7 +62,7 @@ void read_constant_input(const char *outputs_dirname, unsigned int inputid, unsi
 void read_sampled_input(const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid, int skipped_samples){
   FILE *inputfile;
   char inputfilepath[PATH_MAX];
-  sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + inputid];
+  sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
 
   modelid_dirname(outputs_dirname, inputfilepath, modelid + modelid_offset);
   sprintf((inputfilepath + strlen(inputfilepath)), "/inputs/%s", seint.input_names[inputid]);
@@ -140,8 +140,8 @@ void read_sampled_input(const char *outputs_dirname, unsigned int inputid, unsig
 
 void advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned int modelid_offset, unsigned int modelid){
   int inputid;
-  for(inputid=0;inputid<NUM_SAMPLED_INPUTS;inputid++){
-    sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + inputid];
+  for(inputid=NUM_CONSTANT_INPUTS;inputid<NUM_SAMPLED_INPUTS;inputid++){
+    sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(inputid)];
     // Compute integer number of samples to skip to
     int num_samples = (int)(((t - tmp->current_time[ARRAY_IDX])/ tmp->timestep) + 0.5);
     // Check if samples are exhausted and read more from file
