@@ -388,7 +388,7 @@ datafiles/profile.dol: datafiles/system.dol datafiles/global.dol
 	@cat $? > $@
 	@echo " " >> $@
 	@echo "// Adding special source path for profiling" >> $@
-	@echo "<sourcepath=`pwd`/include>" >> $@
+	@echo "<sourcepath=\"`pwd`/include\">" >> $@
 
 $(BUILD_DIR)/debug/$(FILENAME)_profiletime: override SMLFLAGS += $(SIMPLE_ARGS) -profile-stack true -profile time
 $(BUILD_DIR)/debug/$(FILENAME)_profiletime: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug datafiles/profile.dol
