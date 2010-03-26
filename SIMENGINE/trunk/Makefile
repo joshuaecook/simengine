@@ -383,16 +383,23 @@ $(OUTPUT_FILE): $(COMPILER_DEPENDENCIES)
 # Compiler Debugging Files
 # ==============================================================================================
 
+datafiles/profile.dol: datafiles/system.dol datafiles/global.dol
+	$(info Creating $@ for profiling)
+	@cat $? > $@
+	@echo " " >> $@
+	@echo "// Adding special source path for profiling" >> $@
+	@echo "<sourcepath=`pwd`/include>" >> $@
+
 $(BUILD_DIR)/debug/$(FILENAME)_profiletime: override SMLFLAGS += $(SIMPLE_ARGS) -profile-stack true -profile time
-$(BUILD_DIR)/debug/$(FILENAME)_profiletime: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug
+$(BUILD_DIR)/debug/$(FILENAME)_profiletime: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug datafiles/profile.dol
 	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
 
 $(BUILD_DIR)/debug/$(FILENAME)_profilemem: override SMLFLAGS += $(SIMPLE_ARGS) -profile alloc
-$(BUILD_DIR)/debug/$(FILENAME)_profilemem: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug
+$(BUILD_DIR)/debug/$(FILENAME)_profilemem: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug datafiles/profile.dol
 	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
 
 $(BUILD_DIR)/debug/$(FILENAME)_profilebranch: override SMLFLAGS += $(SIMPLE_ARGS) -profile-branch true -profile count
-$(BUILD_DIR)/debug/$(FILENAME)_profilebranch: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug
+$(BUILD_DIR)/debug/$(FILENAME)_profilebranch: $(COMPILER_DEPENDENCIES) $(BUILD_DIR)/debug datafiles/profile.dol
 	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
 
 .PHONY: profiling-tools

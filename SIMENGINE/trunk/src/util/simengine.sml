@@ -33,6 +33,16 @@ fun isFile file =
      true)
     handle _ => false
 
+fun getSIMENGINEPROFILEDOL () =
+    let
+	val file = "../datafiles/profile.dol"
+    in
+	if isFile file then
+	    SOME file
+	else
+	    NONE
+    end
+
 fun getSIMENGINELOCALDOL () =
     let
 	val var = "SIMENGINEDOL"

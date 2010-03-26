@@ -80,7 +80,12 @@ fun main () =
     let
 	val log = Logger.log_stdout (Logger.WARNINGS, defaultOptions)
 
-	val _ = case  getSIMENGINELOCALDOL () (* in this case, it's going to be the system one *) of
+	val dol = if MLton.Profile.isOn then
+		      getSIMENGINEPROFILEDOL () (* this should be ../datafiles/profile.dol *)
+		  else
+		      getSIMENGINELOCALDOL () (* in this case, it's going to be the system one *)
+
+	val _ = case dol of
 		    SOME file => DynamoOptions.importRegistryFile file
 		  | NONE => (Logger.log_failure(Printer.$("Can't read system registry file"));
 			     DynException.setErrored())
@@ -109,12 +114,14 @@ fun main () =
 	val argv = CommandLine.arguments ()
 
 	(* Read the global registry file in the installation directory *)
-	val _ = DynamoOptions.importRegistryFile (getSIMENGINEDOL ())
+	val _ = (if not MLton.Profile.isOn then 
+		     (DynamoOptions.importRegistryFile (getSIMENGINEDOL ());
+		      case getSIMENGINELOCALDOL() of
+			  SOME dol => DynamoOptions.importRegistryFile dol
+			| NONE => ())
+		 else
+		     ())
 		before DynException.checkToProceed ()
-	(* Read the local registry file in your .simatra directory *)
-	val _ = case getSIMENGINELOCALDOL() of
-		    SOME dol => DynamoOptions.importRegistryFile dol
-		  | NONE => ()
 		
 	(* read in command line arguments to DynamoOptions *)
 	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))*)
