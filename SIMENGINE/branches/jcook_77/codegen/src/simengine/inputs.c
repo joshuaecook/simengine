@@ -144,19 +144,15 @@ void advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned
     sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + inputid];
     // Compute integer number of samples to skip to
     int num_samples = (int)(((t - tmp->current_time[ARRAY_IDX])/ tmp->timestep) + 0.5);
-    // Check if default value is to be used or data is exhausted and last value held
-    if(!tmp->file_idx[ARRAY_IDX] || tmp->held[ARRAY_IDX]){
-      tmp->current_time[ARRAY_IDX] = t;
-    }
     // Check if samples are exhausted and read more from file
-    else if(num_samples + tmp->idx[ARRAY_IDX] > SAMPLE_BUFFER_SIZE){
+    if(num_samples + tmp->idx[ARRAY_IDX] >= SAMPLE_BUFFER_SIZE){
       read_sampled_input(outputs_dirname, inputid, modelid_offset, modelid, (num_samples + tmp->idx[ARRAY_IDX]) - SAMPLE_BUFFER_SIZE);
     }
-    // Otherwise just move to the next sample
-    else{
+    // Advance index into data buffer unless no data is in the buffer or the file was exhausted
+    else if(tmp->file_idx[ARRAY_IDX] && !tmp->held[ARRAY_IDX]){
       tmp->idx[ARRAY_IDX] += num_samples;
-      tmp->current_time[ARRAY_IDX] = t;
     }
+    tmp->current_time[ARRAY_IDX] = t;
   }
 }
 
