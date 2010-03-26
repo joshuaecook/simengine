@@ -25,7 +25,7 @@ sig
 		  -> KEC.exp
 
     (* Returns a class object instance. *)
-    val classinstance: (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env ) * PosLog.pos list) -> Symbol.symbol -> (KEC.replacement * KEC.member) list -> KEC.exp 
+    val classinstance: (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env * KEC.exp Env.env option ref) * PosLog.pos list) -> Symbol.symbol -> (KEC.replacement * KEC.member) list -> KEC.exp 
 		       -> KEC.exp
 
     (* Returns an object instance method or attribute expression. *)

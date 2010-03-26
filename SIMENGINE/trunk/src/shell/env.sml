@@ -11,10 +11,10 @@ fun system_union ((global, localenv, poslog), env) =
 	val _ = print ("Closure contains " ^ (String.concatWith ", " (SymbolTable.listKeys env)) ^ "\n")
 	val _ = print ("localenv contains " ^ (String.concatWith " || " (map (fn(le) => String.concatWith ", " (SymbolTable.listKeys (le))) localenv)) ^ "\n")
 *)
-	val (first, restUnion) = localenv
+	val (first, restUnion, _) = localenv
     in
     (global, 
-     (union(env, first), restUnion),
+     (union(env, first), restUnion, ref NONE),
      poslog)
     end
 
@@ -27,9 +27,18 @@ fun closure_union ((global, localenv, poslog), closure) =
 		  | NONE => print "empty localenv\n"
 *)
 (*	val _ = print ("length localenv = " ^ (Int.toString(length localenv)) ^ "\n") *)
-	val (first, restUnion) = localenv
+	val (first, restUnion, cacheUnion) = localenv
+
+	val localenvs = case !cacheUnion of
+			    SOME env => env
+			  | NONE => let val e = union(first, restUnion) 
+				    in e before cacheUnion := SOME e 
+				    end
+	val closure' = union(closure, localenvs)      
+
+(*	val _ = print ("length of closure = " ^ (Int.toString(length (SymbolTable.listKeys closure'))) ^ "\n")*)
     in
-	union(closure, union(first, restUnion))      
+	closure'
     end
 
 fun add ((sym,value),env) = 
@@ -51,9 +60,9 @@ fun local_add printer ((sym,value), env as (globalenv, localenv, poslog)) =
 							   SOME x => (printer x)
 							 | NONE => "NONEXISTENT") ^ "\n")*)
 (*	val _ = print ("         depth = " ^ (Int.toString (length localenv)) ^ "\n")*)
-	val (first, restUnion) = localenv
+	val (first, restUnion, _) = localenv
     in
-	(globalenv, (SymbolTable.enter (first, sym, value), restUnion), poslog)
+	(globalenv, (SymbolTable.enter (first, sym, value), restUnion, ref NONE), poslog)
     end
 
 
@@ -64,10 +73,11 @@ fun create_local ((global, localenv, poslog)) =
 
 fun push_local ((global, localenv, poslog)) =
     let
-	val (first, restUnion) = localenv
+	val (first, restUnion, _) = localenv
+	val restUnion' = union(first, restUnion)
     in
 	(global, 
-	 (new(), union(first, restUnion)), 
+	 (new(), restUnion', ref (SOME restUnion')), 
 	 poslog)(* before print "pushed local\n"*)
     end
 
@@ -85,14 +95,14 @@ fun local_lookup printer nil sym = NONE
 	SOME x => SOME x (*before print ("     ===  in local_lookup and found " ^ sym ^ " with value "^(printer x)^"\n")*)
       | NONE => (*print "     ~~~~ looping down a level\n";*) local_lookup printer rest sym
 *)
-fun system_lookup printer (globalenv, localenv as (first, restUnion), poslog) sym =
+fun system_lookup printer (globalenv, localenv as (first, restUnion, _), poslog) sym =
     case lookup first sym of
 	SOME x => SOME x
       | NONE => (case lookup restUnion sym of
 		     SOME x => SOME x
 		   | NONE => lookup (!globalenv) sym)
 
-fun top_local_lookup printer (globalenv, localenv as (first, rest), poslog) sym =
+fun top_local_lookup printer (globalenv, localenv as (first, rest, _), poslog) sym =
     lookup first sym
 
 type 'a env = 'a SymbolTable.table
@@ -100,7 +110,7 @@ type 'a env = 'a SymbolTable.table
 
 fun top_local_keys env =
     let
-	val (first, _) = system2local env
+	val (first, _, _) = system2local env
     in
 	SymbolTable.listKeys (first)
     end
@@ -109,7 +119,7 @@ fun top_local_keys env =
 fun keys env =
     SymbolTable.listKeys env
 
-fun show_env (globalenv, localenv as (first, restUnion), _) =
+fun show_env (globalenv, localenv as (first, restUnion, _), _) =
     (print ("Global env: " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys (!globalenv)))) ^ "\n");
      print ("Local env: " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys first))) ^ "\n");
      print ("           " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys restUnion))) ^ "\n"))

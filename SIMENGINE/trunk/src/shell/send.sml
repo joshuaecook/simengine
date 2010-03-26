@@ -6,7 +6,7 @@
 signature SEND =
 sig
     val send: bool -> (KEC.exp -> KEC.exp)
-	      -> (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env ) * PosLog.pos list)
+	      -> (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env * KEC.exp Env.env option ref) * PosLog.pos list)
 	      -> Symbol.symbol -> KEC.exp
 	      -> KEC.exp
 end
@@ -58,8 +58,9 @@ fun isbinvec env list =
 fun apply (f, a) = KEC.APPLY {func=f, args=KEC.TUPLE a}
 
 (* Returns a library function invocation. *)
-fun libfun name args =
+fun libfun exec name args =
     KEC.LIBFUN (Symbol.symbol name, KEC.TUPLE args)
+(*     Library.exec exec (Symbol.symbol name) (map exec args) *)
 
 (* Returns an application of an object instance method to the given arguments. *)
 fun applySend message object args = 
@@ -86,6 +87,8 @@ fun argmethod name args exp =
 fun send isLHS exec env message object =
     let
 	val pretty = PrettyPrint.kecexp2prettystr exec
+
+        val libfun = libfun exec
 
 	(* Wraps an expression in a lambda application which binds the "self" variable reference. *)
 	fun injectSelf self exp =

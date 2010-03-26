@@ -14,8 +14,8 @@ sig
     (* Evaluates the application of arguments to a callable object in a given environment.
        For a lambda expression or runnable, returns the result of executing the body with the arguments substituted for the formal parameters.
        For objects, vectors, tuples, strings, and binaries, returns the result of sending the "()" message to the object with the given arguments. *)
-    val apply: ((KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env) * PosLog.pos list) * KEC.exp -> KEC.exp)
-	       -> (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env) * PosLog.pos list)
+    val apply: ((KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env * KEC.exp Env.env option ref) * PosLog.pos list) * KEC.exp -> KEC.exp)
+	       -> (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env * KEC.exp Env.env option ref) * PosLog.pos list)
 	       -> KEC.exp -> KEC.exp
 	       -> KEC.exp
 end

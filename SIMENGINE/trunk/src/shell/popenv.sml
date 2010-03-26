@@ -47,7 +47,7 @@ fun new (parse) =
 	    (map import ["stdlib.dsl", "simulation.dsl", "rules.dsl", "dependency.dsl", "devices.dsl", "startup.dsl"])
 
 	    
-	val env = foldl (process_def parse) (ref (Env.new()), (Env.new(), Env.new()), PosLog.new()) initial_defs
+	val env = foldl (process_def parse) (ref (Env.new()), (Env.new(), Env.new(), ref NONE), PosLog.new()) initial_defs
     in
 	env
 	before Globals.base_env := env

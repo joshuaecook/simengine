@@ -10,8 +10,8 @@ val lastline_yypos = ref 0
 val line_count = ref 0
 
 (* this type is required because new() does not return enough information to create a properly sized reference *)
-val base_env: (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env) * PosLog.pos list) ref 
-  = ref (ref (Env.new()), (Env.new(), Env.new()), PosLog.new())
+val base_env: (KEC.exp Env.env ref * (KEC.exp Env.env * KEC.exp Env.env * KEC.exp Env.env option ref) * PosLog.pos list) ref 
+  = ref (ref (Env.new()), (Env.new(), Env.new(), ref NONE), PosLog.new())
 
 
 

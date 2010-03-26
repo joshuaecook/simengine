@@ -23,7 +23,7 @@ structure H = ListMapFn (struct
   fun listKeys (t) = (H.listKeys (t))
   fun listItems (t) = H.listItems (t)
   fun map(f) = H.map (f)
-  fun priorityunion (tab1, tab2) = H.unionWith (fn(a,_) => a) (tab1, tab2) 
+  fun priorityunion (tab1, tab2) = H.unionWith (#1) (tab1, tab2) 
 
 (*
   type 'a table = (string * 'a) list
