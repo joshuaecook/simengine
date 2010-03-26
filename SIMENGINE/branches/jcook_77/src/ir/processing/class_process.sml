@@ -30,6 +30,7 @@ sig
     val symbolofiter2exps :  DOF.class -> Symbol.symbol -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
 
+    val inputsByIterator: DOF.systemiterator -> DOF.class -> DOF.Input.input list
     val outputsByIterator : DOF.systemiterator -> DOF.class -> DOF.Output.output list
 
     val outputsSymbols : DOF.class -> Exp.term list
@@ -631,6 +632,22 @@ fun outputsByIterator iterator (class: DOF.class) =
     in List.filter has_iterator (! outputs)
     end
     handle e => DynException.checkpoint "ClassProcess.outputsByIterator" e
+
+fun inputsByIterator iterator (class: DOF.class) =
+    let val (iter_sym, _) = iterator
+	val {inputs, ...} = class
+	fun has_iterator input =
+	    let fun has exp =
+		    case ExpProcess.exp2temporaliterator exp
+		     of SOME (iter_sym', _) => iter_sym = iter_sym'
+		      | _ => false
+	    in has (ExpProcess.term2exp (DOF.Input.name input))
+	    end
+    in
+	List.filter has_iterator (! inputs)
+    end
+
+
 
 fun outputSymbols output =
     Util.flatmap ExpProcess.exp2termsymbols ((DOF.Output.condition output) :: (DOF.Output.contents output))

@@ -232,7 +232,8 @@ fun pruneIterators (model:DOF.model as (classes, top_inst, properties)) =
 	fun filter_iter iterator =
 	    0 < model2statesizebyiterator iterator model orelse
 	    List.exists
-		(fn (class) => 0 < List.length (ClassProcess.outputsByIterator iterator class))
+		(fn (class) => 0 < List.length (ClassProcess.inputsByIterator iterator class) orelse
+			       0 < List.length (ClassProcess.outputsByIterator iterator class))
 		classes orelse
 	    let
 

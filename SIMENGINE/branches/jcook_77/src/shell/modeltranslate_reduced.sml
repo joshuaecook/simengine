@@ -398,8 +398,12 @@ fun createClass classes object =
 
 	fun obj2input obj =
 	    let
-		val temporal_iterator = (exp2str (method "name" (method "iter" obj)))
-		val name = ExpBuild.initavar(exp2str(method "name" obj), temporal_iterator, nil)
+		val iter = method "iter" obj
+		val name =
+		    if isdefined iter then
+			ExpBuild.initavar (exp2str(method "name" obj), exp2str (method "name" (method "iter" obj)), nil)
+		    else
+			ExpBuild.var (exp2str (method "name" obj))
 	    in
 		DOF.Input.make
 		    {name=exp2term name,
