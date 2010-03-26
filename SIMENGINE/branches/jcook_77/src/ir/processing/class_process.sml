@@ -108,13 +108,8 @@ fun rewriteClass rewriter class =
 	
 	open DOF
 
-	val inputs' = map (Input.rewrite rewriter) inputs'
-	val outputs' = map (fn output =>
-			       let val name = (ExpProcess.exp2term o rewriter o ExpProcess.term2exp o Output.name) output
-			       in
-				   Output.rewrite rewriter (Output.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp) output)
-			       end)
-			   outputs'
+	val inputs' = map ((Input.rewrite rewriter) o (Input.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp))) inputs'
+	val outputs' = map ((Output.rewrite rewriter) o (Output.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp))) outputs'
 				   
 
 	val exps' = map rewriter exps'

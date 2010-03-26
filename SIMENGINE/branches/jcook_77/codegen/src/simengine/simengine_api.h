@@ -31,9 +31,9 @@ enum{ SUCCESS,
       ERRFILE};
 
 typedef enum {
-  SAMPLED_ERROR,
+  SAMPLED_HALT,
   SAMPLED_HOLD,
-  SAMPLED_REPEAT
+  SAMPLED_CYCLE
 } sampled_eof_option_t;
 
 typedef struct{

@@ -16,10 +16,6 @@
 // TODO make this bigger but handle the case when this much data isn't available?
 #define SAMPLE_BUFFER_SIZE 1
 
-// TODO FIXME: Remove these hard coded values
-#define NUM_CONSTANT_INPUTS NUM_INPUTS
-#define NUM_SAMPLED_INPUTS 0
-
 typedef struct{
   CDATAFORMAT data[ARRAY_SIZE * SAMPLE_BUFFER_SIZE];
   CDATAFORMAT current_time[ARRAY_SIZE];
@@ -97,11 +93,13 @@ void read_sampled_input(const char *outputs_dirname, unsigned int inputid, unsig
     }
     if(num_read != num_to_read){
       switch(tmp->eof_option){
-      case SAMPLED_ERROR:
+	// TODO FIXME: This will error potentialy SAMPLE_BUFFER_SIZE samples too early, HOLD and REPEAT are ok
+      case SAMPLED_HALT:
 	ERROR(Simatra:Simex:read_sampled_input, "Input data for input '%s' has been exhausted before simulation completed.", seint.input_names[inputid]);
 	break;
       case SAMPLED_HOLD:
 	if(num_read == 0){
+	  tmp->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE] = tmp->data[((ARRAY_IDX + 1) * SAMPLE_BUFFER_SIZE) - 1];
 	  tmp->held[ARRAY_IDX] = 1;
 	  return;
 	}
@@ -110,7 +108,21 @@ void read_sampled_input(const char *outputs_dirname, unsigned int inputid, unsig
 	  tmp->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + num_read] = held_value;
 	}
 	break;
-      case SAMPLED_REPEAT:
+	/*
+      case SAMPLED_DEFAULT:
+	if(num_read == 0){
+	  tmp->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE] = seint.default_inputs[inputid];
+	  tmp->held[ARRAY_IDX] = 1;
+	  return;
+	}
+	int held_value = seint.default_inputs[inputid];
+	for(;num_read < num_to_read; num_read++){
+	  tmp->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + num_read] = held_value;
+	}
+	break;
+	*/
+      case SAMPLED_CYCLE:
+	// Outer for loop continues to read data from beginning of file
 	tmp->file_idx[ARRAY_IDX] = 0;
 	break;
       default:

@@ -397,16 +397,21 @@ fun createClass classes object =
 	    end
 
 	fun obj2input obj =
-	    DOF.Input.make
-		{name=exp2term (ExpBuild.var (exp2str (method "name" obj))),
-		 default=case exp2realoption (method "default" obj) of
-			     SOME r => SOME (ExpBuild.real r)
-			   | NONE => NONE,
-		 behaviour=case exp2str (method "when_exhausted" obj)
-			    of "cycle" => DOF.Input.CYCLE
-			     | "halt" => DOF.Input.HALT
-			     | "hold" => DOF.Input.HOLD
-			     | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
+	    let
+		val temporal_iterator = (exp2str (method "name" (method "iter" obj)))
+		val name = ExpBuild.initavar(exp2str(method "name" obj), temporal_iterator, nil)
+	    in
+		DOF.Input.make
+		    {name=exp2term name,
+		     default=case exp2realoption (method "default" obj) of
+				 SOME r => SOME (ExpBuild.real r)
+			       | NONE => NONE,
+		     behaviour=case exp2str (method "when_exhausted" obj)
+				of "cycle" => DOF.Input.CYCLE
+				 | "halt" => DOF.Input.HALT
+				 | "hold" => DOF.Input.HOLD
+				 | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
+	    end
 
 
 	fun quantity2exp obj =

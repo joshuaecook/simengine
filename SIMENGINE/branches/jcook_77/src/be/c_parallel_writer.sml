@@ -635,9 +635,32 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 			end)
 		     outputIterators)
 
-	val inputs = ShardedModel.toInputs shardedModel
-	val (input_names, input_defaults) = ListPair.unzip (map (fn input => (DOF.Input.name input, DOF.Input.default input)) inputs)
+	fun is_constant_input input =
+	    let
+		val name = DOF.Input.name input
+	    in
+		not (isSome (TermProcess.symbol2temporaliterator name))
+	    end
 
+	val (constant_inputs, sampled_inputs) = List.partition is_constant_input (ShardedModel.toInputs shardedModel)
+	val (input_names, input_defaults) = ListPair.unzip ((map (fn input => (DOF.Input.name input, DOF.Input.default input)) constant_inputs) @
+							   (map (fn input => (DOF.Input.name input, DOF.Input.default input)) sampled_inputs))
+	val sampled_exhausted_behaviors = map (fn input => case DOF.Input.behaviour input of
+							       DOF.Input.HOLD => "SAMPLED_HOLD"
+							     | DOF.Input.HALT => "SAMPLED_HALT"
+							     | DOF.Input.CYCLE => "SAMPLED_CYCLE")
+					      sampled_inputs
+
+	val sampled_periods = map (fn input =>
+					  let
+					      val (iter_sym,_) = valOf (TermProcess.symbol2temporaliterator (DOF.Input.name input))
+					      val (_,iter_typ) = CurrentModel.itersym2iter iter_sym
+					  in
+					      case iter_typ
+					       of DOF.DISCRETE {sample_period} => sample_period
+						| _ => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_sym)^"'"), "CParallelWriter.simengine_interface", Logger.INTERNAL)
+					  end) sampled_inputs
+				  
 	fun wrap (f, m) x = CurrentModel.withModel m (fn _ => f x)
 
 	fun name_subsystem_outputs shardedModel iter_sym =
@@ -752,6 +775,8 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("const Iterator ITERATORS[NUM_ITERATORS] = {" ^ (String.concatWith ", " iters_enumerated) ^ "};"),
 	 $(""),
 	 $("static const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
+	 $("static const double sampled_input_timesteps[] = {" ^ (String.concatWith ", " (map (CWriterUtil.exp2c_str o Exp.TERM o Exp.REAL) sampled_periods)) ^ "};"),
+	 $("static const sampled_eof_option_t sampled_input_eof_options[] = {" ^ (String.concatWith ", " sampled_exhausted_behaviors) ^ "};"),
 	 $("static const char *state_names[] = {" ^ (String.concatWith ", " (map cstring state_names)) ^ "};"),
 	 $("static const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
 	 $("static const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
@@ -766,8 +791,10 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("static const unsigned int NUM_STATES = "^(i2s (List.length state_names)) ^ ";"),
 	 $("static const unsigned long long HASHCODE = 0x0000000000000000ULL;"),
 	 $("static const unsigned int VERSION = 0;"),
-         *)
-	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
+          *)
+	 $("#define NUM_CONSTANT_INPUTS "^(i2s (List.length constant_inputs))),
+	 $("#define NUM_SAMPLED_INPUTS "^(i2s (List.length sampled_inputs))),
+	 $("#define NUM_INPUTS (NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS)"),
 	 $("#define NUM_STATES "^(i2s (List.length state_names))),
 	 $("#define HASHCODE 0x0000000000000000ULL"),
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
@@ -2227,9 +2254,9 @@ fun buildC (orig_name, shardedModel) =
 				       [precision_h] @
 				       [memory_layout_h] @
 				       [target_h] @
+				       [simengine_api_h] @
 				       simengine_interface_progs @
 
-				       [simengine_api_h] @
 				       [defines_h] @
 				       (case sysprops
 					 of {target=Target.CUDA, ...} =>
