@@ -6,6 +6,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   unsigned int last_iteration[NUM_ITERATORS] = {0};
   unsigned int dirty_states[NUM_ITERATORS] = {0};
   unsigned int ready_outputs[NUM_ITERATORS] = {0};
+  int inputs_available = 1;
 
   // Initialize all iterators to running
   for(i=0;i<NUM_ITERATORS;i++){
@@ -20,7 +21,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   // TODO Initialize non-constant state initial values
 
   // Run simulation to completion
-  while(model_running(props, modelid)){
+  while(model_running(props, modelid) && inputs_available){
     // Initialize a temporary output buffer
     init_output_buffer((output_buffer*)(props->ob), modelid);
  
@@ -30,7 +31,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       min_time = find_min_time(props, modelid);
 
       // Advance any sampled inputs
-      advance_sampled_inputs(outputs_dirname, min_time, props->modelid_offset, modelid);
+      inputs_available = advance_sampled_inputs(outputs_dirname, min_time, props->modelid_offset, modelid);
 
       // Buffer any available outputs
       for(i=0;i<NUM_ITERATORS;i++){
@@ -90,6 +91,10 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 #endif
 	}
       }
+     
+      // Cannot continue if a sampled input with halt condition has no more data
+      if(!inputs_available)
+	break;
 
       // Cannot continue if all the simulation is complete
       if (!model_running(props, modelid)) {

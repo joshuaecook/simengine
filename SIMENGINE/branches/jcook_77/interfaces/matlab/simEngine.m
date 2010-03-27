@@ -3,7 +3,7 @@ function [outputs y1 t1] = simEngine (interface, options)
     writeUserInputs(options);
     writeUserStates(options);
     
-    options.args
+%    options.args
         
     [outputs y1 t1] = simulateModel(interface, options);
 end
