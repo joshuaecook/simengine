@@ -19,7 +19,7 @@ model (I) = Ground(V1)
 
       // Create a small internal resistance (10 mOhm)
       constant Rinternal = 0.0001
-      
+            
       // Create a state for I, have it adjust as necessary to produce the desired voltage
       state I = 0
       equation I' = (-V1)/Rinternal  
@@ -41,14 +41,14 @@ end
 
 model (I) = Capacitor(V1, V2, C)
 
-  //state dVdt = 0
   equations
-    //dVdt = dV2dt - dV1dt
+    //dt = t - t[-1]
+    dt = 0.0001
     myV1 = V1
     dV1 = V1 - myV1[t[-1]]
     myV2 = V2
     dV2 = V2 - myV2[t[-1]]
-    dVdt = (dV2-dV1)/DT
+    dVdt = (dV2-dV1)/dt
     I = C*dVdt
   end
 
