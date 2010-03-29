@@ -1,31 +1,41 @@
 function [outputs y1 t1] = simEngine (interface, options)
 %  SIMENGINE Executes a compiled simulation
-    writeUserInputs(options);
-    writeUserStates(options);
+    writeUserInputs(interface, options);
+    writeUserStates(interface, options);
     
-%    options.args
-        
     [outputs y1 t1] = simulateModel(interface, options);
 end
 
 %%
-function writeUserInputs (options)
+function writeUserInputs (interface, options)
 %  WRITEUSERINPUTS Creates files for the inputs of each model instance.
     inputs = options.inputs;
     
     if ~isstruct(inputs)
         simexError('typeError', 'Expected INPUTS to be a structure array.')
     end
-
-    multiply = @(value)(value * ones(options.instances, 1));
     
+    names = interface.inputs;
+    
+    for inputid = 1:length(names)
+        field = names{inputid}
+        if isnan(interface.defaultInputs.(field)) && ~isfield(inputs,field)
+            simexError('valueError', ['Model input ' field ' has no default value and must be specified.']);
+        end
+    end
+
     names = fieldnames(inputs);
     
     for modelid = 1:options.instances
         modelPath = modelidToPath(modelid-1);
         mkdir(fullfile(options.outputs, modelPath), 'inputs');
         for inputid = 1:length(names)
-            filename = fullfile(options.outputs, modelPath, 'inputs', names{inputid});
+            field = names{inputid}
+            if ~isfield(options.inputs, field)
+                warning(['INPUTS.' field ' is not a model input.']);
+                continue
+            end
+            filename = fullfile(options.outputs, modelPath, 'inputs', field);
             fid = fopen(filename, 'w');
             if -1 == fid
                 simFailure('simEngine', ['Unable to write inputs file ' filename]);
@@ -33,7 +43,10 @@ function writeUserInputs (options)
             
             if 1 == max(size(inputs))
                 % INPUTS given as a structure of scalars or cell arrays
-                value = inputs.(names{inputid});
+                value = inputs.(field);
+                if any(isnan(value))
+                    simexError('valueError', ['INPUTS.' field ' may not be NaN.']);
+                end
                 if iscell(value)
                     if 1 == length(value)
                         fwrite(fid, value{1}, 'double');
@@ -44,7 +57,7 @@ function writeUserInputs (options)
                     fwrite(fid, value, 'double');
                 end
             else
-                value = inputs(modelid).(names{inputid});
+                value = inputs(modelid).(field);
                 fwrite(fid, value, 'double');
             end
             fclose(fid);
@@ -52,27 +65,28 @@ function writeUserInputs (options)
     end
 end
 %%
-function writeUserStates (options)
+function writeUserStates (interface, options)
 % WRITEUSERSTATES Creates files for the initial states of each model instance.
     states = options.states;
     
     if ~isempty(states)
-        filename = fullfile(options.outputs, 'states');
-        fid = fopen(filename, 'w');
-        if -1 == fid
-            simFailure('simEngine', ['Unable to write states file ' filename]);
-        end
-
+        modelPath = modelidToPath(modelid-1);
         for modelid = 1:options.instances
-            % Uses the 'skip' parameter of fwrite() to transpose while writing.
+            filename = fullfile(options.outputs, modelPath, 'states');
+            fid = fopen(filename, 'w');
+            if -1 == fid
+                simFailure('simEngine', ['Unable to write states file ' filename]);
+            end
+            
             if 1 == size(states, 1)
-                fwrite(fid, states, 'double', 8 * options.instances);
+                fwrite(fid, states, 'double');
             else
-                fwrite(fid, states(modelid,:), 'double', 8 * options.instances);
+                fwrite(fid, states(modelid,:), 'double');
             end
         end
     end
 end
+%%
 function [outputs y1 t1] = readSimulationData (interface, options)
 % READSIMULATIONDATA Reads the outputs, final states, and final
 % times files by memory mapping.

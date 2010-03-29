@@ -135,6 +135,12 @@ function [options, restUserOptions] = getOption(options, userOptions)
     case 'float'
       options.precision = 'float';
       options.args = [options.args ' --precision float'];
+    case 'cpu'
+      options.target = 'cpu';
+      options.args = [options.args ' --target cpu'];
+    case 'parallelcpu'
+      options.target = 'parallelcpu';
+      options.args = [options.args ' --target parallelcpu'];
     case 'gpu'
       options.target = 'gpu';
       options.args = [options.args ' --target gpu'];
