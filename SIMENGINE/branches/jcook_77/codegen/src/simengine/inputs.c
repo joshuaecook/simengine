@@ -13,8 +13,8 @@
 // Short circuit the constant case to the 
 #define GET_INPUT(t, inputid, modelid) (IS_CONSTANT_INPUT(inputid) ? inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, inputid, modelid)] : get_input(t, inputid, modelid))
 
-// TODO make this bigger but handle the case when this much data isn't available?
-#define SAMPLE_BUFFER_SIZE 3
+// TODO : SET THIS VALUE BASED ON NUMBER OF SAMPLED INPUTS AND MEMORY AVAILABLE, SPECIFICALLY FOR GPU
+#define SAMPLE_BUFFER_SIZE 1024
 
 typedef struct{
   double data[ARRAY_SIZE * SAMPLE_BUFFER_SIZE];

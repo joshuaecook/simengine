@@ -56,7 +56,7 @@ function [options] = simexOptions (dsl, varargin)
       % arrays within the input structure
       names = fieldnames(options.inputs);
       for inputid = 1:size(names)
-          value = options.inputs.(names{inputid})
+          value = options.inputs.(names{inputid});
 
           if iscell(value)
               [rows cols] = size(value);
