@@ -18,7 +18,7 @@ function writeUserInputs (interface, options)
     names = interface.inputs;
     
     for inputid = 1:length(names)
-        field = names{inputid}
+        field = names{inputid};
         if isnan(interface.defaultInputs.(field)) && ~isfield(inputs,field)
             simexError('valueError', ['Model input ' field ' has no default value and must be specified.']);
         end
@@ -30,7 +30,7 @@ function writeUserInputs (interface, options)
         modelPath = modelidToPath(modelid-1);
         mkdir(fullfile(options.outputs, modelPath), 'inputs');
         for inputid = 1:length(names)
-            field = names{inputid}
+            field = names{inputid};
             if ~isfield(options.inputs, field)
                 warning(['INPUTS.' field ' is not a model input.']);
                 continue
@@ -44,15 +44,20 @@ function writeUserInputs (interface, options)
             if 1 == max(size(inputs))
                 % INPUTS given as a structure of scalars or cell arrays
                 value = inputs.(field);
-                if any(isnan(value))
-                    simexError('valueError', ['INPUTS.' field ' may not be NaN.']);
-                end
                 if iscell(value)
                     if 1 == length(value)
+                        if isnan(value{1})
+                            simexError('valueError', ['INPUTS.' field ' may not contain NaN.']);
+                        end
                         fwrite(fid, value{1}, 'double');
                     else
+                        if isnan(value{modelid})
+                            simexError('valueError', ['INPUTS.' field ' may not contain NaN.']);
+                        end
                         fwrite(fid, value{modelid}, 'double');
                     end
+                elseif isnan(value)
+                    simexError('valueError', ['INPUTS.' field ' may not contain NaN.']);
                 else
                     fwrite(fid, value, 'double');
                 end
