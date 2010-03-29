@@ -1,4 +1,3 @@
-settings.ir.aggregate.setValue(true)
 model (y1, y2) = AggregateIteratorTest1
 
     iterator n1 with {discrete, sample_period=1}

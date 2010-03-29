@@ -193,21 +193,21 @@ function s = AggregatgeIteratorTests(target)
 
 s = Suite(['Aggregate Multiple Iterators ' target]);
 
-s.add(Test('AggregateDiscrete', @()(simex('models_FeatureTests/AggregateIteratorTest1.dsl',10,target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
-s.add(Test('AggregateContinuous', @()(simex('models_FeatureTests/AggregateIteratorTest2.dsl',10,target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
-s.add(Test('AggregateContinuousDiscrete', @()(simex('models_FeatureTests/AggregateIteratorTest3.dsl',10,target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
-s.add(Test('AggregateAlgebraic', @()(simex('models_FeatureTests/AggregateIteratorTest4.dsl',10,target)), '-equal', struct('y', [0:10; 0:10; [0 0:9]]')));
+s.add(Test('AggregateDiscrete', @()(simex('models_FeatureTests/AggregateIteratorTest1.dsl',10,'-aggregate',target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
+s.add(Test('AggregateContinuous', @()(simex('models_FeatureTests/AggregateIteratorTest2.dsl',10,'-aggregate',target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
+s.add(Test('AggregateContinuousDiscrete', @()(simex('models_FeatureTests/AggregateIteratorTest3.dsl',10,'-aggregate',target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
+s.add(Test('AggregateAlgebraic', @()(simex('models_FeatureTests/AggregateIteratorTest4.dsl',10,'-aggregate',target)), '-equal', struct('y', [0:10; 0:10; [0 0:9]]')));
 s.add(Test('AggregateAlgebraicUpdate', @ ...
-           ()(simex('models_FeatureTests/AggregateIteratorTest5.dsl',10,target)), '-equal', struct('y', [0:10; [0:5 0:4]; [0 0:5 0:3]]')));
+           ()(simex('models_FeatureTests/AggregateIteratorTest5.dsl',10,'-aggregate',target)), '-equal', struct('y', [0:10; [0:5 0:4]; [0 0:5 0:3]]')));
 function result = CheckRandomOutput()
 o = simex('models_FeatureTests/AggregateIteratorTest6.dsl',10, ...
-          target);
+          '-aggregate',target);
 result = equiv(o.y(:,1), [0:10]');
 d = diff(o.y(:,2));
 result = result && all(d >= 1 & d <= 2);
 end
 s.add(Test('AggregateRandom',@CheckRandomOutput));
 s.add(Test('AggregateUpdateWithTime', @ ...
-           ()(simex('models_FeatureTests/AggregateIteratorTest7.dsl',10,target)), '-equal', struct('y', [0:10; [0:5 0 0 0 0 0]; [0 0:5 0 0 0 0]]')));
+           ()(simex('models_FeatureTests/AggregateIteratorTest7.dsl',10,'-aggregate',target)), '-equal', struct('y', [0:10; [0:5 0 0 0 0 0]; [0 0:5 0 0 0 0]]')));
 
 end

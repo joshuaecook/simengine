@@ -1,4 +1,3 @@
-settings.ir.aggregate.setValue(true)
 model (y) = AggregateIteratorTest5
 
     iterator t with {continuous, solver=forwardeuler{dt=1}}

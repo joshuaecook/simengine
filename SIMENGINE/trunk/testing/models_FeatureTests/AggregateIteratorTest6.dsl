@@ -1,4 +1,3 @@
-settings.ir.aggregate.setValue(true)
 model (y) = AggregateIteratorTest6
 
     random r with {uniform, low=1, high=2}
