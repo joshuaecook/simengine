@@ -159,7 +159,7 @@ int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned 
   return 1;
 }
 
-void initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid){
+int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid){
   char states_path[PATH_MAX];
   FILE *states_file;
   unsigned int stateid;
@@ -174,13 +174,9 @@ void initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, u
 	ERROR(Simatra:Simex:initialize_states, "Could not read state '%s' for model %d from '%s'.\n", seint.state_names[stateid], modelid + modelid_offset, states_path);
       }
     }
+    return 1;
   } 
-  else{
-    // Copy default state initial values
-    for(stateid=0;stateid<seint.num_states;stateid++){
-      model_states[TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid)] = seint.default_states[stateid];
-    }
-  }
+  return 0;
 }
 
 void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
