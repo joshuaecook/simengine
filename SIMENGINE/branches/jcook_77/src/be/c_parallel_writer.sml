@@ -1388,15 +1388,23 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val eqn_symbolset = 
 	    SymbolSet.flatmap ExpProcess.exp2symbolset valid_exps
 
-	(* map only inputs that are actually used within the flow equations *)
-	(*
-	fun input_appears_in_eqns ({name=Exp.SYMBOL (insym,_),...},_) =
-	    SymbolSet.exists (fn (sym) => sym = insym) eqn_symbolset
-	  (* TODO what happens for non-symbol inputs? *)
-	  | input_appears_in_eqns _ = true
-		   
-	 *)
-	val inputs = (* List.filter input_appears_in_eqns *) (Util.addCount (!(#inputs class)))
+	val inputs = 
+	    if is_top_class then
+		let
+		    (* Impose an ordering on inputs so that we can determine which are constant vs. time-varying. *)
+		    fun is_constant_input input =
+			let
+			    val name = DOF.Input.name input
+			in
+			    not (isSome (TermProcess.symbol2temporaliterator name))
+			end
+
+		    val (constant_inputs, sampled_inputs) = List.partition is_constant_input (!(#inputs class))
+		in
+		    Util.addCount (constant_inputs @ sampled_inputs)
+		end
+	    else
+		Util.addCount (!(#inputs class))
 
 	val read_inputs_progs =
 	    [$(""),
@@ -1698,7 +1706,24 @@ fun state_init_code shardedModel iter_sym =
 						 DOF.UPDATE v => v
 					       | _ => iter_sym)
 
-		val inputs = Util.addCount (!(#inputs class))
+		val inputs = 
+		    if isTopClass then
+			let
+			    (* Impose an ordering on inputs so that we can determine which are constant vs. time-varying. *)
+			    fun is_constant_input input =
+				let
+				    val name = DOF.Input.name input
+				in
+				    not (isSome (TermProcess.symbol2temporaliterator name))
+				end
+
+			    val (constant_inputs, sampled_inputs) = List.partition is_constant_input (!(#inputs class))
+			in
+			    Util.addCount (constant_inputs @ sampled_inputs)
+			end
+		    else
+			Util.addCount (!(#inputs class))
+
 
 		val inputLocalVar =
 		    if isTopClass then
