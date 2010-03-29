@@ -8,6 +8,14 @@ else
   target = '-cpu';
 end
 
+if nargin == 2
+    if strcmpi(varargin{2},'-release')
+        mode = RELEASE;
+    else
+        error('Simatra:FeatureTests', 'Unexpected argument');
+    end
+end
+
 s = Suite(['Sampled Input Tests ' target]);
 s.add(SampledInputHoldTests(target));
 s.add(SampledInputHaltTests(target));

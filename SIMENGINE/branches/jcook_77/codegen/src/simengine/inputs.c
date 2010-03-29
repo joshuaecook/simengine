@@ -129,10 +129,11 @@ int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned 
   int inputid;
   for(inputid=NUM_CONSTANT_INPUTS;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
     sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(inputid)];
+    int num_samples = 0;
     // If this input has an associated file
     if(tmp->file_idx[ARRAY_IDX]){
       // Compute integer number of samples to skip to
-      int num_samples = (int)(((t - tmp->current_time[ARRAY_IDX])/ tmp->timestep) + 0.5);
+      num_samples = (int)((t - tmp->current_time[ARRAY_IDX])/ tmp->timestep);
       // Check if samples are exhausted and read more from file
       if(num_samples + tmp->idx[ARRAY_IDX] >= SAMPLE_BUFFER_SIZE){
 	if(!read_sampled_input(outputs_dirname, inputid, modelid_offset, modelid, (num_samples + tmp->idx[ARRAY_IDX]) - SAMPLE_BUFFER_SIZE))
@@ -153,7 +154,7 @@ int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned 
 	tmp->idx[ARRAY_IDX] += num_samples;
       }
     }
-    tmp->current_time[ARRAY_IDX] = t;
+    tmp->current_time[ARRAY_IDX] += num_samples * tmp->timestep;
   }
   return 1;
 }
