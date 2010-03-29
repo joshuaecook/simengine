@@ -36,6 +36,9 @@ const char *simengine_errors[] = {"Success",
 solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
 int exec_loop(solver_props *props, const char *outputs_dir, double *progress);
+void initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid);
+void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time);
+void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned int modelid);
 
 void open_progress_file(const char *outputs_dirname, double **progress, int *progress_fd, unsigned int num_models){
   char progress_filename[PATH_MAX];

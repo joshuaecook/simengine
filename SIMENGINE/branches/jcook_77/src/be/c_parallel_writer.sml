@@ -1697,7 +1697,7 @@ fun state_init_code shardedModel iter_sym =
 		     else "void *sys_rd")
 	    in
 		"__HOST__ __DEVICE__ int init_states_" ^ (Symbol.name (#name class)) ^
-		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", const unsigned int modelid)"
+		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", CDATAFORMAT *inputs, const unsigned int modelid)"
 	    end
 
 	fun stateInitFunction (iter as (iter_sym, iter_typ)) isTopClass class =
@@ -1940,7 +1940,7 @@ fun init_states shardedModel =
 				 if hasInitialValueEquation (fn _ => true) class then
 				     $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
 				       reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
-				       "modelid)) { return 1; }")
+				       "NULL, modelid)) { return 1; }")
 				 else
 				     $("// no initial values for " ^ (Symbol.name top_class))
 			     end)
