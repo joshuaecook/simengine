@@ -914,7 +914,6 @@ namespace Simulation
     var defaultValue
     var when_exhausted
     
-
     constructor (name)
       self.name = name
       defaultValue = NaN
