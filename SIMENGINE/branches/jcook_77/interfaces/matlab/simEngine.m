@@ -75,8 +75,8 @@ function writeUserStates (interface, options)
     states = options.states;
     
     if ~isempty(states)
-        modelPath = modelidToPath(modelid-1);
         for modelid = 1:options.instances
+            modelPath = modelidToPath(modelid-1);
             filename = fullfile(options.outputs, modelPath, 'states');
             fid = fopen(filename, 'w');
             if -1 == fid
