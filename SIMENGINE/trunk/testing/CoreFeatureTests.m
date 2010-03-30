@@ -86,7 +86,7 @@ s = Suite(['State Feature Tests ' target]);
 s.add(Test('VerifyDefaultStateInits', @VerifyDefaultStateInits))
 s.add(Test('EvalDefaultStateInits', @()(simex('models_FeatureTests/StateTest1.dsl', 10, target)), '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 0:2:20]')));
 new_states = [0 1];
-s.add(Test('ModifyStateInits', @()(simex('models_FeatureTests/StateTest1.dsl', 10, new_states, target)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 1:2:21]')));
+s.add(Test('ModifyStateInits', @()(simex('models_FeatureTests/StateTest1.dsl', 10, '-resume', new_states, target)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 1:2:21]')));
 
     function y = TestFinalStates
         [o, finalStates, tf] = simex('models_FeatureTests/StateTest1.dsl', 10, target);
@@ -100,14 +100,13 @@ s.add(Test('TestFinalStates', @TestFinalStates));
 s.add(Test('TestFinalTime', @TestFinalTime));
 s.add(Test('StateWithoutEquation', @()(simex('models_FeatureTests/StateTest2.dsl', 10, target)), '-equal', struct('x', [0:10; 1:11]', 'y', [0:10; 5*ones(1,11)]')));
 s.add(Test('MultilineEquations (zero states)', @()(simex('models_FeatureTests/StateTest3.dsl', 10, target)), '-withouterror'))
-s.add(Test('InitValueasConstant', @()(simex('models_FeatureTests/StateTest5.dsl', 10,[1], target)), '-equal', struct('x', [0:10; 1:11]')));
+s.add(Test('InitValueasConstant', @()(simex('models_FeatureTests/StateTest5.dsl', 10, '-resume', [1], target)), '-equal', struct('x', [0:10; 1:11]')));
 
 % We should eventually support initial values driven by states
 s.add(Test('InitValueasInput', @()(simex('models_FeatureTests/StateTest4.dsl', 10, target)), '-equal', struct('x', [0:10; 0:10]')));
-s.add(Test('InitValueasInputWithValue', @()(simex('models_FeatureTests/StateTest4.dsl', 10,[1], target)), '-equal', struct('x', [0:10; 1:11]')));
+s.add(Test('InitValueasInputWithValue', @()(simex('models_FeatureTests/StateTest4.dsl', 10, '-resume', [1], target)), '-equal', struct('x', [0:10; 1:11]')));
 input_struct = struct('init', 2);
-s.add(Test('InitValueasInputthenInit', @()(simex('models_FeatureTests/StateTest6.dsl', 10,input_struct,[1],target)), '-equal', struct('x', [0:10; 1:11]')));
-s.add(Test('InitValueasInitthenInput', @()(simex('models_FeatureTests/StateTest6.dsl', 10,[1],input_struct,target)), '-equal', struct('x', [0:10; 2:12]')));
+s.add(Test('InitValueasInputthenInit', @()(simex('models_FeatureTests/StateTest6.dsl', 10,input_struct, '-resume', [2],target)), '-equal', struct('x', [0:10; 2:12]')));
 
 % finally, we should support no states
 s.add(Test('NoStates', @()(simex('models_FeatureTests/StateTest7.dsl', ...
