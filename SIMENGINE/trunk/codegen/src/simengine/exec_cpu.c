@@ -2,10 +2,10 @@
 int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid, int resuming){
   unsigned int i;
   CDATAFORMAT min_time;
-  unsigned int before_first_iteration = 1;
   unsigned int last_iteration[NUM_ITERATORS] = {0};
   unsigned int dirty_states[NUM_ITERATORS] = {0};
   unsigned int ready_outputs[NUM_ITERATORS] = {0};
+  int inputs_available = 1;
 
   // Initialize all iterators to running
   for(i=0;i<NUM_ITERATORS;i++){
@@ -21,7 +21,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   }
 
   // Run simulation to completion
-  while(model_running(props, modelid)){
+  while(model_running(props, modelid) && inputs_available){
     // Initialize a temporary output buffer
     init_output_buffer((output_buffer*)(props->ob), modelid);
  
@@ -29,6 +29,9 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
     while (1) {
       // Find the nearest next_time and catch up
       min_time = find_min_time(props, modelid);
+
+      // Advance any sampled inputs
+      inputs_available = advance_sampled_inputs(outputs_dirname, min_time, props->modelid_offset, modelid);
 
       // Buffer any available outputs
       for(i=0;i<NUM_ITERATORS;i++){
@@ -38,7 +41,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 #endif
 	  ready_outputs[i] = 0;
 	}
-	if (dirty_states[i] && (!before_first_iteration && props[i].next_time[modelid] == min_time)) {
+	if (dirty_states[i] && (resuming && props[i].next_time[modelid] == min_time)) {
 	  solver_writeback(&props[i], modelid);
 	  dirty_states[i] = 0;
 	}
@@ -47,17 +50,17 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       // Update and postprocess phase: x[t+dt] = f(x[t+dt])
       // Update occurs before the first iteration and after every subsequent iteration.
       for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].running[modelid] && (before_first_iteration || props[i].next_time[modelid] == min_time)){
+	if(props[i].running[modelid] && (!resuming || props[i].next_time[modelid] == min_time)){
 	  dirty_states[i] = 0 == update(&props[i], modelid);
 	}	  
-	if(props[i].running[modelid] && (!before_first_iteration && props[i].next_time[modelid] == min_time)){
+	if(props[i].running[modelid] && (resuming && props[i].next_time[modelid] == min_time)){
 	  dirty_states[i] |= 0 == post_process(&props[i], modelid);
 	}
       }
 
       // Advance the iterator.
       for(i=0;i<NUM_ITERATORS;i++){
-	if(props[i].running[modelid] && (!before_first_iteration && props[i].next_time[modelid] == min_time)){
+	if(props[i].running[modelid] && (resuming && props[i].next_time[modelid] == min_time)){
 	  // Now time == next_time
 	  last_iteration[i] = solver_advance(&props[i], modelid);
 	}
@@ -88,6 +91,10 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 #endif
 	}
       }
+     
+      // Cannot continue if a sampled input with halt condition has no more data
+      if(!inputs_available)
+	break;
 
       // Cannot continue if all the simulation is complete
       if (!model_running(props, modelid)) {
@@ -99,7 +106,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	break;
       }
 
-      before_first_iteration = 0;
+      resuming = 1;
 
       // Preprocess phase: x[t] = f(x[t])
       for(i=0;i<NUM_ITERATORS;i++){

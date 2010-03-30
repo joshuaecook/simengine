@@ -15,8 +15,8 @@ sig
 
     (* shardedModel utilities *)
     val toModel : shardedModel -> Symbol.symbol -> DOF.model
-    val toInputs : shardedModel -> DOF.input list
-    val toOutputs : shardedModel -> DOF.output list
+    val toInputs : shardedModel -> DOF.Input.input list
+    val toOutputs : shardedModel -> DOF.Output.output list
     val toIterator : shardedModel -> Symbol.symbol -> DOF.systemiterator
     (* Returns the shard associated with a given named iterator. *)
     val findShard: shardedModel * Symbol.symbol -> shard option
@@ -771,8 +771,8 @@ fun toInputs (shards, sysprops) =
 	    
 	val input_lists = Util.flatmap shard2inputs shards
 			  
-	fun cmp_fun ({name=name1,...}, {name=name2,...}) =
-	    Term.sym2curname name1 = Term.sym2curname name2
+	fun cmp_fun (input1, input2) =
+	    Term.sym2curname (DOF.Input.name input1) = Term.sym2curname (DOF.Input.name input2)
     in
 	Util.uniquify_by_fun cmp_fun input_lists
     end
@@ -798,8 +798,8 @@ fun toOutputs (shards, sysprops) =
 	    
 	val output_lists = Util.flatmap shard2outputs shards
 			  
-	fun cmp_fun ({name=name1,...}, {name=name2,...}) =
-	    Term.sym2curname name1 = Term.sym2curname name2
+	fun cmp_fun (output1, output2) =
+	    Term.sym2curname (DOF.Output.name output1) = Term.sym2curname (DOF.Output.name output2)
     in
 	Util.uniquify_by_fun cmp_fun output_lists
     end
@@ -924,12 +924,20 @@ local
 
 				       
 			   (* combine inputs *)
-			   val unmatched_inputs = List.filter (fn{name,...}=> not (List.exists (fn{name=name',...}=> sameSymbolinTerms (name,name')) (!inputs1))) (!inputs2)
-			   val inputs' = (!inputs1) @ unmatched_inputs
+			   val unmatched_inputs = List.filter (fn input2 => not (List.exists (fn input1 => sameSymbolinTerms (DOF.Input.name input2,DOF.Input.name input1)) (!inputs1))) (!inputs2)
+						  
+			   fun updateInput input =
+			       DOF.Input.rename (ExpProcess.exp2term o updateIterator o ExpProcess.term2exp)
+						(DOF.Input.rewrite updateIterator input)
+			   val inputs' = map updateInput ((!inputs1) @ unmatched_inputs)
 
 			   (* combine outputs *)
-			   val unmatched_outputs = List.filter (fn{name,...}=> not (List.exists (fn{name=name',...}=> sameSymbolinTerms(name,name')) (!outputs1))) (!outputs2)			  
-			   val outputs' = (!outputs1) @ unmatched_outputs
+			   val unmatched_outputs = List.filter (fn output2 => not (List.exists (fn output1 => sameSymbolinTerms(DOF.Output.name output2, DOF.Output.name output1)) (!outputs1))) (!outputs2)
+						   
+			   fun updateOutput output =
+			       DOF.Output.rename (ExpProcess.exp2term o updateIterator o ExpProcess.term2exp)
+						 (DOF.Output.rewrite updateIterator output)
+			   val outputs' = map updateOutput ((!outputs1) @ unmatched_outputs)
 
 			   (* combine iterators *)
 			   val unmatched_iterators = List.filter (fn{name,...}=> not (List.exists (fn{name=name',...}=> name=name') iters1)) iters2

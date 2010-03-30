@@ -5,8 +5,6 @@ void check_keep_running(){
     ERROR(Simatra::Simex::Simulation, "Parent process terminated.  Simulation will not continue to run when orphaned.");
 }
 
-#define BYTE(val,n) ((val>>(n<<3))&0xff)
-
 int log_outputs(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
   unsigned int outputid, nquantities, dataid, quantityid;
   unsigned int ndata = ob->count[modelid];
@@ -20,17 +18,14 @@ int log_outputs(output_buffer *ob, const char *outputs_dirname, unsigned int mod
   if(ndata){
     char model_dirname[PATH_MAX];
     unsigned int full_modelid = modelid+modelid_offset;
-    sprintf(model_dirname, "%s", outputs_dirname);
-    int i;
-    for(i=2;i>=0;i--){
-      sprintf((model_dirname + strlen(model_dirname)), "/%02x", BYTE(full_modelid, i));
-    }
+
+    modelid_dirname(outputs_dirname, model_dirname, full_modelid);
 
     // Open all output files for modelid
     for(outputid=0;outputid<seint.num_outputs;outputid++){
       char output_filename[PATH_MAX];
 
-      sprintf(output_filename, "%s/%s", model_dirname, seint.output_names[outputid]);
+      sprintf(output_filename, "%s/outputs/%s", model_dirname, seint.output_names[outputid]);
       output_files[outputid] = fopen(output_filename, "a");
       if(NULL == output_files[outputid]){
 	ERROR(Simatra::Simex::log_outputs, "could not open file '%s'\n", output_filename);

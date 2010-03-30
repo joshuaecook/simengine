@@ -30,12 +30,13 @@ sig
     val symbolofiter2exps :  DOF.class -> Symbol.symbol -> Symbol.symbol -> Exp.exp list (* find all expressions that match the symbol on the lhs *)
     val class2update_states : DOF.class -> Symbol.symbol list (* find all state names that have an update equation associated *)
 
-    val outputsByIterator : DOF.systemiterator -> DOF.class -> DOF.output list
+    val inputsByIterator: DOF.systemiterator -> DOF.class -> DOF.Input.input list
+    val outputsByIterator : DOF.systemiterator -> DOF.class -> DOF.Output.output list
 
     val outputsSymbols : DOF.class -> Exp.term list
     val outputsSymbolsByIterator : DOF.systemiterator -> DOF.class -> Exp.term list
 
-    val findInput : DOF.class -> Symbol.symbol -> DOF.input option
+    val findInput : DOF.class -> Symbol.symbol -> DOF.Input.input option
 
     (* foldExpressions visit zero class
      * Visits each expression in a given class.
@@ -43,7 +44,7 @@ sig
      * function to each expression.
      *)
     val foldExpressions: 'a ExpProcess.visitor -> 'a -> DOF.class -> 'a
-    val foldInputs: (DOF.input * 'a -> 'a) -> 'a -> DOF.class -> 'a
+    val foldInputs: (DOF.Input.input * 'a -> 'a) -> 'a -> DOF.class -> 'a
 
     (* foldInitialValueEquations visit zero class
      * Like foldExpressions, but visits only initial value equations.
@@ -100,20 +101,19 @@ val e2ps = ExpPrinter.exp2prettystr
 
 fun equal a b = a = b
 
+fun inputIsNamed symbol input =
+    symbol = Term.sym2curname (DOF.Input.name input)
+
 fun rewriteClass rewriter class =
     let val {inputs as ref inputs', exps as ref exps', outputs as ref outputs', ...} : DOF.class = class
 	
-	val inputs' = map (fn{name, default}=>{name=name,
-					       default=case default of 
-							   SOME exp => SOME (rewriter exp)
-							 | NONE => NONE}) inputs'
-	val exps' = map rewriter exps'
+	open DOF
 
-	val outputs' = map (fn{name,contents,condition}=>
-			      {name=(ExpProcess.exp2term o rewriter o ExpProcess.term2exp) name,
-			       contents=map rewriter contents,
-			       condition=rewriter condition})
-			   outputs'
+	val inputs' = map ((Input.rewrite rewriter) o (Input.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp))) inputs'
+	val outputs' = map ((Output.rewrite rewriter) o (Output.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp))) outputs'
+				   
+
+	val exps' = map rewriter exps'
     in
 	inputs := inputs' before
 	exps := exps' before
@@ -183,11 +183,7 @@ fun renameInsts (syms as ((name, new_name),(orig_name, new_orig_name))) (class: 
 
 	val rename = ExpProcess.renameInst syms
 	val exps' = map rename exps
-	val outputs' = map
-			   (fn{name,condition,contents}=>{name=name,
-							  condition=rename condition,
-							  contents=map rename contents})
-			   outputs
+	val outputs' = map (DOF.Output.rewrite rename) outputs
     in
 	(#exps class := exps';
 	 #outputs class := outputs')
@@ -204,19 +200,19 @@ fun isSymInput (class:DOF.class) sym =
     let
 	val inputs = !(#inputs class)
     in
-	List.exists (fn{name,...}=>Term.sym2curname name = sym) inputs
+	List.exists (inputIsNamed sym) inputs
     end
 
 fun findInput class sym =
     let val {inputs, ...} : DOF.class = class
-    in List.find (fn {name, ...} => Term.sym2curname name = sym) (!inputs)
+    in List.find (inputIsNamed sym) (!inputs)
     end
 
 fun isSymOutput (class:DOF.class) sym = 
     let
 	val outputs = !(#outputs class)
     in
-	List.exists (fn{name,...}=>Term.sym2curname name = sym) outputs
+	List.exists (fn output => Term.sym2curname (DOF.Output.name output) = sym) outputs
     end
 
 fun findMatchingEq (class:DOF.class) sym =  
@@ -230,14 +226,12 @@ fun findMatchingEq (class:DOF.class) sym =
 			   List.exists (fn(sym')=>sym=sym') (ExpProcess.exp2symbols (ExpProcess.lhs exp))) exps) of
 	    SOME exp => SOME exp
 	  | NONE => (* check outputs *)
-	    (case (List.find (fn{name,...}=> Term.sym2curname name = sym) outputs) of
-		 SOME {name, contents, condition} => (case contents of
-							  [] => (*DynException.stdException(("No equations define output '"^(e2s (Exp.TERM name))^"'"),
-											  "ClassProcess.findMatchingEq",
-											  Logger.INTERNAL)*)
-							  SOME (ExpBuild.equals (Exp.TERM name, ExpBuild.explist []))
-							| [oneexp] => SOME (ExpBuild.equals (Exp.TERM name, oneexp))
-							| rest => SOME (ExpBuild.equals (Exp.TERM name, ExpBuild.explist rest)))
+	    (case (List.find (fn output => sym = Term.sym2curname (DOF.Output.name output)) outputs) of
+		 SOME output =>
+		 (case DOF.Output.contents output
+		   of [] => SOME (ExpBuild.equals (Exp.TERM (DOF.Output.name output), ExpBuild.explist []))
+		    | [oneexp] => SOME (ExpBuild.equals (Exp.TERM (DOF.Output.name output), oneexp))
+		    | rest => SOME (ExpBuild.equals (Exp.TERM (DOF.Output.name output), ExpBuild.explist rest)))
 	       | NONE => NONE)
 	     
     end
@@ -309,7 +303,7 @@ and flattenEquationThroughInstances class sym =
 									       | _ => NONE) iterators
     in if isSymInput class sym then
 	   ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
-			    Exp.TERM (#name (valOf (List.find (fn {name, ...} => Term.sym2curname name = sym) (! inputs)))))
+			    Exp.TERM (DOF.Input.name (valOf (List.find (inputIsNamed sym) (! inputs)))))
        else if List.exists (fn(iter_sym)=> sym=iter_sym) indexable_iterators then
 	   ExpBuild.equals (ExpBuild.var (Symbol.name sym),
 			    ExpBuild.var (Symbol.name sym)) (* just an identity equation t = t, which will be converted to t -> t *)
@@ -376,7 +370,8 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 			    DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), 
 						      "ClassProcess.leafTermSymbolsOfInstanceEquation", 
 						      Logger.INTERNAL)
-	val {name, contents, condition} = List.nth (! outputs, output_ix)
+	val output = List.nth (! outputs, output_ix)
+	val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 
 	(* val _ = Util.log ("leafTermSymbolsOfInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'") *)
     in 
@@ -390,7 +385,7 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 		val terms = 
 		    Util.flatmap (fn t => 
 				     if isSymInput class (Term.sym2curname t) then
-					 let val input_ix = case List.find (fn ({name, ...}, _) => Term.sym2curname name = Term.sym2curname t) (Util.addCount (! inputs))
+					 let val input_ix = case List.find (fn (input, _) => inputIsNamed (Term.sym2curname t) input) (Util.addCount (! inputs))
 							     of SOME (_, index) => index
 							      | NONE => 
 								DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.leafTermSymbolsOfInstanceEquation", Logger.INTERNAL)
@@ -409,7 +404,7 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 (* flattenEq does not pass through instance equations - we need a different one that will pass through instance equations *)
 fun flattenEq (class:DOF.class) sym = 
     if isSymInput class sym then
-	Exp.TERM (#name (valOf (List.find (fn{name,...}=>Term.sym2curname name = sym) (!(#inputs class)))))
+	Exp.TERM (DOF.Input.name (valOf (List.find (inputIsNamed sym) (!(#inputs class)))))
     else
 	case findMatchingEq class sym of
 	    SOME exp => 
@@ -466,16 +461,16 @@ fun findSymbols (class: DOF.class) =
 	fun exp2symbolset exp =
 	    ExpProcess.exp2symbolset exp
 
-	fun input2symbols (inp as {name, default}) =
-	    SymbolSet.fromList (ExpProcess.exp2symbols (Exp.TERM (name)) @ 
-				(case default of
+	fun input2symbols input =
+	    SymbolSet.fromList (ExpProcess.exp2symbols (Exp.TERM (DOF.Input.name input)) @ 
+				(case DOF.Input.default input of
 				     SOME v => ExpProcess.exp2symbols v
 				   | NONE => []))
 
-	fun output2symbols (out as {name, contents, condition}) =
-	    SymbolSet.unionList [(exp2symbolset (Exp.TERM name)),
-				 (SymbolSet.flatmap exp2symbolset contents),
-				 (exp2symbolset condition)]	    
+	fun output2symbols output =
+	    SymbolSet.unionList [(exp2symbolset (Exp.TERM (DOF.Output.name output))),
+				 (SymbolSet.flatmap exp2symbolset (DOF.Output.contents output)),
+				 (exp2symbolset (DOF.Output.condition output))]	    
 
     in
 	SymbolSet.unionList [SymbolSet.flatmap input2symbols inputs,
@@ -487,8 +482,8 @@ fun findStateSymbols (class: DOF.class) =
     let
 	val exps = 
 	    (! (#exps class)) 
-	    @ (List.concat (map (fn {contents, condition, ...} => condition :: contents) (! (#outputs class))))
-	    @ (List.concat (map (fn {default, ...} => if isSome default then [valOf default] else nil) (! (#inputs class))))
+	    @ (List.concat (map (fn output => (DOF.Output.condition output) :: (DOF.Output.contents output)) (! (#outputs class))))
+	    @ (List.concat (map (fn input => case DOF.Input.default input of SOME v => [v] | _ => nil) (! (#inputs class))))
 
 	fun exp2symbols exp =
 	    let
@@ -516,14 +511,11 @@ fun renameSym (orig_sym, new_sym) (class: DOF.class) =
 
 	val exp_rename = ExpProcess.renameSym (orig_sym, new_sym)
 
-	fun renameInput (input as {name, default}) =
-	    {name=ExpProcess.exp2term (exp_rename (Exp.TERM name)),
-	     default=case default of SOME v => SOME (exp_rename v) | NONE => NONE}
+	fun renameInput input =
+	    DOF.Input.rewrite exp_rename (DOF.Input.rename (ExpProcess.exp2term o exp_rename o Exp.TERM) input) 
 		      
-	fun renameOutput (output as {name, contents, condition}) = 
-	    {name=ExpProcess.exp2term (exp_rename (Exp.TERM name)),
-	     contents=map exp_rename contents,
-	     condition=exp_rename condition}
+	fun renameOutput output = 
+	    DOF.Output.rewrite exp_rename (DOF.Output.rename (ExpProcess.exp2term o exp_rename o Exp.TERM) output)
     in
 	((*(#eqs class) := (map (EqUtil.renameSym (orig_sym, new_sym)) eqs);*)
 	 (#exps class) := (map (ExpProcess.renameSym (orig_sym, new_sym)) exps);
@@ -630,22 +622,35 @@ fun outputsByIterator iterator (class: DOF.class) =
     let val (iter_sym, _) = iterator
 	val {outputs, ...} = class
 
-	fun has_iterator ({name, ...}: DOF.output) =
+	fun has_iterator output =
 	    let fun has exp =
 		    case ExpProcess.exp2temporaliterator exp
 		     of SOME (iter_sym', _) => iter_sym = iter_sym'
 		      | _ => false
-	    in has (ExpProcess.term2exp name)
+	    in has (ExpProcess.term2exp (DOF.Output.name output))
 	    end
     in List.filter has_iterator (! outputs)
     end
     handle e => DynException.checkpoint "ClassProcess.outputsByIterator" e
 
-fun outputSymbols output =
-    let val {contents, condition, ...} = output
+fun inputsByIterator iterator (class: DOF.class) =
+    let val (iter_sym, _) = iterator
+	val {inputs, ...} = class
+	fun has_iterator input =
+	    let fun has exp =
+		    case ExpProcess.exp2temporaliterator exp
+		     of SOME (iter_sym', _) => iter_sym = iter_sym'
+		      | _ => false
+	    in has (ExpProcess.term2exp (DOF.Input.name input))
+	    end
     in
-	Util.flatmap ExpProcess.exp2termsymbols (condition :: contents)
+	List.filter has_iterator (! inputs)
     end
+
+
+
+fun outputSymbols output =
+    Util.flatmap ExpProcess.exp2termsymbols ((DOF.Output.condition output) :: (DOF.Output.contents output))
 
 fun outputSymbolsByFilter f output =
     List.filter f (outputSymbols output)
@@ -865,12 +870,7 @@ fun createEventIterators (class: DOF.class) =
 
 	val rewrite = Match.applyRewritesExp pp_rewrites
 	val exps''' = map rewrite exps''
-	val outputs' = map 
-			   (fn{name,contents,condition}=>
-			      {name=(*ExpProcess.exp2term (rewrite (ExpProcess.term2exp *)name(*))*),
-			       contents=map rewrite contents,
-			       condition=rewrite condition})
-			   outputs
+	val outputs' = map (DOF.Output.rewrite rewrite) outputs
 
     in
 	(#exps class := exps''';
@@ -887,8 +887,7 @@ fun addDelays (class: DOF.class) =
 	fun isState sym = List.exists (fn(sym')=>sym=sym') states
 
 	val allTerms = (Util.flatmap ExpProcess.exp2termsymbols exps) @
-		       (Util.flatmap (fn{name,contents,condition}=>(ExpProcess.exp2termsymbols condition) @
-								   (Util.flatmap ExpProcess.exp2termsymbols contents)) outputs)
+		       (Util.flatmap outputSymbols outputs)
 
 	val delayedTerms = List.filter (ExpProcess.isDelayedVarDifferenceTerm o ExpProcess.term2exp) allTerms
 
@@ -986,12 +985,7 @@ fun addDelays (class: DOF.class) =
 	val rewrites = StdFun.flatmap #2 exps_and_rewrites
 
 	val exps' = map (Match.applyRewritesExp rewrites) exps
-	val outputs' = map (fn{name,contents,condition}=>
-			      {name=name,
-			       contents=map (Match.applyRewritesExp rewrites) contents,
-			       condition=Match.applyRewritesExp rewrites condition})
-			   outputs
-
+	val outputs' = map (DOF.Output.rewrite (Match.applyRewritesExp rewrites)) outputs
     in
 	(#exps class := (new_exps @ exps');
 	 #outputs class := outputs')
@@ -1065,11 +1059,7 @@ fun addEPIndexToClass is_top (class: DOF.class) =
 	val exps' = map (ExpProcess.enableEPIndex is_top states) exps
 
 	val outputs = !(#outputs class)
-	val outputs' = map (fn({name, contents, condition})=>
-			      {name=name,
-			       contents=map (fn(exp)=>ExpProcess.enableEPIndex is_top states exp) contents,
-			       condition=ExpProcess.enableEPIndex is_top states condition}
-			   ) outputs
+	val outputs' = map (DOF.Output.rewrite (ExpProcess.enableEPIndex is_top states)) outputs
     in
 	((#exps class) := exps';
 	 (#outputs class) := outputs')
@@ -1146,11 +1136,11 @@ fun class2exps (class: DOF.class) =
 	val outputs = !(#outputs class)
     in
 	exps @ 
-	(map (ExpProcess.term2exp o #name) inputs) @
-	(List.mapPartial #default inputs) @
-	(map (ExpProcess.term2exp o #name) outputs) @
-	(Util.flatmap #contents outputs) @
-	(map #condition outputs)
+	(map (ExpProcess.term2exp o DOF.Input.name) inputs) @
+	(List.mapPartial DOF.Input.default inputs) @
+	(map (ExpProcess.term2exp o DOF.Output.name) outputs) @
+	(Util.flatmap DOF.Output.contents outputs) @
+	(map DOF.Output.condition outputs)
     end
 
 (* returns true if any read or write uses this iterator *)
@@ -1191,8 +1181,8 @@ fun hasStatesWithIterator (iter: DOF.systemiterator) (class: DOF.class) =
 
 	(*val _ = Util.log ("in class2statesizebyiterator for class '"^(Symbol.name name)^"', # of init conditions="^(i2s (List.length initial_conditions))^", # of instances=" ^ (i2s (List.length instance_equations)))*)
     in  
-	List.exists (fn {name, ...} => case TermProcess.symbol2temporaliterator name
-					of SOME (sym,_) => sym = iter_sym | NONE => false) (! outputs) orelse
+	List.exists (fn output => case TermProcess.symbol2temporaliterator (DOF.Output.name output)
+				   of SOME (sym,_) => sym = iter_sym | NONE => false) (! outputs) orelse
 	(List.length class_states) > 0 orelse
 	(StdFun.listOr (map (fn(exp)=> 
 			       let
@@ -1268,7 +1258,7 @@ fun makeSlaveClassProperties (props, mastername) =
 (* this will propagate an iterator from an input to an output *)
 fun propagateSpatialIterators (class: DOF.class) =
     let
-	val assigned_symbols = (map (fn{name,...}=>Exp.TERM name) (!(#inputs class))) @
+	val assigned_symbols = (map (Exp.TERM o DOF.Input.name) (!(#inputs class))) @
 			       (Util.flatmap (fn(exp)=>
 						if ExpProcess.isInitialConditionEq exp then
 						    []
@@ -1319,10 +1309,10 @@ fun propagateSpatialIterators (class: DOF.class) =
 
 	val rewrites = map create_rewrite_action assigned_symbols
 	val exps' = map (Match.applyRewritesExp rewrites) (!(#exps class))
-	val outputs' = map (fn{name, contents, condition}=>
-			     {name=ExpProcess.exp2term (Match.applyRewritesExp rewrites (Exp.TERM name)),
-			      condition=Match.applyRewritesExp rewrites condition,
-			      contents=map (Match.applyRewritesExp rewrites) contents}) (!(#outputs class))
+		    
+	val outputs' = map ((DOF.Output.rewrite (Match.applyRewritesExp rewrites)) o 
+			    (DOF.Output.rename (ExpProcess.exp2term o (Match.applyRewritesExp rewrites) o Exp.TERM)))
+		       (!(#outputs class))
     in
 	(#exps class := exps';
 	 #outputs class := outputs')
@@ -1352,8 +1342,6 @@ fun sym2iterators (class: DOF.class) sym =
 fun propagateStateIterators (class: DOF.class) =
     let
 	val exps = !(#exps class)
-	val inputs = !(#inputs class)
-	val outputs = !(#outputs class)
 
 	val state_equations = List.filter ExpProcess.isStateEq exps
 	val state_terms = map ExpProcess.lhs state_equations
@@ -1390,19 +1378,10 @@ fun propagateStateIterators (class: DOF.class) =
 	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
 
 
-	val outputs = !(#outputs class)
-	val outputs' =
-	    let fun update_output (output as {name, contents, condition}) =
-		    let
-			val name' = ExpProcess.exp2term (Match.applyRewritesExp actions (ExpProcess.term2exp name))
-			val contents' = map (fn(exp) => Match.applyRewritesExp actions exp) contents
-			val condition' = Match.applyRewritesExp actions condition
-		    in
-			{name=name', contents=contents', condition=condition'}
-		    end
-	    in
-		map update_output outputs
-	    end
+	val outputs' = map ((DOF.Output.rewrite (Match.applyRewritesExp actions)) o 
+			    (DOF.Output.rename (ExpProcess.exp2term o (Match.applyRewritesExp actions) o Exp.TERM)))
+		       (!(#outputs class))
+
 	val _ = (#exps class) := exps'
 	val _ = (#outputs class) := outputs'
 
@@ -1483,19 +1462,9 @@ fun assignCorrectScope (class: DOF.class) =
 	val exps' = map (fn(exp) => Match.applyRewritesExp actions exp) exps
 
 
-	val outputs = !(#outputs class)
-	val outputs' =
-	    let fun update_output (output as {name, contents, condition}) =
-		    let
-			val name' = ExpProcess.exp2term (Match.applyRewritesExp actions (ExpProcess.term2exp name))
-			val contents' = map (Match.applyRewritesExp actions) contents
-			val condition' = Match.applyRewritesExp actions condition
-		    in
-			{name=name', contents=contents', condition=condition'}
-		    end
-	    in
-		map update_output outputs
-	    end
+	val outputs' = map ((DOF.Output.rewrite (Match.applyRewritesExp actions)) o 
+			    (DOF.Output.rename (ExpProcess.exp2term o (Match.applyRewritesExp actions) o Exp.TERM)))
+		       (!(#outputs class))
 
 
 	(* write back expression changes *)
@@ -1503,8 +1472,9 @@ fun assignCorrectScope (class: DOF.class) =
 	val _ = (#outputs class) := outputs'
 
 
-	fun update_output2 (output as {name, contents, condition}) =
+	fun update_output2 (output) =
 	    let
+		val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 		(* val _ = Util.log ("Processing output '"^(e2s (Exp.TERM name))^"'") *)
 		(* this line will add the appropriate scope to each symbol and will add the correct temporal iterator*)
 		(* TODO is this necessary? These rules have already been applied above. *)
@@ -1622,9 +1592,10 @@ fun assignCorrectScope (class: DOF.class) =
 	    (*val _ = Util.log("Converting name from '"^(e2s (Exp.TERM name))^"' to '"^(e2s (Exp.TERM name'))^"'")*)
 
 	    in
-		{name=name', contents=contents', condition=condition'}
+		(* FIXME turn this into a call to DOF.Output.rewrite and DOF.Output.rename *)
+		DOF.Output.make {name=name', contents=contents', condition=condition'}
 	    end
-	    handle e => DynException.checkpoint ("ClassProcess.AssignCorrectScope.update_output2 [name="^(e2s (Exp.TERM name))^"]") e
+	    handle e => DynException.checkpoint ("ClassProcess.AssignCorrectScope.update_output2 [name="^(e2s (Exp.TERM (DOF.Output.name output)))^"]") e
 
 	val outputs = !(#outputs class)
 	val outputs' = map update_output2 outputs
@@ -1633,26 +1604,30 @@ fun assignCorrectScope (class: DOF.class) =
 	val _ = (#outputs class) := outputs'
 
 	(* Associates any output having no iterator dependencies to the immediate iterator. *)
-	fun update_output_immediate (output as {name, contents, condition}) =
-	    case (TermProcess.symbol2temporaliterator name) of
-		SOME t => output
-	      | NONE => 
-		let 
-		    val flatequ = flattenEquationThroughInstances class (Term.sym2curname name)
-		    val terms = (*Util.flatmap*) ExpProcess.exp2termsymbols (*(condition :: contents)*)flatequ
-		    fun isIteratorTerm t =
-			List.exists (fn(iter_sym)=> Term.sym2symname t = iter_sym) indexable_iterators
-		    val name' = 
-			if List.exists (fn(t)=> (Option.isSome (TermProcess.symbol2temporaliterator t)) orelse
-					    (isIteratorTerm t)) terms then
-			    name
-			else
-			    ((*Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));
-			     Util.log(" -> FlatEqu: " ^ (e2s flatequ));*)
-			     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name)))
-		in
-		    {name = name', contents = contents, condition = condition}
-		end
+	fun update_output_immediate output =
+	    let
+ 		val name = DOF.Output.name output
+	    in
+		case (TermProcess.symbol2temporaliterator name) of
+		    SOME t => output
+		  | NONE => 
+		    let 
+			val flatequ = flattenEquationThroughInstances class (Term.sym2curname name)
+			val terms = ExpProcess.exp2termsymbols flatequ
+			fun isIteratorTerm t =
+			    List.exists (fn(iter_sym)=> Term.sym2symname t = iter_sym) indexable_iterators
+			val name' = 
+			    if List.exists (fn(t)=> (Option.isSome (TermProcess.symbol2temporaliterator t)) orelse
+						    (isIteratorTerm t)) terms then
+				name
+			    else
+				((*Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));
+				  Util.log(" -> FlatEqu: " ^ (e2s flatequ));*)
+				 ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name)))
+		    in
+			DOF.Output.rename (fn _ => name') output
+		    end
+	    end
 
 
 	val _ = (#outputs class) := map update_output_immediate (! (#outputs class))
@@ -1752,12 +1727,7 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 
 	val exps' = map rewrite exps
 
-	val outputs' = map (fn{name, contents, condition}=>
-			      {name = name, (* shouldn't have to update this term *)
-			       contents = map rewrite contents,
-			       condition = rewrite condition}) outputs
-
-
+	val outputs' = map (DOF.Output.rewrite rewrite) outputs
     in
 	( #exps class := exps'
 	; #outputs class := outputs')
@@ -1778,15 +1748,13 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 	(* pull out useful quantities *)
 	val name = class2orig_name class
 	val inputs = !(#inputs class)
-	val input_syms = map (Term.sym2symname o #name) inputs (* grab the inputs just as symbols *)
+	val input_syms = map (Term.sym2symname o DOF.Input.name) inputs (* grab the inputs just as symbols *)
 	val outputs = !(#outputs class)
 
 	fun filter_output iterator output =
 	    let val (iter_sym, iter_type) = iterator
-		val {name, contents, condition} = output
-		val name' = ExpProcess.term2exp name
 	    in 
-		ExpProcess.doesTermHaveIterator iter_sym name'
+		ExpProcess.doesTermHaveIterator iter_sym (ExpProcess.term2exp (DOF.Output.name output))
 	    (* orelse
 		case TermProcess.symbol2temporaliterator name 
 		 of SOME (iter_sym, _) =>
@@ -1803,8 +1771,8 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 		       else
 			   outputs
 
-	val output_symbols = Util.flatmap ExpProcess.exp2symbols (map #condition outputs' @ 
-								  (Util.flatmap #contents outputs'))
+	val output_symbols = Util.flatmap ExpProcess.exp2symbols (map DOF.Output.condition outputs' @ 
+								  (Util.flatmap DOF.Output.contents outputs'))
 	val exps = !(#exps class)
 
 	(* starting dependency list - union of the outputs and possibly the states *)
@@ -2074,7 +2042,7 @@ and expandInstances class =
         class
     end
 
-(* Nb (look up the latin) depends on a CurrentModel context. *)
+(* Nb (look up the latin: thats "nota bene," or literally, "note well.") depends on a CurrentModel context. *)
 and instanceExpressions equation =
     let val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
@@ -2101,8 +2069,8 @@ and instanceExpressions equation =
 
 	val renameWithInstanceNamePrefix = renameWithPrefix (ExpProcess.instOrigInstName equation)
 
-	fun makeInputExpression (inparg, {name, default}) =
-	    let val name' = Match.applyRewriteExp renameWithInstanceNamePrefix (Exp.TERM name)
+	fun makeInputExpression (inparg, input) =
+	    let val name' = Match.applyRewriteExp renameWithInstanceNamePrefix (Exp.TERM (DOF.Input.name input))
 	    in
 		ExpBuild.equals (name', inparg)
 	    end
@@ -2112,8 +2080,10 @@ and instanceExpressions equation =
 
 	val exps' = map (Match.applyRewriteExp renameWithInstanceNamePrefix) exps'
 
-	fun makeOutputExpression (outarg, {name, condition, contents}) =
-	    let val value = 
+	fun makeOutputExpression (outarg, output) =
+	    let open DOF
+		val (name, contents, condition) = (Output.name output, Output.contents output, Output.condition output)
+		val value = 
 		    if 1 = List.length contents then List.hd contents
 		    else DynException.stdException(("Too many quantities for output '"^(Symbol.name (Term.sym2curname name))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
 						   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)

@@ -18,7 +18,7 @@ int exec_loop(solver_props *props, const char *outputs_dirname, double *progress
 #elif defined(TARGET_OPENMP)
   status = exec_parallel_cpu(props, outputs_dirname, progress, resuming);
 #elif defined(TARGET_GPU)
-  status = exec_parallel_gpu(props, outputs_dirname, progress);
+  status = exec_parallel_gpu(props, outputs_dirname, progress, resuming);
 #else
 #error Invalid target
 #endif

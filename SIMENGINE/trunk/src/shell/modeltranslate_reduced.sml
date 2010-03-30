@@ -390,16 +390,33 @@ fun createClass classes object =
 			([quantity_to_dof_exp(value)],
 			 Exp.TERM(Exp.BOOL true))
 	    in
-		{name=name,
-		 contents=contents,
-		 condition=condition}
+		DOF.Output.make
+		    {name=name,
+		     contents=contents,
+		     condition=condition}
 	    end
 
 	fun obj2input obj =
-	    {name=exp2term (ExpBuild.var (exp2str (method "name" obj))),
-	     default=case exp2realoption (method "default" obj) of
-			 SOME r => SOME (ExpBuild.real r)
-		       | NONE => NONE}
+	    let
+		val iter = method "iter" obj
+		val name =
+		    if isdefined iter then
+			ExpBuild.initavar (exp2str(method "name" obj), exp2str (method "name" (method "iter" obj)), nil)
+		    else
+			ExpBuild.var (exp2str (method "name" obj))
+	    in
+		DOF.Input.make
+		    {name=exp2term name,
+		     default=case exp2realoption (method "default" obj) of
+				 SOME r => SOME (ExpBuild.real r)
+			       | NONE => NONE,
+		     behaviour=case exp2str (method "when_exhausted" obj)
+				of "cycle" => DOF.Input.CYCLE
+				 | "halt" => DOF.Input.HALT
+				 | "hold" => DOF.Input.HOLD
+				 | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
+	    end
+
 
 	fun quantity2exp obj =
 	    (* FIXME add iterators appearing on rhs to symbols on lhs. *)

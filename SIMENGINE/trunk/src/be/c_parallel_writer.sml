@@ -60,7 +60,7 @@ fun test_instance_class test instance =
 (* Indicates whether an output contains any term in its condition or contents
  * which satisfies a given predicate. *)
 fun output_contains_term test output =
-    let val {condition, contents, ...} = output
+    let val (condition, contents) = (DOF.Output.condition output, DOF.Output.contents output)
 	val terms = Util.flatmap ExpProcess.exp2termsymbols (condition :: contents)
     in List.exists test terms
     end
@@ -301,7 +301,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				"(CDATAFORMAT*)(&system_states_next->states_"^first_algebraic_iterator^");"
 			    else
 				"NULL;")),
-			 $("props[ITERATOR_"^itername^"].inputs = inputs;"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvernameCaps ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
 			[$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
@@ -449,7 +448,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *inputs, CDATAFORMAT *model_states, unsigned int modelid_offset){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
@@ -636,9 +635,32 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 			end)
 		     outputIterators)
 
-	val inputs = ShardedModel.toInputs shardedModel
-	val (input_names, input_defaults) = ListPair.unzip (map (fn{name,default}=>(name,default)) inputs)
+	fun is_constant_input input =
+	    let
+		val name = DOF.Input.name input
+	    in
+		not (isSome (TermProcess.symbol2temporaliterator name))
+	    end
 
+	val (constant_inputs, sampled_inputs) = List.partition is_constant_input (ShardedModel.toInputs shardedModel)
+	val (input_names, input_defaults) = ListPair.unzip ((map (fn input => (DOF.Input.name input, DOF.Input.default input)) constant_inputs) @
+							   (map (fn input => (DOF.Input.name input, DOF.Input.default input)) sampled_inputs))
+	val sampled_exhausted_behaviors = map (fn input => case DOF.Input.behaviour input of
+							       DOF.Input.HOLD => "SAMPLED_HOLD"
+							     | DOF.Input.HALT => "SAMPLED_HALT"
+							     | DOF.Input.CYCLE => "SAMPLED_CYCLE")
+					      sampled_inputs
+
+	val sampled_periods = map (fn input =>
+					  let
+					      val (iter_sym,_) = valOf (TermProcess.symbol2temporaliterator (DOF.Input.name input))
+					      val (_,iter_typ) = CurrentModel.itersym2iter iter_sym
+					  in
+					      case iter_typ
+					       of DOF.DISCRETE {sample_period} => sample_period
+						| _ => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_sym)^"'"), "CParallelWriter.simengine_interface", Logger.INTERNAL)
+					  end) sampled_inputs
+				  
 	fun wrap (f, m) x = CurrentModel.withModel m (fn _ => f x)
 
 	fun name_subsystem_outputs shardedModel iter_sym =
@@ -649,7 +671,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		CurrentModel.withModel model (fn _ =>
 						 let val class = CurrentModel.classname2class classname
 						     val {outputs, ...} = class
-						 in map (Term.sym2name o #name) (! outputs)
+						 in map (Term.sym2name o DOF.Output.name) (! outputs)
 						 end)
 	    end
 
@@ -658,7 +680,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 
 	fun output_num_quantities (model, output) =
 	    CurrentModel.withModel model (fn _ =>
-	    let val {name, contents, ...} = output
+	    let val (name, contents) = (DOF.Output.name output, DOF.Output.contents output)
 	    in case TermProcess.symbol2temporaliterator name
 		of SOME (iter_sym, _) => inc (List.length contents)
 		 | _ => List.length contents
@@ -668,7 +690,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	fun outputs_from_class (model, class) =
 	    let val {outputs, ...} = class
 	    in 
-		map (fn (output as {name, ...}) => (model, output))
+		map (fn (output) => (model, output))
 		    (! outputs)
 	    end
 
@@ -683,7 +705,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 			 outputIterators
 
 	val outputs_from_top_classes =
-	    Util.uniquify_by_fun (fn ((_,a:DOF.output),(_,b:DOF.output)) => Term.sym2curname (#name a) = Term.sym2curname (#name b)) outputs_from_top_classes
+	    Util.uniquify_by_fun (fn ((_,a),(_,b)) => Term.sym2curname (DOF.Output.name a) = Term.sym2curname (DOF.Output.name b)) outputs_from_top_classes
 
 
 	val outputs_num_quantities = map output_num_quantities outputs_from_top_classes
@@ -753,6 +775,8 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("const Iterator ITERATORS[NUM_ITERATORS] = {" ^ (String.concatWith ", " iters_enumerated) ^ "};"),
 	 $(""),
 	 $("static const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
+	 $("static const double sampled_input_timesteps[] = {" ^ (String.concatWith ", " (map (CWriterUtil.exp2c_str o Exp.TERM o Exp.REAL) sampled_periods)) ^ "};"),
+	 $("static const sampled_eof_option_t sampled_input_eof_options[] = {" ^ (String.concatWith ", " sampled_exhausted_behaviors) ^ "};"),
 	 $("static const char *state_names[] = {" ^ (String.concatWith ", " (map cstring state_names)) ^ "};"),
 	 $("static const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
 	 $("static const char *iterator_names[] = {" ^ (String.concatWith ", " (map cstring iterator_names)) ^ "};"),
@@ -767,8 +791,10 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("static const unsigned int NUM_STATES = "^(i2s (List.length state_names)) ^ ";"),
 	 $("static const unsigned long long HASHCODE = 0x0000000000000000ULL;"),
 	 $("static const unsigned int VERSION = 0;"),
-         *)
-	 $("#define NUM_INPUTS "^(i2s (List.length input_names))),
+          *)
+	 $("#define NUM_CONSTANT_INPUTS "^(i2s (List.length constant_inputs))),
+	 $("#define NUM_SAMPLED_INPUTS "^(i2s (List.length sampled_inputs))),
+	 $("#define NUM_INPUTS (NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS)"),
 	 $("#define NUM_STATES "^(i2s (List.length state_names))),
 	 $("#define HASHCODE 0x0000000000000000ULL"),
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
@@ -866,11 +892,11 @@ fun update_wrapper shardedModel =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -910,11 +936,11 @@ fun preprocess_wrapper shardedModel preprocessIterators =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -959,11 +985,11 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 			       of DOF.CONTINUOUS _ =>
 				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->time[modelid], " ^
 					 statereads ^ statewrites ^ systemstatereads ^
-					 "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 				| DOF.DISCRETE _ => 
 				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->count[modelid], " ^
 					 statereads ^ statewrites ^ systemstatereads ^
-					 "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 				| _ => $("#error BOGUS ITERATOR"))]
 			end)
 	    end
@@ -1004,11 +1030,11 @@ fun postprocess_wrapper shardedModel postprocessIterators =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "props->inputs, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -1353,24 +1379,32 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val input_automatic_var =
 	    if is_top_class then
-		fn ({name,default},i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, " ^ (i2s i) ^ ", modelid)];")
+		fn (input,i) => 
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
 	    else
-		fn ({name,default},i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
+		fn (input,i) => 
+		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
 
 	val eqn_symbolset = 
 	    SymbolSet.flatmap ExpProcess.exp2symbolset valid_exps
 
-	(* map only inputs that are actually used within the flow equations *)
-	(*
-	fun input_appears_in_eqns ({name=Exp.SYMBOL (insym,_),...},_) =
-	    SymbolSet.exists (fn (sym) => sym = insym) eqn_symbolset
-	  (* TODO what happens for non-symbol inputs? *)
-	  | input_appears_in_eqns _ = true
-		   
-	 *)
-	val inputs = (* List.filter input_appears_in_eqns *) (Util.addCount (!(#inputs class)))
+	val inputs = 
+	    if is_top_class then
+		let
+		    (* Impose an ordering on inputs so that we can determine which are constant vs. time-varying. *)
+		    fun is_constant_input input =
+			let
+			    val name = DOF.Input.name input
+			in
+			    not (isSome (TermProcess.symbol2temporaliterator name))
+			end
+
+		    val (constant_inputs, sampled_inputs) = List.partition is_constant_input (!(#inputs class))
+		in
+		    Util.addCount (constant_inputs @ sampled_inputs)
+		end
+	    else
+		Util.addCount (!(#inputs class))
 
 	val read_inputs_progs =
 	    [$(""),
@@ -1511,9 +1545,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 		    fun declare_output ((sym,_),_) = "CDATAFORMAT "^(Symbol.name sym)^";"
 
-		    fun assign_output ((sym, {name, contents, condition}), idx) =
+		    fun assign_output ((sym, output), idx) =
 			(Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
-			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (contents)))
+			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (DOF.Output.contents output)))
 
 		    (* Output args could contain don't cares *)
 		    val output_term_pairs =
@@ -1592,8 +1626,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		[$(""),
 		 $("// writing output data "),
 		 SUB(map 
-			 (fn({name,contents,condition},i)=> 
+			 (fn(output,i)=> 
 			    let
+				val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 				val _ = if length contents = 1 then
 					    ()
 					else
@@ -1671,15 +1706,32 @@ fun state_init_code shardedModel iter_sym =
 						 DOF.UPDATE v => v
 					       | _ => iter_sym)
 
-		val inputs = Util.addCount (!(#inputs class))
+		val inputs = 
+		    if isTopClass then
+			let
+			    (* Impose an ordering on inputs so that we can determine which are constant vs. time-varying. *)
+			    fun is_constant_input input =
+				let
+				    val name = DOF.Input.name input
+				in
+				    not (isSome (TermProcess.symbol2temporaliterator name))
+				end
+
+			    val (constant_inputs, sampled_inputs) = List.partition is_constant_input (!(#inputs class))
+			in
+			    Util.addCount (constant_inputs @ sampled_inputs)
+			end
+		    else
+			Util.addCount (!(#inputs class))
+
 
 		val inputLocalVar =
 		    if isTopClass then
-		     fn ({name,default}, i) => 
-			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, " ^ (i2s i) ^ ", modelid)];")
+		     fn (input, i) => 
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
 		    else
-		     fn ({name,default}, i) => 
-			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name)) ^ " = inputs[" ^ (i2s i) ^ "];")
+		     fn (input, i) => 
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
 
 		val ivqCode = ClassProcess.foldInitialValueEquations
 				  (fn (eqn, code) =>
@@ -1723,8 +1775,8 @@ fun state_init_code shardedModel iter_sym =
 				     in
 					 SymbolSet.member (symset, Term.sym2curname name)
 				     end
-
-				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn ({name, ...}, names) => name :: names) nil instclass
+				     
+				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn (input, names) => (DOF.Input.name input) :: names) nil instclass
 				 val inpargs: Exp.exp list = 
 				     map (fn (name, arg) =>
 					     if hasInitialValueEquation (ivqReadsInput name) instclass then
@@ -1806,7 +1858,7 @@ fun flow_code shardedModel iter_sym =
 		      (String.concatWith 
 			   ", " 
 			   (map 
-				(fn{name,...}=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM name))) 
+				(fn input=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))))
 				(!(#inputs class))))^");")
 		else
 		    let
@@ -1888,7 +1940,7 @@ fun init_states shardedModel =
 				 if hasInitialValueEquation (fn _ => true) class then
 				     $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
 				       reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^ 
-				       "props->inputs, modelid)) { return 1; }")
+				       "NULL, modelid)) { return 1; }")
 				 else
 				     $("// no initial values for " ^ (Symbol.name top_class))
 			     end)
@@ -1925,7 +1977,7 @@ fun model_flows shardedModel =
 	       in
 		SUB[$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name iter_sym)) ^ ":"),
 		    $("return flow_" ^ (Symbol.name top_class) ^ 
-		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "props->inputs, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
+		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "NULL, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
 	       end)
 	    end
 
@@ -1999,7 +2051,7 @@ fun logoutput_code shardedModel =
 
 
 	fun output_prog (output, index) =
-	    let val {name, contents, condition} = output
+	    let val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 		val num_quantities = 
 		    case TermProcess.symbol2temporaliterator name
 		     of SOME (iter_sym, _) => inc (List.length contents)
@@ -2063,7 +2115,7 @@ fun logoutput_code shardedModel =
 	fun outputs_from_class (model, class) =
 	    let val {outputs, ...} = class
 	    in 
-		map (fn (output as {name, ...}) => (model, output))
+		map (fn (output) => (model, output))
 		    (! outputs)
 	    end
 
@@ -2076,7 +2128,7 @@ fun logoutput_code shardedModel =
 			 (#1 shardedModel)
 
 	val outputs_from_top_classes =
-	    Util.uniquify_by_fun (fn ((_,a:DOF.output),(_,b:DOF.output)) => Term.sym2curname (#name a) = Term.sym2curname (#name b)) outputs_from_top_classes
+	    Util.uniquify_by_fun (fn ((_,a),(_,b)) => Term.sym2curname (DOF.Output.name a) = Term.sym2curname (DOF.Output.name b)) outputs_from_top_classes
 
 	val output_exps = 
 	    Util.flatmap (fn ((model, output), index) => CurrentModel.withModel model (fn _ => output_prog (output, index)))
@@ -2084,7 +2136,7 @@ fun logoutput_code shardedModel =
 
 
 	val total_output_quantities =
-	    List.foldr op+ 0 (map (List.length o #contents) outputs)
+	    List.foldr op+ 0 (map (List.length o DOF.Output.contents) outputs)
 
     in
         if total_output_quantities > 0 then
@@ -2198,6 +2250,7 @@ fun buildC (orig_name, shardedModel) =
 	val seint_h = $(Codegen.getC "simengine/seint.h")
 	val output_buffer_h = $(Codegen.getC "simengine/output_buffer.h")
 	val init_output_buffer_c = $(Codegen.getC "simengine/init_output_buffer.c")
+	val inputs_c = $(Codegen.getC "simengine/inputs.c")
 	val log_outputs_c = $(Codegen.getC "simengine/log_outputs.c")
 
 	val exec_c = 
@@ -2226,9 +2279,9 @@ fun buildC (orig_name, shardedModel) =
 				       [precision_h] @
 				       [memory_layout_h] @
 				       [target_h] @
+				       [simengine_api_h] @
 				       simengine_interface_progs @
 
-				       [simengine_api_h] @
 				       [defines_h] @
 				       (case sysprops
 					 of {target=Target.CUDA, ...} =>
@@ -2259,6 +2312,7 @@ fun buildC (orig_name, shardedModel) =
 				       [simengine_api_c] @
 				       init_solver_props_c @
 				       logoutput_progs @
+				       [inputs_c] @
 				       [log_outputs_c] @
 				       exec_c @
 				       state_init_functions @

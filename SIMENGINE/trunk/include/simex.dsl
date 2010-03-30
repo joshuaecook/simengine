@@ -4,6 +4,7 @@
 
 import "command_line.dsl"
 
+// FIXME restore this namespace
 //namespace Simex
   /* Executes a command in a shell.
    * Enables a sequence of processes connected by pipes to be
@@ -158,7 +159,6 @@ import "command_line.dsl"
     constructor(compilerSettings)
       super (compilerSettings)
       parallelModels = Devices.OPENMP.numProcessors()
-      //compilerSettings.parallel_models = parallelModels
       settings.simulation.parallel_models.setValue(parallelModels)
     end
 
@@ -185,7 +185,6 @@ import "command_line.dsl"
 
       // MP * warp size * 4 to keep high residency (probably needs tweaking)
       parallelModels = Devices.CUDA.getProp(1, "multiProcessorCount").tonumber() * 32 * 4
-      //compilerSettings.parallel_models = parallelModels
       settings.simulation.parallel_models.setValue(parallelModels)
 
       precision = settings.simulation.precision.getValue()
@@ -295,19 +294,19 @@ import "command_line.dsl"
 				 "precision"]
   var stringOptionNamesDebug = []
 
-  function defaultCompilerSettings() = {target = /*"openmp"*/ settings.simulation.target.getValue(),
-					precision = /*"double"*/settings.simulation.precision.getValue(),
-					parallel_models = /*1*/settings.simulation.parallel_models.getValue(),
-					debug = /*false*/settings.simulation_debug.debug.getValue(), 
-					emulate = /*false*/settings.simulation_debug.emulate.getValue(),
-					profile = /*false*/settings.simulation_debug.profile.getValue(),
-					outputdir = /*"simex_outputs"*/settings.simulation.outputdir.getValue()}
+  function defaultCompilerSettings() = {target = settings.simulation.target.getValue(),
+					precision = settings.simulation.precision.getValue(),
+					parallel_models = settings.simulation.parallel_models.getValue(),
+					debug = settings.simulation_debug.debug.getValue(), 
+					emulate = settings.simulation_debug.emulate.getValue(),
+					profile = settings.simulation_debug.profile.getValue(),
+					outputdir = settings.simulation.outputdir.getValue()}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
   var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputdir", "binary", "seed", "gpuid"]
   function defaultSimulationSettings() = {start = 0,
 					  instances = 1,
-					  outputdir = /*"simex_outputs"*/settings.compiler.outputdir.getValue()}
+					  outputdir = settings.compiler.outputdir.getValue()}
 
 
   function runModel()
@@ -344,11 +343,9 @@ import "command_line.dsl"
       if () <> modelFile then
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
-	//var exfile = autoRecompile(modelFile, compilerSettings)
 	var exfile = profileTime ("autoRecompile", autoRecompile, (modelFile, compilerSettings))
 	if () <> simulationSettings and "" <> exfile then
 	  var simulation = FileSystem.realpath(exfile)
-	  //simulate(simulation, simulationSettings, settings.simulation_debug.debug.getValue())
 	  profileTime ("simulating", simulate, (simulation, simulationSettings, settings.simulation_debug.debug.getValue()))
 	  if not(settings.simulation_debug.debug.getValue()) then
 	    FileSystem.rmfile(simulation)
@@ -419,22 +416,7 @@ import "command_line.dsl"
 	    "\t\tsimEngine [options]\n\n"+
 	    "Currently available options include:\n\n" +
 	    settingshelp + "\n" +
-	    "For further information, please visit us at www.simatratechnologies.com.\n"
-	    /*"-start <n>" +
-	    "-stop <n>" +
-	    "-seed <n>" +
-	    "-inputs <file>" +
-	    "-states <file>" +
-	    "-outputdir <file>" +
-	    "-interface" +
-	    "-json_interface" +
-	    "-cpu" +
-	    "-parallelcpu" +
-	    "-gpu" +
-	    "-double" +
-	    "-float" +
-	    "-single" +
-	    "-help"*/)
+	    "For further information, please visit us at www.simatratechnologies.com.\n")
     // FIXME: automatically add the available options from the actual options above
   end
 
@@ -442,7 +424,7 @@ import "command_line.dsl"
     var simex = settings.general.simex.getValue()
 
     // Set the full realpath of the model file
-    if /*not(objectContains(commandLineOptions, "simex"))*/ simex=="" then
+    if simex=="" then
       ()
     else
       var modelfilepath = FileSystem.realpath(simex)
@@ -455,36 +437,6 @@ import "command_line.dsl"
 
   function validateCompilerSettings(commandLineOptions: Table)
     var compilerSettings = {}
-    // Check for a single valid target
-    // this is now done in simex.m and on the command line since only one option can be specified with --target
-    /*
-    var targets = [targetOptions.getValue(target) foreach target in targetOptions.keys when objectContains(commandLineOptions, target)]
-    if targets.length() > 1 then
-      error("Only one target option can be specified.")
-    elseif targets.length() == 1 then
-      compilerSettings.add("target", targets.first())
-    end
-     */
-
-    // Check for a single valid precision
-    // this is now done in simex.m and on the command line since only one option can be specified with --precision
-    /*
-    var precisions = [precisionOptions.getValue(precision) foreach precision in precisionOptions.keys when objectContains(commandLineOptions, precision)]
-    if precisions.length() > 1 then
-      error("Only one precision option can be specified. (" + join(", ", precisionOptions.keys) + ")")
-    elseif precisions.length() == 1 then
-      compilerSettings.add("precision", precisions.first())
-    end
-    */
-
-    // Check for a specified output directory, also used for temporary compiler files
-    //if objectContains(commandLineOptions, "outputdir") then
-    //  compilerSettings.add("outputdir", commandLineOptions.outputdir)
-    //end
-
-    //if objectContains(commandLineOptions, "debug") then
-    //  compilerSettings.add("debug", true)
-    //end
 
     if settings.simulation_debug.emulate.getValue() then
 	if "gpu" == settings.simulation.target.getValue() then
@@ -493,26 +445,6 @@ import "command_line.dsl"
 	    error("Emulation is only valid for the GPU.")
 	end
     end
-    /*
-    if objectContains(commandLineOptions, "emulate") then
-      if("gpu" == settings.simulation.target.getValue()) then
-	compilerSettings.add("emulate", true)
-      else
-	error("Emulation is only valid for the GPU.")
-      end
-    end
-     */
-    //if objectContains(commandLineOptions, "profile") then
-    //  compilerSettings.add("profile", true)
-    //end
-
-    // Add any defaults for settings that were not set from the command-line
-    //var defaults = defaultCompilerSettings()
-    //foreach key in defaults.keys do
-    //  if not(objectContains(compilerSettings, key)) then
-    //  compilerSettings.add(key, defaults.getValue(key))
-    //  end
-    //end
 
     // Set up the name of the c source file
     var name = Path.base(Path.file (settings.general.simex.getValue()))
@@ -523,7 +455,6 @@ import "command_line.dsl"
       cname = name + ".c"
     end
     settings.compiler.cSourceFilename.setValue(cname)
-    //compilerSettings.add("cSourceFilename", cname)
 
     compilerSettings
   end
@@ -570,10 +501,10 @@ import "command_line.dsl"
     // Check to see if only the interface is requested
     if objectContains(commandLineOptions, "interface") then
       simulationSettings.add("interface", true)
-    elseif /*objectContains(commandLineOptions, "json_interface")*/objectContains(settings.compiler, "json_interface") then
-      simulationSettings.add("json_interface", /*commandLineOptions.getValue("json-interface")*/settings.compiler.json_interface.getValue())
+    elseif objectContains(settings.compiler, "json_interface") then
+      simulationSettings.add("json_interface", settings.compiler.json_interface.getValue())
     // Set all the simulation settings from the commandLineOptions
-    elseif /*copyOptions(commandLineOptions, simulationSettings, simulationSettingNames)*/createSimulationTable(simulationSettings) then
+    elseif createSimulationTable(simulationSettings) then
       if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time or interface request was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")
@@ -636,14 +567,14 @@ import "command_line.dsl"
 
     // Instantiating a target could override compilerSettings based on target type (i.e. precision = float for GPU arch_11)
     var target_setting = settings.simulation.target.getValue()
-    if /*"openmp" == compilerSettings.target*/"parallelcpu" == target_setting then
+    if "parallelcpu" == target_setting then
       target = TargetOpenMP.new(compilerSettings)
-    elseif /*"cuda" == compilerSettings.target*/"gpu" == target_setting then
+    elseif "gpu" == target_setting then
       target = TargetCUDA.new(compilerSettings)
-    elseif "cpu" == /*compilerSettings.target*/ target_setting then
+    elseif "cpu" == target_setting then
       target = TargetCPU.new(compilerSettings)
     else
-      error ("Unknown target " + /*compilerSettings.target*/ target_setting)
+      error ("Unknown target " +target_setting)
     end
 
     // Opening an archive succeeds if the file exists and a manifest can be read.
@@ -720,7 +651,6 @@ import "command_line.dsl"
 	exfile = ""
       end
     else
-      //var cfile = Path.join(compilerSettings.outputdir, compilerSettings.cSourceFilename)
       var cfile = Path.join(settings.compiler.outputdir.getValue(), settings.compiler.cSourceFilename.getValue())
       exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
       Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.exfile, exfile)

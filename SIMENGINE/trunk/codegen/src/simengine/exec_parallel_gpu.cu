@@ -1,4 +1,4 @@
-int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *progress){
+int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *progress, int resuming){
   unsigned int i;
   unsigned int modelid;
   unsigned int num_gpu_threads;
@@ -22,7 +22,8 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
 
   while(active_models){
     // Execute models on the GPU
-    exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(device_props);
+    exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(device_props, resuming);
+    resuming = 1;
     // Copy data back to the host
     cutilSafeCall(cudaMemcpy(props->ob, props->gpu.ob, props->ob_size, cudaMemcpyDeviceToHost));
     cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));

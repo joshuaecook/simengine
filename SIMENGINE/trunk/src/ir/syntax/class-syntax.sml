@@ -23,14 +23,14 @@ fun toJSON (class as {name, properties, inputs, outputs, iterators, exps}) =
 	    ("iterators", array (map iteratorToJSON iterators)),
 	    ("expressions", array (map ExpSyntax.toJSON (! exps)))]
 
-and inputToJSON {name, default} =
-    object [("name", ExpSyntax.termToJSON name),
-	    ("default", JSONOption (ExpSyntax.toJSON, default))]
+and inputToJSON input =
+    object [("name", ExpSyntax.termToJSON (DOF.Input.name input)),
+	    ("default", JSONOption (ExpSyntax.toJSON, (DOF.Input.default input)))]
 
-and outputToJSON {name, contents, condition} =
-    object [("name", ExpSyntax.termToJSON name),
-	    ("contents", array (map ExpSyntax.toJSON contents)),
-	    ("condition", ExpSyntax.toJSON condition)]
+and outputToJSON output =
+    object [("name", ExpSyntax.termToJSON (DOF.Output.name output)),
+	    ("contents", array (map ExpSyntax.toJSON (DOF.Output.contents output))),
+	    ("condition", ExpSyntax.toJSON (DOF.Output.condition output))]
 
 and iteratorToJSON {name, low, step, high} =
     object [("name", symbol name),
