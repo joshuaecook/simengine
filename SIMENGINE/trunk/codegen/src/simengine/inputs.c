@@ -1,10 +1,10 @@
 
 // sort inputs with constants first, then samples, then time/value pairs and then events
 
-#define IS_CONSTANT_INPUT(inputid) (inputid < NUM_CONSTANT_INPUTS)
-#define IS_SAMPLED_INPUT(inputid) (inputid >= NUM_CONSTANT_INPUTS && inputid < NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS)
-#define IS_TIME_VALUE_INPUT(inputid) (inputid >= NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS && inputid < NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS + NUM_TIME_VALUE_INPUTS)
-#define IS_EVENT_INPUT(inputid) (inputid >= NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS + NUM_TIME_VALUE_INPUTS)
+#define IS_CONSTANT_INPUT(inputid) (NUM_CONSTANT_INPUTS > 0 && inputid < NUM_CONSTANT_INPUTS)
+#define IS_SAMPLED_INPUT(inputid) (NUM_SAMPLED_INPUTS > 0 && inputid >= NUM_CONSTANT_INPUTS && inputid < NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS)
+#define IS_TIME_VALUE_INPUT(inputid) (NUM_TIME_VALUE_INPUTS > 0 && inputid >= NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS && inputid < NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS + NUM_TIME_VALUE_INPUTS)
+#define IS_EVENT_INPUT(inputid) (NUM_EVENT_INPUTS > 0 && inputid >= NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS + NUM_TIME_VALUE_INPUTS)
 
 #define SAMPLED_INPUT_ID(inputid) (inputid - NUM_CONSTANT_INPUTS)
 #define TIME_VALUE_INPUT_ID(inputid) (inputid - NUM_CONSTANT_INPUTS - NUM_SAMPLED_INPUTS)
@@ -26,8 +26,8 @@ typedef struct{
   sampled_eof_option_t eof_option;
 }sampled_input_t;
 
-CDATAFORMAT constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
-sampled_input_t sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
+__DEVICE__ CDATAFORMAT constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
+__DEVICE__ sampled_input_t sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
 
 #define BYTE(val,n) ((val>>(n<<3))&0xff)
 
@@ -199,40 +199,53 @@ void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset,
   }
 }
 
-static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid){
+__HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid){
+#ifdef TARGET_GPU
+  // No sampled inputs on GPU
+  return NAN;
+#else
+
   sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
 
   // Check whether user provided an input (file_idx != 0)
-  if(tmp->file_idx[ARRAY_IDX]){
+  if(tmp->file_idx[ARRAY_IDX]) {
     return (CDATAFORMAT)tmp->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + tmp->idx[ARRAY_IDX]];
   }
-  else{
+  else {
     // All inputs have default values 
-    if(__finite(seint.default_inputs[inputid]))
+    if(__finite(seint.default_inputs[inputid])) {
       return (CDATAFORMAT)seint.default_inputs[inputid];
-    else // (may be NAN)
+    }
+    else { // (may be NAN)
       ERROR(Simatra:Simex:get_sampled_input, "No value provided for input '%s'.\n", seint.input_names[inputid]);
+    }
   }
+#endif
 }
 
-static inline CDATAFORMAT get_input(unsigned int inputid, unsigned int modelid){
-  if(IS_CONSTANT_INPUT(inputid))
+__HOST__ __DEVICE__ static inline CDATAFORMAT get_input(unsigned int inputid, unsigned int modelid){
+  assert(inputid < NUM_INPUTS);
+
+  if(IS_CONSTANT_INPUT(inputid)) {
     return (CDATAFORMAT)constant_inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, inputid, modelid)];
+  }
 
-#if NUM_SAMPLED_INPUTS > 0  
-  if(IS_SAMPLED_INPUT(inputid))
+  if(IS_SAMPLED_INPUT(inputid)) {
     return get_sampled_input(inputid, modelid);
-#endif
+  }
 
-#if NUM_TIME_VALUE_INPUTS > 0
-  if(IS_TIME_VALUE_INPUT)
+#ifdef TARGET_GPU
+  // No error reporting cabaility on the GPU
+  return NAN;
+#else
+  if(IS_TIME_VALUE_INPUT(inputid)) {
     ERROR(Simatra:Simex:get_input, "Time/value pair inputs not yet implemented.\n");
-#endif
+  }
 
-#if NUM_EVENT_INPUTS > 0
-  if(IS_EVENT_INPUT)
-    ERROR(Simatra:Simex:get_input, "Event inputs not yet implemented.\n";
-#endif
+  if(IS_EVENT_INPUT(inputid)) {
+    ERROR(Simatra:Simex:get_input, "Event inputs not yet implemented.\n");
+  }
 
-    ERROR(Simatra:Simex:get_input, "No such input id %d.\n", inputid);
+  ERROR(Simatra:Simex:get_input, "No such input id %d.\n", inputid);
+#endif
 }

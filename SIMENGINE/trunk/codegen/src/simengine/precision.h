@@ -15,4 +15,9 @@ typedef double CDATAFORMAT;
 
 #ifndef NAN
 #define NAN (FLITERAL(0.0)/FLITERAL(0.0))
+#else
+#ifdef TARGET_GPU
+#undef NAN
+#define NAN (FLITERAL(0.0)/FLITERAL(0.0))
+#endif
 #endif

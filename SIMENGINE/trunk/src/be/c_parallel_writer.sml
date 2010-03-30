@@ -794,7 +794,9 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
           *)
 	 $("#define NUM_CONSTANT_INPUTS "^(i2s (List.length constant_inputs))),
 	 $("#define NUM_SAMPLED_INPUTS "^(i2s (List.length sampled_inputs))),
-	 $("#define NUM_INPUTS (NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS)"),
+	 $("#define NUM_TIME_VALUE_INPUTS 0"),
+	 $("#define NUM_EVENT_INPUTS 0"),
+	 $("#define NUM_INPUTS (NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS + NUM_TIME_VALUE_INPUTS + NUM_EVENT_INPUTS)"),
 	 $("#define NUM_STATES "^(i2s (List.length state_names))),
 	 $("#define HASHCODE 0x0000000000000000ULL"),
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
