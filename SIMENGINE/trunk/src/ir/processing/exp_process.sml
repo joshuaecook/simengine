@@ -22,6 +22,7 @@ val deconstructInst : Exp.exp -> {classname: Symbol.symbol,
 (* Classification functions *)
 val isTerm : Exp.exp -> bool
 val isSymbol : Exp.exp -> bool
+val isIterator : Exp.exp -> bool
 val isEquation : Exp.exp -> bool
 val isExpList : Exp.exp -> bool
 val isArray : Exp.exp -> bool
@@ -278,6 +279,13 @@ fun isTerm exp =
 fun isSymbol exp = 
     case exp of
 	Exp.TERM (Exp.SYMBOL _) => true
+      | _ => false
+
+fun isIterator exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) => (case Property.getScope props of
+						 Property.ITERATOR => true
+					       | _ => false)
       | _ => false
 
 fun isExpList exp =

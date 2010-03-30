@@ -2062,7 +2062,8 @@ and instanceExpressions equation =
 				      "ClassProcess.unify.symbolExpansion", Logger.INTERNAL)
 	    
 	fun renameWithPrefix pref =
-	    {find = Match.onesym "anysym",
+	    {find = Match.anysym_with_predlist [("IS_SYMBOL", ExpProcess.isSymbol),
+						("NOT_ITERATOR", not o ExpProcess.isIterator)] (Symbol.symbol "anysym"),
 	     replace = Rewrite.ACTION (Symbol.symbol ("renameWithPrefix:"^(Symbol.name pref)), 
 				       prefixSymbol ((Symbol.name pref) ^ "#_")),
 	     test = NONE}
