@@ -25,6 +25,7 @@ s.add(HierarchySubModelTests(mode, target));
 s.add(AlgebraicSubModelTests(target));
 s.add(OrderingTests(target));
 s.add(IteratorSubModelTests(target));
+s.add(FlattenSubModelTests(target));
 
 end
 
@@ -119,6 +120,33 @@ s.add(Test('IteratorOnInput', ...
             @()(simex(['models_FeatureTests/IteratorSubModelTest3.dsl'], 10,target)), ...
             '-equal', struct('y', [0:10; 0:10; [0 0:9]]')));
 
+end
+
+function s = FlattenSubModelTests(target)
+
+s = Suite(['Flatten Sub Tests ' target]);
+
+s.add(Test('FlattenBasicSubModelTest', @()(simex(['models_FeatureTests/' ...
+                    'SubModelTest1.dsl'], 10,target, '-flatten')), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
+s.add(Test('FlattenSubModelInputTest', @()(simex(['models_FeatureTests/' ...
+                    'SubModelTest2.dsl'], 10,target, '-flatten')), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
+s.add(Test('FlattenDuplicateSubModelInputTest', @()(simex(['models_FeatureTests/' ...
+                    'SubModelTest3.dsl'], 10,target, '-flatten')), '-equal', ...
+           struct('y', [0:10; 0:2:20; 0:10; 0:3:30]')));
+s.add(Test('FlattenDuplicateSubModelToOutputTest', @()(simex(['models_FeatureTests/' ...
+                    'SubModelTest4.dsl'], 10,target, '-flatten')), '-equal', ...
+           struct('y', [0:10; 0:2:20; 0:10; 0:3:30]')));
+s.add(Test('FlattenSubModelDefaultInputTest', @()(simex(['models_FeatureTests/' ...
+                    'SubModelTest5.dsl'], 10,target, '-flatten')), '-equal', ...
+           struct('y', [0:10; 0:2:20; 0:2:20; 0:10]')));
+
+% this is related to init values driven by inputs
+s.add(Test('FlattenSubModelInputToInitTest', @()(simex(['models_FeatureTests/' ...
+                    'SubModelTest6.dsl'], 10,target, '-flatten')), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
+
+s.add(Test('FlattenIteratorInSubModel', @()(simex(['models_FeatureTests/' ...
+                    'FlattenSubModelTest1.dsl'], 10,target, '-flatten')), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
 
 end
+
 
