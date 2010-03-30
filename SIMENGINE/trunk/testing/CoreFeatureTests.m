@@ -49,6 +49,8 @@ s.add(Test('OutputTwoValues',@()(simex('models_FeatureTests/OutputTest5.dsl', 10
 s.add(Test('DuplicateOutputNames',@()(simex('models_FeatureTests/OutputTest7.dsl')), '-regexpmatch', 'Duplicate output'));
 s.add(Test('OutputTime', @()(simex('models_FeatureTests/OutputTest8.dsl', ...
                                    10, target)), '-equal', struct('times', [0 3 6 9; 0 3 6 9]')));
+s.add(Test('OutputEvent', @()(simex('models_FeatureTests/OutputTest9.dsl', ...
+                                    10, target)), '-equal', struct('times', [0 3 6 9]')));
 
 end
 
