@@ -52,7 +52,7 @@ void read_constant_input(CDATAFORMAT *inputs, const char *outputs_dirname, unsig
     inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = seint.default_inputs[inputid];
   }
   else{
-    if(1 != fread(inputs + TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid), sizeof(CDATAFORMAT), 1, inputfile)){
+    if(1 != fread(inputs + TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid), sizeof(double), 1, inputfile)){
       ERROR(Simatra:Simex:read_constant_input, "Could not read input from file '%s'.\n", inputfilepath);
     }
     fclose(inputfile);
