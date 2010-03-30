@@ -42,8 +42,14 @@ end
 model (I) = Capacitor(V1, V2, C)
 
   equations
-    //dt = t - t[-1]
-    dt = 0.0001
+    // Compute an estimation for the time step so we can approximate a numerical derivative
+    timestep = t - t[-1]
+
+    // At the first cycle, dt will be zero since t[-1] can not be computed.  In this case,
+    // it's better to use a large dt since it appears in a denominator
+    dt = {timestep when timestep > 0,
+	  1e9 otherwise}
+
     myV1 = V1
     dV1 = V1 - myV1[t[-1]]
     myV2 = V2
@@ -51,7 +57,6 @@ model (I) = Capacitor(V1, V2, C)
     dVdt = (dV2-dV1)/dt
     I = C*dVdt
   end
-
 end
 
 model (I) = Inductor(V1, V2, L)
