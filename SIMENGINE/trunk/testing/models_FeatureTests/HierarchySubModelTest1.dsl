@@ -1,4 +1,3 @@
-settings.debug.logdof.setValue(true)
 model (y) = Bottom (step)
     state y = 0
     equation y' = step
