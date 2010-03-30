@@ -39,7 +39,7 @@ void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned 
   }
 }
 
-void read_constant_input(const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid){
+void read_constant_input(CDATAFORMAT *inputs, const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid){
   FILE *inputfile;
   char inputfilepath[PATH_MAX];
 
@@ -49,10 +49,10 @@ void read_constant_input(const char *outputs_dirname, unsigned int inputid, unsi
   inputfile = fopen(inputfilepath, "r");
   if(!inputfile){
     // No file to read from, use default value
-    constant_inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = seint.default_inputs[inputid];
+    inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = seint.default_inputs[inputid];
   }
   else{
-    if(1 != fread(constant_inputs + TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid), sizeof(CDATAFORMAT), 1, inputfile)){
+    if(1 != fread(inputs + TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid), sizeof(CDATAFORMAT), 1, inputfile)){
       ERROR(Simatra:Simex:read_constant_input, "Could not read input from file '%s'.\n", inputfilepath);
     }
     fclose(inputfile);
@@ -180,12 +180,20 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
 }
 
 void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
+  CDATAFORMAT tmp_constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
   unsigned int inputid;
 
   // Initialize constant inputs
   for(inputid=0;inputid<NUM_CONSTANT_INPUTS;inputid++){
-    read_constant_input(outputs_dirname, inputid, modelid_offset, modelid);
+    read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, modelid_offset, modelid);
   }
+
+#ifdef TARGET_GPU
+  cutilSafeCall(cudaMemcpyToSymbol(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), 0, cudaMemcpyHostToDevice));
+#else
+  memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
+#endif
+
 
   for(;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
     sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];

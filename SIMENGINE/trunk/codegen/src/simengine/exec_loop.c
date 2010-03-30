@@ -3,9 +3,6 @@ int exec_loop(solver_props *props, const char *outputs_dirname, double *progress
   int status = SUCCESS;
 
   // Initialize solvers for all iterators
-# if defined TARGET_GPU
-  gpu_init();
-# endif
   for(i=0;i<NUM_ITERATORS;i++){
     solver_init(&props[i]);
   }

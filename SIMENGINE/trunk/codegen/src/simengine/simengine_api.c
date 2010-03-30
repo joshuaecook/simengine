@@ -83,6 +83,10 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 
   int resuming;
 
+# if defined TARGET_GPU
+  gpu_init();
+# endif
+
   open_progress_file(outputs_dirname, &progress, &progress_fd, num_models);
 	     
   // Create result structure

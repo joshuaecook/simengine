@@ -70,7 +70,7 @@ solver_props *gpu_init_props(solver_props *props){
   // Pointers to the statically allocated in device global memory;
   solver_props *g_props;
   top_systemstatedata *g_system;
-  CDATAFORMAT *g_time, *g_next_time, *g_inputs;
+  CDATAFORMAT *g_time, *g_next_time;
   unsigned int *g_count;
   int *g_running;
   output_buffer *g_ob;
@@ -90,11 +90,6 @@ solver_props *gpu_init_props(solver_props *props){
   g_system = NULL;
   g_model_states = NULL;
   g_next_states = NULL;
-# endif
-# if NUM_INPUTS > 0
-  cutilSafeCall(cudaGetSymbolAddress((void **)&g_inputs, gpu_inputs));
-# else
-  g_inputs = NULL;
 # endif
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_running, gpu_running));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_ob, gpu_ob));
@@ -145,7 +140,6 @@ solver_props *gpu_init_props(solver_props *props){
     // Every iterator shares the same memory
     tmp_props[i].system_states = g_system;
     tmp_props[i].modelid_offset = 0; // not needed
-    tmp_props[i].inputs = g_inputs;
     tmp_props[i].ob = g_ob;
     tmp_props[i].od = g_od;
 
@@ -182,13 +176,6 @@ solver_props *gpu_init_props(solver_props *props){
   cutilSafeCall(cudaMemcpy(g_next_time, tmp_time, PARALLEL_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 
   cutilSafeCall(cudaMemcpy(g_running, tmp_running, PARALLEL_MODELS * NUM_ITERATORS * sizeof(int), cudaMemcpyHostToDevice));
-
-
-# if NUM_INPUTS > 0
-  // Copies inputs to device.
-  cutilSafeCall(cudaMemcpy(g_inputs, props->inputs, PARALLEL_MODELS * NUM_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
-# endif
-
 
   // Copies properties to device.
   cutilSafeCall(cudaMemcpy(g_props, tmp_props, NUM_ITERATORS * sizeof(solver_props), cudaMemcpyHostToDevice));
