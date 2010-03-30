@@ -864,16 +864,13 @@ local
 		    Match.applyRewritesExp (rewrite_iterators @ [rewrite_symbol]) exp
 		end
 
-	    fun updateInput {name, default} = 
-		{name=(ExpProcess.exp2term o updateIterator o ExpProcess.term2exp) name,
-		 default= case default of 
-			      SOME d => SOME (updateIterator d)
-			    | NONE => NONE}
+	    fun updateInput input = 
+		DOF.Input.rename (ExpProcess.exp2term o updateIterator o ExpProcess.term2exp)
+				 (DOF.Input.rewrite updateIterator input)
 
-	    fun updateOutput {name,contents,condition} =
-		{name=(ExpProcess.exp2term o updateIterator o ExpProcess.term2exp) name,
-		 contents=map updateIterator contents,
-		 condition=updateIterator condition}
+	    fun updateOutput output =
+		DOF.Output.rename (ExpProcess.exp2term o updateIterator o ExpProcess.term2exp)
+				  (DOF.Output.rewrite updateIterator output)
 
 	in
 	    (exps := (map updateIterator (!exps));
@@ -926,18 +923,12 @@ local
 			   (* combine inputs *)
 			   val unmatched_inputs = List.filter (fn input2 => not (List.exists (fn input1 => sameSymbolinTerms (DOF.Input.name input2,DOF.Input.name input1)) (!inputs1))) (!inputs2)
 						  
-			   fun updateInput input =
-			       DOF.Input.rename (ExpProcess.exp2term o updateIterator o ExpProcess.term2exp)
-						(DOF.Input.rewrite updateIterator input)
-			   val inputs' = map updateInput ((!inputs1) @ unmatched_inputs)
+			   val inputs' = (!inputs1) @ unmatched_inputs
 
 			   (* combine outputs *)
 			   val unmatched_outputs = List.filter (fn output2 => not (List.exists (fn output1 => sameSymbolinTerms(DOF.Output.name output2, DOF.Output.name output1)) (!outputs1))) (!outputs2)
 						   
-			   fun updateOutput output =
-			       DOF.Output.rename (ExpProcess.exp2term o updateIterator o ExpProcess.term2exp)
-						 (DOF.Output.rewrite updateIterator output)
-			   val outputs' = map updateOutput ((!outputs1) @ unmatched_outputs)
+			   val outputs' = (!outputs1) @ unmatched_outputs
 
 			   (* combine iterators *)
 			   val unmatched_iterators = List.filter (fn{name,...}=> not (List.exists (fn{name=name',...}=> name=name') iters1)) iters2
