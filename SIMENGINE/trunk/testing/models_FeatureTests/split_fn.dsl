@@ -1,6 +1,4 @@
 // model definition
-settings.debug.generateC.setValue(true)
-settings.debug.logdof.setValue(true)
 import "u_equ.dsl"
 import "w_equ.dsl"
 

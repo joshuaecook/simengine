@@ -29,7 +29,7 @@ function e = DuplicateStates(model, runtime, precision, target, number)
     for i=1:number
         states(i,:) = m.defaultStates;
     end
-    o = simex(model, runtime, states, precision, target);
+    o = simex(model, runtime, '-resume', states, precision, target);
     e = all_equiv(o);
 end
 
@@ -63,13 +63,13 @@ function e = RunMRGSerialvsParallel
 
     model = fullfile(simexamplepath, 'MRG/axon.dsl');
     runtime = 2;
-    Istim = [0 100 200];
+    Istim = {0 100 200};
     oserial = zeros(size(Istim));
     % precompile
     simex(model);
     % Run one input at a time and concatenate the results
     for i = 1:length(Istim)
-        inputs.Istim = Istim(i);
+        inputs.Istim = Istim{i};
         oserial1(i) = simex(model, runtime, inputs, '-dontrecompile');
     end
     inputs.Istim = Istim;
