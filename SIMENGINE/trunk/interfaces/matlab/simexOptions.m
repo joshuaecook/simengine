@@ -56,12 +56,14 @@ function [options] = simexOptions (dsl, varargin)
       % arrays within the input structure
       names = fieldnames(options.inputs);
       for inputid = 1:size(names)
-          value = options.inputs.(names{inputid});
+          field = names{inputid};
+          value = options.inputs.(field);
+	  
 
           if iscell(value)
               [rows cols] = size(value);
               if 2 < ndims(value)
-                  simexError('valueError', ['INPUTS.' fieldname ' may not have more than 2 dimensions.']);
+                  simexError('valueError', ['INPUTS.' field ' may not have more than 2 dimensions.']);
               elseif 1 ~= min([rows cols])
                   simexError('valueError', ['INPUTS.' field ' must have one scalar dimension.']);
               end
@@ -78,12 +80,16 @@ function [options] = simexOptions (dsl, varargin)
       simexError('argumentError', 'Unexpected dimensions of INPUTS.');
   end
 
-  options.instances = instances;
+  if 0 ~= instances && 1 ~= instances && 1 ~= options.instances && options.instances ~= instances
+    simexError('argumentError', ['INPUTS must have 1 or ' num2str(options.instances) ' values because -instances was specified.'])
+  end
+
+  options.instances = max([instances options.instances]);
 
   instances = max([1 size(options.states,1)]);
-  if 0 ~= instances && 1 ~= instances && options.instances ~= instances
+  if 0 ~= instances && 1 ~= instances && options.instances ~= 1 && options.instances ~= instances
       simexError('argumentError', ...
-                 ['Y0 must contain 1 or ' options.instances ' rows.']);
+                 ['States passed to -resume must contain 1 or ' num2str(options.instances) ' rows to match inputs or -instances option.']);
   end
   
   options.instances = max([instances options.instances]);
@@ -120,9 +126,9 @@ end
 %%
 function [options, restUserOptions] = getOption(options, userOptions)
   opt = userOptions{1};
-  restUserOptions = userOptions(2:length(userOptions));
+  restUserOptions = userOptions(2:end);
   
-  if ~(ischar(opt) && ~isempty(opt))
+  if (~ischar(opt) && ~isempty(opt))
       simexError('argumentError', ...
                  ['Additional options to SIMEX must be non-empty strings.']);
   end
@@ -131,7 +137,7 @@ function [options, restUserOptions] = getOption(options, userOptions)
                  ['Invalid or unrecognized option ' opt '.']);
   end
   
-  switch opt(2:length(opt))
+  switch opt(2:end)
     case 'double'
       options.precision = 'double';
       options.args = [options.args ' --precision double'];
@@ -147,14 +153,20 @@ function [options, restUserOptions] = getOption(options, userOptions)
     case 'parallelcpu'
       options.target = 'parallelcpu';
       options.args = [options.args ' --target parallelcpu'];
+    case 'instances'
+      if length(userOptions) < 2 || ~isscalar(userOptions{2}) || floor(userOptions{2}) ~= userOptions{2} || userOptions{2} < 0
+          simexError('argumentError', 'A positive integer value must be passed to -instances.');
+      end
+      options.instances = userOptions{2};
+      restUserOptions = userOptions(3:end);
     case 'resume'
       options.resume = true;
-      if ~isnumeric(userOptions{2})
+      if length(userOptions) < 2 || ~isnumeric(userOptions{2})
           simexError('argumentError', ...
-                     'Y0 must be numeric');
+                     'Missing or invalid states passed to -resume.');
       end
       options.states = userOptions{2};
-      restUserOptions = userOptions(3:length(userOptions));
+      restUserOptions = userOptions(3:end);
       
     % Deprecated(?) options
     case 'single'
@@ -191,7 +203,7 @@ function [options, restUserOptions] = getOption(options, userOptions)
           optArg = getOptionArgument(userOptions{2});
           if optArg
               options.args = [options.args ' ' optArg];
-              restUserOptions = userOptions(3:length(userOptions));
+              restUserOptions = userOptions(3:end);
           end
       end
   end

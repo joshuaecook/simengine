@@ -1,4 +1,3 @@
-settings.ir.aggregate.setValue(true)
 model (x)=UpdateContinuousIteratorTest4
 
     state x1 = 0

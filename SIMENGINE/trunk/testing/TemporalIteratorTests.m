@@ -32,9 +32,9 @@ s.add(Test('OneDiscreteIterator',@()(simex('models_FeatureTests/OneDiscreteItera
 s.add(Test('IteratorCNameConflict',@()(simex('models_FeatureTests/OneDiscreteIteratorTest2.dsl',10,target)), '-equal', struct('x', [0:10; 0:10]')));
 
 % Parallel tests
-s.add(Test('OneTimeIteratorImplicit parallel',@()(simex('models_FeatureTests/OneTimeIteratorTest1.dsl',10,zeros(10,1),target)), '-allequal'));
-s.add(Test('OneTimeIteratorExplicit parallel',@()(simex('models_FeatureTests/OneTimeIteratorTest2.dsl',10,zeros(10,1),target)), '-allequal'));
-s.add(Test('OneDiscreteIterator parallel',@()(simex('models_FeatureTests/OneDiscreteIteratorTest1.dsl',10,zeros(10,1),target)), '-allequal'));
+s.add(Test('OneTimeIteratorImplicit parallel',@()(simex('models_FeatureTests/OneTimeIteratorTest1.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('OneTimeIteratorExplicit parallel',@()(simex('models_FeatureTests/OneTimeIteratorTest2.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('OneDiscreteIterator parallel',@()(simex('models_FeatureTests/OneDiscreteIteratorTest1.dsl',10,'-instances', 10,target)), '-allequal'));
 
 end
 
@@ -53,20 +53,20 @@ s.add(Test('UpdateOtherDiscreteIterator',@ ...
 s.add(Test('UpdateTwoStates',@ ...
            ()(simex('models_FeatureTests/UpdateContinuousIteratorTest3.dsl',10,target)), '-equal', struct('x', [0:10; sawtooth; sawtooth]')));
 s.add(Test('UpdateTwoStatesAggregated',@ ...
-           ()(simex('models_FeatureTests/UpdateContinuousIteratorTest4.dsl',10,target)), '-equal', struct('x', [0:10; sawtooth; sawtooth]')));
+           ()(simex('models_FeatureTests/UpdateContinuousIteratorTest4.dsl',10,target,'-aggregate')), '-equal', struct('x', [0:10; sawtooth; sawtooth]')));
 s.add(Test('UpdateThreeStates',@ ...
            ()(simex('models_FeatureTests/UpdateContinuousIteratorTest5.dsl',10,target)), '-equal', struct('x', [0:10; sawtooth; sawtooth; sawtooth]')));
 s.add(Test('UpdateThreeStatesAggregated',@ ...
-           ()(simex('models_FeatureTests/UpdateContinuousIteratorTest6.dsl',10,target)), '-equal', struct('x', [0:10; sawtooth; sawtooth; sawtooth]')));
+           ()(simex('models_FeatureTests/UpdateContinuousIteratorTest6.dsl',10,target,'-aggregate')), '-equal', struct('x', [0:10; sawtooth; sawtooth; sawtooth]')));
 s.add(Test('UpdateFromTime',@ ...
            ()(simex('models_FeatureTests/UpdateContinuousIteratorTest7.dsl',10,target)), '-equal', struct('x', [0:10; sawtooth]')));
 
 
 % Parallel tests
-s.add(Test('UpdateTimeIterator parallel',@()(simex(['models_FeatureTests/UpdateContinuousIteratorTest1.dsl'],10,zeros(10,1),target)),'-allequal'));
-s.add(Test('UpdateContinuousIterator parallel',@()(simex('models_FeatureTests/UpdateContinuousIteratorTest2.dsl',10,zeros(10,1),target)), '-allequal'));
-s.add(Test('UpdateDiscreteNIterator parallel',@()(simex('models_FeatureTests/UpdateDiscreteIteratorTest1.dsl',10,zeros(10,1),target)), '-allequal'));
-s.add(Test('UpdateOtherDiscreteIterator parallel',@()(simex('models_FeatureTests/UpdateDiscreteIteratorTest2.dsl',10,zeros(10,1),target)), '-allequal'));
+s.add(Test('UpdateTimeIterator parallel',@()(simex(['models_FeatureTests/UpdateContinuousIteratorTest1.dsl'],10,'-instances', 10,target)),'-allequal'));
+s.add(Test('UpdateContinuousIterator parallel',@()(simex('models_FeatureTests/UpdateContinuousIteratorTest2.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('UpdateDiscreteNIterator parallel',@()(simex('models_FeatureTests/UpdateDiscreteIteratorTest1.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('UpdateOtherDiscreteIterator parallel',@()(simex('models_FeatureTests/UpdateDiscreteIteratorTest2.dsl',10,'-instances', 10,target)), '-allequal'));
 
 end
 
@@ -98,11 +98,11 @@ s.add(Test('TwoIteratorCoupledDelays', @ ...
            ()(simex('models_FeatureTests/InProcessIteratorTest1.dsl',10,target)), '-equal', struct('y_t1', y, 'y_t2', y)))
 
 % Parallel tests
-s.add(Test('TwoDelayUsingPPTimeIterator parallel',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1.dsl',10,zeros(10,3),target)),'-allequal'));
-s.add(Test('TwoDelayUsingPPContinuousIterator parallel',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest2.dsl',10,zeros(10,3),target)), '-allequal'));
-s.add(Test('TwoDelayUsingIndex parallel', @()(simex('models_FeatureTests/PostProcessContinuousIteratorTest3.dsl',10,zeros(10,3),target)), '-allequal'));
-s.add(Test('TwoDelayUsingPPDiscreteNIterator parallel',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest1.dsl',10,zeros(10,3),target)), '-allequal'));
-s.add(Test('TwoDelayUsingPPOtherDiscreteIterator parallel',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest2.dsl',10,zeros(10,3),target)), '-allequal'));
+s.add(Test('TwoDelayUsingPPTimeIterator parallel',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest1.dsl',10,'-instances', 10,target)),'-allequal'));
+s.add(Test('TwoDelayUsingPPContinuousIterator parallel',@()(simex('models_FeatureTests/PostProcessContinuousIteratorTest2.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('TwoDelayUsingIndex parallel', @()(simex('models_FeatureTests/PostProcessContinuousIteratorTest3.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('TwoDelayUsingPPDiscreteNIterator parallel',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest1.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('TwoDelayUsingPPOtherDiscreteIterator parallel',@()(simex('models_FeatureTests/PostProcessDiscreteIteratorTest2.dsl',10,'-instances', 10,target)), '-allequal'));
 
 end
 
@@ -117,10 +117,9 @@ s.add(Test('immediate intermediate -> submodel -> output', @()(simex('models_Fea
 s.add(Test('top input -> submodel -> immediate intermediate -> output', @()(simex('models_FeatureTests/ImmediateIteratorTest4.dsl', 1,target)), '-approxequal', struct('F', [0:1; 2942 * ones(1,2)]')));
 
 % Parallel tests
-inputs.r = ones(1,10);
-s.add(Test('immediate intermediate -> output parallel', @()(simex('models_FeatureTests/ImmediateIteratorTest2.dsl', 1, inputs,target)), '-allequal'));
-s.add(Test('immediate intermediate -> submodel -> output parallel', @()(simex('models_FeatureTests/ImmediateIteratorTest3.dsl', 1, inputs,target)), '-allequal'));
-s.add(Test('top input -> submodel -> immediate intermediate -> output parallel', @()(simex('models_FeatureTests/ImmediateIteratorTest4.dsl', 1, inputs,target)), '-allequal'));           
+s.add(Test('immediate intermediate -> output parallel', @()(simex('models_FeatureTests/ImmediateIteratorTest2.dsl', 1, '-instances', 10,target)), '-allequal'));
+s.add(Test('immediate intermediate -> submodel -> output parallel', @()(simex('models_FeatureTests/ImmediateIteratorTest3.dsl', 1, '-instances', 10,target)), '-allequal'));
+s.add(Test('top input -> submodel -> immediate intermediate -> output parallel', @()(simex('models_FeatureTests/ImmediateIteratorTest4.dsl', 1, '-instances',10,target)), '-allequal'));           
 
 end
 
@@ -148,17 +147,17 @@ s.add(Test('TwoIteratorsAsLiteralsInOutput',@ ...
 
 
 % Parallel tests
-s.add(Test('TwoSameTemporalIterators parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest1.dsl',10,zeros(10,2),target)), '-allequal'));
-s.add(Test('TwoSolversSameDT parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest2.dsl',10,zeros(10,2),target)), '-allequal'));
-s.add(Test('OneSolverTwoSynchDTs parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest3.dsl',10,zeros(10,2),target)), '-allequal'));
-s.add(Test('TwoSolversTwoSynchDTs parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest4.dsl',10,zeros(10,2),target)), '-allequal'));
-s.add(Test('TwoSolversTwoSynchDTsWithOutputs parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest4b.dsl',10,zeros(10,2),target)), '-allequal'));
-s.add(Test('OneSolverTwoASynchDTs parallel',@()(simex('models_FeatureTests/TwoTemporalIteratorTest5.dsl',100,zeros(10,2),target)),'-allequal'));
-s.add(Test('TwoSolversTwoASynchDTs parallel',@()(simex('models_FeatureTests/TwoTemporalIteratorTest6.dsl',100,zeros(10,2),target)),'-allequal'));
-s.add(Test('TwoSolversWithIntermediate parallel',@()(simex('models_FeatureTests/TwoTemporalIteratorTest7.dsl',10,zeros(10,2),target)),'-allequal'));
+s.add(Test('TwoSameTemporalIterators parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest1.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('TwoSolversSameDT parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest2.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('OneSolverTwoSynchDTs parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest3.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('TwoSolversTwoSynchDTs parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest4.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('TwoSolversTwoSynchDTsWithOutputs parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest4b.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('OneSolverTwoASynchDTs parallel',@()(simex('models_FeatureTests/TwoTemporalIteratorTest5.dsl',100,'-instances', 10,target)),'-allequal'));
+s.add(Test('TwoSolversTwoASynchDTs parallel',@()(simex('models_FeatureTests/TwoTemporalIteratorTest6.dsl',100,'-instances', 10,target)),'-allequal'));
+s.add(Test('TwoSolversWithIntermediate parallel',@()(simex('models_FeatureTests/TwoTemporalIteratorTest7.dsl',10,'-instances', 10,target)),'-allequal'));
 states = [0 1; 0 1; 0 1; 0 1; 0 1; 0 1; 0 1; 0 1; 0 1; 0 1];
-s.add(Test('TwoCoupledIterators parallel',@()(simex('models_FeatureTests/TwoTemporalIteratorTest8.dsl',10,states,target)),'-allequal'));
-s.add(Test('TwoCoupledIteratorsInSubModel parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest9.dsl',10,states,target)),'-allequal'));
+s.add(Test('TwoCoupledIterators parallel',@()(simex('models_FeatureTests/TwoTemporalIteratorTest8.dsl',10,'-resume',states,target)),'-allequal'));
+s.add(Test('TwoCoupledIteratorsInSubModel parallel', @()(simex('models_FeatureTests/TwoTemporalIteratorTest9.dsl',10,'-resume',states,target)),'-allequal'));
 
 end
 
@@ -180,12 +179,12 @@ s.add(Test('PostProcessInSubmodel',@()(simex('models_FeatureTests/TemporalIterat
 s.add(Test('PostProcessAndUpdateInSubmodel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest6.dsl',10,target)),'-equal', struct('y', [0:10; 0 0 0:3 0:3 0]')));
 
 % Parallel tests
-s.add(Test('UpdateExpInSubModel parallel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest1.dsl',10,zeros(10,1),target)), '-allequal'));
-s.add(Test('TwoIteratorsAcrossSubModels parallel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest2.dsl',10,zeros(10,2),target)), '-allequal'));
-s.add(Test('TwoIteratorsMixedAcrossSubModels parallel',  @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest3.dsl',10,zeros(10,4),target)), '-allequal'));
-s.add(Test('MoreComplexTwoIteratorsMixedAcrossSubModels parallel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest4.dsl',10,zeros(10,4),target)), '-allequal'));
-s.add(Test('PostProcessInSubmodel parallel',@()(simex('models_FeatureTests/TemporalIteratorSubModelsTest5.dsl',10,zeros(10,3),target)),'-allequal'));
-s.add(Test('PostProcessAndUpdateInSubmodel parallel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest6.dsl',10, zeros(10,3),target)),'-allequal'));
+s.add(Test('UpdateExpInSubModel parallel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest1.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('TwoIteratorsAcrossSubModels parallel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest2.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('TwoIteratorsMixedAcrossSubModels parallel',  @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest3.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('MoreComplexTwoIteratorsMixedAcrossSubModels parallel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest4.dsl',10,'-instances', 10,target)), '-allequal'));
+s.add(Test('PostProcessInSubmodel parallel',@()(simex('models_FeatureTests/TemporalIteratorSubModelsTest5.dsl',10,'-instances', 10,target)),'-allequal'));
+s.add(Test('PostProcessAndUpdateInSubmodel parallel', @()(simex('models_FeatureTests/TemporalIteratorSubModelsTest6.dsl',10,'-instances', 10,target)),'-allequal'));
 
 end
 
