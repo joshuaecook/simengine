@@ -17,8 +17,8 @@
 #define SAMPLE_BUFFER_SIZE 1024
 
 typedef struct{
-  double data[ARRAY_SIZE * SAMPLE_BUFFER_SIZE];
-  double current_time[ARRAY_SIZE];
+  CDATAFORMAT data[ARRAY_SIZE * SAMPLE_BUFFER_SIZE];
+  CDATAFORMAT current_time[ARRAY_SIZE];
   int idx[ARRAY_SIZE];
   int buffered_size[ARRAY_SIZE];
   long file_idx[ARRAY_SIZE];
@@ -47,31 +47,35 @@ void read_constant_input(CDATAFORMAT *inputs, const char *outputs_dirname, unsig
   sprintf((inputfilepath + strlen(inputfilepath)), "/inputs/%s", seint.input_names[inputid]);
 
   inputfile = fopen(inputfilepath, "r");
-  if(!inputfile){
+  if(!inputfile) {
     // No file to read from, use default value
     inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = seint.default_inputs[inputid];
   }
-  else{
-    if(1 != fread(inputs + TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid), sizeof(double), 1, inputfile)){
+  else {
+    // Read one double-precision value and cast it as CDATAFORMAT
+    double value;
+    if(1 != fread(&value, sizeof(double), 1, inputfile)){
       ERROR(Simatra:Simex:read_constant_input, "Could not read input from file '%s'.\n", inputfilepath);
     }
+    inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = value;
     fclose(inputfile);
   }
 }
 
-int read_sampled_input(const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid, int skipped_samples){
+int read_sampled_input(sampled_input_t *input, const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid, int skipped_samples){
   FILE *inputfile;
   char inputfilepath[PATH_MAX];
-  sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
   int num_to_read;
   int num_read;
+  int i;
+  double value[SAMPLE_BUFFER_SIZE];
 
   modelid_dirname(outputs_dirname, inputfilepath, modelid + modelid_offset);
   sprintf((inputfilepath + strlen(inputfilepath)), "/inputs/%s", seint.input_names[inputid]);
 
   inputfile = fopen(inputfilepath, "r");
   if(!inputfile){
-    if(tmp->file_idx[ARRAY_IDX]){
+    if(input->file_idx[ARRAY_IDX]){
       ERROR(Simatra:Simex:read_sampled_input, "Input file '%s' could not be openend.\n", inputfilepath);
     }
     else{
@@ -81,36 +85,43 @@ int read_sampled_input(const char *outputs_dirname, unsigned int inputid, unsign
   }
 
   // Read data from input file
-  tmp->file_idx[ARRAY_IDX] += skipped_samples * sizeof(double);
-  if(fseek(inputfile, tmp->file_idx[ARRAY_IDX], SEEK_SET)){
+  input->file_idx[ARRAY_IDX] += skipped_samples * sizeof(double);
+  if(fseek(inputfile, input->file_idx[ARRAY_IDX], SEEK_SET)){
     num_read = 0;
   }
   else{
-    num_read = fread(tmp->data + (ARRAY_IDX * SAMPLE_BUFFER_SIZE), sizeof(double), SAMPLE_BUFFER_SIZE, inputfile);
+    // Read up to SAMPLE_BUFFER_SIZE double-precision values and cast them as CDATAFORMAT
+    num_read = fread(value, sizeof(double), SAMPLE_BUFFER_SIZE, inputfile);
+    for (i = 0; i < num_read; i++) {
+      input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + i] = value[i];
+    }
   }
-  tmp->file_idx[ARRAY_IDX] += num_read * sizeof(double);
+  input->file_idx[ARRAY_IDX] += num_read * sizeof(double);
 
-  tmp->buffered_size[ARRAY_IDX] = num_read;
+  input->buffered_size[ARRAY_IDX] = num_read;
 
   // Handle the case when the file runs out of data
-  if(num_read != SAMPLE_BUFFER_SIZE){
-    switch(tmp->eof_option){
+  if(feof(inputfile)){
+    switch(input->eof_option){
     case SAMPLED_HALT:
       break;
     case SAMPLED_HOLD:
       if(num_read == 0){
-	tmp->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE] = tmp->data[((ARRAY_IDX + 1) * SAMPLE_BUFFER_SIZE) - 1];
-	tmp->buffered_size[ARRAY_IDX] = 1;
+	input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE] = input->data[((ARRAY_IDX + 1) * SAMPLE_BUFFER_SIZE) - 1];
+	input->buffered_size[ARRAY_IDX] = 1;
       }
       break;
     case SAMPLED_CYCLE:
       // Read input file in a loop until buffer is full
-      tmp->file_idx[ARRAY_IDX] = 0;
+      input->file_idx[ARRAY_IDX] = 0;
       for(num_to_read = SAMPLE_BUFFER_SIZE - num_read; num_to_read > 0; num_to_read -= num_read){
 	fseek(inputfile, 0, SEEK_SET);
-	num_read = fread(tmp->data + ((ARRAY_IDX + 1) * SAMPLE_BUFFER_SIZE - num_to_read), sizeof(double), num_to_read, inputfile);
-	tmp->file_idx[ARRAY_IDX] = num_read * sizeof(double);
-	tmp->buffered_size[ARRAY_IDX] += num_read;
+	num_read = fread(value, sizeof(double), num_to_read, inputfile);
+	for (i = 0; i < num_read; i++) {
+	  input->data[(ARRAY_IDX+1) * SAMPLE_BUFFER_SIZE + i - num_to_read] = value[i];
+	}
+	input->file_idx[ARRAY_IDX] = num_read * sizeof(double);
+	input->buffered_size[ARRAY_IDX] += num_read;
       }
       break;
     default:
@@ -120,9 +131,9 @@ int read_sampled_input(const char *outputs_dirname, unsigned int inputid, unsign
 
   fclose(inputfile);
 
-  tmp->idx[ARRAY_IDX] = 0;
+  input->idx[ARRAY_IDX] = 0;
 
-  return (tmp->buffered_size[ARRAY_IDX] > 0);
+  return (input->buffered_size[ARRAY_IDX] > 0);
 }
 
 int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned int modelid_offset, unsigned int modelid){
@@ -194,16 +205,23 @@ void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset,
   memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
 #endif
 
-
   for(;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
+#ifdef TARGET_GPU
+    sampled_input_t stmp;
+    sampled_input_t tmp = &stmp;
+#else
     sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
+#endif
     tmp->idx[ARRAY_IDX] = 0;
     tmp->file_idx[ARRAY_IDX] = 0;
     tmp->current_time[ARRAY_IDX] = start_time;
     tmp->timestep = seint.sampled_input_timesteps[SAMPLED_INPUT_ID(inputid)];
     tmp->eof_option = seint.sampled_input_eof_options[SAMPLED_INPUT_ID(inputid)];
 
-    read_sampled_input(outputs_dirname, inputid, modelid_offset, modelid, (int)((start_time/tmp->timestep) + 0.5));
+    read_sampled_input(tmp, outputs_dirname, inputid, modelid_offset, modelid, (int)((start_time/tmp->timestep) + 0.5));
+#ifdef TARGET_GPU
+    cutilSafeCall(cudaMemcpyToSymbol(sampled_inputs, tmp, sizeof(sampled_input_t), SAMPLED_INPUT_ID(inputid) * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
+#endif
   }
 }
 
