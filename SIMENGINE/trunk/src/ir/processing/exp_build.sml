@@ -68,6 +68,12 @@ fun initavar (str, temporal_iterator, spatial_iterators) =
 
 fun itervar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					Property.setScope Property.default_symbolproperty Property.ITERATOR))
+fun relitervar (str,ind) = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
+					   Property.setScope 
+					       (Property.setIterator 
+						    Property.default_symbolproperty 
+						    [(Symbol.symbol str, Iterator.RELATIVE ind)])
+					       Property.ITERATOR))
 
 fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 					Property.setScope

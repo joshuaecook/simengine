@@ -224,7 +224,20 @@ and simquantity_to_dof_exp quantity =
 	ExpBuild.var(exp2str (method "name" quantity))
 
     else if (istype (quantity, "GenericIterator")) then
-	ExpBuild.itervar (exp2str (method "name" quantity))
+	let
+	    val name = exp2str (method "name" quantity)
+	in
+	    if (istype (quantity, "PreviousTimeIterator")) then
+		(* this will handle cases such as equation prev_t = t[-1] *)
+		let
+		    val ind = exp2int (method "index" quantity)
+		in
+		    ExpBuild.relitervar (name, ind)
+		end
+	    else
+		(* otherwise, this creates references to the value of the iterator *)
+		ExpBuild.itervar name
+	end
 
     else if istype (quantity, "IteratorReference") then
 	let
@@ -275,14 +288,19 @@ and simquantity_to_dof_exp quantity =
 		    if iterator = (Symbol.symbol (exp2str (method "name" arg))) then
 			(iterator, Iterator.RELATIVE 0)
 		    else
-			error ("Encountered iterator "^(exp2str (method "name" arg))^" in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
+			error ("Encountered iterator "^(Symbol.name iterator)^" ["^(exp2str (method "name" arg))^"] in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
 		else if istype (arg, "RelativeOffset") then
 		    if iterator = (Symbol.symbol (exp2str (method "name" (method "simIterator" arg)))) then
 			(iterator, Iterator.RELATIVE (exp2int(method "step" arg)))
 		    else
 			error ("Encountered iterator "^(exp2str (method "name" (method "simIterator" arg)))^" in index of "^(name)^" where "^(Symbol.name iterator)^" was expected")
 		else if (istype (arg, "PreviousTimeIterator")) then
-		    (iterator, Iterator.RELATIVE (exp2int (method "index" arg)))
+		    let 
+			val idx = exp2int (method "index" arg)
+			val name = exp2str (method "name" arg)
+		    in
+			(iterator, Iterator.RELATIVE idx)
+		    end
  		else if istype (arg, "TimeIterator") then
 		    (iterator, Iterator.RELATIVE 0)
 		else if istype (arg, "Wildcard") then
