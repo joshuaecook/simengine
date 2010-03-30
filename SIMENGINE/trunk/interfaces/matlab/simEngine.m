@@ -77,7 +77,7 @@ function writeUserStates (interface, options)
     if ~isempty(states)
         for modelid = 1:options.instances
             modelPath = modelidToPath(modelid-1);
-            filename = fullfile(options.outputs, modelPath, 'states');
+            filename = fullfile(options.outputs, modelPath, 'initial-states');
             fid = fopen(filename, 'w');
             if -1 == fid
                 simFailure('simEngine', ['Unable to write states file ' filename]);

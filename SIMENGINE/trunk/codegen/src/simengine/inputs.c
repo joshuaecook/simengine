@@ -165,7 +165,7 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
   unsigned int stateid;
 
   modelid_dirname(outputs_dirname, states_path, modelid + modelid_offset);
-  sprintf(states_path + strlen(states_path), "/%s", "resume_states");
+  sprintf(states_path + strlen(states_path), "/%s", "initial-states");
   states_file = fopen(states_path, "r");
   
   if(states_file){
