@@ -465,8 +465,7 @@ int main(int argc, char **argv){
     simengine_result *result = simengine_runmodel(opts.start_time,
 						  opts.stop_time,
 						  opts.num_models,
-						  opts.outputs_dirname,
-						  opts.states_filename != NULL);
+						  opts.outputs_dirname);
 
     if (SUCCESS == result->status){
       write_states_time(&opts, result);
