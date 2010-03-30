@@ -1935,7 +1935,9 @@ fun init_states shardedModel =
 				 val (reads, writes, sysreads) =
 				     ("(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ ")",
 				      "(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
-				      "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states")
+				      if reads_system class then
+					  "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states"
+				      else "NULL")
 			     in
 				 if hasInitialValueEquation (fn _ => true) class then
 				     $("if (0 != init_states_" ^ (Symbol.name top_class) ^ "(" ^ 
