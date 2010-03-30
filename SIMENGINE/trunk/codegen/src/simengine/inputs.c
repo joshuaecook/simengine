@@ -147,7 +147,7 @@ int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned 
       num_samples = (int)((t - tmp->current_time[ARRAY_IDX])/ tmp->timestep);
       // Check if samples are exhausted and read more from file
       if(num_samples + tmp->idx[ARRAY_IDX] >= SAMPLE_BUFFER_SIZE){
-	if(!read_sampled_input(outputs_dirname, inputid, modelid_offset, modelid, (num_samples + tmp->idx[ARRAY_IDX]) - SAMPLE_BUFFER_SIZE))
+	if(!read_sampled_input(tmp, outputs_dirname, inputid, modelid_offset, modelid, (num_samples + tmp->idx[ARRAY_IDX]) - SAMPLE_BUFFER_SIZE))
 	  return 0;
       }
       // Check if input data is exhausted from file
