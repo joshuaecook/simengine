@@ -20,15 +20,6 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
   // Initialize output buffer to store output data
   init_output_buffer(props->ob, modelid);
 
-  if (!resuming) {
-    // Call state initialization functions if the initial states
-    // have not already been specified.
-    init_states(props, modelid);
-    for(i=0;i<NUM_ITERATORS;i++){
-      solver_writeback(&props[i], modelid);
-    }
-  }
-
   // Run up to MAX_ITERATIONS iterations until the output buffer is full or the simulation is complete
   while (1) {
     // Find the nearest next_time and catch up

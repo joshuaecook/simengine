@@ -230,12 +230,15 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
   
   if(states_file){
     for(stateid=0;stateid<seint.num_states;stateid++){
-      if(1 != fread(model_states + TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid), sizeof(double), 1, states_file)){
+      double tmp;
+      if(1 != fread(&tmp, sizeof(double), 1, states_file)){
 	ERROR(Simatra:Simex:initialize_states, "Could not read state '%s' for model %d from '%s'.\n", seint.state_names[stateid], modelid + modelid_offset, states_path);
       }
+      // Read in model_states
+      model_states[TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid)] = tmp;
     }
     return 1;
-  } 
+  }
   return 0;
 }
 

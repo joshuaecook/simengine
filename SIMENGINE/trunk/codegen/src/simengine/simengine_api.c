@@ -81,7 +81,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   double *progress;
   int progress_fd;
 
-  int resuming;
+  int resuming = 0;
 
 # if defined TARGET_GPU
   gpu_init();
@@ -117,12 +117,31 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     // Copy inputs and state initial values to internal representation
     unsigned int modelid_offset = global_modelid_offset + models_executed;
     for(modelid=0; modelid<models_per_batch; modelid++){
-      resuming = initialize_states(model_states, outputs_dirname, modelid_offset, modelid);
+      resuming |= initialize_states(model_states, outputs_dirname, modelid_offset, modelid);
       initialize_inputs(outputs_dirname, modelid_offset, modelid, start_time);
     }
 
     // Initialize the solver properties and internal simulation memory structures
     solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset);
+
+    // If no initial states were passed in
+    if(!resuming){
+      if(seint.num_states > 0){
+	// Initialize default states in next_states
+	for(modelid=0;modelid<models_per_batch;modelid++){
+	  init_states(props, modelid);
+	}
+	// Find the beginning of the states vector in properties structure
+	unsigned int iterid;
+	for(iterid=0;iterid<seint.num_iterators;iterid++){
+	  if(props[iterid].statesize)
+	    break;
+	}
+	// Copy states from next_states to model_states
+	memcpy(props[iterid].model_states, props[iterid].next_states, seint.num_states * models_per_batch * sizeof(CDATAFORMAT));
+      }
+    }
+
     // Run the model
     seresult->status = exec_loop(props, outputs_dirname, progress + models_executed, resuming);
     seresult->status_message = (char*) simengine_errors[seresult->status];

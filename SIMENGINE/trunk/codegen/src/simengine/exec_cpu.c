@@ -11,14 +11,6 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   for(i=0;i<NUM_ITERATORS;i++){
     props[i].running[modelid] = 1;
   }
-  if (!resuming) {
-    // Call state initialization functions if the initial states
-    // have not already been specified.
-    init_states(props, modelid);
-    for(i=0;i<NUM_ITERATORS;i++){
-      solver_writeback(&props[i], modelid);
-    }
-  }
 
   // Run simulation to completion
   while(model_running(props, modelid) && inputs_available){
