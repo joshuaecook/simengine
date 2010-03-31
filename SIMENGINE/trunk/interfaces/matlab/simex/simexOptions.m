@@ -129,6 +129,7 @@ function [options, restUserOptions] = getOption(options, userOptions)
   restUserOptions = userOptions(2:end);
   
   if (~ischar(opt) && ~isempty(opt))
+      opt
       simexError('argumentError', ...
                  ['Additional options to SIMEX must be non-empty strings.']);
   end

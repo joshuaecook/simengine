@@ -91,12 +91,12 @@ setStatus(handles, 'Compiling ...');
 m = simex(get(hObject, 'String'))
 handles.m = m;
 set(handles.OutputMenu, 'Value', 1);
-set(handles.OutputMenu, 'String', m.output_names);
-set(handles.InputTable, 'RowName', m.input_names);
-data = cell(length(m.input_names),3);
-for i=1:length(m.input_names)
-    input = m.input_names{i};
-    val = m.default_inputs.(input);
+set(handles.OutputMenu, 'String', m.outputs);
+set(handles.InputTable, 'RowName', m.inputs);
+data = cell(length(m.inputs),3);
+for i=1:length(m.inputs)
+    input = m.inputs{i};
+    val = m.defaultInputs.(input);
     data{i,1} = val;
     data{i,2} = val;
     data{i,3} = val;
@@ -216,7 +216,7 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in RunButton.
+% --- Executes on button press in RunBimeutton.
 function RunButton_Callback(hObject, eventdata, handles)
 % hObject    handle to RunButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -232,7 +232,7 @@ switch targetnum
     case 1
         target = '-cpu';
     case 2
-        target = '-parallel-cpu';
+        target = '-parallelcpu';
     case 3
         target = '-gpu';
 end
@@ -248,16 +248,16 @@ end
 starttime = str2double(get(handles.StartTimeEdit, 'String'));
 stoptime = str2double(get(handles.StopTimeEdit, 'String'));
 steps = str2double(get(handles.StepsEdit, 'String'));
-inputs = handles.m.input_names;
+inputs = handles.m.inputs;
 input_data = get(handles.InputTable, 'Data');
 new_inputs = struct();
 for i=1:length(inputs)
    low = input_data{i,2};
    high = input_data{i,3};
-   new_inputs.(inputs{i}) = linspace(low, high, steps);
+   new_inputs.(inputs{i}) = num2cell(linspace(low, high, steps));
 end
 t = tic;
-o = simex(get(handles.FileEdit, 'String'), [starttime stoptime], target, precision, new_inputs);
+o = simex(get(handles.FileEdit, 'String'), [starttime stoptime], new_inputs, target, precision);
 stoptime = toc(t);
 setStatus(handles, sprintf('Finished simulation in %g seconds', stoptime));
 handles.o = o;
