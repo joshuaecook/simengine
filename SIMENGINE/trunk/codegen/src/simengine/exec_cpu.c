@@ -23,7 +23,6 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       min_time = find_min_time(props, modelid);
 
       // Advance any sampled inputs
-      int num_samples = 0;
       inputs_available = 1;
       for (i=NUM_CONSTANT_INPUTS; i<NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS; i++) {
 	sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(i)];

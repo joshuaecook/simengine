@@ -119,16 +119,10 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
       break;
 
     case SAMPLED_HOLD:
-      // Fill the buffer with the last value
-      held = (num_read > 0
-	      ? input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + num_read - 1]
-	      : input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX]]);
-       
-      for (i = num_read; i < SAMPLE_BUFFER_SIZE; i++) {
-	input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + i] = held;
+      if (0 == num_read) {
+	input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + i] = input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX] - 1];
+	input->buffered_size[ARRAY_IDX] = 1;
       }
-
-      input->buffered_size[ARRAY_IDX] = SAMPLE_BUFFER_SIZE;
       break;
 
     case SAMPLED_CYCLE:
@@ -158,45 +152,6 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
   return (input->buffered_size[ARRAY_IDX] > 0);
 }
 
-/*
-int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned int modelid_offset, unsigned int modelid) {
-  int inputid;
-  for(inputid=NUM_CONSTANT_INPUTS;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
-    sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(inputid)];
-    int num_samples = 0;
-    // If this input has an associated file
-    if(tmp->file_idx[ARRAY_IDX]){
-      // Compute integer number of samples to skip to
-      num_samples = (int)((t - tmp->current_time[ARRAY_IDX])/ tmp->timestep);
-      // Check if samples are exhausted and read more from file
-      if(num_samples + tmp->idx[ARRAY_IDX] >= SAMPLE_BUFFER_SIZE){
-	if(!read_sampled_input(tmp, outputs_dirname, inputid, modelid_offset, modelid, (num_samples + tmp->idx[ARRAY_IDX]) - SAMPLE_BUFFER_SIZE))
-	  return 0;
-      }
-      // Check if input data is exhausted from file
-      else if(num_samples + tmp->idx[ARRAY_IDX] >= tmp->buffered_size[ARRAY_IDX]){
-	// Tell the calling function that input is exhausted
-	if(tmp->eof_option == SAMPLED_HALT)
-	  return 0;
-	// Set the value returned to the last value buffered
-	if(tmp->eof_option == SAMPLED_HOLD){
-	  tmp->idx[ARRAY_IDX] = tmp->buffered_size[ARRAY_IDX] - 1;
-	}
-      }
-      // Advance index into data buffer unless no data is in the buffer or the file was exhausted
-      else{
-	tmp->idx[ARRAY_IDX] += num_samples;
-      }
-    }
-    else if(tmp->eof_option == SAMPLED_HALT) {
-      return 0;
-    }
-    tmp->current_time[ARRAY_IDX] += num_samples * tmp->timestep;
-  }
-  return 1;
-}
-*/
-
 __DEVICE__ int advance_sampled_input(sampled_input_t *input, CDATAFORMAT t, unsigned int modelid_offset, unsigned int modelid) {
   int num_samples = 0;
 
@@ -204,19 +159,17 @@ __DEVICE__ int advance_sampled_input(sampled_input_t *input, CDATAFORMAT t, unsi
   if(input->file_idx[ARRAY_IDX]) {
     // Compute integer number of samples to skip to
     num_samples = (int)((t - input->current_time[ARRAY_IDX]) / input->timestep);
-    if(num_samples + input->idx[ARRAY_IDX] >= input->buffered_size[ARRAY_IDX]) {
-      // This time would take us beyond the end of buffered data.
-      return 0;
-    }
-    else {
-      input->idx[ARRAY_IDX] += num_samples;
+    input->idx[ARRAY_IDX] += num_samples;
+
+    if (SAMPLED_HOLD == input->eof_option && input->buffered_size[ARRAY_IDX] < SAMPLE_BUFFER_SIZE && input->idx[ARRAY_IDX] >= input->buffered_size[ARRAY_IDX]) {
+      input->idx[ARRAY_IDX] = input->buffered_size[ARRAY_IDX] - 1;
     }
   }
-  else if(input->eof_option == SAMPLED_HALT) {
+  else if (input->eof_option == SAMPLED_HALT) {
     return 0;
   }
   input->current_time[ARRAY_IDX] += num_samples * input->timestep;
-  return 1;
+  return (input->idx[ARRAY_IDX] < input->buffered_size[ARRAY_IDX]);
 }
 
 int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
