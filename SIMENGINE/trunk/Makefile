@@ -424,8 +424,8 @@ MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_doub
 $(BUILD_DIR)/bin/%: interfaces/matlab/bin/%
 	$(CP) $< $@
 
-$(BUILD_DIR)/simex.m: $(addprefix interfaces/matlab/,$(SIMEX_M_FILES))
-	cat $(addprefix interfaces/matlab/,$(SIMEX_M_FILES)) > $@
+$(BUILD_DIR)/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
+	cat $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES)) > $@
 
 $(BUILD_DIR)/%.m: interfaces/matlab/%.m
 	$(CP) $< $@
@@ -476,7 +476,7 @@ expand_tgz:
 $(LOCAL_INSTALL)/compile_tests.m: interfaces/matlab/compile_tests.m
 	$(CP) $< $@
 
-$(LOCAL_INSTALL)/simex.m: $(addprefix interfaces/matlab/,$(SIMEX_M_FILES))
+$(LOCAL_INSTALL)/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
 	$(error $(SIMEX_M_FILES))
 	cat $^ > $@
 
