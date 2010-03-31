@@ -19,8 +19,11 @@
 typedef struct{
   CDATAFORMAT data[ARRAY_SIZE * SAMPLE_BUFFER_SIZE];
   CDATAFORMAT current_time[ARRAY_SIZE];
+  // index offset into the data buffer
   int idx[ARRAY_SIZE];
+  // number of valid data elements
   int buffered_size[ARRAY_SIZE];
+  // byte offset into the file which holds input data
   long file_idx[ARRAY_SIZE];
   double timestep;
   sampled_eof_option_t eof_option;
@@ -62,13 +65,16 @@ void read_constant_input(CDATAFORMAT *inputs, const char *outputs_dirname, unsig
   }
 }
 
-int read_sampled_input(sampled_input_t *input, const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid, int skipped_samples){
+__HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid){
   FILE *inputfile;
   char inputfilepath[PATH_MAX];
+  long skipped_samples;
   int num_to_read;
   int num_read;
   int i;
   double value[SAMPLE_BUFFER_SIZE];
+  CDATAFORMAT held;
+
 
   modelid_dirname(outputs_dirname, inputfilepath, modelid + modelid_offset);
   sprintf((inputfilepath + strlen(inputfilepath)), "/inputs/%s", seint.input_names[inputid]);
@@ -76,12 +82,18 @@ int read_sampled_input(sampled_input_t *input, const char *outputs_dirname, unsi
   inputfile = fopen(inputfilepath, "r");
   if(!inputfile){
     if(input->file_idx[ARRAY_IDX]){
-      ERROR(Simatra:Simex:read_sampled_input, "Input file '%s' could not be openend.\n", inputfilepath);
+      ERROR(Simatra:Simex:read_sampled_input, "Input file '%s' could not be opened.\n", inputfilepath);
     }
     else{
-      // No file to read from, use default value
+      // No file to read from
       return 1;
     }
+  }
+
+  // Compute the file offset of the sample corresponding to time t
+  skipped_samples = ((long)((t - input->current_time[ARRAY_IDX])/ input->timestep));
+  if (input->buffered_size[ARRAY_IDX] > 0) {
+    skipped_samples -= input->buffered_size[ARRAY_IDX] - input->idx[ARRAY_IDX];
   }
 
   // Read data from input file
@@ -105,12 +117,20 @@ int read_sampled_input(sampled_input_t *input, const char *outputs_dirname, unsi
     switch(input->eof_option){
     case SAMPLED_HALT:
       break;
+
     case SAMPLED_HOLD:
-      if(num_read == 0){
-	input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE] = input->data[((ARRAY_IDX + 1) * SAMPLE_BUFFER_SIZE) - 1];
-	input->buffered_size[ARRAY_IDX] = 1;
+      // Fill the buffer with the last value
+      held = (num_read > 0
+	      ? input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + num_read - 1]
+	      : input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX]]);
+       
+      for (i = num_read; i < SAMPLE_BUFFER_SIZE; i++) {
+	input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + i] = held;
       }
+
+      input->buffered_size[ARRAY_IDX] = SAMPLE_BUFFER_SIZE;
       break;
+
     case SAMPLED_CYCLE:
       // Read input file in a loop until buffer is full
       input->file_idx[ARRAY_IDX] = 0;
@@ -124,6 +144,7 @@ int read_sampled_input(sampled_input_t *input, const char *outputs_dirname, unsi
 	input->buffered_size[ARRAY_IDX] += num_read;
       }
       break;
+
     default:
       ERROR(Simatra:Simex:read_sampled_input, "Non-existent case of EOF Option.\n");
     }
@@ -132,11 +153,13 @@ int read_sampled_input(sampled_input_t *input, const char *outputs_dirname, unsi
   fclose(inputfile);
 
   input->idx[ARRAY_IDX] = 0;
+  input->current_time[ARRAY_IDX] += skipped_samples * input->timestep;
 
   return (input->buffered_size[ARRAY_IDX] > 0);
 }
 
-int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned int modelid_offset, unsigned int modelid){
+/*
+int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned int modelid_offset, unsigned int modelid) {
   int inputid;
   for(inputid=NUM_CONSTANT_INPUTS;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
     sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(inputid)];
@@ -165,12 +188,38 @@ int advance_sampled_inputs(const char *outputs_dirname, CDATAFORMAT t, unsigned 
 	tmp->idx[ARRAY_IDX] += num_samples;
       }
     }
+    else if(tmp->eof_option == SAMPLED_HALT) {
+      return 0;
+    }
     tmp->current_time[ARRAY_IDX] += num_samples * tmp->timestep;
   }
   return 1;
 }
+*/
 
-int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid){
+__DEVICE__ int advance_sampled_input(sampled_input_t *input, CDATAFORMAT t, unsigned int modelid_offset, unsigned int modelid) {
+  int num_samples = 0;
+
+  // If this input has an associated file
+  if(input->file_idx[ARRAY_IDX]) {
+    // Compute integer number of samples to skip to
+    num_samples = (int)((t - input->current_time[ARRAY_IDX]) / input->timestep);
+    if(num_samples + input->idx[ARRAY_IDX] >= input->buffered_size[ARRAY_IDX]) {
+      // This time would take us beyond the end of buffered data.
+      return 0;
+    }
+    else {
+      input->idx[ARRAY_IDX] += num_samples;
+    }
+  }
+  else if(input->eof_option == SAMPLED_HALT) {
+    return 0;
+  }
+  input->current_time[ARRAY_IDX] += num_samples * input->timestep;
+  return 1;
+}
+
+int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
   char states_path[PATH_MAX];
   FILE *states_file;
   unsigned int stateid;
@@ -218,7 +267,7 @@ void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset,
     tmp->timestep = seint.sampled_input_timesteps[SAMPLED_INPUT_ID(inputid)];
     tmp->eof_option = seint.sampled_input_eof_options[SAMPLED_INPUT_ID(inputid)];
 
-    read_sampled_input(tmp, outputs_dirname, inputid, modelid_offset, modelid, (int)((start_time/tmp->timestep) + 0.5));
+    read_sampled_input(tmp, start_time, outputs_dirname, inputid, modelid_offset, modelid);
 #ifdef TARGET_GPU
     cutilSafeCall(cudaMemcpyToSymbol(sampled_inputs, tmp, sizeof(sampled_input_t), SAMPLED_INPUT_ID(inputid) * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
 #endif
