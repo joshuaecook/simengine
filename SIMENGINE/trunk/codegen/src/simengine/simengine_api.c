@@ -130,15 +130,12 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 	// Initialize default states in next_states
 	for(modelid=0;modelid<models_per_batch;modelid++){
 	  init_states(props, modelid);
+	  // Copy states from next_states to model_states
+	  unsigned int iterid;
+	  for(iterid=0;iterid<seint.num_iterators;iterid++){
+	    solver_writeback(&props[iterid], modelid);
+	  }
 	}
-	// Find the beginning of the states vector in properties structure
-	unsigned int iterid;
-	for(iterid=0;iterid<seint.num_iterators;iterid++){
-	  if(props[iterid].statesize)
-	    break;
-	}
-	// Copy states from next_states to model_states
-	memcpy(props[iterid].model_states, props[iterid].next_states, seint.num_states * models_per_batch * sizeof(CDATAFORMAT));
       }
     }
 

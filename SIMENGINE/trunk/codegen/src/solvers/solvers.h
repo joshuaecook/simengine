@@ -99,7 +99,7 @@ __DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
   return last_iteration;
 }
 
-__DEVICE__ void solver_writeback(solver_props *props, const unsigned int modelid){
+__HOST__ __DEVICE__ void solver_writeback(solver_props *props, const unsigned int modelid){
   unsigned int i, index;
   CDATAFORMAT *algebraic_states, *algebraic_next_states;
   // Update model states to next value
