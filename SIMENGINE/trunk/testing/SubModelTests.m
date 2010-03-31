@@ -146,6 +146,8 @@ s.add(Test('FlattenSubModelInputToInitTest', @()(simex(['models_FeatureTests/' .
 
 s.add(Test('FlattenIteratorInSubModel', @()(simex(['models_FeatureTests/' ...
                     'FlattenSubModelTest1.dsl'], 10,target, '-flatten')), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
+s.add(Test('IteratorInOutputIntermediate', @()(simex(['models_FeatureTests/' ...
+                    'FlattenSubModelTest2.dsl'], 10,target, '-flatten')), '-equal', struct('y', [0:10; 0:2:20; 0:10]')));
 
 end
 
