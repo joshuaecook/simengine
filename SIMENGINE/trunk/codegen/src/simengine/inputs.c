@@ -10,9 +10,6 @@
 #define TIME_VALUE_INPUT_ID(inputid) (inputid - NUM_CONSTANT_INPUTS - NUM_SAMPLED_INPUTS)
 #define EVENT_INPUT_ID(inputid) (inputid - NUM_CONSTANT_INPUTS - NUM_SAMPLED_INPUTS - NUM_TIME_VALUE_INPUTS)
 
-// Short circuit the constant case to the 
-#define GET_INPUT(t, inputid, modelid) (IS_CONSTANT_INPUT(inputid) ? inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, inputid, modelid)] : get_input(t, inputid, modelid))
-
 // TODO : SET THIS VALUE BASED ON NUMBER OF SAMPLED INPUTS AND MEMORY AVAILABLE, SPECIFICALLY FOR GPU
 #define SAMPLE_BUFFER_SIZE 1024
 
@@ -194,6 +191,7 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
       // Read in model_states
       model_states[TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid)] = tmp;
     }
+    fclose(states_file);
     return 1;
   }
   return 0;
@@ -244,18 +242,20 @@ void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset,
 #endif // NUM_SAMPLED_INPUTS > 0
 }
 
+#if NUM_SAMPLED_INPUTS > 0
 __HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid){
   sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
 
   return (CDATAFORMAT)input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX]];
 }
+#endif
 
 __HOST__ __DEVICE__ static inline CDATAFORMAT get_input(unsigned int inputid, unsigned int modelid){
   assert(inputid < NUM_INPUTS);
 
 #if NUM_CONSTANT_INPUTS > 0
   if(IS_CONSTANT_INPUT(inputid)) {
-    return (CDATAFORMAT)constant_inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, inputid, modelid)];
+    return (CDATAFORMAT)constant_inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)];
   }
 #endif
 
