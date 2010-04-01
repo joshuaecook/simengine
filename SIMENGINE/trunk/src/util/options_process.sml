@@ -43,6 +43,11 @@ val setSetting: dynoption -> unit
 
 val logSettings: unit -> unit
 
+(* JSON options *)
+val allSettingsToJSON: unit -> JSON.json
+val settingsToJSON: string list -> JSON.json
+
+
 end
 
 structure DynamoOptions : OPTIONSPROCESS =
@@ -654,5 +659,48 @@ fun logSettings () =
 	 print("\n\n"))
     end
 
+local
+    open JSON
+    open JSONExtensions
+    val int = int o IntInf.fromInt
 
+in
+
+fun settingsListToJSON settings =
+    JSONTypedObject ("Settings", array (map settingToJSON settings))
+and settingToJSON (FLAG (id, bool')) = 
+    JSONTypedObject ("FLAG", object [("id", string id),
+				     ("bool", bool bool')])
+  | settingToJSON (SETTING (id, optval)) = 
+    JSONTypedObject ("SETTING", object [("id", string id),
+					("optval", optvalToJSON optval)])
+and optvalToJSON (INTEGER i) = int i
+  | optvalToJSON (REAL r) = real r
+  | optvalToJSON (STRING s) = string s
+  | optvalToJSON (INTEGER_VEC ivec) = array (map int ivec)
+  | optvalToJSON (REAL_VEC rvec) = array (map real rvec)
+  | optvalToJSON (STRING_VEC svec) = array (map string svec)
+
+fun allSettingsToJSON () = settingsListToJSON (!settings)
+
+end
+
+
+fun settingsToJSON settings_list = 
+    let
+	val (exists, notexists) = List.partition (fn(id)=> List.exists (fn(s)=> getSettingName s = id) (!settings)) settings_list
+	val _ = if List.length notexists > 0 then
+		    Logger.log_warning(Printer.$("Settings " ^ (GeneralUtil.strlist2str settings_list) ^ " do not exist"))
+		else
+		    ()
+	fun idToSetting id = 
+	    case (List.find (fn(s)=> case s of 
+					 FLAG (id', _) => id=id'
+				       | SETTING (id', _) => id=id') (!settings)) of
+		SOME s => s
+	      | NONE => DynException.stdException("Can't find setting " ^ id, "DynamoOptions.settingsToJSON", Logger.INTERNAL)
+		 
+    in
+	settingsListToJSON (map idToSetting exists)
+    end
 end
