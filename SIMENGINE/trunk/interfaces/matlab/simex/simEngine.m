@@ -37,6 +37,8 @@ function writeUserInputs (interface, options)
             end
             filename = fullfile(options.outputs, modelPath, 'inputs', field);
             fid = fopen(filename, 'w');
+            onCleanup(@()fid>0 && fclose(fid));
+            
             if -1 == fid
                 simFailure('simEngine', ['Unable to write inputs file ' filename]);
             end
@@ -65,7 +67,6 @@ function writeUserInputs (interface, options)
                 value = inputs(modelid).(field);
                 fwrite(fid, value, 'double');
             end
-            fclose(fid);
         end
     end
 end
@@ -79,6 +80,7 @@ function writeUserStates (interface, options)
             modelPath = modelidToPath(modelid-1);
             filename = fullfile(options.outputs, modelPath, 'initial-states');
             fid = fopen(filename, 'w');
+            onCleanup(@()fid>0 && fclose(fid));
             if -1 == fid
                 simFailure('simEngine', ['Unable to write states file ' filename]);
             end
