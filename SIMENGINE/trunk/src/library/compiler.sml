@@ -235,6 +235,28 @@ fun simfileSettings exec args =
       | [a] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname a))
       | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
 
+fun validateUpdate exec args =
+    case args
+     of [KEC.LITERAL (KEC.CONSTREAL r)] =>
+	let
+	    val result : order option= CurrentLicense.validateUpdate (Real.floor r)
+	    val version = BuildOptions.version
+	    val (order, valid) = case result of 
+				     SOME GREATER => (1.0, true)
+				   | SOME EQUAL => (0.0, true)
+				   | SOME LESS => (~1.0, true)
+				   | NONE => (0.0, false)
+	in
+	    exec (KEC.APPLY{func= KEC.SEND{object=KEC.SEND {message=Symbol.symbol "UpdateInfo",
+							    object=KEC.SYMBOL (Symbol.symbol "Licensing")},
+					   message = Symbol.symbol "new"},
+			    args= KEC.TUPLE [KEC.LITERAL (KEC.CONSTREAL order),
+					     KEC.LITERAL (KEC.CONSTBOOL valid),
+					     KEC.LITERAL (KEC.CONSTSTR version)]})
+	end
+      | [a] => raise TypeMismatch ("expected a number but received " ^ (PrettyPrint.kecexp2nickname a))
+      | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+	
 fun settingsHelp exec args =
     case args 
      of nil => KEC.LITERAL (KEC.CONSTSTR (DynamoOptions.optionsdescription "simEngine"))
@@ -254,6 +276,7 @@ val library = [{name="compile", operation=std_compile},
 	       {name="getModelImports", operation=getModelImports},
 	       {name="simfileSettings", operation=simfileSettings},
 	       {name="settingsHelp", operation=settingsHelp},
+	       {name="validateUpdate", operation=validateUpdate},
 	       {name="transexp", operation=std_transExp},
 	       {name="exp2str", operation=std_exp2str},
 	       {name="addRules", operation=std_addRules},

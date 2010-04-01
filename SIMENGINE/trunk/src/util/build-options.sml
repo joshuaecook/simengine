@@ -4,7 +4,7 @@ val allowFPBackend: bool
 val allowHWBackend: bool
 
 val build: string
-val buildDate: string
+val buildDate: int
 val buildTime: Time.time
 
 val version: string
@@ -43,7 +43,10 @@ val build =
 
 val buildDate =
     case JSON.memberValue (options, "buildDate", JSON.toString)
-     of SOME s => s | _ => invalid "buildDate"
+     of SOME s => (case Real.fromString s of
+		       SOME r => Real.floor (r/(3600.0*24.0))
+		     | _ => invalid "buildDate")
+      | _ => invalid "buildDate"
 
 val buildTime =
     case JSON.memberValue (options, "buildTime", JSON.toInt)

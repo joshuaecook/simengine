@@ -31,10 +31,20 @@ val extension = ".dso"
 val edition = ref "N/A"
 val licenseHolder = ref "N/A"
 
+fun buildDateAsDate () = 
+    let
+	val days = Int.toLarge (BuildOptions.buildDate)
+	val seconds = days * 24 * 3600
+    in
+	(Date.fromTimeUniv o Time.fromReal o Real.fromLargeInt) seconds
+    end    
+
+fun buildDate () = Date.toString (buildDateAsDate())
+
 fun startupMessage () =
     (name ^ " v" ^ version ^ ", " ^ (!edition) ^ " Edition" ^ "\n"
      ^ (!licenseHolder) ^ "\n"
-     ^ "[built: " ^ BuildOptions.buildDate ^ "]" ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
+     ^ "[built: " ^ (buildDate()) ^ "]" ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
      ^ copyright)
     
 

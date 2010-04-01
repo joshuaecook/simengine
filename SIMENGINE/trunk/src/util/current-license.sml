@@ -11,6 +11,9 @@ val isProfessional : unit -> bool
 val isDevelopment : unit -> bool
 val versionToString : unit -> string
 
+(* check if update to simEngine software is valid *)
+val validateUpdate : int -> order option
+
 end
 
 structure CurrentLicense: CURRENT_LICENSE =
@@ -99,25 +102,26 @@ fun defaultLicenseWarning message =
 
 (* look at the system clock and compare to make sure that the latest date isn't after the expiration of the trial. for a second test, make sure that the compile time is before the expiration time *)
 fun isExpired () =
-    let
-	(* figure out what to compare against - the latest of the current date and the compile date *)
-	val now = Date.fromTimeLocal (Time.now())
-	val compile_date = case Date.fromString (BuildOptions.buildDate) of
-			       SOME date => date
-			     | NONE => now (* otherwise, if we can't read it, no worries, just use the now time *)
+    if isTrial() then (* only the trial can be expired *)
+	let
+	    (* figure out what to compare against - the latest of the current date and the compile date *)
+	    val now = Date.fromTimeLocal (Time.now())
+	    val compile_date = Globals.buildDateAsDate() 
 
-	val maximum_date = case Date.compare(now, compile_date) of
-			       GREATER => now
-			     | _ => compile_date
+	    val maximum_date = case Date.compare(now, compile_date) of
+				   GREATER => now
+				 | _ => compile_date
 
-	val latest_date = expirationDate ()
-    in
-	case latest_date of
-	    SOME date => (case Date.compare (maximum_date, date) of
-			      GREATER => true
-			    | _ => false)
-	  | NONE => false
-    end
+	    val latest_date = expirationDate ()
+	in
+	    case latest_date of
+		SOME date => (case Date.compare (maximum_date, date) of
+				  GREATER => true
+				| _ => false)
+	      | NONE => false
+	end
+    else
+	false
 
 fun verifyExpired () =
     if isExpired () then
@@ -207,5 +211,36 @@ fun findAndVerify () =
     in
 	()
     end
+
+(* validateUpdate is passed release info and the result is that the update is a GREATER, EQUAL, or LESS order. If the result is NONE, then the update is not valid. *)
+fun validateUpdate days =
+    let
+	val cur_date = BuildOptions.buildDate
+	val order = if days > cur_date then GREATER
+		    else if days < cur_date then LESS
+		    else EQUAL
+
+	val valid = if isTrial() orelse isBasic() then
+			true
+		    else
+			let
+			    val days = Int.toLarge days
+			    val seconds : IntInf.int = days * 24 * 3600
+			    val updateDate = (Date.fromTimeUniv o Time.fromReal o Real.fromLargeInt) seconds
+			in
+			    case expirationDate () of
+				SOME expirationDate => 
+				(case Date.compare (updateDate, expirationDate) of
+				     GREATER => false (* don't allow updates past the expiration date *)
+				   | _ => true)
+			      | NONE => true (* if it doesn't expire, then the update is valid *)
+			end
+    in
+	if valid then
+	    SOME order
+	else
+	    NONE
+    end
+				    
 
 end

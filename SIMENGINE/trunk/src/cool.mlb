@@ -204,6 +204,7 @@ library/regexp.sml
 library/simlib.sml
 library/json.sml
 library/time.sml
+library/licensing.sml
 library/library.sml
 
 shell/desugar.sml

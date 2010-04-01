@@ -667,8 +667,34 @@ end
   // is set, then the system will return the time spent in that function
   function profileTime(string_id, fcn, args) = LF profileTime (string_id, fcn, args)
 //end
-/*
 namespace Licensing
+
+class UpdateInfo
+
+  var order
+  var valid
+  var version
+
+  constructor (order, valid, version)
+    self.order = order
+    self.valid = valid
+    self.version = version   
+  end
+
+  function toString() = "UpdateInfo:" + order + ":" + valid + ":" + version
+
+end // end class UpdateInfo
+
+// validateUpdate - will check if the date is a valid date
+function validateUpdate(date)
+  var update_info = LF validateUpdate(date)
+  var product = LF licenseProductType()
+  println(update_info.toString() + ":" + product)
+end
+
+end
+
+/*
   function loadLicense () 
     //logic to pull in license goes here
     var license = ""
@@ -688,7 +714,7 @@ namespace Licensing
 
 end
 
-/*    function isFunctionidVersion (major, minor) = 
+    function isFunctionidVersion (major, minor) = 
 
     function isExpired () = LF
     function isTrial () = 

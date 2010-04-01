@@ -16,7 +16,8 @@ MAJOR_VERSION = 1
 MINOR_VERSION = 0
 VERSION_REVISION = alpha
 VERSION_NUMBER = $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
-BUILD_DATE := $(shell date +'%a %b %d %H:%M:%S %Y')
+#BUILD_DATE := $(shell date +'%a %b %d %H:%M:%S %Y')
+BUILD_DATE := $(shell date +'%s')
 BUILD_TIME := $(shell date +%s)
 
 DESTDIR = 
@@ -416,7 +417,7 @@ debug-files: $(DEBUG_FILES)
 SIMEX_M_FILES = $(addsuffix .m,simex simError simFailure simexError simEngineError simexOptions simInterface simCompile launchBackground statusBar simEngine)
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
-MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui))
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui simCheckVersion))
 
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/simex.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
