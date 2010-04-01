@@ -26,7 +26,11 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
     min_time = find_min_time(props, modelid);
 
     // Advance any sampled inputs
-    //inputs_available = advance_sampled_inputs(outputs_dirname, min_time, props->modelid_offset, modelid);
+    inputs_available = 1;
+    for (i=NUM_CONSTANT_INPUTS; i<NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS; i++) {
+      sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(i)];
+      inputs_available &= advance_sampled_input(input, min_time, props->modelid_offset, modelid);
+    }
 
     // Buffer any available outputs
     for(i=0;i<NUM_ITERATORS;i++){

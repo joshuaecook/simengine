@@ -29,8 +29,12 @@ typedef struct{
   sampled_eof_option_t eof_option;
 }sampled_input_t;
 
+#if NUM_CONSTANT_INPUTS > 0
 __DEVICE__ CDATAFORMAT constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
+#endif
+#if NUM_SAMPLED_INPUTS > 0
 __DEVICE__ sampled_input_t sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
+#endif
 
 #define BYTE(val,n) ((val>>(n<<3))&0xff)
 
@@ -86,7 +90,7 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
     }
     else{
       // No file to read from
-      return 1;
+      return 0;
     }
   }
 
@@ -120,7 +124,7 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
 
     case SAMPLED_HOLD:
       if (0 == num_read) {
-	input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + i] = input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX] - 1];
+	input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE] = input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX] - 1];
 	input->buffered_size[ARRAY_IDX] = 1;
       }
       break;
@@ -196,86 +200,87 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
 }
 
 void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
-  CDATAFORMAT tmp_constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
   unsigned int inputid;
 
+#if NUM_CONSTANT_INPUTS > 0
   // Initialize constant inputs
+  CDATAFORMAT tmp_constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
+#ifdef TARGET_GPU
+  CDATAFORMAT *g_constant_inputs;
+  cutilSafeCall(cudaGetSymbolAddress((void **))&g_constant_inputs, constant_inputs);
+#endif
   for(inputid=0;inputid<NUM_CONSTANT_INPUTS;inputid++){
     read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, modelid_offset, modelid);
   }
 
 #ifdef TARGET_GPU
-  cutilSafeCall(cudaMemcpyToSymbol(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), 0, cudaMemcpyHostToDevice));
+  cutilSafeCall(cudaMemcpy(g_constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 #else
   memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
 #endif
+#endif // NUM_CONSTANT_INPUTS > 0
 
+#if NUM_SAMPLED_INPUTS > 0
+  sampled_input_t tmp_sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
   for(;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
-#ifdef TARGET_GPU
-    sampled_input_t stmp;
-    sampled_input_t tmp = &stmp;
-#else
-    sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
-#endif
+    sampled_input_t *tmp = &tmp_sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
+
     tmp->idx[ARRAY_IDX] = 0;
+    tmp->buffered_size[ARRAY_IDX] = 0;
     tmp->file_idx[ARRAY_IDX] = 0;
     tmp->current_time[ARRAY_IDX] = start_time;
     tmp->timestep = seint.sampled_input_timesteps[SAMPLED_INPUT_ID(inputid)];
     tmp->eof_option = seint.sampled_input_eof_options[SAMPLED_INPUT_ID(inputid)];
 
     read_sampled_input(tmp, start_time, outputs_dirname, inputid, modelid_offset, modelid);
-#ifdef TARGET_GPU
-    cutilSafeCall(cudaMemcpyToSymbol(sampled_inputs, tmp, sizeof(sampled_input_t), SAMPLED_INPUT_ID(inputid) * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
-#endif
   }
+#ifdef TARGET_GPU
+  sampled_input_t *g_sampled_inputs;
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_sampled_inputs, sampled_inputs));
+  cutilSafeCall(cudaMemcpy(g_sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
+#else
+  memcpy(sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t));
+#endif
+#endif // NUM_SAMPLED_INPUTS > 0
 }
 
 __HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid){
-#ifdef TARGET_GPU
-  // No sampled inputs on GPU
-  return NAN;
-#else
+  sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
 
-  sampled_input_t *tmp = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
-
-  // Check whether user provided an input (file_idx != 0)
-  if(tmp->file_idx[ARRAY_IDX]) {
-    return (CDATAFORMAT)tmp->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + tmp->idx[ARRAY_IDX]];
-  }
-  else {
-    // All inputs have default values 
-    if(__finite(seint.default_inputs[inputid])) {
-      return (CDATAFORMAT)seint.default_inputs[inputid];
-    }
-    else { // (may be NAN)
-      ERROR(Simatra:Simex:get_sampled_input, "No value provided for input '%s'.\n", seint.input_names[inputid]);
-    }
-  }
-#endif
+  return (CDATAFORMAT)input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX]];
 }
 
 __HOST__ __DEVICE__ static inline CDATAFORMAT get_input(unsigned int inputid, unsigned int modelid){
   assert(inputid < NUM_INPUTS);
 
+#if NUM_CONSTANT_INPUTS > 0
   if(IS_CONSTANT_INPUT(inputid)) {
     return (CDATAFORMAT)constant_inputs[TARGET_IDX(NUM_INPUTS, PARALLEL_MODELS, inputid, modelid)];
   }
+#endif
 
+#if NUM_SAMPLED_INPUTS > 0
   if(IS_SAMPLED_INPUT(inputid)) {
     return get_sampled_input(inputid, modelid);
   }
+#endif
 
 #ifdef TARGET_GPU
   // No error reporting cabaility on the GPU
   return NAN;
 #else
+
+#if NUM_TIME_VALUE_INPUTS > 0
   if(IS_TIME_VALUE_INPUT(inputid)) {
     ERROR(Simatra:Simex:get_input, "Time/value pair inputs not yet implemented.\n");
   }
+#endif
 
+#if NUM_EVENT_INPUTS > 0
   if(IS_EVENT_INPUT(inputid)) {
     ERROR(Simatra:Simex:get_input, "Event inputs not yet implemented.\n");
   }
+#endif
 
   ERROR(Simatra:Simex:get_input, "No such input id %d.\n", inputid);
 #endif
