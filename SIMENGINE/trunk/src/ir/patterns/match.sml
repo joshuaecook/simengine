@@ -243,9 +243,9 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
     let
 	val assigned_patterns = (ExpEquality.findMatches (find, exp))
 
-	val _ = print ("  # matches = " ^ (Int.toString (length assigned_patterns)) ^ "\n")
+	(*val _ = print ("  # matches = " ^ (Int.toString (length assigned_patterns)) ^ "\n")
 
-	val _ = print ("Assigned patterns: \n")
+	val _ = print ("Assigned patterns: \n")*)
 
 	val run_test = case test of SOME v => true | NONE => false
 
@@ -281,7 +281,7 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
 		   else
 		       (head exp) (map (fn(arg)=> applyRewriteExp rewrite arg) (level exp))
 
-	val _ = print ("new exp = " ^ (e2s (Normalize.normalize exp')) ^ "\n")
+	(*val _ = print ("new exp = " ^ (e2s (Normalize.normalize exp')) ^ "\n")*)
 		       
     in
 	exp'

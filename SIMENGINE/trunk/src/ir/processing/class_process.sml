@@ -70,6 +70,7 @@ sig
 
     (* Functions to modify class properties, usually recursively through the expressions *)
     val applyRewritesToClass : Rewrite.rewrite list -> DOF.class -> unit (* generic rewriting helper *)
+    val applyRewritesToClassInternals : Rewrite.rewrite list -> DOF.class -> unit (* generic rewriting helper, ignore the input/output interface terms *)
     val duplicateClass : DOF.class -> Symbol.symbol -> DOF.class (* makes a duplicate class with the new supplied name *)
     val updateRealClassName : DOF.class -> Symbol.symbol -> DOF.class 
     val updatePreShardName : DOF.classproperties -> Symbol.symbol -> DOF.classproperties
@@ -120,12 +121,27 @@ fun rewriteClass rewriter class =
 	outputs := outputs'
     end
 
-fun applyRewritesToClass rewrites (class:DOF.class) =
-    let
-	val rewriter = Match.applyRewritesExp rewrites
+(* rewriteClassInternals: only rewrite what's inside a class, don't change the interface *)
+fun rewriteClassInternals rewriter class =
+    let val {inputs as ref inputs', exps as ref exps', outputs as ref outputs', ...} : DOF.class = class
+	
+	open DOF
+
+	val inputs' = map (Input.rewrite rewriter) inputs'
+	val outputs' = map (Output.rewrite rewriter) outputs'
+				   
+
+	val exps' = map rewriter exps'
     in
-	rewriteClass rewriter class
+	inputs := inputs' before
+	exps := exps' before
+	outputs := outputs'
     end
+
+fun applyRewritesToClass rewrites (class:DOF.class) =
+    rewriteClass (Match.applyRewritesExp rewrites) class
+fun applyRewritesToClassInternals rewrites (class:DOF.class) =
+    rewriteClassInternals (Match.applyRewritesExp rewrites) class
 
 
 fun duplicateClass (class: DOF.class) new_name =
@@ -285,8 +301,10 @@ fun flattenExpressionThroughInstances class exp =
 	(*val _ = Util.log (" - Symbols: " ^ (Util.list2str Symbol.name symbols))*)
 	val equations = map (flattenEquationThroughInstances class) symbols
 	(*val _ = Util.log (" - Equations: " ^ (Util.list2str e2s equations))*)
-	val rules = map ExpProcess.equation2rewrite equations
-	val exp' = Match.applyRewritesExp rules exp
+	val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
+	val rules = map ExpProcess.equation2rewrite other_equs
+	val intermediate_rules = map ExpProcess.intermediateEquation2rewrite intermediate_equs
+	val exp' = Match.applyRewritesExp (rules @ intermediate_rules) exp
 	(*val _ = Util.log (" - Transform '"^(e2s exp)^"' to '"^(e2s exp')^"'")*)
     in
 	exp'
@@ -446,9 +464,11 @@ fun flattenExp (class:DOF.class) exp =
     let
 	val symbols = ExpProcess.exp2symbols exp
 	val equations = map (flattenEq class) symbols
-	val rules = map ExpProcess.equation2rewrite equations
+	val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
+	val rules = map ExpProcess.equation2rewrite other_equs
+	val intermediate_rules = map ExpProcess.intermediateEquation2rewrite intermediate_equs
     in
-	Match.applyRewritesExp rules exp
+	Match.applyRewritesExp (rules @ intermediate_rules) exp
     end
     handle e => DynException.checkpoint "ClassProcess.flattenExp" e
 
@@ -2008,7 +2028,7 @@ and inlineIntermediates class =
 
 	val _ = exps := exps'
 
-        val rewrites = map ExpProcess.equation2rewrite intermediateEquations
+        val rewrites = map ExpProcess.intermediateEquation2rewrite intermediateEquations
 
 	(* First inlines intermediates within the right-hand expression of the intermediates themselves. *)
 	val intermediateEquations' = 
@@ -2021,9 +2041,9 @@ and inlineIntermediates class =
                  end) intermediateEquations
 
 	(* Then recomputes the rules before applying them to the remainder of the class. *)
-	val rewrites = map ExpProcess.equation2rewrite intermediateEquations'
+	val rewrites = map ExpProcess.intermediateEquation2rewrite intermediateEquations'
 
-	val _ = rewriteClass (Match.repeatApplyRewritesExp rewrites) class
+	val _ = rewriteClassInternals (Match.repeatApplyRewritesExp rewrites) class
     in
         class
     end

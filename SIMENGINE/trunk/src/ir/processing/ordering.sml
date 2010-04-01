@@ -99,7 +99,7 @@ fun out2sym output =
     in
 	case ExpProcess.exp2symbols (Exp.TERM (name)) of
 	    [sym] => sym
-	  | _ => DynException.stdException("Class has an output that's name is not a single symbol", 
+	  | _ => DynException.stdException(("Class has an output that has a name which is not a single symbol: " ^ (DOFPrinter.outputToStr output)), 
 					   "Ordering.out2sym", 
 					   Logger.INTERNAL)
     end
@@ -464,7 +464,7 @@ fun orderModel (model:DOF.model)=
 			     val namesym = 
 				 case ExpProcess.exp2symbols (Exp.TERM (name)) of
 				     [sym] => sym
-				   | _ => DynException.stdException("Class " ^ (Symbol.name (#name class)) ^ " has an output that's name is not a single symbol", 
+				   | _ => DynException.stdException("Class " ^ (Symbol.name (#name class)) ^ " has an output whos name is not a single symbol: " ^ (DOFPrinter.outputToStr output), 
 								    "Ordering.orderModel.addClassToClassMap.addIOMapEntry", 
 								    Logger.INTERNAL)
 

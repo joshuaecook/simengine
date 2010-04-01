@@ -2,6 +2,9 @@ signature DOFPRINTER =
 sig
     val printModel : DOF.model -> unit
     val printClass : DOF.class -> unit
+
+    (* additional output code*)
+    val outputToStr : DOF.Output.output -> string
 end
 structure DOFPrinter : DOFPRINTER =
 struct 
@@ -101,14 +104,15 @@ fun printClass (class as {name, properties={sourcepos, basename, preshardname, c
 		    print(prefix ^ (e2s e) ^ "\n")
 	    end
 	 ) (!exps);
-     print ("  Outputs: " ^ 
-	    (String.concatWith ", " (map (fn output => (e2s (Exp.TERM (DOF.Output.name output))) ^
-						       " = " ^ (contents2str (DOF.Output.contents output)) ^ 
-						       " when " ^ (e2s (DOF.Output.condition output)))
+     print ("  Outputs:\n" ^ 
+	    (String.concatWith "\n" (map (fn(out) => "    " ^ (outputToStr out))
 					 (!outputs))) ^ "\n");
      print ("  Iterators: " ^ (String.concatWith ", " (map (fn({name,low,step,high})=>(Symbol.name name) ^ "=" ^ (Real.toString low) ^ ":" ^ (Real.toString step) ^ ":" ^ (Real.toString high)) iterators)) ^ "\n");
      print ("  Symbols: {"^(String.concatWith ", " (SymbolSet.toStrList (ClassProcess.findSymbols class)))^"}\n"))
     
+and outputToStr output = e2s (Exp.TERM (DOF.Output.name output)) ^
+			 " = " ^ (contents2str (DOF.Output.contents output)) ^ 
+			 " when " ^ (e2s (DOF.Output.condition output))    
 
 
 fun printModel (model: DOF.model) =

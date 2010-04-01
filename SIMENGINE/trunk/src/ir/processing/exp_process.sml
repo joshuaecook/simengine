@@ -68,6 +68,7 @@ val iterators_of_expression : Exp.exp -> SymbolSet.set
 (* Rewriter related functions *)
 (* Constructs a rule that will match the lhs of an equation and replace it with the rhs. *)
 val equation2rewrite : Exp.exp -> Rewrite.rewrite
+val intermediateEquation2rewrite : Exp.exp -> Rewrite.rewrite
 
 val simplify: Exp.exp -> Exp.exp
 val collect : Exp.exp * Exp.exp -> Exp.exp
@@ -169,7 +170,7 @@ fun uniq(sym) =
 
 
 fun exp2term (Exp.TERM t) = t
-  | exp2term _ = Exp.NAN
+  | exp2term exp = Exp.NAN before (Logger.log_warning (Printer.$ ("Can not convert expression '"^(e2s exp)^"' to a term, replacing with NaN")))
 fun term2exp t = Exp.TERM t
 
 fun renameSym (orig_sym, new_sym) exp =
@@ -721,6 +722,30 @@ fun equation2rewrite exp =
 	DynException.stdException(("Can't write a rewrite around an expression '"^(e2s exp)^"' that is not already an equation"),
 				  "ExpProcess.equation2rewrite",
 				  Logger.INTERNAL)
+
+fun intermediateEquation2rewrite exp = 
+    if isEquation exp then
+	let
+	    val lhs = lhs exp
+
+	    (* for an intermediate equation, just substitute by ignoring properties - now Vm[] will match Vm[t_imp], for example *)
+	    (* if we allow spatial iterators, we're going to need to be more strict about this check, for example only substituting if the spatial indices are the same *)
+	    (* if and when we all that, we'll have to refactor a bunch of this type of code that is used in unifying and elsewhere that verifies equivalency. *)
+	    val find = case lhs of
+			   Exp.TERM (Exp.SYMBOL (sym, props)) => Match.asym sym
+			 | _ => lhs
+
+	    val rhs = rhs exp
+	in
+	    {find=find,
+	     test=NONE,
+	     replace=Rewrite.RULE rhs}
+	end
+    else
+	DynException.stdException(("Can't write a rewrite around an expression '"^(e2s exp)^"' that is not already an equation"),
+				  "ExpProcess.intermediateEquation2rewrite",
+				  Logger.INTERNAL)
+
 
 fun exp2size iterator_list exp : int = 
     let
