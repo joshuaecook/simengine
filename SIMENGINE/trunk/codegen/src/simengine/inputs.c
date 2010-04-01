@@ -202,16 +202,17 @@ void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset,
 
 #if NUM_CONSTANT_INPUTS > 0
   // Initialize constant inputs
-  CDATAFORMAT tmp_constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
-#ifdef TARGET_GPU
-  CDATAFORMAT *g_constant_inputs;
-  cutilSafeCall(cudaGetSymbolAddress((void **))&g_constant_inputs, constant_inputs);
-#endif
+  // FIXME: Added static to make sure that the buffer accumulates all initialization across multiple calls to initialize inputs for
+  // each model.  This initialization needs to be refactored to clean it up!
+  static CDATAFORMAT tmp_constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
+
   for(inputid=0;inputid<NUM_CONSTANT_INPUTS;inputid++){
     read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, modelid_offset, modelid);
   }
 
 #ifdef TARGET_GPU
+  CDATAFORMAT *g_constant_inputs;
+  cutilSafeCall(cudaGetSymbolAddress((void **))&g_constant_inputs, constant_inputs);
   cutilSafeCall(cudaMemcpy(g_constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 #else
   memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
