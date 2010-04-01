@@ -43,7 +43,7 @@ void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned 
 void open_progress_file(const char *outputs_dirname, double **progress, int *progress_fd, unsigned int num_models){
   char progress_filename[PATH_MAX];
   double tmp = 0.0;
-  int i;
+  unsigned int i;
 
   sprintf(progress_filename, "%s/progress", outputs_dirname);
   *progress_fd = open(progress_filename, O_CREAT|O_RDWR, S_IRWXU);
@@ -72,8 +72,6 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   CDATAFORMAT model_states[PARALLEL_MODELS * NUM_STATES];
   unsigned int stateid;
   unsigned int modelid;
-  unsigned int inputid;
-  unsigned int outputid;
 
   unsigned int models_executed;
   unsigned int models_per_batch;
@@ -395,7 +393,6 @@ void make_model_directories(simengine_opts *opts){
 void write_states_time(simengine_opts *opts, simengine_result *result){
   // Make sure a directory for the model exists
   char model_dirname[PATH_MAX];
-  struct stat model_dir_exist;
   unsigned int modelid, stateid;
 
   for(modelid=0;modelid<opts->num_models;modelid++){

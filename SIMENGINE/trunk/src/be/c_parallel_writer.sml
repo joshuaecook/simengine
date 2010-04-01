@@ -997,8 +997,7 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 	    end
 
     in [$("__HOST__ __DEVICE__ int in_process(solver_props *props, unsigned int modelid) {"),
-	SUB ($("unsigned int i;") :: 
-	     $("switch (props->iterator) {") ::
+	SUB ($("switch (props->iterator) {") ::
 	     List.concat (map call_update inprocessIterators) @
 	     [$("default: return 1;"),
 	      $("}")]),
@@ -1535,7 +1534,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    val calling_name = "flow_" ^ (Symbol.name classname)
 
 		    val inpvar = if List.null inpargs then "NULL" else Unique.unique "inputdata"
-		    val outvar = Unique.unique "outputdata"
+		    val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
 				 
 
 		    val inps = 
@@ -1543,7 +1542,9 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			else [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];")]
 
 		    val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";")) (Util.addCount inpargs)
-		    val outs_decl = "CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];"
+		    val outs_decl = 
+			if List.null outargs then []
+			else [$("CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];")]
 
 		    fun declare_output ((sym,_),_) = "CDATAFORMAT "^(Symbol.name sym)^";"
 
@@ -1574,8 +1575,8 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			 (if reads_system instclass then
 			      sysstates_init 
 			  else [] ) @
-			 [$(outs_decl),
-			  $(calling_name ^ "("^iter_name'^", "^
+			 outs_decl @
+			 [$(calling_name ^ "("^iter_name'^", "^
 			    statereads ^ statewrites ^ systemstatereads ^ 
 			    inpvar^", "^outvar^", first_iteration, modelid);")
 			 ] @

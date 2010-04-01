@@ -24,6 +24,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 
       // Advance any sampled inputs
       inputs_available = 1;
+#if NUM_SAMPLED_INPUTS > 0
       for (i=NUM_CONSTANT_INPUTS; i<NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS; i++) {
 	sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(i)];
 	if (!advance_sampled_input(input, min_time, props->modelid_offset, modelid)) {
@@ -31,6 +32,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	  inputs_available &= read_sampled_input(input, min_time, outputs_dirname, i, props->modelid_offset, modelid);
 	}
       }
+#endif
 
       // Buffer any available outputs
       for(i=0;i<NUM_ITERATORS;i++){
@@ -81,7 +83,9 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	  model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
 	  in_process(&props[i], modelid);
 	  
-	  // Updates and postprocess should not write to the output data structure (right?)
+	  // Updates and postprocess should not write to the output data structure
+	  // the output data structure holds outputs from the previous iteration and updates/postprocess set values
+	  // that will be written to output data by the solver flow of the next iteration
 	  /* update(&props[i], modelid); */
 	  /* post_process(&props[i], modelid); */
 

@@ -79,7 +79,7 @@ typedef struct{
 #ifdef TARGET_GPU
   int gpuid;
 #endif
-  int num_models;
+  unsigned int num_models;
   char *outputs_dirname;
 } simengine_opts;
 
