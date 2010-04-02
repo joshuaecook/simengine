@@ -56,8 +56,18 @@ end
 % retrieveLatestVersion - determine online what the latest version is
 function versionInfo = retrieveLatestVersion(quiet)
 
-site = 'http://www.simatratechnologies.com';
-url = [site '/images/simEngine/current_version.txt'];
+
+url_from_simEngine = execSimEngine('settings.installation.updateURL.getValue()', quiet);
+version_filename = 'current_version.txt';
+if url_from_simEngine
+    if 10 == double(url_from_simEngine(end))
+        url_from_simEngine = url_from_simEngine(1:(end-1));
+    end
+    url = [url_from_simEngine '/' version_filename];
+else
+    site = 'http://www.simatratechnologies.com';
+    url = [site '/images/simEngine/' version_filename];
+end    
 
 % this is the current location for the current_version.txt file.
 % It's a simple ':' delimited file that includes the major version,
@@ -66,7 +76,7 @@ url = [site '/images/simEngine/current_version.txt'];
 
 if 0 == status
   if not(quiet)
-    error('Simatra:simCheckVersion', ['Can''t access the latest version online at ' site '.  Please check your internet connection.']);
+    error('Simatra:simCheckVersion', ['Can''t access the latest version online at ' url '.  Please check your internet connection.']);
   end
   
   % Can't read the latest version
@@ -117,6 +127,42 @@ fprintf(fid, '\n');
 
 % Close the file descriptor before returning
 fclose(fid);
+
+end
+
+% Run simEngine command and return result
+function result = execSimEngine(cmd, quiet)
+
+[pathstr, name, ext] = fileparts(which('simex'));
+simEngine = fullfile(pathstr, 'bin', 'simEngine');
+print_cmd = ['println(' cmd ')'];
+echo_cmd = ['echo "' print_cmd '"'];
+arguments = [' -batch - -startupmessage=false'];
+
+full_cmd = [echo_cmd ' | ' simEngine arguments];
+
+[status, result] = system(full_cmd);
+
+% chomp the trailing new line
+if 10 == double(result(end))
+    result = result(1:(end-1));
+end
+
+% % DEBUG INFO
+%if not(quiet)
+%    disp(['Default download location: ' result]);
+%end
+%
+
+if status ~= 0
+    if not(quiet)
+        disp(['Command: ' full_cmd]);
+        disp(['Status: ' num2str(status)]);
+        disp(['Result: ' result]);
+        warning('Simatra:simCheckVersion', ['simEngine did not execute properly']);
+    end
+    result = false;
+end
 
 end
 

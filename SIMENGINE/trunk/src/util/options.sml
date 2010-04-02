@@ -254,7 +254,12 @@ val argument_groups =
 		long =NONE,
 		xmltag="updateBuildDate",
 		dyntype=INTEGER_T,
-		description=["The build date in number of days since epoch of latest available release"]}]},
+		description=["The build date in number of days since epoch of latest available release"]},
+	       {short=NONE,
+		long =NONE,
+		xmltag="updateURL",
+		dyntype=STRING_T,
+		description=["The URL where simEngine updates are located"]}]},
 
      {group="Simulation Settings",
       tag="simulation",
