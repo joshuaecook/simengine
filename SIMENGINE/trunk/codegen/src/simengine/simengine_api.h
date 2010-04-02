@@ -94,6 +94,7 @@ typedef enum {
 #endif
   INSTANCES,
   INSTANCE_OFFSET,
+  INPUTS,
   OUTPUT_DIR,
   BINARY,
   INTERFACE,

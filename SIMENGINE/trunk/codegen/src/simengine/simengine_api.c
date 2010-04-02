@@ -12,6 +12,7 @@ static const struct option long_options[] = {
 #endif
   {"instances", required_argument, 0, INSTANCES},
   {"instance_offset", required_argument, 0, INSTANCE_OFFSET},
+  {"inputs", required_argument, 0, INPUTS},
   {"outputdir", required_argument, 0, OUTPUT_DIR},
   {"binary", no_argument, 0, BINARY},
   {"interface", no_argument, 0, INTERFACE},
@@ -225,6 +226,45 @@ void print_interface(){
   printf("\n\n");
 }
 
+void check_inputs(const char *inputs_arg){
+  int numi = 1;
+  int leni = strlen(inputs_arg);
+  int i,j;
+  char *inputs;
+  char *inp;
+
+  if(leni == 0){
+    ERROR(Simatra:Simex:check_inputs, "No value passed to --inputs.\n");
+  }
+
+  inputs = (char*)malloc(leni+1);
+  strcpy(inputs,inputs_arg);
+
+  // Count inputs
+  for(i=0;i<leni;i++){
+    if(inputs[i] == ':'){
+      numi++;
+      inputs[i] = 0;
+    }
+  }
+
+  // Make sure that the inputs all match valid input names
+  inp = inputs;
+  for(i=0;i<numi;i++){
+    for(j=0;j<seint.num_inputs;j++){
+      if(0 == strcmp(inp, seint.input_names[j])){
+	break;
+      }
+    }
+    if(j == seint.num_inputs){
+      ERROR(Simatra:Simex:check_inputs,"Model %s has no input with name '%s'.\n", seint.name, inp);
+    }
+    inp += strlen(inp) + 1;
+  }
+
+  free(inputs);
+}
+
 // Parse the command line arguments into the options that are accepted by simex
 int parse_args(int argc, char **argv, simengine_opts *opts){
   int arg;
@@ -295,6 +335,9 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       }
       global_modelid_offset = atoi(optarg);
       break;
+    case INPUTS:
+      check_inputs(optarg);
+      break;
     case OUTPUT_DIR:
       if(opts->outputs_dirname){
 	ERROR(Simatra:Simex:parse_args, "Only one output file can be specified. '%s' OR '%s'\n", 
@@ -320,7 +363,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.\n", optarg);
 	}
 	fprintf(json_file, "%s", json_interface);
-	exit(0);
+	fclose(json_file);
       }
       break;
       // Stop execution if an invalid command line option is found.
@@ -345,6 +388,12 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
   if(opts->stop_time < opts->start_time){
     ERROR(Simatra:Simex:parse_args, "stop time (%f) must be greater than start time (%f)\n",
 	  opts->stop_time, opts->start_time);
+  }
+
+  // Quit if we don't have anything to do
+  // this will be the case when the user only wants the interface
+  if(opts->stop_time == opts->start_time){
+    exit(0);
   }
 
   if(!opts->num_models){

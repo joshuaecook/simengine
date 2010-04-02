@@ -80,15 +80,13 @@ function [varargout] = simex(dsl, varargin)
     options = simexOptions(dsl, varargin{:});
     makeOutputDirectory (options);
     onCleanup(@()(cleanUp(options)));
-    interface = simInterface (options);
-    
-    if 1 == nargin || ischar(varargin{1})
-        % No time given, just return the interface
-        varargout = {interface};
+
+    [output y1 t1 interface] = simEngine(options);
+
+    if length(t1) > 0
+      varargout = {output, y1, t1};
     else
-        % Execute the simulation
-        varargout = cell(1,3);
-        [varargout{:}] = simEngine(interface, options);
+      varargout = {interface};
     end
 end
 

@@ -414,7 +414,7 @@ debug-files: $(DEBUG_FILES)
 # ==============================================================================================
 
 
-SIMEX_M_FILES = $(addsuffix .m,simex simError simFailure simexError simEngineError simexOptions simInterface simCompile launchBackground statusBar simEngine)
+SIMEX_M_FILES = $(addsuffix .m,simex simError simFailure simexError simEngineError simexOptions simCompile launchBackground statusBar simEngine)
 
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui simCheckVersion))

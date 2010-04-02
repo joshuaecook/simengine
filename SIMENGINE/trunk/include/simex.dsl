@@ -287,7 +287,6 @@ import "command_line.dsl"
 
   var stringOptionNamesAlways = ["simex",
 				 "inputs",
-				 "states",
                                  "outputdir",
                                  "json_interface",
 				 "target",
@@ -303,7 +302,7 @@ import "command_line.dsl"
 					outputdir = settings.simulation.outputdir.getValue()}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
-  var simulationSettingNames = ["start", "stop", "instances", "inputs", "states", "outputdir", "binary", "seed", "gpuid"]
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid"]
   function defaultSimulationSettings() = {start = 0,
 					  instances = 1,
 					  outputdir = settings.compiler.outputdir.getValue()}
@@ -474,6 +473,9 @@ import "command_line.dsl"
     end
 
     function createSimulationTable (tableDest)	
+        if objectContains(settings.simulation, "inputs") then
+	    tableDest.add("inputs", join(":", settings.simulation.inputs.getValue()))
+        end
 	if objectContains(settings.simulation, "start") then
 	    tableDest.add("start", settings.simulation.start.getValue())
 	end	
@@ -481,12 +483,6 @@ import "command_line.dsl"
 	    tableDest.add("stop", settings.simulation.stop.getValue())
 	end	
 	tableDest.add("instances", settings.simulation.instances.getValue())
-	if objectContains(settings.simulation, "inputfile") then
-	    tableDest.add("inputs", settings.simulation.inputfile.getValue())
-	end
-	if objectContains(settings.simulation, "statefile") then
-	    tableDest.add("states", settings.simulation.statefile.getValue())
-	end
 	tableDest.add("outputdir", settings.compiler.outputdir.getValue())
 	tableDest.add("binary", settings.simulation.binary.getValue())
 	if "gpu" == settings.simulation.target.getValue() then
@@ -498,13 +494,15 @@ import "command_line.dsl"
 	true
     end
 
-    // Check to see if only the interface is requested
+    // Check to see if the interface is requested
     if objectContains(commandLineOptions, "interface") then
       simulationSettings.add("interface", true)
     elseif objectContains(settings.compiler, "json_interface") then
       simulationSettings.add("json_interface", settings.compiler.json_interface.getValue())
+    end
+
     // Set all the simulation settings from the commandLineOptions
-    elseif createSimulationTable(simulationSettings) then
+    if createSimulationTable(simulationSettings) then
       if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time or interface request was, tell the user this doesn't make sense
 	error("In order to simulate a stop time must be specified.")
@@ -523,7 +521,7 @@ import "command_line.dsl"
 	end
 
 	// Check if user specified a stop time less than the start time
-	if simulationSettings.stop <= simulationSettings.start then
+	if simulationSettings.stop <> 0 and simulationSettings.stop <= simulationSettings.start then
 	  error("Stop time "+simulationSettings.stop+" must be greater than the start time "+simulationSettings.start+".")
 	end
 

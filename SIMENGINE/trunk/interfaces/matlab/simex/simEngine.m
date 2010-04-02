@@ -1,13 +1,13 @@
-function [outputs y1 t1] = simEngine (interface, options)
+function [outputs y1 t1 interface] = simEngine (options)
 %  SIMENGINE Executes a compiled simulation
-    writeUserInputs(interface, options);
-    writeUserStates(interface, options);
+    options = writeUserInputs(options);
+    writeUserStates(options);
     
-    [outputs y1 t1] = simulateModel(interface, options);
+    [outputs y1 t1 interface] = simulateModel(options);
 end
 
 %%
-function writeUserInputs (interface, options)
+function [options] = writeUserInputs (options)
 %  WRITEUSERINPUTS Creates files for the inputs of each model instance.
     inputs = options.inputs;
     
@@ -15,16 +15,16 @@ function writeUserInputs (interface, options)
         simexError('typeError', 'Expected INPUTS to be a structure array.')
     end
     
-    names = interface.inputs;
-    
-    for inputid = 1:length(names)
-        field = names{inputid};
-        if isnan(interface.defaultInputs.(field)) && ~isfield(inputs,field)
-            simexError('valueError', ['Model input ' field ' has no default value and must be specified.']);
-        end
-    end
-
     names = fieldnames(inputs);
+
+    % Tell simEngine which inputs were written to files
+    if length(names) > 0
+      nameslist = names{1};
+      for n = 2:length(names)
+        nameslist = [nameslist ':' names{n}];
+      end
+      options.args = [options.args [' --inputs ' nameslist]];
+    end
     
     for modelid = 1:options.instances
         modelPath = modelidToPath(modelid-1);
@@ -71,7 +71,7 @@ function writeUserInputs (interface, options)
     end
 end
 %%
-function writeUserStates (interface, options)
+function writeUserStates (options)
 % WRITEUSERSTATES Creates files for the initial states of each model instance.
     states = options.states;
     
@@ -130,15 +130,22 @@ function [outputs y1 t1] = readSimulationData (interface, options)
     end
 end
 %%
-function [outputs y1 t1] = simulateModel(interface, opts)
-  opts.args = [opts.args ' --start ' num2str(opts.startTime)];
-  opts.args = [opts.args ' --stop ' num2str(opts.stopTime)];
-  opts.args = [opts.args ' --instances ' num2str(opts.instances)];
-  opts.args = [opts.args ' --startupmessage=false'];
+function [outputs y1 t1 interface] = simulateModel(opts)
+  if opts.stopTime ~= 0
+    opts.args = [opts.args ' --start ' num2str(opts.startTime)];
+    opts.args = [opts.args ' --stop ' num2str(opts.stopTime)];
+    opts.args = [opts.args ' --instances ' num2str(opts.instances)];
+  end
   
-  simCompile(opts, 'Simulating');
-  
-  [outputs y1 t1] = readSimulationData(interface, opts);
+  interface = simCompile(opts);
+
+  if opts.stopTime ~= 0  
+    [outputs y1 t1] = readSimulationData(interface, opts);
+  else
+    outputs = struct();
+    y1 = [];
+    t1 = [];
+  end
 end
 %%
 function [val] = stringByte(number, b)
