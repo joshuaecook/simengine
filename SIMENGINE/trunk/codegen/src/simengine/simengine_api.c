@@ -115,12 +115,12 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
 #if NUM_CONSTANT_INPUTS > 0
     CDATAFORMAT tmp_constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
 #else
-    void *tmp_constant_inputs = NULL;
+    CDATAFORMAT *tmp_constant_inputs = NULL;
 #endif
 #if NUM_SAMPLED_INPUTS > 0
     sampled_input_t tmp_sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
 #else
-    void *tmp_sampled_inputs = NULL;
+    sampled_input_t *tmp_sampled_inputs = NULL;
 #endif
     for(modelid=0; modelid<models_per_batch; modelid++){
       resuming |= initialize_states(model_states, outputs_dirname, modelid_offset, modelid);

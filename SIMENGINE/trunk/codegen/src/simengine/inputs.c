@@ -11,7 +11,7 @@
 #define EVENT_INPUT_ID(inputid) (inputid - NUM_CONSTANT_INPUTS - NUM_SAMPLED_INPUTS - NUM_TIME_VALUE_INPUTS)
 
 // TODO : SET THIS VALUE BASED ON NUMBER OF SAMPLED INPUTS AND MEMORY AVAILABLE, SPECIFICALLY FOR GPU
-#define SAMPLE_BUFFER_SIZE 1024
+#define SAMPLE_BUFFER_SIZE 64
 
 typedef struct{
   CDATAFORMAT data[ARRAY_SIZE * SAMPLE_BUFFER_SIZE];
@@ -198,11 +198,11 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
 }
 
 void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sampled_inputs, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
-  unsigned int inputid;
+  unsigned int inputid = 0;
 
 #if NUM_CONSTANT_INPUTS > 0
   // Initialize constant inputs
-  for(inputid=0;inputid<NUM_CONSTANT_INPUTS;inputid++){
+  for(;inputid<NUM_CONSTANT_INPUTS;inputid++){
     read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, modelid_offset, modelid);
   }
 #endif // NUM_CONSTANT_INPUTS > 0
