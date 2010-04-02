@@ -128,7 +128,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     }
 #if defined TARGET_GPU && NUM_CONSTANT_INPUTS > 0
   CDATAFORMAT *g_constant_inputs;
-  cutilSafeCall(cudaGetSymbolAddress((void **))&g_constant_inputs, constant_inputs);
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_constant_inputs, constant_inputs));
   cutilSafeCall(cudaMemcpy(g_constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 #elif NUM_CONSTANT_INPUTS > 0
   memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
