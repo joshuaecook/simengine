@@ -141,24 +141,20 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
 	dirty_states[i] = 0;
       }
     }
-  }
 
-  // Capture outputs for final iteration
-  for(i=0;i<NUM_ITERATORS;i++){
-    if (props[i].last_iteration[modelid]) {
-      props[i].last_iteration[modelid] = 0;
+    // Capture outputs for final iteration
+    for(i=0;i<NUM_ITERATORS;i++){
+      if (props[i].last_iteration[modelid]) {
+	props[i].last_iteration[modelid] = 0;
 
-      pre_process(&props[i], modelid);
-      model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
-      in_process(&props[i], modelid);
-	  
-      // Updates and postprocess should not write to the output data structure (right?)
-      /* update(&props[i], modelid); */
-      /* post_process(&props[i], modelid); */
+	pre_process(&props[i], modelid);
+	model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
+	in_process(&props[i], modelid);
 
 #if NUM_OUTPUTS > 0
-      buffer_outputs(&props[i], modelid);
+	buffer_outputs(&props[i], modelid);
 #endif
+      }
     }
   }
 }
