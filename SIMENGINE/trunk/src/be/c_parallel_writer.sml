@@ -2313,11 +2313,11 @@ fun buildC (orig_name, shardedModel) =
 				       (*iteratordatastruct_progs @*)
 				       solver_wrappers_c @
 				       iterator_wrappers_c @
+				       [inputs_c] @
 				       [init_output_buffer_c] @
 				       [simengine_api_c] @
 				       init_solver_props_c @
 				       logoutput_progs @
-				       [inputs_c] @
 				       [log_outputs_c] @
 				       exec_c @
 				       state_init_functions @

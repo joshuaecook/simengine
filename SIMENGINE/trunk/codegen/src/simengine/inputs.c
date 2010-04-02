@@ -197,30 +197,17 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
   return 0;
 }
 
-void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
+void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sampled_inputs, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
   unsigned int inputid;
 
 #if NUM_CONSTANT_INPUTS > 0
   // Initialize constant inputs
-  // FIXME: Added static to make sure that the buffer accumulates all initialization across multiple calls to initialize inputs for
-  // each model.  This initialization needs to be refactored to clean it up!
-  static CDATAFORMAT tmp_constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
-
   for(inputid=0;inputid<NUM_CONSTANT_INPUTS;inputid++){
     read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, modelid_offset, modelid);
   }
-
-#ifdef TARGET_GPU
-  CDATAFORMAT *g_constant_inputs;
-  cutilSafeCall(cudaGetSymbolAddress((void **))&g_constant_inputs, constant_inputs);
-  cutilSafeCall(cudaMemcpy(g_constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
-#else
-  memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
-#endif
 #endif // NUM_CONSTANT_INPUTS > 0
 
 #if NUM_SAMPLED_INPUTS > 0
-  sampled_input_t tmp_sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
   for(;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
     sampled_input_t *tmp = &tmp_sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
 
@@ -233,13 +220,6 @@ void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset,
 
     read_sampled_input(tmp, start_time, outputs_dirname, inputid, modelid_offset, modelid);
   }
-#ifdef TARGET_GPU
-  sampled_input_t *g_sampled_inputs;
-  cutilSafeCall(cudaGetSymbolAddress((void **)&g_sampled_inputs, sampled_inputs));
-  cutilSafeCall(cudaMemcpy(g_sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
-#else
-  memcpy(sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t));
-#endif
 #endif // NUM_SAMPLED_INPUTS > 0
 }
 

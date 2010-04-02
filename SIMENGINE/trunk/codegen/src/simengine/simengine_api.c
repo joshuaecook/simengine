@@ -36,8 +36,6 @@ const char *simengine_errors[] = {"Success",
 solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
 int exec_loop(solver_props *props, const char *outputs_dir, double *progress, int resuming);
-int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid);
-void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time);
 void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned int modelid);
 
 void open_progress_file(const char *outputs_dirname, double **progress, int *progress_fd, unsigned int num_models){
@@ -114,10 +112,36 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     
     // Copy inputs and state initial values to internal representation
     unsigned int modelid_offset = global_modelid_offset + models_executed;
+#if NUM_CONSTANT_INPUTS > 0
+    CDATAFORMAT tmp_constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
+#else
+    void *tmp_constant_inputs = NULL;
+#endif
+#if NUM_SAMPLED_INPUTS > 0
+    sampled_input_t tmp_sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
+#else
+    void *tmp_sampled_inputs = NULL;
+#endif
     for(modelid=0; modelid<models_per_batch; modelid++){
       resuming |= initialize_states(model_states, outputs_dirname, modelid_offset, modelid);
-      initialize_inputs(outputs_dirname, modelid_offset, modelid, start_time);
+      initialize_inputs(tmp_constant_inputs, tmp_sampled_inputs, outputs_dirname, modelid_offset, modelid, start_time);
     }
+#if defined TARGET_GPU && NUM_CONSTANT_INPUTS > 0
+  CDATAFORMAT *g_constant_inputs;
+  cutilSafeCall(cudaGetSymbolAddress((void **))&g_constant_inputs, constant_inputs);
+  cutilSafeCall(cudaMemcpy(g_constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+#elif NUM_CONSTANT_INPUTS > 0
+  memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
+#endif
+
+#if defined TARGET_GPU && NUM_SAMPLED_INPUTS > 0
+  sampled_input_t *g_sampled_inputs;
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_sampled_inputs, sampled_inputs));
+  cutilSafeCall(cudaMemcpy(g_sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
+#elif NUM_SAMPLED_INPUTS > 0
+  memcpy(sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t));
+#endif
+
 
     // Initialize the solver properties and internal simulation memory structures
     solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset);
