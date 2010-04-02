@@ -26,7 +26,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       inputs_available = 1;
 #if NUM_SAMPLED_INPUTS > 0
       for (i=NUM_CONSTANT_INPUTS; i<NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS; i++) {
-	sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(i)];
+	sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(i)];
 	if (!advance_sampled_input(input, min_time, props->modelid_offset, modelid)) {
 	  // If unable to advance, attempt to buffer more input data.
 	  inputs_available &= read_sampled_input(input, min_time, outputs_dirname, i, props->modelid_offset, modelid);

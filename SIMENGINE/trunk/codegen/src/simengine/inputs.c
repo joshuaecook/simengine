@@ -22,7 +22,7 @@ typedef struct{
   int buffered_size[ARRAY_SIZE];
   // byte offset into the file which holds input data
   long file_idx[ARRAY_SIZE];
-  double timestep;
+  CDATAFORMAT timestep;
   sampled_eof_option_t eof_option;
 }sampled_input_t;
 
@@ -246,6 +246,8 @@ void initialize_inputs(const char *outputs_dirname, unsigned int modelid_offset,
 #if NUM_SAMPLED_INPUTS > 0
 __HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid){
   sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
+
+  assert(input->idx[ARRAY_IDX] < input->buffered_size[ARRAY_IDX]);
 
   return (CDATAFORMAT)input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX]];
 }
