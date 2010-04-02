@@ -227,7 +227,7 @@ void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sa
 __HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid){
   sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
 
-  assert(input->idx[ARRAY_IDX] < input->buffered_size[ARRAY_IDX]);
+  assert(input->idx[ARRAY_IDX] < SAMPLE_BUFFER_SIZE);
 
   return (CDATAFORMAT)input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + input->idx[ARRAY_IDX]];
 }

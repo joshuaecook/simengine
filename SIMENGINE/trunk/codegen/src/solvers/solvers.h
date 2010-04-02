@@ -55,6 +55,7 @@ typedef struct {
   // freeme is not currently used.
   //  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states; 
   CDATAFORMAT *inputs;
+  int *last_iteration;
   Solver solver;
   Iterator iterator;
   unsigned int inputsize;
@@ -83,10 +84,10 @@ int init_states(solver_props *props, const unsigned int modelid);
 // on the next iteration.
 // Return indicates when the last iteration has occurred.
 __DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
-  int last_iteration = props->running[modelid];
+  props->last_iteration[modelid] = props->running[modelid];
   props->running[modelid] = (props->next_time[modelid] < props->stoptime) &&
     (props->next_time[modelid] + props->timestep <= props->stoptime);
-  last_iteration ^= props->running[modelid];
+  props->last_iteration[modelid] ^= props->running[modelid];
 
   // Update solver time to next value
   props->time[modelid] = props->next_time[modelid];
@@ -96,7 +97,7 @@ __DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
     props->count[modelid]++;
   }
 
-  return last_iteration;
+  return props->last_iteration[modelid];
 }
 
 __HOST__ __DEVICE__ void solver_writeback(solver_props *props, const unsigned int modelid){

@@ -286,6 +286,8 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(PARALLEL_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].next_time = (CDATAFORMAT*)malloc(PARALLEL_MODELS*sizeof(CDATAFORMAT));"),
 			 $("props[ITERATOR_"^itername^"].count = NULL; // Allocated by discrete solver only, must be NULL otherwise"),
+			 $("props[ITERATOR_"^itername^"].last_iteration = (int*)malloc(PARALLEL_MODELS*sizeof(int));"),
+			 $("memset(props[ITERATOR_"^itername^"].last_iteration, 0, PARALLEL_MODELS * sizeof(int));"),
 			 $("// Initial values moved to model_states first time through the exec"),
 			 $("props[ITERATOR_"^itername^"].model_states = " ^
 			   (if 0 < num_states then
@@ -540,7 +542,8 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	  SUB[$("Iterator iter = ITERATORS[i];"),
 	      $("if (props[iter].time) free(props[iter].time);"),
 	      $("if (props[iter].next_time) free(props[iter].next_time);"),
-	      $("if (props[iter].running) free(props[iter].running);")],
+	      $("if (props[iter].running) free(props[iter].running);"),
+	      $("if (props[iter].last_iteration) free(props[iter].last_iteration);")],
 	  $("}"),
 	  $("if (props[0].ob) free(props[0].ob);"),
 	  $("if (props[0].od) free(props[0].od);"),

@@ -32,6 +32,8 @@ __DEVICE__ CDATAFORMAT gpu_inputs[PARALLEL_MODELS * NUM_INPUTS];
 // Needs to be copied device-to-host? May be __shared__?
 __DEVICE__ int gpu_running[PARALLEL_MODELS * NUM_ITERATORS];
 
+__DEVICE__ int gpu_last_iteration[PARALLEL_MODELS * NUM_ITERATORS];
+
 // Needs to be copied device-to-host after each bunch of iterations.
 __DEVICE__ output_buffer gpu_ob[1];
 
@@ -72,7 +74,7 @@ solver_props *gpu_init_props(solver_props *props){
   top_systemstatedata *g_system;
   CDATAFORMAT *g_time, *g_next_time;
   unsigned int *g_count;
-  int *g_running;
+  int *g_running, *g_last_iteration;
   output_buffer *g_ob;
 
   // Obtains the addresses of statically allocated variables.
@@ -92,6 +94,7 @@ solver_props *gpu_init_props(solver_props *props){
   g_next_states = NULL;
 # endif
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_running, gpu_running));
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_last_iteration, gpu_last_iteration));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_ob, gpu_ob));
 # if NUM_OUTPUTS > 0
   output_data *g_od;
@@ -124,6 +127,7 @@ solver_props *gpu_init_props(solver_props *props){
     // FIXME only discrete iterators need count
     tmp_props[i].count = g_count + (i * PARALLEL_MODELS);
     tmp_props[i].running = g_running + (i * PARALLEL_MODELS);
+    tmp_props[i].last_iteration = g_last_iteration + (i * PARALLEL_MODELS);
 
     // The amount of memory varies for each iterator
     if (0 < props[i].statesize + props[i].algebraic_statesize) {
@@ -179,6 +183,8 @@ solver_props *gpu_init_props(solver_props *props){
 
   // Copies properties to device.
   cutilSafeCall(cudaMemcpy(g_props, tmp_props, NUM_ITERATORS * sizeof(solver_props), cudaMemcpyHostToDevice));
+
+  cutilSafeCall(cudaMemset(g_last_iteration, 0, PARALLEL_MODELS * NUM_ITERATORS * sizeof(int)));
 
   // Zeroes the initial output buffer to ensure the finished flags start at 0
   cutilSafeCall(cudaMemset(g_ob, 0, sizeof(output_buffer)));
