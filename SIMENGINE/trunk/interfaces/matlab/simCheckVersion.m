@@ -86,7 +86,7 @@ else
   fields = regexp(ver_str, ',', 'split');
 
   % We are expecting four fields
-  if 4 == length(fields)
+  if 6 == length(fields)
     % Save those fields as a structure
     versionInfo = struct('major', str2double(fields{1}), ...
                          'minor', str2double(fields{2}), ...
