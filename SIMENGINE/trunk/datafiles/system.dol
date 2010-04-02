@@ -94,9 +94,10 @@
 // interpreterstackdepth: a recursion limit for the builtin DSL execution engine, increase this for large models
 <interpreterstackdepth = 10000.0>
 
-// logdof, logrewrites: debugging information on internal data structures
+// logdof, logrewrites, logredundancy: debugging information on internal data structures
 <logdof = false>
 <logrewrites = false>
+<logredundancy = false>
 
 // logsettings: debug the values of passed in options
 <logsettings = false>
@@ -112,6 +113,9 @@
 
 // optimize: implement the internal expression optimization, otherwise leave equations mostly in tact
 <optimize = true>
+
+// redundancy: remove excess redundancy in the model by collecting like terms into subexpressions
+<redundancy = false>
 
 // flatten: flatten the internal representation - can speed up some smaller models, can also increase compilation time for larger models
 <flatten = false>

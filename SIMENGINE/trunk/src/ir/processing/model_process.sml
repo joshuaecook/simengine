@@ -372,7 +372,27 @@ fun optimizeModel (model:DOF.model) =
 	val _ = DynException.checkToProceed()
 	val (classes, _, _) = model
 
-	val _ = map ClassProcess.optimizeClass classes
+	val _ = app ClassProcess.optimizeClass classes
+
+	val _ = DynException.checkToProceed()
+
+	val _ = Logger.log_notice (Printer.$("Removing redundancy ..."))
+	val _ = if DynamoOptions.isFlagSet "redundancy" then
+		    let
+			val verbose = DynamoOptions.isFlagSet "verbose"
+			val cost_before = if verbose then
+					      Cost.model2cost model
+					  else
+					      0
+			val _ = app ClassProcess.removeRedundancy classes
+		    in
+			if verbose then
+			    Logger.log_notice (Printer.$("Rendundancy elimination step before/after: "^(i2s cost_before)^"/"^(i2s (Cost.model2cost model))))
+			else
+			    ()
+		    end
+		else
+		    ()
 
 	val _ = DynException.checkToProceed()
     in

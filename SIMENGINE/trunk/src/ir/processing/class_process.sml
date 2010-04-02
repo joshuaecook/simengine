@@ -4,6 +4,9 @@ sig
     (* Note: All class optimizations work on expressions that are references, therefore most methods don't have a return value *)
     val optimizeClass : DOF.class -> unit
 
+    (* removeRedundancy - remove common subexpressions and create additional intermediates to reduce expression cost *)
+    val removeRedundancy : DOF.class -> unit
+
     (* Accessor methods *)    
 
 
@@ -2128,5 +2131,103 @@ and instanceExpressions equation =
 	outputs_exps
     end
 
+(* removeRedundancy - remove extra dedundancy in expressions *)
+local
+    fun groupSubExpressions subexps =
+	let
+	    (* existsIn - return an optional index to of where an expression is in the list *)
+	    fun existsIn (e, l) = 
+		case List.find (fn((e',_),_)=> ExpEquality.equiv (e, e')) (Util.addCount l) of
+		     SOME (_, n) => SOME n
+		   | NONE => NONE
+
+	    (* increment_matches - adds one to the list indicating that it was found *)
+	    fun increment_matches (l, i) =
+		    (Util.take (l, i)) @ [inc(Util.nth (l, i))] @ (Util.drop (l, i+1))
+	    and inc (e, n) = (e, n+1)
+		
+	in
+	    foldl
+		(fn(exp, matched_list)=> case existsIn(exp, matched_list) of
+					     SOME index => increment_matches (matched_list, index)
+					   | NONE => (exp, 1)::matched_list)
+		[]
+		subexps
+	end
+
+    fun addCost groups =
+	map 
+	    (fn(exp, count) => (exp, count, Cost.exp2cost exp))
+	    groups
+    (* sort the groups with cost *)
+    fun sortGroups groups = GeneralUtil.sort_compare greaterthan groups	
+    and greaterthan ((_, count1, cost1),(_, count2, cost2)) = count1*cost1 > count2*cost2
+
+    (* create intermediate and rewrite *)
+    fun createIntermediateAndRewrite exp = 
+	let
+	    val id = Unique.unique "#redundant"
+	    val id_exp = ExpBuild.var id
+	in
+	    (ExpBuild.equals (id_exp, exp),
+	     ExpProcess.equation2rewrite (ExpBuild.equals (exp, id_exp)))
+	end
+
+    (* grab expression list *)
+    fun grabExpressionList c = 
+	let
+	    val eqs = map ExpProcess.rhs (List.filter ExpProcess.isEquation (!(#exps c)))
+	    val outputs = Util.flatmap (fn(out)=> (DOF.Output.condition out)::(DOF.Output.contents out)) (!(#outputs c))
+	in
+	    eqs @ outputs
+	end
+							   
+in
+fun removeRedundancy (c:DOF.class) =
+    let
+	(* compute the initial cost *)
+	val cost_before = Cost.class2cost c
+
+	(* create a listing of all the expressions from which we'll extract subexpressions *)
+	val exps = grabExpressionList c
+	val pattern = Match.anybuiltin ""
+
+	(* full list of subexpressions is created with the findRecursive call that matches any function *)
+	val full_subexps = Util.flatmap (fn(exp)=> Match.findRecursive (pattern, exp)) exps
+
+	(*val _ = Util.log ("Found "^(i2s (List.length full_subexps))^" sub expressions in class " ^ (Symbol.name (#name c)))*)
+
+	(* group each subexpression by count *)
+	val grouped_subexps = groupSubExpressions full_subexps
+	(* remove all with counts = 1 *)
+	val redundant_subexps = List.filter (fn(_,count)=>count > 1) grouped_subexps
+	(* add cost to the tuple *)
+	val subexps_with_count_and_cost = addCost redundant_subexps
+	(* sort the sub expressions so the most costly is on the top *)
+	val sorted_subexps = sortGroups subexps_with_count_and_cost
+
+	(* run a recursive call, if it can't find any sub expressions, then it will exit, otherwise it will perform the 
+	 * first substitution and recursively try again. *)
+	val _ = case sorted_subexps of
+		    (exp, count, cost)::rest => 
+		    let
+			val (intermediate_eq, rewrite) = createIntermediateAndRewrite exp
+			val _ = applyRewritesToClassInternals [rewrite] c
+			val exps' = intermediate_eq::(!(#exps c))
+			val _ = (#exps c) := exps'
+			val _ = if DynamoOptions.isFlagSet "logredundancy" then
+				    Util.log ("Expression '"^(e2ps exp)^"' with cost "^(i2s cost)^" appears "^(i2s count)^" times -> Cost before/after: "^(i2s cost_before)^"/"^(i2s (Cost.class2cost c)) ^ " in class " ^ (Symbol.name (#name c)))
+				else
+				    ()
+			(* recursively call *)
+			val _ = removeRedundancy c
+		    in
+			()
+		    end
+		  | nil => () (* all finished *)
+    in
+	()
+    end
+end
 
 end

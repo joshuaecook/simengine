@@ -15,6 +15,7 @@ sig
     (* common predicates *)
     val predicate_any : predicate
     val predicate_anyfun : predicate
+    val predicate_anybuiltin : predicate
     val predicate_anyterm : predicate
     val predicate_anynumeric : predicate
     val predicate_anyconstant : predicate
@@ -99,6 +100,9 @@ val predicate_any = ("ANY", fn(x)=>true)
 val predicate_anyfun = ("FUN", fn(x)=>case x of 
 					  Exp.FUN _ => true 
 					| _ => false)
+val predicate_anybuiltin = ("FUN", fn(x)=>case x of 
+					      Exp.FUN (Fun.BUILTIN _, _) => true 
+					    | _ => false)
 val predicate_anyterm = ("TERM", fn(x)=>case x of 
 					    Exp.TERM _ => true 
 					  | _ => false)
