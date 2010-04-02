@@ -660,6 +660,7 @@ end
 namespace Time
   function timestampInSeconds() = LF timestampSeconds ()
   function timestampString() = LF timestampString ()
+  function daysToString(days) = LF daysToString(days)
 end
 
 //namespace Profile
@@ -691,6 +692,9 @@ function validateUpdate(date)
   var product = LF licenseProductType()
   println(update_info.toString() + ":" + product)
 end
+
+function licenseProductType() = LF licenseProductType()
+function licenseExpirationDate() = LF licenseExpirationDate()
 
 end
 

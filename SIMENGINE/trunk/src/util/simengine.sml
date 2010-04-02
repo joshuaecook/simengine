@@ -63,6 +63,20 @@ fun getSIMENGINELOCALDOL () =
 		       | NONE => NONE)
     end
 
+fun getUPDATEDOL () = 
+    case OS.Process.getEnv "HOME" of
+	SOME home => 
+	let
+	    val dol = OS.Path.concat (home, 
+				      (OS.Path.fromUnixPath ".simatra/update.dol"))
+	in
+	    if isFile dol then
+		SOME dol
+	    else
+		NONE
+	end
+      | NONE => NONE
+
 fun getSIMENGINESEW () =
     let
 	val var = "SIMENGINESEW"

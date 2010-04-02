@@ -10,6 +10,7 @@ val isStandard : unit -> bool
 val isProfessional : unit -> bool
 val isDevelopment : unit -> bool
 val versionToString : unit -> string
+val expirationDate : unit -> Date.date option
 
 (* check if update to simEngine software is valid *)
 val validateUpdate : int -> order option

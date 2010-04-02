@@ -118,6 +118,9 @@ fun main () =
 		     (DynamoOptions.importRegistryFile (getSIMENGINEDOL ());
 		      case getSIMENGINELOCALDOL() of
 			  SOME dol => DynamoOptions.importRegistryFile dol
+			| NONE => ();
+		      case getUPDATEDOL() of
+			  SOME dol => DynamoOptions.importRegistryFile dol
 			| NONE => ())
 		 else
 		     ())

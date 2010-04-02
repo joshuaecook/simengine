@@ -275,4 +275,53 @@ fun concatSets (l1, l2) =
 fun intersection (s1, s2) = 
     List.mapPartial (fn(s) => List.find (fn(s') => s=s') s2) s1
 
+
+(* number of days since epoch from a time *)
+fun daysFromTime time = 
+    let
+	val secondsSinceEpoch = Time.toSeconds (time)
+	val secondsPerDay = IntInf.fromInt (3600 * 24)
+    in
+	IntInf.div (secondsSinceEpoch, secondsPerDay)
+    end
+
+(* number of days since epoch today *)
+fun daysToday () = daysFromTime (Time.now())
+(* number of days since epoch from a date *)
+fun daysFromDate date = daysFromTime (Date.toTime date)
+
+
+
+fun daysToString days = 
+    let
+	open Date
+	val weekday_str = case weekDay days
+			   of Sun => "Sunday"
+			    | Mon => "Monday"
+			    | Tue => "Tuesday"
+			    | Wed => "Wednesday"
+			    | Thu => "Thursday"
+			    | Fri => "Friday"
+			    | Sat => "Saturday"
+
+	val month_str = case month days
+			 of Jan => "January"
+			  | Feb => "February"
+			  | Mar => "March"
+			  | Apr => "April"
+			  | May => "May"
+			  | Jun => "June"
+			  | Jul => "July"
+			  | Aug => "August"
+			  | Sep => "September"
+			  | Oct => "October"
+			  | Nov => "November"
+			  | Dec => "December"
+				   
+	val day_str = i2s (day days)
+	val year_str = i2s (year days)
+    in
+	weekday_str ^ ", " ^ month_str ^ " " ^ day_str ^ ", " ^ year_str
+    end
+
 end

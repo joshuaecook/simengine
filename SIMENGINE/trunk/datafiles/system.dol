@@ -130,3 +130,9 @@
 
 // help: show usage information
 <help = false>
+
+// Update simEngine variables to default values
+<updateMajorVersion = 0>
+<updateMinorVersion = 0>
+<updateRevision = "">
+<updateBuildDate = 0> 
