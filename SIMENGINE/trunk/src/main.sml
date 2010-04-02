@@ -61,6 +61,45 @@ fun rep_loop isInteractive textstream env =
 val defaultOptions = [Logger.LIBRARY]
 
 
+(* this function will handle reading from the dol files and the command line arguments
+ * to update the internal settings registry. *)
+fun processSettings () =
+    let
+	val argv = CommandLine.arguments ()
+
+	(* Read the global registry file in the installation directory *)
+	val _ = (if not MLton.Profile.isOn then 
+		     (DynamoOptions.importRegistryFile (getSIMENGINEDOL ());
+		      case getSIMENGINELOCALDOL() of
+			  SOME dol => DynamoOptions.importRegistryFile dol
+			| NONE => ();
+		      case getUPDATEDOL() of
+			  SOME dol => DynamoOptions.importRegistryFile dol
+			| NONE => ())
+		 else
+		     ())
+		before DynException.checkToProceed ()
+
+	(* read in command line arguments to DynamoOptions *)
+	val _ = Logger.log_notice (Printer.$("Arguments to simEngine: " ^ (Util.l2s argv)))
+	val dsl_files = DynamoOptions.importCommandLineArgs argv
+    in
+	DynException.checkToProceed()
+    end
+    handle DynException.TooManyErrors => raise DynException.SettingsError
+
+(* Execute the startup file - startup.dsl *)
+fun startup env = 
+    let
+	val (env, _) = Exec.run (rep_loop false) env
+					[KEC.ACTION 
+					     (KEC.EXP (KEC.APPLY {func=KEC.SYMBOL (Symbol.symbol "startup"),
+								  args=KEC.UNIT}),
+					      PosLog.NOPOS)]
+    in
+	env
+    end
+
 
 (* This is essentially the same as MLton.World.load
  * except we keep the list of command line arguments. *)
@@ -111,49 +150,23 @@ fun main () =
 	(* Verify the license file *)
 	val _ = CurrentLicense.findAndVerify()
 
-	val argv = CommandLine.arguments ()
-
-	(* Read the global registry file in the installation directory *)
-	val _ = (if not MLton.Profile.isOn then 
-		     (DynamoOptions.importRegistryFile (getSIMENGINEDOL ());
-		      case getSIMENGINELOCALDOL() of
-			  SOME dol => DynamoOptions.importRegistryFile dol
-			| NONE => ();
-		      case getUPDATEDOL() of
-			  SOME dol => DynamoOptions.importRegistryFile dol
-			| NONE => ())
-		 else
-		     ())
-		before DynException.checkToProceed ()
-		
-	(* read in command line arguments to DynamoOptions *)
-	(*val _ = Util.log ("Args: " ^ (Util.l2s argv))*)
-	val _ = Logger.log_notice (Printer.$("Arguments to simEngine: " ^ (Util.l2s argv)))
-	val _ = DynamoOptions.importCommandLineArgs argv
+	(* Read the DOL files and the commmand line arguments *)
+	val _ = processSettings()
 	val _ = Profile.mark()
+
+	(* Update the logging based on the verbose flag which may have been passed in as a command line argument *)
+	val log = if DynamoOptions.isFlagSet "verbose" then
+		       Logger.log_stdout (Logger.ALL, defaultOptions)
+		  else
+		       Logger.log_stdout (Logger.WARNINGS, defaultOptions)
 
 	(* initialize the exec *)
 	val env = PopulatedEnv.importSettings (rep_loop false) env
 	val _ = Exec.execInit()
 	val _ = Profile.mark()
 
-	val log = if DynamoOptions.isFlagSet "verbose" then
-		       Logger.log_stdout (Logger.ALL, defaultOptions)
-		  else
-		       Logger.log_stdout (Logger.WARNINGS, defaultOptions)
-
-	(* Execute the startup file. *)
-	fun startup env = 
-	    let
-		val (env, _) = Exec.run (rep_loop false) env
-					[KEC.ACTION 
-					     (KEC.EXP (KEC.APPLY {func=KEC.SYMBOL (Symbol.symbol "startup"),
-								  args=KEC.UNIT}),
-					      PosLog.NOPOS)]
-	    in
-		env
-	    end
-
+	(* Execute startup.dsl - this will execute the compiler and the simulator if requested, 
+	 * or exit out to interactive mode below *)
 	val env = Profile.time "simEngine" startup env
 	val _ = Profile.mark()
 
@@ -163,18 +176,6 @@ fun main () =
 		    ()
 
 	val dir = OS.FileSys.fullPath (OS.Path.currentArc)
-
-	fun indexOf list =
-	    let val tab = ListPair.zipEq (List.tabulate (length list, fn n => n), list)
-	    in
-	     fn f => 
-		case List.find (fn (_, x) => f x) tab
-		 of SOME (n, _) => SOME n
-		  | NONE => NONE
-	    end
-
-	fun strEquals x y =
-	    case String.compare (x, y) of EQUAL => true | _ => false
 
 	local
 	    fun isDefined setting =
@@ -225,6 +226,7 @@ fun main () =
       ; GeneralUtil.SUCCESS
     end
     handle DynException.RestartRepl => GeneralUtil.IGNORE
+	 | DynException.SettingsError => GeneralUtil.USAGE (* needs to know how it is used, in matlab mode, it should return the matlab usage, otherwise we should just return the standard simEngine usage information *)
 	 | Usage => GeneralUtil.USAGE
 	 | DynException.InternalFailure => GeneralUtil.FAILURE NONE
 	 | e => 
@@ -241,12 +243,19 @@ val _ =
 	  else
 	      (Main.resume () handle _ => Main.main ()))
      of GeneralUtil.SUCCESS => ()
-      | GeneralUtil.USAGE => Util.log ("usage: " ^ (CommandLine.name ()) ^ " -batch [file]\n" ^
-				       "       " ^ (CommandLine.name ()) ^ " [option] -simex model" ^
-				       "       " ^ (CommandLine.name ()) ^ " [option] -simex model [-start startime] -stop stoptime")
-      (* normally will return exit status 0, but if there's a user error, it will return exit status 128, otherwise exit status 1 for a failure *)
-      | GeneralUtil.IGNORE => (Posix.Process.exit 0w128) (* something had to happen to cause mlton to exit, generally a user error *)
-      | GeneralUtil.FAILURE NONE => (Posix.Process.exit 0w1) (* internal failure occurred, likely a call to std_failure from DSL *)
+      | GeneralUtil.USAGE => 
+	if DynamoOptions.isFlagSet "inferiorMode" then
+	    Posix.Process.exit 0w129
+	else
+	    Util.log ("usage: " ^ (CommandLine.name ()) ^ " -batch [file]\n" ^
+		      "       " ^ (CommandLine.name ()) ^ " [option] -simex model\n" ^
+		      "       " ^ (CommandLine.name ()) ^ " [option] -simex model [-start startime] -stop stoptime\n")
+      (* normally will return exit status 0, but if there's a user error, 
+       * it will return exit status 128, otherwise exit status 1 for a failure *)
+      | GeneralUtil.IGNORE => (Posix.Process.exit 0w128) (* something had to happen to cause mlton to exit, 
+							  * generally a user error *)
+      | GeneralUtil.FAILURE NONE => (Posix.Process.exit 0w1) (* internal failure occurred, likely a call to
+							      * std_failure from DSL *)
       | GeneralUtil.FAILURE (SOME message) => 
 	(print (message ^ "\n")
        ; Posix.Process.exit 0w1)

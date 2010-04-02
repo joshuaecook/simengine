@@ -70,7 +70,8 @@ type settings = dynoption list
 open Printer
 
 val registryFile = ref "none"
-val error = Logger.log_data_error (!registryFile)	
+fun error msg = (Logger.log_data_error (!registryFile) msg;
+		 DynException.setErrored())
       
 
 val argument_groups = OptionsList.getGroupsList()
@@ -176,7 +177,7 @@ fun optionsdescription (progname) =
     in
 	String.concatWith "\n" lines
     end
-    handle e => raise e before print "Internal error: DynamoOptions.optionsdescription\n"
+    handle e => DynException.checkpoint "DynamoOptions.optionsdescription" e
 
 fun strtail "" = ""
   | strtail str =
@@ -199,34 +200,27 @@ fun removeEntry (name, nil) =
     else
 	(SETTING(n, v)) :: (removeEntry (name, rest))
 
-fun enableChar2bool enable =
-    case enable of
-	#"+" => true
-      | #"-" => false
-      | _ => DynException.stdException ("Unexpected flag value", "DynamoOptions.enableChar2bool", Logger.INTERNAL)
-
 
 fun testSetting arg =
     let
 	fun isEquals #"=" = true
 	  | isEquals _ = false
 	val tkns = String.tokens isEquals arg
-	val _ = if List.length tkns < 1 orelse List.length tkns > 2 then
-		    DynException.stdException (("Setting '" ^ arg ^ "' had unexpected argument"), 
-					       "DynamoOptions.importRegistryEntry", 
-					       Logger.DATA)
-		else
-		    ()
+	val valid = if List.length tkns < 1 orelse List.length tkns > 2 then
+			(error ($("Setting '" ^ arg ^ "' had unexpected argument"));
+			 false)
+		    else
+			true
     in
-	if List.length tkns = 2 then (* there's an equals sign *)
+	if valid andalso List.length tkns = 2 then (* there's an equals sign *)
 	    if GeneralUtil.strcmpi (List.nth (tkns,1), "true") then
 		true
 	    else if GeneralUtil.strcmpi (List.nth (tkns,1), "false") then
 		false
 	    else 
-		DynException.stdException (("Setting '" ^ (List.nth (tkns,0)) ^ "' had unexpected argument '"^(List.nth (tkns,1))^"', expecting 'true' or 'false'"),
-					   "DynamoOptions.importRegistryEntry", 
-					   Logger.DATA)
+		(error ($("Setting '" ^ (List.nth (tkns,0)) ^ "' had unexpected argument '"^(List.nth (tkns,1))^"', expecting 'true' or 'false'"));
+		 false (* just say false to go on *))
+		
 	else (* just by itself *)
 	    true
     end
@@ -241,91 +235,91 @@ fun addFlag(name, value, settings) =
 
 fun addSetting(name, dyntype, argument, settings) =
     let
-	exception InvalidArgument 
+	val split_str = String.tokens (fn(c)=>c= #":")
+	val settings' = removeEntry (name, settings)
+	val value = case dyntype of
+			INTEGER_T => 
+			(case Int.fromString argument of
+			     SOME i =>
+			     INTEGER i
+			   | NONE =>
+			     (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid integer"));
+			      INTEGER 0))
+		      | REAL_T => 
+			(case Real.fromString argument of
+			     SOME r =>
+			     REAL r
+			   | NONE =>
+			     (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid number"));
+			      REAL 0.0))
+		      | STRING_T => 
+			STRING (argument)
+		      | INTEGER_VECTOR_T =>
+			let
+			    val i_vec_opt = map Int.fromString (split_str argument)
+			    val _ = app 
+					(fn(i) => case i of
+						      SOME _ => ()
+						    | NONE => error ($("Argument '"^ argument ^"' for '" ^ name ^
+								       "' does not have all valid integers"))) 
+					i_vec_opt
+			    val i_vec = List.mapPartial (fn(i)=>i) i_vec_opt
+			in
+			    INTEGER_VEC i_vec
+			end
+		      | REAL_VECTOR_T => 
+			let
+			    val r_vec_opt = map Real.fromString (split_str argument)
+			    val _ = app 
+					(fn(r) => case r of
+							    SOME _ => () 
+							  | NONE => error ($("Argument '"^ argument ^"' for '" ^ name ^
+									     "' does not have all valid numbers")))
+					r_vec_opt
+			    val r_vec = List.mapPartial (fn(r)=>r) r_vec_opt
+			in
+			    REAL_VEC r_vec
+			end
+		      | STRING_VECTOR_T => (* deliminate arguments by a : *)			    
+			STRING_VEC (*[argument]*) (split_str argument)
+		      | FLAG_T =>
+			DynException.stdException ("A flag dyntype is unexpected for a setting", "DynamoOptions.addSetting", Logger.INTERNAL)
+			
+	fun is_vector (STRING_VEC _) = true
+	  | is_vector (INTEGER_VEC _) = true
+	  | is_vector (REAL_VEC _) = true
+	  | is_vector _ = false
+
+	fun combine_vectors (STRING_VEC v1, STRING_VEC v2) = STRING_VEC (v1 @ v2)
+	  | combine_vectors (INTEGER_VEC v1, INTEGER_VEC v2) = INTEGER_VEC (v1 @ v2)
+	  | combine_vectors (REAL_VEC v1, REAL_VEC v2) = REAL_VEC (v1 @ v2)
+	  | combine_vectors _ =
+	    (error ($("Argument for vector '" ^ name ^ "' is not same type as pre-existing vector"));
+	     STRING_VEC [])
+
+	fun replace (n,v) nil =
+	    [SETTING(n,v)]
+	  | replace (n,v) ((SETTING(n', v'))::rest) =
+	    if n = n' then
+		(if is_vector v then
+		     (SETTING (n, combine_vectors(v, v'))) :: rest
+		 else
+		     (SETTING (n,v)) :: rest)
+	    else
+		(SETTING (n', v')) :: (replace (n,v) rest)
+	  | replace (n,v) (flag::rest) =
+	    flag :: (replace (n,v) rest)
+	    
+
+	val settings'' = 
+	    replace (name, value) settings'
     in
-	let
-	    val split_str = String.tokens (fn(c)=>c= #":")
-	    val settings' = removeEntry (name, settings)
-	    val value = case dyntype of
-			    INTEGER_T => 
-			    (case Int.fromString argument of
-				 SOME i =>
-				 INTEGER i
-			      | NONE =>
-				(error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid integer"));
-				 raise InvalidArgument))
-			  | REAL_T => 
-			    (case Real.fromString argument of
-				 SOME r =>
-				 REAL r
-			       | NONE =>
-				 (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' not a valid real"));
-				  raise InvalidArgument))
-			  | STRING_T => 
-			    STRING (argument)
-			  | INTEGER_VECTOR_T =>
-			    let
-				val i_vec_opt = map Int.fromString (split_str argument)
-				val _ = List.find (fn(i) => case i of
-								SOME _ => false 
-							      | NONE => (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' does not have all valid integers"));
-									 raise InvalidArgument)) i_vec_opt
-				val i_vec = List.mapPartial (fn(i)=>i) i_vec_opt
-			    in
-				INTEGER_VEC i_vec
-			    end
-			  | REAL_VECTOR_T => 
-			    let
-				val r_vec_opt = map Real.fromString (split_str argument)
-				val _ = List.find (fn(r) => case r of
-								SOME _ => false 
-							      | NONE => (error ($("Argument '"^ argument ^"' for '" ^ name ^ "' does not have all valid numbers"));
-									 raise InvalidArgument)) r_vec_opt
-				val r_vec = List.mapPartial (fn(r)=>r) r_vec_opt
-			    in
-				REAL_VEC r_vec
-			    end
-			  | STRING_VECTOR_T => (* deliminate arguments by a : *)			    
-			    STRING_VEC (*[argument]*) (split_str argument)
-			  | FLAG_T =>
-			    DynException.stdException ("A flag dyntype is unexpected for a setting", "DynamoOptions.addSetting", Logger.INTERNAL)
-			    
-	    fun is_vector (STRING_VEC _) = true
-	      | is_vector (INTEGER_VEC _) = true
-	      | is_vector (REAL_VEC _) = true
-	      | is_vector _ = false
+	settings'' 
+    end	
+    (*handle DynException.SettingsError 
+	   => settings
+	      before DynException.setErrored()*)
 
-	    fun combine_vectors (STRING_VEC v1, STRING_VEC v2) = STRING_VEC (v1 @ v2)
-	      | combine_vectors (INTEGER_VEC v1, INTEGER_VEC v2) = INTEGER_VEC (v1 @ v2)
-	      | combine_vectors (REAL_VEC v1, REAL_VEC v2) = REAL_VEC (v1 @ v2)
-	      | combine_vectors _ =
-		(error ($("Argument for vector '" ^ name ^ "' not same type as pre-existing vector"));
-		 raise InvalidArgument)
-
-	    fun replace (n,v) nil =
-		[SETTING(n,v)]
-	      | replace (n,v) ((SETTING(n', v'))::rest) =
-		if n = n' then
-		    (if is_vector v then
-			 (SETTING (n, combine_vectors(v, v'))) :: rest
-		     else
-			 (SETTING (n,v)) :: rest)
-		else
-		    (SETTING (n', v')) :: (replace (n,v) rest)
-	      | replace (n,v) (flag::rest) =
-		flag :: (replace (n,v) rest)
-		
-
-	    val settings'' = 
-		replace (name, value) settings'
-	in
-	    settings'' 
-	end	
-	    handle InvalidArgument 
-		   => settings
-		      before DynException.setErrored()
-
-    end
 				  
 fun isCLOption name {short, long, ...} =
     let
@@ -351,8 +345,6 @@ fun entry2type {dyntype, ...} = dyntype
 fun processCommandLineArgs (settings, files, nil) = (settings, files)
   | processCommandLineArgs (settings, files, arg::rest) = 
     let
-	exception ArgFailure
-
 	fun isPlusOrMinus c = c = #"+" orelse c = #"-"
 
 	fun entryIsFlag {dyntype=FLAG_T, ...} = true
@@ -368,7 +360,7 @@ fun processCommandLineArgs (settings, files, nil) = (settings, files)
 			  val res = testSetting arg
 			  val _ = Logger.log_notice ($("Setting '" ^ xmltag ^ "' command line argument flag to '" ^ (GeneralUtil.bool2str res) ^ "'"))
 		      in
-			  processCommandLineArgs(addFlag (entry2name entry, (*enableChar2bool(strhead arg)*) res, settings),
+			  processCommandLineArgs(addFlag (entry2name entry, res, settings),
 						 files,
 						 rest)
 		      end
@@ -376,11 +368,11 @@ fun processCommandLineArgs (settings, files, nil) = (settings, files)
 		      let
 			  val (argument, rest) = case rest of
 						     nil => (error ($("Argument expected for '" ^ (strtail arg) ^ "'"));
-							     raise ArgFailure)
+							     ("undefined", []))
 						   | argument::rest =>
 						     if not("-" = argument) andalso isPlusOrMinus (strhead argument) then
 							 (error ($("Argument expected for '" ^ (strtail arg) ^ "'"));
-							  raise ArgFailure)
+							  ("undefined", rest))
 						     else
 							 (argument, rest)
 			  val _ = Logger.log_notice ($("Setting '" ^ xmltag ^ "' command line argument setting to '" ^ argument ^ "'"))
@@ -389,7 +381,7 @@ fun processCommandLineArgs (settings, files, nil) = (settings, files)
 						 files,
 						 rest)
 		      end)
-	       | NONE => (Logger.log_error ($("Invalid argument '" ^ (strtail arg) ^ "'"));
+	       | NONE => (Logger.log_error ($("Unrecognized argument '" ^ (strtail arg) ^ "' passed on the command line"));
 			  DynException.setErrored();
 			  processCommandLineArgs(settings, files, rest)))
 		       
@@ -404,6 +396,7 @@ fun importCommandLineArgs (args) =
     let
 (*	val _ = StatusReporter.beginProcess("Parsing command line arguments", 1)*)
 
+	val _ = registryFile := "Command Line"
 	val (s, input_files) = processCommandLineArgs (!settings, nil, args)
 (*	val _ = StatusReporter.reportWork(1)*)
 
@@ -411,9 +404,7 @@ fun importCommandLineArgs (args) =
     in
 	input_files
     end 
-	handle e => (DynException.log "DynamoOptions.importCommandLineArgs" e;
-		     DynException.setErrored();
-		     [])
+    handle e => DynException.checkpoint "DynamoOptions.importCommandLineArgs" e
 
 fun importRegistryEntry file (Registry.REG_FLAG(n, f), existingSettings) =
     (addFlag(n, f, existingSettings)
@@ -468,8 +459,7 @@ fun importRegistryFile (file) =
 	  ())
      else
 	 (error ($("Can't read registry file '"^file^"'"));
-	  DynException.setErrored();
-	  DynException.checkToProceed()))
+	  DynException.setErrored()))
     handle e => DynException.checkpoint "DynamoOptions.importRegistryFile" e
 
 

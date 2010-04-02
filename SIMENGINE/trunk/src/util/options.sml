@@ -215,7 +215,7 @@ val argument_groups =
       description=["Options to control optimizations and information storage bounds"],
       visible=true,
       options=[{short=SOME #"O",
-		long=SOME "optimization",
+		long=SOME "optimize",
 		xmltag="optimize",
 		dyntype=FLAG_T,
 		description=["Enable/disable optimizations"]},
@@ -348,7 +348,17 @@ val argument_groups =
 		long =SOME "profile",
 		xmltag="profile",
 		dyntype=FLAG_T,
-		description=["Enable/disable profiling mode"]}]}]
+		description=["Enable/disable profiling mode"]}]},
+     {group="Internal Settings",
+      tag="internal",
+      description=["Internal compiler settings"],
+      visible=false,
+      options=[{short=NONE,
+		long =SOME "inferior-mode",
+		xmltag="inferiorMode",
+		dyntype=FLAG_T,
+		description=["Enable/disable inferior mode where simEngine works behind another product, ",
+			     "for example, simex."]}]}]
 
 fun getGroupsList () =
     argument_groups

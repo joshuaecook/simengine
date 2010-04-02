@@ -131,6 +131,9 @@
 // help: show usage information
 <help = false>
 
+// inferiorMode: let simEngine be dependent on another tool, like simex
+<inferiorMode = false>
+
 // Update simEngine variables to default values
 <updateMajorVersion = 0>
 <updateMinorVersion = 0>

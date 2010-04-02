@@ -16,6 +16,9 @@ exception TooManyErrors
 (* Raised when an error occurs within an action and the repl should restart. *)
 exception RestartRepl
 
+(* Raised when an error occurs with the settings structure. *)
+exception SettingsError
+
 (* Raised when there is an internal failure *)
 exception InternalFailure
 
