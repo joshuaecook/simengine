@@ -26,6 +26,7 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
 
   while(active_models){
     // Execute models on the GPU
+    
     exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(device_props, resuming);
     resuming = 1;
     // Copy data back to the host

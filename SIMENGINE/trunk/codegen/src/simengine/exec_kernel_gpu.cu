@@ -4,9 +4,14 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
   
   unsigned int i, num_iterations = 0;
   CDATAFORMAT min_time;
-  unsigned int dirty_states[NUM_ITERATORS] = {0};
-  unsigned int ready_outputs[NUM_ITERATORS] = {0};
+  unsigned int dirty_states[NUM_ITERATORS];
+  unsigned int ready_outputs[NUM_ITERATORS];
   int inputs_available = 1;
+
+  for (i=0; i<NUM_ITERATORS; i++) {
+    dirty_states[i] = 0;
+    ready_outputs[i] = 0;
+  }
 
   if (modelid >= props->num_models) {
     return;
