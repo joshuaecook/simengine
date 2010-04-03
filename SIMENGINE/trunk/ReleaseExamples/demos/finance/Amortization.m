@@ -47,10 +47,17 @@ end
 function table = ComputeAmortization(loan, years)
 
 % Run two simulations in parallel by setting mortgage type to 0 and 1
-loan_information = struct('loan', loan, 'years', years, 'mortgage_type', [0 1]);
+loan_information = struct('loan', loan, 'years', years, 'mortgage_type', {{0 1}});
 
 % Execute the parallel simulation
 table = simex('Amortization.dsl', years*12, loan_information);
+
+disp(' ');
+disp('Loan Information')
+disp(sprintf('Loan Amount:\t%9.2f',loan));
+disp(sprintf('Mortage Term:\t%0.0f', years));
+disp(' ');
+disp('Comparison between a fixed 5% rate vs. a 3.75% Hybrid 5-1 ARM:');
 
 % Compute some statistics gathered from the simulation
 disp(' ')
