@@ -142,15 +142,9 @@ fun validate (model as (classes, instance, sysprops))=
 			    
 	    (* for profiling, report expression counts *)
 	    val _ = if DynamoOptions.isFlagSet "profile" then
-			let
-			    val total_cost = Cost.model2cost model
-			    val unique_cost = Cost.model2uniquecost model
-			in
-			    Util.log("Expression Total Cost: "^ (Util.i2s total_cost) ^ "; Unique Cost: " ^ (Util.i2s unique_cost))
-			end
+			Cost.logModelCosts model
 		    else
 			()
-
 
 	    (* verify that the LHS of equations have difference equation terms that only reference [n+1] or [n] *)
 	    val _ = properLHSDiscreteState ()

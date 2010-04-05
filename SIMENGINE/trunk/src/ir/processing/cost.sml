@@ -7,6 +7,9 @@ sig
     val model2cost : DOF.model -> int
     val model2uniquecost : DOF.model -> int
 
+    (* display information on model costs - useful for profiling *)
+    val logModelCosts : DOF.model -> unit
+
 end
 structure Cost : COST =
 struct
@@ -62,5 +65,15 @@ val class2cost = class2generalcost true
 val model2cost = model2generalcost true
 
 val model2uniquecost = model2generalcost false
+
+fun logModelCosts model = 
+    let
+	val total_cost = model2cost model
+	val unique_cost = model2uniquecost model
+    in
+	Util.log("Expression Total Cost: "^ (Util.i2s total_cost) ^ "; Unique Cost: " ^ (Util.i2s unique_cost))
+    end
+
+
 
 end
