@@ -54,6 +54,16 @@ s.add(Test('OneInputHaltValueLess', @()(simex('models_FeatureTests/SampledInputH
 s.add(Test('OneInputHaltValueEqual', @()(simex('models_FeatureTests/SampledInputHaltTest1.dsl', 5, input, target)), '-equal', struct('o', [0:5; 0:5]')));
 s.add(Test('OneInputHaltValueMore', @()(simex('models_FeatureTests/SampledInputHaltTest1.dsl', 10, input, target)), '-equal', struct('o', [0:5; 0:5]')));
 
+t1 = Test('OneInputHaltValueNoInput',@()(simex('models_FeatureTests/SampledInputHaltTest1.dsl', 10, target)), '-withouterror');
+t1.ExpectFail = true;
+s.add(t1);
+
+input.i = {[0:5 0/0]};
+t2 = Test('OneInputHaltValueWithNAN',@()(simex('models_FeatureTests/SampledInputHaltTest1.dsl', 10, input, target)), '-withouterror');
+t2.ExpectFail = true;
+
+s.add(t2);
+
 end
 
 function s = SampledInputCycleTests(target)
