@@ -1,4 +1,3 @@
-settings.debug.logdof.setValue(true)
 model (x)=OneTimeIteratorTest3
 
 iterator t with {continuous,solver=forwardeuler{dt=1}}
