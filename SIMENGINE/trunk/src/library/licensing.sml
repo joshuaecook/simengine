@@ -1,14 +1,11 @@
 structure LicensingLib =
 struct
 
+open LibraryUtil
+structure L = License
+
 val TypeMismatch = DynException.TypeMismatch
 and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
-
-fun licenseProductType exec args = 
-    case args
-     of nil => 
-	KEC.LITERAL (KEC.CONSTSTR (CurrentLicense.versionToString ()))
-      | args => raise IncorrectNumberOfArguments {expected=0, actual=(length args)}
 
 fun licenseExpirationDate exec args = 
     case args
@@ -35,8 +32,17 @@ fun daysTillExpiration exec args =
 	end
       | args => raise IncorrectNumberOfArguments {expected=0, actual=(length args)}
 
+fun licenseToJSON () =
+    PrintJSON.toString (License.toJSON (CurrentLicense.get ()))
 
-val library = [{name="licenseProductType", operation=licenseProductType},
+val library = [{name="licenseProductType", 
+		operation = fn exec => unitToStringFun CurrentLicense.versionToString},
+	       {name="licenseToJSON", 
+		operation = fn exec => unitToStringFun licenseToJSON},
+	       {name="licenseCustomerName", 
+		operation = fn exec => unitToStringFun CurrentLicense.customerName},
+	       {name="licenseCustomerOrganization", 
+		operation = fn exec => unitToStringFun CurrentLicense.customerOrganization},
 	       {name="licenseExpirationDate", operation=licenseExpirationDate},
 	       {name="daysTillExpiration", operation=daysTillExpiration}]
 

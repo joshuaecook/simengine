@@ -64,7 +64,9 @@ namespace Archive
 
     Archive.new (true, filename, Path.join (FileSystem.pwd (), ".simatra"), manifest)
 
-    var manifest_o = Simlib.makeObjectFromContents ("MANIFEST.json", JSON.encode (manifest))
+    var manifestData = JSON.concat (JSON.encode manifest, JSON.encode {license = JSON.decode (LF licenseToJSON ())})
+
+    var manifest_o = Simlib.makeObjectFromContents ("MANIFEST.json", manifestData)
 
     var main = dslFilenames.first ()
     var imports = dslFilenames.rest ()

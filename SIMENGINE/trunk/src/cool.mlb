@@ -12,6 +12,11 @@ local
   util/layout.sig
   util/layout.sml
 
+  (* JSON Data Structure *)
+  json/json.mlb
+  util/json.sml
+  util/json-extensions.sml
+
   ann
       "allowFFI true"
   in
@@ -24,11 +29,6 @@ local
   end
 
   shell/symbol.sml
-
-  (* JSON Data Structure *)
-  json/json.mlb
-  util/json.sml
-  util/json-extensions.sml
 in
 
 (* Utilities *)

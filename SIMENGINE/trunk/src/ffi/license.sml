@@ -45,6 +45,7 @@ sig
     val licenseFromData : string -> license
     val licenseToData : license -> string
 
+    val toJSON: license -> JSON.json
 end
 
 structure License: LICENSE =
@@ -91,6 +92,37 @@ val maxMajorVersion = acc #maxMajorVersion
 val expirationDate = acc #expirationDate
 val version = acc #version
 val enhancements = acc #enhancements
+end
+
+local 
+    open JSON
+    val int = int o IntInf.fromInt
+    val date = string o Date.toString
+in
+fun toJSON license =
+    object [("customerID", int (customerID license)),
+	    ("customerName", string (customerName license)),
+	    ("customerOrganization", string (customerOrganization license)),
+	    ("serialNumber", int (serialNumber license)),
+	    ("maxMinorVersion", int (maxMinorVersion license)),
+	    ("maxMajorVersion", int (maxMajorVersion license)),
+	    ("expirationDate", case expirationDate license
+				of SOME d => date d
+				 | NONE => null),
+	    ("product", string (case product license 
+				 of SIMENGINE => "SIMENGINE")),
+	    ("version", string (case version license 
+				 of TRIAL => "TRIAL"
+				  | BASIC => "BASIC"
+				  | STANDARD => "STANDARD"
+				  | PROFESSIONAL => "PROFESSIONAL"
+				  | DEVELOPMENT => "DEVELOPMENT")),
+	    ("restriction", object (case restriction license
+				     of USERNAME user => [("USERNAME", string user)]
+				      | HOSTID host => [("HOSTID", string host)]
+				      | LICENSESERVER server => [("LICENSESERVER", string server)]
+				      | SITE name => [("SITE", string name)])),
+	    ("enhancements", null)]
 end
 
 (* Default to a basic license *)

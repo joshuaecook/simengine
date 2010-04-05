@@ -64,4 +64,8 @@ fun strs2boolfun (f: (string * string -> bool)) =
   | args => raise IncorrectNumberOfArguments {expected=2, actual=(length args)}
 
 
+fun unitToStringFun (f: (unit -> string)) =
+ fn nil => (KEC.LITERAL o KEC.CONSTSTR o f) ()
+  | args => raise IncorrectNumberOfArguments {expected=0, actual=(length args)}
+
 end

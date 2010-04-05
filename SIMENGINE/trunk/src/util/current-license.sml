@@ -2,6 +2,8 @@
 signature CURRENT_LICENSE =
 sig
 
+val get: unit -> License.license
+
 (* query license *)
 val findAndVerify : unit -> unit
 val isTrial : unit -> bool
@@ -9,12 +11,15 @@ val isBasic : unit -> bool
 val isStandard : unit -> bool
 val isProfessional : unit -> bool
 val isDevelopment : unit -> bool
-val versionToString : unit -> string
 val expirationDate : unit -> Date.date option
+val customerName: unit -> string
+val customerOrganization: unit -> string
+
 
 (* check if update to simEngine software is valid *)
 val validateUpdate : int -> order option
 
+val versionToString : unit -> string
 end
 
 structure CurrentLicense: CURRENT_LICENSE =
