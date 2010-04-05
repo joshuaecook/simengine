@@ -385,6 +385,8 @@ fun optimizeModel (model:DOF.model) =
 					  else
 					      0
 			val _ = app ClassProcess.removeRedundancy classes
+			val _ = Logger.log_notice (Printer.$("Ordering after redundancy elimination ..."))
+			val _ = Ordering.orderModel (model)
 		    in
 			if verbose then
 			    Logger.log_notice (Printer.$("Rendundancy elimination step before/after: "^(i2s cost_before)^"/"^(i2s (Cost.model2cost model))))

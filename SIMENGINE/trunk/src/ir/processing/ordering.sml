@@ -259,7 +259,7 @@ fun orderClass classMap (class:DOF.class) =
 	val _ = print ("looking up class with name " ^ (Symbol.name (#name class)) ^ "\n")
 	val mapping = valOf (SymbolTable.look (classMap, #name class))
 
-	val masterexps = !(#exps (CurrentModel.classname2class (ClassProcess.class2basename class)))
+	val masterexps = !(#exps (CurrentModel.classname2class ((*ClassProcess.class2basename*)ClassProcess.class2orig_name class)))
 	val init_exps = List.filter ExpProcess.isInitialConditionEq exps
 	val master_init_exps = List.filter ExpProcess.isInitialConditionEq masterexps
 	val state_exps = List.filter ExpProcess.isStateEq exps
@@ -288,7 +288,7 @@ fun orderClass classMap (class:DOF.class) =
 	()
     end
     handle SortFailed => raise SortFailed 
-	     | e => DynException.checkpoint "Ordering.orderModel.orderClass" e
+	     | e => DynException.checkpoint ("Ordering.orderModel.orderClass (class '"^(Symbol.name (#name class))^"')") e
 end
 
 fun orderModel (model:DOF.model)=
