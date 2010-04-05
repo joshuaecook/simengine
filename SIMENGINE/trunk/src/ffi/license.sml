@@ -111,6 +111,8 @@ val default =
 (* Sanity check to identify a decoded license as valid data *)
 val currentLicenseHeader = 0x00cafe00
 
+val secondsPerDay = 60 * 60 * 24
+
 (* Unencrypted license keys are limited to a total of ~240 bytes (2048 bit RSA key minus space used
    to encode length of encrypted data) 
    This value limits the total size of the three encoded strings to a total of 180 bytes accounting
@@ -185,7 +187,7 @@ fun licenseFromData data =
 	val (licenseData, expiration) = deqInt(licenseData)
 	val expirationDate = case expiration of
 				 0 => NONE
-			       | _ => SOME (Date.fromTimeLocal(Time.fromSeconds(IntInf.fromInt(expiration))))
+			       | _ => SOME (Date.fromTimeLocal(Time.fromSeconds(IntInf.fromInt(expiration * secondsPerDay))))
 	val (licenseData, enhancements) = deqInt(licenseData)
 	val (licenseData, customerNameLen) = deqInt(licenseData)
 	val (licenseData, customerOrgLen) = deqInt(licenseData)
@@ -249,7 +251,7 @@ fun licenseToData (LICENSE
 	val licenseData = enqInt(licenseData, restrictionCode)
 	val expiration = case expirationDate of
 			     NONE => 0
-			   | SOME dt => IntInf.toInt(Time.toSeconds (Date.toTime(dt)))
+			   | SOME dt => Int.div (IntInf.toInt(Time.toSeconds (Date.toTime(dt))), secondsPerDay)
 	val licenseData = enqInt(licenseData, expiration)
 	val enhancements = 0
 	val licenseData = enqInt(licenseData, enhancements)

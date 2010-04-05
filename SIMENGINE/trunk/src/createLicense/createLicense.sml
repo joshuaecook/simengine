@@ -3,6 +3,8 @@ exception InvalidLicenseGenerationData of string
 
 val keyvals = Cgi.keyValues()
 
+val secondsPerDay = 60*60*24
+
 fun makeLicenseData () =
     let
 	fun getVal key =
@@ -31,10 +33,10 @@ fun makeLicenseData () =
 	val maxMinorVersion = getIntVal "maxMinorVersion"
 	val date =
 	    let
-		val dateVal = getIntVal "date"
+		val dateVal = (getIntVal "daysToExpiration") * secondsPerDay
 	    in
 		if dateVal = 0 then NONE
-		else SOME (Date.fromTimeLocal (Time.fromSeconds(IntInf.fromInt dateVal)))
+		else SOME (Date.fromTimeLocal (Time.+(Time.fromSeconds(IntInf.fromInt dateVal), Time.now())))
 	    end
 	val versionCode = getIntVal "versionCode"
 	val version = if versionCode = 0 then License.BASIC
