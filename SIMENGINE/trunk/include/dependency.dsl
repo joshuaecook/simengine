@@ -176,6 +176,9 @@ end
     end
 
     var gcc_version = parseCmdForVersion("\\(GCC\\) ([0-9]+.[0-9]+.[0-9]+)", gcc_path, ["--version"])
+    if gcc_version == "" then
+      gcc_version = "none"
+    end
 
     //nvcc = "release ([0-9]+.[0-9]+)" with --version
     var nvcc_path = checkCmdExists ("nvcc", ["/usr/local/cuda/lib", "/opt/cuda/lib"])
@@ -236,7 +239,7 @@ end
      
 
      //check gcc version
-     if deps.gcc.version.tonumber() < 4.1 then
+     if deps.gcc.version == "none" or deps.gcc.version.tonumber() < 4.1 then
        depsFailed = true
        warning ("gcc version greater than 4.1 required, " + deps.gcc.version + " found")
      end
@@ -249,37 +252,48 @@ end
 
      //check architectures
 
-     if depsFailed then
-       error "Some dependencies were not satisfied"
+     if settings.installation.depcheck.getValue() then
+       test_pass(not depsFailed)
+     else
+       if depsFailed then
+         error "Some dependencies were not satisfied"
+       end
      end
 
      deps
   end
 
 function buildDependencyFile ()
-  notice "Constructing System Dependency List"
+  var deps
 
-  var homedir = Environment.getVar("HOME")
-  var directory = Path.join(homedir, ".simatra")
-  var file = "dependencies"
+  if settings.installation.depcheck.getValue() then
+    notice "Checking System Dependencies"
+    deps = checkDependencies()
+  else
+    notice "Constructing System Dependency List"
 
-  var deps = checkDependencies()
+    var homedir = Environment.getVar("HOME")
+    var directory = Path.join(homedir, ".simatra")
+    var file = "dependencies"
 
-  // if directory doesn't exist, create it.
-  if not (FileSystem.isdir directory) then
-    FileSystem.mkdir directory
+    deps = checkDependencies()
+
+    // if directory doesn't exist, create it.
+    if not (FileSystem.isdir directory) then
+      FileSystem.mkdir directory
+    end
+
+    // open file
+    var depfile = File.openTextOut(Path.join(directory, file))  
+
+    //foreach dependency, add a line
+    foreach key in deps.keys do
+      depfile.putstr(key + ":" + (deps.getValue(key).fullpath) + ":" + (deps.getValue(key).version) + ":" + (deps.getValue(key).architecture) + "\n")
+    end
+
+    // close file
+    depfile.close()
   end
-
-  // open file
-  var depfile = File.openTextOut(Path.join(directory, file))  
-
-  //foreach dependency, add a line
-  foreach key in deps.keys do
-    depfile.putstr(key + ":" + (deps.getValue(key).fullpath) + ":" + (deps.getValue(key).version) + ":" + (deps.getValue(key).architecture) + "\n")
-  end
-
-  // close file
-  depfile.close()
 
   deps
 end
@@ -293,7 +307,7 @@ function getDependencies ()
 
   var depfile = Path.join(directory, file)
 
-  if FileSystem.isfile(depfile) then
+  if FileSystem.isfile(depfile) and not (settings.installation.depcheck.getValue()) then
     //read file into deps
 
     var file = File.openTextIn(depfile)
