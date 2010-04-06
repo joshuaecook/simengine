@@ -1,8 +1,7 @@
 structure SettingsLib =
 struct
 
-val TypeMismatch = DynException.TypeMismatch
-and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
+open LibraryUtil
 
 fun error msg =
     Logger.log_error (Printer.$ msg)
@@ -72,6 +71,9 @@ fun std_setsetting exec args =
        | _ => raise IncorrectNumberOfArguments {expected=2, actual=(length args)})
 
 
-val library = [{name="setSetting", operation=std_setsetting}]
+val library = [{name="setSetting", operation=std_setsetting},
+	       {name="settingsToJSON",
+		operation = fn exec => unitToStringFun (PrintJSON.toString o DynamoOptions.allSettingsToJSON)}
+	      ]
 
 end

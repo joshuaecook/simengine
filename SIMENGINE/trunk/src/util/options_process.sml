@@ -657,7 +657,7 @@ local
 in
 
 fun settingsListToJSON settings =
-    JSONTypedObject ("Settings", array (map settingToJSON settings))
+    array (map settingToJSON settings)
 and settingToJSON (FLAG (id, bool')) = 
     JSONTypedObject ("FLAG", object [("id", string id),
 				     ("bool", bool bool')])

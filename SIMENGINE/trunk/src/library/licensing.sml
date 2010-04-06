@@ -4,9 +4,6 @@ struct
 open LibraryUtil
 structure L = License
 
-val TypeMismatch = DynException.TypeMismatch
-and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
-
 fun licenseExpirationDate exec args = 
     case args
      of nil => 

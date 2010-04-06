@@ -77,7 +77,7 @@ fun parseString string =
 	       then ""
 	       else if size < n + i
 	       then String.extract (string, i, NONE)
-	       else String.extract (string, i, SOME (n + i))
+	       else String.extract (string, i, SOME n)
 	    end before pos := n + (! pos)
     in
 	parseValue (Lex.makeLexer input)

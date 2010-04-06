@@ -64,7 +64,9 @@ namespace Archive
 
     Archive.new (true, filename, Path.join (FileSystem.pwd (), ".simatra"), manifest)
 
-    var manifestData = JSON.addMember (JSON.encode manifest, "license", LF licenseToJSON ())
+    var manifestData = JSON.encode manifest
+    manifestData = JSON.addMember (manifestData, "license", LF licenseToJSON ())
+    manifestData = JSON.addMember (manifestData, "settings", LF settingsToJSON ())
 
     var manifest_o = Simlib.makeObjectFromContents ("MANIFEST.json", manifestData)
 
