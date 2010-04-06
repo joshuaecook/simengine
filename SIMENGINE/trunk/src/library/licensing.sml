@@ -39,7 +39,7 @@ fun licenseToJSON (str_list as first::rest) =
 		      SOME license => license
 		    | NONE => raise InvalidLicense
 	val _ = CurrentLicense.set(lic)
-	val result = licenseToJSON []
+	val result = (licenseToJSON [])
 		     handle e => (CurrentLicense.set(prev_license);
 				  raise e)
 	val _ = CurrentLicense.set(prev_license)
@@ -47,14 +47,17 @@ fun licenseToJSON (str_list as first::rest) =
 	result
     end
   | licenseToJSON nil =
-    PrintJSON.toString (License.toJSON (CurrentLicense.get ()))
+    (PrintJSON.toString (License.toJSON (CurrentLicense.get ())))
 
+fun licenseToJSON' l = 
+    (KEC.LITERAL o KEC.CONSTSTR) (licenseToJSON l)
+    handle InvalidLicense => InvalidLicenseError
+    
 
 val library = [{name="licenseProductType", 
 		operation = fn exec => unitToStringFun CurrentLicense.versionToString},
 	       {name="licenseToJSON", 
-		operation = fn exec => (strListToStringFun licenseToJSON
-					handle InvalidLicense => fn exec => InvalidLicenseError)},
+		operation = fn exec => strListToKEC licenseToJSON'},
 	       {name="licenseCustomerName", 
 		operation = fn exec => unitToStringFun CurrentLicense.customerName},
 	       {name="licenseCustomerOrganization", 

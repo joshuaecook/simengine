@@ -81,7 +81,14 @@ val argument_groups =
 		long =SOME "simulate",
 		xmltag="simulate",
 		dyntype=STRING_T,
-		description=["Simulate the SIM file"]}
+		description=["Simulate the SIM file"]},
+
+	       {short=NONE,
+		long =SOME "license-file", 
+		xmltag="licenseFile",
+		dyntype=STRING_T,
+		description=["Specify a user defined license file"]}
+
      ]},
 
      {group="Compiler Options",

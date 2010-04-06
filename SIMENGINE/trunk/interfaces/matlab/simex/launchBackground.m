@@ -48,17 +48,17 @@ function [status] = launchBackground(command, workingDir, progressLabel)
     if length(log) > outputlen
         fprintf('%s', log(outputlen+1:end));
     end
-    try
-        status = str2num(fileread(statusFile));
-        % Prevent any crosstalk between launchBackground calls
-        delete(statusFile);
-        if(exist(progressFile,'file'))
-            messagelen = statusBar('', messagelen);
-            delete(progressFile);
-        end
-        delete(logFile);
-    catch it
-        simFailure('launchBackground', 'Process status file does not exist.')
+    if exists(statusFile, 'file')
+      status = str2num(fileread(statusFile));
+      % Prevent any crosstalk between launchBackground calls
+      delete(statusFile);
+      if(exist(progressFile,'file'))
+        messagelen = statusBar('', messagelen);
+        delete(progressFile);
+      end
+      delete(logFile);        
+    else
+      simFailure('launchBackground', 'Process status file does not exist.')      
     end
 end
 

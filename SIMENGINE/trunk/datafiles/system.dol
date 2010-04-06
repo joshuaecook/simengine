@@ -135,6 +135,9 @@
 // useFullForm: when writing expressions to the screen, show it using a more verbose functional form
 <usefullform = false>
 
+// licenseFile: specify default position of license file, if empty, use the internal paths to find one
+<licenseFile = "">
+
 // help: show usage information
 <help = false>
 

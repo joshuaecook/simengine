@@ -84,6 +84,12 @@ fun strListToStringFun (f: (string list -> string)) =
 	 else
 	     raise TypeMismatch ("expected all strings")
 
+fun strListToKEC (f: (string list -> KEC.exp)) =
+ fn l => if allStrings l then
+	     (f o kecStringListToStringList) l
+	 else
+	     raise TypeMismatch ("expected all strings")
+
 end 
 
 end

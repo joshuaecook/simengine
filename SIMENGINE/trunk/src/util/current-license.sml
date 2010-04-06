@@ -267,14 +267,38 @@ fun licenseFromFile filename =
 
 fun findLicense () =
     let
+	(* licenseFile can be either an empty string or contain a filename *)
+	val lic_file = DynamoOptions.getStringSetting "licenseFile"
+	(*val _ = Util.log("Command line license file: " ^ lic_file)*)
+	val licenseCmdLine = if lic_file = "" then
+				 NONE
+			     else if Directory.isFile lic_file then
+				 SOME lic_file
+			     else
+				 (Logger.log_error (Printer.$("Can not open license file '"^lic_file^"'"));
+				  DynException.setErrored();
+				  DynException.checkToProceed();
+				  NONE)
+	(*val _ = Util.log(case licenseCmdLine of SOME lic => "Found file" | NONE => "Did not find file")*)
+				 
 	val licenseFileMain = OS.Path.concat (getSIMENGINE(), OS.Path.fromUnixPath "data/license.key")
 	val licenseFileUser = OS.Path.concat (valOf (OS.Process.getEnv("HOME")), OS.Path.fromUnixPath ".simatra/license.key")
 
-	val license = case licenseFromFile licenseFileMain of
-			   SOME lic => lic
-			 | NONE => (case licenseFromFile licenseFileUser of
-					SOME lic => lic
-				      | NONE => L.default)
+	val license = case licenseCmdLine of
+			  (* here we want to use the one passed in *)
+			  SOME file => (case licenseFromFile file of
+					    SOME lic => lic
+					  | NONE => (Logger.log_data_error file (Printer.$("Can not process license file '"^lic_file^"'"));
+						     DynException.setErrored();
+						     DynException.checkToProceed();
+						     L.default))
+			(* otherwise go through the default search path *)
+			| NONE => (case licenseFromFile licenseFileMain of
+				       SOME lic => lic
+				     | NONE => (case licenseFromFile licenseFileUser of
+						    SOME lic => lic
+						  (* finally, can't find anything, so just use the default basic license *)
+						  | NONE => L.default))    
     in
 	set(license)
     end

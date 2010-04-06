@@ -147,12 +147,12 @@ fun main () =
 	(* set up a user log in /tmp *)
 	val userLog = Logger.log_add (getSIMENGINELOG (), Logger.ALL, defaultOptions)
 
-	(* Verify the license file *)
-	val _ = CurrentLicense.findAndVerify()
-
 	(* Read the DOL files and the commmand line arguments *)
 	val _ = processSettings()
 	val _ = Profile.mark()
+
+	(* Verify the license file *)
+	val _ = CurrentLicense.findAndVerify()
 
 	(* Update the logging based on the verbose flag which may have been passed in as a command line argument *)
 	val log = if DynamoOptions.isFlagSet "verbose" then
