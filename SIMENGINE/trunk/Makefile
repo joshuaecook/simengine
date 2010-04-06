@@ -288,9 +288,12 @@ pcode-64:
 	@$(MAKE) pcode ARCH64=x86_64
 
 ifneq ($(PRIVATE_KEY),)
-createLicense.cgi: codegen src/createLicense/createLicense.mlb src/ffi/ffi-license.c src/createLicense/createLicense.sml src/ffi/license.sml src/ffi/ffi-exports.sml $(PRIVATE_KEY)
+simatra_private.o: $(PRIVATE_KEY)
 	./codegen/simlib/simlib put simatra_private $(PRIVATE_KEY)
+createLicense.cgi: codegen src/createLicense/createLicense.mlb src/ffi/ffi-license.c src/createLicense/createLicense.sml src/ffi/license.sml src/ffi/ffi-exports.sml simatra_private.o
 	mlton -output $@ -cc-opt "-DENABLE_ENCODE" -link-opt "-lcrypto codegen/simlib/simlib.a simatra_private.o -rdynamic" src/createLicense/createLicense.mlb src/ffi/ffi-license.c 
+trialLicense.cgi: codegen src/createLicense/trialLicense.mlb src/ffi/ffi-license.c src/createLicense/trialLicense.sml src/ffi/license.sml src/ffi/ffi-exports.sml simatra_private.o
+	mlton -output $@ -cc-opt "-DENABLE_ENCODE" -link-opt "-lcrypto codegen/simlib/simlib.a simatra_private.o -rdynamic" src/createLicense/trialLicense.mlb src/ffi/ffi-license.c 
 endif
 
 # Build Directory per Build Type

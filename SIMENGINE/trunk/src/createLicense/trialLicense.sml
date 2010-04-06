@@ -17,34 +17,18 @@ fun makeLicenseData () =
 	val customerID = getIntVal "customerID"
 	val customerName = getVal "customerName"
 	val customerOrganization = getVal "customerOrganization"
-	val restriction = 
-	    let
-		val restrictionCode = getIntVal "restriction"
-		val restrictionString = getVal "restrictionString"
-	    in
-		if restrictionCode = 0 then License.USERNAME restrictionString
-		else if restrictionCode = 1 then License.HOSTID restrictionString
-		else if restrictionCode = 2 then License.LICENSESERVER restrictionString
-		else if restrictionCode = 3 then License.SITE restrictionString
-		else raise InvalidLicenseGenerationData ("Invalid restriction code: " ^ (Int.toString restrictionCode))
-	    end
+	val restriction = License.SITE "Limited time trial license."
 	val serialNumber = getIntVal "serialNumber"
-	val maxMajorVersion = getIntVal "maxMajorVersion"
-	val maxMinorVersion = getIntVal "maxMinorVersion"
+	val maxMajorVersion = 9999
+	val maxMinorVersion = 9999
 	val date =
 	    let
-		val dateVal = (getIntVal "daysToExpiration") * secondsPerDay
+		val dateVal = 30 * secondsPerDay
 	    in
 		if dateVal = 0 then NONE
 		else SOME (Date.fromTimeLocal (Time.+(Time.fromSeconds(IntInf.fromInt dateVal), Time.now())))
 	    end
-	val versionCode = getIntVal "versionCode"
-	val version = if versionCode = 0 then License.BASIC
-		      else if versionCode = 1 then License.STANDARD
-		      else if versionCode = 2 then License.PROFESSIONAL
-		      else if versionCode = 3 then License.TRIAL
-		      else if versionCode = 4 then License.DEVELOPMENT
-		      else raise InvalidLicenseGenerationData ("Invalid version code: " ^ (Int.toString versionCode))
+	val version = License.TRIAL
 				 
 	val license =
 	    License.make {product=License.SIMENGINE,
