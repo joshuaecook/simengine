@@ -106,6 +106,18 @@ fun decode exec =
       | args => raise IncorrectNumberOfArguments {expected = 1, actual = length args}
     end
 
+fun addMember exec =
+    let
+	fun addMember' (obj, name, elem) =
+	    JSON.object ((name, elem) :: (valOf (JSON.members obj)))
+    in
+     fn [KEC.LITERAL (KEC.CONSTSTR obj), KEC.LITERAL (KEC.CONSTSTR name), KEC.LITERAL (KEC.CONSTSTR elem)] => 
+	(KEC.LITERAL (KEC.CONSTSTR (PrintJSON.toString (addMember' (ParseJSON.parseString obj, name, ParseJSON.parseString elem))))
+	 handle Fail _ => raise TypeMismatch ("expected two JSON strings; unable to parse"))
+      | [a, b] => raise TypeMismatch ("expected two JSON strings")
+      | args => raise IncorrectNumberOfArguments {expected = 2, actual = length args}
+    end
+
 
 fun concat exec =
     let
@@ -122,6 +134,7 @@ fun concat exec =
 
 val library = [{name="jsonEncode", operation=encode},
 	       {name="jsonDecode", operation=decode},
-	       {name="jsonConcat", operation=concat}]
+	       {name="jsonConcat", operation=concat},
+	       {name="jsonAddMember", operation=addMember}]
 
 end
