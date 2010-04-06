@@ -30,6 +30,8 @@ val version = BuildOptions.version
 val extension = ".dso"
 val edition = ref "N/A"
 val licenseHolder = ref "N/A"
+val expirationString = ref ""
+val daysToString = ref (fn(d:Date.date)=>"")
 
 fun buildDateAsDate () = 
     let
@@ -39,11 +41,11 @@ fun buildDateAsDate () =
 	(Date.fromTimeUniv o Time.fromReal o Real.fromLargeInt) seconds
     end    
 
-fun buildDate () = Date.toString (buildDateAsDate())
+fun buildDate () = (!daysToString) (buildDateAsDate())
 
 fun startupMessage () =
     (name ^ " v" ^ version ^ ", " ^ (!edition) ^ " Edition" ^ "\n"
-     ^ (!licenseHolder) ^ "\n"
+     ^ (!licenseHolder) ^ " " ^ (!expirationString) ^ "\n"
      ^ "[built: " ^ (buildDate()) ^ "]" ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
      ^ copyright)
     

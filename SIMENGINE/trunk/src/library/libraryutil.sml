@@ -68,4 +68,22 @@ fun unitToStringFun (f: (unit -> string)) =
  fn nil => (KEC.LITERAL o KEC.CONSTSTR o f) ()
   | args => raise IncorrectNumberOfArguments {expected=0, actual=(length args)}
 
+fun optStrToStringFun (f: (string option -> string)) = 
+ fn [KEC.LITERAL (KEC.CONSTSTR s)] => (KEC.LITERAL o KEC.CONSTSTR o f o SOME) s
+  | [a] => raise TypeMismatch ("expected a string but received " ^ (nick a))
+  | nil => (KEC.LITERAL o KEC.CONSTSTR o f) NONE
+  | args => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
+local
+    fun allStrings l = List.all (fn(i)=>case i of KEC.LITERAL (KEC.CONSTSTR _) => true | _ => false) l
+    fun kecStringListToStringList l = List.mapPartial (fn(i)=> case i of KEC.LITERAL (KEC.CONSTSTR s) => SOME s | _ => NONE) l
+in
+fun strListToStringFun (f: (string list -> string)) =
+ fn l => if allStrings l then
+	     (KEC.LITERAL o KEC.CONSTSTR o f o kecStringListToStringList) l
+	 else
+	     raise TypeMismatch ("expected all strings")
+
+end 
+
 end

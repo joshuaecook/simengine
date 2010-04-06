@@ -42,7 +42,7 @@ sig
     val version: license -> version
 
     (* low level routines to convert Licenses to/from internal SML structure and external string format *)
-    val licenseFromData : string -> license
+    val licenseFromData : string -> license option
     val licenseToData : license -> string
 
     val toJSON: license -> JSON.json
@@ -97,7 +97,7 @@ end
 local 
     open JSON
     val int = int o IntInf.fromInt
-    val date = string o Date.toString
+    val date = string o (*Date.toString*) Date.fmt "%B %d, %Y" 
 in
 fun toJSON license =
     object [("customerID", int (customerID license)),
@@ -160,8 +160,8 @@ val licenseEncode' =
 
 fun licenseDecode cipher =
     case licenseDecode' (String.size cipher, cipher)
-     of 0 => FFIExports.getTheString () 
-      | n => raise Fail ("Failed to decode license; error " ^ (Int.toString n))
+     of 0 => SOME (FFIExports.getTheString ())
+      | n => NONE (*raise Fail ("Failed to decode license; error " ^ (Int.toString n))*)
 
 fun licenseEncode licenseData =
     case licenseEncode' (String.size licenseData, licenseData)
@@ -193,7 +193,9 @@ fun enqStr (str, s) = String.concat [str, s]
 (* Decomposes a packed string license format into the SML license type *)
 fun licenseFromData data = 
     let
-	val licenseData = licenseDecode data
+	val licenseData = case licenseDecode data of
+			      SOME d => d
+			    | NONE => raise InvalidLicenseFile
 	val (licenseData, licenseHeader) = deqInt(licenseData)
 	val _ = if (licenseHeader <> currentLicenseHeader) then
 		    raise InvalidLicenseFile
@@ -217,6 +219,7 @@ fun licenseFromData data =
 	val (licenseData, customerID) = deqInt(licenseData)
 	val (licenseData, restrictionCode) = deqInt(licenseData)
 	val (licenseData, expiration) = deqInt(licenseData)
+	(* expiration is stored as days inside the format *)
 	val expirationDate = case expiration of
 				 0 => NONE
 			       | _ => SOME (Date.fromTimeLocal(Time.fromSeconds(IntInf.fromInt(expiration * secondsPerDay))))
@@ -246,8 +249,9 @@ fun licenseFromData data =
 		     version=productVersion,
 		     enhancements={}}
     in
-	lic
+	SOME lic
     end
+    handle InvalidLicenseFile => NONE
 
 (* Composes a packed string license format from the SML license type *)
 fun licenseToData (LICENSE

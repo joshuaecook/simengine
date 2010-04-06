@@ -29,13 +29,32 @@ fun daysTillExpiration exec args =
 	end
       | args => raise IncorrectNumberOfArguments {expected=0, actual=(length args)}
 
-fun licenseToJSON () =
+exception InvalidLicense
+val InvalidLicenseError = (KEC.ERROR o KEC.LITERAL o KEC.CONSTSTR) "Invalid License"
+fun licenseToJSON (str_list as first::rest) =
+    let
+	val prev_license = CurrentLicense.get()
+	val license_str = String.concatWith "\n" str_list
+	val lic = case L.licenseFromData license_str of
+		      SOME license => license
+		    | NONE => raise InvalidLicense
+	val _ = CurrentLicense.set(lic)
+	val result = licenseToJSON []
+		     handle e => (CurrentLicense.set(prev_license);
+				  raise e)
+	val _ = CurrentLicense.set(prev_license)
+    in
+	result
+    end
+  | licenseToJSON nil =
     PrintJSON.toString (License.toJSON (CurrentLicense.get ()))
+
 
 val library = [{name="licenseProductType", 
 		operation = fn exec => unitToStringFun CurrentLicense.versionToString},
 	       {name="licenseToJSON", 
-		operation = fn exec => unitToStringFun licenseToJSON},
+		operation = fn exec => (strListToStringFun licenseToJSON
+					handle InvalidLicense => fn exec => InvalidLicenseError)},
 	       {name="licenseCustomerName", 
 		operation = fn exec => unitToStringFun CurrentLicense.customerName},
 	       {name="licenseCustomerOrganization", 

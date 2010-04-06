@@ -19,6 +19,7 @@ in
 val r2s = tr o Real.toString
 val real2exact_str = tr o exact
 val i2s = tr o Int.toString
+val infint2str = tr o (IntInf.toString)
 
 end
 
@@ -323,5 +324,6 @@ fun daysToString days =
     in
 	weekday_str ^ ", " ^ month_str ^ " " ^ day_str ^ ", " ^ year_str
     end
+val _ = Globals.daysToString := daysToString
 
 end
