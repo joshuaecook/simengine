@@ -48,7 +48,7 @@ function [status] = launchBackground(command, workingDir, progressLabel)
     if length(log) > outputlen
         fprintf('%s', log(outputlen+1:end));
     end
-    if exists(statusFile, 'file')
+    if exist(statusFile, 'file')
       status = str2num(fileread(statusFile));
       % Prevent any crosstalk between launchBackground calls
       delete(statusFile);
