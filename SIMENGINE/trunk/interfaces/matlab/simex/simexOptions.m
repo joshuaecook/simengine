@@ -3,7 +3,7 @@ function [options] = simexOptions (dsl, varargin)
   options = struct('simengine','', 'model', '', 'instances',1, 'startTime',0, ...
                    'stopTime',0, 'inputs',struct(), 'states',[], ...
                    'outputs', '', 'debug', false, 'args', '--binary', ...
-                   'dslfile', '', 'target', 'parallelcpu', 'precision', ...
+                   'dslfile', '', 'target', 'default', 'precision', ...
                    'double');
   userOptions = varargin(:);
 
@@ -50,6 +50,18 @@ function [options] = simexOptions (dsl, varargin)
       [options, userOptions] = getOption(options, userOptions);
   end
 
+  % add target and binary options
+  switch options.target
+   case 'cpu'
+    options.args = [options.args ' --target cpu'];
+   case 'parallelcpu'
+    options.args = [options.args ' --target parallelcpu'];
+   case 'gpu'
+    options.args = [options.args ' --target gpu'];
+   otherwise
+    options.args = [options.args ' --target default'];
+  end
+    
   instances = max(size(options.inputs));
   if 1 == instances
       % Determine the number of instances by looking for cell
@@ -147,13 +159,10 @@ function [options, restUserOptions] = getOption(options, userOptions)
       options.args = [options.args ' --precision float'];
     case 'gpu'
       options.target = 'gpu';
-      options.args = [options.args ' --target gpu'];
     case 'cpu'
       options.target = 'cpu';
-      options.args = [options.args ' --target cpu'];
     case 'parallelcpu'
       options.target = 'parallelcpu';
-      options.args = [options.args ' --target parallelcpu'];
     case 'instances'
       if length(userOptions) < 2 || ~isscalar(userOptions{2}) || floor(userOptions{2}) ~= userOptions{2} || userOptions{2} < 0
           simexError('argumentError', 'A positive integer value must be passed to -instances.');

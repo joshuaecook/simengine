@@ -12,6 +12,7 @@ sig
     (* tests for individual features *)
     val isEnabled : feature -> bool
     val verifyEnabled : feature -> unit
+    val defaultTarget : unit -> string
 
 end
 structure Features : FEATURES =
@@ -81,5 +82,11 @@ fun verifyEnabled feature =
     else
 	(Logger.log_error(Printer.$("Feature '"^(toString feature)^"' is not available under a '"^(CurrentLicense.versionToString())^"' license"));
 	 DynException.setErrored())
+
+fun defaultTarget () = 
+    if CurrentLicense.isTrial() orelse CurrentLicense.isProfessional() orelse CurrentLicense.isDevelopment() then
+	"parallelcpu"
+    else
+	"cpu"
 
 end

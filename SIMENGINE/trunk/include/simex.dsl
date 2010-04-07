@@ -565,6 +565,12 @@ import "command_line.dsl"
 
     // Instantiating a target could override compilerSettings based on target type (i.e. precision = float for GPU arch_11)
     var target_setting = settings.simulation.target.getValue()
+
+    // if the default, then we choose one based on the license
+    if "default" == target_setting then
+      target_setting = LF defaultTarget()
+    end
+
     if "parallelcpu" == target_setting then
       target = TargetOpenMP.new(compilerSettings)
     elseif "gpu" == target_setting then

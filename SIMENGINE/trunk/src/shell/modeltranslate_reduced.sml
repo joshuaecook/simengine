@@ -749,6 +749,11 @@ fun obj2dofmodel object =
 	val debug = DynamoOptions.isFlagSet "debug"
 	val profile = DynamoOptions.isFlagSet "profile"
 			
+	(* update to licensing default if set to default *)
+	val target = if StdFun.toLower target = "default" then
+			 Features.defaultTarget()
+		     else
+			 target			 
 		      
 	(* only support openmp right now *)
 	val target = if StdFun.toLower target = "parallelcpu" then
