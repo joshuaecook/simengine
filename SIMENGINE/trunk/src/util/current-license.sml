@@ -128,8 +128,12 @@ fun expirationToString () =
     end
 
 
-    
-fun set license = (current := license; Globals.edition := (versionToString()); Globals.licenseHolder := (licenseHolderToString()); Globals.expirationString := (expirationToString()))
+val verifyLicenseToJSONCallBack = ref (fn(_)=>JSON.null)    
+fun set license = (current := license; 
+		   Globals.edition := (versionToString()); 
+		   Globals.licenseHolder := (licenseHolderToString()); 
+		   Globals.expirationString := (expirationToString());
+		   L.verifyLicenseToJSONCallback(!verifyLicenseToJSONCallBack))
 
 fun isBasic () = 
     case version ()
@@ -161,7 +165,7 @@ fun warning message =
 
 fun defaultLicenseWarning message =
     let
-	val _ = warning (message ^ "\nReverting to a Basic license.")
+	val _ = warning (message ^ "\nReverting from a "^(versionToString())^" to a Basic license.")
 	val _ = set(L.default)
     in
 	()
@@ -197,6 +201,45 @@ fun verifyExpired () =
 	    val str_date = Date.fmt "%B %d, %Y" last_date
 	in
 	    SOME (EXPIRED str_date)
+	end
+    else
+	NONE
+
+
+datatype maintenanceUseCase = EXECUTION | UPGRADE
+(* look at the system clock and compare to make sure that the latest date isn't after the expiration of the trial. for a second test, make sure that the compile time is before the expiration time *)
+fun isOutOfMaintenance (usecase) =
+    if isStandard() orelse isProfessional() then (* only the trial can be expired *)
+	let
+	    (* figure out what to compare against - the latest of the current date and the compile date *)
+	    val now = Date.fromTimeLocal (Time.now())
+	    val compile_date = Globals.buildDateAsDate() 
+
+	    val maximum_date = case usecase of
+				   EXECUTION => compile_date
+				 | UPGRADE => 		
+				   case Date.compare(now, compile_date) of
+				       GREATER => now
+				     | _ => compile_date
+
+	    val latest_date = expirationDate ()
+	in
+	    case latest_date of
+		SOME date => (case Date.compare (maximum_date, date) of
+				  GREATER => true
+				| _ => false)
+	      | NONE => false
+	end
+    else
+	false
+
+fun verifyOutOfMaintenance (usecase) =
+    if isOutOfMaintenance (usecase) then
+	let
+	    val last_date = valOf (expirationDate ())
+	    val str_date = Date.fmt "%B %d, %Y" last_date
+	in
+	    SOME (OUTOFMAINTENANCE str_date)
 	end
     else
 	NONE
@@ -315,14 +358,44 @@ fun licensingErrorToID (EXPIRED str_date) = fmt ["EXPIRED", str_date]
   | licensingErrorToID (NETWORKNOTSUPPORTED) = fmt ["NETWORKNOTSUPPORTED"]
 
 
-fun licensingErrorToString (EXPIRED str_date) = ("Software is valid until " ^ str_date ^ ". A new license is required to continue using some features of the software.")
-  | licensingErrorToString (OUTOFMAINTENANCE str_date) = ("Software can not be updated after " ^ str_date ^ ". A new license is required to upgrade this software.")
+fun licensingErrorToString (EXPIRED str_date) = ("Software was valid until " ^ str_date ^ ". A new license is required to continue using some features of the software.")
+  | licensingErrorToString (OUTOFMAINTENANCE str_date) = ("Software is out of maintenance and can not be updated after " ^ str_date ^ ". A new license is required to upgrade this software.")
   | licensingErrorToString (INVALIDVERSION {cur_ver, lic_ver}) = ("Your software license is valid up until version " ^ lic_ver ^ ".  This software is version " ^ cur_ver ^ ".")
   | licensingErrorToString (WRONGUSER (SOME {cur_user, lic_user, lic_name, lic_organization})) = ("This software is licensed to " ^ (lic_name) ^ "," ^ (lic_organization) ^ " (" ^ lic_user ^ ") and cannot be run by the current user (" ^ cur_user ^ ").")
   | licensingErrorToString (WRONGUSER NONE) = ("This software can not determine the current user of the system to validate license.")
   | licensingErrorToString (WRONGMACHINE WRONGHOST) = ("Machine is not licensed to run this version of the software.")
   | licensingErrorToString (WRONGMACHINE CANTVERIFYHOST) = ("Can not evaluate machine to verify that license is valid for this machine.")
   | licensingErrorToString NETWORKNOTSUPPORTED = ("Network licensing is not currently supported in this version of the software")
+
+local
+    open JSON
+in
+fun licensingErrorToJSON NONE = bool true
+  | licensingErrorToJSON (SOME err) =
+    case err of
+	EXPIRED str_date => object [("status", string "expired"),
+				    ("date", string str_date)]
+      | OUTOFMAINTENANCE str_date => object [("status", string "outofmaintenance"),
+					     ("date", string str_date)]
+      | INVALIDVERSION {cur_ver, lic_ver} => object [("status", string "invalidversion"),
+						     ("cur_ver", string cur_ver),
+						     ("lic_ver", string lic_ver)]
+      | WRONGUSER NONE => object [("status", string "wronguser"),
+				  ("queried", bool false)]
+      | WRONGUSER (SOME {cur_user, lic_user, lic_name, lic_organization}) => 
+	object [("status", string "wronguser"),
+		("queried", bool true),
+		("cur_user", string cur_user),
+		("lic_user", string lic_user),
+		("lic_name", string lic_name),
+		("lic_organization", string lic_organization)]
+      | WRONGMACHINE CANTVERIFYHOST => object [("status", string "wrongmachine"),
+					   ("queried", bool false)]
+      | WRONGMACHINE WRONGHOST => object [("status", string "wrongmachine"),
+					  ("queried", bool true)]
+      | NETWORKNOTSUPPORTED => object [("status", string "networknotsupported")]
+end
+
 
 val logLicensingErrors  = defaultLicenseWarning o licensingErrorToString
 
@@ -331,6 +404,10 @@ fun findAndVerify () =
 	val _ = findLicense ()
 	(* verify that it is not expired *)
 	val _ = case verifyExpired () of
+		    SOME err => logLicensingErrors err
+		  | NONE => ()
+	(* verify that it is not out of maintenance *)
+	val _ = case verifyOutOfMaintenance (EXECUTION) of
 		    SOME err => logLicensingErrors err
 		  | NONE => ()
 	(* now verify that the version is correct *)
@@ -371,11 +448,16 @@ fun checkLicense (SOME license) =
     (* run the verification checks *)
     case verifyExpired() of
 	SOME err => SOME err
-      | NONE => (case verifyValidVersion (BuildOptions.majorVersion, BuildOptions.minorVersion) of
+      | NONE => (case verifyOutOfMaintenance(UPGRADE) of
 		     SOME err => SOME err
-		   | NONE => (case verifyNotRestricted () of
+		   | NONE => (case verifyValidVersion (BuildOptions.majorVersion, BuildOptions.minorVersion) of
 				  SOME err => SOME err
-				| NONE => NONE))
+				| NONE => (case verifyNotRestricted () of
+					       SOME err => SOME err
+					     | NONE => NONE)))
+		
+(* This callback will be used by the license code to produce JSON data of the status of a license *)
+val _ = (verifyLicenseToJSONCallBack) := (fn(license)=>(licensingErrorToJSON o checkLicense o SOME) license)
 
 (* validateUpdate is passed release info and the result is that the update is a GREATER, EQUAL, or LESS order. If the result is NONE, then the update is not valid. *)
 fun validateUpdate days =

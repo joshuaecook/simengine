@@ -46,6 +46,7 @@ sig
     val licenseToData : license -> string
 
     val toJSON: license -> JSON.json
+    val verifyLicenseToJSONCallback : (license -> JSON.json) -> unit
 end
 
 structure License: LICENSE =
@@ -94,6 +95,12 @@ val version = acc #version
 val enhancements = acc #enhancements
 end
 
+
+(* This is set in current-license.sml and will validate a given license, returning an error message if applicable in JSON format *)
+val verifyToJSONFunRef = ref (fn(_)=>JSON.null)
+fun verifyLicenseToJSONCallback (verifyToJSONFun) = 
+    verifyToJSONFunRef := verifyToJSONFun
+
 local 
     open JSON
     val int = int o IntInf.fromInt
@@ -122,7 +129,8 @@ fun toJSON license =
 				      | HOSTID host => [("HOSTID", string host)]
 				      | LICENSESERVER server => [("LICENSESERVER", string server)]
 				      | SITE name => [("SITE", string name)])),
-	    ("enhancements", null)]
+	    ("enhancements", null),
+	    ("status", (!verifyToJSONFunRef) license)]
 end
 
 (* Default to a basic license *)
