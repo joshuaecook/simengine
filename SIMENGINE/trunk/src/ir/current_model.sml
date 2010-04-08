@@ -87,12 +87,6 @@ fun classname2class(sym) : DOF.class =
     in
 	if isSome found then valOf found
 	else
-	    (* Otherwise look for a class that matches the name in a MASTER relationship. *)
-	   (* case (List.find (fn {properties = {classtype = DOF.MASTER name, ...}, ...} => name = sym
-			      | _ => false)
-			    myclasses)
-	     of SOME c => c
-	      | NONE => *)
 		DynException.stdException(("Can't find class with name '"^(Symbol.name sym)^"': ClassList=" ^(Util.symlist2s (map #name myclasses))),
 					  ("CurrentModel.classname2class"), Logger.INTERNAL)
     end

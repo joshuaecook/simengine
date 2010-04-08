@@ -84,7 +84,7 @@ end (* structure Output *)
 
 (* The master/slave relationship between classes enforces ordering. *)    
 datatype classtype
-  = MASTER (*of Symbol.symbol*)
+  = MASTER
   | SLAVE of Symbol.symbol
 
 

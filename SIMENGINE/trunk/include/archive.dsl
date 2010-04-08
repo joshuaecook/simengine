@@ -109,9 +109,7 @@ namespace Archive
     var ccout = ccallout(1)
     var ccerr = ccallout(2)
     if 0 <> ccstat then
-      println ("STDOUT:" + join("", ccout))
-      println ("STDERR:" + join("", ccerr))
-      error ("OOPS! Compiler returned non-zero exit status " + ccstat)
+      failure ("Compiler returned non-zero exit status " + ccstat)
     end
   end
 
@@ -122,9 +120,7 @@ namespace Archive
     var ldout = ldallout(1)
     var lderr = ldallout(2)
     if 0 <> ldstat then
-      println (join("", ldout))
-      println (join("", lderr))
-      error ("OOPS! Linker returned non-zero exit status " + ldstat)
+      failure ("OOPS! Linker returned non-zero exit status " + ldstat)
     end
   end
 
