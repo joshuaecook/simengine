@@ -101,6 +101,7 @@
 <logdof = false>
 <logrewrites = false>
 <logredundancy = false>
+<logordering = false>
 
 // logsettings: debug the values of passed in options
 <logsettings = false>

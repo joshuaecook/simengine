@@ -56,7 +56,7 @@ fun DOFToShardedModel forest =
 	(* if the optimize flag is set, spend some time trying to reduce the equations *)
 	val _ = if DynamoOptions.isFlagSet "optimize" then
 		    (log ("Optimizing model ...");
-		     ModelProcess.optimizeModel (model());
+		     ModelProcess.optimizeModel false (model()); (* don't perform ordering *)
 		     DOFPrinter.printModel(model()))
 		else
 		    ()
@@ -100,7 +100,7 @@ fun DOFToShardedModel forest =
 			 app 
 			     (fn(shard) => 
 				(CurrentModel.withModel (toModel shard)
-							(fn() => ModelProcess.optimizeModel (toModel shard)))) 
+							(fn() => ModelProcess.optimizeModel true (toModel shard)))) (* order after *)
 			     shards)
 		    end
 		else

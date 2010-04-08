@@ -6,9 +6,11 @@ structure ModelProcess : sig
     val unify : DOF.model -> DOF.model
 
     (* optimizeModel: algebraic and performance optimizations all occur in this function.  All transformations
-      performed here should be independent of back-end.  If the data structure is to be saved prior to writing 
-      a particular back-end, the data structure returned from optimizeModel would be a good one to save.  *)
-    val optimizeModel : DOF.model -> unit
+     * performed here should be independent of back-end.  If the data structure is to be saved prior to writing 
+     * a particular back-end, the data structure returned from optimizeModel would be a good one to save.  
+     * Depending on where this is called, we might want to perform an ordering step when redundancy eliminating. 
+     * This is set through the first boolean argument. *)			     
+    val optimizeModel : bool -> DOF.model -> unit
 
     (* normalizeModel and normalizeParallelModel: a normalization step for writing into a C back-end.  This 
       function performs transformations that are used solely for fitting within a back-end.  This
@@ -367,7 +369,7 @@ fun requiresFlattening () =
     end
 
 			
-fun optimizeModel (model:DOF.model) =
+fun optimizeModel order (model:DOF.model) =
     let
 	val _ = DynException.checkToProceed()
 	val (classes, _, _) = model
@@ -385,8 +387,12 @@ fun optimizeModel (model:DOF.model) =
 					  else
 					      0
 			val _ = app ClassProcess.removeRedundancy classes
-			val _ = Logger.log_notice (Printer.$("Ordering after redundancy elimination ..."))
-			val _ = Ordering.orderModel (model)
+			val _ = if order then
+				    (Logger.log_notice (Printer.$("Ordering after redundancy elimination ..."));
+				     Ordering.orderModel (model);
+				     ())
+				else
+				    ()
 		    in
 			if verbose then
 			    Logger.log_notice (Printer.$("Rendundancy elimination step before/after: "^(i2s cost_before)^"/"^(i2s (Cost.model2cost model))))

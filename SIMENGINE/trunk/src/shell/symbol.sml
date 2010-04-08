@@ -128,4 +128,7 @@ fun unionList [] = empty
 fun flatmap mapfun list = 
     unionList (List.map mapfun list)
 
+(* val unionWithList : (set * a' list) -> set *)
+fun unionWithList(s,l) = union (s, fromList l)
+
 end

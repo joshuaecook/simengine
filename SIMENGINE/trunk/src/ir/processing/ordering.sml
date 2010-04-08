@@ -8,7 +8,11 @@ end = struct
 exception SortFailed
 
 (*remove line for debugging *)
-fun print x = ()
+fun print x = if DynamoOptions.isFlagSet "logordering" then
+		  Util.log x
+	      else
+		  ()
+
 fun printModel x = (* DOFPrinter.printModel x *) CurrentModel.setCurrentModel x
 
 fun valOf (SOME thing) = thing
@@ -25,6 +29,9 @@ fun id a = a
 (* Compares two values using the builtin polymorphic equality operator. (Allows partial application.) *)
 fun equals a b = a = b
 
+(* Useful shortcuts *)
+val e2s = ExpPrinter.exp2str
+
 fun genUniqueName base = 
     Symbol.symbol (base ^ (Int.toString (Unique.genid())))
 
@@ -36,14 +43,14 @@ fun printClassMap classMap =
 	fun printExp expMap name =
 	    let
 		val deps = SymbolSet.listItems(valOf (SymbolTable.look(expMap, name)))
-		val _ = print ("    " ^ (Symbol.name name) ^ " depends on [" ^ (String.concatWith ", " (map Symbol.name deps)) ^ "]\n")
+		val _ = print ("    " ^ (Symbol.name name) ^ " depends on [" ^ (String.concatWith ", " (map Symbol.name deps)) ^ "]")
 	    in
 		()
 	    end
 
 	fun printClass name =
 	    let
-		val _ = print ("  Class: " ^ (Symbol.name name) ^ "\n")
+		val _ = print ("  Class: " ^ (Symbol.name name) ^ "")
 		val expMap = valOf (SymbolTable.look(classMap, name))
 
 		val _ = app (printExp expMap) (SymbolTable.listKeys expMap)
@@ -51,7 +58,7 @@ fun printClassMap classMap =
 		()
 	    end
 
-	val _ = print "Class Map:\n============\n\n"
+	val _ = print "Class Map:\n============\n"
 	val _ = app printClass (SymbolTable.listKeys classMap)
     in
 	()
@@ -62,14 +69,14 @@ fun printClassIOMap classIOMap =
 	fun printExp expMap name =
 	    let
 		val deps = SymbolSet.listItems(valOf (SymbolTable.look(expMap, name)))
-		val _ = print ("    " ^ (Symbol.name name) ^ " depends on [" ^ (String.concatWith ", " (map Symbol.name deps)) ^ "]\n")
+		val _ = print ("    " ^ (Symbol.name name) ^ " depends on [" ^ (String.concatWith ", " (map Symbol.name deps)) ^ "]")
 	    in
 		()
 	    end
 
 	fun printClass name =
 	    let
-		val _ = print ("  Class: " ^ (Symbol.name name) ^ "\n")
+		val _ = print ("  Class: " ^ (Symbol.name name) ^ "")
 		val expMap = valOf (SymbolTable.look(classIOMap, name))
 
 		val _ = app (printExp expMap) (SymbolTable.listKeys expMap)
@@ -77,7 +84,7 @@ fun printClassIOMap classIOMap =
 		()
 	    end
 
-	val _ = print "Class IO Map:\n============\n\n"
+	val _ = print "Class IO Map:\n============\n"
 	val _ = app printClass (SymbolTable.listKeys classIOMap)
 		
     in
@@ -115,7 +122,7 @@ fun term2sym term =
 
 fun termexp2sym exp = (case ExpProcess.lhs exp of
 			   Exp.TERM t => term2sym t
-			 | _ => DynException.stdException(("Unexpected non term on lhs of exp: " ^ (ExpPrinter.exp2str exp)), "Ordering.termexp2sym", Logger.INTERNAL))
+			 | _ => DynException.stdException(("Unexpected non term on lhs of exp: " ^ (e2s exp)), "Ordering.termexp2sym", Logger.INTERNAL))
     handle SortFailed => raise SortFailed 
 	     | e => DynException.checkpoint "Ordering.termexp2sym" e
 
@@ -176,13 +183,17 @@ end
 fun sortExps _ _ nil = nil
   | sortExps classname satisfiedDeps exps = 
     let
+	val _ = print ("\nSatisfied Deps in sortExps: " ^ (SymbolSet.toStr satisfiedDeps))
+	val _ = print ("Expression List in sortExps: ")
+	val _ = app (fn(deps, exp)=> (print ("Expression: " ^ (e2s exp));
+				      print (" |-> Deps: " ^ (SymbolSet.toStr (SymbolSet.unionList deps))))) exps
 	(*		(* partition into the two types of sortable equations *)
 	 val (intermediate_eqs, instance_eqs) 
 	   = List.partition (fn(_, eq) => EqUtil.isIntermediate eq) eqs*)
 
 	(* select satisfied equations *)
 	fun depsSatisfied (deps, _) =
-	    SymbolSet.isSubset(foldl SymbolSet.union SymbolSet.empty deps, satisfiedDeps)
+	    SymbolSet.isSubset(SymbolSet.unionList deps, satisfiedDeps)
 
 
 	val (satisfied_exps, unsatisfied_exps) 
@@ -191,37 +202,36 @@ fun sortExps _ _ nil = nil
 	fun getLHSSyms (_, exp):(Symbol.symbol list) =
 	    ExpProcess.exp2symbols (ExpProcess.lhs exp)
 
-	val satisfiedDeps' = SymbolSet.union (satisfiedDeps, 
-					      SymbolSet.fromList (GeneralUtil.flatten (map getLHSSyms
-											   satisfied_exps)))
+	val satisfiedDeps' = SymbolSet.unionWithList (satisfiedDeps, 
+						      Util.flatmap getLHSSyms satisfied_exps)
 
 	fun expanddep2str (deps, exp) = 
 	    let
-		val expstr:string = 
+		val expstr = 
 		    "exp = " ^ 
 		    (if ExpProcess.isInstanceEq exp then
-			 Symbol.name (#instname (ExpProcess.deconstructInst exp))
+			 "inst:" ^ Symbol.name (#instname (ExpProcess.deconstructInst exp))
 		     else
-			 (String.concatWith ", " (map Symbol.name (getLHSSyms (deps,exp)))))
+			 Util.symlist2s (getLHSSyms (deps,exp)))
 
-		val depstr:string = " deps on " ^ (String.concatWith ", " (map Symbol.name (GeneralUtil.flatten(map SymbolSet.listItems deps))))
+		val depstr = " deps on " ^ (Util.symlist2s (Util.flatmap SymbolSet.listItems deps))
 	    in
 		expstr ^ depstr
 	    end
 	    handle SortFailed => raise SortFailed 
 	     | e => DynException.checkpoint "Ordering.orderModel.sortExps.expanddep2str" e
 
-	val _ = print ("Satisfied deps for " ^ (String.concatWith ", " (map Symbol.name (GeneralUtil.flatten (map getLHSSyms satisfied_exps)))) ^ "\n")
-	val _ = print ("  deps are  " ^ (String.concatWith "\n    " (map expanddep2str (satisfied_exps))) ^ "\n")
-	val _ = print ("  satisfiedDeps' = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems satisfiedDeps'))) ^ "\n")
-	val _ = print ("UnSatisfied deps for " ^ (String.concatWith ", " (map (fn(d,e) => "(" ^ (String.concatWith ", " (map Symbol.name ((ExpProcess.exp2symbols (ExpProcess.lhs e))))) ^ ")<-[" ^ (String.concatWith ", " (map Symbol.name (GeneralUtil.flatten(map SymbolSet.listItems (d))))) ^ "]") unsatisfied_exps)) ^ "\n\n")
-	val _ = print ("  deps are  " ^ (String.concatWith "\n    " (map expanddep2str (unsatisfied_exps))) ^ "\n")
+	val _ = print ("\nSatisfied deps for " ^ (Util.symlist2s (Util.flatmap getLHSSyms satisfied_exps)))
+	val _ = print ("  deps are  " ^ (Util.l2s (map expanddep2str (satisfied_exps))))
+	val _ = print ("  satisfiedDeps' = " ^ (SymbolSet.toStr satisfiedDeps'))
+	val _ = print ("UnSatisfied deps for " ^ (Util.l2s (map (fn(d,e) => "(" ^ (Util.symlist2s (ExpProcess.exp2symbols (ExpProcess.lhs e))) ^ ")<-[" ^ (Util.symlist2s (Util.flatmap SymbolSet.listItems (d))) ^ "]") unsatisfied_exps)))
+	val _ = print ("  deps are  " ^ (Util.l2s (map expanddep2str (unsatisfied_exps))))
 
 	val satisfied_exps = map #2 satisfied_exps
 			     
 	val sorted_exps = if SymbolSet.equal (satisfiedDeps, satisfiedDeps') andalso length(unsatisfied_exps) > 0 then
 			      let
-				  val cycle = String.concatWith ", " (GeneralUtil.flatten (map (fn(d,e) => map Symbol.name (ExpProcess.exp2symbols (ExpProcess.lhs e))) unsatisfied_exps))
+				  val cycle = Util.symlist2s (Util.flatmap (fn(d,e) => ExpProcess.exp2symbols (ExpProcess.lhs e)) unsatisfied_exps)
 			      in
 				  (Logger.log_error (Printer.$("Can't sort equations in model " ^ (Symbol.name classname) ^ ".  Cycle includes: " ^ cycle));				      
 				   DynException.setErrored();
@@ -256,7 +266,7 @@ in
 fun orderClass classMap (class:DOF.class) =
     let
 	val exps = (!(#exps class))
-	val _ = print ("looking up class with name " ^ (Symbol.name (#name class)) ^ "\n")
+	val _ = print ("looking up class with name " ^ (Symbol.name (#name class)) ^ "")
 	val mapping = valOf (SymbolTable.look (classMap, #name class))
 
 	val masterexps = !(#exps (CurrentModel.classname2class ((*ClassProcess.class2basename*)ClassProcess.class2orig_name class)))
@@ -269,14 +279,26 @@ fun orderClass classMap (class:DOF.class) =
 
 	val sortable_exps = map (pairExpWithDeps mapping) other_exps
 
+	(* grab all symbols that have a read scope *)
+	fun isRead (Exp.SYMBOL (_, props)) = (case Property.getScope props of
+						 Property.READSTATE _ => true
+					       | Property.READSYSTEMSTATE _ => true
+					       | Property.ITERATOR => true
+					       | Property.SYSTEMITERATOR => true
+					       | _ => false)
+	  | isRead _ = false
+
+	val readSyms = map Term.sym2curname (List.filter isRead (Util.flatmap (ExpProcess.exp2termsymbols o ExpProcess.rhs) exps))
+
 	val availSyms = (GeneralUtil.flatten (map (ExpProcess.exp2symbols o ExpProcess.lhs) (init_exps @ master_init_exps @ state_exps)))
 			@ (map (term2sym o DOF.Input.name) (!(#inputs class)))
 			@ (map #1 (CurrentModel.iterators()))
 			@ (map #name (#iterators class))
+			@ readSyms
 
-	val _ = print ("exps = " ^ (String.concatWith "\n  " (map ExpPrinter.exp2str exps)) ^ "\n")
-	val _ = print ("init_exps = " ^ (String.concatWith ", " (map ExpPrinter.exp2str init_exps)) ^ "\n")
-	val _ = print ("availsyms = " ^ (String.concatWith ", " (map Symbol.name availSyms)) ^ "\n")
+	val _ = print ("exps = " ^ (String.concatWith "\n  " (map e2s exps)) ^ "")
+	val _ = print ("init_exps = " ^ (String.concatWith ", " (map e2s init_exps)) ^ "")
+	val _ = print ("availsyms = " ^ (String.concatWith ", " (map Symbol.name availSyms)) ^ "")
 
 	val satisfiedDeps = SymbolSet.fromList availSyms
 
@@ -306,13 +328,13 @@ fun orderModel (model:DOF.model)=
 	    (if ExpProcess.isInstanceEq exp then
 		 let
 		     val {instname=name,classname,...} = ExpProcess.deconstructInst exp
-		     val _ = print ("in add exp to exp map looking for class " ^ (Symbol.name classname) ^ "\n")
+		     val _ = print ("in add exp to exp map looking for class " ^ (Symbol.name classname) ^ "")
 		     val _ = print ("classmap keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap))) ^ "\n")
-		     val _ = print ("classes are " ^ (String.concatWith ", " (map (Symbol.name o #name) classes)) ^ "\n")
+		     val _ = print ("classes are " ^ (String.concatWith ", " (map (Symbol.name o #name) classes)) ^ "")
 		     val class = (valOf (List.find ((equals classname) o #name) classes))
 			 handle SortFailed => raise SortFailed 
 	     | e => DynException.checkpoint "Ordering.orderModel.addExpToExpMap.class" e
-		     val _ = print ("    got it\n")
+		     val _ = print ("    got it")
 
 		     val (classMap', classIOMap') = addClassToClassMap classes (class, (classMap, classIOMap))
 
@@ -399,7 +421,7 @@ fun orderModel (model:DOF.model)=
 		     (expMap', classMap, classIOMap)
 		 end
 	     else
-		 DynException.stdException(("Non instance or intermediate expression received: " ^ (ExpPrinter.exp2str exp)), "Ordering.orderModel.addExpToExpMap", Logger.INTERNAL))
+		 DynException.stdException(("Non instance or intermediate expression received: " ^ (e2s exp)), "Ordering.orderModel.addExpToExpMap", Logger.INTERNAL))
 	    handle SortFailed => raise SortFailed 
 	     | e => DynException.checkpoint "Ordering.addExpToExpMap" e
 
@@ -411,8 +433,8 @@ fun orderModel (model:DOF.model)=
 		let
 		    val {name, properties, inputs, outputs, iterators, exps} = class
 
-		     val _ = print ("Adding class to class map: " ^ (Symbol.name name) ^ "\n")
-		     val _ = print ("classes are " ^ (String.concatWith ", " (map (Symbol.name o #name) classes)) ^ "\n")
+		     val _ = print ("Adding class to class map: " ^ (Symbol.name name) ^ "")
+		     val _ = print ("classes are " ^ (String.concatWith ", " (map (Symbol.name o #name) classes)) ^ "")
 			     
 		     fun isRelevantExp exp = ExpProcess.isIntermediateEq exp orelse
 					     ExpProcess.isInstanceEq exp
@@ -488,9 +510,9 @@ fun orderModel (model:DOF.model)=
 
 
 			     val depSet' = SymbolSet.filter symIsInput depSet
-			     val _ = print ("~~~~~~~~~~~~~~~~~~~~~~~~~~\nadding to class IO map for name=" ^ (Symbol.name (term2sym name)) ^ " deps=" ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depSet))) ^"\n")
-			     val _ = print ("  depsyms=" ^ (String.concatWith ", " (map Symbol.name (depSyms))) ^"\n")
-			     val _ = print ("  deps'=" ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depSet'))) ^"\n~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+			     val _ = print ("~~~~~~~~~~~~~~~~~~~~~~~~~~\nadding to class IO map for name=" ^ (Symbol.name (term2sym name)) ^ " deps=" ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depSet))) ^"")
+			     val _ = print ("  depsyms=" ^ (String.concatWith ", " (map Symbol.name (depSyms))) ^"")
+			     val _ = print ("  deps'=" ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depSet'))) ^"\n~~~~~~~~~~~~~~~~~~~~~~~~~~")
 			 in
 			     SymbolTable.enter(ioMap, namesym, depSet')
 			 end
@@ -569,7 +591,7 @@ fun orderModel (model:DOF.model)=
 	(* Note: partgroup must either be a list of outputs OR a list containing only the maininstance*)
 	fun buildSplit (instanceClass:DOF.class, orig_instance_exp) (partGroup, (splitMap, classMap, classIOMap, exps)) =
 	    let
-		val _ = print ("calling buildsplit\n")
+		val _ = print ("calling buildsplit")
 
 		val classname = #name instanceClass
 		val outputSyms = ExpProcess.exp2symbols (ExpProcess.lhs orig_instance_exp)
@@ -597,7 +619,7 @@ fun orderModel (model:DOF.model)=
 
 		val key = classUsage2key (Option.isSome mainInstance) outputMap 
 
-		val _ = print ("Looking at candidates: " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys candidateClasses))) ^ " for key: " ^ (Symbol.name key) ^ "\n")
+		val _ = print ("Looking at candidates: " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys candidateClasses))) ^ " for key: " ^ (Symbol.name key) ^ "")
 
 		val (class, instance_exp, (splitMap', classMap', classIOMap')) = 
   		    case SymbolTable.look(candidateClasses, key) of
@@ -619,7 +641,7 @@ fun orderModel (model:DOF.model)=
 			    val classes = map #1 (GeneralUtil.flatten (map SymbolTable.listItems (SymbolTable.listItems (splitMap))))
 
 			    val (classMap', classIOMap') = addClassToClassMap classes (newclass, (classMap, classIOMap))
-			    val _ = print ("class map keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap'))) ^ "\n")
+			    val _ = print ("class map keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap'))) ^ "")
 			in
 			    (newclass, instance_exp, (SymbolTable.enter (splitMap, classname, SymbolTable.enter(candidateClasses, key, (newclass, inputMap))),
 						      classMap',
@@ -656,11 +678,11 @@ fun orderModel (model:DOF.model)=
 
 		val oldinputset = SymbolSet.fromList oldinputsyms
 
-		val _ = print ("class name = " ^ (Symbol.name (#name oldClass)) ^ "\n")
+		val _ = print ("class name = " ^ (Symbol.name (#name oldClass)) ^ "")
 
-		val _ = print ("includeMainExps = " ^ (Bool.toString includeMainExps) ^ "\n")
+		val _ = print ("includeMainExps = " ^ (Bool.toString includeMainExps) ^ "")
 
-		val _ = print ("outputMap = " ^ (String.concatWith ", " (map Int.toString outputMap)) ^ "\n")
+		val _ = print ("outputMap = " ^ (String.concatWith ", " (map Int.toString outputMap)) ^ "")
 
 
 		(* Use this on syms in RHS of eq that doesn't have dependency info (ie, it's not an instance or an interm) *)
@@ -699,7 +721,7 @@ fun orderModel (model:DOF.model)=
 		val mainExps = List.filter (fn(exp)=> (ExpProcess.isStateEq exp (*(ExpProcess.isFirstOrderDifferentialEq exp) orelse
 										 (ExpProcess.isDifferenceEq exp)*)))
 					   (!(#exps oldClass))
-		(*val _ = app (fn(exp)=>Util.log ("mainExps: " ^ (ExpPrinter.exp2str exp))) mainExps*)
+		(*val _ = app (fn(exp)=>Util.log ("mainExps: " ^ (e2s exp))) mainExps*)
 
 		val instances = List.filter ExpProcess.isInstanceEq (!(#exps oldClass))
 
@@ -710,7 +732,7 @@ fun orderModel (model:DOF.model)=
 			     val {instname=name,...} = ExpProcess.deconstructInst exp
 			 in
 			     (case SymbolTable.look(expMap, name) of
-				  SOME set => set before print ("\n\n\n##########################-##################\n" ^ (Symbol.name name) ^ " " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems set))) ^ "\n")
+				  SOME set => set before print ("\n\n\n##########################-##################" ^ (Symbol.name name) ^ " " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems set))) ^ "")
 				| NONE => 
 				  let
 				      val ret = 
@@ -718,7 +740,7 @@ fun orderModel (model:DOF.model)=
 						 SymbolSet.empty 
 						 (map (fn(sym) => SymbolSet.add(depsOfUsedSym sym, sym)) (ExpProcess.exp2symbols (ExpProcess.rhs exp))))
 				  in
-				      ret before print ("\n\n@@@@@@@@@@@@@@@@@@@@@@@@-@@@@@@@@@@@@@@@@@@@@@@\n" ^ (Symbol.name name) ^ " " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems ret))) ^ "\n")
+				      ret before print ("\n\n@@@@@@@@@@@@@@@@@@@@@@@@-@@@@@@@@@@@@@@@@@@@@@@" ^ (Symbol.name name) ^ " " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems ret))) ^ "")
 				  end)
 			 end
 		     else
@@ -755,11 +777,11 @@ fun orderModel (model:DOF.model)=
 
 		val outputDeps = foldl SymbolSet.union SymbolSet.empty (map output2deps outputs)
 
-		val _ = print ("______________________________________\n")
-		val _ = print ("name = " ^ (Symbol.name newname) ^"\n")
-		val _ = print ("   mainExps = " ^ (String.concatWith ", " (map Symbol.name (map termexp2sym mainExps))) ^ "\n")
-		val _ = print ("   mainExpDeps = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems mainExpDeps))) ^ "\n")
-		val _ = print ("   outputDeps = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems outputDeps))) ^ "\n")
+		val _ = print ("______________________________________")
+		val _ = print ("name = " ^ (Symbol.name newname) ^"")
+		val _ = print ("   mainExps = " ^ (String.concatWith ", " (map Symbol.name (map termexp2sym mainExps))) ^ "")
+		val _ = print ("   mainExpDeps = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems mainExpDeps))) ^ "")
+		val _ = print ("   outputDeps = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems outputDeps))) ^ "")
 
 		val deps = SymbolSet.union(outputDeps,  
 					   if includeMainExps then
@@ -812,7 +834,7 @@ fun orderModel (model:DOF.model)=
 								     | NONE => [outputs]
 									       
 						  (*TODO: do we need to split the subclass before we get here?*)
-						  (*val _ = print ("for instance "^(Symbol.name name)^" partgroup = " ^ (String.concatWith ", " (map Symbol.name partGroup)) ^ "\n")*)
+						  (*val _ = print ("for instance "^(Symbol.name name)^" partgroup = " ^ (String.concatWith ", " (map Symbol.name partGroup)) ^ "")*)
 
 						  fun outsym2pos newout =
 						      let
@@ -833,7 +855,7 @@ fun orderModel (model:DOF.model)=
 						  (*				 val key = classUsage2key (Option.isSome mainInstance) outputMap *)
 						  val key = classUsage2key true completeOutputMap
 							    
-						  val _ = print ("looking for classname " ^ (Symbol.name classname) ^ " with key " ^ (Symbol.name key) ^ "\n")
+						  val _ = print ("looking for classname " ^ (Symbol.name classname) ^ " with key " ^ (Symbol.name key) ^ "")
 						  val candidateClasses = (valOf(SymbolTable.look (splitMap, classname)))
 						      handle SortFailed => raise SortFailed 
 	     | e => DynException.checkpoint "Ordering.orderModel.buildClass.dep2exp.candidateClasses" e
@@ -895,7 +917,7 @@ fun orderModel (model:DOF.model)=
 		(* 	end *)
 			
 
-		val _ = print ("   exps': " ^ (String.concatWith "\n          " (map ExpPrinter.exp2str exps)) ^ "\n")
+		val _ = print ("   exps': " ^ (String.concatWith "\n          " (map e2s exps)) ^ "")
 
 
 		(* add in initial value eqs ALWAYS *)
@@ -907,9 +929,9 @@ fun orderModel (model:DOF.model)=
 		    SymbolSet.intersection(expDeps,
 					   oldinputset)
 
-		val _ = print ("   oldinputs = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems oldinputset))) ^ "\n")
-		val _ = print ("   expDeps = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems expDeps))) ^ "\n")
-		val _ = print ("   expInputDeps = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems expInputDeps))) ^ "\n")
+		val _ = print ("   oldinputs = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems oldinputset))) ^ "")
+		val _ = print ("   expDeps = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems expDeps))) ^ "")
+		val _ = print ("   expInputDeps = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems expInputDeps))) ^ "")
 
 
 
@@ -917,7 +939,7 @@ fun orderModel (model:DOF.model)=
 		val neededoldinputs = SymbolSet.listItems (foldl computeInputs expInputDeps outputs)
 
 				      
-		val _ = print ("  neededoldinputs = " ^ (String.concatWith ", " (map Symbol.name neededoldinputs)) ^ "\n")
+		val _ = print ("  neededoldinputs = " ^ (String.concatWith ", " (map Symbol.name neededoldinputs)) ^ "")
 
 		(* number the inputs symbols so we can create an input mapping and a list of inputs *)
 		fun inp2pos inp =
@@ -966,25 +988,25 @@ fun orderModel (model:DOF.model)=
 	    let
 		val {classname,instname=instancename,...} = ExpProcess.deconstructInst instance_exp
 		    
-		val _ = print ("classname = " ^ (Symbol.name classname) ^ "\n") 
-		val _ = print ("  classnames = " ^ (String.concatWith ", " (map Symbol.name (map #name classes))) ^ "\n")
+		val _ = print ("classname = " ^ (Symbol.name classname) ^ "") 
+		val _ = print ("  classnames = " ^ (String.concatWith ", " (map Symbol.name (map #name classes))) ^ "")
 		val instanceClass = valOf (List.find ((equals classname) o #name) classes)
 
-		val _ = print ("got here\n")
+		val _ = print ("got here")
 
 		val expMap = valOf(SymbolTable.look(classMap, #name containerClass))
-		val _ = print ("got here again and instancename = " ^ (Symbol.name instancename) ^ "\n")
-		val _ = print ("  keys at this level are = " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys expMap))) ^ "\n")
+		val _ = print ("got here again and instancename = " ^ (Symbol.name instancename) ^ "")
+		val _ = print ("  keys at this level are = " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys expMap))) ^ "")
 		val instanceDeps = valOf(SymbolTable.look(expMap,
 							  instancename))
 
 
-		val _ = print ("got here too\n")
+		val _ = print ("got here too")
 			
 		val outputSyms = ExpProcess.exp2symbols (ExpProcess.lhs instance_exp)
 
-		val _ = print ("=!!!!!!!!!!!!!!!!!!!!!!!!!!!= instancedeps deps:" ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems instanceDeps))) ^ "\n")
-		val _ = print ("=!!!!!!!!!!!!!!!!!!!!!!!!!!!= outputSyms:" ^ (String.concatWith ", " (map Symbol.name outputSyms)) ^ "\n")
+		val _ = print ("=!!!!!!!!!!!!!!!!!!!!!!!!!!!= instancedeps deps:" ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems instanceDeps))) ^ "")
+		val _ = print ("=!!!!!!!!!!!!!!!!!!!!!!!!!!!= outputSyms:" ^ (String.concatWith ", " (map Symbol.name outputSyms)) ^ "")
 
 		(* if the deps of the instance in question depend upon any outputs that are from an instance that depends upon an output *)
 		(*   ie we are in instance a and a depends upon x.o and x depends upon a.something *)
@@ -1016,8 +1038,8 @@ fun orderModel (model:DOF.model)=
 
 		val depsOfInstanceDepInstances = foldl SymbolSet.union SymbolSet.empty (map (fn(i) => valOf (SymbolTable.look(expMap, i))) instanceDepInstances)
 
-		val _ = print ("instanceDepInstances = " ^ (String.concatWith ", " (map Symbol.name instanceDepInstances)) ^ "\n")
-		val _ = print ("depsOfInstanceDepInstances = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depsOfInstanceDepInstances))) ^ "\n")
+		val _ = print ("instanceDepInstances = " ^ (String.concatWith ", " (map Symbol.name instanceDepInstances)) ^ "")
+		val _ = print ("depsOfInstanceDepInstances = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depsOfInstanceDepInstances))) ^ "")
 		val mutuallyRecursiveInstances = List.exists (fn(os) => SymbolSet.member (depsOfInstanceDepInstances, os)) outputSyms
 	    in
 		(* if the instance depends on any of its outputs, or if the deps of the instance depend upon any outputs that are from an instance that depends upon an output, then we know that a cycle exists *)
@@ -1035,15 +1057,15 @@ fun orderModel (model:DOF.model)=
 
 
 
-			val _ = print ("  Splitting occurred on " ^ (Symbol.name instancename) ^ "\n")
-			val _ = app (fn(order) => print ("  Group: " ^ (String.concatWith ", " (map Symbol.name order)) ^ "\n")) orderedParts
+			val _ = print ("  Splitting occurred on " ^ (Symbol.name instancename) ^ "")
+			val _ = app (fn(order) => print ("  Group: " ^ (String.concatWith ", " (map Symbol.name order)) ^ "")) orderedParts
 
 
 			val (splitMap, classMap, classIOMap, instance_exps') =
 			    foldl (buildSplit (instanceClass, instance_exp))
 				  (splitMap, classMap, classIOMap, nil)
 				  orderedParts
-			val _ = print ("done with foldl of  buildsplit\n")
+			val _ = print ("done with foldl of  buildsplit")
 
 		    in
 			(instance_exps' @ exps, (splitMap, classMap, classIOMap))
@@ -1056,7 +1078,7 @@ fun orderModel (model:DOF.model)=
 
 	fun splitClasses (class: DOF.class, (splitMap, classMap, classIOMap)) =
 	    let
-		val _ = print ("===splitting class: " ^ (Symbol.name (#name class)) ^ "\n")
+		val _ = print ("===splitting class: " ^ (Symbol.name (#name class)) ^ "")
 		val (init_exps, other_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
 		val (instance_exps, other_exps) = List.partition ExpProcess.isInstanceEq other_exps
 
@@ -1065,15 +1087,15 @@ fun orderModel (model:DOF.model)=
 
 		val _ = #exps class := init_exps @ instance_exps' @ other_exps
 
-		val _ = print ("class map keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap'))) ^ "\n")
-		val _ = print ("===about to reprocess splitting class: " ^ (Symbol.name (#name class)) ^ "\n")
+		val _ = print ("class map keys are " ^ (String.concatWith ", " (map Symbol.name (SymbolTable.listKeys classMap'))) ^ "")
+		val _ = print ("===about to reprocess splitting class: " ^ (Symbol.name (#name class)) ^ "")
 
 		(* reprocess to catch renamed instances *)
 		val classes = map #1 (GeneralUtil.flatten (map SymbolTable.listItems (SymbolTable.listItems (splitMap'))))
-		val _ = print ("split classes classes are " ^ (String.concatWith ", " (map (Symbol.name o #name) classes)) ^ "\n")
+		val _ = print ("split classes classes are " ^ (String.concatWith ", " (map (Symbol.name o #name) classes)) ^ "")
 
 		val (classMap'', classIOMap'') = addClassToClassMap classes (class, (#1(SymbolTable.remove(classMap', #name class)), (#1(SymbolTable.remove(classIOMap', #name class)))))
-		val _ = print ("===done splitting class: " ^ (Symbol.name (#name class)) ^ "\n")
+		val _ = print ("===done splitting class: " ^ (Symbol.name (#name class)) ^ "")
 	    in
 		(splitMap', classMap'', classIOMap'')
 	    end
@@ -1090,7 +1112,7 @@ fun orderModel (model:DOF.model)=
 
 	val (splitMap, classMap, classIOMap) = foldl splitClasses (splitMap, classMap, classIOMap) classes
 
-	val _ = print ("done splitting classes\n")
+	val _ = print ("done splitting classes")
 
 	val classes' = map #1 (GeneralUtil.flatten (map SymbolTable.listItems (SymbolTable.listItems (splitMap))))
 
@@ -1102,7 +1124,7 @@ fun orderModel (model:DOF.model)=
 
 	val classes'' = classes' (* removed pruning for now *)
 			
-	val _ = print ("splitting performed\n==========\n\n")	    
+	val _ = print ("splitting performed\n==========\n")	    
 	val _ = printClassMap classMap
 	val _ = printClassIOMap classIOMap
 
@@ -1110,7 +1132,7 @@ fun orderModel (model:DOF.model)=
 	val _ = CurrentModel.setCurrentModel(model')
 	val _ = printModel model'
 
-	val _ = print ("pruning performed\n=====================\n\n")
+	val _ = print ("pruning performed\n=====================\n")
 	val model'' = (classes'', topInstance, props)
 	val _ = CurrentModel.setCurrentModel(model'')
 	val _ = printModel model''
@@ -1118,10 +1140,10 @@ fun orderModel (model:DOF.model)=
 	val _ = app (orderClass classMap) classes''
 		
 	val _ = if DynException.isErrored() then
-		    (print ("Errors found when ordering ...\n");
-		     print ("Data structure after ordering attempt\n==================\n"))
+		    (print ("Errors found when ordering ...");
+		     print ("Data structure after ordering attempt\n=================="))
 		else
-		    print("ordering performed\n==============\n\n")
+		    print("ordering performed\n==============\n")
 
 	val model'' = (classes'', topInstance, props)
 	val _ = CurrentModel.setCurrentModel(model'')
@@ -1131,7 +1153,7 @@ fun orderModel (model:DOF.model)=
     end
     handle SortFailed => model before (DynException.checkToProceed())
 	 | e => model before 
-		(app (fn(s) => print(s ^ "\n")) (MLton.Exn.history e);
+		(app (fn(s) => print(s ^ "")) (MLton.Exn.history e);
 		 DynException.checkpoint "Ordering.orderModel" e)
 
 
