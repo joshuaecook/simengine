@@ -55,7 +55,7 @@ import "command_line.dsl"
     var cFlags = ["-W", "-Wall", "-fPIC", "-fopenmp"]
     var cppFlags = []
     var ldFlags = []
-    var ldLibs = ["-ldl", "-lm", "-lgomp"]
+    var ldLibs = ["-lm", "-lgomp"]
 
     constructor(compilerSettings)
       debug = settings.simulation_debug.debug.getValue()
@@ -224,10 +224,9 @@ import "command_line.dsl"
 	m.LDFLAGS.push_front("-L" + cudaInstallPath + "/lib64")
       end
 
-      // nvcc and gcc have different meanings for ARCH so set them specifically for
-      // each as part of CFLAGS and LDFLAGS and remove the TARGET_ARCH value
+      // nvcc and gcc have different meanings for ARCH so set them specifically
+      // as part of CFLAGS and remove the TARGET_ARCH value
       m.CFLAGS = m.TARGET_ARCH + m.CFLAGS
-      m.LDFLAGS = m.TARGET_ARCH + m.LDFLAGS
       m.TARGET_ARCH = []
 
       // Wrap all gcc flags in --compiler-options when passed to nvcc
