@@ -57,13 +57,13 @@ fun write_progress_file r =
 		    case (!progressFileStream) of
 			SOME s => 
 			let
-			    val pos = BinIO.getPosOut s
-			    val _ = BinIO.output (s, PackRealLittle.toBytes r)
-			    val _ = BinIO.setPosOut (s, pos)
+			    val pos = TextIO.getPosOut s
+			    val _ = TextIO.output (s, ("Compiling: " ^ (Util.i2s (Real.floor(r * 100.0))) ^ "%"))
+			    val _ = TextIO.setPosOut (s, pos)
 			in
 			    ()
 			end
-		      | NONE => (progressFileStream := SOME (BinIO.openOut (dir ^ "/progress"));
+		      | NONE => (progressFileStream := SOME (TextIO.openOut (dir ^ "/compilation_progress"));
 				 write_progress_file r)
 		else
 		    () (* can't do anything until the directory is created *)

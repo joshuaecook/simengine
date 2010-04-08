@@ -44,7 +44,7 @@ void open_progress_file(const char *outputs_dirname, double **progress, int *pro
   double tmp = 0.0;
   unsigned int i;
 
-  sprintf(progress_filename, "%s/progress", outputs_dirname);
+  sprintf(progress_filename, "%s/simulation_progress", outputs_dirname);
   *progress_fd = open(progress_filename, O_CREAT|O_RDWR, S_IRWXU);
   if(-1 == *progress_fd){
     ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation progress. '%s'\n", progress_filename);

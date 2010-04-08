@@ -12,7 +12,7 @@ function [interface] = simCompile (options)
         disp(['Running <' command '>'])
     end
 
-    status = launchBackground(command, options.outputs, 'Compiling...');
+    status = launchBackground(command, options.outputs);
     if(128 == status)
         simEngineError('simCompile', ['Model ' options.dslfile ' can not be '...
                             'compiled']);

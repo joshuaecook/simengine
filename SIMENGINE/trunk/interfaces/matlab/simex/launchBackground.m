@@ -1,6 +1,7 @@
-function [status] = launchBackground(command, workingDir, progressLabel)
+function [status] = launchBackground(command, workingDir)
     logFile = fullfile(workingDir, 'logfile');
-    progressFile = fullfile(workingDir, 'progress');
+    compilationProgressFile = fullfile(workingDir, 'compilation_progress');
+    simulationProgressFile = fullfile(workingDir, 'simulation_progress');
     statusFile = fullfile(workingDir, 'status');
     pidFile = fullfile(workingDir, 'pid');
 
@@ -20,13 +21,19 @@ function [status] = launchBackground(command, workingDir, progressLabel)
     outputlen = 0;
     messagelen = 0;
     while(processRunning(pid))
-        if(~exist('m','var') && exist(progressFile,'file'))
-            m = memmapfile(progressFile, 'format', 'double');
+        if(~exist('m','var') && exist(simulationProgressFile,'file'))
+            m = memmapfile(simulationProgressFile, 'format', 'double');
         end
         if(exist('m','var'))
             progress = 100*sum(m.Data)/length(m.Data);
-            message = sprintf([progressLabel ': %0.2f %%'], progress);
+            message = sprintf('Simulating : %0.2f %%', progress);
             messagelen = statusBar(message, messagelen);
+	else
+	    try
+                message = fileread(compilationProgressFile);
+		messagelen = statusBar(message, messagelen);
+            catch it
+            end
         end
         try
             log = fileread(logFile);
@@ -52,9 +59,13 @@ function [status] = launchBackground(command, workingDir, progressLabel)
       status = str2num(fileread(statusFile));
       % Prevent any crosstalk between launchBackground calls
       delete(statusFile);
-      if(exist(progressFile,'file'))
+      if(exist(compilationProgressFile,'file'))
         messagelen = statusBar('', messagelen);
-        delete(progressFile);
+        delete(compilationProgressFile);
+      end
+      if(exist(simulationProgressFile,'file'))
+        messagelen = statusBar('', messagelen);
+        delete(simulationProgressFile);
       end
       delete(logFile);        
     else
