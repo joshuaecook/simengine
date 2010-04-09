@@ -1528,7 +1528,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
 		    val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
 
-		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^systemdata^";"),
+		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2preshardname instclass))^" "^systemdata^";"),
 					  $("// iterator pointers"),
 					  SUB(map ($ o systemstatedata_iterator) iters),
 					  $("// state pointers"),
