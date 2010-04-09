@@ -32,6 +32,7 @@ val sym2name : Exp.term -> string (* This is equiv to (Symbol.name o sym2symname
 (* grab the properties *)
 val sym2term : Symbol.symbol -> Exp.term
 val sym2props : Exp.term -> Property.symbolproperty
+val processInternalName : Symbol.symbol -> Symbol.symbol (* make internal names into standard names (remove #) *)
 
 val makeCommensurable : Exp.term * Exp.term -> Exp.term * Exp.term
 
@@ -176,6 +177,17 @@ fun sym2fullstr (s, props) =
 	    "/" ^ (foldl (op ^) "" (map (fn(v)=>"d"^(Symbol.name v)) vars))
     end
 
+fun processInternalName s = 
+    let
+	val pre_n = Symbol.name s
+	val n = if String.isPrefix "#" pre_n then
+		    "INTERNAL_" ^ (StdFun.extract (pre_n, 1, NONE))
+		else
+		    pre_n
+    in
+	Symbol.symbol n
+    end
+
 fun sym2c_str (s, props) =
     let
 	val ep_index = Property.getEPIndex props
@@ -219,11 +231,8 @@ fun sym2c_str (s, props) =
 		      of SOME iters => Iterator.iterators2c_str iters
 		       | NONE => "")
 
-	val pre_n = Symbol.name s
-	val n = if String.isPrefix "#" pre_n then
-		    "INTERNAL_" ^ (StdFun.extract (pre_n, 1, NONE))
-		else
-		    pre_n
+	(* remove # from the symbols *)
+	val n = Symbol.name (processInternalName s)
 
 	(* remove any extra hierarchy symbols that may be present *)
 	val n = Util.repStr (n, "#_", "__")

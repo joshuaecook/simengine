@@ -1623,7 +1623,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 						     (CWriterUtil.exp2c_str (Exp.TERM t))
 						 else ("sys_rd->" ^ (Symbol.name (Term.sym2curname t)) ^ "[ARRAY_IDX]")) ^ ";"))
 				     iterators_symbols) 
-			     @ (map (fn(t)=> $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+			     @ (map (fn(t)=> $("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) t) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
 				    outputs_symbols)),
 			 $("}"),
 			 $("#endif")]

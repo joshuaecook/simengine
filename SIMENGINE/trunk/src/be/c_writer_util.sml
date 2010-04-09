@@ -169,7 +169,7 @@ fun outputs2uniqueoutputsymbols (outputs:DOF.Output.output list) =
     let
 	val exps = Util.flatmap (fn output => (DOF.Output.condition output) :: (DOF.Output.contents output)) outputs
 	val all_symbols = Util.flatmap ExpProcess.exp2termsymbols exps
-	val sym_mapping = map (fn(term)=>(term, Term.sym2curname term)) all_symbols
+	val sym_mapping = map (fn(term)=>(term, (Term.processInternalName o Term.sym2curname) term)) all_symbols
 	fun cmp_fun ((_,s1),(_,s2))= s1 = s2
 	val unique_symbols = Util.uniquify_by_fun cmp_fun sym_mapping
     in
