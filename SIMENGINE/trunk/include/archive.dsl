@@ -108,6 +108,10 @@ namespace Archive
     var ccstat = Process.reap(ccp)
     var ccout = ccallout(1)
     var ccerr = ccallout(2)
+    if settings.logging.logexternal.getValue() then 
+      println ("STDOUT:" + join("", ccout))
+      println ("STDERR:" + join("", ccerr))
+    end
     if 0 <> ccstat then
       failure ("Compiler returned non-zero exit status " + ccstat)
     end
@@ -119,6 +123,10 @@ namespace Archive
     var ldstat = Process.reap(ldp)
     var ldout = ldallout(1)
     var lderr = ldallout(2)
+    if settings.logging.logexternal.getValue() then 
+      println ("STDOUT:" + join("", ldout))
+      println ("STDERR:" + join("", lderr))
+    end
     if 0 <> ldstat then
       failure ("OOPS! Linker returned non-zero exit status " + ldstat)
     end

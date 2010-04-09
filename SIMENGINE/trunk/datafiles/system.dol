@@ -102,6 +102,7 @@
 <logrewrites = false>
 <logredundancy = false>
 <logordering = false>
+<logexternal = false> // log external processes output
 
 // logsettings: debug the values of passed in options
 <logsettings = false>
