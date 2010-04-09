@@ -1244,11 +1244,10 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 		 			    typedIterators))),
 		 $("} systemstatedata_"^(Symbol.name basename)^";"),$("")]
 
+
 	val classBaseNames = 
-	    let
-		val classes = List.concat (map (fn sh => List.filter ClassProcess.isMaster (#classes sh)) shards)
-	    in 
-		Util.uniquify_by_fun (op =) (map ClassProcess.class2preshardname classes)
+	    let val classes = List.concat (map #classes shards)
+	    in Util.uniquify_by_fun (op =) (map ClassProcess.class2preshardname classes)
 	    end
 
 	val topClassBaseName =
@@ -1265,8 +1264,6 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 		    let val class = CurrentModel.classname2class classname
 		    in ClassProcess.class2basename class
 		    end
-		    handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code.topClassBaseName" e
-
 	    in
 		CurrentModel.withModel model prog
 	    end
@@ -1324,7 +1321,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 	(* the original name here refers to the class name with all of the states - if it's a master class, it's that class, otherwise it's the master class 
 	   that the slave class points to.  class2orig_name looks at the classtype property to determine what the original name should be.*)
-	val orig_name = ClassProcess.class2basename class
+	val orig_name = (*ClassProcess.class2basename class*) ClassProcess.class2preshardname class
 
 	(* val has_states = case iter_type of  *)
 	(* 		     DOF.UPDATE _ => true *)
@@ -1350,7 +1347,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		 "statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
 	     else "",
 	     if reads_system class then
-		 "const systemstatedata_"^(Symbol.name (ClassProcess.class2preshardname class))^" *sys_rd, "
+		 "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd, "
 	     else "")
 
 
@@ -1531,7 +1528,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
 		    val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
 
-		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2preshardname instclass))^" "^systemdata^";"),
+		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^systemdata^";"),
 					  $("// iterator pointers"),
 					  SUB(map ($ o systemstatedata_iterator) iters),
 					  $("// state pointers"),
@@ -1883,10 +1880,10 @@ fun flow_code shardedModel iter_sym =
 			     statewriteprototype,
 			     systemstatereadprototype) =
 			    (if reads_iterator iter class then
-				 (*"const " ^ *)"statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+				 (*"const " ^ *)"statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
 			     else "",
 			     if writes_iterator iter class then
-				 "statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
+				 "statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
 			     else "",
 			     if reads_system class then
 				 "const systemstatedata_" ^ (Symbol.name mastername) ^ " *sys_rd, "
