@@ -9,6 +9,7 @@ fun sys_copyright _ args = KEC.LITERAL (KEC.CONSTSTR Globals.copyright)
 fun sys_version _ args = KEC.LITERAL (KEC.CONSTSTR Globals.version)
 fun sys_build _ args = KEC.LITERAL (KEC.CONSTSTR BuildOptions.build)
 fun sys_build_date _ args = KEC.LITERAL (KEC.CONSTSTR (Globals.buildDate()))
+fun sys_build_number _ args = KEC.LITERAL (KEC.CONSTREAL (Real.fromInt BuildOptions.buildNumber))
 fun sys_build_time _ args = KEC.LITERAL (KEC.CONSTREAL (Time.toReal (BuildOptions.buildTime)))
 fun sys_architecture _ args = KEC.LITERAL (KEC.CONSTSTR BuildOptions.architecture)
 
@@ -39,6 +40,7 @@ val library = [{name="sys_startupMessage", operation=sys_startupMessage},
 	       {name="sys_copyright", operation=sys_copyright},
 	       {name="sys_version", operation=sys_version},
 	       {name="sys_build", operation=sys_build},
+	       {name="sys_build_number", operation=sys_build_number},
 	       {name="sys_build_date", operation=sys_build_date},
 	       {name="sys_build_time", operation=sys_build_time},
 	       {name="sys_architecture", operation=sys_architecture},

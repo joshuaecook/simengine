@@ -6,6 +6,7 @@ val allowHWBackend: bool
 val build: string
 val buildDate: int
 val buildTime: Time.time
+val buildNumber: int
 
 val version: string
 val majorVersion: int
@@ -47,6 +48,11 @@ val buildDate =
 		       SOME r => Real.floor (r/(3600.0*24.0))
 		     | _ => invalid "buildDate")
       | _ => invalid "buildDate"
+
+val buildNumber :int =
+    case JSON.memberValue (options, "buildRevision", JSON.toInt)
+     of SOME z => Int.fromLarge z
+      | _ => invalid "buildNumber"
 
 val buildTime =
     case JSON.memberValue (options, "buildTime", JSON.toInt)

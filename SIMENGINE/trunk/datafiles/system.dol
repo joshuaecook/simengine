@@ -151,4 +151,8 @@
 <updateMinorVersion = 0>
 <updateRevision = "">
 <updateBuildDate = 0>
-<updateURL = "http://www.simatratechnologies.com/images/simEngine">
+<updateBuildNumber = 0>
+// for release
+// <updateURL = "http://www.simatratechnologies.com/images/simEngine">
+// for development
+<updateURL = "ftp://leibniz/simEngine">

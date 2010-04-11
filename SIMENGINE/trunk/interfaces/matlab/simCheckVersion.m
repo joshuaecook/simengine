@@ -35,7 +35,13 @@ if isstruct(versionInfo)
       error('Simatra:simCheckVersion', ['Can''t interpret date ' num2str(epoch) '+' ...
                    num2str(versionInfo.date)]);
     end
-    disp(['Latest version of simEngine is ' ver_str ', built on ' gen_date]);
+    if isfield(versionInfo, 'build')
+      disp(['Latest build of simEngine is ' num2str(versionInfo.build) ' (' ver_str '), built on ' ...
+            gen_date]);
+    else
+      disp(['Latest version of simEngine is ' ver_str ', built on ' ...
+            gen_date]);
+    end      
   end
 else
     return;
@@ -94,6 +100,16 @@ else
                          'date', str2double(fields{4}), ...
                          'file', fields{5}, ...
                          'size', str2double(fields{6}));
+  elseif 8 == length(fields)
+    % Save those fields as a structure
+    versionInfo = struct('major', str2double(fields{1}), ...
+                         'minor', str2double(fields{2}), ...
+                         'revision', fields{3}, ...
+                         'date', str2double(fields{4}), ...
+                         'file', fields{5}, ...
+                         'size', str2double(fields{6}), ...
+                         'development', true, ...
+                         'build', str2double(fields{8}));
   else
     error('Simatra:simCheckVersion', ['Unexpected format of the version information: ' ver_str]);
     versionInfo = false;
@@ -125,6 +141,9 @@ fprintf(fid, '<updateMajorVersion = %d>\n', versionInfo.major);
 fprintf(fid, '<updateMinorVersion = %d>\n', versionInfo.minor);
 fprintf(fid, '<updateRevision = "%s">\n', versionInfo.revision);
 fprintf(fid, '<updateBuildDate = %ld>\n', versionInfo.date);
+if isfield(versionInfo, 'build')
+  fprintf(fid, '<updateBuildNumber = %ld>\n', versionInfo.build);
+end
 fprintf(fid, '\n');
 
 % Close the file descriptor before returning

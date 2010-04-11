@@ -49,8 +49,13 @@ function status = downloadSimEngine(latest)
     tic
     [s, stat] = urlread([url '/FiveHundredK.p']);
     y(2) = toc;
-    est_time = interp1(x, y, latest.size/1024, 'linear', 'extrap');
-    disp(sprintf('Downloading v%g.%g%s (will take approximately %0.1f s)', latest.major, latest.minor, latest.revision, est_time));
+    if stat == 1
+      est_time = interp1(x, y, latest.size/1024, 'linear', 'extrap');
+      disp(sprintf(['Downloading v%g.%g%s (will take approximately ' ...
+                    '%0.1f s)'], latest.major, latest.minor, latest.revision, est_time));
+    else
+      disp(sprintf(['Downloading v%g.%g%s'], latest.major, latest.minor, latest.revision));      
+    end
     [f, status] = urlwrite([url '/' latest.file], latest.file);
     
 end
