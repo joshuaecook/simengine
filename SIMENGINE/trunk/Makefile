@@ -177,9 +177,9 @@ endif
 # Branching Related Parameters
 # ==============================================================================================
 
-BRANCH:=$(shell pwd | grep -c branches)
-TRUNK:=$(shell pwd | grep -c trunk)
-TAG:=$(shell pwd | grep -c tag)
+BRANCH:=$(shell svn info | grep '^URL' | grep -c branches)
+TRUNK:=$(shell svn info | grep '^URL' | grep -c trunk)
+TAG:=$(shell svn info | grep '^URL' | grep -c tag)
 
 ifeq ($(BRANCH),1)
 RELEASE = "branch"
