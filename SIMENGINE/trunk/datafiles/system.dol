@@ -153,6 +153,6 @@
 <updateBuildDate = 0>
 <updateBuildNumber = 0>
 // for release
-// <updateURL = "http://www.simatratechnologies.com/images/simEngine">
+// <updateURL = "http://www.simatratechnologies.com/Downloads/simEngine/release">
 // for development
-<updateURL = "ftp://leibniz/simEngine">
+<updateURL = "http://www.simatratechnologies.com/Downloads/simEngine/development">
