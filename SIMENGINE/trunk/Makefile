@@ -425,7 +425,7 @@ SIMEX_M_FILES = $(addsuffix .m,simex simError simFailure simexError simEngineErr
 MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui simCheckVersion simEngineUpdate simCheckLicense))
 
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/simex.p
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 
 $(BUILD_DIR)/bin/%: interfaces/matlab/bin/%
@@ -445,6 +445,7 @@ $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 
 $(BUILD_DIR)/%.p: $(BUILD_DIR)/%.m
 	-($(MATLABCMD) "cd $(BUILD_DIR); pcode $*; exit")
+	$(RM) $<
 
 pcode: $(INSTALL_FILENAME).p
 

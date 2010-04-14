@@ -1,10 +1,10 @@
-% SIMLICENSECHECK
+% SIMCHECKLICENSE
 %  Performs license related tasks in simEngine
 %
 % Usage
 %
 %  View the current license and status
-%   SIMLICENSECHECK
+%   SIMCHECKLICENSE
 %
 %  Create a prompt to update the license or add based on the filename
 %   SIMLICENSECHECK('-update'[, <filename>]) 
