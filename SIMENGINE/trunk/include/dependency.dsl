@@ -202,8 +202,8 @@ end
     var libdl_arch = getLibArch(file_path, libdl_path)
 
     //libz
-    var libz_path = checkLibExists("libz")
-    var libz_arch = getLibArch(file_path, libz_path)
+    //var libz_path = checkLibExists("libz")
+    //var libz_arch = getLibArch(file_path, libz_path)
 
     //libgomp
     var libgomp_path = checkLibExists("libgomp")
@@ -224,7 +224,7 @@ end
                 //make      = dep(make_path, (), make_version),
                 sh        = dep(sh_path, (), sh_version),
                 libdl     = dep(libdl_path, libdl_arch, ()),
-                libz      = dep(libz_path, libz_arch, ()),
+                //libz      = dep(libz_path, libz_arch, ()),
                 libgomp   = dep(libgomp_path, libgomp_arch, ()),
                 libcudart = dep(libcudart_path, libcudart_arch, ())}
     
