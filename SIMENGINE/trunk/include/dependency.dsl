@@ -245,7 +245,7 @@ end
      end
 
      // check nvcc is not a symbolic link
-     if nvcc_path <> FileSystem.realpath nvcc_path then
+     if nvcc_path <> () and nvcc_path <> FileSystem.realpath nvcc_path then
        depsFailed = true
        warning ("nvcc installation corrupted: nvcc cannot be a symbolic link")
      end
