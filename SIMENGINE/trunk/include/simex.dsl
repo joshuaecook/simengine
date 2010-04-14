@@ -395,9 +395,11 @@ import "command_line.dsl"
     var stat = Process.reap(p)
     var stdout = allout(1)
     var stderr = allout(2)
-    if (0 <> stat) then
-      failure(join("", stderr))
-    // Return the interface from the executable if requested
+    if (1 == stat) then
+      error(stderr)
+    elseif (1 < stat) then
+      failure("Unexpected internal exception was generated during simulation: " + stderr)
+      // Return the interface from the executable if requested
     elseif objectContains(simulationSettings, "interface") then
       print(join("", stdout))
     end
