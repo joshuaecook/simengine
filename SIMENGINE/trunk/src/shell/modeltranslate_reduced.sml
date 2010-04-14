@@ -676,73 +676,8 @@ fun obj2modelinstance object =
 fun obj2dofmodel object =
     let
 	val (classes, topinstance) = obj2modelinstance (object)
-	fun transSolver solverobj =
-	    case exp2str(method "name" solverobj) of			 
-			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
-		       | "exponentialeuler" => Solver.EXPONENTIAL_EULER {dt = exp2real(method "dt" solverobj)}
-		       | "linearbackwardeuler" => Solver.LINEAR_BACKWARD_EULER {dt = exp2real(method "dt" solverobj),
-										solv = case exp2str (method "lbe_solv" solverobj) of
-											   "LSOLVER_DENSE" => Solver.LSOLVER_DENSE
-											 | "LSOLVER_BANDED" => Solver.LSOLVER_BANDED { upperhalfbw = exp2int (method "lbe_upperhalfbw" solverobj),
-                                                                                                                                       lowerhalfbw = exp2int (method "lbe_lowerhalfbw" solverobj)}
-											 | s => (Logger.log_warning (Printer.$("Invalid linear solver '"^s^"' chosen: Valid options are LSOLVER_DENSE or LSOLVER_BANDED.  Defaulting to LSOLVER_BANDED"));Solver.LSOLVER_BANDED { upperhalfbw = exp2int (method "lbe_upperhalfbw" solverobj),
-                                                                                                       lowerhalfbw = exp2int (method "lbe_lowerhalfbw" solverobj)})
-									       }
-		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
-		       | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
-		       | "heun" => Solver.HEUN {dt = exp2real(method "dt" solverobj)}
-		       | "ode23" => Solver.ODE23 {dt = exp2real(method "dt" solverobj),
-						  abs_tolerance = exp2real(method "abstol" solverobj),
-						  rel_tolerance = exp2real(method "reltol" solverobj)}
-		       | "ode45" => Solver.ODE45 {dt = exp2real(method "dt" solverobj),
-						  abs_tolerance = exp2real(method "abstol" solverobj),
-						  rel_tolerance = exp2real(method "reltol" solverobj)}
-		       | "cvode" => Solver.CVODE {dt = exp2real(method "dt" solverobj),
-						  abs_tolerance = exp2real(method "abstol" solverobj),
-						  rel_tolerance = exp2real(method "reltol" solverobj),
-						  max_order = exp2int (method "cv_maxorder" solverobj),
-						  lmm = case exp2str (method "cv_lmm" solverobj) of
-							    "CV_BDF" => Solver.CV_BDF
-							  | "CV_ADAMS" => Solver.CV_ADAMS
-							  | s => (Logger.log_warning (Printer.$("Invalid linear method '"^s^"' chosen: Valid options are CV_BDF or CV_ADAMS.  Defaulting to CV_BDF"));Solver.CV_BDF),
-						  iter = case exp2str (method "cv_iter" solverobj) of
-							     "CV_FUNCTIONAL" => Solver.CV_FUNCTIONAL
-							   | "CV_NEWTON" => Solver.CV_NEWTON
-							   | s => (Logger.log_warning (Printer.$("Invalid iteration method '"^s^"' chosen: Valid options are CV_FUNCTIONAL or CV_NEWTON.  Defaulting to CV_NEWTON"));Solver.CV_NEWTON),
-						  solv = case exp2str (method "cv_solv" solverobj) of
-							     "CVDENSE" => Solver.CVDENSE
-							   | "CVDIAG" => Solver.CVDIAG
-							   | "CVBAND" => Solver.CVBAND {upperhalfbw=exp2int (method "cv_upperhalfbw" solverobj),
-											lowerhalfbw=exp2int (method "cv_lowerhalfbw" solverobj)}
-							   | s => (Logger.log_warning (Printer.$("Invalid solver method '"^s^"' chosen: Valid options are CVDENSE, CVDIAG or CVBAND.  Defaulting to CVDENSE"));Solver.CVDENSE)
-							 }
-		       | "undefined" => Solver.UNDEFINED
-		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
 
-	fun buildTemporalIterator (obj) =
-	    let
-		val name = exp2str (method "name" obj)
-	    in
-		[(Symbol.symbol name, if exp2bool(method "isContinuous" obj) then
-					  DOF.CONTINUOUS (transSolver (method "solver" obj))
-				      else
-					  DOF.DISCRETE{sample_period=exp2real(method "sample_period" obj)}),
-		 (Iterator.preProcessOf name, DOF.ALGEBRAIC (DOF.PREPROCESS, (Symbol.symbol name))),
-		 (Iterator.inProcessOf name, DOF.ALGEBRAIC (DOF.INPROCESS, (Symbol.symbol name))),
-		 (Iterator.postProcessOf name, DOF.ALGEBRAIC (DOF.POSTPROCESS, (Symbol.symbol name))),
-		 (Iterator.updateOf name, DOF.UPDATE (Symbol.symbol name))]
-	    end
-
-	val temporal_iterators = 
-	    (Symbol.symbol "always", DOF.IMMEDIATE) ::
-	    (foldl (op @) nil (map buildTemporalIterator (vec2list (send "getTemporalIterators" (method "modeltemplate" object) NONE))))
-
-	(*val key_value_pairs = vec2list (method "contents" (method "settings" (method "modeltemplate" object)))*)
-	(*val precision = exp2str (method "precision" (method "settings" (method "modeltemplate" object)))
-	val target = exp2str (method "target" (method "settings" (method "modeltemplate" object)))
-	val parallel_models = exp2int (method "parallel_models" (method "settings" (method "modeltemplate" object)))
-	val debug = exp2bool (method "debug" (method "settings" (method "modeltemplate" object)))
-	val profile = exp2bool (method "profile" (method "settings" (method "modeltemplate" object)))*)
+	(* grab settings from the registry *)
 	val precision = DynamoOptions.getStringSetting "precision"
 	val target = DynamoOptions.getStringSetting "target"
 	val parallel_models = DynamoOptions.getIntegerSetting "parallel_models"
@@ -766,37 +701,83 @@ fun obj2dofmodel object =
 			 "cuda"
 		     else
 			 target
-(*
-	(* evaluate cuda *)
-	val cuda_namespace = method "CUDA" (KEC.SYMBOL (Symbol.symbol "Devices"))
-	val num_cuda_devices = exp2int (send "numDevices" cuda_namespace NONE)
-	val target = if StdFun.toLower target = "cuda" andalso num_cuda_devices = 0 then
-			 (Logger.log_warning (Printer.$("No CUDA capable device found, using a parallel CPU implementation instead"));
-			  "openmp")
-		     else
-			 target
 
-	val (deviceCapability, numMPs, globalMemory) = 
-	    if StdFun.toLower target = "cuda" then
-		let
-		    (* choose largest cuda device by numMPs *)
-		    val id_size_map = map (fn(id)=>(id, exp2int (send "deviceMultiprocessors" cuda_namespace (SOME [int2exp id])))) (List.tabulate (num_cuda_devices,fn(x)=>x+1))
-		    val (id, numMPs) = (StdFun.max_by_fun (fn((_,n1),(_,n2))=>n1>n2) id_size_map)
 
-		    val computeCapability = exp2str (send "deviceCapability" cuda_namespace (SOME [int2exp id]))
-		in
-		    (case computeCapability 
-		      of "1.1" => Target.COMPUTE11
-		       | "1.3" => Target.COMPUTE13
-		       | "9999.9999" => error ("Only the emulation CUDA device has been found.  Please verify the device driver is installed properly and that you have r/w permissions on /dev/nvidia*")
-		       | _ => (Logger.log_warning (Printer.$("Unexpected compute capability "^computeCapability^" on CUDA device, reverting to 1.1"));
-			       Target.COMPUTE11),
-		     numMPs,
-		     exp2int (send "deviceGlobalMem" cuda_namespace (SOME [int2exp id])))
-		end
-	    else
-		(Target.COMPUTE13, 0, 0)
-*)
+	fun transSolver solverobj =
+	    case exp2str(method "name" solverobj) of			 
+			 "forwardeuler" => Solver.FORWARD_EULER {dt = exp2real(method "dt" solverobj)}
+		       | "exponentialeuler" => Solver.EXPONENTIAL_EULER {dt = exp2real(method "dt" solverobj)}
+		       | "linearbackwardeuler" => Solver.LINEAR_BACKWARD_EULER {dt = exp2real(method "dt" solverobj),
+										solv = case exp2str (method "lbe_solv" solverobj) of
+											   "LSOLVER_DENSE" => Solver.LSOLVER_DENSE
+											 | "LSOLVER_BANDED" => Solver.LSOLVER_BANDED { upperhalfbw = exp2int (method "lbe_upperhalfbw" solverobj),
+                                                                                                                                       lowerhalfbw = exp2int (method "lbe_lowerhalfbw" solverobj)}
+											 | s => (Logger.log_warning (Printer.$("Invalid linear solver '"^s^"' chosen: Valid options are LSOLVER_DENSE or LSOLVER_BANDED.  Defaulting to LSOLVER_BANDED"));Solver.LSOLVER_BANDED { upperhalfbw = exp2int (method "lbe_upperhalfbw" solverobj),
+                                                                                                       lowerhalfbw = exp2int (method "lbe_lowerhalfbw" solverobj)})
+									       }
+		       | "rk4" => Solver.RK4 {dt = exp2real(method "dt" solverobj)}
+		       | "midpoint" => Solver.MIDPOINT {dt = exp2real(method "dt" solverobj)}
+		       | "heun" => Solver.HEUN {dt = exp2real(method "dt" solverobj)}
+		       | "ode23" => Solver.ODE23 {dt = exp2real(method "dt" solverobj),
+						  abs_tolerance = exp2real(method "abstol" solverobj),
+						  rel_tolerance = exp2real(method "reltol" solverobj)}
+		       | "ode45" => Solver.ODE45 {dt = exp2real(method "dt" solverobj),
+						  abs_tolerance = exp2real(method "abstol" solverobj),
+						  rel_tolerance = exp2real(method "reltol" solverobj)}
+		       | "cvode" => 
+			 let
+			     val _ = if target = "cuda" then
+					(Logger.log_error (Printer.$("CVODE is not currently supported on the GPU"));
+					 DynException.setErrored())
+				     else
+					 ()
+			 in
+			     Solver.CVODE {dt = exp2real(method "dt" solverobj),
+					   abs_tolerance = exp2real(method "abstol" solverobj),
+					   rel_tolerance = exp2real(method "reltol" solverobj),
+					   max_order = exp2int (method "cv_maxorder" solverobj),
+					   lmm = case exp2str (method "cv_lmm" solverobj) of
+						     "CV_BDF" => Solver.CV_BDF
+						   | "CV_ADAMS" => Solver.CV_ADAMS
+						   | s => (Logger.log_warning (Printer.$("Invalid linear method '"^s^
+											 "' chosen: Valid options are CV_BDF or CV_ADAMS.  "^
+											 "Defaulting to CV_BDF"));
+							   Solver.CV_BDF),
+					   iter = case exp2str (method "cv_iter" solverobj) of
+						      "CV_FUNCTIONAL" => Solver.CV_FUNCTIONAL
+						    | "CV_NEWTON" => Solver.CV_NEWTON
+						    | s => (Logger.log_warning (Printer.$("Invalid iteration method '"^s^
+											  "' chosen: Valid options are CV_FUNCTIONAL or CV_NEWTON.  "^
+											  "Defaulting to CV_NEWTON"));Solver.CV_NEWTON),
+					   solv = case exp2str (method "cv_solv" solverobj) of
+						      "CVDENSE" => Solver.CVDENSE
+						    | "CVDIAG" => Solver.CVDIAG
+						    | "CVBAND" => Solver.CVBAND {upperhalfbw=exp2int (method "cv_upperhalfbw" solverobj),
+										 lowerhalfbw=exp2int (method "cv_lowerhalfbw" solverobj)}
+						    | s => (Logger.log_warning (Printer.$("Invalid solver method '"^s^"' chosen: Valid options are CVDENSE, CVDIAG or CVBAND.  Defaulting to CVDENSE"));Solver.CVDENSE)
+					  }
+			 end
+		       | "undefined" => Solver.UNDEFINED
+		       | name => DynException.stdException ("Invalid solver encountered: " ^ name, "ModelTranslate.translate.obj2dofmodel", Logger.INTERNAL)
+
+	fun buildTemporalIterator (obj) =
+	    let
+		val name = exp2str (method "name" obj)
+	    in
+		[(Symbol.symbol name, if exp2bool(method "isContinuous" obj) then
+					  DOF.CONTINUOUS (transSolver (method "solver" obj))
+				      else
+					  DOF.DISCRETE{sample_period=exp2real(method "sample_period" obj)}),
+		 (Iterator.preProcessOf name, DOF.ALGEBRAIC (DOF.PREPROCESS, (Symbol.symbol name))),
+		 (Iterator.inProcessOf name, DOF.ALGEBRAIC (DOF.INPROCESS, (Symbol.symbol name))),
+		 (Iterator.postProcessOf name, DOF.ALGEBRAIC (DOF.POSTPROCESS, (Symbol.symbol name))),
+		 (Iterator.updateOf name, DOF.UPDATE (Symbol.symbol name))]
+	    end
+
+	val temporal_iterators = 
+	    (Symbol.symbol "always", DOF.IMMEDIATE) ::
+	    (foldl (op @) nil (map buildTemporalIterator (vec2list (send "getTemporalIterators" (method "modeltemplate" object) NONE))))
+
 	val systemproperties = {iterators=temporal_iterators,
 				precision= case (StdFun.toLower precision)
 					    of "single" => DOF.SINGLE

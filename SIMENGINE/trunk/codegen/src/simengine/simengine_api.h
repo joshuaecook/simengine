@@ -108,9 +108,14 @@ typedef enum {
 #define FREE free
 #define PRINTF printf
 #define PRINTFE(ARG...) fprintf(stderr, ##ARG)
-#define ERROR(ID, MESSAGE, ARG...) {fprintf(stderr, "ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); exit(2); }
-#define USER_ERROR(ID, MESSAGE, ARG...) {fprintf(stderr, "ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); exit(1); }
-#define WARN(ID, MESSAGE, ARG...) fprintf(stderr, "WARNING (%s): " MESSAGE "\n", #ID, ##ARG)
+// Change these to use different messages depending on the debug flag
+//#define ERROR(ID, MESSAGE, ARG...) {fprintf(stderr, "ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); exit(2); }
+//#define USER_ERROR(ID, MESSAGE, ARG...) {fprintf(stderr, "ERROR (%s): " MESSAGE "\n",  #ID, ##ARG); exit(1); }
+//#define WARN(ID, MESSAGE, ARG...) fprintf(stderr, "WARNING (%s): " MESSAGE "\n", #ID, ##ARG)
+// Use very simple messages since they'll be reprinted by DSL
+#define ERROR(ID, MESSAGE, ARG...) {fprintf(stderr, MESSAGE, ##ARG); exit(2); }
+#define USER_ERROR(ID, MESSAGE, ARG...) {fprintf(stderr, MESSAGE, ##ARG); exit(1); }
+#define WARN(ID, MESSAGE, ARG...) fprintf(stderr, "Warning: " MESSAGE, ##ARG)
 
 #define NMALLOC(NMEM, TYP) ((TYP *)MALLOC((NMEM) * sizeof(TYP)))
 #define NREALLOC(PTR, NMEM, TYP) ((TYP *)REALLOC(PTR, (NMEM) * sizeof(TYP)))

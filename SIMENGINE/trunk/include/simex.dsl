@@ -192,12 +192,12 @@ import "command_line.dsl"
 
       var cc = shell("which", ["nvcc"])
       if cc.isempty() then 
-	error "Could not find nvcc. Please ensure that it exists in your path."
+	nostack_error "Could not find nvcc. Please ensure that it exists in your path."
       end
       nvcc = FileSystem.realpath (cc[1].rstrip("\n"))
       cudaInstallPath = Path.dir (Path.dir (nvcc))
       if Devices.CUDA.numDevices == 0 then
-        error("Cannot target the GPU : " + Devices.CUDA.cudaErr)
+        nostack_error("Cannot target the GPU : " + Devices.CUDA.cudaErr)
       end
       // TODO: This check may need to be expanded as more devices/architectures appear (e.g. no devices currently of arch sm_12)
       var device_id = Devices.CUDA.getProp(1, "deviceId")
@@ -330,7 +330,7 @@ import "command_line.dsl"
     if ((simexFile <> "" and compileFile <> "") or
 	(simexFile <> "" and simulateFile <> "") or
 	(compileFile <> "" and  simulateFile <> "")) then
-	error("Only one option of -simex, -compile, and -simulate is supported at one time")
+	nostack_error("Only one option of -simex, -compile, and -simulate is supported at one time")
     end
 
     if settings.general.help.getValue() then
@@ -352,7 +352,7 @@ import "command_line.dsl"
 	  //println("Not running: " + compilerSettings.exfile)
 	end
       else
-	error("The model file '" + simexFile + "' does not exist.")
+	nostack_error("The model file '" + simexFile + "' does not exist.")
       end
     elseif compileFile <> "" then
       var modelFile = FileSystem.realpath(compileFile)
@@ -362,15 +362,15 @@ import "command_line.dsl"
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
 	var exfile = autoRecompile(modelFile, compilerSettings)
       else
-	error("The model file '" + compileFile + "' does not exist.")
+	nostack_error("The model file '" + compileFile + "' does not exist.")
       end
     elseif simulateFile <> "" then
       var simFile = FileSystem.realpath(simulateFile)
       if () <> simFile then
 	// TODO: add support for this mode
-	error("The simulate flag is not currently supported by simEngine")
+	nostack_error("The simulate flag is not currently supported by simEngine")
       else
-	error("The simulation file '" + simulateFile + "' does not exist")
+	nostack_error("The simulation file '" + simulateFile + "' does not exist")
       end
     else
       // don't do anything..
@@ -396,9 +396,9 @@ import "command_line.dsl"
     var stdout = allout(1)
     var stderr = allout(2)
     if (1 == stat) then
-      error(stderr)
+      nostack_error(join("",stderr))
     elseif (1 < stat) then
-      failure("Unexpected internal exception was generated during simulation: " + stderr)
+      failure("Unexpected internal exception was generated during simulation: " + join("",stderr))
       // Return the interface from the executable if requested
     elseif objectContains(simulationSettings, "interface") then
       print(join("", stdout))
@@ -429,7 +429,7 @@ import "command_line.dsl"
     else
       var modelfilepath = FileSystem.realpath(simex)
       if () == modelfilepath then
-	error("The model file '" + simex + "' does not exist.")
+	nostack_error("The model file '" + simex + "' does not exist.")
       end
       modelfilepath
     end
@@ -442,7 +442,7 @@ import "command_line.dsl"
 	if "gpu" == settings.simulation.target.getValue() then
 	    // this is ok
 	else
-	    error("Emulation is only valid for the GPU.")
+	    nostack_error("Emulation is only valid for the GPU.")
 	end
     end
 
@@ -506,12 +506,12 @@ import "command_line.dsl"
     if createSimulationTable(simulationSettings) then
       if not(objectContains(simulationSettings, "stop")) then
 	// If any simulation options were set but no stop time or interface request was, tell the user this doesn't make sense
-	error("In order to simulate a stop time must be specified.")
+	nostack_error("In order to simulate a stop time must be specified.")
       else
 
 	// Check if user specified a start time but no stop time
 	if objectContains(simulationSettings, "start") and not(objectContains(simulationSettings, "stop")) then
-	  error("Specifying a start time has no meaning without a corresponding stop time.")
+	  nostack_error("Specifying a start time has no meaning without a corresponding stop time.")
 	end
 
 	// Add any defaults for settings that were not set from the command-line
@@ -523,12 +523,12 @@ import "command_line.dsl"
 
 	// Check if user specified a stop time less than the start time
 	if simulationSettings.stop <> 0 and simulationSettings.stop <= simulationSettings.start then
-	  error("Stop time "+simulationSettings.stop+" must be greater than the start time "+simulationSettings.start+".")
+	  nostack_error("Stop time "+simulationSettings.stop+" must be greater than the start time "+simulationSettings.start+".")
 	end
 
 	// Check for a valid number of instances
 	if simulationSettings.instances < 1 or simulationSettings.instances.floor() <> simulationSettings.instances then
-	  error("Number of model instances must be an integer value of 1 or more.")
+	  nostack_error("Number of model instances must be an integer value of 1 or more.")
 	end
       end
     end
@@ -554,7 +554,7 @@ import "command_line.dsl"
 
   function autoRecompile (filename: String, compilerSettings: Table)
     if "dsl" <> Path.ext(filename) then
-      error ("Unknown type of file " + filename)
+      nostack_error ("Unknown type of file " + filename)
     end
     var working_dir = FileSystem.pwd ()
     var dir = Path.dir filename
@@ -579,7 +579,7 @@ import "command_line.dsl"
     elseif "cpu" == target_setting then
       target = TargetCPU.new(compilerSettings)
     else
-      error ("Unknown target " +target_setting)
+      nostack_error ("Unknown target " +target_setting)
     end
 
     // Opening an archive succeeds if the file exists and a manifest can be read.
@@ -641,7 +641,7 @@ import "command_line.dsl"
     if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
       FileSystem.mkdir(settings.compiler.outputdir.getValue())
       if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
-	error("Could not create directory " + settings.compiler.outputdir.getValue())
+	nostack_error("Could not create directory " + settings.compiler.outputdir.getValue())
       end
     end
 

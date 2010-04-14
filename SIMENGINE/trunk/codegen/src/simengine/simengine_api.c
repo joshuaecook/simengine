@@ -47,7 +47,7 @@ void open_progress_file(const char *outputs_dirname, double **progress, int *pro
   sprintf(progress_filename, "%s/simulation_progress", outputs_dirname);
   *progress_fd = open(progress_filename, O_CREAT|O_RDWR, S_IRWXU);
   if(-1 == *progress_fd){
-    ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation progress. '%s'\n", progress_filename);
+    ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation progress. '%s'", progress_filename);
   }
   for(i=0; i<num_models; i++){
     write(*progress_fd, &tmp, sizeof(double));
@@ -234,7 +234,7 @@ void check_inputs(const char *inputs_arg){
   char *inp;
 
   if(leni == 0){
-    USER_ERROR(Simatra:Simex:check_inputs, "No value passed to --inputs.\n");
+    USER_ERROR(Simatra:Simex:check_inputs, "No value passed to --inputs.");
   }
 
   inputs = (char*)malloc(leni+1);
@@ -257,7 +257,7 @@ void check_inputs(const char *inputs_arg){
       }
     }
     if(j == seint.num_inputs){
-      USER_ERROR(Simatra:Simex:check_inputs,"Model %s has no input with name '%s'.\n", seint.name, inp);
+      USER_ERROR(Simatra:Simex:check_inputs,"Model %s has no input with name '%s'.", seint.name, inp);
     }
     inp += strlen(inp) + 1;
   }
@@ -288,25 +288,25 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       break;
     case START:
       if(opts->start_time){
-	USER_ERROR(Simatra:Simex:parse_args, "Start time can only be specified once.\n");
+	USER_ERROR(Simatra:Simex:parse_args, "Start time can only be specified once.");
       }
       opts->start_time = atof(optarg);
       if(!__finite(opts->start_time)){
-	USER_ERROR(Simatra:Simex:parse_args, "Start time is invalid %f.\n", opts->start_time);
+	USER_ERROR(Simatra:Simex:parse_args, "Start time is invalid %f.", opts->start_time);
       }
       break;
     case STOP:
       if(opts->stop_time){
-	USER_ERROR(Simatra:Simex:parse_args, "Stop time can only be specified once.\n");
+	USER_ERROR(Simatra:Simex:parse_args, "Stop time can only be specified once.");
       }
       opts->stop_time = atof(optarg);
       if(!__finite(opts->stop_time)){
-	USER_ERROR(Simatra:Simex:parse_args, "Stop time is invalid %f.\n", opts->stop_time);
+	USER_ERROR(Simatra:Simex:parse_args, "Stop time is invalid %f.", opts->stop_time);
       }
       break;
     case SEED:
       if(opts->seeded){
-	USER_ERROR(Simatra:Simex:parse_args, "Random seed can only be specified once.\n");
+	USER_ERROR(Simatra:Simex:parse_args, "Random seed can only be specified once.");
       }
       opts->seeded = 1;
       opts->seed = atoi(optarg);
@@ -314,7 +314,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 #ifdef TARGET_GPU
     case GPUID:
       if(opts->gpuid){
-	USER_ERROR(Simatra:Simex:parse_args, "GPU ID can only be specified once.\n");
+	USER_ERROR(Simatra:Simex:parse_args, "GPU ID can only be specified once.");
       }
       opts->gpuid = 1;
       global_gpuid = atoi(optarg);
@@ -322,16 +322,16 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 #endif
     case INSTANCES:
       if(opts->num_models){
-	USER_ERROR(Simatra:Simex:parse_args, "Number of model instances can only be specified once.\n");
+	USER_ERROR(Simatra:Simex:parse_args, "Number of model instances can only be specified once.");
       }
       opts->num_models = (unsigned int)strtod(optarg, NULL); // Handles 1E3 etc.
       if(opts->num_models < 1){
-	USER_ERROR(Simatra:Simex:parse_args, "Invalid number of model instances %d\n", opts->num_models);
+	USER_ERROR(Simatra:Simex:parse_args, "Invalid number of model instances %d", opts->num_models);
       }
       break;
     case INSTANCE_OFFSET:
       if(global_modelid_offset){
-	USER_ERROR(Simatra:Simex:parse_args, "Model instance offset can only be specified once.\n");
+	USER_ERROR(Simatra:Simex:parse_args, "Model instance offset can only be specified once.");
       }
       global_modelid_offset = atoi(optarg);
       break;
@@ -340,14 +340,14 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       break;
     case OUTPUT_DIR:
       if(opts->outputs_dirname){
-	USER_ERROR(Simatra:Simex:parse_args, "Only one output file can be specified. '%s' OR '%s'\n", 
+	USER_ERROR(Simatra:Simex:parse_args, "Only one output file can be specified. '%s' OR '%s'", 
 	      opts->outputs_dirname, optarg);
       }
       opts->outputs_dirname = optarg;
       break;
     case BINARY:
       if(binary_files){
-	USER_ERROR(Simatra:Simex:parse_args, "Option '--binary' can only be specified once.\n");
+	USER_ERROR(Simatra:Simex:parse_args, "Option '--binary' can only be specified once.");
       }
       binary_files = 1;
       break;
@@ -360,7 +360,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	FILE *json_file;
 	json_file = fopen(optarg, "w");
 	if(!json_file){
-	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.\n", optarg);
+	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.", optarg);
 	}
 	fprintf(json_file, "%s", json_interface);
 	fclose(json_file);
@@ -371,7 +371,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       // are not understood. Otherwise a typo could lead to executing a simulation
       // with undesired default options.
     default:
-      USER_ERROR(Simatra:Simex:parse_args, "Invalid argument\n");
+      USER_ERROR(Simatra:Simex:parse_args, "Invalid argument");
     }
   }
 
@@ -380,13 +380,13 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
     PRINTFE("\n");
     while(optind < argc)
       PRINTFE("\t'%s'\n", argv[optind++]);
-    USER_ERROR(Simatra:Simex:parse_args, "Invalid parameters passed to simex:\n");
+    USER_ERROR(Simatra:Simex:parse_args, "Invalid parameters passed to simex:");
   }
 
   // Ensure that the stop time is later than the start time.  If they are equal,
   // (i.e. not set, default to 0) the model interface will be returned.
   if(opts->stop_time < opts->start_time){
-    USER_ERROR(Simatra:Simex:parse_args, "stop time (%f) must be greater than start time (%f)\n",
+    USER_ERROR(Simatra:Simex:parse_args, "stop time (%f) must be greater than start time (%f)",
 	  opts->stop_time, opts->start_time);
   }
 
@@ -407,16 +407,16 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
     struct stat dirname_stat;
     if(stat(opts->outputs_dirname, &dirname_stat) || !(dirname_stat.st_mode&S_IFDIR)){
       // TODO: allow multiple processes to share the same output directory
-      ERROR(Simatra:Simex:parse_args, "Could not create output directory %s.\n",
+      ERROR(Simatra:Simex:parse_args, "Could not create output directory %s.",
 	    opts->outputs_dirname);
     }
   }
 
   if(opts->num_models > MAX_NUM_MODELS){
-    USER_ERROR(Simatra:Simex:parse_args, "Number of model instances must be less than %d, requested %d.\n", MAX_NUM_MODELS, opts->num_models);
+    USER_ERROR(Simatra:Simex:parse_args, "Number of model instances must be less than %d, requested %d.", MAX_NUM_MODELS, opts->num_models);
   }
   if(global_modelid_offset > MAX_NUM_MODELS){
-    USER_ERROR(Simatra:Simex:parse_args, "Model instance offset must be less than %d, requested %d.\n", MAX_NUM_MODELS, global_modelid_offset);
+    USER_ERROR(Simatra:Simex:parse_args, "Model instance offset must be less than %d, requested %d.", MAX_NUM_MODELS, global_modelid_offset);
   }
 
   long long sanity_check = 0;
@@ -424,8 +424,8 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
   sanity_check += opts->num_models;
 
   if(sanity_check > MAX_NUM_MODELS){
-    USER_ERROR(Simatra:Simex:parse_args, "Number of model instances (%d) too large for requested model instance offset (%d).\n"
-	  "Maximum number of models is %d.\n", opts->num_models, global_modelid_offset, MAX_NUM_MODELS);
+    USER_ERROR(Simatra:Simex:parse_args, "Number of model instances (%d) too large for requested model instance offset (%d)."
+	  "Maximum number of models is %d.", opts->num_models, global_modelid_offset, MAX_NUM_MODELS);
   }
   
 
@@ -451,14 +451,14 @@ void make_model_directories(simengine_opts *opts){
       // Only need to check return value on mkdir because we created the top level directory outputs_dirname
       if(mkdir(model_dirname, 0777)){
 	if(errno != EEXIST){
-	  ERROR(Simatra::Simex::make_model_directories, "Could not create intermediate directory '%s'\n", model_dirname);
+	  ERROR(Simatra::Simex::make_model_directories, "Could not create intermediate directory '%s'", model_dirname);
 	}
       }
     }
     // Create the outputs directory
     sprintf((model_dirname + strlen(model_dirname)), "/outputs");
     if(mkdir(model_dirname, 0777)){
-	  ERROR(Simatra::Simex::make_model_directories, "Output directory '%s' already exists, remove manually or specify a new output directory with the --outputdir <directory name> option\n", opts->outputs_dirname);
+	  ERROR(Simatra::Simex::make_model_directories, "Output directory '%s' already exists, remove manually or specify a new output directory with the --outputdir <directory name> option", opts->outputs_dirname);
     }
   }
 }
@@ -478,7 +478,7 @@ void write_states_time(simengine_opts *opts, simengine_result *result){
     sprintf(states_time_filename, "%s/%s", model_dirname, "final-states");
     states_time_file = fopen(states_time_filename, "w");
     if(NULL == states_time_file){
-      ERROR(Simatra::Simex::log_outputs, "could not open file '%s'\n", states_time_filename);
+      ERROR(Simatra::Simex::log_outputs, "could not open file '%s'", states_time_filename);
     }
     if(binary_files){
       fwrite(result->final_states + modelid*seint.num_states, sizeof(double), seint.num_states, states_time_file);
@@ -495,7 +495,7 @@ void write_states_time(simengine_opts *opts, simengine_result *result){
     sprintf(states_time_filename, "%s/%s", model_dirname, "final-time");
     states_time_file = fopen(states_time_filename, "w");
     if(NULL == states_time_file){
-      ERROR(Simatra::Simex::log_outputs, "could not open file '%s'\n", states_time_filename);
+      ERROR(Simatra::Simex::log_outputs, "could not open file '%s'", states_time_filename);
     }
     if(binary_files){
       fwrite(result->final_time + modelid, sizeof(double), 1, states_time_file);
@@ -534,7 +534,7 @@ int main(int argc, char **argv){
     
 
   if(!binary_files)
-    USER_ERROR(Simatra:Simex:main, "--binary not specified and ascii data is not currently supported.\n");
+    USER_ERROR(Simatra:Simex:main, "--binary not specified and ascii data is not currently supported.");
 
   // Just print the model interface
   if(opts.stop_time == opts.start_time){
@@ -561,7 +561,7 @@ int main(int argc, char **argv){
       write_states_time(&opts, result);
     }
     else{
-      WARN(Simatra:Simex:runmodel, "Simulation returned error %d: %s\n",
+      WARN(Simatra:Simex:runmodel, "Simulation returned error %d: %s",
 	      result->status, result->status_message);
     }
 

@@ -113,7 +113,7 @@ namespace Archive
       println ("STDERR:" + join("", ccerr))
     end
     if 0 <> ccstat then
-      failure ("Compiler returned non-zero exit status " + ccstat)
+      failure ("Unexpected failure was encountered during generated code compilation: " + ccerr)
     end
   end
 
