@@ -228,6 +228,7 @@ fun main () =
     end
     handle DynException.RestartRepl => GeneralUtil.IGNORE
 	 | DynException.SettingsError => GeneralUtil.USAGE (* needs to know how it is used, in matlab mode, it should return the matlab usage, otherwise we should just return the standard simEngine usage information *)
+	 | DynException.TooManyErrors => GeneralUtil.IGNORE (* occurred outside of compilation - probably a generated user error *)
 	 | Usage => GeneralUtil.USAGE
 	 | DynException.InternalFailure => GeneralUtil.FAILURE NONE
 	 | e => 

@@ -77,27 +77,25 @@ fun write_progress_file txt =
     let
 	(* should be already created at this time by simex *)
 	val dir = DynamoOptions.getStringSetting("outputdir")
-	(* it's possible that we're already in that directory, assume that we are if there isn't already 
-	 * the directory present *)
-	val dir = if Directory.isDir dir then
-		      dir
-		  else
-		      Directory.pwd()
-	val _ = case (!progressFileStream) of
-		    SOME s => 
-		    let
-			val _ = write_spaces (s, !characters_written)
-			val pos = TextIO.getPosOut s
-			val _ = TextIO.output (s, txt)
-			(*val _ = Util.log ("Writing Status '"^(txt)^"'")*)
-			val _ = characters_written := (String.size txt)
-			val _ = TextIO.flushOut s
-			val _ = TextIO.setPosOut (s, pos)
-		    in
-			()
-		    end
-		  | NONE => (progressFileStream := SOME (TextIO.openOut (dir ^ "/compilation_progress"));
-			     write_progress_file txt)
+
+	val _ = if Directory.isDir dir then
+		    case (!progressFileStream) of
+			SOME s => 
+			let
+			    val _ = write_spaces (s, !characters_written)
+			    val pos = TextIO.getPosOut s
+			    val _ = TextIO.output (s, txt)
+			    (*val _ = Util.log ("Writing Status '"^(txt)^"'")*)
+			    val _ = characters_written := (String.size txt)
+			    val _ = TextIO.flushOut s
+			    val _ = TextIO.setPosOut (s, pos)
+			in
+			    ()
+			end
+		      | NONE => (progressFileStream := SOME (TextIO.openOut (dir ^ "/compilation_progress"));
+				 write_progress_file txt)
+		else 
+		    () (* don't worry about it if there is no output directory - probably running in batch mode *)
     in
 	()
     end

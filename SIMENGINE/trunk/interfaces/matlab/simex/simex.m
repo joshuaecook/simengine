@@ -78,7 +78,7 @@ function [varargout] = simex(dsl, varargin)
 % For additional help, please email support@simatratechnologies.com
 %
     options = simexOptions(dsl, varargin{:});
-    makeOutputDirectory (options);
+    options = makeOutputDirectory (options);
     onCleanup(@()(cleanUp(options)));
 
     [output y1 t1 interface] = simEngine(options);
@@ -90,10 +90,14 @@ function [varargout] = simex(dsl, varargin)
     end
 end
 
-function makeOutputDirectory (options)
+function [options] = makeOutputDirectory (options)
     if ~mkdir(options.outputs)
         simexError('mkdir', ['Could not create temporary data directory ' options.outputs]);
     end
+    if options.outputs(1) ~= '/'
+      options.outputs = fullfile(pwd, options.outputs);
+    end
+      
     if options.debug
         disp(['Created temporary data directory ' options.outputs]);
     end
