@@ -469,7 +469,7 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 		      end
 		      handle e => DynException.checkpoint "ShardedModel.updateShardForSolver.updateMatrix" e
 
-		  val _ = app updateMatrix numberedRelationships
+		  val _ = Profile.app "Generating matrix" updateMatrix numberedRelationships
 
   		  (* create new shard using matrix equation Mx = b *)
 		  (* optimize call will find the best known data structure for the matrix type za*)

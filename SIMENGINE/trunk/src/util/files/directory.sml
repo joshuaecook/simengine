@@ -58,7 +58,11 @@ fun readDir dirstream =
 (* check if directory exists *)
 fun isDir dir =
     OS.FileSys.isDir dir
-    handle _ => false
+    handle OS.SysErr (str, SOME syserror) => ((*Logger.log_warning (Printer.$("Error checking directory '"^dir^"' in '"^(pwd())^"': '"^str^"', name='"^(OS.errorName syserror)^"'"));*)
+					      false)
+	 | OS.SysErr (str, NONE) => ((*Logger.log_warning (Printer.$("Error checking directory '"^dir^"' in '"^(pwd())^"': '"^str^"'"));*)
+				     false)
+	 | _ => false
 
 (* check file if it exists - this function returns false on symbolic links *)
 fun isFile file =

@@ -409,6 +409,7 @@ and execImportStatement parse env file pos =
 
 	val _ = ParserSettings.setSettings(false, name, path)
 	val _ = Logger.log_notice ($("Reading source file '" ^ (fullpath)^ "'"))
+	val _ = Profile.write_status ("Reading '"^name^"'")
 	val eof_encountered = !Globals.eof_encountered
 
     in

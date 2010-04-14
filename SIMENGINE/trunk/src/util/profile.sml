@@ -6,6 +6,14 @@ sig
     val mark: unit -> unit
     val displayTimes: unit -> unit
 
+    (* write a status to the display *)
+    val write_status: string -> unit
+    val map: string -> ('a -> 'b) -> 'a list -> 'b list
+    val app: string -> ('a -> unit) -> 'a list -> unit
+    val foldl: string -> ('a * 'b -> 'b) -> 'b -> 'a list -> 'b
+    val foldr: string -> ('a * 'b -> 'b) -> 'b -> 'a list -> 'b
+
+    val clearProgressFile : unit -> unit
 end
 structure Profile: PROFILE =
 struct
@@ -48,25 +56,48 @@ fun timeTwoCurryArgs message fcn arg1 arg2 =
 	fcn'' arg1 arg2
     end
 
+
 (* store the current progress file stream *)
 val progressFileStream = ref NONE
-fun write_progress_file r =
+val characters_written = ref 0 
+fun clearProgressFile() = (progressFileStream := NONE;
+			   characters_written := 0)
+fun write_spaces (fid, num) =
     let
+	val str = String.implode (List.tabulate (num, fn(x) => #" "))
+	val pos = TextIO.getPosOut fid
+	val _ = TextIO.output (fid, str)
+	val _ = TextIO.flushOut fid
+	val _ = TextIO.setPosOut (fid, pos)
+    in
+	()
+    end
+
+fun write_progress_file txt =
+    let
+	(* should be already created at this time by simex *)
 	val dir = DynamoOptions.getStringSetting("outputdir")
-	val _ = if Directory.isDir dir then 
-		    case (!progressFileStream) of
-			SOME s => 
-			let
-			    val pos = TextIO.getPosOut s
-			    val _ = TextIO.output (s, ("Compiling: " ^ (Util.i2s (Real.floor(r * 100.0))) ^ "%"))
-			    val _ = TextIO.setPosOut (s, pos)
-			in
-			    ()
-			end
-		      | NONE => (progressFileStream := SOME (TextIO.openOut (dir ^ "/compilation_progress"));
-				 write_progress_file r)
-		else
-		    () (* can't do anything until the directory is created *)
+	(* it's possible that we're already in that directory, assume that we are if there isn't already 
+	 * the directory present *)
+	val dir = if Directory.isDir dir then
+		      dir
+		  else
+		      Directory.pwd()
+	val _ = case (!progressFileStream) of
+		    SOME s => 
+		    let
+			val _ = write_spaces (s, !characters_written)
+			val pos = TextIO.getPosOut s
+			val _ = TextIO.output (s, txt)
+			(*val _ = Util.log ("Writing Status '"^(txt)^"'")*)
+			val _ = characters_written := (String.size txt)
+			val _ = TextIO.flushOut s
+			val _ = TextIO.setPosOut (s, pos)
+		    in
+			()
+		    end
+		  | NONE => (progressFileStream := SOME (TextIO.openOut (dir ^ "/compilation_progress"));
+			     write_progress_file txt)
     in
 	()
     end
@@ -79,8 +110,62 @@ fun write_progress_file r =
 					       (*| IO.TerminatedStream => Logger.log_warning (Printer.$("Encountered TerminatedStream exception"))*)
 					       | IO.ClosedStream => Logger.log_warning (Printer.$("Encountered ClosedStream exception"))
 					       | Subscript => Logger.log_warning (Printer.$("Encountered SubScript exception"))
-					       | _ => Logger.log_warning (Printer.$("Encountered unknown exception")))
+					       | _ => Logger.log_warning (Printer.$("Encountered unknown exception"));
+					     clearProgressFile())
 	 | e => DynException.checkpoint "Profile.write_progress_file" e
+
+(* print out a percentage *)
+fun write_percentage txt r = 
+    write_progress_file (txt ^ ": " ^ (Util.i2s (Real.floor(r * 100.0))) ^ "%")
+
+(* write out a status message *)
+val write_status = write_progress_file
+
+(* override list operations *)
+fun profileMap txt fcn l = 
+    let
+	val status = write_percentage txt
+	val num = Real.fromInt (List.length l)
+	fun toPercent i = 
+	    Real.fromInt i / num
+	fun fcn' (x, i) = (status (toPercent i);
+			   fcn x)
+    in
+	map fcn' (Util.addCount l)
+    end
+fun profileApp txt fcn l = 
+    let
+	val status = write_percentage txt
+	val num = Real.fromInt (List.length l)
+	fun toPercent i = 
+	    Real.fromInt i / num
+	fun fcn' (x, i) = (status (toPercent i);
+			   fcn x)
+    in
+	app fcn' (Util.addCount l)
+    end
+fun profileFoldl txt fcn init l = 
+    let
+	val status = write_percentage txt
+	val num = Real.fromInt (List.length l)
+	fun toPercent i = 
+	    Real.fromInt i / num
+	fun fcn' ((a, i), b) = (status (toPercent i);
+				fcn (a, b))
+    in
+	foldl fcn' init (Util.addCount l)
+    end
+fun profileFoldr txt fcn init l = 
+    let
+	val status = write_percentage txt
+	val num = Real.fromInt (List.length l)
+	fun toPercent i = 
+	    Real.fromInt i / num
+	fun fcn' ((a, i), b) = (status (toPercent i);
+				fcn (a, b))
+    in
+	foldr fcn' init (Util.addCount l)
+    end
 
 fun mark () =
     case (!genTimings, !timingData) of
@@ -103,7 +188,7 @@ fun mark () =
 					  val _ = case data of
 						      expTime::restTime => 
 						      ((*Util.log ("Percent done: " ^ (Real.toString (100.0*expTime)) ^ "%");*)
-						       write_progress_file expTime;
+						       write_percentage "Compiling" expTime;
 						       timingData := SOME restTime)
 						    | nil => Logger.log_warning (Printer.$("Unexpected shortage of timing samples.  Rerun the simulation with the -regenerateTimings option and save the resulting value to your dol file."))
 				      in
@@ -124,5 +209,11 @@ fun displayTimes () =
 	(SOME true, SOME data) => Util.log("<compilerTimingData = "^(Util.list2str Util.r2s (List.rev (normalizeData data)))^">")
       | _ => ()
 end
+
+(* always keep these on the bottom of this file so it doesn't interfere with the rest of the functions *)
+val map = profileMap
+val app = profileApp
+val foldl = profileFoldl
+val foldr = profileFoldr
 
 end

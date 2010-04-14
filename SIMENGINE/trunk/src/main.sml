@@ -149,16 +149,17 @@ fun main () =
 
 	(* Read the DOL files and the commmand line arguments *)
 	val _ = processSettings()
-	val _ = Profile.mark()
-
-	(* Verify the license file *)
-	val _ = CurrentLicense.findAndVerify()
-
 	(* Update the logging based on the verbose flag which may have been passed in as a command line argument *)
 	val log = if DynamoOptions.isFlagSet "verbose" then
 		       Logger.log_stdout (Logger.ALL, defaultOptions)
 		  else
 		       Logger.log_stdout (Logger.WARNINGS, defaultOptions)
+	val _ = Profile.clearProgressFile()
+
+	val _ = Profile.mark()
+
+	(* Verify the license file *)
+	val _ = CurrentLicense.findAndVerify()
 
 	(* initialize the exec *)
 	val env = PopulatedEnv.importSettings (rep_loop false) env

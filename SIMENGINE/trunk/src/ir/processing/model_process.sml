@@ -478,6 +478,7 @@ fun normalizeModel (model:DOF.model) =
 	val _ = if requiresFlattening() then
 		    let
 			val _ = log ("Flattening model ...")
+			val _ = Profile.write_status "Flattening model"
 			val model' = unify(CurrentModel.getCurrentModel())
 			val _ = CurrentModel.setCurrentModel(model')
 			val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
