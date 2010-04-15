@@ -178,11 +178,11 @@ fun licenseEncode licenseData =
 
 (* Serialization/deserialization functions for packing/unpacking integers and strings together to/from a string of bytes *)
 fun bytesToInt bytes =
-    LargeWord.toInt (PackWord32Big.subVec (bytes, 0))
+    LargeWord.toInt (PackWord32Little.subVec (bytes, 0))
 
 fun intToBytes int =
     let val bytes = Word8Array.array (4, 0w0)
-    in PackWord32Big.update (bytes, 0, Word64.fromInt int)
+    in PackWord32Little.update (bytes, 0, Word64.fromInt int)
      ; Word8Array.vector bytes
     end
 

@@ -7,7 +7,7 @@ int encode(int plen, unsigned char *ptext, int *clen, unsigned char *ctext);
 int decode(int clen, unsigned char *ctext, int *plen, unsigned char *ptext);
 
 // SML ffi interface to license encoding/decoding
-#if !defined(TEST_ENCODE) && !defined(TEST_DECODE)
+#if !defined(TEST_ENCODE) && !defined(TEST_DECODE) && !defined TRIAL_CREATION
 #include "ffi-exports.h"
 
 Int32_t license_Decode (Int32_t clen, String8_t ctext);
