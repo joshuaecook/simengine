@@ -24,12 +24,12 @@ namespace Dependency
       var v = ""
 
       if () == result then
-        error ("Could not run " + cmd + " to get version information")
+        warning ("Could not run " + cmd + " to get version information")
       else
         var t = getRegexpMatches(versionRegexp, result)
 
         if t.length() == 0 then
-          error ("Could not find version information in " + cmd)
+          warning ("Could not find version information in " + cmd)
         else
           v = t[1]
         end
