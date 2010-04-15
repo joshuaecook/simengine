@@ -177,7 +177,11 @@ end
 
     var gcc_version = parseCmdForVersion("\\(GCC\\) ([0-9]+.[0-9]+.[0-9]+)", gcc_path, ["--version"])
     if gcc_version == "" then
-      gcc_version = "none"
+      // This one should work for ubuntu
+      gcc_version = parseCmdForVersion("[gG][cC]{2}.*([0-9]+.[0-9]+.[0-9]+)\s*\n", gcc_path, ["--version"])
+      if gcc_version == "" then
+	gcc_version = "none"
+      end
     end
 
     //nvcc = "release ([0-9]+.[0-9]+)" with --version
