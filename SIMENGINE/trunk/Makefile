@@ -190,6 +190,7 @@ VERSION = "BRANCH_$(REV)_$(BUILDREV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=../..
 DEBUG=true
+UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/development"
 else	
 ifeq ($(TRUNK),1)		
 RELEASE = "trunk"
@@ -198,6 +199,7 @@ REV := $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 VERSION = "BUILD_$(REV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=..
+UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/development"
 else	
 ifeq ($(TAG),1)
 RELEASE = "tag"
@@ -206,6 +208,7 @@ REV := $(shell pwd | sed -e 's/.*\/tags\/\(.*\)/\1/')
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 VERSION = ""#"$(REV)_$(BUILD_TYPE)"
 TOP_LEVEL=../..
+UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/release"
 else	
 RELEASE = "unknown"
 #INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
@@ -582,7 +585,7 @@ $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	(SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath `pwd`/include < /dev/null)
+	(SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath `pwd`/include --updateURL $(UPDATE_URL) < /dev/null)
 
 .PHONY: codegen
 codegen:

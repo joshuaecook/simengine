@@ -155,4 +155,4 @@
 // for release
 // <updateURL = "http://www.simatratechnologies.com/Downloads/simEngine/release">
 // for development
-<updateURL = "http://www.simatratechnologies.com/Downloads/simEngine/development">
+//<updateURL = "http://www.simatratechnologies.com/Downloads/simEngine/development">
