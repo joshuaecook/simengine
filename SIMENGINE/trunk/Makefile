@@ -599,8 +599,8 @@ codegen/simlib/simlib.a: codegen
 codegen/simlib/simlib: codegen
 codegen/src/*.o: codegen
 
-simatra.o: src/ffi/simatra_public.key
-	./codegen/simlib/simlib put simatra src/ffi/simatra_public.key
+simatra.o: simatra_public.key
+	./codegen/simlib/simlib put simatra simatra_public.key
 
 # User and developer documents
 # ==============================================================================================
