@@ -1,3 +1,16 @@
+/*
+ * innersystem - Simulates the motion of planets and moons in the inner part of
+ *               our solar system using Newtonian gravity.
+ * 
+ *               This model demonstrates how to use inputs to solve an 
+ *               n-body problem.
+ *
+ * Copyright 2010 Simatra Modeling Technologies
+ */
+
+
+//This model represents a planet.  It takes in a starting position, starting velocity, mass, and external forces acting upon it.  It computes it's position and velocity, over time, as a function of these external forces. 
+
 model (x,y,amass,x_vel, y_vel) = planet (mass, externalForceX, externalForceY, initX, initY, initXv, initYv)
 
   input externalForceX with {default=0}
@@ -31,9 +44,13 @@ model (x,y,amass,x_vel, y_vel) = planet (mass, externalForceX, externalForceY, i
   equation amass=mass
 end
 
+// This model represents a very simplified view of our solar system.  
+// Each data output is a pair of x and y coordinates.
 model (lunadata, earthdata, sundata, mercurydata, venusdata, marsdata, phobosdata, deimosdata) = innersystem
   constant G = 6.67e-11
 
+  //This function is used to connect a vector of masses via their external force inputs.
+  //  Note how external forces are repeatedly updated for each new force
   function connectPlanets (planets)
     foreach planet in planets do
       foreach otherplanet in planets do
