@@ -31,7 +31,7 @@ function validateFields($db, $name, $email){
 }
 
 function logError($message){
-  echo("ERROR: " . $message);
+  header("Location: trial.php?error=" . urlencode($message));
   exit(0);
 }
 

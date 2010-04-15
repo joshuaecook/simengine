@@ -3,6 +3,10 @@
   <body>
     <center>
       <h2>simEngine Trial License Key Generator</h2>
+      <?
+$error = $_GET['error'];
+if($error){echo("<p><font color=\"#ff4040\">$error</font></p>");}
+      ?>
     </center>
     <form action="trialLicense.php" method="POST">
       <input type="hidden" name="secret" value="simEngineTrialSecret" />
