@@ -98,6 +98,16 @@ switch license.version
         if ~isempty(license.expirationDate) && ~isstruct(license.status)
             disp(sprintf('  Trial expires on %s', license.expirationDate));
         end
+        names = fieldnames(license.restriction);
+        switch names{1}
+            case 'USERNAME'
+                disp('  Single User Trial');
+            case 'HOSTID'
+                disp('  Single Machine Trial');
+            case 'LICENSESERVER'
+                disp('  Network License Trial');
+            case 'SITE'
+        end                
     case {'STANDARD','PROFESSIONAL'}
         if strcmp(license.version, 'STANDARD')
             disp('  simEngine Standard Edition');
