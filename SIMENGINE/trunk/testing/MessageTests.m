@@ -18,7 +18,7 @@ end
 s = Suite('Message Tests');
 
 % Verify the version
-s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),'-regexpmatch', 'v0\.93'));
+s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),'-regexpmatch', 'v1\.0'));
 
 % Add basic variable tests
 s.add(SyntaxTests);

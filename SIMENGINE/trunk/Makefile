@@ -14,7 +14,7 @@ BUILD_TYPE = software
 # Version # for RPM
 MAJOR_VERSION = 1
 MINOR_VERSION = 0
-VERSION_REVISION = alpha
+VERSION_REVISION =
 VERSION_NUMBER = $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
 #BUILD_DATE := $(shell date +'%a %b %d %H:%M:%S %Y')
 BUILD_DATE := $(shell date +'%s')
