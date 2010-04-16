@@ -294,7 +294,7 @@ ifneq ($(PRIVATE_KEY),)
 simatra_private.o: $(PRIVATE_KEY)
 	./codegen/simlib/simlib put simatra_private $(PRIVATE_KEY)
 createLicense.cgi: codegen src/createLicense/createLicense.mlb src/ffi/ffi-license.c src/createLicense/createLicense.sml src/ffi/license.sml src/ffi/ffi-exports.sml src/createLicense/cgi.sml simatra_private.o
-	mlton -output $@ -cc-opt "-DENABLE_ENCODE" -link-opt "-lcrypto codegen/simlib/simlib.a simatra_private.o -rdynamic" src/createLicense/createLicense.mlb src/ffi/ffi-license.c 
+	mlton -output $@ -cc-opt "-DENABLE_ENCODE" -link-opt "-lcrypto -ldl -lz codegen/simlib/simlib.a simatra_private.o -rdynamic" src/createLicense/createLicense.mlb src/ffi/ffi-license.c 
 trialLicense: codegen src/trialLicense/trialLicense.c src/ffi/ffi-license.c simatra_private.o
 	gcc -o $@  -DTRIAL_CREATION -DENABLE_ENCODE src/trialLicense/trialLicense.c src/ffi/ffi-license.c simatra_private.o /usr/lib/libcrypto.a codegen/simlib/simlib.a -ldl -lz -rdynamic
 endif
