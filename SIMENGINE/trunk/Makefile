@@ -186,7 +186,7 @@ RELEASE = "branch"
 BUILDREV := $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 REV := $(shell pwd | sed -e 's/.*\/branches\/\(.*\)/\1/')
 #INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
-VERSION = "BRANCH_$(REV)_$(BUILDREV)"
+VERSION = "_BRANCH_$(REV)_$(BUILDREV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=../..
 DEBUG=true
@@ -196,7 +196,7 @@ ifeq ($(TRUNK),1)
 RELEASE = "trunk"
 REV := $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 #INSTALL_FILENAME = "$(FILENAME)_devbuild_$(REV)_$(BUILD_TYPE).tar.gz"
-VERSION = "BUILD_$(REV)"
+VERSION = "_BUILD_$(REV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=..
 UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/development"
@@ -214,7 +214,7 @@ RELEASE = "unknown"
 #INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 TOP_LEVEL=unknown
-VERSION = "unknown"
+VERSION = "_unknown"
 endif
 endif	
 endif	
@@ -226,7 +226,7 @@ else
 LOCAL_INSTALL = local-install
 endif
 
-INSTALL_TGZ = simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER)_$(VERSION).tgz
+INSTALL_TGZ = simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER)$(VERSION).tgz
 simEngine_%.tgz: $(OUTPUT_FILE) build/* build/*/*
 	$(info Creating $@ for packaging)
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)
