@@ -102,8 +102,9 @@ fun expirationToString () =
 	val isTrial = case version() of L.TRIAL => true | _ => false
 	val doesExpire = case version() of L.TRIAL => false | L.BASIC => false | _ => true
 	val expDate = expirationDate()
+	val now = Date.fromTimeLocal (Time.now())
 	val numDaysTillExpiration = case expDate of
-					SOME d => Util.daysFromDate d
+					SOME d => (Util.daysFromDate d) - (Util.daysFromDate now)
 				      | NONE => ~1
     in
 	case expDate of
