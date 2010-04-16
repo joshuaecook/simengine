@@ -1,0 +1,67 @@
+// simEngine Registry - Default options for the compiler
+// Copyright 2007-2010 Simatra Modeling Technologies
+
+// **********************************************************************
+//                         General simEngine Options
+// **********************************************************************
+
+// verbose: displays extra info during compilation/simulation
+<verbose = false>
+
+// force: causes all directories/files to be overwritten
+<force = true>
+
+// batch: run commands directly from a particular file
+<batch = "">
+
+// **********************************************************************
+//                             Simulation Options
+// **********************************************************************
+
+// target: simulation target platform - can be cpu, gpu, or parallelcpu
+<target = "cpu">
+
+// precision: set the precision of the simulation
+<precision = "double">
+
+// seed: integer number specifying the seed to use for simulations
+//<seed = 1000>
+
+// seeded: flag specifying that the --seed option value is used
+<seeded = false>
+
+
+// **********************************************************************
+//                          GPU Simulation Options
+// **********************************************************************
+
+// gpuid: specifies the id of the GPU that the simulation should run on
+<gpuid = 0>
+
+// gpublocksize: set the block size on the GPU - override on the command line
+<gpublocksize = 64>
+
+
+// **********************************************************************
+//                             Additional Options
+// **********************************************************************
+
+
+// outputname: choose the name/directory of the output sim file, otherwise a default is chosen
+<outputname = "">
+
+// outputdir: choose the directory for generated output files, including temporary file locations
+<outputdir = "simex_outputs">
+
+// librarypath: the directory simEngine will look for when searching for libraries to link against
+<librarypath = "$SIMENGINE/lib">
+
+// sourcepath: the directory where additional DSL source files are located
+<sourcepath = "$SIMENGINE/include">
+
+// interpreterstackdepth: a recursion limit for the builtin DSL execution engine, increase this for large models
+<interpreterstackdepth = 10000.0>
+
+// termrewritelimit: a recursion limit for our term rewriter in our internal computer algebra system.  Large expressions might require a larger limit.
+<termrewritelimit = 25>
+
