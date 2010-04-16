@@ -21,6 +21,24 @@ else
   return;
 end
 
+% check if jvm is enabled
+try
+    java_available = usejava('jvm');
+catch
+    java_available = false;
+end
+
+if ~java_available
+    if ~quiet
+        error('Simatra:simCheckVersion:Java', 'Needs jvm enabled in MATLAB to check the current available simEngine version');
+    end
+    % in quiet mode, don't return anything, just exit...
+    if nargout == 1
+        varargout{1} = false;
+    end
+    return
+end
+
 % retrieve the latest version information from the website
 versionInfo = retrieveLatestVersion(quiet);
 if isstruct(versionInfo)
