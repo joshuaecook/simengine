@@ -147,7 +147,7 @@ if isstruct(status)
         case 'outofmaintenance'
             str = sprintf('License has been out of maintenance since %s', status.date);
         case 'invalidversion'
-            str = sprintf('License is supported up until version %s (simEngine version is %s)', lic_ver, cur_ver);
+            str = sprintf('License is supported up until version %s (simEngine version is %s)', status.lic_ver, status.cur_ver);
         case 'wronguser'
             if status.queried
                 str = 'License is a single-user license assigned to a different user';
