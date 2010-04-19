@@ -17,24 +17,40 @@ function processTrialLicense(){
   // Open the license database
   $db = new trialLicenseDB();
   if(!$db->isValid()){
-    logError('Internal Database Error.'); //. $db->getError());
+    logError('Internal Database Error.'); // . $db->getError());
   }
 
   // Validate Captcha input
-  checkCaptcha($db);
+  checkCaptcha($db, $name, $email);
 
   // Check for valid fields
   validateFields($db, $name, $email);
 
   // Add trial request to database
-  $trialid = $db->recordTrialLicense($name, $email, $usertype, $background, $usage);
+  $trialid = $db->recordTrialLicenseUser($name, $email, $usertype, $background, $usage);
 
   if(!$trialid){
-    // Report error to user
     logError('Internal Database Error.'); // . $db->getError());
   }
 
-  mailLicenseKey($trialid, $name, $email);
+  // Produce a license key
+  $licenseKey = getLicenseKey($trialid, $name, $email);
+
+  // Record license key in database
+  if(!$db->recordTrialLicense($trialid, $licenseKey)){
+    logError('Internal Database Error.'); // . $db->getError());
+  }
+
+  // Notify simatra that a new trial key is being issued
+  notifySimatra($name, $email, $usertype, $background, $usage, $licenseKey);
+
+  // Send the license key to the user
+  if(!mailLicenseKey($licenseKey, $email)){
+    logError("There was an error delivering your trial license.");
+  }
+
+  // Redirect the webrowser to the thank you page
+  header("Location: thank-you-for-trying-simEngine.html");
 }
 
 function postVal($var){
@@ -44,7 +60,7 @@ function postVal($var){
     return $_POST[$var];
 }
 
-function checkCaptcha($db){
+function checkCaptcha($db, $name, $email){
   $recaptchaPrivateKey = '6Le7cAwAAAAAAGSJo41Q2Huz6UuUYahENmSn1ug4';
   // Form fields
   $remoteAddr = $_SERVER['REMOTE_ADDR'];
@@ -79,7 +95,7 @@ function validateFields($db, $name, $email){
   }
   if(checkBlackList($name, $email)){
     $db->recordError(5, $name, $email);
-    logError("A trial license could not be created for your.  Please contact support@simatratechnologies.com for assistance.");
+    logError("A trial license could not be created for you.  Please contact support@simatratechnologies.com for assistance.");
   }
 }
 
@@ -119,20 +135,20 @@ function getLicenseKey($trialid, $name, $email){
   return $licenseKey;
 }
 
-// Email a license key to user
-function mailLicenseKey($trialid, $name, $email){
-  $licenseKey = getLicenseKey($trialid, $name, $email);
+function notifySimatra($name, $email, $usertype, $background, $usage, $licenseKey){
+  $simatraEmails = "rweinstein@simatratechnologies.com;msorensen@simatratechnologies.com;cchurch@simatratechnologies.com;clebsack@simatratechnologies.com";
+  $body = "Name: " . $name . "\nEmail : " . $email . "\n" . $usertype . " | " . $background . " | " . $usage . "\n\n" . $licenseKey;
 
+  mail($simatraEmails, "New Trial User", $body, "From: \"Simatra Modeling Technologies\" <support@simatratechnologies.com>");
+}
+
+// Email a license key to user
+function mailLicenseKey($licenseKey, $email){
   $body = "The six lines below are the trial license key for simEngine.  " .
     "You may copy and paste them into your Matlab session during installation, ". 
     "or by running simCheckLicense('-update') from within Matlab.\n\n" .
     $licenseKey;
 
-  if(mail($email,"simEngine Trial License Key", $body, "From: \"Simatra Modeling Technologies\" <support@simatratechnologies.com>")){
-    header("Location: thank-you-for-trying-simEngine.html");
-  }
-  else{
-    logError("There was an error delivering your trial license.");
-  }
+  return mail($email,"simEngine Trial License Key", $body, "From: \"Simatra Modeling Technologies\" <support@simatratechnologies.com>");
 }
 ?>

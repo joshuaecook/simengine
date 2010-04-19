@@ -8,14 +8,25 @@ class trialLicenseDB
     try{
       //create or open the database
       $this->db = new PDO('sqlite:/home/simatrat/db/simEngineTrialLicenses.db');
+
+      // Create the TrialLicenseUsers table
+      $query = 'CREATE TABLE TrialLicenseUsers ' .
+	'(trialid INTEGER PRIMARY KEY AUTOINCREMENT, Name TEXT, Email TEXT, DateTime TEXT, IPaddr TEXT)';
+      $this->db->exec($query);
+
       // Create the TrialLicenses table
       $query = 'CREATE TABLE TrialLicenses ' .
-	'(trialid INTEGER PRIMARY KEY AUTOINCREMENT, Name TEXT, Email TEXT, UserType TEXT, Background TEXT, Usage TEXT, DateTime TEXT)';
+	'(trialid INTEGER, licenseKey TEXT)';
       $this->db->exec($query);
+
+      // Create the Questions1 table
+      $query = 'CREATE TABLE Questions1 ' .
+	'(trialid INTEGER, UserType TEXT, Background TEXT, Usage TEXT)';
+      $this->db->exec($query);      
 
       // Create the TrialErrors table
       $query = 'CREATE TABLE TrialErrors ' .
-	'(errorid INTEGER PRIMARY KEY AUTOINCREMENT, errorcode INTEGER, Name TEXT, Email TEXT, DateTime TEXT)';
+	'(errorid INTEGER PRIMARY KEY AUTOINCREMENT, errorcode INTEGER, Name TEXT, Email TEXT, DateTime TEXT, IPaddr TEXT)';
       $this->db->exec($query);
     }
     catch(Exception $e){
@@ -36,7 +47,7 @@ class trialLicenseDB
   {
     if($this->db){
       $sqlemail = sqlite_escape_string($email);
-      $query = "SELECT Email from TrialLicenses where Email = \"$sqlemail\"";
+      $query = "SELECT Email from TrialLicenseUsers where Email = \"$sqlemail\"";
 
       foreach($this->db->query($query) as $row){
 	return false;
@@ -52,15 +63,32 @@ class trialLicenseDB
   {
     if($this->db){
       $sqlname = sqlite_escape_string($name);
-      $query = 'SELECT Name from TrialLicenses where Name = "$sqlname"';
+      $query = 'SELECT Name from TrialLicenseUsers where Name = "$sqlname"';
 
       return !$this->db->query($query);
     }
     else return false;
   }
 
-  public function recordTrialLicense($name, $email, $usertype, $background, $usage)
+  public function recordTrialLicense($trialid, $licenseKey){
+    if($this->db){
+      $sqllicenseKey = sqlite_escape_string($licenseKey);
+      $query = "INSERT INTO TrialLicenses (trialid, licenseKey) " .
+	"VALUES ($trialid, \"$sqllicenseKey\");";
+      try{
+	$this->db->exec($query);
+      }
+      catch(Exception $e){
+	$this->error = $e->getMessage();
+	return 0;
+      }
+    }
+    return 1;
+  }
+
+  public function recordTrialLicenseUser($name, $email, $usertype, $background, $usage)
   {
+    $trialid = 0;
     if($this->db){
       //insert data into database
       $sqlname = sqlite_escape_string($name);
@@ -69,9 +97,10 @@ class trialLicenseDB
       $sqlbackground = sqlite_escape_string($background);
       $sqlusage = sqlite_escape_string($usage);
       $timestamp = $this->dateTimeNow();
+      $ipaddr = $_SERVER['REMOTE_ADDR'];
 
-      $query = "INSERT INTO TrialLicenses (Name, Email, UserType, Background, Usage, DateTime) " .
-	"VALUES (\"$sqlname\", \"$sqlemail\", \"$sqlusertype\", \"$sqlbackground\", \"$sqlusage\", \"$timestamp\");";
+      $query = "INSERT INTO TrialLicenseUsers (Name, Email, DateTime, IPaddr) " .
+	"VALUES (\"$sqlname\", \"$sqlemail\", \"$timestamp\", \"$ipaddr\");";
       try{
 	$this->db->exec($query);
       }
@@ -80,19 +109,31 @@ class trialLicenseDB
 	return 0;
       }
 
-      $query = "SELECT trialid FROM TrialLicenses WHERE " .
+      $query = "SELECT trialid FROM TrialLicenseUsers WHERE " .
 	"Name = \"$sqlname\" and Email = \"$sqlemail\";";
       if($result = $this->db->query($query)){
       	foreach($result as $row){
 	  $trialid = $row['trialid'];
         }
-	return $trialid;
       }
       else{
 	$this->error = "Could not find the record previously inserted.";
 	return 0;
       }
+
+      $query = "INSERT INTO Questions1 (trialid, UserType, Background, Usage) " .
+	"VALUES ($trialid, \"$sqlusertype\", \"$sqlbackground\", \"$sqlusage\");";
+
+      try{
+	$this->db->exec($query);
+      }
+      catch(Exception $e){
+	$this->error = $e->getMessage();
+	return 0;
+      }
     }
+
+    return $trialid;
   }
 
   public function recordError($errorcode, $name, $email)
@@ -102,8 +143,10 @@ class trialLicenseDB
       $sqlname = sqlite_escape_string($name);
       $sqlemail = sqlite_escape_string($email);
       $timestamp = $this->dateTimeNow();
-      $query = "INSERT INTO TrialErrors (errorcode, Name, Email, DateTime) " .
-	"VALUES ($errorcode, \"$sqlname\", \"$sqlemail\", \"$timestamp\");";
+      $ipaddr = $_SERVER['REMOTE_ADDR'];
+
+      $query = "INSERT INTO TrialErrors (errorcode, Name, Email, DateTime, IPaddr) " .
+	"VALUES ($errorcode, \"$sqlname\", \"$sqlemail\", \"$timestamp\", \"$ipaddr\");";
 
       try{
 	$this->db->exec($query);
