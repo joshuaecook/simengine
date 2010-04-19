@@ -19,6 +19,7 @@ VERSION_NUMBER = $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
 #BUILD_DATE := $(shell date +'%a %b %d %H:%M:%S %Y')
 BUILD_DATE := $(shell date +'%s')
 BUILD_TIME := $(shell date +%s)
+BUILD_DATE_MATLAB := $(shell date +'%d-%b-%Y')
 
 DESTDIR = 
 PARTIAL_INSTALL_BUILD_DIR = /usr/local/share/Simatra
@@ -430,8 +431,16 @@ MATLAB_GUI_FILES =
 #MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui simCheckVersion simEngineUpdate simCheckLicense))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simexamplepath simCheckVersion simEngineUpdate simCheckLicense))
 
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
+
+$(BUILD_DIR)/Contents.m:
+	@echo "% SIMATRA simEngine" > $@
+ifeq ($(VERSION_REVISION),)
+	@echo "% Version $(MAJOR_VERSION).$(MINOR_VERSION) $(BUILD_DATE_MATLAB)" >> $@
+else
+	@echo "% Version $(MAJOR_VERSION).$(MINOR_VERSION) ($(VERSION_REVISION)) $(BUILD_DATE_MATLAB)" >> $@
+endif
 
 $(BUILD_DIR)/bin/%: interfaces/matlab/bin/%
 	$(CP) $< $@
