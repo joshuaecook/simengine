@@ -1,7 +1,9 @@
+function simEngineUpdate
 % SIMENGINEUPDATE
 %  Downloads and installs the latest version of simEngine
 %
-function simEngineUpdate
+% Copyright 2010 Simatra Modeling Technologies
+%
 
 % Run simCheckVersion
 latest = simCheckVersion('-quiet');

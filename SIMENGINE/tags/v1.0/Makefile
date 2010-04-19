@@ -431,6 +431,8 @@ MATLAB_GUI_FILES =
 #MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui simCheckVersion simEngineUpdate simCheckLicense))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simexamplepath simCheckVersion simEngineUpdate simCheckLicense))
 
+# Just needed for the p files
+MATLAB_HELPFILES = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex simCheckVersion simCheckLicense))
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 
@@ -441,12 +443,35 @@ ifeq ($(VERSION_REVISION),)
 else
 	@echo "% Version $(MAJOR_VERSION).$(MINOR_VERSION) ($(VERSION_REVISION)) $(BUILD_DATE_MATLAB)" >> $@
 endif
+	@echo "% " >> $@
+	@echo "% simEngine, the Dynamical System Compiler Toolbox by Simatra for MATLAB(TM)" >> $@
+	@echo "% " >> $@
+	@echo "% simEngine functions" >> $@
+	@echo "%   simex           - Compile and simulate DIESEL source files using simEngine" >> $@
+	@echo "%   simplot         - Plotting utility to visualize the output of simEngine simulations" >> $@
+	@echo "%   simexamplepath  - Returns the path for examples and demo files" >> $@
+	@echo "% " >> $@
+	@echo "% simEngine utility functions" >> $@
+	@echo "%   simCheckVersion - Queries the Simatra servers for a new version of simEngine" >> $@
+	@echo "%   simCheckLicense - Reports on current license, or installs a new license for simEngine" >> $@
+	@echo "%   simEngineUpdate - Auto-updates the simEngine installation to the latest available version" >> $@
+	@echo "% " >> $@
+	@echo "%  For more information, see http://www.simatratechnologies.com." >> $@
+	@echo "% " >> $@
+	@echo "%  Copyright 2010 Simatra Modeling Technologies" >> $@
+
 
 $(BUILD_DIR)/bin/%: interfaces/matlab/bin/%
 	$(CP) $< $@
 
-$(BUILD_DIR)/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
+interfaces/matlab/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
 	cat $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES)) > $@
+
+#$(BUILD_DIR)/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
+#	cat $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES)) > $@
+
+$(BUILD_DIR)/%.m: interfaces/matlab/%_help.m
+	$(CP) $< $@
 
 $(BUILD_DIR)/%.m: interfaces/matlab/%.m
 	$(CP) $< $@
@@ -457,9 +482,11 @@ $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
 	$(CP) $< $@
 
-$(BUILD_DIR)/%.p: $(BUILD_DIR)/%.m
-	-($(MATLABCMD) "cd $(BUILD_DIR); pcode $*; exit")
-	$(RM) $<
+interfaces/matlab/%.p: interfaces/matlab/%.m
+	-($(MATLABCMD) "cd interfaces/matlab; pcode $*.m; exit")
+
+$(BUILD_DIR)/%.p: interfaces/matlab/%.p
+	$(CP) $< $@
 
 pcode: $(INSTALL_FILENAME).p
 
@@ -480,7 +507,7 @@ share_cuda_clean:
 share/cuda/device_props.a: share_cuda
 
 .phony: matlab-files
-matlab-files: $(BUILD_DIR) $(MATLAB_FILES)
+matlab-files: $(BUILD_DIR) $(MATLAB_FILES) $(MATLAB_HELPFILES)
 
 .PHONY: matlab-installer
 matlab-installer: $(MATLAB_FILES)
@@ -869,6 +896,9 @@ mostlyclean:
 	$(RM) src/util/registry/registry.grm.sig
 	$(RM) src/util/registry/registry.grm.sml
 
+.PHONY: matlab_clean
+matlab_clean:
+	$(RM) interfaces/matlab/*.p
 
 .PHONY: testing_clean
 testing_clean:
