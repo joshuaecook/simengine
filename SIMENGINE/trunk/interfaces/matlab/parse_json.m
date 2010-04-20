@@ -163,7 +163,8 @@ end
     end
 
     function num = parse_number
-        [num, one, err, delta] = sscanf(string(pos:min(len,pos+20)), '%f', 1); % TODO : compare with json(pos:end)
+        % modifying to increase number size to 25 characters from just 20
+        [num, one, err, delta] = sscanf(string(pos:min(len,pos+25)), '%f', 1); % TODO : compare with json(pos:end)
         if ~isempty(err)
             error_pos('Error reading number at position %d');
         end
