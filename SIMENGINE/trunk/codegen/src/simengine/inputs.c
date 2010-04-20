@@ -67,7 +67,7 @@ void read_constant_input(CDATAFORMAT *inputs, const char *outputs_dirname, unsig
   }
 
   if(!__finite(*input)){
-    ERROR(Simatra:Simex:read_constant_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
+    USER_ERROR(Simatra:Simex:read_constant_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
   }
 }
 
@@ -94,10 +94,10 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
     else{
       // Default value not set
       if(!__finite(seint.default_inputs[inputid]))
-	ERROR(Simatra:Simex:read_sampled_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
+	USER_ERROR(Simatra:Simex:read_sampled_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
       // Halt condition requires that a file be provided
       if(input->eof_option == SAMPLED_HALT)
-	ERROR(Simatra:Simex:read_sampled_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
+	USER_ERROR(Simatra:Simex:read_sampled_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
       return 0;
     }
   }
@@ -119,7 +119,7 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
     for (i = 0; i < num_read; i++) {
       // Check for +/-INF and NAN
       if(!__finite(value[i]))
-	ERROR(Simatra:Simex:read_sampled_input, "Invalid value '%g' in position %lu for input '%s'.\n", value[i], (input->file_idx[ARRAY_IDX]/sizeof(double)) + i, seint.input_names[inputid]); 
+	USER_ERROR(Simatra:Simex:read_sampled_input, "Invalid value '%g' in position %lu for input '%s'.\n", value[i], (input->file_idx[ARRAY_IDX]/sizeof(double)) + i, seint.input_names[inputid]); 
       input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + i] = value[i];
     }
   }
