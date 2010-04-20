@@ -337,9 +337,9 @@ fun findLicense () =
 						     DynException.checkToProceed();
 						     L.default))
 			(* otherwise go through the default search path *)
-			| NONE => (case licenseFromFile licenseFileMain of
+			| NONE => (case licenseFromFile licenseFileUser of
 				       SOME lic => lic
-				     | NONE => (case licenseFromFile licenseFileUser of
+				     | NONE => (case licenseFromFile licenseFileMain of
 						    SOME lic => lic
 						  (* finally, can't find anything, so just use the default basic license *)
 						  | NONE => L.default))    
