@@ -181,7 +181,8 @@ fun toVector object =
 				object = object},
 	       args = KEC.UNIT}
 
-fun getModelImports exec _ = exec (toVector (KEC.TUPLE (map (KEC.LITERAL o KEC.CONSTSTR) (List.rev (! imports)))))
+fun getModelImports exec _ =
+    exec (toVector (KEC.TUPLE (map (KEC.LITERAL o KEC.CONSTSTR) (GeneralUtil.uniquify (List.rev (! imports))))))
 
 
 fun loadModel exec args =
