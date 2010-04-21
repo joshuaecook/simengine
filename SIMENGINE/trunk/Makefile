@@ -124,6 +124,7 @@ SYSTEST = systest
 #MAKE = make --no-print-directory
 BROWSER = firefox
 MATLABCMD = $(MATLAB) -nodisplay -nojvm -r 
+MATLABCMDJAVA = $(MATLAB) -nodisplay -r 
 
 ifeq ("$(MATLAB)$(OCTAVE)","")
 $(error Could not locate MATLAB or GNU octave)
@@ -433,9 +434,12 @@ MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simp
 
 # Just needed for the p files
 MATLAB_HELPFILES = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex simCheckVersion simCheckLicense))
+MATLAB_DOC = $(addprefix $(BUILD_DIR)/,info.xml simEngine.gif html/helptoc.xml)
+MATLAB_HTML = $(addprefix $(BUILD_DIR)/html/,$(addsuffix .html,simex_help simEngine_product_page simEngine_demo_page simplot_help simexamplepath_help))
+MATLAB_IMAGES = $(addprefix $(BUILD_DIR)/images/, SIMATRA.png fn_sweep.gif simEngine.png)
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
-
+MATLAB_FILES += $(MATLAB_HELPFILES) $(MATLAB_DOC) $(MATLAB_HTML) $(MATLAB_IMAGES)
 
 $(BUILD_DIR)/Contents.m:
 	@echo "% SIMATRA simEngine" > $@
@@ -471,7 +475,7 @@ interfaces/matlab/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES)
 #$(BUILD_DIR)/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
 #	cat $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES)) > $@
 
-$(BUILD_DIR)/%.m: interfaces/matlab/%_help.m
+$(BUILD_DIR)/%.m: interfaces/matlab/%_info.m
 	$(CP) $< $@
 
 $(BUILD_DIR)/%.m: interfaces/matlab/%.m
@@ -481,6 +485,24 @@ $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 	$(CP) $< $@
 
 $(BUILD_DIR)/lib/libcvode_%.a: solvers/lib/libcvode_%.a
+	$(CP) $< $@
+
+$(BUILD_DIR)/%.m: doc/matlab/%.m
+	$(CP) $< $@
+
+$(BUILD_DIR)/html/%.html: $(BUILD_DIR)/%.m
+	-($(MATLABCMDJAVA) "cd $(BUILD_DIR); publish('$*.m', struct('outputDir', 'html')); exit")
+
+$(BUILD_DIR)/html/%.xml: doc/matlab/html/%.xml
+	$(CP) $< $@
+
+$(BUILD_DIR)/images/%: doc/matlab/images/%
+	$(CP) $< $@
+
+$(BUILD_DIR)/%.xml: doc/matlab/%.xml
+	$(CP) $< $@
+
+$(BUILD_DIR)/%.gif: doc/matlab/%.gif
 	$(CP) $< $@
 
 interfaces/matlab/%.p: interfaces/matlab/%.m
@@ -508,7 +530,7 @@ share_cuda_clean:
 share/cuda/device_props.a: share_cuda
 
 .phony: matlab-files
-matlab-files: $(BUILD_DIR) $(MATLAB_FILES) $(MATLAB_HELPFILES)
+matlab-files: $(BUILD_DIR) $(MATLAB_FILES)
 
 .PHONY: matlab-installer
 matlab-installer: $(MATLAB_FILES)
@@ -664,7 +686,7 @@ endif
 
 #COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/bin $(BUILD_DIR)/bin/src $(BUILD_DIR)/data $(BUILD_DIR)/examples $(BUILD_DIR)/include $(BUILD_DIR)/lib $(BUILD_DIR)/man $(BUILD_DIR)/packages $(DEBUG_DIRECTORY) $(BUILD_DIR)/octave $(BUILD_DIR)/doc
 
-COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/share $(BUILD_DIR)/lib $(BUILD_DIR)/doc
+COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/share $(BUILD_DIR)/lib $(BUILD_DIR)/doc $(BUILD_DIR)/html $(BUILD_DIR)/images
 
 FULL_DIRECTORIES = $(COMMON_DIRECTORIES) $(BUILD_DIR)/data/impl $(BUILD_DIR)/data/sim  $(BUILD_DIR)/factory
 
@@ -728,6 +750,12 @@ $(BUILD_DIR)/octave: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/doc: $(BUILD_DIR)
+	@if test ! -d $@ ; then $(MKDIR) $@; fi
+
+$(BUILD_DIR)/html: $(BUILD_DIR)
+	@if test ! -d $@ ; then $(MKDIR) $@; fi
+
+$(BUILD_DIR)/images: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR):
