@@ -498,7 +498,7 @@ $(BUILD_DIR)/html/%.html: $(BUILD_DIR)/%.m
 
 searchable-help: $(BUILD_DIR)/html/helpsearch/deletable
 
-$(BUILD_DIR)/html/helpsearch/deletable: $(BUILD_DIR)/html/*.html
+$(BUILD_DIR)/html/helpsearch/deletable:
 	-($(MATLABCMDJAVA) "cd $(BUILD_DIR); addpath(pwd); builddocsearchdb([pwd '/html']); exit")
 
 $(BUILD_DIR)/html/%.xml: doc/matlab/html/%.xml
