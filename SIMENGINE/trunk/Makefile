@@ -434,12 +434,12 @@ MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simp
 
 # Just needed for the p files
 MATLAB_HELPFILES = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex simCheckVersion simCheckLicense))
-MATLAB_DOC = $(addprefix $(BUILD_DIR)/,info.xml simEngine.gif html/helptoc.xml)
+MATLAB_DOC = $(addprefix $(BUILD_DIR)/,info.xml html/helptoc.xml)
 MATLAB_HTML = $(addprefix $(BUILD_DIR)/html/,$(addsuffix .html,simex_help simEngine_product_page simEngine_demo_page simplot_help simexamplepath_help))
 MATLAB_IMAGES = $(addprefix $(BUILD_DIR)/images/, SIMATRA.png fn_sweep.gif simEngine.png)
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
-MATLAB_FILES += $(MATLAB_HELPFILES) $(MATLAB_DOC) $(MATLAB_HTML) $(MATLAB_IMAGES)
+MATLAB_FILES += $(MATLAB_HELPFILES) $(MATLAB_DOC) $(MATLAB_HTML) $(MATLAB_IMAGES) searchable-help
 
 $(BUILD_DIR)/Contents.m:
 	@echo "% SIMATRA simEngine" > $@
@@ -492,6 +492,11 @@ $(BUILD_DIR)/%.m: doc/matlab/%.m
 
 $(BUILD_DIR)/html/%.html: $(BUILD_DIR)/%.m
 	-($(MATLABCMDJAVA) "cd $(BUILD_DIR); publish('$*.m', struct('outputDir', 'html')); exit")
+
+searchable-help: $(BUILD_DIR)/html/helpsearch/deletable
+
+$(BUILD_DIR)/html/helpsearch/deletable: $(BUILD_DIR)/html/*.html
+	-($(MATLABCMDJAVA) "cd $(BUILD_DIR); addpath(pwd); builddocsearchdb([pwd '/html']); exit")
 
 $(BUILD_DIR)/html/%.xml: doc/matlab/html/%.xml
 	$(CP) $< $@
