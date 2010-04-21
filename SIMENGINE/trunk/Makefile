@@ -282,6 +282,7 @@ compiler:
 	$(MAKE) build-system
 	$(MAKE) $(BUILD_DIR)/data/default.sew
 	$(MAKE) matlab-files
+	$(MAKE) matlab-documentation
 	$(MAKE) $(INSTALL_TGZ)
 	$(MAKE) $(DSL_EL)
 	$(MAKE) install-locally
@@ -439,7 +440,9 @@ MATLAB_HTML = $(addprefix $(BUILD_DIR)/html/,$(addsuffix .html,simex_help simEng
 MATLAB_IMAGES = $(addprefix $(BUILD_DIR)/images/, SIMATRA.png fn_sweep.gif simEngine.png)
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
-MATLAB_FILES += $(MATLAB_HELPFILES) $(MATLAB_DOC) $(MATLAB_HTML) $(MATLAB_IMAGES) searchable-help
+MATLAB_FILES += $(MATLAB_HELPFILES) 
+
+MATLAB_DOCUMENTATION = $(MATLAB_DOC) $(MATLAB_HTML) $(MATLAB_IMAGES) searchable-help
 
 $(BUILD_DIR)/Contents.m:
 	@echo "% SIMATRA simEngine" > $@
@@ -491,7 +494,7 @@ $(BUILD_DIR)/%.m: doc/matlab/%.m
 	$(CP) $< $@
 
 $(BUILD_DIR)/html/%.html: $(BUILD_DIR)/%.m
-	-($(MATLABCMDJAVA) "cd $(BUILD_DIR); publish('$*.m', struct('outputDir', 'html')); exit")
+	-($(MATLABCMDJAVA) "cd $(BUILD_DIR); addpath(pwd); publish('$*.m', struct('outputDir', 'html')); exit")
 
 searchable-help: $(BUILD_DIR)/html/helpsearch/deletable
 
@@ -536,6 +539,9 @@ share/cuda/device_props.a: share_cuda
 
 .phony: matlab-files
 matlab-files: $(BUILD_DIR) $(MATLAB_FILES)
+
+.phony: matlab-documentation
+matlab-documentation: $(MATLAB_DOCUMENTATION)
 
 .PHONY: matlab-installer
 matlab-installer: $(MATLAB_FILES)
