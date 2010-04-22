@@ -1157,17 +1157,18 @@ fun updateTemporalIteratorToSymbol (sym,symchangefun) exp =
     handle e => DynException.checkpoint "ExpProcess.updateTemporalIteratorToSymbol" e
 
 fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t as Exp.SYMBOL (sym, props))) = 
-    let
-	val temporaliterator = case exp2temporaliterator exp of
-				   SOME v => v
-				 | NONE => DynException.stdException("No temporal iterator found",
-								     "updateTemporalIterator",
-								     Logger.INTERNAL)
-	val spatialiterators = exp2spatialiterators exp
-	val props' = Property.setIterator props (iter::spatialiterators)
-    in
-	Exp.TERM (Exp.SYMBOL (sym, props'))
-    end
+    (let
+	 val temporaliterator = case exp2temporaliterator exp of
+				    SOME v => v
+				  | NONE => DynException.stdException("No temporal iterator found",
+								      "updateTemporalIterator",
+								      Logger.INTERNAL)
+	 val spatialiterators = exp2spatialiterators exp
+	 val props' = Property.setIterator props (iter::spatialiterators)
+     in
+	 Exp.TERM (Exp.SYMBOL (sym, props'))
+     end
+     handle e => DynException.checkpoint ("ExpProcess.updateTemporalIterator [exp="^(e2s exp)^", new_iter="^(Iterator.iterator2str iter)^"]") e)
   | updateTemporalIterator iter _ = DynException.stdException("Non symbol encountered",
 							      "ExpProcess.updateTemporalIterator",
 							      Logger.INTERNAL)

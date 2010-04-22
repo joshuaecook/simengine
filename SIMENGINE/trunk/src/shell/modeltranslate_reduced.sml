@@ -438,7 +438,7 @@ fun createClass classes object =
 
 	fun quantity2exp obj =
 	    (* FIXME add iterators appearing on rhs to symbols on lhs. *)
-	    if (istype (obj, "Intermediate")) then
+	    (if (istype (obj, "Intermediate")) then
 		let val (lhs, rhs) = (quantity_to_dof_exp (method "lhs" (method "eq" obj)),
 				      quantity_to_dof_exp (method "rhs" (method "eq" obj)))
 				     
@@ -481,6 +481,7 @@ fun createClass classes object =
 		in
 		    [init, eq]
 		end
+		handle e => DynException.checkpoint ("ModelTranslate.createClass.quantity2exp.RANDOM [name="^(exp2str (method "name" obj))^"]") e
 	    else if (istype (obj, "State")) then
 		let
 		    val hasEquation = exp2bool (send "hasEquation" obj NONE)
@@ -559,7 +560,8 @@ fun createClass classes object =
 		    [ExpBuild.equals (name, condition)]
 		end
 	    else
-		DynException.stdException ("Unexpected quantity encountered", "ModelTranslate.translate.createClass.quantity2exp", Logger.INTERNAL)			
+		DynException.stdException ("Unexpected quantity encountered", "ModelTranslate.translate.createClass.quantity2exp", Logger.INTERNAL))	
+	    handle e => DynException.checkpoint ("ModelTranslate.createClass.quantity2exp [name="^(exp2str (method "name" object))^"]") e
 		
 
 	fun submodel2exp (obj, (submodelclasses, exps)) =
@@ -645,6 +647,7 @@ fun createClass classes object =
 	  exps=ref exps},
 	 submodelclasses)
     end
+    handle e => DynException.checkpoint "ModelTranslate.createClass" e
 
 
 and getClass (object, classes) =
@@ -675,8 +678,6 @@ fun obj2modelinstance object =
 
 fun obj2dofmodel object =
     let
-	val (classes, topinstance) = obj2modelinstance (object)
-
 	(* grab settings from the registry *)
 	val precision = DynamoOptions.getStringSetting "precision"
 	val target = DynamoOptions.getStringSetting "target"
@@ -800,6 +801,27 @@ fun obj2dofmodel object =
 				parallel_models=parallel_models,
 				debug=debug,
 				profile=profile}
+
+	(* create a skeletal current model that we can use for creating the model instance.  The most 
+	 * important aspect is to make sure that we have a current list of temporal iterators.  This 
+	 * is needed for all calls to ExpProcess.  *)
+	local
+	    val undef = Symbol.symbol "undefined"
+	    val top_class = {name=undef,
+			     properties={sourcepos=PosLog.NOPOS,basename=undef,preshardname=undef,classform=DOF.FUNCTIONAL,classtype=DOF.MASTER},
+			     inputs=ref [],
+			     outputs=ref [],
+			     iterators=[],
+			     exps=ref []}
+	    val model = ([top_class], {name=NONE, classname=undef}, systemproperties)
+	in
+	val _ = CurrentModel.setCurrentModel(model)
+	val _ = DOFPrinter.printModel model
+	end
+			       
+	(* now, here, process the entire model *)
+	val (classes, topinstance) = obj2modelinstance (object)
+
     in
 	(classes, topinstance, systemproperties)
     end
