@@ -5,17 +5,24 @@
 %% Usage
 %      SIMEXAMPLEPATH - returns the path to the included examples and demos
 %
+%% Latex
+%
+% <latex>
+% Hello World!
+% </latex>
+
 %% Examples
 %
 % View the included DSL model files that can be compiled and simulated with
 % SIMEX
 
-ls('-1',[simexamplepath '/*/*.dsl'])
+cd(simexamplepath)
+ls('-1', '*/*.dsl')
 
 %%
 % View and run the included MATLAB(TM) demos
 
-ls('-1',[simexamplepath '/demos/*/*.m'])
+ls('-1','demos/*/*.m')
 
 
 %% See also

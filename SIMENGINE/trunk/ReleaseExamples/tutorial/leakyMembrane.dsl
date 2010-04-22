@@ -5,7 +5,7 @@
  */
 
 model (Vm) = leakyMembrane(Iext)
-   input Iext
+   input Iext with {default = 0}
    
    constant Cm = 0.5
    constant gleak = 8

@@ -125,7 +125,7 @@ SYSTEST = systest
 #MAKE = make --no-print-directory
 BROWSER = firefox
 MATLABCMD = $(MATLAB) -nodisplay -nojvm -r 
-MATLABCMDJAVA = $(MATLAB) -nodisplay -r 
+MATLABCMDJAVA = $(MATLAB) -nosplash -nodesktop -r 
 
 ifeq ("$(MATLAB)$(OCTAVE)","")
 $(error Could not locate MATLAB or GNU octave)
@@ -437,7 +437,7 @@ MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simp
 # Just needed for the p files
 MATLAB_HELPFILES = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex simCheckVersion simCheckLicense))
 MATLAB_DOC = $(addprefix $(BUILD_DIR)/,info.xml html/helptoc.xml)
-MATLAB_HTML = $(addprefix $(BUILD_DIR)/html/,$(addsuffix .html,simex_help simEngine_product_page simEngine_demo_page simplot_help simexamplepath_help))
+MATLAB_HTML = $(patsubst doc/matlab/%,$(BUILD_DIR)/html/%,$(patsubst %.m,%.html,$(wildcard doc/matlab/*.m)))
 MATLAB_IMAGES = $(addprefix $(BUILD_DIR)/images/, SIMATRA.png simicon.gif simEngine.png)
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 

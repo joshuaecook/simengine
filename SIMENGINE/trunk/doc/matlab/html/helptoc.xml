@@ -62,6 +62,7 @@
             <tocitem target="simplot_help.html">simplot</tocitem>
             <tocitem target="simexamplepath_help.html">simexamplepath</tocitem>
         </tocitem>
+        <tocitem target="simEngine_tutorial.html" image="HelpIcon.DEMOS"> simEngine Tutorial </tocitem>
         <tocitem target="simEngine_demo_page.html" image="HelpIcon.DEMOS"> Demos and Examples </tocitem>
         <!-- Optional link or links to your or other Web sites -->
         <tocitem target="http://www.simatratechnologies.com/simEngine.html"
