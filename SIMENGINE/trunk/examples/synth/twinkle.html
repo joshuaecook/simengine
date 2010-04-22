@@ -1,0 +1,607 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Modeling Sound in simEngine - Simple Audio Synthesis</title>
+</head>
+
+<body bgcolor="#c0c0c0">
+<center>
+<table width="800" bgcolor="#ffffff" cellpadding="10">
+  <tr>
+    <td>
+      <center>
+      <h1>Modeling Sound in simEngine</h1>
+      <h2>Simple Audio Synthesis</h2>
+      <p>Copyright &copy; 2010 Simatra Modeling Technologies</p>
+      </center>
+      
+      <hr>
+      <p>This tutorial covers a simple music generator written in DIESEL.  It
+      requires that you have an audio card installed that works from
+      within MATLAB in order to hear the music produced.  To see if your system is
+      configured properly, simply try running the MATLAB script, <a href="twinkle.m"><b>twinkle.m</b></a>,
+      from within the <b>examples/demos/synth</b> directory.</p>
+      
+      <pre>
+>> twinkle
+</pre>
+
+      <p>The rest of this document discusses the construction of this example
+      script and the underlying DIESEL model found in <a href="song.dsl"><b>song.dsl</b></a>.</p>
+
+      <hr>
+      <h3>Low-Frequency-Oscillator</h3>
+      <p>The basic component of sound synthesis is the
+      Low-Frequency-Oscillator, or LFO which can be found in <a href="lfo.dsl"><b>lfo.dsl</b></a>.
+      This model was written in a way that it can be simulated alone.  To
+      see the output of this model run the following.</p>
+
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+	    <pre>
+clear input
+input.w = 440
+o = simex('lfo.dsl', 0.01, input)
+simplot(o)
+</pre>
+	  </td>
+	</tr>
+      </table>  
+      <p>The commands above should produce a Figure plot like the one
+      below.  This is a pure A4 note at 440Hz.  We have specifically cleared the variable <b>input</b> because simex
+      requires that only inputs found in the model being executed are
+      specified.</p>
+      
+      <center><img src="images/lfo.png" alt="LFO output waveform" border="1"></center>
+
+      <p>This note can be played for one second through your sound device
+      with the commands below.  The second column of the output is specified
+      as the first column is the time values from simulation.  The value
+      48000 is the sampling rate that the model uses to produce output.  The
+      output is scaled by 0.8 to prevent clicking.  Audio passed to sound
+      must be between 1 and -1, which the LFO produces, however, values at
+      the extremes will produce audible clicks.  This will be addressed later.</p>
+
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+	    <pre>
+clear input
+input.w = 440
+o = simex('lfo.dsl', 1, input)
+sound(0.8*o.y(:,2), 48000)
+</pre>
+	  </td>
+	</tr>
+      </table>
+
+      <hr>
+      <h3>Harmonics</h3>
+      <p>Real instruments don't play notes with a single tone, but actually
+      produce sound as a combination of harmonics. The next model we will
+      examine is one that combines several outputs from the LFO into a
+      single output that comprises several superimposed harmonics.  This
+      file is <a href="harmonics.dsl"><b>harmonics.dsl</b></a>.  It can be executed using the following
+      commands.</p>
+
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+	    <pre>
+clear input
+input.fundamental = 440
+o = simex('harmonics.dsl', 0.01, input)
+simplot(o)
+</pre>
+	  </td>
+	</tr>
+      </table>
+
+      <p>The above commands should produce a Figure plot that looks
+      like the following.</p>
+
+      <center><img src="images/harmonics.png" alt="Harmonic
+      superposition" border="1"></center>
+
+      <p>This model, like the lfo can produce an output that you can play
+      directly to your sound device.  A one second sound can be played with the
+      following commands.  Again the output is scaled to avoid clicking, and
+      the sample rate is specified to be 48kHz.</p>
+
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+	    <pre>
+clear input
+input.fundamental = 440
+o = simex('harmonics.dsl', 1, input)
+sound(0.8*o.y(:,2), 48000)
+</pre>
+	  </td>
+	</tr>
+      </table>
+
+      <hr>
+      <h3>Chords</h3>
+      <p>Chords are comprised of multiple harmonic tones combined
+      together.  A simple chord model is found in <a
+      href="chord.dsl"><b>chord.dsl</b></a> which creates a three tone
+      major chord with an additional octave of the base note given a base note frequency.  The chord model uses
+      the harmonics model to produce its tones.  This model can also
+      be executed on its own with the following.</p>
+      
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+	    <pre>
+clear input
+input.tonic = 440
+o = simex('chord.dsl', 0.01, input)
+simplot(o)
+</pre>
+	  </td>
+	</tr>
+      </table>
+
+      <p>The commands above will produce a plot like the one
+      below.</p>
+
+      <center><img src="images/chord.png" alt="Chord output waveform"
+      border="1"></center>
+
+      <p>Again, the chord can be played on the sound device with the
+      commands below.</p>
+      
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+	    <pre>
+clear input
+input.tonic = 440
+o = simex('chord.dsl', 1, input)
+sound(0.8*o.y(:,2),48000)
+</pre>
+	  </td>
+	</tr>
+      </table>
+
+      <hr>
+      <h3>ADSR</h3>
+      <p>When music is played on real instruments the tone is not maintained
+      at a maximum loudness for the duration.  Synthesizers often model the
+      varying amplitude of played notes with a component referred to as an
+      ADSR, which stands for Attack, Decay, Sustain and Release.</p>
+
+      <p>An ADSR model is included in <a href="adrs.dsl"><b>adsr.dsl</b></a>.  Before the phases are
+      discussed, run the following commands to visualize the output of the
+      model.</p>
+
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+
+	    <pre>
+clear input
+input.key = {[ones(1,24) zeros(1,8)]}
+o = simex('adsr.dsl', 1, input)
+simplot(o)
+</pre>
+	  </td>
+	</tr>
+      </table>
+      
+      <p>These commands should produce a Figure plot similar to the one
+      below.  First important thing to notice in this model is the use of
+      a streaming input 'key'.  This value is sampled at 64Hz and contains a
+      string of ones followed by a string of zeros.  The key input is used
+      as a boolean value that corresponds to whether a key on a virtual
+      piano is being pressed or not.  Although we requested that the model
+      run for one second, the plot only shows a half second.  This is
+      because the streaming input specified in the model requires the model
+      to stop executing if no more input is available.  The input provided
+      for key has only 32 samples, equivalent to half a second of simulation.</p>
+
+      <img src="images/adsr.png" alt="ADSR output waveform">
+      
+      <p>The ADSR has four phases which can be seen distinctly in the plot
+      above.  The Attack phase is the rapid increase in amplitude up to a
+      peak and is initiated when the value of key goes from zero to a
+      non-zero value.  The Decay phase occurs after the output reaches its
+      peak and decreases until the Sustain level is reached.  The output
+      will hold the Sustain level until the key is released (returns to
+      zero).  Then, the Release phase occurs which causes the output to
+      decline until zero is reached (or another Attack phase is
+      initiated).<p>
+
+      <p>It is the ADSR model that we use to help smooth out the sound
+      between notes to avoid choppiness and clicks that occur when
+      sound reaches peak volume.  The ADSR model in 'adsr.dsl' is
+      configurable and the resulting ADSR envelope can be tweaked to provide
+      slightly different envelope shapes.  The shape can be controlled by
+      altering the inputs to the model in the same way that scalar inputs
+      were passed to models above.  For example, to change the Sustain
+      level, run the following.</p>
+
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+	    <pre>
+clear input
+input.key = {[ones(1,24) zeros(1,8)]}
+input.sustainLevel = 0.5
+o = simex('adsr.dsl', 1, input)
+simplot(o)
+</pre>
+	  </td>
+	</tr>
+      </table>
+
+      <hr>
+      <h3>MIDI Notes</h3>
+      <p>Thus far, the DIESEL models have been dealing with sound in
+      terms of frequencies.  However, music is written in a notation
+      where each note has a letter name.  While musicians rely on note
+      names and graphical representations of notes, computerized audio
+      has another representation in MIDI (Musical Instrument Digital
+      Interface).</p>
+
+      <p>This document will not address most of the MIDI definition,
+      but will use the MIDI scale to represent notes.  In MIDI, notes
+      are tuned on an equal-tempered scale where every note is an
+      equal ratio of one another on a logarithmic scale.  MIDI encodes
+      128 notes from C0 through G10, nearly ten full octaves, numbered
+      from 0 to 127.  The table below shows the MIDI note scale.</p>
+
+      <table border="1" width="100%">
+	<tr>
+	  <th width="7%" rowspan="2" >Octave</th>
+	  <th width="93%" colspan="12" ><b>MIDI Note Numbers</th>
+	</tr>
+	<tr>
+	  <th>C</th>
+	  <th>C#</th>
+	  <th>D</th>
+	  <th>D#</th>
+	  <th>E</th>
+	  <th>F</th>
+	  <th>F#</th>
+	  <th>G</th>
+	  <th>G#</th>
+	  <th>A</th>
+	  <th>A#</th>
+	  <th>B</th>
+	</tr>
+	<tr align="center">
+	  <th>0</th>
+	  <td>0</td>
+	  <td>1</td>
+	  <td>2</td>
+	  <td>3</td>
+	  <td>4</td>
+	  <td>5</td>
+	  <td>6</td>
+	  <td>7</td>
+	  <td>8</td>
+	  <td>9</td>
+	  <td>10</td>
+	  <td>11</td>
+	</tr>
+	<tr align="center">
+	  <th>1</th>
+	  <td>12</td>
+	  <td>13</td>
+	  <td>14</td>
+	  <td>15</td>
+	  <td>16</td>
+	  <td>17</td>
+	  <td>18</td>
+	  <td>19</td>
+	  <td>20</td>
+	  <td>21</td>
+	  <td>22</td>
+	  <td>23</td>
+	</tr>
+	<tr align="center">
+	  <th>2</th>
+	  <td>24</td>
+	  <td>25</td>
+	  <td>26</td>
+	  <td>27</td>
+	  <td>28</td>
+	  <td>29</td>
+	  <td>30</td>
+	  <td>31</td>
+	  <td>32</td>
+	  <td>33</td>
+	  <td>34</td>
+	  <td>35</td>
+	</tr>
+	<tr align="center">
+	  <th>3</th>
+	  <td>36</td>
+	  <td>37</td>
+	  <td>38</td>
+	  <td>39</td>
+	  <td>40</td>
+	  <td>41</td>
+	  <td>42</td>
+	  <td>43</td>
+	  <td>44</td>
+	  <td>45</td>
+	  <td>46</td>
+	  <td>47</td>
+	</tr>
+	<tr align="center">
+	  <th>4</th>
+	  <td>48</td>
+	  <td>49</td>
+	  <td>50</td>
+	  <td>51</td>
+	  <td>52</td>
+	  <td>53</td>
+	  <td>54</td>
+	  <td>55</td>
+	  <td>56</td>
+	  <td>57</td>
+	  <td>58</td>
+	  <td>59</td>
+	</tr>
+	<tr align="center">
+	  <th>5</th>
+	  <td>60</td>
+	  <td>61</td>
+	  <td>62</td>
+	  <td>63</td>
+	  <td>64</td>
+	  <td>65</td>
+	  <td>66</td>
+	  <td>67</td>
+	  <td>68</td>
+	  <td>69</td>
+	  <td>70</td>
+	  <td>71</td>
+	</tr>
+	<tr align="center">
+	  <th>6</th>
+	  <td>72</td>
+	  <td>73</td>
+	  <td>74</td>
+	  <td>75</td>
+	  <td>76</td>
+	  <td>77</td>
+	  <td>78</td>
+	  <td>79</td>
+	  <td>80</td>
+	  <td>81</td>
+	  <td>82</td>
+	  <td>83</td>
+	</tr>
+	<tr align="center">
+	  <th>7</th>
+	  <td>84</td>
+	  <td>85</td>
+	  <td>86</td>
+	  <td>87</td>
+	  <td>88</td>
+	  <td>89</td>
+	  <td>90</td>
+	  <td>91</td>
+	  <td>92</td>
+	  <td>93</td>
+	  <td>94</td>
+	  <td>95</td>
+	</tr>
+	<tr align="center">
+	  <th>8</th>
+	  <td>96</td>
+	  <td>97</td>
+	  <td>98</td>
+	  <td>99</td>
+	  <td>100</td>
+	  <td>101</td>
+	  <td>102</td>
+	  <td>103</td>
+	  <td>104</td>
+	  <td>105</td>
+	  <td>106</td>
+	  <td>107</td>
+	</tr>
+	<tr align="center">
+	  <th>9</th>
+	  <td>108</td>
+	  <td>109</td>
+	  <td>110</td>
+	  <td>111</td>
+	  <td>112</td>
+	  <td>113</td>
+	  <td>114</td>
+	  <td>115</td>
+	  <td>116</td>
+	  <td>117</td>
+	  <td>118</td>
+	  <td>119</td>
+	</tr>
+	<tr align="center">
+	  <th>10</th>
+	  <td>120</td>
+	  <td>121</td>
+	  <td>222</td>
+	  <td>123</td>
+	  <td>124</td>
+	  <td>125</td>
+	  <td>126</td>
+	  <td>127</td>
+	  <td colspan="4">&nbsp;</td>
+	</tr>
+      </table>
+
+      <p>The frequencies of the notes are determined based on the
+      formula for a 12 part octave (12-TET) given in <a
+      href="midiscale.dsl"><b>midiscale.dsl</b></a> with the frequency
+      of A4 set to 440Hz.  This model takes a note number and converts
+      it to a frequency.  This model starts with E0, the first note
+      above 20Hz and ends with D#10 the last note below 20kHz. Notes 0
+      through 3 or values above 123 all produce a frequency of 0, no sound.</p>
+
+      <p>This model only produces the frequency values for notes and
+      therefore can't be run by itself to produce audio, but you can
+      run it to see what the frequencies are for the MIDI scale.  To
+      do this, run the following.</p>
+      
+      <table cellpadding="5">
+	<tr>
+	  <td>
+	    <pre>
+>>
+>>
+>>
+>>
+</pre>
+	  </td>
+	  <td>
+	    <pre>
+clear input
+input.note = {[0:131]}
+o = simex('midiscale.dsl', 200, input)
+reshape(o.frequency(:,2),11,12)'
+</pre>
+	  </td>
+	</tr>
+      </table>
+
+      <p>This code checks the note numbers 0
+      through 131 and displays them in the same orientation as the
+      table above.  Notice how the frequncy value for the first and
+      last notes are 0, and only frequencies between 20Hz and 20kHz
+      are produced.</p>
+      
+      <hr>
+      <h3>Putting it all together</h3>
+      <p>The final model in this series is the model found in <a
+      href="song.dsl"><b>song.dsl</b></a>.  This model combines the
+      above models to create a translator that takes a stream of notes
+      and chords in MIDI note encoding and produces an audio music stream
+      that can be played through the sound device.</p>
+      
+      <p>This model has two input channels, one for melody notes, and one
+      for chords that are each run through a <a href="midiscale.dsl"><b>midiscale.dsl</b></a>
+      model.  The melody is played with single notes using the
+      <a href="harmonics.dsl"><b>harmonics.dsl</b></a> model, while the chords are created with
+      the <a href="chord.dsl"><b>chord.dsl</b></a> model.  Both channels are passed through
+      separate <a href="adsr.dsl"><b>adsr.dsl</b></a> instances to smooth out the sound
+      before being combined together to produce the final output.</p>
+      
+      <p>One trick that we employ is to use the <b>notes</b> and
+      <b>chords</b> inputs to both generate the frequencies as well as
+      trigger the ADSR.  To make this happen smoothly, we add two
+      state variables that hold the last non-zero value for notes and chords.
+      These states are passed to the <a href="midiscale.dsl"><b>midiscale.dsl</b></a> instances
+      instead of the input directly so that a note will continue to
+      sound during the release phase of the ADSR.  A zero in the input
+      causes the ADSR to switch to the release phase, which must occur
+      before another attack phase (another note or chord) is
+      possible.</p>
+      
+      <p>Inside the MATLAB script, <a href="twinkle.m"><b>twinkle.m</b></a> you can see that
+      each note (quarter, half and whole) is comprised of two phases
+      built with the <b>ones()</b> and <b>zeros()</b> functions.  The
+      length of the overall string of ones and zeros determines the
+      length of the note, and the relative lengths between ones and
+      zeros controls the shape of the ADSR based on when the release
+      phase is triggered.</p>
+      
+      <p>The value for <b>n</b> will set the key for the song, and the
+      phrases are built relative to this value.  To change the speed
+      at which the song is played, you can either change the
+      definition of the notes themselves, or change the sampling rate
+      in <a href="song.dsl"><b>song.dsl</b></a> from 64 samples per second, to another
+      value.</p>
+
+<hr>
+<h3>Try for yourself</h3>
+<ol>
+  <li>Create another song to play through the model by encoding the
+  notes on the MIDI scale.
+  <li>Alter the ADSR parameters to get a different sound.  The
+  unspecified default inputs can be included in the top level model so
+  that they can be set from within MATLAB.
+  <li>Change the model to take a stereo set of inputs and produce a
+  stereo output.  Stereo audio is played in MATLAB with the same sound
+  command which only requires a two column matrix, one for each of the
+  left and right channel.
+</ol>
+<hr>
+<center>
+<font size="-2"><!-- hhmts start --> Last modified: Thu Apr 22 12:43:20 EDT 2010 <!-- hhmts end --></font>
+</center>
+    </td>
+  </tr>
+</table>
+</center>
+
+</body> </html>
