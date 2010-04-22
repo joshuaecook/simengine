@@ -1,11 +1,6 @@
-%% simplot Function Reference
+%% simplot
 % Displays and visualizes output data from SIMEX simulations
 %
-% <html>
-% <table border=0><tr>
-% <td><img src="../images/SIMATRA.png"></td>
-% <td><img src="../images/simEngine.png" height=30></td></tr></table>
-% </html>
 %
 %% Description
 %     Like the PLOT command, SIMPLOT displays 2D data generated in the

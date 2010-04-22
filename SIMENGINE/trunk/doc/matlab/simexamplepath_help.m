@@ -1,11 +1,6 @@
-%% simexamplepath Function Reference
+%% simexamplepath
 % Returns the path to the simEngine example models and demos
 %
-% <html>
-% <table border=0><tr>
-% <td><img src="../images/SIMATRA.png"></td>
-% <td><img src="../images/simEngine.png" height=30></td></tr></table>
-% </html>
 %
 %% Usage
 %      SIMEXAMPLEPATH - returns the path to the included examples and demos

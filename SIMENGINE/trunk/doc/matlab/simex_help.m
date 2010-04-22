@@ -1,12 +1,7 @@
-%% simex Function Reference
+%% simex
 % Executes a high-performance software simulation engine using the
 % simEngine compiler.
 %
-% <html>
-% <table border=0><tr>
-% <td><img src="../images/SIMATRA.png"></td>
-% <td><img src="../images/simEngine.png" height=30></td></tr></table>
-% </html>
 %
 %% Description
 %     SIMEX compiles the model defined in the DSL file into a
