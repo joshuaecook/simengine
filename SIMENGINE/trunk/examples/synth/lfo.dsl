@@ -11,7 +11,7 @@ input phi with {default = 0}
 
 equations
   r = 2 * t * pi
-  y = {sin(w * r + phi) when w <= 2e4, 0 otherwise}
+  y = {sin(w * r + phi) when w <= 2e4 or w > 0, 0 otherwise}
 end
 
 solver = forwardeuler

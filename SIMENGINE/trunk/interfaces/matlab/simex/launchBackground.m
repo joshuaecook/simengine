@@ -21,8 +21,13 @@ function [status] = launchBackground(command, workingDir)
     outputlen = 0;
     messagelen = 0;
     while(processRunning(pid))
-        if(~exist('m','var') && exist(simulationProgressFile,'file'))
-            m = memmapfile(simulationProgressFile, 'format', 'double');
+        if(~exist('m','var') && exist(simulationProgressFile, 'file'))
+          m = memmapfile(simulationProgressFile, 'format', 'double');
+          % Handle race condition where file is created but data
+          % not yet written
+          if(length(m.Data) == 0)
+            clear m;
+          end
         end
         if(exist('m','var'))
             progress = 100*sum(m.Data)/length(m.Data);
