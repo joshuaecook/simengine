@@ -25,7 +25,9 @@ function [status] = launchBackground(command, workingDir)
           m = memmapfile(simulationProgressFile, 'format', 'double');
           % Handle race condition where file is created but data
           % not yet written
-          if(length(m.Data) == 0)
+          try
+            m.Data;
+          catch it
             clear m;
           end
         end
