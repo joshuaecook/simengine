@@ -114,18 +114,18 @@ function [outputs y1 t1] = readSimulationData (interface, options)
                 % this means there is no data in the output file which can happen for conditional outputs
                 outputs(modelid).(interface.outputs{outputid}) = [];
             end
-            try
-                if(~isempty(interface.states))
-                    finalStatesFile = fullfile(modelDir, 'final-states');
-                    m = memmapfile(finalStatesFile, 'format', 'double');
-                    y1(modelid,:) = m.Data;
-                end
-                finalTimeFile = fullfile(modelDir, 'final-time');
-                m = memmapfile(finalTimeFile, 'format', 'double');
-                t1(modelid) = m.Data;
-            catch it
-                simFailure('finishSim', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.'])
+        end
+        try
+            if(~isempty(interface.states))
+                finalStatesFile = fullfile(modelDir, 'final-states');
+                m = memmapfile(finalStatesFile, 'format', 'double');
+                y1(modelid,:) = m.Data;
             end
+            finalTimeFile = fullfile(modelDir, 'final-time');
+            m = memmapfile(finalTimeFile, 'format', 'double');
+            t1(modelid) = m.Data;
+        catch it
+            simFailure('finishSim', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.'])
         end
     end
 end
@@ -148,10 +148,10 @@ function [outputs y1 t1 interface] = simulateModel(opts)
   end
 end
 %%
-function [val] = stringByte(number, b)
-  val = num2str(bitand(bitshift(number, -(b*8)),255), '%02x');
+function [val] = byte(number, b)
+    val = bitand(bitshift(number, -(b*8)),255);
 end
 
 function [path] = modelidToPath(modelid)
-  path = fullfile(stringByte(modelid,2),stringByte(modelid,1),stringByte(modelid,0));
+    path = sprintf('%02x%s%02x%s%02x', byte(modelid,2), filesep, byte(modelid,1), filesep, byte(modelid,0));
 end
