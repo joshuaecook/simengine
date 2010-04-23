@@ -1,17 +1,12 @@
 %% simexamplepath
+% 
 % Returns the path to the simEngine example models and demos
 %
+%% Syntax
 %
-%% Usage
-%      SIMEXAMPLEPATH - returns the path to the included examples and demos
+%    SIMEXAMPLEPATH - returns the path to the included examples and demos
 %
-%% Latex
-%
-% <latex>
-% Hello World!
-% </latex>
-
-%% Examples
+%% Description
 %
 % View the included DSL model files that can be compiled and simulated with
 % SIMEX
@@ -30,6 +25,9 @@ ls('-1','demos/*/*.m')
 
 %% 
 % Copyright 2009,2010 Simatra Modeling Technologies, L.L.C.
-% For more information, please visit <http://www.simatratechnologies.com>
+%
+% For more information, please visit
+% <http://www.simatratechnologies.com>
+%
 % For additional help, please email
-% <mailto:support@simatratechnologies.com>
+% <mailto:support@simatratechnologies.com support@simatratechnologies.com>

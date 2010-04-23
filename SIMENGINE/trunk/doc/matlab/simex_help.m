@@ -5,8 +5,8 @@
 %
 %% Syntax
 %
-%     MODEL = SIMEX(DSL)
-%     [OUT, Y1, T1] = SIMEX(DSL, TIME, INPUTS, ...)
+%    MODEL = SIMEX(DSL)
+%    [OUT, Y1, T1] = SIMEX(DSL, TIME, INPUTS, ...)
 %
 %% Description
 %
@@ -130,10 +130,14 @@ end
 close all
 
 %% See also
-% <simplot_help.html |simplot|>,  <simexamplepath_help.html
-% |simexamplepath|>
+% <simexamplepath_help.html
+% |simexamplepath|>, <simplot_help.html |simplot|>
 
 %% 
 % Copyright 2009,2010 Simatra Modeling Technologies, L.L.C.
-% For more information, please visit <http://www.simatratechnologies.com>
-% For additional help, please email <mailto:support@simatratechnologies.com>
+%
+% For more information, please visit
+% <http://www.simatratechnologies.com>
+%
+% For additional help, please email
+% <mailto:support@simatratechnologies.com support@simatratechnologies.com>
