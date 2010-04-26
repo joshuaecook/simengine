@@ -72,7 +72,7 @@ one input or output.  For example, if our cell model had one input named
 *current* and one output named *voltage*, it would look like this:    
 
 <src lang="dsl">
- model (voltage) = cell(current)
+model (voltage) = cell(current)
 </src>
 
 Third, an input or an output must be defined on the model definition line
@@ -85,20 +85,20 @@ simulation interface.
 Finally, the model keyword must be matched by an end keyword at the end
 of the model: 
 
- <src lang="dsl">
- model (voltage) = cell(current)
-    ... model equations, etc. go here ...
- end
+<src lang="dsl">
+model (voltage) = cell(current)
+  /* ... model equations, etc. go here ... */
+end
 </src>
 
 Model definition also includes specifying the properties of model inputs
 and outputs.  To do that, we just use the **input** and **output** keywords,
 like this:
 
- <src lang="dsl">
+<src lang="dsl">
 model (voltage) = cell(current)
-     input current with {default = 0}
-     output voltage = current*resistance
+  input current with {default = 0}
+  output voltage = current*resistance
 end
 </src>
 
@@ -109,7 +109,7 @@ assigned a value in the .dsl file and they don't change unless you change
 the file.  To define a constant, use the constant keyword:  
 
 <src lang="dsl">
-    constant pi = 3.1415926
+constant pi = 3.1415926
 </src>
 
 (note that we didn't really have to define pi, because its part of the
@@ -123,7 +123,7 @@ define a state, we use the state keyword and provide a default initial
 value for the state.    
 
 <src lang="dsl">
-    state x = 1
+state x = 1
 </src>
 
 With this line, we're declaring that *x* is going to be a state of our
@@ -197,17 +197,17 @@ favorite text editor and enter the following lines:
 
 <src lang="dsl">
 model (Vm) = leakyMembrane(Iext)
-input Iext with {default = 0}
-constant Cm = 0.5
-constant gleak = 8
-constant Eleak = -60
-state Vm = -45
-equations
-  Ileak = gleak*(Vm - Eleak)
-  Vm' = -(1/Cm)*(Ileak - Iext)
-end
-solver = forwardeuler
-solver.dt = .01
+  input Iext with {default = 0}
+  constant Cm = 0.5
+  constant gleak = 8
+  constant Eleak = -60
+  state Vm = -45
+  equations
+    Ileak = gleak*(Vm - Eleak)
+    Vm' = -(1/Cm)*(Ileak - Iext)
+  end
+  solver = forwardeuler
+  solver.dt = .01
 end
 </src>
 
@@ -281,8 +281,14 @@ parameters structure:
 
 <src lang="matlab">
 data = simex([simexamplepath '/tutorial/leakyMembrane.dsl'], 1, parameters);
-hold on, simplot(data, 'r')
+simplot(data, 'r')
 </src>
+
+<mfigure>
+parameters.Iext = 25;
+data = simex([simexamplepath '/tutorial/leakyMembrane.dsl'], 1, parameters);
+simplot(data, 'r')
+</mfigure>
 
 We see that with no input current, our leaky membrane model decays
 exponentially to -60, the value of *Eleak* in our model definition, which
@@ -302,6 +308,15 @@ for i = 1:11,
      simplot(data(i))
 end
 </src>
+
+<mfigure>
+parameters.Iext = num2cell(0:100:1000);
+data = simex([simexamplepath '/tutorial/leakyMembrane.dsl'], 1, parameters);
+figure, hold on
+for i = 1:11,
+     simplot(data(i))
+end
+</mfigure>
 
 If you have simEngine professional installed, you'll see that simEngine
 will automatically invoke the parallel compiler, and will execute all the
@@ -353,35 +368,35 @@ model.  Create a file called *neuron.dsl* and enter the following lines
 directory): 
 
 <src lang="dsl">
- model(Vm) = neuron(Iext)
- input Iext with {default = 0}
- constant Cm = 1
- constant gNa = 120
- constant gK = 100
- constant gleak = .51 
- constant ENa = 55
- constant EK = -80
- constant Eleak = -55
- state Vm = -45
- state hNa = 0.9
- state mK = 0.1
+model(Vm) = neuron(Iext)
+  input Iext with {default = 0}
+  constant Cm = 1
+  constant gNa = 120
+  constant gK = 100
+  constant gleak = .51 
+  constant ENa = 55
+  constant EK = -80
+  constant Eleak = -55
+  state Vm = -45
+  state hNa = 0.9
+  state mK = 0.1
+ 
+  equations
+    mNaInf = 1/(1+exp((Vm+35)/-7.8))
+    hNaInf = 1/(1+exp((Vm+55)/7))
+    mKInf = 1/(1+exp((Vm+28)/-15))
+    hNaTau = 30/(exp((Vm+50)/15)+exp(-(Vm+50)/16))
+    mKTau = 7/(exp((Vm+40)/40)+exp(-(Vm+40)/50))
+    INa = gNa*mNaInf^3*hNa*(Vm - ENa)
+    IK = gK*mK^4*(Vm - EK)
+    Ileak = gleak*(Vm - Eleak)
+    hNa' = (hNaInf - hNa)/hNaTau
+    mK' = (mKInf - mK)/mKTau
+    Vm' = -(1/Cm)*(INa + IK + Ileak -Iext)
+  end
 
- equations
-     mNaInf = 1/(1+exp((Vm+35)/-7.8))
-     hNaInf = 1/(1+exp((Vm+55)/7))
-     mKInf = 1/(1+exp((Vm+28)/-15))
-     hNaTau = 30/(exp((Vm+50)/15)+exp(-(Vm+50)/16))
-     mKTau = 7/(exp((Vm+40)/40)+exp(-(Vm+40)/50))
-     INa = gNa*mNaInf^3*hNa*(Vm - ENa)
-     IK = gK*mK^4*(Vm - EK)
-     Ileak = gleak*(Vm - Eleak)
-     hNa' = (hNaInf - hNa)/hNaTau
-     mK' = (mKInf - mK)/mKTau
-     Vm' = -(1/Cm)*(INa + IK + Ileak -Iext)
- end
-
- solver = forwardeuler
- solver.dt = .001
+  solver = forwardeuler
+  solver.dt = .001
 end
 </src>
 
@@ -671,10 +686,16 @@ would be solved using *ode23*, even if *forwardeuler* is specified in
 Go ahead and try running this model:
 
 <src lang="matlab">
-m = simex([simexamplepath '/tutorial/twoCellNetwork.dsl'], 100);
-figure, simplot(m)
+out = simex([simexamplepath '/tutorial/twoCellNetwork.dsl'], 100);
+figure, simplot(out)
 legend({'Vm1', 'Vm2'}) 
 </src>
+
+<mfigure>
+out = simex([simexamplepath '/tutorial/twoCellNetwork.dsl'], 100);
+figure, simplot(out)
+legend({'Vm1', 'Vm2'}) 
+</mfigure>
 
 And there we can see our two-neuron network, with neuron1's inhibitory
 synapse connected to neuron2. 
@@ -768,7 +789,7 @@ zero.
 The following solvers are available in the 1.x release of simEngine:
 
     - *forwardeuler*, the standard 1st-order, fixed dt explicit euler method
-    - heun, 2nd-order, predictor--corrector fixed ft method
+    - *heun*, 2nd-order, predictor--corrector fixed ft method
     - *rk4*, a 4th-order, fixed dt method
     - *ode23*,  Bogacki-Shampine, variable dt method
     - *ode45*, Dormand-Prince, variable dt method
