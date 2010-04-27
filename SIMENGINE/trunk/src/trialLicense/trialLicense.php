@@ -136,7 +136,7 @@ function getLicenseKey($trialid, $name, $email){
 }
 
 function notifySimatra($name, $email, $usertype, $background, $usage, $licenseKey){
-  $simatraEmails = "rweinstein@simatratechnologies.com;msorensen@simatratechnologies.com;cchurch@simatratechnologies.com;clebsack@simatratechnologies.com";
+  $simatraEmails = "triallicense@simatratechnologies.com";
   $body = "Name: " . $name . "\nEmail : " . $email . "\n" . $usertype . " | " . $background . " | " . $usage . "\n\n" . $licenseKey;
 
   mail($simatraEmails, "New Trial User", $body, "From: \"Simatra Modeling Technologies\" <support@simatratechnologies.com>");
