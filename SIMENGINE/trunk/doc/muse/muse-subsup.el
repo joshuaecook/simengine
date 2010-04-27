@@ -15,14 +15,14 @@
       (muse-insert-markup
        (cond
 	((or (muse-style-derived-p "latex") (muse-style-derived-p "context"))
-	 "}")
+	 "}}$")
 	((or (muse-style-derived-p "html") (muse-style-derived-p "xml"))
 	 "</sup>")))
       (goto-char (point-min))
       (muse-insert-markup
        (cond
 	((or (muse-style-derived-p "latex") (muse-style-derived-p "context"))
-	 "^{")
+	 "$^{\\textrm{")
 	((or (muse-style-derived-p "html") (muse-style-derived-p "xml"))
 	 "<sup>")))
       (goto-char (point-max)))))
@@ -36,14 +36,14 @@
       (muse-insert-markup
        (cond
 	((or (muse-style-derived-p "latex") (muse-style-derived-p "context"))
-	 "}")
+	 "}}$")
 	((or (muse-style-derived-p "html") (muse-style-derived-p "xml"))
 	 "</sub>")))
       (goto-char (point-min))
       (muse-insert-markup
        (cond
 	((or (muse-style-derived-p "latex") (muse-style-derived-p "context"))
-	 "_{")
+	 "$_{\\textrm{")
 	((or (muse-style-derived-p "html") (muse-style-derived-p "xml"))
 	 "<sub>")))
       (goto-char (point-max)))))
