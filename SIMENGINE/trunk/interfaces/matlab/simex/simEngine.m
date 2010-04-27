@@ -94,42 +94,6 @@ function writeUserStates (options)
     end
 end
 %%
-function [outputs y1 t1] = readSimulationData (interface, options)
-% READSIMULATIONDATA Reads the outputs, final states, and final
-% times files by memory mapping.
-
-    outputs = struct();
-    % Empty data structures to be filled in before returning
-    y1 = zeros(options.instances, length(interface.states));
-    t1 = zeros(1, options.instances);
-    
-    for modelid = 1:options.instances
-        for outputid = 1:length(interface.outputs)
-            modelDir = fullfile(options.outputs, modelidToPath(modelid-1));
-            outputFile = fullfile(modelDir, 'outputs', interface.outputs{outputid});
-            try
-                m = memmapfile(outputFile, 'format', 'double');
-                outputs(modelid).(interface.outputs{outputid}) = reshape(m.Data, interface.outputNumQuantities(outputid), [])';
-            catch it
-                % this means there is no data in the output file which can happen for conditional outputs
-                outputs(modelid).(interface.outputs{outputid}) = [];
-            end
-        end
-        try
-            if(~isempty(interface.states))
-                finalStatesFile = fullfile(modelDir, 'final-states');
-                m = memmapfile(finalStatesFile, 'format', 'double');
-                y1(modelid,:) = m.Data;
-            end
-            finalTimeFile = fullfile(modelDir, 'final-time');
-            m = memmapfile(finalTimeFile, 'format', 'double');
-            t1(modelid) = m.Data;
-        catch it
-            simFailure('finishSim', ['Simulation did not finish, final time was not reached for model instance ' num2str(modelid) '.'])
-        end
-    end
-end
-%%
 function [outputs y1 t1 interface] = simulateModel(opts)
   if opts.stopTime ~= 0
     opts.args = [opts.args ' --start ' num2str(opts.startTime)];

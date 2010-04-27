@@ -425,14 +425,13 @@ debug-files: $(DEBUG_FILES)
 
 # Matlab build target
 # ==============================================================================================
-
-
 SIMEX_M_FILES = $(addsuffix .m,simex simError simFailure simexError simEngineError simexOptions simCompile launchBackground statusBar simEngine)
 
 #MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_GUI_FILES = 
 #MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui simCheckVersion simEngineUpdate simCheckLicense))
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simexamplepath simCheckVersion simEngineUpdate simCheckLicense))
+MATLAB_MEX = $(addprefix $(BUILD_DIR)/readSimulationData,$(MEXEXT))
 
 # Just needed for the p files
 MATLAB_HELPFILES = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex simCheckVersion simCheckLicense))
@@ -441,7 +440,8 @@ MATLAB_HTML = $(patsubst doc/matlab/%,$(BUILD_DIR)/html/%,$(patsubst %.m,%.html,
 MATLAB_IMAGES = $(addprefix $(BUILD_DIR)/images/, SIMATRA.png simicon.gif simEngine.png)
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
-MATLAB_FILES += $(MATLAB_HELPFILES) 
+MATLAB_FILES += $(MATLAB_HELPFILES)
+MATLAB_FILES += $(MATLAB_MEX)
 
 MATLAB_DOCUMENTATION = $(MATLAB_DOC) $(MATLAB_HTML) $(MATLAB_IMAGES) searchable-help
 
@@ -641,6 +641,30 @@ $(BUILD_DIR)/lib/llc_defs.h: ../dslc/llc_defs.h
 
 $(BUILD_DIR)/lib/llc_protocol.c: ../dslc/llc_protocol.c
 	$(CP) $< $@
+
+$(BUILD_DIR)/%.mexmaci: interfaces/matlab/src/%.mexmaci
+	$(CP) $< $@	
+
+$(BUILD_DIR)/%.mexmaci64: interfaces/matlab/src/%.mexmaci64
+	$(CP) $< $@	
+
+$(BUILD_DIR)/%.mex: interfaces/matlab/src/%.mex
+	$(CP) $< $@	
+
+$(BUILD_DIR)/%.mexglx: interfaces/matlab/src/%.mexglx
+	$(CP) $< $@	
+
+$(BUILD_DIR)/%.mexa64: interfaces/matlab/src/%.mexa64
+	$(CP) $< $@	
+
+$(BUILD_DIR)/%.mexs64: interfaces/matlab/src/%.mexs64
+	$(CP) $< $@	
+
+$(BUILD_DIR)/%.mexw32: interfaces/matlab/src/%.mexw32
+	$(CP) $< $@	
+
+$(BUILD_DIR)/%.mexw64: interfaces/matlab/src/%.mexw64
+	$(CP) $< $@	
 
 build_includes: include/* solvers
 	$(info Populating standard includes ...)

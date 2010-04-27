@@ -47,22 +47,30 @@ function [interface] = simCompile (options)
     end
 
     % Convert default states to a flat vector
-    defaultStates = interface.defaultStates;
-    interface.defaultStates = zeros(1, length(defaultStates));
-    for i = 1:length(defaultStates)
-        % Ensure any "NaN", "-Inf", or "Inf" strings are converted to numbers.
+    if(0 == length(interface.defaultStates))
+      interface.defaultStates = [];
+    else
+      defaultStates = interface.defaultStates;
+      interface.defaultStates = zeros(1, length(defaultStates));
+      for i = 1:length(defaultStates)
+	% Ensure any "NaN", "-Inf", or "Inf" strings are converted to numbers.
         if isa(defaultStates{i}, 'char')
-            interface.defaultStates(i) = str2num(defaultStates{i});
+          interface.defaultStates(i) = str2num(defaultStates{i});
         else
-            interface.defaultStates(i) = defaultStates{i};
+          interface.defaultStates(i) = defaultStates{i};
         end
+      end
     end
 
     % Convert output sizes to a flat vector
-    outputNumQuantities = interface.outputNumQuantities;
-    interface.outputNumQuantities = zeros(1, length(outputNumQuantities));
-    for i = 1:length(outputNumQuantities)
+    if(0 == length(interface.outputNumQuantities))
+      interface.outputNumQuantities = [];
+    else
+      outputNumQuantities = interface.outputNumQuantities;
+      interface.outputNumQuantities = zeros(1, length(outputNumQuantities));
+      for i = 1:length(outputNumQuantities)
         interface.outputNumQuantities(i) = outputNumQuantities{i};
+      end
     end
 
     % Remove fields that have no meaning to user

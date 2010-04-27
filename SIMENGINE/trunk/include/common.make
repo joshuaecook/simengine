@@ -166,7 +166,7 @@ endif
 endif
 export MEXEXT
 
-MEXFLAGS += CFLAGS="$(CFLAGS) $(CWARNINGS)" LDFLAGS="$(LDFLAGS)"
+#MEXFLAGS += CFLAGS="$(CFLAGS) $(CWARNINGS)" LDFLAGS="$(LDFLAGS)"
 ifneq ($(DEBUG),)
 MEXFLAGS += -g
 endif
@@ -209,7 +209,7 @@ COMPILE.mex = $(MEX) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
 
 %.mexw64: override MEXTARGET_ARCH = -win64
 %.mexw64: %.c
-	$(COMPILE.mex) -outpu $* $<
+	$(COMPILE.mex) -output $* $<
 
 ## Other misc tools
 AR = ar
