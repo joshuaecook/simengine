@@ -96,6 +96,7 @@ endif
 	$(info **********************************************************)
 	$(info  )
 
+.PHONY: get-version
 get-version:
 	@echo $(VERSION_NUMBER)
 
@@ -139,6 +140,9 @@ endif
 
 FILENAME = simEngine
 OUTPUT_FILE = $(BUILD_DIR)/bin/$(FILENAME)
+
+UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine"
+
 
 # Platform Specific Parameters
 # ==============================================================================================
@@ -367,7 +371,7 @@ endif
 endif
 
 COMPILER_BASIS = src/compiler_exec.mlb
-COMPILER_SOURCES = $(shell $(SMLC) -stop f $(COMPILER_BASIS))
+COMPILER_SOURCES = $(shell [ -f $(COMPILER_BASIS) ] && $(SMLC) -stop f $(COMPILER_BASIS) || echo "/no/compiler/basis/file/found")
 COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c ffi-license.c) codegen/src/*.o
 COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a $(CRYPTO_LIB) $(COMPRESS_LIB) simatra.o
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
@@ -682,7 +686,7 @@ $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	(SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath `pwd`/include --updateURL $(UPDATE_URL) < /dev/null)
+	SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath `pwd`/include --updateURL $(UPDATE_URL) < /dev/null
 
 .PHONY: codegen
 codegen:
