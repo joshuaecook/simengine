@@ -2143,8 +2143,17 @@ fun logoutput_code shardedModel =
 			 (Util.addCount outputs_from_top_classes)
 
 
+	fun outputToCount output = 
+	    let
+		val contentsLength = List.length (DOF.Output.contents output)
+	    in
+		if contentsLength = 0 then
+		    1 (* it has to be at least one, even if contents is empty since it'll return events *)
+		else
+		    contentsLength
+	    end
 	val total_output_quantities =
-	    List.foldr op+ 0 (map (List.length o DOF.Output.contents) outputs)
+	    List.foldr op+ 0 (map outputToCount outputs)
 
     in
         if total_output_quantities > 0 then
