@@ -242,7 +242,7 @@ classdef Suite < handle
                         error('Suite:Summary:ArgumentError', 'Only -detailed, -short, or -failures flag is allowed');
                     end
                 else
-                    error('Suite:Summary:ArgumentError', 'Only -detailed or -short flag is allowed');
+                    error('Suite:Summary:ArgumentError', 'Only -detailed, -short, or -failures flag is allowed');
                 end
             else
                 summary_helper(s, 0, false, true);
