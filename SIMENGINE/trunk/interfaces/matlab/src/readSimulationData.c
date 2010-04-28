@@ -184,7 +184,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
       struct stat filestat;
       int num_samples;
       if(stat(filename, &filestat)){
-	/* No file means output produced */
+	/* No file means no output produced */
 	num_samples = 0;
       }
       else{
