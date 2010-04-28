@@ -342,7 +342,7 @@ classdef Test < handle
                 failureMsg = sprintf('<error message="%s"/>', t.Message);
           end
           
-          fprintf(fd, '<testcase time="%f" name="%s">%s<system-out>%s</system-out></testcase>\n', t.Time, t.Name, failureMsg, t.Output);  
+          fprintf(fd, '<testcase time="%f" name="%s">%s<system-out>%s</system-out></testcase>\n', t.Time, t.Name, failureMsg, '');%t.Output);  
         end
 
     end % methods
