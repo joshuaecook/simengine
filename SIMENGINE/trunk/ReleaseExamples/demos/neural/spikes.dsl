@@ -6,7 +6,7 @@
 model (events) = spikes(Vm)
 
   // set up a discrete iterator with steps of 0.01 milliseconds
-  iterator i with {discrete, sample_period=0.01}
+  iterator i with {discrete, sample_period=1}
 
   // Define a sampled input for the voltage trace
   input Vm with {iter=i, halt_when_exhausted}
@@ -15,6 +15,5 @@ model (events) = spikes(Vm)
   equation spike_occurred = Vm > 20 and Vm < Vm[i-1] and Vm[i-1] >= Vm[i-2]
 
   // Create an event output
-  output events = spike_occurred when spike_occurred
-
+  output events = () when spike_occurred
 end

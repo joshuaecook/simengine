@@ -54,8 +54,10 @@ model (V, Iapp) = brk_inputs(Iext)
   constant Eleak = -60 
   
   // State Variable Declaration
+  // Voltage States
   state Vs = -60 
   state Vd = -60 
+  // Gating Variables
   state h = 0.9 
   state n = 0 
   state mnS = 0 
@@ -63,11 +65,11 @@ model (V, Iapp) = brk_inputs(Iext)
   state mnD = 0 
   state hnD = 0.9 
   state ml = 0 
+  // Calcium Concentrations
   state CaS = 0 
   state CaD = 0 
 
   //External Current
-  //input Iext with {default=0}
   iterator i with {discrete, sample_period=1 /* ms */}
   input Iext with {iter=i, hold_when_exhausted}
   
@@ -84,6 +86,7 @@ model (V, Iapp) = brk_inputs(Iext)
     hnDinf = 1/(1+exp((Vd-VhhN)/ShN))
     mlinf = 1/(1+exp((Vd-VhmL)/SmL))
 
+    // Ionic Currents
     INaS = GNa*minf^3*h*(Vs-ENa)
     IKS = (GK_dr*n^4 + GK_CaS*CaS/(CaS+Kd))*(Vs-EK)
     ICaS = GCa_NS*mnS^2*hnS* (Vs-ECa)

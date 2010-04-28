@@ -38,14 +38,19 @@ ylabel('Current (nA/cm^2)');
 
 % Now, resampling the output somatic voltage and reformat 
 % as an input to the spike detector model
-n2 = 0:0.01:end_time;
-inp2.Vm = {interp1(o.V(:,1),o.V(:,2),n2)};
-o2 = simex('spikes.dsl', end_time, inp2);
+% The spike detector model uses a normalized timestep of zero, so we need
+% to rescale based on the timestep that will adequately show the spikes -
+% 0.01 ms
+dt = 0.01;
+n2 = 0:dt:end_time;
+inp2.Vm = {interp1(o.V(:,1),o.V(:,2),n2,'linear','extrap')};
+o2 = simex('spikes.dsl', end_time/dt, inp2);
 
 % Compute interspike intervals and spiking frequency from the spike data
-interspike_intervals = [inf diff(o2.events(:,1))']; % Units in ms
+spike_times = (o2.events(:,1)*dt)'; % rescale based on dt used when generating the input stream Vm
+interspike_intervals = [inf diff(spike_times)]; % Units in ms
 spike_frequency = 1000./interspike_intervals; % Units in Hz
-spike_times = o2.events(:,1)'; 
+
 % Sub-sample the input waveform to match the spike times
 sampled_input = interp1(o.Iapp(:,1), o.Iapp(:,2), spike_times);
 
