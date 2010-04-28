@@ -45,7 +45,7 @@ s.add(Test('OutputGroups',@()(simex('models_FeatureTests/OutputTest3.dsl', 10, t
 s.add(Test('OutputCondition',@()(simex('models_FeatureTests/OutputTest4.dsl', 10, target)), '-equal', struct('y', [5:10; 5:10]')));
 s.add(Test('OutputTwoValues',@()(simex('models_FeatureTests/OutputTest5.dsl', 10, target)), '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:2:20]')));
 % This now produces a user error
-%s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10, target)), '-equal', struct()));
+s.add(Test('OutputNoValues',@()(simex('models_FeatureTests/OutputTest6.dsl', 10, target)), '-equal', struct()));
 s.add(Test('DuplicateOutputNames',@()(simex('models_FeatureTests/OutputTest7.dsl')), '-regexpmatch', 'Duplicate output'));
 s.add(Test('OutputTime', @()(simex('models_FeatureTests/OutputTest8.dsl', ...
                                    10, target)), '-equal', struct('times', [0 3 6 9; 0 3 6 9]')));
