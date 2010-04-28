@@ -39,11 +39,11 @@ cd ../testing
 % grab all the tests (right now do all tests, not just release
 % tests)
 if mode == RELEASE
-  %s = AllCPUTests('-release');
-s = CoreFeatureTests('-cpu', '-release');
+  s = AllCPUTests('-release');
+%s = CoreFeatureTests('-cpu', '-release');
 else
-  %s = AllCPUTests('-internal');
-  s = CoreFeatureTests('-internal');
+  s = AllCPUTests('-internal');
+%  s = CoreFeatureTests('-internal');
 end
 
 % Execute
