@@ -18,9 +18,9 @@ end
 
 % determine architecture
 switch computer
- case {'PCWIN', 'GLNX86', 'MACI'}
+ case {'PCWIN', 'GLNX86', 'MACI', 'MACI64'}
   local_install = '/local-install';
- case {'PCWIN64', 'GLNXA64', 'SOL64', 'MACI64'}
+ case {'PCWIN64', 'GLNXA64', 'SOL64'}
   local_install = '/local-install-64';
  otherwise
   warning('Simatra:matlab_test_script', ['Architecture is not officially '...
