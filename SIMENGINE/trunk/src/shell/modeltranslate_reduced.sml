@@ -30,6 +30,9 @@ fun error (msg) =
      DynException.setErrored();
      raise TranslationError)
 
+fun warning (msg) =
+    Logger.log_warning (Printer.$ msg)
+
 (* helper methods *)
 fun pretty (s) = PrettyPrint.kecexp2prettystr (!exec) s
 
@@ -362,7 +365,7 @@ fun expHasIterator iter exp =
 	(ExpProcess.getLHSTerms exp)
 
 
-fun createClass classes object =
+fun createClass top_class classes object =
     let
 	val name =Symbol.symbol (exp2str (method "name" object))
 	(*val _ = Logger.log_notice (Printer.$ ("Translating model '"^(Symbol.name name)^"'"))*)
@@ -372,9 +375,11 @@ fun createClass classes object =
 	val classOutputs = vec2list (method "contents" (method "outputs" object))
 	val _ = if List.length classOutputs > 0 then
 		    () (* this is good *)
+		else if top_class then
+		    warning ("Model " ^ (Symbol.name name) ^ " does not have any outputs defined.  The final state values generated from a simulation will still be recorded.")
 		else
-		    error ("Model " ^ (Symbol.name name) ^ " does not have any outputs defined.")
-		    
+		    error ("Sub-model " ^ (Symbol.name name) ^ " does not have any outputs defined.")
+
 	fun exp2term (Exp.TERM t) = t
 	  | exp2term _ = Exp.NAN
 
@@ -481,7 +486,8 @@ fun createClass classes object =
 		in
 		    [init, eq]
 		end
-		handle e => DynException.checkpoint ("ModelTranslate.createClass.quantity2exp.RANDOM [name="^(exp2str (method "name" obj))^"]") e
+		handle TranslationError => raise TranslationError 
+		     | e => DynException.checkpoint ("ModelTranslate.createClass.quantity2exp.RANDOM [name="^(exp2str (method "name" obj))^"]") e
 	    else if (istype (obj, "State")) then
 		let
 		    val hasEquation = exp2bool (send "hasEquation" obj NONE)
@@ -567,7 +573,7 @@ fun createClass classes object =
 	fun submodel2exp (obj, (submodelclasses, exps)) =
 	    let			
 		val classes = submodelclasses (* rkw - added this so that the foldl adds classes *)
-		val (class, classes) = getClass (method "modeltemplate" obj, classes)
+		val (class, classes) = getClass false (method "modeltemplate" obj, classes)
 
 		fun outbinding2name obj = 
 		    (exp2str (method "instanceName" obj)) ^ "." ^ (exp2str (method "name" obj))
@@ -647,10 +653,11 @@ fun createClass classes object =
 	  exps=ref exps},
 	 submodelclasses)
     end
-    handle e => DynException.checkpoint "ModelTranslate.createClass" e
+    handle TranslationError => raise TranslationError
+	 | e => DynException.checkpoint "ModelTranslate.createClass" e
 
 
-and getClass (object, classes) =
+and getClass top_class (object, classes) =
     let
 	val classname = Symbol.symbol(exp2str (method "name" object))
     in
@@ -658,7 +665,7 @@ and getClass (object, classes) =
 	    SOME c => (c, classes)
 	  | NONE => 
 	    let
-		val (c, classes) = createClass classes object
+		val (c, classes) = createClass top_class classes object
 	    in
 		(c, c :: classes)
 	    end
@@ -667,7 +674,7 @@ and getClass (object, classes) =
 fun obj2modelinstance object =
     let
 	val classes = []
-	val (class, classes) = getClass (method "modeltemplate" object, classes)
+	val (class, classes) = getClass true (method "modeltemplate" object, classes)
 			       
     in
 	(classes, {name=NONE,  (*TODO: tie in*)

@@ -148,8 +148,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
   unsigned int num_models = options_instances(options);
   unsigned int num_outputs = iface_num_outputs(iface);
   unsigned int num_states = iface_num_states(iface);
-  char **output_names = iface_outputs(iface);
-  unsigned int *output_num_quantities = iface_output_num_quantities(iface);
+  char **output_names;
+  unsigned int *output_num_quantities;
 
   /* Iterators */
   int modelid;
@@ -160,6 +160,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
   mxArray *final_states;
   mxArray *final_times;
   mxArray *mat_output;
+
+  if(num_outputs){
+    output_names = iface_outputs(iface);
+    output_num_quantities = iface_output_num_quantities(iface);
+  }
+  else{
+    output_names = NULL;
+    output_num_quantities = NULL;
+  }
 
   output_struct = mxCreateStructMatrix(num_models, 1, num_outputs, (const char **)output_names);
   final_states = mxCreateDoubleMatrix(num_models, num_states, mxREAL);
@@ -257,5 +266,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
   plhs[1] = final_states;
   plhs[2] = final_times;
 }
+
 
 
