@@ -53,5 +53,7 @@ for i=1:5
 end
 s.Summary
 
+s.writeXML('bamboolog.xml');
+
 exit
 end

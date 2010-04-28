@@ -205,6 +205,26 @@ classdef Suite < handle
             end
         end
         
+        function writeXML(s, file)
+            if ischar(file)
+               fd = fopen(file, 'w');
+            else
+               fd = file;
+            end
+                
+            fprintf(fd, '<testsuite errors="%d" tests="%d" time="%f" failures="%d" name="%s">', s.Errored, s.Total, s.Time, s.Failed, s.Name);
+            
+            for i = 1:length(s.Tests)
+              s.Tests{i}.writeXML(fd);
+            end
+            
+            fprintf(fd, '</testsuite>\n');
+            
+            if ischar(file)
+                fclose(fd);
+            end
+        end
+      
         
         function Summary(s, varargin)
             disp(' ')

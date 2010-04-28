@@ -331,7 +331,20 @@ classdef Test < handle
         function disp(t)
             disp(tostr(t));
         end
-        
+
+        % write JUnit XML output
+        function writeXML(t, fd)
+          failureMsg = '';
+          switch(t.Result)
+              case t.FAILED
+                failureMsg = sprintf('<failure message="%s"/>', t.Message);
+              case t.ERROR
+                failureMsg = sprintf('<error message="%s"/>', t.Message);
+          end
+          
+          fprintf(fd, '<testcase time="%f" name="%s">%s<system-out>%s</system-out></testcase>\n', t.Time, t.Name, failureMsg, t.Output);  
+        end
+
     end % methods
 end % end class Test
 
