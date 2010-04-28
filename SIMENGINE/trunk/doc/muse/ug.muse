@@ -6,5 +6,6 @@
 <include file="ug_intro.muse">
 #GettingStarted
 <include file="ug_gettingstarted.muse">
-
+#DieselModeling
+<include file="ug_dieselmodeling.muse">
 
