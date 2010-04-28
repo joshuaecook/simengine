@@ -184,9 +184,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
       struct stat filestat;
       int num_samples;
       if(stat(filename, &filestat)){
-	ERROR("Can't read '%s'.\n", filename);
+	/* No file means output produced */
+	num_samples = 0;
       }
-      num_samples = filestat.st_size/(output_num_quantities[outputid]*sizeof(double));
+      else{
+	num_samples = filestat.st_size/(output_num_quantities[outputid]*sizeof(double));
+      }
 
       if(num_samples > 0){
 	/* Allocate mat variable */
