@@ -40,7 +40,7 @@ cd ../testing
 % tests)
 if mode == RELEASE
   %s = AllCPUTests('-release');
-  s = CoreFeatureTests('-release');
+s = CoreFeatureTests('-cpu', '-release');
 else
   %s = AllCPUTests('-internal');
   s = CoreFeatureTests('-internal');
