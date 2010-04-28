@@ -40,10 +40,10 @@ cd ../testing
 % tests)
 if mode == RELEASE
   %s = AllCPUTests('-release');
-  CoreFeatureTests('-release');
+  s = CoreFeatureTests('-release');
 else
   %s = AllCPUTests('-internal');
-  CoreFeatureTests('-internal');
+  s = CoreFeatureTests('-internal');
 end
 
 % Execute
