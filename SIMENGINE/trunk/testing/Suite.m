@@ -236,8 +236,10 @@ classdef Suite < handle
                         summary_helper(s, 0, true, true);
                     elseif strcmpi(varargin{1},'-short')
                         summary_helper(s, 0, false, false);
+                    elseif strcmpi(varargin{1},'-failures')
+                        summary_helper(s, 0, false, true);
                     else
-                        error('Suite:Summary:ArgumentError', 'Only -detailed or -short flag is allowed');
+                        error('Suite:Summary:ArgumentError', 'Only -detailed, -short, or -failures flag is allowed');
                     end
                 else
                     error('Suite:Summary:ArgumentError', 'Only -detailed or -short flag is allowed');
@@ -253,7 +255,10 @@ classdef Suite < handle
             spaces = blanks(level*2);
             base_str = sprintf('%sSuite ''%s'': ', spaces, s.Name);
             s.Total = s.length;
-            if s.Total == 0
+            if ~showTests && showFailures && s.Failed == 0 && s.Errored ...
+                  == 0
+                summary_str = '';
+            elseif s.Total == 0
                 summary_str = 'No Tests Defined';
             elseif s.Total == s.Passed
                 summary_str = sprintf('All PASSED (%d total tests, time=%g s)', s.Total, s.Time);                
@@ -262,7 +267,9 @@ classdef Suite < handle
             else
                 summary_str = sprintf('%d of %d Passed with %d Errored and %d Skipped (time=%g)', s.Passed, s.Total, s.Errored, s.Skipped, s.Time);
             end
-            disp([base_str summary_str]);
+            if ~isempty(summary_str)
+              disp([base_str summary_str]);
+            end
             for i=1:length(s.Tests)
                 if isa(s.Tests{i},'Test') 
                     t = s.Tests{i};
