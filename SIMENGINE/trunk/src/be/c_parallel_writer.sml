@@ -655,14 +655,48 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 					      sampled_inputs
 
 	val sampled_periods = map (fn input =>
-					  let
-					      val (iter_sym,_) = valOf (TermProcess.symbol2temporaliterator (DOF.Input.name input))
-					      val (_,iter_typ) = CurrentModel.itersym2iter iter_sym
-					  in
-					      case iter_typ
-					       of DOF.DISCRETE {sample_period} => sample_period
-						| _ => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_sym)^"'"), "CParallelWriter.simengine_interface", Logger.INTERNAL)
-					  end) sampled_inputs
+				      let
+					  val (iter_sym,_) = valOf (TermProcess.symbol2temporaliterator (DOF.Input.name input))
+					  val (_,iter_typ) = CurrentModel.itersym2iter iter_sym
+				      in
+					  case iter_typ
+					   of DOF.DISCRETE {sample_period} => sample_period
+					    | _ => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_sym)^"'"), "CParallelWriter.simengine_interface", Logger.INTERNAL)
+				      end) sampled_inputs
+
+	val outputs = ShardedModel.toOutputs shardedModel
+	val output_periods = map (fn output =>
+				     let
+					 val (iter_sym,_) = valOf (TermProcess.symbol2temporaliterator (DOF.Output.name output))
+					 fun iterSymToDT (iter_sym) =
+					     let
+						 val (_,iter_typ) = CurrentModel.itersym2iter iter_sym
+					     in
+						 case iter_typ
+						  of DOF.DISCRETE {sample_period} => sample_period
+						   | DOF.CONTINUOUS solver => (case solver
+										of Solver.FORWARD_EULER {dt} => dt
+										 | Solver.EXPONENTIAL_EULER {dt} => dt
+										 | Solver.LINEAR_BACKWARD_EULER {dt,...} => dt
+										 | Solver.RK4 {dt} => dt
+										 | Solver.MIDPOINT {dt} => dt
+										 | Solver.HEUN {dt} => dt
+										 | Solver.ODE23 {dt,...} => 0.0 (* Change this to dt when ODE23 supports fixed timestep *)
+										 | Solver.ODE45 {dt,...} => 0.0 (* Change this to dt when ODE23 supports fixed timestep *)
+										 | Solver.CVODE {dt,...} => dt
+										 | _ => 0.0) (* Any solver not specified above automatically assumed to be variable timestep *)
+						   | DOF.ALGEBRAIC (processtype, symbol) => iterSymToDT(symbol)
+						   | DOF.IMMEDIATE => ~1.0 (* Only outputs for first and last iteration *)
+						   | _ => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_sym)^"'"), "CParallelWriter.simengine_interface", Logger.INTERNAL)
+					     end
+				     in
+					 iterSymToDT(iter_sym)
+				     end) outputs
+
+	val output_mode = if(List.exists (fn x => Real.== (x, 0.0)) output_periods) then
+			      0 (* OUTPUT_RAW_FILES *)
+			  else
+			      3 (* OUTPUT_PREALLOCATED *)
 				  
 	fun wrap (f, m) x = CurrentModel.withModel m (fn _ => f x)
 
@@ -744,9 +778,10 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		    ("defaultStates", array (map (defaultToJSON o SOME) state_defaults)),
 		    ("outputs", array (map string output_names)),
 		    ("outputNumQuantities", array (map int outputs_num_quantities)),
+		    ("outputMode", int output_mode),
+		    ("outputPeriods", array (map real output_periods)),
 		    ("hashcode", string "0000000000000000"),
 		    ("version", int 0)]
-		    
 	end
 
 	local
@@ -779,6 +814,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $(""),
 	 $("static const char *input_names[] = {" ^ (String.concatWith ", " (map (cstring o Term.sym2name) input_names)) ^ "};"),
 	 $("static const double sampled_input_timesteps[] = {" ^ (String.concatWith ", " (map (CWriterUtil.exp2c_str o Exp.TERM o Exp.REAL) sampled_periods)) ^ "};"),
+	 $("static const double output_timesteps[] = {" ^ (String.concatWith ", " (map (CWriterUtil.exp2c_str o Exp.TERM o Exp.REAL) output_periods)) ^ "};"),
 	 $("static const sampled_eof_option_t sampled_input_eof_options[] = {" ^ (String.concatWith ", " sampled_exhausted_behaviors) ^ "};"),
 	 $("static const char *state_names[] = {" ^ (String.concatWith ", " (map cstring state_names)) ^ "};"),
 	 $("static const char *output_names[] = {" ^ (String.concatWith ", " (map cstring output_names)) ^ "};"),
@@ -801,6 +837,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 	 $("#define NUM_EVENT_INPUTS 0"),
 	 $("#define NUM_INPUTS (NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS + NUM_TIME_VALUE_INPUTS + NUM_EVENT_INPUTS)"),
 	 $("#define NUM_STATES "^(i2s (List.length state_names))),
+	 $("#define OUTPUT_MODE " ^ (i2s output_mode)),
 	 $("#define HASHCODE 0x0000000000000000ULL"),
 	 $("#define NUM_OUTPUTS "^(i2s (List.length output_names))),
 	 $("#define VERSION 0"),

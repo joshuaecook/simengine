@@ -36,6 +36,12 @@ typedef enum {
   SAMPLED_CYCLE
 } sampled_eof_option_t;
 
+typedef enum {
+  OUTPUT_RAW_FILES,
+  OUTPUT_STREAMING,
+  OUTPUT_PREALLOCATED
+} output_mode_t;
+
 typedef struct{
   const char *name;
   const char *target;
@@ -47,6 +53,7 @@ typedef struct{
   const double *default_inputs;
   const double *default_states;
   const double *sampled_input_timesteps;
+  const double *output_timesteps;
   const sampled_eof_option_t *sampled_input_eof_options;
   const unsigned int *output_num_quantities;
   const unsigned int version; // Switch this to be the return value of simengine_getinterface(&seint)?
@@ -56,6 +63,7 @@ typedef struct{
   const unsigned int num_inputs;
   const unsigned int num_states;
   const unsigned int num_outputs;
+  const output_mode_t output_mode; 
   const unsigned long long hashcode;
 } simengine_interface;
 

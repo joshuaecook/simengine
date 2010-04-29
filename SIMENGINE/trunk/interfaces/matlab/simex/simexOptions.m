@@ -2,7 +2,7 @@ function [options] = simexOptions (dsl, varargin)
   % SIMEXOPTIONS Parses the arguments from command invocation.
   options = struct('simengine','', 'model', '', 'instances',1, 'startTime',0, ...
                    'stopTime',0, 'inputs',struct(), 'states',[], ...
-                   'outputs', '', 'debug', false, 'args', '--binary', ...
+                   'outputs', '', 'jsonfile', '', 'debug', false, 'args', '--binary', ...
                    'dslfile', '', 'target', 'default', 'precision', ...
                    'double');
   userOptions = varargin(:);
@@ -32,18 +32,38 @@ function [options] = simexOptions (dsl, varargin)
   % Create a new temporary data path
   options.outputs = ['.simex' num2str(now,'%16f')];
 
+  % Set up path to JSON interface file and add commandline argument
+  options.jsonfile = fullfile(options.outputs, 'simex_interface.json');
+  options.args = [options.args ' --json_interface ' options.jsonfile];
+
   if 0 < length(userOptions)
-      if isnumeric(userOptions{1})
-          [options.startTime options.stopTime] = getTime(userOptions{1});
-          userOptions = userOptions(2:length(userOptions));
+    if isnumeric(userOptions{1})
+      [options.startTime options.stopTime] = getTime(userOptions{1});
+      userOptions = userOptions(2:length(userOptions));
+      % Corresponding command-line arguments for time
+      if options.stopTime ~= 0
+        options.args = [options.args ' --start ' num2str(options.startTime)];
+        options.args = [options.args ' --stop ' num2str(options.stopTime)];
       end
+    end
   end
   
   if 0 < length(userOptions)
-      if isstruct(userOptions{1})
-          options.inputs = userOptions{1};
-          userOptions = userOptions(2:length(userOptions));
+    if isstruct(userOptions{1})
+      options.inputs = userOptions{1};
+      userOptions = userOptions(2:length(userOptions));
+
+      % Add command-line option to tell simulation which inputs were
+      % user-specified
+      names = fieldnames(options.inputs);
+      if length(names) > 0
+        nameslist = names{1};
+        for n = 2:length(names)
+          nameslist = [nameslist ':' names{n}];
+        end
+        options.args = [options.args [' --inputs ' nameslist]];
       end
+    end
   end
       
   while ~isempty(userOptions)
@@ -105,6 +125,7 @@ function [options] = simexOptions (dsl, varargin)
   end
   
   options.instances = max([instances options.instances]);
+  options.args = [options.args ' --instances ' num2str(options.instances)];
 end
 
 

@@ -9,6 +9,7 @@ const simengine_interface seint = {
   default_inputs,
   default_states,
   sampled_input_timesteps,
+  output_timesteps,
   sampled_input_eof_options,
   output_num_quantities,
   VERSION,
@@ -18,5 +19,6 @@ const simengine_interface seint = {
   NUM_INPUTS,
   NUM_STATES,
   NUM_OUTPUTS,
+  OUTPUT_MODE,
   HASHCODE
 };

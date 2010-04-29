@@ -429,7 +429,7 @@ debug-files: $(DEBUG_FILES)
 
 # Matlab build target
 # ==============================================================================================
-SIMEX_M_FILES = $(addsuffix .m,simex simError simFailure simexError simEngineError simexOptions simCompile launchBackground statusBar simEngine)
+SIMEX_M_FILES = $(addsuffix .m,simex simError simFailure simexError simEngineError simexOptions statusBar simEngine)
 
 #MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_GUI_FILES = 
