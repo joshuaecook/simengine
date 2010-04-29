@@ -63,7 +63,7 @@
     (with-temp-file (concat mfile ".m")
       (insert code))
     (message "MATLAB publish %s" (concat mfile ".m"))
-    (call-process "matlab" nil "*scratch*" nil "-nosplash" "-nodesktop" "-r" 
+    (call-process "matlab" nil nil nil "-nosplash" "-nodesktop" "-r" 
 		  (concat muse-mfigure-preamble "addpath('" tmpdir "'); publish('" mfile ".m', struct('format','html','imageFormat','png','outputDir', '" tmpdir "'))"))
     (if (file-exists-p (concat mfile ".html"))
 	(progn

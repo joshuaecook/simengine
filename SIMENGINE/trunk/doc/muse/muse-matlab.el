@@ -18,29 +18,38 @@
     (when muse-publishing-p
       (delete-region begin end)
       (goto-char (point-min)))
-    (muse-matlab-eval-matlab-code text)
-    (let ((evalc (buffer-substring-no-properties (point-min) (point-max))))
+    (let ((evalc (muse-matlab-eval-matlab-code text)))
       (when muse-publishing-p
-	(delete-region (point-min) (point-max)))
-      (muse-insert-markup 
-       (muse-markup-text 'begin-example)
-       evalc
-       (muse-markup-text 'end-example)))))
+	(muse-insert-markup 
+	 (muse-markup-text 'begin-example)
+	 evalc
+	 (muse-markup-text 'end-example))))))
 
 (put 'muse-matlab-publish-matlab-tag 'muse-dangerous-tag t)
 
-; FIXME need to escape quotes within CODE
 (defun muse-matlab-eval-matlab-code (code)
-  (let ((commands (concat muse-matlab-preamble 
-			  "result = evalc(sprintf('" 
-			  (replace-regexp-in-string "\n" "\\\\n" code)
-			  "'));"
-			  "disp(['<<EVALC<' result '>CLAVE>>']);"
+  (let ((old-buffer (current-buffer))
+	(commands (concat "addpath('/Users/jcook/Sources/simEngine/trunk/doc/muse');"
+			  muse-matlab-preamble 
+			  "disp(muse_eval(sprintf('"
+			  (replace-regexp-in-string
+			   "%" "%%"
+			   (replace-regexp-in-string 
+			    "'" "''"
+			    (replace-regexp-in-string 
+			     "\n" "\\\\n" 
+			     code)))
+			  "')));"
 			  "quit")))
-    (call-process "matlab" nil t nil "-nosplash" "-nodesktop" "-r"
-		  commands)
-    (shell-command-on-region (point-min) (point-max) "sed '/<<EVALC</,/>CLAVE>>/p;d'" t t)
-    (shell-command-on-region (point-min) (point-max) "sed '1d;$d'" t t)))
+    (set-buffer (generate-new-buffer "*MATLAB*"))
+    (unwind-protect
+	(progn
+	  (call-process "matlab" nil t nil "-nosplash" "-nodesktop" "-r" commands)
+	  (shell-command-on-region (point-min) (point-max) "sed '/<<MUSE</,/>ESUM>>/p;d'" t t)
+	  (shell-command-on-region (point-min) (point-max) "sed '1d;$d'" t t)
+	  (buffer-substring-no-properties (point-min) (point-max)))
+      (kill-buffer)
+      (set-buffer old-buffer))))
 
 ;; Hooks into publish
 (add-to-list 'muse-publish-markup-tags
