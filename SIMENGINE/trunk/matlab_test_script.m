@@ -39,7 +39,10 @@ cd ../testing
 % grab all the tests (right now do all tests, not just release
 % tests)
 if mode == RELEASE
-  s = AllCPUTests('-release');
+  s = Suite('Release Tests');
+  s.add(AllCPUTests('-release'));
+  s.add(PerformanceTests('-cpu'));
+  s.add(MessageTests);
 %s = CoreFeatureTests('-cpu', '-release');
 else
   s = AllCPUTests('-internal');

@@ -233,11 +233,11 @@ classdef Suite < handle
             if nargin == 2
                 if ischar(varargin{1}) 
                     if strcmpi(varargin{1},'-detailed')
-                        summary_helper(s, 0, true, true);
+                        summary_helper(s, 0, true, true, true);
                     elseif strcmpi(varargin{1},'-short')
-                        summary_helper(s, 0, false, false);
+                        summary_helper(s, 0, true, false, false);
                     elseif strcmpi(varargin{1},'-failures')
-                        summary_helper(s, 0, false, true);
+                        summary_helper(s, 0, false, false, true);
                     else
                         error('Suite:Summary:ArgumentError', 'Only -detailed, -short, or -failures flag is allowed');
                     end
@@ -245,17 +245,17 @@ classdef Suite < handle
                     error('Suite:Summary:ArgumentError', 'Only -detailed, -short, or -failures flag is allowed');
                 end
             else
-                summary_helper(s, 0, false, true);
+                summary_helper(s, 0, true, false, true);
             end
             disp('--------------------------')
             disp(' ')
         end
         
-        function summary_helper(s, level, showTests, showFailures)
+        function summary_helper(s, level, showSuites, showTests, showFailures)
             spaces = blanks(level*2);
             base_str = sprintf('%sSuite ''%s'': ', spaces, s.Name);
             s.Total = s.length;
-            if ~showTests && showFailures && s.Failed == 0 && s.Errored ...
+            if ~showSuites && ~showTests && showFailures && s.Failed == 0 && s.Errored ...
                   == 0
                 summary_str = '';
             elseif s.Total == 0
@@ -279,7 +279,8 @@ classdef Suite < handle
                         display([spaces '  ' s.Tests{i}.tostr]);                        
                     end
                 elseif isa(s.Tests{i}, 'Suite')
-                    summary_helper(s.Tests{i}, level+1, showTests, showFailures);
+                    summary_helper(s.Tests{i}, level+1, showSuites, ...
+                                   showTests, showFailures);
                 end
             end
         end
