@@ -151,6 +151,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
   char **output_names;
   unsigned int *output_num_quantities;
 
+  /* File accessing pointers */
+  int fd;
+  char filename[PATH_MAX];
+  char dirname[PATH_MAX];
+  double *file_data;
+
   /* Iterators */
   int modelid;
   int outputid;
@@ -160,6 +166,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
   mxArray *final_states;
   mxArray *final_times;
   mxArray *mat_output;
+  double *mat_data;
 
   if(num_outputs){
     output_names = iface_outputs(iface);
@@ -176,12 +183,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
 
   /* Convert output files to mat format */
   for(modelid=modelid_offset;modelid<modelid_offset+num_models;modelid++){
-    int fd;
-    char filename[PATH_MAX];
-    char dirname[PATH_MAX];
-    double *mat_data;
-    double *file_data;
-
     /* Set up the path to the model instance */
     modelid_dirname(outputs_dirname, dirname, modelid);
 
@@ -224,34 +225,39 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
 	close(fd);
       }
     }
-    /* Read final states */
-    if(num_states){
-      sprintf(filename, "%s/final-states", dirname);
-      fd = open(filename, O_RDONLY);
-      if(-1 == fd){
-	ERROR("Could not open '%s'.", filename);
-      }
-      mat_data = mxGetPr(final_states);
+  }
+
+  /* Read final states */
+  /* TODO - Is it faster to read in one item at time and place in correct matrix location,
+      or read in all items in one read() and then do a transpose? Might make no difference */
+  if(num_states){
+    sprintf(filename, "%s/final-states", outputs_dirname);
+    fd = open(filename, O_RDONLY);
+    if(-1 == fd){
+      ERROR("Could not open '%s'.", filename);
+    }
+    mat_data = mxGetPr(final_states);
+    for(modelid=0;modelid<num_models;modelid++){
       for(stateid=0;stateid<num_states;stateid++){
 	if(sizeof(double) != read(fd, &mat_data[(stateid*num_models) + modelid], sizeof(double))){
 	  ERROR("Could not read '%d' of '%d' final states from model %d.\n", stateid, num_states, modelid);
 	}
       }
-      close(fd);
-    }
-
-    /* Read the final time */
-    sprintf(filename, "%s/final-time", dirname);
-    fd = open(filename, O_RDONLY);
-    if(-1 == fd){
-      ERROR("Could not open '%s'.", filename);
-    }
-    mat_data = mxGetPr(final_times) + modelid;
-    if(sizeof(double) != read(fd, mat_data, sizeof(double))){
-      ERROR("Could not read final time from model %d.\n", modelid);
     }
     close(fd);
   }
+
+  /* Read the final time */
+  sprintf(filename, "%s/final-time", outputs_dirname);
+  fd = open(filename, O_RDONLY);
+  if(-1 == fd){
+    ERROR("Could not open '%s'.", filename);
+  }
+  mat_data = mxGetPr(final_times);
+  if(num_models * sizeof(double) != read(fd, mat_data, num_models * sizeof(double))){
+    ERROR("Could not read final time from models.\n");
+  }
+  close(fd);
 
   /* Free allocated memory */
   mxFree(outputs_dirname);
