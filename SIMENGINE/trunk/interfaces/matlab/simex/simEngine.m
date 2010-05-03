@@ -19,7 +19,6 @@ function [outputs y1 t1 interface] = simEngine (options)
   statusFile = fullfile(workingDir, 'status');
   pidFile = fullfile(workingDir, 'pid');
 
-  system(['touch ' logFile]);
   command = ['(' command ' &>' logFile ' & pid=$! ; echo $pid > ' pidFile ' ; wait $pid; echo $? > ' statusFile ')&'];
   [stat, ignore] = system(command);
   while ~exist(pidFile,'file') || isempty(fileread(pidFile))
@@ -34,6 +33,8 @@ function [outputs y1 t1 interface] = simEngine (options)
 
   outputlen = 0;
   messagelen = 0;
+  log = '';
+
   while(processRunning(pid))
     if(~exist('m','var') && exist(simulationProgressFile, 'file'))
       m = memmapfile(simulationProgressFile, 'format', 'double');
@@ -54,12 +55,17 @@ function [outputs y1 t1 interface] = simEngine (options)
         message = fileread(compilationProgressFile);
 	messagelen = statusBar(message, messagelen);
       catch it
+	% This just updates the status bar, don't throw an error
+	% if something goes wrong
       end
     end
-    try
-      log = fileread(logFile);
-    catch it
-      simFailure('launchBackground', 'Process log file does not exist.')
+    % Make sure logFile exists before trying to read it
+    if exist(logFile, 'file')
+      try
+        log = fileread(logFile);
+      catch it
+        simFailure('launchBackground', 'Unable to read from simEngine log file.')
+      end
     end
     if length(log) > outputlen
       fprintf('%s', log(outputlen+1:end));
