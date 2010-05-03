@@ -468,46 +468,40 @@ void make_model_directories(simengine_opts *opts){
 
 void write_states_time(simengine_opts *opts, simengine_result *result){
   // Make sure a directory for the model exists
-  char model_dirname[PATH_MAX];
+  char states_time_filename[PATH_MAX];
+  FILE *states_time_file;
   unsigned int modelid, stateid;
+  long position;
 
-  for(modelid=0;modelid<opts->num_models;modelid++){
-    unsigned int full_modelid = modelid+global_modelid_offset;
-    modelid_dirname(opts->outputs_dirname, model_dirname, full_modelid);
-    char states_time_filename[PATH_MAX];
-    FILE *states_time_file;
-
-    // Write final states
-    sprintf(states_time_filename, "%s/%s", model_dirname, "final-states");
-    states_time_file = fopen(states_time_filename, "w");
-    if(NULL == states_time_file){
-      ERROR(Simatra::Simex::log_outputs, "could not open file '%s'", states_time_filename);
-    }
-    if(binary_files){
-      fwrite(result->final_states + modelid*seint.num_states, sizeof(double), seint.num_states, states_time_file);
-    }
-    else{
-      for(stateid=0;stateid<seint.num_states;stateid++){
-	fprintf(states_time_file, "%s%-.16e", ((stateid == 0) ? "" : "\t"), result->final_states[modelid*seint.num_states + stateid]);
-      }
-      fprintf(states_time_file, "\n");
-    }
-    fclose(states_time_file);
-
-    // Write final time
-    sprintf(states_time_filename, "%s/%s", model_dirname, "final-time");
-    states_time_file = fopen(states_time_filename, "w");
-    if(NULL == states_time_file){
-      ERROR(Simatra::Simex::log_outputs, "could not open file '%s'", states_time_filename);
-    }
-    if(binary_files){
-      fwrite(result->final_time + modelid, sizeof(double), 1, states_time_file);
-    }
-    else{
-      fprintf(states_time_file, "%-.16e\n", result->final_time[modelid]);
-    }
-    fclose(states_time_file);
+  // Write final states
+  position = global_modelid_offset * seint.num_states * sizeof(double);
+  sprintf(states_time_filename, "%s/final-states", opts->outputs_dirname);
+  states_time_file = fopen(states_time_filename, "w");
+  if(NULL == states_time_file){
+    ERROR(Simatra::Simex::write_states_time, "could not open file '%s'", states_time_filename);
   }
+  if(-1 == fseek(states_time_file, position, SEEK_SET)){
+    ERROR(Simatra::Simex::write_states_time, "could not seek to position %d in file '%s'", position, states_time_filename);
+  }
+  if(opts->num_models * seint.num_states != fwrite(result->final_states, sizeof(double), opts->num_models * seint.num_states, states_time_file)){
+    ERROR(Simatra::Simex::write_states_time, "could not write to file '%s'", states_time_filename);
+  }
+  fclose(states_time_file);
+
+  // Write final time
+  position = global_modelid_offset * sizeof(double);
+  sprintf(states_time_filename, "%s/final-time", opts->outputs_dirname);
+  states_time_file = fopen(states_time_filename, "w");
+  if(NULL == states_time_file){
+    ERROR(Simatra::Simex::write_states_time, "could not open file '%s'", states_time_filename);
+  }
+  if(-1 == fseek(states_time_file, position, SEEK_SET)){
+    ERROR(Simatra::Simex::write_states_time, "could not seek to position %d in file '%s'", position, states_time_filename);
+  }
+  if(opts->num_models != fwrite(result->final_time, sizeof(double), opts->num_models, states_time_file)){
+    ERROR(Simatra::Simex::write_states_time, "could not write to file '%s'", states_time_filename);
+  }
+  fclose(states_time_file);
 }
 
 #include<signal.h>
