@@ -103,8 +103,9 @@ get-version:
 # Adjustable Parameters
 # ==============================================================================================
 
-SVNSRV = https://svn1.hosted-projects.com/simatra/simEngine
-SVNWEBSRV = http://www.hosted-projects.com/trac/simatra/simEngine
+#SVNSRV = https://svn1.hosted-projects.com/simatra/simEngine
+SVNSRV = https://simatra.jira.com/svn/SIMENGINE
+#SVNWEBSRV = http://www.hosted-projects.com/trac/simatra/simEngine
 SVNTRUNK = $(SVNSRV)/trunk
 SRC = src/
 BUILD = build
@@ -865,31 +866,31 @@ $(TOP_LEVEL)/build:
 # Subversion Related
 # ==============================================================================================
 
-ifneq ($(findstring branches,$(SVN_BRANCH)),)
-update-from-trunk:
-	$(info Updating branch from trunk ...)
-	$(info First updating the branch to make sure it is up to date)
-	@svn update
-	@echo "Determining the first copy revision number ..."; \
-	 startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
-	 echo "Merging from trunk revision $$startrev ..."; \
-	 svn merge -r$$startrev:HEAD $(SVNTRUNK); \
-	 echo " -> Resolve any conflicts marked with a 'C'"; \
-	 echo " -> Execute 'svn commit -m \"Updated branch with trunk\"' in directory '..'"
+# ifneq ($(findstring branches,$(SVN_BRANCH)),)
+# update-from-trunk:
+# 	$(info Updating branch from trunk ...)
+# 	$(info First updating the branch to make sure it is up to date)
+# 	@svn update
+# 	@echo "Determining the first copy revision number ..."; \
+# 	 startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
+# 	 echo "Merging from trunk revision $$startrev ..."; \
+# 	 svn merge -r$$startrev:HEAD $(SVNTRUNK); \
+# 	 echo " -> Resolve any conflicts marked with a 'C'"; \
+# 	 echo " -> Execute 'svn commit -m \"Updated branch with trunk\"' in directory '..'"
 
-#http://www.hosted-projects.com/trac/simatra/dynamo/changeset?old_path=trunk&old=644&new_path=branches%2Frweinstein_299&new=701
-show-changes:
-	$(info Opening $(BROWSER) to show changes in branch relative to trunk)
-	@startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
-	 website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=$$startrev\&new_path=branches%2F$(REV)\&new=HEAD; \
-	 echo "Opening website: $$website"; \
-	 $(BROWSER) $$website
-show-changes-vs-trunk:
-	$(info Opening $(BROWSER) to show changes in branch relative to trunk)
-	@website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=HEAD\&new_path=branches%2F$(REV)\&new=HEAD; \
-	 echo "Opening website: $$website"; \
-	 $(BROWSER) $$website
-endif
+# #http://www.hosted-projects.com/trac/simatra/dynamo/changeset?old_path=trunk&old=644&new_path=branches%2Frweinstein_299&new=701
+# show-changes:
+# 	$(info Opening $(BROWSER) to show changes in branch relative to trunk)
+# 	@startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
+# 	 website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=$$startrev\&new_path=branches%2F$(REV)\&new=HEAD; \
+# 	 echo "Opening website: $$website"; \
+# 	 $(BROWSER) $$website
+# show-changes-vs-trunk:
+# 	$(info Opening $(BROWSER) to show changes in branch relative to trunk)
+# 	@website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=HEAD\&new_path=branches%2F$(REV)\&new=HEAD; \
+# 	 echo "Opening website: $$website"; \
+# 	 $(BROWSER) $$website
+# endif
 
 
 # System Test

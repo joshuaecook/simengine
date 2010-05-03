@@ -13,7 +13,8 @@ verbose ?= 1
 # If non-empty, will not echo commands as they are executed
 noecho ?=
 
-SVN_ROOT = https://svn1.hosted-projects.com/simatra/simEngine/
+#SVN_ROOT = https://svn1.hosted-projects.com/simatra/simEngine/
+SVN_ROOT = https://simatra.jira.com/svn/SIMATRA
 SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
 SVN_INFO = svn info $(CURDIR) 2>/dev/null
 SVN_URL := $(shell $(SVN_INFO) | sed -n 's/^URL: //p')
