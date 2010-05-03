@@ -93,13 +93,13 @@ function [varargout] = simex(dsl, varargin)
 end
 
 function [options] = makeOutputDirectory (options)
-    if ~mkdir(options.outputs)
-        simexError('mkdir', ['Could not create temporary data directory ' options.outputs]);
-    end
+    % Make output directory an absolute path
     if options.outputs(1) ~= '/'
       options.outputs = fullfile(pwd, options.outputs);
     end
-      
+    if ~mkdir(options.outputs)
+        simexError('mkdir', ['Could not create temporary data directory ' options.outputs]);
+    end
     if options.debug
         disp(['Created temporary data directory ' options.outputs]);
     end
