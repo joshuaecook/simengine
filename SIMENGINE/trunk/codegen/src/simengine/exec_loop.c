@@ -7,7 +7,8 @@ int exec_loop(solver_props *props, const char *outputs_dirname, double *progress
     solver_init(&props[i]);
   }
 
-  random_init(props->num_models);
+  // Copy the state of the PRNG
+  random_copy_state_to_device();
 
   // Execute the model(s) on the appropriate target
 #if defined(TARGET_CPU)
