@@ -147,6 +147,9 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     // Initialize the solver properties and internal simulation memory structures
     solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset);
 
+    // Initialize random number generator
+    random_init(props->num_models);
+
     // If no initial states were passed in
     if(!resuming){
       if(seint.num_states > 0){

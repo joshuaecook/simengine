@@ -1739,7 +1739,7 @@ fun state_init_code shardedModel iter_sym =
 			 "const systemstatedata_" ^ (Symbol.name mastername) ^ " *sys_rd"
 		     else "void *sys_rd")
 	    in
-		"__HOST__ __DEVICE__ int init_states_" ^ (Symbol.name (#name class)) ^
+		"__HOST__ int init_states_" ^ (Symbol.name (#name class)) ^
 		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", CDATAFORMAT *inputs, const unsigned int modelid)"
 	    end
 
@@ -1992,7 +1992,7 @@ fun init_states shardedModel =
 	    end
 
     in
-	[$("__HOST__ __DEVICE__ int init_states(solver_props *props, const unsigned int modelid){"),
+	[$("__HOST__ int init_states(solver_props *props, const unsigned int modelid){"),
 	 SUB(map subsystem_init_call (ShardedModel.iterators shardedModel)),
 	 SUB[$("return 0;")],
 	 $("}"),
@@ -2369,9 +2369,17 @@ fun buildC (orig_name, shardedModel) =
 				       logoutput_progs @
 				       [log_outputs_c] @
 				       exec_c @
+				       [$("#define UNIFORM_RANDOM HOST_UNIFORM_RANDOM"),
+					$("#define NORMAL_RANDOM HOST_NORMAL_RANDOM")] @
 				       state_init_functions @
+				       [$("#undef UNIFORM_RANDOM"),
+					$("#undef NORMAL_RANDOM")] @
 				       init_states_c @
+				       [$("#define UNIFORM_RANDOM DEVICE_UNIFORM_RANDOM"),
+					$("#define NORMAL_RANDOM DEVICE_NORMAL_RANDOM")] @
 				       flow_progs @
+				       [$("#undef UNIFORM_RANDOM"),
+					$("#undef NORMAL_RANDOM")] @
 				       model_flows_c @
 				       [exec_loop_c]))
     in

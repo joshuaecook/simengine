@@ -63,7 +63,7 @@ typedef struct{
   const unsigned int num_inputs;
   const unsigned int num_states;
   const unsigned int num_outputs;
-  const output_mode_t output_mode; 
+  const unsigned int output_mode; 
   const unsigned long long hashcode;
 } simengine_interface;
 
