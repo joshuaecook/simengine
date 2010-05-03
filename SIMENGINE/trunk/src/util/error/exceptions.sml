@@ -48,7 +48,8 @@ exception NameConflictError of string
    The associated list of strings contains the search paths. *)
 exception ImportError of string * string list
 
-
+(* Raised when an error is unknown at this time *)
+exception UnknownError of string * exn
 
 val showStackTrace = ref false
 
@@ -64,6 +65,7 @@ fun log_stack e () =
 (*    else
 	[]
 *)				  
+
 fun log handlelocation (e as InternalError {message, severity, characterization, location}) =
     (Logger.log_exception characterization severity 
     		(SUB (($("Exception caught at " ^ handlelocation 
@@ -89,11 +91,25 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
 		    | Subscript => "Subscript exception at " ^ handlelocation
 		    | OS.Path.Path => "Path exception at " ^ handlelocation
 		    | OS.Path.InvalidArc => "Path.InvalidArc exception at " ^ handlelocation
-		    | _ => "Unknown exception caught at " ^ handlelocation
+		    | RestartRepl => "Restart Repl exception at " ^ handlelocation
+		    | SettingsError => "Settings exception at " ^ handlelocation
+		    | TypeMismatch str => "Type mismatch exception at " ^ handlelocation ^ ": " ^ str
+		    | ValueError str => "Value error exception at " ^ handlelocation ^ ": " ^ str
+		    | NameError str => "Name error exception at " ^ handlelocation ^ ": " ^ str
+		    | NameConflictError str => "Name conflict error exception at " ^ handlelocation ^ ": " ^ str
+		    | ImportError (file, paths) => "Import error exception at " ^ handlelocation ^ " for file " ^ file
+		    | IncorrectNumberOfArguments {expected, actual} => "Incorrect number of arguments exception at " ^ handlelocation
+		    | _ => raise UnknownError (handlelocation, e)
     in
-	(Logger.log_exception Logger.OTHER Logger.FAILURE ($(message));
-	 Logger.log_error (Printer.SUB(log_stack e ())))
+	Logger.log_exception Logger.OTHER Logger.FAILURE ($(message))
     end
+    handle UnknownError (handlelocation, e) => 
+	   let
+	       val message = "Unknown exception caught at " ^ handlelocation
+	   in
+	       (Logger.log_exception Logger.OTHER Logger.FAILURE ($(message));
+		Logger.log_error (Printer.SUB(log_stack e ())))
+	   end
 
 fun checkpoint handlelocation e =
     (log handlelocation e;

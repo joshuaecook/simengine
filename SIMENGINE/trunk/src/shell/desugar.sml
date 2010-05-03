@@ -213,7 +213,8 @@ and desugar_def (definition, pos) =
 			   nil => DynException.stdException ("empty function definition encountered", "Desugar.desugar_def.DEFFUN", Logger.INTERNAL)
 			 | (header as {name, ...}, _)::_ => name
 	    val _ = if not (List.all (fn({name=n, ...}, _) => n = name) functiondefs) then
-			Logger.log_error_with_position [pos] (Printer.$("Mutually recursive function definitions must share the same name"))
+			(Logger.log_error_with_position [pos] (Printer.$("Mutually recursive function definitions must share the same name"));
+			 DynException.setErrored())
 		    else
 			()
 
