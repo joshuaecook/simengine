@@ -40,4 +40,7 @@ else
     s.add(FeatureTests('-gpu','-release'));
 end
 
+% Add performance tests
+s.add(PerformanceTests('-gpu'));
+
 end

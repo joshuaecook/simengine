@@ -1,11 +1,6 @@
 % PERFORMANCETESTS - this is a clearing house of tests relating to
 % performance of the compiler and the resulting simulation engines
 %
-% Usage:
-%  s = CoreFeatureTests - runs all tests
-%  s = CoreFeatureTests('-cpu', '-release')
-%  s = CoreFeatureTests('-release') - runs only those required for a release
-%
 function s = PerformanceTests(varargin)
 
 if nargin>0
