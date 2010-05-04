@@ -34,9 +34,11 @@ s = Suite('All Tests');
 if mode == RELEASE
   s.add(AllCPUTests('-release'))
   s.add(AllGPUTests('-release'))
+  s.add(DSLTests('-release'));
 else
   s.add(AllCPUTests)
   s.add(AllGPUTests)
+  s.add(DSLTests());
 end
 
 % Add message tests (for checking compiler output)
