@@ -44,7 +44,6 @@ s.add(SubModelTests(target,mode));
 s.add(TemporalIteratorTests(target,mode));
 s.add(SampledInputTests(varargin{:}));
 s.add(ParallelTests(target,mode));
-s.add(DSLTests(mode));
 
 end
 
