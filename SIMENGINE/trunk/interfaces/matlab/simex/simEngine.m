@@ -1,5 +1,6 @@
 function [outputs y1 t1 interface] = simEngine (options)
 %  SIMENGINE compiles and/or executes a simulation
+  global SIMEX_TIMEOUT;
 
   writeUserInputs(options);
   writeUserStates(options);
@@ -25,12 +26,13 @@ function [outputs y1 t1 interface] = simEngine (options)
     pause(0.1);
   end
   % Ignore the newline
-  pid = num2str(str2num(fileread(pidFile)));
+  pid = str2num(fileread(pidFile));
   % Remove the file to prevent crosstalk across launchBackground calls
   delete(pidFile);
 
   c = onCleanup(@()cleanupBackgroundProcess(pid));
 
+  start = tic;
   outputlen = 0;
   messagelen = 0;
   log = '';
@@ -72,6 +74,10 @@ function [outputs y1 t1 interface] = simEngine (options)
       outputlen = length(log);
     else
       pause(0.1);
+    end
+    % Check to see if there is a timeout enabled
+    if(~isempty(SIMEX_TIMEOUT) && toc(start) > SIMEX_TIMEOUT)
+      simEngineError('SIMEX_TIMEOUT', ['Simulation did not complete within ' num2str(SIMEX_TIMEOUT) ' seconds.'])
     end
   end
   try
@@ -262,16 +268,39 @@ function [path] = modelidToPath(modelid)
 end
 
 function [running] = processRunning(pid)
-    [stat, ignored] = system(['ps -p ' pid ' -o pid=']);
+    [stat, ignored] = system(['ps -p ' num2str(pid) ' -o pid=']);
     running = not(stat);
 end
 
 function cleanupBackgroundProcess(pid)
 % kill is called unconditionally, on CTRL+C the simulation is stopped
 % For normal execution, the process will have exited and the kill won't do anything
-    command = sprintf('kill -9 %s', pid);
-    [stat, result] = system(command);
-    if ~stat
-        disp('User terminated simulation.')
+    procs = subprocesses(pid);
+    notkilled = 1;
+    for p = 1:length(procs)
+      command = sprintf('kill -9 %s', num2str(procs(p)));
+      [stat, result] = system(command);
+      notkilled = notkilled && stat;
     end
+    if ~notkilled
+        disp('Simulation terminated prematurely.')
+	[stat, result] = system('sleep 1');
+    end
+end
+
+function [plist] = subprocesses(pid)
+  % Get list of processes from the system by ppid and pid
+  [stat, result] = system('ps ax -o ppid=,pid=');
+  allprocs = reshape(sscanf(result,'%d'),2,[])';
+
+  plist = pstree(pid, allprocs);
+end
+
+function [plist] = pstree(pid, allprocs)
+  plist = pid;
+  for i = 1:length(allprocs)
+    if(allprocs(i,1) == pid)
+      plist = [plist pstree(allprocs(i,2), allprocs)];
+    end
+  end
 end

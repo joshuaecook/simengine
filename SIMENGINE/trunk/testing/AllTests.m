@@ -23,6 +23,10 @@ if nargin == 1
     end
 end
 
+global SIMEX_TIMEOUT;
+
+% Timeout after 10 minutes
+SIMEX_TIMEOUT = 600;
 
 % Define the all tests suite
 s = Suite('All Tests');

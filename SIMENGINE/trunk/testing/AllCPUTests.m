@@ -48,4 +48,7 @@ else
     s.add(FeatureTests('-cpu','-release'));
 end
 
+% Add performance tests
+s.add(PerformanceTests('-cpu'));
+
 end
