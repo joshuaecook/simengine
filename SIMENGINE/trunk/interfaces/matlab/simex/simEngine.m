@@ -298,7 +298,7 @@ end
 
 function [plist] = pstree(pid, allprocs)
   plist = pid;
-  for i = 1:length(allprocs)
+  for i = 1:size(allprocs,1)
     if(allprocs(i,1) == pid)
       plist = [plist pstree(allprocs(i,2), allprocs)];
     end
