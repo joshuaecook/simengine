@@ -39,7 +39,7 @@ cd ../testing
 % grab all the tests (right now do all tests, not just release
 % tests)
 if mode == RELEASE
-  s = AllTests('release');
+  s = AllTests('-release');
 %s = CoreFeatureTests('-cpu', '-release');
 else
   s = AllTests('-internal');
