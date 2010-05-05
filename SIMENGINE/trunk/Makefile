@@ -981,4 +981,4 @@ install-documentation: build-documentation install-html-documentation
 # FIXME copy extra files
 .PHONY: install-html-documentation
 install-html-documentation: $(INSTALL_HTML_DOCUMENTATION_PREFIX) $(addprefix $(EXTERN_PUBLICATIONS)/$(DOCUMENTATION_PREFIX)/,$(addsuffix .html,$(DOCUMENTATION)))
-	$(INSTALL_DOC) -t $< $(wordlist 2,$(words $^),$^)
+	$(INSTALL_DOC) $(wordlist 2,$(words $^),$^) $<
