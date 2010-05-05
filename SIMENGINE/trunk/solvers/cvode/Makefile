@@ -151,7 +151,7 @@ install: all mk_install_dirs
 
 clean:
 	$(RM) libcvode_float.a libcvode_double.a
-	$(RM) float double
+	$(RM) -r float double
 
 .PHONY: install_dirs
 mk_install_dirs:

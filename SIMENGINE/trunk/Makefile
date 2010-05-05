@@ -288,7 +288,7 @@ compiler:
 	$(MAKE) build-system
 	$(MAKE) $(BUILD_DIR)/data/default.sew
 	$(MAKE) matlab-files
-	$(MAKE) matlab-documentation
+	$(MAKE) documentation
 	$(MAKE) $(INSTALL_TGZ)
 	$(MAKE) $(DSL_EL)
 	$(MAKE) install-locally
@@ -324,12 +324,6 @@ endif
 
 build-octave: $(BUILD_DIR)/octave
 	@$(CP) library/octave/*.m $(BUILD_DIR)/octave
-
-ifneq ($(BUILD_DOCS),)
-DOCUMENTATION_BUILD_FILES = $(BUILD_DIR)/doc/developersLanguageGuide.pdf #$(BUILD_DIR)/doc/idynamoUsersGuide.pdf 
-else
-DOCUMENTATION_BUILD_FILES = 
-endif
 
 COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/global.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
 
@@ -439,16 +433,10 @@ MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simp
 MATLAB_MEX = $(addprefix $(BUILD_DIR)/readSimulationData,$(MEXEXT))
 
 # Just needed for the p files
-MATLAB_HELPFILES = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex simCheckVersion simCheckLicense))
-MATLAB_DOC = $(addprefix $(BUILD_DIR)/,info.xml html/helptoc.xml)
-MATLAB_HTML = $(patsubst doc/matlab/%,$(BUILD_DIR)/html/%,$(patsubst %.m,%.html,$(wildcard doc/matlab/*.m)))
-MATLAB_IMAGES = $(addprefix $(BUILD_DIR)/images/, SIMATRA.png simicon.gif simEngine.png)
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
-MATLAB_FILES += $(MATLAB_HELPFILES)
 MATLAB_FILES += $(MATLAB_MEX)
 
-MATLAB_DOCUMENTATION = $(MATLAB_DOC) $(MATLAB_HTML) $(MATLAB_IMAGES) searchable-help
 
 $(BUILD_DIR)/Contents.m:
 	@echo "% SIMATRA simEngine" > $@
@@ -504,20 +492,22 @@ $(BUILD_DIR)/html/%.html: $(BUILD_DIR)/%.m
 
 searchable-help: $(BUILD_DIR)/html/helpsearch/deletable
 
-$(BUILD_DIR)/html/helpsearch/deletable:
-	-($(MATLABCMDJAVA) "cd $(BUILD_DIR); addpath(pwd); builddocsearchdb([pwd '/html']); exit")
+# TODO Invoke MATLAB search database on Muse-generated docs
 
-$(BUILD_DIR)/html/%.xml: doc/matlab/html/%.xml
-	$(CP) $< $@
+# $(BUILD_DIR)/html/helpsearch/deletable:
+# 	-($(MATLABCMDJAVA) "cd $(BUILD_DIR); addpath(pwd); builddocsearchdb([pwd '/html']); exit")
 
-$(BUILD_DIR)/images/%: doc/matlab/images/%
-	$(CP) $< $@
+# $(BUILD_DIR)/html/%.xml: doc/matlab/html/%.xml
+# 	$(CP) $< $@
 
-$(BUILD_DIR)/%.xml: doc/matlab/%.xml
-	$(CP) $< $@
+# $(BUILD_DIR)/images/%: doc/matlab/images/%
+# 	$(CP) $< $@
 
-$(BUILD_DIR)/%.gif: doc/matlab/%.gif
-	$(CP) $< $@
+# $(BUILD_DIR)/%.xml: doc/matlab/%.xml
+# 	$(CP) $< $@
+
+# $(BUILD_DIR)/%.gif: doc/matlab/%.gif
+# 	$(CP) $< $@
 
 interfaces/matlab/%.p: interfaces/matlab/%.m
 	-($(MATLABCMD) "cd interfaces/matlab; pcode $*.m; exit")
@@ -545,9 +535,6 @@ share/cuda/device_props.a: share_cuda
 
 .phony: matlab-files
 matlab-files: $(BUILD_DIR) $(MATLAB_FILES)
-
-.phony: matlab-documentation
-matlab-documentation: $(MATLAB_DOCUMENTATION)
 
 .PHONY: matlab-installer
 matlab-installer: $(MATLAB_FILES)
@@ -793,9 +780,6 @@ $(BUILD_DIR)/octave: $(BUILD_DIR)
 $(BUILD_DIR)/doc: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
-$(BUILD_DIR)/html: $(BUILD_DIR)
-	@if test ! -d $@ ; then $(MKDIR) $@; fi
-
 $(BUILD_DIR)/images: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
@@ -863,36 +847,6 @@ $(TOP_LEVEL)/build:
 	$(info Updating top level makefile)
 	@(cd $(TOP_LEVEL); svn update -N Makefile; make build)
 
-# Subversion Related
-# ==============================================================================================
-
-# ifneq ($(findstring branches,$(SVN_BRANCH)),)
-# update-from-trunk:
-# 	$(info Updating branch from trunk ...)
-# 	$(info First updating the branch to make sure it is up to date)
-# 	@svn update
-# 	@echo "Determining the first copy revision number ..."; \
-# 	 startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
-# 	 echo "Merging from trunk revision $$startrev ..."; \
-# 	 svn merge -r$$startrev:HEAD $(SVNTRUNK); \
-# 	 echo " -> Resolve any conflicts marked with a 'C'"; \
-# 	 echo " -> Execute 'svn commit -m \"Updated branch with trunk\"' in directory '..'"
-
-# #http://www.hosted-projects.com/trac/simatra/dynamo/changeset?old_path=trunk&old=644&new_path=branches%2Frweinstein_299&new=701
-# show-changes:
-# 	$(info Opening $(BROWSER) to show changes in branch relative to trunk)
-# 	@startrev=`svn log --stop-on-copy 2>/dev/null | egrep '^r[0-9]+ \|' | tail -1 | awk '{print $$1}' | sed -e 's/r//'`; \
-# 	 website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=$$startrev\&new_path=branches%2F$(REV)\&new=HEAD; \
-# 	 echo "Opening website: $$website"; \
-# 	 $(BROWSER) $$website
-# show-changes-vs-trunk:
-# 	$(info Opening $(BROWSER) to show changes in branch relative to trunk)
-# 	@website=$(SVNWEBSRV)/changeset?old_path=trunk\&old=HEAD\&new_path=branches%2F$(REV)\&new=HEAD; \
-# 	 echo "Opening website: $$website"; \
-# 	 $(BROWSER) $$website
-# endif
-
-
 # System Test
 # ==============================================================================================
 
@@ -926,7 +880,7 @@ system-test:
 
 install: system
 	$(info Installing Dynamo in $(INSTALL_BUILD_DIR) ...)
-	@$(RM) $(INSTALL_BUILD_DIR)
+	@$(RM) -r $(INSTALL_BUILD_DIR)
 	@-$(MKDIR) $(INSTALL_BUILD_DIR)
 	@$(CP) build/* $(INSTALL_BUILD_DIR)
 #	@gzip -d $(INSTALL_BUILD_DIR)/bin/i$(FILENAME)_save.gz
@@ -947,8 +901,8 @@ install: system
 
 .PHONY: clean
 clean: mostlyclean solvers_clean codegen_clean share_cuda_clean testing_clean
-	$(RM) $(BUILD)_*
-	$(RM) $(BUILD)
+	$(RM) -r $(BUILD)_*
+	$(RM) -r $(BUILD)
 #	$(RM) ../$(RPM_TEMP_DIR)
 #	$(RM) ../$(RPM_TAR_GZ)
 	$(RM) install_*.m
@@ -985,3 +939,46 @@ clean-all:
 	$(RM) install_*.p
 
 
+# Documentation
+# ==============================================================================================
+
+# The names of the documentation targets.
+# Appropriate extensions (.html, .pdf) are added to these names.
+DOCUMENTATION = tutorial userguide/userguide
+DOCUMENTATION_PREFIX = simEngine
+# Local path of the publications repository
+EXTERN_PUBLICATIONS = extern-publications
+# Destination of the published HTML documentation
+INSTALL_HTML_DOCUMENTATION_PREFIX = $(BUILD_DIR)/html
+# Extra files to install with HTML documentation
+INSTALL_HTML_DOCUMENTATION_EXTRAS = fig/*.png
+
+.PHONY: documentation
+documentation: install-documentation
+
+.PHONY: clean-documentation
+clean-documentation:
+	$(RM) -r $(EXTERN_PUBLICATIONS)
+
+# Downloads a local copy of the publications repository.
+.PHONY: $(EXTERN_PUBLICATIONS)
+$(EXTERN_PUBLICATIONS):
+	test -d $@ && svn up $@ || svn co $(SVN_PREFIX)/PUBLICATIONS $@
+
+# Defines the location of the simEngine build and publishes the documentation.
+.PHONY: build-documentation
+build-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
+build-documentation: $(EXTERN_PUBLICATIONS) $(BUILD_DIR) $(OUTPUT_FILE)
+	$(MAKE) -C $< $(addsuffix .html,$(addprefix $(DOCUMENTATION_PREFIX)/,$(DOCUMENTATION)))
+
+$(INSTALL_HTML_DOCUMENTATION_PREFIX):
+	$(MKDIR) $@
+
+# Copies published documentation to the simEngine build
+.PHONY: install-documentation
+install-documentation: build-documentation install-html-documentation
+
+# FIXME copy extra files
+.PHONY: install-html-documentation
+install-html-documentation: $(INSTALL_HTML_DOCUMENTATION_PREFIX) $(addprefix $(EXTERN_PUBLICATIONS)/$(DOCUMENTATION_PREFIX)/,$(addsuffix .html,$(DOCUMENTATION)))
+	$(INSTALL_DOC) -t $< $(wordlist 2,$(words $^),$^)

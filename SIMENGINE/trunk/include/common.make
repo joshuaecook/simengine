@@ -14,14 +14,13 @@ verbose ?= 1
 noecho ?=
 
 #SVN_ROOT = https://svn1.hosted-projects.com/simatra/simEngine/
-SVN_ROOT = https://simatra.jira.com/svn/SIMATRA
+SVN_PREFIX = https://simatra.jira.com/svn
+SVN_ROOT = $(SVN_PREFIX)/SIMENGINE
 SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
 SVN_INFO = svn info $(CURDIR) 2>/dev/null
 SVN_URL := $(shell $(SVN_INFO) | sed -n 's/^URL: //p')
-SVN_REVISION := $(shell $(SVN_INFO) | sed -n 's/Revision: //p')
+SVN_REVISION := $(shell svnversion -nc . | cut -d: -f2 | sed -e 's/[MS]//g')
 SVN_BRANCH := $(subst $(SVN_ROOT),,$(SVN_URL))
-
-TRAC_URL := http://www.hosted-projects.com/trac/simatra/simEngine/
 
 DEBUG := $(or $(debug),$(findstring branches,$(SVN_BRANCH)))
 PROFILE := $(if $(profile),$(profile),)
@@ -217,7 +216,7 @@ AR = ar
 ARFLAGS = rsc
 LN = ln -s
 MKDIR = mkdir -p
-RM = rm -rf
+RM = rm -f
 GRIND = valgrind
 ENV = $(if $(DARWIN),/usr/bin/env,/bin/env)
 MKDIR = mkdir -p
@@ -228,3 +227,4 @@ endif
 INSTALL = install
 INSTALL_PROG = $(INSTALL)
 INSTALL_HEADER = $(INSTALL) -m 644
+INSTALL_DOC = $(INSTALL) -m 644
