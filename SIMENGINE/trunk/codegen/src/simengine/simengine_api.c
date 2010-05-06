@@ -156,7 +156,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
 
     // Initialize random number generator
     if (!(opts->reuse_random && random_initialized)) {
-      random_init(props->num_models);
+      random_init(models_per_batch);
       random_initialized = 1;
     }
 
