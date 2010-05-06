@@ -21,6 +21,8 @@ int exec_loop(solver_props *props, const char *outputs_dirname, double *progress
 #error Invalid target
 #endif
 
+  random_copy_state_from_device();
+
   // Free solvers for all iterators
   for(i=0;i<NUM_ITERATORS;i++){
     solver_free(&props[i]);

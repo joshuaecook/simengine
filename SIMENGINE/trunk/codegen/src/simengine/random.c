@@ -141,6 +141,23 @@ void random_copy_state_to_device (void) {
 #endif
 }
 
+// Copies the current state of the PRNG from device memory.
+// No op for CPU-based targets
+void random_copy_state_from_device (void) {
+#ifdef TARGET_GPU
+  unsigned int *g_buffer;
+  unsigned int *g_position;
+  CDATAFORMAT *g_gaussian_buffer;
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_gaussian_buffer, gaussian_buffer));
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_position, r250_position));
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_buffer, r250_buffer));
+
+  cutilSafeCall(cudaMemcpy(h_r250_buffer, g_buffer, PARALLEL_MODELS * R250_LENGTH * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+  cutilSafeCall(cudaMemcpy(h_r250_position, g_position, PARALLEL_MODELS * sizeof(unsigned int), cudaMemcpyDeviceToHost)); 
+  cutilSafeCall(cudaMemcpy(h_gaussian_buffer, g_gaussian_buffer, PARALLEL_MODELS * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+#endif
+}
+
 // Returns a uniformly-distributed random number on the interval [0,1)
 __HOST__ __DEVICE__ CDATAFORMAT uniform_random (unsigned int instances, unsigned int instanceId, unsigned int *buffer, unsigned int *position) {
   // My reference did some clever prescaling of buffer offsets which
