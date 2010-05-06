@@ -288,7 +288,7 @@ compiler:
 	$(MAKE) build-system
 	$(MAKE) $(BUILD_DIR)/data/default.sew
 	$(MAKE) matlab-files
-	$(MAKE) documentation
+#	$(MAKE) documentation
 	$(MAKE) $(INSTALL_TGZ)
 	$(MAKE) $(DSL_EL)
 	$(MAKE) install-locally
