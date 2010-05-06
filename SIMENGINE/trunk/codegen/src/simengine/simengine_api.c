@@ -7,6 +7,7 @@ static const struct option long_options[] = {
   {"start", required_argument, 0, START},
   {"stop", required_argument, 0, STOP},
   {"seed", required_argument, 0, SEED},
+  {"x-reuse_random", no_argument, 0, REUSE_RANDOM},
 #ifdef TARGET_GPU
   {"gpuid", required_argument, 0, GPUID},
 #endif
@@ -67,7 +68,12 @@ void close_progress_file(double *progress, int progress_fd, unsigned int num_mod
 // simengine_runmodel()
 //
 //    executes the model for the given parameters, states and simulation time
-simengine_result *simengine_runmodel(double start_time, double stop_time, unsigned int num_models, const char *outputs_dirname){
+simengine_result *simengine_runmodel(simengine_opts *opts){
+  double start_time = opts->start_time;
+  double stop_time = opts->stop_time;
+  unsigned int num_models = opts->num_models;
+  const char *outputs_dirname = opts->outputs_dirname;
+
   CDATAFORMAT model_states[PARALLEL_MODELS * NUM_STATES];
   unsigned int stateid;
   unsigned int modelid;
@@ -79,6 +85,7 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
   int progress_fd;
 
   int resuming = 0;
+  int random_initialized = 0;
 
 # if defined TARGET_GPU
   gpu_init();
@@ -148,7 +155,10 @@ simengine_result *simengine_runmodel(double start_time, double stop_time, unsign
     solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset);
 
     // Initialize random number generator
-    random_init(props->num_models);
+    if (!(opts->reuse_random && random_initialized)) {
+      random_init(props->num_models);
+      random_initialized = 1;
+    }
 
     // If no initial states were passed in
     if(!resuming){
@@ -313,6 +323,9 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       }
       opts->seeded = 1;
       opts->seed = atoi(optarg);
+      break;
+    case REUSE_RANDOM:
+      opts->reuse_random = 1;
       break;
 #ifdef TARGET_GPU
     case GPUID:
@@ -549,10 +562,7 @@ int main(int argc, char **argv){
 
     make_model_directories(&opts);
 
-    simengine_result *result = simengine_runmodel(opts.start_time,
-						  opts.stop_time,
-						  opts.num_models,
-						  opts.outputs_dirname);
+    simengine_result *result = simengine_runmodel(&opts);
 
     if (SUCCESS == result->status){
       write_states_time(&opts, result);

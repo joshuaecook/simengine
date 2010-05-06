@@ -80,14 +80,15 @@ typedef struct{
 
 // Options parsed from the commandline
 typedef struct{
-  double start_time;
-  double stop_time;
   int seeded;
   int seed;
+  int reuse_random;
 #ifdef TARGET_GPU
   int gpuid;
 #endif
   unsigned int num_models;
+  double start_time;
+  double stop_time;
   char *outputs_dirname;
 } simengine_opts;
 
@@ -97,6 +98,7 @@ typedef enum {
   START,
   STOP,
   SEED,
+  REUSE_RANDOM,
 #ifdef TARGET_GPU
   GPUID,
 #endif
