@@ -783,6 +783,9 @@ $(BUILD_DIR)/doc: $(BUILD_DIR)
 $(BUILD_DIR)/images: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
+$(BUILD_DIR)/html:
+	$(MKDIR) $@
+
 $(BUILD_DIR):
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
@@ -942,19 +945,19 @@ clean-all:
 # Documentation
 # ==============================================================================================
 
-# The names of the documentation targets.
-# Appropriate extensions (.html, .pdf) are added to these names.
-DOCUMENTATION = tutorial userguide/userguide
-DOCUMENTATION_PREFIX = simEngine
 # Local path of the publications repository
 EXTERN_PUBLICATIONS = extern-publications
 # Destination of the published HTML documentation
 INSTALL_HTML_DOCUMENTATION_PREFIX = $(BUILD_DIR)/html
-# Extra files to install with HTML documentation
-INSTALL_HTML_DOCUMENTATION_EXTRAS = fig/*.png
 
 .PHONY: documentation
-documentation: install-documentation
+documentation: html-documentation
+
+.PHONY: html-documentation
+html-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
+html-documentation: export DOCUMENTATION_OUTPUT_DIR = $(realpath $(INSTALL_HTML_DOCUMENTATION_PREFIX))
+html-documentation: $(EXTERN_PUBLICATIONS) $(INSTALL_HTML_DOCUMENTATION_PREFIX)
+	$(MAKE) -C $< html
 
 .PHONY: clean-documentation
 clean-documentation:
@@ -964,21 +967,3 @@ clean-documentation:
 .PHONY: $(EXTERN_PUBLICATIONS)
 $(EXTERN_PUBLICATIONS):
 	test -d $@ && svn up $@ || svn co $(SVN_PREFIX)/PUBLICATIONS $@
-
-# Defines the location of the simEngine build and publishes the documentation.
-.PHONY: build-documentation
-build-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
-build-documentation: $(EXTERN_PUBLICATIONS) $(BUILD_DIR) $(OUTPUT_FILE)
-	$(MAKE) -C $< $(addsuffix .html,$(addprefix $(DOCUMENTATION_PREFIX)/,$(DOCUMENTATION)))
-
-$(INSTALL_HTML_DOCUMENTATION_PREFIX):
-	$(MKDIR) $@
-
-# Copies published documentation to the simEngine build
-.PHONY: install-documentation
-install-documentation: build-documentation install-html-documentation
-
-# FIXME copy extra files
-.PHONY: install-html-documentation
-install-html-documentation: $(INSTALL_HTML_DOCUMENTATION_PREFIX) $(addprefix $(EXTERN_PUBLICATIONS)/$(DOCUMENTATION_PREFIX)/,$(addsuffix .html,$(DOCUMENTATION)))
-	$(INSTALL_DOC) $(wordlist 2,$(words $^),$^) $<
