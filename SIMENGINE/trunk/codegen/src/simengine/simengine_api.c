@@ -453,6 +453,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 
 // This will create model directories for inputs/outputs if they weren't created before calling this simulation
 void make_model_directories(simengine_opts *opts){
+#if NUM_OUTPUTS > 0
   // Make sure a directory for the model exists
   char model_dirname[PATH_MAX];
   unsigned int modelid, full_modelid;
@@ -477,6 +478,7 @@ void make_model_directories(simengine_opts *opts){
 	  ERROR(Simatra::Simex::make_model_directories, "Output directory '%s' already exists, remove manually or specify a new output directory with the --outputdir <directory name> option", opts->outputs_dirname);
     }
   }
+#endif
 }
 
 void write_states_time(simengine_opts *opts, simengine_result *result){
