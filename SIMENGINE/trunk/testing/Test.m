@@ -344,7 +344,7 @@ classdef Test < handle
           
           output = regexprep(regexprep(regexprep(regexprep(t.Output, sprintf('\b'), ''), '&', '&amp;'), '>', '&gt;'), '<', '&lt;');
           
-          fprintf(fd, '<testcase time="%f" name="%s">%s<system-out>%s</system-out></testcase>\n', t.Time, t.Name, failureMsg, t.Output);  
+          fprintf(fd, '<testcase time="%f" name="%s">%s<system-out>%s</system-out></testcase>\n', t.Time, t.Name, failureMsg, output);  
         end
 
     end % methods
