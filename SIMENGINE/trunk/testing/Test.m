@@ -342,7 +342,9 @@ classdef Test < handle
                 failureMsg = sprintf('<error message="%s"/>', t.Message);
           end
           
-          fprintf(fd, '<testcase time="%f" name="%s">%s<system-out>%s</system-out></testcase>\n', t.Time, t.Name, failureMsg, '');%t.Output);  
+          output = regexprep(regexprep(regexprep(regexprep(t.Output, sprintf('\b'), ''), '&', '&amp;'), '>', '&gt;'), '<', '&lt;');
+          
+          fprintf(fd, '<testcase time="%f" name="%s">%s<system-out>%s</system-out></testcase>\n', t.Time, t.Name, failureMsg, t.Output);  
         end
 
     end % methods
