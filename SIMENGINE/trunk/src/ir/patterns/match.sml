@@ -224,6 +224,7 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
 				arg= replaceSymbol (sym, repl_exp) arg})
       | Exp.META (Exp.LAMBDA {arg, body})
 	=> if arg = sym then
+	       (* arg is a new binding for the name sym. *)
 	       exp
 	   else
 	       Exp.META (Exp.LAMBDA {arg=arg, body= replaceSymbol (sym, repl_exp) body})
@@ -288,6 +289,10 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
     in
 	exp'
     end
+
+
+val applyRewriteExp = Profile.wrap (applyRewriteExp, Profile.alloc "Match.applyRewriteExp")
+
 
 fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp = 
     if List.length rewritelist > 0 then
