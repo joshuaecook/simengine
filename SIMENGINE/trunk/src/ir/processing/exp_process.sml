@@ -126,23 +126,23 @@ open Printer
 
 (* TODO: Refactor*)
 fun exp2termsymbols (Exp.FUN (_, exps)) = 
-    List.concat (map exp2termsymbols exps)
+    Util.flatmap exp2termsymbols exps
   | exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
   | exp2termsymbols (Exp.TERM (Exp.TUPLE terms)) = 
-    List.concat (map (fn(t)=> exp2termsymbols (Exp.TERM t)) terms)
+    Util.flatmap (fn(t)=> exp2termsymbols (Exp.TERM t)) terms
   | exp2termsymbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
     (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
   | exp2termsymbols (Exp.CONTAINER c) =
-    List.concat (map exp2termsymbols (Container.containerToElements c))
+    Util.flatmap exp2termsymbols (Container.containerToElements c)
   | exp2termsymbols _ = []
     
-fun exp2symbols (Exp.FUN (_, operands))		= List.concat (map exp2symbols operands)
+fun exp2symbols (Exp.FUN (_, operands))		= Util.flatmap exp2symbols operands
   | exp2symbols (Exp.TERM term) 		= term2symbols term
-  | exp2symbols (Exp.CONTAINER c)               = List.concat (map exp2symbols (Container.containerToElements c))
+  | exp2symbols (Exp.CONTAINER c)               = Util.flatmap exp2symbols (Container.containerToElements c)
   | exp2symbols _ 				= nil
 
 and term2symbols (Exp.SYMBOL (var, _)) 		= [var]
-  | term2symbols (Exp.TUPLE terms) 		= List.concat (map term2symbols terms)
+  | term2symbols (Exp.TUPLE terms) 		= Util.flatmap term2symbols terms
   | term2symbols (Exp.COMPLEX (real, imag)) 	= (term2symbols real) @ (term2symbols imag)
   | term2symbols _ 				= nil
 
@@ -158,8 +158,8 @@ fun exp2symbol_names exp =
 fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
     
 
-fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(List.concat (map exp2fun_names exps))
-  | exp2fun_names (Exp.CONTAINER c) = List.concat (map exp2fun_names (Container.containerToElements c))
+fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(Util.flatmap exp2fun_names exps)
+  | exp2fun_names (Exp.CONTAINER c) = Util.flatmap exp2fun_names (Container.containerToElements c)
   | exp2fun_names _ = []
 
 val uniqueid = ref 0
