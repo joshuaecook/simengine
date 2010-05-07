@@ -1,0 +1,562 @@
+; % Solver Documentation - Appendix A
+
+* Solver Documentation
+
+** Solving Dynamical Systems
+
+Time evolving ordinary differential equations (ODEs) are at the core
+of dynamical systems.  Each differential equation describes how a
+state variable changes over time (see *Equation 1*). In general,
+dynamical systems are comprised of multiple differential equations
+that are coupled (see *Equation 2*). For coupled differential equations,
+the change of each state variable is a function of the value of all
+the state variables.
+
+<latex>
+\begin{equation}
+\label{Eqn:ScalarODE}
+\tag{1}
+\frac{dy(t)}{dt} = f(t,y(t)) 
+\end{equation}
+
+\begin{equation}
+\label{Eqn:VectorODE}
+\tag{2}
+\frac{d{\bf{Y}}(t)}{dt} = {\bf{F}}(t,{\bf{Y}}(t))
+\end{equation}
+</latex>
+
+The solution of these differential equations is either **y(t)** in the
+scalar case or **Y(t)** in the vector case.  For some dynamical systems,
+an exact solution is not always possible to determine.  Instead, we
+often must revert to finding a numerical approximation to the
+solution.
+
+If we recognize that <math>\frac{\Delta y}{\Delta t}</math> is an
+approximation to <math>\frac{dy(t)}{dt}</math>, where <math>\Delta
+t</math> is the timestep **h** and <math>\Delta y = y[n+1]-y[n]</math>, we
+can then transform a continuous representation of a differential
+equation to a discrete recurrence relationship (see
+*Equation 3*).  The discrete form of the continuous
+differential equation can be considered an suitable approximation if
+**h** is small enough. The built-in **forwardeuler** method
+implements this exact transformation.
+
+<latex>
+\begin{equation}
+\label{Eqn:DiscreteODE}
+\tag{3}
+y[n+1] = y[n] + h \cdot f(n, y[n])
+\end{equation}
+</latex>
+
+For some systems, the forward-Euler method might be sufficient for
+numerically approximating the solution to a dynamic system.  However,
+in many cases, a desired time-step might not be accurate enough, and
+the required time-step might not be computational practical.  For this
+reason, simEngine provides additional solvers that can be better
+suited for the modeling task at hand.
+
+** simEngine Integration Methods
+
+The simEngine compiler offers a multitude of a built-in numerical
+methods for solving differential equations.  A summary of the
+available solver types can be found in the table below.  Each solver
+is explained in additional detail in subsequent sections.
+
+Depending on the composition of the dynamical system, it might be
+advantageous to utilize more than one solver for different equations.
+The simEngine system supports partitioning equations into different
+groups, each with its own solution method.  For example, fast changing
+states might benefit from the stability characteristics of an implicit
+methods, while slower changing states can benefit from the
+computational efficiency of an explicit method.
+
+***TODO: add table back in***
+; <latex>
+; \begin{table}
+; \caption{Summary of Integration Methods}
+; \centering
+; \begin{tabular}{l l p{7 cm}}
+; \toprule
+
+; Solver & Options (\textbf{Default Value}) & Description \\
+
+; \midrule
+; \multicolumn{3}{c}{Runge-Kutta Explicit Methods} \\
+; \midrule
+
+; \literal{forwardeuler} & \literal{dt}: Time Step (\textbf{0.1}) &
+; \first~order, fixed time-step solver \\
+
+; \literal{rk4} & \literal{dt}: Time Step (\textbf{0.1}) & \fourth~order, fixed time-step solver \\
+
+; \multirow{2}{*}{**ode23**} & \literal{abstol}: Absolute
+; Tolerance (${\bf{1{\e{-6}}}}$) & \multirow{2}{7 cm}{Variable time-step solver using the Bogacki--Shampine $(2, 3)$ pair} \\
+; & \literal{reltol}: Relative Tolerance (${\bf{1{\e{-3}}}}$) & \\
+
+; \multirow{2}{*}{**ode45**} & \literal{abstol}: Absolute
+; Tolerance (${\bf{1{\e{-6}}}}$) & \multirow{2}{7 cm}{Variable time-step solver using the Dormand--Prince $(4, 5)$ pair} \\
+; & \literal{reltol}: Relative Tolerance (${\bf{1{\e{-3}}}}$) & \\
+
+; \midrule
+; \multicolumn{3}{c}{SUNDIALS CVODE Methods (Support for CPU targets only)} \\
+; \midrule
+
+; \multirow{4}{*}{\literal{cvode}} & \literal{dt}: Output Time Step
+; (\textbf{0.1}) & \multirow{4}{7 cm}{Variable time-step, Backward Differential Formula (BDF) implicit
+;   solver with Newton iterations} \\
+; & \literal{abstol}: Absolute Tolerance (${\bf{1{\e{-6}}}}$) & \\
+; & \literal{reltol}: Relative Tolerance (${\bf{1{\e{-3}}}}$) & \\
+; & \literal{maxorder}: Maximum Order (\textbf{5}) & \\
+
+; \multirow{4}{*}{\literal{cvode_nonstiff}} & \literal{dt}: Output Time Step (\textbf{0.1}) &
+; \multirow{4}{7 cm}{Variable time-step, Adams--Moulton method for
+; non-stiff systems} \\
+; & \literal{abstol}: Absolute Tolerance (${\bf{1{\e{-6}}}}$) & \\
+; & \literal{reltol}: Absolute Tolerance (${\bf{1{\e{-3}}}}$) & \\
+; & \literal{maxorder}: Maximum Order (\textbf{12}) & \\
+
+; \midrule
+; \multicolumn{3}{c}{Speciality Methods } \\
+; \midrule
+
+; \literal{exponentialEuler} & \literal{dt}: Time Step (\textbf{0.1}) & Fixed-time step
+; explicit method for ODEs where stiffness is concentrated in a linear
+; term \\
+
+; \literal{linearbackwardEuler} & \literal{dt}: Time Step (\textbf{0.1}) & Fixed-time step,
+; \first~order implicit method for linearly coupled ODEs \\
+
+; \bottomrule
+; \end{tabular}
+; \label{Tbl:SolverSummary}
+; \end{table}
+; </latex>
+
+*** Runge Kutta Explicit Methods
+
+The following methods are each a variations of the Runge--Kutta class
+of explicit methods.  There are two fixed step methods: a first order
+forward-Euler scheme and a fourth order Runge-Kutta scheme.  There are
+also two variable time step methods: a second order method based on
+Bogacki and Shampine and a fourth order method based on Dormand and
+Prince.  All of these methods are explicit, one-step methods, meaning
+that the next state is computed directly from the previous state and
+only one previous step.  Each method is defined in greater detail
+below.
+
+**** Forward Euler
+
+The forward-Euler method is a simple first order difference scheme for
+solving time-varying ODEs.  The transformation, described in Equation
+3, uses the state values at the current time **t** to compute the state
+values forward in time to the next time step, **t+dt**.  Forward-Euler,
+being first order, has error that is proportional to the time step **dt**
+(The proof of this can be found in any numerical analysis text book).
+Dispite its low accuracy, its numerical efficiency does make
+forward-Euler suitable for a variety of modeling problems.
+
+The forward-Euler solver can be set, as shown in the following code
+snippet, by assigning it to the solver property of the desired
+iterator.  When only one solver is desired in the system, it can be
+set using the global solver property.  The forward-Euler method has
+one property, **dt**, specifying the desired time step.  The
+forward-Euler scheme can only be used with a fixed time step.
+
+<src lang="dsl">
+// for a specific iterator
+iterator t_fe with {continuous, solver=forwardeuler{dt=0.01}}
+
+// as a global solver
+solver = forwardeuler{dt=0.01}
+</src>
+
+; % need to figure out how to do multi-line table entries for the options
+
+**** Fourth order Runge Kutta
+
+Similar to the forward-Euler scheme, the fourth order Runge--Kutta
+method is a *one-step method*.  This means that the next state is
+generated solely from the previous state.  A more accurate solution
+over forward-Euler is achieved by evaluating multiple points within
+the span between **t** and **t+dt**.  Computing each iteration requires
+four function evaluations (see Equation 4 where **F** is the
+function to evaluate.
+
+<latex>
+\begin{equations}
+\label{Eqn:RK4}
+\tag{4}
+{\bf{k}}_1 &=& {\bf{F}}\left (t, {\bf{Y}}(t)\right ) \nonumber \\
+{\bf{k}}_2 &=& {\bf{F}}\left (t+\frac{dt}{2}, {\bf{k}}_1\cdot \frac{dt}{2}\right ) \nonumber \\
+{\bf{k}}_3 &=& {\bf{F}}\left (t+\frac{dt}{2}, {\bf{k}}_2\cdot \frac{dt}{2}\right ) \\
+{\bf{k}}_4 &=& {\bf{F}}\left (t+dt, {\bf{k}}_3\cdot dt \right ) \nonumber \\
+{\bf{Y}}(t+dt) &=& \frac{dt}{6} \left ({\bf{k}}_1 + 2 {\bf{k}}_2 + 2 {\bf{k}}_3 + {\bf{k}}_4 \right ) \nonumber 
+\end{equations}
+</latex>
+***TODO fix the above equation***
+
+The fourth order Runge--Kutta method is specified using the **rk4** solver
+type.  The **rk4** solver has one property, **dt**, which is the time step for
+the simulation.  Like forward-Euler, this method only works on a fixed
+time step.
+
+**** ODE23 and ODE45
+
+The **ode23** and **ode45** are second order and fourth order, respectively,
+variations of Runge-Kutta methods, both operating using a adaptive
+step control algorithm.  These schemes are often able to run
+dramatically faster than the **forwardeuler** or **rk4** by choosing the
+appropriate time step, taking smaller steps when the solution changes
+rapidly, and much larger steps when the solution changes more slowly.
+The **ode23** and **ode45** schemes, while not identical, are based on the
+algorithms employed in MATLAB with the same name.  The **ode23**
+scheme is based on the Bogacki-Shampine (2,3) pair while the
+**ode45** scheme is based on the Dormand-Prince (4,5) pair.
+
+The adaptive step control algorithm uses an embedded error estimate to
+evaluate the local truncation error at a given point in time.  In
+short, two schemes of differing orders are computed.  The higher order
+scheme will generally provide a better approximation of the solution
+that the lower order evaluation.  The difference between those two
+schemes is the embedded error estimate.  For efficiency purposes, the
+two schemes in **ode23** and **ode45**, reuse all but one function evaluation.
+
+If <math>U_i</math> is the lower order solution and <math>U^*_i</math>
+is the higher order solution, then the ratio of actual error versus
+allowed error per state <math>i</math> is defined as
+
+<latex>
+\begin{equation}
+\tag{5}
+r_i = \frac{\left | {U_i-U^*_i} \right |}{reltol\cdot \left | U_i \right |+abstol}
+\end{equation}
+</latex>
+
+where **reltol** and **abstol** are defined in the DSL model description.
+The global error of the iteration step across all <math>N</math> states is
+defined as the L2 norm of the error ratios, <math>\left \lVert {\bf{r}}
+\right \rVert_2</math>, which is calculated as <math>\sqrt{\sum^N_{i=1} \left |
+r_i \right |^2}</math>.  In simEngine, the error is averaged across each
+state variable using the following formulation:
+
+<latex>
+\begin{equation}
+\tag{6}
+\epsilon = \sqrt{\frac{1}{N} \sum^N_{i=1} r_i^2}
+\end{equation}
+</latex>
+
+When <math>\epsilon < 1</math>, the actual error, averaged across each
+of the state variables is below the allowed error threshold as
+determined by **reltol** and **abstol**.  The step will progress, and if
+possible, the next step size attempted will increase.  If <math>\epsilon >
+1</math>, then the error is too significant and the step is rejected.
+
+The step size for the following iteration, <math>h^*</math> is based on the step
+size, <math>h</math>, taken for the current iteration and the computed embedded
+error.  The new step size, <math>h^*</math>, is calculated as
+
+<latex>
+\begin{equation}
+\tag{7}
+h^* = h\cdot S \left ( \frac{1}{\epsilon} \right ) ^{\frac{1}{p}}
+\end{equation}
+</latex>
+
+where <math>S</math> is a safety factor to help ensure that the next step is
+approriate (default is 0.9), and <math>p</math> is a power constant, set as <math>p=3</math>
+for **ode23** and <math>p=5</math> for **ode45**.
+
+Both of these methods are well suited for general solutions of
+non-stiff dynamical systems.  For systems that are stiff, these
+methods will generally produce acceptable results, though performance
+will suffer due to the very small sizes that it might have to take.
+Still, both **ode23** and **ode45** can be good first
+choice solvers.  The default solver used by simEngine, if none is
+specified, is **ode45**.
+
+*** SUNDIALS CVODE
+
+The Lawrence Livermore National Laboratory has created the SUNDIALS
+suite of non-linear differential and differential-algebraic equation
+solvers.  This highly robust suite contains solvers for both stiff and
+nonstiff dynamical systems.  The simEngine compiler uses one of these
+solvers, CVODE, which is specifically designed to solve systems of
+non-linear ODEs.
+
+The CVODE solver is extremely mature in its development.  The
+simEngine compiler, at this point in time, does not fully expose all
+the capabilities of CVODE.  However, two modes of operation have been
+exposed: a CVODE implementation designed for stiff systems, **CVODE**, and
+a CVODE implemention designed for non-stiff systems, **cvode_nonstiff**.
+While the underlying implementations are vastly different and
+described below, there are some commonalities to using CVODE.
+
+Both implementations are variable time step, variable order, and
+multi-step solvers.  This allows for highly accurate simulations with
+a minimum of steps taken and function evaluations performed.  Accuracy
+is computed in a similar way as in **ode23** and **ode45**, and can be
+specified with the same optional **abstol** and **reltol** properties.
+
+Since CVODE is a multi-step solver, state is kept internally inside
+the solver.  This is advantageous as previous state values can improve
+accuracy of computing the following state value.  The downside is that
+this internal state does not get updated automatically when applying a
+reset condition to a state.  This is also an issue if a particular
+state has to read a value produced by a different solver.  To work
+around this limitation, the **dt** property sets an fixed sample
+rate for the solver.  If **dt** was, for example set to 0.1, at
+each step in time, *0, 0.1, 0.2, ...*, the solver will produce a
+result that is accessible to the system.  Between each step of time,
+CVODE would be free to take as many steps as necessary.  At each step,
+the solvers memory is reinitialized, so that any changes in the system
+state are reflected in the solver.  For very small values of
+**dt**, the performance of CVODE will suffer as the amount of
+data generated increases.  For moderate values of **dt**, the
+performance degradation is minimal.
+
+Please note that at this time, CVODE is supported only on our single
+CPU and parallel CPU targets.  simEngine does not support CVODE
+execution on a GPU target.
+
+**** CVODE for stiff systems
+
+By specifying the solver as **cvode**, simEngine defaults to
+using CVODE's powerful implicit methods for solving stiff systems.
+CVODE uses a Backward Differentiation Formula (BDF).  This is an
+implicit method that also requires a iterative linear solver.  The
+linear solver used is CVODE's dense method (**CVDENSE**) which
+performs an LU factorization and then backsolves for a solution.  The
+dense method should work in all cases, though for certain models,
+other linear solvers can be more efficient.  The additional linear
+solvers offered by CVODE including their sparse linear solvers are not
+at this time supported by simEngine.
+
+The **maxorder** option is by default set to 5.  A maximum order
+of five refers to the maximum order of the BDF method used by CVODE.
+Despite being an implicit method, it is not A-stable at orders greater
+than 2.  CVODE includes an automatic stability limit detection
+algorithm that will reduce the order if it determines that the system
+is unstable.  Slowly growing oscillations can trigger this
+condition. By setting the **maxorder** option to 2, the solver
+can be guaranteed to be A-stable.
+
+**** CVODE for non-stiff systems
+
+For non-stiff systems, CVODE provides an alternative solver based on a
+Adams--Moulton variable order solver.  The Adams--Moulton scheme is a
+multi-step implicit method with orders varying from 1 to 12, with the
+maximum order set by the **maxorder** property.  As an implicit method,
+the Adams--Moulton equations can not be solved explicitly.  A
+functional, non-matrix iterative solver is provided as part of CVODE
+to solve these implicit equations.  Despite the use of an implicit
+method, functional iteration will not be guaranteed to converge to
+provide a solution to stiff dynamical systems.  Therefore, using the
+**cvode_nonstiff** solver should be used only for dynamical systems that
+are not stiff.
+
+
+**** Special Purpose Solvers
+
+The simEngine compiler contains a number of special purpose solvers
+that can be particular beneficial depending on the dynamical system.
+For some stiff systems, there can be some state variables that changes
+much more rapidly than others.  Those states that change quickly can,
+in some cases, be solved using a special purpose solver independently
+from the rest of the states.  Using a special purpose solver for stiff
+states along with explicit solvers for non-stiff states can be one
+solution to efficiently solving stiff and multiple time-scale systems.
+
+Currently, simEngine provides two special purpose solvers that can be
+utilized to solve either stiff or rapidly changing states.  The
+**exponentialeuler** method is well suited for state equations where the
+stiffness is caused by a linear term.  When the system is fully linear
+with respect to its coupled states, the **linearbackwardeuler**
+scheme is a highly efficient implicit method.  Both of these special
+purpose solvers are described in more detail below.
+
+**** Exponential Euler
+
+The exponential-Euler method is a first order explicit method that is
+effective for ODEs describing biological processes that exhibit
+exponential decay.  Additionally, this method works well when the
+stiffness of a ODE is concentrated in the linear term.
+
+Exponential-Euler is a special first order form of a more general
+exponential time differencing method.  Duhamel's principle states that
+for a given differential equation of the form
+
+<latex>
+\begin{equation}
+\tag{8}
+\label{Eqn:LinearForm}
+u'(t)= A u(t) + B(u(t))
+\end{equation}
+</latex>
+
+the solution at the next time step <math>u(t_{n+1})</math> with
+timestep <math>\Delta t</math> is
+
+<latex>
+\begin{equation}
+\tag{9}
+\label{Eqn:DuhamelsPrinciple}
+u(t_{n+1}) = e^{A \Delta t} u(t_n) + \int^{t_{n+1}}_{t_n} e^{A \Delta (t_{n+1}-\tau)} B(u(\tau)) d \tau
+\end{equation}
+</latex>
+
+By the assumption that the quantity <math>B(u(\tau))</math> is
+constant from <math>t_n</math> to <math>t_{n+1}</math>,
+<math>B(u(\tau))</math> can be replaced with <math>B(u(t))</math>.
+The remaining integral then can be exactly determined.
+
+<latex>
+\begin{equation}
+\tag{10}
+\label{Eqn:IntegralEvaluation}
+\int^{t_{n+1}}_{t_n} e^{A \Delta (t_{n+1}-\tau)} d \tau = A^{-1} \left ( e^{A \Delta t}-1 \right )
+\end{equation} 
+</latex>
+
+The combination of Equation 9 and Equation 10 with the simplifying
+assumption of <math>B(u(t))</math> leads to our first order
+exponential-Euler formulation:
+
+<latex>
+\begin{equation}
+\tag{11}
+\label{Eqn:ExpEulerRepresentation}
+u(t_{n+1}) = e^{A \Delta t} u(t_n) + \frac{B(u(t))}{A} \left ( e^{A \Delta t}-1 \right )
+\end{equation}
+</latex>
+
+The simEngine compiler attempts to convert the differential equation
+into the form of Equation 8.  If the equation, through a sequence of
+flattening, expanding, factoring, and simplication, can not be
+converted into a linear form, then an error is generated by the
+compiler.  If the equation is non-linear, and therefore possibly not a
+good candidate for an exponential-Euler evaluation, a warning is
+generated by the system.  The simEngine compiler will still attempt to
+rework the equation into a form that can be used with the
+exponential-Euler method.
+
+As a fixed-time step method, there is only one property that is
+required to be set by the user, the time step.  The following DSL
+source code illustrates how to create an exponential-Euler time
+iterator and assign it to an equation of the appropriate form.
+
+<src lang="dsl">
+// define an exponential-Euler iterator
+iterator t_expeuler with {continuous, exponentialeuler{dt=1}}
+
+// define a state and assign in the t_expeuler iterator
+state m = 0 with {iter=t_expeuler}
+
+// define an equation that can be used with exponential Euler
+equation m' = (mInf - m)/mTau
+</src>
+
+The general Exponential-Euler method can be used across coupled
+differential equations by recognizing that **A** and **B** in Equation 8 can
+be <math>N \times N</math> matrices.  At this time, simEngine does not
+support exponential-Euler beyond the scalar case.  Each state is
+assigned to the exponential-Euler integrator will be independently
+transformed into the representation shown in Equation 11.  For systems
+of differential equations with linear coupling, we advise using the
+linear backward-Euler method described below.
+
+**** Linear Backward Euler
+
+The linear backward-Euler method is a special case of general
+backward-Euler method.  For a given differential equation,
+
+<latex>
+\begin{equation*}
+\tag{12}
+y' = f(t, y(t))
+\end{equation*}
+</latex>
+
+the forward- and backward-Euler transformations with time step $h$ are
+as follows:
+
+<latex>
+\begin{align}
+\label{Eqn:ForwardEuler}
+\tag{13}
+y(t_{n+1}) &= y(t_n) + h f(t_n, y(t_n))  & \mbox{(Forward-Euler)} \\
+\label{Eqn:BackwardEuler}
+\tag{14}
+y(t_{n+1}) &= y(t_n) + h f(t_{n+1}, y(t_{n+1})) & \mbox{(Backward-Euler)}
+\end{align}
+</latex>
+
+The forward-Euler transformation is fully explicit, meaning that the
+next state value <math>y(t_{n+1})</math> can be computing by
+evaluating the right-hand-side of Equation 13.  In contrast, the
+backward-Euler transformation is implicit.  There is no direct way of
+computing <math>y(t_{n+1})</math> through a direct evaluation.
+Instead, Equation 14 in the general case must be determined using a
+root finding algorithm, such as Newton's method.  When state
+<math>y</math> is instead a vector of states <math>\bf{y}</math>
+describing a set of coupled non-linear equations, computing the vector
+solution can be computationally daunting for large models.
+
+By creating a new function <math>g(y)</math> from Equation 14 as
+
+<latex>
+\begin{equation}
+\label{Eqn:RootEquation}
+\tag{15}
+g(y) = y(t_n) + h f(t_{n+1}, y(t_{n+1})) - y(t_{n+1})
+\end{equation}
+</latex>
+
+the root of <math>g(y)</math> can be found using Newton's method
+
+<latex>
+\begin{equation}
+\tag{16}
+\label{Eqn:NewtonScalar}
+y_{n+1} = y_n - \frac{g(y_n)}{g'(y_n)}
+\end{equation}
+</latex>
+
+This equation is solved iteratively until the next state is calculated
+within some error tolerance.  The representation in Equation 16 is
+only valid for independent, scalar states.  When solving a coupled set
+of a equations, the vectorized form is utilized which requires the
+computation of <math>\bf{J}</math>, the Jacobian matrix of
+<math>{\bf{G}}({\bf{y}})</math>.
+
+<latex>
+\begin{equation}
+\label{Eqn:VectorizedRootEquation}
+{\bf{G}}({\bf{y}}) = {\bf{y}}(t_n) + h {\bf{F}}(t_{n+1}, {\bf{y}}(t_{n+1})) - {\bf{y}}(t_{n+1})
+\end{equation}
+\begin{equation}
+{\bf{y}}_{n+1} = {\bf{y}}_n - \frac{{\bf{G}}({\bf{y}}_n)}{{\bf{J}}({\bf{y}_n})}
+\end{equation}
+</latex>
+
+; The vectorized Newton's iteration can be rewritten as a linear system in the form ${\bf{J}}({\bf{y}_n}) \left( {\bf{y}}_{n+1} - {\bf{y}}_n \right) = {\bf{g}}({\bf{y}}_n)$.  While Newton's method converges quadratically, evaluating this function iteratively can become computational intensive.  There are often more efficient methods for this nonlinear case.
+
+; For many problems involving coupled ODEs, particularly those that are based on discretized PDEs, the relationships between states in linear in nature.  This allows for a very efficient simplification. Given the vectorized form of the backward-Euler transformation, each state $y_i(t_{n+1})$ can be factored out from the right-hand side of \eqnref{Eqn:VectorizedRootEquation}.
+; \begin{eqnarray*}
+; g_1 & = & A_{1,1} y_1 (t_{n+1}) + A_{1,2} y_2 (t_{n+1}) + \dotsb + A_{1,N} y_N (t_{n+1}) + b_1 {\bf{y}}(t_n) \\
+; g_2 & = & A_{2,1} y_1 (t_{n+1}) + A_{2,2} y_2 (t_{n+1}) + \dotsb + A_{2,N} y_N (t_{n+1}) + b_2 {\bf{y}}(t_n) \\
+; \vdots & & \vdots \\
+; g_N & = & A_{N,1} y_1 (t_{n+1}) + A_{N,2} y_2 (t_{n+1}) + \dotsb + A_{N,N} y_N (t_{n+1}) + b_N {\bf{y}}(t_n)
+; \end{eqnarray*}
+; This set of expressions can be reworked into the linear equation 
+; \begin{equation}
+; \label{Eqn:BackwardEulerLinearSystem}
+; {\bf{A}}({\bf{y}}(t_n)) {\bf{y}}(t_{n+1}) = {\bf{b}}({\bf{y}}(t_n))
+; \end{equation}
+; where $\bf{A}$ is an $N\times N$ matrix and $\bf{b}$ is a column vector of length $N$.  This linear system that can be directly solved by a number of linear methods, depending on the particular characteristics of $\bf{A}$.
+
+; The simEngine compiler includes two built-in linear methods that are chosen automatically depending on the characteristics of the $\bf{A}$ matrix. For problems that produce a banded matrix, such as a nerve conduction model, where the states are dependent only on their neighbors, simEngine offers a highly optimized solver.  For the general case, where this banded matrix is not formed, simEngine reverts to a dense solver.  Independent on how the model is constructed, simEngine will utilize the banded solver through reordering of states if possible.  For maximum performance out of the linear backward-Euler integrator, the states chosen should have nearest neighbor connectivity.  For other cases, a still highly efficient dense solver is utilized.
+
+; The linear backward-Euler solver is a fixed time step solver, and therefore relies on the **dt** property to be set at compile time.  As a first order method, it can often be combined with the forward-Euler solver running at the same time step.  For dynamical systems containing both linearly coupled states and additional non-linear states, it is often effective to utilize the linear backward-Euler solver for the linearly-coupled states and the forward-Euler solver at the same time step for the non-linear states.  See \secref{Sec:Iterators} for information on how to combine multiple solvers in a single dynamical system.
