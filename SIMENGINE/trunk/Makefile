@@ -691,18 +691,6 @@ codegen/src/*.o: codegen
 simatra.o: simatra_public.key
 	./codegen/simlib/simlib put simatra simatra_public.key
 
-# User and developer documents
-# ==============================================================================================
-
-$(BUILD_DIR)/doc/developersLanguageGuide.pdf: ../doc/developersLanguageGuide.pdf
-	$(CP) $< $@
-
-$(BUILD_DIR)/doc/idynamoUsersGuide.pdf: ../doc/idynamoUsersGuide.pdf
-	$(CP) $< $@
-
-../doc/%.pdf: ../doc/%.tex
-	@(cd ../doc; $(MAKE) $(@F))
-
 # Dynamo and build directory
 # ==============================================================================================
 
@@ -712,9 +700,7 @@ else
 DEBUG_DIRECTORY =
 endif
 
-#COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/bin $(BUILD_DIR)/bin/src $(BUILD_DIR)/data $(BUILD_DIR)/examples $(BUILD_DIR)/include $(BUILD_DIR)/lib $(BUILD_DIR)/man $(BUILD_DIR)/packages $(DEBUG_DIRECTORY) $(BUILD_DIR)/octave $(BUILD_DIR)/doc
-
-COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/share $(BUILD_DIR)/lib $(BUILD_DIR)/doc $(BUILD_DIR)/html $(BUILD_DIR)/images
+COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/share $(BUILD_DIR)/lib $(BUILD_DIR)/html $(BUILD_DIR)/images
 
 FULL_DIRECTORIES = $(COMMON_DIRECTORIES) $(BUILD_DIR)/data/impl $(BUILD_DIR)/data/sim  $(BUILD_DIR)/factory
 
@@ -775,9 +761,6 @@ $(BUILD_DIR)/debug: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/octave: $(BUILD_DIR)
-	@if test ! -d $@ ; then $(MKDIR) $@; fi
-
-$(BUILD_DIR)/doc: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/images: $(BUILD_DIR)
@@ -945,19 +928,30 @@ clean-all:
 # Documentation
 # ==============================================================================================
 
+DOCUMENTATION = tutorial userguide
+
 # Local path of the publications repository
 EXTERN_PUBLICATIONS = extern-publications
+EXTERN_PUBLICATIONS_PREFIX = simEngine
 # Destination of the published HTML documentation
-INSTALL_HTML_DOCUMENTATION_PREFIX = $(BUILD_DIR)/html
+HTML_DOCUMENTATION_DESTINATION = $(BUILD_DIR)/html
 
 .PHONY: documentation
-documentation: html-documentation
+documentation: html-documentation matlab-helpsearch
 
 .PHONY: html-documentation
-html-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
-html-documentation: export DOCUMENTATION_OUTPUT_DIR = $(realpath $(INSTALL_HTML_DOCUMENTATION_PREFIX))
-html-documentation: $(EXTERN_PUBLICATIONS) $(INSTALL_HTML_DOCUMENTATION_PREFIX)
+html-documentation: $(addprefix $(HTML_DOCUMENTATION_DESTINATION)/,$(addsuffix .html,$(DOCUMENTATION)))
+
+$(HTML_DOCUMENTATION_DESTINATION)/%.html: export SIMENGINE := $(realpath $(BUILD_DIR))
+$(HTML_DOCUMENTATION_DESTINATION)/%.html: export DOCUMENTATION_OUTPUT_DIR := $(realpath $(HTML_DOCUMENTATION_DESTINATION))
+$(HTML_DOCUMENTATION_DESTINATION)/%.html: $(EXTERN_PUBLICATIONS) $(HTML_DOCUMENTATION_DESTINATION) $(EXTERN_PUBLICATIONS)/$(EXTERN_PUBLICATIONS_PREFIX)/%.muse
 	$(MAKE) -C $< html
+
+.PHONY: matlab-helpsearch
+matlab-helpsearch: html-documentation $(HTML_DOCUMENTATION_DESTINATION)/helpsearch/deletable
+
+$(HTML_DOCUMENTATION_DESTINATION)/helpsearch/deletable: html-documentation
+	$(MATLAB) -nosplash -nodesktop -r "cd $(HTML_DOCUMENTATION_DESTINATION); builddocsearchdb('.'); exit"
 
 .PHONY: clean-documentation
 clean-documentation:
