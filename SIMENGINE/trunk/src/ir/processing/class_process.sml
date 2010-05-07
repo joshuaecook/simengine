@@ -401,7 +401,7 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 	  | NONE => 
 	    let 
 		val terms = 
-		    List.concat (map (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) (condition :: contents))
+		    Util.flatmap (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) (condition :: contents)
 		(* Outputs connected to inputs are traced back to the caller. *)
 		val terms = 
 		    Util.flatmap (fn t => 
@@ -505,8 +505,8 @@ fun findStateSymbols (class: DOF.class) =
     let
 	val exps = 
 	    (! (#exps class)) 
-	    @ (List.concat (map (fn output => (DOF.Output.condition output) :: (DOF.Output.contents output)) (! (#outputs class))))
-	    @ (List.concat (map (fn input => case DOF.Input.default input of SOME v => [v] | _ => nil) (! (#inputs class))))
+	    @ (Util.flatmap (fn output => (DOF.Output.condition output) :: (DOF.Output.contents output)) (! (#outputs class)))
+	    @ (Util.flatmap (fn input => case DOF.Input.default input of SOME v => [v] | _ => nil) (! (#inputs class)))
 
 	fun exp2symbols exp =
 	    let
@@ -1516,7 +1516,7 @@ fun assignCorrectScope (class: DOF.class) =
 			    fun flattenTuples (Exp.TERM (Exp.TUPLE terms)) = map Exp.TERM terms
 			      | flattenTuples exp = [exp]
 
-			    val exps = List.concat (map flattenTuples exps)
+			    val exps = Util.flatmap flattenTuples exps
 
 				       
 			    val iters = SymbolSet.listItems (foldl SymbolSet.union SymbolSet.empty (map ExpProcess.iterators_of_expression exps))
@@ -2062,7 +2062,7 @@ and expandInstances class =
 	 * Renames all symbols by prefixing the instance name. *)
         val exps' = ! exps
 
-        val _ = exps := List.concat (map (fn exp => if ExpProcess.isInstanceEq exp then instanceExpressions exp else [exp]) exps')
+        val _ = exps := Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then instanceExpressions exp else [exp]) exps'
     in
         class
     end
@@ -2075,7 +2075,7 @@ and instanceExpressions equation =
 	val exps' = ! exps
 
 	(* Recursively expands any other instances within the expressions of this instance's class. *)
-	val exps' = List.concat (map (fn exp => if ExpProcess.isInstanceEq exp then instanceExpressions exp else [exp]) exps')
+	val exps' = Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then instanceExpressions exp else [exp]) exps'
 
 	fun prefixSymbol prefix (Exp.TERM (Exp.SYMBOL (sym, props))) =
 	    Exp.TERM (Exp.SYMBOL (Symbol.symbol (prefix ^ (Symbol.name sym)), case Property.getRealName props of 

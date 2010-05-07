@@ -356,7 +356,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				      $("#endif")]
 				 end
 			 in
-			     List.concat (map initAlgebraicSystemPointers (ModelProcess.algebraicIterators itersym))
+			     Util.flatmap initAlgebraicSystemPointers (ModelProcess.algebraicIterators itersym)
 			 end)
 		    end
 		    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props.progs" e
@@ -427,7 +427,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 					 $("algebraic_offset += " ^ (Int.toString (numIteratorStates it)) ^ ";")]
 				    end
 			    in
-				List.concat (map iteratorStatesPtr my_algebraic_iterators)
+				Util.flatmap iteratorStatesPtr my_algebraic_iterators
 			    end
 			    
 		    in
@@ -945,7 +945,7 @@ fun update_wrapper shardedModel =
 
     in [$("__HOST__ __DEVICE__ int update(solver_props *props, unsigned int modelid) {"),
 	SUB ($("switch (props->iterator) {") ::
-	     List.concat (map call_update (ShardedModel.iterators shardedModel)) @
+	     (Util.flatmap call_update (ShardedModel.iterators shardedModel)) @
 	     [$("default: return 1;"),
 	      $("}")]),
 	$("}")]
@@ -989,7 +989,7 @@ fun preprocess_wrapper shardedModel preprocessIterators =
 
     in [$("__HOST__ __DEVICE__ int pre_process(solver_props *props, unsigned int modelid) {"),
 	SUB ($("switch (props->iterator) {") ::
-	     List.concat (map call_update preprocessIterators) @
+	     (Util.flatmap call_update preprocessIterators) @
 	     [$("default: return 1;"),
 	      $("}")]),
 	$("}")]
@@ -1038,7 +1038,7 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 
     in [$("__HOST__ __DEVICE__ int in_process(solver_props *props, unsigned int modelid) {"),
 	SUB ($("switch (props->iterator) {") ::
-	     List.concat (map call_update inprocessIterators) @
+	     (Util.flatmap call_update inprocessIterators) @
 	     [$("default: return 1;"),
 	      $("}")]),
 	$("}")]
@@ -1082,7 +1082,7 @@ fun postprocess_wrapper shardedModel postprocessIterators =
 
     in [$("__HOST__ __DEVICE__ int post_process(solver_props *props, unsigned int modelid) {"),
 	SUB ($("switch (props->iterator) {") ::
-	     List.concat (map call_update postprocessIterators) @
+	     (Util.flatmap call_update postprocessIterators) @
 	     [$("default: return 1;"),
 	      $("}")]),
 	$("}")]
@@ -1193,7 +1193,7 @@ fun outputstatestruct_code (iterator: DOF.systemiterator, shard as {classes, ...
 	    Util.uniquify_by_fun (fn (a, b) => (ClassProcess.classTypeName a) = (ClassProcess.classTypeName b))
 				 master_classes
     in
-	List.concat (map (outputstatestructbyclass_code iterator) master_classes)
+	Util.flatmap (outputstatestructbyclass_code iterator) master_classes
     end
     handle e => DynException.checkpoint "CParallelWriter.outputstatestruct_code" e
 
@@ -1277,13 +1277,12 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 			  (List.mapPartial systemPointerStructureIteratorValue
 					   iterators)),
 		 SUB (map $
-			  (List.concat (map systemPointerStructureStates
-		 			    typedIterators))),
+			  (Util.flatmap systemPointerStructureStates typedIterators)),
 		 $("} systemstatedata_"^(Symbol.name basename)^";"),$("")]
 
 
 	val classBaseNames = 
-	    let val classes = List.concat (map #classes shards)
+	    let val classes = Util.flatmap #classes shards
 	    in Util.uniquify_by_fun (op =) (map ClassProcess.class2preshardname classes)
 	    end
 
@@ -1521,7 +1520,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  fun createEntry (exp, i) = [$("//" ^ (e2s exp)),
 						      $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 		      in
-			  List.concat (map createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray rhs))))
+			  Util.flatmap createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray rhs)))
 		      end
 		  else
  		      [$("// " ^ (e2s exp)),
@@ -1951,13 +1950,13 @@ fun flow_code shardedModel iter_sym =
 
     				       val fundecl_progs = map class_flow_prototype classes
 							   
-				       val flow_progs = List.concat (map (fn(c)=>
+				       val flow_progs = Util.flatmap (fn(c)=>
 									    if ClassProcess.isInline c then
 										(Logger.log_error (Printer.$("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
 										 DynException.setErrored();
 										 [])
 									    else
-										class2flow_code (c,#name c = #name topclass, iter)) classes)
+										class2flow_code (c,#name c = #name topclass, iter)) classes
 				   in
 				       ([$("// Functions prototypes for flow code of "^(Symbol.name iter_sym))] @ fundecl_progs, flow_progs)
 				   end
@@ -2265,12 +2264,12 @@ fun buildC (orig_name, shardedModel) =
 					  statefulIterators (* pull out just the shards *)
 	val systemstate_progs = outputsystemstatestruct_code shardedModel statefulIterators
 	val state_init_data = map (state_init_code shardedModel) (ShardedModel.iterators shardedModel)
-	val state_init_prototypes = List.concat (map #1 state_init_data)
-	val state_init_functions = List.concat (map #2 state_init_data)
+	val state_init_prototypes = Util.flatmap #1 state_init_data
+	val state_init_functions = Util.flatmap #2 state_init_data
 
 	val flow_data = map (flow_code shardedModel) (ShardedModel.iterators shardedModel)
-	val fun_prototypes = List.concat (map #1 flow_data)
-	val flow_progs = List.concat (map #2 flow_data)
+	val fun_prototypes = Util.flatmap #1 flow_data
+	val flow_progs = Util.flatmap #2 flow_data
 
 	val logoutput_progs = logoutput_code forkedModelsLessUpdate
 	val simengine_api_h = $(Codegen.getC "simengine/simengine_api.h")
