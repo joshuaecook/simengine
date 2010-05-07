@@ -190,7 +190,15 @@ function writeUserInputs (options)
   if ~isstruct(inputs)
     simexError('typeError', 'Expected INPUTS to be a structure array.')
   end
-    
+
+  empty = isempty(names);
+  if ~empty
+    for inputid = 1:length(names)
+      empty = empty || isempty(inputs(names{inputid}));
+    end
+  end
+
+  if ~empty
   for modelid = 1:options.instances
     modelPath = modelidToPath(modelid-1);
     mkdir(fullfile(options.outputs, modelPath), 'inputs');
@@ -233,6 +241,7 @@ function writeUserInputs (options)
         fwrite(fid, value, 'double');
       end
     end
+  end
   end
 end
 %%
