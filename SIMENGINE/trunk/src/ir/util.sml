@@ -259,7 +259,8 @@ fun repStr (s1, s2, s3) =
     handle e => DynException.checkpoint "Util.repStr" e
 
 fun flatten x = foldr (op @) nil x
-fun flatmap f l = flatten (map f l)
+fun flatmap f list =
+    List.rev (List.foldl (fn (x, l) => List.revAppend (f x, l)) nil list)
 
 (* Set Contructs  *)
 fun add_to_set (l, elem) = 

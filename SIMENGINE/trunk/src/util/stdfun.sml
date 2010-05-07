@@ -8,8 +8,8 @@ exception InternalError
 exception LogError
 
 fun flatten x = foldr (op @) nil x
-fun flatmap f l = flatten (map f l)
-
+fun flatmap f list =
+    List.rev (List.foldl (fn (x, l) => List.revAppend (f x, l)) nil list)
 
 fun curry1 f x = (fn(y)=> f(x,y))
 

@@ -11,14 +11,11 @@ fun normalize_with_env table exp =
     let
 	fun flatten exps =
 	    let
-		fun combine (Exp.META(Exp.SEQUENCE s), exps) =
-		    exps @ s
-		  | combine (exp, exps) =
-		    exps @ [exp]
+		fun inject (Exp.META (Exp.SEQUENCE s)) = s
+		  | inject exp = [exp]
 	    in
-		foldl combine nil exps
+		Util.flatmap inject exps
 	    end
-    
     in
 	case exp of
 	    Exp.FUN (f, args) => 
@@ -88,5 +85,7 @@ fun normalize_with_env table exp =
 
 fun normalize exp = normalize_with_env SymbolTable.empty exp
 
+
+val normalize = Profile.wrap (normalize, Profile.alloc "Normalize.normalize")
 
 end

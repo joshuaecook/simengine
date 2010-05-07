@@ -14,9 +14,30 @@ sig
     val foldr: string -> ('a * 'b -> 'b) -> 'b -> 'a list -> 'b
 
     val clearProgressFile : unit -> unit
+
+    (* Hooks in MLton's profiling library. *)
+    type data
+    val alloc: string -> data
+    val wrap: ('a -> 'b) * data -> 'a -> 'b
 end
 structure Profile: PROFILE =
 struct
+
+structure MP = MLton.Profile
+
+type data = MP.Data.t
+
+fun alloc filename =
+    let 
+	val data = MP.Data.malloc ()
+	val _ = OS.Process.atExit 
+		    (fn _ => MP.Data.write (data, "mlmon." ^ filename ^ ".out") before MP.Data.free data)
+    in
+	data
+    end
+
+fun wrap (f, d) x = MP.withData (d, fn _ => f x)
+
 
 val stack = ref 0
 val genTimings = ref NONE
