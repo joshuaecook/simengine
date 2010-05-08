@@ -10,7 +10,7 @@ DATATYPES = float double
 SUNDIALS = sundials-2.4.0
 
 SUNDIALS_URI = https://computation.llnl.gov/casc/sundials/download/code/$(SUNDIALS).tar.gz
-SUNDIALS_TGZ := $(wildcard /shared/simEngine_support/$(SUNDIALS).tar.gz)
+SUNDIALS_TGZ := $(wildcard $(TMPDIR)/simEngine_support/$(SUNDIALS).tar.gz)
 ifeq (,$(SUNDIALS_TGZ))
 SUNDIALS_TGZ = /var/tmp/$(SUNDIALS).tar.gz
 endif
