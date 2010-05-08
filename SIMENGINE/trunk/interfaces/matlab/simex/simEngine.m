@@ -2,8 +2,8 @@ function [outputs y1 t1 interface] = simEngine (options)
 %  SIMENGINE compiles and/or executes a simulation
   global SIMEX_TIMEOUT;
 
-  writeUserInputs(options);
   writeUserStates(options);
+  writeUserInputs(options);
 
   command = [options.simengine ' --inferior-mode --simex ' options.model ...
              ' --outputdir ' options.outputs ' ' options.args];
@@ -194,7 +194,7 @@ function writeUserInputs (options)
   empty = isempty(names);
   if ~empty
     for inputid = 1:length(names)
-      empty = empty || isempty(inputs(names{inputid}));
+      empty = empty || isempty(inputs.(names{inputid}));
     end
   end
 
@@ -252,6 +252,7 @@ function writeUserStates (options)
   if ~isempty(states)
     for modelid = 1:options.instances
       modelPath = modelidToPath(modelid-1);
+      mkdir(fullfile(options.outputs), modelPath)
       filename = fullfile(options.outputs, modelPath, 'initial-states');
       fid = fopen(filename, 'w');
       onCleanup(@()fid>0 && fclose(fid));
