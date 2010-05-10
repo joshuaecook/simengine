@@ -14,9 +14,6 @@ end
 structure ExpEquality : EXPEQUALITY =
 struct
 
-fun print (s) = ()
-
-
 type patterns_matched = Exp.exp SymbolTable.table list
 val b2s = Util.b2s
 val e2s = ExpPrinter.exp2str
@@ -165,7 +162,7 @@ and pattern_equivalent matchCandidates (pat as (sym, (predname,pred), patcount),
 			end
 		end
     in
-	foldl (op @) nil (map equivUsingCandidate matchCandidates)
+	Util.flatmap equivUsingCandidate matchCandidates
     end
 
 (*
@@ -193,22 +190,6 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 	datatype partialMatch = NEWMATCH of Symbol.symbol
 			      | PRIORMATCH of Symbol.symbol * int
 
-(*	fun matchPattern nil (candidate, openMatch, nil) = [(candidate, NONE, nil)]
-	  | matchPattern _ (candidate, openMatch, nil) = nil
-	  | matchPattern nil (candidate, openMatch, patterns) =
-	    (* check patterns to be all empty *)
-	    let
-		fun isZeroCompatible Pattern.ONE = false
-		  | isZeroCompatible Pattern.ONE_OR_MORE = false
-		  | isZeroCompatible Pattern.ZERO_OR_MORE = true
-		  | isZeroCompatible Pattern.SPECIFIC_COUNT c = c = 0
-		  | isZeroCompatible Pattern.SPECIFIC_RANGE (low, high) = low <= 0
-	    in
-		if List.all isZeroCompatible patterns then
-		    [(candidate, NONE, nil)]
-		else
-		    []
-	    end*)
 	fun matchPattern (element: Exp.exp) (candidate, openMatch, nil: Exp.exp list) = nil
 	  | matchPattern (element: Exp.exp) (candidate, openMatch, nextMatch::pattern') =
 	    case nextMatch of

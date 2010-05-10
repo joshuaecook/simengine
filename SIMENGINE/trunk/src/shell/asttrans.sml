@@ -3,8 +3,6 @@ struct
 
 open Printer
 
-fun flatten x = foldr (op @) nil x
-
 fun error msg =
     (Logger.log_error msg;
      DynException.setErrored())
@@ -235,7 +233,7 @@ and trans_definition definition =
 						       SOME inheritance => SOME (trans_exp inheritance)
 						     | NONE => NONE, 
 				       interfaces=interfaces},
-			  methods=flatten (map trans_method methods)}
+			  methods=Util.flatmap trans_method methods}
 	   :: nil
 
       | Ast.DEFNAMESPACE {name, stms}
@@ -550,8 +548,8 @@ and trans_definition definition =
 		:: [] 
 
 	    val template_constructor_stms = 
- 		(flatten (map build_input args))
-		@ (flatten(map build_stm parts))
+ 		(Util.flatmap build_input args)
+		@ (Util.flatmap build_stm parts)
 		@ (case returns of
 		       SOME returns => map build_output returns
 		     | NONE => [])
@@ -615,7 +613,7 @@ and trans_definition definition =
 			end
 			 
 		in
-		    flatten (map makeProperty (#args header))
+		    Util.flatmap makeProperty (#args header)
 		end
 		@ 		(* assign template *)
 		[HLEC.METHODDEF(HLEC.PUBLIC,
@@ -626,7 +624,7 @@ and trans_definition definition =
 
 	    val wrapperConstructorStms = 		
                 (* tie in inputs *)
-		(flatten (map (fn(arg, patt) => [HLEC.ACTION (HLEC.ASSIGN (HLEC.SEND{message=Symbol.symbol ((Symbol.name arg) ^ "_var"), object=HLEC.SYMBOL (Symbol.symbol "self")},
+		(Util.flatmap  (fn(arg, patt) => [HLEC.ACTION (HLEC.ASSIGN (HLEC.SEND{message=Symbol.symbol ((Symbol.name arg) ^ "_var"), object=HLEC.SYMBOL (Symbol.symbol "self")},
 									   HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "new",
 												     object=HLEC.SYMBOL (Symbol.symbol "InputBinding")},
 										      args=HLEC.TUPLE[HLEC.SEND{message=arg, object=HLEC.SYMBOL(Symbol.symbol "modeltemplate")}]}),
@@ -635,13 +633,13 @@ and trans_definition definition =
 												   object=HLEC.SYMBOL (Symbol.symbol "inputs")},
 										   args=HLEC.TUPLE[HLEC.SEND{message=Symbol.symbol ((Symbol.name arg) ^ "_var"), object=HLEC.SYMBOL (Symbol.symbol "self")}]}),
 							      PosLog.NOPOS)])
-		     (#args header)))
+		     (#args header))
 		@ 
                 (* create and tie in outputs *)
 		(case #returns header of
 		     NONE => nil
 		   | SOME returns =>
-		     flatten (map (fn(arg) => (* if isdefined modeltemplate.arg then set it in outputbinding, push onto outputs, else error that it wasn't declared *)
+		     Util.flatmap (fn(arg) => (* if isdefined modeltemplate.arg then set it in outputbinding, push onto outputs, else error that it wasn't declared *)
 				     [HLEC.ACTION (HLEC.ASSIGN (HLEC.SEND{message=arg, object=HLEC.SYMBOL (Symbol.symbol "self")},
 								HLEC.APPLY{func=HLEC.SEND{message=Symbol.symbol "new",
 											  object=HLEC.SYMBOL (Symbol.symbol "OutputBinding")},
@@ -652,7 +650,7 @@ and trans_definition definition =
 											object=HLEC.SYMBOL (Symbol.symbol "outputs")},
 									args=HLEC.TUPLE[HLEC.SEND{message=arg, object=HLEC.SYMBOL (Symbol.symbol "self")}]}),
 						   PosLog.NOPOS)])
-				  (returns)))
+				  (returns))
 
 	    val wrapperConstructor = HLEC.CONSTRUCTOR {args=nil (*map (fn(arg, patt) => (arg, trans_optpattern patt)) (#args header)*), 
 	    					       body= (HLEC.ACTION(HLEC.EXP (HLEC.APPLY {func=HLEC.SYMBOL (Symbol.symbol "super"),
@@ -735,8 +733,8 @@ and trans_definition definition =
 
       | Ast.DEFPROPERTY {name, io={read, write}}
 	=> [HLEC.DEFPROPERTY {name=name, 
-			      read=GeneralUtil.applyOpt (fn(stms) => flatten (map trans_stm stms)) read,
-			      write=GeneralUtil.applyOpt (fn(s, stms) => (s, flatten(map trans_stm stms))) write}] 
+			      read=GeneralUtil.applyOpt (fn(stms) => Util.flatmap trans_stm stms) read,
+			      write=GeneralUtil.applyOpt (fn(s, stms) => (s, Util.flatmap trans_stm stms)) write}] 
 
 and trans_action pos action =
     case action of
@@ -1016,7 +1014,7 @@ and trans_action pos action =
 		handle Skip => default
 
 	in
-	    flatten(map (safe_trans_eq [HLEC.ACTION (HLEC.EXP HLEC.UNIT, pos)]) eqs)
+	    Util.flatmap (safe_trans_eq [HLEC.ACTION (HLEC.EXP HLEC.UNIT, pos)]) eqs
 	end
 
 and trans_stm (stm:Ast.stm) : HLEC.stm list = 
@@ -1030,7 +1028,7 @@ and trans_stm (stm:Ast.stm) : HLEC.stm list =
 and trans_stms stms =
     let
     in
-	flatten (map trans_stm (List.filter filter_dead_stm stms))
+	Util.flatmap trans_stm (List.filter filter_dead_stm stms)
     end
 
 (* these stms are generated in the grammar by excess newlines *)

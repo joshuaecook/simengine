@@ -230,6 +230,8 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
 	       Exp.META (Exp.LAMBDA {arg=arg, body= replaceSymbol (sym, repl_exp) body})
       | _ => exp
 
+val replaceSymbol = Profile.wrap (replaceSymbol, Profile.alloc "Match.replaceSymbol")
+
 fun replacePattern (assigned_patterns: Exp.exp SymbolTable.table ) exp =
     foldl 
 	(fn(sym, exp) => replaceSymbol (sym, valOf (SymbolTable.look (assigned_patterns, sym))) exp)
@@ -351,6 +353,8 @@ fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp =
 	end
     else
 	exp
+
+val applyRewritesExp = Profile.wrap (applyRewritesExp, Profile.alloc "Match.applyRewritesExp")
 
 (* apply rules and repeat *)
 fun repeatApplyRewriteExp rewrite exp =
