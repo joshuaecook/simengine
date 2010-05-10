@@ -740,6 +740,8 @@ fun forkModel (model:DOF.model) =
     end
     handle e => DynException.checkpoint "ShardedModel.forkModel" e
 
+val forkModel = Profile.wrap (forkModel, Profile.alloc "ShardedModel.forkModel")
+
 (* take a sharded model and an iterator and return a model *)
 fun toModel (shards, sysprops) iter_sym =
     let

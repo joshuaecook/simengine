@@ -767,7 +767,7 @@ fun orderModel (model:DOF.model)=
 			    name :: nil
 		    end
 
-		val instanceDeps =  SymbolSet.fromList (foldl (op @) nil (map instance2deps instances)) (*[SymbolSet.fromList(map nameOfInstance instances)]*)
+		val instanceDeps =  SymbolSet.fromList (Util.flatmap instance2deps instances)
 
 		val mainExpDeps = foldl SymbolSet.union 
 					(SymbolSet.fromList (map termexp2sym mainExps))

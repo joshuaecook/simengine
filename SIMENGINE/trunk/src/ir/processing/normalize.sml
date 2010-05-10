@@ -9,17 +9,14 @@ struct
 
 fun normalize_with_env table exp =
     let
-	fun flatten exps =
-	    let
-		fun inject (Exp.META (Exp.SEQUENCE s)) = s
-		  | inject exp = [exp]
-	    in
-		Util.flatmap inject exps
-	    end
+	fun expFlatMap f exps =
+	    Util.flatmap 
+		((fn Exp.META (Exp.SEQUENCE xs) => xs | x => [x]) o f)
+		exps
     in
 	case exp of
 	    Exp.FUN (f, args) => 
-	    Exp.FUN (f, flatten(map (normalize_with_env table) args))
+	    Exp.FUN (f, expFlatMap (normalize_with_env table) args)
 	  | Exp.TERM t => 
 	    (case t of 
 		 Exp.SYMBOL (s, _) =>
@@ -46,7 +43,7 @@ fun normalize_with_env table exp =
 	    in
 	    Exp.CONTAINER 
 	    (case c of
-		 Exp.EXPLIST l => Exp.EXPLIST (flatten (map (normalize_with_env table) l))
+		 Exp.EXPLIST l => Exp.EXPLIST (expFlatMap (normalize_with_env table) l)
 	       | Exp.ARRAY a => Exp.ARRAY (normalize_array a)
 	       | Exp.MATRIX m => Exp.MATRIX (normalize_matrix m))
 	    end
@@ -79,7 +76,7 @@ fun normalize_with_env table exp =
      
 		   | Exp.LAMBDA _ =>
 		     exp
-		   | Exp.SEQUENCE exps => Exp.META(Exp.SEQUENCE(flatten(map (normalize_with_env table) exps))))
+		   | Exp.SEQUENCE exps => Exp.META(Exp.SEQUENCE(expFlatMap (normalize_with_env table) exps)))
 	    end
     end
 

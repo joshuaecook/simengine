@@ -2012,9 +2012,6 @@ fun optimizeClass (class: DOF.class) =
 	()
     end
 
-val optimizeClass = Profile.wrap (optimizeClass, Profile.alloc "ClassProcess.optimizeClass")
-
-
 fun unify class = 
     (inlineIntermediates o expandInstances) class
 
