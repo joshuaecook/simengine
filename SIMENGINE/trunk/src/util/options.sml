@@ -351,7 +351,12 @@ val argument_groups =
 		long =SOME "target",
 		xmltag="target",
 		dyntype=STRING_T,
-		description=["Simulation target platform"]}
+		description=["Simulation target platform"]},
+	       {short=NONE,
+		long =SOME "shared_memory",
+		xmltag="shared_memory",
+		dyntype=FLAG_T,
+		description=["Use shared memory for data transfer"]}
      ]},
      {group="GPU Settings",
       tag="gpu",

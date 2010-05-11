@@ -18,11 +18,13 @@ static const struct option long_options[] = {
   {"binary", no_argument, 0, BINARY},
   {"interface", no_argument, 0, INTERFACE},
   {"json_interface", required_argument, 0, JSON_INTERFACE},
+  {"shared_memory", no_argument, 0, SHARED_MEMORY},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
 
 static int binary_files = 0;
+static int simex_output_files = 1;
 static unsigned int global_modelid_offset = 0;
 
 #define MAX_NUM_MODELS (0x00ffffff)
@@ -35,7 +37,7 @@ const char *simengine_errors[] = {"Success",
                                   "Could not open output file."};
 
 /* Allocates and initializes an array of solver properties, one for each iterator. */
-solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset);
+solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset, output_buffer *ob);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
 int exec_loop(solver_props *props, const char *outputs_dir, double *progress, int resuming);
 void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned int modelid);
@@ -65,6 +67,47 @@ void close_progress_file(double *progress, int progress_fd, unsigned int num_mod
   close(progress_fd);
 }
 
+void init_output_buffers(const char *outputs_dirname, output_buffer **ob, int *output_fd){
+  char buffer_file[PATH_MAX];
+  int i;
+  int tmp = 0;
+
+  *ob = NULL;
+
+  switch(seint.output_mode){
+  case OUTPUT_RAW_FILES:
+    *ob = (output_buffer*)malloc(sizeof(output_buffer));
+    break;
+  case OUTPUT_STREAMING:
+  case OUTPUT_PREALLOCATED:
+    sprintf(buffer_file, "%s/output_buffer", outputs_dirname);
+    *output_fd = open(buffer_file, O_CREAT|O_RDWR, S_IRWXU);
+    if(-1 == output_fd){
+      ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation data. '%s'", buffer_file);
+    }
+    for(i=0; i<sizeof(output_buffer)/sizeof(int); i++){
+      write(*output_fd, &tmp, sizeof(int));
+    }
+    *ob = (output_buffer*)mmap(NULL, sizeof(output_buffer), PROT_READ|PROT_WRITE, MAP_SHARED, *output_fd, 0);
+    break;
+  default:
+    ERROR(Simatra::Simex::Simulation, "No output mode specified.");
+  }
+}
+
+void clean_up_output_buffers(output_buffer *ob, int output_fd){
+  switch(seint.output_mode){
+  case OUTPUT_RAW_FILES:
+    free(ob);
+    break;
+  case OUTPUT_STREAMING:
+  case OUTPUT_PREALLOCATED:
+    munmap(ob, sizeof(output_buffer));
+    close(output_fd);
+    break;
+  }
+}
+
 // simengine_runmodel()
 //
 //    executes the model for the given parameters, states and simulation time
@@ -83,6 +126,9 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
 
   double *progress;
   int progress_fd;
+
+  output_buffer *ob;
+  int output_fd;
 
   int resuming = 0;
   int random_initialized = 0;
@@ -135,24 +181,26 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
       initialize_inputs(tmp_constant_inputs, tmp_sampled_inputs, outputs_dirname, modelid_offset, modelid, start_time);
     }
 #if defined TARGET_GPU && NUM_CONSTANT_INPUTS > 0
-  CDATAFORMAT *g_constant_inputs;
-  cutilSafeCall(cudaGetSymbolAddress((void **)&g_constant_inputs, constant_inputs));
-  cutilSafeCall(cudaMemcpy(g_constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+    CDATAFORMAT *g_constant_inputs;
+    cutilSafeCall(cudaGetSymbolAddress((void **)&g_constant_inputs, constant_inputs));
+    cutilSafeCall(cudaMemcpy(g_constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
 #elif NUM_CONSTANT_INPUTS > 0
-  memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
+    memcpy(constant_inputs, tmp_constant_inputs, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
 #endif
 
 #if defined TARGET_GPU && NUM_SAMPLED_INPUTS > 0
-  sampled_input_t *g_sampled_inputs;
-  cutilSafeCall(cudaGetSymbolAddress((void **)&g_sampled_inputs, sampled_inputs));
-  cutilSafeCall(cudaMemcpy(g_sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
+    sampled_input_t *g_sampled_inputs;
+    cutilSafeCall(cudaGetSymbolAddress((void **)&g_sampled_inputs, sampled_inputs));
+    cutilSafeCall(cudaMemcpy(g_sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
 #elif NUM_SAMPLED_INPUTS > 0
-  memcpy(sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t));
+    memcpy(sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t));
 #endif
 
 
+    init_output_buffers(outputs_dirname, &ob, &output_fd);
+
     // Initialize the solver properties and internal simulation memory structures
-    solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset);
+    solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset, ob);
 
     // Initialize random number generator
     if (!(opts->reuse_random && random_initialized)) {
@@ -196,6 +244,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
   }
 
   close_progress_file(progress, progress_fd, num_models);
+  clean_up_output_buffers(ob, output_fd);
 
   return seresult;
 }
@@ -378,7 +427,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	if(!json_file){
 	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.", optarg);
 	}
-	fprintf(json_file, "%s", json_interface);
+	fprintf(json_file, json_interface, sizeof(CDATAFORMAT), PARALLEL_MODELS);
 	fclose(json_file);
       }
       break;
@@ -386,6 +435,9 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       // Force the user to correct the error instead of ignoring options that
       // are not understood. Otherwise a typo could lead to executing a simulation
       // with undesired default options.
+    case SHARED_MEMORY:
+      simex_output_files = 0;
+      break;
     default:
       USER_ERROR(Simatra:Simex:parse_args, "Invalid argument");
     }

@@ -4,7 +4,7 @@ function [options] = simexOptions (dsl, varargin)
                    'stopTime',0, 'inputs',struct(), 'states',[], ...
                    'outputs', '', 'jsonfile', '', 'debug', false, 'args', '--binary', ...
                    'dslfile', '', 'target', 'default', 'precision', ...
-                   'double');
+                   'double', 'shared_memory', false);
   userOptions = varargin(:);
 
   [seroot] = fileparts(which('simex'));
@@ -221,7 +221,10 @@ function [options, restUserOptions] = getOption(options, userOptions)
     case 'profile'
       options.profile = true;
       options.args = [options.args ' --profile'];
-    
+    case 'shared_memory'
+      options.shared_memory = true;
+      options.args = [options.args ' --shared_memory'];
+
     % Any other options are passed to simEngine
     otherwise
       if 2 == length(opt)

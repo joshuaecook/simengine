@@ -38,6 +38,8 @@ function [outputs y1 t1 interface] = simEngine (options)
   log = '';
 
   while(processRunning(pid))
+    % Map progress file to memory (only happens once, but inside
+    % loop as we don't know when progress file will be created)
     if(~exist('m','var') && exist(simulationProgressFile, 'file'))
       m = memmapfile(simulationProgressFile, 'format', 'double');
       % Handle race condition where file is created but data
@@ -48,6 +50,8 @@ function [outputs y1 t1 interface] = simEngine (options)
         clear m;
       end
     end
+
+    % Update status bar
     if(exist('m','var'))
       progress = 100*sum(m.Data)/length(m.Data);
       message = sprintf('Simulating : %0.2f %%', progress);
@@ -61,7 +65,20 @@ function [outputs y1 t1 interface] = simEngine (options)
 	% if something goes wrong
       end
     end
-    % Make sure logFile exists before trying to read it
+
+    % Read interface (only happens once, but inside loop as we don't know 
+    % when interface file will be created)
+    if(~exist('interface', 'var') && exist(options.jsonfile, 'file'))
+       interface = parseInterface(options);
+    end
+
+    % Initializes output return structures on first call.
+    % Allows mex to perform reallocs if necessary, acts as just a pause otherwise
+    if(exist('interface', 'var'))
+      readSimulationData(interface, options);
+    end
+
+    % Update compiler output to Matlab console
     if exist(logFile, 'file')
       try
         log = fileread(logFile);
@@ -72,14 +89,15 @@ function [outputs y1 t1 interface] = simEngine (options)
     if length(log) > outputlen
       fprintf('%s', log(outputlen+1:end));
       outputlen = length(log);
-    else
-      pause(0.1);
     end
+
     % Check to see if there is a timeout enabled
     if(~isempty(SIMEX_TIMEOUT) && toc(start) > SIMEX_TIMEOUT)
       simEngineError('SIMEX_TIMEOUT', ['Simulation did not complete within ' num2str(SIMEX_TIMEOUT) ' seconds.'])
     end
   end
+
+  % Print any remaining compiler output to Matlab console
   try
     log = fileread(logFile);
   catch it
@@ -88,6 +106,8 @@ function [outputs y1 t1 interface] = simEngine (options)
   if length(log) > outputlen
     fprintf('%s', log(outputlen+1:end));
   end
+
+  % Check the return status of simEngine
   if exist(statusFile, 'file')
     status = str2num(fileread(statusFile));
     % Prevent any crosstalk between launchBackground calls
@@ -102,29 +122,32 @@ function [outputs y1 t1 interface] = simEngine (options)
     end
     delete(logFile);        
   else
-    simFailure('launchBackground', 'Process status file does not exist.')      
+    % Process is still running, not yet produced status (probably CTRL+C)
+    status = -1;    
   end
 
+  % Report error conditions to user
   if(128 == status)
     simEngineError('simCompile', ['Model ' options.dslfile ' can not be '...
 				  'compiled']);
   elseif (129 == status)
     disp(['Please execute ''help simex'' for information on using '...
           'simEngine in MATLAB.'])
-      simEngineError('simCompile', ['Can not execute simEngine due to invalid command line options'])
+    simEngineError('simCompile', ['Can not execute simEngine due to invalid command line options'])
+  elseif(-1 == status)
+    simEngineError('simCompile', ['User terminated simulation.'])
   elseif (0 ~= status)
-    simFailure('simCompile', ['SimEngine internal error.']);    
+    simFailure('simCompile', ['simEngine internal error.']);
   end
 
-  interface = parseInterface(options);
-
-  if options.stopTime ~= 0  
-    [outputs y1 t1] = readSimulationData(interface, options);
-  else
-    outputs = struct();
+  % Collect any outputs from simulation
+  if(options.stopTime == options.startTime)
+    outputs = [];
     y1 = [];
     t1 = [];
-  end 
+  else 
+    [outputs y1 t1] = readSimulationData();
+  end
 end
 %
 function [interface] = parseInterface (options)
@@ -140,6 +163,10 @@ function [interface] = parseInterface (options)
   catch it
     simFailure('simInterface', 'Could not parse interface file.')
   end
+
+  % Convert some fields from strings to numbers
+  interface.parallel_models = str2num(interface.parallel_models);
+  interface.precision = str2num(interface.precision);
 
   % Convert default inputs to a structure
   defaultInputs = interface.defaultInputs;
@@ -296,6 +323,7 @@ function cleanupBackgroundProcess(pid)
         disp('Simulation terminated prematurely.')
 	[stat, result] = system('sleep 1');
     end
+    readSimulationData(); % Allow mex to clean up internal state
 end
 
 function [plist] = subprocesses(pid)

@@ -266,7 +266,8 @@ import "command_line.dsl"
 
   var booleanOptionNamesAlways = ["help",
 				  "binary",
-				  "interface"] +
+				  "interface",
+                                  "shared_memory"] +
 				  targetOptions.keys +
 				  precisionOptions.keys
 
@@ -301,7 +302,7 @@ import "command_line.dsl"
 					outputdir = settings.simulation.outputdir.getValue()}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
-  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid"]
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid", "shared_memory"]
   function defaultSimulationSettings() = {start = 0,
 					  instances = 1,
 					  outputdir = settings.compiler.outputdir.getValue()}
@@ -486,6 +487,7 @@ import "command_line.dsl"
 	tableDest.add("instances", settings.simulation.instances.getValue())
 	tableDest.add("outputdir", settings.compiler.outputdir.getValue())
 	tableDest.add("binary", settings.simulation.binary.getValue())
+        tableDest.add("shared_memory", settings.simulation.shared_memory.getValue())
 	if "gpu" == settings.simulation.target.getValue() then
 	    tableDest.add("gpuid", settings.gpu.gpuid.getValue())
 	end
