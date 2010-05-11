@@ -6,6 +6,28 @@ void check_keep_running(){
 }
 
 int log_outputs(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+  /* Redirect to the appropriate output data handler */
+  if(simex_output_files)
+    return log_outputs_raw_files(ob, outputs_dirname, modelid_offset, modelid);
+  else
+    return log_outputs_streaming(ob, outputs_dirname, modelid_offset, modelid);
+}
+
+int log_outputs_streaming(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+  check_keep_running();
+
+  if(modelid == 0){
+    ob->modelid_offset = modelid_offset;
+  }
+  // Tell consumer buffer is ready
+  ob->empty[modelid] = 0;
+  // Wait for buffer to be empty before writing any new data to ob
+  while(!ob->empty[modelid]){
+    //usleep(1000);
+  }  
+}
+
+int log_outputs_raw_files(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
   unsigned int outputid, nquantities, dataid, quantityid;
   unsigned int ndata = ob->count[modelid];
   output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN));

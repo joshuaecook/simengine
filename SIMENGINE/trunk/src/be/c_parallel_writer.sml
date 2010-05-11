@@ -450,7 +450,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset, output_buffer *ob){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
@@ -467,7 +467,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 		    $("void *system_states_int = NULL;"),
 		    $("void *system_states_next = NULL;")]) @
 	      [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
-	      $("output_buffer *ob = (output_buffer*)malloc(sizeof(output_buffer));"),
 	      $("#if NUM_OUTPUTS > 0"),
 	      $("output_data *od = (output_data*)malloc(PARALLEL_MODELS*sizeof(output_data));"),
 	      $("unsigned int outputsize = sizeof(output_data)/sizeof(CDATAFORMAT);"),
@@ -545,7 +544,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	      $("if (props[iter].running) free(props[iter].running);"),
 	      $("if (props[iter].last_iteration) free(props[iter].last_iteration);")],
 	  $("}"),
-	  $("if (props[0].ob) free(props[0].ob);"),
 	  $("if (props[0].od) free(props[0].od);"),
 	  $("if (props[0].system_states) free(props[0].system_states);"),
 	  $("free(props);"),
@@ -693,10 +691,16 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 					 iterSymToDT(iter_sym)
 				     end) outputs
 
-	val output_mode = if(List.exists (fn x => Real.== (x, 0.0)) output_periods) then
+	val output_mode = if (List.exists (fn x => Real.== (x, 0.0)) output_periods) then
 			      0 (* OUTPUT_RAW_FILES *)
 			  else
-			      3 (* OUTPUT_PREALLOCATED *)
+			      if(List.all (fn x => case (DOF.Output.condition x) of
+						       (Exp.TERM (Exp.BOOL v)) => v
+						     | _ => false)
+					  outputs) then
+				  2 (* OUTPUT_PREALLOCATED *)
+			      else
+				  0 (* OUTPUT_RAW_FILES *)
 				  
 	fun wrap (f, m) x = CurrentModel.withModel m (fn _ => f x)
 
@@ -780,6 +784,8 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		    ("outputNumQuantities", array (map int outputs_num_quantities)),
 		    ("outputMode", int output_mode),
 		    ("outputPeriods", array (map real output_periods)),
+		    ("precision", string "%d"), (* Place holder for sizeof(CDATAFORMAT) *)
+		    ("parallel_models", string "%d"), (* Place holder for PARALLEL_MODELS *)
 		    ("hashcode", string "0000000000000000"),
 		    ("version", int 0)]
 	end

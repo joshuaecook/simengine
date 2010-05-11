@@ -109,6 +109,7 @@ typedef enum {
   BINARY,
   INTERFACE,
   JSON_INTERFACE,
+  SHARED_MEMORY,
   HELP
 } clopts;
 

@@ -87,7 +87,7 @@ function [varargout] = simex(dsl, varargin)
       varargout = {output, y1, t1};
     else
       % Remove interface fields that have no meaning to user
-      interface = rmfield(interface, {'hashcode', 'version', 'outputMode', 'outputPeriods'});
+      interface = rmfield(interface, {'hashcode', 'version', 'outputMode', 'outputPeriods', 'precision', 'parallel_models'});
       varargout = {interface};
     end
 end

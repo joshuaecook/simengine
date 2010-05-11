@@ -3,7 +3,6 @@
  * Copyright (C) 2010 Simatra Modeling Technologies
  */
 
-
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
@@ -13,9 +12,51 @@
 #include<unistd.h>
 #include<sys/mman.h>
 #include<assert.h>
+#include<pthread.h>
 #include "mex.h"
 
+/* Library static globals */
+static int initialized = 0;
+static char *outputs_dirname = NULL;
+static unsigned int precision = 0;
+static unsigned int parallel_models = 0;
+static unsigned int shared_memory = 0;
+static unsigned int modelid_offset = 0;
+static unsigned int num_models = 0;
+static unsigned int num_outputs = 0;
+static unsigned int num_states = 0;
+static char **output_names = NULL;
+static unsigned int *output_num_quantities = NULL;
+static pthread_t collector;
+
+typedef struct{
+  unsigned int samples;
+  unsigned int allocated;
+  double *data;
+}output_t;
+
+static output_t *output;
+
+#define BASE_BUFFER_SIZE 1024
+
 #define ERROR(MESSAGE, ARG...) mexErrMsgIdAndTxt("Simatra:SIMEX:readSimulationData", MESSAGE, ##ARG)
+
+#define BUFFER_LEN 8000
+
+typedef struct{
+  unsigned int *finished;
+  unsigned int *full;
+  unsigned int *count;
+  void *buffer;
+  unsigned int *empty;
+  unsigned int *modelid_offset;
+}output_buffer;
+
+typedef struct {
+  unsigned int outputid;
+  unsigned int num_quantities;
+  char quantities[];
+} output_buffer_data;
 
 /* Returns the number of outputs represented in a model interface. */
 unsigned int iface_num_outputs(const mxArray *iface){
@@ -39,15 +80,16 @@ unsigned int iface_num_states(const mxArray *iface){
  * Nb caller is responsible for releasing the returned pointer by calling mxFree(). */
 unsigned int *iface_output_num_quantities(const mxArray *iface){
   assert(mxSTRUCT_CLASS == mxGetClassID(iface));
-  unsigned int num_outputs = iface_num_outputs(iface);
+  unsigned int num_out = iface_num_outputs(iface);
   mxArray *num_quant = mxGetField(iface, 0, "outputNumQuantities");
   assert(mxDOUBLE_CLASS == mxGetClassID(num_quant));
   
   double *quants = mxGetPr(num_quant);
-  unsigned int *num_quants = (unsigned int *)mxMalloc(num_outputs * sizeof(unsigned int));
+  unsigned int *num_quants = (unsigned int *)mxMalloc(num_out * sizeof(unsigned int));
+  mexMakeMemoryPersistent(num_quants);
   unsigned int outputid;
   
-  for (outputid = 0; outputid < num_outputs; outputid++){
+  for (outputid = 0; outputid < num_out; outputid++){
     num_quants[outputid] = (unsigned int)(quants[outputid]);
   }
   
@@ -58,22 +100,40 @@ unsigned int *iface_output_num_quantities(const mxArray *iface){
  * Nb caller is responsible for freeing each member *and* the returned pointer by calling mxFree(). */
 char **iface_outputs(const mxArray *iface){
   assert(mxSTRUCT_CLASS == mxGetClassID(iface));
-  mxArray *outputs = mxGetField(iface, 0, "outputs");
+  mxArray *out = mxGetField(iface, 0, "outputs");
   
-  assert(mxCELL_CLASS == mxGetClassID(outputs));
-  unsigned int num_outputs = mxGetN(outputs);
+  assert(mxCELL_CLASS == mxGetClassID(out));
+  unsigned int num_out = mxGetN(out);
 
   mxArray *name;
-  char **names = (char **)mxMalloc(num_outputs * sizeof(char *));
+  char **names = (char **)mxMalloc(num_out * sizeof(char *));
+  mexMakeMemoryPersistent(names);
   unsigned int outputid;
 
-  for (outputid = 0; outputid < num_outputs; outputid++){
-    name = mxGetCell(outputs, outputid);
+  for (outputid = 0; outputid < num_out; outputid++){
+    name = mxGetCell(out, outputid);
     assert(mxCHAR_CLASS == mxGetClassID(name));
     names[outputid] = mxArrayToString(name);
+    mexMakeMemoryPersistent(names[outputid]);
   }
 
   return names;
+}
+
+unsigned int iface_precision(const mxArray *iface){
+  assert(mxSTRUCT_CLASS == mxGetClassID(iface));
+  mxArray *prec = mxGetField(iface, 0, "precision");
+
+  assert(mxDOUBLE_CLASS == mxGetClassID(prec));
+  return mxGetScalar(prec);
+}
+
+unsigned int iface_parallel_models(const mxArray *iface){
+  assert(mxSTRUCT_CLASS == mxGetClassID(iface));
+  mxArray *pmodels = mxGetField(iface, 0, "parallel_models");
+
+  assert(mxDOUBLE_CLASS == mxGetClassID(pmodels));
+  return mxGetScalar(pmodels);
 }
 
 /* Returns the number of parallel instances represented in an options structure. */
@@ -92,10 +152,19 @@ char *options_outputs_directory(const mxArray *opts){
 
   assert(mxCHAR_CLASS == mxGetClassID(outputs));
   dir = mxArrayToString(outputs);
+  mexMakeMemoryPersistent(dir);
   if(!dir){
     ERROR("Invalid output directory name.\n");
   }
   return dir;
+}
+
+unsigned int options_shared_memory(const mxArray *opts){
+  assert(mxSTRUCT_CLASS == mxGetClassID(opts));
+  mxArray *shmemory = mxGetField(opts, 0, "shared_memory");
+
+  assert(mxLOGICAL_CLASS == mxGetClassID(shmemory));
+  return mxGetScalar(shmemory);
 }
 
 /* Takes a base directory and a modelid to create the path unique to the model instance */
@@ -129,57 +198,60 @@ void copy_transpose_double(double *dest, const double *src, int cols, int rows){
 #undef ROW_MAJOR_IDX
 }
 
-/* Main entry point for readSimulation.mex */
-void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
-  /* Check arguments */
-  if(nrhs != 2){
-    ERROR("Incorrect number of arguments, expects 2, (interface, options), received %d.\n", nrhs);
-  }
-  if(nlhs != 3){
-    ERROR("Incorrect number of return arguments, expects 3, (outputs, states, times), received %d.\n", nlhs);
+mxArray *read_outputs_from_shared_memory(){
+  /* Local variables */
+  mxArray *mat_output;
+  double *mat_data;
+  double *file_data;
+  unsigned int modelid;
+  unsigned int outputid;
+  unsigned int num_samples;
+
+  /* Return value */
+  mxArray *output_struct;
+
+  output_struct = mxCreateStructMatrix(num_models, 1, num_outputs, (const char **)output_names);
+
+  /* Convert output files to mat format */
+  for(modelid=modelid_offset;modelid<modelid_offset+num_models;modelid++){
+    for(outputid=0;outputid<num_outputs;outputid++){
+      num_samples = output[modelid * num_outputs + outputid].samples;
+      if(num_samples > 0){
+	/* Allocate mat variable */
+	mat_output = mxCreateDoubleMatrix(num_samples, output_num_quantities[outputid], mxREAL);
+
+	mat_data = mxGetPr(mat_output);
+
+	copy_transpose_double(mat_data, output[modelid * num_outputs + outputid].data, output_num_quantities[outputid], num_samples);
+
+	free(output[modelid * num_outputs + outputid].data);
+	output[modelid * num_outputs + outputid].data = NULL;
+
+	/* Assign mat variable to return structure */
+	mxDestroyArray(mxGetField(output_struct, modelid, output_names[outputid]));
+	mxSetField(output_struct, modelid, output_names[outputid], mat_output);
+      }
+    }
   }
 
-  /* mexFunction parameters */
-  const mxArray *iface = prhs[0];
-  const mxArray *options = prhs[1];
-  /* parameter sub fields */
-  char *outputs_dirname = options_outputs_directory(options);
-  unsigned int modelid_offset = 0;
-  unsigned int num_models = options_instances(options);
-  unsigned int num_outputs = iface_num_outputs(iface);
-  unsigned int num_states = iface_num_states(iface);
-  char **output_names;
-  unsigned int *output_num_quantities;
+  return output_struct;
+}
 
-  /* File accessing pointers */
+mxArray *read_outputs_from_files(){
+  /* Local variables */
   int fd;
   char filename[PATH_MAX];
   char dirname[PATH_MAX];
-  double *file_data;
-
-  /* Iterators */
-  int modelid;
-  int outputid;
-  int stateid;
-
-  mxArray *output_struct;
-  mxArray *final_states;
-  mxArray *final_times;
   mxArray *mat_output;
   double *mat_data;
+  double *file_data;
+  unsigned int modelid;
+  unsigned int outputid;
 
-  if(num_outputs){
-    output_names = iface_outputs(iface);
-    output_num_quantities = iface_output_num_quantities(iface);
-  }
-  else{
-    output_names = NULL;
-    output_num_quantities = NULL;
-  }
+  /* Return value */
+  mxArray *output_struct;
 
   output_struct = mxCreateStructMatrix(num_models, 1, num_outputs, (const char **)output_names);
-  final_states = mxCreateDoubleMatrix(num_models, num_states, mxREAL);
-  final_times = mxCreateDoubleMatrix(num_models, 1, mxREAL);
 
   /* Convert output files to mat format */
   for(modelid=modelid_offset;modelid<modelid_offset+num_models;modelid++){
@@ -227,45 +299,101 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
     }
   }
 
-  /* Read final states */
-  /* TODO - Is it faster to read in one item at time and place in correct matrix location,
-      or read in all items in one read() and then do a transpose? Might make no difference */
-  if(num_states){
+  return output_struct;
+}
+
+/* Read final states from file */
+mxArray *read_final_states(){
+  /* Local variables */
+  int fd;
+  char filename[PATH_MAX];
+  double *mat_data;
+  double *file_data;
+  /* Return value */
+  mxArray *final_states;
+
+  /* Allocate final_states matrix */
+  final_states = mxCreateDoubleMatrix(num_models, num_states, mxREAL);
+
+  if(num_states && num_states){
+    /* Create full pathname for final-states file */
     sprintf(filename, "%s/final-states", outputs_dirname);
+
+    /* Open file */
     fd = open(filename, O_RDONLY);
     if(-1 == fd){
       ERROR("Could not open '%s'.", filename);
     }
+    /* Memory map file */
+    file_data = mmap(NULL, num_states*num_models*sizeof(double), PROT_READ, MAP_SHARED, fd, 0);
     mat_data = mxGetPr(final_states);
-    for(modelid=0;modelid<num_models;modelid++){
-      for(stateid=0;stateid<num_states;stateid++){
-	if(sizeof(double) != read(fd, &mat_data[(stateid*num_models) + modelid], sizeof(double))){
-	  ERROR("Could not read '%d' of '%d' final states from model %d.\n", stateid, num_states, modelid);
-	}
-      }
-    }
+
+    copy_transpose_double(mat_data, file_data, num_states, num_models);
+
+    /* Unmap and close file */
+    munmap(file_data, num_states*num_models*sizeof(double));
     close(fd);
   }
 
-  /* Read the final time */
-  sprintf(filename, "%s/final-time", outputs_dirname);
-  fd = open(filename, O_RDONLY);
-  if(-1 == fd){
-    ERROR("Could not open '%s'.", filename);
-  }
-  mat_data = mxGetPr(final_times);
-  if(num_models * sizeof(double) != read(fd, mat_data, num_models * sizeof(double))){
-    ERROR("Could not read final time from models.\n");
-  }
-  close(fd);
+  return final_states;
+}
 
-  /* Free allocated memory */
-  mxFree(outputs_dirname);
-  for(outputid=0;outputid<num_outputs;outputid++){
-    mxFree(output_names[outputid]);
+/* Retrieve the final times for all model instances from file */
+mxArray *read_final_times(){
+  /* Local variables */
+  int fd;
+  char filename[PATH_MAX];
+  double *mat_data;
+  /* Return value */
+  mxArray *final_times;
+
+  /* Allocate final_times matrix */
+  final_times = mxCreateDoubleMatrix(num_models, 1, mxREAL);
+
+  if(num_models){
+    /* Create full path to final-time file */
+    sprintf(filename, "%s/final-time", outputs_dirname);
+
+    /* Open final-time file */
+    fd = open(filename, O_RDONLY);
+    if(-1 == fd){
+      ERROR("Could not open '%s'.", filename);
+    }
+
+    /* Read final-time data from file */
+    if(num_models * sizeof(double) != read(fd, (void*)mxGetPr(final_times), num_models * sizeof(double))){
+      ERROR("Could not read final time from models.\n");
+    }
+
+    /* Close file */
+    close(fd);
   }
-  mxFree(output_names);
-  mxFree(output_num_quantities);
+
+  return final_times;
+}
+
+void return_simulation_data(mxArray **plhs){
+  /* Return values */
+  mxArray *output_struct;
+  mxArray *final_states;
+  mxArray *final_times;
+
+  if(!initialized)
+    ERROR("Attempted to read simulation data without initializing.\n");
+
+  /* Read outputs */
+  if(shared_memory){
+    output_struct = read_outputs_from_shared_memory();
+  }
+  else{
+    output_struct = read_outputs_from_files();
+  }
+
+  /* Read final states */
+  final_states = read_final_states();
+
+  /* Read final times */
+  final_times = read_final_times();
 
   /* Assign return values */
   plhs[0] = output_struct;
@@ -273,5 +401,161 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
   plhs[2] = final_times;
 }
 
+void *collect_data(void *arg){
+  char buffer_file[PATH_MAX];
+  struct stat filestat;
+  output_buffer ob;
+  void *raw_buffer;
+  int fd;
+  unsigned int modelid;
+  unsigned int buffer_size = (((BUFFER_LEN * precision) + (4 * sizeof(unsigned int)) * parallel_models) + sizeof(unsigned int));
 
+  filestat.st_size = 0;
+  sprintf(buffer_file, "%s/output_buffer", outputs_dirname);
 
+  /* Wait for output buffer to be written to file */
+  while(stat(buffer_file, &filestat) || filestat.st_size != buffer_size){
+    usleep(1000);
+  }
+
+  /* Open and memory map output buffer file */
+  fd = open(buffer_file, O_RDWR, S_IRWXU);
+  raw_buffer = mmap(NULL, filestat.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+
+  /* Initialize output buffer pointers to raw buffer data */
+  ob.finished = raw_buffer;
+  ob.full = ob.finished + parallel_models;
+  ob.count = ob.full + parallel_models;
+  ob.buffer = ob.count + parallel_models;
+  ob.empty = ob.buffer + ((BUFFER_LEN * precision) * parallel_models);
+  ob.modelid_offset = ob.empty + parallel_models;
+
+  /* Collect data */
+  while(initialized){
+    for(modelid=0;modelid<parallel_models;modelid++){
+      if(!ob.empty[modelid]){
+	/* Actually need to record the data here */
+	ob.empty[modelid] = 1;
+      }
+      if(!initialized) break;
+    }
+  }
+
+  /* Close output buffer file */
+  munmap(raw_buffer, filestat.st_size);
+  close(fd);
+
+  return NULL;
+}
+
+void initialize(const mxArray **prhs){
+  /* mexFunction parameters */
+  const mxArray *iface = prhs[0];
+  const mxArray *options = prhs[1];
+
+  if(!initialized){
+    /* Initialize parameter sub fields */
+    outputs_dirname = options_outputs_directory(options);
+    modelid_offset = 0;
+    num_models = options_instances(options);
+    shared_memory = options_shared_memory(options);
+    num_outputs = iface_num_outputs(iface);
+    num_states = iface_num_states(iface);
+    precision = iface_precision(iface);
+    parallel_models = iface_parallel_models(iface);
+    if(num_outputs){
+      output_names = iface_outputs(iface);
+      output_num_quantities = iface_output_num_quantities(iface);
+    }
+    else{
+      output_names = NULL;
+      output_num_quantities = NULL;
+    }
+    if(shared_memory){
+      int i;
+      output = (output_t*)malloc(num_models * num_outputs * sizeof(output_t));
+      if(!output){
+	ERROR("Out of memory.\n");
+      }
+      for(i=0;i<num_models*num_outputs;i++){
+	output[i].data = (double*)malloc(BASE_BUFFER_SIZE * sizeof(double));
+	if(!output[i].data){
+	  ERROR("Out of memory.\n");
+	}
+	output[i].allocated = BASE_BUFFER_SIZE;
+	output[i].samples = 0;
+      }
+      pthread_create(&collector, NULL, collect_data, NULL);
+    }
+    initialized = 1;
+  }
+
+  /* Sleep for 0.1 seconds */
+  usleep(1e5);
+}
+
+void cleanup(){
+  unsigned int modelid;
+  unsigned int outputid;
+
+  if(initialized){
+    /* Signal thread to stop */
+    initialized = 0;
+    if(shared_memory){
+      pthread_join(collector, NULL);
+      /* Free allocated internal memory */
+      if(output){
+	for(modelid=0;modelid<num_models;modelid++){
+	  for(outputid=0;outputid<num_outputs;outputid++){
+	    if(output[modelid * num_outputs + outputid].data){
+	      free(output[modelid * num_outputs + outputid].data);
+	    }
+	  }
+	}
+	free(output);
+	output = NULL;
+      }
+    }
+    
+    /* Free allocated MATLAB memory */
+    if(outputs_dirname){
+      mxFree(outputs_dirname);
+      outputs_dirname = NULL;
+    }
+    if(output_names){
+      for(outputid=0;outputid<num_outputs;outputid++){
+	if(output_names[outputid]){
+	  mxFree(output_names[outputid]);
+	}
+      }
+      mxFree(output_names);
+      output_names = NULL;
+    }
+    if(output_num_quantities){
+      mxFree(output_num_quantities);
+      output_num_quantities = NULL;
+    }
+  }
+}
+
+/* Main entry point for readSimulationData.mex */
+void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
+  /* This function has data that is persistent across calls and is overloaded to provide different operations.
+   * This routine only dispatches to the main routines for each context */
+  if(nlhs == 0 && nrhs == 2){
+    /* Initialization and streaming data collection */
+    initialize(prhs);
+    return;
+  }
+  if(nlhs == 3 && nrhs == 0){
+    /* Return data */
+    return_simulation_data(plhs);
+    return;
+  }
+  if(nlhs == 0 && nrhs == 0){
+    /* Free persistent data */
+    cleanup();
+    return;
+  }
+  ERROR("Incorrect usage of readSimulationData with %d incoming arguments and %d return arguments.\n", nrhs, nlhs);
+}

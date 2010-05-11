@@ -19,7 +19,8 @@ typedef struct{
   void *ptr[PARALLEL_MODELS];
   void *end[PARALLEL_MODELS];
   CDATAFORMAT buffer[PARALLEL_MODELS*BUFFER_LEN];
-  unsigned int empty;
+  unsigned int empty[PARALLEL_MODELS];
+  unsigned int modelid_offset;
 } output_buffer;
 
 typedef struct {
