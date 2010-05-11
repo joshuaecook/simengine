@@ -487,7 +487,9 @@ import "command_line.dsl"
 	tableDest.add("instances", settings.simulation.instances.getValue())
 	tableDest.add("outputdir", settings.compiler.outputdir.getValue())
 	tableDest.add("binary", settings.simulation.binary.getValue())
-        tableDest.add("shared_memory", settings.simulation.shared_memory.getValue())
+	if objectContains(settings.simulation, "shared_memory") then
+          tableDest.add("shared_memory", settings.simulation.shared_memory.getValue())
+	end
 	if "gpu" == settings.simulation.target.getValue() then
 	    tableDest.add("gpuid", settings.gpu.gpuid.getValue())
 	end
