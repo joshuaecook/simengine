@@ -1,7 +1,7 @@
 % Suite class
 %   Executes suites of simEngine tests
 %
-% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 classdef Suite < handle
    
     % define properties of the Suite
@@ -205,24 +205,23 @@ classdef Suite < handle
             end
         end
         
-        function writeXML(s, file)
-            if ischar(file)
-               fd = fopen(file, 'w');
-            else
-               fd = file;
-            end
-                
-            fprintf(fd, '<testsuite errors="%d" tests="%d" time="%f" failures="%d" name="%s">', s.Errored, s.Total, s.Time, s.Failed, s.Name);
+        function root = toXML (s)
+            xml = com.mathworks.xml.XMLUtils.createDocument('testsuite');
+            
+            root = xml.getDocumentElement;
+            root.setAttribute('errors', num2str(s.Errored));
+            root.setAttribute('tests', num2str(s.Total));
+            root.setAttribute('time', num2str(s.Time));
+            root.setAttribute('failures', num2str(s.Failed));
+            root.setAttribute('name', s.Name);
             
             for i = 1:length(s.Tests)
-              s.Tests{i}.writeXML(fd);
+                root.appendChild(xml.importNode(s.Tests{i}.toXML, true));
             end
-            
-            fprintf(fd, '</testsuite>\n');
-            
-            if ischar(file)
-                fclose(fd);
-            end
+        end
+        
+        function writeXML(s, file)
+            xmlwrite(file, s.toXML);
         end
       
         

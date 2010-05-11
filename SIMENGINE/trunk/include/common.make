@@ -19,7 +19,7 @@ SVN_ROOT = $(SVN_PREFIX)/SIMENGINE
 SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
 SVN_INFO = svn info $(CURDIR) 2>/dev/null
 SVN_URL := $(shell $(SVN_INFO) | sed -n 's/^URL: //p')
-SVN_REVISION := $(shell svnversion -nc . | cut -d: -f2 | sed -e 's/[MS]//g')
+SVN_REVISION := $(shell svnversion -nc . | cut -d: -f2)
 SVN_BRANCH := $(subst $(SVN_ROOT),,$(SVN_URL))
 
 DEBUG := $(or $(debug),$(findstring branches,$(SVN_BRANCH)))

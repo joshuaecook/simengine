@@ -44,7 +44,7 @@
 %  '-withouterror'))
 %  s.Execute
 %
-% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 %
 classdef Test < handle
 
@@ -331,20 +331,30 @@ classdef Test < handle
         function disp(t)
             disp(tostr(t));
         end
+        
+        function root = toXML (t)
+            xml = com.mathworks.xml.XMLUtils.createDocument('testcase');
+            
+            root = xml.getDocumentElement;
+            root.setAttribute('time', num2str(t.Time));
+            root.setAttribute('name', num2str(t.Name));
+
+            switch(t.Result)
+              case t.FAILED
+                message = root.appendChild(xml.createElement('failure'));
+                message.setAttribute('message', t.Message);
+              case t.ERROR
+                message = root.appendChild(xml.createElement('error'));
+                message.setAttribute('message', t.Message);
+            end
+            
+            output = root.appendChild(xml.createElement('system-out'));
+            output.appendChild(xml.createCDATASection(regexprep(t.Output,sprintf('\b'),'')));
+        end
 
         % write JUnit XML output
-        function writeXML(t, fd)
-          failureMsg = '';
-          switch(t.Result)
-              case t.FAILED
-                failureMsg = sprintf('<failure message="%s"/>', t.Message);
-              case t.ERROR
-                failureMsg = sprintf('<error message="%s"/>', t.Message);
-          end
-          
-          output = regexprep(regexprep(regexprep(regexprep(t.Output, sprintf('\b'), ''), '&', '&amp;'), '>', '&gt;'), '<', '&lt;');
-          
-          fprintf(fd, '<testcase time="%f" name="%s">%s<system-out>%s</system-out></testcase>\n', t.Time, t.Name, failureMsg, output);  
+        function writeXML(t, file)
+            xmlwrite(file, t.toXML);
         end
 
     end % methods
