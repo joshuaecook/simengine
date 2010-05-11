@@ -931,7 +931,7 @@ clean-all:
 DOCUMENTATION = tutorial userguide
 
 # Local path of the publications repository
-EXTERN_PUBLICATIONS = extern-publications
+EXTERN_PUBLICATIONS = external-publications
 EXTERN_PUBLICATIONS_PREFIX = simEngine
 # Destination of the published HTML documentation
 HTML_DOCUMENTATION_DESTINATION = $(BUILD_DIR)/html
@@ -952,12 +952,3 @@ matlab-helpsearch: html-documentation $(HTML_DOCUMENTATION_DESTINATION)/helpsear
 
 $(HTML_DOCUMENTATION_DESTINATION)/helpsearch/deletable: html-documentation
 	$(MATLAB) -nosplash -nodesktop -r "cd $(HTML_DOCUMENTATION_DESTINATION); builddocsearchdb('.'); exit"
-
-.PHONY: clean-documentation
-clean-documentation:
-	$(RM) -r $(EXTERN_PUBLICATIONS)
-
-# Downloads a local copy of the publications repository.
-.PHONY: $(EXTERN_PUBLICATIONS)
-$(EXTERN_PUBLICATIONS):
-	test -d $@ && svn up $@ || svn co $(SVN_PREFIX)/PUBLICATIONS $@
