@@ -18,7 +18,7 @@ end
 s = Suite('Message Tests');
 
 % Verify the version
-s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),'-regexpmatch', 'v1\.0'));
+s.add(Test('CheckVersion', @()(simex('models_SolverTests/fn_forwardeuler.dsl')),'-regexpmatch', 'v1\.1'));
 
 % Add basic variable tests
 s.add(SyntaxTests);
@@ -64,8 +64,6 @@ s_states.add(CreateUserErrorTest('UndefinedProperty', 'StateSyntaxTest4.dsl', ..
                                  'Member SomeProperty not found in object .*x'));
 s_states.add(CreateUserErrorTest('NoWithForProperties', 'StateSyntaxTest5.dsl', ...
                                  'Adding WITH keyword'));
-s_states.add(CreateUserErrorTest('InputInitialValue', 'StateSyntaxTest6.dsl', ...
-                                 'Input values for states not defined'));
 
 % Now create tests for equations
 s_equs = Suite('Equation Syntax Tests');
