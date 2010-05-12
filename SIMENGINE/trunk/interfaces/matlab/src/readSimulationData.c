@@ -401,6 +401,62 @@ void return_simulation_data(mxArray **plhs){
   plhs[2] = final_times;
 }
 
+/* Transmutes the internal data buffer into the structured output
+ * which may be retured to the client.
+ */
+int log_outputs(output_buffer *ob, unsigned int modelid) {
+  unsigned int outputid, nquantities, dataid, quantityid;
+  output_t *out;
+  double *odata;
+	     
+  unsigned int ndata = ob->count[modelid];
+  output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN * precision));
+	     
+  for (dataid = 0; dataid < ndata; ++dataid) {
+    outputid = buf->outputid;
+    assert(num_outputs > outputid);
+
+    nquantities = buf->num_quantities;
+    assert(output_num_quantities[outputid] == nquantities);
+
+    /* TODO an error code for invalid data? */
+    if (outputid > num_outputs) { return 1; }
+    if (output_num_quantities[outputid] != nquantities) { return 1; }
+		 
+    out = &output[(modelid_offset+modelid)*num_outputs + outputid];
+		 
+    if (out->samples == out->allocated) {
+      out->allocated *= 2;
+      out->data = (double*)realloc(out->data, nquantities * out->allocated * sizeof(double));
+      if (!out->data)
+	{ return 1; }
+    }
+		 
+    odata = &out->data[out->samples * nquantities];
+		 
+    /* Copies each element individually for implicit type conversion from float of 'precision' to double. */
+    if(precision == 4){
+      float *fquantities = (float*) buf->quantities;
+      for (quantityid = 0; quantityid < nquantities; ++quantityid) {
+	odata[quantityid] = fquantities[quantityid];
+      }
+      buf = (output_buffer_data *)(fquantities + nquantities);
+    }
+    else /* precision == 8 */{
+      double *dquantities = (float*) buf->quantities;
+      for (quantityid = 0; quantityid < nquantities; ++quantityid) {
+	odata[quantityid] = dquantities[quantityid];
+      }
+      buf = (output_buffer_data *)(dquantities + nquantities);
+    }
+
+    ++out->samples;
+  }
+	     
+  return 0;
+}
+
+
 void *collect_data(void *arg){
   char buffer_file[PATH_MAX];
   struct stat filestat;
@@ -408,7 +464,10 @@ void *collect_data(void *arg){
   void *raw_buffer;
   int fd;
   unsigned int modelid;
-  unsigned int buffer_size = (((BUFFER_LEN * precision) + (4 * sizeof(unsigned int)) * parallel_models) + sizeof(unsigned int));
+  unsigned int buffer_size = (((BUFFER_LEN * precision) + 
+			       (4 * sizeof(unsigned int)) + 
+			       (2 * sizeof(void*))) * 
+			      parallel_models) + sizeof(unsigned int);
 
   filestat.st_size = 0;
   sprintf(buffer_file, "%s/output_buffer", outputs_dirname);
@@ -426,15 +485,16 @@ void *collect_data(void *arg){
   ob.finished = raw_buffer;
   ob.full = ob.finished + parallel_models;
   ob.count = ob.full + parallel_models;
-  ob.buffer = ob.count + parallel_models;
+  ob.buffer = (char*)(ob.count + parallel_models) + (2 * sizeof(void*) * parallel_models);
   ob.empty = ob.buffer + ((BUFFER_LEN * precision) * parallel_models);
   ob.modelid_offset = ob.empty + parallel_models;
 
   /* Collect data */
   while(initialized){
+    modelid_offset = *ob.modelid_offset;
     for(modelid=0;modelid<parallel_models;modelid++){
       if(!ob.empty[modelid]){
-	/* Actually need to record the data here */
+	log_outputs(&ob, modelid);
 	ob.empty[modelid] = 1;
       }
       if(!initialized) break;
@@ -472,18 +532,21 @@ void initialize(const mxArray **prhs){
       output_num_quantities = NULL;
     }
     if(shared_memory){
-      int i;
+      unsigned int modelid;
+      unsigned int outputid;
       output = (output_t*)malloc(num_models * num_outputs * sizeof(output_t));
       if(!output){
 	ERROR("Out of memory.\n");
       }
-      for(i=0;i<num_models*num_outputs;i++){
-	output[i].data = (double*)malloc(BASE_BUFFER_SIZE * sizeof(double));
-	if(!output[i].data){
-	  ERROR("Out of memory.\n");
+      for(modelid=0;modelid<num_models;modelid++){
+	for(outputid=0;outputid<num_outputs;outputid++){
+	  output[modelid*num_outputs + outputid].data = (double*)malloc(BASE_BUFFER_SIZE * sizeof(double) * output_num_quantities[outputid]);
+	  if(!output[modelid*num_outputs + outputid].data){
+	    ERROR("Out of memory.\n");
+	  }
+	  output[modelid*num_outputs + outputid].allocated = BASE_BUFFER_SIZE;
+	  output[modelid*num_outputs + outputid].samples = 0;
 	}
-	output[i].allocated = BASE_BUFFER_SIZE;
-	output[i].samples = 0;
       }
       pthread_create(&collector, NULL, collect_data, NULL);
     }
