@@ -74,37 +74,32 @@ void init_output_buffers(const char *outputs_dirname, output_buffer **ob, int *o
 
   *ob = NULL;
 
-  switch(seint.output_mode){
-  case OUTPUT_RAW_FILES:
+  if(simex_output_files){
     *ob = (output_buffer*)malloc(sizeof(output_buffer));
-    break;
-  case OUTPUT_STREAMING:
-  case OUTPUT_PREALLOCATED:
+  }
+  else{
     sprintf(buffer_file, "%s/output_buffer", outputs_dirname);
     *output_fd = open(buffer_file, O_CREAT|O_RDWR, S_IRWXU);
-    if(-1 == output_fd){
+    if(-1 == *output_fd){
       ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation data. '%s'", buffer_file);
     }
     for(i=0; i<sizeof(output_buffer)/sizeof(int); i++){
       write(*output_fd, &tmp, sizeof(int));
     }
     *ob = (output_buffer*)mmap(NULL, sizeof(output_buffer), PROT_READ|PROT_WRITE, MAP_SHARED, *output_fd, 0);
-    break;
-  default:
-    ERROR(Simatra::Simex::Simulation, "No output mode specified.");
+    for(i=0;i<PARALLEL_MODELS;i++){
+      *ob->empty[i] = 1;
+    }
   }
 }
 
 void clean_up_output_buffers(output_buffer *ob, int output_fd){
-  switch(seint.output_mode){
-  case OUTPUT_RAW_FILES:
+  if(simex_output_files){
     free(ob);
-    break;
-  case OUTPUT_STREAMING:
-  case OUTPUT_PREALLOCATED:
+  }
+  else{
     munmap(ob, sizeof(output_buffer));
     close(output_fd);
-    break;
   }
 }
 
