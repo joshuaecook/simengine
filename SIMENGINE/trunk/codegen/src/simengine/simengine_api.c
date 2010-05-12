@@ -88,7 +88,7 @@ void init_output_buffers(const char *outputs_dirname, output_buffer **ob, int *o
     }
     *ob = (output_buffer*)mmap(NULL, sizeof(output_buffer), PROT_READ|PROT_WRITE, MAP_SHARED, *output_fd, 0);
     for(i=0;i<PARALLEL_MODELS;i++){
-      *ob->empty[i] = 1;
+      (*ob)->empty[i] = 1;
     }
   }
 }

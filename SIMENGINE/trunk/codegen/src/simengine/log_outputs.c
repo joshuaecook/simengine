@@ -16,7 +16,9 @@ int log_outputs_streaming(output_buffer *ob, const char *outputs_dirname, unsign
   // Wait for buffer to be empty before writing any new data to ob
   while(!ob->empty[modelid]){
     usleep(1000);
-  }  
+  }
+
+  return 0;
 }
 
 int log_outputs_raw_files(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
