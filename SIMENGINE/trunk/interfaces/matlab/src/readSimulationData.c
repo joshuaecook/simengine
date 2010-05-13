@@ -21,7 +21,6 @@ static char *outputs_dirname = NULL;
 static unsigned int precision = 0;
 static unsigned int parallel_models = 0;
 static unsigned int shared_memory = 0;
-static unsigned int modelid_offset = 0;
 static unsigned int num_models = 0;
 static unsigned int num_outputs = 0;
 static unsigned int num_states = 0;
@@ -48,7 +47,7 @@ typedef struct{
   unsigned int *full;
   unsigned int *count;
   void *buffer;
-  unsigned int *empty;
+  unsigned int *available;
   unsigned int *modelid_offset;
 }output_buffer;
 
@@ -213,7 +212,7 @@ mxArray *read_outputs_from_shared_memory(){
   output_struct = mxCreateStructMatrix(num_models, 1, num_outputs, (const char **)output_names);
 
   /* Convert output files to mat format */
-  for(modelid=modelid_offset;modelid<modelid_offset+num_models;modelid++){
+  for(modelid=0;modelid<num_models;modelid++){
     for(outputid=0;outputid<num_outputs;outputid++){
       num_samples = output[modelid * num_outputs + outputid].samples;
       if(num_samples > 0){
@@ -254,7 +253,7 @@ mxArray *read_outputs_from_files(){
   output_struct = mxCreateStructMatrix(num_models, 1, num_outputs, (const char **)output_names);
 
   /* Convert output files to mat format */
-  for(modelid=modelid_offset;modelid<modelid_offset+num_models;modelid++){
+  for(modelid=0;modelid<num_models;modelid++){
     /* Set up the path to the model instance */
     modelid_dirname(outputs_dirname, dirname, modelid);
 
@@ -408,7 +407,8 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
   unsigned int outputid, nquantities, dataid, quantityid;
   output_t *out;
   double *odata;
-	     
+
+  unsigned int modelid_offset = ob->modelid_offset[modelid];
   unsigned int ndata = ob->count[modelid];
   output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN * precision));
 	     
@@ -443,7 +443,7 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
       buf = (output_buffer_data *)(fquantities + nquantities);
     }
     else /* precision == 8 */{
-      double *dquantities = (float*) buf->quantities;
+      double *dquantities = (double*) buf->quantities;
       for (quantityid = 0; quantityid < nquantities; ++quantityid) {
 	odata[quantityid] = dquantities[quantityid];
       }
@@ -452,6 +452,7 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
 
     ++out->samples;
   }
+  ob->available[modelid] = 0;
 	     
   return 0;
 }
@@ -464,10 +465,11 @@ void *collect_data(void *arg){
   void *raw_buffer;
   int fd;
   unsigned int modelid;
+  unsigned int modelid_offset;
   unsigned int buffer_size = (((BUFFER_LEN * precision) + 
-			       (4 * sizeof(unsigned int)) + 
+			       (5 * sizeof(unsigned int)) + 
 			       (2 * sizeof(void*))) * 
-			      parallel_models) + sizeof(unsigned int);
+			      parallel_models);
 
   filestat.st_size = 0;
   sprintf(buffer_file, "%s/output_buffer", outputs_dirname);
@@ -482,22 +484,23 @@ void *collect_data(void *arg){
   raw_buffer = mmap(NULL, filestat.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 
   /* Initialize output buffer pointers to raw buffer data */
-  ob.finished = raw_buffer;
+  ob.finished = (unsigned int *)raw_buffer;
   ob.full = ob.finished + parallel_models;
   ob.count = ob.full + parallel_models;
-  ob.buffer = (char*)(ob.count + parallel_models) + (2 * sizeof(void*) * parallel_models);
-  ob.empty = ob.buffer + ((BUFFER_LEN * precision) * parallel_models);
-  ob.modelid_offset = ob.empty + parallel_models;
+  ob.available = ob.count + parallel_models;
+  ob.modelid_offset = ob.available + parallel_models;
+  ob.buffer = (char*)(ob.modelid_offset + parallel_models);
 
   /* Collect data */
   while(initialized){
-    modelid_offset = *ob.modelid_offset;
     for(modelid=0;modelid<parallel_models;modelid++){
-      if(!ob.empty[modelid]){
+      if(ob.available[modelid]){
 	log_outputs(&ob, modelid);
-	ob.empty[modelid] = 1;
       }
-      if(!initialized) break;
+      else{
+	usleep(1);
+      }
+      if(!initialized) return NULL;
     }
   }
 
@@ -516,7 +519,6 @@ void initialize(const mxArray **prhs){
   if(!initialized){
     /* Initialize parameter sub fields */
     outputs_dirname = options_outputs_directory(options);
-    modelid_offset = 0;
     num_models = options_instances(options);
     shared_memory = options_shared_memory(options);
     num_outputs = iface_num_outputs(iface);
