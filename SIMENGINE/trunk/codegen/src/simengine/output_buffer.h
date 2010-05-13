@@ -16,11 +16,11 @@ typedef struct{
   unsigned int finished[PARALLEL_MODELS];
   unsigned int full[PARALLEL_MODELS];
   unsigned int count[PARALLEL_MODELS];
+  unsigned int available[PARALLEL_MODELS];
+  unsigned int modelid_offset[PARALLEL_MODELS];
+  CDATAFORMAT buffer[PARALLEL_MODELS*BUFFER_LEN];
   void *ptr[PARALLEL_MODELS];
   void *end[PARALLEL_MODELS];
-  CDATAFORMAT buffer[PARALLEL_MODELS*BUFFER_LEN];
-  unsigned int empty[PARALLEL_MODELS];
-  unsigned int modelid_offset;
 } output_buffer;
 
 typedef struct {

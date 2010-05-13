@@ -8,14 +8,12 @@ void check_keep_running(){
 int log_outputs_streaming(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
   check_keep_running();
 
-  if(modelid == 0){
-    ob->modelid_offset = modelid_offset;
-  }
+  ob->modelid_offset[modelid] = modelid_offset;
   // Tell consumer buffer is ready
-  ob->empty[modelid] = 0;
+  ob->available[modelid] = 1;
   // Wait for buffer to be empty before writing any new data to ob
-  while(!ob->empty[modelid]){
-    usleep(1000);
+  while(ob->available[modelid]){
+    usleep(1);
   }
 
   return 0;
