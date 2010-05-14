@@ -933,17 +933,14 @@ DOCUMENTATION = tutorial userguide
 # Local path of the publications repository
 EXTERN_PUBLICATIONS = external-publications
 EXTERN_PUBLICATIONS_PREFIX = simEngine
-# Destination of the published HTML documentation
-HTML_DOCUMENTATION_DESTINATION = $(BUILD_DIR)/html
 
 .PHONY: documentation
-documentation: html-documentation matlab-helpsearch
+documentation: links html-documentation matlab-helpsearch
 
 .PHONY: html-documentation
 html-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
-html-documentation: export DOCUMENTATION_OUTPUT_DIR := $(realpath $(HTML_DOCUMENTATION_DESTINATION))
+html-documentation: export DOCUMENTATION_OUTPUT_DIR := $(addprefix $(realpath $(BUILD_DIR))/,html)
 html-documentation: 
-	$(info SIMENGINE=$(SIMENGINE))
 	$(MAKE) -C $(EXTERN_PUBLICATIONS) html
 
 
