@@ -40,7 +40,8 @@ static output_t *output;
 
 #define ERROR(MESSAGE, ARG...) mexErrMsgIdAndTxt("Simatra:SIMEX:readSimulationData", MESSAGE, ##ARG)
 
-#define BUFFER_LEN 8000
+unsigned int global_ob_count = 2;
+#define BUFFER_LEN 1000
 
 typedef struct{
   unsigned int *finished;
@@ -164,6 +165,14 @@ unsigned int options_shared_memory(const mxArray *opts){
 
   assert(mxLOGICAL_CLASS == mxGetClassID(shmemory));
   return mxGetScalar(shmemory);
+}
+
+unsigned int options_buffer_count(const mxArray *opts){
+  assert(mxSTRUCT_CLASS == mxGetClassID(opts));
+  mxArray *buffcount = mxGetField(opts, 0, "buffer_count");
+
+  assert(mxDOUBLE_CLASS == mxGetClassID(buffcount));
+  return mxGetScalar(buffcount);
 }
 
 /* Takes a base directory and a modelid to create the path unique to the model instance */
@@ -461,7 +470,7 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
 void *collect_data(void *arg){
   char buffer_file[PATH_MAX];
   struct stat filestat;
-  output_buffer ob;
+  output_buffer *ob;
   void *raw_buffer;
   int fd;
   unsigned int modelid;
@@ -470,13 +479,16 @@ void *collect_data(void *arg){
 			       (5 * sizeof(unsigned int)) + 
 			       (2 * sizeof(void*))) * 
 			      parallel_models);
+  unsigned int bufferid;
+  unsigned int *obid;
 
   filestat.st_size = 0;
   sprintf(buffer_file, "%s/output_buffer", outputs_dirname);
 
   /* Wait for output buffer to be written to file */
-  while(stat(buffer_file, &filestat) || filestat.st_size != buffer_size){
+  while(stat(buffer_file, &filestat) || filestat.st_size != global_ob_count * buffer_size){
     usleep(1000);
+    if(!initialized) return NULL;
   }
 
   /* Open and memory map output buffer file */
@@ -484,28 +496,48 @@ void *collect_data(void *arg){
   raw_buffer = mmap(NULL, filestat.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 
   /* Initialize output buffer pointers to raw buffer data */
-  ob.finished = (unsigned int *)raw_buffer;
-  ob.full = ob.finished + parallel_models;
-  ob.count = ob.full + parallel_models;
-  ob.available = ob.count + parallel_models;
-  ob.modelid_offset = ob.available + parallel_models;
-  ob.buffer = (char*)(ob.modelid_offset + parallel_models);
+  ob = (output_buffer*)malloc(global_ob_count*sizeof(output_buffer));
+  ob[0].finished = (unsigned int *)raw_buffer;
+  ob[0].full = ob[0].finished + parallel_models;
+  ob[0].count = ob[0].full + parallel_models;
+  ob[0].available = ob[0].count + parallel_models;
+  ob[0].modelid_offset = ob[0].available + parallel_models;
+  ob[0].buffer = (char*)(ob[0].modelid_offset + parallel_models);
+
+  int i;
+  for(bufferid=1;bufferid<global_ob_count;bufferid++){
+    ob[bufferid].finished = (unsigned int*)(((char*)ob[bufferid-1].finished) + buffer_size);
+    ob[bufferid].full = (unsigned int*)(((char*)ob[bufferid-1].full) + buffer_size);
+    ob[bufferid].count = (unsigned int*)(((char*)ob[bufferid-1].count) + buffer_size);
+    ob[bufferid].available = (unsigned int*)(((char*)ob[bufferid-1].available) + buffer_size);
+    ob[bufferid].modelid_offset = (unsigned int*)(((char*)ob[bufferid-1].modelid_offset) + buffer_size);
+    ob[bufferid].buffer = (unsigned int*)(((char*)ob[bufferid-1].buffer) + buffer_size);
+  }
+
+  obid = malloc(parallel_models * sizeof(unsigned int));
+  for(bufferid=0;bufferid<parallel_models;bufferid++){
+    obid[bufferid] = 0;
+  }
 
   /* Collect data */
   while(initialized){
     for(modelid=0;modelid<parallel_models;modelid++){
-      if(ob.available[modelid]){
-	log_outputs(&ob, modelid);
+      if(ob[obid[modelid]].available[modelid]){
+	log_outputs(&ob[obid[modelid]], modelid);
+	obid[modelid] = (obid[modelid] + 1) % global_ob_count;
       }
       else{
-	usleep(1);
+	usleep(10);
       }
-      if(!initialized) return NULL;
+      if(!initialized) goto endofthread;
     }
   }
 
+ endofthread:
   /* Close output buffer file */
   munmap(raw_buffer, filestat.st_size);
+  free(ob);
+  free(obid);
   close(fd);
 
   return NULL;
@@ -521,6 +553,7 @@ void initialize(const mxArray **prhs){
     outputs_dirname = options_outputs_directory(options);
     num_models = options_instances(options);
     shared_memory = options_shared_memory(options);
+    global_ob_count = options_buffer_count(options);
     num_outputs = iface_num_outputs(iface);
     num_states = iface_num_states(iface);
     precision = iface_precision(iface);

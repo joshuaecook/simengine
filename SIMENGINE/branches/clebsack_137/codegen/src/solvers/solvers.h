@@ -22,7 +22,6 @@
 typedef struct {
   CDATAFORMAT *time;
   CDATAFORMAT *model_states;
-  void *ob;
   void *mem;
 } gpu_data;
 
@@ -64,9 +63,7 @@ typedef struct {
   unsigned int outputsize;
   unsigned int num_models;
   void *od;
-  unsigned int ob_size;
   unsigned int modelid_offset;
-  output_buffer *ob;
   gpu_data gpu;
   int *running;
   solver_mem *mem;  // Solver specific memory storage
