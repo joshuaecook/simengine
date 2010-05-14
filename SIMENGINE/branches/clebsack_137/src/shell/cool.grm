@@ -1,0 +1,545 @@
+fun callfun (name, args) =
+    Ast.APPLY {func=(Ast.SYMBOL (Symbol.symbol name)),
+	       args=Ast.TUPLE args}
+
+
+fun warning (string) =
+    Logger.log_warning (Printer.$ string)
+
+fun error (string) =
+    (Logger.log_error (Printer.$ string);
+     DynException.setErrored())
+
+fun error_at_pos pos (string) =
+    (Logger.log_error_with_position [pos] (Printer.$ string);
+     DynException.setErrored())
+
+exception StubbedOut
+
+%%
+
+
+(* The list of terminals corresponding to LC syntactic atoms. *)
+%term
+    EOF 
+  | ID of string
+  | PATTERN of string
+  | STRING_CHARS of string
+  | INT of int 
+  | REAL of real 
+  | HEX of int * IntInf.int
+  | OCT of int * IntInf.int
+  | BIN of int * IntInf.int
+  | BEGIN_STRING | END_STRING | STRING_EXP
+  | TICK | PERIOD | GT | LT | EQ | ASSIGN | LPAREN | RPAREN | STAR | AND | AMPERSAND | ARROW | EQARROW | UNDERSCORE | PLUS | MINUS | UMINUS | SLASH | CARROT | LCBRACE | RCBRACE | ELLIPSIS | GEQUAL | NEQ | LEQUAL
+  | LAMBDAFUN | COMMA | IN | END | LF | LBRACE | RBRACE | UNDERBRACE | PERCENT | DOLLAR | AT | WHEN | OTHERWISE | UNDEFINED
+  | ASSERT | OR | IF | THEN | ELSE | TRUE | FALSE | ERROR | ELSEIF
+  | IMPORT | CLASS | OF | COLON | TO | BY | WITH | STATEFUL | TUNABLE | VISIBLE | OUTPUT | INPUT | MODEL | SUBMODEL | PARAMETER | STATE | RANDOM | HIDDEN | PUBLIC
+  | WHILE | FOREACH | DO | VAR | ITERATOR | CONSTANT | GLOBAL | FUNCTION | OPERATOR | CONSTRUCTOR | NEWLINE | SATISFIES | EXTENDS | INTERFACE | NAMESPACE | REPLACE | OVERLOAD | OPEN | TYPE | ENUMERATION | EQUATION | EQUATIONS | QUANTITY | FORALL | EXISTS | SUCHTHAT | PROPERTY | GET | SET | MULTIFUNCTION | LET | RULEMATCH | WHERE
+
+%nonassoc IMPORT CLASS VAR CONSTANT GLOBAL CONSTRUCTOR OPERATOR FUNCTION MULTIFUNCTION SATISFIES EXTENDS INTERFACE NAMESPACE REPLACE OVERLOAD OPEN ENUMERATION QUANTITY PROPERTY GET SET
+%left LAMBDAFUN TYPE
+%right LET IN END WHILE FOREACH DO OF 
+%left IF THEN ELSE ELSEIF
+%nonassoc ASSIGN WHEN OTHERWISE TO BY WITH MODEL SUBMODEL PARAMETER STATE RANDOM HIDDEN PUBLIC EQARROW ITERATOR 
+%left COMMA
+%left EQUATION EQUATIONS RULEMATCH WHERE
+%left OR 
+%left AND AMPERSAND
+%left FORALL EXISTS SUCHTHAT
+%left LT GT LEQUAL GEQUAL
+%nonassoc EQ NEQ ERROR 
+%left ARROW 
+%left ELLIPSIS COLON
+%left PLUS MINUS
+%left STAR SLASH PERCENT
+%right CARROT
+%left UMINUS
+%right LPAREN LBRACE LCBRACE UNDERBRACE
+%nonassoc STATEFUL TUNABLE VISIBLE OUTPUT INPUT
+%left PERIOD
+%left REAL INT ID TRUE FALSE NEWLINE UNDERSCORE UNDEFINED HEX BIN OCT TICK PATTERN DOLLAR AT
+%left STRING_CHARS STRING_EXP
+%right BEGIN_STRING END_STRING
+
+(* The list of rules (non-terminals) used by the parser. *)
+%nonterm
+start of Ast.stm
+| stm of Ast.stm
+| namespacestm of Ast.visibility option * Ast.stm
+| programmatic_stm of Ast.stm
+| stms of Ast.stm list
+| namespacestms of (Ast.visibility option * Ast.stm) list
+| definition of Ast.definition
+| vardef of Ast.definition
+| optassignment of Ast.exp option
+| action of Ast.action
+| header of Ast.header
+| returnheader of Ast.header 
+| args of Ast.typedname list 
+| optargs of Ast.typedname list
+| optdims of Symbol.symbol list option
+| modelarg of Symbol.symbol * Symbol.symbol list option
+| modelargs of (Symbol.symbol * Symbol.symbol list option) list
+| optmodelargs of (Symbol.symbol * Symbol.symbol list option) list 
+| arg of Ast.typedname 
+| opttyp of Ast.typepattern option
+| typs of Ast.typepattern list
+| typ of Ast.typepattern
+| method of Ast.method
+| methods of Ast.method list
+| optvisibility of Ast.visibility option
+| constructor of Ast.method
+| inheritance of Ast.exp option
+| interfaces of Symbol.symbol list
+| interfaceheaders of Ast.interfaceheader list
+| interfaceheader of Ast.interfaceheader
+| runnablemod of Ast.runnable_modifier option
+| classheader of {inheritance: Ast.exp option, interfaces: Symbol.symbol list}
+| exp of Ast.exp
+| lambda of Ast.exp 
+| lambdaexp  of Ast.exp
+| lambdalist of Ast.exp list
+| lambdapattern of Ast.exp
+| lambdapatternlist of Ast.exp list
+| aexp of Ast.exp
+| lambdaapp of Ast.exp
+| conditions of Ast.exp
+| idlist of Symbol.symbol list
+| someidslist of Symbol.symbol list
+| newlines of unit
+| optlines of unit
+| enumdef of Ast.definition
+| optenumextend of Symbol.symbol option
+| enumargs of (Symbol.symbol * int option) list
+| enumarg of Symbol.symbol * int option
+| ticks of int
+| equation of Ast.equation
+| equations of Ast.equation list
+| equationsdef of Ast.action
+| number of Ast.exp
+| elsechain of Ast.stm list
+| function of Ast.definition
+| singlefunction of Ast.header * Ast.stm list
+| multiplefunctions of (Ast.header * Ast.stm list) list
+
+| modeldef of Ast.definition
+| modelheader of Ast.modelheader
+| precinfo of Ast.exp
+| precinfoopt of Ast.exp option
+| modifier of Ast.simq_modifier
+| modifiers of Ast.simq_modifier list
+| paramdef of Ast.modelpart
+| statedef of Ast.modelpart
+| randomdef of Ast.modelpart
+| temporary of Ast.modelpart
+| modelpart of Ast.modelpart
+| modelparts of Ast.modelpart list
+| submodelinst of Ast.modelpart
+| quantitytype of Ast.quantitytype
+| quantitydef of Ast.modelpart
+| outputdef of Ast.modelpart
+| inputdef of Ast.modelpart
+| iteratordef of Ast.modelpart
+| optwhen of Ast.exp option
+| forclause of {var: Symbol.symbol, collection: Ast.exp, condition: Ast.exp option}
+| forgenerator of {var: Symbol.symbol, collection: Ast.exp, condition: Ast.exp option} list
+| tableentries of (Symbol.symbol * Ast.exp) list
+| tableentry of (Symbol.symbol * Ast.exp)
+| opttable of Ast.exp option
+| optdimensions of Symbol.symbol list option
+| get of Ast.stm list 
+| set of (Symbol.symbol * (Ast.stm list)) 
+| optgetset of {read: Ast.stm list option, write: (Symbol.symbol * (Ast.stm list)) option}
+| string of Ast.exp
+| string_contents of Ast.exp list
+| string_content of Ast.exp
+
+(* Default values for tokens with values. *)
+
+%value ID ("bogus")
+%value STRING_CHARS ("")
+%value PATTERN ("")
+%value INT (1)
+%value REAL (1.0)
+
+%nodefault
+%name LC
+%pure
+%verbose
+%pos PosLog.pos
+%eop EOF NEWLINE
+%noshift EOF 
+%start start
+%header (functor LrValsFun(structure Token: TOKEN))
+
+%%
+
+start: stm (stm)
+     | (Ast.ACTION(Ast.EXP(Ast.SYMBOL (Symbol.symbol "###EMPTY")), defaultPos)) (* these are removed in ast translation *)
+
+stm: programmatic_stm (programmatic_stm)
+
+
+namespacestm: optvisibility programmatic_stm (optvisibility, programmatic_stm)
+
+
+
+programmatic_stm: definition (Ast.DEFINITION (definition, definitionleft))
+		| vardef (Ast.DEFINITION (vardef, vardefleft))
+		| action (Ast.ACTION (action, actionleft))
+		| modeldef (Ast.DEFINITION(modeldef, modeldefleft))
+		| enumdef (Ast.DEFINITION (enumdef, enumdefleft))
+		| equationsdef (Ast.ACTION (equationsdef, equationsdefleft))
+
+enumdef: ENUMERATION ID optenumextend LCBRACE enumargs RCBRACE (Ast.DEFENUM {name=Symbol.symbol ID, parent=optenumextend, args=enumargs})
+
+optenumextend: (NONE)
+(*	     | EXTENDS ID (SOME ID)*) (*TODO: add back *)
+
+enumargs: enumarg (enumarg :: nil)
+	| enumarg COMMA enumargs (enumarg :: enumargs)
+
+enumarg: ID ((Symbol.symbol ID, NONE))
+       | ID EQ INT ((Symbol.symbol ID, SOME INT))
+
+
+modeldef: MODEL modelheader newlines modelparts END (Ast.DEFMODEL {header=modelheader, parts=modelparts}) 
+
+
+modelheader: ID optmodelargs ({name=Symbol.symbol ID, args=optmodelargs, returns=NONE})
+	   | LPAREN idlist RPAREN optlines ASSIGN optlines ID optmodelargs ({name=Symbol.symbol ID, args=optmodelargs, returns=SOME idlist})
+
+optmodelargs: (nil)
+       | LPAREN modelargs RPAREN (modelargs)
+
+modelargs: (nil)
+    | modelarg (modelarg :: nil)
+    | modelarg COMMA modelargs (modelarg :: modelargs)
+
+modelarg: ID optdims(Symbol.symbol ID, optdims)
+
+optdims: (NONE)
+       | LBRACE idlist RBRACE (SOME idlist)
+
+optargs: ([])
+       | LPAREN args RPAREN (args)
+
+modelparts: (nil)
+	  | modelpart modelparts (modelpart :: modelparts)
+
+modelpart: quantitydef newlines (quantitydef)	  	
+	 | submodelinst newlines (submodelinst)
+	 | programmatic_stm newlines (Ast.STM programmatic_stm)
+	 | outputdef newlines (outputdef)
+	 | inputdef newlines (inputdef)
+	 | iteratordef newlines (iteratordef)
+
+
+quantitydef: modifiers quantitytype ID optdimensions precinfoopt optassignment opttable(Ast.QUANTITYDEF {modifiers=modifiers, basetype=quantitytype, name=Symbol.symbol ID, precision=precinfoopt, exp=optassignment, settingstable = opttable, dimensions=optdimensions})
+	   | modifiers PARAMETER ID optdimensions precinfoopt ASSIGN optlines exp opttable (Ast.STM (Ast.DEFINITION (Ast.DEFCONST (Symbol.symbol ID, NONE, exp), PARAMETERleft)) before error_at_pos PARAMETERleft "The parameter keyword has been removed.  Please use inputs for all tunable quantities or set as a constant.")
+	   | modifiers RANDOM ID optdimensions precinfoopt opttable (Ast.QUANTITYDEF {modifiers=modifiers, basetype=Ast.RANDOM_QUANTITY, name=Symbol.symbol ID, precision=precinfoopt, exp=NONE, settingstable = opttable, dimensions=optdimensions})
+
+outputdef: OUTPUT ID optdimensions optassignment opttable optwhen (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
+										  quantity=(case optassignment 
+											     of NONE => Ast.SYMBOL (Symbol.symbol ID) 
+											      | SOME exp => exp), 
+										  dimensions= optdimensions,
+										  settings=opttable,
+										  condition=optwhen}) 
+inputdef: INPUT ID opttable (Ast.INPUTDEF {name=Symbol.symbol ID,
+					   settings=opttable})
+
+iteratordef: ITERATOR ID optassignment opttable (Ast.ITERATORDEF {name=Symbol.symbol ID,
+								  value=optassignment,
+								  settings=opttable})
+
+optdimensions: (NONE)
+	     | LBRACE someidslist RBRACE (SOME someidslist)
+
+opttable: (NONE)
+	| WITH optlines LCBRACE tableentries RCBRACE (SOME (Ast.TABLE tableentries))
+
+quantitytype: QUANTITY (Ast.GENERIC_QUANTITY)
+	 | STATE (Ast.STATE_QUANTITY)
+
+equationsdef: EQUATION equation (Ast.EQUATIONS ([equation]))
+(*	    | EQUATION (Ast.EQUATIONS nil before error_at_pos EQUATIONleft "EQUATION keyword must be followed by an expression. Use an EQUATIONS block to define more than one equation.")*)
+	    | EQUATIONS newlines equations END (Ast.EQUATIONS(equations))
+
+equations: (nil)
+	 | equation newlines equations (equation :: equations)
+
+equation: exp EQARROW optlines exp (Ast.MATHFUNCTION (exp1, exp2))
+	| exp ASSIGN optlines exp optwhen (Ast.EQUATION (exp1, exp2, optwhen))
+	| ID WHEN exp (Ast.EVENT (Symbol.symbol ID, exp))
+
+
+ticks: TICK (1)
+     | ticks TICK (1 + ticks)
+
+submodelinst: SUBMODEL ID ID optdimensions opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable, optdimensions=optdimensions}))
+
+modifiers: (nil)
+	 | modifier modifiers (modifier::modifiers)
+
+modifier: VISIBLE (Ast.VISIBLE)
+	| TUNABLE (Ast.TUNABLE)
+	| STATEFUL (Ast.STATEFUL)
+
+precinfoopt: (NONE)
+	   | LPAREN precinfo RPAREN (SOME precinfo)
+
+precinfo: number TO number BY number (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "Range")},
+						args=Ast.TUPLE [number1, number2, number3]})
+
+stms: (nil) 
+    | stm (stm :: nil)
+    | stm newlines stms (stm :: stms)
+
+namespacestms: (nil) 
+    | namespacestm (namespacestm :: nil)
+    | namespacestm newlines namespacestms (namespacestm :: namespacestms)
+
+definition: function (function)
+	  | CLASS ID classheader newlines methods END (Ast.DEFCLASS {name=Symbol.symbol ID, classheader=classheader, methods=methods})
+	  | NAMESPACE ID newlines namespacestms END (Ast.DEFNAMESPACE {name=Symbol.symbol ID, stms=namespacestms})
+	  | INTERFACE ID newlines interfaceheaders END (Ast.DEFINTERFACE {name=Symbol.symbol ID, headers=interfaceheaders})
+
+function: runnablemod FUNCTION singlefunction (Ast.DEFFUN (runnablemod, [singlefunction]))
+	| runnablemod MULTIFUNCTION newlines multiplefunctions END (Ast.DEFFUN (runnablemod, rev multiplefunctions))
+
+multiplefunctions: singlefunction optlines ([singlefunction])
+		 | singlefunction newlines multiplefunctions (singlefunction :: multiplefunctions)
+
+singlefunction: header ASSIGN optlines exp(header, [Ast.ACTION(Ast.EXP exp, expleft)])
+	      | returnheader optlines stms END (returnheader, stms)
+	 
+header: ID LPAREN args RPAREN ({name=Symbol.symbol ID, args=args, returns=NONE}) 
+	   
+returnheader: LPAREN args RPAREN ASSIGN optlines ID LPAREN args RPAREN ({name=Symbol.symbol ID, args=args2, returns=SOME args1}) 
+	    | header (header) 
+
+runnablemod: (SOME Ast.REPLACE)
+	   | OVERLOAD (SOME Ast.OVERLOAD) 
+
+interfaceheaders: (nil)
+		| interfaceheader interfaceheaders (interfaceheader::interfaceheaders)
+
+interfaceheader: FUNCTION header newlines (Ast.FUNHEADER header)
+	       | CONSTRUCTOR LPAREN args RPAREN newlines (Ast.CONSHEADER args)
+
+vardef: GLOBAL VAR ID opttyp optassignment (Ast.DEFGLOBAL (Symbol.symbol ID, opttyp, optassignment))
+      | VAR ID opttyp optassignment (Ast.DEFLOCAL (Symbol.symbol ID, opttyp, optassignment))
+      | CONSTANT ID opttyp ASSIGN optlines exp (Ast.DEFCONST (Symbol.symbol ID, opttyp, exp))
+
+optassignment: (NONE)
+	     | ASSIGN optlines exp (SOME exp)
+
+
+elsechain: ELSE optlines stms END (stms)
+	 | ELSEIF exp optlines THEN optlines stms elsechain ([Ast.ACTION(Ast.COND {cond=exp, ift=stms, iff=elsechain}, expleft)])
+         | END ([])
+
+string_content: STRING_EXP LPAREN exp RPAREN (exp)
+	      | STRING_EXP LCBRACE conditions RCBRACE (conditions)
+	      | STRING_EXP ID (Ast.SYMBOL (Symbol.symbol ID))
+	      | STRING_CHARS (Ast.LITERAL (Ast.CONSTSTR (StdFun.fromString STRING_CHARS)))
+
+string_contents: ([])
+	       | string_contents string_content (string_content :: string_contents)
+
+string: BEGIN_STRING string_contents END_STRING 
+		(case string_contents of
+		     [Ast.LITERAL (Ast.CONSTSTR s)] => Ast.LITERAL (Ast.CONSTSTR s)
+		   | _ => Ast.STRINGEXP (List.rev string_contents))
+      | BEGIN_STRING END_STRING (Ast.LITERAL (Ast.CONSTSTR ""))
+
+action: exp (Ast.EXP exp)
+      | IMPORT string 
+	       (case string of
+		    Ast.LITERAL (Ast.CONSTSTR s) => Ast.IMPORT s
+		  | _ => raise StubbedOut)
+      | exp ASSIGN optlines exp (Ast.ASSIGN (exp1, exp2))
+      | IF exp optlines THEN optlines stms elsechain (Ast.COND {cond=exp, ift=stms, iff=elsechain})
+      | WHILE exp optlines DO optlines stms END (Ast.WHILE {cond=exp, stms=stms})
+      | FOREACH ID optlines IN optlines exp optlines DO optlines stms END(Ast.FOR {var=Symbol.symbol ID, collection=exp, stms=stms})
+      | exp SATISFIES exp (Ast.EXP(Ast.SATISFIES {class=exp1, interface=exp2}))
+      | OPEN exp (Ast.OPEN (exp))
+
+classheader: inheritance interfaces ({inheritance=inheritance, interfaces=interfaces})
+
+inheritance: (NONE)
+	   | EXTENDS exp (SOME exp)
+
+interfaces: (nil)
+	  | SATISFIES someidslist (someidslist)
+
+args: (nil)
+    | arg (arg :: nil)
+    | arg COMMA args (arg :: args)
+
+arg: ID opttyp (Symbol.symbol ID, opttyp)
+
+opttyp: (NONE)
+      | COLON typ (SOME typ)
+
+typs: typ (typ::nil)
+    | typ COMMA typs (typ::typs)
+
+typ: ID OF typ (Ast.COMPOUNDTYPE (Symbol.symbol ID, typ))
+   | ID (Ast.TYPE (Symbol.symbol ID))
+   | UNDERSCORE (Ast.DONTCARE)
+   | LPAREN RPAREN (Ast.UNITTYPE)
+   | LPAREN typ RPAREN (typ)
+   | LPAREN typ COMMA typs RPAREN (Ast.TUPLETYPE (typ::typs))
+   | typ ARROW typ (Ast.ARROW(typ1, typ2))
+
+methods: (nil)
+       | method newlines methods (method::methods)
+
+method: optvisibility definition (Ast.METHODDEF(optvisibility, definition))
+      | optvisibility vardef (Ast.METHODDEF(optvisibility, vardef))
+      | optvisibility runnablemod OPERATOR LPAREN RPAREN LPAREN args RPAREN newlines stms END (Ast.METHODDEF (optvisibility, Ast.DEFFUN (runnablemod, [({name=Symbol.symbol "()", args=args, returns=NONE}, stms)])))
+      | optvisibility PROPERTY ID newlines optgetset END (Ast.METHODDEF(optvisibility, Ast.DEFPROPERTY{name=Symbol.symbol ID, io=optgetset}))
+      | constructor (constructor)
+
+optgetset: ({read=NONE, write=NONE})
+	    | get ({read=SOME get, write=NONE})
+	    | set ({read=NONE, write=SOME set})
+	    | get set ({read=SOME get, write=SOME set})
+	    | set get ({read=SOME get, write=SOME set})
+
+get: GET ASSIGN exp optlines ([Ast.ACTION(Ast.EXP exp, GETleft)])
+   | GET optlines stms END optlines (stms)
+
+set: SET LPAREN ID RPAREN ASSIGN exp optlines (Symbol.symbol ID, [Ast.ACTION(Ast.EXP exp, SETleft)])
+   | SET LPAREN ID RPAREN optlines stms END optlines (Symbol.symbol ID, stms)
+
+
+optvisibility: (NONE)
+             | HIDDEN (SOME Ast.HIDDEN)
+ 	     | PUBLIC (SOME Ast.PUBLIC)
+
+
+constructor: CONSTRUCTOR LPAREN args RPAREN newlines stms END (Ast.CONSTRUCTOR{args=args, body=stms})
+
+exp: lambda (lambda)
+
+
+
+
+
+lambda: lambdaapp (lambdaapp)
+	 | ERROR lambda (Ast.POS(Ast.ERROR lambda, ERRORleft))
+	 | lambda AND lambda (Ast.POS(Ast.AND [lambda1, lambda2], ANDleft))
+	 | lambda OR lambda (Ast.POS(Ast.OR [lambda1, lambda2], ORleft))
+	 | FORALL ID IN lambda SUCHTHAT lambda  (Ast.FORALL {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
+	 | EXISTS ID IN lambda SUCHTHAT lambda  (Ast.EXISTS {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
+	 | LET ID optlines ASSIGN optlines lambda optlines IN optlines lambda (Ast.LET (Symbol.symbol ID, lambda1, lambda2))
+	 | RULEMATCH lambda optlines ARROW optlines lambda (Ast.RULEMATCH{find=lambda1, conds=Ast.LITERAL(Ast.CONSTBOOL true), replace=lambda2})
+	 | RULEMATCH lambda optlines WHERE optlines lambda optlines ARROW optlines lambda (Ast.RULEMATCH{find=lambda1, conds=lambda2, replace=lambda3})
+
+lambdalist : lambda COMMA lambda ([lambda1, lambda2])
+	   | lambda COMMA lambdalist (lambda :: lambdalist)
+
+lambdaapp : lambdaapp aexp (Ast.POS(Ast.APPLY {func=lambdaapp, 
+						   args=case aexp of Ast.TUPLE _ => aexp 
+								   | Ast.UNIT => aexp
+								   | _ => Ast.TUPLE [aexp]}, 
+					lambdaappleft))
+	  | lambdaapp PERIOD ID (Ast.SEND {message=Symbol.symbol ID, object=lambdaapp})
+	  | lambdaapp PERIOD CLASS (Ast.SEND {message=Symbol.symbol "class", object=lambdaapp})
+	  | aexp (aexp)
+	  | LF ID aexp (Ast.LIBFUN (Symbol.symbol ID, aexp))
+	  | lambdaapp PLUS optlines lambdaapp (callfun("operator_add", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp MINUS optlines lambdaapp (callfun("operator_subtract", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp STAR optlines lambdaapp (callfun("operator_multiply", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp SLASH optlines lambdaapp (callfun("operator_divide", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp CARROT optlines lambdaapp (callfun("power", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp PERCENT optlines lambdaapp (callfun("operator_modulus", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp LT optlines lambdaapp (callfun("operator_lt", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp LEQUAL optlines lambdaapp (callfun("operator_le", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp GT optlines lambdaapp (callfun("operator_gt", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp GEQUAL optlines lambdaapp (callfun("operator_ge", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp EQ optlines lambdaapp (callfun("operator_eq", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp NEQ optlines lambdaapp (callfun("operator_ne", [lambdaapp1, lambdaapp2]))
+	  | MINUS lambdaapp %prec UMINUS(callfun("operator_neg", [lambdaapp]))
+	  | lambdaapp ELLIPSIS lambdaapp (callfun("operator_tabulate", [lambdaapp1, lambdaapp2]))
+	  | lambdaapp ticks (callfun("operator_deriv", [Ast.LITERAL(Ast.CONSTREAL (Real.fromInt ticks)), lambdaapp]))
+	  | aexp COLON aexp COLON aexp (callfun ("operator_tabulate", [aexp1, aexp2, aexp3]))
+	  | aexp COLON aexp (callfun ("operator_tabulate", [aexp1, aexp2]))
+
+conditions: lambda optlines WHEN optlines lambda COMMA optlines conditions 
+	    (Ast.IFEXP {cond=lambda2, ift=lambda1, iff=conditions})
+	  | lambda OTHERWISE optlines (lambda)
+
+aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
+    | INT (Ast.LITERAL(Ast.CONSTREAL (Real.fromInt INT)))
+    | string (string)
+    | UNDERSCORE (Ast.WILDCARD)
+    | PATTERN (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "Pattern")},
+			 args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR PATTERN)]})
+    | HEX (Ast.LITERAL(Ast.CONSTBINARY HEX))
+    | OCT (Ast.LITERAL(Ast.CONSTBINARY OCT))
+    | BIN (Ast.LITERAL(Ast.CONSTBINARY BIN))
+    | TRUE (Ast.LITERAL(Ast.CONSTBOOL true))
+    | FALSE (Ast.LITERAL(Ast.CONSTBOOL false))
+    | UNDEFINED (Ast.UNDEFINED)
+    | LPAREN lambda RPAREN (lambda)
+    | LPAREN RPAREN (Ast.UNIT)
+    | LPAREN lambdalist RPAREN (Ast.TUPLE lambdalist)
+    | ID (Ast.SYMBOL (Symbol.symbol ID))
+    | LPAREN LAMBDAFUN LPAREN idlist RPAREN ASSIGN lambda RPAREN (Ast.LAMBDA {args=idlist, body=lambda})
+    | LBRACE lambda forgenerator RBRACE (Ast.FORGENERATOR (forgenerator, lambda))
+    | LBRACE lambdapatternlist RBRACE (Ast.VECTOR lambdapatternlist)
+    | LBRACE lambdapattern RBRACE (Ast.VECTOR [lambdapattern])
+    | LBRACE RBRACE (Ast.VECTOR [])
+    | LCBRACE tableentries RCBRACE (Ast.TABLE tableentries)
+    | LCBRACE conditions RCBRACE (conditions)
+    | TYPE typ (Ast.TYPEEXP typ)
+    | ASSERT lambda (Ast.ASSERTION lambda)
+    | DOLLAR ID (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "Symbol")},
+			   args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR ID)]})
+    | DOLLAR DOLLAR ID (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "SymbolPattern")},
+				  args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR ID)]})
+
+lambdapatternlist: lambdapattern (lambdapattern :: nil)
+		 | lambdapattern COMMA optlines lambdapatternlist (lambdapattern :: lambdapatternlist)
+
+lambdapattern: lambda (lambda)
+	     | ID ASSIGN lambda (Ast.NAMEDPATTERN (Symbol.symbol ID, lambda))
+
+tableentries: (nil)
+	     | tableentry (tableentry::nil)
+	     | tableentry COMMA tableentries (tableentry :: tableentries)
+
+tableentry: ID ((Symbol.symbol ID, Ast.LITERAL(Ast.CONSTBOOL true)))
+    | ID ASSIGN lambda ((Symbol.symbol ID, lambda))
+
+optwhen: (NONE)
+    | WHEN lambda (SOME lambda)
+
+forclause: FOREACH ID IN lambda optwhen ({var=Symbol.symbol ID, collection=lambda, condition=optwhen})
+
+forgenerator: forclause ([forclause])
+    | forclause COMMA forgenerator (forclause :: forgenerator)
+
+
+idlist :  (nil)
+       | someidslist (someidslist)
+
+someidslist: ID ([Symbol.symbol ID])
+	   | ID COMMA optlines someidslist (Symbol.symbol ID :: someidslist)
+
+newlines: NEWLINE ()
+	| newlines NEWLINE ()
+
+optlines: ()
+	| newlines ()
+
+number: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
+      | MINUS REAL (Ast.LITERAL(Ast.CONSTREAL (~1.0 * REAL)))
+      | INT  (Ast.LITERAL(Ast.CONSTREAL (Real.fromInt INT)))
+      | MINUS INT  (Ast.LITERAL(Ast.CONSTREAL (~1.0 * (Real.fromInt INT))))
+
