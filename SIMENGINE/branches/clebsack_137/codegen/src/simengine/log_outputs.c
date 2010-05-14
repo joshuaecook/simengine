@@ -5,21 +5,26 @@ void check_keep_running(){
     ERROR(Simatra::Simex::Simulation, "Parent process terminated.  Simulation will not continue to run when orphaned.");
 }
 
-int log_outputs_streaming(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+int log_outputs_streaming(unsigned int modelid_offset, unsigned int modelid) {
   check_keep_running();
 
-  ob->modelid_offset[modelid] = modelid_offset;
+  global_ob[global_ob_idx[modelid]].modelid_offset[modelid] = modelid_offset;
   // Tell consumer buffer is ready
-  ob->available[modelid] = 1;
+  global_ob[global_ob_idx[modelid]].available[modelid] = 1;
+
+  // Advance to next output buffer
+  global_ob_idx[modelid] = (global_ob_idx[modelid] + 1) % global_ob_count;
+
   // Wait for buffer to be empty before writing any new data to ob
-  while(ob->available[modelid]){
-    usleep(1);
+  while(global_ob[global_ob_idx[modelid]].available[modelid]){
+    usleep(10);
   }
 
   return 0;
 }
 
-int log_outputs_raw_files(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+int log_outputs_raw_files(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+  output_buffer *ob = global_ob;
   unsigned int outputid, nquantities, dataid, quantityid;
   unsigned int ndata = ob->count[modelid];
   output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN));
@@ -84,10 +89,10 @@ int log_outputs_raw_files(output_buffer *ob, const char *outputs_dirname, unsign
   return 0;
 }
 
-int log_outputs(output_buffer *ob, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+int log_outputs(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
   /* Redirect to the appropriate output data handler */
   if(simex_output_files)
-    return log_outputs_raw_files(ob, outputs_dirname, modelid_offset, modelid);
+    return log_outputs_raw_files(outputs_dirname, modelid_offset, modelid);
   else
-    return log_outputs_streaming(ob, outputs_dirname, modelid_offset, modelid);
+    return log_outputs_streaming(modelid_offset, modelid);
 }

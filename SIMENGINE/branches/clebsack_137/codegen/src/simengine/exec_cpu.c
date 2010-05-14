@@ -15,7 +15,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   // Run simulation to completion
   while(model_running(props, modelid) && inputs_available){
     // Initialize a temporary output buffer
-    init_output_buffer((output_buffer*)(props->ob), modelid);
+    init_output_buffer(&global_ob[global_ob_idx[modelid]], modelid);
  
     // Run a set of iterations until the output buffer is full or the simulation is complete
     while (1) {
@@ -106,7 +106,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       }
 
       // Cannot continue if the output buffer is full
-      if (((output_buffer *)(props->ob))->full[modelid]) {
+      if (global_ob[global_ob_idx[modelid]].full[modelid]) {
 	break;
       }
 
@@ -144,7 +144,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 
     // Log outputs from buffer to external api interface
     // All iterators share references to a single output buffer and outputs dirname.
-    if(0 != log_outputs(props->ob, outputs_dirname, props->modelid_offset, modelid)){
+    if(0 != log_outputs(outputs_dirname, props->modelid_offset, modelid)){
       return ERRMEM;
     }
     progress[modelid] = (props->time[modelid] - props->starttime) / (props->stoptime - props->starttime);

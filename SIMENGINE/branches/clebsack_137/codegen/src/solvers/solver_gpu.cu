@@ -144,13 +144,11 @@ solver_props *gpu_init_props(solver_props *props){
     // Every iterator shares the same memory
     tmp_props[i].system_states = g_system;
     tmp_props[i].modelid_offset = 0; // not needed
-    tmp_props[i].ob = g_ob;
     tmp_props[i].od = g_od;
 
     // Pointers to device global memory that the host needs
     props[i].gpu.time = tmp_props[i].time;
     props[i].gpu.model_states = tmp_props[i].model_states;
-    props[i].gpu.ob = tmp_props[i].ob;
   }
 
   // A temporary host duplicate of the system states pointers structure.

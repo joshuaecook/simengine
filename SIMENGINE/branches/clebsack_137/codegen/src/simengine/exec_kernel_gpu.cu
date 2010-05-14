@@ -22,7 +22,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
   }
 
   // Initialize output buffer to store output data
-  init_output_buffer(props->ob, modelid);
+  init_output_buffer(gpu_ob, modelid);
 
   // Update occurs before the first iteration
   for(i=0;i<NUM_ITERATORS;i++){
@@ -43,7 +43,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
   while (1) {
     // Cannot continue if all the simulation is complete
     if (!model_running(props, modelid)) {
-      props->ob->finished[modelid] = 1;
+      gpu_ob->finished[modelid] = 1;
       break;
     }
 
@@ -53,7 +53,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
     }
 
     // Cannot continue if the output buffer is full
-    if (((output_buffer *)(props->ob))->full[modelid]) {
+    if (gpu_ob->full[modelid]) {
       break;
     }
 
@@ -111,9 +111,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
     // Cannot continue if a no inputs data are buffered
     if(!inputs_available) {
       if (1 == num_iterations) {
-	for (i=0;i<NUM_ITERATORS;i++) {
-	  props[i].ob->finished[modelid] = 1;
-	}
+	  gpu_ob->finished[modelid] = 1;
       }
       break;
     }

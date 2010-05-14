@@ -11,7 +11,9 @@
  *
  * The 'ptr' and 'end' pointers are references to positions within 'buffer.'
  */
-#define BUFFER_LEN 8000
+#ifndef BUFFER_LEN
+#define BUFFER_LEN 1000
+#endif
 typedef struct{
   unsigned int finished[PARALLEL_MODELS];
   unsigned int full[PARALLEL_MODELS];

@@ -356,7 +356,12 @@ val argument_groups =
 		long =SOME "shared_memory",
 		xmltag="shared_memory",
 		dyntype=FLAG_T,
-		description=["Use shared memory for data transfer"]}
+		description=["Use shared memory for data transfer"]},
+	       {short=NONE,
+		long =SOME "buffer_count",
+		xmltag="buffer_count",
+		dyntype=INTEGER_T,
+		description=["Number of buffers in shared memory"]}
      ]},
      {group="GPU Settings",
       tag="gpu",

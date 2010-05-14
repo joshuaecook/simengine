@@ -230,7 +230,9 @@ import "command_line.dsl"
       m.TARGET_ARCH = []
 
       // Wrap all gcc flags in --compiler-options when passed to nvcc
-      m.CFLAGS = ["--compiler-options", join(" ", m.CFLAGS),
+      m.CFLAGS = ["--host-compilation", "c",
+		  "--device-compilation", "c",
+		  "--compiler-options", join(" ", m.CFLAGS),
 		  "--ptxas-options", join(" ", ptxasFlags),
 		  "--opencc-options", join(" ", openccFlags)]
       
@@ -267,7 +269,8 @@ import "command_line.dsl"
   var booleanOptionNamesAlways = ["help",
 				  "binary",
 				  "interface",
-                                  "shared_memory"] +
+                                  "shared_memory",
+				  "buffer_count"] +
 				  targetOptions.keys +
 				  precisionOptions.keys
 
@@ -302,7 +305,7 @@ import "command_line.dsl"
 					outputdir = settings.simulation.outputdir.getValue()}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
-  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid", "shared_memory"]
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid", "shared_memory", "buffer_count"]
   function defaultSimulationSettings() = {start = 0,
 					  instances = 1,
 					  outputdir = settings.compiler.outputdir.getValue()}
@@ -398,7 +401,7 @@ import "command_line.dsl"
     var stderr = allout(2)
     if (1 == stat) then
       nostack_error(join("",stderr))
-    elseif (1 < stat) then
+    elseif (() == stat or 1 < stat) then
       failure("Unexpected internal exception was generated during simulation: " + join("",stderr))
       // Return the interface from the executable if requested
     elseif objectContains(simulationSettings, "interface") then
@@ -489,6 +492,9 @@ import "command_line.dsl"
 	tableDest.add("binary", settings.simulation.binary.getValue())
 	if objectContains(settings.simulation, "shared_memory") then
           tableDest.add("shared_memory", settings.simulation.shared_memory.getValue())
+	end
+	if objectContains(settings.simulation, "buffer_count") then
+	  tableDest.add("buffer_count", settings.simulation.buffer_count.getValue())
 	end
 	if "gpu" == settings.simulation.target.getValue() then
 	    tableDest.add("gpuid", settings.gpu.gpuid.getValue())

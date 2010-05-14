@@ -82,7 +82,6 @@ typedef struct{
 typedef struct{
   int seeded;
   int seed;
-  int reuse_random;
 #ifdef TARGET_GPU
   int gpuid;
 #endif
@@ -98,7 +97,6 @@ typedef enum {
   START,
   STOP,
   SEED,
-  REUSE_RANDOM,
 #ifdef TARGET_GPU
   GPUID,
 #endif
@@ -110,6 +108,7 @@ typedef enum {
   INTERFACE,
   JSON_INTERFACE,
   SHARED_MEMORY,
+  BUFFER_COUNT,
   HELP
 } clopts;
 

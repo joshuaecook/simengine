@@ -4,7 +4,7 @@ function [options] = simexOptions (dsl, varargin)
                    'stopTime',0, 'inputs',struct(), 'states',[], ...
                    'outputs', '', 'jsonfile', '', 'debug', false, 'args', '--binary', ...
                    'dslfile', '', 'target', 'default', 'precision', ...
-                   'double', 'shared_memory', false);
+                   'double', 'shared_memory', false, 'buffer_count', 2);
   userOptions = varargin(:);
 
   [seroot] = fileparts(which('simex'));
@@ -224,6 +224,13 @@ function [options, restUserOptions] = getOption(options, userOptions)
     case 'shared_memory'
       options.shared_memory = true;
       options.args = [options.args ' --shared_memory'];
+    case 'buffer_count'
+      if length(userOptions) < 2 || ~isscalar(userOptions{2}) || floor(userOptions{2}) ~= userOptions{2} || userOptions{2} < 0
+          simexError('argumentError', 'A positive integer value must be passed to -buffer_count.');        
+      end
+      options.buffer_count = userOptions{2};
+      options.args = [options.args ' --buffer_count ' num2str(options.buffer_count)];
+      restUserOptions = userOptions(3:end);
 
     % Any other options are passed to simEngine
     otherwise
