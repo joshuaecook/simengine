@@ -47,6 +47,7 @@ endif
 ## Compilers and commands
 # The SML compiler
 SMLC = mlton
+SMLRUNTIMEFLAGS = ram-slop 0.6
 SMLFLAGS =
 ifneq ($(DEBUG),)
 SMLFLAGS += -cc-opt "-g"
@@ -56,7 +57,7 @@ SMLTARGET_ARCH = -codegen native
 SMLLEX = mllex
 SMLYACC = mlyacc
 
-COMPILE.sml = $(SMLC) $(SMLFLAGS) $(SMLPPFLAGS) $(SMLTARGET_ARCH)
+COMPILE.sml = $(SMLC) @MLton $(SMLRUNTIMEFLAGS) -- $(SMLFLAGS) $(SMLPPFLAGS) $(SMLTARGET_ARCH)
 LEX.sml = $(SMLLEX)
 YACC.sml = $(SMLYACC)
 

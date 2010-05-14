@@ -940,12 +940,12 @@ HTML_DOCUMENTATION_DESTINATION = $(BUILD_DIR)/html
 documentation: html-documentation matlab-helpsearch
 
 .PHONY: html-documentation
-html-documentation: $(addprefix $(HTML_DOCUMENTATION_DESTINATION)/,$(addsuffix .html,$(DOCUMENTATION)))
+html-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
+html-documentation: export DOCUMENTATION_OUTPUT_DIR := $(realpath $(HTML_DOCUMENTATION_DESTINATION))
+html-documentation: 
+	$(info SIMENGINE=$(SIMENGINE))
+	$(MAKE) -C $(EXTERN_PUBLICATIONS) html
 
-$(HTML_DOCUMENTATION_DESTINATION)/%.html: export SIMENGINE := $(realpath $(BUILD_DIR))
-$(HTML_DOCUMENTATION_DESTINATION)/%.html: export DOCUMENTATION_OUTPUT_DIR := $(realpath $(HTML_DOCUMENTATION_DESTINATION))
-$(HTML_DOCUMENTATION_DESTINATION)/%.html: $(EXTERN_PUBLICATIONS) $(HTML_DOCUMENTATION_DESTINATION) $(EXTERN_PUBLICATIONS)/$(EXTERN_PUBLICATIONS_PREFIX)/%.muse
-	$(MAKE) -C $< html
 
 .PHONY: matlab-helpsearch
 matlab-helpsearch: html-documentation $(HTML_DOCUMENTATION_DESTINATION)/helpsearch/deletable
