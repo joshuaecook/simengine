@@ -27,7 +27,6 @@ function [options] = simexOptions (dsl, varargin)
       end      
   end
   options.dslfile = dsl;
-  options.model = fullfile(dsl);
   
   % Create a new temporary data path
   options.outputs = ['.simex' num2str(now,'%16f')];
