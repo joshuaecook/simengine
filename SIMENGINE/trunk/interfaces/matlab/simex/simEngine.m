@@ -5,7 +5,7 @@ function [outputs y1 t1 interface] = simEngine (options)
   writeUserStates(options);
   writeUserInputs(options);
 
-  command = [options.simengine ' --inferior-mode --simex ' options.model ...
+  command = [options.simengine ' --inferior-mode --simex ' options.dslfile ...
              ' --outputdir ' options.outputs ' ' options.args];
   workingDir = options.outputs;
 
