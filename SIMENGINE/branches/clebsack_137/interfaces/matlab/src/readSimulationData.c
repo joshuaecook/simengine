@@ -29,13 +29,13 @@ static struct {
   int shared_memory;
   log_outputs_status_t log_outputs_status;
   unsigned int buffer_count;
-  // precision = sizeof(CDATAFORMAT), i.e. 4 or 8
+  /* precision = sizeof(CDATAFORMAT), i.e. 4 or 8 */
   unsigned int precision; 
-  // dimension of simulation-allocated memory; may be larger than
-  // actual number of simulated instances
+  /* dimension of simulation-allocated memory; may be larger than */
+  /* actual number of simulated instances */
   unsigned int parallel_models; 
-  // number of instances; denotes the extent of valid data in
-  // simulation-allocated memory
+  /* number of instances; denotes the extent of valid data in */
+  /* simulation-allocated memory */
   unsigned int num_models;
   unsigned int num_outputs;
   unsigned int num_states;
