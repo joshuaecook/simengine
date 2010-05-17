@@ -16,7 +16,10 @@
 #include "mex.h"
 
 /* Library static globals */
+static unsigned int global_ob_count = 2;
+static unsigned int global_error = 0;
 static int initialized = 0;
+static int request_data = 0;
 static char *outputs_dirname = NULL;
 static unsigned int precision = 0;
 static unsigned int parallel_models = 0;
@@ -40,7 +43,6 @@ static output_t *output;
 
 #define ERROR(MESSAGE, ARG...) mexErrMsgIdAndTxt("Simatra:SIMEX:readSimulationData", MESSAGE, ##ARG)
 
-unsigned int global_ob_count = 2;
 #define BUFFER_LEN 1000
 
 typedef struct{
@@ -217,6 +219,10 @@ mxArray *read_outputs_from_shared_memory(){
 
   /* Return value */
   mxArray *output_struct;
+
+  request_data = 1;
+  pthread_join(collector, NULL);
+  collector = 0;
 
   output_struct = mxCreateStructMatrix(num_models, 1, num_outputs, (const char **)output_names);
 
@@ -521,15 +527,25 @@ void *collect_data(void *arg){
 
   /* Collect data */
   while(initialized){
+    int logged_something = 0;
     for(modelid=0;modelid<parallel_models;modelid++){
-      if(ob[obid[modelid]].available[modelid]){
-	log_outputs(&ob[obid[modelid]], modelid);
+      /* There may be more buffers than there are remaining running models, so skip the unused buffers */
+      if(ob[obid[modelid]].modelid_offset[modelid] + modelid >= num_models) break;
+
+      /* If the buffer has data available, log it */
+      if(ob[obid[modelid]].available[modelid] && ob[obid[modelid]].count[modelid]){
+	if(log_outputs(&ob[obid[modelid]], modelid)){
+	  global_error = 1;
+	  goto endofthread;
+	}
+	logged_something = 1;
 	obid[modelid] = (obid[modelid] + 1) % global_ob_count;
       }
-      else{
-	usleep(10);
-      }
       if(!initialized) goto endofthread;
+    }
+    if(!logged_something){
+      if(request_data) goto endofthread;
+      usleep(10);
     }
   }
 
@@ -549,6 +565,8 @@ void initialize(const mxArray **prhs){
   const mxArray *options = prhs[1];
 
   if(!initialized){
+    global_error = 0;
+    request_data = 0;
     /* Initialize parameter sub fields */
     outputs_dirname = options_outputs_directory(options);
     num_models = options_instances(options);
@@ -588,6 +606,11 @@ void initialize(const mxArray **prhs){
     initialized = 1;
   }
 
+  if(global_error){
+    cleanup();
+    ERROR("Out of memory.\n");
+  }
+
   /* Sleep for 0.1 seconds */
   usleep(1e5);
 }
@@ -600,7 +623,9 @@ void cleanup(){
     /* Signal thread to stop */
     initialized = 0;
     if(shared_memory){
-      pthread_join(collector, NULL);
+      if(collector){
+	pthread_join(collector, NULL);
+      }
       /* Free allocated internal memory */
       if(output){
 	for(modelid=0;modelid<num_models;modelid++){
