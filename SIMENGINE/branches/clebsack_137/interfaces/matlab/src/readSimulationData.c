@@ -43,7 +43,7 @@ static output_t *output;
 
 #define ERROR(MESSAGE, ARG...) mexErrMsgIdAndTxt("Simatra:SIMEX:readSimulationData", MESSAGE, ##ARG)
 
-#define BUFFER_LEN 1000
+#define BUFFER_LEN 100
 
 typedef struct{
   unsigned int *finished;
