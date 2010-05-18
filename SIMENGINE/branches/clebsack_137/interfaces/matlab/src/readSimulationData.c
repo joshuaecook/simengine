@@ -542,7 +542,7 @@ void *collect_data(void *arg){
   unsigned int modelid;
   unsigned int modelid_offset;
   unsigned int buffer_size = (((BUFFER_LEN * collection_status.precision) + 
-			       (5 * sizeof(unsigned int)) + 
+			       (6 * sizeof(unsigned int)) + 
 			       (2 * collection_status.pointer_size)) * 
 			      collection_status.parallel_models);
   unsigned int bufferid;
@@ -568,7 +568,7 @@ void *collect_data(void *arg){
   ob[0].count = ob[0].full + collection_status.parallel_models;
   ob[0].available = ob[0].count + collection_status.parallel_models;
   ob[0].modelid_offset = ob[0].available + collection_status.parallel_models;
-  ob[0].buffer = (char*)(ob[0].modelid_offset + collection_status.parallel_models);
+  ob[0].buffer = (char*)(ob[0].modelid_offset + 2 * collection_status.parallel_models);
 
   int i;
   for(bufferid=1;bufferid<collection_status.buffer_count;bufferid++){
