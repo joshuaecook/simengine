@@ -11,13 +11,16 @@
  *
  * The 'ptr' and 'end' pointers are references to positions within 'buffer.'
  */
-#define BUFFER_LEN 8000
+#ifndef BUFFER_LEN
+#define BUFFER_LEN 100
+#endif
 typedef struct{
   unsigned int finished[PARALLEL_MODELS];
   unsigned int full[PARALLEL_MODELS];
   unsigned int count[PARALLEL_MODELS];
   unsigned int available[PARALLEL_MODELS];
   unsigned int modelid_offset[PARALLEL_MODELS];
+  unsigned int ignored_alignment[PARALLEL_MODELS];
   CDATAFORMAT buffer[PARALLEL_MODELS*BUFFER_LEN];
   void *ptr[PARALLEL_MODELS];
   void *end[PARALLEL_MODELS];

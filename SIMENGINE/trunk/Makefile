@@ -192,7 +192,7 @@ TAG:=$(shell svn info | grep '^URL' | grep -c tag)
 ifeq ($(BRANCH),1)
 RELEASE = "branch"
 BUILDREV := $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
-REV := $(shell pwd | sed -e 's/.*\/branches\/\(.*\)/\1/')
+REV := $(subst /,_,$(subst /branches/,,$(SVN_BRANCH)))
 #INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
 VERSION = "_BRANCH_$(REV)_$(BUILDREV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"

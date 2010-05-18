@@ -312,8 +312,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			 $("props[ITERATOR_"^itername^"].num_models = num_models;"),
 			 $("props[ITERATOR_"^itername^"].modelid_offset = modelid_offset;"),
 			 $("props[ITERATOR_"^itername^"].od = od;"),
-			 $("props[ITERATOR_"^itername^"].ob_size = sizeof(output_buffer);"),
-			 $("props[ITERATOR_"^itername^"].ob = ob;"),
 			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(PARALLEL_MODELS*sizeof(int));"),
 			 $("")]@ 
 			(case itertype of
@@ -450,7 +448,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset, output_buffer *ob){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
@@ -785,6 +783,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		    ("outputMode", int output_mode),
 		    ("outputPeriods", array (map real output_periods)),
 		    ("precision", string "%d"), (* Place holder for sizeof(CDATAFORMAT) *)
+		    ("pointer_size", string "%d"), (* Place holder for sizeof(void* ) *)
 		    ("parallel_models", string "%d"), (* Place holder for PARALLEL_MODELS *)
 		    ("hashcode", string "0000000000000000"),
 		    ("version", int 0)]
@@ -2204,7 +2203,11 @@ fun logoutput_code shardedModel =
 	 $("static const ptrdiff_t MAX_OUTPUT_SIZE = NUM_OUTPUTS*2*sizeof(int) + (NUM_OUTPUTS+" ^ (i2s total_output_quantities)  ^ ")*sizeof(CDATAFORMAT); //size in bytes"),
 	 $(""),
 	 $("__DEVICE__ void buffer_outputs(solver_props *props, unsigned int modelid) {"),
-	 SUB([$("output_buffer *ob = props->ob;"),
+	 SUB([$("#ifdef TARGET_GPU"),
+	      $("output_buffer *ob = gpu_ob;"),
+	      $("#else"),
+	      $("output_buffer *ob = &global_ob[global_ob_idx[modelid]];"),
+	      $("#endif"),
 	      $("output_data *od = (output_data *)props->od;")] @
 	     output_exps),
 	 $("}"),
