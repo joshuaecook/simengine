@@ -81,7 +81,7 @@ classdef Test < handle
         Executed
         Result
         Return
-        Output
+        Output = ''
         Time
         CompareOptions
         Message = ''
@@ -332,10 +332,16 @@ classdef Test < handle
             disp(tostr(t));
         end
         
-        function root = toXML (t)
-            xml = com.mathworks.xml.XMLUtils.createDocument('testcase');
-            
-            root = xml.getDocumentElement;
+        function root = toXML (t, varargin)
+            if 1 == nargin
+                xml = com.mathworks.xml.XMLUtils.createDocument('testcase');
+                root = xml.getDocumentElement;
+            else
+                xml = varargin{1};
+                parent = varargin{2};
+                root = parent.appendChild(xml.createElement('testcase'));
+            end
+
             root.setAttribute('time', num2str(t.Time));
             root.setAttribute('name', num2str(t.Name));
 
