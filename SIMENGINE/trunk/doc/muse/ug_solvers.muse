@@ -534,6 +534,7 @@ computation of <math>\bf{J}</math>, the Jacobian matrix of
 <latex>
 \begin{equation}
 \label{Eqn:VectorizedRootEquation}
+\tag{17}
 {\bf{G}}({\bf{y}}) = {\bf{y}}(t_n) + h {\bf{F}}(t_{n+1}, {\bf{y}}(t_{n+1})) - {\bf{y}}(t_{n+1})
 \end{equation}
 \begin{equation}
@@ -541,22 +542,64 @@ computation of <math>\bf{J}</math>, the Jacobian matrix of
 \end{equation}
 </latex>
 
-; The vectorized Newton's iteration can be rewritten as a linear system in the form ${\bf{J}}({\bf{y}_n}) \left( {\bf{y}}_{n+1} - {\bf{y}}_n \right) = {\bf{g}}({\bf{y}}_n)$.  While Newton's method converges quadratically, evaluating this function iteratively can become computational intensive.  There are often more efficient methods for this nonlinear case.
+The vectorized Newton's iteration can be rewritten as a linear system
+in the form <math>{\bf{J}}({\bf{y}_n}) \left( {\bf{y}}_{n+1} -
+{\bf{y}}_n \right) = {\bf{g}}({\bf{y}}_n)</math>.  While Newton's
+method converges quadratically, evaluating this function iteratively
+can become computational intensive.  There are often more efficient
+methods for this nonlinear case.
 
-; For many problems involving coupled ODEs, particularly those that are based on discretized PDEs, the relationships between states in linear in nature.  This allows for a very efficient simplification. Given the vectorized form of the backward-Euler transformation, each state $y_i(t_{n+1})$ can be factored out from the right-hand side of \eqnref{Eqn:VectorizedRootEquation}.
-; \begin{eqnarray*}
-; g_1 & = & A_{1,1} y_1 (t_{n+1}) + A_{1,2} y_2 (t_{n+1}) + \dotsb + A_{1,N} y_N (t_{n+1}) + b_1 {\bf{y}}(t_n) \\
-; g_2 & = & A_{2,1} y_1 (t_{n+1}) + A_{2,2} y_2 (t_{n+1}) + \dotsb + A_{2,N} y_N (t_{n+1}) + b_2 {\bf{y}}(t_n) \\
-; \vdots & & \vdots \\
-; g_N & = & A_{N,1} y_1 (t_{n+1}) + A_{N,2} y_2 (t_{n+1}) + \dotsb + A_{N,N} y_N (t_{n+1}) + b_N {\bf{y}}(t_n)
-; \end{eqnarray*}
-; This set of expressions can be reworked into the linear equation 
-; \begin{equation}
-; \label{Eqn:BackwardEulerLinearSystem}
-; {\bf{A}}({\bf{y}}(t_n)) {\bf{y}}(t_{n+1}) = {\bf{b}}({\bf{y}}(t_n))
-; \end{equation}
-; where $\bf{A}$ is an $N\times N$ matrix and $\bf{b}$ is a column vector of length $N$.  This linear system that can be directly solved by a number of linear methods, depending on the particular characteristics of $\bf{A}$.
+For many problems involving coupled ODEs, particularly those that are
+based on discretized PDEs, the relationships between states in linear
+in nature.  This allows for a very efficient simplification. Given the
+vectorized form of the backward-Euler transformation, each state
+<math>y_i(t_{n+1})</math> can be factored out from the right-hand side of
+Equation 17.
 
-; The simEngine compiler includes two built-in linear methods that are chosen automatically depending on the characteristics of the $\bf{A}$ matrix. For problems that produce a banded matrix, such as a nerve conduction model, where the states are dependent only on their neighbors, simEngine offers a highly optimized solver.  For the general case, where this banded matrix is not formed, simEngine reverts to a dense solver.  Independent on how the model is constructed, simEngine will utilize the banded solver through reordering of states if possible.  For maximum performance out of the linear backward-Euler integrator, the states chosen should have nearest neighbor connectivity.  For other cases, a still highly efficient dense solver is utilized.
+<latex>
+\begin{eqnarray*}
+g_1 & = & A_{1,1} y_1 (t_{n+1}) + A_{1,2} y_2 (t_{n+1}) + \dotsb + A_{1,N} y_N (t_{n+1}) + b_1 {\bf{y}}(t_n) \\
+g_2 & = & A_{2,1} y_1 (t_{n+1}) + A_{2,2} y_2 (t_{n+1}) + \dotsb + A_{2,N} y_N (t_{n+1}) + b_2 {\bf{y}}(t_n) \\
+\vdots & & \vdots \\
+g_N & = & A_{N,1} y_1 (t_{n+1}) + A_{N,2} y_2 (t_{n+1}) + \dotsb + A_{N,N} y_N (t_{n+1}) + b_N {\bf{y}}(t_n)
+\end{eqnarray*}
+</latex>
 
-; The linear backward-Euler solver is a fixed time step solver, and therefore relies on the **dt** property to be set at compile time.  As a first order method, it can often be combined with the forward-Euler solver running at the same time step.  For dynamical systems containing both linearly coupled states and additional non-linear states, it is often effective to utilize the linear backward-Euler solver for the linearly-coupled states and the forward-Euler solver at the same time step for the non-linear states.  See \secref{Sec:Iterators} for information on how to combine multiple solvers in a single dynamical system.
+This set of expressions can be reworked into the linear equation 
+
+<latex>
+\begin{equation}
+\label{Eqn:BackwardEulerLinearSystem}
+{\bf{A}}({\bf{y}}(t_n)) {\bf{y}}(t_{n+1}) = {\bf{b}}({\bf{y}}(t_n))
+\end{equation}
+</latex>
+
+where <math>\bf{A}</math> is an <math>N\times N</math> matrix and
+<math>\bf{b}</math> is a column vector of length <math>N</math>.  This
+linear system that can be directly solved by a number of linear
+methods, depending on the particular characteristics of
+<math>\bf{A}</math>.
+
+The simEngine compiler includes two built-in linear methods that are
+chosen automatically depending on the characteristics of the
+<math>\bf{A}</math> matrix. For problems that produce a banded matrix,
+such as a nerve conduction model, where the states are dependent only
+on their neighbors, simEngine offers a highly optimized solver.  For
+the general case, where this banded matrix is not formed, simEngine
+reverts to a dense solver.  Independent on how the model is
+constructed, simEngine will utilize the banded solver through
+reordering of states if possible.  For maximum performance out of the
+linear backward-Euler integrator, the states chosen should have
+nearest neighbor connectivity.  For other cases, a still highly
+efficient dense solver is utilized.
+
+The linear backward-Euler solver is a fixed time step solver, and
+therefore relies on the **dt** property to be set at compile time.  As a
+first order method, it can often be combined with the forward-Euler
+solver running at the same time step.  For dynamical systems
+containing both linearly coupled states and additional non-linear
+states, it is often effective to utilize the linear backward-Euler
+solver for the linearly-coupled states and the forward-Euler solver at
+the same time step for the non-linear states.  See the section on
+Iterators for information on how to combine multiple solvers in a
+single dynamical system.
