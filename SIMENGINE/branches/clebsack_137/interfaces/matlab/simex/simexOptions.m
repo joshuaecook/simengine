@@ -4,7 +4,7 @@ function [options] = simexOptions (dsl, varargin)
                    'stopTime',0, 'inputs',struct(), 'states',[], ...
                    'outputs', '', 'jsonfile', '', 'debug', false, 'args', '--binary', ...
                    'dslfile', '', 'target', 'default', 'precision', ...
-                   'double', 'shared_memory', false, 'buffer_count', 2);
+                   'double', 'shared_memory', true, 'buffer_count', 80);
   userOptions = varargin(:);
 
   [seroot] = fileparts(which('simex'));
@@ -78,6 +78,7 @@ function [options] = simexOptions (dsl, varargin)
     options.args = [options.args ' --target parallelcpu'];
    case 'gpu'
     options.args = [options.args ' --target gpu'];
+    options.buffer_count = 2;
    otherwise
     options.args = [options.args ' --target default'];
   end
@@ -126,6 +127,12 @@ function [options] = simexOptions (dsl, varargin)
   
   options.instances = max([instances options.instances]);
   options.args = [options.args ' --instances ' num2str(options.instances)];
+  
+  % Shared memory options
+  if(options.shared_memory)
+    options.args = [options.args ' --shared_memory'];
+    options.args = [options.args ' --buffer_count ' num2str(options.buffer_count)];
+  end
 end
 
 
@@ -222,14 +229,16 @@ function [options, restUserOptions] = getOption(options, userOptions)
       options.profile = true;
       options.args = [options.args ' --profile'];
     case 'shared_memory'
-      options.shared_memory = true;
-      options.args = [options.args ' --shared_memory'];
+      if length(userOptions) < 2 || ~islogical(userOptions{2})
+        simexError('argumentError', 'Option -shared_memory must include a boolean flag (true/false).');
+      end
+      options.shared_memory = userOptions{2};
+      restUserOptions = userOptions(3:end);
     case 'buffer_count'
       if length(userOptions) < 2 || ~isscalar(userOptions{2}) || floor(userOptions{2}) ~= userOptions{2} || userOptions{2} < 0
           simexError('argumentError', 'A positive integer value must be passed to -buffer_count.');        
       end
       options.buffer_count = userOptions{2};
-      options.args = [options.args ' --buffer_count ' num2str(options.buffer_count)];
       restUserOptions = userOptions(3:end);
 
     % Any other options are passed to simEngine
