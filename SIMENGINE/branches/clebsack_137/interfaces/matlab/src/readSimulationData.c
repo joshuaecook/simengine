@@ -261,7 +261,9 @@ mxArray *read_outputs_from_shared_memory(){
   mxArray *output_struct;
 
   collection_status.request_data = 1;
-  pthread_join(collection_status.collector, NULL);
+  if(collection_status.num_outputs){
+    pthread_join(collection_status.collector, NULL);
+  }
   collection_status.collector = 0;
 
   check_for_error();
@@ -647,7 +649,7 @@ void initialize(const mxArray **prhs){
       collection_status.output_names = NULL;
       collection_status.output_num_quantities = NULL;
     }
-    if(collection_status.shared_memory){
+    if(collection_status.shared_memory && collection_status.num_outputs){
       unsigned int modelid;
       unsigned int outputid;
       output = (output_t*)malloc(collection_status.num_models * collection_status.num_outputs * sizeof(output_t));
@@ -693,7 +695,7 @@ void cleanup(){
   if(collection_status.initialized){
     /* Signal thread to stop */
     collection_status.initialized = 0;
-    if(collection_status.shared_memory){
+    if(collection_status.shared_memory && collection_status.num_outputs){
       if(collection_status.collector){
 	pthread_join(collection_status.collector, NULL);
       }
