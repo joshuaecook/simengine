@@ -24,6 +24,7 @@ typedef enum {
 } log_outputs_status_t;
 
 static struct {
+  int running;
   int initialized;
   int request_data;
   int shared_memory;
@@ -507,7 +508,7 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
   }
   ob->available[modelid] = 0;
 	     
-  return 0;
+  return LOG_OUTPUTS_OK;
 }
 
 
@@ -519,6 +520,8 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
  * to double-precision float, and resizing the global region as needed.
  */
 void *collect_data(void *arg){
+  collection_status.running = 1;
+
   char buffer_file[PATH_MAX];
   struct stat filestat;
   output_buffer *ob;
@@ -562,7 +565,7 @@ void *collect_data(void *arg){
     ob[bufferid].count = (unsigned int*)(((char*)ob[bufferid-1].count) + buffer_size);
     ob[bufferid].available = (unsigned int*)(((char*)ob[bufferid-1].available) + buffer_size);
     ob[bufferid].modelid_offset = (unsigned int*)(((char*)ob[bufferid-1].modelid_offset) + buffer_size);
-    ob[bufferid].buffer = (unsigned int*)(((char*)ob[bufferid-1].buffer) + buffer_size);
+    ob[bufferid].buffer = ob[bufferid-1].buffer + buffer_size;
   }
 
   obid = malloc(collection_status.parallel_models * sizeof(unsigned int));
@@ -601,6 +604,7 @@ void *collect_data(void *arg){
   free(ob);
   free(obid);
   close(fd);
+  collection_status.running = 0;
 
   return NULL;
 }
@@ -611,6 +615,9 @@ void initialize(const mxArray **prhs){
   const mxArray *options = prhs[1];
 
   if(!collection_status.initialized){
+    collection_status.initialized = 1;
+
+    collection_status.log_outputs_status = LOG_OUTPUTS_OK;
     collection_status.request_data = 0;
     /* Initialize parameter sub fields */
     collection_status.outputs_dirname = options_outputs_directory(options);
@@ -646,9 +653,20 @@ void initialize(const mxArray **prhs){
 	  output[modelid*collection_status.num_outputs + outputid].samples = 0;
 	}
       }
-      pthread_create(&collection_status.collector, NULL, collect_data, NULL);
+
+      pthread_attr_t attr;
+      pthread_attr_init(&attr);
+      pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+      if (0 != pthread_create(&collection_status.collector, &attr, collect_data, NULL)) {
+	ERROR("Unable to create collection thread.\n");
+      }
+      pthread_attr_destroy(&attr);
+
+      usleep(1000);
+      if (!collection_status.running) {
+	ERROR("Collector didn't run.\n");
+      }
     }
-    collection_status.initialized = 1;
   }
 
   check_for_error();
