@@ -783,6 +783,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 		    ("outputMode", int output_mode),
 		    ("outputPeriods", array (map real output_periods)),
 		    ("precision", string "%d"), (* Place holder for sizeof(CDATAFORMAT) *)
+		    ("pointer_size", string "%d"), (* Place holder for sizeof(void* ) *)
 		    ("parallel_models", string "%d"), (* Place holder for PARALLEL_MODELS *)
 		    ("hashcode", string "0000000000000000"),
 		    ("version", int 0)]
