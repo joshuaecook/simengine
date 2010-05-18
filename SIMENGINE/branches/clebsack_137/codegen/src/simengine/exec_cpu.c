@@ -40,16 +40,6 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
       if (ready_outputs[i]) {
 #if NUM_OUTPUTS > 0
 	buffer_outputs(&props[i], modelid);
-	// Log outputs if the buffer is full
-	if (global_ob[global_ob_idx[modelid]].full[modelid]) {
-	  // Log outputs from buffer to external api interface
-	  // All iterators share references to a single output buffer and outputs dirname.
-	  if(0 != log_outputs(outputs_dirname, props->modelid_offset, modelid)){
-	    return ERRMEM;
-	  }
-	  // Reinitialize a temporary output buffer
-	  init_output_buffer(&global_ob[global_ob_idx[modelid]], modelid);
-	}
 #endif
 	ready_outputs[i] = 0;
       }
@@ -58,6 +48,19 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	dirty_states[i] = 0;
       }
     }
+
+#if NUM_OUTPUTS > 0
+    // Log outputs if the buffer is full
+    if (global_ob[global_ob_idx[modelid]].full[modelid]) {
+      // Log outputs from buffer to external api interface
+      // All iterators share references to a single output buffer and outputs dirname.
+      if(0 != log_outputs(outputs_dirname, props->modelid_offset, modelid)){
+	return ERRMEM;
+      }
+      // Reinitialize a temporary output buffer
+      init_output_buffer(&global_ob[global_ob_idx[modelid]], modelid);
+    }
+#endif
 
     // Update and postprocess phase: x[t+dt] = f(x[t+dt])
     // Update occurs before the first iteration and after every subsequent iteration.
@@ -102,12 +105,6 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 
 #if NUM_OUTPUTS > 0
 	buffer_outputs(&props[i], modelid);
-	// Log outputs unconditionally, this is the last iteration
-	// Log outputs from buffer to external api interface
-	// All iterators share references to a single output buffer and outputs dirname.
-	if(0 != log_outputs(outputs_dirname, props->modelid_offset, modelid)){
-	  return ERRMEM;
-	}
 #endif
       }
     }
@@ -154,6 +151,13 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
     }
   }
   
+  // Log any remaining outputs
+  // Log outputs from buffer to external api interface
+  // All iterators share references to a single output buffer and outputs dirname.
+  if(0 != log_outputs(outputs_dirname, props->modelid_offset, modelid)){
+    return ERRMEM;
+  }
+
   // Update the progress file with % completion for this model
   progress[modelid] = (props->time[modelid] - props->starttime) / (props->stoptime - props->starttime);
 
