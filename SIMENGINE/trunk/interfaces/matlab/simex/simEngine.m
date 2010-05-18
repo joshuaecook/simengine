@@ -167,6 +167,7 @@ function [interface] = parseInterface (options)
   % Convert some fields from strings to numbers
   interface.parallel_models = str2num(interface.parallel_models);
   interface.precision = str2num(interface.precision);
+  interface.pointer_size = str2num(interface.pointer_size);
 
   % Convert default inputs to a structure
   defaultInputs = interface.defaultInputs;

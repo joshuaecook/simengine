@@ -7,7 +7,6 @@ static const struct option long_options[] = {
   {"start", required_argument, 0, START},
   {"stop", required_argument, 0, STOP},
   {"seed", required_argument, 0, SEED},
-  {"x-reuse_random", no_argument, 0, REUSE_RANDOM},
 #ifdef TARGET_GPU
   {"gpuid", required_argument, 0, GPUID},
 #endif
@@ -19,6 +18,7 @@ static const struct option long_options[] = {
   {"interface", no_argument, 0, INTERFACE},
   {"json_interface", required_argument, 0, JSON_INTERFACE},
   {"shared_memory", no_argument, 0, SHARED_MEMORY},
+  {"buffer_count", required_argument, 0, BUFFER_COUNT},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
@@ -26,6 +26,10 @@ static const struct option long_options[] = {
 static int binary_files = 0;
 static int simex_output_files = 1;
 static unsigned int global_modelid_offset = 0;
+
+unsigned int global_ob_count = 2;
+output_buffer *global_ob = NULL;
+unsigned int *global_ob_idx = NULL;
 
 #define MAX_NUM_MODELS (0x00ffffff)
 #define START_SIZE 1000
@@ -37,7 +41,7 @@ const char *simengine_errors[] = {"Success",
                                   "Could not open output file."};
 
 /* Allocates and initializes an array of solver properties, one for each iterator. */
-solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset, output_buffer *ob);
+solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
 int exec_loop(solver_props *props, const char *outputs_dir, double *progress, int resuming);
 void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned int modelid);
@@ -67,37 +71,51 @@ void close_progress_file(double *progress, int progress_fd, unsigned int num_mod
   close(progress_fd);
 }
 
-void init_output_buffers(const char *outputs_dirname, output_buffer **ob, int *output_fd){
+void init_output_buffers(const char *outputs_dirname, int *output_fd){
   char buffer_file[PATH_MAX];
   int i;
-  int tmp = 0;
+  output_buffer *tmp;
 
-  *ob = NULL;
+  tmp = (output_buffer*)malloc(sizeof(output_buffer));
+  if(!tmp){
+    ERROR(Simatra::Simex::Simulation, "Out of memory.\n");
+  }
+
+  bzero(tmp, sizeof(output_buffer));
 
   if(simex_output_files){
-    *ob = (output_buffer*)malloc(sizeof(output_buffer));
+    global_ob = tmp;
   }
   else{
     sprintf(buffer_file, "%s/output_buffer", outputs_dirname);
     *output_fd = open(buffer_file, O_CREAT|O_RDWR, S_IRWXU);
     if(-1 == *output_fd){
-      ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation data. '%s'", buffer_file);
+      ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation data. '%s'\n", buffer_file);
     }
-    for(i=0; i<sizeof(output_buffer)/sizeof(int); i++){
-      write(*output_fd, &tmp, sizeof(int));
+    for(i=0; i<global_ob_count; i++){
+      write(*output_fd, tmp, sizeof(output_buffer));
     }
-    *ob = (output_buffer*)mmap(NULL, sizeof(output_buffer), PROT_READ|PROT_WRITE, MAP_SHARED, *output_fd, 0);
+    free(tmp); // Don't need it anymore, use the mmaped version below
+    global_ob = (output_buffer*)mmap(NULL, global_ob_count*sizeof(output_buffer), PROT_READ|PROT_WRITE, MAP_SHARED, *output_fd, 0);
+  }
+  global_ob_idx = (unsigned int*)malloc(PARALLEL_MODELS*sizeof(unsigned int));
+  if(!global_ob_idx){
+    ERROR(Simatra::Simex::Simulation, "Out of memory.\n");
+  }
+  for(i=0;i<PARALLEL_MODELS;i++){
+    global_ob_idx[i] = 0;
   }
 }
 
-void clean_up_output_buffers(output_buffer *ob, int output_fd){
+void clean_up_output_buffers(int output_fd){
   if(simex_output_files){
-    free(ob);
+    free(global_ob);
   }
   else{
-    munmap(ob, sizeof(output_buffer));
+    munmap(global_ob, global_ob_count*sizeof(output_buffer));
     close(output_fd);
   }
+  free(global_ob_idx);
 }
 
 // simengine_runmodel()
@@ -119,7 +137,6 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
   double *progress;
   int progress_fd;
 
-  output_buffer *ob;
   int output_fd;
 
   int resuming = 0;
@@ -151,6 +168,8 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
     seresult->final_time = NULL;
     return seresult;
   }
+
+  init_output_buffers(outputs_dirname, &output_fd);
 
   // Run the parallel simulation repeatedly until all requested models have been executed
   for(models_executed = 0 ; models_executed < num_models; models_executed += PARALLEL_MODELS){
@@ -188,14 +207,11 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
     memcpy(sampled_inputs, tmp_sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t));
 #endif
 
-
-    init_output_buffers(outputs_dirname, &ob, &output_fd);
-
     // Initialize the solver properties and internal simulation memory structures
-    solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset, ob);
+    solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset);
 
     // Initialize random number generator
-    if (!(opts->reuse_random && random_initialized)) {
+    if (!random_initialized || opts->seeded) {
       random_init(models_per_batch);
       random_initialized = 1;
     }
@@ -236,7 +252,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
   }
 
   close_progress_file(progress, progress_fd, num_models);
-  clean_up_output_buffers(ob, output_fd);
+  clean_up_output_buffers(output_fd);
 
   return seresult;
 }
@@ -365,9 +381,6 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       opts->seeded = 1;
       opts->seed = atoi(optarg);
       break;
-    case REUSE_RANDOM:
-      opts->reuse_random = 1;
-      break;
 #ifdef TARGET_GPU
     case GPUID:
       if(opts->gpuid){
@@ -419,7 +432,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	if(!json_file){
 	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.", optarg);
 	}
-	fprintf(json_file, json_interface, sizeof(CDATAFORMAT), PARALLEL_MODELS);
+	fprintf(json_file, json_interface, sizeof(CDATAFORMAT), sizeof(void*), PARALLEL_MODELS);
 	fclose(json_file);
       }
       break;
@@ -429,6 +442,15 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       // with undesired default options.
     case SHARED_MEMORY:
       simex_output_files = 0;
+      break;
+    case BUFFER_COUNT:
+      if(global_ob_count != 2){
+	USER_ERROR(Simatra:Simex:parse_args, "Number of model instances can only be specified once.");
+      }
+      global_ob_count = (unsigned int)strtod(optarg, NULL); // Handles 1E3 etc.
+      if(global_ob_count < 1){
+	USER_ERROR(Simatra:Simex:parse_args, "Invalid number of output buffers %d", global_ob_count);
+      }
       break;
     default:
       USER_ERROR(Simatra:Simex:parse_args, "Invalid argument");
@@ -606,7 +628,9 @@ int main(int argc, char **argv){
       seed_entropy_with_time();
     }
 
-    make_model_directories(&opts);
+    if(simex_output_files){
+      make_model_directories(&opts);
+    }
 
     simengine_result *result = simengine_runmodel(&opts);
 
