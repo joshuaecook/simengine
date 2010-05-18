@@ -205,10 +205,16 @@ classdef Suite < handle
             end
         end
         
-        function root = toXML (s)
-            xml = com.mathworks.xml.XMLUtils.createDocument('testsuite');
+        function root = toXML (s, varargin)
+            if 1 == nargin
+                xml = com.mathworks.xml.XMLUtils.createDocument('testsuite');
+                root = xml.getDocumentElement;
+            else
+                xml = varargin{1};
+                parent = varargin{2};
+                root = parent.appendChild(xml.createElement('testsuite'));
+            end
             
-            root = xml.getDocumentElement;
             root.setAttribute('errors', num2str(s.Errored));
             root.setAttribute('tests', num2str(s.Total));
             root.setAttribute('time', num2str(s.Time));
@@ -216,7 +222,7 @@ classdef Suite < handle
             root.setAttribute('name', s.Name);
             
             for i = 1:length(s.Tests)
-                root.appendChild(xml.importNode(s.Tests{i}.toXML, true));
+                s.Tests{i}.toXML(xml, root);
             end
         end
         
