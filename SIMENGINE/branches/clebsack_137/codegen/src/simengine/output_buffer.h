@@ -20,6 +20,7 @@ typedef struct{
   unsigned int count[PARALLEL_MODELS];
   unsigned int available[PARALLEL_MODELS];
   unsigned int modelid_offset[PARALLEL_MODELS];
+  unsigned int ignored_alignment[PARALLEL_MODELS];
   CDATAFORMAT buffer[PARALLEL_MODELS*BUFFER_LEN];
   void *ptr[PARALLEL_MODELS];
   void *end[PARALLEL_MODELS];
