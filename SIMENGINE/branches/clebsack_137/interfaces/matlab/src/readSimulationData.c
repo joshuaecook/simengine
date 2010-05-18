@@ -32,6 +32,8 @@ static struct {
   unsigned int buffer_count;
   /* precision = sizeof(CDATAFORMAT), i.e. 4 or 8 */
   unsigned int precision; 
+  /* pointer_size = sizeof(void*) in simulation address space */
+  unsigned int pointer_size;
   /* dimension of simulation-allocated memory; may be larger than */
   /* actual number of simulated instances */
   unsigned int parallel_models; 
@@ -146,6 +148,14 @@ unsigned int iface_precision(const mxArray *iface){
   assert(mxDOUBLE_CLASS == mxGetClassID(prec));
   return mxGetScalar(prec);
 }
+
+unsigned int iface_pointer_size(const mxArray *iface){
+  assert(mxSTRUCT_CLASS == mxGetClassID(iface));
+  mxArray *size = mxGetField(iface, 0, "pointer_size");
+
+  assert(mxDOUBLE_CLASS == mxGetClassID(size));
+  return mxGetScalar(size);
+}  
 
 unsigned int iface_parallel_models(const mxArray *iface){
   assert(mxSTRUCT_CLASS == mxGetClassID(iface));
@@ -531,7 +541,7 @@ void *collect_data(void *arg){
   unsigned int modelid_offset;
   unsigned int buffer_size = (((BUFFER_LEN * collection_status.precision) + 
 			       (5 * sizeof(unsigned int)) + 
-			       (2 * sizeof(void*))) * 
+			       (2 * collection_status.pointer_size)) * 
 			      collection_status.parallel_models);
   unsigned int bufferid;
   unsigned int *obid;
@@ -627,6 +637,7 @@ void initialize(const mxArray **prhs){
     collection_status.num_outputs = iface_num_outputs(iface);
     collection_status.num_states = iface_num_states(iface);
     collection_status.precision = iface_precision(iface);
+    collection_status.pointer_size = iface_pointer_size(iface);
     collection_status.parallel_models = iface_parallel_models(iface);
     if(collection_status.num_outputs){
       collection_status.output_names = iface_outputs(iface);

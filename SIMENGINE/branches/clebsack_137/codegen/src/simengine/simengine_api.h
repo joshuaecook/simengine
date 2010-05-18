@@ -58,6 +58,7 @@ typedef struct{
   const unsigned int *output_num_quantities;
   const unsigned int version; // Switch this to be the return value of simengine_getinterface(&seint)?
   const unsigned int precision;
+  const unsigned int pointer_size;
   const unsigned int parallel_models;
   const unsigned int num_iterators;
   const unsigned int num_inputs;
