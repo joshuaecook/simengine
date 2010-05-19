@@ -593,7 +593,7 @@ void *collect_data(void *arg){
       if(ob[obid[modelid]].modelid_offset[modelid] + modelid >= collection_status.num_models) break;
 
       /* If the buffer has data available, log it */
-      if(ob[obid[modelid]].available[modelid] && ob[obid[modelid]].count[modelid]){
+      if(ob[obid[modelid]].available[modelid]){
 	collection_status.log_outputs_status = log_outputs(&ob[obid[modelid]], modelid);
 	if (LOG_OUTPUTS_OK != collection_status.log_outputs_status) {
 	  goto endofthread;
