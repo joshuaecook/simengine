@@ -83,6 +83,6 @@ model (Vm) = hn34(gh, gleak, Eleak, ISyn, IStim)
   		Vm' = 1/Cmem*(-INa-IP-ICaF-ICaS-IK1-IK2-IKA-Ih-Ileak+IStim-ISyn)
 	end
 
-solver = forwardeuler
-solver.dt = 1e-4
+solver = ode23
+//solver.dt = 1e-4
 end
