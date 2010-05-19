@@ -345,7 +345,7 @@ classdef Test < handle
             root.setAttribute('time', num2str(t.Time));
             root.setAttribute('name', num2str(t.Name));
 
-            systemOut = regexprep(t.Output,sprintf('\b'),'')
+            systemOut = regexprep(t.Output,sprintf('\b'),'');
             output = root.appendChild(xml.createElement('system-out'));
             output.appendChild(xml.createTextNode(systemOut));
 
