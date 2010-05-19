@@ -345,17 +345,21 @@ classdef Test < handle
             root.setAttribute('time', num2str(t.Time));
             root.setAttribute('name', num2str(t.Name));
 
+            systemOut = regexprep(t.Output,sprintf('\b'),'')
+            output = root.appendChild(xml.createElement('system-out'));
+            output.appendChild(xml.createTextNode(systemOut));
+
             switch(t.Result)
               case t.FAILED
                 message = root.appendChild(xml.createElement('failure'));
                 message.setAttribute('message', t.Message);
+                message.appendChild(xml.createTextNode(systemOut));
+
               case t.ERROR
                 message = root.appendChild(xml.createElement('error'));
                 message.setAttribute('message', t.Message);
+                message.appendChild(xml.createTextNode(systemOut));
             end
-            
-            output = root.appendChild(xml.createElement('system-out'));
-            output.appendChild(xml.createCDATASection(regexprep(t.Output,sprintf('\b'),'')));
         end
 
         % write JUnit XML output
