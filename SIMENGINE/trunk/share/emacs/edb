@@ -1,0 +1,6 @@
+#!/bin/bash
+
+DIRNAME=`dirname $(readlink -e ${BASH_SOURCE[0]})`
+
+#echo "emacs -l $DIRNAME/debugit.el --eval \"(matdebug \\\"$1\\\" \\\"$PWD\\\")\""
+emacs -l $DIRNAME/debugit.el --eval "(matdebug \"$1\" \"$PWD\")"
