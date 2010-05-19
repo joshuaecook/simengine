@@ -384,6 +384,9 @@ import "command_line.dsl"
 
   function simulate(simulation, simulationSettings, debug)
     var simexCommands = []
+    var gdb = objectContains(settings.simulation_debug, "gdb") and settings.simulation_debug.gdb.getValue()
+    var p
+
     foreach setting in simulationSettings.keys do
       // C command-line options use "--" instead of "-" (artifact of getopt library)
       simexCommands.push_back("--" + setting)
@@ -391,10 +394,16 @@ import "command_line.dsl"
 	simexCommands.push_back(simulationSettings.getValue(setting).tostring())
       end
     end
-    if debug then
-      println("Run: " + simulation + " " + (join(" ", simexCommands)))
+    if gdb then
+      var emacsArgs = ["--eval", "(debugit \"" + FileSystem.pwd() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\")"]
+      println("Launching simulation in gdb: emacs '" + join("' '", emacsArgs) + "'")
+      p = Process.run("emacs", emacsArgs)
+    else
+      if debug then
+	println("Run: " + simulation + " " + (join(" ", simexCommands)))
+      end
+      p = Process.run(simulation, simexCommands)
     end
-    var p = Process.run(simulation, simexCommands)
     var allout = Process.readAll(p)
     var stat = Process.reap(p)
     var stdout = allout(1)

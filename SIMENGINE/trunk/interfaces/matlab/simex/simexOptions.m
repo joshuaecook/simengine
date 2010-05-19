@@ -222,8 +222,18 @@ function [options, restUserOptions] = getOption(options, userOptions)
 
     % Undocumented options follow
     case 'debug'
-      options.debug = true;
-      options.args = [options.args ' --debug'];
+      % Only enable debugging if not already enabled
+      if ~options.debug
+        options.debug = true;
+        options.args = [options.args ' --debug'];
+      end
+    case 'gdb'
+      options.args = [options.args ' --gdb'];
+      % Turn on debugging if gdb is requested and not already enabled
+      if ~options.debug
+        options.debug = true;
+        options.args = [options.args ' --debug'];
+      end
     case 'profile'
       options.profile = true;
       options.args = [options.args ' --profile'];
