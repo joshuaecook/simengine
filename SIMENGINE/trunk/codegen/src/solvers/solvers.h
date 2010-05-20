@@ -145,7 +145,7 @@ __DEVICE__ int model_running(solver_props *props, unsigned int modelid){
   unsigned int i;
   assert(NUM_ITERATORS);
   for(i=0;i<NUM_ITERATORS;i++){
-    if(props[i].running[modelid])
+    if(props[i].running[modelid] || props[i].last_iteration[modelid])
       return 1;
   }
   return 0;
