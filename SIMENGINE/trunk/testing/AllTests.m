@@ -23,10 +23,14 @@ if nargin == 1
     end
 end
 
-global SIMEX_TIMEOUT;
 
-% Timeout after 10 minutes
+% Timeout after 10 minutes to make sure testing framework never hangs
+global SIMEX_TIMEOUT;
 SIMEX_TIMEOUT = 600;
+
+% Stop text status bar to avoid polluting Bamboo
+global SIMEX_NO_TEXT_STATUS_BAR;
+SIMEX_NO_TEXT_STATUS_BAR = true;
 
 % Define the all tests suite
 s = Suite('All Tests');
