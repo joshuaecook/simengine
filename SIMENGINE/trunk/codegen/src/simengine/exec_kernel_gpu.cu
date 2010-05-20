@@ -140,6 +140,11 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
       }
     }
 
+    // Cannot continue if the output buffer is full
+    if (gpu_ob->full[modelid]) {
+      break;
+    }
+
     // Capture outputs for final iteration
     for(i=0;i<NUM_ITERATORS;i++){
       if (props[i].last_iteration[modelid]) {
