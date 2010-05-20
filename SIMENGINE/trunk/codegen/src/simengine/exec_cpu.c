@@ -2,7 +2,6 @@
 int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid, int resuming){
   unsigned int i;
   CDATAFORMAT min_time;
-  unsigned int last_iteration[NUM_ITERATORS] = {0};
   unsigned int dirty_states[NUM_ITERATORS] = {0};
   unsigned int ready_outputs[NUM_ITERATORS] = {0};
   int inputs_available = 1;
@@ -77,7 +76,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
     for(i=0;i<NUM_ITERATORS;i++){
       if(props[i].running[modelid] && (resuming && props[i].next_time[modelid] == min_time)){
 	// Now time == next_time
-	last_iteration[i] = solver_advance(&props[i], modelid);
+	solver_advance(&props[i], modelid);
       }
     }
 
@@ -90,8 +89,8 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 
     // Capture outputs for final iteration
     for(i=0;i<NUM_ITERATORS;i++){
-      if (last_iteration[i]) {
-	last_iteration[i] = 0;
+      if (props[i].last_iteration[i]) {
+	props[i].last_iteration[modelid] = 0;
 
 	pre_process(&props[i], modelid);
 	model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
