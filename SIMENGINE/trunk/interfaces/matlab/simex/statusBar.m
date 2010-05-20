@@ -13,6 +13,11 @@ messageLength = length(message);
 end
 
 function textStatusBar(message, previousLength)
+    global SIMEX_NO_TEXT_STATUS_BAR
+    if(~isempty(SIMEX_NO_TEXT_STATUS_BAR))
+      return;
+    end
+    
     % Backup over previous message
     for i = 1:previousLength
         fprintf('\b');

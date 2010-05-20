@@ -345,20 +345,19 @@ classdef Test < handle
             root.setAttribute('time', num2str(t.Time));
             root.setAttribute('name', num2str(t.Name));
 
-            systemOut = regexprep(t.Output,sprintf('\b'),'');
             output = root.appendChild(xml.createElement('system-out'));
-            output.appendChild(xml.createTextNode(systemOut));
+            output.appendChild(xml.createTextNode(t.Output));
 
             switch(t.Result)
               case t.FAILED
                 message = root.appendChild(xml.createElement('failure'));
                 message.setAttribute('message', t.Message);
-                message.appendChild(xml.createTextNode(systemOut));
+                message.appendChild(xml.createTextNode(t.Output));
 
               case t.ERROR
                 message = root.appendChild(xml.createElement('error'));
                 message.setAttribute('message', t.Message);
-                message.appendChild(xml.createTextNode(systemOut));
+                message.appendChild(xml.createTextNode(t.Output));
             end
         end
 
