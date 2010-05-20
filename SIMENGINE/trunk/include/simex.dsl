@@ -396,8 +396,11 @@ import "command_line.dsl"
     end
     if gdb then
       var emacsArgs = ["--eval", "(debugit \"" + FileSystem.pwd() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\")"]
-      println("Launching simulation in gdb: emacs '" + join("' '", emacsArgs) + "'")
-      p = Process.run("emacs", emacsArgs)
+      println("Launching simulation in gdb: emacsclient '" + join("' '", emacsArgs) + "'")
+      // emacsclient does not return until the file opened is closed with Ctrl-X #
+      p = Process.run("emacsclient", ["emacsclient-buffer_close_to_allow_matlab_to_continue"])
+      // emacsclient returns immediately when called with '--eval'
+      Process.run("emacsclient", emacsArgs)
     else
       if debug then
 	println("Run: " + simulation + " " + (join(" ", simexCommands)))
