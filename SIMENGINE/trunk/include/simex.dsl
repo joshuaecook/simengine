@@ -106,6 +106,7 @@ import "command_line.dsl"
         m.CFLAGS.push_back("-g")
         m.CFLAGS.push_back("-gdwarf-2")
       else
+        m.CFLAGS.push_back("-DNDEBUG")
         m.CFLAGS.push_back("-O2")
         m.CFLAGS.push_back("-fno-strict-aliasing")
       end
