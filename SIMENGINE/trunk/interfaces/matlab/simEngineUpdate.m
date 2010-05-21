@@ -18,8 +18,12 @@ if status
     try
         feval(fcn_name);
         delete(latest.file);
-    catch
+    catch e
+      disp(sprintf('While upgrading, caught error: %s\n', e.message));
+      disp('Upgrade has failed.  Please try again or contact Simatra Technologies for support.');
+      if exist(latest.file) ~= 0        
         delete(latest.file);
+      end
     end
 else
     error('Simatra:simEngineUpdate', '')
