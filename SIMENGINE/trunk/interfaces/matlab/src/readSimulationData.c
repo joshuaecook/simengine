@@ -48,8 +48,6 @@ static struct {
   pthread_t collector;
 } collection_status = {0};
 
-
-
 typedef struct{
   unsigned int samples;
   unsigned int allocated;
@@ -58,8 +56,10 @@ typedef struct{
 
 static output_t *output;
 
-#define BASE_BUFFER_SIZE 1024
+/* A buffer size of 512 will equate to 4096 bytes (512*sizeof(double)) or a single page on x86 platforms */
+#define BASE_BUFFER_SIZE 512
 
+#define OUT_OF_MEMORY_ERR_MSG "The simex function was unable to allocate the memory it needs to perform a simulation."
 #define ERROR(MESSAGE, ARG...) mexErrMsgIdAndTxt("Simatra:SIMEX:readSimulationData", MESSAGE, ##ARG)
 
 #define BUFFER_LEN 100
@@ -239,7 +239,7 @@ void check_for_error (void) {
   switch (collection_status.log_outputs_status) {
   case LOG_OUTPUTS_OUT_OF_MEMORY:
     cleanup();
-    ERROR("Out of memory.\n");
+    ERROR(OUT_OF_MEMORY_ERR_MSG);
     break;
   case LOG_OUTPUTS_CORRUPT:
     cleanup();
@@ -441,14 +441,7 @@ void return_simulation_data(mxArray **plhs){
 
   /* Read outputs */
   if(collection_status.shared_memory){
-    switch (collection_status.log_outputs_status) {
-    case LOG_OUTPUTS_CORRUPT:
-      ERROR("Output data was corrupted.\n");
-      break;
-    case LOG_OUTPUTS_OUT_OF_MEMORY:
-      ERROR("Ran out of memory while collecting output data.\n");
-      break;
-    }
+    check_for_error();
     output_struct = read_outputs_from_shared_memory();
   }
   else{
@@ -654,13 +647,13 @@ void initialize(const mxArray **prhs){
       unsigned int outputid;
       output = (output_t*)malloc(collection_status.num_models * collection_status.num_outputs * sizeof(output_t));
       if(!output){
-	ERROR("Out of memory.\n");
+	ERROR(OUT_OF_MEMORY_ERR_MSG);
       }
       for(modelid=0;modelid<collection_status.num_models;modelid++){
 	for(outputid=0;outputid<collection_status.num_outputs;outputid++){
 	  output[modelid*collection_status.num_outputs + outputid].data = (double*)malloc(BASE_BUFFER_SIZE * sizeof(double) * collection_status.output_num_quantities[outputid]);
 	  if(!output[modelid*collection_status.num_outputs + outputid].data){
-	    ERROR("Out of memory.\n");
+	    ERROR(OUT_OF_MEMORY_ERR_MSG);
 	  }
 	  output[modelid*collection_status.num_outputs + outputid].allocated = BASE_BUFFER_SIZE;
 	  output[modelid*collection_status.num_outputs + outputid].samples = 0;
@@ -674,11 +667,6 @@ void initialize(const mxArray **prhs){
 	ERROR("Unable to create collection thread.\n");
       }
       pthread_attr_destroy(&attr);
-
-      usleep(1000);
-      if (!collection_status.running) {
-	ERROR("Collector didn't run.\n");
-      }
     }
   }
 
