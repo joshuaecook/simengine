@@ -1,4 +1,4 @@
-function OptionValue = GARCH_simulation(NumberOfSteps,NumberOfPaths,strike,InterestRate)  
+function OptionValue = GARCH_simulation_dsl(NumberOfSteps,NumberOfPaths,strike,InterestRate)  
 %Determine the value of an Asian option based on GARCH simulation.
 %
 %[VALUE] = GARCH_SIMULATION(DAYS, PATHS, STRIKE, RATE) determines the
@@ -24,7 +24,7 @@ discount = exp(-r*NumberOfSteps);
 %"tic" and "toc" are used to record the time spent in Monte Carlo
 %simulations.
 tic;
-data = simex('GARCH.dsl', NumberOfSteps, '-instances', NumberOfPaths, '-parallelcpu', '-shared_memory');
+data = simex('GARCH.dsl', NumberOfSteps, '-instances', NumberOfPaths, '-parallelcpu');
 
 for i = 1:NumberOfPaths,
     AvePrice = mean(data(i).assetPrice(:,2));
