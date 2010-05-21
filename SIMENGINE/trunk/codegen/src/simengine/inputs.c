@@ -192,19 +192,21 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
   FILE *states_file;
   unsigned int stateid;
 
-  modelid_dirname(outputs_dirname, states_path, modelid + modelid_offset);
-  sprintf(states_path + strlen(states_path), "/%s", "initial-states");
+  sprintf(states_path, "%s/initial-states", outputs_dirname);
   states_file = fopen(states_path, "r");
-  
-  if(states_file){
+
+  if (states_file) {
+    long offset = (modelid + modelid_offset) * seint.num_states * sizeof(double);
+    fseek(states_file, offset, SEEK_SET);
     for(stateid=0;stateid<seint.num_states;stateid++){
-      double tmp;
-      if(1 != fread(&tmp, sizeof(double), 1, states_file)){
+      double value;
+      if(1 != fread(&value, sizeof(double), 1, states_file)){
 	ERROR(Simatra:Simex:initialize_states, "Could not read state '%s' for model %d from '%s'.\n", seint.state_names[stateid], modelid + modelid_offset, states_path);
       }
       // Read in model_states
-      model_states[TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid)] = tmp;
+      model_states[TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid)] = value;
     }
+
     fclose(states_file);
     return 1;
   }
