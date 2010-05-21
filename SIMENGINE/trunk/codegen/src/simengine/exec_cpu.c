@@ -89,7 +89,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 
     // Capture outputs for final iteration
     for(i=0;i<NUM_ITERATORS;i++){
-      if (props[i].last_iteration[i]) {
+      if (props[i].last_iteration[modelid]) {
 	props[i].last_iteration[modelid] = 0;
 
 	pre_process(&props[i], modelid);
