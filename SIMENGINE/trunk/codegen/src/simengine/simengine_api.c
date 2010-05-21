@@ -189,7 +189,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
 #endif
     for(modelid=0; modelid<models_per_batch; modelid++){
       resuming |= initialize_states(model_states, outputs_dirname, modelid_offset, modelid);
-      initialize_inputs(tmp_constant_inputs, tmp_sampled_inputs, outputs_dirname, modelid_offset, modelid, start_time);
+      initialize_inputs(tmp_constant_inputs, tmp_sampled_inputs, outputs_dirname, num_models, modelid_offset, modelid, start_time);
     }
 #if defined TARGET_GPU && NUM_CONSTANT_INPUTS > 0
     CDATAFORMAT *g_constant_inputs;

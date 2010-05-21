@@ -214,6 +214,8 @@ function writeUserInputs (options)
 %  WRITEUSERINPUTS Creates files for the inputs of each model instance.
   inputs = options.inputs;
   names = fieldnames(inputs);
+  fid = 0;
+  onCleanup(@()fid > 0 && fclose(fid));
 
   if ~isstruct(inputs)
     simexError('typeError', 'Expected INPUTS to be a structure array.')
@@ -227,48 +229,64 @@ function writeUserInputs (options)
   end
 
   if ~empty
-  for modelid = 1:options.instances
-    modelPath = modelidToPath(modelid-1);
-    mkdir(fullfile(options.outputs, modelPath), 'inputs');
-    for inputid = 1:length(names)
-      field = names{inputid};
-      if ~isfield(options.inputs, field)
-        warning(['INPUTS.' field ' is not a model input.']);
-        continue
-      end
-      filename = fullfile(options.outputs, modelPath, 'inputs', field);
-      fid = fopen(filename, 'w');
-      onCleanup(@()fid>0 && fclose(fid));
-            
-      if -1 == fid
-        simFailure('simEngine', ['Unable to write inputs file ' filename]);
-      end
-            
-      if 1 == max(size(inputs))
-        % INPUTS given as a structure of scalars or cell arrays
-        value = inputs.(field);
-        if iscell(value)
-          if 1 == length(value)
-            if isnan(value{1})
-              simexError('valueError', ['INPUTS.' field ' may not contain NaN.']);
-            end
-            fwrite(fid, value{1}, 'double');
-          else
+  for inputid = 1:length(names)
+    field = names{inputid};
+    if ~isfield(options.inputs, field)
+      warning(['INPUTS.' field ' is not a model input.']);
+      continue
+    end
+    mkdir(fullfile(options.outputs, 'inputs'));
+    filename = fullfile(options.outputs, 'inputs', field);
+    fid = fopen(filename, 'w');
+    if -1 == fid
+      simFailure('simEngine', ['Unable to write inputs file ' filename]);
+    end
+    
+    index = zeros(2, options.instances);
+
+    % Zero over the index region
+    fwrite(fid, index, 'integer*4');
+    
+    if 1 == max(size(inputs))
+      value = inputs.(field);
+      if iscell(value)
+        if 1 == length(value)
+          if isnan(value{1})
+            simexError('valueError', ['INPUTS.' field ' may not contain NaN.']);
+          end
+          fwrite(fid, value{1}, 'double');
+          index(2,:) = length(value{1});
+        else
+          offset = 0;
+          for modelid = 1:options.instances
             if isnan(value{modelid})
               simexError('valueError', ['INPUTS.' field ' may not contain NaN.']);
             end
             fwrite(fid, value{modelid}, 'double');
+            index(:, modelid) = [offset; length(value{modelid})];
+            offset = offset + length(value{modelid});
           end
-        elseif isnan(value)
-          simexError('valueError', ['INPUTS.' field ' may not contain NaN.']);
-        else
-          fwrite(fid, value, 'double');
         end
+      elseif isnan(value)
+        simexError('valueError', ['INPUTS.' field ' may not contain NaN.']);
       else
+        fwrite(fid, value, 'double');
+        index(2,:) = length(value);
+      end
+    else
+      offset = 0;
+      for modelid = 1:options.instances
         value = inputs(modelid).(field);
         fwrite(fid, value, 'double');
+        index(:, modelid) = [offset; length(value)]
+        offset = offset + length(value);
       end
     end
+              
+    % Return to the beginning and write the index
+    fseek(fid, 0, 'bof');
+    fwrite(fid, index, 'integer*4');
+    fclose(fid);
   end
   end
 end
