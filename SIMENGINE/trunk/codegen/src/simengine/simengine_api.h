@@ -21,6 +21,8 @@
 #include <sys/time.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 
