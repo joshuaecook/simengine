@@ -46,6 +46,7 @@ static struct {
   char **output_names;
   unsigned int *output_num_quantities;
   pthread_t collector;
+  pthread_mutex_t matlab_call;
 } collection_status = {0};
 
 
@@ -78,6 +79,44 @@ typedef struct {
   unsigned int num_quantities;
   char quantities[];
 } output_buffer_data;
+
+/* Thread safe allocation in Matlab heap */
+void *collector_matlab_malloc(unsigned int size){
+  void *ret;
+  /* Ensure that collector thread has exclusive access to Matlab */
+  pthread_mutex_lock(&collection_status.matlab_call);
+  /* Allocate */
+  ret = mxMalloc(size);
+  /* Ensure that Matlab won't reclaim this allocation until call to mxFree */
+  if(ret) mexMakeMemoryPersistent(ret);
+  /* Return access to Matlab to main matlab thread (or another allocation) */
+  pthread_mutex_unlock(&collection_status.matlab_call);
+  return ret;
+}
+
+/* Thread safe reallocation in Matlab heap */
+void *collector_matlab_realloc(void *ptr, unsigned int size){
+  void *ret;
+  /* Ensure that collector thread has exclusive access to Matlab */
+  pthread_mutex_lock(&collection_status.matlab_call);
+  /* Allocate */
+  ret = mxRealloc(ptr, size);
+  /* Ensure that Matlab won't reclaim this allocation until call to mxFree */
+  if(ret) mexMakeMemoryPersistent(ret);
+  /* Return access to Matlab to main matlab thread (or another allocation) */
+  pthread_mutex_unlock(&collection_status.matlab_call);
+  return ret;
+}
+
+/* Thread safe free in Matlab heap */
+void collector_matlab_free(void *ptr){
+  /* Ensure that collector thread has exclusive access to Matlab */
+  pthread_mutex_lock(&collection_status.matlab_call);
+  /* Free the data */
+  mxFree(ptr);
+    /* Return access to Matlab to main matlab thread (or another allocation) */
+  pthread_mutex_unlock(&collection_status.matlab_call);
+}
 
 /* Returns the number of outputs represented in a model interface. */
 unsigned int iface_num_outputs(const mxArray *iface){
@@ -234,6 +273,8 @@ void copy_transpose_double(double *dest, const double *src, int cols, int rows){
 #undef COL_MAJOR_IDX
 #undef ROW_MAJOR_IDX
 }
+
+void cleanup();
 
 void check_for_error (void) {
   switch (collection_status.log_outputs_status) {
@@ -493,7 +534,7 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
 		 
     if (out->samples == out->allocated) {
       out->allocated *= 2;
-      out->data = (double*)realloc(out->data, nquantities * out->allocated * sizeof(double));
+      out->data = (double*)collector_matlab_realloc(out->data, nquantities * out->allocated * sizeof(double));
       if (!out->data)
 	{ return LOG_OUTPUTS_OUT_OF_MEMORY; }
     }
@@ -562,7 +603,7 @@ void *collect_data(void *arg){
   raw_buffer = mmap(NULL, filestat.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 
   /* Initialize output buffer pointers to raw buffer data */
-  ob = (output_buffer*)malloc(collection_status.buffer_count*sizeof(output_buffer));
+  ob = (output_buffer*)collector_matlab_malloc(collection_status.buffer_count*sizeof(output_buffer));
   ob[0].finished = (unsigned int *)raw_buffer;
   ob[0].full = ob[0].finished + collection_status.parallel_models;
   ob[0].count = ob[0].full + collection_status.parallel_models;
@@ -580,7 +621,7 @@ void *collect_data(void *arg){
     ob[bufferid].buffer = ob[bufferid-1].buffer + buffer_size;
   }
 
-  obid = malloc(collection_status.parallel_models * sizeof(unsigned int));
+  obid = collector_matlab_malloc(collection_status.parallel_models * sizeof(unsigned int));
   for(bufferid=0;bufferid<collection_status.parallel_models;bufferid++){
     obid[bufferid] = 0;
   }
@@ -652,13 +693,16 @@ void initialize(const mxArray **prhs){
     if(collection_status.shared_memory && collection_status.num_outputs){
       unsigned int modelid;
       unsigned int outputid;
-      output = (output_t*)malloc(collection_status.num_models * collection_status.num_outputs * sizeof(output_t));
+      /* Initialize mutex to provide thread safety for calls into Matlab from collection thread */
+      pthread_mutex_init(&collection_status.matlab_call, NULL);
+
+      output = (output_t*)collector_matlab_malloc(collection_status.num_models * collection_status.num_outputs * sizeof(output_t));
       if(!output){
 	ERROR("Out of memory.\n");
       }
       for(modelid=0;modelid<collection_status.num_models;modelid++){
 	for(outputid=0;outputid<collection_status.num_outputs;outputid++){
-	  output[modelid*collection_status.num_outputs + outputid].data = (double*)malloc(BASE_BUFFER_SIZE * sizeof(double) * collection_status.output_num_quantities[outputid]);
+	  output[modelid*collection_status.num_outputs + outputid].data = (double*)collector_matlab_malloc(BASE_BUFFER_SIZE * sizeof(double) * collection_status.output_num_quantities[outputid]);
 	  if(!output[modelid*collection_status.num_outputs + outputid].data){
 	    ERROR("Out of memory.\n");
 	  }
@@ -674,18 +718,17 @@ void initialize(const mxArray **prhs){
 	ERROR("Unable to create collection thread.\n");
       }
       pthread_attr_destroy(&attr);
-
-      usleep(1000);
-      if (!collection_status.running) {
-	ERROR("Collector didn't run.\n");
-      }
+      /* Lock mutex since it will be unlocked around usleep call */
+      pthread_mutex_lock(&collection_status.matlab_call);
     }
   }
 
   check_for_error();
 
-  /* Sleep for 0.1 seconds */
+  /* Sleep for 0.1 seconds leaving mutex available for collector thread */
+  pthread_mutex_unlock(&collection_status.matlab_call);
   usleep(1e5);
+  pthread_mutex_lock(&collection_status.matlab_call);
 }
 
 void cleanup(){
@@ -697,18 +740,21 @@ void cleanup(){
     collection_status.initialized = 0;
     if(collection_status.shared_memory && collection_status.num_outputs){
       if(collection_status.collector){
+	/* Make sure collector thread doesn't hang on a mutex if cleanup is called via user terminating with Ctrl+C */
+	pthread_mutex_unlock(&collection_status.matlab_call);
 	pthread_join(collection_status.collector, NULL);
+	pthread_mutex_destroy(&collection_status.matlab_call);
       }
       /* Free allocated internal memory */
       if(output){
 	for(modelid=0;modelid<collection_status.num_models;modelid++){
 	  for(outputid=0;outputid<collection_status.num_outputs;outputid++){
 	    if(output[modelid * collection_status.num_outputs + outputid].data){
-	      free(output[modelid * collection_status.num_outputs + outputid].data);
+	      mxFree(output[modelid * collection_status.num_outputs + outputid].data);
 	    }
 	  }
 	}
-	free(output);
+	mxFree(output);
 	output = NULL;
       }
     }
