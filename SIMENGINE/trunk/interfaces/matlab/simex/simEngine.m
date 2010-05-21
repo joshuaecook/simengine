@@ -278,20 +278,20 @@ function writeUserStates (options)
   states = options.states;
     
   if ~isempty(states)
-    for modelid = 1:options.instances
-      modelPath = modelidToPath(modelid-1);
-      mkdir(fullfile(options.outputs), modelPath)
-      filename = fullfile(options.outputs, modelPath, 'initial-states');
-      fid = fopen(filename, 'w');
-      onCleanup(@()fid>0 && fclose(fid));
-      if -1 == fid
-        simFailure('simEngine', ['Unable to write states file ' filename]);
+    filename = fullfile(options.outputs, 'initial-states');
+    fid = fopen(filename, 'w');
+    onCleanup(@()fid > 0 && fclose(fid));
+    if -1 == fid
+      simFailure('simEngine', ['Unable to write states file ' filename]);
+    end
+
+    if 1 == size(states, 1)
+      for modelid = 1:options.instances
+        written = fwrite(fid, states, 'double');
       end
-            
-      if 1 == size(states, 1)
-        fwrite(fid, states, 'double');
-      else
-        fwrite(fid, states(modelid,:), 'double');
+    else
+      for modelid = 1:options.instances
+        written = fwrite(fid, states(modelid,:), 'double');
       end
     end
   end
