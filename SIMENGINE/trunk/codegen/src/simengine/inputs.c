@@ -50,48 +50,42 @@ void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned 
   }
 }
 
-void read_constant_input(CDATAFORMAT *inputs, const char *outputs_dirname, unsigned int inputid, unsigned int num_models, unsigned int modelid_offset, unsigned int modelid){
-  FILE *inputfile;
-  char inputfilepath[PATH_MAX];
-  size_t index_size = num_models * sizeof(inputs_index_entry_t);
-  CDATAFORMAT *input =  &inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)];
+void read_constant_inputs(CDATAFORMAT *inputs, const char *outputs_dirname, unsigned int inputid, unsigned int num_models, unsigned int models_per_batch, unsigned int modelid_offset){
+  unsigned int modelid;
+  char inputs_path[PATH_MAX];
+  int inputs_fd;
 
-  sprintf(inputfilepath, "%s/inputs/%s", outputs_dirname, seint.input_names[inputid]);
-  inputfile = fopen(inputfilepath, "r");
-  if (!inputfile) {
-    *input = seint.default_inputs[inputid];
+  sprintf(inputs_path, "%s/inputs/%s", outputs_dirname, seint.input_names[inputid]);
+  inputs_fd = open(inputs_path, O_RDONLY);
+  if (-1 != inputs_fd) {
+    struct stat filestat;
+    if (0 != fstat(inputs_fd, &filestat)) {
+      ERROR(Simatra:Simex:read_constant_inputs, "Unable to stat inputs file.\n");
+    }
+
+    inputs_index_entry_t *inputs_data = (inputs_index_entry_t *)mmap(NULL, filestat.st_size, PROT_READ, MAP_SHARED, inputs_fd, 0);
+    double *inputs_data_ptr = (double *)(inputs_data + num_models);
+    inputs_index_entry_t *index;
+
+    for (modelid = 0; modelid < models_per_batch; modelid++) {
+      index = ((inputs_index_entry_t *)inputs_data) + modelid_offset + modelid;
+
+      assert(1 == index->length);
+
+      inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = *(inputs_data_ptr + index->offset);
+    }
+
+    munmap(inputs_data, filestat.st_size);
+    close(inputs_fd);
   }
   else {
-    double value;
-    inputs_index_entry_t index;
-    // Find the index entry for this model
-    if (0 != fseek(inputfile, (modelid + modelid_offset) * sizeof(inputs_index_entry_t), SEEK_SET)) {
-      ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
+    // 
+    for (modelid = 0; modelid < models_per_batch; modelid++) {
+      inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = seint.default_inputs[inputid];
     }
-
-    if (1 != fread(&index, sizeof(inputs_index_entry_t), 1, inputfile)) {
-      ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
-    }
-
-    assert(1 == index.length);
-
-    // Seek to the data value
-    if (0 != fseek(inputfile, index_size + (index.offset * sizeof(double)), SEEK_SET)) {
-      ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
-    }
-
-    if (1 != fread(&value, sizeof(double), 1, inputfile)) {
-      ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
-    }	
-
-    if(!__finite(value)){
-      USER_ERROR(Simatra:Simex:read_constant_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
-    }
-    *input = value;
-    
-    fclose(inputfile);
   }
 }
+
 
 __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const char *outputs_dirname, unsigned int inputid, unsigned int num_models, unsigned int modelid_offset, unsigned int modelid){
   FILE *inputfile;
@@ -227,7 +221,7 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
 
 
   if (-1 != states_fd) {
-    double *states_data = mmap(NULL, num_models * seint.num_states * sizeof(double), PROT_READ, MAP_SHARED, states_fd, 0);
+    double *states_data = (double *)mmap(NULL, num_models * seint.num_states * sizeof(double), PROT_READ, MAP_SHARED, states_fd, 0);
     double *states_data_ptr = states_data + (modelid_offset * seint.num_states);
     unsigned int stateid;
     unsigned int modelid;
@@ -253,9 +247,7 @@ void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sa
 #if NUM_CONSTANT_INPUTS > 0
   // Initialize constant inputs
   for(;inputid<NUM_CONSTANT_INPUTS;inputid++){
-    for (modelid = 0; modelid < models_per_batch; modelid++) {
-      read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, num_models, modelid_offset, modelid);
-    }
+    read_constant_inputs(tmp_constant_inputs, outputs_dirname, inputid, num_models, models_per_batch, modelid_offset);
   }
 #endif // NUM_CONSTANT_INPUTS > 0
 
