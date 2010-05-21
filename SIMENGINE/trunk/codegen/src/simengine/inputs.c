@@ -26,6 +26,13 @@ typedef struct{
   sampled_eof_option_t eof_option;
 }sampled_input_t;
 
+
+typedef struct {
+  int offset;
+  int length;
+} inputs_index_entry_t;
+
+
 #if NUM_CONSTANT_INPUTS > 0
 __DEVICE__ CDATAFORMAT constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
 #endif
@@ -43,54 +50,68 @@ void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned 
   }
 }
 
-void read_constant_input(CDATAFORMAT *inputs, const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid){
+void read_constant_input(CDATAFORMAT *inputs, const char *outputs_dirname, unsigned int inputid, unsigned int num_models, unsigned int modelid_offset, unsigned int modelid){
   FILE *inputfile;
   char inputfilepath[PATH_MAX];
+  size_t index_size = num_models * sizeof(inputs_index_entry_t);
   CDATAFORMAT *input =  &inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)];
 
-  modelid_dirname(outputs_dirname, inputfilepath, modelid + modelid_offset);
-  sprintf((inputfilepath + strlen(inputfilepath)), "/inputs/%s", seint.input_names[inputid]);
-
+  sprintf(inputfilepath, "%s/inputs/%s", outputs_dirname, seint.input_names[inputid]);
   inputfile = fopen(inputfilepath, "r");
-  if(!inputfile) {
-    // No file to read from, use default value
+  if (!inputfile) {
     *input = seint.default_inputs[inputid];
   }
   else {
-    // Read one double-precision value and cast it as CDATAFORMAT
     double value;
-    if(1 != fread(&value, sizeof(double), 1, inputfile)){
-      ERROR(Simatra:Simex:read_constant_input, "Could not read input from file '%s'.\n", inputfilepath);
+    inputs_index_entry_t index;
+    // Find the index entry for this model
+    if (0 != fseek(inputfile, (modelid + modelid_offset) * sizeof(inputs_index_entry_t), SEEK_SET)) {
+      ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
+    }
+
+    if (1 != fread(&index, sizeof(inputs_index_entry_t), 1, inputfile)) {
+      ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
+    }
+
+    assert(1 == index.length);
+
+    // Seek to the data value
+    if (0 != fseek(inputfile, index_size + (index.offset * sizeof(double)), SEEK_SET)) {
+      ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
+    }
+
+    if (1 != fread(&value, sizeof(double), 1, inputfile)) {
+      ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
+    }	
+
+    if(!__finite(value)){
+      USER_ERROR(Simatra:Simex:read_constant_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
     }
     *input = value;
+    
     fclose(inputfile);
-  }
-
-  if(!__finite(*input)){
-    USER_ERROR(Simatra:Simex:read_constant_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
   }
 }
 
-__HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const char *outputs_dirname, unsigned int inputid, unsigned int modelid_offset, unsigned int modelid){
+__HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const char *outputs_dirname, unsigned int inputid, unsigned int num_models, unsigned int modelid_offset, unsigned int modelid){
   FILE *inputfile;
   char inputfilepath[PATH_MAX];
   long skipped_samples;
+  size_t index_size = num_models * sizeof(inputs_index_entry_t);
+  inputs_index_entry_t index;
   int num_to_read;
   int num_read;
   int i;
   double value[SAMPLE_BUFFER_SIZE];
   CDATAFORMAT held;
 
-
-  modelid_dirname(outputs_dirname, inputfilepath, modelid + modelid_offset);
-  sprintf((inputfilepath + strlen(inputfilepath)), "/inputs/%s", seint.input_names[inputid]);
-
+  sprintf(inputfilepath, "%s/inputs/%s", outputs_dirname, seint.input_names[inputid]);
   inputfile = fopen(inputfilepath, "r");
+
   if(!inputfile){
     if(input->file_idx[ARRAY_IDX]){
       ERROR(Simatra:Simex:read_sampled_input, "Input file '%s' could not be opened.\n", inputfilepath);
     }
-    // No file to read from
     else{
       // Default value not set
       if(!__finite(seint.default_inputs[inputid]))
@@ -102,6 +123,15 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
     }
   }
 
+  // Find the index entry for this model
+  if (0 != fseek(inputfile, (modelid + modelid_offset) * sizeof(inputs_index_entry_t), SEEK_SET)) {
+    ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
+  }
+
+  if (1 != fread(&index, sizeof(inputs_index_entry_t), 1, inputfile)) {
+    ERROR(Simatra:Simex:read_constant_input, "Could not read input '%s' for model %d from '%s'.\n", seint.input_names[inputid], modelid + modelid_offset, inputfilepath);
+  }
+
   // Compute the file offset of the sample corresponding to time t
   skipped_samples = ((long)((t - input->current_time[ARRAY_IDX])/ input->timestep));
   if (input->buffered_size[ARRAY_IDX] > 0) {
@@ -109,8 +139,9 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
   }
 
   // Read data from input file
-  input->file_idx[ARRAY_IDX] += skipped_samples * sizeof(double);
-  if(fseek(inputfile, input->file_idx[ARRAY_IDX], SEEK_SET)){
+  input->file_idx[ARRAY_IDX] += skipped_samples;
+  // Seek to the data value
+  if (0 != fseek(inputfile, index_size + ((index.offset + input->file_idx[ARRAY_IDX]) * sizeof(double)), SEEK_SET)) {
     num_read = 0;
   }
   else{
@@ -119,11 +150,11 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
     for (i = 0; i < num_read; i++) {
       // Check for +/-INF and NAN
       if(!__finite(value[i]))
-	USER_ERROR(Simatra:Simex:read_sampled_input, "Invalid value '%g' in position %lu for input '%s'.\n", value[i], (input->file_idx[ARRAY_IDX]/sizeof(double)) + i, seint.input_names[inputid]); 
+	USER_ERROR(Simatra:Simex:read_sampled_input, "Invalid value '%g' in position %lu for input '%s'.\n", value[i], input->file_idx[ARRAY_IDX] + i, seint.input_names[inputid]); 
       input->data[ARRAY_IDX * SAMPLE_BUFFER_SIZE + i] = value[i];
     }
   }
-  input->file_idx[ARRAY_IDX] += num_read * sizeof(double);
+  input->file_idx[ARRAY_IDX] += num_read;
 
   input->buffered_size[ARRAY_IDX] = num_read;
 
@@ -144,12 +175,12 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
       // Read input file in a loop until buffer is full
       input->file_idx[ARRAY_IDX] = 0;
       for(num_to_read = SAMPLE_BUFFER_SIZE - num_read; num_to_read > 0; num_to_read -= num_read){
-	fseek(inputfile, 0, SEEK_SET);
+	fseek(inputfile, index_size + (index.offset * sizeof(double)), SEEK_SET);
 	num_read = fread(value, sizeof(double), num_to_read, inputfile);
 	for (i = 0; i < num_read; i++) {
 	  input->data[(ARRAY_IDX+1) * SAMPLE_BUFFER_SIZE + i - num_to_read] = value[i];
 	}
-	input->file_idx[ARRAY_IDX] = num_read * sizeof(double);
+	input->file_idx[ARRAY_IDX] = num_read;
 	input->buffered_size[ARRAY_IDX] += num_read;
       }
       break;
@@ -213,13 +244,13 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
   return 0;
 }
 
-void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sampled_inputs, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
+void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sampled_inputs, const char *outputs_dirname, unsigned int num_models, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
   unsigned int inputid = 0;
 
 #if NUM_CONSTANT_INPUTS > 0
   // Initialize constant inputs
   for(;inputid<NUM_CONSTANT_INPUTS;inputid++){
-    read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, modelid_offset, modelid);
+    read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, num_models, modelid_offset, modelid);
   }
 #endif // NUM_CONSTANT_INPUTS > 0
 
@@ -234,7 +265,7 @@ void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sa
     tmp->timestep = seint.sampled_input_timesteps[SAMPLED_INPUT_ID(inputid)];
     tmp->eof_option = seint.sampled_input_eof_options[SAMPLED_INPUT_ID(inputid)];
 
-    read_sampled_input(tmp, start_time, outputs_dirname, inputid, modelid_offset, modelid);
+    read_sampled_input(tmp, start_time, outputs_dirname, inputid, num_models, modelid_offset, modelid);
   }
 #endif // NUM_SAMPLED_INPUTS > 0
 }

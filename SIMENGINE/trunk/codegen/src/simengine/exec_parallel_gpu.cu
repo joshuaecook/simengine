@@ -46,7 +46,7 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
 	for (inputid = NUM_CONSTANT_INPUTS; inputid < NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS; inputid++) {
 	  sampled_input_t *input = &tmp_sampled_inputs[STRUCT_IDX * NUM_INPUTS + SAMPLED_INPUT_ID(inputid)];
 	  if (input->idx[ARRAY_IDX] >= input->buffered_size[ARRAY_IDX]) {
-	    read_sampled_input(input, props->time[ARRAY_IDX], outputs_dirname, inputid,  props->modelid_offset, modelid);
+	    read_sampled_input(input, props->time[ARRAY_IDX], outputs_dirname, inputid, props->num_models, props->modelid_offset, modelid);
 	    cutilSafeCall(cudaMemcpyToSymbol(sampled_inputs, input, sizeof(sampled_input_t), SAMPLED_INPUT_ID(inputid) * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
 	  }
 	}
