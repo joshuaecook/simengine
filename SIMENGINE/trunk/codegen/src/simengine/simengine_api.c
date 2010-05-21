@@ -187,10 +187,9 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
 #else
     sampled_input_t *tmp_sampled_inputs = NULL;
 #endif
-    for(modelid=0; modelid<models_per_batch; modelid++){
-      resuming |= initialize_states(model_states, outputs_dirname, modelid_offset, modelid);
-      initialize_inputs(tmp_constant_inputs, tmp_sampled_inputs, outputs_dirname, num_models, modelid_offset, modelid, start_time);
-    }
+    resuming = initialize_states(model_states, outputs_dirname, num_models, models_per_batch, modelid_offset);
+    initialize_inputs(tmp_constant_inputs, tmp_sampled_inputs, outputs_dirname, num_models, models_per_batch, modelid_offset, start_time);
+
 #if defined TARGET_GPU && NUM_CONSTANT_INPUTS > 0
     CDATAFORMAT *g_constant_inputs;
     cutilSafeCall(cudaGetSymbolAddress((void **)&g_constant_inputs, constant_inputs));

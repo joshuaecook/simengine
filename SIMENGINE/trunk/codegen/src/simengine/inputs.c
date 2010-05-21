@@ -218,57 +218,66 @@ __DEVICE__ int advance_sampled_input(sampled_input_t *input, CDATAFORMAT t, unsi
   return (input->idx[ARRAY_IDX] < input->buffered_size[ARRAY_IDX]);
 }
 
-int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, unsigned int num_models, unsigned int models_per_batch, unsigned int modelid_offset) {
   char states_path[PATH_MAX];
-  FILE *states_file;
-  unsigned int stateid;
-
+  int states_fd;
+  
   sprintf(states_path, "%s/initial-states", outputs_dirname);
-  states_file = fopen(states_path, "r");
+  states_fd = open(states_path, O_RDONLY);
 
-  if (states_file) {
-    long offset = (modelid + modelid_offset) * seint.num_states * sizeof(double);
-    fseek(states_file, offset, SEEK_SET);
-    for(stateid=0;stateid<seint.num_states;stateid++){
-      double value;
-      if(1 != fread(&value, sizeof(double), 1, states_file)){
-	ERROR(Simatra:Simex:initialize_states, "Could not read state '%s' for model %d from '%s'.\n", seint.state_names[stateid], modelid + modelid_offset, states_path);
+
+  if (-1 != states_fd) {
+    double *states_data = mmap(NULL, num_models * seint.num_states * sizeof(double), PROT_READ, MAP_SHARED, states_fd, 0);
+    double *states_data_ptr = states_data + (modelid_offset * seint.num_states);
+    unsigned int stateid;
+    unsigned int modelid;
+
+    // Read in model_states
+    for (modelid = 0; modelid < models_per_batch; modelid++) {
+      for(stateid = 0; stateid < seint.num_states; stateid++){
+	model_states[TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid)] = *states_data_ptr++;
       }
-      // Read in model_states
-      model_states[TARGET_IDX(seint.num_states, PARALLEL_MODELS, stateid, modelid)] = value;
     }
 
-    fclose(states_file);
+    munmap(states_data, num_models * seint.num_states * sizeof(double));
+    close(states_fd);
     return 1;
   }
   return 0;
 }
 
-void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sampled_inputs, const char *outputs_dirname, unsigned int num_models, unsigned int modelid_offset, unsigned int modelid, CDATAFORMAT start_time){
+void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sampled_inputs, const char *outputs_dirname, unsigned int num_models, unsigned int models_per_batch, unsigned int modelid_offset, CDATAFORMAT start_time){
+  unsigned int modelid;
   unsigned int inputid = 0;
 
 #if NUM_CONSTANT_INPUTS > 0
   // Initialize constant inputs
   for(;inputid<NUM_CONSTANT_INPUTS;inputid++){
-    read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, num_models, modelid_offset, modelid);
+    for (modelid = 0; modelid < models_per_batch; modelid++) {
+      read_constant_input(tmp_constant_inputs, outputs_dirname, inputid, num_models, modelid_offset, modelid);
+    }
   }
 #endif // NUM_CONSTANT_INPUTS > 0
 
 #if NUM_SAMPLED_INPUTS > 0
   for(;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
-    sampled_input_t *tmp = &tmp_sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
+    for (modelid = 0; modelid < models_per_batch; modelid++) {
+      sampled_input_t *tmp = &tmp_sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
 
-    tmp->idx[ARRAY_IDX] = 0;
-    tmp->buffered_size[ARRAY_IDX] = 0;
-    tmp->file_idx[ARRAY_IDX] = 0;
-    tmp->current_time[ARRAY_IDX] = start_time;
-    tmp->timestep = seint.sampled_input_timesteps[SAMPLED_INPUT_ID(inputid)];
-    tmp->eof_option = seint.sampled_input_eof_options[SAMPLED_INPUT_ID(inputid)];
+      tmp->idx[ARRAY_IDX] = 0;
+      tmp->buffered_size[ARRAY_IDX] = 0;
+      tmp->file_idx[ARRAY_IDX] = 0;
+      tmp->current_time[ARRAY_IDX] = start_time;
+      tmp->timestep = seint.sampled_input_timesteps[SAMPLED_INPUT_ID(inputid)];
+      tmp->eof_option = seint.sampled_input_eof_options[SAMPLED_INPUT_ID(inputid)];
 
-    read_sampled_input(tmp, start_time, outputs_dirname, inputid, num_models, modelid_offset, modelid);
+      read_sampled_input(tmp, start_time, outputs_dirname, inputid, num_models, modelid_offset, modelid);
+    }
   }
 #endif // NUM_SAMPLED_INPUTS > 0
+
 }
+
 
 #if NUM_SAMPLED_INPUTS > 0
 __HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid){
