@@ -79,7 +79,8 @@ void read_constant_inputs(CDATAFORMAT *inputs, const char *outputs_dirname, unsi
     close(inputs_fd);
   }
   else {
-    // 
+    if(!__finite(seint.default_inputs[inputid]))
+      USER_ERROR(Simatra:Simex:read_sampled_input, "No value set for input '%s'. Value must be set to simulate model.\n", seint.input_names[inputid]);
     for (modelid = 0; modelid < models_per_batch; modelid++) {
       inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = seint.default_inputs[inputid];
     }
