@@ -235,7 +235,7 @@ function writeUserInputs (options)
       warning(['INPUTS.' field ' is not a model input.']);
       continue
     end
-    mkdir(fullfile(options.outputs, 'inputs'));
+    exist(fullfile(options.outputs, 'inputs'), 'dir') || mkdir(options.outputs, 'inputs');
     filename = fullfile(options.outputs, 'inputs', field);
     fid = fopen(filename, 'w');
     if -1 == fid
@@ -315,13 +315,6 @@ function writeUserStates (options)
   end
 end
 %%
-function [val] = byte(number, b)
-    val = bitand(bitshift(number, -(b*8)),255);
-end
-
-function [path] = modelidToPath(modelid)
-    path = sprintf('%02x%s%02x%s%02x', byte(modelid,2), filesep, byte(modelid,1), filesep, byte(modelid,0));
-end
 
 function [running] = processRunning(pid)
     [stat, ignored] = system(['ps -p ' num2str(pid) ' -o pid=']);
