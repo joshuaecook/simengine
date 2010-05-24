@@ -148,6 +148,16 @@ function [outputs y1 t1 interface] = simEngine (options)
   else 
     [outputs y1 t1] = readSimulationData();
   end
+
+  % Make sure that the interface was produced if not running a simulation
+  if(~exist('interface', 'var'))
+    if(exist(options.jsonfile, 'file'))
+      interface = parseInterface(options);
+    else
+      simFailure('simCompile', ['No simulation interface available.'])
+    end
+  end
+
 end
 %
 function [interface] = parseInterface (options)
