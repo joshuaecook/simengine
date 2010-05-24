@@ -5,6 +5,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   unsigned int dirty_states[NUM_ITERATORS] = {0};
   unsigned int ready_outputs[NUM_ITERATORS] = {0};
   int inputs_available = 1;
+  unsigned int iterid = NUM_ITERATORS - 1;
 
   // Initialize all iterators to running
   for(i=0;i<NUM_ITERATORS;i++){
@@ -17,7 +18,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   // Run simulation to completion
   while(model_running(props, modelid) && inputs_available){
     // Update the progress file with % completion for this model
-    progress[modelid] = (props->time[modelid] - props->starttime) / (props->stoptime - props->starttime);
+    progress[modelid] = (props[iterid].time[modelid] - props[iterid].starttime) / (props[iterid].stoptime - props[iterid].starttime);
 
     // Find the nearest next_time and catch up
     min_time = find_min_time(props, modelid);
@@ -158,7 +159,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   }
 
   // Update the progress file with % completion for this model
-  progress[modelid] = (props->time[modelid] - props->starttime) / (props->stoptime - props->starttime);
+  progress[modelid] = (props[iterid].time[modelid] - props[iterid].starttime) / (props[iterid].stoptime - props[iterid].starttime);
 
   return SUCCESS;
 }
