@@ -2,6 +2,7 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
   unsigned int i;
   unsigned int inputid;
   unsigned int modelid;
+  unsigned int iterid = NUM_ITERATORS - 1;
   unsigned int num_gpu_threads;
   unsigned int num_gpu_blocks;
   unsigned int active_models;
@@ -31,7 +32,8 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
     resuming = 1;
     // Copy data back to the host
     cutilSafeCall(cudaMemcpyFromSymbol(&global_ob[global_ob_idx[0]], gpu_ob, sizeof(output_buffer), 0, cudaMemcpyDeviceToHost));
-    cutilSafeCall(cudaMemcpy(props->time, props->gpu.time, props->num_models * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
+    // Grab time from the last iterator (to be sure to skip an always iterator if it is present)
+    cutilSafeCall(cudaMemcpy(props[iterid].time, props[iterid].gpu.time, props[iterid].num_models * sizeof(CDATAFORMAT), cudaMemcpyDeviceToHost));
 #if NUM_SAMPLED_INPUTS > 0
     cutilSafeCall(cudaMemcpyFromSymbol(tmp_sampled_inputs, sampled_inputs, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t), 0, cudaMemcpyDeviceToHost));
 #endif
@@ -40,7 +42,7 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
     // Copy data to external api interface
     for(modelid = 0; modelid < props->num_models; modelid++){
       active_models |= !global_ob[global_ob_idx[modelid]].finished[modelid];
-      progress[modelid] = (props->time[modelid] - props->starttime) / (props->stoptime - props->starttime);
+      progress[modelid] = (props[iterid].time[modelid] - props[iterid].starttime) / (props[iterid].stoptime - props[iterid].starttime);
 #if NUM_SAMPLED_INPUTS > 0
       if (!global_ob[global_ob_idx[modelid]].finished[modelid]) {
 	for (inputid = NUM_CONSTANT_INPUTS; inputid < NUM_CONSTANT_INPUTS + NUM_SAMPLED_INPUTS; inputid++) {
