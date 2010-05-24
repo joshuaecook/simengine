@@ -25,6 +25,7 @@ end
 % The below test won't pass because the model name is different than the
 % file name.  This is expected
 s.getTest('Model-neuronWithSynapse').ExpectFail = true;
+s.getTest('Model-circuit_elements').ExpectFail = true;
 
 % These tests use cvode and we should add a compiler error message to check against, but for now, just expect them to fail on the GPU
 s.getTest('Model-lorenz').ExpectFail = true;
