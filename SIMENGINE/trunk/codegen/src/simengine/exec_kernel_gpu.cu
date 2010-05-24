@@ -4,12 +4,13 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
   
   unsigned int i, num_iterations = 0;
   CDATAFORMAT min_time;
-  unsigned int dirty_states[NUM_ITERATORS];
   unsigned int ready_outputs[NUM_ITERATORS];
   int inputs_available = 1;
 
   for (i=0; i<NUM_ITERATORS; i++) {
-    dirty_states[i] = 0;
+    if(!resuming){
+      dirty_states[i * PARALLEL_MODELS + modelid] = 0;
+    }
     ready_outputs[i] = 0;
   }
 
@@ -27,13 +28,13 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
   // Update occurs before the first iteration
   for(i=0;i<NUM_ITERATORS;i++){
     if(props[i].running[modelid] && !resuming) {
-      dirty_states[i] = 0 == update(&props[i], modelid);
+      dirty_states[i * PARALLEL_MODELS + modelid] = 0 == update(&props[i], modelid);
     }	  
   }
   for(i=0;i<NUM_ITERATORS;i++){
-    if (dirty_states[i]) {
+    if (dirty_states[i * PARALLEL_MODELS + modelid] && !resuming) {
       solver_writeback(&props[i], modelid);
-      dirty_states[i] = 0;
+      dirty_states[i * PARALLEL_MODELS + modelid] = 0;
     }
   }
 
@@ -60,13 +61,13 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
     // Preprocess phase: x[t] = f(x[t])
     for(i=0;i<NUM_ITERATORS;i++){
       if(props[i].running[modelid] && props[i].time[modelid] == min_time){
-	dirty_states[i] = 0 == pre_process(&props[i], modelid);
+	dirty_states[i * PARALLEL_MODELS + modelid] = 0 == pre_process(&props[i], modelid);
       }
     }
     for(i=0;i<NUM_ITERATORS;i++){
-      if (dirty_states[i] && props[i].time[modelid] == min_time) {
+      if (dirty_states[i * PARALLEL_MODELS + modelid] && props[i].time[modelid] == min_time) {
 	solver_writeback(&props[i], modelid);
-	dirty_states[i] = 0;
+	dirty_states[i * PARALLEL_MODELS + modelid] = 0;
       }
     }
 
@@ -76,7 +77,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
 	// TODO check return status
 	solver_eval(&props[i], modelid);
 	// Now next_time == time + dt
-	dirty_states[i] = 1;
+	dirty_states[i * PARALLEL_MODELS + modelid] = 1;
 	ready_outputs[i] = 1;
 	// Run any in-process algebraic evaluations
 	in_process(&props[i], modelid);
@@ -102,9 +103,9 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
 #endif
 	ready_outputs[i] = 0;
       }
-      if (dirty_states[i] && props[i].next_time[modelid] == min_time) {
+      if (dirty_states[i * PARALLEL_MODELS + modelid] && props[i].next_time[modelid] == min_time) {
 	solver_writeback(&props[i], modelid);
-	dirty_states[i] = 0;
+	dirty_states[i * PARALLEL_MODELS + modelid] = 0;
       }
     }
 
@@ -119,10 +120,10 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
     // Update and postprocess phase: x[t+dt] = f(x[t+dt])
     for(i=0;i<NUM_ITERATORS;i++){
       if(props[i].running[modelid] && props[i].next_time[modelid] == min_time) {
-	dirty_states[i] = 0 == update(&props[i], modelid);
+	dirty_states[i * PARALLEL_MODELS + modelid] = 0 == update(&props[i], modelid);
       }	  
       if(props[i].running[modelid] && props[i].next_time[modelid] == min_time) {
-	dirty_states[i] |= 0 == post_process(&props[i], modelid);
+	dirty_states[i * PARALLEL_MODELS + modelid] |= 0 == post_process(&props[i], modelid);
       }
     }
 
@@ -134,9 +135,9 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
       }
     }
     for(i=0;i<NUM_ITERATORS;i++){
-      if (dirty_states[i] && props[i].next_time[modelid] == min_time) {
+      if (dirty_states[i * PARALLEL_MODELS + modelid] && props[i].next_time[modelid] == min_time) {
 	solver_writeback(&props[i], modelid);
-	dirty_states[i] = 0;
+	dirty_states[i * PARALLEL_MODELS + modelid] = 0;
       }
     }
 

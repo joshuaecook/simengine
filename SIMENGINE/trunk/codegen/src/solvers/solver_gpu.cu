@@ -24,6 +24,8 @@ __DEVICE__ systemstatedata_external gpu_model_states[1];
 __DEVICE__ systemstatedata_external gpu_next_states[1];
 #endif
 
+__DEVICE__ unsigned int dirty_states[PARALLEL_MODELS * NUM_ITERATORS];
+
 #if NUM_INPUTS > 0
 // Needs to be copied host-to-device.
 __DEVICE__ CDATAFORMAT gpu_inputs[PARALLEL_MODELS * NUM_INPUTS];
