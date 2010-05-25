@@ -71,7 +71,7 @@ s.add(t3);
 s1 = Suite('Downsampling');
 s1.add(Test('OneInputHaltValueLess', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 4, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
 s1.add(Test('OneInputHaltValueEqual', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 5, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
-s1.add(Test('OneInputHaltValueMore', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 10, input, target)), '-equal', struct('o', [0:2:3; 0:2:4]')));
+s1.add(Test('OneInputHaltValueMore', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 10, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
 
 s.add(s1);
 
