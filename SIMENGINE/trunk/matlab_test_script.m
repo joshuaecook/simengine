@@ -1,5 +1,5 @@
 % Run this script to execute the full matlab test framework
-% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
 function matlab_test_script(mode_str)
 
 mode = -1;
@@ -55,7 +55,10 @@ for i=1:5
 end
 s.Summary
 
-s.writeXML('bamboolog.xml');
+profile('-memory','on');
+tic;s.writeXML('bamboolog.xml');toc
+profile('viewer')
+profile('off')
 
-exit
+%exit
 end
