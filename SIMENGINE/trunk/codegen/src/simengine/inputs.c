@@ -33,11 +33,16 @@ typedef struct {
 } inputs_index_entry_t;
 
 
+// When device and host memory are separate, an extra copy of input
+// data needs to be kept in host memory. State initialization
+// functions are always executed on the host and may need to read inputs.
 #if NUM_CONSTANT_INPUTS > 0
 __DEVICE__ CDATAFORMAT constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
+CDATAFORMAT *host_constant_inputs;
 #endif
 #if NUM_SAMPLED_INPUTS > 0
 __DEVICE__ sampled_input_t sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
+sampled_input_t *host_sampled_inputs;
 #endif
 
 #define BYTE(val,n) ((val>>(n<<3))&0xff)
@@ -273,8 +278,8 @@ void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sa
 
 
 #if NUM_SAMPLED_INPUTS > 0
-__HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid){
-  sampled_input_t *input = &sampled_inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
+__HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inputid, unsigned int modelid, sampled_input_t *inputs){
+  sampled_input_t *input = &inputs[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
 
   assert(input->idx[ARRAY_IDX] < SAMPLE_BUFFER_SIZE);
 
@@ -282,18 +287,47 @@ __HOST__ __DEVICE__ static inline CDATAFORMAT get_sampled_input(unsigned int inp
 }
 #endif
 
-__HOST__ __DEVICE__ static inline CDATAFORMAT get_input(unsigned int inputid, unsigned int modelid){
+__HOST__ static inline CDATAFORMAT host_get_input(unsigned int inputid, unsigned int modelid) {
   assert(inputid < NUM_INPUTS);
-
 #if NUM_CONSTANT_INPUTS > 0
   if(IS_CONSTANT_INPUT(inputid)) {
-    return (CDATAFORMAT)constant_inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)];
+    return host_constant_inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)];
   }
 #endif
 
 #if NUM_SAMPLED_INPUTS > 0
   if(IS_SAMPLED_INPUT(inputid)) {
-    return get_sampled_input(inputid, modelid);
+    return get_sampled_input(inputid, modelid, host_sampled_inputs);
+  }
+#endif
+
+#if NUM_TIME_VALUE_INPUTS > 0
+  if(IS_TIME_VALUE_INPUT(inputid)) {
+    ERROR(Simatra:Simex:get_input, "Time/value pair inputs not yet implemented.\n");
+  }
+#endif
+
+#if NUM_EVENT_INPUTS > 0
+  if(IS_EVENT_INPUT(inputid)) {
+    ERROR(Simatra:Simex:get_input, "Event inputs not yet implemented.\n");
+  }
+#endif
+
+  ERROR(Simatra:Simex:get_input, "No such input id %d.\n", inputid);
+}
+
+__HOST__ __DEVICE__ static inline CDATAFORMAT get_input(unsigned int inputid, unsigned int modelid){
+  assert(inputid < NUM_INPUTS);
+
+#if NUM_CONSTANT_INPUTS > 0
+  if(IS_CONSTANT_INPUT(inputid)) {
+    return constant_inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)];
+  }
+#endif
+
+#if NUM_SAMPLED_INPUTS > 0
+  if(IS_SAMPLED_INPUT(inputid)) {
+    return get_sampled_input(inputid, modelid, sampled_inputs);
   }
 #endif
 
