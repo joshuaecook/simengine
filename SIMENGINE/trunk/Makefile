@@ -838,11 +838,11 @@ $(TOP_LEVEL)/build:
 
 matlab-release-test: compiler
 	$(info Executing the MATLAB release test framework)
-	@matlab -nosplash -nodesktop -r "matlab_test_script('-release')"
+	@matlab -nosplash -nodesktop -r "matlab_test_script('-release');exit"
 
 matlab-internal-test: compiler
 	$(info Executing the MATLAB internal test framework)
-	@matlab -nosplash -nodesktop -r "matlab_test_script('-internal')"
+	@matlab -nosplash -nodesktop -r "matlab_test_script('-internal');exit"
 
 system-test:
 	$(info Executing the system-test framework)
