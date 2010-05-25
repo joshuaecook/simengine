@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <omp.h>
 #include <getopt.h>
+#include <libgen.h>
 #include <sys/time.h>
 #include <limits.h>
 #include <fcntl.h>

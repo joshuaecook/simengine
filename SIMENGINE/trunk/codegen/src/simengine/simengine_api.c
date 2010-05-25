@@ -426,19 +426,30 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       break;
     case JSON_INTERFACE:
       {
+	// The existence of this file is used as a semaphore between the simulation
+	// and the MATLAB client. Writes a temporary file and renames it
+	// to prevent the MATLAB client from attempting to read a partial file.
 	FILE *json_file;
-	json_file = fopen(optarg, "w");
+	char tmp[PATH_MAX];
+	char *dupdir = strdup(optarg);
+
+	strncat(tmp, dirname(dupdir), PATH_MAX-1);
+	strncat(tmp, "json-interface.tmp", PATH_MAX-1 - strlen(tmp));
+
+	free(dupdir);
+	
+	json_file = fopen(tmp, "w");
 	if(!json_file){
-	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.", optarg);
+	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.", tmp);
 	}
 	fprintf(json_file, json_interface, sizeof(CDATAFORMAT), sizeof(void*), PARALLEL_MODELS);
 	fclose(json_file);
+
+	if (0 != rename(tmp, optarg)) {
+	  ERROR(Simatra:Simex:parse_args, "Could not rename json interface '%s' to file '%s': %s.", tmp, optarg, strerror(errno));
+	}
       }
       break;
-      // Stop execution if an invalid command line option is found.
-      // Force the user to correct the error instead of ignoring options that
-      // are not understood. Otherwise a typo could lead to executing a simulation
-      // with undesired default options.
     case SHARED_MEMORY:
       simex_output_files = 0;
       break;
@@ -452,6 +463,10 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       }
       break;
     default:
+      // Stop execution if an invalid command line option is found.
+      // Force the user to correct the error instead of ignoring options that
+      // are not understood. Otherwise a typo could lead to executing a simulation
+      // with undesired default options.
       USER_ERROR(Simatra:Simex:parse_args, "Invalid argument");
     }
   }
