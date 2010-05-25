@@ -90,9 +90,14 @@ int log_outputs_raw_files(const char *outputs_dirname, unsigned int modelid_offs
 }
 
 int log_outputs(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
+#if NUM_OUTPUTS == 0
+  return 0;
+#endif
+
   /* Redirect to the appropriate output data handler */
   if(simex_output_files)
     return log_outputs_raw_files(outputs_dirname, modelid_offset, modelid);
   else
     return log_outputs_streaming(modelid_offset, modelid);
+
 }
