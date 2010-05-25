@@ -24,8 +24,6 @@ val exec = ref (fn(e) => e before DynException.stdException ("exec not filled in
 exception TranslationError
 
 fun error (msg) =
-    (*TODO: replace *)
-    (*DynException.stdException (msg, "ModelTranslate", Logger.USER)*)
     (Logger.log_error (Printer.$ msg);
      DynException.setErrored();
      raise TranslationError)
@@ -427,17 +425,25 @@ fun createClass top_class classes object =
 			ExpBuild.initavar (exp2str(method "name" obj), exp2str (method "name" (method "iter" obj)), nil)
 		    else
 			ExpBuild.var (exp2str (method "name" obj))
+
+		val input = 
+		    DOF.Input.make
+			{name=exp2term name,
+			 default=case exp2realoption (method "default" obj) of
+				     SOME r => SOME (ExpBuild.real r)
+				   | NONE => NONE,
+			 behaviour=case exp2str (method "when_exhausted" obj)
+				    of "cycle" => DOF.Input.CYCLE
+				     | "halt" => DOF.Input.HALT
+				     | "hold" => DOF.Input.HOLD
+				     | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
 	    in
-		DOF.Input.make
-		    {name=exp2term name,
-		     default=case exp2realoption (method "default" obj) of
-				 SOME r => SOME (ExpBuild.real r)
-			       | NONE => NONE,
-		     behaviour=case exp2str (method "when_exhausted" obj)
-				of "cycle" => DOF.Input.CYCLE
-				 | "halt" => DOF.Input.HALT
-				 | "hold" => DOF.Input.HOLD
-				 | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
+		case DOF.Input.behaviour input
+		 of DOF.Input.HALT =>
+		    if isSome (DOF.Input.default input) then 
+			error ("Default value is not allowed for input " ^ (Term.sym2name (DOF.Input.name input)) ^ " with {halt_when_exhausted}.")
+		    else input
+		  | _ => input
 	    end
 
 
