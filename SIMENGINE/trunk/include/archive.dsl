@@ -113,7 +113,7 @@ namespace Archive
       println ("STDERR:" + join("", ccerr))
     end
     if 0 <> ccstat then
-      failure ("Unexpected failure was encountered during generated code compilation: " + join("", ccerr))
+      failure ("Unexpected failure was encountered during generated code compilation." //: " + join("", ccerr))
     end
   end
 
