@@ -55,10 +55,7 @@ for i=1:5
 end
 s.Summary
 
-profile('-memory','on');
-tic;s.writeXML('bamboolog.xml');toc
-profile('viewer')
-profile('off')
+s.writeXML('bamboolog.xml');
 
 %exit
 end
