@@ -244,11 +244,10 @@ import "command_line.dsl"
       m.CFLAGS.push_back("-DSIMENGINE_CUDA_DEVICE=" + device_id)
       m.CFLAGS.push_front("-arch=" + device_arch)
 
-      /* Does device debugging really work? I get strange errors from cuda-gdb.
+      /* Does device debugging really work? I get strange errors from cuda-gdb. */
       if debug then
         m.CFLAGS = ["-g", "-G"] + m.CFLAGS
       end
-      */
 
       if emulate then
 	m.CFLAGS.push_front("-deviceemu")
@@ -347,6 +346,9 @@ import "command_line.dsl"
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
 	var exfile = profileTime ("autoRecompile", autoRecompile, (modelFile, compilerSettings))
+
+	LF sys_collect_and_pack ()
+
 	if () <> simulationSettings and "" <> exfile then
 	  var simulation = FileSystem.realpath(exfile)
 	  profileTime ("simulating", simulate, (simulation, simulationSettings, settings.simulation_debug.debug.getValue()))
@@ -366,6 +368,9 @@ import "command_line.dsl"
 	var compilerSettings = validateCompilerSettings(commandLineSettings)
 	var simulationSettings = validateSimulationSettings(commandLineSettings)
 	var exfile = autoRecompile(modelFile, compilerSettings)
+
+	LF sys_collect_and_pack ()
+
       else
 	nostack_error("The model file '" + compileFile + "' does not exist.")
       end
@@ -396,7 +401,12 @@ import "command_line.dsl"
       end
     end
     if gdb then
-      var emacsArgs = ["--eval", "(debugit \"" + FileSystem.pwd() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\")"]
+      var emacsArgs
+      if "gpu" == settings.simulation.target.getValue() then
+	emacsArgs = ["--eval", "(debugit \"" + FileSystem.pwd() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\" \"cuda-gdb\")"]
+      else
+	emacsArgs = ["--eval", "(debugit \"" + FileSystem.pwd() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\")"]
+      end
       println("Launching simulation in gdb: emacsclient '" + join("' '", emacsArgs) + "'")
       // emacsclient does not return until the file opened is closed with Ctrl-X #
       p = Process.run("emacsclient", ["emacsclient-buffer_close_to_allow_matlab_to_continue"])
