@@ -1774,7 +1774,7 @@ fun state_init_code shardedModel iter_sym =
 		val inputLocalVar =
 		    if isTopClass then
 		     fn (input, i) => 
-			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
+			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = host_get_input(" ^ (i2s i) ^ ", modelid);")
 		    else
 		     fn (input, i) => 
 			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
