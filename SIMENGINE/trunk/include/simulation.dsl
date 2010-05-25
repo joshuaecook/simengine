@@ -940,7 +940,11 @@ namespace Simulation
 
    property default
       get
-        defaultValue
+        if (defaultValue == NaN) then
+          undefined
+        else
+          defaultValue
+        end
       end
       set(dv)
         if (dv == NaN) then

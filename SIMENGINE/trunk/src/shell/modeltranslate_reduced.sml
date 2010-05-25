@@ -440,9 +440,11 @@ fun createClass top_class classes object =
 	    in
 		case DOF.Input.behaviour input
 		 of DOF.Input.HALT =>
-		    if isSome (DOF.Input.default input) then 
-			error ("Default value is not allowed for input " ^ (Term.sym2name (DOF.Input.name input)) ^ " with {halt_when_exhausted}.")
-		    else input
+		    (case DOF.Input.default input
+		      of NONE => input
+		       | SOME (Exp.TERM Exp.NAN) => input
+		       | _ =>
+			 error ("Default value is not allowed for input " ^ (Term.sym2name (DOF.Input.name input)) ^ " with {halt_when_exhausted}."))
 		  | _ => input
 	    end
 

@@ -613,8 +613,7 @@ fun simengine_interface class_name (shardedModel as (shards,sysprops) : ShardedM
 
 
 	fun default2c_str (SOME v) = CWriterUtil.exp2c_str v
-	  | default2c_str NONE = 
-	    DynException.stdException("Unexpected non-default value for input", "CParallelWriter.simEngineInterface", Logger.INTERNAL)
+	  | default2c_str NONE = CWriterUtil.exp2c_str (Exp.TERM Exp.NAN)
 	
 	val (state_names, state_defaults) = 
 	    ListPair.unzip 
