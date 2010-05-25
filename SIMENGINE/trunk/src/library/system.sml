@@ -35,6 +35,11 @@ fun sys_exit _ args =
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "SystemLib.sys_exit" e
 
+fun sys_collect_and_pack _ args =
+    KEC.UNIT before
+    MLton.GC.collect () before
+    MLton.GC.pack ()
+
 				       
 val library = [{name="sys_startupMessage", operation=sys_startupMessage},
 	       {name="sys_copyright", operation=sys_copyright},
@@ -45,5 +50,6 @@ val library = [{name="sys_startupMessage", operation=sys_startupMessage},
 	       {name="sys_build_time", operation=sys_build_time},
 	       {name="sys_architecture", operation=sys_architecture},
 	       {name="sys_exit", operation=sys_exit},
-	       {name="sys_path", operation=sys_path}]
+	       {name="sys_path", operation=sys_path},
+	       {name="sys_collect_and_pack", operation=sys_collect_and_pack}]
 end
