@@ -146,7 +146,8 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
   }
   else{
     // Read up to SAMPLE_BUFFER_SIZE double-precision values and cast them as CDATAFORMAT
-    num_read = fread(value, sizeof(double), SAMPLE_BUFFER_SIZE, inputfile);
+    num_to_read = MIN(SAMPLE_BUFFER_SIZE, (index.length - input->file_idx[ARRAY_IDX]));
+    num_read = fread(value, sizeof(double), num_to_read, inputfile);
     for (i = 0; i < num_read; i++) {
       // Check for +/-INF and NAN
       if(!__finite(value[i]))
@@ -159,7 +160,7 @@ __HOST__ int read_sampled_input(sampled_input_t *input, CDATAFORMAT t, const cha
   input->buffered_size[ARRAY_IDX] = num_read;
 
   // Handle the case when the file runs out of data
-  if(feof(inputfile)){
+  if(input->file_idx[ARRAY_IDX] == index.length){
     switch(input->eof_option){
     case SAMPLED_HALT:
       break;
