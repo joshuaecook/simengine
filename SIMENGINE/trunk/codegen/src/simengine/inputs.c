@@ -63,12 +63,11 @@ void read_constant_inputs(CDATAFORMAT *inputs, const char *outputs_dirname, unsi
   sprintf(inputs_path, "%s/inputs/%s", outputs_dirname, seint.input_names[inputid]);
   inputs_fd = open(inputs_path, O_RDONLY);
   if (-1 != inputs_fd) {
-    struct stat filestat;
-    if (0 != fstat(inputs_fd, &filestat)) {
-      ERROR(Simatra:Simex:read_constant_inputs, "Unable to stat inputs file.\n");
-    }
+    // We had originally used fstat() here to find the file size, but for some
+    // reason the data was all borked when the program was compiled by nvcc.
+    off_t length = lseek(inputs_fd, 0, SEEK_END);
 
-    inputs_index_entry_t *inputs_data = (inputs_index_entry_t *)mmap(NULL, filestat.st_size, PROT_READ, MAP_SHARED, inputs_fd, 0);
+    inputs_index_entry_t *inputs_data = (inputs_index_entry_t *)mmap(NULL, length, PROT_READ, MAP_SHARED, inputs_fd, 0);
     double *inputs_data_ptr = (double *)(inputs_data + num_models);
     inputs_index_entry_t *index;
 
@@ -80,7 +79,7 @@ void read_constant_inputs(CDATAFORMAT *inputs, const char *outputs_dirname, unsi
       inputs[TARGET_IDX(NUM_CONSTANT_INPUTS, PARALLEL_MODELS, inputid, modelid)] = *(inputs_data_ptr + index->offset);
     }
 
-    munmap(inputs_data, filestat.st_size);
+    munmap(inputs_data, length);
     close(inputs_fd);
   }
   else {
