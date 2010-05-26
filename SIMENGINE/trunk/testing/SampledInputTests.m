@@ -54,6 +54,20 @@ s.add(Test('OneInputHaltValueLess', @()(simex('models_FeatureTests/SampledInputH
 s.add(Test('OneInputHaltValueEqual', @()(simex('models_FeatureTests/SampledInputHaltTest1.dsl', 5, input, target)), '-equal', struct('o', [0:5; 0:5]')));
 s.add(Test('OneInputHaltValueMore', @()(simex('models_FeatureTests/SampledInputHaltTest1.dsl', 10, input, target)), '-equal', struct('o', [0:5; 0:5]')));
 
+s1 = Suite('Downsampling');
+s1.add(Test('OneInputHaltValueLess', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 4, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
+s1.add(Test('OneInputHaltValueEqual', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 5, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
+s1.add(Test('OneInputHaltValueMore', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 10, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
+
+s.add(s1);
+
+s2 = Suite('Upsampling');
+s2.add(Test('OneInputHaltValueLess', @()(simex('models_FeatureTests/SampledInputHaltTest3.dsl', 4, input, target)), '-equal', struct('o', [0:4; 0 0 1 1 2]')));
+s2.add(Test('OneInputHaltValueEqual', @()(simex('models_FeatureTests/SampledInputHaltTest3.dsl', 5, input, target)), '-equal', struct('o', [0:5; 0 0 1 1 2 2]')));
+s2.add(Test('OneInputHaltValueMore', @()(simex('models_FeatureTests/SampledInputHaltTest3.dsl', 10, input, target)), '-equal', struct('o', [0:10; 0 0 1 1 2 2 3 3 4 4 5]')));
+
+s.add(s2);
+
 t1 = Test('OneInputHaltValueNoInput',@()(simex('models_FeatureTests/SampledInputHaltTest1.dsl', 10, target)), '-withouterror');
 t1.ExpectFail = true;
 s.add(t1);
@@ -68,19 +82,6 @@ t3 = Test('OneInputHaltValueNoDefault',@()(simex('models_FeatureTests/SampledInp
 t3.ExpectFail = true;
 s.add(t3);
 
-s1 = Suite('Downsampling');
-s1.add(Test('OneInputHaltValueLess', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 4, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
-s1.add(Test('OneInputHaltValueEqual', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 5, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
-s1.add(Test('OneInputHaltValueMore', @()(simex('models_FeatureTests/SampledInputHaltTest2.dsl', 10, input, target)), '-equal', struct('o', [0:2:4; 0:2:4]')));
-
-s.add(s1);
-
-s2 = Suite('Upsampling');
-s2.add(Test('OneInputHaltValueLess', @()(simex('models_FeatureTests/SampledInputHaltTest3.dsl', 4, input, target)), '-equal', struct('o', [0:4; 0 0 1 1 2]')));
-s2.add(Test('OneInputHaltValueEqual', @()(simex('models_FeatureTests/SampledInputHaltTest3.dsl', 5, input, target)), '-equal', struct('o', [0:5; 0 0 1 1 2 2]')));
-s2.add(Test('OneInputHaltValueMore', @()(simex('models_FeatureTests/SampledInputHaltTest3.dsl', 10, input, target)), '-equal', struct('o', [0:10; 0 0 1 1 2 2 3 3 4 4 5]')));
-
-s.add(s2);
 
 end
 
