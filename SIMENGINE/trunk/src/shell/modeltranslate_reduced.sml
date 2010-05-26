@@ -168,6 +168,7 @@ fun dofexp2kecexp exp =
 
 fun quantity_to_dof_exp (KEC.LITERAL (KEC.CONSTREAL r)) = ExpBuild.real r
   | quantity_to_dof_exp (KEC.LITERAL (KEC.CONSTBOOL b)) = ExpBuild.bool b
+  | quantity_to_dof_exp (KEC.UNDEFINED) = Exp.TERM Exp.NAN
   | quantity_to_dof_exp (quantity as KEC.VECTOR _) = 
     let val expressions = vec2list quantity
 
@@ -600,7 +601,10 @@ fun createClass top_class classes object =
 
 		(* check for NaN on inputs *)
 		val _ = app (fn(i) => case i of
-					  KEC.LITERAL(KEC.CONSTREAL (r)) => if Real.isNan r then
+					  KEC.UNDEFINED => error ("Undefined Value detected on input in submodel " ^
+								  (Symbol.name objname)^ 
+								  ".  Possibly input value was not specified.")
+					| KEC.LITERAL(KEC.CONSTREAL (r)) => if Real.isNan r then
 										error ("Value NaN detected on input in submodel " ^
 										       (Symbol.name objname)^ 
 										       ".  Possibly input value was not specified.")
