@@ -1,6 +1,6 @@
 #ifdef TARGET_GPU
 // Variables in global device memory. Do not refer to these directly in user code!
-// gpu_init_solver_props() returns a pointer to the global solver properties.
+// gpu_init_props() returns a pointer to the global solver properties.
 
 // Needs to be copied host-to-device. May be __constant__?
 __DEVICE__ solver_props gpu_solver_props[NUM_ITERATORS];
@@ -13,10 +13,10 @@ __DEVICE__ CDATAFORMAT gpu_next_time[PARALLEL_MODELS * NUM_ITERATORS];
 
 __DEVICE__ unsigned int gpu_count[PARALLEL_MODELS * NUM_ITERATORS];
 
-#if NUM_STATES > 0
 // Needs to be coped device-to-host.
 __DEVICE__ top_systemstatedata gpu_system[1];
 
+#if NUM_STATES > 0
 // Needs to be copied host-to-device and device-to-host.
 __DEVICE__ systemstatedata_external gpu_model_states[1];
 
@@ -84,17 +84,25 @@ solver_props *gpu_init_props(solver_props *props){
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_time, gpu_time));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_next_time, gpu_next_time));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_count, gpu_count));
+
+  if (NUM_STATES > 0 || NUM_ITERATORS > 1) {
+    cutilSafeCall(cudaGetSymbolAddress((void **)&g_system, gpu_system));
+  }
+  else {
+    g_system = NULL;
+  }
+
 # if NUM_STATES > 0
   systemstatedata_external *g_model_states, *g_next_states;
-  cutilSafeCall(cudaGetSymbolAddress((void **)&g_system, gpu_system));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_model_states, gpu_model_states));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_next_states, gpu_next_states));
 # else
   char *g_model_states, *g_next_states;
-  g_system = NULL;
   g_model_states = NULL;
   g_next_states = NULL;
 # endif
+
+
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_running, gpu_running));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_last_iteration, gpu_last_iteration));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_ob, gpu_ob));
@@ -171,9 +179,9 @@ solver_props *gpu_init_props(solver_props *props){
   }
 
   // Copies system states to device.
-# if NUM_STATES > 0
-  cutilSafeCall(cudaMemcpy(g_system, tmp_system, sizeof(top_systemstatedata), cudaMemcpyHostToDevice));
-# endif
+  if (NUM_STATES > 0 || NUM_ITERATORS > 1) {
+    cutilSafeCall(cudaMemcpy(g_system, tmp_system, sizeof(top_systemstatedata), cudaMemcpyHostToDevice));
+  }
 
   // Copies initial times to device.
   cutilSafeCall(cudaMemcpy(g_time, tmp_time, PARALLEL_MODELS * NUM_ITERATORS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
