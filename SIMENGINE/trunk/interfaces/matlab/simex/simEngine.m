@@ -241,10 +241,6 @@ function writeUserInputs (options)
   if ~empty
   for inputid = 1:length(names)
     field = names{inputid};
-    if ~isfield(options.inputs, field)
-      warning(['INPUTS.' field ' is not a model input.']);
-      continue
-    end
     exist(fullfile(options.outputs, 'inputs'), 'dir') || mkdir(options.outputs, 'inputs');
     filename = fullfile(options.outputs, 'inputs', field);
     fid = fopen(filename, 'w');
