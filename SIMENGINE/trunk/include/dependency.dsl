@@ -219,18 +219,21 @@ end
 
     function dep(path, arch, version) = ExternalDep.new(path, arch, version)
 
-    var deps = {//ar        = dep(ar_path, (), ()),
-	        ln        = dep(ln_path, (), ()),
+    var deps = {
+		ln        = dep(ln_path, (), ()),
                 uname     = dep(uname_path, (), ()),
                 gcc       = dep(gcc_path, (), gcc_version),
-                nvcc      = dep(nvcc_path, (), nvcc_version),
                 file      = dep(file_path, (), file_version),
-                //make      = dep(make_path, (), make_version),
                 sh        = dep(sh_path, (), sh_version),
                 libdl     = dep(libdl_path, libdl_arch, ()),
-                //libz      = dep(libz_path, libz_arch, ()),
-                libgomp   = dep(libgomp_path, libgomp_arch, ()),
-                libcudart = dep(libcudart_path, libcudart_arch, ())}
+		}
+
+    var proDeps = {
+                   nvcc      = dep(nvcc_path, (), nvcc_version),
+                   libgomp   = dep(libgomp_path, libgomp_arch, ()),
+                   libcudart = dep(libcudart_path, libcudart_arch, ())
+		   }
+		   
     
      //verify each of the above has a path
      foreach key in deps.keys do
@@ -239,13 +242,25 @@ end
          warning ("Could not find location of " + key)
        end
      end
+
+     if ("Development" == Licensing.licenseProductType () or
+	 "Professional" == Licensing.licenseProductType ()) then
+       foreach key in proDeps.keys do
+	 if (proDeps.getMember(key) == ()) then
+           depsFailed = true
+           warning ("Could not find location of " + key)
+         else
+           deps.add(key, proDeps.getMember(key))
+	 end
+       end
+     end
          
      
 
      //check gcc version
      if deps.gcc.version == "none" or deps.gcc.version.tonumber() < 4.1 then
        depsFailed = true
-       warning ("gcc version greater than 4.1 required, " + deps.gcc.version + " found")
+       warning ("simEngine requires gcc version 4.1 or later, version " + deps.gcc.version + " is installed")
      end
 
      // check nvcc is not a symbolic link
@@ -253,6 +268,15 @@ end
        depsFailed = true
        warning ("nvcc installation corrupted: nvcc cannot be a symbolic link")
      end
+
+     if ("Development" == Licensing.licenseProductType () or
+	 "Professional" == Licensing.licenseProductType ()) then
+       if deps.nvcc.version.tonumber() < 3.0 then
+	 depsFailed = true
+	 warning ("simEngine requires nvcc version 3.0, version " + deps.nvcc.version + " is installed")
+       end
+     end
+
 
      //check architectures
 
@@ -270,34 +294,27 @@ end
 function buildDependencyFile ()
   var deps
 
-  if settings.installation.depcheck.getValue() then
-    notice "Checking System Dependencies"
-    deps = checkDependencies()
-  else
-    notice "Constructing System Dependency List"
+  var homedir = Environment.getVar("HOME")
+  var directory = Path.join(homedir, ".simatra")
+  var file = "dependencies"
 
-    var homedir = Environment.getVar("HOME")
-    var directory = Path.join(homedir, ".simatra")
-    var file = "dependencies"
+  deps = checkDependencies()
 
-    deps = checkDependencies()
-
-    // if directory doesn't exist, create it.
-    if not (FileSystem.isdir directory) then
-      FileSystem.mkdir directory
-    end
-
-    // open file
-    var depfile = File.openTextOut(Path.join(directory, file))  
-
-    //foreach dependency, add a line
-    foreach key in deps.keys do
-      depfile.putstr(key + ":" + (deps.getValue(key).fullpath) + ":" + (deps.getValue(key).version) + ":" + (deps.getValue(key).architecture) + "\n")
-    end
-
-    // close file
-    depfile.close()
+  // if directory doesn't exist, create it.
+  if not (FileSystem.isdir directory) then
+    FileSystem.mkdir directory
   end
+
+  // open file
+  var depfile = File.openTextOut(Path.join(directory, file))  
+
+  //foreach dependency, add a line
+  foreach key in deps.keys do
+    depfile.putstr(key + ":" + (deps.getValue(key).fullpath) + ":" + (deps.getValue(key).version) + ":" + (deps.getValue(key).architecture) + "\n")
+  end
+
+  // close file
+  depfile.close()
 
   deps
 end
@@ -321,7 +338,7 @@ function getDependencies ()
     foreach line in lines do
       if line.length() > 0 then
         var tokens = line.split ":"
-        var path= tokens[2]
+        var path = tokens[2]
         var version=tokens[3]
         var arch=tokens[4]
 

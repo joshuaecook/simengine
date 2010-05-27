@@ -66,6 +66,8 @@ elseif strcmp(opts.mode, 'update')
     % now read and place the license file
     placeLicense(opts, fileread(opts.filename));
   end
+  % Clear cached dependencies
+  delete(fullfile(opts.licensepath, 'dependencies'));
 end
 
 
