@@ -134,7 +134,6 @@ solver_props *gpu_init_props(solver_props *props){
     // Each iterator has its own area of memory, all of the equal sizes
     tmp_props[i].time = g_time + (i * PARALLEL_MODELS);
     tmp_props[i].next_time = g_next_time + (i * PARALLEL_MODELS);
-    // FIXME only discrete iterators need count
     tmp_props[i].count = g_count + (i * PARALLEL_MODELS);
     tmp_props[i].running = g_running + (i * PARALLEL_MODELS);
     tmp_props[i].last_iteration = g_last_iteration + (i * PARALLEL_MODELS);
@@ -193,6 +192,7 @@ solver_props *gpu_init_props(solver_props *props){
   cutilSafeCall(cudaMemcpy(g_props, tmp_props, NUM_ITERATORS * sizeof(solver_props), cudaMemcpyHostToDevice));
 
   cutilSafeCall(cudaMemset(g_last_iteration, 0, PARALLEL_MODELS * NUM_ITERATORS * sizeof(int)));
+  cutilSafeCall(cudaMemset(g_count, 0, PARALLEL_MODELS * NUM_ITERATORS * sizeof(int)));
 
   // Zeroes the initial output buffer to ensure the finished flags start at 0
   cutilSafeCall(cudaMemset(g_ob, 0, sizeof(output_buffer)));
