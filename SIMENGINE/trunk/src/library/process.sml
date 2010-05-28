@@ -71,32 +71,44 @@ fun std_preaderrline exec args =
 	raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
 
+fun readOutAndErrLine proc =
+    let
+	val (stdout, stderr) = (Child.textIn (Proc.getStdout proc), Child.textIn (Proc.getStderr proc))
+	fun loop count =
+	    case (TextIO.canInput (stdout,10), TextIO.canInput (stderr,10))
+	     of 
+		(SOME x, SOME y) => 
+		if count > 0 andalso x = 0 andalso y = 0 then
+		    (Posix.Process.sleep (Time.fromMilliseconds 10)
+		   ; loop (count-1))
+		else
+		    (TextIO.inputLine stdout, TextIO.inputLine stderr)
+	      | (SOME x, NONE) => 
+		if count > 0 andalso x = 0 then
+		    (Posix.Process.sleep (Time.fromMilliseconds 10)
+		   ; loop (count-1))
+		else
+		    (TextIO.inputLine stdout, NONE)
+	      | (NONE, SOME x) => 
+		if count > 0 andalso x = 0 then
+		    (Posix.Process.sleep (Time.fromMilliseconds 10)
+		   ; loop (count-1))
+		else
+		    (NONE, TextIO.inputLine stderr)
+	      (* If no data is available, it can't hurt to sleep for a short interval to avoid pegging the cpu *)
+	      | (NONE, NONE) => 
+		(Posix.Process.sleep (Time.fromMilliseconds 10)
+	       ; loop count)
+    in 
+	loop 10
+    end
+	    
+	    
 fun std_preadOutAndErrLine exec args =
     case args
      of [KEC.PROCESS (p, name, args)] =>
-	let val (stdout, stderr) = (Child.textIn (Proc.getStdout p), Child.textIn (Proc.getStderr p))
-	    fun loop (count) =
-		case (TextIO.canInput (stdout,10), TextIO.canInput (stderr,10))
-		 of 
-		    (SOME x, SOME y) => 
-		    if count > 0 andalso x = 0 andalso y = 0 then
-			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
-		    else
-			(TextIO.inputLine stdout, TextIO.inputLine stderr)
-		  | (SOME x, NONE) => 
-		    if count > 0 andalso x = 0 then
-			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
-		    else
-			(TextIO.inputLine stdout, NONE)
-		  | (NONE, SOME x) => 
-		    if count > 0 andalso x = 0 then
-			(Posix.Process.sleep (Time.fromMilliseconds 10); loop (count-1))
-		    else
-			(NONE, TextIO.inputLine stderr)
-		  (* If no data is available, it can't hurt to sleep for a short interval to avoid pegging the cpu *)
-		  | (NONE, NONE) => (Posix.Process.sleep (Time.fromMilliseconds 10); loop (count))
-
-	    val (outline, errline) = loop (10)
+	let
+	    val (outline, errline) = readOutAndErrLine p
 	in
 	    KEC.TUPLE [if isSome outline then 
 			   KEC.LITERAL (KEC.CONSTSTR (valOf outline))
@@ -107,6 +119,32 @@ fun std_preadOutAndErrLine exec args =
 	end
       | [a] => raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
       | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+
+fun std_preadAll exec args =
+    case args
+     of [KEC.PROCESS (p, name, args)] =>
+	let
+	    (* This will result in lists of lines in reverse order. *)
+	    fun loop (outlines, errlines) =
+		case readOutAndErrLine p
+		 of (NONE, NONE) => (outlines, errlines)
+		  | (SOME out, SOME err) => loop (out::outlines, err::errlines)
+		  | (SOME out, NONE) => loop (out::outlines, errlines)
+		  | (NONE, SOME err) => loop (outlines, err::errlines)
+
+	    fun foldstr (text, strs) =
+		(KEC.LITERAL (KEC.CONSTSTR (text)) :: strs)
+
+	    val (outlines, errlines) = loop (nil, nil)
+	    (* Fold the lists to restore correct ordering. *)
+	    val (outstrs, errstrs) = (foldl foldstr nil outlines, foldl foldstr nil errlines)
+	in
+	    KEC.TUPLE [KEC.list2kecvector outstrs, 
+		       KEC.list2kecvector errstrs]
+	end
+      | [a] => raise TypeMismatch ("expected a process, but received " ^ (PrettyPrint.kecexp2nickname a))
+      | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)}
+	    
 
 fun std_pwrite exec args =
     case args of
@@ -135,6 +173,7 @@ val library = [{name="popen", operation=std_popen},
 	       {name="preadline", operation=std_preadline},
 	       {name="preaderrline", operation = std_preaderrline},
 	       {name="preadOutAndErrLine", operation = std_preadOutAndErrLine},
+	       {name="preadAll", operation = std_preadAll},
 	       {name="pwrite", operation=std_pwrite},
 	       {name="preap", operation=std_preap}]
 

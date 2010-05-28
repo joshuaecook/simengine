@@ -74,6 +74,4 @@ model (Vm1, Vm2, Vm3) = axon(Istim)
   output Vm2 = segment11.VmAxonal_L
   output Vm3 = node21.Vm
 
-  solver = cvode
-  solver.abstol = 1e-3
 end
