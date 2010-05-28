@@ -541,24 +541,7 @@ namespace Process
 
   /* Reads the entire stdout and stderr buffers and returns two 
    * vectors of lines of text. */
-  function readAll (process)
-    var out = []
-    var err = []
-    var reading = true
-
-    while reading do
-      var lines = Process.readOutAndErrLine(process)
-      if () <> lines(1) then
-        out.push_back(lines(1))
-      end
-      if () <> lines(2) then
-        err.push_back(lines(2))
-      end
-      reading = () <> lines(1) or () <> lines(2)
-    end
-
-    (out, err)
-  end
+  function readAll (process) = LF preadAll (process)
     
   /* Reads the entire stdout buffer and returns a vector of lines of text,
    * discarding any text on stderr. */

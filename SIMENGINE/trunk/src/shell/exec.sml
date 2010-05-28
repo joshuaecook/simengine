@@ -568,6 +568,7 @@ fun recursive_decell (exp as KEC.LITERAL _) = exp
   | recursive_decell (exp as KEC.UNIT) = exp
   | recursive_decell (exp as KEC.UNDEFINED) = exp
   | recursive_decell (exp as KEC.VECTOR _) = exp
+  | recursive_decell (exp as KEC.VECTORLITERAL _) = exp
   | recursive_decell (exp as KEC.PROCESS _) = exp
   | recursive_decell (exp as KEC.STREAM _) = exp
   | recursive_decell (exp as KEC.OBJECT _) = exp (* not decelling objects by design; there's no need to print all the contents of an object and it's inefficient *)
