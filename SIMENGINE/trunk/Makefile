@@ -288,7 +288,7 @@ compiler:
 	$(MAKE) build-system
 	$(MAKE) $(BUILD_DIR)/data/default.sew
 	$(MAKE) matlab-files
-#	$(MAKE) documentation
+	$(MAKE) documentation
 	$(MAKE) $(INSTALL_TGZ)
 	$(MAKE) $(DSL_EL)
 	$(MAKE) install-locally
@@ -936,6 +936,9 @@ EXTERN_PUBLICATIONS_PREFIX = simEngine
 
 .PHONY: documentation
 documentation: links html-documentation matlab-helpsearch
+	#put the table of contents in place
+	@$(CP) external-publications/helptoc.xml $(BUILD_DIR)
+	@$(CP) external-publications/info.xml $(BUILD_DIR)
 
 .PHONY: html-documentation
 html-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
