@@ -874,6 +874,10 @@ namespace Simulation
     function setInstanceName(instanceName)
       self.instanceName = instanceName
     end
+
+    overload operator () (arg: Vector)
+      IteratorReference.new(self, arg)
+    end
   end
 
   class InputBinding 
