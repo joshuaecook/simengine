@@ -937,8 +937,9 @@ EXTERN_PUBLICATIONS_PREFIX = simEngine
 .PHONY: documentation
 documentation: links html-documentation matlab-helpsearch
 	#put the table of contents in place
-	@$(CP) external-publications/helptoc.xml $(BUILD_DIR)
+	@$(CP) external-publications/helptoc.xml $(BUILD_DIR)/html/
 	@$(CP) external-publications/info.xml $(BUILD_DIR)
+	@$(CP) external-publications/simEngine/simEngine_product_page.html $(BUILD_DIR)/html
 
 .PHONY: html-documentation
 html-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
