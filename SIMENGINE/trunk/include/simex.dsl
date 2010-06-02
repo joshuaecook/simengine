@@ -203,7 +203,7 @@ import "command_line.dsl"
       // TODO: This check may need to be expanded as more devices/architectures appear (e.g. no devices currently of arch sm_12)
       var device_id = Devices.CUDA.getProp(1, "deviceId")
       var device_arch = Devices.CUDA.getProp(1, "arch")
-      if not emulate and precision == "double" and device_arch <> "sm_13" then
+      if not emulate and precision == "double" and (device_arch == "sm_10" or device_arch == "sm_11" or device_arch == "sm_12") then
         warning("CUDA device does not support double precision. Defaulting to single precision float.")
         precision = "float"
         settings.simulation.precision.setValue("float")
