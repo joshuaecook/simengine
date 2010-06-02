@@ -177,6 +177,7 @@ import "command_line.dsl"
   class TargetCUDA extends Target
     var nvcc
     var emulate = false
+    var gpuid = 1
     var cudaInstallPath
     var ptxasFlags = ["-v"]
     var openccFlags = ["-v"]//, "-OPT:Olimit=99999"]
@@ -184,8 +185,23 @@ import "command_line.dsl"
     constructor(compilerSettings)
       super (compilerSettings)
 
+
+      var deviceid = settings.gpu.gpuid.getValue()
+      if deviceid == 9999 then
+	gpuid = 1
+      else
+	foreach id in 1:(Devices.CUDA.numDevices) do
+	  if deviceid == (Devices.CUDA.getProp(id, "deviceId").tonumber()) then
+	    gpuid = id
+	  end
+	end
+      end
+      if gpuid < 1 or gpuid > Devices.CUDA.numDevices then
+	nostack_error "Invalid GPU device id."
+      end
+
       // MP * warp size * 4 to keep high residency (probably needs tweaking)
-      parallelModels = Devices.CUDA.getProp(1, "multiProcessorCount").tonumber() * 32 * 4
+      parallelModels = Devices.CUDA.getProp(gpuid, "multiProcessorCount").tonumber() * 32 * 4
       settings.simulation.parallel_models.setValue(parallelModels)
 
       precision = settings.simulation.precision.getValue()
@@ -200,9 +216,8 @@ import "command_line.dsl"
       if Devices.CUDA.numDevices == 0 then
         nostack_error("Cannot target the GPU : " + Devices.CUDA.cudaErr)
       end
-      // TODO: This check may need to be expanded as more devices/architectures appear (e.g. no devices currently of arch sm_12)
-      var device_id = Devices.CUDA.getProp(1, "deviceId")
-      var device_arch = Devices.CUDA.getProp(1, "arch")
+      var device_id = Devices.CUDA.getProp(gpuid, "deviceId")
+      var device_arch = Devices.CUDA.getProp(gpuid, "arch")
       if not emulate and precision == "double" and (device_arch == "sm_10" or device_arch == "sm_11" or device_arch == "sm_12") then
         warning("CUDA device does not support double precision. Defaulting to single precision float.")
         precision = "float"
@@ -239,8 +254,8 @@ import "command_line.dsl"
       
       // Currently we use only the first device returned from device_props program
       // which returns a list of available devices sorted by their GFLOPs
-      var device_id = Devices.CUDA.getProp(1, "deviceId")
-      var device_arch = Devices.CUDA.getProp(1, "arch")
+      var device_id = Devices.CUDA.getProp(gpuid, "deviceId")
+      var device_arch = Devices.CUDA.getProp(gpuid, "arch")
       m.CFLAGS.push_back("-DSIMENGINE_CUDA_DEVICE=" + device_id)
       m.CFLAGS.push_front("-arch=" + device_arch)
 
