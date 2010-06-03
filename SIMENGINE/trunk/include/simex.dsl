@@ -488,6 +488,11 @@ import "command_line.dsl"
 	end
     end
 
+      var deviceid = settings.gpu.gpuid.getValue()
+      if deviceid == 9999 then
+        settings.gpu.gpuid.setValue(Devices.CUDA.getProp(1, "deviceId").tonumber())
+      end
+
     // Set up the name of the c source file
     var name = Path.base(Path.file (settings.general.simex.getValue()))
     var cname = ""
