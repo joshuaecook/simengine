@@ -782,6 +782,8 @@ import "command_line.dsl"
     var instantiatedModel = mod.instantiate()
     var stat = LF compile (instantiatedModel)
     var simfile
+
+    LF sys_collect_and_pack ()
     
     if 0 == stat then
       simfile = profileTime ("Create SIM File", Archive.createArchive, (Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings))
