@@ -192,10 +192,34 @@ fun loadModel exec args =
 	    val _ = imports := nil
 	    fun importing path = imports := path :: (! imports)
 
-	    val object = (KEC.SYMBOL o Symbol.symbol o OS.Path.base o OS.Path.file) path
+	    val name = (Symbol.symbol o OS.Path.base o OS.Path.file) path
+	    val object = KEC.SYMBOL name
+
+	    val wrapperName = Symbol.symbol "#namespace"
+	    val importWrapper = KEC.DEFINITION(KEC.DEFLOCAL(KEC.REPLACE,
+							    wrapperName,
+							    KEC.DONTCARE,
+							    KEC.NAMESPACEDEF {name=wrapperName, 
+									      stms=[(KEC.PUBLIC, KEC.ACTION (KEC.IMPORT path, PosLog.NOPOS))]}),
+					       PosLog.NOPOS)
 
 	    val model = ImportHook.withImportHook importing (fn _ => 
-			exec (KEC.STMS [KEC.ACTION (KEC.IMPORT path, PosLog.NOPOS),
+			exec (KEC.STMS [importWrapper,
+					(*check that the import contains the proper name*)
+					KEC.ACTION(KEC.EXP(KEC.IFEXP{cond=KEC.APPLY{func=KEC.SYMBOL (Symbol.symbol "objectContains"),
+										    args=KEC.TUPLE [KEC.SYMBOL wrapperName,
+												    KEC.LITERAL(KEC.CONSTSTR (Symbol.name name))]},
+								     ift=KEC.UNIT,
+								     iff=KEC.ERROR (KEC.LITERAL(KEC.CONSTSTR("No model found with name: " ^ (Symbol.name name))))}), PosLog.NOPOS),
+					(*pull the name out*)
+					KEC.DEFINITION(KEC.DEFLOCAL(KEC.REPLACE,
+								    name,
+								    KEC.DONTCARE,
+								    KEC.SEND{message=name,
+									     object=KEC.SYMBOL wrapperName}),
+						       PosLog.NOPOS),
+								    
+					KEC.ACTION (KEC.IMPORT path, PosLog.NOPOS),
 					KEC.ACTION (KEC.ASSIGN (KEC.SEND {message = Symbol.symbol "imports",
 	    								  object = KEC.SEND {message = Symbol.symbol "template", object = object}},
 								KEC.LIBFUN (Symbol.symbol "getModelImports", KEC.UNIT)),
