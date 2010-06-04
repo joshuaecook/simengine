@@ -705,6 +705,15 @@ and trans_definition definition =
 
 	    val stringRepresentation = "model definition " ^ (Symbol.name name)
 
+	    val modeldefApplication =     
+		HLEC.DEFINITION(HLEC.DEFFUN(HLEC.REPLACE, 
+					    [({args=[(Symbol.symbol "#x", NONE)], 
+					       name=Symbol.symbol "()",
+					       return=NONE},
+					      [HLEC.ACTION(HLEC.EXP(HLEC.ERROR (HLEC.LITERAL(HLEC.CONSTSTR ("Model definition " ^ (Symbol.name name) ^ " is not a function")))), PosLog.NOPOS)])]),
+				PosLog.NOPOS)
+
+
 	    val tostring = HLEC.DEFINITION(HLEC.DEFFUN(HLEC.REPLACE,
 						       [({args=nil,
 							  name=Symbol.symbol "tostring",
@@ -716,6 +725,7 @@ and trans_definition definition =
 	    [HLEC.DEFNAMESPACE {name=name,				
 				stms=(HLEC.PUBLIC, hiddenModelTemplateDef) :: 
 				     (HLEC.PUBLIC, hiddenModelTemplate) :: 
+				     (HLEC.PUBLIC, modeldefApplication) :: 
 				     (HLEC.PUBLIC, wrapperDef):: 
 				     (HLEC.PUBLIC, fakeconstructor1) :: 
 				     (HLEC.PUBLIC, fakeconstructor2) ::
