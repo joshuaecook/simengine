@@ -242,7 +242,12 @@ quantitydef: modifiers quantitytype ID optdimensions precinfoopt optassignment o
 
 outputdef: OUTPUT ID optdimensions optassignment opttable optwhen (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
 										  quantity=(case optassignment 
-											     of NONE => Ast.SYMBOL (Symbol.symbol ID) 
+											     of NONE => Ast.IFEXP{cond=Ast.APPLY{func=Ast.SYMBOL (Symbol.symbol "objectContains"),
+																 args=Ast.TUPLE [Ast.SYMBOL (Symbol.symbol "self"),
+																		 Ast.LITERAL(Ast.CONSTSTR ID)]},
+														  ift=Ast.SYMBOL (Symbol.symbol ID),
+														  iff=Ast.POS(Ast.ERROR (Ast.LITERAL(Ast.CONSTSTR "No quantity or equation found for output")), 
+															      OUTPUTleft)}
 											      | SOME exp => exp), 
 										  dimensions= optdimensions,
 										  settings=opttable,
