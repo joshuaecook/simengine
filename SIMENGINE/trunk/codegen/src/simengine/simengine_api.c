@@ -47,17 +47,32 @@ int exec_loop(solver_props *props, const char *outputs_dir, double *progress, in
 void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned int modelid);
 
 void open_progress_file(const char *outputs_dirname, double **progress, int *progress_fd, unsigned int num_models){
+  // Writes a temporary file and renames it to prevent the MATLAB client
+  // from attempting to read a partial file.
+  char tmp_filename[PATH_MAX];
+  int tmp_fd;
   char progress_filename[PATH_MAX];
   double tmp = 0.0;
   unsigned int i;
 
+  sprintf(tmp_filename, "%s/simulation_progress.tmp", outputs_dirname);
   sprintf(progress_filename, "%s/simulation_progress", outputs_dirname);
-  *progress_fd = open(progress_filename, O_CREAT|O_RDWR, S_IRWXU);
-  if(-1 == *progress_fd){
-    ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation progress. '%s'", progress_filename);
+
+  tmp_fd = open(tmp_filename, O_CREAT|O_RDWR, S_IRWXU);
+  if(-1 == tmp_fd){
+    ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation progress. '%s'", tmp_filename);
   }
   for(i=0; i<num_models; i++){
-    write(*progress_fd, &tmp, sizeof(double));
+    write(tmp_fd, &tmp, sizeof(double));
+  }
+  close(tmp_fd);
+  if (0 != rename(tmp_filename, progress_filename)) {
+    ERROR(Simatra:Simex:parse_args, "Could not rename progress file '%s' to file '%s': %s.", tmp_filename, progress_filename, strerror(errno));
+  }
+
+  *progress_fd = open(progress_filename, O_RDWR, S_IRWXU);
+  if(-1 == *progress_fd){
+    ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation progress. '%s'", progress_filename);
   }
   *progress = (double*)mmap(NULL, num_models * sizeof(double), PROT_READ|PROT_WRITE, MAP_SHARED, *progress_fd, 0);
 
@@ -174,7 +189,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
   // Run the parallel simulation repeatedly until all requested models have been executed
   for(models_executed = 0 ; models_executed < num_models; models_executed += PARALLEL_MODELS){
     models_per_batch = MIN(num_models - models_executed, PARALLEL_MODELS);
-    
+
     // Copy inputs and state initial values to internal representation
     unsigned int modelid_offset = global_modelid_offset + models_executed;
 #if NUM_CONSTANT_INPUTS > 0
@@ -440,7 +455,10 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	char *dupdir = strdup(optarg);
 
 	strncat(tmp, dirname(dupdir), PATH_MAX-1);
-	strncat(tmp, "json-interface.tmp", PATH_MAX-1 - strlen(tmp));
+	if (strlen(tmp) > 0)
+	  strncat(tmp, "/json-interface.tmp", PATH_MAX-1 - strlen(tmp));
+	else
+	  strncat(tmp, "json-interface.tmp", PATH_MAX-1 - strlen(tmp));
 
 	free(dupdir);
 	
