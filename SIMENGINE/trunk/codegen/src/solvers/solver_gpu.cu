@@ -67,6 +67,7 @@ void gpu_exit (void) {
 // The pointers within tmp_system reference device global memory, however.
 void gpu_init_system_states_pointers (solver_props *tmp_props, top_systemstatedata *tmp_system);
 
+void gpu_init_constants (solver_props *props);
 
 // Given a pointer to an array of solver properties having NUM_ITERATORS length,
 // initializes a mirrored set of properties in device global memory.
@@ -163,6 +164,8 @@ solver_props *gpu_init_props(solver_props *props){
   // A temporary host duplicate of the system states pointers structure.
   top_systemstatedata tmp_system[1];
   gpu_init_system_states_pointers(tmp_props, tmp_system);
+
+  gpu_init_constants(props);
 
   // Copies initial states to device (and to next states on device).
   for (i = 0; i < NUM_ITERATORS; i++) {
