@@ -38,6 +38,10 @@ fun stmt layout =
 fun statements layouts =
     Layout.align (map stmt layouts)
 
+fun assign (lhs, rhs) =
+    stmt (Layout.seq [lhs, Layout.str " = ", rhs])
+
+
 
 exception InternalError
 
@@ -364,6 +368,31 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	    handle e => DynException.checkpoint "CParallelWriter.init_solver_props.init_props" e
 
 	    
+	fun gpu_init_constants iter_sym =
+	    let
+		val (_,iter_type) = ShardedModel.toIterator shardedModel iter_sym
+		val iter_name = Symbol.name iter_sym
+	    in
+		case iter_type
+		 of DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) =>
+		    Layout.align 
+			[$ "{",
+			 SUB [$ "linearbackwardeuler_opts *opts = (linearbackwardeuler_opts*)&props->opts;",
+			      $ "size_t constants_size;",
+			      $ "switch(opts->lsolver){",
+			      $ "case LSOLVER_DENSE:",
+			      SUB [$ "constants_size = props->statesize * props->statesize * sizeof(CDATAFORMAT);",
+				   $ "break;"],
+			      $ "case LSOLVER_BANDED:",
+			      SUB [$ "constants_size = (opts->upperhalfbw + opts->lowerhalfbw + 1) * props->statesize * sizeof(CDATAFORMAT);",
+				   $ "break;"],
+			      $ "}",
+			      $ ("cutilSafeCall(cudaGetSymbolAddress((void **)&g_constants, device_matrix_constants_"^iter_name^"));"),
+			      $ ("cutilSafeCall(cudaMemcpy(g_constants, host_matrix_constants_"^iter_name^", sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));")],
+			 $ "}"]
+		  | _ => Layout.empty
+	    end
+
 	fun gpu_init_props iter_sym =
 	    let val model as (_, instance, _) = ShardedModel.toModel shardedModel iter_sym
 		val iterator = ShardedModel.toIterator shardedModel iter_sym
@@ -445,6 +474,10 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("void gpu_init_system_states_pointers (solver_props *tmp_props, top_systemstatedata *tmp_system) {"),
 	 SUB[$("ptrdiff_t algebraic_offset;")],
 	 SUB(Util.flatmap gpu_init_props iterators_with_solvers),
+	 $("}"),
+	 $("void gpu_init_constants (solver_props *props) {"),
+	 SUB ($("CDATAFORMAT *g_constants;") :: 
+	      map gpu_init_constants iterators_with_solvers),
 	 $("}"),
 	 $("#endif"),
 	 $(""),
@@ -1349,6 +1382,9 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
     end
     handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code" e
 
+
+
+
 fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	(*val _ = Util.log("Generating code for class '"^(Symbol.name (#name class))^"'")
@@ -1393,16 +1429,10 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)
 
-	val header_progs = 
-	    if useMatrixForm then
-		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
-		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
-	    else
-		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
-		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
-		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
-		
+
+			    
+
+
 
 	val read_memory_progs = []
 
@@ -1420,6 +1450,82 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		     DynException.stdException("Invalid expression(s) in code writer", "CParallelWriter.class2flow_code", Logger.INTERNAL))
 		else
 		    ()
+
+
+	fun expressionConstants exp =
+	    if ExpProcess.isIntermediateEq exp then
+		intermediateEquationConstants exp
+	    else
+		Layout.empty
+
+	and intermediateEquationConstants exp =
+	    if ExpProcess.isMatrixEq exp then
+		matrixEquationConstants exp
+	    else
+		Layout.empty
+
+	and matrixEquationConstants exp =
+	    let
+		val m = case Container.expMatrixToMatrix (ExpProcess.rhs exp) of
+			    m as ref (Matrix.DENSE _) => 
+			    let
+			    (*val _ = print ("intermediate matrix eq -> ")
+			     val _ = Matrix.print m*)
+			    in
+				m
+			    end
+			  | m as ref (Matrix.BANDED _) => 
+			    let
+				val bands = Matrix.toPaddedBands m
+				val m' = Matrix.fromRows (Exp.calculus()) bands
+				(*val _ = print ("matrix bands -> ")
+				 val _ = Matrix.print m'*)
+				val _ = Matrix.transpose m'
+			    (*val _ = print ("matrix bands (transposed) -> ")
+			     val _ = Matrix.print m'*)
+
+			    in
+				m'
+			    end
+
+		val (rows,cols) = Matrix.size m
+
+		(* Emits non-constant values as NAN *)
+		fun emitCell (exp as Exp.TERM t) =
+		    (case t 
+		      of Exp.BOOL _ => exp
+		       | Exp.INFINITY => exp
+		       | Exp.INT _ => exp
+		       | Exp.NAN => exp
+		       | Exp.RATIONAL _ => exp
+		       | Exp.REAL _ => exp
+		       | _ => Exp.TERM Exp.NAN)
+		  | emitCell _ = Exp.TERM Exp.NAN
+
+		val cells = Matrix.mapi (fn (i, j, exp) => $ (CWriterUtil.exp2c_str (emitCell exp))) m
+	    in
+		let open Layout in
+		    align [$ "#if defined TARGET_GPU",
+			   $ ("__constant__ __DEVICE__ CDATAFORMAT device_matrix_constants_" ^ iter_name ^ "["^(i2s cols)^"*"^(i2s rows)^"];"),
+			   $ "#endif",
+			   assign ($ ("CDATAFORMAT host_matrix_constants_" ^ iter_name ^ "[]"), 
+				   series ("{", "}", ",") cells)]
+		end
+	    end
+
+
+	val header_progs = 
+	    (map expressionConstants valid_exps) @
+	    (if useMatrixForm then
+		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
+		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+	    else
+		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
+		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+	    )
+
 
 	val input_automatic_var =
 	    if is_top_class then
@@ -1507,13 +1613,44 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 			  val (rows, cols) = Matrix.size m'
 			  fun createIdx (i,j) = "MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", PARALLEL_MODELS, modelid)"
-			  fun createEntry (i, j, exp) = [$("// " ^ (e2s exp)),
-							 $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
+
+			  (* Emits only non-constant values *)
+			  fun createEntry (i, j, exp as Exp.TERM t) = 
+			      (case t 
+				of Exp.BOOL _ => nil
+				 | Exp.INFINITY => nil
+				 | Exp.INT _ => nil
+				 | Exp.NAN => nil
+				 | Exp.RATIONAL _ => nil
+				 | Exp.REAL _ => nil
+				 | _ =>
+ 				   [$("// " ^ (e2s exp)),
+				    $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")])
+			    | createEntry (i, j, exp) =
+			      [$("// " ^ (e2s exp)),
+			       $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
+
+
 
 			(*  val _ = print ("Matrix written -> ")
 			  val _ = Matrix.print m'*)
 		      in
-			  List.concat (Matrix.mapi createEntry m')
+			  let open Layout in
+			      (align [$ "#if defined TARGET_GPU",
+				      $ ("CDATAFORMAT *src = device_matrix_constants_"^iter_name^";"),
+				      $ "#else",
+				      $ ("CDATAFORMAT *src = host_matrix_constants_"^iter_name^";"),
+				      $ "#endif",
+				      $ "int i, j, idx;",
+				      $ "// constant copy of matrix is always in row-major order",
+				      $ ("for (j=0; j<"^(i2s rows)^"; j++) {"),
+				      SUB [$ ("for (i=0; i<"^(i2s cols)^"; i++) {"),
+					   SUB [assign ($("idx"), $("MAT_IDX("^(i2s rows)^","^(i2s cols)^",j,i,PARALLEL_MODELS,modelid)")),
+						assign ($(var^"[idx]"), $("src[i+(j*"^(i2s cols)^")]"))],
+					   $ "}"],
+				      $ "}"]) ::
+			      (List.concat (Matrix.mapi createEntry m'))
+			  end
 		      end
 		  else if ExpProcess.isArrayEq exp then
 		      let
@@ -2372,7 +2509,6 @@ fun buildC (orig_name, shardedModel) =
 				       [inputs_c] @
 				       [init_output_buffer_c] @
 				       [simengine_api_c] @
-				       init_solver_props_c @
 				       logoutput_progs @
 				       [log_outputs_c] @
 				       exec_c @
@@ -2388,6 +2524,7 @@ fun buildC (orig_name, shardedModel) =
 				       [$("#undef UNIFORM_RANDOM"),
 					$("#undef NORMAL_RANDOM")] @
 				       model_flows_c @
+				       init_solver_props_c @
 				       [exec_loop_c]))
     in
 	SUCCESS
