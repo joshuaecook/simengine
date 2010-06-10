@@ -113,6 +113,8 @@ typedef enum {
   JSON_INTERFACE,
   SHARED_MEMORY,
   BUFFER_COUNT,
+  MAX_ITERS,
+  GPU_BLOCK_SZ,
   HELP
 } clopts;
 

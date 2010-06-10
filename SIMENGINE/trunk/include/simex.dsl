@@ -284,8 +284,7 @@ import "command_line.dsl"
   var booleanOptionNamesAlways = ["help",
 				  "binary",
 				  "interface",
-                                  "shared_memory",
-				  "buffer_count"] +
+                                  "shared_memory"] +
 				  targetOptions.keys +
 				  precisionOptions.keys
 
@@ -297,11 +296,13 @@ import "command_line.dsl"
   var numberOptionNamesAlways = ["instances",
 				 "start",
 				 "stop",
-				 "seed"]
+				 "seed",
+				 "buffer_count",
+				 "max_iterations",
+				 "gpu_block_size"]
 
   var numberOptionNamesDebug = ["parallelmodels",
-				"gpuid",
-				"gpublocksize"]
+				"gpuid"]
 
   var stringOptionNamesAlways = ["simex",
 				 "inputs",
@@ -320,7 +321,7 @@ import "command_line.dsl"
 					outputdir = settings.simulation.outputdir.getValue()}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
-  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid", "shared_memory", "buffer_count"]
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid", "shared_memory", "buffer_count", "max_iterations", "gpu_block_size"]
   function defaultSimulationSettings() = {start = 0,
 					  instances = 1,
 					  outputdir = settings.compiler.outputdir.getValue()}
@@ -541,6 +542,12 @@ import "command_line.dsl"
 	end
 	if "gpu" == settings.simulation.target.getValue() then
 	    tableDest.add("gpuid", settings.gpu.gpuid.getValue())
+	    if objectContains(settings.gpu, "max_iterations") and settings.gpu.max_iterations.getValue() > 0 then
+	      tableDest.add("max_iterations", settings.gpu.max_iterations.getValue())
+	    end
+	    if objectContains(settings.gpu, "gpu_block_size") and settings.gpu.gpu_block_size.getValue() > 0 then
+	      tableDest.add("gpu_block_size", settings.gpu.gpu_block_size.getValue())
+	    end
 	end
 	if objectContains(settings.simulation, "seed") then
 	    tableDest.add("seed", settings.simulation.seed.getValue())
