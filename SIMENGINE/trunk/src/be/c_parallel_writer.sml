@@ -377,18 +377,17 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 		 of DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER _) =>
 		    Layout.align 
 			[$ "{",
-			 SUB [$ "linearbackwardeuler_opts *opts = (linearbackwardeuler_opts*)&props->opts;",
-			      $ "size_t constants_size;",
+			 SUB [$ ("linearbackwardeuler_opts *opts = (linearbackwardeuler_opts*)&(props[ITERATOR_"^(Util.removePrefix iter_name)^"].opts);"),
 			      $ "switch(opts->lsolver){",
 			      $ "case LSOLVER_DENSE:",
-			      SUB [$ "constants_size = props->statesize * props->statesize * sizeof(CDATAFORMAT);",
+			      SUB [$ ("constants_size = props[ITERATOR_"^(Util.removePrefix iter_name)^"].statesize * props[ITERATOR_"^(Util.removePrefix iter_name)^"].statesize * sizeof(CDATAFORMAT);"),
 				   $ "break;"],
 			      $ "case LSOLVER_BANDED:",
-			      SUB [$ "constants_size = (opts->upperhalfbw + opts->lowerhalfbw + 1) * props->statesize * sizeof(CDATAFORMAT);",
+			      SUB [$ ("constants_size = (opts->upperhalfbw + opts->lowerhalfbw + 1) * props[ITERATOR_"^(Util.removePrefix iter_name)^"].statesize * sizeof(CDATAFORMAT);"),
 				   $ "break;"],
 			      $ "}",
 			      $ ("cutilSafeCall(cudaGetSymbolAddress((void **)&g_constants, device_matrix_constants_"^iter_name^"));"),
-			      $ ("cutilSafeCall(cudaMemcpy(g_constants, host_matrix_constants_"^iter_name^", sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));")],
+			      $ ("cutilSafeCall(cudaMemcpy(g_constants, host_matrix_constants_"^iter_name^", constants_size, cudaMemcpyHostToDevice));")],
 			 $ "}"]
 		  | _ => Layout.empty
 	    end
@@ -476,7 +475,8 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 SUB(Util.flatmap gpu_init_props iterators_with_solvers),
 	 $("}"),
 	 $("void gpu_init_constants (solver_props *props) {"),
-	 SUB ($("CDATAFORMAT *g_constants;") :: 
+	 SUB ([$ "CDATAFORMAT *g_constants;",
+	       $ "size_t constants_size;"] @
 	      map gpu_init_constants iterators_with_solvers),
 	 $("}"),
 	 $("#endif"),
