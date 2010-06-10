@@ -63,10 +63,10 @@
 // **********************************************************************
 
 // gpuid: specifies the id of the GPU that the simulation should run on
-<gpuid = 0>
+<gpuid = 9999>
 
-// gpublocksize: set the block size on the GPU - override on the command line
-<gpublocksize = 64>
+// gpu_block_size: set the block size on the GPU - override on the command line
+// <gpu_block_size = 64>
 
 // **********************************************************************
 //               Additional Simulation Options for Debugging

@@ -1,5 +1,5 @@
 // GPU execution kernel that runs each model instance for a number of iterations or until the buffer fills
-__GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
+__GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int max_iterations){
   const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;
   
   unsigned int i, num_iterations = 0;
@@ -40,7 +40,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
 
   min_time = find_min_time(props, modelid);
 
-  // Run up to MAX_ITERATIONS iterations until the output buffer is full or the simulation is complete
+  // Run up to max iterations until the output buffer is full or the simulation is complete
   while (1) {
     // Cannot continue if all the simulation is complete
     if (!model_running(props, modelid)) {
@@ -49,7 +49,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming){
     }
 
     // Stop if the maximum number of iterations has been executed
-    if (num_iterations++ >= MAX_ITERATIONS) {
+    if (num_iterations++ >= max_iterations) {
       break;
     }
 

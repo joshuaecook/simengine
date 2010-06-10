@@ -19,6 +19,8 @@ static const struct option long_options[] = {
   {"json_interface", required_argument, 0, JSON_INTERFACE},
   {"shared_memory", no_argument, 0, SHARED_MEMORY},
   {"buffer_count", required_argument, 0, BUFFER_COUNT},
+  {"max_iterations", required_argument, 0, MAX_ITERS},
+  {"gpu_block_size", required_argument, 0, GPU_BLOCK_SZ},
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
@@ -26,6 +28,8 @@ static const struct option long_options[] = {
 static int binary_files = 0;
 static int simex_output_files = 1;
 static unsigned int global_modelid_offset = 0;
+static unsigned int MAX_ITERATIONS = 100;
+static unsigned int GPU_BLOCK_SIZE = 128;
 
 unsigned int global_ob_count = 2;
 output_buffer *global_ob = NULL;
@@ -485,6 +489,18 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       if(global_ob_count < 1){
 	USER_ERROR(Simatra:Simex:parse_args, "Invalid number of output buffers %d", global_ob_count);
       }
+      break;
+    case MAX_ITERS:
+      MAX_ITERATIONS = (unsigned int)strtod(optarg, NULL); // Handles 1E3 etc.
+      if(MAX_ITERATIONS < 1){
+	USER_ERROR(Simatra:Simex:parse_args, "Invalid number of max iterations %d", MAX_ITERATIONS);
+      }      
+      break;
+    case GPU_BLOCK_SZ:
+      GPU_BLOCK_SIZE = (unsigned int)strtod(optarg, NULL); // Handles 1E3 etc.
+      if(GPU_BLOCK_SIZE < 1){
+	USER_ERROR(Simatra:Simex:parse_args, "Invalid gpu block size %d", GPU_BLOCK_SIZE);
+      }            
       break;
     default:
       // Stop execution if an invalid command line option is found.
