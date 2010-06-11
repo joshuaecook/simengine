@@ -7,9 +7,15 @@ function simEngineUpdate
 
 % Run simCheckVersion
 latest = simCheckVersion('-quiet');
+if ~isstruct(latest)
+  error('Simatra:simEngineUpdate', ['Unable to find simEngine online.  ' ...
+                      'Please download the new version of simEngine '...
+                      'at www.simatratechnologies.com/simEngine.html.'])
+end
 
 % Grab the license information
 license = simCheckLicense('-SIMATRAINTERNALCOMMAND!!!');
+% we can ignore the license info here
 
 % Pull does the lastest version
 status = downloadSimEngine(latest);
