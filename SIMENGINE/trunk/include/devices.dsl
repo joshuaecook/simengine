@@ -71,6 +71,8 @@ namespace Devices
     end
 
     function init ()
-      CUDA.init ()
+	if "gpu" == settings.simulation.target.getValue() then
+	    CUDA.init ()
+	end
     end
 end

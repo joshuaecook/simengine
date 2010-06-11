@@ -151,6 +151,30 @@ function getLibArch(fileCmd, libpath)
 end
 
 
+function checkGPUDependencies (deps)
+    var depsFailed
+    if (("Development" == Licensing.licenseProductType () or
+	  "Professional" == Licensing.licenseProductType ()) /*and
+	  "gpu" == settings.simulation.target.getValue()*/) then
+	  // check nvcc is not a symbolic link
+	  var nvcc_path = deps.nvcc.fullpath
+
+	  if nvcc_path <> () and nvcc_path <> FileSystem.realpath nvcc_path then
+	      depsFailed = true
+	      warning ("nvcc installation corrupted: nvcc cannot be a symbolic link")
+	  end
+
+	  if deps.nvcc.version.tonumber() == () or deps.nvcc.version.tonumber() < 3.0 then
+	      depsFailed = true
+	      warning ("simEngine requires nvcc version 3.0, version " + deps.nvcc.version + " is installed")
+	  end
+      end
+
+      not depsFailed
+end
+
+
+
   function checkDependencies ()
     var depsFailed = false
 
@@ -263,18 +287,8 @@ end
        warning ("simEngine requires gcc version 4.1 or later, version " + deps.gcc.version + " is installed")
      end
 
-     if ("Development" == Licensing.licenseProductType () or
-	 "Professional" == Licensing.licenseProductType ()) then
-	 // check nvcc is not a symbolic link
-	 if nvcc_path <> () and nvcc_path <> FileSystem.realpath nvcc_path then
-	   depsFailed = true
-	   warning ("nvcc installation corrupted: nvcc cannot be a symbolic link")
-	 end
-
-	 if deps.nvcc.version.tonumber() == () or deps.nvcc.version.tonumber() < 3.0 then
-	   depsFailed = true
-	   warning ("simEngine requires nvcc version 3.0, version " + deps.nvcc.version + " is installed")
-	 end
+     if not (checkGPUDependencies(deps)) then
+	 warning("GPU dependencies have not been met")
      end
 
 
