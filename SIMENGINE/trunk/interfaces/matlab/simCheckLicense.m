@@ -80,6 +80,10 @@ elseif isstruct(license)
   if 1==nargout 
       varargout{1} = license.version;
   end
+else
+  if 1==nargout
+    varargout{1} = false;
+  end
 end
 
 

@@ -62,6 +62,9 @@ if isstruct(versionInfo)
     end      
   end
 else
+    if nargout == 1
+        varargout{1} = false;
+    end
     return;
 end
 
