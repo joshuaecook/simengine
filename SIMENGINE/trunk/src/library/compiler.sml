@@ -219,7 +219,6 @@ fun loadModel exec args =
 									     object=KEC.SYMBOL wrapperName}),
 						       PosLog.NOPOS),
 								    
-					KEC.ACTION (KEC.IMPORT path, PosLog.NOPOS),
 					KEC.ACTION (KEC.ASSIGN (KEC.SEND {message = Symbol.symbol "imports",
 	    								  object = KEC.SEND {message = Symbol.symbol "template", object = object}},
 								KEC.LIBFUN (Symbol.symbol "getModelImports", KEC.UNIT)),
