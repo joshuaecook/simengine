@@ -1,6 +1,6 @@
 
 int log_outputs_streaming(unsigned int modelid_offset, unsigned int modelid) {
-  global_ob[global_ob_idx[modelid]].modelid_offset[modelid] = global_modelid_offset + modelid_offset;
+  global_ob[global_ob_idx[modelid]].modelid_offset[modelid] = modelid_offset;
   // Tell consumer buffer is ready
   global_ob[global_ob_idx[modelid]].available[modelid] = 1;
 
