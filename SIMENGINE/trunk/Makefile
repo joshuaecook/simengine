@@ -672,7 +672,7 @@ $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath `pwd`/include --updateURL $(UPDATE_URL) < /dev/null
+	SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath "$$(pwd)/include" --updateURL $(UPDATE_URL) < /dev/null
 
 .PHONY: codegen
 codegen:
