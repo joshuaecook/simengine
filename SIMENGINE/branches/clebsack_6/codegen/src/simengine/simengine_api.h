@@ -87,7 +87,10 @@ typedef struct{
   int seeded;
   int seed;
 #ifdef TARGET_GPU
-  int gpuid;
+  int master;
+  int num_gpus;
+  int gpuid[8];
+  int pid[8];
 #endif
   unsigned int num_models;
   double start_time;

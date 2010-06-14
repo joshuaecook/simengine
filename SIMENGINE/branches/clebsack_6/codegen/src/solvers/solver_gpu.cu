@@ -43,18 +43,10 @@ __DEVICE__ output_buffer gpu_ob[1];
 __DEVICE__ output_data gpu_od[PARALLEL_MODELS];
 #endif
 
-static int global_gpuid = -1;
+static int global_gpuid = 0;
 
 void gpu_init (void) {
-#ifndef SIMENGINE_CUDA_DEVICE
-#error SIMENGINE_CUDA_DEVICE not specified for a GPU simulation
-#endif
-  if(global_gpuid > 0){
-    cutilSafeCall(cudaSetDevice(global_gpuid));
-  }
-  else{
-    cutilSafeCall(cudaSetDevice(SIMENGINE_CUDA_DEVICE));
-  }
+  cutilSafeCall(cudaSetDevice(global_gpuid));
 }
 
 void gpu_exit (void) {
