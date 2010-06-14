@@ -23,6 +23,9 @@ typedef enum {
   LOG_OUTPUTS_OUT_OF_MEMORY
 } log_outputs_status_t;
 
+/* This assumes that there are a maximum of 4 GPUs in a system */
+#define NUM_THREADS 4
+
 static struct {
   int running;
   int initialized;
@@ -45,7 +48,7 @@ static struct {
   char *outputs_dirname;
   char **output_names;
   unsigned int *output_num_quantities;
-  pthread_t collector;
+  pthread_t collector[NUM_THREADS];
 } collection_status = {0};
 
 typedef struct{
@@ -256,15 +259,18 @@ mxArray *read_outputs_from_shared_memory(){
   unsigned int modelid;
   unsigned int outputid;
   unsigned int num_samples;
+  int i;
 
   /* Return value */
   mxArray *output_struct;
 
   collection_status.request_data = 1;
   if(collection_status.num_outputs){
-    pthread_join(collection_status.collector, NULL);
+    for(i=0;i<NUM_THREADS;i++){
+      pthread_join(collection_status.collector[i], NULL);
+      collection_status.collector[i] = 0;
+    }
   }
-  collection_status.collector = 0;
 
   check_for_error();
 
@@ -439,6 +445,8 @@ void return_simulation_data(mxArray **plhs){
   if(!collection_status.initialized)
     ERROR("Attempted to read simulation data without initializing.\n");
 
+  collection_status.initialized = 0;
+
   /* Read outputs */
   if(collection_status.shared_memory){
     check_for_error();
@@ -540,13 +548,14 @@ void *collect_data(void *arg){
 			      collection_status.parallel_models);
   unsigned int bufferid;
   unsigned int *obid;
+  unsigned int buffer_num = (unsigned int)arg;
 
   filestat.st_size = 0;
-  sprintf(buffer_file, "%s/output_buffer", collection_status.outputs_dirname);
+  sprintf(buffer_file, "%s/output_buffer_%d", collection_status.outputs_dirname, buffer_num);
 
   /* Wait for output buffer to be written to file */
   while(stat(buffer_file, &filestat) || filestat.st_size != collection_status.buffer_count * buffer_size){
-    usleep(1000);
+    usleep(10000);
     if(!collection_status.initialized) return NULL;
   }
 
@@ -661,10 +670,14 @@ void initialize(const mxArray **prhs){
       }
 
       pthread_attr_t attr;
+      int i;
       pthread_attr_init(&attr);
       pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-      if (0 != pthread_create(&collection_status.collector, &attr, collect_data, NULL)) {
-	ERROR("Unable to create collection thread.\n");
+      for(i=0;i<NUM_THREADS;i++){
+	if (0 != pthread_create(&collection_status.collector[i], &attr, collect_data, i)) {
+	  collection_status.initialized = 0;
+	  ERROR("Unable to create collection thread.\n");
+	}
       }
       pthread_attr_destroy(&attr);
     }
@@ -679,13 +692,16 @@ void initialize(const mxArray **prhs){
 void cleanup(){
   unsigned int modelid;
   unsigned int outputid;
+  int i;
 
   if(collection_status.initialized){
     /* Signal thread to stop */
     collection_status.initialized = 0;
     if(collection_status.shared_memory && collection_status.num_outputs){
-      if(collection_status.collector){
-	pthread_join(collection_status.collector, NULL);
+      for(i=0;i<NUM_THREADS;i++){
+	if(collection_status.collector[i]){
+	  pthread_join(collection_status.collector[i], NULL);
+	}
       }
       /* Free allocated internal memory */
       if(output){

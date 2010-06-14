@@ -1,14 +1,6 @@
-// Separates data from the output buffer into the respective files for each output
-
-void check_keep_running(){
-  if(getppid() == 1)
-    ERROR(Simatra::Simex::Simulation, "Parent process terminated.  Simulation will not continue to run when orphaned.");
-}
 
 int log_outputs_streaming(unsigned int modelid_offset, unsigned int modelid) {
-  check_keep_running();
-
-  global_ob[global_ob_idx[modelid]].modelid_offset[modelid] = modelid_offset;
+  global_ob[global_ob_idx[modelid]].modelid_offset[modelid] = global_modelid_offset + modelid_offset;
   // Tell consumer buffer is ready
   global_ob[global_ob_idx[modelid]].available[modelid] = 1;
 
@@ -23,6 +15,7 @@ int log_outputs_streaming(unsigned int modelid_offset, unsigned int modelid) {
   return 0;
 }
 
+// Separates data from the output buffer into the respective files for each output
 int log_outputs_raw_files(const char *outputs_dirname, unsigned int modelid_offset, unsigned int modelid) {
   output_buffer *ob = global_ob;
   unsigned int outputid, nquantities, dataid, quantityid;
@@ -30,8 +23,6 @@ int log_outputs_raw_files(const char *outputs_dirname, unsigned int modelid_offs
   output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN));
 
   FILE *output_files[seint.num_outputs];
-
-  check_keep_running();
 
   // Only do any work if there is data in the buffer, should greatly speed up models with conditional outputs
   if(ndata){

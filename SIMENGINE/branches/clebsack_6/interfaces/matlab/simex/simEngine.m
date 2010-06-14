@@ -20,6 +20,22 @@ function [outputs y1 t1 interface] = simEngine (options)
   statusFile = fullfile(workingDir, 'status');
   pidFile = fullfile(workingDir, 'pid');
 
+  % Create progress file and mmap its contents
+  progressInit = zeros(options.instances, 1);
+  fid = fopen(simulationProgressFile, 'w');
+  if -1 == fid
+    simFailure('simEngine', ['Unable to initialize progress file ' simulationProgressFile]);
+  end
+  fwrite(fid, progressInit, 'double');
+  fclose(fid);
+  m = memmapfile(simulationProgressFile, 'format', 'double');
+  try
+    m.Data;
+  catch it
+    simFailure('simEngine', ['Unable to memory map progress file ' simulationProgressFile]);
+  end
+  
+  % Launch simulation
   command = ['(' command ' &>' logFile ' & pid=$! ; echo $pid > ' pidFile ' ; wait $pid; echo $? > ' statusFile ')&'];
   [stat, ignore] = system(command);
   while ~exist(pidFile,'file') || isempty(fileread(pidFile))
@@ -38,23 +54,10 @@ function [outputs y1 t1 interface] = simEngine (options)
   log = '';
 
   while(processRunning(pid))
-    % Map progress file to memory (only happens once, but inside
-    % loop as we don't know when progress file will be created)
-    if(~exist('m','var') && exist(simulationProgressFile, 'file'))
-      m = memmapfile(simulationProgressFile, 'format', 'double');
-      % Handle race condition where file is created but data
-      % not yet written
-      try
-        m.Data;
-      catch it
-        clear m;
-      end
-    end
-
-    % Update status bar
-    if(exist('m','var'))
-      progress = 100*sum(m.Data)/length(m.Data);
-      message = sprintf('Simulating : %0.2f %%', progress);
+    % Update status bar, use simulation progress once simulation starts, otherwise use compilation progress
+    simulationProgress = 100*sum(m.Data)/length(m.Data);
+    if(simulationProgress > 0)
+      message = sprintf('Simulating : %0.2f %%', simulationProgress);
       messagelen = statusBar(message, messagelen);
     else
       try

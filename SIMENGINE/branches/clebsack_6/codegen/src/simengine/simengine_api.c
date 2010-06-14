@@ -1,6 +1,7 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 // Commandline options parsing structure
 static const struct option long_options[] = {
@@ -53,44 +54,28 @@ void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned 
 void open_progress_file(const char *outputs_dirname, double **progress, int *progress_fd, unsigned int num_models){
   // Writes a temporary file and renames it to prevent the MATLAB client
   // from attempting to read a partial file.
-  char tmp_filename[PATH_MAX];
-  int tmp_fd;
   char progress_filename[PATH_MAX];
-  double tmp = 0.0;
-  unsigned int i;
 
-  sprintf(tmp_filename, "%s/simulation_progress.tmp", outputs_dirname);
   sprintf(progress_filename, "%s/simulation_progress", outputs_dirname);
-
-  tmp_fd = open(tmp_filename, O_CREAT|O_RDWR, S_IRWXU);
-  if(-1 == tmp_fd){
-    ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation progress. '%s'", tmp_filename);
-  }
-  for(i=0; i<num_models; i++){
-    write(tmp_fd, &tmp, sizeof(double));
-  }
-  close(tmp_fd);
-  if (0 != rename(tmp_filename, progress_filename)) {
-    ERROR(Simatra:Simex:parse_args, "Could not rename progress file '%s' to file '%s': %s.", tmp_filename, progress_filename, strerror(errno));
-  }
 
   *progress_fd = open(progress_filename, O_RDWR, S_IRWXU);
   if(-1 == *progress_fd){
     ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation progress. '%s'", progress_filename);
   }
-  *progress = (double*)mmap(NULL, num_models * sizeof(double), PROT_READ|PROT_WRITE, MAP_SHARED, *progress_fd, 0);
+  *progress = (double*)mmap(NULL, (global_modelid_offset + num_models) * sizeof(double), PROT_READ|PROT_WRITE, MAP_SHARED, *progress_fd, 0);
 
   if((long long int)*progress == -1){
     ERROR(Simatra::Simex::Simulation, "Could not map progress file into memory.");
   }
+  *progress += global_modelid_offset;
 }
 
 void close_progress_file(double *progress, int progress_fd, unsigned int num_models){
-  munmap(progress, num_models * sizeof(double));
+  munmap(progress, (global_modelid_offset + num_models) * sizeof(double));
   close(progress_fd);
 }
 
-void init_output_buffers(const char *outputs_dirname, int *output_fd){
+void init_output_buffers(const char *outputs_dirname, int *output_fd, unsigned int buffer_num){
   char buffer_file[PATH_MAX];
   int i;
   output_buffer *tmp;
@@ -106,7 +91,7 @@ void init_output_buffers(const char *outputs_dirname, int *output_fd){
     global_ob = tmp;
   }
   else{
-    sprintf(buffer_file, "%s/output_buffer", outputs_dirname);
+    sprintf(buffer_file, "%s/output_buffer_%d", outputs_dirname, buffer_num);
     *output_fd = open(buffer_file, O_CREAT|O_RDWR, S_IRWXU);
     if(-1 == *output_fd){
       ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation data. '%s'\n", buffer_file);
@@ -160,6 +145,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
 
   int resuming = 0;
   int random_initialized = 0;
+  unsigned int buffer_num = global_gpuid;
 
 # if defined TARGET_GPU
   gpu_init();
@@ -188,7 +174,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
     return seresult;
   }
 
-  init_output_buffers(outputs_dirname, &output_fd);
+  init_output_buffers(outputs_dirname, &output_fd, buffer_num);
 
   // Run the parallel simulation repeatedly until all requested models have been executed
   for(models_executed = 0 ; models_executed < num_models; models_executed += PARALLEL_MODELS){
@@ -407,10 +393,6 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
       break;
 #ifdef TARGET_GPU
     case GPUID:
-      if(opts->gpuid){
-	USER_ERROR(Simatra:Simex:parse_args, "GPU ID can only be specified once.");
-      }
-      opts->gpuid = 1;
       global_gpuid = atoi(optarg);
       break;
 #endif
@@ -455,10 +437,10 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	// and the MATLAB client. Writes a temporary file and renames it
 	// to prevent the MATLAB client from attempting to read a partial file.
 	FILE *json_file;
-	char tmp[PATH_MAX];
+	char tmp[PATH_MAX] = "";
 	char *dupdir = strdup(optarg);
 
-	strncat(tmp, dirname(dupdir), PATH_MAX-1);
+	strncpy(tmp, dirname(dupdir), PATH_MAX-1);
 	if (strlen(tmp) > 0)
 	  strncat(tmp, "/json-interface.tmp", PATH_MAX-1 - strlen(tmp));
 	else
@@ -611,7 +593,7 @@ void write_states_time(simengine_opts *opts, simengine_result *result){
   // Write final states
   position = global_modelid_offset * seint.num_states * sizeof(double);
   sprintf(states_time_filename, "%s/final-states", opts->outputs_dirname);
-  states_time_file = fopen(states_time_filename, "w");
+  states_time_file = fopen(states_time_filename, "a");
   if(NULL == states_time_file){
     ERROR(Simatra::Simex::write_states_time, "could not open file '%s'", states_time_filename);
   }
@@ -626,7 +608,7 @@ void write_states_time(simengine_opts *opts, simengine_result *result){
   // Write final time
   position = global_modelid_offset * sizeof(double);
   sprintf(states_time_filename, "%s/final-time", opts->outputs_dirname);
-  states_time_file = fopen(states_time_filename, "w");
+  states_time_file = fopen(states_time_filename, "a");
   if(NULL == states_time_file){
     ERROR(Simatra::Simex::write_states_time, "could not open file '%s'", states_time_filename);
   }
@@ -675,6 +657,39 @@ int main(int argc, char **argv){
   }
   // Run the model simulation
   else{
+    // REMOVE ME, TODO, FIXME -- THIS IS JUST A HACK TEST
+#ifdef TARGET_GPU
+    opts.num_gpus = 2;
+    opts.gpuid[0] = global_gpuid;
+    opts.gpuid[1] = 1;
+    opts.gpuid[2] = 2;
+    unsigned int models_per = opts.num_models/opts.num_gpus;
+    unsigned int total_models = opts.num_models;
+    unsigned int id;
+
+    opts.master = 1;
+    opts.num_models = models_per;
+
+    for(id = 0; id < opts.num_gpus - 1; id++){
+      opts.pid[id] = fork();
+      if(!opts.pid[id]){
+	opts.master = 0;
+	break; // Child breaks and continues
+      }
+    }
+    global_modelid_offset = id * models_per;
+    global_gpuid = opts.gpuid[id];
+
+    // Catch any extra models lost in integer division
+    if(opts.master){
+      if(models_per * opts.num_gpus < total_models){
+	opts.num_models += (total_models - (models_per * opts.num_gpus));
+      }
+    }
+
+#endif
+    // REMOVE ME ^^^^^^
+
     // Seed the entropy source
     if (opts.seeded) {
       seed_entropy(opts.seed);
@@ -695,6 +710,19 @@ int main(int argc, char **argv){
       WARN(Simatra:Simex:runmodel, "Simulation returned error %d: %s",
 	      result->status, result->status_message);
     }
+
+    // REMOVE ME 
+    // wait for children
+    if(opts.master){
+      int i;
+      int stat;
+      for(i=0;i<opts.num_gpus-1;i++){
+	if(opts.pid[i]){
+	  waitpid(opts.pid[i], &stat, 0);
+	}
+      }
+    }
+    // REMOVE ME ^^^^^^
 
     return 0;
   }
