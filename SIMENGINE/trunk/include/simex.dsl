@@ -438,6 +438,7 @@ import "command_line.dsl"
     var stat = Process.reap(p)
     var stdout = allout(1)
     var stderr = allout(2)
+
     if (1 == stat) then
       nostack_error(join("",stderr))
     elseif (() == stat or 1 < stat) then

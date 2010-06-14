@@ -5,8 +5,8 @@ function [outputs y1 t1 interface] = simEngine (options)
   writeUserStates(options);
   writeUserInputs(options);
 
-  command = [options.simengine ' --inferior-mode --simex ' options.dslfile ...
-             ' --outputdir ' options.outputs ' ' options.args];
+  command = ['"' options.simengine '" --inferior-mode --simex "' options.dslfile ...
+             '" --outputdir "' options.outputs '" ' options.args];
   workingDir = options.outputs;
 
   if options.debug
@@ -20,7 +20,7 @@ function [outputs y1 t1 interface] = simEngine (options)
   statusFile = fullfile(workingDir, 'status');
   pidFile = fullfile(workingDir, 'pid');
 
-  command = ['(' command ' &>' logFile ' & pid=$! ; echo $pid > ' pidFile ' ; wait $pid; echo $? > ' statusFile ')&'];
+  command = ['(' command ' &> "' logFile '" & pid=$! ; echo $pid > "' pidFile '" ; wait $pid; echo $? > "' statusFile '")&'];
   [stat, ignore] = system(command);
   while ~exist(pidFile,'file') || isempty(fileread(pidFile))
     pause(0.1);
