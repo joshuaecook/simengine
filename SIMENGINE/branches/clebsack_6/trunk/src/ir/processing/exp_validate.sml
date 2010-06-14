@@ -1,6 +1,0 @@
-structure ExpValidate =
-struct
-
-
-
-end
