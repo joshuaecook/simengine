@@ -31,7 +31,7 @@ static struct {
   int initialized;
   int request_data;
   int shared_memory;
-  log_outputs_status_t log_outputs_status;
+  log_outputs_status_t log_outputs_status[NUM_THREADS];
   unsigned int buffer_count;
   /* precision = sizeof(CDATAFORMAT), i.e. 4 or 8 */
   unsigned int precision; 
@@ -49,6 +49,7 @@ static struct {
   char **output_names;
   unsigned int *output_num_quantities;
   pthread_t collector[NUM_THREADS];
+  pthread_mutex_t alloc_mutex;
 } collection_status = {0};
 
 typedef struct{
@@ -81,6 +82,28 @@ typedef struct {
   unsigned int num_quantities;
   char quantities[];
 } output_buffer_data;
+
+void *safe_malloc(size_t size){
+  void *ret;
+  pthread_mutex_lock(&collection_status.alloc_mutex);
+  ret = malloc(size);
+  pthread_mutex_unlock(&collection_status.alloc_mutex);
+  return ret;
+}
+
+void *safe_realloc(void *ptr, size_t size){
+  void *ret;
+  pthread_mutex_lock(&collection_status.alloc_mutex);
+  ret = realloc(ptr, size);
+  pthread_mutex_unlock(&collection_status.alloc_mutex);
+  return ret;  
+}
+
+void safe_free(void *ptr){
+  pthread_mutex_lock(&collection_status.alloc_mutex);
+  free(ptr);
+  pthread_mutex_unlock(&collection_status.alloc_mutex);
+}
 
 /* Returns the number of outputs represented in a model interface. */
 unsigned int iface_num_outputs(const mxArray *iface){
@@ -239,15 +262,18 @@ void copy_transpose_double(double *dest, const double *src, int cols, int rows){
 }
 
 void check_for_error (void) {
-  switch (collection_status.log_outputs_status) {
-  case LOG_OUTPUTS_OUT_OF_MEMORY:
-    cleanup();
-    ERROR(OUT_OF_MEMORY_ERR_MSG);
-    break;
-  case LOG_OUTPUTS_CORRUPT:
-    cleanup();
-    ERROR("Corrupt data.\n");
-    break;
+  int i;
+  for(i=0;i<NUM_THREADS;i++){
+    switch (collection_status.log_outputs_status[i]){
+    case LOG_OUTPUTS_OUT_OF_MEMORY:
+      cleanup();
+      ERROR(OUT_OF_MEMORY_ERR_MSG);
+      break;
+    case LOG_OUTPUTS_CORRUPT:
+      cleanup();
+      ERROR("Corrupt data.\n");
+      break;
+    }
   }
 }
 
@@ -494,7 +520,7 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
 		 
     if (out->samples == out->allocated) {
       out->allocated *= 2;
-      out->data = (double*)realloc(out->data, nquantities * out->allocated * sizeof(double));
+      out->data = (double*)safe_realloc(out->data, nquantities * out->allocated * sizeof(double));
       if (!out->data)
 	{ return LOG_OUTPUTS_OUT_OF_MEMORY; }
     }
@@ -564,7 +590,7 @@ void *collect_data(void *arg){
   raw_buffer = mmap(NULL, filestat.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 
   /* Initialize output buffer pointers to raw buffer data */
-  ob = (output_buffer*)malloc(collection_status.buffer_count*sizeof(output_buffer));
+  ob = (output_buffer*)safe_malloc(collection_status.buffer_count*sizeof(output_buffer));
   ob[0].finished = (unsigned int *)raw_buffer;
   ob[0].full = ob[0].finished + collection_status.parallel_models;
   ob[0].count = ob[0].full + collection_status.parallel_models;
@@ -582,7 +608,7 @@ void *collect_data(void *arg){
     ob[bufferid].buffer = ob[bufferid-1].buffer + buffer_size;
   }
 
-  obid = malloc(collection_status.parallel_models * sizeof(unsigned int));
+  obid = safe_malloc(collection_status.parallel_models * sizeof(unsigned int));
   for(bufferid=0;bufferid<collection_status.parallel_models;bufferid++){
     obid[bufferid] = 0;
   }
@@ -596,13 +622,12 @@ void *collect_data(void *arg){
 
       /* If the buffer has data available, log it */
       if(ob[obid[modelid]].available[modelid]){
-	collection_status.log_outputs_status = log_outputs(&ob[obid[modelid]], modelid);
-	if (LOG_OUTPUTS_OK != collection_status.log_outputs_status) {
+	collection_status.log_outputs_status[buffer_num] = log_outputs(&ob[obid[modelid]], modelid);
+	if (LOG_OUTPUTS_OK != collection_status.log_outputs_status[buffer_num]) {
 	  goto endofthread;
 	}
 	logged_something = 1;
 	obid[modelid] = (obid[modelid] + 1) % collection_status.buffer_count;
-	if (LOG_OUTPUTS_OK != collection_status.log_outputs_status) goto endofthread;
       }
       if(!collection_status.initialized) goto endofthread;
     }
@@ -615,8 +640,8 @@ void *collect_data(void *arg){
  endofthread:
   /* Close output buffer file */
   munmap(raw_buffer, filestat.st_size);
-  free(ob);
-  free(obid);
+  safe_free(ob);
+  safe_free(obid);
   close(fd);
   collection_status.running = 0;
 
@@ -627,11 +652,14 @@ void initialize(const mxArray **prhs){
   /* mexFunction parameters */
   const mxArray *iface = prhs[0];
   const mxArray *options = prhs[1];
+  int i;
 
   if(!collection_status.initialized){
     collection_status.initialized = 1;
 
-    collection_status.log_outputs_status = LOG_OUTPUTS_OK;
+    for(i=0;i<NUM_THREADS;i++){
+      collection_status.log_outputs_status[i] = LOG_OUTPUTS_OK;
+    }
     collection_status.request_data = 0;
     /* Initialize parameter sub fields */
     collection_status.outputs_dirname = options_outputs_directory(options);
@@ -669,8 +697,10 @@ void initialize(const mxArray **prhs){
 	}
       }
 
+      if(pthread_mutex_init(&collection_status.alloc_mutex, NULL)){
+	ERROR("Unable to initialize allocation mutex.\n");
+      }
       pthread_attr_t attr;
-      int i;
       pthread_attr_init(&attr);
       pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
       for(i=0;i<NUM_THREADS;i++){
@@ -695,7 +725,7 @@ void cleanup(){
   int i;
 
   if(collection_status.initialized){
-    /* Signal thread to stop */
+    /* Signal threads to stop */
     collection_status.initialized = 0;
     if(collection_status.shared_memory && collection_status.num_outputs){
       for(i=0;i<NUM_THREADS;i++){
@@ -703,6 +733,8 @@ void cleanup(){
 	  pthread_join(collection_status.collector[i], NULL);
 	}
       }
+      /* Destroy mutex */
+      pthread_mutex_destroy(&collection_status.alloc_mutex);
       /* Free allocated internal memory */
       if(output){
 	for(modelid=0;modelid<collection_status.num_models;modelid++){
