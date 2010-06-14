@@ -29,11 +29,11 @@ function [options] = simexOptions (dsl, varargin)
   options.dslfile = dsl;
   
   % Create a new temporary data path
-  options.outputs = ['.simex' num2str(now,'%16f')];
+  options.outputs = fullfile(pwd,['.simex' num2str(now,'%16f')],'');
 
   % Set up path to JSON interface file and add commandline argument
   options.jsonfile = fullfile(options.outputs, 'simex_interface.json');
-  options.args = [options.args ' --json_interface ' options.jsonfile];
+  options.args = [options.args ' --json_interface "' options.jsonfile '"'];
 
   if 0 < length(userOptions)
     if isnumeric(userOptions{1})
@@ -261,7 +261,7 @@ function [options, restUserOptions] = getOption(options, userOptions)
       if ~isempty(restUserOptions)
           optArg = getOptionArgument(userOptions{2});
           if optArg
-              options.args = [options.args ' ' optArg];
+              options.args = [options.args ' "' optArg '"'];
               restUserOptions = userOptions(3:end);
           end
       end
