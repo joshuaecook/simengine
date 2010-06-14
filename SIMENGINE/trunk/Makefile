@@ -2,7 +2,6 @@
 # Copyright 2007-2010, Simatra Modeling Technologies, L.L.C.
 include include/common.make
 
-
 # User Adjustable Parameters
 # ==============================================================================================
 
@@ -328,7 +327,6 @@ build-octave: $(BUILD_DIR)/octave
 
 COMMON_BUILD_FILES = $(OUTPUT_FILE) $(BUILD_DIR)/data/global.dol $(BUILD_DIR)/data/build-options.json build-examples $(FILENAME) build_includes build_shared $(MATLAB_BUILD_FILES)
 
-
 ifeq ($(BUILD_TYPE),software)
 build-system: $(COMMON_BUILD_FILES)
 endif
@@ -372,7 +370,6 @@ COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-o
 COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a $(CRYPTO_LIB) $(COMPRESS_LIB) simatra.o
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
 
-
 # Dynamo Compilation Targets
 # ==============================================================================================
 
@@ -390,8 +387,8 @@ src/util/registry/registry.grm.sig src/util/registry/registry.grm.sml: src/util/
 	$(YACC.sml) $<
 
 $(OUTPUT_FILE): override SMLFLAGS += $(ARGS)
-$(OUTPUT_FILE): $(COMPILER_DEPENDENCIES)
-	$(COMPILE.sml) -output $@ $< $(COMPILER_EXTRA_SOURCES)
+$(OUTPUT_FILE): $(subst $(CURDIR),$(SAFE_CURDIR),$(COMPILER_DEPENDENCIES))
+	$(COMPILE.sml) -output "$@" "$<" $(COMPILER_EXTRA_SOURCES)
 
 
 # Compiler Debugging Files
