@@ -171,27 +171,27 @@ install_libs: $(addprefix ../lib/,$(PRODUCT_LIBS))
 
 # Called from install_headers
 ../include/float/sundials/%.h: float/$(SUNDIALS)/include/sundials/%.h
-	$(INSTALL_HEADER) $< $@
+	$(INSTALL_HEADER) "$<" "$@"
 ../include/float/nvector/%.h: float/$(SUNDIALS)/include/nvector/%.h
-	$(INSTALL_HEADER) $< $@
+	$(INSTALL_HEADER) "$<" "$@"
 ../include/float/cvode/%.h: float/$(SUNDIALS)/include/cvode/%.h
-	$(INSTALL_HEADER) $< $@
+	$(INSTALL_HEADER) "$<" "$@"
 ../include/double/sundials/%.h: double/$(SUNDIALS)/include/sundials/%.h
-	$(INSTALL_HEADER) $< $@
+	$(INSTALL_HEADER) "$<" "$@"
 ../include/double/nvector/%.h: double/$(SUNDIALS)/include/nvector/%.h
-	$(INSTALL_HEADER) $< $@
+	$(INSTALL_HEADER) "$<" "$@"
 ../include/double/cvode/%.h: double/$(SUNDIALS)/include/cvode/%.h
-	$(INSTALL_HEADER) $< $@
+	$(INSTALL_HEADER) "$<" "$@"
 
 # Called from install_libs
 ../lib/libcvode_%.a: %/libcvode.a
-	$(INSTALL_PROG) $< $@
+	$(INSTALL_PROG) "$<" "$@"
 
 %/libcvode.a: %
-	$(MAKE) -C $< -I $(CURDIR) -f $(realpath $(firstword $(MAKEFILE_LIST))) libcvode.a
+	$(MAKE) -C "$<" -I "$(CURDIR)" -f "$(realpath $(firstword $(MAKEFILE_LIST)))" libcvode.a
 
 libcvode.a: $(CVODE_OBJS)
-	$(AR) $(ARFLAGS) $@ $?
+	$(AR) $(ARFLAGS) "$@" $?
 
 # CVODE_OBJS
 $(CVODE_PATH)/cvode/.libs/%.o: $(SUNDIALS)
@@ -200,23 +200,25 @@ $(CVODE_PATH)/sundials/.libs/%.o: $(SUNDIALS)
 
 .SECONDARY: $(SUNDIALS_TGZ)
 $(SUNDIALS_TGZ):
-	curl -o $@ -# $(SUNDIALS_URI)
+	curl -o "$@" -# $(SUNDIALS_URI)
 
 # Single-precision build within subdirectory
 float: $(SUNDIALS_TGZ)
-	[ -d $@ ] || $(MKDIR) $@
-	$(MAKE) -C $@ -I $(CURDIR) -f $(realpath $(firstword $(MAKEFILE_LIST))) SUNDIALS_CONFIGURE_PRECISION="--with-precision=single" $(SUNDIALS)
+	[ -d "$@" ] || $(MKDIR) "$@"
+	$(MAKE) -C "$@" -I "$(CURDIR)" -f "$(realpath $(firstword $(MAKEFILE_LIST)))" SUNDIALS_CONFIGURE_PRECISION="--with-precision=single" $(SUNDIALS)
 
 # Double-precision build within subdirectory
 double: $(SUNDIALS_TGZ)
-	[ -d $@ ] || $(MKDIR) $@
-	$(MAKE) -C $@ -I $(CURDIR) -f $(realpath $(firstword $(MAKEFILE_LIST))) SUNDIALS_CONFIGURE_PRECISION="--with-precision=double" $(SUNDIALS)
+	[ -d "$@" ] || $(MKDIR) "$@"
+	$(MAKE) -C "$@" -I "$(CURDIR)" -f "$(realpath $(firstword $(MAKEFILE_LIST)))" SUNDIALS_CONFIGURE_PRECISION="--with-precision=double" $(SUNDIALS)
 
 $(SUNDIALS): CONFIGURE_FLAGS += $(SUNDIALS_CONFIGURE_FLAGS)
 $(SUNDIALS): $(SUNDIALS)/Makefile
-	$(MAKE) -C $@
+	$(MAKE) -C "$@"
 
 $(SUNDIALS)/Makefile: $(SUNDIALS_TGZ)
-	tar xf $< $(BUILD_DEPENDENCIES)
-	cd $(SUNDIALS); $(CONFIGURE) $(CONFIGURE_FLAGS)
+	tar xf "$<" $(BUILD_DEPENDENCIES)
+	cd $(SUNDIALS); \
+	find . -name Makefile.in -exec sed -i~ -e 's/@abs_builddir@/"\0"/g' '{}' \;; \
+	$(CONFIGURE) $(CONFIGURE_FLAGS); 
 

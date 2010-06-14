@@ -62,10 +62,10 @@ LEX.sml = $(SMLLEX)
 YACC.sml = $(SMLYACC)
 
 %.lex.sml: %.lex
-	$(LEX.sml) $<
+	$(LEX.sml) "$<"
 
 %.grm.sml %.grm.sig: %.grm
-	$(YACC.sml) $<
+	$(YACC.sml) "$<"
 
 # The C compiler
 CC = gcc
@@ -180,43 +180,44 @@ COMPILE.mex = $(MEX) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
 
 %.mexglx: override MEXTARGET_ARCH = -glnx86
 %.mexglx: %.c
-	$(COMPILE.mex) -output $* $<
+	$(COMPILE.mex) -output "$*" "$<"
 
 %.mexa64: override MEXTARGET_ARCH = -glnxa64
 %.mexa64: %.c
-	$(COMPILE.mex) -output $* $<
+	$(COMPILE.mex) -output "$*" "$<"
 
 %.mexmaci: override MEXTARGET_ARCH = -maci
 %.mexmaci: override MEX := MACI64=0 $(MEX)
 %.mexmaci: override CFLAGS += -m32
 %.mexmaci: override LDFLAGS += -m32
 %.mexmaci: %.c
-	$(COMPILE.mex) -output $* $<
+	$(COMPILE.mex) -output "$*" "$<"
 
 %.mexmaci64: override MEXTARGET_ARCH = -maci64
 %.mexmaci64: override MEX := MACI64=1 $(MEX)
 %.mexmaci64: override CFLAGS += -m64
 %.mexmaci64: override LDFLAGS += -m64
 %.mexmaci64: %.c
-	$(COMPILE.mex) -output $* $<
+	$(COMPILE.mex) -output "$*" "$<"
 
 %.mexs64: override MEXTARGET_ARCH = -sol64
 %.mexs64: %.c
-	$(COMPILE.mex) -output $* $<
+	$(COMPILE.mex) -output "$*" "$<"
 
 %.mexw32: override MEXTARGET_ARCH = -win32
 %.mexw32: %.c
-	$(COMPILE.mex) -output $* $<
+	$(COMPILE.mex) -output "$*" "$<"
 
 %.mexw64: override MEXTARGET_ARCH = -win64
 %.mexw64: %.c
-	$(COMPILE.mex) -output $* $<
+	$(COMPILE.mex) -output "$*" "$<"
 
 ## Other misc tools
 AR = ar
 ARFLAGS = rsc
 LN = ln -s
 MKDIR = mkdir -p
+PWD = pwd
 RM = rm -f
 GRIND = valgrind
 ENV = $(if $(DARWIN),/usr/bin/env,/bin/env)
@@ -229,3 +230,8 @@ INSTALL = install
 INSTALL_PROG = $(INSTALL)
 INSTALL_HEADER = $(INSTALL) -m 644
 INSTALL_DOC = $(INSTALL) -m 644
+
+# Substitute $(CURDIR) with $(SAFE_CURDIR) to escape any spaces in the components 
+# of the working path for variable which appear in dependency lists. Substitute with
+# "$(CURDIR)" using quoting for variables appearing in commands.
+SAFE_CURDIR := $(shell echo $(CURDIR) | sed -e 's/ /\\ /g')
