@@ -153,9 +153,7 @@ end
 
 function checkGPUDependencies (deps)
     var depsFailed = false
-    if (("Development" == Licensing.licenseProductType () or
-	  "Professional" == Licensing.licenseProductType ()) /*and
-	  "gpu" == settings.simulation.target.getValue()*/) then
+    if Licensing.featureEnabled("gpu") then
 	  // check nvcc is not a symbolic link
 	  var nvcc_path = deps.nvcc.fullpath
 

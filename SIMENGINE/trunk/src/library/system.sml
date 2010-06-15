@@ -3,6 +3,7 @@ struct
 
 val TypeMismatch = DynException.TypeMismatch
 and IncorrectNumberOfArguments = DynException.IncorrectNumberOfArguments
+and ValueError = DynException.ValueError
 
 fun sys_startupMessage _ args = KEC.LITERAL (KEC.CONSTSTR (Globals.startupMessage()))
 fun sys_copyright _ args = KEC.LITERAL (KEC.CONSTSTR Globals.copyright)
@@ -40,6 +41,16 @@ fun sys_collect_and_pack _ args =
     MLton.GC.collect () before
     MLton.GC.pack ()
 
+fun sys_feature_enabled _ args =
+    (case args of
+	 [KEC.LITERAL(KEC.CONSTSTR s)] =>
+	 (case s of
+	     "gpu" => 
+	     KEC.LITERAL(KEC.CONSTBOOL (Features.isEnabled Features.GPU))
+	   | _ => 
+	     raise ValueError ("expected a string {'gpu'} but received " ^ s))
+       | [arg] => raise TypeMismatch ("expected a string but received " ^ (PrettyPrint.kecexp2nickname arg))
+       | _ => raise IncorrectNumberOfArguments {expected=1, actual=length args})
 				       
 val library = [{name="sys_startupMessage", operation=sys_startupMessage},
 	       {name="sys_copyright", operation=sys_copyright},
@@ -51,5 +62,6 @@ val library = [{name="sys_startupMessage", operation=sys_startupMessage},
 	       {name="sys_architecture", operation=sys_architecture},
 	       {name="sys_exit", operation=sys_exit},
 	       {name="sys_path", operation=sys_path},
-	       {name="sys_collect_and_pack", operation=sys_collect_and_pack}]
+	       {name="sys_collect_and_pack", operation=sys_collect_and_pack},
+	       {name="sys_feature_enabled", operation=sys_feature_enabled}]
 end
