@@ -679,6 +679,7 @@ end
 
 function licenseProductType() = LF licenseProductType()
 function licenseExpirationDate() = LF licenseExpirationDate()
+function featureEnabled(feature) = LF sys_feature_enabled(feature)
 
 end
 
