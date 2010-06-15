@@ -152,7 +152,7 @@ end
 
 
 function checkGPUDependencies (deps)
-    var depsFailed
+    var depsFailed = false
     if (("Development" == Licensing.licenseProductType () or
 	  "Professional" == Licensing.licenseProductType ()) /*and
 	  "gpu" == settings.simulation.target.getValue()*/) then
