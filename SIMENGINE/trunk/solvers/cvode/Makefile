@@ -219,6 +219,6 @@ $(SUNDIALS): $(SUNDIALS)/Makefile
 $(SUNDIALS)/Makefile: $(SUNDIALS_TGZ)
 	tar xf "$<" $(BUILD_DEPENDENCIES)
 	cd $(SUNDIALS); \
-	find . -name Makefile.in -exec sed -i~ -e 's/@abs_builddir@/"\0"/g' '{}' \;; \
+	find . -name Makefile.in -exec sed -i~ -e 's/@abs_builddir@/"@abs_builddir@"/g' '{}' \;; \
 	$(CONFIGURE) $(CONFIGURE_FLAGS); 
 
