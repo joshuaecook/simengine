@@ -32,7 +32,7 @@ classdef Instance
         function i2 = subsasgn(inst, s, b)
             if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
                 input = Exp(inst.InstName, s.subs);
-                inst.Mdl.addEq(input, b);
+                inst.Mdl.equ(input, b);
             end
             i2 = inst;
         end

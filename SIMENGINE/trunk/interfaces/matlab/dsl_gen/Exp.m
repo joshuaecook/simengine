@@ -13,6 +13,7 @@ classdef Exp
         val
         op
         args
+        iterReference = false
     end
     
     methods
@@ -70,6 +71,44 @@ classdef Exp
         
         function er = mpower(e1, e2)
             er = oper('^', {e1, e2});
+        end
+        
+        % Relational
+        function er = gt(e1, e2)
+            er = oper('>', {e1, e2});
+        end
+
+        function er = lt(e1, e2)
+            er = oper('<', {e1, e2});
+        end
+        
+        function er = ge(e1, e2)
+            er = oper('>=', {e1, e2});
+        end
+
+        function er = le(e1, e2)
+            er = oper('<=', {e1, e2});
+        end
+        
+        function er = eq(e1, e2)
+            er = oper('==', {e1, e2});
+        end
+         
+        function er = ne(e1, e2)
+            er = oper('<>', {e1, e2});
+        end
+        
+        % Logical
+        function er = and(e1, e2)
+            er = oper(' and ', {e1, e2});
+        end
+        
+        function er = or(e1, e2)
+            er = oper(' or ', {e1, e2});
+        end
+
+        function er = not(e1)
+            er = oper('not', {e1});
         end
 
         % Functions
@@ -167,12 +206,60 @@ classdef Exp
             b = (e.type == e.REFERENCE);
         end
         
+        function er = subsref(e, s)
+            er = e;
+            for i=1:length(s)
+                if strcmp(s(i).type,'()')
+                    subs = s(i).subs;
+                    for j=1:length(subs)
+                        if isa(subs{j},'IteratorReference')
+                            e.iterReference = subs{j};
+                        elseif isa(subs{j},'Iterator')
+                            e.iterReference = subs{j}.toReference;
+                        end
+                        er = e;
+                    end
+                elseif strcmp(s(i).type,'.')
+                    switch s(i).subs
+                        case 'toStr'
+                            er = toStr(e);
+                    end
+                end
+            end
+
+        end
+        
+        function iters = findIterators(e, map)
+            if 1 == nargin
+                map = containers.Map;
+            end
+            
+            switch e.type
+                case {e.VARIABLE, e.REFERENCE}
+                    if isa(e.iterReference, 'IteratorReference')
+                        iter = e.iterReference.iterator;
+                        map(iter.id) = iter;
+                    end
+                case e.OPERATION
+                    for i=1:length(e.args)
+                        map = findIterators(e.args(i), map);
+                    end
+            end
+            iters = map;            
+        end
+        
         function s = toStr(e)
             switch e.type
                 case e.VARIABLE
                     s = e.val;
+                    if isa(e.iterReference, 'IteratorReference')
+                        s = [s '[' e.iterReference.toStr ']'];
+                    end
                 case e.REFERENCE
                     s = e.val;
+                    if isa(e.iterReference, 'IteratorReference')
+                        s = [s '[' e.iterReference.toStr ']'];
+                    end
                 case e.LITERAL
                     s = num2str(e.val);
                 case e.OPERATION
@@ -183,6 +270,7 @@ classdef Exp
                     end
             end
         end
+        
         function disp(e)
             disp(['Exp: ' toStr(e)]);
         end
