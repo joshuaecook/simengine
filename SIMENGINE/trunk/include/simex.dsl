@@ -202,6 +202,10 @@ import "command_line.dsl"
 
       // MP * warp size * 4 to keep high residency (probably needs tweaking)
       parallelModels = Devices.CUDA.getProp(gpuid, "multiProcessorCount").tonumber() * 32 * 4
+      if 2 == Devices.CUDA.getProp(gpuid, "major").tonumber() then
+	// Fermi multiprocessors have 4x the number of cores vs. previous devices
+	parallelModels = 4 * parallelModels
+      end
       settings.simulation.parallel_models.setValue(parallelModels)
 
       precision = settings.simulation.precision.getValue()
@@ -218,6 +222,9 @@ import "command_line.dsl"
       end
       var device_id = Devices.CUDA.getProp(gpuid, "deviceId")
       var device_arch = Devices.CUDA.getProp(gpuid, "arch")
+      if 2 == Devices.CUDA.getProp(gpuid, "major").tonumber() then
+	device_arch = "sm_13"
+      end
       if not emulate and precision == "double" and (device_arch == "sm_10" or device_arch == "sm_11" or device_arch == "sm_12") then
         warning("CUDA device does not support double precision. Defaulting to single precision float.")
         precision = "float"
@@ -256,6 +263,9 @@ import "command_line.dsl"
       // which returns a list of available devices sorted by their GFLOPs
       var device_id = Devices.CUDA.getProp(gpuid, "deviceId")
       var device_arch = Devices.CUDA.getProp(gpuid, "arch")
+      if 2 == Devices.CUDA.getProp(gpuid, "major").tonumber() then
+	device_arch = "sm_13"
+      end
       m.CFLAGS.push_back("-DSIMENGINE_CUDA_DEVICE=" + device_id)
       m.CFLAGS.push_front("-arch=" + device_arch)
 
