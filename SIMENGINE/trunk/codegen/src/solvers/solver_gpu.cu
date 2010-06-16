@@ -45,6 +45,8 @@ __DEVICE__ output_data gpu_od[PARALLEL_MODELS];
 
 static int global_gpuid = -1;
 
+__GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int max_iterations);
+
 void gpu_init (void) {
 #ifndef SIMENGINE_CUDA_DEVICE
 #error SIMENGINE_CUDA_DEVICE not specified for a GPU simulation
@@ -55,6 +57,9 @@ void gpu_init (void) {
   else{
     cutilSafeCall(cudaSetDevice(SIMENGINE_CUDA_DEVICE));
   }
+#if CUDART_VERSION >= 3000
+  cutilSafeCall(cudaFuncSetCacheConfig(exec_kernel_gpu, cudaFuncCachePreferNone));
+#endif
 }
 
 void gpu_exit (void) {
