@@ -435,6 +435,7 @@ MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(B
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 MATLAB_FILES += $(MATLAB_MEX)
 
+DSLGEN_FILES = $(addsuffix .m, Exp Instance Iterator IteratorReference Model)
 
 $(BUILD_DIR)/Contents.m:
 	@echo "% SIMATRA simEngine" > $@
@@ -578,8 +579,12 @@ $(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/src/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
 	$(CP) $< $@	
 
+$(LOCAL_INSTALL)/%.m: interfaces/matlab/dsl_gen/%.m
+	$(CP) $< $@
+
+LOCAL_DSLGEN = $(addprefix $(LOCAL_INSTALL)/,$(DSLGEN_FILES))
 install-locally: $(LOCAL_INSTALL) 
-	@$(MAKE) expand_tgz $(LOCAL_INSTALL)/compile_tests.m 
+	@$(MAKE) expand_tgz $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_DSLGEN)
 	$(info Local install at $(LOCAL_INSTALL) ready)
 
 # Build type options
