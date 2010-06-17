@@ -115,6 +115,7 @@ typedef enum {
   BUFFER_COUNT,
   MAX_ITERS,
   GPU_BLOCK_SZ,
+  ALL_TIMESTEPS,
   HELP
 } clopts;
 

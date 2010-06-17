@@ -284,7 +284,10 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			      SUB(map(fn(opt,oval) => $("opts->"^opt^" = "^oval^";")) solveropts),
 			      $("}")]) @
 			(map (fn(prop,pval) => $("props[ITERATOR_"^itername^"]."^prop^" = "^pval^";")) solverparams) @
-			[$("props[ITERATOR_"^itername^"].starttime = starttime;"),
+			[(* HACK BEGIN *)
+			 $("if(global_timestep) props[ITERATOR_"^itername^"].timestep = global_timestep;"),
+			 (* HACK END *)
+			 $("props[ITERATOR_"^itername^"].starttime = starttime;"),
 			 $("props[ITERATOR_"^itername^"].stoptime = stoptime;"),
 			 $("props[ITERATOR_"^itername^"].system_states = system_ptrs;"),
 			 $("props[ITERATOR_"^itername^"].time = (CDATAFORMAT*)malloc(PARALLEL_MODELS*sizeof(CDATAFORMAT));"),

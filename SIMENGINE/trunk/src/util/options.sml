@@ -361,7 +361,13 @@ val argument_groups =
 		long =SOME "buffer_count",
 		xmltag="buffer_count",
 		dyntype=INTEGER_T,
-		description=["Number of buffers in shared memory"]}
+		description=["Number of buffers in shared memory"]},
+	       (* The following is a hack to override timestep at runtime, all iterators set to same value *)
+	       {short=NONE,
+		long =SOME "all_timesteps",
+		xmltag="all_timesteps",
+		dyntype=REAL_T,
+		description=["Force all timesteps to be specified value"]}
      ]},
      {group="GPU Settings",
       tag="gpu",

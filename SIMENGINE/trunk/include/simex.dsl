@@ -309,7 +309,8 @@ import "command_line.dsl"
 				 "seed",
 				 "buffer_count",
 				 "max_iterations",
-				 "gpu_block_size"]
+				 "gpu_block_size",
+				 "all_timesteps"]
 
   var numberOptionNamesDebug = ["parallelmodels",
 				"gpuid"]
@@ -331,7 +332,7 @@ import "command_line.dsl"
 					outputdir = settings.simulation.outputdir.getValue()}
 
   // The following parameters are parsed by simEngine but then passed along to the simulation executable
-  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid", "shared_memory", "buffer_count", "max_iterations", "gpu_block_size"]
+  var simulationSettingNames = ["start", "stop", "instances", "inputs", "outputdir", "binary", "seed", "gpuid", "shared_memory", "buffer_count", "max_iterations", "gpu_block_size", "all_timesteps"]
   function defaultSimulationSettings() = {start = 0,
 					  instances = 1,
 					  outputdir = settings.compiler.outputdir.getValue()}
@@ -435,9 +436,9 @@ import "command_line.dsl"
       end
       println("Launching simulation in gdb: emacsclient '" + join("' '", emacsArgs) + "'")
       // emacsclient does not return until the file opened is closed with Ctrl-X #
-      p = Process.run("emacsclient", ["emacsclient-buffer_close_to_allow_matlab_to_continue"])
+//      p = Process.run("emacsclient", ["emacsclient-buffer_close_to_allow_matlab_to_continue"])
       // emacsclient returns immediately when called with '--eval'
-      Process.run("emacsclient", emacsArgs)
+      p = Process.run("emacs", emacsArgs)
     else
       if debug then
 	println("Run: " + simulation + " " + (join(" ", simexCommands)))
@@ -558,6 +559,11 @@ import "command_line.dsl"
 	if objectContains(settings.simulation, "buffer_count") then
 	  tableDest.add("buffer_count", settings.simulation.buffer_count.getValue())
 	end
+	// HACK BEGIN
+	if objectContains(settings.simulation, "all_timesteps") then
+	  tableDest.add("all_timesteps", settings.simulation.all_timesteps.getValue())
+	end
+	// HACK END
 	if "gpu" == settings.simulation.target.getValue() then
 	    tableDest.add("gpuid", settings.gpu.gpuid.getValue())
 	    if objectContains(settings.gpu, "max_iterations") and settings.gpu.max_iterations.getValue() > 0 then

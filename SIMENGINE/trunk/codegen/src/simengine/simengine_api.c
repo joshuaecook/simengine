@@ -21,6 +21,9 @@ static const struct option long_options[] = {
   {"buffer_count", required_argument, 0, BUFFER_COUNT},
   {"max_iterations", required_argument, 0, MAX_ITERS},
   {"gpu_block_size", required_argument, 0, GPU_BLOCK_SZ},
+  // HACK BEGIN
+  {"all_timesteps", required_argument, 0, ALL_TIMESTEPS},
+  // HACK END
   {"help", no_argument, 0, HELP},
   {0, 0, 0, 0}
 };
@@ -31,6 +34,7 @@ static unsigned int global_modelid_offset = 0;
 static unsigned int MAX_ITERATIONS = 100;
 static unsigned int GPU_BLOCK_SIZE = 128;
 
+double global_timestep = 0.0;
 unsigned int global_ob_count = 2;
 output_buffer *global_ob = NULL;
 unsigned int *global_ob_idx = NULL;
@@ -502,6 +506,11 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	USER_ERROR(Simatra:Simex:parse_args, "Invalid gpu block size %d", GPU_BLOCK_SIZE);
       }            
       break;
+      // HACK BEGIN
+    case ALL_TIMESTEPS:
+      global_timestep = strtod(optarg, NULL);
+      break;
+      // HACK END
     default:
       // Stop execution if an invalid command line option is found.
       // Force the user to correct the error instead of ignoring options that
