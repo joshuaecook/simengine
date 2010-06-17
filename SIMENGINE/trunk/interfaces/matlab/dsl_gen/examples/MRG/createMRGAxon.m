@@ -4,9 +4,22 @@ function m = createMRGAxon(numSegments)
 [file_path] = fileparts(which('createMRGAxon'));
 
 
-% First define a global iterators
-t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', 0.001);
+% First define the global iterators
+dt = 0.001;
+t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
+t_exp = Iterator('t_exp', 'solver', 'forwardeuler', 'dt', dt);
 
+% Create the submodels
+m_node = createNode(t_imp, t_exp);
+m_flut = createFlut(t_imp);
+m_mysa = createMysa(t_imp);
+m_stin = createStin(t_imp);
+m_segment = createSegment(m_node, m_mysa, m_flut, m_stin);
+
+% =====================================================================
+% MRG Axon
+% ======================================================================
+    
 % Create the shell of a new model call MRGAxon
 m = Model('MRGAxon');
 
@@ -23,7 +36,7 @@ Vext{end} = m.input(['Vext' num2str(numSegments+1)],0);
 segment_dsl = fullfile(file_path, 'segment.dsl');
 segments = cell(1,numSegments);
 for i=1:numSegments
-    segments{i} = m.submodel(segment_dsl);
+    segments{i} = m.submodel(m_segment);
     % add the inputs to the submodels
     segments{i}.VextLeft = Vext{i};
     segments{i}.VextRight = Vext{i+1};    
@@ -31,7 +44,7 @@ end
 
 % Add a final node
 node_dsl = fullfile(file_path, 'node.dsl');
-node = m.submodel(node_dsl);
+node = m.submodel(m_node);
 node.Vext = Vext{end};
 
 % Define the connect functions
@@ -94,3 +107,6 @@ m.output('Vm', outputList);
 m.output('spikes', spikes, 'when', reduction_or(spikes));
 
 end
+
+
+
