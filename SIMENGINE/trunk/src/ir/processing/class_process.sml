@@ -99,6 +99,11 @@ end
 structure ClassProcess : CLASSPROCESS = 
 struct
 
+fun log str = if DynamoOptions.isFlagSet "logdof" then 
+		  Util.log str
+	      else
+		  Logger.log_notice (Printer.$ str)
+
 val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
@@ -2032,6 +2037,7 @@ and inlineIntermediates class =
 
         val rewrites = map ExpProcess.intermediateEquation2rewrite intermediateEquations
 
+	(* FIXME this has N^2 complexity in matching each intermediate against itself and every other. *)
 	(* First inlines intermediates within the right-hand expression of the intermediates themselves. *)
 	val intermediateEquations' = 
 	    map (fn eqn =>
