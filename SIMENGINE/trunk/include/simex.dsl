@@ -497,7 +497,9 @@ import "command_line.dsl"
 
     var usingGPU = "gpu" == settings.simulation.target.getValue()
     if usingGPU and not (Dependency.checkGPUDependencies(systemDependencies)) then
-	nostack_error "Not all dependencies have been met for using the GPU."
+	println("Rechecking dependencies ... ")
+        Dependency.buildDependencyFile()
+	//nostack_error "Not all dependencies have been met for using the GPU."
     end
 
     if settings.simulation_debug.emulate.getValue() then
