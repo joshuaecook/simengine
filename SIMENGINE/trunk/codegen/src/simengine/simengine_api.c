@@ -96,7 +96,7 @@ void close_progress_file(double *progress, int progress_fd, unsigned int num_mod
 
 void init_output_buffers(const char *outputs_dirname, int *output_fd){
   char buffer_file[PATH_MAX];
-  int i;
+  unsigned int i;
   output_buffer *tmp;
 
   tmp = (output_buffer*)malloc(sizeof(output_buffer));
@@ -150,7 +150,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
   unsigned int num_models = opts->num_models;
   const char *outputs_dirname = opts->outputs_dirname;
 
-  CDATAFORMAT model_states[PARALLEL_MODELS * NUM_STATES];
+  CDATAFORMAT *model_states = (CDATAFORMAT *)malloc(PARALLEL_MODELS * NUM_STATES * sizeof(CDATAFORMAT));
   unsigned int stateid;
   unsigned int modelid;
 
@@ -279,6 +279,8 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
     }
   }
 
+  free(model_states);
+
   close_progress_file(progress, progress_fd, num_models);
   clean_up_output_buffers(output_fd);
 
@@ -327,7 +329,7 @@ void print_interface(){
 void check_inputs(const char *inputs_arg){
   int numi = 1;
   int leni = strlen(inputs_arg);
-  int i,j;
+  unsigned int i,j;
   char *inputs;
   char *inp;
 
@@ -625,7 +627,7 @@ void write_states_time(simengine_opts *opts, simengine_result *result){
     ERROR(Simatra::Simex::write_states_time, "could not open file '%s'", states_time_filename);
   }
   if(-1 == fseek(states_time_file, position, SEEK_SET)){
-    ERROR(Simatra::Simex::write_states_time, "could not seek to position %d in file '%s'", position, states_time_filename);
+    ERROR(Simatra::Simex::write_states_time, "could not seek to position %ld in file '%s'", position, states_time_filename);
   }
   if(opts->num_models * seint.num_states != fwrite(result->final_states, sizeof(double), opts->num_models * seint.num_states, states_time_file)){
     ERROR(Simatra::Simex::write_states_time, "could not write to file '%s'", states_time_filename);
@@ -640,7 +642,7 @@ void write_states_time(simengine_opts *opts, simengine_result *result){
     ERROR(Simatra::Simex::write_states_time, "could not open file '%s'", states_time_filename);
   }
   if(-1 == fseek(states_time_file, position, SEEK_SET)){
-    ERROR(Simatra::Simex::write_states_time, "could not seek to position %d in file '%s'", position, states_time_filename);
+    ERROR(Simatra::Simex::write_states_time, "could not seek to position %ld in file '%s'", position, states_time_filename);
   }
   if(opts->num_models != fwrite(result->final_time, sizeof(double), opts->num_models, states_time_file)){
     ERROR(Simatra::Simex::write_states_time, "could not write to file '%s'", states_time_filename);

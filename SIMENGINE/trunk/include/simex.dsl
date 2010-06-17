@@ -223,7 +223,7 @@ import "command_line.dsl"
       var device_id = Devices.CUDA.getProp(gpuid, "deviceId")
       var device_arch = Devices.CUDA.getProp(gpuid, "arch")
       if 2 == Devices.CUDA.getProp(gpuid, "major").tonumber() then
-	device_arch = "sm_13"
+      	device_arch = "sm_13"
       end
       if not emulate and precision == "double" and (device_arch == "sm_10" or device_arch == "sm_11" or device_arch == "sm_12") then
         warning("CUDA device does not support double precision. Defaulting to single precision float.")
@@ -239,6 +239,8 @@ import "command_line.dsl"
       m.CPPFLAGS.push_back("-DTARGET_GPU")
       m.CFLAGS.push_front("-I" + cudaInstallPath + "/include")
       m.LDFLAGS.push_front("-L" + cudaInstallPath + "/lib")
+
+      m.TARGET_ARCH = ["-m32"]
 
       if osLower == "darwin" then
         m.TARGET_ARCH = ["-arch", "i386"] // nVidia tools don't support 64bit on Darwin
@@ -264,7 +266,7 @@ import "command_line.dsl"
       var device_id = Devices.CUDA.getProp(gpuid, "deviceId")
       var device_arch = Devices.CUDA.getProp(gpuid, "arch")
       if 2 == Devices.CUDA.getProp(gpuid, "major").tonumber() then
-	device_arch = "sm_13"
+      	device_arch = "sm_13"
       end
       m.CFLAGS.push_back("-DSIMENGINE_CUDA_DEVICE=" + device_id)
       m.CFLAGS.push_front("-arch=" + device_arch)

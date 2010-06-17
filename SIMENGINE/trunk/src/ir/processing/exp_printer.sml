@@ -99,6 +99,8 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
   | exp2tersestr pretty (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map (exp2tersestr pretty) e)) ^ " :}"
+       | Exp.LAMBDA {arg, body} => "(lambda ("^(Symbol.name arg)^") " ^ (exp2tersestr pretty body) ^ ")"
+       | Exp.APPLY {arg, func} => "("^(exp2tersestr pretty func) ^ ")(" ^ (exp2tersestr pretty arg) ^ ")"
        | _ => "<unresolved-meta>")
   | exp2tersestr pretty (Exp.CONTAINER container) =
     let
@@ -182,6 +184,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
   | exp2fullstr (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2fullstr e)) ^ " :}"
+       | Exp.LAMBDA {arg, body} => "(lambda ("^(Symbol.name arg)^") " ^ (exp2fullstr body) ^ ")"
+       | Exp.APPLY {arg, func} => "("^ (exp2fullstr func) ^ ")(" ^ (exp2fullstr arg) ^ ")"
        | _ => "<unresolved-meta>")
   | exp2fullstr (Exp.CONTAINER container) =
     let

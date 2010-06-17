@@ -1455,19 +1455,19 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    ()
 
 
-	fun expressionConstants exp =
+	fun layoutExpressionConstants exp =
 	    if ExpProcess.isIntermediateEq exp then
-		intermediateEquationConstants exp
+		layoutIntermediateEquationConstants exp
 	    else
 		Layout.empty
 
-	and intermediateEquationConstants exp =
+	and layoutIntermediateEquationConstants exp =
 	    if ExpProcess.isMatrixEq exp then
-		matrixEquationConstants exp
+		layoutMatrixEquationConstants exp
 	    else
 		Layout.empty
 
-	and matrixEquationConstants exp =
+	and layoutMatrixEquationConstants exp =
 	    let
 		val m = case Container.expMatrixToMatrix (ExpProcess.rhs exp) of
 			    m as ref (Matrix.DENSE _) => 
@@ -1518,9 +1518,14 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 
 	val header_progs = 
-	    (map expressionConstants valid_exps) @
+	    (map layoutExpressionConstants valid_exps) @
 	    (if useMatrixForm then
-		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
+		[$("#if defined TARGET_GPU"),
+		 $("#define INTERNAL_C device_matrix_constants_"^iter_name'),
+		 $("#else"),
+		 $("#define INTERNAL_C host_matrix_constants_"^iter_name'),
+		 $("#endif"),
+		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
 		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
 	    else
@@ -1639,17 +1644,12 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			  val _ = Matrix.print m'*)
 		      in
 			  let open Layout in
-			      (align [$ "#if defined TARGET_GPU",
-				      $ ("CDATAFORMAT *src = device_matrix_constants_"^iter_name^";"),
-				      $ "#else",
-				      $ ("CDATAFORMAT *src = host_matrix_constants_"^iter_name^";"),
-				      $ "#endif",
-				      $ "int i, j, idx;",
+			      (align [$ "int i, j, idx;",
 				      $ "// constant copy of matrix is always in row-major order",
 				      $ ("for (j=0; j<"^(i2s rows)^"; j++) {"),
 				      SUB [$ ("for (i=0; i<"^(i2s cols)^"; i++) {"),
 					   SUB [assign ($("idx"), $("MAT_IDX("^(i2s rows)^","^(i2s cols)^",j,i,PARALLEL_MODELS,modelid)")),
-						assign ($(var^"[idx]"), $("src[i+(j*"^(i2s cols)^")]"))],
+						assign ($(var^"[idx]"), $("INTERNAL_C[i+(j*"^(i2s cols)^")]"))],
 					   $ "}"],
 				      $ "}"]) ::
 			      (List.concat (Matrix.mapi createEntry m'))
@@ -1852,6 +1852,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	     [$(""),
 	      $("return 0;")]),
 	 $("}"),
+	 $("#undef INTERNAL_C"),
 	 $("")]
     end
     handle e => DynException.checkpoint "CParallelWriter.class2flow_code" e
