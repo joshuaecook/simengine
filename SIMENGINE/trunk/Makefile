@@ -315,6 +315,9 @@ build-examples: $(BUILD_DIR)/examples
 	$(info Building examples)
 #	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
 	@cd ReleaseExamples; $(CP) * ../$(BUILD_DIR)/examples
+ifneq ($(TAG),1)
+	@$(CP) interfaces/matlab/dsl_gen/dslgen $(BUILD_DIR)/examples
+endif
 ifdef $(DYN)
 	@cd tests; $(CP) $(DYN) ../$(BUILD_DIR)/examples
 endif
@@ -430,12 +433,16 @@ MATLAB_GUI_FILES =
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simexamplepath simCheckVersion simEngineUpdate simCheckLicense))
 MATLAB_MEX = $(addprefix $(BUILD_DIR)/readSimulationData,$(MEXEXT))
 
+DSLGEN_FILES = $(addsuffix .m, Exp Instance Iterator IteratorReference Model)
+MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES))
+
 # Just needed for the p files
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 MATLAB_FILES += $(MATLAB_MEX)
-
-DSLGEN_FILES = $(addsuffix .m, Exp Instance Iterator IteratorReference Model)
+ifneq ($(TAG),1)
+MATLAB_FILES += $(MATLAB_DSLGEN_FILES)
+endif
 
 $(BUILD_DIR)/Contents.m:
 	@echo "% SIMATRA simEngine" > $@
@@ -475,6 +482,9 @@ $(BUILD_DIR)/%.m: interfaces/matlab/%_info.m
 	$(CP) $< $@
 
 $(BUILD_DIR)/%.m: interfaces/matlab/%.m
+	$(CP) $< $@
+
+$(BUILD_DIR)/%.m: interfaces/matlab/dsl_gen/%.m
 	$(CP) $< $@
 
 $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
@@ -579,12 +589,13 @@ $(LOCAL_INSTALL)/%.mexw32: interfaces/matlab/src/%.mexw32
 $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
 	$(CP) $< $@	
 
+
 $(LOCAL_INSTALL)/%.m: interfaces/matlab/dsl_gen/%.m
 	$(CP) $< $@
 
 LOCAL_DSLGEN = $(addprefix $(LOCAL_INSTALL)/,$(DSLGEN_FILES))
 install-locally: $(LOCAL_INSTALL) 
-	@$(MAKE) expand_tgz $(LOCAL_INSTALL)/compile_tests.m $(LOCAL_DSLGEN)
+	@$(MAKE) expand_tgz $(LOCAL_INSTALL)/compile_tests.m
 	$(info Local install at $(LOCAL_INSTALL) ready)
 
 # Build type options
