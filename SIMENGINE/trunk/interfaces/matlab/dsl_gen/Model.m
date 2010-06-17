@@ -259,12 +259,18 @@ classdef Model < handle
             %  - first in intermediate equations
             structs = values(m.IntermediateEqs);
             for i=1:length(structs)
-                map = findIterators(structs{i}.rhs, map);
+                rhs = structs{i}.rhs;
+                if isa(rhs, 'Exp')
+                    map = findIterators(rhs, map);
+                end
             end
             %  - Next in differential equations
             ids = fieldnames(m.DiffEqs);
             for i=1:length(ids)
-                map = findIterators(m.DiffEqs.(ids{i}).rhs, map);
+                rhs = m.DiffEqs.(ids{i}).rhs;
+                if isa(rhs, 'Exp')
+                    map = findIterators(rhs, map);
+                end
             end
             %  - Next in outputs
             structs = values(m.Outputs);
@@ -272,7 +278,9 @@ classdef Model < handle
                 contents = structs{i}.contents;
                 condition = structs{i}.condition;
                 for j=1:length(contents)
-                    map = findIterators(contents{j}, map);
+                    if isa(contents{j}, 'Exp')
+                        map = findIterators(contents{j}, map);
+                    end
                 end
                 if isa(condition, 'Exp')
                     map = findIterators(structs{i}.condition, map);
@@ -445,6 +453,14 @@ if ~isempty(cellarray)
         s = [s cellarray{i} tok];
     end
     s = [s cellarray{end}];
+end
+end
+
+function s = toStr(r)
+if isnumeric(r)
+    s = num2str(r);
+else
+    s = r.toStr;
 end
 end
 
