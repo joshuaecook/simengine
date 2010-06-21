@@ -281,6 +281,8 @@ classdef Exp
                     switch s(i).subs
                         case 'toStr'
                             er = toStr(e);
+                        otherwise
+                            error('Simatra:Exp:subsref', 'Unrecognized method %s', s(i).subs);
                     end
                 end
             end

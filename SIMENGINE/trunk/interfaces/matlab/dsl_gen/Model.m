@@ -346,7 +346,7 @@ classdef Model < handle
                 error('Simatra:Model:update', 'Condition tested in update must be an expression type');
             elseif ~strcmpi(whenstr, 'when')
                 error('Simatra:Model:update', 'Incorrect usage - see help Model/update for info');
-            elseif m.States.isKey(lhs.val)
+            elseif ~m.States.isKey(toStr(lhs))
                 error('Simatra:Model:update', 'Quantity %s is not a state variable', toStr(lhs));
             end
             % make sure these are Expressions just in case they are defined
@@ -637,14 +637,20 @@ classdef Model < handle
             if exist(filename, 'file')
                 str_from_file = fileread(filename);
                 str_from_file = regexprep(str_from_file, char(10), '\\n');
+                str_from_file = regexprep(str_from_file, char(37), '%%');
                 if strcmp(str, str_from_file)
                     disp(['Reusing file ' filename]);
                     writeFile = false;
                 else
-                    %disp(sprintf('files do not match (length: %d != %d)', length(str), length(str_from_file)));
+%                     disp(sprintf('files do not match (length: %d != %d)', length(str), length(str_from_file)));
+%                     disp('=================================================================');
+%                     str
+%                     disp('-----------------------------------------------------------------');
+%                     str_from_file
+%                     disp('=================================================================');
                 end
             else
-                %disp(sprintf('file %s does not exist', filename));
+%                 disp(sprintf('file %s does not exist', filename));
             end
             if writeFile
                 fid = fopen(filename, 'w');
