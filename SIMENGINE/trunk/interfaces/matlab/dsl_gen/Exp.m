@@ -6,6 +6,7 @@ classdef Exp
         LITERAL = 2
         OPERATION = 3
         REFERENCE = 4
+        ITERATOR = 5
     end
     
     properties (Access = private)
@@ -13,6 +14,7 @@ classdef Exp
         val
         op
         args
+        dims = [1 1]
         iterReference = false
     end
     
@@ -23,12 +25,17 @@ classdef Exp
                 e.type = e.NULLEXP;
             elseif nargin == 1
                 e.val = v;
-                if isstr(v)
+                if ischar(v)
                     e.type = e.VARIABLE;
                 elseif isnumeric(v)
                     e.type = e.LITERAL;
+                    e.dims = size(v);
                 elseif isa(v, 'Exp')
                     e = v;
+                elseif isa(v, 'Iterator')
+                    e.type = e.ITERATOR;
+                    e.iterReference = v;
+                    e.val = v.id;
                 end
             elseif nargin == 2
                 e.val = [v '.' sub];
@@ -71,6 +78,10 @@ classdef Exp
         
         function er = mpower(e1, e2)
             er = oper('^', {e1, e2});
+        end
+        
+        function er = mod(e1, e2)
+            er = oper('%%', {e1, e2});
         end
         
         % Relational
@@ -198,6 +209,46 @@ classdef Exp
             er = oper('acoth', {e1});
         end
         
+        % Piecewise functions
+        function er = piecewise(varargin)            
+            if nargin == 1 && iscell(varargin{1})
+                args = varargin{1};
+            else
+                args = varargin;
+            end
+            isOdd = mod(length(args), 2) == 1;
+            if ~isOdd
+                error('Simatra:Exp:piecewise', 'Pieceswise expects an odd number of Expression arguments')
+            end
+            er = oper('piecewise', varargin);
+        end
+        
+        % Compound functions (TODO - make these have arbitrary numbers of
+        % arguments)
+        function er = max(e1, e2)
+            er = piecewise(e1, e1 > e2, e2);
+        end
+        function er = min(e1, e2)
+            er = piecewise(e1, e1 < e2, e2);
+        end        
+        
+        % for arrays
+        function l = length(e1)
+            if e1.dims(1) == 1 && length(e1.dims)>1
+                l = e1.dims(2);
+            else
+                l = e1.dims(1);
+            end
+        end
+        
+        function s = size(e1, ind)
+            if 1 == nargin
+                s = e1.dims;
+            else
+                s = e1.dims(ind);
+            end
+        end
+        
         function str = toId(e)
             str = regexprep(toStr(e),'\.','__');
         end
@@ -212,7 +263,14 @@ classdef Exp
                 if strcmp(s(i).type,'()')
                     subs = s(i).subs;
                     for j=1:length(subs)
-                        if isa(subs{j},'IteratorReference')
+                        %disp(sprintf('j=%d; e.val=%s; subs{j}=%d', j, num2str(e.val), subs{j}));
+                        if isnumeric(subs{j})
+                            if subs{j} >= 1 && (subs{j} <= e.dims(j) || (length(e) > e.dims(j) && subs{j} <= length(e)))
+                                e = Exp(e.val(subs{j}));
+                            else
+                                error('Simatra:Exp:subsref', 'Invalid index into quantity');
+                            end
+                        elseif isa(subs{j},'IteratorReference')
                             e.iterReference = subs{j};
                         elseif isa(subs{j},'Iterator')
                             e.iterReference = subs{j}.toReference;
@@ -229,6 +287,10 @@ classdef Exp
 
         end
         
+        function i = toIterReference(e)
+        i = e.iterReference;
+        end
+        
         function iters = findIterators(e, map)
             if 1 == nargin
                 map = containers.Map;
@@ -240,9 +302,13 @@ classdef Exp
                         iter = e.iterReference.iterator;
                         map(iter.id) = iter;
                     end
+                case e.ITERATOR
+                    map(e.val) = e.iterReference;
                 case e.OPERATION
                     for i=1:length(e.args)
-                        map = findIterators(e.args(i), map);
+                      if isa(e.args{i}, 'Exp')
+                        map = findIterators(e.args{i}, map);
+                      end
                     end
             end
             iters = map;            
@@ -260,13 +326,31 @@ classdef Exp
                     if isa(e.iterReference, 'IteratorReference')
                         s = [s '[' e.iterReference.toStr ']'];
                     end
+                case e.ITERATOR
+                    s = e.val;
                 case e.LITERAL
-                    s = num2str(e.val);
+                    if length(e.val) > 1
+                        s = ['[' num2str(e.val) ']'];
+                    else
+                        s = num2str(e.val);
+                    end
                 case e.OPERATION
-                    if length(e.args) == 1
-                        s = ['(' e.op '(' toStr(e.args(1)) '))'];
-                    elseif length(e.args) == 2
-                        s = ['(' toStr(e.args(1)) e.op toStr(e.args(2)) ')'];
+                    if strcmp(e.op, 'piecewise')
+                        if length(e.args) == 1
+                            s = toStr(e.args{1});
+                        else
+                            s = '{';
+                            for i=1:2:(length(e.args)-1);
+                                s = [s toStr(e.args{i}) ' when ' toStr(e.args{i+1}) ', '];
+                            end
+                            s = [s  toStr(e.args{end}) ' otherwise}'];
+                        end
+                    else
+                        if length(e.args) == 1
+                            s = ['(' e.op '(' toStr(e.args{1}) '))'];
+                        elseif length(e.args) == 2
+                            s = ['(' toStr(e.args{1}) e.op toStr(e.args{2}) ')'];
+                        end
                     end
             end
         end
@@ -282,10 +366,25 @@ classdef Exp
 end
 
 function er = oper(operation, args)
-for i=1:length(args)
-    exps(i) = Exp(args{i});
+len = length(args);
+exps = cell(1,len);
+for i=1:len
+    exps{i} = Exp(args{i});
 end
 er = Exp;
+% check binary operations
+if len == 2
+    len1 = length(args{1});
+    len2 = length(args{2});
+    if len1 > 1 && len2 > 1 && (len1 ~= len2)
+        error('Simatra:Exp', 'Invalid array sizes');
+    end
+    if len1 > len2
+        er.dims = exps{1}.dims;
+    else
+        er.dims = exps{2}.dims;
+    end
+end
 er.type = er.OPERATION;
 er.op = operation;
 er.args = exps;

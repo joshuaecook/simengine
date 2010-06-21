@@ -38,7 +38,7 @@ classdef Iterator < handle
                     else
                         error('no solver');
                     end
-                elseif strcmpi(arg, 'dt')
+                elseif strcmpi(arg, 'dt') || strcmpi(arg, 'sample_period')
                     if length(args) > 1
                         if isnumeric(args{2})
                             iter.dt = args{2};
@@ -52,6 +52,14 @@ classdef Iterator < handle
                 elseif 1 == i && ischar(arg)
                     iter.id = arg;
                     args = args(2:end);
+                else 
+                  if ischar(arg)
+                    error('Simatra:Iterator', ['Unexpected argument ' ...
+                    '%s'], arg);
+                  elseif isnumeric(arg)
+                    error('Simatra:Iterator', ['Unexpected argument ' ...
+                    '%g'], arg);
+                  end
                 end
                 i = i + 1;
             end
@@ -77,7 +85,7 @@ classdef Iterator < handle
         
         function str = toStr(iter)
             if strcmpi(iter.type, 'discrete')
-                options = ['dt=' num2str(iter.dt)];
+                options = ['sample_period=' num2str(iter.dt)];
             else
                 options = ['solver=' iter.solver '{dt=' num2str(iter.dt) '}'];
             end

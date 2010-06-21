@@ -9,8 +9,11 @@ classdef Model < handle
 %   input - define a model input
 %   state - define a state of the system
 %   output - define a model output
+%   random - define a random number
 %   equ - define an intermediate equation
 %   diffequ - define a differential equation
+%   recurrenceequ - define a recurrence (difference) equation
+%   update - define when a state variable updates
 %   submodel - instantiate a sub model
 %
 %   Model Processing:
@@ -30,6 +33,8 @@ classdef Model < handle
         IntermediateEqs
         IntermediateEqsNames
         DiffEqs
+        RecurrenceEqs
+        Randoms
     end
     
     properties (Access = private)
@@ -56,10 +61,12 @@ classdef Model < handle
             m.Inputs = containers.Map;
             m.Outputs = containers.Map;
             m.States = containers.Map;
+            m.Randoms = containers.Map;
             m.Instances = containers.Map;
             m.IntermediateEqs = containers.Map('KeyType','uint32','ValueType','Any');
             m.IntermediateEqsNames = containers.Map;
             m.DiffEqs = struct();
+            m.RecurrenceEqs = struct();
             m.cachedModels = containers.Map;
         end
         
@@ -93,11 +100,81 @@ classdef Model < handle
                 args = varargin(i:end);
             end
             
-            if isfield(m.States, id)
+            if m.States.isKey(id)
                 error('Simatra:Model', ['State ' id ' already exists']);
             else
                 e = Exp(id);
                 m.States(id) = struct('init', init, 'iterator', iterator);
+            end
+    
+        end
+
+        
+       function e = random(m, varargin)
+            
+            % default arguments
+            id = ['InternalRandomState__' num2str(m.state_number)];
+            m.state_number = m.state_number + 1;
+            iterator = false;
+            uniform = true;
+            mean = 0;
+            stddev = 1;
+            high = 1;
+            low = 0;
+            
+            args = varargin;
+            i = 1; % argument counter
+            while ~isempty(args)
+                arg = args{1};
+                if ischar(arg) && strcmpi(arg, 'uniform')
+                  uniform = true; 
+                  i = i + 1;
+                elseif ischar(arg) && strcmpi(arg, 'normal')
+                  uniform = false;
+                  i = i + 1;
+                elseif ischar(arg) && strcmpi(arg, 'iter') && length(args)>1
+                    iterator = args{2};
+                    if ~isa(iterator, 'Iterator')
+                        error('Simatra:Model:state', '''iter'' argument expects an Iterator type')
+                    end
+                    i = i + 2;
+                elseif ischar(arg) && length(args)>1 && ...
+                      isnumeric(args{2})
+                  val = args{2};
+                  if strcmpi(arg, 'mean')
+                    mean = val;
+                  elseif strcmpi(arg, 'stddev')
+                    stddev = val;
+                  elseif strcmpi(arg, 'high')
+                    high = val;
+                  elseif strcmpi(arg, 'low')
+                    low = val;
+                  else
+                    error('Simatra:Model:random', ['Unexpected ' ...
+                                        'argument %s'], arg);
+                  end
+                  i = i + 2;
+                else
+                    error('Simatra:Model', 'Unexpected argument to state')
+                end
+                args = varargin(i:end);
+            end
+            
+            if m.Randoms.isKey(id)
+                error('Simatra:Model', ['Random ' id ' already exists']);
+            else
+                e = Exp(id);
+                s = struct('iterator', iterator);
+                if uniform
+                  s.uniform = true;
+                  s.high = high;
+                  s.low = low;
+                else
+                  s.uniform = false;
+                  s.mean = mean;
+                  s.stddev = stddev;
+                end
+                m.Randoms(id) = s;
             end
     
         end
@@ -172,7 +249,6 @@ classdef Model < handle
                     args = varargin(i:end);
                 end
             end
-            
             if m.Outputs.isKey(id)
                 error('Simatra:Model', ['Output ' id ' already exists']);
             else
@@ -243,6 +319,46 @@ classdef Model < handle
             m.intermediate_number = m.intermediate_number + 1;
         end
         
+        function update(m, lhs, value, whenstr, condition)
+            % UPDATE - adds an update equation to a state
+            % 
+            % Usage:
+            %   model.UPDATE(state, equation, 'when', condition)
+            % 
+            % Description:
+            %   updates the state expression <state> with the expression
+            %   <equation> when the <condition> is true.  This can be used
+            %   to define a reset condition for a state variable.
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            if 5 ~= nargin
+                error('Simatra:Model:update', 'Incorrect number of input arguments');
+            end
+            
+            % check input correctness
+            if ~isa(lhs, 'Exp')
+                error('Simatra:Model:update', 'State variable must be an expression type');
+            elseif ~isa(value, 'Exp') && ~isnumeric(value)
+                error('Simatra:Model:update', 'Value assigned in update must be an expression type');
+            elseif ~isa(condition, 'Exp') && ~isnumeric(condition)
+                error('Simatra:Model:update', 'Condition tested in update must be an expression type');
+            elseif ~strcmpi(whenstr, 'when')
+                error('Simatra:Model:update', 'Incorrect usage - see help Model/update for info');
+            elseif m.States.isKey(lhs.val)
+                error('Simatra:Model:update', 'Quantity %s is not a state variable', toStr(lhs));
+            end
+            % make sure these are Expressions just in case they are defined
+            % as numeric types
+            value = Exp(value);
+            condition = Exp(condition);
+            
+            % add as an intermediate (but don't add to the list of
+            % intermediate names)
+            m.IntermediateEqs(m.intermediate_number) = struct('lhs', lhs, 'value', value, 'condition', condition);
+            m.intermediate_number = m.intermediate_number + 1;
+        end
         
         function diffequ(m, lhs, rhs)
             id = toStr(lhs);
@@ -253,21 +369,74 @@ classdef Model < handle
             end
         end        
 
+        function recurrenceequ(m, lhs, rhs)
+            id = toStr(lhs);
+            iter = toIterReference(lhs);
+            if isfield(m.RecurrenceEqs, id)
+                error('Simatra:Model', ['Recurrence Equation assigning ' lhs ' already exists']);
+            elseif isa(iter, 'IteratorReference')
+              iter_id = iter.iterator.id;
+              if iter.delay == 1
+                m.RecurrenceEqs.(id) = struct('lhs', lhs, 'rhs', ...
+                                              rhs);    
+              else
+                error('Simatra:Model:recurrenceequ', ['Can only ' ...
+                                    'accommodate iterators expressed '...
+                                    'as ' iter_id '+1']);
+              end
+            elseif m.States.isKey(id) && isa(m.States(id).iterator, ...
+                                             'Iterator')
+              next_time = m.States(id).iterator+1;
+              m.RecurrenceEqs.(id) = struct('lhs', ...
+                                            lhs(next_time), ...
+                                            'rhs', rhs);              
+            else
+              error('Simatra:Model:recurrenceequ', ['No iterator was '...
+                    'specified for the state'])
+            end
+        end        
+
         function map = findIterators(m)
             map = containers.Map;
             % Search for iterators everywhere
             %  - first in intermediate equations
             structs = values(m.IntermediateEqs);
             for i=1:length(structs)
-                rhs = structs{i}.rhs;
-                if isa(rhs, 'Exp')
-                    map = findIterators(rhs, map);
+                if isfield(structs{i}, 'rhs')
+                    rhs = structs{i}.rhs;
+                    if isa(rhs, 'Exp')
+                        map = findIterators(rhs, map);
+                    end
+                end
+                if isfield(structs{i}, 'value')
+                    value = structs{i}.value;
+                    if isa(value, 'Exp')
+                        map = findIterators(value, map);
+                    end                    
+                end
+                if isfield(structs{i}, 'condition')
+                    condition = structs{i}.condition;
+                    if isa(condition, 'Exp')
+                        map = findIterators(condition, map);
+                    end                    
                 end
             end
             %  - Next in differential equations
             ids = fieldnames(m.DiffEqs);
             for i=1:length(ids)
                 rhs = m.DiffEqs.(ids{i}).rhs;
+                if isa(rhs, 'Exp')
+                    map = findIterators(rhs, map);
+                end
+            end
+            %  - Next in recurrence equations
+            ids = fieldnames(m.RecurrenceEqs);
+            for i=1:length(ids)
+                lhs = m.RecurrenceEqs.(ids{i}).lhs;
+                if isa(lhs, 'Exp')
+                    map = findIterators(lhs, map);
+                end
+                rhs = m.RecurrenceEqs.(ids{i}).rhs;
                 if isa(rhs, 'Exp')
                     map = findIterators(rhs, map);
                 end
@@ -298,6 +467,14 @@ classdef Model < handle
                     map(iter.id) = iter;
                 end
             end
+            % - Search through randoms
+            structs = values(m.Randoms);
+            for i=1:length(structs)
+                iter = structs{i}.iterator;
+                if isa(iter, 'Iterator')
+                    map(iter.id) = iter;
+                end
+            end
             % ADD INPUTS WHEN READY
         end
 
@@ -305,9 +482,11 @@ classdef Model < handle
             inputs = keys(m.Inputs);
             outputs = keys(m.Outputs);
             states = keys(m.States);
+            randoms = keys(m.Randoms);
             eqs = keys(m.IntermediateEqs);
             eqsNames = keys(m.IntermediateEqsNames);
-            diffeqs = fieldnames(m.DiffEqs);
+            diffeqs = fieldnames(m.DiffEqs); 
+            recurrenceeqs = fieldnames(m.RecurrenceEqs);
             instances = keys(m.Instances);
             cachedmodels = keys(m.cachedModels);
             iterators = values(findIterators(m));
@@ -355,7 +534,26 @@ classdef Model < handle
                 if isa(state.iterator, 'Iterator')
                     iter_str = [' with {iter=' state.iterator.id '}'];
                 end
-                str = [str '   state ' states{i} ' = ' num2str(state.init) iter_str '\n'];
+                str = [str '   state ' states{i} ' = ' toStr(state.init) iter_str '\n'];
+            end
+            str = [str '\n'];
+            str = [str '   // Random definitions\n'];
+            for i=1:length(randoms)
+                state = m.Randoms(randoms{i});
+                iter_str = '';
+                if isa(state.iterator, 'Iterator')
+                    iter_str = ['iter=' state.iterator.id ', '];
+                end
+                if state.uniform
+                  parameter_str = sprintf('uniform, high=%g, low=%g', state.high, ...
+                                          state.low);
+                else
+                  parameter_str = sprintf('normal, mean=%g, stddev=%g', ...
+                                          state.mean, ...
+                                          state.stddev);
+                end
+                str = [str '   random ' randoms{i} ' with {' iter_str ...
+                       parameter_str '}\n'];
             end
             str = [str '\n'];
             str = [str '   // Instance definitions\n'];
@@ -370,11 +568,19 @@ classdef Model < handle
                 index = eqs{i};
                 equ = m.IntermediateEqs(index);
                 lhs = equ.lhs;
-                rhs = equ.rhs;
-                if isRef(lhs)
-                    str = [str '   ' toStr(lhs) ' = ' toStr(rhs) '\n'];
+                if isfield(equ, 'rhs')
+                    rhs = equ.rhs;
+                    if isRef(lhs)
+                        str = [str '   ' toStr(lhs) ' = ' toStr(rhs) '\n'];
+                    else
+                        str = [str '   equation ' toStr(lhs) ' = ' toStr(rhs) '\n'];
+                    end
+                elseif isfield(equ, 'value') && isfield(equ, 'condition')
+                    value = equ.value;
+                    condition = equ.condition;
+                    str = [str '   equation ' toStr(lhs) ' = ' toStr(value) ' when ' toStr(condition) '\n'];
                 else
-                    str = [str '   equation ' toStr(lhs) ' = ' toStr(rhs) '\n'];
+                    error('Simatra:Model:toStr', 'Unexpected equation form');
                 end
             end
             str = [str '\n'];
@@ -384,6 +590,16 @@ classdef Model < handle
                 lhs = diffeqs{i};
                 rhs = m.DiffEqs.(lhs).rhs;
                 str = [str '      ' lhs ''' = ' toStr(rhs) '\n'];
+            end
+            str = [str '   end\n'];
+            str = [str '\n'];
+            str = [str '   // Recurrence equation definitions\n'];
+            str = [str '   equations\n'];
+            for i=1:length(recurrenceeqs)
+              key = recurrenceeqs{i};
+                lhs = m.RecurrenceEqs.(key).lhs;
+                rhs = m.RecurrenceEqs.(key).rhs;
+                str = [str '      ' toStr(lhs) ' = ' toStr(rhs) '\n'];
             end
             str = [str '   end\n'];
             str = [str '\n'];
