@@ -1963,7 +1963,8 @@ fun state_init_code shardedModel iter_sym =
 					 SymbolSet.member (symset, Term.sym2curname name)
 				     end
 				     
-				 val inpnames: Exp.term list = ClassProcess.foldInputs (fn (input, names) => (DOF.Input.name input) :: names) nil instclass
+				 val inpnames: Exp.term list = 
+				     rev (ClassProcess.foldInputs (fn (input, names) => (DOF.Input.name input) :: names) nil instclass)
 				 val inpargs: Exp.exp list = 
 				     map (fn (name, arg) =>
 					     if hasInitialValueEquation (ivqReadsInput name) instclass then
