@@ -1036,11 +1036,27 @@ fun orderModel (model:DOF.model)=
 
 		val instanceDepInstances = List.mapPartial depoutput2instance (SymbolSet.listItems instanceDeps)
 
+		(* fun computeReachingDeps deps = *)
+		(*     let  *)
+		(* 	val deps' = SymbolSet.union(foldl SymbolSet.union SymbolSet.empty (map (fn(i) => valOf (SymbolTable.look(expMap, i))) (SymbolSet.listItems deps)), *)
+		(* 				    deps) *)
+		(*     in *)
+		(* 	if SymbolSet.equal(deps, deps') then *)
+		(* 	    deps *)
+		(* 	else *)
+		(* 	    computeReachingDeps deps' *)
+		(*     end *)
+
+		(* val depsOfInstanceDepInstances = computeReachingDeps (SymbolSet.fromList instanceDepInstances) *)
+
 		val depsOfInstanceDepInstances = foldl SymbolSet.union SymbolSet.empty (map (fn(i) => valOf (SymbolTable.look(expMap, i))) instanceDepInstances)
 
 		val _ = print ("instanceDepInstances = " ^ (String.concatWith ", " (map Symbol.name instanceDepInstances)) ^ "")
 		val _ = print ("depsOfInstanceDepInstances = " ^ (String.concatWith ", " (map Symbol.name (SymbolSet.listItems depsOfInstanceDepInstances))) ^ "")
-		val mutuallyRecursiveInstances = List.exists (fn(os) => SymbolSet.member (depsOfInstanceDepInstances, os)) outputSyms
+
+		(* setting this to true so that we ALWAYS split classes *)
+		val mutuallyRecursiveInstances = (*List.exists (fn(os) => SymbolSet.member (depsOfInstanceDepInstances, os)) outputSyms*) true
+		val _ = print ("mutuallyRecursiveInstances = " ^ (Bool.toString mutuallyRecursiveInstances))
 	    in
 		(* if the instance depends on any of its outputs, or if the deps of the instance depend upon any outputs that are from an instance that depends upon an output, then we know that a cycle exists *)
 
