@@ -8,7 +8,7 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
   unsigned int active_models;
   solver_props *device_props;
 #if NUM_SAMPLED_INPUTS > 0
-  psampled_input_t tmp_sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
+  sampled_input_t tmp_sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
 #endif
 
   num_gpu_threads = GPU_BLOCK_SIZE < props->num_models ? GPU_BLOCK_SIZE : props->num_models;
