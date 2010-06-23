@@ -464,11 +464,11 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	char tmp[PATH_MAX];
 	char *dupdir = strdup(optarg);
 
-	strncat(tmp, dirname(dupdir), PATH_MAX-1);
+	strncpy(tmp, dirname(dupdir), PATH_MAX-1);
 	if (strlen(tmp) > 0)
 	  strncat(tmp, "/json-interface.tmp", PATH_MAX-1 - strlen(tmp));
 	else
-	  strncat(tmp, "json-interface.tmp", PATH_MAX-1 - strlen(tmp));
+	  strncpy(tmp, "json-interface.tmp", PATH_MAX-1 - strlen(tmp));
 
 	free(dupdir);
 	
