@@ -378,9 +378,9 @@ fun optimizeModel order (model:DOF.model) =
 
 	val _ = DynException.checkToProceed()
 
-	val _ = Logger.log_notice (Printer.$("Removing redundancy ..."))
 	val _ = if DynamoOptions.isFlagSet "redundancy" then
 		    let
+			val _ = Logger.log_notice (Printer.$("Removing redundancy ..."))
 			val verbose = DynamoOptions.isFlagSet "verbose"
 			val cost_before = if verbose then
 					      Cost.model2cost model
