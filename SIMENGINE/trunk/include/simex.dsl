@@ -52,10 +52,10 @@ import "command_line.dsl"
     var profile = false
     var precision = "double"
     var parallelModels = 1
-    var cFlags = ["-W", "-Wall", "-fPIC", "-fopenmp"]
+    var cFlags = ["-W", "-Wall", "-fPIC"]
     var cppFlags = []
     var ldFlags = []
-    var ldLibs = ["-lm", "-lgomp"]
+    var ldLibs = ["-lm"]
 
     constructor(compilerSettings)
       debug = settings.simulation_debug.debug.getValue()
@@ -164,6 +164,8 @@ import "command_line.dsl"
     end
 
     function setupMake (m: Make)
+      m.CFLAGS.push_back("-fopenmp")
+      m.LDLIBS.push_back("-lgomp")
       if "double" <> precision then
 	m.LDLIBS.push_back("-lcvode_float")
       else
@@ -432,15 +434,15 @@ import "command_line.dsl"
     if gdb then
       var emacsArgs
       if "gpu" == settings.simulation.target.getValue() then
-	emacsArgs = ["--eval", "(debugit \"" + FileSystem.pwd() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\" \"cuda-gdb\")"]
+	emacsArgs = ["--eval", "(debugit \"" + settings.compiler.outputdir.getValue() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\" \"cuda-gdb\")"]
       else
-	emacsArgs = ["--eval", "(debugit \"" + FileSystem.pwd() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\")"]
+	emacsArgs = ["--eval", "(debugit \"" + settings.compiler.outputdir.getValue() + "\" \"" + simulation + "\" \"" + join(" ", simexCommands) + "\")"]
       end
       println("Launching simulation in gdb: emacsclient '" + join("' '", emacsArgs) + "'")
       // emacsclient does not return until the file opened is closed with Ctrl-X #
-//      p = Process.run("emacsclient", ["emacsclient-buffer_close_to_allow_matlab_to_continue"])
+      p = Process.run("emacsclient", ["emacsclient-buffer_close_to_allow_matlab_to_continue"])
       // emacsclient returns immediately when called with '--eval'
-      p = Process.run("emacs", emacsArgs)
+      Process.run("emacsclient", emacsArgs)
     else
       if debug then
 	println("Run: " + simulation + " " + (join(" ", simexCommands)))
