@@ -27,7 +27,7 @@ for i=1:numCompartments
 end
 
 % Now connect them all together
-compartments{1}.I_app = (compartments{2}.Vm - compartments{2}.Vm)/R + I_begin;
+compartments{1}.I_app = (compartments{2}.Vm - compartments{1}.Vm)/R + I_begin;
 for i=2:(numCompartments-1)
     compartments{i}.I_app = (compartments{i+1}.Vm-compartments{i}.Vm)/R + ...
         (compartments{i-1}.Vm-compartments{i}.Vm)/R + I_middle;

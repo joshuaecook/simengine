@@ -19,7 +19,7 @@ numStins = 6;
 stins = cell(1,numStins);
 for i=1:numStins
     stins{i} = m.submodel(stin);
-    stins{i}.diameter = 3.4; stins{i}.length=35; stins{i}.Vext = VextLeft + (VextRight - VextLeft)*(108+i*70)/497;
+    stins{i}.diameter = 3.4; stins{i}.length=70; stins{i}.Vext = VextLeft + (VextRight - VextLeft)*(108+i*70)/497;
 end
 flutB = m.submodel(flut);
 flutB.diameter = 3.4; flutB.length=35; flutB.Vext = VextLeft + (VextRight - VextLeft)*493/497;
