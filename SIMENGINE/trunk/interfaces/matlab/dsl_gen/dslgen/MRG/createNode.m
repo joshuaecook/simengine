@@ -7,9 +7,9 @@ function m_node = createNode(t_imp, t_exp)
 m_node = Model('node');
 
 length = m_node.input('length', 1);
-diameter = m_node.input('diameter', 1);
-Isegmental = m_node.input('Isegmental', 1);
-Vext = m_node.input('Vext', 1);
+diameter = m_node.input('diameter', 1.9);
+Isegmental = m_node.input('Isegmental', 0);
+Vext = m_node.input('Vext', 0);
 
 paspace = 0.002;
 
