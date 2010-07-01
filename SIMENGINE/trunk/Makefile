@@ -433,8 +433,9 @@ MATLAB_GUI_FILES =
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simexamplepath simCheckVersion simEngineUpdate simCheckLicense))
 MATLAB_MEX = $(addprefix $(BUILD_DIR)/readSimulationData,$(MEXEXT))
 
+UNIT_FILES = $(addsuffix .m, GenericUnit BaseUnit SIUnit Unit Units test_units)
 DSLGEN_FILES = $(addsuffix .m, Exp Instance Iterator IteratorReference Model)
-MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES))
+MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES) $(UNIT_FILES))
 
 # Just needed for the p files
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
@@ -593,7 +594,7 @@ $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
 $(LOCAL_INSTALL)/%.m: interfaces/matlab/dsl_gen/%.m
 	$(CP) $< $@
 
-LOCAL_DSLGEN = $(addprefix $(LOCAL_INSTALL)/,$(DSLGEN_FILES))
+LOCAL_DSLGEN = $(addprefix $(LOCAL_INSTALL)/,$(DSLGEN_FILES) $(UNIT_FILES))
 install-locally: $(LOCAL_INSTALL) 
 	@$(MAKE) expand_tgz $(LOCAL_INSTALL)/compile_tests.m
 	$(info Local install at $(LOCAL_INSTALL) ready)
