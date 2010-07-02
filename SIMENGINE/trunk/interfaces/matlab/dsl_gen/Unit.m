@@ -47,23 +47,25 @@ classdef Unit < GenericUnit
         end
         
         function s = toStr(u)
-            s = [];
+            c = {};
             if u.flatfactor ~= 1
-                s = num2str(u.flatfactor);
-                if ~isempty(u.flatdata)
-                    s = [s '*'];
-                end
+                c{1} = num2str(u.flatfactor);
             end
             for i=1:length(u.flatdata)
                 d = u.flatdata(i);
-                s = [s d.unit.id];
+                str = d.unit.id;
                 if d.exp ~= 1
-                    s = [s '^' num2str(d.exp)];
+                    str = [str '^' num2str(d.exp)];
                 end
-                if i < length(u.flatdata)
-                    s = [s '*'];
+                if length(u.flatdata) == 1 || ~strcmp(d.unit.id, '_')
+                    c{end+1} = str;
                 end
             end
+            s = '';
+            for i=1:(length(c)-1)
+                s = [s c{i} '*'];
+            end
+            s = [s c{end}];
         end
     end
 

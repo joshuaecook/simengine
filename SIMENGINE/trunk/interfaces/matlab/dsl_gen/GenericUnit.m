@@ -103,10 +103,13 @@ classdef GenericUnit
             keys = map.keys;
             new_data = [];
             for i=1:length(keys)
-                if i==1
-                    new_data = map(keys{1});
-                else
-                    new_data(i) = map(keys{i});
+                v = map(keys{i});
+                if v.exp ~= 0
+                    if i==1
+                        new_data = v;
+                    else
+                        new_data(i) = v;
+                    end
                 end
             end
         end
