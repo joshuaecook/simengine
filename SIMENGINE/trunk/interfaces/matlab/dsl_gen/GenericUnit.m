@@ -56,23 +56,28 @@ classdef GenericUnit
             for i=1:length(u.data)
 %                 disp(sprintf('i = %d', i));
 %                 u.data(i)
+                % u.data(i).unit
                 u1 = u.data(i).unit;
                 e = u.data(i).exp;
                 if isa(u1, 'BaseUnit')
+                    factor = factor * u.data(i).prefix^e;
                     new_data = append(new_data, struct('unit', u1, 'exp', e));
                 elseif isa(u1, 'SIUnit')
-                    factor = factor * u1.factor;
+                    orig_factor = factor;
+                    
+                    factor = factor * u1.factor^e;
                     u_base = Unit(u1.base);
                     factor = factor * u_base.flatfactor;
+                    %disp(sprintf('Orig: %g, u1.factor: %g, u_base.flatfactor: %g, e: %g, New: %g', orig_factor, u1.factor, u_base.flatfactor, e, factor));
                     dat = u_base.flatdata;
                     for j=1:length(dat)
                         dat(j).exp = dat(j).exp * e;
                         new_data = append(new_data, dat(j));
                     end
                 elseif isa(u1, 'Unit')
-%                     fprintf(1, 'Found Unit (# data = %d) -> ', length(u1.flatdata));
-%                     disp(u1)
-                    factor = factor * u1.flatfactor;
+                     %fprintf(1, 'Found Unit (# data = %d) -> ', length(u1.flatdata));
+                     %disp(u1)
+                    factor = factor * u1.flatfactor^e;
                     for j=1:length(u1.flatdata)
                         d = u1.flatdata(j);
                         d.exp = d.exp * e;
@@ -105,7 +110,7 @@ classdef GenericUnit
             for i=1:length(keys)
                 v = map(keys{i});
                 if v.exp ~= 0
-                    if i==1
+                    if isempty(new_data);
                         new_data = v;
                     else
                         new_data(i) = v;
@@ -122,7 +127,8 @@ function ur = toUnit(u)
 if isa(u, 'GenericUnit')
     ur = u;
 elseif isnumeric(u)
-    s = struct('unit', dimensionless, 'prefix', u, 'exp', 1);
+    du = dimensionless;
+    s = struct('unit', du, 'prefix', u, 'exp', 1);
     ur = Unit(s);
 else
     error('Simatra:GenericUnit', 'Not a unit');
