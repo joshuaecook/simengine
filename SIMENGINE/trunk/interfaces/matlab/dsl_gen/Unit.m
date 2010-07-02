@@ -65,7 +65,11 @@ classdef Unit < GenericUnit
             for i=1:(length(c)-1)
                 s = [s c{i} '*'];
             end
-            s = [s c{end}];
+            if isempty(c)
+                s = '_';
+            else
+                s = [s c{end}];
+            end
         end
     end
 
