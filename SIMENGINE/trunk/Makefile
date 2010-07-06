@@ -64,13 +64,13 @@ help:
 	$(info ****  make compiler - Just build the compiler         ****)
 	$(info ****                  in accordance with BUILD_TYPE   ****)
 	$(info ****                                                  ****)
-	$(info ****  make compiler-64 - Build the compiler with libs ****)
-	$(info ****                     in 64-bit                    ****)
-	$(info ****                                                  ****)
+#	$(info ****  make compiler-64 - Build the compiler with libs ****)
+#	$(info ****                     in 64-bit                    ****)
+#	$(info ****                                                  ****)
 	$(info ****  make pcode - Build a pcode installer            ****)
 	$(info ****                                                  ****)
-	$(info ****  make pcode-64 - Build a 64-bit pcode installer  ****)
-	$(info ****                                                  ****)
+#	$(info ****  make pcode-64 - Build a 64-bit pcode installer  ****)
+#	$(info ****                                                  ****)
 	$(info ****  make profiling-tools - Builds the profiling     ****)
 	$(info ****                         tools                    ****)
 	$(info ****                                                  ****)
@@ -199,6 +199,7 @@ INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=../..
 DEBUG=true
 UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/development"
+REMOTE_BUILD_DIR = "Build_$(REV)"
 else	
 ifeq ($(TRUNK),1)		
 RELEASE = "trunk"
@@ -208,6 +209,7 @@ VERSION = "_BUILD_$(REV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=..
 UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/development"
+REMOTE_BUILD_DIR = "Build_trunk"
 else	
 ifeq ($(TAG),1)
 RELEASE = "tag"
@@ -217,12 +219,14 @@ INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 VERSION = ""#"$(REV)_$(BUILD_TYPE)"
 TOP_LEVEL=../..
 UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/release"
+REMOTE_BUILD_DIR = "Build_$(REV)"
 else	
 RELEASE = "unknown"
 #INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 TOP_LEVEL=unknown
 VERSION = "_unknown"
+REMOTE_BUILD_DIR = "Build_unknown"
 endif
 endif	
 endif	
@@ -293,11 +297,11 @@ compiler:
 	$(MAKE) $(DSL_EL)
 	$(MAKE) install-locally
 
-compiler-64:
-	@$(MAKE) compiler ARCH64=x86_64
+#compiler-64:
+#	@$(MAKE) compiler ARCH64=x86_64
 
-pcode-64:
-	@$(MAKE) pcode ARCH64=x86_64
+#pcode-64:
+#	@$(MAKE) pcode ARCH64=x86_64
 
 ifneq ($(PRIVATE_KEY),)
 simatra_private.o: $(PRIVATE_KEY)
@@ -307,6 +311,71 @@ createLicense.cgi: codegen src/createLicense/createLicense.mlb src/ffi/ffi-licen
 trialLicense: codegen src/trialLicense/trialLicense.c src/ffi/ffi-license.c simatra_private.o
 	gcc -o $@  -DTRIAL_CREATION -DENABLE_ENCODE src/trialLicense/trialLicense.c src/ffi/ffi-license.c simatra_private.o /usr/lib/libcrypto.a codegen/simlib/simlib.a -ldl -lz -rdynamic
 endif
+
+# Remote compilation
+# ==============================================================================================
+
+REMOTE_BASE_DIR = /Users/$(USER)/RemoteBuilds
+REMOTE_DIR = $(REMOTE_BASE_DIR)/$(REMOTE_BUILD_DIR)
+TRANSFER_LOG = transfer.log
+
+ifeq ($(USER),rweinstein)
+LINUX64_MACHINE = bernoulli
+LINUX32_MACHINE = sherrington
+MAC_MACHINE = franklin
+SOURCE_CMD = source .zshrc
+else
+ifeq ($(USER),jcook)
+LINUX64_MACHINE = bernoulli
+LINUX32_MACHINE = sherrington
+MAC_MACHINE = franklin
+SOURCE_CMD = source .zshrc
+else
+ifeq ($(USER),clebsack)
+LINUX64_MACHINE = bernoulli
+LINUX32_MACHINE = steele
+MAC_MACHINE = franklin
+SOURCE_CMD = source .bashrc
+else
+ifeq ($(USER),cchurch)
+LINUX64_MACHINE = bernoulli
+LINUX32_MACHINE = steele
+MAC_MACHINE = franklin
+SOURCE_CMD = source .bashrc
+else
+$(info User $(USER) not recognized, please add build information to Makefile)
+LINUX64_MACHINE = 
+LINUX32_MACHINE = 
+MAC_MACHINE = 
+SOURCE_CMD =
+endif
+endif
+endif
+endif
+
+compile-%: clean-transfer-log $(TRANSFER_LOG)
+	@echo "Remote compiling on $*"
+	@echo "Remote base directory: $(REMOTE_DIR)"
+	@DEST="$*"; \
+	SSH="ssh -Y $$DEST"; \
+	 RSYNC_SEND="rsync -azv --delete --include-from=$(TRANSFER_LOG) . $$DEST:$(REMOTE_DIR)/"; \
+	 RSYNC_RCV="rsync -azv $$DEST:$(REMOTE_DIR)/$(LOCAL_INSTALL) ."; \
+	 echo "Creating remote directory ..."; \
+	 $$SSH mkdir -p $(REMOTE_DIR); \
+	 echo "Transfering data to $$DEST (directory=$(REMOTE_DIR))"; \
+	 echo "rsync send command: $$RSYNC_SEND"; \
+	 $$RSYNC_SEND; \
+	 echo "Running external make command"; \
+	 $$SSH "$(SOURCE_CMD); cd $(REMOTE_DIR); make compiler"; \
+	 echo "Transfering data back from $$DEST"; \
+	 $$RSYNC_RCV; \
+	 echo "Compilation done!!!"
+
+clean-transfer-log:
+	$(RM) $(TRANSFER_LOG)
+
+$(TRANSFER_LOG):
+	find . | grep -v '\.svn' | grep -v '$(SIMENGINE)*.tgz' | grep -v '\./local-install' | grep -v '\.simex' > $@
 
 # Build Directory per Build Type
 # ==============================================================================================
