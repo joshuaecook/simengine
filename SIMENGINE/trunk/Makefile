@@ -317,7 +317,8 @@ endif
 
 REMOTE_BASE_DIR = /Users/$(USER)/RemoteBuilds
 REMOTE_DIR = $(REMOTE_BASE_DIR)/$(REMOTE_BUILD_DIR)
-TRANSFER_LOG = transfer.log
+EXCLUDE_LOG = exclude.lst
+INCLUDE_LOG = include.lst
 
 ifeq ($(USER),rweinstein)
 LINUX64_MACHINE = bernoulli
@@ -353,12 +354,12 @@ endif
 endif
 endif
 
-compile-%: clean-transfer-log $(TRANSFER_LOG)
+compile-%: clean-transfer-log $(INCLUDE_LOG) $(EXCLUDE_LOG)
 	@echo "Remote compiling on $*"
 	@echo "Remote base directory: $(REMOTE_DIR)"
 	@DEST="$*"; \
 	SSH="ssh -Y $$DEST"; \
-	 RSYNC_SEND="rsync -azv --delete --include-from=$(TRANSFER_LOG) . $$DEST:$(REMOTE_DIR)/"; \
+	 RSYNC_SEND="rsync -azv --include-from=$(INCLUDE_LOG) --exclude-from=$(EXCLUDE_LOG) . $$DEST:$(REMOTE_DIR)/"; \
 	 RSYNC_RCV="rsync -azv $$DEST:$(REMOTE_DIR)/$(LOCAL_INSTALL) ."; \
 	 echo "Creating remote directory ..."; \
 	 $$SSH mkdir -p $(REMOTE_DIR); \
@@ -372,10 +373,21 @@ compile-%: clean-transfer-log $(TRANSFER_LOG)
 	 echo "Compilation done!!!"
 
 clean-transfer-log:
-	$(RM) $(TRANSFER_LOG)
+	$(RM) $(INCLUDE_LOG) $(EXCLUDE_LOG)
 
-$(TRANSFER_LOG):
-	find . | grep -v '\.svn' | grep -v '$(SIMENGINE)*.tgz' | grep -v '\./local-install' | grep -v '\.simex' > $@
+$(INCLUDE_LOG):
+	@echo "+ src/util/build-options.sml" > $@
+
+$(EXCLUDE_LOG):
+	@echo "- build*/**" > $@
+	@echo "- local-install*" >> $@
+#	@echo "- **svn**" >> $@
+	@echo "- simEngine*.tgz" >> $@
+	@echo "- .simex**" >> $@
+	@echo "- **~" >> $@
+	@echo "- $(INCLUDE_LOG)" >> $@
+	@echo "- $(EXCLUDE_LOG)" >> $@
+
 
 # Build Directory per Build Type
 # ==============================================================================================
