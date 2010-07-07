@@ -903,10 +903,17 @@ namespace Simulation
       inputVal = val
     end
 
+    var name
+    property name
+	get 
+	    self.inputDef.getName()
+	end
+    end
+
     function tostring ()
       var str = self.class.name + "("
       str = str + "name=" + (self.inputDef.getName())
-      str = str + ", value=" + (self.inputVal)
+      str = str + ", value=" + (inputValue)
       str + ")"
     end
 

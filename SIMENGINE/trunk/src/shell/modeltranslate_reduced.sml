@@ -590,19 +590,19 @@ fun createClass top_class classes object =
 		val output_names = map outbinding2name
 				       (vec2list (method "outputs" obj))
 
-		val input_exps = map (fn(inp) => method "inputVal" inp) 
+		val input_exps = map (fn(inp) => (inp, method "inputVal" inp))
 				     (vec2list (method "inputs" obj))
 
-		val name = #name class
+		val name' = #name class
 
 		val objname = Symbol.symbol (exp2str (method "name" obj))
 
 		val lhs = Exp.TUPLE (map (fn(out) => exp2term (ExpBuild.var out)) output_names)
 
 		(* check for NaN on inputs *)
-		val _ = app (fn(i) => case i of
-					  KEC.UNDEFINED => error ("Undefined Value detected on input in submodel " ^
-								  (Symbol.name objname)^ 
+		val _ = app (fn(inp,i) => case i of
+					  KEC.UNDEFINED => error ("Undefined Value detected on input " ^ (exp2str (method "name" inp)) ^ " in submodel " ^
+								  (Symbol.name objname)^ " in " ^ (Symbol.name name) ^
 								  ".  Possibly input value was not specified.")
 					| KEC.LITERAL(KEC.CONSTREAL (r)) => if Real.isNan r then
 										error ("Value NaN detected on input in submodel " ^
@@ -615,10 +615,10 @@ fun createClass top_class classes object =
 
 		val iterators = map (fn(e) => Symbol.symbol (exp2str (method "name" e))) (vec2list (method "dimensions" obj))
 
-		val rhs = Exp.FUN (Fun.INST {classname=name,
+		val rhs = Exp.FUN (Fun.INST {classname=name',
 					     instname=objname,
 					     props=InstProps.setIterators InstProps.emptyinstprops iterators},
-				   map (fn(i) => quantity_to_dof_exp i) input_exps)
+				   map (fn(_,i) => quantity_to_dof_exp i) input_exps)
 
 		val exp = ExpBuild.equals (Exp.TERM lhs, rhs)
 		(*
@@ -666,6 +666,7 @@ fun createClass top_class classes object =
 	 submodelclasses)
     end
     handle TranslationError => raise TranslationError
+	 | DynException.RestartRepl => raise DynException.RestartRepl
 	 | e => DynException.checkpoint "ModelTranslate.createClass" e
 
 
