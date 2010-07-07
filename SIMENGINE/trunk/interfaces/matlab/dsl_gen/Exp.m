@@ -44,8 +44,19 @@ classdef Exp
         end
         
         % Algebraic operations
-        function er = plus(e1, e2)
-            er = oper('+', {e1, e2});
+        function er = plus(varargin)
+            fcn = @(elem, init)(oper('+', {init, elem}));
+            switch nargin
+                case 0
+                    error('Simatra:Exp:plus','Not enough input arguments');
+                case 1
+                    er = Exp(varargin{1}); % NON STANDARD BEHAVIOR
+                case 2
+                    er = oper('+', varargin);
+                otherwise
+                    er = foldl(fcn, varargin{1}, varargin(2:end));
+            end
+            %er = oper('+', {e1, e2});
         end
         
         function er = minus(e1, e2)
@@ -56,8 +67,19 @@ classdef Exp
             er = oper('-', {e1});
         end
         
-        function er = times(e1, e2)
-            er = oper('*', {e1, e2});
+        function er = times(varargin)
+            fcn = @(elem, init)(oper('*', {init, elem}));
+            switch nargin
+                case 0
+                    error('Simatra:Exp:times','Not enough input arguments');
+                case 1
+                    er = Exp(varargin{1}); % NON STANDARD BEHAVIOR
+                case 2
+                    er = oper('*', varargin);
+                otherwise
+                    er = foldl(fcn, varargin{1}, varargin(2:end));
+            end
+            %er = oper('*', {e1, e2});
         end
         
         function er = mtimes(e1, e2)
@@ -110,12 +132,34 @@ classdef Exp
         end
         
         % Logical
-        function er = and(e1, e2)
-            er = oper(' and ', {e1, e2});
+        function er = and(varargin)
+            fcn = @(elem, init)(oper(' and ', {init, elem}));
+            switch nargin
+                case 0
+                    error('Simatra:Exp:and','Not enough input arguments');
+                case 1
+                    er = Exp(varargin{1}); % NON STANDARD BEHAVIOR
+                case 2
+                    er = oper(' and ', varargin);
+                otherwise
+                    er = foldl(fcn, varargin{1}, varargin(2:end));
+            end
+            %er = oper(' and ', {e1, e2});
         end
         
-        function er = or(e1, e2)
-            er = oper(' or ', {e1, e2});
+        function er = or(varargin)
+            fcn = @(elem, init)(oper(' or ', {init, elem}));
+            switch nargin
+                case 0
+                    error('Simatra:Exp:or','Not enough input arguments');
+                case 1
+                    er = Exp(varargin{1}); % NON STANDARD BEHAVIOR
+                case 2
+                    er = oper(' or ', varargin);
+                otherwise
+                    er = foldl(fcn, varargin{1}, varargin(2:end));
+            end
+            %er = oper(' or ', {e1, e2});
         end
 
         function er = not(e1)
@@ -223,6 +267,14 @@ classdef Exp
             er = oper('piecewise', varargin);
         end
         
+        % extra functions
+        function er = piecewise_piece(e1, e2)
+            er = oper('piece', {e1, e2});
+        end
+        function er = piecewise_otherwise(e1)
+            er = oper('otherwise', e1);
+        end
+        
         % Compound functions (TODO - make these have arbitrary numbers of
         % arguments)
         function er = max(e1, e2)
@@ -289,6 +341,27 @@ classdef Exp
 
         end
         
+        % Expression Processing
+        % =======================================================
+        
+        function syms = exp_to_symbols(e)
+            switch e.type
+                case {e.VARIABLE, e.ITERATOR}
+                    syms = {e.val};
+                case e.LITERAL
+                    syms = {};
+                case e.REFERENCE
+                    syms = {}; % ignore this since this is a different scope
+                case e.OPERATION
+                    syms = {};
+                    for i=1:length(e.args)
+                        syms = [syms exp_to_symbols(e.args{i})];
+                    end
+            end
+            syms = unique(syms);
+        end
+        
+        
         function i = toIterReference(e)
         i = e.iterReference;
         end
@@ -298,6 +371,10 @@ classdef Exp
                 map = containers.Map;
             end
             
+            if isempty(e.type)
+                e
+                error('Simatra:Exp:findIterators', 'Unexpected empty expression type')
+            end
             switch e.type
                 case {e.VARIABLE, e.REFERENCE}
                     if isa(e.iterReference, 'IteratorReference')
@@ -316,7 +393,20 @@ classdef Exp
             iters = map;            
         end
         
+        
+        % Display functions
+        % =======================================================
+        
+        function s = char(e)
+            s = toStr(e);
+        end
+        
         function s = toStr(e)
+            if isempty(e.type)
+                e.val
+                error('Simatra:Exp:toStr', 'Unexpected empty expression type')
+            end
+
             switch e.type
                 case e.VARIABLE
                     s = e.val;
@@ -390,4 +480,19 @@ end
 er.type = er.OPERATION;
 er.op = operation;
 er.args = exps;
+end
+
+% FOLDL - folds the list by executing the function and reducing it to one
+% value
+function r = foldl(fcn, init, list)
+
+switch length(list)
+    case 0
+        r = init;
+    case 1
+        r = fcn(list{1},init);
+    otherwise
+        r = foldl(fcn, fcn(list{1}, init), list(2:end));
+end
+
 end

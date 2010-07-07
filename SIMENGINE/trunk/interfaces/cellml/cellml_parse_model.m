@@ -29,8 +29,8 @@ function [units, components, groups, connections, symbols] = cellml_parse_model(
 	components(end+1).name = name;
 	components(end).variables = vars;
 	components(end).math = math;
-	components(end).symbols = symbols;
-        symbols(name) = components(end);
+	components(end).symbols = syms;
+        symbols(name) = length(components);
       case 'group'
 	[rel_ref, comp_ref] = cellml_parse_group(elem);
 	groups(end+1).relationship_ref = rel_ref;

@@ -405,6 +405,7 @@ classdef Model < handle
                 if isfield(structs{i}, 'rhs')
                     rhs = structs{i}.rhs;
                     if isa(rhs, 'Exp')
+                        lhs = structs{i}.lhs;
                         map = findIterators(rhs, map);
                     end
                 end
@@ -478,6 +479,11 @@ classdef Model < handle
             % ADD INPUTS WHEN READY
         end
 
+        function [inputs, outputs] = interface(m)
+            inputs = keys(m.Inputs);
+            outputs = keys(m.Outputs);
+        end
+        
         function str = toStr(m)
             inputs = keys(m.Inputs);
             outputs = keys(m.Outputs);
@@ -666,6 +672,84 @@ classdef Model < handle
         
     end
     
+    methods (Access = protected)
+        function order_equations(m)
+            m.IntermediateEqs
+            equkeys = m.IntermediateEqs.keys;
+            
+            % create dependency list
+            dependencies = cell(1,length(equkeys));
+            all_lhs = {};
+            for i=1:length(equkeys)
+                s = m.IntermediateEqs(equkeys{i});
+                lhs = s.lhs;
+                rhs = s.rhs;
+                lhs_symbols = exp_to_symbols(Exp(lhs));
+                all_lhs = [all_lhs lhs_symbols];
+                rhs_symbols = exp_to_symbols(Exp(rhs));
+                deps = {lhs_symbols, rhs_symbols, s};
+                dependencies{i} = deps;
+            end
+            
+            % prune rhs for all dependencies that don't appear on the lhs
+            for i=1:length(dependencies)
+                deps = dependencies{i}
+                rhs = deps{2};
+                new_rhs = {};
+                for j=1:length(rhs)
+                    if any(strcmp(all_lhs, rhs{j}))
+                        new_rhs{end+1} = rhs{j};
+                    end
+                end
+                deps{2} = new_rhs;
+                dependencies{i} = deps;
+            end
+            
+            % create a new list that will be populated
+            map = containers.Map(1, struct());
+            map.remove(1);
+            
+            function syms = get_cleared_deps()
+                keys = map.keys;
+                syms = {};
+                for i=1:length(keys)
+                    s = map(keys{i});
+                    syms = [syms exp_to_symbols(Exp(s.lhs))];
+                end
+            end
+            count = 1;
+            while(~isempty(dependencies))
+                fprintf(1, '# of dependencies remaining: %d\n', length(dependencies));
+                cleared_deps = get_cleared_deps();
+                remaining_deps = {};
+                for i=1:length(dependencies)
+                    % if all the dependencies are clear then it is good
+                    passed = true;
+                    deps = dependencies{i};
+                    rhs_symbols = deps{2};
+                    for j=1:length(rhs_symbols)
+                        if ~any(strcmp(cleared_deps, rhs_symbols{j}))
+                            % the symbol does not yet appear
+                            passed = false;
+                            break;
+                        end
+                    end
+                    if passed
+                        map(count) = deps{3};
+                        count = count + 1;
+                    else
+                        remaining_deps{end+1} = dependencies{i};
+                    end
+                   
+                end
+                dependencies = remaining_deps;
+            end
+            
+            % reassign the new reordered equations
+            m.IntermediateEqs = map;
+        end
+    end
+    
 end
 
 function s = concatWith(tok, cellarray)
@@ -681,6 +765,10 @@ end
 function s = toStr(r)
 if isnumeric(r)
     s = num2str(r);
+elseif isstruct(r)
+    disp('Simatra:Model:toStr', 'Unexpected structure found');
+elseif isstr(r)
+    s = r;
 else
     s = r.toStr;
 end
