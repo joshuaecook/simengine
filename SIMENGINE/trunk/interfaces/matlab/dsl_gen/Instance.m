@@ -19,10 +19,12 @@ classdef Instance
         function b = subsref(inst, s)
             if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
                 % make sure that the output exists
-                items = strfind(inst.Outputs, s.subs);
-                if isempty(cell2mat(items))
+                out = s.subs;
+                %items = strfind(inst.Outputs, s.subs);
+                %if isempty(cell2mat(items))
+                if ~isOutput(inst, out)
                     inst.Outputs
-                    error('Simatra:Instance', ['No output with name ' s.subs]);
+                    error('Simatra:Instance', 'No output with name %s found', s.subs);
                 end
                 output = Exp(inst.InstName, s.subs);
             end
@@ -31,10 +33,23 @@ classdef Instance
         
         function i2 = subsasgn(inst, s, b)
             if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
+                inp = s.subs;
+                if ~isInput(inst, inp)
+                    inst.Inputs
+                    error('Simatra:Instance', 'No input with name %s found', inp);
+                end
                 input = Exp(inst.InstName, s.subs);
                 inst.Mdl.equ(input, b);
             end
             i2 = inst;
+        end
+        
+        function r = isInput(inst, inp)
+            r = any(strcmp(inst.Inputs, inp));
+        end
+        
+        function r = isOutput(inst, out)
+            r = any(strcmp(inst.Outputs, out));
         end
     end
     
