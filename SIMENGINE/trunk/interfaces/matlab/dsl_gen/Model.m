@@ -674,7 +674,6 @@ classdef Model < handle
     
     methods (Access = protected)
         function order_equations(m)
-            m.IntermediateEqs
             equkeys = m.IntermediateEqs.keys;
             
             % create dependency list
@@ -693,7 +692,7 @@ classdef Model < handle
             
             % prune rhs for all dependencies that don't appear on the lhs
             for i=1:length(dependencies)
-                deps = dependencies{i}
+                deps = dependencies{i};
                 rhs = deps{2};
                 new_rhs = {};
                 for j=1:length(rhs)
@@ -719,7 +718,6 @@ classdef Model < handle
             end
             count = 1;
             while(~isempty(dependencies))
-                fprintf(1, '# of dependencies remaining: %d\n', length(dependencies));
                 cleared_deps = get_cleared_deps();
                 remaining_deps = {};
                 for i=1:length(dependencies)
