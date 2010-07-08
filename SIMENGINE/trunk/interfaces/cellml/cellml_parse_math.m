@@ -128,6 +128,10 @@ switch char(node.getNodeName)
                 expression = operands{1} >= operands{2};
             case 'le'
                 expression = operands{1} <= operands{2};
+            case 'gt'
+                expression = operands{1} > operands{2};
+            case 'lt'
+                expression = operands{1} < operands{2};
             case 'and'
                 expression = foldl(@(elem, init)(elem & init), operands{1}, operands(2:end));
             case 'or'
@@ -136,6 +140,16 @@ switch char(node.getNodeName)
                 expression = exp(operands{1});
             case 'ln'
                 expression = log(operands{1});
+            case 'log'
+                expression = log10(operands{1});
+            case 'cosh'
+                expression = cosh(operands{1});
+            case 'root'
+                if length(operands) == 1
+                    expression = operands{1}^0.5;
+                else
+                    expression = operands{1}^(1/operands{2});
+                end
             case {'eq','diff'}
                 expression = [char(operator.getNodeName) operands];
             otherwise

@@ -345,6 +345,16 @@ classdef Exp
         % =======================================================
         
         function syms = exp_to_symbols(e)
+            if ~isa(e, 'Exp')
+                class(e)
+                e
+                error('Simatra:Exp:exp_to_symbols', 'Argument is not an expression');
+            elseif isempty(e.type)
+                e.val
+                error('Simatra:Exp:exp_to_symbols', 'Expression type is empty');                
+            end
+            
+            
             switch e.type
                 case {e.VARIABLE, e.ITERATOR}
                     syms = {e.val};
