@@ -1080,8 +1080,8 @@ namespace Simulation
 
     constructor ()
       t = TimeIterator.new("t") {isContinuous=true}
-      n = TimeIterator.new("n") {isContinuous=false}
-      iterators.push_front n
+      //n = TimeIterator.new("n") {isContinuous=false}
+      //iterators.push_front n
       iterators.push_front t
     end
 
@@ -1167,7 +1167,7 @@ namespace Simulation
       end      
   end
 
-  import "downsampling.dsl"
+  //import "downsampling.dsl"
 
   function applyRewriteExp (rule: Rule, exp) = LF applyRewriteExp (rule, exp)
   function applyRewritesExp (rule: Vector of Rule, exp) = LF applyRewritesExp (rule, exp)
