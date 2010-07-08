@@ -256,7 +256,18 @@ classdef Model < handle
             end
         end
         
-        function instance = submodel(m, modelarg)
+        function instance = submodel(m, arg1, arg2)
+            if nargin == 2
+                inst = ['Instance_' num2str(m.instance_number)];
+                m.instance_number = m.instance_number + 1;
+                modelarg = arg1;
+            elseif nargin == 3
+                inst = arg1;
+                modelarg = arg2;
+            else
+                error('Simatra:Model:submodel:ArgumentError', 'Wrong number of arguments');
+            end
+            
             if ischar(modelarg) && exist(modelarg, 'file')
                 [filepath, modelname, fileext] = fileparts(modelarg);
                 if m.cachedModels.isKey(modelname)
@@ -290,8 +301,6 @@ classdef Model < handle
             else
                 error('Simatra:Model', 'Unexpected instance')
             end
-            inst = ['Instance_' num2str(m.instance_number)];
-            m.instance_number = m.instance_number + 1;
             m.Instances(inst) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
             instance = Instance(inst, m, inputs, outputs);
         end
@@ -310,7 +319,7 @@ classdef Model < handle
                 end
             end
             if m.IntermediateEqsNames.isKey(lhsstr)
-                error('Simatra:Model', ['Equation assigning ' lhs ' already exists']);
+                error('Simatra:Model', ['Equation assigning ' lhsstr ' already exists']);
             else
                 e = Exp(lhsstr);
                 m.IntermediateEqs(m.intermediate_number) = struct('lhs', lhs, 'rhs', rhs);

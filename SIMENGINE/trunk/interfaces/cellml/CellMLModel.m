@@ -17,6 +17,26 @@ classdef CellMLModel < Model
         % Constructor
         function [obj] = CellMLModel(name,units,components,groups,connections)
             disp(['Constructing CellMLModel: ' name])
+            
+            % for just one argument, we have to generate all the other
+            % arguments
+            if nargin == 1
+                filename = name;
+                if ~exist(filename, 'file')
+                    error('Simatra:CellMLModel:ArgumentError', 'First argument for creating a CellMLModel has to be a valid cellml filename');
+                else
+                    try
+                        disp('Reading XML data ...');
+                        dox = xmlread(filename);
+                    catch
+                        error('Simatra:CellMLModel:ArgumentError', 'File <%s> is not valid XML code', filename);
+                    end
+                    disp('Extracting CellML data structures ...');
+                    [units,components,groups,connections] = cellml_parse_model(dox.getDocumentElement);
+                    [filepath, name, ext] = fileparts(filename);
+                end
+            end
+            disp('Generating simEngine model object ...');
             obj@Model(name);
             
             % instantiate object variables
@@ -39,57 +59,59 @@ classdef CellMLModel < Model
         end
         
         function [obj] = add_components(obj, components)
-            %obj.components = components;
             obj.components = containers.Map;
             for cid = 1:length(components)
                 c = components(cid);
                 obj.components(c.name) = c;
+                
+                mod = component_to_model(obj, c.name);
+                obj.generatedSubModels(c.name) = obj.submodel(createInstName(c.name), mod);
             end
 
-            % create a mapping of submodels
-            function traverseGroup(group)
-                name = group.component;
-                refs = group.component_ref;
-                clist = cell(1, length(refs));
-                for rid=1:length(refs)
-                    clist{rid} = refs(rid).component;
-                    traverseGroup(refs(rid));
-                end
-                obj.containment(name) = clist;
-            end
-                
-            top_level = false;
-            for gid = 1:length(obj.groups)
-                if strcmp(obj.groups(gid).relationship_ref.relationship, 'containment')
-                    if isfield(obj.groups(gid), 'component_ref')
-                        ref = obj.groups(gid).component_ref;
-                        top_level = ref.component;
-                        traverseGroup(ref);
-                    else
-                        % might just be empty
+            % now, add all the connections for the submodels
+            for cid = 1:length(obj.components)
+                parent = components(cid).name;
+                parent_sm = obj.generatedSubModels(parent);
+                parent_id = [parent '_'];
+                if isKey(obj.connections, parent)
+                    parent_connections = obj.connections(parent);
+                    children_keys = keys(parent_connections);
+                    for i=1:length(children_keys)
+                        child = children_keys{i};
+                        sm = obj.generatedSubModels(child);
+
+                        % now create the connections between the parent and
+                        %disp(sprintf('parent: %s; child: %s', parent, child));
+                        variables = parent_connections(child);
+                        numvars = size(variables,1);
+                        for vid = 1:numvars
+                            pvar = variables{vid,1};
+                            cvar = variables{vid,2};
+                            if isInput(sm, cvar)
+                                sm.(cvar) = parent_sm.(pvar);
+                                output_name = [parent '_' pvar];
+                                if ~isKey(obj.Outputs, output_name)
+                                   obj.output(output_name, parent_sm.(pvar));
+                                end
+                            elseif isOutput(sm, cvar)
+                                parent_sm.(pvar) = sm.(cvar);
+                                output_name = [child '_' cvar];
+                                if ~isKey(obj.Outputs, output_name)
+                                    obj.output(output_name, sm.(cvar));
+                                end
+                            else
+                                error('Simatra:CellMLModel:add_components', '%s is neither an input nor output of %s', cvar, sm_name);
+                            end
+                            
+                        end
                     end
-                else
-                    % ignoring 'encapsulation'
                 end
+                
             end
             
-%             disp('SUBMODELS')
-%             keys = submodels.keys;
-%             for i=1:length(keys)
-%                 fprintf(1, ' %s: ', keys{i});
-%                 display(submodels(keys{i}));
-%                 fprintf(1, '\n');
-%             end
-            
-            % need to grab just the top level
-            if ischar(top_level)
-                top_mod = component_to_model(obj, top_level);
-            else
-                error('Simatra:CellMLModel', 'No top level model found');
-            end
-            
-            % instantiate the submodel
-            create_top_level(obj, top_mod);
+            % after adding all of these submodel inputs/outputs, must order
+            % the equations
+            obj.order_equations();
             
         end
         
@@ -135,12 +157,12 @@ classdef CellMLModel < Model
             if isKey(obj.generatedSubModels, name)
                 mod = obj.generatedSubModels(name);
             else
-                mod = create_model(obj, obj.components(name), obj.containment(name));
+                mod = create_model(obj, obj.components(name));
             end
         end
         
-        function [mod] = create_model(obj, component, submodels)
-            disp(['Create component: ' component.name]);
+        function [mod] = create_model(obj, component)
+            disp(['Creating component ' component.name]);
             mod = Model(component.name);
             
             % create a variable list
@@ -174,56 +196,56 @@ classdef CellMLModel < Model
                 end
             end
             
-            if isKey(obj.connections, component.name)
-                mod_connections = obj.connections(component.name);
-                % generate submodels
-                for smid = 1:length(submodels)
-                    % first instantiate the submodel
-                    sm_name = submodels{smid};
-                    sm = mod.submodel(component_to_model(obj, sm_name));
-                    
-                    % now go through all the connections
-                    connect_variables = mod_connections(sm_name);
-                    
-                    for cvid = 1:length(connect_variables)
-                        pvar = connect_variables{cvid,1};
-                        cvar = connect_variables{cvid,2};
-                        if isInput(sm, cvar)
-                            sm.(cvar) = pvar;
-                        elseif isOutput(sm, cvar)
-                            mod.equ(pvar, sm.(cvar));
-                            if isKey(varlist, pvar)
-                                % we're defining this variable, so we can
-                                % now ignore it
-                                varlist.remove(pvar); 
-                            end
-                            if isKey(inpvarlist, pvar)
-                                inpvarlist.remove(pvar);
-                            end
-                        else
-                            error('Simatra:CellMLModel:create_model', '%s is neither an input nor output of %s', cvar, sm_name);
-                        end
-                    end
-                end
-                
-                % TODO - handle environment here
-                if isKey(mod_connections, 'environment')
-                    connect_variables = mod_connections('environment');
-                    if size(connect_variables,1) ~= 1 || ~strcmp(connect_variables{1,2}, 'time')
-                        connect_variables
-                        error('Simatra:CellMLModel:create_model', 'Can not find time in evironment');
-                    end
-                    pvar = connect_variables{1,1};
-                    cvar = connect_variables{1,2};
-                    mod.equ(pvar, Exp(obj.time));
-                    if isKey(inpvarlist, pvar)
-                        inpvarlist.remove(pvar);
-                    end
-                end
-            else
-                % there are no connections, so there can't be any sub
-                % models
-            end
+%             if isKey(obj.connections, component.name)
+%                 mod_connections = obj.connections(component.name);
+%                 % generate submodels
+%                 for smid = 1:length(submodels)
+%                     % first instantiate the submodel
+%                     sm_name = submodels{smid};
+%                     sm = mod.submodel(component_to_model(obj, sm_name));
+%                     
+%                     % now go through all the connections
+%                     connect_variables = mod_connections(sm_name);
+%                     
+%                     for cvid = 1:length(connect_variables)
+%                         pvar = connect_variables{cvid,1};
+%                         cvar = connect_variables{cvid,2};
+%                         if isInput(sm, cvar)
+%                             sm.(cvar) = pvar;
+%                         elseif isOutput(sm, cvar)
+%                             mod.equ(pvar, sm.(cvar));
+%                             if isKey(varlist, pvar)
+%                                 % we're defining this variable, so we can
+%                                 % now ignore it
+%                                 varlist.remove(pvar); 
+%                             end
+%                             if isKey(inpvarlist, pvar)
+%                                 inpvarlist.remove(pvar);
+%                             end
+%                         else
+%                             error('Simatra:CellMLModel:create_model', '%s is neither an input nor output of %s', cvar, sm_name);
+%                         end
+%                     end
+%                 end
+%                 
+%                 % TODO - handle environment here
+%                 if isKey(mod_connections, 'environment')
+%                     connect_variables = mod_connections('environment');
+%                     if size(connect_variables,1) ~= 1 || ~strcmp(connect_variables{1,2}, 'time')
+%                         connect_variables
+%                         error('Simatra:CellMLModel:create_model', 'Can not find time in evironment');
+%                     end
+%                     pvar = connect_variables{1,1};
+%                     cvar = connect_variables{1,2};
+%                     mod.equ(pvar, Exp(obj.time));
+%                     if isKey(inpvarlist, pvar)
+%                         inpvarlist.remove(pvar);
+%                     end
+%                 end
+%             else
+%                 % there are no connections, so there can't be any sub
+%                 % models
+%             end
             
             % add equations
             for eqid = 1:length(component.math)
@@ -273,8 +295,12 @@ classdef CellMLModel < Model
             % add dummy variables for the time being
             keys = varlist.keys;
             for i=1:length(keys)
-                disp(sprintf('Adding undefined equation for %s', keys{i}));
-                mod.equ(keys{i}, varlist(keys{i}));
+                if strcmp(component.name, 'environment') && strcmp(keys{i},'time')
+                    mod.equ(keys{i}, Exp(obj.time));
+                else
+                    %disp(sprintf('Adding undefined equation for %s', keys{i}));
+                    mod.equ(keys{i}, varlist(keys{i}));
+                end
             end
                 
             mod.order_equations;
@@ -283,4 +309,10 @@ classdef CellMLModel < Model
         
     end
     
+    methods (Access = protected)
+    end
+    
+end
+function instname = createInstName(classname)
+    instname = ['Instance_' classname];
 end
