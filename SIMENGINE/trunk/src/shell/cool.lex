@@ -185,7 +185,8 @@ REAL 	= ({DIGITS}?("."{DIGITS})?)|({DIGITS}("."{DIGITS})?[eE][+-]?{DIGITS})|(Inf
 HEX     = 0x({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 OCT     = 0o({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 BIN     = 0b({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
-ID	= [a-zA-Z]([a-zA-Z0-9_]*[a-zA-Z0-9])?;
+ID	= {LETTER}([a-zA-Z0-9_]*)?;
+
 
 EOL     = \n|\r\n|\r;
 ESCAPE  = \\[^\r\n];
