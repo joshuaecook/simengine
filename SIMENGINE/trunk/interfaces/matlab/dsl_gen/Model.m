@@ -16,9 +16,13 @@ classdef Model < handle
 %   update - define when a state variable updates
 %   submodel - instantiate a sub model
 %
+%   Model Simulation:
+%   simex - execute the simulation of the model
+%
 %   Model Processing:
 %   type - display the generated model
 %   toDSL - write the model to a file
+%
 %
 % Copyright 2010 Simatra Modeling Technologies
 % Website: www.simatratechnologies.com
@@ -35,6 +39,11 @@ classdef Model < handle
         DiffEqs
         RecurrenceEqs
         Randoms
+        DefaultIterator
+    end
+    
+    properties (Access = public)
+        solver = {'ode45', 'dt', 0.1};
     end
     
     properties (Access = private)
@@ -68,6 +77,7 @@ classdef Model < handle
             m.DiffEqs = struct();
             m.RecurrenceEqs = struct();
             m.cachedModels = containers.Map;
+            m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', m.solver{:});
         end
         
         function e = state(m, varargin)
@@ -76,7 +86,7 @@ classdef Model < handle
             init = false;
             id = ['InternalState__' num2str(m.state_number)];
             m.state_number = m.state_number + 1;
-            iterator = false;
+            iterator = m.DefaultIterator;
             
             args = varargin;
             i = 1; % argument counter
@@ -405,6 +415,19 @@ classdef Model < handle
             end
         end        
 
+        function t = time(m)
+            t = Exp(m.DefaultIterator);
+        end
+        
+        function set.solver(m, varargin)
+            if iscell(varargin{1})
+                m.solver = varargin{1};
+            else
+                m.solver = varargin;
+            end
+            update_iterator(m);
+        end
+        
         function map = findIterators(m)
             map = containers.Map;
             % Search for iterators everywhere
@@ -527,8 +550,16 @@ classdef Model < handle
             str = [str 'model ' outputList ' = ' m.Name inputList '\n'];
             str = [str '\n'];
             str = [str '   // Iterator definitions\n'];
+            default_id = m.DefaultIterator.id;
+            defined = false;
             for i=1:length(iterators)
+                if strcmp(iterators{i}.id, default_id);
+                    defined = true;
+                end
                 str = [str '   ' iterators{i}.toStr '\n'];
+            end
+            if ~defined
+                str = [str '   ' m.DefaultIterator.toStr '\n'];
             end
             str = [str '\n'];
             str = [str '   // Input definitions\n'];
@@ -684,6 +715,24 @@ classdef Model < handle
         
         % overload the simex function
         function varargout = simex(m, varargin)
+            % SIMEX - execute a Model simulation
+            % 
+            % Usage:
+            %   [outputs] = SIMEX(modelname, args) - simulate and return
+            %   outputs as a structure
+            %
+            %   [outputs, final_states] = SIMEX(modelname, args) -
+            %   additionally return the final states
+            %
+            %   [outputs, final_states, final_time] = SIMEX(modelname,
+            %   args) - additionally return the final_time
+            %   
+            % See also SIMEX
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
             
             % execute the simulation
             [o, yf, tf] = simex(toDSL(m), varargin{:});
@@ -779,6 +828,12 @@ classdef Model < handle
             
             % reassign the new reordered equations
             m.IntermediateEqs = map;
+        end
+        
+        function update_iterator(m)
+            iter_id = m.DefaultIterator.id;
+            iter = Iterator(iter_id, 'solver', m.solver{:});
+            m.DefaultIterator = iter;
         end
     end
     

@@ -515,7 +515,7 @@ MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simp
 MATLAB_MEX = $(addprefix $(BUILD_DIR)/readSimulationData,$(MEXEXT))
 
 UNIT_FILES = $(addsuffix .m, GenericUnit BaseUnit SIUnit Unit Units test_units)
-DSLGEN_FILES = $(addsuffix .m, Exp Instance Iterator IteratorReference Model)
+DSLGEN_FILES = $(addsuffix .m, Exp Instance Iterator IteratorReference Model List)
 MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES) $(UNIT_FILES))
 
 # Just needed for the p files
@@ -1001,6 +1001,8 @@ mostlyclean:
 	$(RM) src/util/registry/registry.grm.desc
 	$(RM) src/util/registry/registry.grm.sig
 	$(RM) src/util/registry/registry.grm.sml
+	$(RM) datafiles/build-options.json
+	$(RM) src/ffi/ffi-exports.h
 
 .PHONY: matlab_clean
 matlab_clean:
