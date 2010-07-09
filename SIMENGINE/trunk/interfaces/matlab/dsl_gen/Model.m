@@ -643,10 +643,13 @@ classdef Model < handle
         end
         
         
-        function filename = toDSL(m)
+        function filename = toDSL(m, filename)
             disp(['Creating ' m.Name ' ...']);
             str = toStr(m);
-            filename = fullfile(tempdir, [m.Name '.dsl']);
+            % if one is not specified, then create one
+            if nargin == 1
+                filename = fullfile(tempdir, [m.Name '.dsl']);
+            end
             
             writeFile = true;
             if exist(filename, 'file')
@@ -677,6 +680,28 @@ classdef Model < handle
         function type(m)
             str = toStr(m);
             fprintf(1, str);
+        end
+        
+        % overload the simex function
+        function varargout = simex(m, varargin)
+            
+            % execute the simulation
+            [o, yf, tf] = simex(toDSL(m), varargin{:});
+            
+            % return the desired number of arguments
+            switch nargout
+                case {0,1}
+                    varargout{1} = o;
+                case {2}
+                    varargout{1} = o;
+                    varargout{2} = yf;
+                case {3}
+                    varargout{1} = o;
+                    varargout{2} = yf;
+                    varargout{3} = tf;
+                otherwise
+                    disp('Simatra:Model:simex', 'Up to three output arguments are supported');
+            end
         end
         
     end
