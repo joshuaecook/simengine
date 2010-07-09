@@ -1526,6 +1526,8 @@ fun assignCorrectScope (class: DOF.class) =
 				       
 			    val iters = SymbolSet.listItems (foldl SymbolSet.union SymbolSet.empty (map ExpProcess.iterators_of_expression exps))
 			    (* grab the iterators used in expression (ex. y = x when t > 10) *)
+
+			    (* Need to grab all iterators with the iterator tag *)
 			    val symbolset = SymbolSet.flatmap ExpProcess.exp2symbolset exps
 			    val used_iters = List.filter (fn(iter_sym)=>SymbolSet.exists (fn(sym)=>sym=iter_sym) symbolset) indexable_iterators
 			    (* val _ = Util.log ("Finding iterator for output '"^(Symbol.name (Term.sym2curname name))^"'") *)

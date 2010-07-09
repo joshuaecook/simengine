@@ -10,7 +10,6 @@ classdef CellMLModel < Model
     properties (Access = protected)
         generatedSubModels
         containment
-        time
     end
     
     methods
@@ -43,9 +42,6 @@ classdef CellMLModel < Model
             obj.generatedSubModels = containers.Map;
             obj.containment = containers.Map;
            
-            % create default iterator
-            obj.time = Iterator('t', 'continuous', 'solver', 'ode45');
-            
             % generate internal data structures
             obj.add_units(units);
             obj.add_connections(connections);
@@ -72,7 +68,6 @@ classdef CellMLModel < Model
             for cid = 1:length(obj.components)
                 parent = components(cid).name;
                 parent_sm = obj.generatedSubModels(parent);
-                parent_id = [parent '_'];
                 if isKey(obj.connections, parent)
                     parent_connections = obj.connections(parent);
                     children_keys = keys(parent_connections);
@@ -100,7 +95,7 @@ classdef CellMLModel < Model
                                     obj.output(output_name, sm.(cvar));
                                 end
                             else
-                                error('Simatra:CellMLModel:add_components', '%s is neither an input nor output of %s', cvar, sm_name);
+                                error('Simatra:CellMLModel:add_components', '%s is neither an input nor output of %s', cvar, child);
                             end
                             
                         end
@@ -114,21 +109,6 @@ classdef CellMLModel < Model
             obj.order_equations();
             
         end
-        
-        function create_top_level(obj, top_mod)
-            inst = obj.submodel(top_mod);
-            [inputs, outputs] = interface(top_mod);
-            obj.equ('time', Exp(obj.time));
-            for i=1:length(inputs)
-                inp = obj.input(inputs{i});
-                inst.(inputs{i}) = inp;
-            end
-            for i=1:length(outputs)
-                obj.equ(outputs{i}, inst.(outputs{i}));
-                obj.output(outputs{i});
-            end
-        end
-            
         
         function [obj] = add_connections(obj, connections)
             %obj.connections = connections;
@@ -196,57 +176,6 @@ classdef CellMLModel < Model
                 end
             end
             
-%             if isKey(obj.connections, component.name)
-%                 mod_connections = obj.connections(component.name);
-%                 % generate submodels
-%                 for smid = 1:length(submodels)
-%                     % first instantiate the submodel
-%                     sm_name = submodels{smid};
-%                     sm = mod.submodel(component_to_model(obj, sm_name));
-%                     
-%                     % now go through all the connections
-%                     connect_variables = mod_connections(sm_name);
-%                     
-%                     for cvid = 1:length(connect_variables)
-%                         pvar = connect_variables{cvid,1};
-%                         cvar = connect_variables{cvid,2};
-%                         if isInput(sm, cvar)
-%                             sm.(cvar) = pvar;
-%                         elseif isOutput(sm, cvar)
-%                             mod.equ(pvar, sm.(cvar));
-%                             if isKey(varlist, pvar)
-%                                 % we're defining this variable, so we can
-%                                 % now ignore it
-%                                 varlist.remove(pvar); 
-%                             end
-%                             if isKey(inpvarlist, pvar)
-%                                 inpvarlist.remove(pvar);
-%                             end
-%                         else
-%                             error('Simatra:CellMLModel:create_model', '%s is neither an input nor output of %s', cvar, sm_name);
-%                         end
-%                     end
-%                 end
-%                 
-%                 % TODO - handle environment here
-%                 if isKey(mod_connections, 'environment')
-%                     connect_variables = mod_connections('environment');
-%                     if size(connect_variables,1) ~= 1 || ~strcmp(connect_variables{1,2}, 'time')
-%                         connect_variables
-%                         error('Simatra:CellMLModel:create_model', 'Can not find time in evironment');
-%                     end
-%                     pvar = connect_variables{1,1};
-%                     cvar = connect_variables{1,2};
-%                     mod.equ(pvar, Exp(obj.time));
-%                     if isKey(inpvarlist, pvar)
-%                         inpvarlist.remove(pvar);
-%                     end
-%                 end
-%             else
-%                 % there are no connections, so there can't be any sub
-%                 % models
-%             end
-            
             % add equations
             for eqid = 1:length(component.math)
                 eqn = component.math{eqid};
@@ -263,7 +192,7 @@ classdef CellMLModel < Model
                                 %disp(sprintf('Found differential equation with lhs: %s', id));
                                 state = mod.state(id, varlist(id));
                                 varlist.remove(id);
-                                var = Exp(lhs{3});
+                                var = Exp(id);
                                 mod.diffequ(var, rhs);
                                 %var = mod.get_var(lhs{3});
                                 %var.diffeq = rhs;
@@ -272,6 +201,7 @@ classdef CellMLModel < Model
                             if isa(lhs, 'Exp')
                                 %disp(sprintf('Found equation with lhs: %s', toStr(lhs)));
                                 varlist.remove(toStr(lhs));
+                                lhs = toId(lhs);
                             end
                             mod.equ(lhs, rhs);
                             %var = mod.get_var(lhs);
@@ -312,7 +242,9 @@ classdef CellMLModel < Model
     methods (Access = protected)
     end
     
+
 end
 function instname = createInstName(classname)
     instname = ['Instance_' classname];
 end
+

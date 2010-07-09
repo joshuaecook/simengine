@@ -54,7 +54,7 @@ classdef Exp
                 case 2
                     er = oper('+', varargin);
                 otherwise
-                    er = foldl(fcn, varargin{1}, varargin(2:end));
+                    er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper('+', {e1, e2});
         end
@@ -77,7 +77,7 @@ classdef Exp
                 case 2
                     er = oper('*', varargin);
                 otherwise
-                    er = foldl(fcn, varargin{1}, varargin(2:end));
+                    er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper('*', {e1, e2});
         end
@@ -94,6 +94,14 @@ classdef Exp
             er = oper('/', {e1, e2});
         end
 
+        function er = ldivide(e1, e2)
+            er = oper('/', {e2, e1});
+        end
+
+        function er = mldivide(e1, e2)
+            er = oper('/', {e2, e1});
+        end
+        
         function er = power(e1, e2)
             er = oper('^', {e1, e2});
         end
@@ -142,7 +150,7 @@ classdef Exp
                 case 2
                     er = oper(' and ', varargin);
                 otherwise
-                    er = foldl(fcn, varargin{1}, varargin(2:end));
+                    er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper(' and ', {e1, e2});
         end
@@ -157,7 +165,7 @@ classdef Exp
                 case 2
                     er = oper(' or ', varargin);
                 otherwise
-                    er = foldl(fcn, varargin{1}, varargin(2:end));
+                    er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper(' or ', {e1, e2});
         end
@@ -492,17 +500,3 @@ er.op = operation;
 er.args = exps;
 end
 
-% FOLDL - folds the list by executing the function and reducing it to one
-% value
-function r = foldl(fcn, init, list)
-
-switch length(list)
-    case 0
-        r = init;
-    case 1
-        r = fcn(list{1},init);
-    otherwise
-        r = foldl(fcn, fcn(list{1}, init), list(2:end));
-end
-
-end

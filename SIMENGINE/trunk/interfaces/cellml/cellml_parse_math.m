@@ -107,7 +107,7 @@ switch char(node.getNodeName)
         
         switch char(operator.getNodeName)
             case 'plus'
-                expression = foldl(@(elem, init)(elem + init), operands{1}, operands(2:end));
+                expression = plus(operands{:});
             case 'minus'
                 if length(operands) == 1
                     expression = -operands{1};
@@ -115,7 +115,7 @@ switch char(node.getNodeName)
                     expression = operands{1} - operands{2};
                 end
             case 'times'
-                expression = foldl(@(elem, init)(elem * init), operands{1}, operands(2:end));
+                expression = times(operands{:});
             case 'divide'
                 expression = operands{1} / operands{2};
             case 'power'
@@ -133,9 +133,9 @@ switch char(node.getNodeName)
             case 'lt'
                 expression = operands{1} < operands{2};
             case 'and'
-                expression = foldl(@(elem, init)(elem & init), operands{1}, operands(2:end));
+                expression = and(operands{:});
             case 'or'
-                expression = foldl(@(elem, init)(elem | init), operands{1}, operands(2:end));
+                expression = or(operands{:});
             case 'exp'
                 expression = exp(operands{1});
             case 'ln'
@@ -173,17 +173,3 @@ switch char(node.getNodeName)
 end
 end
 
-% FOLDL - folds the list by executing the function and reducing it to one
-% value
-function r = foldl(fcn, init, list)
-
-switch length(list)
-    case 0
-        r = init;
-    case 1
-        r = fcn(list{1},init);
-    otherwise
-        r = foldl(fcn, fcn(list{1}, init), list(2:end));
-end
-
-end
