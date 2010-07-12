@@ -30,7 +30,7 @@ class Solver
 
     // CVODE Specific Options
     self.cv_lmm = "CV_BDF" // lmm = linear multistep method (can be CV_BDF or CV_ADAMS)
-    self.cv_iter = "CV_NEWTON" // iter = nunlinear solver iteration (can be CV_NEWTON or CV_FUNCTIONAL)
+    self.cv_iter = "CV_NEWTON" // iter = nonlinear solver iteration (can be CV_NEWTON or CV_FUNCTIONAL)
     self.cv_solv = "CVDENSE" // solv = specify the type of solver and how they compute the Jacobian
                              // (can be CVDENSE, CVBAND, CVDIAG, CVSPGMR, CVSPBCG, CVSPTFQMR) 
     self.cv_upperhalfbw = 1 // upper and lower half bandwidths for use only with CVBAND 

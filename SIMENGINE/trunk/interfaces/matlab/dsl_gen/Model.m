@@ -735,21 +735,11 @@ classdef Model < handle
             %
             
             % execute the simulation
-            [o, yf, tf] = simex(toDSL(m), varargin{:});
-            
-            % return the desired number of arguments
-            switch nargout
-                case {0,1}
-                    varargout{1} = o;
-                case {2}
-                    varargout{1} = o;
-                    varargout{2} = yf;
-                case {3}
-                    varargout{1} = o;
-                    varargout{2} = yf;
-                    varargout{3} = tf;
-                otherwise
-                    disp('Simatra:Model:simex', 'Up to three output arguments are supported');
+            varargout = cell(1,nargout);
+            if nargout > 0
+                [varargout{:}] = simex(toDSL(m), varargin{:}, '-fastcompile');
+            else
+                varargout{1} = simex(toDSL(m), varargin{:}, '-fastcompile');
             end
         end
         

@@ -812,18 +812,30 @@ import "command_line.dsl"
     // Change working directory to outputdir directory
     FileSystem.chdir(settings.compiler.outputdir.getValue())
 
-    var mod = LF loadModel (filename)
-    var name = mod.template.name
-    mod.template.settings = compilerSettings
-
-    var instantiatedModel = mod.instantiate()
-    var stat = LF compile (instantiatedModel)
+    var name
+    var stat
     var simfile
+    var imports
+
+    if settings.compiler.fastcompile.getValue() then
+	stat = LF compile (filename)
+	var paths = LF str_split (filename, "/")
+	var filenameparts = LF str_split (paths.at(paths.length()), ".")
+	name = filenameparts.first()
+	imports = [filename]
+    else
+	var mod = LF loadModel (filename)
+	name = mod.template.name
+	mod.template.settings = compilerSettings
+	imports = mod.template.imports
+	var instantiatedModel = mod.instantiate()
+	stat = LF compile (instantiatedModel)
+    end
 
     LF sys_collect_and_pack ()
     
     if 0 == stat then
-      simfile = profileTime ("Create SIM File", Archive.createArchive, (Path.join("..", name + ".sim"), settings.compiler.registry.value, mod.template.imports, target, compilerSettings))
+      simfile = profileTime ("Create SIM File", Archive.createArchive, (Path.join("..", name + ".sim"), settings.compiler.registry.value, imports, target, compilerSettings))
       println("Compilation completed successfully")
     elseif 3 >= stat then
 	// Show the error code

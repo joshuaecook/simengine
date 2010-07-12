@@ -15,6 +15,65 @@ fun log str = if DynamoOptions.isFlagSet "logdof" then
 	      else
 		  Logger.log_notice (Printer.$ str)
 
+fun file_to_ast file = 
+    let
+	val includepaths = (!ParserSettings.filepath) :: map StdFun.expand_env_variables (DynamoOptions.getStringVectorSetting("sourcepath"))
+			   
+	val fullpath = case FilePath.find file includepaths of
+			   SOME path => path
+			 | NONE => raise DynException.ImportError (file, includepaths)
+
+	val _ = case ! ImportHook.importHook
+		 of SOME f => f fullpath
+		  | NONE => ()
+
+	val instream = TextIO.openIn fullpath
+
+	val (name, path) = GeneralUtil.filepath_split fullpath
+	val oldsettings = ParserSettings.getSettings ()
+
+	val _ = ParserSettings.setSettings(false, name, path)
+	val _ = Logger.log_notice (Printer.$("Reading source file '" ^ (fullpath)^ "'"))
+	val _ = Profile.write_status ("Reading '"^name^"'")
+	val eof_encountered = !Globals.eof_encountered
+
+	val max_count = 10
+
+	fun add_ast lastLineCount (ast_list) =
+	    let
+		val lineCount = !ParserSettings.lineCount
+	    in
+		if eof_encountered orelse lastLineCount = lineCount then
+		    ast_list
+		else
+		    let
+			val ast = OOLCParse.parse instream
+			(*val _ = Util.log ("#" ^ (Util.i2s (!ParserSettings.lineCount)))*)
+		    (*val _ = AstDOFTrans.ast_to_dof [ast]*)
+		    in
+			case ast of
+			    (Ast.ACTION (Ast.EXP (Ast.SYMBOL sym), _)) =>
+			    if sym = (Symbol.symbol "###EMPTY") then
+				add_ast lineCount ast_list
+			    else
+				add_ast lineCount (ast_list @ [ast])
+			  | _ => add_ast lineCount (ast_list @ [ast])
+
+		    end
+	    end
+
+    in
+	add_ast (~1) []
+	before (TextIO.closeIn instream;
+		Globals.eof_encountered := eof_encountered;
+		ParserSettings.restoreSettings oldsettings)
+	handle _ => 
+	       (TextIO.closeIn instream;
+		Globals.eof_encountered := eof_encountered;
+		ParserSettings.restoreSettings oldsettings;
+		[Ast.ACTION (Ast.EXP Ast.UNIT, PosLog.NOPOS)])
+    end
+
 fun std_compile exec args =
     (case args of
 	 [object] => 
@@ -23,11 +82,21 @@ fun std_compile exec args =
 
 	       (* Translation Phase *)
 	       val forest as (_,{classname=name,...},_) = 
-		   case Compile.dslObjectToDOF (exec, object) of
-		       (f, Compile.SUCCESS) => f
-		     | (_, Compile.USERERROR) => raise (CompilationError TRANSLATION)
-		     | (_, Compile.EXCEPTION) => raise (CompilationFailure TRANSLATION)
+		   case object of
+		       KEC.LITERAL (KEC.CONSTSTR file) => 
+		       AstDOFTrans.ast_to_dof (file_to_ast file)
+		       (*DynException.stdException("Compiler.stdCompiler", "Trying to compile '"^file^"'", Logger.INTERNAL)*)
+		     | _ => 
+		       case Compile.dslObjectToDOF (exec, object) of
+			   (f, Compile.SUCCESS) => f
+			 | (_, Compile.USERERROR) => raise (CompilationError TRANSLATION)
+			 | (_, Compile.EXCEPTION) => raise (CompilationFailure TRANSLATION)
 	       val _ = Profile.mark()
+
+	       val _ = if DynamoOptions.isFlagSet "fastcompile" then
+			   DOFPrinter.printModel forest
+		       else
+			   ()
 
 	      (* Compilation Phase *)
 	      val forkedModels = 

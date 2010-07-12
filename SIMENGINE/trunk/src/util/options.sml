@@ -146,6 +146,12 @@ val argument_groups =
 		xmltag="sourcepath",
 		dyntype=STRING_VECTOR_T,
 		description=["Location to look for source files"]},
+
+	       {short=NONE,
+		long=SOME "fastcompile",
+		xmltag="fastcompile",
+		dyntype=FLAG_T,
+		description=["Enable/disable fast compilation"]},
 	       
 	       {short=NONE,
 		long=SOME "idepth",

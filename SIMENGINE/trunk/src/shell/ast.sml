@@ -25,9 +25,9 @@ type header = {name: Symbol.symbol,
  	      }  
 
 type modelheader = {name: Symbol.symbol, 
- 	       args: (Symbol.symbol * Symbol.symbol list option) list,  
- 	       returns: Symbol.symbol list option (* NONE indicates that no return values were specified, the function will return the value of its last expression. *) 
- 	      }  
+ 		    args: (Symbol.symbol * Symbol.symbol list option) list,  
+ 		    returns: Symbol.symbol list option (* NONE indicates that no return values were specified, the function will return the value of its last expression. *) 
+ 		   }  
 
 datatype visibility = HIDDEN | PUBLIC
 
