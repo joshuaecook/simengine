@@ -146,6 +146,9 @@
 // inferiorMode: let simEngine be dependent on another tool, like simex
 <inferiorMode = false>
 
+// fastcompile: process the DSL code directly into the IR
+<fastcompile = false>
+
 // Update simEngine variables to default values
 <updateMajorVersion = 0>
 <updateMinorVersion = 0>

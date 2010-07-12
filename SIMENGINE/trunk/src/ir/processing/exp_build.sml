@@ -1,7 +1,9 @@
 structure ExpBuild =
 struct
 
-fun var str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, Property.default_symbolproperty))
+fun svar sym = Exp.TERM (Exp.SYMBOL (sym, Property.default_symbolproperty))
+fun var str = svar (Symbol.symbol str)
+
 fun pvar str = 
         Exp.TERM (Exp.SYMBOL (Symbol.symbol (str), 
                               Property.setIsRewriteSymbol Property.default_symbolproperty true))
@@ -65,6 +67,24 @@ fun initavar (str, temporal_iterator, spatial_iterators) =
 			 )
 	     )
 
+fun state_init_var (sym, iter_sym) = 
+    Exp.TERM (Exp.SYMBOL (sym,
+			 (Property.setIterator
+			      Property.default_symbolproperty
+			      [(iter_sym, Iterator.ABSOLUTE 0)])))
+fun diff_state_var (sym, iter_sym) =
+    Exp.TERM (Exp.SYMBOL (sym,
+			  Property.setScope
+			      (Property.setDerivative 
+				   (Property.setIterator 
+					Property.default_symbolproperty 
+					[(iter_sym,Iterator.RELATIVE 0)])
+				   (1, [iter_sym])
+			      )					
+			      (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))
+			 )
+	     )
+
 
 fun itervar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					Property.setScope Property.default_symbolproperty Property.ITERATOR))
@@ -118,6 +138,7 @@ fun relvar (sym, itersym, offset) =
 fun int i = Exp.TERM (Exp.INT i);
 fun real r = Exp.TERM (Exp.REAL r);
 fun bool b = Exp.TERM (Exp.BOOL b);
+fun str s = Exp.TERM (Exp.STRING s);
 fun uniform_rand () = Exp.TERM (Exp.RANDOM Exp.UNIFORM);
 fun normal_rand () = Exp.TERM (Exp.RANDOM Exp.NORMAL);
 fun frac (n,d) = Exp.TERM (Exp.RATIONAL (n, d))

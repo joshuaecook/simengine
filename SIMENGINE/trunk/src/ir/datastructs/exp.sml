@@ -44,6 +44,7 @@ datatype exp =
        | INFINITY
        | NAN
        | PATTERN of (Symbol.symbol * predicate * Pattern.patterncount)
+       | STRING of string
 
      and randomtype = 
 	 UNIFORM

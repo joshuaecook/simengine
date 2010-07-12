@@ -90,6 +90,7 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	 else
 	     (exp2tersestr pretty (Exp.TERM low)) ^ ":" ^ (exp2tersestr pretty (Exp.TERM step)) ^ ":" ^ (exp2tersestr pretty (Exp.TERM high))
        | Exp.SYMBOL (s, props) => Term.sym2str pretty (s, props)
+       | Exp.STRING s => "\""^s^"\""
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN"
@@ -175,6 +176,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
        | Exp.TUPLE l => "Tuple("^(String.concatWith ", " (map (fn(t)=>exp2fullstr (Exp.TERM t)) l))^")"
        | Exp.RANGE {low, high, step} => "Range("^(exp2fullstr (Exp.TERM low))^":"^(exp2fullstr (Exp.TERM step))^":"^(exp2fullstr (Exp.TERM high))^")"
        | Exp.SYMBOL (s, props) => Term.sym2fullstr (s, props)
+       | Exp.STRING s => "\"" ^ s ^ "\""
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN" 

@@ -236,6 +236,11 @@ classdef CellMLModel < Model
             mod.order_equations;
             %type(mod)
         end
+       
+        function varargout = simex(obj, varargin)
+            varargout = cell(1,nargout);
+            [varargout{:}] = simex@Model(obj, varargin{:});
+        end
         
     end
     

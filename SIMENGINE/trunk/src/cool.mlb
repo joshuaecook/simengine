@@ -160,10 +160,21 @@ shell/modeltranslate_reduced.sml
 
 shell/semant.sml
 shell/asttrans.sml
+shell/ast_dof_trans.sml
 
 shell/import-hook.sml
 
 compiler/compile.sml
+
+shell/desugar.sml
+
+util/shell_options.sml
+
+shell/cool.grm.sig
+shell/cool.grm.sml
+shell/cool.lex.sml
+
+shell/parse.sml
 
 library/libraryutil.sml
 library/system.sml
@@ -192,15 +203,7 @@ library/time.sml
 library/licensing.sml
 library/library.sml
 
-shell/desugar.sml
 
-util/shell_options.sml
-
-shell/cool.grm.sig
-shell/cool.grm.sml
-shell/cool.lex.sml
-
-shell/parse.sml
 
 shell/apply.sml
 shell/send.sml

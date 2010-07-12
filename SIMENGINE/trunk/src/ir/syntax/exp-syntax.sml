@@ -72,6 +72,8 @@ and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
     JSONTypedObject ("Exp.SYMBOL",
 		     object [("name", symbol name),
 			     ("properties", symbolPropertiesToJSON properties)])
+  | termToJSON (Exp.STRING s) = 
+    JSONTypedObject ("Exp.STRING", string s)
 
 and symbolPropertiesToJSON {iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index} =
     object [("derivative", JSONOption (derivativeToJSON, derivative)),
