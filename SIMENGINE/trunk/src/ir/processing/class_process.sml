@@ -891,7 +891,11 @@ fun createEventIterators (class: DOF.class) =
 	    {find=Match.asym state_sym,
 	     test=NONE,
 	     replace=Rewrite.ACTION (Symbol.symbol ("pp_update:" ^ (Symbol.name state_sym)),
-				     (fn(exp)=> ExpProcess.updateTemporalIteratorToSymbol (iter_sym, (fn(sym)=>sym)) exp))}
+				     (fn(exp)=> 
+					if ExpProcess.hasTemporalIterator exp then
+					    ExpProcess.updateTemporalIteratorToSymbol (iter_sym, (fn(sym)=>sym)) exp
+					else
+					    ExpProcess.prependIteratorToSymbol iter_sym exp))}
 
 	val pp_rewrites = map (fn(exp)=>pp2rewrite (ExpProcess.getLHSSymbol exp, valOf (ExpProcess.exp2temporaliterator exp))) 
 			      (List.filter ExpProcess.isAlgebraicStateEq exps'')
