@@ -81,6 +81,23 @@ classdef Model < handle
         end
         
         function e = state(m, varargin)
+            % MODEL/STATE - create a new state variable in a Model object
+            % 
+            % Usage:
+            %   s = mdl.STATE(INIT) - generate a state variable with initial
+            %   value INIT, return the quantity s
+            %
+            %   s = mdl.STATE(ID, INIT) - generate the state variable but give
+            %   it the explicit name ID
+            %
+            %   s = mdl.STATE([ID ,], INIT, 'iter', ITERATOR) - explicitly set
+            %   an iterator to the state.  Otherwise, it will use the
+            %   iterator assigned to MDL.DefaultIterator.
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
             
             % default arguments
             init = false;
@@ -121,11 +138,33 @@ classdef Model < handle
 
         
        function e = random(m, varargin)
+            % MODEL/RANDOM - create a new random number generator in a
+            % model object
+            % 
+            % Usage:
+            %   r = mdl.RANDOM('uniform', ['low', LOW, ] ['high', HIGH]) -
+            %   return a uniform random number generator that on each
+            %   iteration will produce values between LOW and HIGH.  The
+            %   default LOW value is 0, the default HIGH value is 1.
+            %
+            %   r = mdl.RANDOM('normal', ['mean', MEAN, ] ['stddev',
+            %   STDDEV]) - return a normal (Guassian) distributed random
+            %   number each iteration.  MEAN is set to 0 and STDDEV is set
+            %   to 1 by default.
+            %
+            %   r = mdl.RANDOM(..., 'iter', ITERATOR) - explicitly set
+            %   an iterator to the random number. A new random number will
+            %   be generated according to the specified iterator
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
             
             % default arguments
             id = ['InternalRandomState__' num2str(m.state_number)];
             m.state_number = m.state_number + 1;
-            iterator = false;
+            iterator = m.DefaultIterator;
             uniform = true;
             mean = 0;
             stddev = 1;
@@ -715,18 +754,21 @@ classdef Model < handle
         
         % overload the simex function
         function varargout = simex(m, varargin)
-            % SIMEX - execute a Model simulation
+            % MODEL/SIMEX - execute a Model simulation
             % 
             % Usage:
-            %   [outputs] = SIMEX(modelname, args) - simulate and return
+            %   [outputs] = SIMEX(MDL, args) - simulate and return
             %   outputs as a structure
             %
-            %   [outputs, final_states] = SIMEX(modelname, args) -
+            %   [outputs, final_states] = SIMEX(MDL, args) -
             %   additionally return the final states
             %
-            %   [outputs, final_states, final_time] = SIMEX(modelname,
+            %   [outputs, final_states, final_time] = SIMEX(MDL,
             %   args) - additionally return the final_time
-            %   
+            %
+            % Input argument MDL is the Model object generated. All
+            % other arguments are described in the help for SIMEX. 
+            %
             % See also SIMEX
             %
             % Copyright 2010 Simatra Modeling Technologies
