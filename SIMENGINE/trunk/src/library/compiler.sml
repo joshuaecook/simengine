@@ -84,8 +84,10 @@ fun std_compile exec args =
 	       val forest as (_,{classname=name,...},_) = 
 		   case object of
 		       KEC.LITERAL (KEC.CONSTSTR file) => 
-		       AstDOFTrans.ast_to_dof (file_to_ast file)
-		       (*DynException.stdException("Compiler.stdCompiler", "Trying to compile '"^file^"'", Logger.INTERNAL)*)
+		       (AstDOFTrans.ast_to_dof (file_to_ast file)
+			handle AstDOFTrans.TranslationError => raise (CompilationError TRANSLATION)
+			     | _ => raise (CompilationFailure TRANSLATION))
+		     (*DynException.stdException("Compiler.stdCompiler", "Trying to compile '"^file^"'", Logger.INTERNAL)*)
 		     | _ => 
 		       case Compile.dslObjectToDOF (exec, object) of
 			   (f, Compile.SUCCESS) => f

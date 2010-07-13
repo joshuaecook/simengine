@@ -13,38 +13,39 @@ fun inst2classform f =
 
 val instancePrecedence = 1
 
+fun generate_props {name, num_inputs} : FunProps.op_props = 
+    let
+	val classes = CurrentModel.classes()
+	val funname = Symbol.name name
+    in
+	{name=funname,
+	 operands=FunProps.FIXED (num_inputs),
+	 precedence=1,
+	 commutative=false,
+	 associative=false,
+	 eval=FunProps.INSTANCE,
+	 text=(funname, FunProps.PREFIX),
+	 C=(funname, FunProps.PREFIX),
+	 mathematica=(funname, FunProps.PREFIX),
+	 expcost=0, (* need to work on this ... *)
+	 codomain=fn(_) => [1]} (*TODO: ??? *)
+    end
+    handle e => DynException.checkpoint "Inst.inst2props" e
+
 fun inst2props f : FunProps.op_props = 
     let
 	val classes = CurrentModel.classes()
     in
 	case (List.find (fn({name,...}:DOF.class)=>name=f) classes)
-	 of SOME (c as {name,properties,inputs,outputs,iterators,exps}) => {name=Symbol.name f,
-									    operands=FunProps.FIXED (length (!inputs)),
-									    precedence=1,
-									    commutative=false,
-									    associative=false,
-									    eval=FunProps.INSTANCE,
-									    text=(Symbol.name f, FunProps.PREFIX),
-									    C=(Symbol.name f, FunProps.PREFIX),
-									    mathematica=(Symbol.name f, FunProps.PREFIX),
-									    expcost=0, (* need to work on this ... *)
-									    codomain=fn(_) => [1]} (*TODO: ??? *)
+	 of SOME (c as {name,properties,inputs,outputs,iterators,exps}) => 
+	    generate_props {name=f, num_inputs=length (!inputs)}
 	  | NONE => (Logger.log_error (Printer.$("Can't handle operation '" ^ (Symbol.name f) ^ "'. Doesn't exist in current classes: {"
 						 ^(String.concatWith ", " (map (fn{name,...}=>Symbol.name name) classes))^ "}"));
 		     DynException.setErrored();
-		     {name=Symbol.name f,
-		      operands=FunProps.FIXED 0,
-		      precedence=instancePrecedence,
-		      commutative=false,
-		      associative=false,
-		      eval=FunProps.INSTANCE,
-		      text=("<?" ^ (Symbol.name f) ^ ">", FunProps.PREFIX),
-		      C=("<?" ^ (Symbol.name f) ^ ">", FunProps.PREFIX),
-		      mathematica=("<?" ^ (Symbol.name f) ^ ">", FunProps.PREFIX),
-		      expcost=0,
-		      codomain=(fn(_) => [1])})
+		     generate_props {name=f, num_inputs=0})
     end
     handle e => DynException.checkpoint "Inst.inst2props" e
+
 
 
 end

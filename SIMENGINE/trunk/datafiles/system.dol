@@ -97,7 +97,8 @@
 // interpreterstackdepth: a recursion limit for the builtin DSL execution engine, increase this for large models
 <interpreterstackdepth = 10000.0>
 
-// logdof, logrewrites, logredundancy: debugging information on internal data structures
+// logast, logdof, logrewrites, logredundancy: debugging information on internal data structures
+<logast = false>
 <logdof = false>
 <logrewrites = false>
 <logredundancy = false>

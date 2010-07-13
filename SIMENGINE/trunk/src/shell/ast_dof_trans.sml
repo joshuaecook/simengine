@@ -2,10 +2,13 @@ signature ASTDOFTRANS =
 sig
 
     val ast_to_dof : Ast.stm list -> DOF.model
+    exception TranslationError
 
 end
 structure AstDOFTrans : ASTDOFTRANS =
 struct
+
+exception TranslationError
 
 open Ast
 open Printer
@@ -61,13 +64,47 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
       | "operator_subtract" => builtin (Fun.SUB, args)
       | "operator_multiply" => builtin (Fun.MUL, args)
       | "operator_divide" => builtin (Fun.DIVIDE, args)
+      | "operator_modulus" => builtin (Fun.MODULUS, args)
       | "operator_neg" => builtin (Fun.NEG, args)
       | "operator_ge" => builtin (Fun.GE, args)
       | "operator_le" => builtin (Fun.LE, args)
       | "operator_gt" => builtin (Fun.GT, args)
       | "operator_lt" => builtin (Fun.LT, args)
+      | "operator_eq" => builtin (Fun.EQ, args)
+      | "operator_ne" => builtin (Fun.NEQ, args)
       | "power" => builtin (Fun.POW, args)
       | "exp" => builtin (Fun.EXP, args)
+      | "log" => builtin (Fun.LOG, args)
+      | "log10" => builtin (Fun.LOG10, args)
+      | "logn" => builtin (Fun.LOGN, args)
+      | "sin" => builtin (Fun.SIN, args)
+      | "cos" => builtin (Fun.COS, args)
+      | "tan" => builtin (Fun.TAN, args)
+      | "csc" => builtin (Fun.CSC, args)
+      | "sec" => builtin (Fun.SEC, args)
+      | "cot" => builtin (Fun.COT, args)
+      | "asin" => builtin (Fun.ASIN, args)
+      | "acos" => builtin (Fun.ACOS, args)
+      | "atan" => builtin (Fun.ATAN, args)
+      | "atan2" => builtin (Fun.ATAN2, args)
+      | "acsc" => builtin (Fun.ACSC, args)
+      | "asec" => builtin (Fun.ASEC, args)
+      | "acot" => builtin (Fun.ACOT, args)
+      | "sinh" => builtin (Fun.SINH, args)
+      | "cosh" => builtin (Fun.COSH, args)
+      | "tanh" => builtin (Fun.TANH, args)
+      | "csch" => builtin (Fun.CSCH, args)
+      | "sech" => builtin (Fun.SECH, args)
+      | "coth" => builtin (Fun.COTH, args)
+      | "asinh" => builtin (Fun.ASINH, args)
+      | "acosh" => builtin (Fun.ACOSH, args)
+      | "atanh" => builtin (Fun.ATANH, args)
+      | "acsch" => builtin (Fun.ACSCH, args)
+      | "asech" => builtin (Fun.ASECH, args)
+      | "acoth" => builtin (Fun.ACOTH, args)
+      | "not" => builtin (Fun.NOT, args)
+      | "abs" => builtin (Fun.ABS, args)
+      | "sqrt" => builtin (Fun.SQRT, args)
       | "operator_deriv" => builtin (Fun.DERIV, args)
       | _ => error_exp ("APPLY:" ^ (Symbol.name sym)))
   | apply_to_Exp _ = error_exp "APPLY"
@@ -416,63 +453,78 @@ local
 	end
       | translate_state _ = except "non-state"
     fun translate_random random = ()
-    fun collect_submodels submodels submodelassignments = []
+    fun collect_submodels (modeltable, submodels, submodelassigns) = 
+	let
+	    fun submodel_to_equation (SUBMODELINST {class, name, opttable, optdimensions}) = 
+		(let
+		     val {args, returns, inputs, parts} = case (SymbolTable.look (modeltable, class)) of
+							      SOME entry => entry
+							    | NONE => (error ("Class with name '"^(Symbol.name class)^"' has not been defined");
+								       raise TranslationError)
+
+		     val instprops = InstProps.setRealInstName (InstProps.setRealClassName InstProps.emptyinstprops class) name
+		     fun submodel_to_funtype () =
+			 Fun.INST {classname=class, instname=name, props=instprops}
+
+		     (* TODO - add this support, despite the matlab code generator not currently supporting this *)
+		     val _ = case opttable of
+				 SOME _ => error ("ignoring all arguments attached to submodel '"^(Symbol.name name)^"':'"^(Symbol.name class)^"' instantiation")
+			       | NONE => ()
+
+		     val assignmentlist = List.mapPartial 
+					      (fn(sma)=>
+						 case sma of
+						     STM (ACTION (ASSIGN (SEND {message=inputname, object as (SYMBOL instname)}, rhs),_)) => 
+						     if instname = name then
+							 SOME (inputname, astexp_to_Exp rhs)
+						     else
+							 NONE (* for another instance *)
+						   | _ => except "non-submodelassign")
+					      submodelassigns
+		     val instargs = map
+					(fn(sym, optdefault)=> 
+					   case (List.find (fn(sym', rhs)=>sym=sym') assignmentlist, optdefault) of
+					       (SOME (_, rhs), _) => rhs
+					     | (NONE, SOME default) => default
+					     | (NONE, NONE) => 
+					       (error("No value (default or explicit) was set for input '"^(Symbol.name sym)^"'");
+						Exp.TERM (Exp.NAN)))
+					args
+		     val instreturns = map
+					   (fn(sym)=> ExpProcess.exp2term (ExpBuild.var ((Symbol.name name) ^ "." ^ (Symbol.name sym))))
+					   returns
+		 in
+		     ExpBuild.equals (ExpBuild.tuple (instreturns), Exp.FUN (submodel_to_funtype(), instargs))
+		 end
+		 handle e => DynException.checkpoint "AstDOFTrans.collect_submodels.submodel_to_equation" e)
+	      | submodel_to_equation _ = except "non-submodel"
+		handle e => DynException.checkpoint "AstDOFTrans.collect_submodels.submodel_to_equation" e
+	in
+	    map submodel_to_equation submodels
+	end
+	handle e => DynException.checkpoint "AstDOFTrans.collect_submodels" e
     fun create_classproperties name = 
 	{sourcepos=PosLog.NOPOS, 
 	 basename=name, 
 	 preshardname=name, 
 	 classform=DOF.INSTANTIATION {readstates=[], writestates=[]},  (* FIXME!!! *)
 	 classtype=DOF.MASTER}
-in
-fun modeldef_to_class modeltable name =
+
+fun remove_duplicate_iterators iterators = 
     let
-	(* grab the pieces of the model out of the modeltable *)
-	val {args, returns, parts} = case SymbolTable.look (modeltable, name) of
-					 SOME r => r
-				       | NONE => except "Can't access model by name"
-
-	(* for the parts, we need to sort them and make sure there's nothing that
-	 * we're not expecting, for example, some type of syntax that we can't
-	 * support *)
-	val (inputs, rest) = List.partition isInput parts
-	val (outputs, rest) = List.partition isOutput rest
-	val (iterators, rest) = List.partition isIterator rest
-	val (states, rest) = List.partition isState rest
-	val (randoms, rest) = List.partition isRandom rest
-	val (equations, rest) = List.partition isEquation rest
-	val (submodels, rest) = List.partition isSubModel rest
-	val (submodelassigns, rest) = List.partition isSubModelAssign rest
-
-	(* rest should now be empty*)
-	val _ = if List.length rest > 0 then
-		    (error_unit ("Additional parts not accounted for in " ^ (Symbol.name name));
-		     log_progs (Util.flatmap modelpart_to_printer parts))
-		else
-		    ()
-
-	(* we're going to need a state - iterator mapping so that we can use the 
-	 * iterator when we define the differential equations *)
-	val statetable = SymbolTable.empty
-	val (state_equations, statetable) = foldl translate_state ([], statetable) states
-
-	(* go through each of the elements and process them one by one *)
-	val class = {name=name,
-		     properties=create_classproperties name,
-		     inputs=ref (map translate_input inputs),
-		     outputs=ref (map translate_output outputs),
-		     iterators=[],
-		     exps=ref (state_equations @
-			       (* (collect_submodels submodels submodelassigns) @*)
-			      (map (translate_equation statetable) (Util.flatmap expand_equations equations)))}
-
-	val _ = DOFPrinter.printClass class
+	val itertable = SymbolTable.empty
+	val itertable = foldl 
+			    (fn(iter as (iter_sym, _),itertable')=>
+			       case SymbolTable.look (itertable', iter_sym) of
+				   SOME _ => itertable' (* already exists - should do an equality check here *)
+				 | NONE => SymbolTable.enter (itertable', iter_sym, iter))
+			    itertable
+			    iterators
     in
-	(class, map translate_iterator iterators)
+	SymbolTable.listItems itertable
     end
-    handle e => DynException.checkpoint "AstDOFTrans.modeldef_to_class" e
-end
 
-fun buildSystemProperties iterators =
+fun build_system_properties iterators =
     let
 	(* grab settings from the registry *)
 	val precision = DynamoOptions.getStringSetting "precision"
@@ -519,13 +571,67 @@ fun buildSystemProperties iterators =
 	 profile=profile}
     end
 
+
+in
+fun modeldef_to_class modeltable name =
+    let
+	(* grab the pieces of the model out of the modeltable *)
+	val {args, returns, inputs, parts} = case SymbolTable.look (modeltable, name) of
+					 SOME r => r
+				       | NONE => except "Can't access model by name"
+
+	(* for the parts, we need to sort them and make sure there's nothing that
+	 * we're not expecting, for example, some type of syntax that we can't
+	 * support *)
+	val (outputs, rest) = List.partition isOutput parts
+	val (iterators, rest) = List.partition isIterator rest
+	val (states, rest) = List.partition isState rest
+	val (randoms, rest) = List.partition isRandom rest
+	val (equations, rest) = List.partition isEquation rest
+	val (submodels, rest) = List.partition isSubModel rest
+	val (submodelassigns, rest) = List.partition isSubModelAssign rest
+
+	(* rest should now be empty*)
+	val _ = if List.length rest > 0 then
+		    (error_unit ("Additional parts not accounted for in " ^ (Symbol.name name));
+		     log_progs (Util.flatmap modelpart_to_printer parts))
+		else
+		    ()
+
+	(* we're going to need a state - iterator mapping so that we can use the 
+	 * iterator when we define the differential equations *)
+	val statetable = SymbolTable.empty
+	val (state_equations, statetable) = foldl translate_state ([], statetable) states
+
+	(* go through each of the elements and process them one by one *)
+	val class = {name=name,
+		     properties=create_classproperties name,
+		     inputs=ref inputs, (* we translated this earlier when we analyzed the model headers *)
+		     outputs=ref (map translate_output outputs),
+		     iterators=[],
+		     exps=ref (state_equations @
+			       (collect_submodels (modeltable, submodels, submodelassigns)) @
+			       (map (translate_equation statetable) (Util.flatmap expand_equations equations)))}
+
+	(*val _ = DOFPrinter.printClass class*)
+    in
+	(class, map translate_iterator iterators)
+    end
+    handle e => DynException.checkpoint "AstDOFTrans.modeldef_to_class" e
+
 fun ast_to_dof astlist = 
     let
 	val dof = CurrentModel.empty_model
 	val _ = CurrentModel.setCurrentModel dof
-	val progs = Util.flatmap stm_to_printer astlist
-	val _ = Util.log "PRINTING AST"
-	val _ = log_progs progs
+	val _ = if DynamoOptions.isFlagSet "logast" then
+		    let
+			val progs = Util.flatmap stm_to_printer astlist
+		    in
+			(Util.log "PRINTING AST";
+			 log_progs progs)
+		    end
+		else
+		    ()
 	val _ = DynException.checkToProceed()
 
     (* first, go through the AST and search for the models.  When we find a model, we're going to put together a signature list for each of the models.  Afterwards, we'll look at the parts of each model and begin translating them into classes.  *)
@@ -557,8 +663,24 @@ fun ast_to_dof astlist =
 		     case ast of
 			 DEFINITION (DEFMODEL {header as {name, args, returns},
 					       parts}, _) =>
-			 (SymbolTable.enter (modeltable', name, {args=(map reduceArgs args), returns=(reduceReturns returns), parts=parts}), 
-			  name) (* return the name everytime, so on the last model loaded, we'll have the name of the top-level model *)
+			 let
+			     (* we need to pull out the inputs here, since we'll need to include the input default values as part of the argument list *)
+			     val (input_stms, parts') = List.partition isInput parts
+			     val inputs = map translate_input input_stms
+
+			     (* add the default if included to the args *)
+			     val args : (Symbol.symbol * Exp.exp option) list
+			       = map 
+				     (fn(sym)=> case List.find (fn(inp)=>(ExpProcess.exp2symbol o ExpProcess.term2exp o DOF.Input.name) inp = sym) inputs of
+						    SOME inp => (sym, DOF.Input.default inp)
+						  | NONE => (sym, NONE))
+				     (map reduceArgs args)
+
+			     val entry = {args=args, returns=(reduceReturns returns), inputs=inputs, parts=parts'}
+			 in 
+			     (SymbolTable.enter (modeltable', name, entry), 
+			      name) (* return the name everytime, so on the last model loaded, we'll have the name of the top-level model *)
+			 end
 		       | _ => except "non-model"
 		  ) 
 		  (modeltable, Symbol.symbol "undefined")
@@ -570,14 +692,20 @@ fun ast_to_dof astlist =
 	    ListPair.unzip
 		(map (modeldef_to_class modeltable) modelnames)
 
+	(* remove duplicate iterators *)
+	val reduced_iterators = remove_duplicate_iterators (Util.flatten iterators)
+	    
 	(* put together the system properties *)
-	val systemproperties = buildSystemProperties (Util.flatten iterators)
+	val systemproperties = build_system_properties
+				   reduced_iterators
 	val instance = {name=NONE, classname=top_level_model}
 
 	val dof = (classes, instance, systemproperties)
     in
 	dof
     end
-
+    handle TranslationError => raise TranslationError
+    handle e => DynException.checkpoint "AstDOFTrans.ast_to_dof" e
+end
 
 end

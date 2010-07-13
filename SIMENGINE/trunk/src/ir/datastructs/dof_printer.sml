@@ -109,7 +109,8 @@ fun printClass (class as {name, properties={sourcepos, basename, preshardname, c
 					 (!outputs))) ^ "\n");
      print ("  Iterators: " ^ (String.concatWith ", " (map (fn({name,low,step,high})=>(Symbol.name name) ^ "=" ^ (Real.toString low) ^ ":" ^ (Real.toString step) ^ ":" ^ (Real.toString high)) iterators)) ^ "\n");
      print ("  Symbols: {"^(String.concatWith ", " (SymbolSet.toStrList (ClassProcess.findSymbols class)))^"}\n"))
-    
+    handle e => DynException.checkpoint "DOFPrinter.printClass" e
+
 and outputToStr output = e2s (Exp.TERM (DOF.Output.name output)) ^
 			 " = " ^ (contents2str (DOF.Output.contents output)) ^ 
 			 " when " ^ (e2s (DOF.Output.condition output))    
