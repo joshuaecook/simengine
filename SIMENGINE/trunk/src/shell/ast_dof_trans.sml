@@ -14,25 +14,34 @@ open Ast
 open Printer
 
 (* perform basic error checking through these common commands *)
-fun error str = 
-    (Logger.log_error ($("Unsupported syntax: " ^ str));
-     DynException.setErrored())
+val error_trace = true
+
+fun except str =
+    DynException.stdException ("Unexpected exception: " ^ str, "AstDOFTrans", Logger.INTERNAL)
+
+fun error str =     
+    (if error_trace then
+	 except str
+     else	   
+	 (Logger.log_error ($("Unsupported syntax: " ^ str));
+	  DynException.setErrored()))
+    handle e => DynException.checkpoint "AstDOFTrans.error" e
 
 fun error_exp str = 
     (error str;
      Exp.TERM (Exp.TUPLE []))
+    handle e => DynException.checkpoint "AstDOFTrans.error_exp" e
 
 fun error_unit str = 
     (error str;
      ())
+    handle e => DynException.checkpoint "AstDOFTrans.error_unit" e
 
 fun failure str =
     (Logger.log_failure ($("Unexpected failure: " ^ str));
      DynException.setErrored();
      DynException.checkToProceed())
 
-fun except str =
-    DynException.stdException ("Unexpected exception: " ^ str, "AstDOFTrans", Logger.INTERNAL)
 
 fun log_progs progs = Printer.printtexts (TextIO.stdOut, progs, 0)
 
@@ -57,6 +66,7 @@ fun typepattern_to_str (TYPE sym) = "Type '"^(Symbol.name sym)^"'"
   | typepattern_to_str (DONTCARE) = "DontCare"
 
 fun builtin (fcn,args) = Exp.FUN (Fun.BUILTIN fcn, map astexp_to_Exp args)
+			 handle e => DynException.checkpoint "AstDOFTrans.builtin" e
 
 and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
     (case (Symbol.name sym) of
@@ -145,10 +155,12 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
 				      
 
 
-fun stm_to_printer (DEFINITION (def, log)) = [$("Definition"),
-					      SUB(def_to_printer def)]
-  | stm_to_printer (ACTION (act, log)) = [$("Action"),
-					  SUB(act_to_printer act)]
+fun stm_to_printer (DEFINITION (def, log)) = ([$("Definition"),
+					       SUB(def_to_printer def)]
+					      handle e => DynException.checkpoint "AstDOFTrans.stm_to_printer [DEFINITION]" e)
+  | stm_to_printer (ACTION (act, log)) = ([$("Action"),
+					   SUB(act_to_printer act)]
+					  handle e => DynException.checkpoint "AstDOFTrans.stm_to_printer [ACTION]" e)
 
 and def_to_printer (DEFFUN _) = [$("Deffun")]
   | def_to_printer (DEFPROTOCOL _) = [$("Defprotocol")]
@@ -256,7 +268,7 @@ and act_to_printer (EXP exp) = [$("Expression"),
 					  SUB(Util.flatmap equation_to_printer equlist)]
 
 and equation_to_printer (EQUATION (e1, e2, e3opt)) = 
-    (case e3opt of
+    ((case e3opt of
 	 SOME e3 =>
 	 [$("Equation: "),
 	  SUB[$("e1"),
@@ -268,6 +280,7 @@ and equation_to_printer (EQUATION (e1, e2, e3opt)) =
        | NONE =>
 	 [$("Equ: " ^ (ExpPrinter.exp2str (ExpBuild.equals (astexp_to_Exp e1, 
 							    astexp_to_Exp e2))))])
+     handle e => DynException.checkpoint "AstDOFTrans.equation_to_printer [EQUATION]" e)
 
   | equation_to_printer (MATHFUNCTION (e1, e2)) = [$("MathFunction: "),
 						   SUB[$("e1"),
@@ -365,6 +378,7 @@ local
 	(DOF.Output.make {name=ExpProcess.exp2term (ExpBuild.svar name),
 			  contents=case quantity of 
 				       TUPLE t => map astexp_to_Exp t
+				     | UNIT => []
 				     | q => [astexp_to_Exp q],
 			  condition=case condition of
 					SOME c => astexp_to_Exp c
@@ -588,6 +602,7 @@ fun remove_duplicate_iterators iterators =
     in
 	SymbolTable.listItems itertable
     end
+    handle e => DynException.checkpoint "AstDOFTrans.remove_duplicate_iterators" e
 
 fun build_system_properties iterators =
     let
@@ -635,6 +650,7 @@ fun build_system_properties iterators =
 	 debug=debug,
 	 profile=profile}
     end
+    handle e => DynException.checkpoint "AstDOFTrans.build_system_properties" e
 
 
 in
@@ -686,24 +702,10 @@ fun modeldef_to_class modeltable name =
     in
 	(class, map translate_iterator iterators @ random_iterators)
     end
-    handle e => DynException.checkpoint "AstDOFTrans.modeldef_to_class" e
+    handle e => DynException.checkpoint ("AstDOFTrans.modeldef_to_class ["^(Symbol.name name)^"]") e
 
-fun ast_to_dof astlist = 
+fun create_model_table astlist = 
     let
-	val dof = CurrentModel.empty_model
-	val _ = CurrentModel.setCurrentModel dof
-	val _ = if DynamoOptions.isFlagSet "logast" then
-		    let
-			val progs = Util.flatmap stm_to_printer astlist
-		    in
-			(Util.log "PRINTING AST";
-			 log_progs progs)
-		    end
-		else
-		    ()
-	val _ = DynException.checkToProceed()
-
-    (* first, go through the AST and search for the models.  When we find a model, we're going to put together a signature list for each of the models.  Afterwards, we'll look at the parts of each model and begin translating them into classes.  *)
 	val (models, other) = List.partition isModel astlist
 	val _ = if List.length other > 0 then
 		    let
@@ -754,6 +756,27 @@ fun ast_to_dof astlist =
 		  ) 
 		  (modeltable, Symbol.symbol "undefined")
 		  models
+    in
+	(modeltable, top_level_model)
+    end
+    handle e => DynException.checkpoint "AstDOFTrans.create_model_table" e
+
+fun ast_to_dof astlist = 
+    let
+	val _ = if DynamoOptions.isFlagSet "logast" then
+		    let
+			val progs = Util.flatmap stm_to_printer astlist
+		    in
+			(Util.log "PRINTING AST";
+			 log_progs progs)
+		    end
+		else
+		    ()
+	val _ = DynException.checkToProceed()
+
+	(* first, go through the AST and search for the models.  When we find a model, we're going to put together a signature list for each of
+	 * the models.  Afterwards, we'll look at the parts of each model and begin translating them into classes.  *)
+	val (modeltable, top_level_model) = create_model_table astlist
 
 	val modelnames = SymbolTable.listKeys modeltable
 	(* now we can convert each of the model definitions directly into classes.  We need to pass in the model table so that we can properly interpret submodels *)
@@ -765,15 +788,14 @@ fun ast_to_dof astlist =
 	val reduced_iterators = remove_duplicate_iterators (Util.flatten iterators)
 	    
 	(* put together the system properties *)
-	val systemproperties = build_system_properties
-				   reduced_iterators
+	val systemproperties = build_system_properties reduced_iterators
 	val instance = {name=NONE, classname=top_level_model}
 
 	val dof = (classes, instance, systemproperties)
     in
 	dof
     end
-    handle TranslationError => raise TranslationError
+    (*handle TranslationError => raise TranslationError*)
     handle e => DynException.checkpoint "AstDOFTrans.ast_to_dof" e
 end
 
