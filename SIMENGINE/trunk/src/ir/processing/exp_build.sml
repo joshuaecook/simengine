@@ -72,6 +72,14 @@ fun state_init_var (sym, iter_sym) =
 			 (Property.setIterator
 			      Property.default_symbolproperty
 			      [(iter_sym, Iterator.ABSOLUTE 0)])))
+
+fun state_next_var (sym, iter_sym) = 
+    Exp.TERM (Exp.SYMBOL (sym,
+			 (Property.setIterator
+			      Property.default_symbolproperty
+			      [(iter_sym, Iterator.RELATIVE 1)])))
+
+
 fun diff_state_var (sym, iter_sym) =
     Exp.TERM (Exp.SYMBOL (sym,
 			  Property.setScope
