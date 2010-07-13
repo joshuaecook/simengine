@@ -180,9 +180,23 @@ and modelheader_to_printer {name, args, returns} =
 		  SOME symlist => [$("Returns: "^(Util.symlist2s symlist))]
 		| NONE => [])])]
     
+and basetype_to_printer GENERIC_QUANTITY = "Generic"
+  | basetype_to_printer STATE_QUANTITY = "State"
+  | basetype_to_printer RANDOM_QUANTITY = "Random"
+  | basetype_to_printer PARAMETER_QUANTITY = "Parameter"
+
 and modelpart_to_printer (STM stm) = [$("Stm:"),
 				      SUB(stm_to_printer stm)]
-  | modelpart_to_printer (QUANTITYDEF {modifiers, basetype, name, precision, exp, settingstable, dimensions}) = [$("Quantitydef: " ^ (Symbol.name name))]
+  | modelpart_to_printer (QUANTITYDEF {modifiers, basetype, name, precision, exp, settingstable, dimensions}) = 
+    [$("Quantitydef ("^(basetype_to_printer basetype)^"): " ^ (Symbol.name name)),
+     SUB(case exp of 
+	     SOME exp => [$("exp"),
+			  SUB(exp_to_printer exp)]
+	   | NONE => []),
+    SUB(case settingstable of
+	    SOME exp => [$("settingstable"),
+			 SUB(exp_to_printer exp)]
+	  | NONE => [])]
   | modelpart_to_printer (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = [$("Outputdef: " ^ (Symbol.name name)),
 											  SUB([$("Quantity: " ^ (ExpPrinter.exp2str (astexp_to_Exp quantity)))] @ 
 											       (case dimensions of
@@ -452,7 +466,58 @@ local
 	    (state_init_equ::statelist, statetable) 
 	end
       | translate_state _ = except "non-state"
-    fun translate_random random = ()
+
+    fun translate_random (QUANTITYDEF {modifiers, basetype=RANDOM_QUANTITY, name, precision, exp=NONE, settingstable=(SOME (TABLE settings)), dimensions}) = 
+	let
+	    fun find_setting setting =
+		let val sym = Symbol.symbol setting
+		in case (List.find (fn(sym', _)=>sym=sym') settings) of
+		       SOME (_, exp) => SOME exp
+		     | NONE => NONE
+		end
+
+	    (* start searching for settings *)
+	    val iter = case find_setting "iter" of
+			   SOME (SYMBOL iter_sym) => iter_sym
+			 | _ => (error ("No iterator defined with random number generator definition");
+				 Symbol.symbol "unknown_iterator")
+				
+	    val isUniform = isSome (find_setting "uniform")
+	    fun get setting = case find_setting setting of
+				  SOME (exp) => astexp_to_Exp exp
+				| _ => (error("Random number option '' does not exist");
+					Exp.TERM (Exp.NAN))
+	    val r = if isUniform then
+			ExpBuild.uniform_rand()
+		    else
+			ExpBuild.normal_rand()
+
+	    val rhs = if isUniform then
+			  let 
+			      val high = get "high"
+			      val low = get "low"
+			  in
+			      ExpBuild.plus [ExpBuild.times [ExpBuild.sub (high, low), r], low]
+			  end
+		      else
+			  let
+			      val mean = get "mean"
+			      val stddev = get "stddev"
+			  in
+			      ExpBuild.plus [ExpBuild.times [stddev, r], mean]
+			  end
+
+	    val in_process_iterator_sym = Iterator.inProcessOf (Symbol.name iter)
+	    val in_process_iterator = (in_process_iterator_sym, DOF.ALGEBRAIC (DOF.INPROCESS, iter))
+	    val equations = [(* first the initialization equation *)
+			     ExpBuild.equals (ExpBuild.state_init_var (name, in_process_iterator_sym), rhs),
+			    (* second the algebraic equation to define the next iteration's random number *)
+			     ExpBuild.equals (ExpBuild.state_next_var (name, in_process_iterator_sym), rhs)]
+	in
+	    (equations, in_process_iterator)
+	end
+      | translate_random _ = except "non-random"
+
     fun collect_submodels (modeltable, submodels, submodelassigns) = 
 	let
 	    fun submodel_to_equation (SUBMODELINST {class, name, opttable, optdimensions}) = 
@@ -602,6 +667,9 @@ fun modeldef_to_class modeltable name =
 	 * iterator when we define the differential equations *)
 	val statetable = SymbolTable.empty
 	val (state_equations, statetable) = foldl translate_state ([], statetable) states
+	val (random_equations, random_iterators) = 
+	    (fn(randomlistlist, randomiterlist) => (Util.flatten randomlistlist, randomiterlist)) 
+		(ListPair.unzip (map translate_random randoms))
 
 	(* go through each of the elements and process them one by one *)
 	val class = {name=name,
@@ -610,12 +678,13 @@ fun modeldef_to_class modeltable name =
 		     outputs=ref (map translate_output outputs),
 		     iterators=[],
 		     exps=ref (state_equations @
+			       random_equations @
 			       (collect_submodels (modeltable, submodels, submodelassigns)) @
 			       (map (translate_equation statetable) (Util.flatmap expand_equations equations)))}
 
 	(*val _ = DOFPrinter.printClass class*)
     in
-	(class, map translate_iterator iterators)
+	(class, map translate_iterator iterators @ random_iterators)
     end
     handle e => DynException.checkpoint "AstDOFTrans.modeldef_to_class" e
 
