@@ -156,7 +156,5 @@
 <updateRevision = "">
 <updateBuildDate = 0>
 <updateBuildNumber = 0>
-// for release
-// <updateURL = "http://www.simatratechnologies.com/Downloads/simEngine/release">
-// for development
-//<updateURL = "http://www.simatratechnologies.com/Downloads/simEngine/development">
+<updateURL = "http://www.simatratechnologies.com/download-install_simEngine.php">
+<versionURL = "http://www.simatratechnologies.com/simEngine-current-version.php">

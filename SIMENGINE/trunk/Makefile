@@ -142,8 +142,6 @@ endif
 FILENAME = simEngine
 OUTPUT_FILE = $(BUILD_DIR)/bin/$(FILENAME)
 
-UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine"
-
 
 # Platform Specific Parameters
 # ==============================================================================================
@@ -198,7 +196,7 @@ VERSION = "_BRANCH_$(REV)_$(BUILDREV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=../..
 DEBUG=true
-UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/development"
+UPDATE_QUERY = build=development
 REMOTE_BUILD_DIR = "Build_$(REV)"
 else	
 ifeq ($(TRUNK),1)		
@@ -208,7 +206,7 @@ REV := $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 VERSION = "_BUILD_$(REV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=..
-UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/development"
+UPDATE_QUERY = build=development
 REMOTE_BUILD_DIR = "Build_trunk"
 else	
 ifeq ($(TAG),1)
@@ -218,7 +216,7 @@ REV := $(shell pwd | sed -e 's/.*\/tags\/\(.*\)/\1/')
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 VERSION = ""#"$(REV)_$(BUILD_TYPE)"
 TOP_LEVEL=../..
-UPDATE_URL = "http://www.simatratechnologies.com/Downloads/simEngine/release"
+UPDATE_QUERY = build=release
 REMOTE_BUILD_DIR = "Build_$(REV)"
 else	
 RELEASE = "unknown"
@@ -226,6 +224,7 @@ RELEASE = "unknown"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 TOP_LEVEL=unknown
 VERSION = "_unknown"
+UPDATE_QUERY = build=release
 REMOTE_BUILD_DIR = "Build_unknown"
 endif
 endif	
@@ -770,7 +769,7 @@ $(BUILD_DIR)/data/%: datafiles/%
 	$(CP) $< $@ 
 
 $(BUILD_DIR)/data/default.sew: $(BUILD_DIR)/bin/$(FILENAME)
-	SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath "$$(pwd)/include" --updateURL $(UPDATE_URL) < /dev/null
+	SIMENGINEDOL=datafiles/system.dol $(BUILD_DIR)/bin/$(FILENAME) --batch - --srcpath "$$(pwd)/include" --updateQuery "$(UPDATE_QUERY)" < /dev/null
 
 .PHONY: codegen
 codegen:
