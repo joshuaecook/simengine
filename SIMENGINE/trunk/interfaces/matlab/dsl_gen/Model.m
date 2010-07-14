@@ -54,18 +54,39 @@ classdef Model < handle
     end
     
     methods
-        function m = Model(Name)
+        function m = Model(Name, iterator)
             % MODEL - create a new Model object
             % 
             % Usage:
             %   m = MODEL(modelname) - generate a new model with name
             %   modelname
             %
+            %   m = MODEL(modelname, iterator) - generate a new model with
+            %   a specified default iterator
+            %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
             %
 
+            switch nargin
+                case 0
+                    error('Simatra:Model', 'Must supply at least one argument');
+                case 1
+                    if ~ischar(Name)
+                        error('Simatra:Model', 'First argument to Model constructor must be a string');
+                    end
+                    m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', m.solver{:});
+                case 2
+                    if isa(iterator, 'Iterator')
+                        m.DefaultIterator = iterator;
+                    else
+                        error('Simatra:Model', 'Second argument to Model constructor must be an iterator');                        
+                    end
+                otherwise
+                    error('Simatra:Model', 'Must supply no more than two arguments to Model');
+            end
+                    
             m.Name = Name;
             m.Inputs = containers.Map;
             m.Outputs = containers.Map;
@@ -77,7 +98,6 @@ classdef Model < handle
             m.DiffEqs = struct();
             m.RecurrenceEqs = struct();
             m.cachedModels = containers.Map;
-            m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', m.solver{:});
         end
         
         function e = state(m, varargin)
@@ -256,7 +276,7 @@ classdef Model < handle
                         error('Simatra:Model', msg)
                     end
                 else
-                    error('Simatra:Model', 'The first argument to the output method but be a string variable name.')
+                    error('Simatra:Model', 'The first argument to the output method must be a string variable name.')
                 end
             elseif 3 == nargin
                 if iscell(varargin{1})
@@ -264,6 +284,7 @@ classdef Model < handle
                 else
                     e = varargin;
                 end
+                
             else
                 i = 1;
                 j = 1;
@@ -298,6 +319,7 @@ classdef Model < handle
                     args = varargin(i:end);
                 end
             end
+            e = List.map(@(elem)(Exp(elem)), e);
             if m.Outputs.isKey(id)
                 error('Simatra:Model', ['Output ' id ' already exists']);
             else
