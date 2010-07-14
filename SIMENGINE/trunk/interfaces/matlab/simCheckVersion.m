@@ -82,61 +82,51 @@ end
 
 % retrieveLatestVersion - determine online what the latest version is
 function versionInfo = retrieveLatestVersion(quiet)
+  url = execSimEngine('settings.installation.versionURL.getValue() + "?" + settings.installation.updateQuery.getValue()', quiet);
+  if ~url
+    url = 'http://www.simatratechnologies.com/simengine-current-version.php';
+  end
 
+  %% this is the current location for the current_version.txt file.
+  %% It's a simple ':' delimited file that includes the major version,
+  %% minor version, revision, and time stamp
+  [ver_str, status] = urlread(url);
 
-url_from_simEngine = execSimEngine('settings.installation.updateURL.getValue()', quiet);
-version_filename = 'current_version.txt';
-if url_from_simEngine
-    if 10 == double(url_from_simEngine(end))
-        url_from_simEngine = url_from_simEngine(1:(end-1));
+  if 0 == status
+    if not(quiet)
+      error('Simatra:simCheckVersion', ['Can''t access the latest version online at ' url '.  Please check your internet connection.']);
     end
-    url = [url_from_simEngine '/' version_filename];
-else
-    site = 'http://www.simatratechnologies.com';
-    url = [site '/images/simEngine/' version_filename];
-end    
-
-% this is the current location for the current_version.txt file.
-% It's a simple ':' delimited file that includes the major version,
-% minor version, revision, and time stamp
-[ver_str, status] = urlread(url);
-
-if 0 == status
-  if not(quiet)
-    error('Simatra:simCheckVersion', ['Can''t access the latest version online at ' url '.  Please check your internet connection.']);
-  end
-  
-  % Can't read the latest version
-  versionInfo = false;
-else
-  % Can read it, so just decompose the data
-  fields = regexp(ver_str, ',', 'split');
-
-  % We are expecting four fields
-  if 6 == length(fields)
-    % Save those fields as a structure
-    versionInfo = struct('major', str2double(fields{1}), ...
-                         'minor', str2double(fields{2}), ...
-                         'revision', fields{3}, ...
-                         'date', str2double(fields{4}), ...
-                         'file', fields{5}, ...
-                         'size', str2double(fields{6}));
-  elseif 8 == length(fields)
-    % Save those fields as a structure
-    versionInfo = struct('major', str2double(fields{1}), ...
-                         'minor', str2double(fields{2}), ...
-                         'revision', fields{3}, ...
-                         'date', str2double(fields{4}), ...
-                         'file', fields{5}, ...
-                         'size', str2double(fields{6}), ...
-                         'development', true, ...
-                         'build', str2double(fields{8}));
-  else
-    error('Simatra:simCheckVersion', ['Unexpected format of the version information: ' ver_str]);
+    
+    %% Can't read the latest version
     versionInfo = false;
-  end
-end
+  else
+    %% Can read it, so just decompose the data
+    fields = regexp(ver_str, ',', 'split');
 
+    %% We are expecting four fields
+    if 6 == length(fields)
+      %% Save those fields as a structure
+      versionInfo = struct('major', str2double(fields{1}), ...
+                           'minor', str2double(fields{2}), ...
+                           'revision', fields{3}, ...
+                           'date', str2double(fields{4}), ...
+                           'file', fields{5}, ...
+                           'size', str2double(fields{6}));
+    elseif 8 == length(fields)
+      %% Save those fields as a structure
+      versionInfo = struct('major', str2double(fields{1}), ...
+                           'minor', str2double(fields{2}), ...
+                           'revision', fields{3}, ...
+                           'date', str2double(fields{4}), ...
+                           'file', fields{5}, ...
+                           'size', str2double(fields{6}), ...
+                           'development', true, ...
+                           'build', str2double(fields{8}));
+    else
+      error('Simatra:simCheckVersion', ['Unexpected format of the version information: ' ver_str]);
+      versionInfo = false;
+    end
+  end
 end
 
 % generateUpdateDol - create a dol file with the update information
@@ -178,7 +168,7 @@ function result = execSimEngine(cmd, quiet)
 [pathstr, name, ext] = fileparts(which('simex'));
 simEngine = fullfile(pathstr, 'bin', 'simEngine');
 print_cmd = ['println(' cmd ')'];
-echo_cmd = ['echo "' print_cmd '"'];
+echo_cmd = ['echo ''' print_cmd ''''];
 arguments = [' -batch - -startupmessage=false'];
 
 full_cmd = [echo_cmd ' | ' simEngine arguments];
