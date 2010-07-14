@@ -33,11 +33,10 @@ fun b2s x =
 fun symlist2s (l: Symbol.symbol list) =
     "[" ^ (String.concatWith ", " (map Symbol.name l)) ^ "]"*)
 
-fun list2str strfun l =
-    "[" ^ (String.concatWith ", " (map strfun l)) ^ "]"
+val list2str = GeneralUtil.list2str
+val symlist2s = GeneralUtil.symlist2s
+val l2s = GeneralUtil.l2s
 
-val symlist2s = list2str Symbol.name 
-val l2s = list2str (fn(x)=>x)
 
 val commonPrefix = "mdlvar__"
 val internalPrefix = "intmdlvar__"

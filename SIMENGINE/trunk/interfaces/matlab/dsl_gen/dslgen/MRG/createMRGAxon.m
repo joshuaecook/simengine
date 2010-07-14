@@ -86,9 +86,13 @@ for i=1:numSegments
 end
 
 % Add outputs
-outputList = cell(1, numSegments);
-for i=1:numSegments
-    outputList{i} = segments{i}.VmAxonal_L;
+if numSegments > 0
+    outputList = cell(1, numSegments);
+    for i=1:numSegments
+        outputList{i} = segments{i}.VmAxonal_L;
+    end
+else
+    outputList = node.V;
 end
 m.output('Vm', outputList);
 

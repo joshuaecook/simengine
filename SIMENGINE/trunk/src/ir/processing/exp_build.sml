@@ -93,6 +93,12 @@ fun diff_state_var (sym, iter_sym) =
 			 )
 	     )
 
+fun var_with_iter (sym, iter) =
+    Exp.TERM (Exp.SYMBOL (sym,
+			  Property.setIterator
+			      Property.default_symbolproperty
+			      [iter]))
+
 
 fun itervar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					Property.setScope Property.default_symbolproperty Property.ITERATOR))

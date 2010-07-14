@@ -43,6 +43,10 @@ val empty_model:DOF.model
 
 val current_model = (ref empty_model: DOF.model ref)
 
+(* Exceptions *)
+val NoClassFound = DynException.NoClassFound
+val NoIteratorFound = DynException.NoIteratorFound
+
 (* accessors/modifiers for the current model *)
 fun getCurrentModel() = (!current_model)
 fun setCurrentModel(model: DOF.model) = 
@@ -87,8 +91,9 @@ fun classname2class(sym) : DOF.class =
     in
 	if isSome found then valOf found
 	else
-		DynException.stdException(("Can't find class with name '"^(Symbol.name sym)^"': ClassList=" ^(Util.symlist2s (map #name myclasses))),
-					  ("CurrentModel.classname2class"), Logger.INTERNAL)
+	    raise NoClassFound (sym, (map #name myclasses))
+(*DynException.stdException(("Can't find class with name '"^(Symbol.name sym)^"': ClassList=" ^(Util.symlist2s (map #name myclasses))),
+					  ("CurrentModel.classname2class"), Logger.INTERNAL)*)
     end
 
 
@@ -102,7 +107,9 @@ fun iterators() =
 fun itersym2iter iter_sym =
     case List.find (fn(iter_sym',_)=>iter_sym=iter_sym') (iterators()) of
 	SOME iter => iter
-      | NONE => DynException.stdException(("Can't find iterator with name '"^(Symbol.name iter_sym)^"'"),
-					  ("CurrentModel.itersym2iter"), Logger.INTERNAL)
+      | NONE => 
+	raise NoIteratorFound (iter_sym)
+(*DynException.stdException(("Can't find iterator with name '"^(Symbol.name iter_sym)^"'"),
+					  ("CurrentModel.itersym2iter"), Logger.INTERNAL)*)
 
 end
