@@ -271,4 +271,12 @@ fun isFile file =
 	 true)
     handle _ => false
 
+(* List processing functions *)
+fun list2str strfun l =
+    "[" ^ (String.concatWith ", " (map strfun l)) ^ "]"
+
+val symlist2s = list2str Symbol.name 
+val l2s = list2str (fn(x)=>x)
+
+
 end

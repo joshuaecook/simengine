@@ -68,7 +68,42 @@ fun typepattern_to_str (TYPE sym) = "Type '"^(Symbol.name sym)^"'"
 fun builtin (fcn,args) = Exp.FUN (Fun.BUILTIN fcn, map astexp_to_Exp args)
 			 handle e => DynException.checkpoint "AstDOFTrans.builtin" e
 
-and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
+(* astexp_to_Iterator - pulls out iterator references *)
+and astexp_to_Iterator (POS (APPLY {func=(SYMBOL itersym), args=(TUPLE [VECTOR [offsetexp]])}, _)) =
+    (* case #1 - handles iterator references that look like x[t[-1]] or x[t[0]] *)
+    (case offsetexp of
+	 LITERAL (CONSTREAL offset) => 
+	 (* case #1a - x[t[1]] *)
+	 (itersym, Iterator.RELATIVE (Real.round offset))
+       | APPLY {func=(SYMBOL opsym), args=(TUPLE [LITERAL (CONSTREAL offset)])} =>
+	 if opsym = (Symbol.symbol "operator_neg") then
+	     (* case #1b - x[t[-1]] *)
+	     (itersym, Iterator.RELATIVE (~(Real.round offset)))
+	 else if opsym = (Symbol.symbol "operator_add") then
+	     (* case #1c - x[t[+1]] *)
+	     (itersym, Iterator.RELATIVE ((Real.round offset)))
+	 else
+	     (error ("unexpected operation '"^(Symbol.name opsym)^"' iterator '"^(Symbol.name itersym)^"' reference");
+	      (itersym, Iterator.RELATIVE 0))
+       | _ => (error ("invalid referencing of iterator '"^(Symbol.name itersym)^"'");
+	       (itersym, Iterator.RELATIVE 0)))
+  | astexp_to_Iterator (APPLY {func=(SYMBOL opsym), args=(TUPLE [SYMBOL itersym, LITERAL (CONSTREAL offset)])}) = 
+    (* case #2 - handles iterator references that look like x[n-5] *)
+    (case (Symbol.name opsym) of
+	 "operator_add" => (itersym, Iterator.RELATIVE (Real.round offset))
+       | "operator_subtract" => (itersym, Iterator.RELATIVE (~(Real.round offset)))
+       | _ => (error ("Unexpected iterator operation <"^(Symbol.name opsym)^">");
+	       (itersym, Iterator.RELATIVE 0)))
+  | astexp_to_Iterator (SYMBOL itersym) = 
+    (* case #3 - handles iterator references that look like y[t] or x[n] *)
+    (itersym, Iterator.RELATIVE 0)
+  | astexp_to_Iterator exp = (log_progs (exp_to_printer exp);
+			      error "invalid iterator";
+			      (Symbol.symbol "undefined", Iterator.RELATIVE 0))
+
+and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}= 
+    ExpBuild.var_with_iter (sym, astexp_to_Iterator arg)
+  | apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
     (case (Symbol.name sym) of
 	"operator_add" => builtin (Fun.ADD, args)
       | "operator_subtract" => builtin (Fun.SUB, args)
@@ -116,7 +151,7 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
       | "abs" => builtin (Fun.ABS, args)
       | "sqrt" => builtin (Fun.SQRT, args)
       | "operator_deriv" => builtin (Fun.DERIV, args)
-      | _ => error_exp ("APPLY:" ^ (Symbol.name sym)))
+      | _ => error_exp ("APPLY:" ^ (Symbol.name sym) ^ " with args = " ^ (Util.list2str ExpPrinter.exp2str (map astexp_to_Exp args))))
   | apply_to_Exp _ = error_exp "APPLY"
 
 and send_to_Exp {message, object=(SYMBOL sym)} = ExpBuild.var (Symbol.name sym ^ "." ^ (Symbol.name message))
@@ -155,7 +190,7 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
 				      
 
 
-fun stm_to_printer (DEFINITION (def, log)) = ([$("Definition"),
+and stm_to_printer (DEFINITION (def, log)) = ([$("Definition"),
 					       SUB(def_to_printer def)]
 					      handle e => DynException.checkpoint "AstDOFTrans.stm_to_printer [DEFINITION]" e)
   | stm_to_printer (ACTION (act, log)) = ([$("Action"),
@@ -278,8 +313,13 @@ and equation_to_printer (EQUATION (e1, e2, e3opt)) =
 	  SUB[$("e3"),
 	      SUB(exp_to_printer e3)]]
        | NONE =>
-	 [$("Equ: " ^ (ExpPrinter.exp2str (ExpBuild.equals (astexp_to_Exp e1, 
-							    astexp_to_Exp e2))))])
+(*	 [$("Equ: " ^ (ExpPrinter.exp2str (ExpBuild.equals (astexp_to_Exp e1, 
+							    astexp_to_Exp e2))))]*)
+	 [$("Equation: "),
+	  SUB[$("e1"),
+	      SUB(exp_to_printer e1)],
+	  SUB[$("e2"),
+	      SUB(exp_to_printer e2)]])
      handle e => DynException.checkpoint "AstDOFTrans.equation_to_printer [EQUATION]" e)
 
   | equation_to_printer (MATHFUNCTION (e1, e2)) = [$("MathFunction: "),
@@ -319,7 +359,8 @@ and exp_to_printer (LITERAL lit) = [$("Literal: " ^ (literal_to_string lit))]
 						   SUB(exp_to_printer ift)],
 					       SUB[$("iff"),
 						   SUB(exp_to_printer iff)]]
-  | exp_to_printer (VECTOR explist) = [$("Vector")]
+  | exp_to_printer (VECTOR explist) = [$("Vector"),
+				       SUB(map (SUB o exp_to_printer) explist)]
   | exp_to_printer (TUPLE explist) = [$("Tuple: "),
 				      SUB(Util.flatmap exp_to_printer explist)]
   | exp_to_printer (ASSERTION exp) = [$("Assertion")]
@@ -338,8 +379,10 @@ and exp_to_printer (LITERAL lit) = [$("Literal: " ^ (literal_to_string lit))]
   | exp_to_printer (POS (exp, pos)) = [$("With Pos"),
 				       SUB(exp_to_printer exp)]
   | exp_to_printer (TYPEEXP pat) = [$("Typeexp")]
-  | exp_to_printer (AND explist) = [$("And")] 
-  | exp_to_printer (OR explist) = [$("Or")]
+  | exp_to_printer (AND explist) = [$("And"),
+				    SUB(map (SUB o exp_to_printer) explist)] 
+  | exp_to_printer (OR explist) = [$("Or"),
+				   SUB(map (SUB o exp_to_printer) explist)]
   | exp_to_printer (FORGENERATOR _) = [$("Forgenerator")]
   | exp_to_printer (FORALL {var, collection, test}) = [$("Forall")]
   | exp_to_printer (EXISTS {var, collection, test}) = [$("Exists")]
@@ -522,13 +565,12 @@ local
 			  end
 
 	    val in_process_iterator_sym = Iterator.inProcessOf (Symbol.name iter)
-	    val in_process_iterator = (in_process_iterator_sym, DOF.ALGEBRAIC (DOF.INPROCESS, iter))
 	    val equations = [(* first the initialization equation *)
 			     ExpBuild.equals (ExpBuild.state_init_var (name, in_process_iterator_sym), rhs),
 			    (* second the algebraic equation to define the next iteration's random number *)
 			     ExpBuild.equals (ExpBuild.state_next_var (name, in_process_iterator_sym), rhs)]
 	in
-	    (equations, in_process_iterator)
+	    equations
 	end
       | translate_random _ = except "non-random"
 
@@ -683,9 +725,7 @@ fun modeldef_to_class modeltable name =
 	 * iterator when we define the differential equations *)
 	val statetable = SymbolTable.empty
 	val (state_equations, statetable) = foldl translate_state ([], statetable) states
-	val (random_equations, random_iterators) = 
-	    (fn(randomlistlist, randomiterlist) => (Util.flatten randomlistlist, randomiterlist)) 
-		(ListPair.unzip (map translate_random randoms))
+	val random_equations = Util.flatmap translate_random randoms
 
 	(* go through each of the elements and process them one by one *)
 	val class = {name=name,
@@ -700,7 +740,7 @@ fun modeldef_to_class modeltable name =
 
 	(*val _ = DOFPrinter.printClass class*)
     in
-	(class, map translate_iterator iterators @ random_iterators)
+	(class, map translate_iterator iterators)
     end
     handle e => DynException.checkpoint ("AstDOFTrans.modeldef_to_class ["^(Symbol.name name)^"]") e
 
@@ -786,9 +826,14 @@ fun ast_to_dof astlist =
 
 	(* remove duplicate iterators *)
 	val reduced_iterators = remove_duplicate_iterators (Util.flatten iterators)
+	(* add in process variants *)
+	val all_iterators = Util.flatmap 
+				(fn(orig_iter as (iter_sym, _)) => [orig_iter, 
+								    (Iterator.inProcessOf (Symbol.name iter_sym), DOF.ALGEBRAIC (DOF.INPROCESS, iter_sym))])
+				reduced_iterators
 	    
 	(* put together the system properties *)
-	val systemproperties = build_system_properties reduced_iterators
+	val systemproperties = build_system_properties all_iterators
 	val instance = {name=NONE, classname=top_level_model}
 
 	val dof = (classes, instance, systemproperties)

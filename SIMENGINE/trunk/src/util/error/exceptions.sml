@@ -51,6 +51,10 @@ exception ImportError of string * string list
 (* Raised when an error is unknown at this time *)
 exception UnknownError of string * exn
 
+(* Exceptions for Current Model *)
+exception NoClassFound of (Symbol.symbol * Symbol.symbol list)
+exception NoIteratorFound of (Symbol.symbol)
+
 val showStackTrace = ref false
 
 fun setShowStackTrace(bool) =
@@ -99,6 +103,8 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
 		    | NameConflictError str => "Name conflict error exception at " ^ handlelocation ^ ": " ^ str
 		    | ImportError (file, paths) => "Import error exception at " ^ handlelocation ^ " for file " ^ file
 		    | IncorrectNumberOfArguments {expected, actual} => "Incorrect number of arguments exception at " ^ handlelocation
+		    | NoClassFound (classname, classlist) => ("No class with name '"^(Symbol.name classname)^"' found, options are: " ^ (GeneralUtil.symlist2s classlist))
+		    | NoIteratorFound (itername) => "No iterator with name '"^(Symbol.name itername)^"' found"
 		    | _ => raise UnknownError (handlelocation, e)
     in
 	Logger.log_exception Logger.OTHER Logger.FAILURE ($(message))

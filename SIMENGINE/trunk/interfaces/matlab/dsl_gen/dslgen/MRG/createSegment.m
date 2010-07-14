@@ -1,5 +1,18 @@
 function m = createSegment(node, mysa, flut, stin)
 
+if nargin == 0
+    % First define the global iterators
+    dt = 0.001;
+    t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
+    t_exp = Iterator('t_exp', 'solver', 'forwardeuler', 'dt', dt);
+    
+    % Create the submodels
+    node = createNode(t_imp, t_exp);
+    flut = createFlut(t_imp);
+    mysa = createMysa(t_imp);
+    stin = createStin(t_imp);
+end
+
 m = Model('segment');
 
 Istim = m.input('Istim', 0);

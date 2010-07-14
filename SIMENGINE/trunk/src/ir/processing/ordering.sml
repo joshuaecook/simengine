@@ -47,6 +47,7 @@ fun printClassMap classMap =
 	    in
 		()
 	    end
+	    handle e => DynException.checkpoint "Ordering.printClassMap.printExp" e
 
 	fun printClass name =
 	    let
@@ -57,12 +58,14 @@ fun printClassMap classMap =
 	    in
 		()
 	    end
+	    handle e => DynException.checkpoint "Ordering.printClassMap.printClass" e
 
 	val _ = print "Class Map:\n============\n"
 	val _ = app printClass (SymbolTable.listKeys classMap)
     in
 	()
     end
+    handle e => DynException.checkpoint "Ordering.printClassMap" e
 
 fun printClassIOMap classIOMap =
     let
@@ -73,6 +76,7 @@ fun printClassIOMap classIOMap =
 	    in
 		()
 	    end
+	    handle e => DynException.checkpoint "Ordering.printClassIOMap.printExp" e
 
 	fun printClass name =
 	    let
@@ -83,6 +87,7 @@ fun printClassIOMap classIOMap =
 	    in
 		()
 	    end
+	    handle e => DynException.checkpoint "Ordering.printClassIOMap.printClass" e
 
 	val _ = print "Class IO Map:\n============\n"
 	val _ = app printClass (SymbolTable.listKeys classIOMap)
@@ -90,6 +95,7 @@ fun printClassIOMap classIOMap =
     in
 	()
     end
+    handle e => DynException.checkpoint "Ordering.printClassIOMap" e
 
 fun inp2sym input =
     let val name = DOF.Input.name input
@@ -613,7 +619,7 @@ fun orderModel (model:DOF.model)=
 
 		val candidateClasses = (valOf(SymbolTable.look (splitMap, classname)))
 		    handle SortFailed => raise SortFailed 
-	     | e => DynException.checkpoint "Ordering.orderModel.buildSplit.candidateClasses" e
+	     | e => DynException.checkpoint ("Ordering.orderModel.buildSplit.candidateClasses [classname="^(Symbol.name classname)^"]") e
 
 		val outputMap = map (outsym2pos outputSyms) outputs
 
@@ -804,7 +810,7 @@ fun orderModel (model:DOF.model)=
 		     else
 			 dep = (termexp2sym exp))
 		    handle SortFailed => raise SortFailed 
-	     | e => DynException.checkpoint "Ordering.buildClass.depInExp" e
+			 | e => DynException.checkpoint "Ordering.buildClass.depInExp" e
 
 		fun dep2exp (dep, (maps as (splitMap, classMap, classIOMap, generatedInstances), exps)) =
 		    (case List.filter (depInExp dep) (!(#exps oldClass)) of
@@ -858,7 +864,7 @@ fun orderModel (model:DOF.model)=
 						  val _ = print ("looking for classname " ^ (Symbol.name classname) ^ " with key " ^ (Symbol.name key) ^ "")
 						  val candidateClasses = (valOf(SymbolTable.look (splitMap, classname)))
 						      handle SortFailed => raise SortFailed 
-	     | e => DynException.checkpoint "Ordering.orderModel.buildClass.dep2exp.candidateClasses" e
+							   | e => DynException.checkpoint ("Ordering.orderModel.buildClass.dep2exp.candidateClasses [classname="^(Symbol.name classname)^", keys="^(Util.symlist2s (SymbolTable.listKeys splitMap))^"]") e
 								  
 						  val (instanceClass, inputMap) =  valOf(SymbolTable.look(candidateClasses, key))
 										   
@@ -872,7 +878,7 @@ fun orderModel (model:DOF.model)=
 						  ((splitMap', classMap', classIOMap', generatedInstances'), exps)
 					      end	
 					      handle SortFailed => raise SortFailed 
-	     | e => DynException.checkpoint "Ordering.orderModel.buildClass.dep2exp [not member]" e	
+						   | e => DynException.checkpoint "Ordering.orderModel.buildClass.dep2exp [not member]" e	
 							  
 				      end
 				  else if ExpProcess.isIntermediateEq exp then

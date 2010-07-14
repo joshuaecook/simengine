@@ -1,3 +1,4 @@
+
 signature COST=
 sig
 
@@ -14,6 +15,10 @@ end
 structure Cost : COST =
 struct
 
+fun getclass classname =
+    SOME (CurrentModel.classname2class classname)
+    handle DynException.NoClassFound _ => NONE
+    
 fun exp2generalcost deep exp =
     let 
 	val exp2cost = exp2generalcost deep
@@ -26,11 +31,13 @@ fun exp2generalcost deep exp =
 	  | Exp.FUN (Fun.INST {classname, instname, props}, args) => 
 	    let
 		val args_size = Util.sum (map exp2cost args)
-		val c = CurrentModel.classname2class classname
-		val inst_size = if deep then
-				    class2cost c
-				else
-				    0
+		val inst_size = case getclass classname of
+				    SOME c =>
+				    if deep then
+					class2cost c
+				    else
+					0
+				  | NONE => ~1
 	    in
 		args_size + inst_size
 	    end

@@ -123,7 +123,13 @@ fun printModel (model: DOF.model) =
 
 	val (classes, topinstance, systemproperties) = model
 
-	val num_states = ClassProcess.class2statesize (CurrentModel.classname2class (#classname topinstance))
+	fun getClass (classname) = 
+	    SOME (CurrentModel.classname2class classname)
+	    handle DynException.NoClassFound _ => NONE
+		       
+	val num_states = case getClass (#classname topinstance) of 
+			      SOME class => ClassProcess.class2statesize class
+			    | NONE => ~1
 
 	fun header2str() =
 	    let 
@@ -138,15 +144,21 @@ fun printModel (model: DOF.model) =
 
 	fun printTopInstance ({name, classname}) =
 	    let
-		val class = CurrentModel.classname2class classname
+		val class = getClass(classname)
+			    
 	    in
-		(print ("  Name: " ^ (case name of SOME name => Symbol.name name | NONE => "NONE") ^ "\n");
-		 print ("  Class: " ^ (Symbol.name classname) ^ "\n");
-		 print ("  Inputs: " ^ (String.concatWith ", " (map (e2s o Exp.TERM o DOF.Input.name) (!(#inputs class)))) ^ "\n");
-		 print ("  Outputs: " ^ (String.concatWith ", " (map (e2s o Exp.TERM o DOF.Output.name) (!(#outputs class)))) ^ "\n");
-		 print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n");
-		 print ("  State Count: "^(i2s num_states)^"\n"))
-
+		case class of
+		    SOME class =>
+		    (print ("  Name: " ^ (case name of SOME name => Symbol.name name | NONE => "NONE") ^ "\n");
+		     print ("  Class: " ^ (Symbol.name classname) ^ "\n");
+		     print ("  Inputs: " ^ (String.concatWith ", " (map (e2s o Exp.TERM o DOF.Input.name) (!(#inputs class)))) ^ "\n");
+		     print ("  Outputs: " ^ (String.concatWith ", " (map (e2s o Exp.TERM o DOF.Output.name) (!(#outputs class)))) ^ "\n");
+		     print ("  Cost: "^ (i2s (Cost.class2cost class)) ^"\n");
+		     print ("  State Count: "^(i2s num_states)^"\n"))
+		  | NONE =>
+		    (print ("  Name: " ^ (case name of SOME name => Symbol.name name | NONE => "NONE") ^ "\n");
+		     print ("  Class: " ^ (Symbol.name classname) ^ "\n");
+		     print ("  NO CLASS FOUND WITH THIS NAME\n"))
 	    end
 
 	fun printSystemProperties {iterators,precision,target,parallel_models,debug,profile} =
