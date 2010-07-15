@@ -42,6 +42,7 @@ static struct {
   unsigned int num_models;
   unsigned int num_outputs;
   unsigned int num_states;
+  unsigned int buffer_length;
   char *outputs_dirname;
   char **output_names;
   unsigned int *output_num_quantities;
@@ -61,8 +62,6 @@ static output_t *output;
 
 #define OUT_OF_MEMORY_ERR_MSG "The simex function was unable to allocate the memory it needs to perform a simulation."
 #define ERROR(MESSAGE, ARG...) mexErrMsgIdAndTxt("Simatra:SIMEX:readSimulationData", MESSAGE, ##ARG)
-
-#define BUFFER_LEN 100
 
 typedef struct{
   unsigned int *finished;
@@ -163,6 +162,14 @@ unsigned int iface_parallel_models(const mxArray *iface){
 
   assert(mxDOUBLE_CLASS == mxGetClassID(pmodels));
   return mxGetScalar(pmodels);
+}
+
+unsigned int iface_buffer_length(const mxArray *iface){
+  assert(mxSTRUCT_CLASS == mxGetClassID(iface));
+  mxArray *blen = mxGetField(iface, 0, "buffer_length");
+
+  assert(mxDOUBLE_CLASS == mxGetClassID(blen));
+  return mxGetScalar(blen);
 }
 
 /* Returns the number of parallel instances represented in an options structure. */
@@ -470,7 +477,7 @@ int log_outputs(output_buffer *ob, unsigned int modelid) {
 
   unsigned int modelid_offset = ob->modelid_offset[modelid];
   unsigned int ndata = ob->count[modelid];
-  output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * BUFFER_LEN * collection_status.precision));
+  output_buffer_data *buf = (output_buffer_data *)(ob->buffer + (modelid * collection_status.buffer_length * collection_status.precision));
 	     
   for (dataid = 0; dataid < ndata; ++dataid) {
     outputid = buf->outputid;
@@ -534,7 +541,7 @@ void *collect_data(void *arg){
   int fd;
   unsigned int modelid;
   unsigned int modelid_offset;
-  unsigned int buffer_size = (((BUFFER_LEN * collection_status.precision) + 
+  unsigned int buffer_size = (((collection_status.buffer_length * collection_status.precision) + 
 			       (6 * sizeof(unsigned int)) + 
 			       (2 * collection_status.pointer_size)) * 
 			      collection_status.parallel_models);
@@ -634,6 +641,7 @@ void initialize(const mxArray **prhs){
     collection_status.precision = iface_precision(iface);
     collection_status.pointer_size = iface_pointer_size(iface);
     collection_status.parallel_models = iface_parallel_models(iface);
+    collection_status.buffer_length = iface_buffer_length(iface);
     if(collection_status.num_outputs){
       collection_status.output_names = iface_outputs(iface);
       collection_status.output_num_quantities = iface_output_num_quantities(iface);
