@@ -135,6 +135,8 @@ and containerToJSON (Exp.EXPLIST exps) =
     JSONTypedObject ("Exp.EXPLIST", array (map toJSON exps))
   | containerToJSON (Exp.ARRAY arr) = 
     JSONTypedObject ("Exp.ARRAY", array (map toJSON (Container.arrayToList arr)))
+  | containerToJSON (Exp.ASSOC tab) =
+    JSONTypedObject ("Exp.ASSOC", object (ListPair.mapEq (fn (k,v) => (Symbol.name k, toJSON v)) (SymbolTable.listKeys tab, SymbolTable.listItems tab)))
   | containerToJSON (Exp.MATRIX mat) = 
     JSONTypedObject ("Exp.MATRIX", MatrixSyntax.toJSON mat)
 

@@ -66,6 +66,7 @@ fun expListToArrayList l =
 
 fun containerToElements (Exp.EXPLIST l) = l
   | containerToElements (Exp.ARRAY a) = arrayToList a
+  | containerToElements (Exp.ASSOC t) = SymbolTable.listItems t
   | containerToElements (Exp.MATRIX m) = Matrix.getElements m
 
 val zero = Exp.TERM (Exp.INT 0)

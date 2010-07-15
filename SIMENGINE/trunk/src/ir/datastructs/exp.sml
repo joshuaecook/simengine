@@ -24,6 +24,7 @@ datatype exp =
      and container =
 	 MATRIX of exp Matrix.matrix
        | ARRAY of exp Array.array
+       | ASSOC of exp SymbolTable.table
        | EXPLIST of exp list
 
      and term = 

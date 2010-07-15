@@ -77,6 +77,8 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	case c of
 	    Exp.EXPLIST l => DynException.stdException ("Cannot write EXPLIST expressions", "CWriter.exp2c_str", Logger.INTERNAL)
 	  | Exp.ARRAY a => array2str a
+	  | Exp.ASSOC t => 
+	    DynException.stdException ("Cannot write ASSOC containers.", "CWriter.exp2c_str", Logger.INTERNAL)
 	  | Exp.MATRIX m => matrix2str m
     end
   | exp2c_str (Exp.META _) = 
