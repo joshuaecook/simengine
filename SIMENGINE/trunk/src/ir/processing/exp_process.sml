@@ -202,6 +202,7 @@ fun renameSym (orig_sym, new_sym) exp =
 	    val c' = case c of
 			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
 		       | Exp.ARRAY a => Exp.ARRAY (renameArray a)
+		       | Exp.ASSOC t => Exp.ASSOC (SymbolTable.map (renameSym (orig_sym, new_sym)) t)
 		       | Exp.MATRIX m => Exp.MATRIX (renameMatrix m)
 	in
 	    Exp.CONTAINER c'
@@ -231,6 +232,7 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
 	    val c' = case c of
 			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
 		       | Exp.ARRAY a => Exp.ARRAY (renameArray a)
+		       | Exp.ASSOC t => Exp.ASSOC (SymbolTable.map (renameInst syms) t)
 		       | Exp.MATRIX m => Exp.MATRIX (renameMatrix m)
 	in
 	    Exp.CONTAINER c'
@@ -801,6 +803,7 @@ fun exp2size exp : int =
 		       (case c of
 			    Exp.EXPLIST l => Util.sum (map exp2size l)
 			  | Exp.ARRAY a => Array.length a
+			  | Exp.ASSOC t => Util.sum (map exp2size (SymbolTable.listItems t))
 			  | Exp.MATRIX m => 
 			    let
 				val (nrows, ncols) = Matrix.size m

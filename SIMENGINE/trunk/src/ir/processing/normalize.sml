@@ -45,6 +45,7 @@ fun normalize_with_env table exp =
 	    (case c of
 		 Exp.EXPLIST l => Exp.EXPLIST (expFlatMap (normalize_with_env table) l)
 	       | Exp.ARRAY a => Exp.ARRAY (normalize_array a)
+	       | Exp.ASSOC t => Exp.ASSOC (SymbolTable.map (normalize_with_env table) t)
 	       | Exp.MATRIX m => Exp.MATRIX (normalize_matrix m))
 	    end
 	  | Exp.META m =>

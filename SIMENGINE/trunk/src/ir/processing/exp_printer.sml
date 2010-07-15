@@ -110,6 +110,12 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	case container of
 	     Exp.EXPLIST e => "{" ^ (list2str e) ^ "}"
 	   | Exp.ARRAY v => "[" ^ (list2str (Container.arrayToList v)) ^ "]"
+	   | Exp.ASSOC t => 
+	     "<" ^ 
+	     (String.concatWith ", " (ListPair.mapEq 
+					  (fn (k,v) => ((Symbol.name k) ^ ": " ^ (exp2tersestr pretty v))) 
+					  (SymbolTable.listKeys t, SymbolTable.listItems t))) ^ 
+	     ">"
 	   | Exp.MATRIX m => "("^(Matrix.infoString m)^")[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ "]"
     end
 
@@ -206,6 +212,12 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	case container of
 	     Exp.EXPLIST e => "explist(" ^ (list2str e) ^ ")"
 	   | Exp.ARRAY a => "array"^(array2str a)^"(" ^ (list2str (Container.arrayToList a)) ^ ")"
+	   | Exp.ASSOC t => 
+	     "assoc(" ^ 
+	     (String.concatWith ", " (ListPair.mapEq 
+					  (fn (k,v) => ((Symbol.name k) ^ ": " ^ (exp2fullstr v))) 
+					  (SymbolTable.listKeys t, SymbolTable.listItems t))) ^ 
+	     ")"
 	   | Exp.MATRIX m => 
 	     case !m of
 		 Matrix.DENSE _ => 

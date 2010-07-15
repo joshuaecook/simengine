@@ -466,7 +466,14 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 		allEquiv exp_equivalent matchCandidates 
 			 (Container.containerToElements c1, 
 			  Container.containerToElements c2)
-		
+
+	      | (Exp.CONTAINER (c1 as (Exp.ASSOC t1)), Exp.CONTAINER (c2 as (Exp.ASSOC t2))) =>
+		if ListPair.allEq (fn (s1,s2) => s1 = s2) (SymbolTable.listKeys t1, SymbolTable.listKeys t2) then
+		    allEquiv exp_equivalent matchCandidates 
+			     (Container.containerToElements c1, 
+			      Container.containerToElements c2)
+		else
+		    nil
 	      | (Exp.CONTAINER (c1 as (Exp.MATRIX m1)), Exp.CONTAINER (c2 as (Exp.MATRIX m2))) =>
 		if (Matrix.size m1) = (Matrix.size m2) then
 		    allEquiv exp_equivalent matchCandidates 

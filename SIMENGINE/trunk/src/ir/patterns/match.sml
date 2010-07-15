@@ -78,7 +78,8 @@ fun level (exp) =
        | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
        | Exp.TERM (Exp.COMPLEX (a, b)) => map Exp.TERM [a,b]
        | Exp.CONTAINER (Exp.EXPLIST l) => l
-       | Exp.CONTAINER (Exp.ARRAY a) => (Container.arrayToList a)
+       | Exp.CONTAINER (Exp.ARRAY a) => Container.arrayToList a
+       | Exp.CONTAINER (Exp.ASSOC tab) => SymbolTable.listItems tab
        | Exp.CONTAINER (Exp.MATRIX m) =>
 	 (case !m of
 	      Matrix.DENSE {data,...} => 	     
@@ -98,6 +99,16 @@ fun head (exp) =
       | Exp.TERM (Exp.COMPLEX (a, b)) => (fn(args') => Exp.TERM (Exp.COMPLEX (exp2term (List.nth (args', 0)), exp2term (List.nth (args', 1)))))
       | Exp.CONTAINER (Exp.EXPLIST l) => (fn(args') => Exp.CONTAINER (Exp.EXPLIST args'))
       | Exp.CONTAINER (Exp.ARRAY a) => (fn(args') => Exp.CONTAINER (Exp.ARRAY (Container.listToArray args')))
+      | Exp.CONTAINER (Exp.ASSOC tab) =>
+	let
+	    val keys = SymbolTable.listKeys tab
+	    val zero = SymbolTable.empty
+	    val cons = Exp.CONTAINER o Exp.ASSOC
+	in
+	 fn items =>
+	    cons (ListPair.foldlEq (fn (k,v,tab) => SymbolTable.enter (tab,k,v)) zero (keys, items))
+	end
+	    
       | Exp.CONTAINER (Exp.MATRIX m) => 
 	(case !m of
 	     Matrix.DENSE {data, calculus} => 
@@ -212,6 +223,7 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
 	    (case c of
 		 Exp.EXPLIST l => Exp.EXPLIST (replaceList l)
 	       | Exp.ARRAY a => Exp.ARRAY (replaceArray a)
+	       | Exp.ASSOC t => Exp.ASSOC (SymbolTable.map (replaceSymbol (sym, repl_exp)) t)
 	       | Exp.MATRIX m => Exp.MATRIX (replaceMatrix m))
 	end
       | Exp.META (Exp.SEQUENCE s) 

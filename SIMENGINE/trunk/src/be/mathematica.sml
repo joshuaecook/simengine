@@ -106,6 +106,8 @@ fun exp2mathematica_str (exp as (Exp.FUN (Fun.BUILTIN Fun.ASSIGN,[_,Exp.FUN (Fun
 	case c of 
 	    Exp.EXPLIST l => explist2str l
 	  | Exp.ARRAY a => explist2str (Container.arrayToList a)
+	  | Exp.ASSOC t => 
+	    DynException.stdException ("Cannot write ASSOC container expressions.", "Mathematica.exp2mathematica_str", Logger.INTERNAL)
 	  | Exp.MATRIX m => list2str (map 
 					  (explist2str o Container.arrayToList)
 					  (Matrix.toRows m))
