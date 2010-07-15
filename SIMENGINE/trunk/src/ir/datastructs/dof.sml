@@ -137,11 +137,6 @@ type systemproperties = {iterators: systemiterator list,
 			 debug: bool,
 			 profile: bool}
 
-type classiterator = {name: Symbol.symbol,
-		      low: real,
-		      step: real,
-		      high: real}
-
 datatype inputMeans =
 	 CONSTANT
        | SAMPLE of {iterator: Symbol.symbol,
@@ -158,7 +153,6 @@ type class = {name: Symbol.symbol,
 	      properties: classproperties,
 	      inputs: Input.input list ref,
 	      outputs: Output.output list ref,
-	      iterators: classiterator list,
 	      exps: expression list ref}
 	     
 type instance = {name: Symbol.symbol option,

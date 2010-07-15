@@ -67,7 +67,7 @@ fun genlist2str data2str [data] =
 val symbollist2str = genlist2str Symbol.name
 val contents2str = genlist2str e2s
 
-fun printClass (class as {name, properties={sourcepos, basename, preshardname, classform, classtype}, inputs, outputs, iterators, exps}) =
+fun printClass (class as {name, properties={sourcepos, basename, preshardname, classform, classtype}, inputs, outputs, exps}) =
     (case classtype of
 	 DOF.SLAVE orig_class_name => 
 	 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")
@@ -87,8 +87,8 @@ fun printClass (class as {name, properties={sourcepos, basename, preshardname, c
      print ("  Equations:\n");
      app (fn(e) => 
 	    let
-		val size = (ExpProcess.exp2size iterators e)
-			   handle _ => (~1)
+		val size = (*(ExpProcess.exp2size iterators e)
+			   handle _ => *)(~1)
 
 		val cost = (Cost.exp2cost e)
 			   handle _ => (~1)
@@ -107,7 +107,6 @@ fun printClass (class as {name, properties={sourcepos, basename, preshardname, c
      print ("  Outputs:\n" ^ 
 	    (String.concatWith "\n" (map (fn(out) => "    " ^ (outputToStr out))
 					 (!outputs))) ^ "\n");
-     print ("  Iterators: " ^ (String.concatWith ", " (map (fn({name,low,step,high})=>(Symbol.name name) ^ "=" ^ (Real.toString low) ^ ":" ^ (Real.toString step) ^ ":" ^ (Real.toString high)) iterators)) ^ "\n");
      print ("  Symbols: {"^(String.concatWith ", " (SymbolSet.toStrList (ClassProcess.findSymbols class)))^"}\n"))
     handle e => DynException.checkpoint "DOFPrinter.printClass" e
 

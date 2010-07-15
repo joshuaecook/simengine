@@ -78,7 +78,7 @@ val multicollect : Exp.exp list * Exp.exp -> Exp.exp
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
 val renameInst : ((Symbol.symbol * Symbol.symbol) * (Symbol.symbol * Symbol.symbol)) -> Exp.exp -> Exp.exp (* Traverse through the expression, updating instance names *)
-val exp2size : DOF.classiterator list -> Exp.exp -> int
+val exp2size : Exp.exp -> int
 val enableEPIndex : bool -> (Symbol.symbol list) -> Exp.exp -> Exp.exp (* Add an EP index property when running an embarrassingly parallel simulation *)
 val assignCorrectScopeOnSymbol : Exp.exp -> Exp.exp (* addes the read and write state attributes based on found derivatives or differential terms *)
 val assignToOutputBuffer : Exp.exp -> Exp.exp (* sets an output buffer flag - only run in the code generator which reformulates the expression for generating the output logger *)
@@ -747,7 +747,7 @@ fun intermediateEquation2rewrite exp =
 				  Logger.INTERNAL)
 
 
-fun exp2size iterator_list exp : int = 
+fun exp2size exp : int = 
     let
 	fun combineSizes (size1, size2) = 
 	    if (size1 = size2) then size1
@@ -765,9 +765,9 @@ fun exp2size iterator_list exp : int =
 			       val spatial_iterators = TermProcess.symbol2spatialiterators t
 			       (*val _ = Util.log ("Returned spatial iterators: " ^ (Util.symlist2s (map #1 spatial_iterators)))*)
 			       fun lookupsize itersym = 
-				   case List.find (fn{name,...}=>name=itersym) iterator_list of
+				   (*case List.find (fn{name,...}=>name=itersym) iterator_list of
 					    SOME {name, low, high, step} => Real.ceil((high-low)/step + 1.0)
-					  | _ => DynException.stdException(
+					  | _ => *)DynException.stdException(
 						 ("Iterator '"^(Symbol.name itersym)^"' not defined for exp '"^(e2s exp)^"'"), 
 						 "ExpProcess.exp2size.lookupsize", 
 						 Logger.INTERNAL)
@@ -792,14 +792,14 @@ fun exp2size iterator_list exp : int =
 		       let
 			   val codomain = #codomain (FunProps.op2props f)
 		       in
-			   Util.prod(codomain (map (fn(a) => [exp2size iterator_list a]) args))
+			   Util.prod(codomain (map (fn(a) => [exp2size a]) args))
 (*		       foldl combineSizes 1 (map (exp2size iterator_list) args)*)
 		       end
 		     | Exp.FUN (Fun.INST _, args) => 1 (*TODO: ???? *)
 		     | Exp.META _ => 1 (*TODO: ???? *)
 		     | Exp.CONTAINER c => 
 		       (case c of
-			    Exp.EXPLIST l => Util.sum (map (exp2size iterator_list) l)
+			    Exp.EXPLIST l => Util.sum (map exp2size l)
 			  | Exp.ARRAY a => Array.length a
 			  | Exp.MATRIX m => 
 			    let

@@ -732,7 +732,6 @@ fun modeldef_to_class modeltable name =
 		     properties=create_classproperties name,
 		     inputs=ref inputs, (* we translated this earlier when we analyzed the model headers *)
 		     outputs=ref (map translate_output outputs),
-		     iterators=[],
 		     exps=ref (state_equations @
 			       random_equations @
 			       (collect_submodels (modeltable, submodels, submodelassigns)) @

@@ -1130,10 +1130,10 @@ fun postprocess_wrapper shardedModel postprocessIterators =
 
 
 local
-    fun state2member iterators (sym) =
+    fun state2member (sym) =
 	let
 	    val size = (*Term.symbolSpatialSize (ExpProcess.exp2term sym)*)
-		ExpProcess.exp2size iterators sym
+		ExpProcess.exp2size sym
 	    val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
 	in
 	    if size = 1 then ("CDATAFORMAT " ^ name ^ "[ARRAY_SIZE];")
@@ -1160,7 +1160,6 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
     let
 	val classname = ClassProcess.class2classname class
 	val classTypeName = ClassProcess.classTypeName class
-	val class_iterators = #iterators class
 
 	val init_eqs_symbols = map ExpProcess.lhs (List.filter ExpProcess.isInitialConditionEq (!exps))
 						       
@@ -1213,7 +1212,7 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 	     $("// States for class " ^ (Symbol.name classTypeName)),
 	     $("typedef struct  {"),	 
 	     SUB($("// states (count="^(i2s (List.length init_eqs_symbols))^")") ::
-		 (map ($ o (state2member class_iterators)) init_eqs_symbols) @
+		 (map ($ o state2member) init_eqs_symbols) @
 		 ($("// instances (count=" ^ (i2s (List.length class_inst_pairs_non_empty)) ^")") ::
 		  (map ($ o (instance2member instances)) class_inst_pairs_non_empty))),
 	     $("} statedata_" ^ (Symbol.name classTypeName) ^";")]

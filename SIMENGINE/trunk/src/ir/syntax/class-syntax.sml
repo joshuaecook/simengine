@@ -15,12 +15,11 @@ val int = int o IntInf.fromInt
 
 fun symbol s = JSON.object [("$symbol", JSON.string (Symbol.name s))]
 
-fun toJSON (class as {name, properties, inputs, outputs, iterators, exps}) =
+fun toJSON (class as {name, properties, inputs, outputs, exps}) =
     object [("name", symbol name),
 	    ("properties", propertiesToJSON properties),
 	    ("inputs", array (map inputToJSON (! inputs))),
 	    ("outputs", array (map outputToJSON (! outputs))),
-	    ("iterators", array (map iteratorToJSON iterators)),
 	    ("expressions", array (map ExpSyntax.toJSON (! exps)))]
 
 and inputToJSON input =
