@@ -1921,7 +1921,17 @@ fun state_init_code shardedModel iter_sym =
 
 		val ivqCode = ClassProcess.foldInitialValueEquations
 				  (fn (eqn, code) =>
-				      ($((CWriterUtil.exp2c_str eqn) ^ ";")) :: code)
+				      if ExpProcess.isEquation eqn then
+					  let
+					      val eqn' =  ClassProcess.flattenExpressionThroughInstances class eqn
+					  in
+					      ($((CWriterUtil.exp2c_str eqn') ^ ";")) :: code
+					  end
+				      else
+					  DynException.stdException(("Unexpected non equation present '"^(e2s eqn)^"'"),
+								    "CParallelWriter.stateInitCode.stateInitFunction",
+								    Logger.INTERNAL)
+				  )
 				  nil class
 
 		val instCode = ClassProcess.foldInstanceEquations

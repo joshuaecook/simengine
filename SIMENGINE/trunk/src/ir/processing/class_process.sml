@@ -91,6 +91,7 @@ sig
     val addDelays : DOF.class -> unit (* adds delays to difference equation terms *)
     val addBufferedIntermediates : DOF.class -> unit (* for iterators that read and write to the same state vector, so we add intermediates to break up any loops *)
     val flattenEq : DOF.class -> Symbol.symbol -> Exp.exp (* find an equation/expression that represents the particular symbol *)
+    val flattenExpressionThroughInstances : DOF.class -> Exp.exp -> Exp.exp
 
     (* Returns the given class with all intermediates inlined and all instance equations expanded.
      * Nb Changes the class's internal references and dependends on a CurrentModel context. *)
@@ -254,7 +255,14 @@ fun findMatchingEq (class:DOF.class) sym =
 		   of [] => SOME (ExpBuild.equals (Exp.TERM (DOF.Output.name output), ExpBuild.explist []))
 		    | [oneexp] => SOME (ExpBuild.equals (Exp.TERM (DOF.Output.name output), oneexp))
 		    | rest => SOME (ExpBuild.equals (Exp.TERM (DOF.Output.name output), ExpBuild.explist rest)))
-	       | NONE => NONE)
+	       | NONE => 
+		 (* if there's nothing else to look at, let's check initial conditions *)
+		 (case List.find 
+			   (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.exp2symbols (ExpProcess.lhs exp)))
+			   init_equs of
+		      SOME exp => SOME exp
+		    | NONE => NONE)) (* it really doesn't exist, so throw a NONE - this might cause an exception downstream *)
+		       
 	     
     end
 
@@ -303,19 +311,29 @@ fun symbolofoptiter2exps (class: DOF.class) iter_sym sym =
 
 
 fun flattenExpressionThroughInstances class exp =
-    let val symbols = ExpProcess.exp2symbols exp
-	(*val _ = Util.log (" - Symbols: " ^ (Util.list2str Symbol.name symbols))*)
-	val equations = map (flattenEquationThroughInstances class) symbols
-	(*val _ = Util.log (" - Equations: " ^ (Util.list2str e2s equations))*)
-	val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
-	val rules = map ExpProcess.equation2rewrite other_equs
-	val intermediate_rules = map ExpProcess.intermediateEquation2rewrite intermediate_equs
-	val exp' = Match.applyRewritesExp (rules @ intermediate_rules) exp
+    if ExpProcess.isEquation exp then
+	let
+	    val lhs = ExpProcess.lhs exp
+	    val rhs = ExpProcess.rhs exp
+	    val flat_rhs = flattenExpressionThroughInstances class rhs
+	in
+	    ExpBuild.equals (lhs, flat_rhs)
+	end
+    else
+	let 
+	    val symbols = ExpProcess.exp2symbols exp
+	    (*val _ = Util.log (" - Symbols: " ^ (Util.list2str Symbol.name symbols))*)
+	    val equations = map (flattenEquationThroughInstances class) symbols
+	    (*val _ = Util.log (" - Equations: " ^ (Util.list2str e2s equations))*)
+	    val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
+	    val rules = map ExpProcess.equation2rewrite other_equs
+	    val intermediate_rules = map ExpProcess.intermediateEquation2rewrite intermediate_equs
+	    val exp' = Match.applyRewritesExp (rules @ intermediate_rules) exp
 	(*val _ = Util.log (" - Transform '"^(e2s exp)^"' to '"^(e2s exp')^"'")*)
-    in
-	exp'
-    end
-    handle e => DynException.checkpoint ("ClassProcess.flattenExpressionThroughInstances ["^(e2s exp)^"]") e
+	in
+	    exp'
+	end
+	handle e => DynException.checkpoint ("ClassProcess.flattenExpressionThroughInstances ["^(e2s exp)^"]") e
 
 and flattenEquationThroughInstances class sym =
     let val {name=classname, inputs, ...} = class
@@ -617,32 +635,6 @@ fun class2statesbyiterator iter_sym (class : DOF.class) =
     end
     handle e => DynException.checkpoint "ClassProcess.class2statesbyiterator" e
 
-(* return those states that update the value of a state that already has a dynamic equation *)
-fun class2update_states (class : DOF.class) =
-    let
-	val states = class2states class
-
-	fun hasInitEq exps =
-	    List.exists ExpProcess.isInitialConditionEq exps
-
-	fun hasStateEq exps =
-	    List.exists ExpProcess.isStateEq exps
-
-	fun hasUpdateEq exps =
-	    List.exists ExpProcess.isIntermediateEq exps
-
-	(* let's assume that they have an init eq, a state eq, and possibly an update eq *)
-	(* really, it's ok if it just has an init eq and an update eq - that means it's an event state *)
-	val states_with_updates = 
-	    List.filter
-		(fn(sym)=>
-		   let val exps' = symbol2exps class sym
-		   in (hasInitEq exps') andalso (hasStateEq exps') andalso (hasUpdateEq exps')
-		   end)
-		states
-    in
-	states_with_updates
-    end
 
 fun outputsByIterator iterator (class: DOF.class) =
     let val (iter_sym, _) = iterator
@@ -727,40 +719,83 @@ fun isMaster ({properties={classtype=DOF.MASTER ,...},...} : DOF.class) = true
 fun classTypeName ({name,properties={classtype=DOF.MASTER,...},...}: DOF.class) = name
   | classTypeName ({properties={classtype=DOF.SLAVE name,...},...}) = name
 
+
+local
+
+    fun hasInitEq exps =
+	List.exists ExpProcess.isInitialConditionEq exps
+
+    fun hasStateEq exps =
+	List.exists ExpProcess.isStateEq exps
+
+    fun hasUpdateEq exps =
+	List.exists ExpProcess.isIntermediateEq exps
+
+    fun hasAnotherConflictingIterator exps =
+	List.exists (fn(exp)=> case ExpProcess.exp2temporaliterator exp of
+				   SOME (iter_sym, _) => (case CurrentModel.itersym2iter iter_sym of
+							      (_, DOF.ALGEBRAIC _) => true
+							    | (_, DOF.UPDATE _) => true
+							    | _ => false)
+				 | NONE => false) exps
+in
+(* return those states that update the value of a state that already has a dynamic equation *)
+fun class2update_states (class : DOF.class) =
+    let
+	val states = class2states class
+
+	(* let's assume that they have an init eq, a state eq, and possibly an update eq *)
+	(* really, it's ok if it just has an init eq and an update eq - that means it's an event state *)
+	val states_with_updates = 
+	    List.filter
+		(fn(sym)=>
+		   let val exps' = symbol2exps class sym
+		   in (hasInitEq exps') andalso (hasStateEq exps') andalso (hasUpdateEq exps')
+		   end)
+		states
+    in
+	states_with_updates
+    end
+
+(* return those states that have no update, differential, or difference equations associate with them *)
+fun class2constant_states (class : DOF.class) = 
+    let
+	val states = class2states class
+
+	val constant_states = 
+	    List.filter
+		(fn(sym)=>
+		   let val exps'= symbol2exps class sym
+		   in (hasInitEq exps') andalso (not (hasStateEq exps')) andalso (not (hasUpdateEq exps'))
+		   end)
+		states
+    in
+	constant_states
+    end
+
+
 fun class2postprocess_states (class: DOF.class) = 
     let
 	val iterators = CurrentModel.iterators()
 	val states = class2states class
-
-	fun hasInitEq exps =
-	    List.exists ExpProcess.isInitialConditionEq exps
-
-	fun hasStateEq exps =
-	    List.exists ExpProcess.isStateEq exps
-
-	fun hasUpdateEq exps =
-	    List.exists ExpProcess.isIntermediateEq exps
-
-	fun hasAnotherConflictingIterator exps =
-	    List.exists (fn(exp)=> case ExpProcess.exp2temporaliterator exp of
-				       SOME (iter_sym, _) => (case CurrentModel.itersym2iter iter_sym of
-								  (_, DOF.ALGEBRAIC _) => true
-								| (_, DOF.UPDATE _) => true
-								| _ => false)
-				     | NONE => false) exps
+	val constant_states = class2constant_states class
 
 	(* the only difference between a post process state and an update state is that the post process state does not have a state equation *)
 	val post_process_states = 
 	    List.filter
 		(fn(sym)=>
 		   let val exps' = symbol2exps class sym
-		   in (hasInitEq exps') andalso (not (hasStateEq exps')) andalso (not (hasAnotherConflictingIterator exps'))
+		   in (hasInitEq exps') andalso 
+		      (not (hasStateEq exps')) andalso 
+		      (not (hasAnotherConflictingIterator exps')) (*andalso
+		      (not (List.exists (fn(sym')=>sym=sym') constant_states))*)
 		   end)
 		states
     in
 	post_process_states
     end
     handle e => DynException.checkpoint "ClassProcess.class2postprocess_states" e
+end
 
 fun createEventIterators (class: DOF.class) =
     let
@@ -796,24 +831,37 @@ fun createEventIterators (class: DOF.class) =
 		val spatial = ExpProcess.exp2spatialiterators exp
 		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
 				  SOME eq => eq
-				| NONE => DynException.stdException ("Unexpected lack of initial condition", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+				| NONE => DynException.stdException ("Unexpected lack of initial condition",
+								     "ClassProcess.createEventIterators.pp_exp", 
+								     Logger.INTERNAL)
 
 		val temporal = case ExpProcess.exp2temporaliterator (init_eq) of
 				   SOME v => #1 v
-				 | _ => DynException.stdException ("Unexpected init condition w/o temporal iterator", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+				 | _ => DynException.stdException ("Unexpected init condition w/o temporal iterator",
+								   "ClassProcess.createEventIterators.pp_exp", 
+								   Logger.INTERNAL)
 		val lhs' = 
 		    case lhs of 
 			Exp.TERM (Exp.SYMBOL (sym, props)) => 
 			if ExpProcess.isInitialConditionEq exp then
-			    Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.postProcessOf (Symbol.name temporal),(*iterindex*)Iterator.ABSOLUTE
-																		   0)::spatial)))
+			    Exp.TERM (Exp.SYMBOL (sym, 
+						  Property.setIterator 
+						      props 
+						      ((Iterator.postProcessOf (Symbol.name temporal),
+							Iterator.ABSOLUTE 0)::spatial)))
 			else if ExpProcess.isIntermediateEq exp then
-			    Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.postProcessOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE
-																		   1)::spatial)))
+			    Exp.TERM (Exp.SYMBOL (sym, 
+						  Property.setIterator 
+						      props 
+						      ((Iterator.postProcessOf (Symbol.name temporal),
+							Iterator.RELATIVE 1)::spatial)))
 			else
 			    DynException.stdException ("Unexpected non-intermediate and non-initial condition equation",
-						       "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
-		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+						       "ClassProcess.createEventIterators.pp_exp", 
+						       Logger.INTERNAL)
+		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate",
+							"ClassProcess.createEventIterators.pp_exp", 
+							Logger.INTERNAL)
 	    in
 		ExpBuild.equals (lhs', ExpProcess.rhs exp)
 	    end			  
@@ -826,30 +874,47 @@ fun createEventIterators (class: DOF.class) =
 		val spatial = ExpProcess.exp2spatialiterators exp
 		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
 				  SOME eq => eq
-				| NONE => DynException.stdException ("Unexpected lack of initial condition", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+				| NONE => DynException.stdException ("Unexpected lack of initial condition",
+								     "ClassProcess.createEventIterators.pp_exp", 
+								     Logger.INTERNAL)
 
 		val temporal = case ExpProcess.exp2temporaliterator (init_eq) of
 				   SOME v => #1 v
-				 | _ => DynException.stdException ("Unexpected init condition w/o temporal iterator", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+				 | _ => DynException.stdException ("Unexpected init condition w/o temporal iterator",
+								   "ClassProcess.createEventIterators.pp_exp", 
+								   Logger.INTERNAL)
 		val lhs' = 
 		    case lhs of 
 			Exp.TERM (Exp.SYMBOL (sym, props)) => 
 			if ExpProcess.isInitialConditionEq exp then
-			    Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.inProcessOf (Symbol.name temporal),(*iterindex*)Iterator.ABSOLUTE
-																		   0)::spatial)))
+			    Exp.TERM (Exp.SYMBOL (sym, 
+						  Property.setIterator 
+						      props 
+						      ((Iterator.inProcessOf (Symbol.name temporal),
+							Iterator.ABSOLUTE 0)::spatial)))
 			else if ExpProcess.isIntermediateEq exp then
-			    Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.inProcessOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE
-																		   1)::spatial)))
+			    Exp.TERM (Exp.SYMBOL (sym, 
+						  Property.setIterator 
+						      props 
+						      ((Iterator.inProcessOf (Symbol.name temporal),
+							Iterator.RELATIVE 1)::spatial)))
 			else
 			    DynException.stdException ("Unexpected non-intermediate and non-initial condition equation",
-						       "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
-		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate", "ClassProcess.createEventIterators.pp_exp", Logger.INTERNAL)
+						       "ClassProcess.createEventIterators.pp_exp", 
+						       Logger.INTERNAL)
+		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate",
+							"ClassProcess.createEventIterators.pp_exp", 
+							Logger.INTERNAL)
 	    in
 		ExpBuild.equals (lhs', ExpProcess.rhs exp)
 	    end		
 
 	val update_states = class2update_states class
-	val _ = DynException.checkToProceed() (* this is the first time that states are analyzed in exp_process, so there could be some user errors found *)
+
+	(* this is the first time that states are analyzed in exp_process, 
+	 * so there could be some user errors found *)
+	val _ = DynException.checkToProceed() 
+	val constant_states = class2constant_states class
 	val postprocess_states = class2postprocess_states class
 
 	(* update all the intermediate equations based on the initial condition iterators *)
@@ -861,7 +926,7 @@ fun createEventIterators (class: DOF.class) =
 					  if List.exists (fn(sym)=>sym=lhs_sym) update_states then
 					      update_exp exp
 					  else if List.exists (fn(sym)=>sym=lhs_sym) postprocess_states then
-					      (*pp_exp exp*) in_exp exp
+					      in_exp exp
 					  else
 					      exp
 				      end
@@ -876,7 +941,7 @@ fun createEventIterators (class: DOF.class) =
 					  val lhs_sym = ExpProcess.getLHSSymbol exp
 				      in
 					  if List.exists (fn(sym)=>sym=lhs_sym) postprocess_states then
-					      (*pp_exp exp*) in_exp exp
+					      in_exp exp
 					  else
 					      exp
 				      end
@@ -1424,7 +1489,7 @@ fun assignCorrectScope (class: DOF.class) =
 	val exps = !(#exps class)
 	val inputs = !(#inputs class)
 
-	val state_equations = List.filter ExpProcess.isStateEq exps
+	val state_equations = List.filter (*ExpProcess.isStateEq*) ExpProcess.isInitialConditionEq exps
 	val state_terms = map ExpProcess.lhs state_equations
 	val symbols = map (Term.sym2curname o ExpProcess.exp2term) state_terms
 	val state_iterators_options = map (TermProcess.symbol2temporaliterator o ExpProcess.exp2term) state_terms
