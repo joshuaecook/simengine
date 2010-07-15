@@ -147,8 +147,8 @@ classdef Model < handle
                 args = varargin(i:end);
             end
             
-            if m.States.isKey(id)
-                error('Simatra:Model', ['State ' id ' already exists']);
+            if identifier_exists(m, id)
+                error('Simatra:Model', ['Identifier ' id ' already defined']);
             else
                 e = Exp(id);
                 m.States(id) = struct('init', init, 'iterator', iterator);
@@ -250,7 +250,7 @@ classdef Model < handle
 
         
         function e = input(m, id, default)
-            if isfield(m.Inputs, id)
+            if identifier_exists(m, id)
                 error('Simatra:Model', ['Input ' id ' already exists']);
             else
                 e = Exp(id);
@@ -267,14 +267,27 @@ classdef Model < handle
             iterator = false;
             if 2 == nargin
                 if ischar(id)
-                    if (m.Inputs.isKey(id) || ...
-                        m.States.isKey(id) || ...
-                        m.IntermediateEqsNames.isKey(id))
+                    if (identifier_exists(m, id))
                         e = {Exp(id)};
+                        % This is the case if you specify a string output name
+                        % and that variable exists inside the model with that
+                        % name
+                    elseif evalin('caller',['exist(''' id ''',''var'')'])
+                        % This is the case if you specify a string output
+                        % name and that variable does not exist by name in
+                        % the model, but it does exist in the workspace as
+                        % a variable.
+                        e = {Exp(evalin('caller',id))};
                     else
                         msg = ['Variable ' id ' has not been defined in the system'];
                         error('Simatra:Model', msg)
                     end
+                elseif isa(id, 'Exp') || isa(id, 'Iterator')
+                    % Finally, this is the case where you specify an
+                    % expression to be output and it has to determine the
+                    % name from the inputname command
+                    e = {Exp(id)};
+                    id = inputname(2);
                 else
                     error('Simatra:Model', 'The first argument to the output method must be a string variable name.')
                 end
@@ -334,6 +347,9 @@ classdef Model < handle
                 modelarg = arg1;
             elseif nargin == 3
                 inst = arg1;
+                if identifier_exists(m, inst)
+                    error('Simatra:Model:submodel', 'Identifier %s already defined', inst);
+                end
                 modelarg = arg2;
             else
                 error('Simatra:Model:submodel:ArgumentError', 'Wrong number of arguments');
@@ -378,19 +394,21 @@ classdef Model < handle
 
         function e = equ(m, lhs, rhs)
             if 2 == nargin
-                rhs = lhs;
+                rhs = Exp(lhs);
                 lhsstr = ['InternalIntemediate__' num2str(m.intermediate_number)];
                 lhs = Exp(lhsstr);
             else
                 if isa(lhs, 'Exp')
                     lhsstr = toId(lhs);
-                else
+                elseif ischar(lhs)
                     lhsstr = lhs;
                     lhs = Exp(lhs);
+                else
+                    error('Simatra:Model:equ', 'First argument to EQU must be a string or an Exp type');
                 end
             end
-            if m.IntermediateEqsNames.isKey(lhsstr)
-                error('Simatra:Model', ['Equation assigning ' lhsstr ' already exists']);
+            if identifier_exists(m, lhsstr)
+                error('Simatra:Model:equ', ['Variable ' lhsstr ' has already been defined']);
             else
                 e = Exp(lhsstr);
                 m.IntermediateEqs(m.intermediate_number) = struct('lhs', lhs, 'rhs', rhs);
@@ -888,6 +906,13 @@ classdef Model < handle
             iter_id = m.DefaultIterator.id;
             iter = Iterator(iter_id, 'solver', m.solver{:});
             m.DefaultIterator = iter;
+        end
+        
+        function r = identifier_exists(m, id)
+            r = m.Inputs.isKey(id) || ...
+                m.States.isKey(id) || ...
+                m.Instances.isKey(id) || ...
+                m.IntermediateEqsNames.isKey(id);
         end
     end
     

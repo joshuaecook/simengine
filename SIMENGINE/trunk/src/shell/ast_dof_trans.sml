@@ -826,10 +826,11 @@ fun ast_to_dof astlist =
 	(* remove duplicate iterators *)
 	val reduced_iterators = remove_duplicate_iterators (Util.flatten iterators)
 	(* add in process variants *)
-	val all_iterators = Util.flatmap 
-				(fn(orig_iter as (iter_sym, _)) => [orig_iter, 
-								    (Iterator.inProcessOf (Symbol.name iter_sym), DOF.ALGEBRAIC (DOF.INPROCESS, iter_sym))])
-				reduced_iterators
+	val all_iterators = (Symbol.symbol "always", DOF.IMMEDIATE)::
+			    (Util.flatmap 
+				 (fn(orig_iter as (iter_sym, _)) => [orig_iter, 
+								     (Iterator.inProcessOf (Symbol.name iter_sym), DOF.ALGEBRAIC (DOF.INPROCESS, iter_sym))])
+				 reduced_iterators)
 	    
 	(* put together the system properties *)
 	val systemproperties = build_system_properties all_iterators
