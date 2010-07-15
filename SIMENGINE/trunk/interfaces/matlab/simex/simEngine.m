@@ -178,6 +178,7 @@ function [interface] = parseInterface (options)
   interface.parallel_models = str2num(interface.parallel_models);
   interface.precision = str2num(interface.precision);
   interface.pointer_size = str2num(interface.pointer_size);
+  interface.buffer_length = str2num(interface.buffer_length);
 
   % Convert default inputs to a structure
   defaultInputs = interface.defaultInputs;

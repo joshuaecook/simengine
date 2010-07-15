@@ -476,7 +476,7 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	if(!json_file){
 	  ERROR(Simatra:Simex:parse_args, "Could not open file '%s' to write json interface.", tmp);
 	}
-	fprintf(json_file, json_interface, sizeof(CDATAFORMAT), sizeof(void*), PARALLEL_MODELS);
+	fprintf(json_file, json_interface, sizeof(CDATAFORMAT), sizeof(void*), PARALLEL_MODELS, BUFFER_LEN);
 	fclose(json_file);
 
 	if (0 != rename(tmp, optarg)) {

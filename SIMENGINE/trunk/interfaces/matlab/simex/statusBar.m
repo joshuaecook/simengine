@@ -17,6 +17,10 @@ function textStatusBar(message, previousLength)
     if(~isempty(SIMEX_NO_TEXT_STATUS_BAR))
       return;
     end
+
+    % Update less frequently than graphical status bar to avoid
+    % flickering on a terminal
+    pause(0.25);
     
     % Backup over previous message
     for i = 1:previousLength

@@ -103,7 +103,9 @@ function [options] = makeOutputDirectory (options)
         simexError('mkdir', ['Could not create temporary data directory ' options.outputs]);
     end
     if options.debug
-        disp(['Created temporary data directory ' options.outputs]);
+        system(['rm -f debug-last;ln -s ' options.outputs ' debug-last']); 
+        disp(['Created debug-last link to temporary data directory ' ...
+              options.outputs]);
     end
 end
 
