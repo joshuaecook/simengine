@@ -661,7 +661,6 @@ fun createClass top_class classes object =
 	  properties={sourcepos=PosLog.NOPOS,basename=name,preshardname=name,classform=classform,classtype=DOF.MASTER (*name*)},
 	  inputs=ref (map obj2input (vec2list(method "inputs" object))),
 	  outputs=ref (map obj2output classOutputs),
-	  iterators=map buildIterator (vec2list (send "getSpatialIterators" object NONE)),
 	  exps=ref exps},
 	 submodelclasses)
     end
@@ -831,7 +830,6 @@ fun obj2dofmodel object =
 			     properties={sourcepos=PosLog.NOPOS,basename=undef,preshardname=undef,classform=DOF.FUNCTIONAL,classtype=DOF.MASTER},
 			     inputs=ref [],
 			     outputs=ref [],
-			     iterators=[],
 			     exps=ref []}
 	    val model = ([top_class], {name=NONE, classname=undef}, systemproperties)
 	in

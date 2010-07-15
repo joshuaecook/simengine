@@ -154,10 +154,9 @@ fun applyRewritesToClassInternals rewrites (class:DOF.class) =
 
 fun duplicateClass (class: DOF.class) new_name =
     let
-	val {name, properties, inputs, outputs, exps, iterators} = class
+	val {name, properties, inputs, outputs, exps} = class
     in
 	{name=new_name,
-	 iterators=iterators,
 	 properties=properties,
 	 inputs=ref (!inputs),
 	 outputs=ref (!outputs),
@@ -166,14 +165,13 @@ fun duplicateClass (class: DOF.class) new_name =
 
 fun updateRealClassName (class: DOF.class) new_name =
     let
-	val {name, properties={sourcepos,basename,preshardname,classform,classtype}, inputs, outputs, exps, iterators} = class
+	val {name, properties={sourcepos,basename,preshardname,classform,classtype}, inputs, outputs, exps} = class
 	val classtype' = case classtype of
 			     DOF.MASTER => DOF.MASTER
 			     (* DOF.MASTER _ => DOF.MASTER new_name*)
 			    | DOF.SLAVE _ => DOF.SLAVE new_name
     in
 	{name=name, (* this was already updated in duplicateClass *)
-	 iterators=iterators,
 	 properties={sourcepos=sourcepos,
 		     basename=basename, (* this remains the same as it was previously defined in modeltranslate *)
 		     preshardname=preshardname,
@@ -1143,11 +1141,11 @@ fun class2instnames' (class : DOF.class) : (Symbol.symbol * Symbol.symbol) list 
 	
 fun class2statesize (class: DOF.class) =
     let
-	val {exps,iterators,...} = class
+	val {exps(*,iterators*),...} = class
 	val initial_conditions = List.filter ExpProcess.isInitialConditionEq (!exps)
 	val instance_equations = List.filter ExpProcess.isInstanceEq (!exps)
     in
-	Util.sum ((map (ExpProcess.exp2size iterators) initial_conditions) @ 
+	Util.sum ((map ExpProcess.exp2size initial_conditions) @
 		  (map (fn(exp)=> 
 			  let
 			      val {classname,...} = ExpProcess.deconstructInst exp
@@ -1228,7 +1226,7 @@ fun hasStatesWithIterator (iter: DOF.systemiterator) (class: DOF.class) =
 
 fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
     let	
-	val {name,exps,iterators,...} = class
+	val {name,exps,(*iterators,*)...} = class
 	val initial_conditions = 
 	    case iter of
 		(iter_sym, DOF.UPDATE dyn_iter) => 
@@ -1246,7 +1244,7 @@ fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
 
 	(*val _ = Util.log ("in class2statesizebyiterator for class '"^(Symbol.name name)^"', # of init conditions="^(i2s (List.length initial_conditions))^", # of instances=" ^ (i2s (List.length instance_equations)))*)
     in
-	Util.sum ((map (ExpProcess.exp2size iterators) initial_conditions) @ 
+	Util.sum ((map ExpProcess.exp2size initial_conditions) @
 		  (map (fn(exp)=> 
 			  let
 			      val {classname,...} = ExpProcess.deconstructInst exp
@@ -2027,7 +2025,7 @@ fun unify class =
     (inlineIntermediates o expandInstances) class
 
 and inlineIntermediates class =
-    let val {name, properties, inputs, outputs, iterators, exps} : DOF.class = class
+    let val {name, properties, inputs, outputs, exps} : DOF.class = class
         (* Extracts all intermediate equations from the class's member expressions.
          * Each remaining expression is rewritten by replacing any symbol referencing
 	 * an intermediate computation with the expression representing that computation.
@@ -2063,7 +2061,7 @@ and inlineIntermediates class =
     end
 
 and expandInstances class =
-    let val {name, properties, inputs, outputs, iterators, exps} : DOF.class = class
+    let val {name, properties, inputs, outputs, exps} : DOF.class = class
         (* Detects instance equations within a class's member expressions.
 	 * Finds the class definition  for the instance via CurrentModel and
 	 * expands the instance into a list of equations.

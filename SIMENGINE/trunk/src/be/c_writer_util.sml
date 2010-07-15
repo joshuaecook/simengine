@@ -108,9 +108,9 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
 
 fun iter2range class (itersym, itertype) = 
-    case List.find (fn{name,...}=> name=itersym) (#iterators class) of
+    (*case List.find (fn{name,...}=> name=itersym) (#iterators class) of
 	SOME v => v
-      | NONE => DynException.stdException(("Iterator '"^(Symbol.name itersym)^
+      | NONE => *)DynException.stdException(("Iterator '"^(Symbol.name itersym)^
 					   "' not found in class '"^
 					   (Symbol.name (#name class))^"'"), 
 					  "CWriterUtil.iter2range",
@@ -119,7 +119,7 @@ fun iter2range class (itersym, itertype) =
 
 fun expandprogs2parallelfor (class: DOF.class) (exp, progs) = 
     let
-	val size = ExpProcess.exp2size (#iterators class) exp
+	val size = ExpProcess.exp2size exp
 	val spatial_iterators = ExpProcess.exp2spatialiterators exp
     in
 	[$("{"),

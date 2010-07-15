@@ -847,7 +847,7 @@ local
     fun sameSymbolinTerms (Exp.SYMBOL (sym1,_), Exp.SYMBOL (sym2, _)) = sym1=sym2
       | sameSymbolinTerms _ = false
 
-    fun updateIteratorInClass (from_iterators, to_iterator) (c as {name,properties,inputs,outputs,iterators,exps}) = 
+    fun updateIteratorInClass (from_iterators, to_iterator) (c as {name,properties,inputs,outputs,exps}) = 
 	let
 	    (* create a change iterator function *)
 	    fun updateIterator exp = 
@@ -894,7 +894,7 @@ local
 	    val all_class_names = Util.intersection (map ClassProcess.class2preshardname classes1, 
 						     map ClassProcess.class2preshardname classes2)
 	    (* create a one-to-one mapping of class names *)
-	    fun empty_class (name, props) = {name=name, properties=props, inputs=ref [], outputs=ref [], iterators=[], exps=ref []}
+	    fun empty_class (name, props) = {name=name, properties=props, inputs=ref [], outputs=ref [], exps=ref []}
 	    val mapped_classes = map (fn(name)=> case (List.find (fn(c)=>ClassProcess.class2preshardname c = name) classes1, 
 						       List.find (fn(c)=>ClassProcess.class2preshardname c = name) classes2) of 
 						     (SOME c1, SOME c2) => (c1, c2)
@@ -912,8 +912,8 @@ local
 	    (* merge each of the classes independently per shard *)
 	    val classes' = 
 		map
-		    (fn(c1 as {name as name1, properties, inputs=inputs1, outputs=outputs1, iterators=iters1, exps=exps1},
-			c2 as {name=name2, inputs=inputs2, outputs=outputs2, iterators=iters2, exps=exps2, ...})=>
+		    (fn(c1 as {name as name1, properties, inputs=inputs1, outputs=outputs1, exps=exps1},
+			c2 as {name=name2, inputs=inputs2, outputs=outputs2, exps=exps2, ...})=>
 		       let
 			   val _ = if ClassProcess.class2preshardname c1 = ClassProcess.class2preshardname c2 then
 				       ()
@@ -932,10 +932,6 @@ local
 						   
 			   val outputs' = (!outputs1) @ unmatched_outputs
 
-			   (* combine iterators *)
-			   val unmatched_iterators = List.filter (fn{name,...}=> not (List.exists (fn{name=name',...}=> name=name') iters1)) iters2
-			   val iters' = iters1 @ unmatched_iterators
-
 			   (* combine exps *)
 			   val (init_eqs1, rest1) = List.partition ExpProcess.isInitialConditionEq (!exps1)
 			   val (init_eqs2, rest2) = List.partition ExpProcess.isInitialConditionEq (!exps2)
@@ -952,7 +948,6 @@ local
 			    properties=properties,
 			    inputs=inputs1,
 			    outputs=outputs1,
-			    iterators=iters',
 			    exps=exps1}
 		       end)
 		    mapped_classes

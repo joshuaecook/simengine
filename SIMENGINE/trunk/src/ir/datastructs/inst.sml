@@ -37,7 +37,7 @@ fun inst2props f : FunProps.op_props =
 	val classes = CurrentModel.classes()
     in
 	case (List.find (fn({name,...}:DOF.class)=>name=f) classes)
-	 of SOME (c as {name,properties,inputs,outputs,iterators,exps}) => 
+	 of SOME (c as {name,properties,inputs,outputs,exps}) => 
 	    generate_props {name=f, num_inputs=length (!inputs)}
 	  | NONE => (Logger.log_error (Printer.$("Can't handle operation '" ^ (Symbol.name f) ^ "'. Doesn't exist in current classes: {"
 						 ^(String.concatWith ", " (map (fn{name,...}=>Symbol.name name) classes))^ "}"));

@@ -299,7 +299,6 @@ fun orderClass classMap (class:DOF.class) =
 	val availSyms = (GeneralUtil.flatten (map (ExpProcess.exp2symbols o ExpProcess.lhs) (init_exps @ master_init_exps @ state_exps)))
 			@ (map (term2sym o DOF.Input.name) (!(#inputs class)))
 			@ (map #1 (CurrentModel.iterators()))
-			@ (map #name (#iterators class))
 			@ readSyms
 
 	val _ = print ("exps = " ^ (String.concatWith "\n  " (map e2s exps)) ^ "")
@@ -437,7 +436,7 @@ fun orderModel (model:DOF.model)=
 	      | NONE 
 		=>
 		let
-		    val {name, properties, inputs, outputs, iterators, exps} = class
+		    val {name, properties, inputs, outputs, exps} = class
 
 		     val _ = print ("Adding class to class map: " ^ (Symbol.name name) ^ "")
 		     val _ = print ("classes are " ^ (String.concatWith ", " (map (Symbol.name o #name) classes)) ^ "")
@@ -976,7 +975,6 @@ fun orderModel (model:DOF.model)=
 						in
 						    ClassProcess.makeSlaveClassProperties (properties', master_name)
 						end,
-				iterators= #iterators oldClass,
 				inputs= ref inputs,
 				outputs=ref outputs,
 				exps=ref exps}
