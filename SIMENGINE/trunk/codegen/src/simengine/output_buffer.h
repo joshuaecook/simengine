@@ -12,7 +12,7 @@
  * The 'ptr' and 'end' pointers are references to positions within 'buffer.'
  */
 #ifndef BUFFER_LEN
-#define BUFFER_LEN MAX(100, MAX_OUTPUT_SIZE/sizeof(CDATAFORMAT))
+#define BUFFER_LEN MAX(100, 2*MAX_OUTPUT_SIZE/sizeof(CDATAFORMAT))
 #endif
 typedef struct{
   unsigned int finished[PARALLEL_MODELS];
