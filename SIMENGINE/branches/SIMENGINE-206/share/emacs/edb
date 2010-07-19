@@ -1,0 +1,5 @@
+#!/bin/bash
+
+DIRNAME=`dirname $(readlink -e ${BASH_SOURCE[0]})`
+
+emacsclient --eval "(progn (add-to-list 'load-path \"$DIRNAME\") (load \"debugit\") (matdebug \"$1\" \"$PWD\"))"
