@@ -1685,6 +1685,7 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 	    else
 		fn (input,i) => 
 		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
+
 	val inputs = 
 	    if is_top_class then
 		let
@@ -1712,7 +1713,9 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 	    Layout.align
 		($("// writing outputs") ::
 		 map (fn (exp,i) =>
-			 $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str exp) ^ ";")
+			 $("outputs["^(i2s i)^"] = " ^ 
+			   (CWriterUtil.exp2c_str exp) ^ 
+			   ";")
 		     ) (Util.addCount (DOF.Output.contents output)))
     in
 	Layout.align 

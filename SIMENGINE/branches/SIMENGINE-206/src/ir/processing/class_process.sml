@@ -112,8 +112,11 @@ fun rewriteClass rewriter class =
 	
 	open DOF
 
-	val inputs' = map ((Input.rewrite rewriter) o (Input.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp))) inputs'
-	val outputs' = map ((Output.rewrite rewriter) o (Output.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp))) outputs'
+	val inputs' = map ((Input.rewrite rewriter) o 
+			   (Input.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp))) inputs'
+	val outputs' = map ((Output.rewrite rewriter) o 
+			    (Output.rename (ExpProcess.exp2term o rewriter o ExpProcess.term2exp)) o
+			    (Output.renameInputs (ExpProcess.exp2term o rewriter o ExpProcess.term2exp))) outputs'
 				   
 
 	val exps' = map rewriter exps'
@@ -538,7 +541,9 @@ fun renameSym (orig_sym, new_sym) (class: DOF.class) =
 	    DOF.Input.rewrite exp_rename (DOF.Input.rename (ExpProcess.exp2term o exp_rename o Exp.TERM) input) 
 		      
 	fun renameOutput output = 
-	    DOF.Output.rewrite exp_rename (DOF.Output.rename (ExpProcess.exp2term o exp_rename o Exp.TERM) output)
+	    ((DOF.Output.rewrite exp_rename) o
+	     (DOF.Output.rename (ExpProcess.exp2term o exp_rename o Exp.TERM)) o
+	     (DOF.Output.renameInputs (ExpProcess.exp2term o exp_rename o Exp.TERM))) output
     in
 	((*(#eqs class) := (map (EqUtil.renameSym (orig_sym, new_sym)) eqs);*)
 	 (#exps class) := (map (ExpProcess.renameSym (orig_sym, new_sym)) exps);
@@ -1634,10 +1639,10 @@ fun assignCorrectScope (class: DOF.class) =
 			    name''
 			end
 	    (*val _ = Util.log("Converting name from '"^(e2s (Exp.TERM name))^"' to '"^(e2s (Exp.TERM name'))^"'")*)
-
+		val inputs' = ref (! (DOF.Output.inputs output))
 	    in
 		(* FIXME turn this into a call to DOF.Output.rewrite and DOF.Output.rename *)
-		DOF.Output.make {name=name', contents=contents', condition=condition'}
+		DOF.Output.make {name=name', inputs=inputs', contents=contents', condition=condition'}
 	    end
 	    handle e => DynException.checkpoint ("ClassProcess.AssignCorrectScope.update_output2 [name="^(e2s (Exp.TERM (DOF.Output.name output)))^"]") e
 

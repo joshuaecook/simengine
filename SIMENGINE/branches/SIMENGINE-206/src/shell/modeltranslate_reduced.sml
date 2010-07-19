@@ -363,6 +363,40 @@ fun createClass top_class classes object =
 	fun exp2term (Exp.TERM t) = t
 	  | exp2term _ = Exp.NAN
 
+	fun obj2input obj =
+	    let
+		val iter = method "iter" obj
+		val name =
+		    if isdefined iter then
+			ExpBuild.initavar (exp2str(method "name" obj), exp2str (method "name" (method "iter" obj)), nil)
+		    else
+			ExpBuild.var (exp2str (method "name" obj))
+
+		val input = 
+		    DOF.Input.make
+			{name=exp2term name,
+			 default=case exp2realoption (method "default" obj) of
+				     SOME r => SOME (ExpBuild.real r)
+				   | NONE => NONE,
+			 behaviour=case exp2str (method "when_exhausted" obj)
+				    of "cycle" => DOF.Input.CYCLE
+				     | "halt" => DOF.Input.HALT
+				     | "hold" => DOF.Input.HOLD
+				     | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
+	    in
+		case DOF.Input.behaviour input
+		 of DOF.Input.HALT =>
+		    (case DOF.Input.default input
+		      of NONE => input
+		       | SOME (Exp.TERM Exp.NAN) => input
+		       | _ =>
+			 error ("Default value is not allowed for input " ^ (Term.sym2name (DOF.Input.name input)) ^ " with {halt_when_exhausted}."))
+		  | _ => input
+	    end
+
+	val inputs = map obj2input (vec2list(method "inputs" object))
+	val inputNames = map DOF.Input.name inputs
+
 	fun obj2output obj =		    
 	    (* object = [name, value] *)
 	    let
@@ -395,41 +429,10 @@ fun createClass top_class classes object =
 	    in
 		DOF.Output.make
 		    {name=name,
+		     inputs=ref inputNames,
 		     contents=contents,
 		     condition=condition}
 	    end
-
-	fun obj2input obj =
-	    let
-		val iter = method "iter" obj
-		val name =
-		    if isdefined iter then
-			ExpBuild.initavar (exp2str(method "name" obj), exp2str (method "name" (method "iter" obj)), nil)
-		    else
-			ExpBuild.var (exp2str (method "name" obj))
-
-		val input = 
-		    DOF.Input.make
-			{name=exp2term name,
-			 default=case exp2realoption (method "default" obj) of
-				     SOME r => SOME (ExpBuild.real r)
-				   | NONE => NONE,
-			 behaviour=case exp2str (method "when_exhausted" obj)
-				    of "cycle" => DOF.Input.CYCLE
-				     | "halt" => DOF.Input.HALT
-				     | "hold" => DOF.Input.HOLD
-				     | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
-	    in
-		case DOF.Input.behaviour input
-		 of DOF.Input.HALT =>
-		    (case DOF.Input.default input
-		      of NONE => input
-		       | SOME (Exp.TERM Exp.NAN) => input
-		       | _ =>
-			 error ("Default value is not allowed for input " ^ (Term.sym2name (DOF.Input.name input)) ^ " with {halt_when_exhausted}."))
-		  | _ => input
-	    end
-
 
 	fun quantity2exp obj =
 	    (* FIXME add iterators appearing on rhs to symbols on lhs. *)
@@ -647,10 +650,11 @@ fun createClass top_class classes object =
 	     step=exp2real (method "step" (method "value" exp)),
 	     high=exp2real (method "high" (method "value" exp))}
 
+
     in
 	({name=name, 
 	  properties={sourcepos=PosLog.NOPOS,preshardname=name,classform=classform},
-	  inputs=ref (map obj2input (vec2list(method "inputs" object))),
+	  inputs=ref inputs,
 	  outputs=ref (map obj2output classOutputs),
 	  exps=ref exps},
 	 submodelclasses)
