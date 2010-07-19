@@ -419,6 +419,7 @@ local
       | translate_input _ = except "non-input"
     fun translate_output (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = 
 	(DOF.Output.make {name=ExpProcess.exp2term (ExpBuild.svar name),
+			  inputs=ref nil, (* FIXME *)
 			  contents=case quantity of 
 				       TUPLE t => map astexp_to_Exp t
 				     | UNIT => []

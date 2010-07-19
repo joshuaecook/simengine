@@ -2,7 +2,7 @@ structure Ordering : sig
     (* TODO document these signatures. *)
 
     val orderModel : DOF.model -> DOF.model
-
+				  
 end = struct
 
 exception SortFailed

@@ -51,19 +51,22 @@ structure Output: sig
     type output
 
     val name: output -> term
+    val inputs: output -> term list ref
     val contents: output -> expression list
     val condition: output -> expression
 
     (* Returns an identical output with a new name. *)
     val rename: (term -> term) -> output -> output
+    val renameInputs: (term -> term) -> output -> output
     (* Returns an output with expression with new contents and conditions
      * rewritten by the given function. *)
     val rewrite: (expression -> expression) -> output -> output
 
-    val make: {name: term, contents: expression list, condition: expression} -> output
+    val make: {name: term, inputs: term list ref, contents: expression list, condition: expression} -> output
 end = struct
 datatype output = 
 	 OUTPUT of {name: term,
+		    inputs: term list ref,
 		    contents: expression list,
 		    condition: expression}
 
@@ -71,15 +74,19 @@ val make = OUTPUT
 local fun attr f (OUTPUT x) = f x
 in
 val name = attr #name
+val inputs = attr #inputs
 val contents = attr #contents
 val condition = attr #condition
 end
 
 fun rename f output =
-    OUTPUT {name=f (name output), contents=contents output, condition=condition output}
+    OUTPUT {name=f (name output), inputs=inputs output, contents=contents output, condition=condition output}
+
+fun renameInputs f output =
+    OUTPUT {name=name output, inputs=ref (map f (!(inputs output))), contents=contents output, condition=condition output}
 
 fun rewrite f output =
-    OUTPUT {name=name output, contents=map f (contents output), condition=f (condition output)}
+    OUTPUT {name=name output, inputs=inputs output, contents=map f (contents output), condition=f (condition output)}
 end (* structure Output *)
 
 structure Class: sig
