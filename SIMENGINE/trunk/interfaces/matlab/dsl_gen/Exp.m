@@ -187,6 +187,10 @@ classdef Exp
         function er = sqrt(e1)
             er = oper('sqrt', {e1});
         end
+        function er = abs(e1)
+            er = oper('abs', {e1});
+        end
+        
         % Trig functions
         function er = sin(e1)
             er = oper('sin', {e1});

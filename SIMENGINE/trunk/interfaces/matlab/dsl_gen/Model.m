@@ -88,16 +88,7 @@ classdef Model < handle
             end
                     
             m.Name = Name;
-            m.Inputs = containers.Map;
-            m.Outputs = containers.Map;
-            m.States = containers.Map;
-            m.Randoms = containers.Map;
-            m.Instances = containers.Map;
-            m.IntermediateEqs = containers.Map('KeyType','uint32','ValueType','Any');
-            m.IntermediateEqsNames = containers.Map;
-            m.DiffEqs = struct();
-            m.RecurrenceEqs = struct();
-            m.cachedModels = containers.Map;
+            m.initializeModel;
         end
         
         function e = state(m, varargin)
@@ -913,6 +904,22 @@ classdef Model < handle
                 m.States.isKey(id) || ...
                 m.Instances.isKey(id) || ...
                 m.IntermediateEqsNames.isKey(id);
+        end
+        
+        function initializeModel(m)
+            m.Inputs = containers.Map;
+            m.Outputs = containers.Map;
+            m.States = containers.Map;
+            m.Randoms = containers.Map;
+            m.Instances = containers.Map;
+            m.IntermediateEqs = containers.Map('KeyType','uint32','ValueType','Any');
+            m.IntermediateEqsNames = containers.Map;
+            m.DiffEqs = struct();
+            m.RecurrenceEqs = struct();
+            m.cachedModels = containers.Map;
+            m.instance_number = 1;
+            m.state_number = 1;
+            m.intermediate_number = uint32(1);
         end
     end
     
