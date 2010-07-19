@@ -1,0 +1,92 @@
+namespace CommandLine
+  function parseCommandLine(booleanOptionNames, numberOptionNames, stringOptionNames)
+    parseOptions(getCommandLine(), booleanOptionNames, numberOptionNames, stringOptionNames)
+  end
+
+  function getCommandLine() = LF getCommandLine()
+
+  function parseOptions(options, booleanOptionNames, numberOptionNames, stringOptionNames)
+    var optionsList = options // local copy of options that will be successively removed as parsed
+    var optionsTable = {} // return value table of key/value option pairs
+    var optionName // currently processed option name
+
+    // Ensure that an option that requires a string value has a string value (not another option name)
+    // removes value from the optionsList
+    function getOptionValueString()
+      var optionValue
+      if optionsList.length() == 0 then
+	error("Missing value for option '" + optionName + "'.")
+      else
+	optionValue = optionsList.first()
+	optionsList = optionsList.rest()
+	if "-" == optionValue.first() then
+	error("Missing value for option '" + optionName + "'.")
+	end
+      end
+      optionValue
+    end
+
+    // Ensure that an option that requires a number, has a value that is a number
+    // removes value from the optionsList
+    function getOptionValueNumber()
+      var optionValue
+      if optionsList.length() == 0 then
+	error("Missing value for option '" + optionName + "'.")
+      else
+	optionValue = optionsList.first().tonumber()
+	optionsList = optionsList.rest()
+	if () == optionValue then
+	  error("Option value for '" + optionName + "' must be a number.")
+	else
+	  optionValue
+	end
+      end
+    end
+
+    // Ensure that an option is only specified once and add it to the parsed options
+    function addOption(name, value)
+      if exists key in optionsTable.keys suchthat key == name then
+	error("Option '" + optionName + "' may only be specified once.")
+      end
+      optionsTable.add(name, value)
+    end
+    
+    var batchmode = (exists option in optionsList suchthat "--batch" == option) or settings.general.batch.getValue <> ""
+
+    if batchmode and optionsList.length() > 2 or (optionsList.length() == 2 and "-" == optionsList[2].first()) then
+	// this is not true...  we're still processing command line options in options_process.sml
+      //warning("In batch mode, all other command line options are ignored.")
+    end
+
+    while(not(batchmode) and optionsList.length() > 0) do
+      optionName = optionsList.first()
+      optionsList = optionsList.rest()
+
+      if optionName.first() <> "-" then
+	error("Options must be preceeded with a '-'.  Invalid option '" + optionName + "'.")
+      end
+
+      // Strip the '-' for comparison
+      function removeLeadingDash(str)
+        if "-" == str.first() then
+	    removeLeadingDash(str.rest())
+	else
+	    str
+	end
+      end
+      optionName = removeLeadingDash(optionName)
+
+      if exists name in booleanOptionNames suchthat name == optionName then
+	addOption(optionName, true)
+      elseif exists name in numberOptionNames suchthat name == optionName then
+	addOption(optionName, getOptionValueNumber())
+      elseif exists name in stringOptionNames suchthat name == optionName then
+	addOption(optionName, getOptionValueString())
+      else
+	// assume it's processed further up
+	//error("Unrecognized option '-" + optionName + "'")
+      end
+    end
+    optionsTable
+  end
+end
