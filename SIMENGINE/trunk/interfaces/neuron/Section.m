@@ -35,6 +35,7 @@ classdef Section < Model
     properties (Access = protected)
         voltages = {};
         currents = {};
+        pointCurrents = [];
         t_exp
         t_imp
         insert_pas = false;
@@ -44,9 +45,6 @@ classdef Section < Model
     methods (Access = public)
         function m = Section(id)
             m@Model(id);
-            m.t_exp = Iterator('t_exp', 'continuous', 'solver', 'forwardeuler', 'dt', m.dt);
-            m.t_imp = Iterator('t_imp', 'continuous', 'solver', 'linearbackwardeuler', 'dt', m.dt);            
-            m.DefaultIterator = m.t_exp;
         end
         
         function insert(m, channels)
@@ -60,12 +58,21 @@ classdef Section < Model
             end
         end
         
+        function addPointCurrent(m, mdl, pos)
+            s = struct('model', mdl, 'I', 'I', 'pos', pos);
+            if isempty(m.pointCurrents)
+                m.pointCurrents = s;
+            else
+                m.pointCurrents(end+1) = s;
+            end
+        end
+        
         function s = toStr(m)
             initializeModel(m);
             build(m); % build the model
             s = toStr@Model(m); % now, create the string representation
         end
-        
+
     end
 
     % Set/Get options
@@ -166,6 +173,12 @@ classdef Section < Model
     
     methods (Access = protected)
         function build(m)
+            % Create the iterators
+            m.t_exp = Iterator('t_exp', 'continuous', 'solver', 'forwardeuler', 'dt', m.dt);
+            m.t_imp = Iterator('t_imp', 'continuous', 'solver', 'linearbackwardeuler', 'dt', m.dt);            
+            m.DefaultIterator = m.t_exp;
+
+            disp(['Building Section: ' m.Name]);
             % define the voltage states
             m.voltages = cell(1,m.nseg);
             for i=1:m.nseg
@@ -178,16 +191,21 @@ classdef Section < Model
             SAall = SAall_square_microns * 1e-8;  % 1e-12 / 1e-4 = 1e-8
             SAseg = SAall/m.nseg;
             
+            % Ra - ohm*m or ohm*m^2/m
+            axial_resistance = m.Ra*(m.L/m.nseg)/(pi*(m.diam/2)^2);
+
             % define the currents
             m.currents = cell(1,m.nseg);
             for i=1:m.nseg
                 v = m.voltages{i};
+                unit_factor = 1e6; % Conductance (S -> uS)
+                
                 
                 % initialize it
                 m.currents{i} = Exp(0);
                 % add the conductances
                 if m.insert_pas
-                    Ipas = m.g_pas * SAseg * (v - m.e_pas);
+                    Ipas = m.g_pas * unit_factor * SAseg * (v - m.e_pas);
                     m.currents{i} = m.currents{i} + Ipas;
                 end
                 
@@ -221,37 +239,58 @@ classdef Section < Model
                     m.diffequ(n_gate, (n_inf-n_gate)/n_tau);
                     
                     % compute the currents
-                    INa = m.gnabar_hh * SAseg * m_gate^3 * h_gate * (v - m.ena);
-                    IK = m.gkbar_hh * SAseg * n_gate^4 * (v - m.ena);
-                    Ileak = m.gl_hh * SAseg * (v - m.el_hh);
+                    INa = m.equ(m.gnabar_hh * unit_factor * SAseg * m_gate^3 * h_gate * (v - m.ena));
+                    IK = m.equ(m.gkbar_hh * unit_factor * SAseg * n_gate^4 * (v - m.ek));
+                    Ileak = m.equ(m.gl_hh * unit_factor * SAseg * (v - m.el_hh));
                     
                     % sum them up
-                    m.currents{i} = m.currents{i} + INa + IK + Ileak;
+                    m.currents{i} = m.currents{i} - (INa + IK + Ileak);
                 end
 
+                % add point currents
+                begin_pos = (i-1)/m.nseg;
+                end_pos = i/m.nseg;
+                for j=1:length(m.pointCurrents)
+                    pos = m.pointCurrents(j).pos;
+                    if pos >= begin_pos && pos < end_pos
+                        sm = m.submodel(m.pointCurrents(j).model);
+                        m.currents{i} = m.currents{i} + sm.(m.pointCurrents(j).I);
+                    end
+                end
+                
                 % and now the intrasection currents
                 if m.nseg > 1
                     switch i
                         case 1
-                            intra = (m.voltages{i+1}-v)/(m.Ra);
+                            intra = (m.voltages{i+1}-v)/axial_resistance;
                         case m.nseg
-                            intra = (v-m.voltages{i-1})/(m.Ra);
+                            intra = (v-m.voltages{i-1})/axial_resistance;
                         otherwise
-                            intra = (m.voltages{i+1}-v)/(m.Ra) + (v-m.voltages{i-1})/(m.Ra);
+                            intra = (m.voltages{i+1}-v)/axial_resistance + (v-m.voltages{i-1})/axial_resistance;
                     end
                     m.currents{i} = m.currents{i} + intra;     
                 end
                     
                 % and the intersection currents
                 
+                
                 % create the differential equation for the segment
                 m.diffequ(v,(1/(m.cm*SAseg))*m.currents{i});
             end
             
             % output all the voltage values
-            m.output('voltages', m.voltages);
+            for i=1:length(m.voltages)
+                m.output(['v_' num2str(i)], m.voltages{i});
+            end
 
         end
+        
+%         function initializeModel(m)
+%             initializeModel@Model(m);
+%             m.voltages = {};
+%             m.currents = {};
+%             m.pointCurrents = [];
+%         end
         
 %         % when we produce DSL code, we need to rebuild all voltage
 %         % evolution equations.  This step is responsible for clearing the
@@ -275,5 +314,5 @@ end
 % Don't allow singularites in the code
 function r = trap(x, y)
   % math inspired from NEURON
-  r = piecewise(abs(x/y) < 1e-6, y*(1-x/y/2), x/(exp(x/y)-1));
+  r = piecewise(y*(1-x/y/2), abs(x/y) < 1e-6, x/(exp(x/y)-1));
 end

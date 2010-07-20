@@ -386,7 +386,7 @@ classdef Model < handle
         function e = equ(m, lhs, rhs)
             if 2 == nargin
                 rhs = Exp(lhs);
-                lhsstr = ['InternalIntemediate__' num2str(m.intermediate_number)];
+                lhsstr = ['InternalIntermediate__' num2str(m.intermediate_number)];
                 lhs = Exp(lhsstr);
             else
                 if isa(lhs, 'Exp')
