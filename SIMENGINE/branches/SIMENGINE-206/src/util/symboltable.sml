@@ -1,4 +1,4 @@
-(* Copyright Simatra - 2006 
+(* Copyright Simatra - 2006, 2010 
  * symboltable.sml - Symbol Table data structure
  *
  *   This data structure is useful for mapping symbols to 'a
@@ -24,6 +24,10 @@ structure H = ListMapFn (struct
   fun listItems (t) = H.listItems (t)
   fun map(f) = H.map (f)
   fun priorityunion (tab1, tab2) = H.unionWith (#1) (tab1, tab2) 
+
+  fun null t = 0 = numItems t
+  val foldli = H.foldli
+  val filteri = H.filteri
 
 (*
   type 'a table = (string * 'a) list

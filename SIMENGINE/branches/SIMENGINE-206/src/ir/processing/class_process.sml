@@ -1783,22 +1783,23 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
     end
 
 (* Removes unused input terms. *)
-fun pruneInputsFromOutput output =
+fun pruneInputsFromOutput class output =
     let
 	val inputs = DOF.Output.inputs output
 	val inputSymbols = map Term.sym2curname (! inputs)
-	val inputsSymbols' = 
+	val inputSymbols' = 
 	    List.filter
 	    (fn sym => 
 		let 
 		    val pattern = Match.asym sym
+		    val exps = (DOF.Output.condition output) ::
+			       (DOF.Output.contents output)
 		in
-		    List.exists (Match.exists pattern) ((DOF.Output.condition output) ::
-							(DOF.Output.contents output))
+		    List.exists (Match.exists pattern) (map (flattenExp class) exps)
 		end) inputSymbols
 		
     in
-	inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputsSymbols'
+	inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputSymbols'
     end
 
 (* 
@@ -1838,7 +1839,7 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 			     | NONE => outputs
 		       else
 			   outputs
-	val _ = app pruneInputsFromOutput outputs'
+	val _ = app (pruneInputsFromOutput class) outputs'
 
 	val output_symbols = Util.flatmap ExpProcess.exp2symbols (map DOF.Output.condition outputs' @ 
 								  (Util.flatmap DOF.Output.contents outputs'))
@@ -1956,7 +1957,52 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 				   else
 				       exp)
 			 exps'
+
+	fun remove_unused_inputs (Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, inpargs)])) =
+	    let
+		val class' = CurrentModel.classname2class classname
+
+		val output = 
+		    case List.find (fn out => outname = Term.sym2symname (DOF.Output.name out)) (!(#outputs class'))
+		     of SOME x => x
+		      | NONE => 
+			DynException.stdException(("Could not find output named " ^ (Symbol.name outname) ^ " in class " ^ (Symbol.name classname) ^ "."),
+						  "ClassProcess.pruneClass.remove_unused_inputs",
+						  Logger.INTERNAL)
+
+		val inputSymbols = map Term.sym2curname (!(DOF.Output.inputs output))
+
+		val inpassoc = 
+		    case inpargs
+		     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+		      | _ =>
+			DynException.stdException(("Inputs of output call should be an ASSOC container."),
+						  "CParallelWriter.class_flow_code.instaceeq2prog",
+						  Logger.INTERNAL)
+			
+		fun is_input_symbol sym =
+		    List.exists (fn sym' => sym = sym') inputSymbols
 		    
+		val inpargs' =
+		    Exp.CONTAINER 
+			(Exp.ASSOC
+			     (SymbolTable.filteri (fn (k,v) => is_input_symbol k) inpassoc))
+		val rhs = Exp.FUN (Fun.OUTPUT {classname=classname, instname=instname, outname=outname, props=props}, [inpargs'])
+	    in
+		ExpBuild.equals (Exp.TERM (Exp.TUPLE outargs), rhs)
+	    end
+	  | remove_unused_inputs _ =
+	    DynException.stdException(("Malformed output equation."),
+				      "ClassProcess.pruneClass.remove_unused_inputs",
+				      Logger.INTERNAL)
+
+
+	val exps'' = 
+	    map (fn exp => if ExpProcess.isOutputEq exp then
+			       remove_unused_inputs exp
+			   else
+			       exp) exps''
+
 	(* check the inputs to see if any of them are not in the dependency list *)
 	val _ = case iter_option of 
 		    SOME _ => () (* don't worry about it here, it's really only important for the full pruning step *)

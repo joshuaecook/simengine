@@ -599,10 +599,17 @@ fun createClass top_class classes object =
 
 		val iterators = map (fn(e) => Symbol.symbol (exp2str (method "name" e))) (vec2list (method "dimensions" obj))
 
+		val instanceInputs = 
+		    Exp.CONTAINER
+			(Exp.ASSOC
+			     (foldl (fn ((obj,quant), tab) => 
+					SymbolTable.enter (tab, (Symbol.symbol (exp2str (method "name" obj))), quantity_to_dof_exp quant)
+				    ) SymbolTable.empty input_exps))
+
 		val rhs = Exp.FUN (Fun.INST {classname=name',
 					     instname=objname,
 					     props=InstProps.setIterators InstProps.emptyinstprops iterators},
-				   map (fn(_,i) => quantity_to_dof_exp i) input_exps)
+				   [instanceInputs])
 
 		val exp = ExpBuild.equals (Exp.TERM (Exp.TUPLE []), rhs)
 
@@ -615,7 +622,7 @@ fun createClass top_class classes object =
 							       instname=objname,
 							       outname=Symbol.symbol outname,
 							       props=InstProps.emptyinstprops},
-						   map (fn(_,i) => quantity_to_dof_exp i) input_exps)
+						   [instanceInputs])
 			    in
 				ExpBuild.equals (lhs, rhs)
 			    end
