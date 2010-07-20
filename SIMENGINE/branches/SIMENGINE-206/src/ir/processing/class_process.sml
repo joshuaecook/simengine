@@ -1782,6 +1782,25 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 	; #outputs class := outputs')
     end
 
+(* Removes unused input terms. *)
+fun pruneInputsFromOutput output =
+    let
+	val inputs = DOF.Output.inputs output
+	val inputSymbols = map Term.sym2curname (! inputs)
+	val inputsSymbols' = 
+	    List.filter
+	    (fn sym => 
+		let 
+		    val pattern = Match.asym sym
+		in
+		    List.exists (Match.exists pattern) ((DOF.Output.condition output) ::
+							(DOF.Output.contents output))
+		end) inputSymbols
+		
+    in
+	inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputsSymbols'
+    end
+
 (* 
  * pruneClass - prunes equations in the class that are not needed, modifies class in memory
  * 
@@ -1819,6 +1838,7 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 			     | NONE => outputs
 		       else
 			   outputs
+	val _ = app pruneInputsFromOutput outputs'
 
 	val output_symbols = Util.flatmap ExpProcess.exp2symbols (map DOF.Output.condition outputs' @ 
 								  (Util.flatmap DOF.Output.contents outputs'))
