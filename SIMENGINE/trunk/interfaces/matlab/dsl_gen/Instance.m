@@ -27,8 +27,14 @@ classdef Instance
                     error('Simatra:Instance', 'No output with name %s found', s.subs);
                 end
                 output = Exp(inst.InstName, s.subs);
+                b = output;
+            else
+                for i=1:length(s)
+                    i
+                    s(i)
+                end
+                error('Simatra:Instance', 'Unexpected argument syntax');
             end
-            b = output;
         end
         
         function i2 = subsasgn(inst, s, b)
