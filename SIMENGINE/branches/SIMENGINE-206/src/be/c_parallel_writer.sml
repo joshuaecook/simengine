@@ -1679,30 +1679,11 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 	     else "")
 
 	val input_automatic_var =
-	    if is_top_class then
-		fn (input,i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
-	    else
-		fn (input,i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
+	 fn (input,i) => 
+	    $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM input)) ^ " = inputs[" ^ (i2s i) ^ "];")
 
 	val inputs = 
-	    if is_top_class then
-		let
-		    (* Impose an ordering on inputs so that we can determine which are constant vs. time-varying. *)
-		    fun is_constant_input input =
-			let
-			    val name = DOF.Input.name input
-			in
-			    not (isSome (TermProcess.symbol2temporaliterator name))
-			end
-
-		    val (constant_inputs, sampled_inputs) = List.partition is_constant_input (!(#inputs class))
-		in
-		    Util.addCount (constant_inputs @ sampled_inputs)
-		end
-	    else
-		Util.addCount (!(#inputs class))
+	    Util.addCount (!(DOF.Output.inputs output))
 
 	val read_inputs_progs =
 	    Layout.align
