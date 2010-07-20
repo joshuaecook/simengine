@@ -1501,6 +1501,13 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
  	      | _ => DynException.stdException(("Malformed output equation."),
 					  "CParallelWriter.outputeq2prog",
 					  Logger.INTERNAL)
+	val inpassoc = 
+	    case inpargs
+	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+	      | _ =>
+		DynException.stdException(("Inputs of output call should be an ASSOC container."),
+					  "CParallelWriter.class_flow_code.instaceeq2prog",
+					  Logger.INTERNAL)
 
 	(* every iterator except the update iterator uses an iter_name *)
 	val iter_name = Symbol.name (case iter_type of
@@ -1524,12 +1531,18 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	val inpvar = if List.null inpargs then "NULL" else Unique.unique "inputdata"
 	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
 
-	val inps_decl =
-	    if List.null inpargs then Layout.empty
-	    else $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];")
-	val inps_init = 
-	    Layout.align
-		(map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";")) (Util.addCount inpargs))
+	val (inps_init,num_inps) = 
+	    SymbolTable.foldli
+		(fn (k,v,(acc,idx)) =>
+		    ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str v) ^ "; // " ^ (Symbol.name k)) :: acc,
+		     1+idx)
+		    ) (nil,0) inpassoc
+
+	val inps_decl = 
+	    case num_inps
+	     of 0 => Layout.empty
+	      | n => $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")
+
 
 	val outs_decl = 
 	    if List.null outargs then Layout.empty
@@ -1548,7 +1561,7 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	 SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
 	      $("// " ^ (e2s exp)),
 	      inps_decl,
-	      inps_init,
+	      Layout.align inps_init,
 	      outs_decl,
 	      $(calling_name ^ "(" ^ iter_name' ^ "," ^
 		statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
@@ -1559,6 +1572,15 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
+	val inpassoc = 
+	    case inpargs
+	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+	      | _ =>
+		DynException.stdException(("Inputs of instance call should be an ASSOC container."),
+					  "CParallelWriter.class_flow_code.instaceeq2prog",
+					  Logger.INTERNAL)
+
+
 	val orig_instname = instname
 	(* every iterator except the update iterator uses an iter_name *)
 	val iter_name = Symbol.name (case iter_type of
@@ -1602,15 +1624,22 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val calling_name = "flow_" ^ (Symbol.name classname)
 
-	val inpvar = if List.null inpargs then "NULL" else Unique.unique "inputdata"
+	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
 							   
 
-	val inps = 
-	    if List.null inpargs then []
-	    else [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];")]
+	val (inps_init,num_inps) = 
+	    SymbolTable.foldli
+		(fn (k,v,(acc,idx)) =>
+		    ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str v) ^ "; // " ^ (Symbol.name k)) :: acc,
+		     1+idx)
+		    ) (nil,0) inpassoc
 
-	val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";")) (Util.addCount inpargs)
+	val inps = 
+	    case num_inps
+	     of 0 => nil
+	      | n => [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")]
+
 	val outs_decl = 
 	    if List.null outargs then []
 	    else [$("CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];")]
@@ -1899,62 +1928,6 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val state_progs = []
 
 	val output_progs = nil
-	    (*
-	     if is_top_class then
-		let fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
-		    val outputs_symbols = Util.uniquify_by_fun cmp (ClassProcess.outputsSymbols class)
-
-		    val (iterators_symbols, outputs_symbols) = List.partition Term.isIterator outputs_symbols
-
-		in
-		    if List.null outputs_symbols andalso List.null iterators_symbols then
-			[$("// No outputs written")]
-		    else
-			[$(""),
-			 $("// writing output variables"),
-			 $("#if NUM_OUTPUTS > 0"),
-			 $("if (first_iteration) {"),
-			 SUB($("output_data *od = (output_data * )outputs;") 
-			     (* FIXME this is a temporary hack to catch reads of system iterator values. *)
-			     :: (map (fn t => $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^
-						(if (Symbol.symbol iter_name) = (Term.sym2curname t) then
-						     (CWriterUtil.exp2c_str (Exp.TERM t))
-						 else ("sys_rd->" ^ (Symbol.name (Term.sym2curname t)) ^ "[ARRAY_IDX]")) ^ ";"))
-				     iterators_symbols) 
-			     @ (map (fn(t)=> $("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) t) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-				    outputs_symbols)),
-			 $("}"),
-			 $("#endif")]
-		end
-	    else
-		[$(""),
-		 $("// writing output data "),
-		 SUB(map 
-			 (fn(output,i)=> 
-			    let
-				val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
-				val _ = if length contents = 1 then
-					    ()
-					else
-					    (Logger.log_error (Printer.$("Output "^(e2ps (Exp.TERM name))^" in model "^(Symbol.name (ClassProcess.class2classname class))^" can not be a grouping of {"^(String.concatWith ", " (map e2ps contents))^"} when used as a submodel"));
-					     DynException.setErrored())
-					    
-				val valid_condition = case condition 
-						       of (Exp.TERM (Exp.BOOL v)) => v
-							| _ => false
-				val _ = if valid_condition then
-					    ()
-					else
-					    Logger.log_warning (Printer.$("The condition ("^(e2ps condition)^") for output "^(e2ps (Exp.TERM name))^" in model "^(Symbol.name (ClassProcess.class2classname class))^" is being ignored when used as a submodel"))		
-			    
-			    in
-				case contents of
-				    [content] =>
-				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
-				  | _ => 
-				    $("// invalid output grouping")
-			    end) (Util.addCount (!(#outputs class))))]
-	     *)
 
 	val mapping_back_progs = []
 
