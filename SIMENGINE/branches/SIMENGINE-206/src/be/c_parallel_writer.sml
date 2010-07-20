@@ -1719,6 +1719,17 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 		($("// mapping inputs to variables") ::
 		 (map input_automatic_var inputs))
 
+	val output_symbols = 
+	    SymbolSet.fromList 
+		(map Term.sym2curname
+		     (List.filter (not o Term.isReadState)
+				  (Util.flatmap ExpProcess.exp2termsymbols (DOF.Output.contents output))))
+	val extra_equations = 
+	    SymbolSet.foldl
+		(fn (sym,acc) =>
+		    (exp2prog (ClassProcess.flattenEq class sym,is_top_class,iter)) @ acc
+		) nil output_symbols
+
 	val write_outputs_progs =
 	    Layout.align
 		($("// writing outputs") ::
@@ -1733,6 +1744,7 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 	       "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ systemstatereadprototype ^
 	       " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {"),
 	     SUB [read_inputs_progs,
+		  Layout.align extra_equations,
 		  write_outputs_progs],
 	     $("}")]
     end	
