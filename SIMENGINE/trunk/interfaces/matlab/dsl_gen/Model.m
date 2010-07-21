@@ -917,8 +917,8 @@ classdef Model < handle
             m.States = containers.Map;
             m.Randoms = containers.Map;
             m.Instances = containers.Map;
-            m.IntermediateEqs = containers.Map('KeyType','uint32','ValueType','Any');
-            m.IntermediateEqsNames = containers.Map;
+            m.IntermediateEqs = containers.Map(1, struct());
+            m.IntermediateEqs.remove(1);
             m.DiffEqs = struct();
             m.RecurrenceEqs = struct();
             m.cachedModels = containers.Map;
