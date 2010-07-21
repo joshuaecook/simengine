@@ -42,7 +42,9 @@ and orderClassEquations (class: DOF.class) =
        * satisfied symbols. *)
 	fun termSymbolIsSatisfied symset term =
 	    Term.isReadState term orelse
+	    Term.isReadSystemState term orelse
 	    Term.isIterator term orelse
+	    Term.isReadSystemIterator term orelse
 	    SymbolSet.member (symset, Term.sym2symname term)
 
 	(* Given a set of previously-satisfied symbols and 

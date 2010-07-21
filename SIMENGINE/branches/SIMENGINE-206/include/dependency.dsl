@@ -265,8 +265,7 @@ end
        end
      end
 
-     if ("Development" == Licensing.licenseProductType () or
-	 "Professional" == Licensing.licenseProductType ()) then
+     if (Licensing.featureEnabled("gpu")) then
        foreach key in proDeps.keys do
 	 if (proDeps.getMember(key) == ()) then
            depsFailed = true

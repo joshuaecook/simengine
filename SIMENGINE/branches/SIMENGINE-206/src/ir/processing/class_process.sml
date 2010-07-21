@@ -2199,12 +2199,76 @@ and expandInstances class =
 	 * Renames all symbols by prefixing the instance name. *)
         val exps' = ! exps
 
-        val _ = exps := Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then instanceExpressions exp else [exp]) exps'
+        val _ = exps := Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then 
+						    instanceExpressions exp 
+						else if ExpProcess.isOutputEq exp then
+						    outputExpressions exp
+						else 
+						    [exp]) 
+				     exps'
     in
         class
     end
 
 (* Nb (look up the latin: thats "nota bene," or literally, "note well.") depends on a CurrentModel context. *)
+and outputExpressions equation =
+    let 
+	val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
+	val instanceClass = CurrentModel.classname2class classname
+	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
+	fun prefixSymbol prefix (Exp.TERM (Exp.SYMBOL (sym, props))) =
+	    Exp.TERM (Exp.SYMBOL (Symbol.symbol (prefix ^ (Symbol.name sym)), case Property.getRealName props of 
+										  SOME v => Property.setRealName props (Symbol.symbol (prefix ^ (Symbol.name v)))
+										| NONE => props))
+
+	  | prefixSymbol _ _ = 
+	    DynException.stdException(("Cannot rename non-symbol in instance '" ^ (Symbol.name instname) ^ "' of class '" ^ (Symbol.name name) ^ "'"), 
+				      "ClassProcess.unify.symbolExpansion", Logger.INTERNAL)
+	    
+	fun renameWithPrefix pref =
+	    {find = Match.anysym_with_predlist [("IS_SYMBOL", ExpProcess.isSymbol),
+						("NOT_ITERATOR", not o ExpProcess.isIterator)] (Symbol.symbol "anysym"),
+	     replace = Rewrite.ACTION (Symbol.symbol ("renameWithPrefix:"^(Symbol.name pref)), 
+				       prefixSymbol ((Symbol.name pref) ^ "#_")),
+	     test = NONE}
+
+	val renameWithInstanceNamePrefix = renameWithPrefix (ExpProcess.instOrigInstName equation)
+
+	fun makeInputExpression (inparg, input) =
+	    let val name' = Match.applyRewriteExp renameWithInstanceNamePrefix (Exp.TERM (DOF.Input.name input))
+	    in
+		ExpBuild.equals (name', inparg)
+	    end
+
+	val inputs_exps =
+	    ListPair.map makeInputExpression (inpargs, ! inputs)
+
+	fun makeOutputExpression (outarg, output) =
+	    let open DOF
+		val (name, contents, condition) = (Output.name output, Output.contents output, Output.condition output)
+		val value = 
+		    if 1 = List.length contents then List.hd contents
+		    else DynException.stdException(("Too many quantities for output '"^(Symbol.name (Term.sym2curname name))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
+						   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
+		val condition' = Match.applyRewriteExp renameWithInstanceNamePrefix condition
+		val value' = Match.applyRewriteExp renameWithInstanceNamePrefix value
+		val name' = Exp.TERM outarg
+
+		val output' = 
+		    case condition'
+                      of Exp.TERM (Exp.BOOL true) => value'
+                       | _ => ExpBuild.cond (condition', value', name')
+	    in
+		ExpBuild.equals (name', output')
+	    end
+
+	val outputs_exps = 
+	    ListPair.map makeOutputExpression (outargs, ! outputs)
+    in
+	inputs_exps @
+	outputs_exps
+    end
+    
 and instanceExpressions equation =
     let val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
@@ -2212,7 +2276,12 @@ and instanceExpressions equation =
 	val exps' = ! exps
 
 	(* Recursively expands any other instances within the expressions of this instance's class. *)
-	val exps' = Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then instanceExpressions exp else [exp]) exps'
+	val exps' = Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then
+						instanceExpressions exp
+					    else if ExpProcess.isOutputEq exp then
+						outputExpressions exp
+					    else [exp]) 
+				 exps'
 
 	fun prefixSymbol prefix (Exp.TERM (Exp.SYMBOL (sym, props))) =
 	    Exp.TERM (Exp.SYMBOL (Symbol.symbol (prefix ^ (Symbol.name sym)), case Property.getRealName props of 
