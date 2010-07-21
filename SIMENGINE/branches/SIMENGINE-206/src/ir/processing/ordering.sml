@@ -1,11 +1,105 @@
 structure Ordering : sig
-    (* TODO document these signatures. *)
-
+    (* Obsolete. *)
     val orderModel : DOF.model -> DOF.model
+
+    (* Ensures that equations within classes are sorted
+     * such that dependencies appear before their dependents.
+     *)
+    val orderEquations: DOF.model -> unit
 				  
 end = struct
 
 exception SortFailed
+
+
+
+fun orderEquations (model as (classes,top_instance,props)) = 
+    app orderClassEquations classes
+
+and orderClassEquations (class: DOF.class) =
+    let
+	(* Begin with a set of symbols which are automatically satisfied:
+	 * inputs, state reads, iterator reads. *)
+	(* And the list of initially unsorted equations,
+	 * and the initially empty list of sorted equations. *)
+	(* While the list of unsorted equations is non-empty,
+	 * examine each equation in the list. *)
+	(* Add the symbols on the lhs to the set of satisfied symbols,
+	 * iff all the symbols on the rhs appear in said set. *)
+	(* Then also remove the equation from the unsorted list
+	 * and add it to the sorted list. *)
+	(* A cycle exists when no further equations can be removed 
+	 * from the (non-empty) unsorted list. *)
+	val exps = #exps class
+
+	fun termSymbolIsSatisfied symset term =
+	    Term.isReadState term orelse
+	    Term.isIterator term orelse
+	    SymbolSet.exists (fn sym => sym = Term.sym2symname term) symset
+
+	fun innerloop (satisfied, exps) =
+	    foldl
+		(fn (exp,(satisfied,ordered,unordered)) =>
+		    let
+			val _ = 
+			    Util.log ("Attempting to order " ^ 
+				      (ExpPrinter.exp2str exp) ^ 
+				      " with satisfied symbols " ^
+				      (SymbolSet.toStr satisfied) ^
+				      ".")
+			val rhs_term_syms = 
+			    ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
+		    in
+			if List.all (termSymbolIsSatisfied satisfied) rhs_term_syms then 
+			    let 
+				val _ = 
+				    Util.log ("Equation " ^ (ExpPrinter.exp2str exp) ^ " in order.")
+				val lhs_term_syms =
+				    ExpProcess.exp2termsymbols (ExpProcess.lhs exp)
+				val satisfied' = 
+				    SymbolSet.addList (satisfied, map Term.sym2symname lhs_term_syms)
+			    in
+				(satisfied', exp :: ordered, unordered)
+			    end
+			else 
+			    (satisfied, ordered, exp :: unordered)
+		    end)
+		(satisfied,nil,nil) exps
+	    
+	fun outerloop (satisfied, ordered, exps) =
+	    let
+		val (satisfied', ordered', unordered') = innerloop (satisfied, exps)
+	    in
+		if null unordered' then
+		    ordered' @ ordered
+		else if null ordered' then
+		    ((Logger.log_error (Printer.$("Can't sort equations in model " ^ 
+						  (Symbol.name (#name class)) ^ 
+						  ".  Cycle includes: " ^ 
+						  (Util.symlist2s (Util.flatmap (fn exp =>
+										    ExpProcess.exp2symbols (ExpProcess.lhs exp)) unordered')))))
+		   ; raise Fail "cycle")
+		else 
+		    outerloop (satisfied', ordered' @ ordered, unordered')
+	    end
+	    
+	val inputSymbols =
+	    ClassProcess.foldInputs
+		(fn (input,syms) => 
+		    SymbolSet.add (syms, Term.sym2symname (DOF.Input.name input)))
+		SymbolSet.empty class
+
+	val orderedExps = outerloop (inputSymbols, nil, !exps)
+    in
+	exps := rev orderedExps
+    end
+
+
+
+
+
+
+
 
 (*remove line for debugging *)
 fun print x = if DynamoOptions.isFlagSet "logordering" then
