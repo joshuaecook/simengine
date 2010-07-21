@@ -279,6 +279,11 @@ classdef Model < handle
                     % name from the inputname command
                     e = {Exp(id)};
                     id = inputname(2);
+                elseif isnumeric(id)
+                    % This is a degenerate case where we would like to
+                    % output a constant
+                    e = {Exp(id)};
+                    id = inputname(2);
                 else
                     error('Simatra:Model', 'The first argument to the output method must be a string variable name.')
                 end
