@@ -1334,10 +1334,12 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 	    let 
 		val model = ShardedModel.toModel shardedModel (hd (ShardedModel.iterators shardedModel))
 		val classname = 
-		    let val {instance, ...} = hd shards
-		    in if isSome (#name instance) 
-		       then valOf (#name instance)
-		       else #classname instance
+		    let 
+			val {instance, ...} = hd shards
+			val class = CurrentModel.withModel model 
+							   (fn _ => CurrentModel.classname2class (#classname instance))
+		    in 
+			ClassProcess.class2preshardname class
 		    end
 	    in
 		classname
@@ -1528,7 +1530,7 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	     if reads_system instclass then "&" ^ systemdata ^ ", " else "")
 
 	val calling_name = "output_" ^ (Symbol.name classname) ^ "_" ^ (Symbol.name outname)
-	val inpvar = if List.null inpargs then "NULL" else Unique.unique "inputdata"
+	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
 
 	val (inps_init,num_inps) = 

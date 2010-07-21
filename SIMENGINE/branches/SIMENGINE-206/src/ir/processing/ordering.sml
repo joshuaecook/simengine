@@ -43,7 +43,7 @@ and orderClassEquations (class: DOF.class) =
 	fun termSymbolIsSatisfied symset term =
 	    Term.isReadState term orelse
 	    Term.isIterator term orelse
-	    SymbolSet.exists (fn sym => sym = Term.sym2symname term) symset
+	    SymbolSet.member (symset, Term.sym2symname term)
 
 	(* Given a set of previously-satisfied symbols and 
 	 * a list of previously-ordered equations and
