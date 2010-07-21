@@ -11,6 +11,11 @@ end = struct
 
 exception SortFailed
 
+fun log message = 
+    if DynamoOptions.isFlagSet "logordering" then
+	Util.log message
+    else
+	()
 
 
 fun orderEquations (model as (classes,top_instance,props)) = 
@@ -32,40 +37,20 @@ and orderClassEquations (class: DOF.class) =
 	 * from the (non-empty) unsorted list. *)
 	val exps = #exps class
 
+      (* Indicates whether a given term symbol is automatically satisfied 
+       * by its scope, or if it appears within a given set of previously-
+       * satisfied symbols. *)
 	fun termSymbolIsSatisfied symset term =
 	    Term.isReadState term orelse
 	    Term.isIterator term orelse
 	    SymbolSet.exists (fn sym => sym = Term.sym2symname term) symset
 
-	fun innerloop (satisfied, exps) =
-	    foldl
-		(fn (exp,(satisfied,ordered,unordered)) =>
-		    let
-			val _ = 
-			    Util.log ("Attempting to order " ^ 
-				      (ExpPrinter.exp2str exp) ^ 
-				      " with satisfied symbols " ^
-				      (SymbolSet.toStr satisfied) ^
-				      ".")
-			val rhs_term_syms = 
-			    ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
-		    in
-			if List.all (termSymbolIsSatisfied satisfied) rhs_term_syms then 
-			    let 
-				val _ = 
-				    Util.log ("Equation " ^ (ExpPrinter.exp2str exp) ^ " in order.")
-				val lhs_term_syms =
-				    ExpProcess.exp2termsymbols (ExpProcess.lhs exp)
-				val satisfied' = 
-				    SymbolSet.addList (satisfied, map Term.sym2symname lhs_term_syms)
-			    in
-				(satisfied', exp :: ordered, unordered)
-			    end
-			else 
-			    (satisfied, ordered, exp :: unordered)
-		    end)
-		(satisfied,nil,nil) exps
-	    
+	(* Given a set of previously-satisfied symbols and 
+	 * a list of previously-ordered equations and
+	 * a list of unordered equations, 
+	 * attempts to apply an ordering to all the unordered equations.
+	 * Returns a list of (reverse) ordered equations.
+	 * Fails with an error if any equation could not be ordered due to a cycle. *)
 	fun outerloop (satisfied, ordered, exps) =
 	    let
 		val (satisfied', ordered', unordered') = innerloop (satisfied, exps)
@@ -83,6 +68,40 @@ and orderClassEquations (class: DOF.class) =
 		    outerloop (satisfied', ordered' @ ordered, unordered')
 	    end
 	    
+	(* Given a set of previously-satisfied symbols and
+	 * a list of unordered equations,
+	 * attempts to find equations with no unsatisfied dependencies.
+	 * Returns a new set of satisfied symbols, 
+	 * a list of (reverse) ordered equations,
+	 * and a list of yet-unordered equations. *)
+	and innerloop (satisfied, exps) =
+	    foldl
+		(fn (exp,(satisfied,ordered,unordered)) =>
+		    let
+			val _ = 
+			    log ("Attempting to order " ^ 
+				 (ExpPrinter.exp2str exp) ^ 
+				 " with satisfied symbols " ^
+				 (SymbolSet.toStr satisfied) ^ ".")
+			val rhs_term_syms = 
+			    ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
+		    in
+			if List.all (termSymbolIsSatisfied satisfied) rhs_term_syms then 
+			    let 
+				val _ = 
+				    log ("Equation " ^ (ExpPrinter.exp2str exp) ^ " is in order.")
+				val lhs_term_syms =
+				    ExpProcess.exp2termsymbols (ExpProcess.lhs exp)
+				val satisfied' = 
+				    SymbolSet.addList (satisfied, map Term.sym2symname lhs_term_syms)
+			    in
+				(satisfied', exp :: ordered, unordered)
+			    end
+			else 
+			    (satisfied, ordered, exp :: unordered)
+		    end)
+		(satisfied,nil,nil) exps
+
 	val inputSymbols =
 	    ClassProcess.foldInputs
 		(fn (input,syms) => 

@@ -66,10 +66,6 @@ fun DOFToShardedModel forest =
 	val _ = ModelProcess.normalizeModel (model())
 	val _ = Profile.mark()
 
-	val _ = log("Ordering equations ...")
-	val _ = Ordering.orderEquations (model())
-	val _ = Profile.mark()
-
 	(* if profiling, put some additional debugging information prior to shard generation - this will show 
 	 * whether or not we were able to reduce the cost of the evaluation *)
 	val _ = if DynamoOptions.isFlagSet "profile" then

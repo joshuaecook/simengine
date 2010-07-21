@@ -646,6 +646,7 @@ fun forkModelByIterator model (iter as (iter_sym,_)) =
 	val model' as (classes',_,_) = ModelProcess.duplicateModel model (namechangefun iter_sym)
 	val _ = ModelProcess.pruneModel (SOME iter) model'
 	val _ = map (ClassProcess.updateForkedClassScope iter) classes'
+	val _ = Ordering.orderEquations model'
     in
 	model'
     end
