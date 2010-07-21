@@ -919,6 +919,7 @@ classdef Model < handle
             m.Instances = containers.Map;
             m.IntermediateEqs = containers.Map(1, struct());
             m.IntermediateEqs.remove(1);
+            m.IntermediateEqsNames = containers.Map;
             m.DiffEqs = struct();
             m.RecurrenceEqs = struct();
             m.cachedModels = containers.Map;
