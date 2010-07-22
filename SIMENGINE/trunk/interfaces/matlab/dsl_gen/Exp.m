@@ -155,6 +155,10 @@ classdef Exp
             %er = oper(' and ', {e1, e2});
         end
         
+        function er = all(varargin)
+            er = and(varargin{:});
+        end
+        
         function er = or(varargin)
             fcn = @(elem, init)(oper(' or ', {init, elem}));
             switch nargin
@@ -170,6 +174,10 @@ classdef Exp
             %er = oper(' or ', {e1, e2});
         end
 
+        function er = any(varargin)
+            er = or(varargin{:});
+        end
+        
         function er = not(e1)
             er = oper('not', {e1});
         end
@@ -179,7 +187,7 @@ classdef Exp
             er = oper('exp', {e1});
         end
         function er = log(e1)
-            er = oper('ln', {e1});
+            er = oper('log', {e1});
         end
         function er = log10(e1)
             er = oper('log10', {e1});
