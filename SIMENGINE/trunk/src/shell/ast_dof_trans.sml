@@ -829,7 +829,8 @@ fun ast_to_dof astlist =
 	val all_iterators = (Symbol.symbol "always", DOF.IMMEDIATE)::
 			    (Util.flatmap 
 				 (fn(orig_iter as (iter_sym, _)) => [orig_iter, 
-								     (Iterator.inProcessOf (Symbol.name iter_sym), DOF.ALGEBRAIC (DOF.INPROCESS, iter_sym))])
+								     (Iterator.inProcessOf (Symbol.name iter_sym), DOF.ALGEBRAIC (DOF.INPROCESS, iter_sym)),
+								     (Iterator.updateOf (Symbol.name iter_sym), DOF.UPDATE iter_sym)])
 				 reduced_iterators)
 	    
 	(* put together the system properties *)
