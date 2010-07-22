@@ -2250,7 +2250,7 @@ fun init_states shardedModel =
 	    in CurrentModel.withModel
 		   model (fn _ =>
 			     let val class = CurrentModel.classname2class top_class
-				 val basename = top_class
+				 val basename = ClassProcess.class2preshardname class
 				 val (reads, writes, sysreads) =
 				     ("(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ ")",
 				      "(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
@@ -2285,7 +2285,7 @@ fun model_flows shardedModel =
 		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
 	    in CurrentModel.withModel model (fn _ =>
 	       let val class = CurrentModel.classname2class top_class
-		   val basename = top_class
+		   val basename = ClassProcess.class2preshardname class
 		   val (statereads, statewrites, systemstatereads) =
 		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
 			if requiresMatrix then
