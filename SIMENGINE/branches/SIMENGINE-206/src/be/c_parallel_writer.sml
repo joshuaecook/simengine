@@ -1724,7 +1724,7 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 	val output_symbols = 
 	    SymbolSet.fromList 
 		(map Term.sym2curname
-		     (List.filter (not o Term.isReadState)
+		     (List.filter (fn term => not ((Term.isReadState term) orelse (ClassProcess.isTermInput class term)))
 				  (Util.flatmap ExpProcess.exp2termsymbols (DOF.Output.contents output))))
 	val extra_equations = 
 	    SymbolSet.foldl
