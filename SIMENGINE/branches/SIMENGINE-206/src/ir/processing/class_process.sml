@@ -2215,6 +2215,7 @@ and outputExpressions equation =
     let 
 	val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
+	val instanceName = ExpProcess.instOrigInstName equation
 	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
 	fun prefixSymbol prefix (Exp.TERM (Exp.SYMBOL (sym, props))) =
 	    Exp.TERM (Exp.SYMBOL (Symbol.symbol (prefix ^ (Symbol.name sym)), case Property.getRealName props of 
@@ -2234,14 +2235,23 @@ and outputExpressions equation =
 
 	val renameWithInstanceNamePrefix = renameWithPrefix (ExpProcess.instOrigInstName equation)
 
-	fun makeInputExpression (inparg, input) =
-	    let val name' = Match.applyRewriteExp renameWithInstanceNamePrefix (Exp.TERM (DOF.Input.name input))
-	    in
-		ExpBuild.equals (name', inparg)
-	    end
+	val inpassoc = 
+	    case inpargs
+	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+	      | _ =>
+		DynException.stdException(("Inputs of output call should be an ASSOC container."),
+					  "CParallelWriter.class_flow_code.instaceeq2prog",
+					  Logger.INTERNAL)
 
 	val inputs_exps =
-	    ListPair.map makeInputExpression (inpargs, ! inputs)
+	    SymbolTable.foldli
+		(fn (k,v,acc) =>
+		    let 
+			val name = prefixSymbol ((Symbol.name instanceName) ^ "#_") (ExpBuild.svar k)
+		    in
+			(ExpBuild.equals (name, v)) :: acc
+		    end) 
+		nil inpassoc
 
 	fun makeOutputExpression (outarg, output) =
 	    let open DOF
@@ -2272,6 +2282,7 @@ and outputExpressions equation =
 and instanceExpressions equation =
     let val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
+	val instanceName = ExpProcess.instOrigInstName equation
 	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
 	val exps' = ! exps
 
@@ -2299,16 +2310,25 @@ and instanceExpressions equation =
 				       prefixSymbol ((Symbol.name pref) ^ "#_")),
 	     test = NONE}
 
-	val renameWithInstanceNamePrefix = renameWithPrefix (ExpProcess.instOrigInstName equation)
+	val renameWithInstanceNamePrefix = renameWithPrefix instanceName
 
-	fun makeInputExpression (inparg, input) =
-	    let val name' = Match.applyRewriteExp renameWithInstanceNamePrefix (Exp.TERM (DOF.Input.name input))
-	    in
-		ExpBuild.equals (name', inparg)
-	    end
+	val inpassoc = 
+	    case inpargs
+	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+	      | _ =>
+		DynException.stdException(("Inputs of output call should be an ASSOC container."),
+					  "CParallelWriter.class_flow_code.instaceeq2prog",
+					  Logger.INTERNAL)
 
 	val inputs_exps =
-	    ListPair.map makeInputExpression (inpargs, ! inputs)
+	    SymbolTable.foldli
+		(fn (k,v,acc) =>
+		    let 
+			val name = prefixSymbol ((Symbol.name instanceName) ^ "#_") (ExpBuild.svar k)
+		    in
+			(ExpBuild.equals (name, v)) :: acc
+		    end) 
+		nil inpassoc
 
 	val exps' = map (Match.applyRewriteExp renameWithInstanceNamePrefix) exps'
 
