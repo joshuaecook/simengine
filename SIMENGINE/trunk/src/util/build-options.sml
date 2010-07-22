@@ -11,6 +11,7 @@ val buildNumber: int
 val version: string
 val majorVersion: int
 val minorVersion: int
+val versionRevision : string
 val architecture: string
 
 val devVersion: bool
@@ -69,6 +70,10 @@ val majorVersion =
 val minorVersion =
     case JSON.memberValue (options, "minorVersion", JSON.toInt)
      of SOME i => IntInf.toInt i | _ => invalid "minorVersion"
+
+val versionRevision =
+    case JSON.memberValue (options, "versionRevision", JSON.toString)
+     of SOME s => s | _ => invalid "versionRevision"
 
 val architecture =
     case JSON.memberValue (options, "architecture", JSON.toString)
