@@ -13,8 +13,8 @@ BUILD_TYPE = software
 
 # Version # for RPM
 MAJOR_VERSION = 1
-MINOR_VERSION = 1
-#VERSION_REVISION = dev
+MINOR_VERSION = 2
+VERSION_REVISION = preview
 VERSION_NUMBER = $(MAJOR_VERSION).$(MINOR_VERSION)#$(VERSION_REVISION)
 #BUILD_DATE := $(shell date +'%a %b %d %H:%M:%S %Y')
 BUILD_DATE := $(shell date +'%s')
@@ -192,7 +192,7 @@ RELEASE = "branch"
 BUILDREV := $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 REV := $(subst /,_,$(subst /branches/,,$(SVN_BRANCH)))
 #INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
-VERSION = "_BRANCH_$(REV)_$(BUILDREV)"
+VERSION = "BRANCH_$(REV)_$(BUILDREV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=../..
 DEBUG=true
@@ -203,7 +203,7 @@ ifeq ($(TRUNK),1)
 RELEASE = "trunk"
 REV := $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 #INSTALL_FILENAME = "$(FILENAME)_devbuild_$(REV)_$(BUILD_TYPE).tar.gz"
-VERSION = "_BUILD_$(REV)"
+VERSION = "BUILD_$(REV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=..
 UPDATE_QUERY = build=development
@@ -223,7 +223,7 @@ RELEASE = "unknown"
 #INSTALL_FILENAME = "$(FILENAME)_unknown_branch.tar.gz"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)"
 TOP_LEVEL=unknown
-VERSION = "_unknown"
+VERSION = "unknown"
 UPDATE_QUERY = build=release
 REMOTE_BUILD_DIR = "Build_unknown"
 endif
@@ -237,7 +237,11 @@ else
 LOCAL_INSTALL = local-install
 endif
 
-INSTALL_TGZ = simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER)$(VERSION).tgz
+ifeq ($(TAG),1)
+INSTALL_TGZ = simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER).tgz
+else
+INSTALL_TGZ = simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER)_$(VERSION).tgz
+endif
 simEngine_%.tgz: $(OUTPUT_FILE) build/* build/*/*
 	$(info Creating $@ for packaging)
 	@(cd $(BUILD_DIR); tar chfz ../$@ --exclude=\.svn .)

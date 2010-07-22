@@ -26,7 +26,8 @@ val copyright = "Copyright "^(Int.toString year)^" Simatra Modeling Technologies
 
 val short_name = "simEngine"
 val name = short_name ^ " Dynamical System Compiler"
-val version = BuildOptions.version
+(*val version = BuildOptions.version*)
+val version = (GeneralUtil.int2str BuildOptions.majorVersion) ^ "." ^ (GeneralUtil.int2str BuildOptions.minorVersion) ^ BuildOptions.versionRevision
 val extension = ".dso"
 val edition = ref "N/A"
 val licenseHolder = ref "N/A"
