@@ -433,7 +433,11 @@ fun flattenEq (class:DOF.class) sym =
 	case findMatchingEq class sym of
 	    SOME exp => 
 	    let
-		(*val _ = Util.log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'")*)
+		val log = if DynamoOptions.isFlagSet "logdof" then 
+			      Util.log
+			  else
+			   fn _ => ()
+		val _ = log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'")
 
 		val symbols = ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
 		val local_symbols = List.filter (not o (isTermAState class)) (List.filter Term.isLocal symbols)
@@ -442,7 +446,7 @@ fun flattenEq (class:DOF.class) sym =
 		val filtered_symbols = map #1 
 					   (List.filter 
 						(fn(_,equ)=> case equ of 
-								 SOME e => not (ExpProcess.isInstanceEq e)
+								 SOME e => not (ExpProcess.isInstanceEq e orelse ExpProcess.isOutputEq e)
 							       | NONE => false)
 						(ListPair.zip (local_symbols,matching_equations)))
 
@@ -451,9 +455,9 @@ fun flattenEq (class:DOF.class) sym =
 		    let
 			val find = Exp.TERM term
 			val test = NONE
-			(* val _ = Util.log ("flattenEq ("^(Symbol.name (#name class))^"): '"^(e2s find)^"'") *)
+			val _ = log ("flattenEq ("^(Symbol.name (#name class))^"): '"^(e2s find)^"'")
 			val repl_exp = ExpProcess.rhs (flattenEq class (Term.sym2curname term))
-			(* val _ = Util.log (" ->  '"^(e2s repl_exp)^"'") *)
+			val _ = log (" ->  '"^(e2s repl_exp)^"'")
 			val replace = Rewrite.RULE repl_exp
 		    in
 			{find=find, test=test, replace=replace}			       
@@ -468,6 +472,11 @@ fun flattenEq (class:DOF.class) sym =
 (*this will take an exp, like 'a+b', and search for a, and search for b, substituting both variables back into the expression *)
 fun flattenExp (class:DOF.class) exp =
     let
+	val log = if DynamoOptions.isFlagSet "logdof" then 
+		      Util.log
+		  else
+		      fn _ => ()
+	val _ = log ("Flattening " ^ (e2s exp))
 	val symbols = ExpProcess.exp2symbols exp
 	val equations = map (flattenEq class) symbols
 	val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
@@ -1805,15 +1814,17 @@ fun pruneInputsFromOutput class output =
     let
 	val inputs = DOF.Output.inputs output
 	val inputSymbols = map Term.sym2curname (! inputs)
+	val exps = map (flattenExp class) 
+			((DOF.Output.condition output) ::
+			 (DOF.Output.contents output))
+
 	val inputSymbols' = 
 	    List.filter
 	    (fn sym => 
 		let 
 		    val pattern = Match.asym sym
-		    val exps = (DOF.Output.condition output) ::
-			       (DOF.Output.contents output)
 		in
-		    List.exists (Match.exists pattern) (map (flattenExp class) exps)
+		    List.exists (Match.exists pattern) exps
 		end) inputSymbols
     in
 	inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputSymbols'
@@ -1831,6 +1842,11 @@ fun pruneInputsFromOutput class output =
  *)
 fun pruneClass (iter_option, top_class) (class: DOF.class) = 
     let
+	val log = if DynamoOptions.isFlagSet "logdof" then 
+		      Util.log
+		  else
+		      fn _ => ()
+
 	(* pull out useful quantities *)
 	val name = class2orig_name class
 	val inputs = !(#inputs class)
@@ -1858,6 +1874,7 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 			     | NONE => outputs
 		       else
 			   outputs
+
 	val _ = app (pruneInputsFromOutput class) outputs'
 
 	val output_symbols = Util.flatmap ExpProcess.exp2symbols (map DOF.Output.condition outputs' @ 
@@ -1971,8 +1988,9 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 		  | _ => exp
 	    end				   
 	val exps'' = map
-			 (fn(exp)=>if ExpProcess.isInstanceEq exp then
-				       add_dontcares_to_lhs_instance exp
+			 (fn(exp)=>if ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp then
+				       (log ("Removing unused outputs of " ^ (e2s exp))
+				      ; add_dontcares_to_lhs_instance exp)
 				   else
 				       exp)
 			 exps'
@@ -2046,7 +2064,8 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 
 	val exps'' = 
 	    map (fn exp => if ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp then
-			       remove_unused_inputs exp
+			       (log ("Removing unused inputs of " ^ (e2s exp))
+			      ; remove_unused_inputs exp)
 			   else
 			       exp) exps''
 

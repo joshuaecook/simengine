@@ -644,8 +644,11 @@ fun forkModelByIterator model (iter as (iter_sym,_)) =
     let
 	fun namechangefun iter_sym = (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym)))
 	val model' as (classes',_,_) = ModelProcess.duplicateModel model (namechangefun iter_sym)
+	val _ = log ("Pruning parallel model ...")
 	val _ = ModelProcess.pruneModel (SOME iter) model'
+	val _ = log ("Updating parallel model scope ...")
 	val _ = map (ClassProcess.updateForkedClassScope iter) classes'
+	val _ = log ("Ordering parallel model ...")
 	val _ = Ordering.orderEquations model'
     in
 	model'
