@@ -38,6 +38,7 @@ sig
     val outputsSymbolsByIterator : DOF.systemiterator -> DOF.class -> Exp.term list
 
     val findInput : DOF.class -> Symbol.symbol -> DOF.Input.input option
+    val isTermInput: DOF.class -> Exp.term -> bool
 
     (* foldExpressions visit zero class
      * Visits each expression in a given class.
@@ -207,6 +208,9 @@ fun isSymInput (class:DOF.class) sym =
     in
 	List.exists (inputIsNamed sym) inputs
     end
+
+fun isTermInput class (Exp.SYMBOL (sym,_)) = isSymInput class sym
+  | isTermInput _ _ = false
 
 fun findInput class sym =
     let val {inputs, ...} : DOF.class = class
@@ -428,7 +432,8 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 (* flattenEq does not pass through instance equations - we need a different one that will pass through instance equations *)
 fun flattenEq (class:DOF.class) sym = 
     if isSymInput class sym then
-	Exp.TERM (DOF.Input.name (valOf (List.find (inputIsNamed sym) (!(#inputs class)))))
+	ExpBuild.equals (ExpBuild.svar sym,
+			 Exp.TERM (DOF.Input.name (valOf (List.find (inputIsNamed sym) (!(#inputs class))))))
     else
 	case findMatchingEq class sym of
 	    SOME exp => 
@@ -477,7 +482,7 @@ fun flattenExp (class:DOF.class) exp =
 		  else
 		      fn _ => ()
 	val _ = log ("Flattening " ^ (e2s exp))
-	val symbols = ExpProcess.exp2symbols exp
+	val symbols = List.filter (not o (isSymInput class)) (ExpProcess.exp2symbols exp)
 	val equations = map (flattenEq class) symbols
 	val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
 	val rules = map ExpProcess.equation2rewrite other_equs
