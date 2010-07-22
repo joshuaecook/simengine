@@ -206,7 +206,7 @@ classdef Section < Model
                 % add the conductances
                 if m.insert_pas
                     Ipas = m.g_pas * unit_factor * SAseg * (v - m.e_pas);
-                    m.currents{i} = m.currents{i} + Ipas;
+                    m.currents{i} = m.currents{i} - Ipas;
                 end
                 
                 if m.insert_hh
