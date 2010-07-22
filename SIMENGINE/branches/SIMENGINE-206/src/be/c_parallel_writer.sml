@@ -2072,6 +2072,14 @@ fun state_init_code shardedModel iter_sym =
 				 val instclass = CurrentModel.classname2class classname
 				 val orig_instname = instname
 
+				 val inpassoc = 
+				     case inpargs
+				      of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+				       | _ =>
+					 DynException.stdException(("Inputs of output call should be an ASSOC container."),
+								   "CParallelWriter.class_flow_code.instaceeq2prog",
+								   Logger.INTERNAL)
+
 				 val sysreadsName = Unique.unique "subsys_rd"
 
 				 fun systemstatedata_iterator (iter as (iter_name, _)) =
@@ -2103,31 +2111,38 @@ fun state_init_code shardedModel iter_sym =
 				     
 				 val inpnames: Exp.term list = 
 				     rev (ClassProcess.foldInputs (fn (input, names) => (DOF.Input.name input) :: names) nil instclass)
-				 val inpargs: Exp.exp list = 
-				     map (fn (name, arg) =>
-					     if hasInitialValueEquation (ivqReadsInput name) instclass then
-						 arg
-					     else
-						 Exp.TERM Exp.NAN)
-					 (ListPair.zipEq (inpnames, inpargs))
 
 				 val (reads, writes, sysreads) = 
 				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
 				      if writes_iterator iter instclass then "&wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
 				      if reads_system instclass then "&" ^ sysreadsName else "NULL")
 
-				 val inpvar = if List.null inpargs then "NULL" else Unique.unique "sub_inputs"
+				 val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
+
+				 val (inps_init,num_inps) = 
+				     SymbolTable.foldli
+					 (fn (k,v,(acc,idx)) =>
+					     let
+						 val value = 
+						     if hasInitialValueEquation (fn exp => Match.exists (Match.asym k) exp) instclass then
+							 CWriterUtil.exp2c_str v
+						     else "NAN"
+					     in
+						 ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ value ^ "; // " ^ (Symbol.name k)) :: acc,
+						  1+idx)
+					     end
+					 ) (nil,0) inpassoc
+
+				 val inps = 
+				     case num_inps
+				      of 0 => nil
+				       | n => [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")]
+
 			     in
 				 if hasInitialValueEquation (fn _ => true) instclass then
 				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
-				      SUB((if not (List.null inpargs) then
-					       $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];") ::
-					       map (fn ((inpname, inparg), idx) => $("/* " ^ (Term.sym2name inpname) ^ " */" ^
-										     inpvar ^ "[" ^ (i2s idx) ^ "] " ^ 
-										     " = " ^ 
-										     CWriterUtil.exp2c_str inparg ^ ";")) 
-						   (Util.addCount (ListPair.zip (inpnames, inpargs)))
-					   else []) @
+				      SUB(inps @
+					  inps_init @
 					  (if reads_system instclass then initSysreads else []) @
 					  [$("// " ^ (ExpPrinter.exp2str eqn)),
 					   $("init_states_" ^ (Symbol.name classname) ^ "(" ^
