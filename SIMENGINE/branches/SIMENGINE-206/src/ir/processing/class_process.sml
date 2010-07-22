@@ -209,6 +209,17 @@ fun isSymInput (class:DOF.class) sym =
 	List.exists (inputIsNamed sym) inputs
     end
 
+fun isSymIterator sym =
+    let
+	val iterators = CurrentModel.iterators ()
+	val indexable_iterators = List.mapPartial (fn(iter_sym, iter_type)=> case iter_type of
+										 DOF.CONTINUOUS _ => SOME iter_sym
+									       | DOF.DISCRETE _ => SOME iter_sym
+									       | _ => NONE) iterators
+    in
+	List.exists (fn iter_sym => sym = iter_sym) indexable_iterators
+    end			
+
 fun isTermInput class (Exp.SYMBOL (sym,_)) = isSymInput class sym
   | isTermInput _ _ = false
 
@@ -324,15 +335,10 @@ fun flattenExpressionThroughInstances class exp =
 and flattenEquationThroughInstances class sym =
     let val {name=classname, inputs, ...} = class
 	(*val _ = Util.log ("In class '"^(Symbol.name classname)^"', searching for sym '"^(Symbol.name sym)^"'")*)
-	val iterators = CurrentModel.iterators()
-	val indexable_iterators = List.mapPartial (fn(iter_sym, iter_type)=> case iter_type of
-										 DOF.CONTINUOUS _ => SOME iter_sym
-									       | DOF.DISCRETE _ => SOME iter_sym
-									       | _ => NONE) iterators
     in if isSymInput class sym then
 	   ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
 			    Exp.TERM (DOF.Input.name (valOf (List.find (inputIsNamed sym) (! inputs)))))
-       else if List.exists (fn(iter_sym)=> sym=iter_sym) indexable_iterators then
+       else if isSymIterator sym then
 	   ExpBuild.equals (ExpBuild.var (Symbol.name sym),
 			    ExpBuild.var (Symbol.name sym)) (* just an identity equation t = t, which will be converted to t -> t *)
        else if isSymbolAState class sym then (* if it's a state equation *)
@@ -434,6 +440,9 @@ fun flattenEq (class:DOF.class) sym =
     if isSymInput class sym then
 	ExpBuild.equals (ExpBuild.svar sym,
 			 Exp.TERM (DOF.Input.name (valOf (List.find (inputIsNamed sym) (!(#inputs class))))))
+    else if isSymIterator sym then
+	ExpBuild.equals (ExpBuild.var (Symbol.name sym),
+			 ExpBuild.var (Symbol.name sym))
     else
 	case findMatchingEq class sym of
 	    SOME exp => 
@@ -482,7 +491,7 @@ fun flattenExp (class:DOF.class) exp =
 		  else
 		      fn _ => ()
 	val _ = log ("Flattening " ^ (e2s exp))
-	val symbols = List.filter (not o (isSymInput class)) (ExpProcess.exp2symbols exp)
+	val symbols = List.filter (fn sym => not ((isSymInput class sym) orelse (isSymIterator sym))) (ExpProcess.exp2symbols exp)
 	val equations = map (flattenEq class) symbols
 	val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
 	val rules = map ExpProcess.equation2rewrite other_equs

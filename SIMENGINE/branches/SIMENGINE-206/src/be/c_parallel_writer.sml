@@ -974,7 +974,7 @@ fun update_wrapper shardedModel =
 				    DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
 
 			    val class = CurrentModel.classname2class top_class
-			    val basename = top_class
+			    val basename = ClassProcess.class2preshardname class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
 				(if reads_iterator iter class then "("^(*"const "^*)"statedata_" ^ basename_iter ^ " * )props->model_states, " else "",
@@ -1724,7 +1724,10 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 	val output_symbols = 
 	    SymbolSet.fromList 
 		(map Term.sym2curname
-		     (List.filter (fn term => not ((Term.isReadState term) orelse (ClassProcess.isTermInput class term)))
+		     (List.filter (fn term => not ((Term.isReadState term) orelse 
+						   (Term.isReadSystemState term) orelse
+						   (Term.isReadSystemIterator term) orelse
+						   (ClassProcess.isTermInput class term)))
 				  (Util.flatmap ExpProcess.exp2termsymbols (DOF.Output.contents output))))
 	val extra_equations = 
 	    SymbolSet.foldl
@@ -2260,15 +2263,19 @@ fun init_states shardedModel =
     let
 	fun subsystem_init_call iter_sym =
 	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
-		val iter = ShardedModel.toIterator shardedModel iter_sym
+		val iter as (_,iter_type) = ShardedModel.toIterator shardedModel iter_sym
+		val iter_name = Symbol.name (case iter_type of
+						 DOF.UPDATE v => v
+					       | _ => iter_sym)
+
 		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
 	    in CurrentModel.withModel
 		   model (fn _ =>
 			     let val class = CurrentModel.classname2class top_class
 				 val basename = ClassProcess.class2preshardname class
 				 val (reads, writes, sysreads) =
-				     ("(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ ")",
-				      "(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
+				     ("(statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ ")",
+				      "(statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
 				      if reads_system class then
 					  "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states"
 				      else "NULL")
@@ -2296,17 +2303,21 @@ fun model_flows shardedModel =
     let
 	fun subsystem_flow_call iter_sym =
 	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
-		val iter = ShardedModel.toIterator shardedModel iter_sym
+		val iter as (_, iter_type) = ShardedModel.toIterator shardedModel iter_sym
+		val iter_name = Symbol.name (case iter_type of
+						 DOF.UPDATE v => v
+					       | _ => iter_sym)
+
 		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
 	    in CurrentModel.withModel model (fn _ =>
 	       let val class = CurrentModel.classname2class top_class
 		   val basename = ClassProcess.class2preshardname class
 		   val (statereads, statewrites, systemstatereads) =
-		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
+		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ "* )y, " else "",
 			if requiresMatrix then
 			    "(CDATAFORMAT* ) props->mem, dydt, "
 			else if writes_iterator iter class then 
-			    "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " 
+			    "(statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ "* )dydt, " 
 			else 
 			    "",
 			if reads_system class then "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states, " else "")
