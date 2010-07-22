@@ -95,19 +95,23 @@ void lsolver_dense(const int n, CDATAFORMAT *M, CDATAFORMAT *b_x, unsigned int n
   /* Clear out lower half of M */
   for(br = bc = 0; br < n-1; br++, bc++){
     for(er = br + 1; er < n; er++){
-      rmult = -M[MAT_IDX(n,n,er,bc, num_models, modelid)]/M[MAT_IDX(n,n,br,bc, num_models, modelid)];
-      for(ec = bc + 1; ec < n; ec++){
-	M[MAT_IDX(n,n,er,ec, num_models, modelid)] += rmult*M[MAT_IDX(n,n,br,ec, num_models, modelid)];
+      if(M[MAT_IDX(n,n,er,bc, num_models, modelid)] != 0){
+	rmult = -M[MAT_IDX(n,n,er,bc, num_models, modelid)]/M[MAT_IDX(n,n,br,bc, num_models, modelid)];
+	for(ec = bc + 1; ec < n; ec++){
+	  M[MAT_IDX(n,n,er,ec, num_models, modelid)] += rmult*M[MAT_IDX(n,n,br,ec, num_models, modelid)];
+	}
+	b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
       }
-      b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
     }
   }
 
   /* Clear out upper half of M */
   for(br = bc = n-1; br > 0; br--, bc--){
     for(er = br - 1; er >= 0; er--){
-      rmult = -M[MAT_IDX(n,n,er,bc, num_models, modelid)]/M[MAT_IDX(n,n,br,bc, num_models, modelid)];
-      b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
+      if(M[MAT_IDX(n,n,er,bc, num_models, modelid)] != 0){
+	rmult = -M[MAT_IDX(n,n,er,bc, num_models, modelid)]/M[MAT_IDX(n,n,br,bc, num_models, modelid)];
+	b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
+      }
     }
   }
 
@@ -128,11 +132,13 @@ void lsolver_banded(const int n, const int lbw, const int ubw, CDATAFORMAT *M, C
     for(er = br + 1; er <= MIN(br + lbw, n-1); er++){
       bc = lbw;
       ec = bc - (er-br);
-      rmult = -M[MAT_IDX(n,bw,er,ec, num_models, modelid)]/M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
-      for(; bc < bw; ec++, bc++){
-	M[MAT_IDX(n,bw,er,ec, num_models, modelid)] += rmult*M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
+      if(M[MAT_IDX(n,bw,er,ec, num_models, modelid)] != 0){
+	rmult = -M[MAT_IDX(n,bw,er,ec, num_models, modelid)]/M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
+	for(; bc < bw; ec++, bc++){
+	  M[MAT_IDX(n,bw,er,ec, num_models, modelid)] += rmult*M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
+	}
+	b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
       }
-      b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
     }
   }
 
@@ -141,8 +147,10 @@ void lsolver_banded(const int n, const int lbw, const int ubw, CDATAFORMAT *M, C
   for(br = n-1; br > 0; br--){
     for(er = br - 1; er >= MAX(br - ubw, 0); er--){
       ec = bc + (br-er);
-      rmult = -M[MAT_IDX(n,bw,er,ec, num_models, modelid)]/M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
-      b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
+      if(M[MAT_IDX(n,bw,er,ec, num_models, modelid)] != 0){
+	rmult = -M[MAT_IDX(n,bw,er,ec, num_models, modelid)]/M[MAT_IDX(n,bw,br,bc, num_models, modelid)];
+	b_x[VEC_IDX(n,er,num_models,modelid)] += rmult*b_x[VEC_IDX(n,br,num_models,modelid)];
+      }
     }
   }
 
