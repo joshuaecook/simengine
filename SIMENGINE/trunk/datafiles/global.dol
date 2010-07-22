@@ -61,7 +61,3 @@
 
 // interpreterstackdepth: a recursion limit for the builtin DSL execution engine, increase this for large models
 <interpreterstackdepth = 10000.0>
-
-// termrewritelimit: a recursion limit for our term rewriter in our internal computer algebra system.  Large expressions might require a larger limit.
-<termrewritelimit = 25>
-
