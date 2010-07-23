@@ -1806,14 +1806,22 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
     end
 
 (* Removes unused input terms. *)
-fun pruneInputsFromClass class =
+fun pruneInputsFromClass top_class class =
     let
 	val inputs = #inputs class
 	val exps = #exps class
+	val outputs = #outputs class
+	val exps' = 
+	    (if top_class then
+		 Util.flatmap (fn output => (DOF.Output.condition output) :: (DOF.Output.contents output)) (! outputs)
+	     else 
+		 nil) @ 
+	    (! exps)
+
 	val inputSymbols = map (Term.sym2curname o DOF.Input.name) (! inputs)
 	val inputSymbols' =
 	    List.filter
-		(fn sym => List.exists (Match.exists (Match.asym sym)) (! exps)) inputSymbols
+		(fn sym => List.exists (Match.exists (Match.asym sym)) exps') inputSymbols
 
 	fun is_input_symbol sym =
 	    List.exists (fn sym' => sym = sym') inputSymbols'
@@ -1867,7 +1875,7 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 	val input_syms = map (Term.sym2symname o DOF.Input.name) inputs (* grab the inputs just as symbols *)
 	val outputs = !(#outputs class)
 
-	val _ = pruneInputsFromClass class
+	val _ = pruneInputsFromClass top_class class
 
 	fun filter_output iterator output =
 	    let val (iter_sym, iter_type) = iterator
