@@ -61,12 +61,22 @@ int getDeviceProps (int *deviceCount, char **deviceProps) {
 
   cudaRT = dlopen(CUDART_LIBRARY_NAME, RTLD_NOW);
   if(!cudaRT) {
-    snprintf(error_message, BUFFER_LENGTH,
-	     "Failed to load CUDA runtime environment from %s.\n"
-	     "\tIs LD_LIBRARY_PATH environment variable set to include CUDA libraries?",
-	     CUDART_LIBRARY_NAME);
-    error_message[BUFFER_LENGTH - 1] = '\0';
-    return DeviceProps_NoCudaRuntime;
+    char full_library_name[PATH_MAX];
+    sprintf(full_library_name, "/usr/local/cuda/lib64/%s", CUDART_LIBRARY_NAME);
+    cudaRT = dlopen(full_library_name, RTLD_NOW);
+    if(!cudaRT) {
+      sprintf(full_library_name, "/usr/local/cuda/lib/%s", CUDART_LIBRARY_NAME);
+      cudaRT = dlopen(full_library_name, RTLD_NOW);
+      if(!cudaRT) {
+	snprintf(error_message, BUFFER_LENGTH,
+		 "Failed to load CUDA runtime environment from %s.\n"
+		 "\tIs the CUDA runtime environment installed in the default location\n"
+		 "\tOR is LD_LIBRARY_PATH environment variable set to include CUDA libraries?",
+		 CUDART_LIBRARY_NAME);
+	error_message[BUFFER_LENGTH - 1] = '\0';
+	return DeviceProps_NoCudaRuntime;
+      }
+    }
   }
 
   cudaGetDeviceCount = (cudaGetDeviceCount_f)dlsym(cudaRT, "cudaGetDeviceCount");
