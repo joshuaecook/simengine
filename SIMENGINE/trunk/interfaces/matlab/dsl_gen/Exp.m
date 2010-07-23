@@ -346,6 +346,8 @@ classdef Exp
                             e.iterReference = subs{j};
                         elseif isa(subs{j},'Iterator')
                             e.iterReference = subs{j}.toReference;
+                        else
+                            error('Simatra:Exp:subsref', 'Unexpected class type %s passed as an argument to an expression', class(subs{j}));
                         end
                         er = e;
                     end

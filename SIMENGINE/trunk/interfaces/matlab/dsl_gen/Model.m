@@ -514,6 +514,10 @@ classdef Model < handle
             t = Exp(m.DefaultIterator);
         end
         
+        function t = timeIterator(m)
+            t = m.DefaultIterator;
+        end
+        
         function set.solver(m, varargin)
             if iscell(varargin{1})
                 m.solver = varargin{1};
