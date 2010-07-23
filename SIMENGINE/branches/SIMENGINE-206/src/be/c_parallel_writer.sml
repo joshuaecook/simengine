@@ -1689,71 +1689,74 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 
 
 fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) output =
-    let
-	val orig_name = ClassProcess.class2preshardname class
-	(* every iterator except the update iterator uses an iter_name *)
-	val iter_name = Symbol.name (case iter_type of
-					 DOF.UPDATE v => v
-				       | _ => iter_sym)
-	val iter_name' = Symbol.name (case iter_type of
-					 DOF.UPDATE v => v
-				       | DOF.ALGEBRAIC (_,v) => v
-				       | _ => iter_sym)
-			
-	val (statereadprototype,
-	     systemstatereadprototype) =
-	    (if reads_iterator iter class then
-		 (*"const " ^ *)"statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
-	     else "",
-	     if reads_system class then
-		 "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd, "
-	     else "")
+    if is_top_class then 
+	Layout.empty
+    else
+	let
+	    val orig_name = ClassProcess.class2preshardname class
+	    (* every iterator except the update iterator uses an iter_name *)
+	    val iter_name = Symbol.name (case iter_type of
+					     DOF.UPDATE v => v
+					   | _ => iter_sym)
+	    val iter_name' = Symbol.name (case iter_type of
+					      DOF.UPDATE v => v
+					    | DOF.ALGEBRAIC (_,v) => v
+					    | _ => iter_sym)
+			     
+	    val (statereadprototype,
+		 systemstatereadprototype) =
+		(if reads_iterator iter class then
+		     (*"const " ^ *)"statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+		 else "",
+		 if reads_system class then
+		     "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd, "
+		 else "")
 
-	val input_automatic_var =
-	 fn (input,i) => 
-	    $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM input)) ^ " = inputs[" ^ (i2s i) ^ "];")
+	    val input_automatic_var =
+	     fn (input,i) => 
+		$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM input)) ^ " = inputs[" ^ (i2s i) ^ "];")
 
-	val inputs = 
-	    Util.addCount (!(DOF.Output.inputs output))
+	    val inputs = 
+		Util.addCount (!(DOF.Output.inputs output))
 
-	val read_inputs_progs =
-	    Layout.align
-		($("// mapping inputs to variables") ::
-		 (map input_automatic_var inputs))
+	    val read_inputs_progs =
+		Layout.align
+		    ($("// mapping inputs to variables") ::
+		     (map input_automatic_var inputs))
 
-	val output_symbols = 
-	    SymbolSet.fromList 
-		(map Term.sym2curname
-		     (List.filter (fn term => not ((Term.isReadState term) orelse 
-						   (Term.isReadSystemState term) orelse
-						   (Term.isReadSystemIterator term) orelse
-						   (Term.isIterator term) orelse
-						   (ClassProcess.isTermInput class term)))
-				  (Util.flatmap ExpProcess.exp2termsymbols (DOF.Output.contents output))))
-	val extra_equations = 
-	    SymbolSet.foldl
-		(fn (sym,acc) =>
-		    (exp2prog (ClassProcess.flattenEq class sym,is_top_class,iter)) @ acc
-		) nil output_symbols
+	    val output_symbols = 
+		SymbolSet.fromList 
+		    (map Term.sym2curname
+			 (List.filter (fn term => not ((Term.isReadState term) orelse 
+						       (Term.isReadSystemState term) orelse
+						       (Term.isReadSystemIterator term) orelse
+						       (Term.isIterator term) orelse
+						       (ClassProcess.isTermInput class term)))
+				      (Util.flatmap ExpProcess.exp2termsymbols (DOF.Output.contents output))))
+	    val extra_equations = 
+		SymbolSet.foldl
+		    (fn (sym,acc) =>
+			(exp2prog (ClassProcess.flattenEq class sym,is_top_class,iter)) @ acc
+		    ) nil output_symbols
 
-	val write_outputs_progs =
-	    Layout.align
-		($("// writing outputs") ::
-		 map (fn (exp,i) =>
-			 $("outputs["^(i2s i)^"] = " ^ 
-			   (CWriterUtil.exp2c_str exp) ^ 
-			   ";")
-		     ) (Util.addCount (DOF.Output.contents output)))
-    in
-	Layout.align 
-	    [$("__HOST__ __DEVICE__ int output_" ^ (Symbol.name (#name class)) ^ "_" ^ (Term.sym2name (DOF.Output.name output)) ^
-	       "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ systemstatereadprototype ^
-	       " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {"),
-	     SUB [read_inputs_progs,
-		  Layout.align extra_equations,
-		  write_outputs_progs],
-	     $("}")]
-    end	
+	    val write_outputs_progs =
+		Layout.align
+		    ($("// writing outputs") ::
+		     map (fn (exp,i) =>
+			     $("outputs["^(i2s i)^"] = " ^ 
+			       (CWriterUtil.exp2c_str exp) ^ 
+			       ";")
+			 ) (Util.addCount (DOF.Output.contents output)))
+	in
+	    Layout.align 
+		[$("__HOST__ __DEVICE__ int output_" ^ (Symbol.name (#name class)) ^ "_" ^ (Term.sym2name (DOF.Output.name output)) ^
+		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ systemstatereadprototype ^
+		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {"),
+		 SUB [read_inputs_progs,
+		      Layout.align extra_equations,
+		      write_outputs_progs],
+		 $("}")]
+	end	
 
 fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     let
@@ -2128,7 +2131,7 @@ fun state_init_code shardedModel iter_sym =
 					 (fn (k,v,(acc,idx)) =>
 					     let
 						 val value = 
-						     if hasInitialValueEquation (fn exp => Match.exists (Match.asym k) exp) instclass then
+						     if hasInitialValueEquation (fn exp => Match.exists (Match.asym (Util.sym2codegensym k)) exp) instclass then
 							 CWriterUtil.exp2c_str v
 						     else "NAN"
 					     in
