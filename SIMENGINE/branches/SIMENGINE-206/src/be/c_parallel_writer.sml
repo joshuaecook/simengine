@@ -80,7 +80,7 @@ fun reads_iterator (_, DOF.UPDATE iter_sym) class =
     let val {exps, outputs, ...} = class
     in List.exists (output_contains_term (term_reads_iterator iter)) (! outputs) orelse
        List.exists (term_reads_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
-       List.exists (test_instance_class (reads_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
+       List.exists (test_instance_class (reads_iterator iter)) (List.filter (fn exp => ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp) (! exps))
     end
 
 and term_reads_iterator iter (Exp.SYMBOL (name, props)) =
@@ -103,7 +103,7 @@ fun writes_iterator (_, DOF.UPDATE iter_sym) class =
   | writes_iterator iter class =
     let val {exps, name, ...} = class
 	val result = List.exists (term_writes_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
-		     List.exists (test_instance_class (writes_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
+		     List.exists (test_instance_class (writes_iterator iter)) (List.filter (fn exp => ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp) (! exps))
 	(*val _ = Util.log ("Testing writes_iterator for class="^(Symbol.name name)^", iterator=" ^ (Symbol.name (#1 iter)) ^"  -> " ^ (Util.b2s result))*)
 
     in
@@ -128,7 +128,7 @@ fun reads_system class =
 	val p = fn x => Term.isReadSystemState x orelse Term.isReadSystemIterator x
     in List.exists (output_contains_term p) (! outputs) orelse
        List.exists p (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
-       List.exists (test_instance_class reads_system) (List.filter ExpProcess.isInstanceEq (! exps))
+       List.exists (test_instance_class reads_system) (List.filter (fn exp => ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp) (! exps))
     end
 
 (* Indicates whether a given class or any of its instances 
@@ -1529,6 +1529,27 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	    (if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name instname) ^ ", " else "",
 	     if reads_system instclass then "&" ^ systemdata ^ ", " else "")
 
+
+	fun systemstatedata_iterator (iter as (iter_name, _)) =
+	    systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
+	and systemstatedata_states (iter as (iter_name, _)) =
+	    [systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name instname)^";",
+	     systemdata^"."^"states_"^(Symbol.name iter_name)^"_next = &sys_rd->states_"^(Symbol.name iter_name)^"_next[STRUCT_IDX]."^(Symbol.name instname)^";"]
+
+	val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
+	val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
+
+	val sysstates_init = 
+	    if reads_system instclass then
+		Layout.align 
+		    [$("systemstatedata_"^(Symbol.name (ClassProcess.class2preshardname instclass))^" "^systemdata^";"),
+		     $("// iterator pointers"),
+		     SUB(map ($ o systemstatedata_iterator) iters),
+		     $("// state pointers"),
+		     SUB(map $ (Util.flatmap systemstatedata_states state_iters))]
+	    else
+		Layout.empty
+
 	val calling_name = "output_" ^ (Symbol.name classname) ^ "_" ^ (Symbol.name outname)
 	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
@@ -1564,6 +1585,7 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	      $("// " ^ (e2s exp)),
 	      inps_decl,
 	      Layout.align inps_init,
+	      sysstates_init,
 	      outs_decl,
 	      $(calling_name ^ "(" ^ iter_name' ^ "," ^
 		statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
