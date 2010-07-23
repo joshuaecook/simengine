@@ -54,10 +54,12 @@ classdef Model < handle
     end
     
     methods
-        function m = Model(Name, iterator)
+        function m = Model(varargin)
             % MODEL - create a new Model object
             % 
             % Usage:
+            %   m = MODEL() - generate a new model with a generated name
+            %
             %   m = MODEL(modelname) - generate a new model with name
             %   modelname
             %
@@ -71,22 +73,37 @@ classdef Model < handle
 
             switch nargin
                 case 0
-                    error('Simatra:Model', 'Must supply at least one argument');
-                case 1
-                    if ~ischar(Name)
-                        error('Simatra:Model', 'First argument to Model constructor must be a string');
-                    end
+                    Name = [];
                     m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', m.solver{:});
+                case 1
+                    if ischar(varargin{1})
+                        Name = varargin{1};
+                        m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', m.solver{:});
+                    elseif isa(varargin{1}, 'Iterator')
+                        Name = [];
+                        m.DefaultIterator = varargin{1};
+                    else
+                        error('Simatra:Model', 'First argument to Model constructor must be a string or iterator');
+                    end
                 case 2
-                    if isa(iterator, 'Iterator')
-                        m.DefaultIterator = iterator;
+                    if ischar(varargin{1})
+                        Name = varargin{1};
+                    else
+                        error('Simatra:Model', 'First argument to Model constructor must be a string when passed two arguments');
+                    end
+                    if isa(varargin{2}, 'Iterator')
+                        m.DefaultIterator = varargin{2};
                     else
                         error('Simatra:Model', 'Second argument to Model constructor must be an iterator');                        
                     end
                 otherwise
                     error('Simatra:Model', 'Must supply no more than two arguments to Model');
             end
-                    
+
+            if isempty(Name)
+                [filepath, filename, fileext] = fileparts(tempname);
+                Name = ['Model_' filename];
+            end
             m.Name = Name;
             m.initializeModel;
         end
