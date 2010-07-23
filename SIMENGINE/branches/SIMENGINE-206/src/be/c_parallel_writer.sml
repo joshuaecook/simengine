@@ -1727,6 +1727,7 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 		     (List.filter (fn term => not ((Term.isReadState term) orelse 
 						   (Term.isReadSystemState term) orelse
 						   (Term.isReadSystemIterator term) orelse
+						   (Term.isIterator term) orelse
 						   (ClassProcess.isTermInput class term)))
 				  (Util.flatmap ExpProcess.exp2termsymbols (DOF.Output.contents output))))
 	val extra_equations = 
