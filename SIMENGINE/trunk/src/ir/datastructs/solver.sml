@@ -33,6 +33,7 @@ sig
     val solver2shortname : solver -> string (* simpler, shorter name *)
     val solver2params : solver -> (string * string) list (* this function is used when generating generic solver properties in C *)
     val solver2opts : solver -> (string * string) list (* this function is used to generate solver specific options in C *)
+    val solver2dt : solver -> real option (* this function returns an optional fixed timestep *)
 
     (* Given a name and a table of settings, return the matching solver structure *)
     val name2solver : Symbol.symbol * (Symbol.symbol * Exp.exp) list -> solver
@@ -161,15 +162,31 @@ fun isVariableStep (ODE23 _) = true
   | isVariableStep (CVODE _) = true
   | isVariableStep _ = false
 
+fun solver2dt (FORWARD_EULER {dt}) = SOME dt
+  | solver2dt (EXPONENTIAL_EULER {dt}) = SOME dt
+  | solver2dt (LINEAR_BACKWARD_EULER {dt,...}) = SOME dt
+  | solver2dt (RK4 {dt}) = SOME dt
+  | solver2dt (MIDPOINT {dt}) = SOME dt
+  | solver2dt (HEUN {dt}) = SOME dt
+  | solver2dt (ODE23 _) = NONE
+  | solver2dt (ODE45 _) = NONE
+  | solver2dt (CVODE {dt,...}) = if dt > 0.0 then
+				     SOME dt
+				 else
+				     NONE
+  | solver2dt UNDEFINED = NONE
+
+
 local
     fun error s = (Logger.log_error (Printer.$("Unexpected error processing solver properties: " ^ s));
 		   DynException.setErrored())
-    
     fun has settings setting = List.find (fn(sym, exp)=>sym = (Symbol.symbol setting)) settings
+    
     fun getDT settings =
-	case has settings "dt" of
-	    SOME (_, Exp.TERM (Exp.REAL r)) => r
-	  | _ => 0.1
+    case has settings "dt" of
+	SOME (_, Exp.TERM (Exp.REAL r)) => r
+      | _ => 0.1
+
     fun getAbsTol settings =
 	case has settings "abstol" of
 	    SOME (_, Exp.TERM (Exp.REAL r)) => r
@@ -301,6 +318,7 @@ fun name2solver (solver_sym, settings) =
 	  | _ => (error ("Undefined solver type: " ^ solver_name);
 		  UNDEFINED)
     end
+
 end
 (*
 fun solver2options solver = 

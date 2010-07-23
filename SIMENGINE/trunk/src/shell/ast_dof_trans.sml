@@ -119,7 +119,7 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
       | "operator_ne" => builtin (Fun.NEQ, args)
       | "power" => builtin (Fun.POW, args)
       | "exp" => builtin (Fun.EXP, args)
-      | "log" => builtin (Fun.LOG, args)
+      | "ln" => builtin (Fun.LOG, args)
       | "log10" => builtin (Fun.LOG10, args)
       | "logn" => builtin (Fun.LOGN, args)
       | "sin" => builtin (Fun.SIN, args)
