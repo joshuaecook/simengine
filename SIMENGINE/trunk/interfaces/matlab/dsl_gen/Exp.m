@@ -187,7 +187,7 @@ classdef Exp
             er = oper('exp', {e1});
         end
         function er = log(e1)
-            er = oper('log', {e1});
+            er = oper('ln', {e1});
         end
         function er = log10(e1)
             er = oper('log10', {e1});

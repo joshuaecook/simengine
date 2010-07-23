@@ -1612,20 +1612,49 @@ fun assignCorrectScope (class: DOF.class) =
 				      | _ => iter_sym
 				end
 
+			    fun prependIterator iter_sym = 
+				(case CurrentModel.itersym2iter iter_sym
+				  of (_, DOF.UPDATE base_iter) => 
+				     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
+				   | (_, DOF.ALGEBRAIC (_,base_iter)) => 
+				     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
+				   | _ => 
+				     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name)))
+
 			in case Util.uniquify (map iter2baseiter (iters @ used_iters))
 			    of nil => name
 			     | [iter_sym] => 
-			       (case CurrentModel.itersym2iter iter_sym
-				 of (_, DOF.UPDATE base_iter) => 
-				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
-				  | (_, DOF.ALGEBRAIC (_,base_iter)) => 
-				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
-				  | _ => 
-				    ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name)))
-			     | iters => 
-			       name before
-			       (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."));
-				DynException.setErrored())
+			       prependIterator iter_sym
+			     | iters as (first::rest) => 
+			       let
+				   (* we want to see if all the iterators have the same dt.  If they do, it doesn't matter if multiple iterators 
+				    * drive an output.  We can just pick one, in this case, just the first. *)
+
+				   (* find all_dt, a list of option real values corresponding to the dt.  For the timesteps to be the same, every item in that list
+				    * must be SOME and have the dt all equal. *)
+				   val all_dt = List.map 
+						    (fn(itersym)=>case CurrentModel.itersym2iter itersym of 
+								      (_, DOF.CONTINUOUS solver) => Solver.solver2dt solver
+								    | (_, DOF.DISCRETE {sample_period}) => SOME sample_period
+								    | _ => NONE) 
+						    iters
+				   val (all_same, optdt) = List.foldl (fn(optdt, (result, optdt'))=>case (optdt, optdt') of 
+											      (SOME dt, NONE) => (result, SOME dt)
+											    | (SOME dt, SOME dt') => if Real.==(dt, dt') then
+															 (result, SOME dt)
+														     else
+															 (false, NONE)
+											    | (NONE, _) => (false, NONE))
+								      (true, NONE) 
+								      all_dt
+			       in
+				   case optdt of
+				       SOME dt => prependIterator first
+				     | NONE => name before
+					       (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."));
+						DynException.setErrored())
+			       end
+			       
 			end
 		      |	SOME iter => name (* keep the same *)
 
