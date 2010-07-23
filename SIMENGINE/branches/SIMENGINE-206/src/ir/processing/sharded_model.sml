@@ -451,10 +451,11 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 			   val _ = Util.log("Expression: " ^ (e2s exp'))
 			   val _ = Util.log(" -> Coeff: " ^ (e2s (ExpBuild.explist coefficients)))
 			   val _ = Util.log(" -> Remainder: " ^ (e2s b_entry))
+
 			   *)
 			  val _ = case Match.findOnce (Match.anysym_with_predlist preds (Symbol.symbol "#pattern"), all_values) of
 				      SOME e =>
-				      (Logger.log_error (Printer.$("Cannot use backwards euler because the equation for state " ^ (state_str()) ^ " is nonlinear.  Eq: " ^ (e2ps eq)));
+				      (Logger.log_error (Printer.$("Cannot use backwards euler because the equation for state " ^ (state_str()) ^ " is nonlinear in term " ^ (e2ps e) ^ ".  Eq: " ^ (e2ps eq)));
 				       DynException.setErrored())
 				    | NONE => ()
 
