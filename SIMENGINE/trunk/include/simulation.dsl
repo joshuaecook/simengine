@@ -1080,8 +1080,8 @@ namespace Simulation
 
     constructor ()
       t = TimeIterator.new("t") {isContinuous=true}
-      //n = TimeIterator.new("n") {isContinuous=false}
-      //iterators.push_front n
+      n = TimeIterator.new("n") {isContinuous=false}
+      iterators.push_front n
       iterators.push_front t
     end
 
