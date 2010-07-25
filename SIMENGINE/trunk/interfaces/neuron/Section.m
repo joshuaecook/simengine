@@ -42,6 +42,11 @@ classdef Section < Model
         insert_hh = false;
     end
     
+    properties (Access = public)
+        connections = [];
+        submodelInstance
+    end
+    
     methods (Access = public)
         function m = Section(id)
             m@Model(id);
@@ -64,6 +69,27 @@ classdef Section < Model
                 m.pointCurrents = s;
             else
                 m.pointCurrents(end+1) = s;
+            end
+        end
+        
+        
+        function v_pos = v(m, pos)
+            % function v_pos = V(pos)
+            % Grab the voltage potential at a position
+            if pos < 0 || pos > 1
+                error('Simatra:Section:v', 'Position must be between zero and one');
+            else
+                v_pos = m.voltages{pos2ind(m.nseg, pos)};
+            end
+        end
+        
+        function addConnection(m, othersection, otherpos, pos)
+            inputName = [othersection.Name '_v_' num2str(round(otherpos*1000))];
+            s = struct('othersection', othersection, 'otherpos', otherpos, 'pos', pos, 'Vname', inputName);
+            if isempty(m.connections)
+                m.connections = s;
+            else
+                m.connections(end+1) = s;
             end
         end
         
@@ -191,8 +217,8 @@ classdef Section < Model
             SAall = SAall_square_microns * 1e-8;  % 1e-12 / 1e-4 = 1e-8
             SAseg = SAall/m.nseg;
             
-            % Ra - ohm*m or ohm*m^2/m
-            axial_resistance = m.Ra*(m.L/m.nseg)/(pi*(m.diam/2)^2);
+            % Ra - ohm*cm or ohm*cm^2/cm
+            axial_resistance = (m.Ra)*(m.L/m.nseg)/(pi*(m.diam/2)^2);
 
             % define the currents
             m.currents = cell(1,m.nseg);
@@ -264,15 +290,33 @@ classdef Section < Model
                         case 1
                             intra = (m.voltages{i+1}-v)/axial_resistance;
                         case m.nseg
-                            intra = (v-m.voltages{i-1})/axial_resistance;
+                            intra = (m.voltages{i-1}-v)/axial_resistance;
                         otherwise
-                            intra = (m.voltages{i+1}-v)/axial_resistance + (v-m.voltages{i-1})/axial_resistance;
+                            intra = (m.voltages{i+1}-v)/axial_resistance + (m.voltages{i-1}-v)/axial_resistance;
                     end
                     m.currents{i} = m.currents{i} + intra;     
                 end
                     
                 % and the intersection currents
-                
+                for j=1:length(m.connections)
+                    c = m.connections(j);
+                    
+                    % create an input for this connection
+                    if m.Inputs.isKey(c.Vname)
+                        inp = Exp(c.Vname);
+                    else
+                        inp = m.input(c.Vname);
+                    end
+                    
+                    %Vpre = c.othersection.v(c.otherpos);
+                    Vpre = inp;
+                    pos_index = pos2ind(m.nseg,c.pos);
+                    % Ra - ohm*m or ohm*m^2/m
+                    p = c.othersection;
+                    pre_axial_resistance = (p.Ra)*(p.L/p.nseg)/(pi*(p.diam/2)^2);
+                    current = (Vpre-m.voltages{pos_index})/pre_axial_resistance;
+                    m.currents{pos_index} = m.currents{pos_index} + current;
+                end
                 
                 % create the differential equation for the segment
                 m.diffequ(v,(1/(m.cm*SAseg))*m.currents{i});
@@ -315,4 +359,8 @@ end
 function r = trap(x, y)
   % math inspired from NEURON
   r = piecewise(y*(1-x/y/2), abs(x/y) < 1e-6, x/(exp(x/y)-1));
+end
+
+function ind = pos2ind(nseg, pos)
+ind = max(1, ceil(pos*nseg));
 end
