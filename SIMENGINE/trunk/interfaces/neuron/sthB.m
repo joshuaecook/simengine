@@ -40,5 +40,15 @@ stim.dur = 100;
 stim.amp = 0.1;
 
 tstop = 300;
-type(n)
-o = n.simex(tstop)
+o = n.simex(tstop);
+
+subplot(1,2,1);
+simplot(o.v_soma);
+title('Somatic Voltage');
+subplot(2,2,2);
+simplot(o.v_dend1);
+title('Dendritic branch #1')
+subplot(2,2,4);
+simplot(o.v_dend2);
+title('Dendritic branch #2')
+

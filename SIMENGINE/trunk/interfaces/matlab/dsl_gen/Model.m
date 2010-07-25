@@ -28,8 +28,12 @@ classdef Model < handle
 % Website: www.simatratechnologies.com
 % Support: support@simatratechnologies.com
 %
-    properties (Access = protected)
+
+    properties (Access = public)
         Name
+    end
+    
+    properties (Access = protected)
         Inputs
         Outputs
         States

@@ -75,6 +75,10 @@ classdef Neuron < Model
         end
         
         function connect(n, sec1, pos1, sec2, pos2)
+            tempstr = toStr(sec1);
+            tempstr = toStr(sec2);
+            sec1.addConnection(sec2, pos2, pos1);
+            sec2.addConnection(sec1, pos1, pos2);
         end
         
         function s = toStr(n)
@@ -108,15 +112,35 @@ classdef Neuron < Model
                     sec = s(j).section;
                     tmpstr = toStr(sec);
                     sm = n.submodel(sec);
+                    sec.submodelInstance = sm;
                     for k=1:nseg
                         v = ['v_' num2str(k)];
                         output_args{k} = sm.(v);
                     end
                     n.output(output_name, output_args);
+
                 end
             end
-            
+            % link up the connections
+
+            for i=1:length(ids)
+                s = n.sections(ids{i});
+                for j=1:length(s)
+                    nseg = s(j).section.nseg;
+                    dest_sm = s(j).section.submodelInstance;
+                    connections = s(j).section.connections;
+                    for k=1:length(connections)
+                        c = connections(k);
+                        source_sm = c.othersection.submodelInstance;
+                        v = ['v_' num2str(pos2ind(nseg,c.pos))];
+                        dest_sm.(c.Vname) = source_sm.(v);
+                    end
+                end
+            end
         end
     end
     
+end
+function ind = pos2ind(nseg, pos)
+ind = max(1, ceil(pos*nseg));
 end

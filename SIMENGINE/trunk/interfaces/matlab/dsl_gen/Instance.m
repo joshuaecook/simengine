@@ -22,12 +22,17 @@ classdef Instance
                 out = s.subs;
                 %items = strfind(inst.Outputs, s.subs);
                 %if isempty(cell2mat(items))
-                if ~isOutput(inst, out)
+                if isOutput(inst, out)
+                    output = Exp(inst.InstName, s.subs);
+                    b = output;
+                elseif strcmp(out, 'Inputs')
+                    b = inst.Inputs;
+                elseif strcmp(out, 'Outputs')
+                    b = inst.Outputs;
+                else
                     inst.Outputs
                     error('Simatra:Instance', 'No output with name %s found', s.subs);
                 end
-                output = Exp(inst.InstName, s.subs);
-                b = output;
             else
                 for i=1:length(s)
                     i
