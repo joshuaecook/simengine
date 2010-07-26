@@ -2199,7 +2199,7 @@ and inlineIntermediates class =
 	(* Then recomputes the rules before applying them to the remainder of the class. *)
 	val rewrites = map ExpProcess.intermediateEquation2rewrite intermediateEquations'
 
-	val _ = rewriteClassInternals (Match.repeatApplyRewritesExp rewrites) class
+	val _ = applyRewritesToClassInternals rewrites class
     in
         class
     end
@@ -2294,7 +2294,7 @@ and outputExpressions equation =
     end
     
 and instanceExpressions equation =
-    let val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
+    let val {instname, classname, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
 	val instanceName = ExpProcess.instOrigInstName equation
 	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
@@ -2304,7 +2304,7 @@ and instanceExpressions equation =
 	val exps' = Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then
 						instanceExpressions exp
 					    else if ExpProcess.isOutputEq exp then
-						outputExpressions exp
+						nil(*outputExpressions exp*)
 					    else [exp]) 
 				 exps'
 
@@ -2346,7 +2346,7 @@ and instanceExpressions equation =
 
 	val exps' = map (Match.applyRewriteExp renameWithInstanceNamePrefix) exps'
 
-	fun makeOutputExpression (outarg, output) =
+	fun makeOutputExpression output =
 	    let open DOF
 		val (name, contents, condition) = (Output.name output, Output.contents output, Output.condition output)
 		val value = 
@@ -2355,7 +2355,7 @@ and instanceExpressions equation =
 						   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
 		val condition' = Match.applyRewriteExp renameWithInstanceNamePrefix condition
 		val value' = Match.applyRewriteExp renameWithInstanceNamePrefix value
-		val name' = Exp.TERM outarg
+		val name' = Exp.TERM name
 
 		val output' = 
 		    case condition'
@@ -2366,7 +2366,7 @@ and instanceExpressions equation =
 	    end
 
 	val outputs_exps = 
-	    ListPair.map makeOutputExpression (outargs, ! outputs)
+	    map makeOutputExpression (! outputs)
     in
 	inputs_exps @
 	exps' @

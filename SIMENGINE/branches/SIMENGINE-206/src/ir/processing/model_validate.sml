@@ -152,7 +152,9 @@ fun validate (model as (classes, instance, sysprops))=
 	    (* verify that no derivatives are used on the rhs of equations or in the outputs *)
 	    val _ = noRHSDerivatives ()
 
+		    (*
 	    val modelClone = ModelProcess.duplicateModel model (fn(s) => s)
+	    val _ = Ordering.orderModel modelClone*)
 
 	    val _ = CurrentModel.setCurrentModel model
 	in
