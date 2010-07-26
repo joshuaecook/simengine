@@ -196,7 +196,7 @@ VERSION = "BRANCH_$(REV)_$(BUILDREV)"
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=../..
 DEBUG=true
-UPDATE_QUERY = build=development
+UPDATE_QUERY = build=preview
 REMOTE_BUILD_DIR = "Build_$(REV)"
 else	
 ifeq ($(TRUNK),1)		
