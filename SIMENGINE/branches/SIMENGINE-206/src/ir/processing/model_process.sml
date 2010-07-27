@@ -156,7 +156,9 @@ fun pruneModel iter_sym_opt model =
     CurrentModel.withModel model (fn _ =>
     let val (classes, {classname,...}, _) = model
 	fun isTop {name,...} = name = classname
-    in app (fn(c)=> ClassProcess.pruneClass (iter_sym_opt, isTop c) c) classes
+    in 
+	app (fn(c)=> ClassProcess.pruneClass (iter_sym_opt, isTop c) c) classes
+      ; app (fn c => ClassProcess.pruneUnusedInputs c) classes
     end)
 
 fun duplicateClasses classes namechangefun = 
