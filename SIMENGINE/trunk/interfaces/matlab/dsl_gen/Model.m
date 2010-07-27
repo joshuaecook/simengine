@@ -267,7 +267,11 @@ classdef Model < handle
             else
                 e = Exp(id);
                 if nargin == 3
-                    m.Inputs(id) = struct('default', default);
+                    if isnumeric(default)
+                        m.Inputs(id) = struct('default', default);
+                    else
+                        error('Simatra:Model:input', 'Only numeric values are supported as default inputs');
+                    end
                 else
                     m.Inputs(id) = struct();
                 end
