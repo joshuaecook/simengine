@@ -1894,13 +1894,6 @@ fun pruneUnusedInputs (class: DOF.class) =
 			(Exp.ASSOC
 			     (SymbolTable.filteri (fn (k,v) => is_input_symbol (Util.sym2codegensym k)) inpassoc))
 
-		val _ = Util.log ("remove_unused_inputs\n\t" ^ 
-				  (String.concatWith "," (map Symbol.name inputSymbols)) ^
-				  "\n\t" ^
-				  (e2s (hd inpargs)) ^ 
-				  "\n\t" ^
-				  (e2s inpargs'))
-
 		val rhs = Exp.FUN (func, [inpargs'])
 	    in
 		ExpBuild.equals (Exp.TERM (Exp.TUPLE outargs), rhs)
