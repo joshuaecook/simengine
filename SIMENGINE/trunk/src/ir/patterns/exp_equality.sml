@@ -454,6 +454,12 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 		    allEquiv exp_equivalent matchCandidates (args1, args2)
 		else
 		    nil
+	      | (Exp.FUN (Fun.OUTPUT {classname=classname1,outname=outname1,...},args1),
+		 Exp.FUN (Fun.OUTPUT {classname=classname2,outname=outname2,...},args2)) =>
+		if classname1 = classname2 andalso outname1 = outname2 then
+		    allEquiv exp_equivalent matchCandidates (args1, args2)
+		else
+		    nil
 	      | (Exp.FUN _, Exp.FUN _) => nil
 	      (* need to handle patterns *)
 
@@ -467,13 +473,23 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 			 (Container.containerToElements c1, 
 			  Container.containerToElements c2)
 
-	      | (Exp.CONTAINER (c1 as (Exp.ASSOC t1)), Exp.CONTAINER (c2 as (Exp.ASSOC t2))) =>
-		if ListPair.allEq (fn (s1,s2) => s1 = s2) (SymbolTable.listKeys t1, SymbolTable.listKeys t2) then
-		    allEquiv exp_equivalent matchCandidates 
-			     (Container.containerToElements c1, 
-			      Container.containerToElements c2)
-		else
-		    nil
+	      | (e1 as Exp.CONTAINER (c1 as (Exp.ASSOC t1)), e2 as Exp.CONTAINER (c2 as (Exp.ASSOC t2))) =>
+		(let
+		     val keyPairs =
+			 (Sorting.sorted Symbol.compare (SymbolTable.listKeys t1),
+			  Sorting.sorted Symbol.compare (SymbolTable.listKeys t2))
+		 in
+		     allEquiv
+			 (fn candidates =>
+			     (fn (k1,k2) =>
+				if k1 = k2 then
+				    case (SymbolTable.look (t1,k1), SymbolTable.look(t2,k2))
+				     of (SOME v1, SOME v2) => exp_equivalent candidates (v1,v2)
+				      | _ => nil
+				else nil))
+			 matchCandidates keyPairs
+		 end
+		 handle ListPair.UnequalLengths => nil)
 	      | (Exp.CONTAINER (c1 as (Exp.MATRIX m1)), Exp.CONTAINER (c2 as (Exp.MATRIX m2))) =>
 		if (Matrix.size m1) = (Matrix.size m2) then
 		    allEquiv exp_equivalent matchCandidates 

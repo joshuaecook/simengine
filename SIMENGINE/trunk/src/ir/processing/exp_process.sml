@@ -32,6 +32,7 @@ val isMatrixEq : Exp.exp -> bool
 val isStateEq : Exp.exp -> bool
 val isInitialConditionEq : Exp.exp -> bool
 val isInstanceEq : Exp.exp -> bool
+val isOutputEq : Exp.exp -> bool
 val isFirstOrderDifferentialEq : Exp.exp -> bool
 val isDifferenceEq : Exp.exp -> bool
 val isIntermediateEq : Exp.exp -> bool
@@ -218,6 +219,12 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
 		     map (renameInst syms) args))
 	else
 	    Exp.FUN (Fun.INST inst, map (renameInst syms) args)
+      | Exp.FUN (Fun.OUTPUT (output as {classname,instname,outname,props}), args) =>
+	if classname = sym then
+	    Exp.FUN (Fun.OUTPUT {classname = new_sym, instname = instname, outname = outname, props = InstProps.setRealClassName props new_orig_sym},
+		     map (renameInst syms) args)
+	else
+	    Exp.FUN (Fun.OUTPUT output, map (renameInst syms) args)
       | Exp.FUN (f, args) => Exp.FUN (f, map (renameInst syms) args)
       | Exp.CONTAINER c => 
 	let
@@ -323,6 +330,13 @@ fun isInstanceEq exp =
        | _ => false)
     handle e => DynException.checkpoint "ExpProcess.isInstanceEq" e
 	     
+fun isOutputEq exp = 
+    (case exp of 
+	 Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [lhs, Exp.FUN (Fun.OUTPUT {props,...}, _)]) => 
+	 not (InstProps.isInline props)
+       | _ => false)
+    handle e => DynException.checkpoint "ExpProcess.isOutputEq" e
+	     
 fun lhs exp = 
     case exp of 
 	Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [l, r]) => l
@@ -346,8 +360,13 @@ fun deconstructInst exp =
 		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.INST {classname, instname, props}, inpargs)]) => 
 		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=outargs}
 	      | _ => (error_no_return exp "Malformed instance equation"; empty_return)
+	else if isOutputEq exp then
+	    case exp of
+		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, inpargs)]) => 
+		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=outargs}
+	      | _ => (error_no_return exp "Malformed output equation"; empty_return)
 	else
-	    (error_no_return exp "Not an instance equation"; empty_return)
+	    (error_no_return exp "Not an instance or output equation"; empty_return)
     end
 
 fun instSpatialSize inst =
@@ -379,9 +398,7 @@ fun instOrigInstName inst =
     let
 	val {classname, instname, props, inpargs, outargs} = deconstructInst inst
     in
-	case InstProps.getRealInstName props 
-	 of SOME v => v
-	  | NONE => instname
+	instname
     end
 
 (* the lhs is something of the form of x'[t] *)
@@ -798,6 +815,7 @@ fun exp2size exp : int =
 (*		       foldl combineSizes 1 (map (exp2size iterator_list) args)*)
 		       end
 		     | Exp.FUN (Fun.INST _, args) => 1 (*TODO: ???? *)
+		     | Exp.FUN (Fun.OUTPUT _, args) => 1 (*TODO: ???? *)
 		     | Exp.META _ => 1 (*TODO: ???? *)
 		     | Exp.CONTAINER c => 
 		       (case c of

@@ -22,12 +22,17 @@ fun toJSON (Fun.BUILTIN operation) =
 		     object [("classname", symbol classname),
 			     ("instname", symbol instname),
 			     ("properties", propertiesToJSON props)])
+  | toJSON (Fun.OUTPUT {classname, instname, outname, props}) =
+    JSONTypedObject ("FUN.INST",
+		     object [("classname", symbol classname),
+			     ("instname", symbol instname),
+			     ("outname", symbol outname),
+			     ("properties", propertiesToJSON props)])
 
-and propertiesToJSON {inline, iterators, realclassname, realinstname, sourcepos} =
+and propertiesToJSON {inline, iterators, realclassname, sourcepos} =
     object [("inline", bool inline),
 	    ("iterators", array (map symbol iterators)),
 	    ("realClassName", JSONOption (symbol, realclassname)),
-	    ("realInstanceName", JSONOption (symbol, realinstname)),
 	    ("sourcePosition", JSONOption (PosLog.toJSON, sourcepos))]
 
 end

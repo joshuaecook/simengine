@@ -52,10 +52,18 @@ val op_list =
      DERIV, IF, ASSIGN]
 
     
-datatype funtype = BUILTIN of operation
-		 | INST of {classname:Symbol.symbol, 
-			    instname:Symbol.symbol, 
-			    props:InstProps.instproperties}
+datatype funtype 
+  (* A primitive operation as listed above. *)
+  = BUILTIN of operation
+  (* A call to a model instance; returns no value and has side-effects on the instance's state. *)
+  | INST of {classname: Symbol.symbol, 
+	     instname: Symbol.symbol, 
+	     props: InstProps.instproperties}
+  (* A call to obtain an output value from a model instance. *)
+  | OUTPUT of {classname: Symbol.symbol,
+	       instname: Symbol.symbol,
+	       outname: Symbol.symbol,
+	       props: InstProps.instproperties}
 
 
 (* Precedence Table (based on C++)

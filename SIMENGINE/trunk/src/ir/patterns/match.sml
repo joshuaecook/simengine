@@ -19,9 +19,10 @@ val anylocal : Exp.exp
 val anyfun : string -> Exp.exp (* match one function *)
 val anybuiltin : string -> Exp.exp (* match one builtin function *)
 val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
-val asym : Symbol.symbol -> Exp.exp (* match a particular symbol by name - ex. I want to find 'Vm' - asym (Symbol.name "Vm") *)
+val asym : Symbol.symbol -> Exp.exp (* match a particular symbol by name - ex. I want to find 'Vm' - asym (Symbol.symbol "Vm") *)
 
 (* Matching functions *)
+val exists: Exp.exp -> Exp.exp -> bool
 val findOnce : (Exp.exp * Exp.exp) -> Exp.exp option (* Try to find just one match, return the first one found as an option *)
 val findRecursive : (Exp.exp * Exp.exp) -> Exp.exp list (* Recursively search and find all matching expressions (search for the 1st exp in the 2nd exp) *)
 
@@ -159,15 +160,24 @@ fun head (exp) =
 (* level and head are identity functions *)
 (* exp == (head exp) (level exp)*)
 
+(* Pre-order depth-first traversal of variable-arity expression tree. *)
+fun dfs pred root =
+    let
+	fun loop next [] = next ()
+	  | loop next (x :: xs) =
+            if pred x then SOME x
+            else 
+		loop (fn () => loop next xs) (level x)
+    in
+	loop (fn () => NONE) [root]
+    end
+
+
 fun findOnce (pattern, target) =
-    if ExpEquality.equiv (pattern, target) then
-	SOME target
-    else 
-	foldl (fn(a,b)=> case b of 
-			     SOME v => SOME v
-			   | NONE => findOnce (pattern, a)) 
-	      NONE
-	      (level target)
+    dfs (fn x => ExpEquality.equiv (pattern, x)) target
+
+fun exists pattern target =
+    isSome (findOnce (pattern, target))
 
 fun findOnceWithPatterns (pattern, target) =
     let
@@ -223,7 +233,8 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
 	    (case c of
 		 Exp.EXPLIST l => Exp.EXPLIST (replaceList l)
 	       | Exp.ARRAY a => Exp.ARRAY (replaceArray a)
-	       | Exp.ASSOC t => Exp.ASSOC (SymbolTable.map (replaceSymbol (sym, repl_exp)) t)
+	       | Exp.ASSOC t => 
+		 Exp.ASSOC (SymbolTable.map (replaceSymbol (sym, repl_exp)) t)
 	       | Exp.MATRIX m => Exp.MATRIX (replaceMatrix m))
 	end
       | Exp.META (Exp.SEQUENCE s) 

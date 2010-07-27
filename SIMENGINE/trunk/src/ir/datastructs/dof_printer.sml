@@ -67,18 +67,10 @@ fun genlist2str data2str [data] =
 val symbollist2str = genlist2str Symbol.name
 val contents2str = genlist2str e2s
 
-fun printClass (class as {name, properties={sourcepos, basename, preshardname, classform, classtype}, inputs, outputs, exps}) =
-    (case classtype of
-	 DOF.SLAVE orig_class_name => 
-	 print ("Class Name: " ^ (Symbol.name (name)) ^ " (slave class of '"^(Symbol.name orig_class_name)^"')\n")
-       | DOF.MASTER (*orig_class_name*) =>(* if orig_class_name = name then*)
-					   print ("Class Name: " ^ (Symbol.name (name)) ^ "\n")
-				      (* else
-					   print ("Class Name: " ^ (Symbol.name (name)) ^ " (Master class of '"^(Symbol.name orig_class_name)^"')\n")*);
+fun printClass (class as {name, properties={sourcepos, preshardname, classform}, inputs, outputs, exps}) =
+    (print ("Class Name: " ^ (Symbol.name (name)) ^ "\n");
      (case classform of
-	  DOF.FUNCTIONAL => 
-	  print (" |-> Functional class\n")
-	| DOF.INSTANTIATION {readstates, writestates} => 
+	  DOF.INSTANTIATION {readstates, writestates} => 
 	  print (" |-> States read: "^ (symbollist2str readstates) ^ ", States written: " ^(symbollist2str writestates)^ "\n"));
      print(" |-> Class cost: " ^ (i2s (Cost.class2cost class)) ^ "\n");
      print ("  Inputs: " ^ 
@@ -94,7 +86,7 @@ fun printClass (class as {name, properties={sourcepos, basename, preshardname, c
 			   handle _ => (~1)
 		val prefix = "  (x" ^ (i2s size) ^ ", cost="^(i2s cost)^") "
 	    in
-		if ExpProcess.isInstanceEq e then
+		if ExpProcess.isInstanceEq e orelse ExpProcess.isOutputEq e then
 		    let
 			val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
 		    in

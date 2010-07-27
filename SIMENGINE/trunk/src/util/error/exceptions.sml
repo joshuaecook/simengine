@@ -93,8 +93,21 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
 		    | Size => "Size exception at " ^ handlelocation
 		    | Span => "Span exception at " ^ handlelocation
 		    | Subscript => "Subscript exception at " ^ handlelocation
+		    | Date.Date => "Date exception at " ^ handlelocation
+		    | IEEEReal.Unordered => "IEEEReal.Unordered exception at " ^ handlelocation
+		    | IO.Io {name, function, cause} => 
+		      "IO.Io exception at " ^ handlelocation
+		    | IO.BlockingNotSupported => "IO.BlockingNotSupported at " ^ handlelocation
+		    | IO.NonblockingNotSupported => "IO.NonblockingNotSupported at " ^ handlelocation
+		    | IO.RandomAccessNotSupported => "IO.RandomAccessNotSupported at " ^ handlelocation
+		    | IO.ClosedStream => "IO.ClosedStream exception at " ^ handlelocation
+		    | ListPair.UnequalLengths => "ListPair.UnequalLengths exception at " ^ handlelocation
+		    | OS.SysErr (message, err) => "OS.SysErr at " ^ handlelocation ^ " because " ^ message
+		    | OS.IO.Poll => "OS.IO.Poll exception at " ^ handlelocation
 		    | OS.Path.Path => "Path exception at " ^ handlelocation
 		    | OS.Path.InvalidArc => "Path.InvalidArc exception at " ^ handlelocation
+		    | Time.Time => "Time exception at " ^ handlelocation
+		    (* Custom exceptions *)
 		    | RestartRepl => "Restart Repl exception at " ^ handlelocation
 		    | SettingsError => "Settings exception at " ^ handlelocation
 		    | TypeMismatch str => "Type mismatch exception at " ^ handlelocation ^ ": " ^ str

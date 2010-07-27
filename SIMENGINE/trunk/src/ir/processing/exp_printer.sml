@@ -29,9 +29,11 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 			    (precedence, associative)
 			end
 		      | Fun.INST _ => (Inst.instancePrecedence, false)
+		      | Fun.OUTPUT _ => (Inst.instancePrecedence, false)
 		val prec' = case f' of
 				Fun.BUILTIN _ => #precedence (FunProcess.fun2props f')
 			      | Fun.INST _ => Inst.instancePrecedence
+			      | Fun.OUTPUT _ => Inst.instancePrecedence
 	    in
 		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end
@@ -111,11 +113,11 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	     Exp.EXPLIST e => "{" ^ (list2str e) ^ "}"
 	   | Exp.ARRAY v => "[" ^ (list2str (Container.arrayToList v)) ^ "]"
 	   | Exp.ASSOC t => 
-	     "<" ^ 
+	     "{" ^ 
 	     (String.concatWith ", " (ListPair.mapEq 
 					  (fn (k,v) => ((Symbol.name k) ^ ": " ^ (exp2tersestr pretty v))) 
 					  (SymbolTable.listKeys t, SymbolTable.listItems t))) ^ 
-	     ">"
+	     "}"
 	   | Exp.MATRIX m => "("^(Matrix.infoString m)^")[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ "]"
     end
 
@@ -135,9 +137,11 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 			    (precedence, associative)
 			end
 		      | Fun.INST _ => (Inst.instancePrecedence, false)
+		      | Fun.OUTPUT _ => (Inst.instancePrecedence, false)
 		val prec' = case f' of
 				Fun.BUILTIN _ => #precedence (FunProcess.fun2props f')
 			      | Fun.INST _ => Inst.instancePrecedence
+			      | Fun.OUTPUT _ => Inst.instancePrecedence
 	    in
 		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
 	    end
