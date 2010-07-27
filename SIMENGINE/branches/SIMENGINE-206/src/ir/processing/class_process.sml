@@ -89,7 +89,7 @@ sig
 
     (* Returns the given class with all intermediates inlined and all instance equations expanded.
      * Nb Changes the class's internal references and dependends on a CurrentModel context. *)
-    val unify : DOF.class -> DOF.class
+    val unify : (DOF.class -> unit) -> DOF.class -> DOF.class
 end
 structure ClassProcess : CLASSPROCESS = 
 struct
@@ -2165,8 +2165,17 @@ fun optimizeClass (class: DOF.class) =
 	()
     end
 
-fun unify class = 
-    (inlineIntermediates o expandInstances) class
+fun wrap print f =
+    fn x =>
+       let val y = f x
+       in y before print y
+       end
+
+       
+    
+
+fun unify print class = 
+    ((wrap print inlineIntermediates) o (wrap print expandInstances)) class
 
 and inlineIntermediates class =
     let val {name, properties, inputs, outputs, exps} : DOF.class = class
@@ -2185,21 +2194,33 @@ and inlineIntermediates class =
 
         val rewrites = map ExpProcess.intermediateEquation2rewrite intermediateEquations
 
+	fun rewriteRHS rewrite eqn =
+	    let
+		val (lhs,rhs) = (ExpProcess.lhs eqn, ExpProcess.rhs eqn)
+		val rhs' = rewrite rhs
+	    in
+		ExpBuild.equals (lhs, rhs')
+	    end
+
 	(* FIXME this has N^2 complexity in matching each intermediate against itself and every other. *)
 	(* First inlines intermediates within the right-hand expression of the intermediates themselves. *)
 	val intermediateEquations' = 
-	    map (fn eqn =>
-                 let val lhs = ExpProcess.lhs eqn
-                     val rhs = ExpProcess.rhs eqn
-              	     val rhs' = Match.repeatApplyRewritesExp rewrites rhs
-                 in
-                     ExpBuild.equals (lhs, rhs')
-                 end) intermediateEquations
+	    map (rewriteRHS (Match.repeatApplyRewritesExp rewrites)) intermediateEquations
 
 	(* Then recomputes the rules before applying them to the remainder of the class. *)
 	val rewrites = map ExpProcess.intermediateEquation2rewrite intermediateEquations'
 
-	val _ = applyRewritesToClassInternals rewrites class
+		       
+	(* val _ = applyRewritesToClassInternals rewrites class *)
+
+	val _ = 
+	    let
+		val rewrite = (Match.repeatApplyRewritesExp rewrites)
+	    in
+		exps := map (rewriteRHS rewrite) exps'
+	      ; outputs := map (DOF.Output.rewrite rewrite) (! outputs)
+	      ; inputs := map (DOF.Input.rewrite rewrite) (! inputs)
+	    end
     in
         class
     end
@@ -2214,9 +2235,9 @@ and expandInstances class =
         val exps' = ! exps
 
         val _ = exps := Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then 
-						    instanceExpressions exp 
+						    instanceExpressions class exp 
 						else if ExpProcess.isOutputEq exp then
-						    outputExpressions exp
+						    outputExpressions class exp
 						else 
 						    [exp]) 
 				     exps'
@@ -2225,9 +2246,15 @@ and expandInstances class =
     end
 
 (* Nb (look up the latin: thats "nota bene," or literally, "note well.") depends on a CurrentModel context. *)
-and outputExpressions equation =
+and outputExpressions caller equation =
     let 
 	val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
+	val outname = 
+	    case equation
+	     of Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, inpargs)]) => outname
+ 	      | _ => DynException.stdException(("Malformed output equation."),
+					  "CParallelWriter.outputeq2prog",
+					  Logger.INTERNAL)
 	val instanceClass = CurrentModel.classname2class classname
 	val instanceName = ExpProcess.instOrigInstName equation
 	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
@@ -2262,6 +2289,7 @@ and outputExpressions equation =
 		(fn (k,v,acc) =>
 		    let 
 			val name = prefixSymbol ((Symbol.name instanceName) ^ "#_") (ExpBuild.svar k)
+			val _ = Util.log ("output input " ^ (e2s (ExpBuild.equals (name, v))))
 		    in
 			(ExpBuild.equals (name, v)) :: acc
 		    end) 
@@ -2269,31 +2297,48 @@ and outputExpressions equation =
 
 	fun makeOutputExpression (outarg, output) =
 	    let open DOF
-		val (name, contents, condition) = (Output.name output, Output.contents output, Output.condition output)
-		val value = 
-		    if 1 = List.length contents then List.hd contents
-		    else DynException.stdException(("Too many quantities for output '"^(Symbol.name (Term.sym2curname name))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
+		val output' = 
+		    (Output.rewrite (Match.applyRewriteExp renameWithInstanceNamePrefix))
+			output
+
+		val (contents', condition') = (Output.contents output', Output.condition output')
+		val value' = 
+		    if 1 = List.length contents' then List.hd contents'
+		    else DynException.stdException(("Too many quantities for output '"^(Symbol.name (Term.sym2curname (Output.name output)))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
 						   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
-		val condition' = Match.applyRewriteExp renameWithInstanceNamePrefix condition
-		val value' = Match.applyRewriteExp renameWithInstanceNamePrefix value
+
 		val name' = Exp.TERM outarg
 
-		val output' = 
+		val value' = 
 		    case condition'
                       of Exp.TERM (Exp.BOOL true) => value'
                        | _ => ExpBuild.cond (condition', value', name')
+		val _ = Util.log ("output output " ^ (e2s (ExpBuild.equals (name', value'))))
 	    in
-		ExpBuild.equals (name', output')
+		ExpBuild.equals (name', value')
 	    end
 
+
+	val outarg' = 
+	    if 1 = List.length outargs then List.hd outargs
+	    else DynException.stdException(("Too many output arguments"),
+					   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
+	val output' = 
+	    case List.find (fn x => outname = Term.sym2symname (DOF.Output.name x)) (! outputs)
+	     of SOME it => it
+	      | NONE =>
+		DynException.stdException(("Can't find output argument"),
+					  "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
+		
+
 	val outputs_exps = 
-	    ListPair.map makeOutputExpression (outargs, ! outputs)
+	    [makeOutputExpression (outarg', output')]
     in
 	inputs_exps @
 	outputs_exps
     end
     
-and instanceExpressions equation =
+and instanceExpressions caller equation =
     let val {instname, classname, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
 	val instanceName = ExpProcess.instOrigInstName equation
@@ -2302,9 +2347,9 @@ and instanceExpressions equation =
 
 	(* Recursively expands any other instances within the expressions of this instance's class. *)
 	val exps' = Util.flatmap (fn exp => if ExpProcess.isInstanceEq exp then
-						instanceExpressions exp
+						instanceExpressions instanceClass exp
 					    else if ExpProcess.isOutputEq exp then
-						nil(*outputExpressions exp*)
+						outputExpressions instanceClass exp
 					    else [exp]) 
 				 exps'
 
@@ -2339,34 +2384,42 @@ and instanceExpressions equation =
 		(fn (k,v,acc) =>
 		    let 
 			val name = prefixSymbol ((Symbol.name instanceName) ^ "#_") (ExpBuild.svar k)
+			val syms = ExpProcess.exp2termsymbols v
+			val _ = Util.log ("instance input " ^ (e2s (ExpBuild.equals (name, v))))
 		    in
 			(ExpBuild.equals (name, v)) :: acc
 		    end) 
 		nil inpassoc
 
 	val exps' = map (Match.applyRewriteExp renameWithInstanceNamePrefix) exps'
+	val _ = Util.log ("renamed expressions\n\t" ^ (String.concatWith "\n\t" (map e2s exps')))
 
 	fun makeOutputExpression output =
 	    let open DOF
-		val (name, contents, condition) = (Output.name output, Output.contents output, Output.condition output)
-		val value = 
-		    if 1 = List.length contents then List.hd contents
-		    else DynException.stdException(("Too many quantities for output '"^(Symbol.name (Term.sym2curname name))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
+		val output' = 
+		    ((Output.rewrite (Match.applyRewriteExp renameWithInstanceNamePrefix)) o
+		     (Output.rename (ExpProcess.exp2term o (Match.applyRewriteExp renameWithInstanceNamePrefix) o Exp.TERM)))
+			output
+
+		val (name', contents', condition') = (Exp.TERM (Output.name output'), Output.contents output', Output.condition output')
+
+		val value' = 
+		    if 1 = List.length contents' then List.hd contents'
+		    else DynException.stdException(("Too many quantities for output '"^(Symbol.name (Term.sym2curname (Output.name output)))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
 						   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
-		val condition' = Match.applyRewriteExp renameWithInstanceNamePrefix condition
-		val value' = Match.applyRewriteExp renameWithInstanceNamePrefix value
-		val name' = Exp.TERM name
 
 		val output' = 
 		    case condition'
                       of Exp.TERM (Exp.BOOL true) => value'
                        | _ => ExpBuild.cond (condition', value', name')
+		val _ = Util.log ("instance output " ^ (e2s (ExpBuild.equals (name', output'))))
 	    in
 		ExpBuild.equals (name', output')
 	    end
 
 	val outputs_exps = 
-	    map makeOutputExpression (! outputs)
+	    nil
+	    (*map makeOutputExpression (! outputs)*)
     in
 	inputs_exps @
 	exps' @

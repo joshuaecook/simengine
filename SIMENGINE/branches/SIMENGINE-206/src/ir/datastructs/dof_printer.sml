@@ -86,7 +86,7 @@ fun printClass (class as {name, properties={sourcepos, preshardname, classform},
 			   handle _ => (~1)
 		val prefix = "  (x" ^ (i2s size) ^ ", cost="^(i2s cost)^") "
 	    in
-		if ExpProcess.isInstanceEq e then
+		if ExpProcess.isInstanceEq e orelse ExpProcess.isOutputEq e then
 		    let
 			val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
 		    in

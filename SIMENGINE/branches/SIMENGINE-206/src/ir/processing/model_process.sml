@@ -131,7 +131,8 @@ fun hasUpdateIterator iter_sym =
  * flatten the model into a single class. *)
 fun unify model =
     let val (classes, instance, properties) : DOF.model = model
-	val flatclass = CurrentModel.withModel model (fn _ => ClassProcess.unify (CurrentModel.classname2class (#classname instance)))
+	val flatclass = CurrentModel.withModel model (fn _ => ClassProcess.unify DOFPrinter.printClass (CurrentModel.classname2class (#classname instance)))
+			
     in
 	([flatclass], instance, properties)
     end
@@ -474,6 +475,7 @@ fun normalizeModel (model:DOF.model) =
 			val _ = log ("Flattening model ...")
 			val _ = Profile.write_status "Flattening model"
 			val model' = unify(CurrentModel.getCurrentModel())
+			val _ = log ("Optimizing ...")
 			val _ = optimizeModel model'
 			val _ = CurrentModel.setCurrentModel(model')
 			val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
