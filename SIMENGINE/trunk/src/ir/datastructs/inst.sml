@@ -46,6 +46,20 @@ fun inst2props f : FunProps.op_props =
     end
     handle e => DynException.checkpoint "Inst.inst2props" e
 
+fun output2props (classname, outname) : FunProps.op_props = 
+    let
+	val classes = CurrentModel.classes()
+    in
+	case (List.find (fn({name,...}:DOF.class)=>name=classname) classes)
+	 of SOME (c as {name,properties,inputs,outputs,exps}) => 
+	    generate_props {name=outname, num_inputs=length (!inputs)}
+	  | NONE => (Logger.log_error (Printer.$("Can't handle operation '" ^ (Symbol.name classname) ^ "'. Doesn't exist in current classes: {"
+						 ^(String.concatWith ", " (map (fn{name,...}=>Symbol.name name) classes))^ "}"));
+		     DynException.setErrored();
+		     generate_props {name=outname, num_inputs=0})
+    end
+    handle e => DynException.checkpoint "Inst.output2props" e
+
 
 
 end

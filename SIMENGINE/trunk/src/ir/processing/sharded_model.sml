@@ -451,10 +451,11 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 			   val _ = Util.log("Expression: " ^ (e2s exp'))
 			   val _ = Util.log(" -> Coeff: " ^ (e2s (ExpBuild.explist coefficients)))
 			   val _ = Util.log(" -> Remainder: " ^ (e2s b_entry))
+
 			   *)
 			  val _ = case Match.findOnce (Match.anysym_with_predlist preds (Symbol.symbol "#pattern"), all_values) of
 				      SOME e =>
-				      (Logger.log_error (Printer.$("Cannot use backwards euler because the equation for state " ^ (state_str()) ^ " is nonlinear.  Eq: " ^ (e2ps eq)));
+				      (Logger.log_error (Printer.$("Cannot use backwards euler because the equation for state " ^ (state_str()) ^ " is nonlinear in term " ^ (e2ps e) ^ ".  Eq: " ^ (e2ps eq)));
 				       DynException.setErrored())
 				    | NONE => ()
 
@@ -644,8 +645,12 @@ fun forkModelByIterator model (iter as (iter_sym,_)) =
     let
 	fun namechangefun iter_sym = (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym)))
 	val model' as (classes',_,_) = ModelProcess.duplicateModel model (namechangefun iter_sym)
+	val _ = log ("Pruning parallel model ...")
 	val _ = ModelProcess.pruneModel (SOME iter) model'
+	val _ = log ("Updating parallel model scope ...")
 	val _ = map (ClassProcess.updateForkedClassScope iter) classes'
+	val _ = log ("Ordering parallel model ...")
+	val _ = Ordering.orderEquations model'
     in
 	model'
     end

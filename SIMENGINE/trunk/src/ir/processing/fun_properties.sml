@@ -857,6 +857,7 @@ fun op2name (f: funtype) =
     case f
      of BUILTIN v => #name (op2props v)
       | INST {classname,...} => Symbol.name classname
+      | OUTPUT {outname, ...} => Symbol.name outname
 
 fun fun2textstrnotation f =
     case f 
@@ -866,14 +867,26 @@ fun fun2textstrnotation f =
 	in
 	    (str, notation)
 	end
-      | INST {classname,props,...} => 
-	case (InstProps.getRealInstName props, InstProps.getRealClassName props) of
-	    (SOME inst_sym, SOME class_sym) =>
-	    if classname = class_sym then
-		((Symbol.name inst_sym) ^ "<"^(Symbol.name classname)^">", PREFIX)
-	    else
-		((Symbol.name inst_sym) ^ "<"^(Symbol.name classname)^":"^(Symbol.name class_sym)^">", PREFIX)
-	  | _ => (Symbol.name classname, PREFIX)
+      | INST {classname,instname,props,...} => 
+	(case InstProps.getRealClassName props of
+	     SOME class_sym =>
+	     if classname = class_sym then
+		 ((Symbol.name instname) ^ "<"^(Symbol.name classname)^">", PREFIX)
+	     else
+		 ((Symbol.name instname) ^ "<"^(Symbol.name classname)^":"^(Symbol.name class_sym)^">", PREFIX)
+	   | _ => 
+	     ((Symbol.name instname) ^ "<"^(Symbol.name classname)^">", PREFIX))
+      | OUTPUT {classname,instname,outname,props,...} =>
+	(case InstProps.getRealClassName props of
+	     SOME class_sym =>
+	     if classname = class_sym then
+		 ((Symbol.name instname) ^ "<"^(Symbol.name classname)^">."^(Symbol.name outname), PREFIX)
+	     else
+		 ((Symbol.name instname) ^ "<"^(Symbol.name classname)^":"^(Symbol.name class_sym)^">."^(Symbol.name outname), PREFIX)
+	   | _ => 
+	     ((Symbol.name instname) ^ "<"^(Symbol.name classname)^">."^(Symbol.name outname), PREFIX))
+	
+
 
 fun fun2cstrnotation f =
     case f 
@@ -884,6 +897,7 @@ fun fun2cstrnotation f =
 	    (str, notation)
 	end
       | INST {classname,...} => (Symbol.name classname, PREFIX)
+      | OUTPUT {outname, ...} => (Symbol.name outname, PREFIX)
 
 fun fun2mathematicastrnotation f =
     case f 
@@ -894,6 +908,7 @@ fun fun2mathematicastrnotation f =
 	    (str, notation)
 	end
       | INST {classname,...} => (Symbol.name classname, PREFIX)
+      | OUTPUT {outname, ...} => (Symbol.name outname, PREFIX)
 
 fun hasVariableArguments f =
     case f 
@@ -902,18 +917,9 @@ fun hasVariableArguments f =
 	     VARIABLE _ => true
 	   | FIXED _ => false)
       | INST _ => false (* not allowing variable arguments for instances *)
+      | OUTPUT _ => false
 
 
-(*	
-    case (Symbol.name f) of
-	"PLUS" => ("+", INFIX)
-      | "TIMES" => ("*", INFIX)
-      | "POWER" => ("^", INFIX)
-      | "LOG" => ("Log", PREFIX)
-      | "GROUP" => ("", PREFIX) (* just a grouping operator *)
-      | "EQUALS" => ("==", INFIX)
-      | v => (v, PREFIX)
-*)
 
 
 

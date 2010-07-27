@@ -1,11 +1,126 @@
 structure Ordering : sig
-    (* TODO document these signatures. *)
-
+    (* Obsolete. *)
     val orderModel : DOF.model -> DOF.model
 
+    (* Ensures that equations within classes are sorted
+     * such that dependencies appear before their dependents.
+     *)
+    val orderEquations: DOF.model -> unit
+				  
 end = struct
 
 exception SortFailed
+
+fun log message = 
+    if DynamoOptions.isFlagSet "logordering" then
+	Util.log message
+    else
+	()
+
+
+fun orderEquations (model as (classes,top_instance,props)) = 
+    app orderClassEquations classes
+
+and orderClassEquations (class: DOF.class) =
+    let
+	(* Begin with a set of symbols which are automatically satisfied:
+	 * inputs, state reads, iterator reads. *)
+	(* And the list of initially unsorted equations,
+	 * and the initially empty list of sorted equations. *)
+	(* While the list of unsorted equations is non-empty,
+	 * examine each equation in the list. *)
+	(* Add the symbols on the lhs to the set of satisfied symbols,
+	 * iff all the symbols on the rhs appear in said set. *)
+	(* Then also remove the equation from the unsorted list
+	 * and add it to the sorted list. *)
+	(* A cycle exists when no further equations can be removed 
+	 * from the (non-empty) unsorted list. *)
+	val exps = #exps class
+
+      (* Indicates whether a given term symbol is automatically satisfied 
+       * by its scope, or if it appears within a given set of previously-
+       * satisfied symbols. *)
+	fun termSymbolIsSatisfied symset term =
+	    Term.isReadState term orelse
+	    Term.isReadSystemState term orelse
+	    Term.isIterator term orelse
+	    Term.isReadSystemIterator term orelse
+	    SymbolSet.member (symset, Term.sym2symname term)
+
+	(* Given a set of previously-satisfied symbols and 
+	 * a list of previously-ordered equations and
+	 * a list of unordered equations, 
+	 * attempts to apply an ordering to all the unordered equations.
+	 * Returns a list of (reverse) ordered equations.
+	 * Fails with an error if any equation could not be ordered due to a cycle. *)
+	fun outerloop (satisfied, ordered, exps) =
+	    let
+		val (satisfied', ordered', unordered') = innerloop (satisfied, exps)
+	    in
+		if null unordered' then
+		    ordered' @ ordered
+		else if null ordered' then
+		    ((Logger.log_error (Printer.$("Can't sort equations in model " ^ 
+						  (Symbol.name (#name class)) ^ 
+						  ".  Cycle includes: " ^ 
+						  (Util.symlist2s (Util.flatmap (fn exp =>
+										    ExpProcess.exp2symbols (ExpProcess.lhs exp)) unordered')))))
+		   ; raise Fail "cycle")
+		else 
+		    outerloop (satisfied', ordered' @ ordered, unordered')
+	    end
+	    
+	(* Given a set of previously-satisfied symbols and
+	 * a list of unordered equations,
+	 * attempts to find equations with no unsatisfied dependencies.
+	 * Returns a new set of satisfied symbols, 
+	 * a list of (reverse) ordered equations,
+	 * and a list of yet-unordered equations. *)
+	and innerloop (satisfied, exps) =
+	    foldl
+		(fn (exp,(satisfied,ordered,unordered)) =>
+		    let
+			val _ = 
+			    log ("Attempting to order " ^ 
+				 (ExpPrinter.exp2str exp) ^ 
+				 " with satisfied symbols " ^
+				 (SymbolSet.toStr satisfied) ^ ".")
+			val rhs_term_syms = 
+			    ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
+		    in
+			if List.all (termSymbolIsSatisfied satisfied) rhs_term_syms then 
+			    let 
+				val _ = 
+				    log ("Equation " ^ (ExpPrinter.exp2str exp) ^ " is in order.")
+				val lhs_term_syms =
+				    ExpProcess.exp2termsymbols (ExpProcess.lhs exp)
+				val satisfied' = 
+				    SymbolSet.addList (satisfied, map Term.sym2symname lhs_term_syms)
+			    in
+				(satisfied', exp :: ordered, unordered)
+			    end
+			else 
+			    (satisfied, ordered, exp :: unordered)
+		    end)
+		(satisfied,nil,nil) exps
+
+	val inputSymbols =
+	    ClassProcess.foldInputs
+		(fn (input,syms) => 
+		    SymbolSet.add (syms, Term.sym2symname (DOF.Input.name input)))
+		SymbolSet.empty class
+
+	val orderedExps = outerloop (inputSymbols, nil, !exps)
+    in
+	exps := rev orderedExps
+    end
+
+
+
+
+
+
+
 
 (*remove line for debugging *)
 fun print x = if DynamoOptions.isFlagSet "logordering" then
@@ -173,7 +288,7 @@ fun buildInstance (class, outputs, inputMap, original_instance_exp) : Exp.exp =
 	val rhs' = Exp.FUN (Fun.INST {classname= #name class, 
 				      instname=instName,
 				      props=
-				      InstProps.setRealInstName (InstProps.setRealClassName InstProps.emptyinstprops orig_class_name) orig_inst_name},
+				      InstProps.setRealClassName InstProps.emptyinstprops orig_class_name},
 			    inputs)
 
 	val exp' = ExpBuild.equals (Exp.TERM lhs', rhs')
@@ -966,15 +1081,7 @@ fun orderModel (model:DOF.model)=
 		val properties' = ClassProcess.updatePreShardName (#properties oldClass) newname
 			     
 		val newclass = {name=newname,
-				properties= if includeMainExps then
-						properties'
-					    else (* convert it to a slave of the orignal *)
-						let
-						    val master_name = genMasterName(Symbol.name (#name oldClass))
-						    val properties' = ClassProcess.updatePreShardName (#properties oldClass) master_name
-						in
-						    ClassProcess.makeSlaveClassProperties (properties', master_name)
-						end,
+				properties= properties',
 				inputs= ref inputs,
 				outputs=ref outputs,
 				exps=ref exps}

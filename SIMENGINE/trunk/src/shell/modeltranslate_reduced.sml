@@ -1,6 +1,5 @@
 signature MODELTRANSLATE =
 sig
-    (* The string returned by translate is the name of the model *)
     val translate : ((KEC.exp -> KEC.exp) * KEC.exp) -> (DOF.model) option
 
     val translateExp : ((KEC.exp -> KEC.exp) * KEC.exp) -> (Exp.exp) option
@@ -135,23 +134,6 @@ fun dofexp2kecexp exp =
 			       args=KEC.TUPLE [KEC.LITERAL(KEC.CONSTSTR (Symbol.name s))]})
 	end
       | Exp.FUN (func as Fun.BUILTIN oper, args) =>
-(*	let
-	    val funname = case oper of
-			      Fun.ADD => "operator_add"
-			    | Fun.SUB => "operator_subtract"
-			    | Fun.NEG => "operator_neg"
-			    | Fun.MUL => "operator_multiply"
-			    | Fun.DIVIDE => "operator_divide"
-			    | Fun.MODULUS => "operator_modulus"
-			    | Fun.POW => "power"
-
-			    | Fun.DERIV => "operator_deriv"
-			    | _ => error "Unsupported dof operation"
-
-	    val exp =
-		KEC.APPLY{func=KEC.SYMBOL (Symbol.symbol funname),
-			  args=KEC.TUPLE (map dofexp2kecexp args)}
-*)
 	let
 	    val funname = FunProps.op2name func
 
@@ -162,7 +144,6 @@ fun dofexp2kecexp exp =
 	    (!exec) (exp)
 	end
 	    
-(*      | Exp.FUN (Fun.INST {classname, instname, props}) =>*)
       | _ => error ("Unsupported dof exp encountered: " ^ (ExpPrinter.exp2str exp))
 
 
@@ -219,7 +200,7 @@ and modeloperation_to_dof_exp quantity =
 		 map quantity_to_dof_exp (vec2list (method "args" quantity)))
 
 and simquantity_to_dof_exp quantity =
-    if (istype (quantity, "OutputBinding")) then		    
+    if (istype (quantity, "OutputBinding")) then
 	ExpBuild.var((exp2str (method "instanceName" quantity)) ^ "." ^ (exp2str (method "name" quantity)))
 
     else if (istype (quantity, "Intermediate")) then 
@@ -382,6 +363,40 @@ fun createClass top_class classes object =
 	fun exp2term (Exp.TERM t) = t
 	  | exp2term _ = Exp.NAN
 
+	fun obj2input obj =
+	    let
+		val iter = method "iter" obj
+		val name =
+		    if isdefined iter then
+			ExpBuild.initavar (exp2str(method "name" obj), exp2str (method "name" (method "iter" obj)), nil)
+		    else
+			ExpBuild.var (exp2str (method "name" obj))
+
+		val input = 
+		    DOF.Input.make
+			{name=exp2term name,
+			 default=case exp2realoption (method "default" obj) of
+				     SOME r => SOME (ExpBuild.real r)
+				   | NONE => NONE,
+			 behaviour=case exp2str (method "when_exhausted" obj)
+				    of "cycle" => DOF.Input.CYCLE
+				     | "halt" => DOF.Input.HALT
+				     | "hold" => DOF.Input.HOLD
+				     | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
+	    in
+		case DOF.Input.behaviour input
+		 of DOF.Input.HALT =>
+		    (case DOF.Input.default input
+		      of NONE => input
+		       | SOME (Exp.TERM Exp.NAN) => input
+		       | _ =>
+			 error ("Default value is not allowed for input " ^ (Term.sym2name (DOF.Input.name input)) ^ " with {halt_when_exhausted}."))
+		  | _ => input
+	    end
+
+	val inputs = map obj2input (vec2list(method "inputs" object))
+	val inputNames = map DOF.Input.name inputs
+
 	fun obj2output obj =		    
 	    (* object = [name, value] *)
 	    let
@@ -414,41 +429,10 @@ fun createClass top_class classes object =
 	    in
 		DOF.Output.make
 		    {name=name,
+		     inputs=ref inputNames,
 		     contents=contents,
 		     condition=condition}
 	    end
-
-	fun obj2input obj =
-	    let
-		val iter = method "iter" obj
-		val name =
-		    if isdefined iter then
-			ExpBuild.initavar (exp2str(method "name" obj), exp2str (method "name" (method "iter" obj)), nil)
-		    else
-			ExpBuild.var (exp2str (method "name" obj))
-
-		val input = 
-		    DOF.Input.make
-			{name=exp2term name,
-			 default=case exp2realoption (method "default" obj) of
-				     SOME r => SOME (ExpBuild.real r)
-				   | NONE => NONE,
-			 behaviour=case exp2str (method "when_exhausted" obj)
-				    of "cycle" => DOF.Input.CYCLE
-				     | "halt" => DOF.Input.HALT
-				     | "hold" => DOF.Input.HOLD
-				     | str => DynException.stdException ("Unrecognized input behaviour " ^ str ^ ".", "ModelTranslate.createClass.obj2input", Logger.INTERNAL)}
-	    in
-		case DOF.Input.behaviour input
-		 of DOF.Input.HALT =>
-		    (case DOF.Input.default input
-		      of NONE => input
-		       | SOME (Exp.TERM Exp.NAN) => input
-		       | _ =>
-			 error ("Default value is not allowed for input " ^ (Term.sym2name (DOF.Input.name input)) ^ " with {halt_when_exhausted}."))
-		  | _ => input
-	    end
-
 
 	fun quantity2exp obj =
 	    (* FIXME add iterators appearing on rhs to symbols on lhs. *)
@@ -615,20 +599,37 @@ fun createClass top_class classes object =
 
 		val iterators = map (fn(e) => Symbol.symbol (exp2str (method "name" e))) (vec2list (method "dimensions" obj))
 
+		val instanceInputs = 
+		    Exp.CONTAINER
+			(Exp.ASSOC
+			     (foldl (fn ((obj,quant), tab) => 
+					SymbolTable.enter (tab, (Symbol.symbol (exp2str (method "name" obj))), quantity_to_dof_exp quant)
+				    ) SymbolTable.empty input_exps))
+
 		val rhs = Exp.FUN (Fun.INST {classname=name',
 					     instname=objname,
 					     props=InstProps.setIterators InstProps.emptyinstprops iterators},
-				   map (fn(_,i) => quantity_to_dof_exp i) input_exps)
+				   [instanceInputs])
 
-		val exp = ExpBuild.equals (Exp.TERM lhs, rhs)
-		(*
-		 val eq = {eq_type=DOF.INSTANCE {name=objname, classname=name, offset=nil},
-			   sourcepos=PosLog.NOPOS,
-			   lhs=lhs,
-			   rhs=rhs}
-		 *)				  
+		val exp = ExpBuild.equals (Exp.TERM (Exp.TUPLE []), rhs)
 
-		val exps = exp::exps
+		val output_exps = 
+		    map (fn out => 
+			    let
+				val outname = exp2str (method "name" out)
+				val lhs = Exp.TERM (Exp.TUPLE [exp2term (ExpBuild.var ((exp2str (method "instanceName" out)) ^ "." ^ outname))])
+				val rhs = Exp.FUN (Fun.OUTPUT {classname=name',
+							       instname=objname,
+							       outname=Symbol.symbol outname,
+							       props=InstProps.emptyinstprops},
+						   [instanceInputs])
+			    in
+				ExpBuild.equals (lhs, rhs)
+			    end
+			) (vec2list (method "outputs" obj))
+
+		val exps = (exp :: output_exps) @ exps
+
 	    in
 		(classes, exps)
 	    end
@@ -656,10 +657,11 @@ fun createClass top_class classes object =
 	     step=exp2real (method "step" (method "value" exp)),
 	     high=exp2real (method "high" (method "value" exp))}
 
+
     in
 	({name=name, 
-	  properties={sourcepos=PosLog.NOPOS,basename=name,preshardname=name,classform=classform,classtype=DOF.MASTER (*name*)},
-	  inputs=ref (map obj2input (vec2list(method "inputs" object))),
+	  properties={sourcepos=PosLog.NOPOS,preshardname=name,classform=classform},
+	  inputs=ref inputs,
 	  outputs=ref (map obj2output classOutputs),
 	  exps=ref exps},
 	 submodelclasses)
@@ -827,7 +829,7 @@ fun obj2dofmodel object =
 	local
 	    val undef = Symbol.symbol "undefined"
 	    val top_class = {name=undef,
-			     properties={sourcepos=PosLog.NOPOS,basename=undef,preshardname=undef,classform=DOF.FUNCTIONAL,classtype=DOF.MASTER},
+			     properties={sourcepos=PosLog.NOPOS,preshardname=undef,classform=DOF.INSTANTIATION {readstates=[],writestates=[]}},
 			     inputs=ref [],
 			     outputs=ref [],
 			     exps=ref []}

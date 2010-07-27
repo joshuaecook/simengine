@@ -417,8 +417,9 @@ local
 			    behaviour=behaviour}
 	end
       | translate_input _ = except "non-input"
-    fun translate_output (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = 
+    fun translate_output inputNames (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = 
 	(DOF.Output.make {name=ExpProcess.exp2term (ExpBuild.svar name),
+			  inputs=ref inputNames,
 			  contents=case quantity of 
 				       TUPLE t => map astexp_to_Exp t
 				     | UNIT => []
@@ -426,7 +427,7 @@ local
 			  condition=case condition of
 					SOME c => astexp_to_Exp c
 				      | NONE => ExpBuild.bool true})
-      | translate_output _ = except "non-output"
+      | translate_output _ _ = except "non-output"
     fun translate_iterator (ITERATORDEF {name, value, settings=(SOME (TABLE settings))}) =
 	let
 	    (* check for the continuous flag - if it is not continuous, assume that it is 
@@ -583,9 +584,11 @@ local
 							    | NONE => (error ("Class with name '"^(Symbol.name class)^"' has not been defined");
 								       raise TranslationError)
 
-		     val instprops = InstProps.setRealInstName (InstProps.setRealClassName InstProps.emptyinstprops class) name
+		     val instprops = InstProps.setRealClassName InstProps.emptyinstprops class
 		     fun submodel_to_funtype () =
-			 Fun.INST {classname=class, instname=name, props=instprops}
+			 Fun.INST {classname=class, 
+				   instname=name, 
+				   props=instprops}
 
 		     (* TODO - add this support, despite the matlab code generator not currently supporting this *)
 		     val _ = case opttable of
@@ -602,34 +605,66 @@ local
 							 NONE (* for another instance *)
 						   | _ => except "non-submodelassign")
 					      submodelassigns
-		     val instargs = map
-					(fn(sym, optdefault)=> 
-					   case (List.find (fn(sym', rhs)=>sym=sym') assignmentlist, optdefault) of
-					       (SOME (_, rhs), _) => rhs
-					     | (NONE, SOME default) => default
-					     | (NONE, NONE) => 
-					       (error("No value (default or explicit) was set for input '"^(Symbol.name sym)^"'");
-						Exp.TERM (Exp.NAN)))
-					args
+		     (* val instargs = map *)
+		     (* 			(fn(sym, optdefault)=>  *)
+		     (* 			   case (List.find (fn(sym', rhs)=>sym=sym') assignmentlist, optdefault) of *)
+		     (* 			       (SOME (_, rhs), _) => rhs *)
+		     (* 			     | (NONE, SOME default) => default *)
+		     (* 			     | (NONE, NONE) =>  *)
+		     (* 			       (error("No value (default or explicit) was set for input '"^(Symbol.name sym)^"'"); *)
+		     (* 				Exp.TERM (Exp.NAN))) *)
+		     (* 			args *)
+		     val instanceInputs =
+			 Exp.CONTAINER
+			     (Exp.ASSOC
+				  (foldl (fn ((sym, optdefault), tab) => 
+					     let 
+						 val value = 
+						     case (List.find (fn(sym', rhs)=>sym=sym') assignmentlist, optdefault) of
+							 (SOME (_, rhs), _) => rhs
+						       | (NONE, SOME default) => default
+						       | (NONE, NONE) => 
+							 (error("No value (default or explicit) was set for input '"^(Symbol.name sym)^"'");
+							  Exp.TERM (Exp.NAN))
+					     in
+						 SymbolTable.enter (tab, sym, value)
+					     end)
+					 SymbolTable.empty args))
+
 		     val instreturns = map
 					   (fn(sym)=> ExpProcess.exp2term (ExpBuild.var ((Symbol.name name) ^ "." ^ (Symbol.name sym))))
 					   returns
+
+		     val exp = ExpBuild.equals (ExpBuild.tuple nil, Exp.FUN (submodel_to_funtype(), [instanceInputs]))
+
+		     val output_exps = 
+			 map (fn outname =>
+				 let
+				     val lhs = ExpBuild.tuple [ExpProcess.exp2term (ExpBuild.var ((Symbol.name name) ^ "." ^ (Symbol.name outname)))]
+				     val rhs = Exp.FUN (Fun.OUTPUT {classname=class,
+								    instname=name,
+								    outname=outname,
+								    props=InstProps.emptyinstprops},
+							[instanceInputs])
+				 in
+				     ExpBuild.equals (lhs, rhs)
+				 end
+				 ) returns
 		 in
-		     ExpBuild.equals (ExpBuild.tuple (instreturns), Exp.FUN (submodel_to_funtype(), instargs))
+		     exp :: output_exps
 		 end
 		 handle e => DynException.checkpoint "AstDOFTrans.collect_submodels.submodel_to_equation" e)
 	      | submodel_to_equation _ = except "non-submodel"
 		handle e => DynException.checkpoint "AstDOFTrans.collect_submodels.submodel_to_equation" e
 	in
-	    map submodel_to_equation submodels
+	    Util.flatmap submodel_to_equation submodels
 	end
 	handle e => DynException.checkpoint "AstDOFTrans.collect_submodels" e
     fun create_classproperties name = 
 	{sourcepos=PosLog.NOPOS, 
-	 basename=name, 
 	 preshardname=name, 
-	 classform=DOF.INSTANTIATION {readstates=[], writestates=[]},  (* FIXME!!! *)
-	 classtype=DOF.MASTER}
+	 classform=DOF.INSTANTIATION {readstates=[], writestates=[]}  (* FIXME!!! *)
+	}
 
 fun remove_duplicate_iterators iterators = 
     let
@@ -731,7 +766,7 @@ fun modeldef_to_class modeltable name =
 	val class = {name=name,
 		     properties=create_classproperties name,
 		     inputs=ref inputs, (* we translated this earlier when we analyzed the model headers *)
-		     outputs=ref (map translate_output outputs),
+		     outputs=ref (map (translate_output (map DOF.Input.name inputs)) outputs),
 		     exps=ref (state_equations @
 			       random_equations @
 			       (collect_submodels (modeltable, submodels, submodelassigns)) @

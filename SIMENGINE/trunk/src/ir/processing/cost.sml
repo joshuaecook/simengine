@@ -41,6 +41,7 @@ fun exp2generalcost deep exp =
 	    in
 		args_size + inst_size
 	    end
+	  | Exp.FUN (Fun.OUTPUT _, args) => (* TODO *) 1
 	  | Exp.META (Exp.SEQUENCE s) => Util.sum (map exp2cost s)
 	  | Exp.META _ => 0
 	  | Exp.CONTAINER c => Util.sum (map exp2cost (Container.containerToElements c))

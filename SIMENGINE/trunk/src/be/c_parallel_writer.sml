@@ -80,7 +80,7 @@ fun reads_iterator (_, DOF.UPDATE iter_sym) class =
     let val {exps, outputs, ...} = class
     in List.exists (output_contains_term (term_reads_iterator iter)) (! outputs) orelse
        List.exists (term_reads_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
-       List.exists (test_instance_class (reads_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
+       List.exists (test_instance_class (reads_iterator iter)) (List.filter (fn exp => ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp) (! exps))
     end
 
 and term_reads_iterator iter (Exp.SYMBOL (name, props)) =
@@ -103,7 +103,7 @@ fun writes_iterator (_, DOF.UPDATE iter_sym) class =
   | writes_iterator iter class =
     let val {exps, name, ...} = class
 	val result = List.exists (term_writes_iterator iter) (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
-		     List.exists (test_instance_class (writes_iterator iter)) (List.filter ExpProcess.isInstanceEq (! exps))
+		     List.exists (test_instance_class (writes_iterator iter)) (List.filter (fn exp => ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp) (! exps))
 	(*val _ = Util.log ("Testing writes_iterator for class="^(Symbol.name name)^", iterator=" ^ (Symbol.name (#1 iter)) ^"  -> " ^ (Util.b2s result))*)
 
     in
@@ -128,7 +128,7 @@ fun reads_system class =
 	val p = fn x => Term.isReadSystemState x orelse Term.isReadSystemIterator x
     in List.exists (output_contains_term p) (! outputs) orelse
        List.exists p (Util.flatmap ExpProcess.exp2termsymbols (! exps)) orelse
-       List.exists (test_instance_class reads_system) (List.filter ExpProcess.isInstanceEq (! exps))
+       List.exists (test_instance_class reads_system) (List.filter (fn exp => ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp) (! exps))
     end
 
 (* Indicates whether a given class or any of its instances 
@@ -403,8 +403,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 		    case #name instance 
 		     of SOME x => x | NONE => #classname instance		
 	       
-		val topClassBaseName = 
-		    CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class topClassName))
+		val topClassBaseName = topClassName
 
 		fun progs () = 
 		    let val (_, itertype) = iterator
@@ -446,8 +445,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 					val tcn = 
 					    case #name instance 
 					     of SOME x => x | NONE => #classname instance		
-					val tcbn = 
-					    CurrentModel.withModel model (fn _ => ClassProcess.class2basename (CurrentModel.classname2class tcn))
+					val tcbn = tcn
 				    in
 					[$("tmp_system->states_"^(Symbol.name it)^" = (statedata_"^(Symbol.name tcn)^" *)" ^
 					  "(tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].model_states + algebraic_offset * PARALLEL_MODELS);"),
@@ -976,7 +974,7 @@ fun update_wrapper shardedModel =
 				    DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
 
 			    val class = CurrentModel.classname2class top_class
-			    val basename = ClassProcess.class2basename class
+			    val basename = ClassProcess.class2preshardname class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
 			    val (statereads, statewrites, systemstatereads) =
 				(if reads_iterator iter class then "("^(*"const "^*)"statedata_" ^ basename_iter ^ " * )props->model_states, " else "",
@@ -1237,16 +1235,9 @@ end
 (* Nb depends on a CurrentModel context. *)
 fun outputstatestruct_code (iterator: DOF.systemiterator, shard as {classes, ...}) =
     let 
-	val master_classes = 
-	    List.filter (fn (c) => ClassProcess.isMaster c 
-				   andalso (ClassProcess.hasStates c 
-					    orelse ClassProcess.hasInstances c)) 
-			classes
-	val master_classes = 
-	    Util.uniquify_by_fun (fn (a, b) => (ClassProcess.classTypeName a) = (ClassProcess.classTypeName b))
-				 master_classes
+	val () = ()
     in
-	Util.flatmap (outputstatestructbyclass_code iterator) master_classes
+	Util.flatmap (outputstatestructbyclass_code iterator) classes
     end
     handle e => DynException.checkpoint "CParallelWriter.outputstatestruct_code" e
 
@@ -1343,18 +1334,15 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 	    let 
 		val model = ShardedModel.toModel shardedModel (hd (ShardedModel.iterators shardedModel))
 		val classname = 
-		    let val {instance, ...} = hd shards
-		    in if isSome (#name instance) 
-		       then valOf (#name instance)
-		       else #classname instance
-		    end
-
-		fun prog _ =
-		    let val class = CurrentModel.classname2class classname
-		    in ClassProcess.class2basename class
+		    let 
+			val {instance, ...} = hd shards
+			val class = CurrentModel.withModel model 
+							   (fn _ => CurrentModel.classname2class (#classname instance))
+		    in 
+			ClassProcess.class2preshardname class
 		    end
 	    in
-		CurrentModel.withModel model prog
+		classname
 	    end
 
 	val systems =
@@ -1399,9 +1387,400 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
     handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code" e
 
 
+fun exp2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
+    if (ExpProcess.isIntermediateEq exp) then
+	intermediateeq2prog exp
+    else if (ExpProcess.isFirstOrderDifferentialEq exp) then
+	firstorderdiffeq2prog exp
+    else if (ExpProcess.isDifferenceEq exp) then
+	differenceeq2prog exp
+    else if (ExpProcess.isUpdateEq exp) then
+	differenceeq2prog exp
+    else if (ExpProcess.isAlgebraicStateEq exp) then
+	differenceeq2prog exp
+    else if (ExpProcess.isInstanceEq exp) then
+	instanceeq2prog (exp, is_top_class, iter)
+    else if (ExpProcess.isOutputEq exp) then
+	outputeq2prog (exp, is_top_class, iter)
+    else if (ExpProcess.isReadStateEq exp) then
+	differenceeq2prog exp
+    else
+	DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.class_flow_code.equ_progs", Logger.INTERNAL)
+
+and intermediateeq2prog exp =
+    ((if ExpProcess.isMatrixEq exp then
+	  let
+	      (*val _ = print ("matrix eq -> ")
+	       val _ = Util.log (e2s exp)*)
+	      val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
+	      val var = CWriterUtil.exp2c_str lhs
+	      val m = Container.expMatrixToMatrix rhs
+	      val m' = case !m of
+			   Matrix.DENSE _ => 
+			   let
+			   (*val _ = print ("intermediate matrix eq -> ")
+			    val _ = Matrix.print m*)
+			   in
+			       m
+			   end
+			 | Matrix.BANDED _ => 
+			   let
+			       val bands = Matrix.toPaddedBands m
+			       val m' = Matrix.fromRows (Exp.calculus()) bands
+			       (*val _ = print ("matrix bands -> ")
+				val _ = Matrix.print m'*)
+			       val _ = Matrix.transpose m'
+			   (*val _ = print ("matrix bands (transposed) -> ")
+			    val _ = Matrix.print m'*)
+
+			   in
+			       m'
+			   end
+
+	      val (rows, cols) = Matrix.size m'
+	      fun createIdx (i,j) = "MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", PARALLEL_MODELS, modelid)"
+
+	      (* Emits only non-constant values *)
+	      fun createEntry (i, j, exp as Exp.TERM t) = 
+		  (case t 
+		    of Exp.BOOL _ => nil
+		     | Exp.INFINITY => nil
+		     | Exp.INT _ => nil
+		     | Exp.NAN => nil
+		     | Exp.RATIONAL _ => nil
+		     | Exp.REAL _ => nil
+		     | _ =>
+ 		       [$("// " ^ (e2s exp)),
+			$(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")])
+		| createEntry (i, j, exp) =
+		  [$("// " ^ (e2s exp)),
+		   $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
 
 
-fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
+
+	  (*  val _ = print ("Matrix written -> ")
+	   val _ = Matrix.print m'*)
+	  in
+	      let open Layout in
+		  (align [$ "int i, j, idx;",
+			  $ "// constant copy of matrix is always in row-major order",
+			  $ ("for (j=0; j<"^(i2s rows)^"; j++) {"),
+			  SUB [$ ("for (i=0; i<"^(i2s cols)^"; i++) {"),
+			       SUB [assign ($("idx"), $("MAT_IDX("^(i2s rows)^","^(i2s cols)^",j,i,PARALLEL_MODELS,modelid)")),
+				    assign ($(var^"[idx]"), $("INTERNAL_C[i+(j*"^(i2s cols)^")]"))],
+			       $ "}"],
+			  $ "}"]) ::
+		  (List.concat (Matrix.mapi createEntry m'))
+	      end
+	  end
+      else if ExpProcess.isArrayEq exp then
+	  let
+	      val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
+	      val size = (Container.arrayToSize o Container.expArrayToArray) rhs
+	      val var = CWriterUtil.exp2c_str lhs				  
+	      fun createIdx i = "VEC_IDX("^(i2s size)^","^(i2s i)^", PARALLEL_MODELS, modelid)"
+	      fun createEntry (exp, i) = [$("//" ^ (e2s exp)),
+					  $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
+	  in
+	      Util.flatmap createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray rhs)))
+	  end
+      else
+ 	  [$("// " ^ (e2s exp)),
+	   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")])
+     handle e => DynException.checkpoint "CParallelWriter.class_flow_code.intermediateeq2prog" e)
+    
+
+and firstorderdiffeq2prog exp =
+    [$((CWriterUtil.exp2c_str exp) ^ ";")]
+and differenceeq2prog exp =
+    [$((CWriterUtil.exp2c_str exp) ^ ";")]
+and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
+    let
+	val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
+	val outname = 
+	    case exp 
+	     of Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, inpargs)]) => outname
+ 	      | _ => DynException.stdException(("Malformed output equation."),
+					  "CParallelWriter.outputeq2prog",
+					  Logger.INTERNAL)
+	val inpassoc = 
+	    case inpargs
+	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+	      | _ =>
+		DynException.stdException(("Inputs of output call should be an ASSOC container."),
+					  "CParallelWriter.class_flow_code.instaceeq2prog",
+					  Logger.INTERNAL)
+
+	(* every iterator except the update iterator uses an iter_name *)
+	val iter_name = Symbol.name (case iter_type of
+					 DOF.UPDATE v => v
+				       | _ => iter_sym)
+	val iter_name' = Symbol.name (case iter_type of
+					 DOF.UPDATE v => v
+				       | DOF.ALGEBRAIC (_,v) => v
+				       | _ => iter_sym)
+
+	val instclass = CurrentModel.classname2class classname
+
+	val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
+
+	val systemdata = Unique.unique "subsys_rd"
+	val (statereads, systemstatereads) =
+	    (if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name instname) ^ ", " else "",
+	     if reads_system instclass then "&" ^ systemdata ^ ", " else "")
+
+
+	fun systemstatedata_iterator (iter as (iter_name, _)) =
+	    systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
+	and systemstatedata_states (iter as (iter_name, _)) =
+	    [systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name instname)^";",
+	     systemdata^"."^"states_"^(Symbol.name iter_name)^"_next = &sys_rd->states_"^(Symbol.name iter_name)^"_next[STRUCT_IDX]."^(Symbol.name instname)^";"]
+
+	val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
+	val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
+
+	val sysstates_init = 
+	    if reads_system instclass then
+		Layout.align 
+		    [$("systemstatedata_"^(Symbol.name (ClassProcess.class2preshardname instclass))^" "^systemdata^";"),
+		     $("// iterator pointers"),
+		     SUB(map ($ o systemstatedata_iterator) iters),
+		     $("// state pointers"),
+		     SUB(map $ (Util.flatmap systemstatedata_states state_iters))]
+	    else
+		Layout.empty
+
+	val calling_name = "output_" ^ (Symbol.name classname) ^ "_" ^ (Symbol.name outname)
+	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
+	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
+
+	val (inps_init,num_inps) = 
+	    SymbolTable.foldli
+		(fn (k,v,(acc,idx)) =>
+		    ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str v) ^ "; // " ^ (Symbol.name k)) :: acc,
+		     1+idx)
+		    ) (nil,0) inpassoc
+
+	val inps_decl = 
+	    case num_inps
+	     of 0 => Layout.empty
+	      | n => $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")
+
+
+	val outs_decl = 
+	    if List.null outargs then Layout.empty
+	    else $("CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];")
+
+	fun declare_output (sym, idx) =
+	    $("CDATAFORMAT " ^ (Symbol.name sym) ^ ";")
+	fun assign_output (sym, idx) =
+	    $((Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];")
+
+	val output_symbol_pairs =
+	    map (fn (out,idx) => (Term.sym2curname out,idx)) (Util.addCount outargs)
+    in
+	[Layout.align (map declare_output output_symbol_pairs),
+	 $("{"),
+	 SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
+	      $("// " ^ (e2s exp)),
+	      inps_decl,
+	      Layout.align inps_init,
+	      sysstates_init,
+	      outs_decl,
+	      $(calling_name ^ "(" ^ iter_name' ^ "," ^
+		statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
+	      Layout.align (map assign_output output_symbol_pairs)
+	     ],
+	 $("}")]
+    end
+and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
+    let
+	val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
+	val inpassoc = 
+	    case inpargs
+	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+	      | _ =>
+		DynException.stdException(("Inputs of instance call should be an ASSOC container."),
+					  "CParallelWriter.class_flow_code.instaceeq2prog",
+					  Logger.INTERNAL)
+
+
+	val orig_instname = instname
+	(* every iterator except the update iterator uses an iter_name *)
+	val iter_name = Symbol.name (case iter_type of
+					 DOF.UPDATE v => v
+				       | _ => iter_sym)
+	val iter_name' = Symbol.name (case iter_type of
+					  DOF.UPDATE v => v
+					| DOF.ALGEBRAIC (_,v) => v
+					| _ => iter_sym)
+
+	val instclass = CurrentModel.classname2class classname
+	val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
+	val statereads_top = "&rd_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
+			     
+	val statewrites_top = "&wr_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
+
+	val systemdata = Unique.unique "subsys_rd"
+
+	val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
+
+	val (statereads, statewrites, systemstatereads) =
+	    (if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
+	     if writes_iterator iter instclass then "&wr_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
+	     if reads_system instclass then "&" ^ systemdata ^ ", " else "")
+	    
+
+	fun systemstatedata_iterator (iter as (iter_name, _)) =
+	    systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
+	and systemstatedata_states (iter as (iter_name, _)) =
+	    [systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name orig_instname)^";",
+	     systemdata^"."^"states_"^(Symbol.name iter_name)^"_next = &sys_rd->states_"^(Symbol.name iter_name)^"_next[STRUCT_IDX]."^(Symbol.name orig_instname)^";"]
+
+	val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
+	val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
+
+	val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2preshardname instclass))^" "^systemdata^";"),
+			      $("// iterator pointers"),
+			      SUB(map ($ o systemstatedata_iterator) iters),
+			      $("// state pointers"),
+			      SUB(map $ (Util.flatmap systemstatedata_states state_iters))]
+
+	val calling_name = "flow_" ^ (Symbol.name classname)
+
+	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
+	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
+							   
+
+	val (inps_init,num_inps) = 
+	    SymbolTable.foldli
+		(fn (k,v,(acc,idx)) =>
+		    ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str v) ^ "; // " ^ (Symbol.name k)) :: acc,
+		     1+idx)
+		    ) (nil,0) inpassoc
+
+	val inps = 
+	    case num_inps
+	     of 0 => nil
+	      | n => [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")]
+
+	val outs_decl = 
+	    if List.null outargs then []
+	    else [$("CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];")]
+
+	fun declare_output ((sym,_),_) = "CDATAFORMAT "^(Symbol.name sym)^";"
+
+	fun assign_output ((sym, output), idx) =
+	    (Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
+	    " // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (DOF.Output.contents output)))
+
+	(* Output args could contain don't cares *)
+	val output_term_pairs = nil
+	(*
+	 Util.addCount (ListPair.zipEq (outargs, !(#outputs instclass)))
+	 handle ListPair.UnequalLengths =>
+		DynException.stdException(("Outputs of instance call and instance class are not the same length."),
+					  "CParallelWriter.class_flow_code.instaceeq2prog",
+					  Logger.INTERNAL)
+	 *)
+	val output_symbol_pairs =
+	    List.mapPartial (fn((outarg,outs),n)=> if Term.isSymbol outarg then 
+						       SOME ((Term.sym2curname outarg, outs), n)
+						   else 
+						       NONE)
+			    output_term_pairs
+    in
+	(map ($ o declare_output) output_symbol_pairs) @
+	[$("{"),
+	 SUB([$("// Calling instance class " ^ (Symbol.name classname)),
+	      $("// " ^ (e2s exp))] @ 
+	     inps @
+	     inps_init @ 
+	     (if reads_system instclass then
+		  sysstates_init 
+	      else [] ) @
+	     outs_decl @
+	     [$(calling_name ^ "("^iter_name'^", "^
+		statereads ^ statewrites ^ systemstatereads ^ 
+		inpvar^", "^outvar^", first_iteration, modelid);")
+	     ] @
+	     map ($ o assign_output) output_symbol_pairs),
+	 $("}"),$("")]
+    end
+    handle e => DynException.checkpoint "CParallelWriter.class_flow_code.instanceeq2prog" e
+
+
+fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) output =
+    if is_top_class then 
+	Layout.empty
+    else
+	let
+	    val orig_name = ClassProcess.class2preshardname class
+	    (* every iterator except the update iterator uses an iter_name *)
+	    val iter_name = Symbol.name (case iter_type of
+					     DOF.UPDATE v => v
+					   | _ => iter_sym)
+	    val iter_name' = Symbol.name (case iter_type of
+					      DOF.UPDATE v => v
+					    | DOF.ALGEBRAIC (_,v) => v
+					    | _ => iter_sym)
+			     
+	    val (statereadprototype,
+		 systemstatereadprototype) =
+		(if reads_iterator iter class then
+		     (*"const " ^ *)"statedata_" ^ (Symbol.name orig_name) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+		 else "",
+		 if reads_system class then
+		     "const systemstatedata_"^(Symbol.name orig_name)^" *sys_rd, "
+		 else "")
+
+	    val input_automatic_var =
+	     fn (input,i) => 
+		$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM input)) ^ " = inputs[" ^ (i2s i) ^ "];")
+
+	    val inputs = 
+		Util.addCount (!(DOF.Output.inputs output))
+
+	    val read_inputs_progs =
+		Layout.align
+		    ($("// mapping inputs to variables") ::
+		     (map input_automatic_var inputs))
+
+	    val output_symbols = 
+		SymbolSet.fromList 
+		    (map Term.sym2curname
+			 (List.filter (fn term => not ((Term.isReadState term) orelse 
+						       (Term.isReadSystemState term) orelse
+						       (Term.isReadSystemIterator term) orelse
+						       (Term.isIterator term) orelse
+						       (ClassProcess.isTermInput class term)))
+				      (Util.flatmap ExpProcess.exp2termsymbols (DOF.Output.contents output))))
+	    val extra_equations = 
+		SymbolSet.foldl
+		    (fn (sym,acc) =>
+			(exp2prog (ClassProcess.flattenEq class sym,is_top_class,iter)) @ acc
+		    ) nil output_symbols
+
+	    val write_outputs_progs =
+		Layout.align
+		    ($("// writing outputs") ::
+		     map (fn (exp,i) =>
+			     $("outputs["^(i2s i)^"] = " ^ 
+			       (CWriterUtil.exp2c_str exp) ^ 
+			       ";")
+			 ) (Util.addCount (DOF.Output.contents output)))
+	in
+	    Layout.align 
+		[$("__HOST__ __DEVICE__ int output_" ^ (Symbol.name (#name class)) ^ "_" ^ (Term.sym2name (DOF.Output.name output)) ^
+		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ systemstatereadprototype ^
+		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {"),
+		 SUB [read_inputs_progs,
+		      Layout.align extra_equations,
+		      write_outputs_progs],
+		 $("}")]
+	end	
+
+fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	(*val _ = Util.log("Generating code for class '"^(Symbol.name (#name class))^"'")
 	val _ = DOFPrinter.printClass class*)
@@ -1458,12 +1837,13 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val (initvalue_exps, rest_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
 	val (valid_exps, rest_exps) = List.partition (fn(exp)=> ExpProcess.isIntermediateEq exp orelse
 							        ExpProcess.isInstanceEq exp orelse
+								ExpProcess.isOutputEq exp orelse
 							        ExpProcess.isStateEq exp orelse
 								ExpProcess.isReadStateEq exp) rest_exps
 	val _ = if (List.length rest_exps > 0) then
 		    (Util.log ("Internal Error: Invalid expressions reached in code writer while writing class " ^ (Symbol.name (ClassProcess.class2orig_name class)));
 		     app (fn(exp)=> Util.log ("  Offending expression: " ^ (e2s exp))) rest_exps;
-		     DynException.stdException("Invalid expression(s) in code writer", "CParallelWriter.class2flow_code", Logger.INTERNAL))
+		     DynException.stdException("Invalid expression(s) in code writer", "CParallelWriter.class_flow_code", Logger.INTERNAL))
 		else
 		    ()
 
@@ -1583,277 +1963,43 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    (map input_automatic_var inputs)
 
 
-	local
-	    fun exp2prog exp =
-		if (ExpProcess.isIntermediateEq exp) then
-		    intermediateeq2prog exp
-		else if (ExpProcess.isFirstOrderDifferentialEq exp) then
-		    firstorderdiffeq2prog exp
-		else if (ExpProcess.isDifferenceEq exp) then
-		    differenceeq2prog exp
-		else if (ExpProcess.isUpdateEq exp) then
-		    differenceeq2prog exp
-		else if (ExpProcess.isAlgebraicStateEq exp) then
-		    differenceeq2prog exp
-		else if (ExpProcess.isInstanceEq exp) then
-		    instanceeq2prog exp
-		else if (ExpProcess.isReadStateEq exp) then
-		    differenceeq2prog exp
-		else
-		    DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.class2flow_code.equ_progs", Logger.INTERNAL)
-
-	    and intermediateeq2prog exp =
-		((if ExpProcess.isMatrixEq exp then
-		      let
-			  (*val _ = print ("matrix eq -> ")
-			  val _ = Util.log (e2s exp)*)
-			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
-			  val var = CWriterUtil.exp2c_str lhs
-			  val m = Container.expMatrixToMatrix rhs
-			  val m' = case !m of
-					    Matrix.DENSE _ => 
-					    let
-						(*val _ = print ("intermediate matrix eq -> ")
-						val _ = Matrix.print m*)
-					    in
-						m
-					    end
-					  | Matrix.BANDED _ => 
-					    let
-						val bands = Matrix.toPaddedBands m
-						val m' = Matrix.fromRows (Exp.calculus()) bands
-						(*val _ = print ("matrix bands -> ")
-						val _ = Matrix.print m'*)
-						val _ = Matrix.transpose m'
-						(*val _ = print ("matrix bands (transposed) -> ")
-						val _ = Matrix.print m'*)
-
-					    in
-						m'
-					    end
-
-			  val (rows, cols) = Matrix.size m'
-			  fun createIdx (i,j) = "MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", PARALLEL_MODELS, modelid)"
-
-			  (* Emits only non-constant values *)
-			  fun createEntry (i, j, exp as Exp.TERM t) = 
-			      (case t 
-				of Exp.BOOL _ => nil
-				 | Exp.INFINITY => nil
-				 | Exp.INT _ => nil
-				 | Exp.NAN => nil
-				 | Exp.RATIONAL _ => nil
-				 | Exp.REAL _ => nil
-				 | _ =>
- 				   [$("// " ^ (e2s exp)),
-				    $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")])
-			    | createEntry (i, j, exp) =
-			      [$("// " ^ (e2s exp)),
-			       $(var ^ "[" ^ (createIdx (i,j)) ^ "]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
-
-
-
-			(*  val _ = print ("Matrix written -> ")
-			  val _ = Matrix.print m'*)
-		      in
-			  let open Layout in
-			      (align [$ "int i, j, idx;",
-				      $ "// constant copy of matrix is always in row-major order",
-				      $ ("for (j=0; j<"^(i2s rows)^"; j++) {"),
-				      SUB [$ ("for (i=0; i<"^(i2s cols)^"; i++) {"),
-					   SUB [assign ($("idx"), $("MAT_IDX("^(i2s rows)^","^(i2s cols)^",j,i,PARALLEL_MODELS,modelid)")),
-						assign ($(var^"[idx]"), $("INTERNAL_C[i+(j*"^(i2s cols)^")]"))],
-					   $ "}"],
-				      $ "}"]) ::
-			      (List.concat (Matrix.mapi createEntry m'))
-			  end
-		      end
-		  else if ExpProcess.isArrayEq exp then
-		      let
-			  val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
-			  val size = (Container.arrayToSize o Container.expArrayToArray) rhs
-			  val var = CWriterUtil.exp2c_str lhs				  
-			  fun createIdx i = "VEC_IDX("^(i2s size)^","^(i2s i)^", PARALLEL_MODELS, modelid)"
-			  fun createEntry (exp, i) = [$("//" ^ (e2s exp)),
-						      $(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ ";")]
-		      in
-			  Util.flatmap createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray rhs)))
-		      end
-		  else
- 		      [$("// " ^ (e2s exp)),
-		       $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")])
-		 handle e => DynException.checkpoint "CParallelWriter.class2flow_code.intermediateeq2prog" e)
-		
-
-	    and firstorderdiffeq2prog exp =
- 		[$((CWriterUtil.exp2c_str exp) ^ ";")]
-	    and differenceeq2prog exp =
- 		[$((CWriterUtil.exp2c_str exp) ^ ";")]
-	    and instanceeq2prog exp =
-		let
-		    val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
-		    val orig_instname = case InstProps.getRealInstName props of
-					    SOME v => v
-					  | NONE => instname
-
-		    val instclass = CurrentModel.classname2class classname
-		    val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
-		    val statereads_top = "&rd_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
-					 
-		    val statewrites_top = "&wr_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
-
-		    val systemdata = Unique.unique "subsys_rd"
-
-		    val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
-
-		    val (statereads, statewrites, systemstatereads) =
-			(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
-			 if writes_iterator iter instclass then "&wr_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
-			 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
-			
-
-		    fun systemstatedata_iterator (iter as (iter_name, _)) =
-			systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
-		    and systemstatedata_states (iter as (iter_name, _)) =
-			[systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name orig_instname)^";",
-			 systemdata^"."^"states_"^(Symbol.name iter_name)^"_next = &sys_rd->states_"^(Symbol.name iter_name)^"_next[STRUCT_IDX]."^(Symbol.name orig_instname)^";"]
-
-		    val iters = List.filter (fn (it) => (not (ModelProcess.isImmediateIterator it)) andalso (ClassProcess.requiresIterator it instclass)) (ModelProcess.returnIndependentIterators ())
-		    val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
-
-		    val sysstates_init = [$("systemstatedata_"^(Symbol.name (ClassProcess.class2preshardname instclass))^" "^systemdata^";"),
-					  $("// iterator pointers"),
-					  SUB(map ($ o systemstatedata_iterator) iters),
-					  $("// state pointers"),
-					  SUB(map $ (Util.flatmap systemstatedata_states state_iters))]
-
-		    val calling_name = "flow_" ^ (Symbol.name classname)
-
-		    val inpvar = if List.null inpargs then "NULL" else Unique.unique "inputdata"
-		    val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
-				 
-
-		    val inps = 
-			if List.null inpargs then []
-			else [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];")]
-
-		    val inps_init = map ( fn(inparg, idx) => $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ CWriterUtil.exp2c_str inparg ^ ";")) (Util.addCount inpargs)
-		    val outs_decl = 
-			if List.null outargs then []
-			else [$("CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];")]
-
-		    fun declare_output ((sym,_),_) = "CDATAFORMAT "^(Symbol.name sym)^";"
-
-		    fun assign_output ((sym, output), idx) =
-			(Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
-			" // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (DOF.Output.contents output)))
-
-		    (* Output args could contain don't cares *)
-		    val output_term_pairs =
-			Util.addCount (ListPair.zipEq (outargs, !(#outputs instclass)))
-			handle ListPair.UnequalLengths =>
-			       DynException.stdException(("Outputs of instance call and instance class are not the same length."),
-							 "CParallelWriter.class2flow_code.instaceeq2prog",
-							 Logger.INTERNAL)
-		    val output_symbol_pairs =
-			List.mapPartial (fn((outarg,outs),n)=> if Term.isSymbol outarg then 
-								   SOME ((Term.sym2curname outarg, outs), n)
-							       else 
-								   NONE)
-					output_term_pairs
-		in
-		    (map ($ o declare_output) output_symbol_pairs) @
-		    [$("{"),
-		     SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-			  $("// " ^ (CWriterUtil.exp2c_str exp))] @ 
-			 inps @
-			 inps_init @ 
-			 (if reads_system instclass then
-			      sysstates_init 
-			  else [] ) @
-			 outs_decl @
-			 [$(calling_name ^ "("^iter_name'^", "^
-			    statereads ^ statewrites ^ systemstatereads ^ 
-			    inpvar^", "^outvar^", first_iteration, modelid);")
-			 ] @
-			 map ($ o assign_output) output_symbol_pairs),
-		     $("}"),$("")]
-		end
-		handle e => DynException.checkpoint "CParallelWriter.class2flow_code.instanceeq2prog" e
-
-
-
-	in
 	val equ_progs = 
 	    [$(""),
 	     $("// writing all intermediate, instance, and differential equation expressions")] @
-	    (Util.flatmap (fn(exp)=> (exp2prog exp)) valid_exps)
-	end
+	    (Util.flatmap (fn(exp)=> (exp2prog (exp,is_top_class,iter))) valid_exps)
 	    
 	val state_progs = []
 
+        val output_progs = 
+            if is_top_class then
+                let fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
+                    val outputs_symbols = Util.uniquify_by_fun cmp (ClassProcess.outputsSymbols class)
+                    val (iterators_symbols, outputs_symbols) = List.partition Term.isIterator outputs_symbols
+                in
+                    if List.null outputs_symbols andalso List.null iterators_symbols then
+                        [$("// No outputs written")]
+                    else
+                        [$(""),
+                         $("// writing output variables"),
+			 $("// FIXME use the appropriate output function instead"),
+                         $("#if NUM_OUTPUTS > 0"),
+                         $("if (first_iteration) {"),
+                         SUB($("output_data *od = (output_data*)outputs;") 
+                             (* FIXME this is a temporary hack to catch reads of system iterator values. *)
+                             :: (map (fn t => $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^
+                                                (if (Symbol.symbol iter_name) = (Term.sym2curname t) then
+                                                     (CWriterUtil.exp2c_str (Exp.TERM t))
+                                                 else ("sys_rd->" ^ (Symbol.name (Term.sym2curname t)) ^ "[ARRAY_IDX]")) ^ ";"))
+                                     iterators_symbols) 
+                             @ (map (fn(t)=> $("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) t) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
+                                    outputs_symbols)),
+                         $("}"),
+                         $("#endif")]
+                end
+	    else nil
 
 
-	val output_progs = 
-	    if is_top_class then
-		let fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
-		    val outputs_symbols = Util.uniquify_by_fun cmp (ClassProcess.outputsSymbols class)
-
-		    val (iterators_symbols, outputs_symbols) = List.partition Term.isIterator outputs_symbols
-
-		in
-		    if List.null outputs_symbols andalso List.null iterators_symbols then
-			[$("// No outputs written")]
-		    else
-			[$(""),
-			 $("// writing output variables"),
-			 $("#if NUM_OUTPUTS > 0"),
-			 $("if (first_iteration) {"),
-			 SUB($("output_data *od = (output_data*)outputs;") 
-			     (* FIXME this is a temporary hack to catch reads of system iterator values. *)
-			     :: (map (fn t => $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^
-						(if (Symbol.symbol iter_name) = (Term.sym2curname t) then
-						     (CWriterUtil.exp2c_str (Exp.TERM t))
-						 else ("sys_rd->" ^ (Symbol.name (Term.sym2curname t)) ^ "[ARRAY_IDX]")) ^ ";"))
-				     iterators_symbols) 
-			     @ (map (fn(t)=> $("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) t) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-				    outputs_symbols)),
-			 $("}"),
-			 $("#endif")]
-		end
-	    else
-		[$(""),
-		 $("// writing output data "),
-		 SUB(map 
-			 (fn(output,i)=> 
-			    let
-				val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
-				val _ = if length contents = 1 then
-					    ()
-					else
-					    (*DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not be a grouping of {"^(String.concatWith ", " (map e2s contents))^"} when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)*)
-					    (Logger.log_error (Printer.$("Output "^(e2ps (Exp.TERM name))^" in model "^(Symbol.name (ClassProcess.class2basename class))^" can not be a grouping of {"^(String.concatWith ", " (map e2ps contents))^"} when used as a submodel"));
-					     DynException.setErrored())
-					    
-				val valid_condition = case condition 
-						       of (Exp.TERM (Exp.BOOL v)) => v
-							| _ => false
-				val _ = if valid_condition then
-					    ()
-					else
-					    Logger.log_warning (Printer.$("The condition ("^(e2ps condition)^") for output "^(e2ps (Exp.TERM name))^" in model "^(Symbol.name (ClassProcess.class2basename class))^" is being ignored when used as a submodel"))
-					    (*DynException.stdException (("Output '"^(e2s (Exp.TERM name))^"' in class '"^(Symbol.name (#name class))^"' can not have a condition '"^(e2s condition)^"' when used as a submodel"), "CParallelWriter.class2flow_code", Logger.INTERNAL)*)
-					    
-			    in
-				case contents of
-				    [content] =>
-				    $("outputs["^(i2s i)^"] = " ^ (CWriterUtil.exp2c_str (content)) ^ ";")
-				  | _ => 
-				    $("// invalid output grouping")
-			    end) (Util.addCount (!(#outputs class))))]
-
-	val mapping_back_progs = []
-
+        val mapping_back_progs = []
     in
 	header_progs @
 	[SUB(read_states_progs @
@@ -1868,7 +2014,7 @@ fun class2flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	 $("#undef INTERNAL_C"),
 	 $("")]
     end
-    handle e => DynException.checkpoint "CParallelWriter.class2flow_code" e
+    handle e => DynException.checkpoint "CParallelWriter.class_flow_code" e
 
 fun state_init_code shardedModel iter_sym =
     let 
@@ -1881,7 +2027,7 @@ fun state_init_code shardedModel iter_sym =
 	fun stateInitPrototype class =
 	    let
 		val classname = ClassProcess.class2classname class
-		val basename = ClassProcess.class2basename class
+		val basename = classname
 		val mastername = ClassProcess.class2preshardname class
 		val classTypeName = ClassProcess.classTypeName class
 
@@ -1953,9 +2099,15 @@ fun state_init_code shardedModel iter_sym =
 			     let
 				 val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst eqn
 				 val instclass = CurrentModel.classname2class classname
-				 val orig_instname = case InstProps.getRealInstName props of
-							 SOME v => v
-						       | NONE => instname
+				 val orig_instname = instname
+
+				 val inpassoc = 
+				     case inpargs
+				      of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
+				       | _ =>
+					 DynException.stdException(("Inputs of output call should be an ASSOC container."),
+								   "CParallelWriter.class_flow_code.instaceeq2prog",
+								   Logger.INTERNAL)
 
 				 val sysreadsName = Unique.unique "subsys_rd"
 
@@ -1969,7 +2121,7 @@ fun state_init_code shardedModel iter_sym =
 				 val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
 
 				 val initSysreads =
-				     [$("systemstatedata_"^(Symbol.name (ClassProcess.class2basename instclass))^" "^sysreadsName^";"),
+				     [$("systemstatedata_"^(Symbol.name (ClassProcess.class2preshardname instclass))^" "^sysreadsName^";"),
 				      $("// iterator pointers"),
 				      SUB(map ($ o systemstatedata_iterator) iters),
 				      $("// state pointers"),
@@ -1988,31 +2140,38 @@ fun state_init_code shardedModel iter_sym =
 				     
 				 val inpnames: Exp.term list = 
 				     rev (ClassProcess.foldInputs (fn (input, names) => (DOF.Input.name input) :: names) nil instclass)
-				 val inpargs: Exp.exp list = 
-				     map (fn (name, arg) =>
-					     if hasInitialValueEquation (ivqReadsInput name) instclass then
-						 arg
-					     else
-						 Exp.TERM Exp.NAN)
-					 (ListPair.zipEq (inpnames, inpargs))
 
 				 val (reads, writes, sysreads) = 
 				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
 				      if writes_iterator iter instclass then "&wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
 				      if reads_system instclass then "&" ^ sysreadsName else "NULL")
 
-				 val inpvar = if List.null inpargs then "NULL" else Unique.unique "sub_inputs"
+				 val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
+
+				 val (inps_init,num_inps) = 
+				     SymbolTable.foldli
+					 (fn (k,v,(acc,idx)) =>
+					     let
+						 val value = 
+						     if hasInitialValueEquation (fn exp => Match.exists (Match.asym (Util.sym2codegensym k)) exp) instclass then
+							 CWriterUtil.exp2c_str v
+						     else "NAN"
+					     in
+						 ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ value ^ "; // " ^ (Symbol.name k)) :: acc,
+						  1+idx)
+					     end
+					 ) (nil,0) inpassoc
+
+				 val inps = 
+				     case num_inps
+				      of 0 => nil
+				       | n => [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")]
+
 			     in
 				 if hasInitialValueEquation (fn _ => true) instclass then
 				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
-				      SUB((if not (List.null inpargs) then
-					       $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inpargs)) ^ "];") ::
-					       map (fn ((inpname, inparg), idx) => $("/* " ^ (Term.sym2name inpname) ^ " */" ^
-										     inpvar ^ "[" ^ (i2s idx) ^ "] " ^ 
-										     " = " ^ 
-										     CWriterUtil.exp2c_str inparg ^ ";")) 
-						   (Util.addCount (ListPair.zip (inpnames, inpargs)))
-					   else []) @
+				      SUB(inps @
+					  inps_init @
 					  (if reads_system instclass then initSysreads else []) @
 					  [$("// " ^ (ExpPrinter.exp2str eqn)),
 					   $("init_states_" ^ (Symbol.name classname) ^ "(" ^
@@ -2050,50 +2209,39 @@ fun flow_code shardedModel iter_sym =
     let
 	val model as (classes, {classname=top_class,...} ,_) = ShardedModel.toModel shardedModel iter_sym
 	val iter as (_,iter_type) = ShardedModel.toIterator shardedModel iter_sym
+	(* every iterator except the update iterator uses an iter_name *)
 	val iter_name = Symbol.name (case iter_type of
 					 DOF.UPDATE v => v
-				       | DOF.ALGEBRAIC (_,v) => v
 				       | _ => iter_sym)
+	val iter_name' = Symbol.name (case iter_type of
+					  DOF.UPDATE v => v
+					| DOF.ALGEBRAIC (_,v) => v
+					| _ => iter_sym)
 
 	val eval_iterators = ModelProcess.returnDependentIterators ()
 
-	fun class_flow_prototype class = 
+	fun class_prototypes class =
 	    let
 		val classname = ClassProcess.class2classname class
-		val basename = ClassProcess.class2basename class
+		val basename = classname
 		val mastername = ClassProcess.class2preshardname class
 		val classTypeName = ClassProcess.classTypeName class
-	    in
-		if ClassProcess.isInline class then
-		    $("CDATAFORMAT "^(Symbol.name (#name class))^"("^
-		      (String.concatWith 
-			   ", " 
-			   (map 
-				(fn input=> "CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))))
-				(!(#inputs class))))^");")
-		else
-		    let
-			(* every iterator except the update iterator uses an iter_name *)
-			val iter_name = Symbol.name (case iter_type of
-							 DOF.UPDATE v => v
-						       | _ => iter_sym)
-			val iter_name' = Symbol.name (case iter_type of
-							  DOF.UPDATE v => v
-							| DOF.ALGEBRAIC (_,v) => v
-							| _ => iter_sym)
-			val (statereadprototype,
-			     statewriteprototype,
-			     systemstatereadprototype) =
-			    (if reads_iterator iter class then
-				 (*"const " ^ *)"statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
-			     else "",
-			     if writes_iterator iter class then
-				 "statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
-			     else "",
-			     if reads_system class then
-				 "const systemstatedata_" ^ (Symbol.name mastername) ^ " *sys_rd, "
-			     else "")
 
+		val (statereadprototype,
+		     statewriteprototype,
+		     systemstatereadprototype) =
+		    (if reads_iterator iter class then
+			 (*"const " ^ *)"statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name ^ ", "
+		     else "",
+		     if writes_iterator iter class then
+			 "statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name ^ ", "
+		     else "",
+		     if reads_system class then
+			 "const systemstatedata_" ^ (Symbol.name mastername) ^ " *sys_rd, "
+		     else "")
+
+		fun class_flow_prototype class = 
+		    let
 			val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)
 		    in
 			if useMatrixForm then
@@ -2105,9 +2253,16 @@ fun flow_code shardedModel iter_sym =
 			      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
 			      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
 		    end
+
+		and class_output_prototype class output =
+		    $("__HOST__ __DEVICE__ int output_" ^ (Symbol.name (#name class)) ^ "_" ^ (Term.sym2name (DOF.Output.name output)) ^
+		      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ systemstatereadprototype ^
+		      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+	    in
+		Layout.align ((class_flow_prototype class) ::
+			      (map (class_output_prototype class) (!(#outputs class))))
 	    end
-
-
+	    
     (*val (fun_prototypes, fun_wrappers) = ListPair.unzip (map (fn(iter)=>flow_wrapper (topclass, iter)) eval_iterators)*)
     (*val (fun_prototype, fun_wrapper) = flow_wrapper (topclass, iter)*)
 
@@ -2117,17 +2272,14 @@ fun flow_code shardedModel iter_sym =
 				   let
 				       val topclass = CurrentModel.classname2class top_class
 
-    				       val fundecl_progs = map class_flow_prototype classes
+    				       val fundecl_progs = map class_prototypes classes
 							   
-				       val flow_progs = Util.flatmap (fn(c)=>
-									    if ClassProcess.isInline c then
-										(Logger.log_error (Printer.$("Functional classes like '"^(Symbol.name (#name c))^"' are not supported"));
-										 DynException.setErrored();
-										 [])
-									    else
-										class2flow_code (c,#name c = #name topclass, iter)) classes
+				       val flow_progs = Util.flatmap (fn(c)=> class_flow_code (c,#name c = #name topclass, iter)) classes
+				       val output_progs = Util.flatmap (fn c => map (class_output_code (c,#name c = #name topclass, iter)) (!(#outputs c))) classes
 				   in
-				       ([$("// Functions prototypes for flow code of "^(Symbol.name iter_sym))] @ fundecl_progs, flow_progs)
+				       ([$("// Functions prototypes for flow code of "^(Symbol.name iter_sym))] @ 
+					fundecl_progs, 
+					flow_progs @ output_progs)
 				   end
 				   handle e => DynException.checkpoint "CParallelWriter.flow_code.anonymous_fun" e)
     end
@@ -2137,15 +2289,19 @@ fun init_states shardedModel =
     let
 	fun subsystem_init_call iter_sym =
 	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
-		val iter = ShardedModel.toIterator shardedModel iter_sym
+		val iter as (_,iter_type) = ShardedModel.toIterator shardedModel iter_sym
+		val iter_name = Symbol.name (case iter_type of
+						 DOF.UPDATE v => v
+					       | _ => iter_sym)
+
 		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
 	    in CurrentModel.withModel
 		   model (fn _ =>
 			     let val class = CurrentModel.classname2class top_class
-				 val basename = ClassProcess.class2basename class
+				 val basename = ClassProcess.class2preshardname class
 				 val (reads, writes, sysreads) =
-				     ("(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ ")",
-				      "(statedata_" ^ (Symbol.name top_class) ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
+				     ("(statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ ")",
+				      "(statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ " *)(props->system_states->states_" ^ (Symbol.name iter_sym) ^ "_next)",
 				      if reads_system class then
 					  "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states"
 				      else "NULL")
@@ -2173,17 +2329,21 @@ fun model_flows shardedModel =
     let
 	fun subsystem_flow_call iter_sym =
 	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
-		val iter = ShardedModel.toIterator shardedModel iter_sym
+		val iter as (_, iter_type) = ShardedModel.toIterator shardedModel iter_sym
+		val iter_name = Symbol.name (case iter_type of
+						 DOF.UPDATE v => v
+					       | _ => iter_sym)
+
 		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
 	    in CurrentModel.withModel model (fn _ =>
 	       let val class = CurrentModel.classname2class top_class
-		   val basename = ClassProcess.class2basename class
+		   val basename = ClassProcess.class2preshardname class
 		   val (statereads, statewrites, systemstatereads) =
-		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name top_class) ^ "* )y, " else "",
+		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ "* )y, " else "",
 			if requiresMatrix then
 			    "(CDATAFORMAT* ) props->mem, dydt, "
 			else if writes_iterator iter class then 
-			    "(statedata_" ^ (Symbol.name top_class) ^ "* )dydt, " 
+			    "(statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ "* )dydt, " 
 			else 
 			    "",
 			if reads_system class then "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states, " else "")

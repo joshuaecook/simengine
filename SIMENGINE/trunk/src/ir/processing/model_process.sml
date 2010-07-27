@@ -131,7 +131,8 @@ fun hasUpdateIterator iter_sym =
  * flatten the model into a single class. *)
 fun unify model =
     let val (classes, instance, properties) : DOF.model = model
-	val flatclass = CurrentModel.withModel model (fn _ => ClassProcess.unify (CurrentModel.classname2class (#classname instance)))
+	val flatclass = CurrentModel.withModel model (fn _ => ClassProcess.unify DOFPrinter.printClass (CurrentModel.classname2class (#classname instance)))
+			
     in
 	([flatclass], instance, properties)
     end
@@ -155,7 +156,9 @@ fun pruneModel iter_sym_opt model =
     CurrentModel.withModel model (fn _ =>
     let val (classes, {classname,...}, _) = model
 	fun isTop {name,...} = name = classname
-    in app (fn(c)=> ClassProcess.pruneClass (iter_sym_opt, isTop c) c) classes
+    in 
+	app (fn(c)=> ClassProcess.pruneClass (iter_sym_opt, isTop c) c) classes
+      ; app (fn c => ClassProcess.pruneUnusedInputs c) classes
     end)
 
 fun duplicateClasses classes namechangefun = 
@@ -387,12 +390,6 @@ fun optimizeModel order (model:DOF.model) =
 					  else
 					      0
 			val _ = app ClassProcess.removeRedundancy classes
-			val _ = if order then
-				    (Logger.log_notice (Printer.$("Ordering after redundancy elimination ..."));
-				     Ordering.orderModel (model);
-				     ())
-				else
-				    ()
 		    in
 			if verbose then
 			    Logger.log_notice (Printer.$("Rendundancy elimination step before/after: "^(i2s cost_before)^"/"^(i2s (Cost.model2cost model))))
@@ -480,8 +477,10 @@ fun normalizeModel (model:DOF.model) =
 			val _ = log ("Flattening model ...")
 			val _ = Profile.write_status "Flattening model"
 			val model' = unify(CurrentModel.getCurrentModel())
+			val _ = log ("Optimizing ...")
+			val _ = optimizeModel model'
 			val _ = CurrentModel.setCurrentModel(model')
-			(* val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel()) *)
+			val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 		    in
 			()
 		    end
@@ -489,11 +488,6 @@ fun normalizeModel (model:DOF.model) =
 		    ()
 		     
 
-	val _ = log ("Ordering model ...")
-	val _ = Ordering.orderModel(CurrentModel.getCurrentModel())
-	val _ = Profile.mark()
-
-	val _ = DynException.checkToProceed()
 
 	(* remap all names into names that can be written into a back-end *)
 	val _ = log ("Fixing symbol names ...")
