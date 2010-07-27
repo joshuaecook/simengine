@@ -2121,7 +2121,7 @@ fun state_init_code shardedModel iter_sym =
 				 val state_iters = List.filter (fn it => reads_iterator it instclass) (ModelProcess.returnStatefulIterators ())
 
 				 val initSysreads =
-				     [$("systemstatedata_"^(Symbol.name (ClassProcess.class2classname instclass))^" "^sysreadsName^";"),
+				     [$("systemstatedata_"^(Symbol.name (ClassProcess.class2preshard instclass))^" "^sysreadsName^";"),
 				      $("// iterator pointers"),
 				      SUB(map ($ o systemstatedata_iterator) iters),
 				      $("// state pointers"),
