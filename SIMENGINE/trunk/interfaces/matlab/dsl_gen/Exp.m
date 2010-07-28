@@ -304,6 +304,31 @@ classdef Exp
             er = piecewise(e1, e1 < e2, e2);
         end        
         
+        % speciality functions
+        function er = conv(e1, vec)
+            if ~isa(e1, 'Exp')
+                error('Simatra:Exp:conv', 'First argument must be an expression type');
+            end
+            if ~isnumeric(vec) || size(vec,1) > 1 || isempty(vec)
+                error('Simatra:Exp:conv', 'Second argument must be a non-empty numeric vector');
+            end
+            if ~isa(e1.iterReference, 'IteratorReference') || e1.iterReference.delay ~= 0
+                error('Simatra:Exp:conv', 'First argument must have an iterator with delay 0 specified');
+            end
+            iter = e1.iterReference.iterator;
+            if length(vec) == 1
+                er = e1*vec;
+            else
+                products = cell(1,length(vec));
+                for i=1:length(products)
+                    prev_value = e1;
+                    prev_value.iterReference = iter-(i-1);
+                    products{i} = prev_value * vec(i);
+                end
+                er = plus(products{:});
+            end
+        end
+        
         % for arrays
         function l = length(e1)
             if e1.dims(1) == 1 && length(e1.dims)>1
@@ -347,6 +372,9 @@ classdef Exp
                         elseif isa(subs{j},'Iterator')
                             e.iterReference = subs{j}.toReference;
                         else
+                            for i=1:length(s)
+                                s(i)
+                            end
                             error('Simatra:Exp:subsref', 'Unexpected class type %s passed as an argument to an expression', class(subs{j}));
                         end
                         er = e;
