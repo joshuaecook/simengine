@@ -1,6 +1,6 @@
 Tfinal = 100;
 Im = 300;
-N = 100;
+N = 200;
 d = 100;
 mo = .2446;
 no = .0289;
@@ -18,7 +18,7 @@ disp(['Matlab took ' num2str(toc) ' seconds to complete ' num2str(Tfinal) ' ms o
 dslfile = toDSL(hhcable_dsl(N));
 inputs = struct('Im', Im, 'd', d, 'Ie', Ie);
 tic
-o = simex(dslfile, [0 Tfinal], inputs, '-optimize=false');
+o = simex(dslfile, [0 Tfinal], inputs, '-optimize=false', '-fastcompile');
 disp(['simEngine took ' num2str(toc) ' seconds to complete ' num2str(Tfinal) ' ms of simulation'])
 figure,
 simplot([T Y(:,1)], o.Vm1);
