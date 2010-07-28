@@ -16,6 +16,11 @@ classdef Model < handle
 %   update - define when a state variable updates
 %   submodel - instantiate a sub model
 %
+%   Model Query:
+%   time - return the default iterator as an expression
+%   timeIterator - return the default iterator as an iterator
+%   interface - return a listing of the inputs and outputs
+%
 %   Model Simulation:
 %   simex - execute the simulation of the model
 %
@@ -261,20 +266,77 @@ classdef Model < handle
         end
 
         
-        function e = input(m, id, default)
+        function e = input(m, id, varargin)
+            % MODEL/INPUT - create a new input for the model
+            % 
+            % Usage:
+            %   inp = mdl.INPUT(NAME [, DEFAULT] [, OPTIONS ...]) - create an input
+            %   with name NAME and optional default value DEFAULT.  DEFAULT
+            %   must be a numeric type.
+            %   
+            %   OPTIONS can be of the form ('iter', ITERATOR) supplying an
+            %   iterator to a time varying input or a specific mode for a
+            %   time varying input.
+            %
+            %   The possible modes are:
+            %     'hold' - keep the last value until the simulation ends
+            %     'repeat' - repeat the input sequence over and over again
+            %     'stop' - end the simulation after the input sequence is
+            %     finished
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
             if identifier_exists(m, id)
                 error('Simatra:Model', ['Input ' id ' already exists']);
             else
                 e = Exp(id);
-                if nargin == 3
-                    if isnumeric(default)
-                        m.Inputs(id) = struct('default', default);
+                s = struct('default', nan, 'exhausted', false, 'iterator', false);
+                args = varargin;
+                i = 1;
+                while ~isempty(args)
+                    if i == 1 && isnumeric(args{1})
+                        s.default = args{1};
+                        i = i+1;
+                    elseif ischar(args{1})
+                        switch (args{1})
+                            case 'iter'
+                                if length(args) > 1 && isa(args{2}, 'Iterator')
+                                    if args{2}.isContinuous
+                                        error('Simatra:Model:input', 'Iterator passed in must be discrete');
+                                    end
+                                    s.iterator = args{2};
+                                    i = i+2;
+                                else
+                                    error('Simatra:Model:input', 'Argument for iterator must be an iterator');
+                                end
+                            case 'hold'
+                                s.exhausted = 'hold';
+                                i = i+1;
+                            case 'repeat'
+                                s.exhausted = 'repeat';
+                                i = i+1;
+                            case 'stop'
+                                s.exhausted = 'stop';
+                                i = i+1;                                
+                            otherwise
+                                error('Simatra:Model:input', 'Unknown input property %s', args{1});
+                        end
+                                
                     else
-                        error('Simatra:Model:input', 'Only numeric values are supported as default inputs');
+                        error('Simatra:Model:input', 'Unexpected input argument #%d', i+1);
                     end
-                else
-                    m.Inputs(id) = struct();
+                    args = varargin(i:end);
                 end
+                if ischar(s.exhausted) && islogical(s.iterator)
+                    % must make sure we have an iterator
+                    if m.DefaultIterator.isDiscrete
+                        s.iterator = m.DefaultIterator;
+                    else
+                        error('Simatra:Model:input', 'Default iterator is continuous, so must specify a discrete iterator');
+                    end
+                end
+                m.Inputs(id) = s;
             end
         end
         
@@ -615,7 +677,14 @@ classdef Model < handle
                     map(iter.id) = iter;
                 end
             end
-            % ADD INPUTS WHEN READY
+            % - Search through inputs
+            structs = values(m.Inputs);
+            for i=1:length(structs)
+                iter = structs{i}.iterator;
+                if isa(iter, 'Iterator')
+                    map(iter.id) = iter;
+                end
+            end
         end
 
         function [inputs, outputs] = interface(m)
@@ -672,11 +741,14 @@ classdef Model < handle
             str = [str '   // Input definitions\n'];
             for i=1:length(inputs)
                 input = m.Inputs(inputs{i});
-                if isfield(input, 'default')
-                    attributes = [' with {default=' num2str(input.default) '}'];
-                else
-                    attributes = '';
+                attributes = ' with {';
+                if isfinite(input.default)
+                    attributes = [attributes 'default=' num2str(input.default) ', '];
                 end
+                if isa(input.iterator, 'Iterator')
+                    attributes = [attributes 'iter=' toStr(input.iterator.id) ', '];
+                end 
+                attributes = [attributes 'exhausted=' input.exhausted '}'];
                 str = [str '   input ' inputs{i} attributes '\n'];
             end
             str = [str '\n'];
