@@ -104,8 +104,16 @@ function [options] = simexOptions (dsl, varargin)
               elseif instances ~= max([rows cols])
                   simexError('valueError', 'All cell array INPUT fields must have the same length.');
               end
-          elseif ~isscalar(value)
-              simexError('valueError', ['INPUTS.' field ' must be a scalar or cell array.']);
+          elseif ~isnumeric(value)
+              simexError('valueError', ['INPUTS.' field ' must be a numeric or cell array.']);
+          else
+              [rows cols] = size(value);
+              if rows ~= 1
+                  % TODO: update this for grouped inputs
+                  simexError('valueError', ['INPUTS.' field ' can include only one quantity'])
+              end
+%          elseif ~isscalar(value)
+%              simexError('valueError', ['INPUTS.' field ' must be a scalar or cell array.']);
           end
       end
   else

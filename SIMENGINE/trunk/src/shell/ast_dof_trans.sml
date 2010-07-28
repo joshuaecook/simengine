@@ -104,7 +104,7 @@ and astexp_to_Iterator (POS (APPLY {func=(SYMBOL itersym), args=(TUPLE [VECTOR [
 and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}= 
     ExpBuild.var_with_iter (sym, astexp_to_Iterator arg)
   | apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
-    (case (Symbol.name sym) of
+    ((case (Symbol.name sym) of
 	"operator_add" => builtin (Fun.ADD, args)
       | "operator_subtract" => builtin (Fun.SUB, args)
       | "operator_multiply" => builtin (Fun.MUL, args)
@@ -152,7 +152,9 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
       | "sqrt" => builtin (Fun.SQRT, args)
       | "operator_deriv" => builtin (Fun.DERIV, args)
       | _ => error_exp ("APPLY:" ^ (Symbol.name sym) ^ " with args = " ^ (Util.list2str ExpPrinter.exp2str (map astexp_to_Exp args))))
-  | apply_to_Exp _ = error_exp "APPLY"
+     handle e => DynException.checkpoint ("AstDOFTrans.apply_to_Exp ["^(Symbol.name sym)^"]") e)
+  | apply_to_Exp {func=(SYMBOL sym),...} = error_exp ("APPLY ["^(Symbol.name sym)^"]")
+  | apply_to_Exp {func,...} = error_exp ("APPLY")
 
 and send_to_Exp {message, object=(SYMBOL sym)} = ExpBuild.var (Symbol.name sym ^ "." ^ (Symbol.name message))
   | send_to_Exp {message, object} = ExpBuild.var ("SEND:" ^ (Symbol.name message))
@@ -410,9 +412,31 @@ local
 				   SOME exp => SOME (astexp_to_Exp exp)
 				 | NONE => NONE)
 			    | NONE => NONE
-	    val behaviour = DOF.Input.HOLD (* TODO: Update when model gen supports streaming inputs *)
+	    val behaviour = case settings of
+				SOME settings => 
+				(case lookupTable (settings, Symbol.symbol "exhausted") of
+				     SOME (SYMBOL sym) => (case Symbol.name sym of
+							       "hold" => DOF.Input.HOLD
+							     | "repeat" => DOF.Input.CYCLE
+							     | "stop" => DOF.Input.HALT
+							     | s => (error ("unexpected exhausted behavior '"^s^"' for input " ^ (Symbol.name name)); 
+								     DOF.Input.HOLD))
+				   | SOME _ => (error ("unexpected non symbol parameter for exhausted property for input " ^ (Symbol.name name));
+						DOF.Input.HOLD)
+				   | NONE => DOF.Input.HOLD)
+			      | NONE => DOF.Input.HOLD
+	    val iterator = case settings of
+			       SOME settings => 
+			       (case lookupTable (settings, Symbol.symbol "iter") of
+				    SOME (SYMBOL sym) => SOME (sym, Iterator.RELATIVE 0)
+				  | SOME _ => (error ("unexpected non symbol parameter for iter property for input " ^ (Symbol.name name));
+					       NONE)
+				  | NONE => NONE)
+			     | NONE => NONE
 	in
-	    DOF.Input.make {name=ExpProcess.exp2term (ExpBuild.svar name), 
+	    DOF.Input.make {name=case iterator of
+				     SOME iter => ExpProcess.exp2term (ExpBuild.var_with_iter (name, iter))
+				   | NONE => ExpProcess.exp2term (ExpBuild.svar name),
 			    default=default, 
 			    behaviour=behaviour}
 	end
