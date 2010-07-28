@@ -2211,7 +2211,7 @@ fun optimizeClass (class: DOF.class) =
 fun wrap print f =
     fn x =>
        let val y = f x
-       in y before print y
+       in y (*before print y*)
        end
 
        
@@ -2332,7 +2332,7 @@ and outputExpressions caller equation =
 		(fn (k,v,acc) =>
 		    let 
 			val name = prefixSymbol ((Symbol.name instanceName) ^ "#_") (ExpBuild.svar k)
-			val _ = Util.log ("output input " ^ (e2s (ExpBuild.equals (name, v))))
+			(*val _ = Util.log ("output input " ^ (e2s (ExpBuild.equals (name, v))))*)
 		    in
 			(ExpBuild.equals (name, v)) :: acc
 		    end) 
@@ -2356,7 +2356,7 @@ and outputExpressions caller equation =
 		    case condition'
                       of Exp.TERM (Exp.BOOL true) => value'
                        | _ => ExpBuild.cond (condition', value', name')
-		val _ = Util.log ("output output " ^ (e2s (ExpBuild.equals (name', value'))))
+		(*val _ = Util.log ("output output " ^ (e2s (ExpBuild.equals (name', value'))))*)
 	    in
 		ExpBuild.equals (name', value')
 	    end
@@ -2428,14 +2428,14 @@ and instanceExpressions caller equation =
 		    let 
 			val name = prefixSymbol ((Symbol.name instanceName) ^ "#_") (ExpBuild.svar k)
 			val syms = ExpProcess.exp2termsymbols v
-			val _ = Util.log ("instance input " ^ (e2s (ExpBuild.equals (name, v))))
+			(*val _ = Util.log ("instance input " ^ (e2s (ExpBuild.equals (name, v))))*)
 		    in
 			(ExpBuild.equals (name, v)) :: acc
 		    end) 
 		nil inpassoc
 
 	val exps' = map (Match.applyRewriteExp renameWithInstanceNamePrefix) exps'
-	val _ = Util.log ("renamed expressions\n\t" ^ (String.concatWith "\n\t" (map e2s exps')))
+	(*val _ = Util.log ("renamed expressions\n\t" ^ (String.concatWith "\n\t" (map e2s exps')))*)
 
 	fun makeOutputExpression output =
 	    let open DOF
@@ -2455,7 +2455,7 @@ and instanceExpressions caller equation =
 		    case condition'
                       of Exp.TERM (Exp.BOOL true) => value'
                        | _ => ExpBuild.cond (condition', value', name')
-		val _ = Util.log ("instance output " ^ (e2s (ExpBuild.equals (name', output'))))
+		(*val _ = Util.log ("instance output " ^ (e2s (ExpBuild.equals (name', output'))))*)
 	    in
 		ExpBuild.equals (name', output')
 	    end
