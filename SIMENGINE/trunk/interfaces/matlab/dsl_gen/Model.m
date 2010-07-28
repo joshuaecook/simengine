@@ -335,6 +335,8 @@ classdef Model < handle
                     else
                         error('Simatra:Model:input', 'Default iterator is continuous, so must specify a discrete iterator');
                     end
+                elseif ~ischar(s.exhausted)
+                    s.exhausted = 'hold';
                 end
                 m.Inputs(id) = s;
             end
