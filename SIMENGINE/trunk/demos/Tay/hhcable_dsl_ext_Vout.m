@@ -4,7 +4,7 @@
 % Arguments:
 %   N - the number of compartments
 %
-function m = hhcable_dsl(N)
+function m = hhcable_dsl_ext_Vout(N)
 
 % First define the global iterators
 dt = 0.01;
@@ -19,8 +19,11 @@ m = Model('hhcable_dsl');
 
 % Need some inputs
 Im = m.input('Im', 300);
-d = m.input('d', 100);
-Ie = m.input('Ie', 0);
+d_default = 100;
+d = m.input('d', d_default);
+Ie_default = 0;
+Ie = m.input('Ie', Ie_default);
+
 
 % Just setting some coefficients
 dx = 0.001; %step length along cable in cm (10 um); 
@@ -31,12 +34,21 @@ r = a/2*R;%20e-8; %a/2*R;
 
 sigma=0.00179; %This is the resistance of the medium S/cm
 
-x = ((0:N-1)-N/2)*dx;
+% x = ((0:N-1)-N/2)*dx;
+% Vout = cell(1,N);
+% for i=1:N
+%     % soon, this will accept a vectorized notation, but in the meantime,
+%     % vectors are handled by cell arrays
+%     Vout{i} = Ie./(4*pi*sigma*sqrt(d^2+x(i).^2));
+% end
+
+% Add the Vout inputs
 Vout = cell(1,N);
+x = ((0:N-1)-N/2)*dx;
 for i=1:N
-    % soon, this will accept a vectorized notation, but in the meantime,
-    % vectors are handled by cell arrays
-    Vout{i} = Ie./(4*pi*sigma*sqrt(d^2+x(i).^2));
+    name = ['Vout' num2str(i)];
+    default = Ie_default./(4*pi*sigma*sqrt(d_default^2+x(i).^2));
+    Vout{i} = m.input(name, default);
 end
 
 % Instantiate each of the compartments
@@ -60,7 +72,16 @@ else
 end
 
 % Output all the voltages
-m.output('Vm1', compartments{1}.Vm);
+Vms = List.map (@(c)(c.Vm), compartments);
+m.output('Vms', Vms);
+
+% Output all the spikes
+spikes = cell(1,N);
+for i=1:N
+    Vm = m.equ(compartments{i}.Vm);
+    spikes{i} = m.equ(Vm(t_imp-2) < Vm(t_imp-1) & Vm(t_imp-1) >= Vm(t_imp));
+end
+m.output('spikes', spikes, 'when', any(spikes{:}));
 
 end
 
