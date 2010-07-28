@@ -29,6 +29,10 @@ classdef IteratorReference
             end
         end
         
+        function index = subsindex(iterref)
+            index = 0;
+        end
+        
         function disp(iterref)
             disp(toStr(iterref))
         end
