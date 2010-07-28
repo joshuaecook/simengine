@@ -95,10 +95,10 @@ end
 structure ClassProcess : CLASSPROCESS = 
 struct
 
-fun log str = if DynamoOptions.isFlagSet "logdof" then 
-		  Util.log str
-	      else
-		  Logger.log_notice (Printer.$ str)
+fun logdof () =
+    if DynamoOptions.isFlagSet "logdof" then
+     fn f => Util.log (f ())
+    else fn _ => ()
 
 val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
@@ -319,24 +319,33 @@ fun flattenExpressionThroughInstances class exp =
 	end
     else
 	let 
+	    val log = logdof ()
+	    val _ = log (fn () => "flattenExpressionThroughInstances " ^ (e2s exp))
 	    val symbols = ExpProcess.exp2symbols exp
-	    (*val _ = Util.log (" - Symbols: " ^ (Util.list2str Symbol.name symbols))*)
+	    val _ = log (fn () => " - Symbols: " ^ (Util.list2str Symbol.name symbols))
 	    val equations = map (flattenEquationThroughInstances class) symbols
-	    (*val _ = Util.log (" - Equations: " ^ (Util.list2str e2s equations))*)
+	    val _ = log (fn () => " - Equations: " ^ (Util.list2str e2s equations))
 	    val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
+	    val _ = log (fn () => " - Intermediates: " ^ (Util.list2str e2s intermediate_equs))
+	    val _ = log (fn () => " - Ignored: " ^ (Util.list2str e2s other_equs))
 	    val rules = map ExpProcess.equation2rewrite other_equs
 	    val intermediate_rules = map ExpProcess.intermediateEquation2rewrite intermediate_equs
 	    val exp' = Match.applyRewritesExp (rules @ intermediate_rules) exp
-	(*val _ = Util.log (" - Transform '"^(e2s exp)^"' to '"^(e2s exp')^"'")*)
+
+	    (*val _ = log (fn () => " - Rules "^(e2s (Exp.CONTAINER (Exp.EXPLIST rules)))^" to "^(e2s (Exp.CONTAINER (Exp.EXPLIST intermediate_rules))))*)
+	    val _ = log (fn () => " - Transform '"^(e2s exp)^"' to '"^(e2s exp')^"'")
 	in
 	    exp'
 	end
 	handle e => DynException.checkpoint ("ClassProcess.flattenExpressionThroughInstances ["^(e2s exp)^"]") e
 
 and flattenEquationThroughInstances class sym =
-    let val {name=classname, inputs, ...} = class
-	(*val _ = Util.log ("In class '"^(Symbol.name classname)^"', searching for sym '"^(Symbol.name sym)^"'")*)
-    in if isSymInput class sym then
+    let
+	val log = logdof ()
+	val {name=classname, inputs, ...} = class
+	val _ = log (fn () => " - In class '"^(Symbol.name classname)^"', searching for sym '"^(Symbol.name sym)^"'")
+    in
+	if isSymInput class sym then
 	   ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
 			    Exp.TERM (DOF.Input.name (valOf (List.find (inputIsNamed sym) (! inputs)))))
        else if isSymIterator sym then
@@ -453,11 +462,8 @@ fun flattenEq (class:DOF.class) sym =
 	case findMatchingEq class sym of
 	    SOME exp => 
 	    let
-		val log = if DynamoOptions.isFlagSet "logdof" then 
-			      Util.log
-			  else
-			   fn _ => ()
-		val _ = log ("Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'")
+		val log = logdof ()
+		val _ = log (fn () => "Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'")
 
 		val symbols = ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
 		val local_symbols = List.filter (not o (isTermAState class)) (List.filter Term.isLocal symbols)
@@ -492,10 +498,7 @@ fun flattenEq (class:DOF.class) sym =
 (*this will take an exp, like 'a+b', and search for a, and search for b, substituting both variables back into the expression *)
 fun flattenExp (class:DOF.class) exp =
     let
-	val log = if DynamoOptions.isFlagSet "logdof" then 
-		      Util.log
-		  else
-		      fn _ => ()
+	val log = logdof ()
 	val symbols = List.filter (fn sym => not ((isSymInput class sym) orelse (isSymIterator sym))) (ExpProcess.exp2symbols exp)
 	val equations = map (flattenEq class) symbols
 	val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
@@ -1857,6 +1860,9 @@ fun pruneInputsFromOutput class output =
 		in
 		    List.exists (Match.exists pattern) exps
 		end) inputSymbols
+	val log = logdof ()
+	val _ = log (fn () => "pruneInputsFromOutput: " ^ (String.concatWith "," (map Symbol.name inputSymbols)) ^ ": " ^ (String.concatWith "," (map Symbol.name inputSymbols')))
+	val _ = log (fn () => "expressions: " ^ (e2s (Exp.CONTAINER (Exp.EXPLIST exps))))
     in
 	inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputSymbols'
     end
@@ -1935,8 +1941,7 @@ fun pruneUnusedInputs (class: DOF.class) =
     in
 	exps := map 
 		    (fn exp => if ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp then
-				   (log ("Removing unused inputs of " ^ (e2s exp))
-				  ; remove_unused_inputs exp)
+				  remove_unused_inputs exp
 			       else
 				   exp) 
 		    (! exps)
@@ -1955,10 +1960,7 @@ fun pruneUnusedInputs (class: DOF.class) =
  *)
 fun pruneClass (iter_option, top_class) (class: DOF.class) = 
     let
-	val log = if DynamoOptions.isFlagSet "logdof" then 
-		      Util.log
-		  else
-		      fn _ => ()
+	val log = logdof ()
 
 	(* pull out useful quantities *)
 	val name = class2orig_name class
@@ -2101,8 +2103,7 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 	    end				   
 	val exps'' = map
 			 (fn(exp)=>if ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp then
-				       (log ("Removing unused outputs of " ^ (e2s exp))
-				      ; add_dontcares_to_lhs_instance exp)
+				      add_dontcares_to_lhs_instance exp
 				   else
 				       exp)
 			 exps'
@@ -2291,6 +2292,7 @@ and expandInstances class =
 (* Nb (look up the latin: thats "nota bene," or literally, "note well.") depends on a CurrentModel context. *)
 and outputExpressions caller equation =
     let 
+	val log = logdof ()
 	val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
 	val outname = 
 	    case equation
@@ -2332,7 +2334,7 @@ and outputExpressions caller equation =
 		(fn (k,v,acc) =>
 		    let 
 			val name = prefixSymbol ((Symbol.name instanceName) ^ "#_") (ExpBuild.svar k)
-			(*val _ = Util.log ("output input " ^ (e2s (ExpBuild.equals (name, v))))*)
+			val _ = log (fn () => "output input " ^ (e2s (ExpBuild.equals (name, v))))
 		    in
 			(ExpBuild.equals (name, v)) :: acc
 		    end) 
@@ -2356,7 +2358,7 @@ and outputExpressions caller equation =
 		    case condition'
                       of Exp.TERM (Exp.BOOL true) => value'
                        | _ => ExpBuild.cond (condition', value', name')
-		(*val _ = Util.log ("output output " ^ (e2s (ExpBuild.equals (name', value'))))*)
+		val _ = log (fn () => "output output " ^ (e2s (ExpBuild.equals (name', value'))))
 	    in
 		ExpBuild.equals (name', value')
 	    end
@@ -2382,7 +2384,9 @@ and outputExpressions caller equation =
     end
     
 and instanceExpressions caller equation =
-    let val {instname, classname, inpargs, ...} = ExpProcess.deconstructInst equation
+    let 
+	val log = logdof ()
+	val {instname, classname, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
 	val instanceName = ExpProcess.instOrigInstName equation
 	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
@@ -2428,14 +2432,14 @@ and instanceExpressions caller equation =
 		    let 
 			val name = prefixSymbol ((Symbol.name instanceName) ^ "#_") (ExpBuild.svar k)
 			val syms = ExpProcess.exp2termsymbols v
-			(*val _ = Util.log ("instance input " ^ (e2s (ExpBuild.equals (name, v))))*)
+			val _ = log (fn () => "instance input " ^ (e2s (ExpBuild.equals (name, v))))
 		    in
 			(ExpBuild.equals (name, v)) :: acc
 		    end) 
 		nil inpassoc
 
 	val exps' = map (Match.applyRewriteExp renameWithInstanceNamePrefix) exps'
-	(*val _ = Util.log ("renamed expressions\n\t" ^ (String.concatWith "\n\t" (map e2s exps')))*)
+	val _ = log (fn () => "renamed expressions\n\t" ^ (String.concatWith "\n\t" (map e2s exps')))
 
 	fun makeOutputExpression output =
 	    let open DOF
@@ -2455,7 +2459,7 @@ and instanceExpressions caller equation =
 		    case condition'
                       of Exp.TERM (Exp.BOOL true) => value'
                        | _ => ExpBuild.cond (condition', value', name')
-		(*val _ = Util.log ("instance output " ^ (e2s (ExpBuild.equals (name', output'))))*)
+		val _ = log (fn () => "instance output " ^ (e2s (ExpBuild.equals (name', output'))))
 	    in
 		ExpBuild.equals (name', output')
 	    end
