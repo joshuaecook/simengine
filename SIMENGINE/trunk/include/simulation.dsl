@@ -286,6 +286,15 @@ namespace Simulation
   overload function abs(arg: ModelOperation) = ModelOperation.new ("abs", 1, abs, 0, [arg])
   overload function abs(arg: SimQuantity) = ModelOperation.new ("abs", 1, abs, 0, [arg])
 
+  function floor(arg: ModelOperation) = ModelOperation.new ("floor", 1, floor, 0, [arg])
+  overload function floor(arg: SimQuantity) = ModelOperation.new ("floor", 1, floor, 0, [arg])
+
+  function ceil(arg: ModelOperation) = ModelOperation.new ("ceil", 1, ceil, 0, [arg])
+  overload function ceil(arg: SimQuantity) = ModelOperation.new ("ceil", 1, ceil, 0, [arg])
+
+  function round(arg: ModelOperation) = ModelOperation.new ("round", 1, round, 0, [arg])
+  overload function round(arg: SimQuantity) = ModelOperation.new ("round", 1, round, 0, [arg])
+
   overload function power(arg1: ModelOperation, arg2) = ModelOperation.new ("pow", 2, power, 0, [arg1, arg2])
   overload function power(arg1, arg2: ModelOperation) = ModelOperation.new ("pow", 2, power, 0, [arg1, arg2])
   overload function power(arg1: SimQuantity, arg2) = ModelOperation.new ("pow", 2, power, 0, [arg1, arg2])
