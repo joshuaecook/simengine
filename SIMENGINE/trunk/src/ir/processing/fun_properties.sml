@@ -382,6 +382,27 @@ fun op2props optype =
 		 mathematica=("Conjugate",PREFIX),
 		 expcost=basicOpCost,
 		 codomain= vectorizedCodomain}
+      | FLOOR => unaryfun2props ("floor", UNARY {bool=NONE,
+						 int=SOME (fn(i)=>int i),
+						 real=SOME (real o Real.realFloor),
+						 complex=SOME (fn(r,i)=>complex (ExpBuild.floor (t2e r),
+										 ExpBuild.floor (t2e i))),
+						 rational=SOME (fn(n,d)=> (real o Real.realFloor) ((i2r n)/(i2r d))),
+						 collection=NONE}, SOME basicOpCost)
+      | CEILING => unaryfun2props ("ceil", UNARY {bool=NONE,
+						 int=SOME (fn(i)=>int i),
+						 real=SOME (real o Real.realCeil),
+						 complex=SOME (fn(r,i)=>complex (ExpBuild.ceiling (t2e r),
+										 ExpBuild.ceiling (t2e i))),
+						 rational=SOME (fn(n,d)=> (real o Real.realCeil) ((i2r n)/(i2r d))),
+						 collection=NONE}, SOME basicOpCost)
+      | ROUND => unaryfun2props ("round", UNARY {bool=NONE,
+						 int=SOME (fn(i)=>int i),
+						 real=SOME (real o Real.realRound),
+						 complex=SOME (fn(r,i)=>complex (ExpBuild.round (t2e r),
+										 ExpBuild.round (t2e i))),
+						 rational=SOME (fn(n,d)=> (real o Real.realRound) ((i2r n)/(i2r d))),
+						 collection=NONE}, SOME basicOpCost)
       | SQRT => unaryfun2props ("sqrt", 
 				UNARY {bool=NONE,
 				       int=NONE,

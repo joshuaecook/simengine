@@ -114,6 +114,18 @@ classdef Exp
             er = oper('%%', {e1, e2});
         end
         
+        function er = floor(e1)
+            er = oper('floor', {e1});
+        end
+        
+        function er = ceil(e1)
+            er = oper('ceil', {e1});
+        end
+        
+        function er = round(e1)
+            er = oper('round', {e1});
+        end
+        
         % Relational
         function er = gt(e1, e2)
             er = oper('>', {e1, e2});

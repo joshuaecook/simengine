@@ -22,6 +22,8 @@ datatype operation =
 	 NOT | AND | OR | 
 	 (* comparison operations *)
 	 GT | LT | GE | LE | EQ | NEQ |
+	 (* rounding operations *)
+	 FLOOR | CEILING | ROUND | 
 	 (* reduction operations *)
 	 RADD | RMUL | RAND | ROR | 
 	 (* special purpose operations *)
@@ -46,6 +48,8 @@ val op_list =
      NOT, AND, OR, 
      (* comparison operations *)
      GT, LT, GE, LE, EQ, NEQ,
+     (* rounding operations *)
+     FLOOR, CEILING, ROUND,
      (* reduction operations *)
      RADD, RMUL, RAND, ROR, 
      (* special purpose operations *)
