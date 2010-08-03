@@ -202,7 +202,12 @@ end
       // This one should work for ubuntu
       gcc_version = parseCmdForVersion("[gG][cC]{2}.*([0-9]+.[0-9]+.[0-9]+)\s*\n", gcc_path, ["--version"])
       if gcc_version == "" then
-	gcc_version = "none"
+	// Let's do one more that's a lot more permissive, hopefully, we'll get something
+	gcc_version = parseCmdForVersion("[gG][cC]{2}.*([0-9]\.[0-9]\.[0-9]).*\n", gcc_path, ["--version"])
+	if gcc_version == "" then
+	  // not sure what else to try
+	  gcc_version = "none"
+        end
       end
     end
 
