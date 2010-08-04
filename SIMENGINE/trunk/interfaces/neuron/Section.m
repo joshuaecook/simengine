@@ -212,13 +212,23 @@ classdef Section < Model
             end
             
             % define surface areas
-            SAall_square_microns = m.L*m.diam*pi; % um^2 (1e-6 ^ 2 = 1e-12)
-                                                  % cm^2 (1e-2 ^ 2 = 1e-4)
+            if m.L == m.diam
+                % use a sphere if the length and diameter were the same
+                SAall_square_microns = 4*pi*(m.diam/2)^2;
+            else
+                SAall_square_microns = m.L*m.diam*pi; % um^2 (1e-6 ^ 2 = 1e-12)
+                                                      % cm^2 (1e-2 ^ 2 = 1e-4)
+            end
             SAall = SAall_square_microns * 1e-8;  % 1e-12 / 1e-4 = 1e-8
-            SAseg = SAall/m.nseg;
+            SAseg = SAall/m.nseg; % cm^2
             
             % Ra - ohm*cm or ohm*cm^2/cm
-            axial_resistance = (m.Ra)*(m.L/m.nseg)/(pi*(m.diam/2)^2);
+            % m.L: um
+            % m.diam: um
+            % -> result: axial_resistance should be in M ohms
+            resistance_scaling = 1e-6;
+            length_scaling = 1e3;
+            axial_resistance = (m.Ra)*resistance_scaling*length_scaling*(m.L/m.nseg)/(pi*(m.diam/2)^2);
 
             % define the currents
             m.currents = cell(1,m.nseg);
@@ -265,9 +275,9 @@ classdef Section < Model
                     m.diffequ(n_gate, (n_inf-n_gate)/n_tau);
                     
                     % compute the currents
-                    INa = m.equ(m.gnabar_hh * unit_factor * SAseg * m_gate^3 * h_gate * (v - m.ena));
-                    IK = m.equ(m.gkbar_hh * unit_factor * SAseg * n_gate^4 * (v - m.ek));
-                    Ileak = m.equ(m.gl_hh * unit_factor * SAseg * (v - m.el_hh));
+                    INa = m.equ(m.gnabar_hh * unit_factor * SAseg * m_gate^3 * h_gate * (v - m.ena)); % nA
+                    IK = m.equ(m.gkbar_hh * unit_factor * SAseg * n_gate^4 * (v - m.ek)); % nA
+                    Ileak = m.equ(m.gl_hh * unit_factor * SAseg * (v - m.el_hh)); % nA
                     
                     % sum them up
                     m.currents{i} = m.currents{i} - (INa + IK + Ileak);
@@ -313,13 +323,18 @@ classdef Section < Model
                     pos_index = pos2ind(m.nseg,c.pos);
                     % Ra - ohm*m or ohm*m^2/m
                     p = c.othersection;
-                    pre_axial_resistance = (p.Ra)*(p.L/p.nseg)/(pi*(p.diam/2)^2);
-                    current = (Vpre-m.voltages{pos_index})/pre_axial_resistance;
+                    pre_axial_resistance = (p.Ra)*resistance_scaling*length_scaling*(p.L/p.nseg)/(pi*(p.diam/2)^2);
+                    average_resistance = (pre_axial_resistance + axial_resistance)/2;
+                    current = (Vpre-m.voltages{pos_index})/average_resistance;
                     m.currents{pos_index} = m.currents{pos_index} + current;
                 end
                 
                 % create the differential equation for the segment
-                m.diffequ(v,(1/(m.cm*SAseg))*m.currents{i});
+                % m.currents{i}: nA
+                % m.cm: uF/cm^2
+                % v: mV
+                % dt: mV
+                m.diffequ(v,(1/(m.cm*1e3*SAseg))*m.currents{i});
             end
             
             % output all the voltage values
