@@ -57,7 +57,7 @@ typedef struct {
  * Assumes length is a power of 2. 
  */
 __DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int length) {
-  int i,stride;
+  int stride;
   int participate;
 
   for (stride=2; stride<=length; stride*=2) {
@@ -69,17 +69,22 @@ __DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int l
 }
 
 /* Writes an output datum to an indexed buffer. 
- * Operates on blocksize model instances in parallel.
+ * Operates on a block of model instances in parallel.
+ * quantities is an array of output data of length (outputsize * blocksize)
+ * participate is an array of length blocksize indicating which threads are active
+ * index is an array of length blocksize used for scratch space
  */
-__DEVICE__ void buffer_indexed_ouput (unsigned int modelid, unsigned int outputid, size_t outputsize, CDATAFORMAT *quantities, indexed_output_buffer *pos, unsigned int threadid, unsigned int blocksize, int *participate, int *index) {
+__SHARED__ int *buffer_indexed_output_scratch;
+__DEVICE__ void buffer_indexed_output (unsigned int modelid, unsigned int outputid, unsigned int outputsize, CDATAFORMAT *quantities, indexed_output_buffer *pos, unsigned int threadid, unsigned int blocksize, int participate) {
   int i, offset;
+  int *index = buffer_indexed_output_scratch;
   CDATAFORMAT *buffer;
   indexed_sort_data *sort;
 
-  index[threadid] = !!participate[threadid];
+  index[threadid] = !!participate; // ensures index is 1 or 0
   parallel_scan(index,threadid,blocksize);
 
-  if (participate[threadid]) {
+  if (participate) {
     offset = pos->size + index[threadid] - 1;
 
     buffer = pos->buffer;
