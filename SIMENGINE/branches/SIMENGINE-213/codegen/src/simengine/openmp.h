@@ -8,5 +8,6 @@
 #define __DEVICE__
 #define __HOST__
 #define __GLOBAL__
+#define __SHARED__
 
 static const char target[] = "parallelcpu";
