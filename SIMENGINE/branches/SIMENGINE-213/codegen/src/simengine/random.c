@@ -29,7 +29,7 @@ typedef unsigned long long r250_invalid;
 const r250_invalid R250_INVALID = 0xFFFFFFFFFFFFFFFFULL;
 #endif
 
-const unsigned char R250_INVALID_BYTE = 0xFF;
+const unsigned char R250_INVALID_BYTE = (unsigned char)0xFF;
 
 #define R250_IS_VALID(ADDR) (R250_INVALID ^ *((r250_invalid *)(ADDR)))
 #define R250_INVALIDATE(ADDR) (*((r250_invalid *)(ADDR)) = R250_INVALID)

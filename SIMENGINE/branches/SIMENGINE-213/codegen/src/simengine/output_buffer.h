@@ -41,32 +41,30 @@ typedef struct {
 } indexed_sort_data;
 
 /* An indexed element array.
+ * We allocate one of these structures for each parallel block.
+ * 
  * The buffer contains packed output data, and the
  * sort array comprises a set of markers identifying
  * the position of each datum.
+ * scratch is a device memory pointer to a temp array of length blocksize
  */
 typedef struct {
   size_t size;
+  int *scratch;
   CDATAFORMAT buffer[BUFFER_LEN];
   indexed_sort_data sort[2*BUFFER_LEN];
 } indexed_output_buffer;
 
-
+__DEVICE__ void init_output_buffer(output_buffer *ob, unsigned int modelid);
 
 /* Destructively computes the prefix sum of an integer vector of size length.
  * Assumes length is a power of 2. 
  */
-__DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int length) {
-  int stride;
-  int participate;
+__DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int length);
 
-  for (stride=2; stride<=length; stride*=2) {
-    participate = !((threadid+1) & (stride-1));
-    if (participate) {
-      vector[threadid] += vector[threadid-(stride/2)];
-    }
-  }
-}
+indexed_output_buffer *alloc_indexed_output_buffer (unsigned int gridsize);
+__DEVICE__ void init_indexed_output_buffer (unsigned int gridsize);
+void free_indexed_output_buffer (indexed_output_buffer *buffer);
 
 /* Writes an output datum to an indexed buffer. 
  * Operates on a block of model instances in parallel.
@@ -74,31 +72,4 @@ __DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int l
  * participate is an array of length blocksize indicating which threads are active
  * index is an array of length blocksize used for scratch space
  */
-__SHARED__ int *buffer_indexed_output_scratch;
-__DEVICE__ void buffer_indexed_output (unsigned int modelid, unsigned int outputid, unsigned int outputsize, CDATAFORMAT *quantities, indexed_output_buffer *pos, unsigned int threadid, unsigned int blocksize, int participate) {
-  int i, offset;
-  int *index = buffer_indexed_output_scratch;
-  CDATAFORMAT *buffer;
-  indexed_sort_data *sort;
-
-  index[threadid] = !!participate; // ensures index is 1 or 0
-  parallel_scan(index,threadid,blocksize);
-
-  if (participate) {
-    offset = pos->size + index[threadid] - 1;
-
-    buffer = pos->buffer;
-    for (i=0; i<outputsize; i++) {
-      buffer[i+offset] = quantities[VEC_IDX(outputsize,i,blocksize,threadid)];
-    }
-
-    sort = pos->sort + offset;
-    sort->modelid = modelid;
-    sort->outputid = outputid;
-    sort->offset = offset;
-  }
-
-  if (0 == threadid) {
-    pos->size += index[blocksize-1] * outputsize;
-  }
-}
+__DEVICE__ void buffer_indexed_output (unsigned int modelid, unsigned int outputid, unsigned int outputsize, CDATAFORMAT *quantities, indexed_output_buffer *pos, unsigned int threadid, unsigned int blocksize, int participate);

@@ -9,6 +9,10 @@
 #define STRUCT_SIZE 1
 #define ARRAY_IDX modelid
 #define ARRAY_SIZE PARALLEL_MODELS
+#ifndef VECTOR_WIDTH
+#define VECTOR_WIDTH 32
+#endif
+#define VECTOR_IDX(threadid) (threadid & (VECTOR_WIDTH-1))
 #define __DEVICE__ __device__
 #define __HOST__ __host__
 #define __GLOBAL__ __global__
