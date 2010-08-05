@@ -1,7 +1,9 @@
 // GPU execution kernel that runs each model instance for a number of iterations or until the buffer fills
 __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int max_iterations){
   const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;
-  
+
+  indexed_output_buffer *ixob = gpu_ixob ? gpu_ixob + blockIdx.x : NULL;
+
   unsigned int i, num_iterations = 0;
   CDATAFORMAT min_time;
   unsigned int ready_outputs[NUM_ITERATORS];
@@ -23,7 +25,13 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int 
   }
 
   // Initialize output buffer to store output data
-  init_output_buffer(gpu_ob, modelid);
+  if (INDEXED_BUFFERS) {
+    init_indexed_output_buffer();
+  }
+  else {
+    init_output_buffer(gpu_ob, modelid);
+  }
+
 
   // Update occurs before the first iteration
   for(i=0;i<NUM_ITERATORS;i++){
@@ -99,7 +107,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int 
     for(i=0;i<NUM_ITERATORS;i++){
       if (ready_outputs[i]) {
 #if NUM_OUTPUTS > 0
-	buffer_outputs(&props[i], modelid);
+	buffer_outputs(&props[i], modelid, ixob, threadIdx.x, blockDim.x);
 #endif
 	ready_outputs[i] = 0;
       }
@@ -156,7 +164,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int 
 	in_process(&props[i], modelid);
 
 #if NUM_OUTPUTS > 0
-	buffer_outputs(&props[i], modelid);
+	buffer_outputs(&props[i], modelid, ixob, threadIdx.x, blockDim.x);
 #endif
       }
     }

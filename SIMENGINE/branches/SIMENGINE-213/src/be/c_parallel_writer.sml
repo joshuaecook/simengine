@@ -1232,6 +1232,89 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
     handle e => DynException.checkpoint "CParallelWriter.outputstatestructbyclass_code" e       
 end
 
+fun iodatastruct_code (shardedModel as (shards,sysprops)) =
+    Layout.align (map iodatastruct_shard_code shards)
+
+and iodatastruct_shard_code (shard as {classes,...}) =
+    Layout.align (map iodatastruct_class_code classes)
+
+and iodatastruct_class_code class =
+    let
+	val classname = ClassProcess.class2classname class
+    in
+	Layout.align
+	    [$("// Inputs for class " ^ (Symbol.name classname)),
+	     input_datastruct_class_code class,
+	     $("// Outputs for class " ^ (Symbol.name classname)),
+	     output_datastruct_class_code class]
+    end
+
+and input_datastruct_class_code class =
+    let
+	open Layout
+	val typename = ClassProcess.classTypeName class
+	val inputs_layout =
+	    align (ClassProcess.foldInputs
+		       (fn (it,lyt) => 
+			   $("CDATAFORMAT "^ (Term.sym2name (DOF.Input.name it)) ^ "[VECTOR_WIDTH];") :: 
+			   lyt)
+		       nil class)
+	val instances_layout =
+	    align (ClassProcess.foldInstanceEquations
+		       (fn (it,lyt) => 
+			   let 
+			       val {classname,instname,...} = ExpProcess.deconstructInst it
+			       val class = CurrentModel.classname2class classname
+			       val typename = ClassProcess.classTypeName class
+			   in
+			       $((Symbol.name typename) ^ "_output " ^ (Symbol.name instname) ^ ";") ::
+			       lyt
+			   end)
+		       nil class)
+    in
+	align
+	    [$("typedef struct {"),
+	     SUB [inputs_layout, instances_layout],
+	     $("} "^(Symbol.name typename)^"_input;")]
+    end
+
+and output_datastruct_class_code class =
+    let
+	open Layout
+	val typename = ClassProcess.classTypeName class
+	val outputs_layout =
+	    align (ClassProcess.foldOutputs
+		       (fn (it,lyt) => 
+			   let val outputsize = 1 + (List.length (DOF.Output.contents it));
+			   in
+			       $("CDATAFORMAT "^ (Term.sym2name (DOF.Output.name it)) ^ "[" ^ (i2s outputsize) ^ "*VECTOR_WIDTH];") :: 
+			       lyt
+			   end)
+		       nil class)
+	val instances_layout =
+	    align (ClassProcess.foldInstanceEquations
+		       (fn (it,lyt) => 
+			   let 
+			       val {classname,instname,...} = ExpProcess.deconstructInst it
+			       val class = CurrentModel.classname2class classname
+			       val typename = ClassProcess.classTypeName class
+			   in
+			       $((Symbol.name typename) ^ "_output " ^ (Symbol.name instname) ^ ";") ::
+			       lyt
+			   end)
+		       nil class)
+    in
+	if isEmpty outputs_layout andalso isEmpty instances_layout then
+	    Layout.empty
+	else
+	    align
+		[$("typedef struct {"),
+		 SUB [outputs_layout, instances_layout],
+		 $("} "^(Symbol.name typename)^"_output;")]
+    end
+    
+    
+
 (* Nb depends on a CurrentModel context. *)
 fun outputstatestruct_code (iterator: DOF.systemiterator, shard as {classes, ...}) =
     let 
@@ -2449,11 +2532,16 @@ fun logoutput_code shardedModel =
 
 	    in
 		[$("{ // Generating output for symbol " ^ (e2s (Exp.TERM name))),
-		 SUB[$("int cond = " ^ cond ^ ";"),
+		 SUB[assign($"cond", $(cond)),
 		     $("if (cond) {"),
-		     SUB([$("output_buffer_data *buf = (output_buffer_data *)ob->ptr[modelid];"),
-			  $("buf->outputid = " ^ (i2s index) ^ ";"),
-			  $("buf->num_quantities = " ^ (i2s num_quantities) ^ ";"),
+		     SUB([assign($"outputid", $(i2s index)),
+			  assign($"outputsize", $(i2s num_quantities)),
+			  $("if (ixob) { // Indexed output element buffering"),
+			  SUB([$("buffer_indexed_output(modelid,outputid,outputsize,quantities,ixob,threadid,blocksize,cond);")]),
+			  $("}"),
+			  $("output_buffer_data *buf = (output_buffer_data *)ob->ptr[modelid];"),
+			  $("buf->outputid = outputid;"),
+			  $("buf->num_quantities = outputsize;"),
 			  $("")] @
 			 (case (ExpProcess.exp2temporaliterator (Exp.TERM name)) of
 			      SOME (iter_sym, _) => 
@@ -2526,8 +2614,11 @@ fun logoutput_code shardedModel =
 	 $("// Output buffers must have at least this much free space to ensure that an output can be written."),
 	 $("static const ptrdiff_t max_output_size = MAX_OUTPUT_SIZE;"),
 	 $(""),
-	 $("__DEVICE__ void buffer_outputs(solver_props *props, unsigned int modelid) {"),
-	 SUB([$("#ifdef TARGET_GPU"),
+	 $("__DEVICE__ void buffer_outputs(solver_props *props, unsigned int modelid, indexed_output_buffer *ixob, unsigned int threadid, unsigned int blocksize) {"),
+	 SUB([$("int cond;"),
+	      $("unsigned int outputid, outputsize;"),
+	      $("CDATAFORMAT *quantities = NULL;"),
+	      $("#ifdef TARGET_GPU"),
 	      $("output_buffer *ob = gpu_ob;"),
 	      $("#else"),
 	      $("output_buffer *ob = &global_ob[global_ob_idx[modelid]];"),
@@ -2586,6 +2677,7 @@ fun buildC (orig_name, shardedModel) =
 	val init_solver_props_c = init_solver_props orig_name shardedModel (iteratorsWithSolvers, algebraicIterators)
 	val simengine_interface_progs = simengine_interface class_name shardedModel outputIterators
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
+	val iodatastruct_progs = iodatastruct_code shardedModel
 	val outputdatastruct_progs = outputdatastruct_code shardedModel
 	val outputstatestruct_progs = Util.flatmap 
 					  (fn(iter_sym) => 
@@ -2635,6 +2727,7 @@ fun buildC (orig_name, shardedModel) =
 	val defines_h = $(Codegen.getC "simengine/defines.h")
 	val seint_h = $(Codegen.getC "simengine/seint.h")
 	val output_buffer_h = $(Codegen.getC "simengine/output_buffer.h")
+	val output_buffer_c = $(Codegen.getC "simengine/output_buffer.c")
 	val init_output_buffer_c = $(Codegen.getC "simengine/init_output_buffer.c")
 	val inputs_c = $(Codegen.getC "simengine/inputs.c")
 	val log_outputs_c = $(Codegen.getC "simengine/log_outputs.c")
@@ -2677,7 +2770,8 @@ fun buildC (orig_name, shardedModel) =
 				       (* Could be conditional on use of randoms *)
 				       [random_c] @
 				       [seint_h] @
-				       [output_buffer_h] @
+				       [output_buffer_h,output_buffer_c] @
+				       [iodatastruct_code shardedModel] @
 				       outputdatastruct_progs @
 				       outputstatestruct_progs @
 				       systemstate_progs @
