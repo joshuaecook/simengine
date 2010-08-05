@@ -137,7 +137,7 @@ function [outputs y1 t1 interface] = simEngine (options)
   elseif(-1 == status)
     simEngineError('simCompile', ['User terminated simulation.'])
   elseif (0 ~= status)
-    simFailure('simCompile', ['simEngine internal error.']);
+    simFailure('simCompile', ['simEngine internal error (status=' num2str(status) ').']);
   end
 
   % Collect any outputs from simulation
