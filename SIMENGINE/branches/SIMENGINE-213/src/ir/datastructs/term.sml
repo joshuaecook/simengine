@@ -197,31 +197,32 @@ fun sym2c_str (s, props) =
 	val useOutputBuffer = Property.isOutputBuffer props
 
 	val prefix = 
-	    if useOutputBuffer then
-		"od[modelid]."
-	    else
-		let 
-		    val index = case ep_index
-				 of SOME Property.STRUCT_OF_ARRAYS => "[STRUCT_IDX]."
-				  | _ => "->"
-		in 
-		    case scope
-		     of Property.LOCAL => ""
-		      | Property.READSTATE v => "rd_" ^ (Symbol.name v) ^ index
-		      | Property.READSYSTEMSTATE v => "sys_rd->states_" ^ (Symbol.name v) ^ index
- 		      | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
-		      | Property.SYSTEMITERATOR => "sys_rd->"
-		      | Property.ITERATOR => ""
-		end
+	    let 
+		val index = case ep_index
+			     of SOME Property.STRUCT_OF_ARRAYS => "[STRUCT_IDX]."
+			      | _ => "->"
+	    in 
+		case scope
+		 of Property.LOCAL => ""
+		  | Property.READSTATE v => if useOutputBuffer then
+						"props->system_states->states_" ^ (Symbol.name v) ^ index
+					    else
+						"rd_" ^ (Symbol.name v) ^ index
+		  | Property.READSYSTEMSTATE v => "sys_rd->states_" ^ (Symbol.name v) ^ index
+ 		  | Property.WRITESTATE v => "wr_" ^ (Symbol.name v) ^ index
+		  | Property.SYSTEMITERATOR => "sys_rd->"
+		  | Property.ITERATOR => if useOutputBuffer then "props->system_states->"
+					 else ""
+	    end
 
-	val suffix = if useOutputBuffer then
-			 ""
-		     else
-			 case ep_index 
-			  of SOME _ => 
-			     (case scope of Property.SYSTEMITERATOR => "[modelid]"
-					  | _ => "[ARRAY_IDX]")
-			   | NONE => ""
+	val suffix = case ep_index 
+		      of SOME _ => 
+			 (case scope of Property.SYSTEMITERATOR => "[modelid]"
+				      | _ => "[ARRAY_IDX]")
+		       | NONE => 
+			 (case scope of Property.ITERATOR => if useOutputBuffer then "[modelid]"
+							     else ""
+				      | _ => "")
 
 	val (order, vars) = case Property.getDerivative props
 			      of SOME (order, iters) => (order, iters)

@@ -60,9 +60,7 @@ typedef struct {
   unsigned int inputsize;
   unsigned int statesize; // Number of states for this solver
   unsigned int algebraic_statesize; // Number of algebraic states dependent upon this solver's iterator
-  unsigned int outputsize;
   unsigned int num_models;
-  void *od;
   unsigned int modelid_offset;
   gpu_data gpu;
   int *running;

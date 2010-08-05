@@ -315,10 +315,8 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			[$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
 			 $("props[ITERATOR_"^itername^"].statesize = " ^ (Util.i2s num_states) ^ ";"),
 			 $("props[ITERATOR_"^itername^"].algebraic_statesize = " ^ (Util.i2s num_algebraic_states) ^ ";"),
-			 $("props[ITERATOR_"^itername^"].outputsize = outputsize;"),
 			 $("props[ITERATOR_"^itername^"].num_models = num_models;"),
 			 $("props[ITERATOR_"^itername^"].modelid_offset = modelid_offset;"),
-			 $("props[ITERATOR_"^itername^"].od = od;"),
 			 $("props[ITERATOR_"^itername^"].running = (int*)malloc(PARALLEL_MODELS*sizeof(int));"),
 			 $("")]@ 
 			(case itertype of
@@ -499,13 +497,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 		    $("void *system_states_int = NULL;"),
 		    $("void *system_states_next = NULL;")]) @
 	      [$("solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));"),
-	      $("#if NUM_OUTPUTS > 0"),
-	      $("output_data *od = (output_data*)malloc(PARALLEL_MODELS*sizeof(output_data));"),
-	      $("unsigned int outputsize = sizeof(output_data)/sizeof(CDATAFORMAT);"),
-	      $("#else"),
-	      $("void *od = NULL;"),
-	      $("unsigned int outputsize = 0;"),
-	      $("#endif"),
 	      $("unsigned int i, modelid;")] @
 	     (Util.flatmap init_props iterators_with_solvers) @
 	     [$(""),
@@ -576,7 +567,6 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	      $("if (props[iter].running) free(props[iter].running);"),
 	      $("if (props[iter].last_iteration) free(props[iter].last_iteration);")],
 	  $("}"),
-	  $("if (props[0].od) free(props[0].od);"),
 	  $("if (props[0].system_states) free(props[0].system_states);"),
 	  $("free(props);"),
 	 $("}"),
@@ -909,24 +899,6 @@ fun class2stateiterators (class: DOF.class) =
     end
 
 
-local
-    fun output2struct (term,sym) =
-	$("CDATAFORMAT " ^(Symbol.name sym)^";")
-in
-fun outputdatastruct_code shardedModel =
-    let
-	val outputs = ShardedModel.toOutputs shardedModel
-    in
-	[$(""),
-	 $("#if NUM_OUTPUTS > 0"),
-	 SUB[$("typedef struct {"),
-	     SUB(map output2struct (CWriterUtil.outputs2uniqueoutputsymbols outputs)),
-	     $("} output_data;")],
-	 $("#endif"),
-	 $("")]
-    end
-end
-
 fun solver_wrappers solvers =
     let
 	val methods_params = [("_init", "", ""),
@@ -986,11 +958,11 @@ fun update_wrapper shardedModel =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -1030,11 +1002,11 @@ fun preprocess_wrapper shardedModel preprocessIterators =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -1079,11 +1051,11 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 			       of DOF.CONTINUOUS _ =>
 				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->time[modelid], " ^
 					 statereads ^ statewrites ^ systemstatereads ^
-					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
+					 "NULL, 1, modelid);")]
 				| DOF.DISCRETE _ => 
 				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->count[modelid], " ^
 					 statereads ^ statewrites ^ systemstatereads ^
-					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
+					 "NULL, 1, modelid);")]
 				| _ => $("#error BOGUS ITERATOR"))]
 			end)
 	    end
@@ -1123,11 +1095,11 @@ fun postprocess_wrapper shardedModel postprocessIterators =
 			     of DOF.CONTINUOUS _ =>
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
 				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
+				       "NULL, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
 			end)
 	    end
@@ -1824,15 +1796,6 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)
 
-
-			    
-
-
-
-	val read_memory_progs = []
-
-	val read_states_progs = []
-
 	(* filter out all the unneeded expressions *)
 	val (initvalue_exps, rest_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))
 	val (valid_exps, rest_exps) = List.partition (fn(exp)=> ExpProcess.isIntermediateEq exp orelse
@@ -1920,11 +1883,11 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		 $("#endif"),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
-		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+		   " CDATAFORMAT *inputs, const unsigned int first_iteration, const unsigned int modelid) {")]
 	    else
 		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
-		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+		   " CDATAFORMAT *inputs, const unsigned int first_iteration, const unsigned int modelid) {")]
 	    )
 
 
@@ -1967,47 +1930,11 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    [$(""),
 	     $("// writing all intermediate, instance, and differential equation expressions")] @
 	    (Util.flatmap (fn(exp)=> (exp2prog (exp,is_top_class,iter))) valid_exps)
-	    
-	val state_progs = []
 
-        val output_progs = 
-            if is_top_class then
-                let fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
-                    val outputs_symbols = Util.uniquify_by_fun cmp (ClassProcess.outputsSymbols class)
-                    val (iterators_symbols, outputs_symbols) = List.partition Term.isIterator outputs_symbols
-                in
-                    if List.null outputs_symbols andalso List.null iterators_symbols then
-                        [$("// No outputs written")]
-                    else
-                        [$(""),
-                         $("// writing output variables"),
-			 $("// FIXME use the appropriate output function instead"),
-                         $("#if NUM_OUTPUTS > 0"),
-                         $("if (first_iteration) {"),
-                         SUB($("output_data *od = (output_data*)outputs;") 
-                             (* FIXME this is a temporary hack to catch reads of system iterator values. *)
-                             :: (map (fn t => $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^
-                                                (if (Symbol.symbol iter_name) = (Term.sym2curname t) then
-                                                     (CWriterUtil.exp2c_str (Exp.TERM t))
-                                                 else ("sys_rd->" ^ (Symbol.name (Term.sym2curname t)) ^ "[ARRAY_IDX]")) ^ ";"))
-                                     iterators_symbols) 
-                             @ (map (fn(t)=> $("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) t) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-                                    outputs_symbols)),
-                         $("}"),
-                         $("#endif")]
-                end
-	    else nil
-
-
-        val mapping_back_progs = []
     in
 	header_progs @
-	[SUB(read_states_progs @
-	     read_inputs_progs @
+	[SUB(read_inputs_progs @
 	     equ_progs @
-	     state_progs @
-	     output_progs @
-	     mapping_back_progs @
 	     [$(""),
 	      $("return 0;")]),
 	 $("}"),
@@ -2247,11 +2174,11 @@ fun flow_code shardedModel iter_sym =
 			if useMatrixForm then
 			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 			      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
-			      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+			      " CDATAFORMAT *inputs, const unsigned int first_iteration, const unsigned int modelid);")
 			else
 			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 			      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
-			      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+			      " CDATAFORMAT *inputs, const unsigned int first_iteration, const unsigned int modelid);")
 		    end
 
 		and class_output_prototype class output =
@@ -2350,7 +2277,7 @@ fun model_flows shardedModel =
 	       in
 		SUB[$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name iter_sym)) ^ ":"),
 		    $("return flow_" ^ (Symbol.name top_class) ^ 
-		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "NULL, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
+		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "NULL, first_iteration, modelid);")]
 	       end)
 	    end
 
@@ -2531,8 +2458,7 @@ fun logoutput_code shardedModel =
 	      $("output_buffer *ob = gpu_ob;"),
 	      $("#else"),
 	      $("output_buffer *ob = &global_ob[global_ob_idx[modelid]];"),
-	      $("#endif"),
-	      $("output_data *od = (output_data *)props->od;")] @
+	      $("#endif")] @
 	     output_exps),
 	 $("}"),
 	 $("")]
@@ -2586,7 +2512,6 @@ fun buildC (orig_name, shardedModel) =
 	val init_solver_props_c = init_solver_props orig_name shardedModel (iteratorsWithSolvers, algebraicIterators)
 	val simengine_interface_progs = simengine_interface class_name shardedModel outputIterators
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
-	val outputdatastruct_progs = outputdatastruct_code shardedModel
 	val outputstatestruct_progs = Util.flatmap 
 					  (fn(iter_sym) => 
 					     let val shard = valOf (ShardedModel.findShard (shardedModel, iter_sym))
@@ -2678,7 +2603,6 @@ fun buildC (orig_name, shardedModel) =
 				       [random_c] @
 				       [seint_h] @
 				       [output_buffer_h] @
-				       outputdatastruct_progs @
 				       outputstatestruct_progs @
 				       systemstate_progs @
 				       state_init_prototypes @
