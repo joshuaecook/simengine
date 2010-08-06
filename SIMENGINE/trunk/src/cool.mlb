@@ -131,6 +131,7 @@ ir/patterns/rules.sml
 
 ir/processing/exp_validate.sml
 ir/processing/exp_process.sml
+ir/datastructs/dof_outline.sml
 ir/processing/class_process.sml
 
 ir/syntax/matrix-syntax.sml

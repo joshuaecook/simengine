@@ -100,6 +100,12 @@ fun logdof () =
      fn f => Util.log (f ())
     else fn _ => ()
 
+fun log (f) =
+    if DynamoOptions.isFlagSet "logrewrites" then
+	Util.log (f())
+    else 
+	()
+
 val i2s = Util.i2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
@@ -292,12 +298,14 @@ fun symbol2exps (class: DOF.class) sym =
 	 (!(#exps class)))
     handle e => DynException.checkpoint "ClassProcess.symbol2exps" e
 
+(* map only those expressions that match the symbol on the LHS and that have the appropriate iterator *)
 fun symbolofiter2exps (class: DOF.class) iter_sym sym =
     (List.filter 
 	 (fn(exp)=> List.exists (fn(sym')=>sym=sym') (ExpProcess.getLHSSymbols exp)) 
 	 (List.filter (ExpProcess.doesEqHaveIterator iter_sym) (!(#exps class))))
     handle e => DynException.checkpoint "ClassProcess.symboliter2exps" e
 
+(* this one allows all expressions with a matching iterator or no iterator at all *)
 fun symbolofoptiter2exps (class: DOF.class) iter_sym sym =
     (List.filter 
 	 ((List.exists (equal sym)) o ExpProcess.getLHSSymbols)
@@ -319,7 +327,7 @@ fun flattenExpressionThroughInstances class exp =
 	end
     else
 	let 
-	    val log = logdof ()
+	    (*val log = logdof ()*)
 	    val _ = log (fn () => "flattenExpressionThroughInstances " ^ (e2s exp))
 	    val symbols = ExpProcess.exp2symbols exp
 	    val _ = log (fn () => " - Symbols: " ^ (Util.list2str Symbol.name symbols))
@@ -341,9 +349,9 @@ fun flattenExpressionThroughInstances class exp =
 
 and flattenEquationThroughInstances class sym =
     let
-	val log = logdof ()
+	(*val log = logdof ()*)
 	val {name=classname, inputs, ...} = class
-	val _ = log (fn () => " - In class '"^(Symbol.name classname)^"', searching for sym '"^(Symbol.name sym)^"'")
+	(*val _ = log (fn () => " - In class '"^(Symbol.name classname)^"', searching for sym '"^(Symbol.name sym)^"'")*)
     in
 	if isSymInput class sym then
 	   ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
@@ -462,7 +470,7 @@ fun flattenEq (class:DOF.class) sym =
 	case findMatchingEq class sym of
 	    SOME exp => 
 	    let
-		val log = logdof ()
+		(*val log = logdof ()*)
 		val _ = log (fn () => "Found matching eq for sym '"^(Symbol.name sym)^"' -> '"^(e2s exp)^"'")
 
 		val symbols = ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
@@ -498,7 +506,7 @@ fun flattenEq (class:DOF.class) sym =
 (*this will take an exp, like 'a+b', and search for a, and search for b, substituting both variables back into the expression *)
 fun flattenExp (class:DOF.class) exp =
     let
-	val log = logdof ()
+	(*val log = logdof ()*)
 	val symbols = List.filter (fn sym => not ((isSymInput class sym) orelse (isSymIterator sym))) (ExpProcess.exp2symbols exp)
 	val equations = map (flattenEq class) symbols
 	val (intermediate_equs, other_equs) = List.partition ExpProcess.isIntermediateEq equations
@@ -1860,7 +1868,7 @@ fun pruneInputsFromOutput class output =
 		in
 		    List.exists (Match.exists pattern) exps
 		end) inputSymbols
-	val log = logdof ()
+
 	val _ = log (fn () => "pruneInputsFromOutput: " ^ (String.concatWith "," (map Symbol.name inputSymbols)) ^ ": " ^ (String.concatWith "," (map Symbol.name inputSymbols')))
 	val _ = log (fn () => "expressions: " ^ (e2s (Exp.CONTAINER (Exp.EXPLIST exps))))
     in
@@ -1958,42 +1966,22 @@ fun pruneUnusedInputs (class: DOF.class) =
  *
  * output args: none
  *)
-fun pruneClass (iter_option, top_class) (class: DOF.class) = 
-    let
-	val log = logdof ()
+local
+    fun outputHasIterator (iter_sym,_) output =
+	ExpProcess.doesTermHaveIterator iter_sym (ExpProcess.term2exp (DOF.Output.name output))
 
-	(* pull out useful quantities *)
-	val name = class2orig_name class
-	val inputs = !(#inputs class)
-	val input_syms = map (Term.sym2symname o DOF.Input.name) inputs (* grab the inputs just as symbols *)
-	val outputs = !(#outputs class)
+    fun inst2instname inst = #instname (ExpProcess.deconstructInst inst)
 
+    fun class2instance_list class iter_option = 
+	case iter_option of
+	    SOME (iter_sym,_) => class2instancesbyiterator iter_sym class
+	  | NONE => []
 
-	fun filter_output iterator output =
-	    let val (iter_sym, iter_type) = iterator
-	    in 
-		ExpProcess.doesTermHaveIterator iter_sym (ExpProcess.term2exp (DOF.Output.name output))
-	    (* orelse
-		case TermProcess.symbol2temporaliterator name 
-		 of SOME (iter_sym, _) =>
-		    (case CurrentModel.itersym2iter iter_sym
-		      of (_, DOF.IMMEDIATE) => true
-		       | _ => false)
-		  | NONE => false*)
-	    end
-
-	val outputs' = if top_class then
-			   case iter_option 
-			    of SOME iter => List.filter (filter_output iter) outputs
-			     | NONE => outputs
-		       else
-			   outputs
-
-	val _ = app (pruneInputsFromOutput class) outputs'
-
+    fun findAllDependencies class iter_option outputs' =
+	let
+	(* pull out relevant output symbols *)
 	val output_symbols = Util.flatmap ExpProcess.exp2symbols (map DOF.Output.condition outputs' @ 
 								  (Util.flatmap DOF.Output.contents outputs'))
-	val exps = !(#exps class)
 
 	(* starting dependency list - union of the outputs and possibly the states *)
 	val dependency_list = SymbolSet.fromList output_symbols
@@ -2005,10 +1993,7 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 	val dependency_list = SymbolSet.addList (dependency_list, state_list)
 
 	(* add all the instances as well that have states (again, if need be) *)
-	val instance_list = case iter_option of
-			     SOME (iter_sym,_) => class2instancesbyiterator iter_sym class
-			   | NONE => []
-	fun inst2instname inst = #instname (ExpProcess.deconstructInst inst)
+	val instance_list = class2instance_list class iter_option
 	val instance_names = map inst2instname instance_list
 
 	(* pull only from the RHS *)
@@ -2017,6 +2002,7 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 				     
 
 	(* do some magic here ... *)
+	(* findDependencies : SymbolSet.set -> SymbolSet.set *)
 	fun findDependencies dep_list = 
 	    let
 		val dep_list' = 
@@ -2028,85 +2014,122 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 				 (symbolofoptiter2exps class iter_sym)
 				 (SymbolSet.listItems dep_list))
 		      | NONE => SymbolSet.flatmap ExpProcess.exp2symbolset (Util.flatmap (fn(sym)=> symbol2exps class sym) (SymbolSet.listItems dep_list))
-	(*	val _ = case iter_option of
-			    SOME (iter_sym,_) => Util.log("In class '"^(Symbol.name name)^"' (iterator="^(Symbol.name iter_sym)^"): " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))
-			  | NONE => Util.log("In class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))*)
 		(* add any remaining iterators that weren't there before *)
 		val dep_list' = SymbolSet.union (dep_list, dep_list')
 	    in
 		if SymbolSet.equal (dep_list, dep_list') then
 		    dep_list (* dep_list hasn't changed, so we are done *)
-		(*else if (SymbolSet.numItems dep_list) > (SymbolSet.numItems dep_list') then (* if we lost symbols, but just add them in ... *)
-		    DynException.stdException(("Unexpected loss of symbols: " ^ (case iter_option of
-			    SOME (iter_sym,_) => "in class '"^(Symbol.name name)^"' (iterator="^(Symbol.name iter_sym)^"): " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list')
-			  | NONE => "in class '"^(Symbol.name name)^"': " ^ (SymbolSet.toStr dep_list) ^ " -> " ^ (SymbolSet.toStr dep_list'))), "ClassProcess.pruneClass.findDependencies", Logger.INTERNAL)*)
 		else
 		    findDependencies ((*SymbolSet.union (dep_list, dep_list')*)dep_list')
 	    end
+	in
+	    findDependencies dependency_list
+	end
 
-	(* find all the dependencies *)
-	val dependency_list = findDependencies dependency_list
+    fun filterUnusedExps class iter_option dependency_list exps =
+	let	    
+	    (* create a new set of expressions that filter out those that are not needed *)
+	    fun isStateEq exp = ExpProcess.isStateEq exp
+	    fun isStateEqOfValidIterator iter exp = ExpProcess.isStateEqOfIter iter exp
+	    fun isInitialConditionEq exp = ExpProcess.isInitialConditionEq exp
+	    fun isInitialConditionEqOfValidIterator (itersym,_) exp = (isInitialConditionEq exp) andalso (ExpProcess.doesEqHaveIterator itersym exp)
+	    val instance_list = class2instance_list class iter_option
+	    val instance_names = map inst2instname instance_list
+	    fun isRequiredInstanceEq exp = ExpProcess.isInstanceEq exp andalso
+					   List.exists (fn(instname)=>instname=(inst2instname exp)) instance_names
+					   
+	    fun is_dependency exp =
+		let val symbols = ExpProcess.getLHSSymbols exp
+		    fun vet sym = List.exists (equal sym) symbols
+		in SymbolSet.exists vet dependency_list
+		end
 
-	(* create a new set of expressions that filter out those that are not needed *)
-	fun isStateEq exp = ExpProcess.isStateEq exp
-	fun isStateEqOfValidIterator iter exp = ExpProcess.isStateEqOfIter iter exp
-	fun isInitialConditionEq exp = ExpProcess.isInitialConditionEq exp
-	fun isInitialConditionEqOfValidIterator (itersym,_) exp = (isInitialConditionEq exp) andalso (ExpProcess.doesEqHaveIterator itersym exp)
-	fun isRequiredInstanceEq exp = ExpProcess.isInstanceEq exp andalso
-				       List.exists (fn(instname)=>instname=(inst2instname exp)) instance_names
-												     
-	fun is_dependency exp =
-	    let val symbols = ExpProcess.getLHSSymbols exp
-		fun vet sym = List.exists (equal sym) symbols
-	    in SymbolSet.exists vet dependency_list
+	    val exps' = case iter_option 
+			 of SOME iter => List.filter
+					     (fn (exp) => 
+						 (* pull out all the exps that are state equations for that state with that iterator *)
+						 ((isStateEq exp) andalso (isStateEqOfValidIterator iter exp)) orelse 
+						 (* if it's not a state eq, check to see if the lhs defines what you are looking for ... *)
+						 (isInitialConditionEqOfValidIterator iter exp) orelse
+						 ((not (isStateEq exp)) andalso (not (isInitialConditionEq exp)) andalso is_dependency exp) orelse 
+						 (* it is an instance we need with no relevent inputs/outputs *)
+						 (isRequiredInstanceEq exp)
+
+					     (*orelse
+					      (not (ExpProcess.hasTemporalIterator exp))*))
+					     exps
+			  | NONE => List.filter is_dependency exps
+	in
+	    exps'
+	end
+
+	fun filterUnusedInstances dependency_list exps =
+	    let
+		fun test_and_replace_term t = 
+		    if SymbolSet.exists 
+			   (fn(sym)=>sym=(Term.sym2curname t)) 
+			   dependency_list then
+			t
+		    else
+			Exp.DONTCARE
+		fun add_dontcares_to_lhs_instance exp =
+		    let
+			val lhs = ExpProcess.lhs exp
+			val rhs = ExpProcess.rhs exp
+		    in
+			case lhs of
+			    Exp.TERM (Exp.TUPLE terms) =>
+			    let
+				val terms' = map test_and_replace_term terms
+				val lhs' = Exp.TERM (Exp.TUPLE terms')
+			    in
+				ExpBuild.equals (lhs', rhs)
+			    end
+			  | _ => exp
+		    end				   
+		val exps' = map
+				(fn(exp)=>if ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp then
+					      add_dontcares_to_lhs_instance exp
+					  else
+					      exp)
+				exps
+	    in
+		exps'
 	    end
 
-	val exps' = case iter_option 
-		     of SOME iter => List.filter
-					 (fn (exp) => 
-					    (* pull out all the exps that are state equations for that state with that iterator *)
-					    ((isStateEq exp) andalso (isStateEqOfValidIterator iter exp)) orelse 
-					    (* if it's not a state eq, check to see if the lhs defines what you are looking for ... *)
-					    (isInitialConditionEqOfValidIterator iter exp) orelse
-					    ((not (isStateEq exp)) andalso (not (isInitialConditionEq exp)) andalso is_dependency exp) orelse 
-					    (* it is an instance we need with no relevent inputs/outputs *)
-					    (isRequiredInstanceEq exp)
+in
+fun pruneClass (iter_option, top_class) (class: DOF.class) = 
+    let
+	(*val log = logdof ()*)
 
-					 (*orelse
-					    (not (ExpProcess.hasTemporalIterator exp))*))
-					 exps
-		      | NONE => List.filter is_dependency exps
+	(* pull out useful quantities *)
+	val name = class2orig_name class
+	val inputs = !(#inputs class)
+	val input_syms = map (Term.sym2symname o DOF.Input.name) inputs (* grab the inputs just as symbols *)
+	val outputs = !(#outputs class)
+	val exps = !(#exps class)
+
+	(* grab all the outputs with a matching iterator *)
+	val outputs' = if top_class then
+			   case iter_option 
+			    of SOME iter => List.filter (outputHasIterator iter) outputs
+			     | NONE => outputs
+		       else
+			   outputs
+
+	(* take all inputs that aren't called by the outputs directly (very costly - does a full flatten here) *)
+	val _ = Profile.timeTwoCurryArgs "Pruning inputs from outputs" app (pruneInputsFromOutput class) outputs'
+
+
+	(* find all the dependencies *)
+	val dependency_list = Profile.time "Finding dependencies" (fn()=>findAllDependencies class iter_option outputs') ()
+
+	(* remove all unused expressions based on the dependency list *)
+	val exps' = filterUnusedExps class iter_option dependency_list exps
 
 	(* remove extra lhs arguments that are not on the dependency list *)
 	(* this only needs to be done where the LHS is a tuple.. - this occurs only for instances right now *)
-	fun test_and_replace_term t = 
-	    if SymbolSet.exists 
-		   (fn(sym)=>sym=(Term.sym2curname t)) 
-		   dependency_list then
-		t
-	    else
-		Exp.DONTCARE
-	fun add_dontcares_to_lhs_instance exp =
-	    let
-		val lhs = ExpProcess.lhs exp
-		val rhs = ExpProcess.rhs exp
-	    in
-		case lhs of
-		    Exp.TERM (Exp.TUPLE terms) =>
-		    let
-			val terms' = map test_and_replace_term terms
-			val lhs' = Exp.TERM (Exp.TUPLE terms')
-		    in
-			ExpBuild.equals (lhs', rhs)
-		    end
-		  | _ => exp
-	    end				   
-	val exps'' = map
-			 (fn(exp)=>if ExpProcess.isInstanceEq exp orelse ExpProcess.isOutputEq exp then
-				      add_dontcares_to_lhs_instance exp
-				   else
-				       exp)
-			 exps'
+	val exps'' = filterUnusedInstances dependency_list exps'
 
 	(* check the inputs to see if any of them are not in the dependency list *)
 	val _ = case iter_option of 
@@ -2126,7 +2149,7 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 	((#exps class) := exps'';
 	 (#outputs class) := outputs')
     end
-
+end
 
 fun optimizeClass (class: DOF.class) =
     let
@@ -2292,7 +2315,7 @@ and expandInstances class =
 (* Nb (look up the latin: thats "nota bene," or literally, "note well.") depends on a CurrentModel context. *)
 and outputExpressions caller equation =
     let 
-	val log = logdof ()
+	(*val log = logdof ()*)
 	val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
 	val outname = 
 	    case equation
@@ -2385,7 +2408,7 @@ and outputExpressions caller equation =
     
 and instanceExpressions caller equation =
     let 
-	val log = logdof ()
+	(*val log = logdof ()*)
 	val {instname, classname, inpargs, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
 	val instanceName = ExpProcess.instOrigInstName equation
