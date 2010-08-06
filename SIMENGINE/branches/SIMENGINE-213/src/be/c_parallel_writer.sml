@@ -2736,6 +2736,7 @@ fun buildC (orig_name, shardedModel) =
 	val seint_h = $(Codegen.getC "simengine/seint.h")
 	val output_buffer_h = $(Codegen.getC "simengine/output_buffer.h")
 	val output_buffer_c = $(Codegen.getC "simengine/output_buffer.c")
+	val parallel_c = $(Codegen.getC "simengine/parallel.c")
 	val init_output_buffer_c = $(Codegen.getC "simengine/init_output_buffer.c")
 	val inputs_c = $(Codegen.getC "simengine/inputs.c")
 	val log_outputs_c = $(Codegen.getC "simengine/log_outputs.c")
@@ -2779,6 +2780,7 @@ fun buildC (orig_name, shardedModel) =
 				       [random_c] @
 				       [seint_h] @
 				       [output_buffer_h,output_buffer_c] @
+				       [parallel_c] @
 				       [iodatastruct_code shardedModel] @
 				       outputdatastruct_progs @
 				       outputstatestruct_progs @
