@@ -59,6 +59,10 @@ classdef Exp
             %er = oper('+', {e1, e2});
         end
         
+        function er = sum(varargin)
+            er = plus(varargin{:});
+        end
+        
         function er = minus(e1, e2)
             er = oper('-', {e1, e2});
         end
@@ -80,6 +84,10 @@ classdef Exp
                     er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper('*', {e1, e2});
+        end
+        
+        function er = prod(varargin)
+            er = times(varargin{:});
         end
         
         function er = mtimes(e1, e2)
@@ -518,6 +526,21 @@ classdef Exp
                     end
             end
         end
+        
+        function s = toVariableName(e)
+            if isempty(e.type)
+                e.val
+                error('Simatra:Exp:toVariableName', 'Unexpected empty expression type')
+            end
+
+            switch e.type
+                case e.VARIABLE
+                    s = e.val;
+                otherwise
+                    error('Simatra:Exp:toVariableName', ['Expression ' toStr(e) ' is not a variable'])
+            end
+        end
+            
         
         function disp(e)
             disp(['Exp: ' toStr(e)]);
