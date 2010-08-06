@@ -1233,7 +1233,13 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 end
 
 fun iodatastruct_code (shardedModel as (shards,sysprops)) =
-    Layout.align (map iodatastruct_shard_code shards)
+    Layout.align 
+	(map 
+	     (fn (shard as {iter_sym,...}) =>
+		 CurrentModel.withModel 
+		     (ShardedModel.toModel shardedModel iter_sym)
+		     (fn _ => iodatastruct_shard_code shard))
+	     shards)
 
 and iodatastruct_shard_code (shard as {classes,...}) =
     Layout.align (map iodatastruct_class_code classes)

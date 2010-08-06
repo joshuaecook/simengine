@@ -58,13 +58,12 @@ typedef struct {
 __DEVICE__ void init_output_buffer(output_buffer *ob, unsigned int modelid);
 
 /* Destructively computes the prefix sum of an integer vector of size length.
- * Assumes length is a power of 2. 
  */
 __DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int length);
 
-indexed_output_buffer *alloc_indexed_output_buffer (unsigned int gridsize);
-__DEVICE__ void init_indexed_output_buffer (unsigned int gridsize);
-void free_indexed_output_buffer (indexed_output_buffer *buffer);
+indexed_output_buffer *alloc_indexed_output_buffer (unsigned int gridsize, unsigned int blocksize);
+__DEVICE__ void init_indexed_output_buffer (indexed_output_buffer *buffer, int *scratch, unsigned int threadid);
+void free_indexed_output_buffer (indexed_output_buffer *buffer, unsigned int gridsize);
 
 /* Writes an output datum to an indexed buffer. 
  * Operates on a block of model instances in parallel.

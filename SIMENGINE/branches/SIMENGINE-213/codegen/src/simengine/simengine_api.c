@@ -19,6 +19,7 @@ static const struct option long_options[] = {
   {"json_interface", required_argument, 0, JSON_INTERFACE},
   {"shared_memory", no_argument, 0, SHARED_MEMORY},
   {"buffer_count", required_argument, 0, BUFFER_COUNT},
+  {"buffer_indexing", no_argument, 0, BUFFER_INDEXING},
   {"max_iterations", required_argument, 0, MAX_ITERS},
   {"gpu_block_size", required_argument, 0, GPU_BLOCK_SZ},
   // HACK BEGIN
@@ -30,6 +31,7 @@ static const struct option long_options[] = {
 
 static int binary_files = 0;
 static int simex_output_files = 1;
+static int simex_buffer_indexing = 1;
 static unsigned int global_modelid_offset = 0;
 static unsigned int MAX_ITERATIONS = 100;
 static unsigned int GPU_BLOCK_SIZE = 128;
@@ -101,6 +103,11 @@ void init_output_buffers(const char *outputs_dirname, int *output_fd){
   unsigned int i;
   output_buffer *tmp;
 
+  if (simex_buffer_indexing) {
+    
+  }
+
+  // Output buffering ca. 2010
   tmp = (output_buffer*)malloc(sizeof(output_buffer));
   if(!tmp){
     ERROR(Simatra::Simex::Simulation, "Out of memory.\n");
@@ -498,6 +505,8 @@ int parse_args(int argc, char **argv, simengine_opts *opts){
 	USER_ERROR(Simatra:Simex:parse_args, "Invalid number of output buffers %d", global_ob_count);
       }
       break;
+    case BUFFER_INDEXING:
+      simex_buffer_indexing = 1;
     case MAX_ITERS:
       MAX_ITERATIONS = (unsigned int)strtod(optarg, NULL); // Handles 1E3 etc.
       if(MAX_ITERATIONS < 1){

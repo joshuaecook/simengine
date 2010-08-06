@@ -1,6 +1,6 @@
 indexed_output_buffer *global_ixob = NULL;
 #if defined TARGET_GPU
-__DEVICE__ *gpu_ixob = NULL;
+__DEVICE__ indexed_output_buffer *gpu_ixob;
 #endif
 
 
@@ -11,19 +11,59 @@ __DEVICE__ void init_output_buffer(output_buffer *ob, unsigned int modelid){
   ob->end[modelid] = &ob->buffer[(modelid+1)*BUFFER_LEN];
 }
 
-/* Destructively computes the prefix sum of an integer vector of size length.
- * Assumes length is a power of 2. 
- */
+/* Destructively computes the prefix sum of an integer vector of size length. */
 __DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int length) {
-  unsigned int stride;
+  unsigned int i, j;
   int participate;
 
-  for (stride=2; stride<=length; stride*=2) {
-    participate = !((threadid+1) & (stride-1));
+  for (i=0; i<ceilf(log2f(length)); i++) {
+    participate = threadid >= exp2f(i);
     if (participate) {
-      vector[threadid] += vector[threadid-(stride/2)];
+      vector[threadid] += vector[threadid-(int)exp2f(i)];
     }
   }
+}
+
+indexed_output_buffer *alloc_indexed_output_buffer (unsigned int gridsize, unsigned int blocksize) {
+#if NUM_OUTPUTS == 0
+  return NULL;
+#endif
+#if defined TARGET_GPU
+  indexed_output_buffer *g_ixob = NULL;
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_ixob, gpu_ixob));
+  cutilSafeCall(cudaMalloc((void **)&g_ixob, gridsize*sizeof(indexed_output_buffer)));
+  cutilSafeCall(cudaMemset(g_ixob,0,gridsize*sizeof(indexed_output_buffer)));
+  return g_ixob;
+#else
+  unsigned int i;
+  global_ixob = (indexed_output_buffer *)malloc(gridsize*sizeof(indexed_output_buffer));
+  for (i=0; i<gridsize; i++) {
+    global_ixob[i].scratch = (int *)malloc(blocksize*sizeof(int));
+  }
+  return global_ixob;
+#endif  
+}
+
+__DEVICE__ void init_indexed_output_buffer (indexed_output_buffer *buffer, int *scratch, unsigned int threadid) {
+#if defined TARGET_GPU
+  if (0 == threadid) {
+    gpu_ixob->scratch = scratch;
+  }
+#endif  
+}
+
+void free_indexed_output_buffer (indexed_output_buffer *buffer, unsigned int gridsize) {
+#if defined TARGET_GPU
+  indexed_output_buffer *g_ixob = NULL;
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_ixob, gpu_ixob));
+  cutilSafeCall(cudaFree(g_ixob));
+#else
+  unsigned int i;
+  for (i=0; i<gridsize; i++) {
+    free(global_ixob[i].scratch);
+  }
+  free(global_ixob);
+#endif  
 }
 
 /* Writes an output datum to an indexed buffer. 
@@ -31,7 +71,6 @@ __DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int l
  * quantities is an array of output data of length (outputsize * blocksize)
  * participate is an array of length blocksize indicating which threads are active
  */
-__SHARED__ int *buffer_indexed_output_scratch;
 __DEVICE__ void buffer_indexed_output (unsigned int modelid, unsigned int outputid, unsigned int outputsize, CDATAFORMAT *quantities, indexed_output_buffer *pos, unsigned int threadid, unsigned int blocksize, int participate) {
   unsigned int i, offset;
   CDATAFORMAT *buffer;
