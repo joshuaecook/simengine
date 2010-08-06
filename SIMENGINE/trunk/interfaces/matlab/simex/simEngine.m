@@ -136,6 +136,10 @@ function [outputs y1 t1 interface] = simEngine (options)
     simEngineError('simCompile', ['Can not execute simEngine due to invalid command line options'])
   elseif(-1 == status)
     simEngineError('simCompile', ['User terminated simulation.'])
+  elseif (156 == status)
+    warning('Simatra:simex:simCompile', ['Received unexpected code 156'])
+  elseif (143 == status)
+    simFailure('simCompile', 'simEngine abruptly stopped by kill signal');
   elseif (0 ~= status)
     simFailure('simCompile', ['simEngine internal error (status=' num2str(status) ').']);
   end

@@ -117,7 +117,10 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
       | "operator_lt" => builtin (Fun.LT, args)
       | "operator_eq" => builtin (Fun.EQ, args)
       | "operator_ne" => builtin (Fun.NEQ, args)
+      | "operator_deriv" => builtin (Fun.DERIV, args)
       | "power" => builtin (Fun.POW, args)
+      | _ => builtin (FunProps.name2op sym, args))
+     (*
       | "exp" => builtin (Fun.EXP, args)
       | "ln" => builtin (Fun.LOG, args)
       | "log10" => builtin (Fun.LOG10, args)
@@ -152,9 +155,8 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
       | "sqrt" => builtin (Fun.SQRT, args)
       | "floor" => builtin (Fun.FLOOR, args)
       | "ceil" => builtin (Fun.CEILING, args)
-      | "round" => builtin (Fun.ROUND, args)
-      | "operator_deriv" => builtin (Fun.DERIV, args)
-      | _ => error_exp ("APPLY:" ^ (Symbol.name sym) ^ " with args = " ^ (Util.list2str ExpPrinter.exp2str (map astexp_to_Exp args))))
+      | "round" => builtin (Fun.ROUND, args) 
+      | _ => error_exp ("APPLY:" ^ (Symbol.name sym) ^ " with args = " ^ (Util.list2str ExpPrinter.exp2str (map astexp_to_Exp args)))*)
      handle e => DynException.checkpoint ("AstDOFTrans.apply_to_Exp ["^(Symbol.name sym)^"]") e)
   | apply_to_Exp {func=(SYMBOL sym),...} = error_exp ("APPLY ["^(Symbol.name sym)^"]")
   | apply_to_Exp {func,...} = error_exp ("APPLY")
@@ -417,17 +419,16 @@ local
 			    | NONE => NONE
 	    val behaviour = case settings of
 				SOME settings => 
-				(case lookupTable (settings, Symbol.symbol "exhausted") of
-				     SOME (SYMBOL sym) => (case Symbol.name sym of
-							       "hold" => DOF.Input.HOLD
-							     | "repeat" => DOF.Input.CYCLE
-							     | "stop" => DOF.Input.HALT
-							     | s => (error ("unexpected exhausted behavior '"^s^"' for input " ^ (Symbol.name name)); 
-								     DOF.Input.HOLD))
-				   | SOME _ => (error ("unexpected non symbol parameter for exhausted property for input " ^ (Symbol.name name));
-						DOF.Input.HOLD)
-				   | NONE => DOF.Input.HOLD)
+				(case lookupTable (settings, Symbol.symbol "cycle_when_exhausted") of
+				     SOME _ => DOF.Input.CYCLE
+				   | NONE => (case lookupTable (settings, Symbol.symbol "halt_when_exhausted") of
+						  SOME _ => DOF.Input.HALT
+						| NONE => ((* don't need to check for hold since we don't use it anyway *)
+							   (*case lookupTable (settings, Symbol.symbol "hold_when_exhausted") of
+							       SOME _ => DOF.Input.HOLD
+							     | NONE =>*) DOF.Input.HOLD)))
 			      | NONE => DOF.Input.HOLD
+						  
 	    val iterator = case settings of
 			       SOME settings => 
 			       (case lookupTable (settings, Symbol.symbol "iter") of

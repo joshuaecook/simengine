@@ -53,6 +53,7 @@ classdef Model < handle
     
     properties (Access = public)
         solver = {'ode45', 'dt', 0.1};
+        stoptime = []
     end
     
     properties (Access = private)
@@ -553,7 +554,7 @@ classdef Model < handle
         end        
 
         function recurrenceequ(m, lhs, rhs)
-            id = toStr(lhs);
+            id = toVariableName(lhs);
             iter = toIterReference(lhs);
             if isfield(m.RecurrenceEqs, id)
                 error('Simatra:Model', ['Recurrence Equation assigning ' lhs ' already exists']);
@@ -570,12 +571,11 @@ classdef Model < handle
             elseif m.States.isKey(id) && isa(m.States(id).iterator, ...
                                              'Iterator')
               next_time = m.States(id).iterator+1;
-             % m.RecurrenceEqs.(id) = struct('lhs', ...
-             %                               lhs(next_time), ...
-             %                               'rhs', rhs);              
-              m.RecurrenceEqs.(id) = struct('lhs', ...
-                                            lhs, ...
-                                            'rhs', rhs);              
+             m.RecurrenceEqs.(id) = struct('lhs', ...
+                                           lhs(next_time), ...
+                                           'rhs', rhs);              
+%               m.RecurrenceEqs.(id) = struct('lhs', lhs, ...
+%                                             'rhs', rhs);              
             else
               error('Simatra:Model:recurrenceequ', ['No iterator was '...
                     'specified for the state'])
@@ -750,7 +750,7 @@ classdef Model < handle
                 if isa(input.iterator, 'Iterator')
                     attributes = [attributes 'iter=' toStr(input.iterator.id) ', '];
                 end 
-                attributes = [attributes 'exhausted=' input.exhausted '}'];
+                attributes = [attributes input.exhausted '_when_exhausted}'];
                 str = [str '   input ' inputs{i} attributes '\n'];
             end
             str = [str '\n'];
@@ -920,6 +920,19 @@ classdef Model < handle
             
             % execute the simulation
             varargout = cell(1,nargout);
+
+            % allow a default stop time
+            if ~isempty(m.stoptime)
+                % a stop time is defined in the model
+                if isempty(varargin) || ~isnumeric(varargin{1})
+                    % if there is no other stop time defined, use the one
+                    % from the model
+                    varargin = {m.stoptime, varargin{:}};
+                else
+                    % it's being overwritten on the simex call
+                end
+            end
+                
             if nargout > 0
                 [varargout{:}] = simex(toDSL(m), varargin{:}, '-fastcompile');
             else
