@@ -11,19 +11,6 @@ __DEVICE__ void init_output_buffer(output_buffer *ob, unsigned int modelid){
   ob->end[modelid] = &ob->buffer[(modelid+1)*BUFFER_LEN];
 }
 
-/* Destructively computes the prefix sum of an integer vector of size length. */
-__DEVICE__ void parallel_scan(int *vector, unsigned int threadid, unsigned int length) {
-  unsigned int i, j;
-  int participate;
-
-  for (i=0; i<ceilf(log2f(length)); i++) {
-    participate = threadid >= exp2f(i);
-    if (participate) {
-      vector[threadid] += vector[threadid-(int)exp2f(i)];
-    }
-  }
-}
-
 indexed_output_buffer *alloc_indexed_output_buffer (unsigned int gridsize, unsigned int blocksize) {
 #if NUM_OUTPUTS == 0
   return NULL;
