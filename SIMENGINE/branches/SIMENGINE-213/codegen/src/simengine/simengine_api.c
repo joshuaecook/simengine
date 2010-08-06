@@ -41,7 +41,12 @@ unsigned int global_ob_count = 2;
 output_buffer *global_ob = NULL;
 unsigned int *global_ob_idx = NULL;
 
-
+/* Shared memory scratch space. */
+#if defined TARGET_GPU
+extern __SHARED__ char block_shared_scratch[];
+#else
+char *block_shared_scratch;
+#endif
 
 #define MAX_NUM_MODELS (0x00ffffff)
 #define START_SIZE 1000
@@ -53,7 +58,7 @@ const char *simengine_errors[] = {"Success",
                                   "Could not open output file."};
 
 /* Allocates and initializes an array of solver properties, one for each iterator. */
-solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset);
+solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset, unsigned int gridsize, unsigned int blocksize);
 void free_solver_props(solver_props *props, CDATAFORMAT *model_states);
 int exec_loop(solver_props *props, const char *outputs_dir, double *progress, int resuming);
 void modelid_dirname(const char *outputs_dirname, char *model_dirname, unsigned int modelid);
@@ -98,13 +103,31 @@ void close_progress_file(double *progress, int progress_fd, unsigned int num_mod
   close(progress_fd);
 }
 
-void init_output_buffers(const char *outputs_dirname, int *output_fd){
+void init_output_buffers(const char *outputs_dirname, int *output_fd, unsigned int gridsize, unsigned int blocksize){
   char buffer_file[PATH_MAX];
   unsigned int i;
   output_buffer *tmp;
 
   if (simex_buffer_indexing) {
-    
+    indexed_output_buffer *tmp = alloc_indexed_output_buffer(gridsize,blocksize);
+    if(!tmp){
+      ERROR(Simatra::Simex::Simulation, "Out of memory.\n");
+    }
+    sprintf(buffer_file, "%s/indexed_output_buffer", outputs_dirname);
+    *output_fd = open(buffer_file, O_CREAT|O_RDWR, S_IRWXU);
+    if(-1 == *output_fd){
+      ERROR(Simatra::Simex::Simulation, "Could not open file to store simulation data. '%s'\n", buffer_file);
+    }
+    for (i=0; i<gridsize; i++) {
+      write(*output_fd, &tmp[gridsize], sizeof(output_buffer));
+    }
+    free(tmp); // Don't need it anymore, use the mmaped version below
+    global_ixob = (indexed_output_buffer *)mmap(NULL, gridsize*sizeof(indexed_output_buffer), PROT_READ|PROT_WRITE, MAP_SHARED, *output_fd, 0);
+
+    block_shared_scratch = (char *)malloc(gridsize*blocksize*sizeof(int));
+    if(!block_shared_scratch){
+      ERROR(Simatra::Simex::Simulation, "Out of memory.\n");
+    }
   }
 
   // Output buffering ca. 2010
@@ -139,7 +162,11 @@ void init_output_buffers(const char *outputs_dirname, int *output_fd){
   }
 }
 
-void clean_up_output_buffers(int output_fd){
+void clean_up_output_buffers(int output_fd, unsigned int gridsize){
+  if (simex_buffer_indexing) {
+    free_indexed_output_buffer(global_ixob, gridsize);
+  }
+
   if(simex_output_files){
     free(global_ob);
   }
@@ -174,6 +201,9 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
   int resuming = 0;
   int random_initialized = 0;
 
+  unsigned int blocksize = BLOCK_WIDTH(PARALLEL_MODELS);
+  unsigned int gridsize = GRID_WIDTH(PARALLEL_MODELS);
+
 # if defined TARGET_GPU
   gpu_init();
 # endif
@@ -201,7 +231,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
     return seresult;
   }
 
-  init_output_buffers(outputs_dirname, &output_fd);
+  init_output_buffers(outputs_dirname, &output_fd, gridsize, blocksize);
 
   // Run the parallel simulation repeatedly until all requested models have been executed
   for(models_executed = 0 ; models_executed < num_models; models_executed += PARALLEL_MODELS){
@@ -245,7 +275,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
 #endif
 
     // Initialize the solver properties and internal simulation memory structures
-    solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset);
+    solver_props *props = init_solver_props(start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset, gridsize, blocksize);
 
     // Initialize random number generator
     if (!random_initialized || opts->seeded) {
@@ -291,7 +321,7 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
   free(model_states);
 
   close_progress_file(progress, progress_fd, num_models);
-  clean_up_output_buffers(output_fd);
+  clean_up_output_buffers(output_fd, gridsize);
 
   return seresult;
 }

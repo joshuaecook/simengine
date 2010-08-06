@@ -3,7 +3,7 @@
  */
 
 // Run a single model to completion on a single processor core
-int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid, int resuming, unsigned int blockid, unsigned int threadid, unsigned int blocksize){
+int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid, int resuming, unsigned int blockid, unsigned int threadid){
   indexed_output_buffer *ixob = global_ixob ? global_ixob + blockid : NULL;
 
   unsigned int i;
@@ -19,6 +19,9 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
   }
 
   // Initialize a temporary output buffer
+  if (ixob) {
+    init_indexed_output_buffer(ixob, &block_shared_scratch[blockid], threadid);
+  }
   init_output_buffer(&global_ob[global_ob_idx[modelid]], modelid);
 
   // Run simulation to completion
@@ -45,7 +48,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
     for(i=0;i<NUM_ITERATORS;i++){
       if (ready_outputs[i]) {
 #if NUM_OUTPUTS > 0
-	buffer_outputs(&props[i], modelid, ixob, threadid, blocksize);
+	buffer_outputs(&props[i], modelid, ixob, threadid);
 #endif
 	ready_outputs[i] = 0;
       }
@@ -110,7 +113,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	/* post_process(&props[i], modelid); */
 
 #if NUM_OUTPUTS > 0
-	buffer_outputs(&props[i], modelid, ixob, threadid, blocksize);
+	buffer_outputs(&props[i], modelid, ixob, threadid);
 #endif
       }
     }

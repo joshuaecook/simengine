@@ -12,7 +12,7 @@ int exec_loop(solver_props *props, const char *outputs_dirname, double *progress
 
   // Execute the model(s) on the appropriate target
 #if defined(TARGET_CPU)
-  status = exec_cpu(props, outputs_dirname, progress, 0, resuming, 0, 0, 1);
+  status = exec_cpu(props, outputs_dirname, progress, 0, resuming, 0, 0);
 #elif defined(TARGET_OPENMP)
   status = exec_parallel_cpu(props, outputs_dirname, progress, resuming);
 #elif defined(TARGET_GPU)
