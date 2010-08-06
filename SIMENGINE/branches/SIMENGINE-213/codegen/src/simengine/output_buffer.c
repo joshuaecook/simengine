@@ -36,22 +36,22 @@ indexed_output_buffer *alloc_indexed_output_buffer (unsigned int gridsize, unsig
   return g_ixob;
 #else
   unsigned int i;
-  global_ixob = (indexed_output_buffer *)malloc(gridsize*sizeof(indexed_output_buffer));
-  for (i=0; i<gridsize; i++) {
-    global_ixob[i].scratch = (int *)malloc(blocksize*sizeof(int));
-  }
+  global_ixob = (indexed_output_buffer *)calloc(gridsize,sizeof(indexed_output_buffer));
   return global_ixob;
 #endif  
 }
 
+/* Assigns the scratch pointer for this thread's buffer. 
+ * The caller should allocate the scratch memory (blocksize*sizeof(int))
+ * but the buffer takes ownership; it is freed by free_indexed_output_buffer().
+ */
 __DEVICE__ void init_indexed_output_buffer (indexed_output_buffer *buffer, int *scratch, unsigned int threadid) {
-#if defined TARGET_GPU
   if (0 == threadid) {
-    gpu_ixob->scratch = scratch;
+    buffer->scratch = scratch;
   }
-#endif  
 }
 
+/* Frees the memory allocated for buffers and scratch space. */
 void free_indexed_output_buffer (indexed_output_buffer *buffer, unsigned int gridsize) {
 #if defined TARGET_GPU
   indexed_output_buffer *g_ixob = NULL;

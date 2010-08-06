@@ -11,7 +11,7 @@ int exec_parallel_cpu(solver_props *props, const char *outputs_dir, double *prog
     unsigned int modelid = omp_get_thread_num();
 
     if(modelid < props->num_models){
-      status = exec_cpu(props, outputs_dir, progress, modelid, resuming, modelid, modelid, 1);
+      status = exec_cpu(props, outputs_dir, progress, modelid, resuming, modelid, modelid);
       if(status != SUCCESS){
 	ret = status;
       }

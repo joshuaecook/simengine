@@ -482,7 +482,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	 $("}"),
 	 $("#endif"),
 	 $(""),
-	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset){"),
+	 $("solver_props *init_solver_props(CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset, unsigned int gridsize, unsigned int blocksize){"),
 	 $("top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));"),
 	 SUB((if 0 < total_system_states then
 		  [$("systemstatedata_external *system_states_ext = (systemstatedata_external*)model_states;"),
@@ -509,16 +509,18 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 	      $("unsigned int i, modelid;")] @
 	     (Util.flatmap init_props iterators_with_solvers) @
 	     [$(""),
-	      $("// Initialize all time vectors"),
 	      $("assert(NUM_ITERATORS);"),
 	      $("for(i=0;i<NUM_ITERATORS;i++){"),
-	      SUB[$("for(modelid=0;modelid<num_models;modelid++){"),
-		  SUB[$("Iterator iter = ITERATORS[i];"),
+	      SUB[$("Iterator iter = ITERATORS[i];"),
+		  $("props[iter].gridsize = gridsize;"),
+		  $("props[iter].blocksize = blocksize;"),
+		  $("// Initialize all time vectors"),
+		  SUB[$("for(modelid=0;modelid<num_models;modelid++){"),
 		      $("props[iter].time[modelid] = starttime;"),
 		      $("props[iter].next_time[modelid] = starttime;")],
 		  $("}")],
 	      $("}")] @
-	      (if 0 < total_system_states then
+	     (if 0 < total_system_states then
 		   [$("#if defined TARGET_GPU"),
 		    $("memcpy(system_states_next, system_states_int, sizeof(systemstatedata_external));"),
 		    $("#else"),
@@ -2543,7 +2545,7 @@ fun logoutput_code shardedModel =
 		     SUB([assign($"outputid", $(i2s index)),
 			  assign($"outputsize", $(i2s num_quantities)),
 			  $("if (ixob) { // Indexed output element buffering"),
-			  SUB([$("buffer_indexed_output(modelid,outputid,outputsize,quantities,ixob,threadid,blocksize,cond);")]),
+			  SUB([$("buffer_indexed_output(modelid,outputid,outputsize,quantities,ixob,threadid,props->blocksize,cond);")]),
 			  $("}"),
 			  $("output_buffer_data *buf = (output_buffer_data *)ob->ptr[modelid];"),
 			  $("buf->outputid = outputid;"),
@@ -2620,7 +2622,7 @@ fun logoutput_code shardedModel =
 	 $("// Output buffers must have at least this much free space to ensure that an output can be written."),
 	 $("static const ptrdiff_t max_output_size = MAX_OUTPUT_SIZE;"),
 	 $(""),
-	 $("__DEVICE__ void buffer_outputs(solver_props *props, unsigned int modelid, indexed_output_buffer *ixob, unsigned int threadid, unsigned int blocksize) {"),
+	 $("__DEVICE__ void buffer_outputs(solver_props *props, unsigned int modelid, indexed_output_buffer *ixob, unsigned int threadid) {"),
 	 SUB([$("int cond;"),
 	      $("unsigned int outputid, outputsize;"),
 	      $("CDATAFORMAT *quantities = NULL;"),

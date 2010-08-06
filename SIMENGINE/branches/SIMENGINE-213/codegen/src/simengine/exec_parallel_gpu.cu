@@ -5,14 +5,19 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
   unsigned int iterid = NUM_ITERATORS - 1;
   unsigned int num_gpu_threads;
   unsigned int num_gpu_blocks;
+  size_t shared_size = 0;
   unsigned int active_models;
   solver_props *device_props;
 #if NUM_SAMPLED_INPUTS > 0
   sampled_input_t tmp_sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
 #endif
 
-  num_gpu_threads = GPU_BLOCK_SIZE < props->num_models ? GPU_BLOCK_SIZE : props->num_models;
-  num_gpu_blocks = (props->num_models + GPU_BLOCK_SIZE - 1) / GPU_BLOCK_SIZE;
+  num_gpu_threads = BLOCK_WIDTH(props->num_models);
+  num_gpu_blocks = GRID_WIDTH(props->num_models);
+
+  if (simex_buffer_indexing) {
+    shared_size += num_gpu_threads * sizeof(int);
+  }
 
   // Initialize all iterators to running
   active_models = 1;
@@ -28,7 +33,7 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
   while(active_models){
     // Execute models on the GPU
     
-    exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads>>>(device_props, resuming, MAX_ITERATIONS);
+    exec_kernel_gpu<<<num_gpu_blocks, num_gpu_threads, shared_size>>>(device_props, resuming, MAX_ITERATIONS);
     resuming = 1;
     // Copy data back to the host
     cutilSafeCall(cudaMemcpyFromSymbol(&global_ob[global_ob_idx[0]], gpu_ob, sizeof(output_buffer), 0, cudaMemcpyDeviceToHost));
