@@ -127,6 +127,7 @@ val DOFToShardedModel = Profile.time "Compilation" DOFToShardedModel
 
 fun ShardedModelToCodeGen (name, shardedModel) =
     let
+	val _ = log ("Generating backend code ...")
 	val stat = case CParallelWriter.buildC (name, shardedModel) of
 	 CParallelWriter.SUCCESS => SUCCESS
        | CParallelWriter.FAILURE _ => EXCEPTION (* should never occur *)

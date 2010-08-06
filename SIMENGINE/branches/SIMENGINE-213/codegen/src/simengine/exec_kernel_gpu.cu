@@ -1,4 +1,5 @@
 // GPU execution kernel that runs each model instance for a number of iterations or until the buffer fills
+extern __SHARED__ char gpu_dynamic_shared[];
 __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int max_iterations){
   const unsigned int modelid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -25,13 +26,10 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int 
   }
 
   // Initialize output buffer to store output data
-  if (INDEXED_BUFFERS) {
-    init_indexed_output_buffer();
+  if (ixob) {
+    init_indexed_output_buffer(ixob, (int *)gpu_dynamic_shared, threadIdx.x);
   }
-  else {
-    init_output_buffer(gpu_ob, modelid);
-  }
-
+  init_output_buffer(gpu_ob, modelid);
 
   // Update occurs before the first iteration
   for(i=0;i<NUM_ITERATORS;i++){
