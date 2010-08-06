@@ -68,7 +68,7 @@ fun DOFToShardedModel forest =
 
 	(* if profiling, put some additional debugging information prior to shard generation - this will show 
 	 * whether or not we were able to reduce the cost of the evaluation *)
-	val _ = if DynamoOptions.isFlagSet "profile" then
+	val _ = if DynamoOptions.isFlagSet "verbose" then
 		    Cost.logModelCosts (model())
 		else
 		    ()
@@ -77,13 +77,13 @@ fun DOFToShardedModel forest =
 	val _ = ModelValidate.validateLicensing (model())
 
 	val _ = log("Normalizing parallel model ...")
-	val forkedModels = ShardedModel.forkModel (model())
+	val forkedModels = Profile.time "Forking model" ShardedModel.forkModel (model())
 	val _ = Profile.mark()
 
 	val forkedModels = if DynamoOptions.isFlagSet "aggregate" then
 			       let
 				   val _ = log("Aggregating iterators ...")
-				   val forkedModels' = ShardedModel.combineDiscreteShards forkedModels
+				   val forkedModels' = Profile.time "Aggregating iterators" ShardedModel.combineDiscreteShards forkedModels
 			       in
 				   forkedModels'
 			       end
@@ -100,7 +100,7 @@ fun DOFToShardedModel forest =
 			 app 
 			     (fn(shard) => 
 				(CurrentModel.withModel (toModel shard)
-							(fn() => ModelProcess.optimizeModel true (toModel shard)))) (* order after *)
+							(fn() => Profile.timeTwoCurryArgs "Optimizing shard" ModelProcess.optimizeModel true (toModel shard)))) (* order after *)
 			     shards)
 		    end
 		else
@@ -111,8 +111,9 @@ fun DOFToShardedModel forest =
 	val forkedModels =
 	    let 
 		val (shards, sysprops) = forkedModels
-		val shards' = map (fn (shard as {classes,instance,...}) => 
-				      ShardedModel.orderShard ((classes,instance,sysprops),shard)) shards
+		val shards' = Profile.time "Ordering shard"
+					   (fn()=>map (fn (shard as {classes,instance,...}) => 
+							  ShardedModel.orderShard ((classes,instance,sysprops),shard)) shards) ()
 	    in 
 		(shards', sysprops) 
 	    end

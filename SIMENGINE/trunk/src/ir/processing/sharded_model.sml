@@ -645,12 +645,12 @@ fun forkModelByIterator model (iter as (iter_sym,_)) =
     let
 	fun namechangefun iter_sym = (fn(name)=> Symbol.symbol ((Symbol.name name) ^ "_" ^ (Symbol.name iter_sym)))
 	val model' as (classes',_,_) = ModelProcess.duplicateModel model (namechangefun iter_sym)
-	val _ = log ("Pruning parallel model ...")
-	val _ = ModelProcess.pruneModel (SOME iter) model'
-	val _ = log ("Updating parallel model scope ...")
-	val _ = map (ClassProcess.updateForkedClassScope iter) classes'
+	val _ = log ("Pruning parallel shard ...")
+	val _ = Profile.timeTwoCurryArgs "Pruning model" ModelProcess.pruneModel (SOME iter) model'
+	val _ = log ("Updating parallel shard scope ...")
+	val _ = Profile.timeTwoCurryArgs "Updating scope" map (ClassProcess.updateForkedClassScope iter) classes'
 	val _ = log ("Ordering parallel model ...")
-	val _ = Ordering.orderEquations model'
+	val _ = Profile.time "Ordering shard" Ordering.orderEquations model'
     in
 	model'
     end
@@ -660,7 +660,7 @@ fun createIteratorForkedModels model =
 	val iterators = CurrentModel.iterators()
 	fun forkedModel (iter as (iter_sym,_)) = 
 	    let 
-		val model' as (classes, instance as {name,classname},_) = forkModelByIterator model iter
+		val model' as (classes, instance as {name,classname},_) = Profile.timeTwoCurryArgs ("Fork by iterator '"^(Symbol.name iter_sym)^"'") forkModelByIterator model iter
 	    in
 		{classes=classes,
 		 instance=instance,
@@ -678,7 +678,7 @@ fun forkModel (model:DOF.model) =
 	(* TODO, write the checks of the model IR as they are needed *)
 
 
-	val forkedModels = createIteratorForkedModels model
+	val forkedModels = Profile.time "Create forked models" createIteratorForkedModels model
 
 	val {iterators,...} = sysprops
 	val forkedModelsWithIterators = map
@@ -706,7 +706,7 @@ fun forkModel (model:DOF.model) =
 	val shardsWithIterators = map 
 				      (fn(s as {classes,instance,...}, iter)=> 
 					 CurrentModel.withModel (classes,instance,sysprops) 
-								(fn(_)=>updateShardForSolver sysprops (s, iter))) 
+								(fn(_)=>Profile.timeTwoCurryArgs "Updating solver in shard" updateShardForSolver sysprops (s, iter))) 
 				      forkedModelsWithIterators
 
 	val (shards,iterators') = ListPair.unzip shardsWithIterators

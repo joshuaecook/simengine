@@ -423,20 +423,20 @@ fun normalizeModel (model:DOF.model) =
 
 	(* assign correct scopes for each symbol *)
 	val _ = log ("Creating event iterators ...")
-	val () = app ClassProcess.createEventIterators (CurrentModel.classes())
+	val () = Profile.time "Creating event iterators" (fn()=>app ClassProcess.createEventIterators (CurrentModel.classes())) ()
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 	val _ = Profile.mark()
 
 	(* expand out delays *)
 	val _ = log ("Adding delays to difference equations")
-	val () = app ClassProcess.addDelays (CurrentModel.classes())
+	val () = Profile.time "Adding difference equation delays" (fn()=>app ClassProcess.addDelays (CurrentModel.classes())) ()
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 	val _ = Profile.mark()
 
 	val _ = log ("Assigning correct scope ...")
-	val () = app ClassProcess.assignCorrectScope (CurrentModel.classes())
+	val () = Profile.time "Assigning correct scope" (fn()=>app ClassProcess.assignCorrectScope (CurrentModel.classes())) ()
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 	val _ = Profile.mark()
@@ -446,13 +446,13 @@ fun normalizeModel (model:DOF.model) =
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 *)
 	val _ = log ("Propagating spatial iterators ...")
-	val () = app ClassProcess.propagateSpatialIterators (CurrentModel.classes())
+	val () = Profile.time "Propagating spatial iterators" (fn()=>app ClassProcess.propagateSpatialIterators (CurrentModel.classes())) ()
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 	val _ = Profile.mark()
 
 	val _ = log ("Pruning excess iterators ...")
-	val () = pruneIterators (CurrentModel.getCurrentModel())
+	val () = Profile.time "Pruning excess iterators" (fn()=>pruneIterators (CurrentModel.getCurrentModel())) ()
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 	val _ = Profile.mark()
@@ -476,7 +476,7 @@ fun normalizeModel (model:DOF.model) =
 		    let
 			val _ = log ("Flattening model ...")
 			val _ = Profile.write_status "Flattening model"
-			val model' = unify(CurrentModel.getCurrentModel())
+			val model' = Profile.time "Unifying " unify (CurrentModel.getCurrentModel())
 			val _ = log ("Optimizing ...")
 			val _ = optimizeModel model'
 			val _ = CurrentModel.setCurrentModel(model')
@@ -510,7 +510,7 @@ fun normalizeModel (model:DOF.model) =
 
 	(* add intermediates for update equations if required - they are reading and writing to the same vector so we have to make sure that ordering doesn't matter. *)
 	val _ = log ("Adding buffered intermediates ...")
-	val () = app ClassProcess.addBufferedIntermediates (CurrentModel.classes())
+	val () = Profile.time "Adding buffered intermediates" (fn()=>app ClassProcess.addBufferedIntermediates (CurrentModel.classes())) ()
 	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 	val _ = DynException.checkToProceed()
 
