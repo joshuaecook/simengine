@@ -446,15 +446,36 @@ local
 	end
       | translate_input _ = except "non-input"
     fun translate_output inputNames (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = 
-	(DOF.Output.make {name=ExpProcess.exp2term (ExpBuild.svar name),
-			  inputs=ref inputNames,
-			  contents=case quantity of 
-				       TUPLE t => map astexp_to_Exp t
-				     | UNIT => []
-				     | q => [astexp_to_Exp q],
-			  condition=case condition of
-					SOME c => astexp_to_Exp c
-				      | NONE => ExpBuild.bool true})
+	let
+	    val iterator = case settings of
+			       SOME settings => 
+			       (case lookupTable (settings, Symbol.symbol "iter") of
+				    SOME (SYMBOL sym) => SOME (sym, Iterator.RELATIVE 0)
+				  | SOME _ => (error ("unexpected non symbol parameter for iter property for output " ^ (Symbol.name name));
+					       NONE)
+				  | NONE => NONE)
+			     | NONE => NONE
+	    (* look to see if one was specified as a 'dimension' *)
+	    val iterator = case iterator of
+			       SOME _ => iterator
+			     | NONE => (case dimensions of 
+					    NONE => NONE
+					  | SOME [sym] => SOME (sym, Iterator.RELATIVE 0)
+					  | SOME _ => (error ("unexpected multiple dimensions on output " ^ (Symbol.name name));
+						       NONE))
+	in
+	    (DOF.Output.make {name=ExpProcess.exp2term (case iterator of 
+							    SOME iter => ExpBuild.var_with_iter (name, iter)
+							  | NONE => ExpBuild.svar name),
+			      inputs=ref inputNames,
+			      contents=case quantity of 
+					   TUPLE t => map astexp_to_Exp t
+					 | UNIT => []
+					 | q => [astexp_to_Exp q],
+			      condition=case condition of
+					    SOME c => astexp_to_Exp c
+					  | NONE => ExpBuild.bool true})
+	end
       | translate_output _ _ = except "non-output"
     fun translate_iterator (ITERATORDEF {name, value, settings=(SOME (TABLE settings))}) =
 	let
@@ -907,5 +928,7 @@ fun ast_to_dof astlist =
     (*handle TranslationError => raise TranslationError*)
     handle e => DynException.checkpoint "AstDOFTrans.ast_to_dof" e
 end
+
+val ast_to_dof = Profile.time "AST to IR" ast_to_dof
 
 end

@@ -191,8 +191,9 @@ ifeq ($(BRANCH),1)
 RELEASE = "branch"
 BUILDREV := $(shell svn info | grep '^Revision:' | sed -e 's/Revision: //')
 REV := $(subst /,_,$(subst /branches/,,$(SVN_BRANCH)))
+
 #INSTALL_FILENAME = "$(FILENAME)_branch_$(REV):$(BUILDREV)_$(BUILD_TYPE).tar.gz"
-VERSION = "BRANCH_$(REV)_$(BUILDREV)"
+VERSION = BRANCH_$(REV)_$(BUILDREV)
 INSTALL_FILENAME = "install_$(PLATFORM)_$(ARCH)_$(VERSION)"
 TOP_LEVEL=../..
 DEBUG=true

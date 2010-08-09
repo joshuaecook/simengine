@@ -74,6 +74,8 @@ fun file_to_ast file =
 		[Ast.ACTION (Ast.EXP Ast.UNIT, PosLog.NOPOS)])
     end
 
+val file_to_ast = Profile.time "Source to AST" file_to_ast
+
 fun std_compile exec args =
     (case args of
 	 [object] => 

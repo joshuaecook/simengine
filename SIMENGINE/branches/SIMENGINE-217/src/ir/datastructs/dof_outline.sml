@@ -1,12 +1,21 @@
 signature DOFOUTLINE =
 sig
 
+    (* Define the type of a dependency - this is a record containing a symbol set of all the
+     * symbols that are on the rhs of an equation, and a second symbol set to contain all 
+     * the iterators. *)
     type dependencies = {syms: SymbolSet.set, iter_syms: SymbolSet.set}
     type dependency_table = dependencies SymbolTable.table
 
+    (* Instance dependencies are like the above dependencies, except we need to keep track 
+     * of the class name associated with the instance so we can grab the dependencies through
+     * the hierarchy. *)
     type instance_dependencies = {instclass: Symbol.symbol, syms: SymbolSet.set, iter_syms: SymbolSet.set}
     type instance_dependency_table = instance_dependencies SymbolTable.table
 
+    (* Each class outline mirrors the original class, but everything is a lot more explicit. 
+     * From this structure, it's very easy to determine the states, or the state inits, or 
+     * traverse only from outputs through intermediates until reaching states or inputs.  *)
     type class_outline = {name: Symbol.symbol,
 			  inputs: dependency_table,
 			  init_exps: dependency_table,
@@ -15,9 +24,19 @@ sig
 			  state_exps: dependency_table,
 			  outputs: dependency_table}
 
-    type dof_outline = class_outline SymbolTable.table
+    (* The model outline is just a table mapping a classname to a class outline.  Everything here 
+     * is a symbol table or a symbol set to absolutely maximize performance retrieving data 
+     * from this data structure *)
+    type model_outline = class_outline SymbolTable.table
 
+    (* class_to_outline and model_to_outline takes a class or model, respectively, and returns 
+     * its outline. *)
     val class_to_outline : DOF.class -> class_outline
+    val model_to_outline : DOF.model -> model_outline
+					
+    (* traverse through a class and find all the dependent symbols or iterators *)
+    val symbol_to_deps : class_outline -> Symbol.symbol -> SymbolSet.set
+    val symbol_to_iters : class_outline -> Symbol.symbol -> SymbolSet.set
 
 end
 structure DOFOutline : DOFOUTLINE =
@@ -37,7 +56,7 @@ struct
 			  instance_exps: instance_dependency_table,
 			  outputs: dependency_table}
 
-    type dof_outline = class_outline SymbolTable.table
+    type model_outline = class_outline SymbolTable.table
 
     fun exp_to_symbols_and_iterators exp =
 	let
@@ -121,16 +140,28 @@ struct
 	    fun exps_to_outline exps =
 		foldl
 		    (fn(exp, table)=>
-		    let
-			val (lhs_syms, lhs_iter_syms) = exp_to_symbols_and_iterators (ExpProcess.lhs exp)
-			val (rhs_syms, rhs_iter_syms) = exp_to_symbols_and_iterators (ExpProcess.rhs exp)
-			val sym = ExpProcess.getLHSSymbol exp
-			val entry = {syms=rhs_syms, iter_syms=SymbolSet.union (lhs_iter_syms, rhs_iter_syms)}
-		    in
-			SymbolTable.enter (table, sym, entry)
-		    end)
+		       let
+			   val (lhs_syms, lhs_iter_syms) = exp_to_symbols_and_iterators (ExpProcess.lhs exp)
+			   val (rhs_syms, rhs_iter_syms) = exp_to_symbols_and_iterators (ExpProcess.rhs exp)
+			   val syms = ExpProcess.getLHSSymbols exp
+			   fun add_sym (table, sym) =
+			       let val entry = {syms=rhs_syms, iter_syms=SymbolSet.union (lhs_iter_syms, rhs_iter_syms)}
+			       in SymbolTable.enter (table, sym, entry)
+			       end
+
+		       in
+			   case syms of
+			       nil => table (* unexpected, but why not ... *)
+			     | [sym] => add_sym (table, sym)
+			     | syms => foldl
+					   (fn(sym', table')=> add_sym (table', sym'))
+					   table
+					   syms
+		       end	     
+		       handle e => DynException.checkpoint ("DOFOutline.class_to_outline.exp_to_outline ["^(ExpPrinter.exp2str exp)^"]") e)
 		    empty
 		    exps
+		    handle e => DynException.checkpoint "DOFOutline.class_to_outline.exps_to_outline" e
 
 	    val init_exps_outline = exps_to_outline init_exps
 	    val state_exps_outline = exps_to_outline state_exps
@@ -173,5 +204,81 @@ struct
 	     instance_exps=instance_outline,
 	     outputs=outputs_outline}
 	end
+	handle e => DynException.checkpoint "DOFOutline.class_to_outline" e
+
+    fun model_to_outline ((classes, _, _):DOF.model) = 
+	foldl
+	    (fn(c as {name,...}, table)=>
+	       SymbolTable.enter (table, name, class_to_outline c))
+	    SymbolTable.empty
+	    classes
+	handle e => DynException.checkpoint "DOFOutline.model_to_outline" e
+
+    fun inTable (table, sym) = 
+	case SymbolTable.look (table, sym) of
+	    SOME _ => true
+	  | NONE => false
+
+    fun symbol_is_leaf (outline:class_outline) sym =
+	inTable (#inputs outline, sym) orelse
+	inTable (#init_exps outline, sym)
+
+    fun symbol_is_intermediate (outline:class_outline) sym = 
+	inTable (#intermediate_exps outline, sym) orelse
+	inTable (#instance_exps outline, sym) orelse
+	inTable (#outputs outline, sym)
+
+    (* Take a symbol, find all the dependencies *)
+    fun symbol_to_deps (outline:class_outline) sym =
+	let
+	    val {name, inputs, 
+		 init_exps, intermediate_exps, state_exps, instance_exps, 
+		 outputs} = outline
+
+	    fun recurse syms = 
+		foldl
+		    (fn(sym, set)=>SymbolSet.union (symbol_to_deps outline sym, set))
+		    SymbolSet.empty
+		    (SymbolSet.listItems syms)
+	in
+	    if symbol_is_leaf outline sym then
+		SymbolSet.singleton sym
+	    else 
+		case SymbolTable.look (#intermediate_exps outline, sym) of
+		    SOME {syms,...} => recurse syms
+		  | NONE => (case SymbolTable.look (#instance_exps outline, sym) of
+				 SOME {syms,...} => recurse syms
+			       | NONE => (case SymbolTable.look (#outputs outline, sym) of 
+					      SOME {syms, ...} => recurse syms
+					    | NONE => SymbolSet.empty))
+	end
+	handle e => DynException.checkpoint "DOFOutline.symbol_to_deps" e
+
+    (* now repeat for iterators *)
+    fun symbol_to_iters (outline:class_outline) sym =
+	let
+	    val {name, inputs, 
+		 init_exps, intermediate_exps, state_exps, instance_exps, 
+		 outputs} = outline
+
+	    fun recurse syms = 
+		foldl
+		    (fn(sym, set)=>SymbolSet.union (symbol_to_iters outline sym, set))
+		    SymbolSet.empty
+		    (SymbolSet.listItems syms)
+	in
+	    case SymbolTable.look (#inputs outline, sym) of
+		SOME {syms,iter_syms} => iter_syms
+	      | NONE => (case SymbolTable.look (#init_exps outline, sym) of
+			     SOME {syms,iter_syms} => iter_syms
+			   | NONE => (case SymbolTable.look (#intermediate_exps outline, sym) of
+					  SOME {syms,iter_syms} => SymbolSet.union (iter_syms, recurse syms)
+					| NONE => (case SymbolTable.look (#instance_exps outline, sym) of
+						       SOME {syms,iter_syms,instclass} => SymbolSet.union (iter_syms, recurse syms)
+						     | NONE => (case SymbolTable.look (#outputs outline, sym) of 
+								    SOME {syms,iter_syms} => SymbolSet.union (iter_syms, recurse syms)
+								  | NONE => SymbolSet.empty))))
+	end
+	handle e => DynException.checkpoint "DOFOutline.symbol_to_iters" e
 
 end

@@ -31,6 +31,15 @@ classdef List
             
         end
         
+        
+        function s = stringConcatWith(delim, l)
+            if isempty(l)
+                s = '';
+            else
+                s = List.foldl(@(elem,base_str)([base_str delim elem]), l{1}, l(2:end));
+            end
+        end
+        
     end
     
     
