@@ -42,7 +42,7 @@ figure(2);
 for i=1:4
     subplot(2,2,i)
     simplot(o(i))
-    title(['Sine wave with fs=' fs(i) ' smoothed']);
+    title(['Sine wave with fs=' num2str(fs(i)) ' smoothed']);
 end
 
 end
