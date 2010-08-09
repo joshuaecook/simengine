@@ -81,8 +81,8 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	    DynException.stdException ("Cannot write ASSOC containers.", "CWriter.exp2c_str", Logger.INTERNAL)
 	  | Exp.MATRIX m => matrix2str m
     end
-  | exp2c_str (Exp.META _) = 
-    DynException.stdException ("Cannot write META expressions.", "CWriter.exp2c_str", Logger.INTERNAL)
+  | exp2c_str (exp as (Exp.META _)) = 
+    DynException.stdException (("Cannot write META expressions. (exp="^(ExpPrinter.exp2str exp)^")"), "CWriter.exp2c_str", Logger.INTERNAL)
     
 
 and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (i2s d) ^ ".0))" (* must make it float for proper eval *)

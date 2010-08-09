@@ -49,14 +49,14 @@ fun DOFToShardedModel forest =
 	val _ = CurrentModel.setCurrentModel forest
 
 	(* here, we can validate the model to catch issues that can't be found elsewhere *)
-	val _ = ModelValidate.validate forest
+	val _ = Profile.time "Validating Model" ModelValidate.validate forest
 	val _ = DynException.checkToProceed()
 	val _ = Profile.mark()
 
 	(* if the optimize flag is set, spend some time trying to reduce the equations *)
 	val _ = if DynamoOptions.isFlagSet "optimize" then
 		    (log ("Optimizing model ...");
-		     ModelProcess.optimizeModel false (model()); (* don't perform ordering *)
+		     Profile.timeTwoCurryArgs "First pass optimization" ModelProcess.optimizeModel false (model()); (* don't perform ordering *)
 		     DOFPrinter.printModel(model()))
 		else
 		    ()

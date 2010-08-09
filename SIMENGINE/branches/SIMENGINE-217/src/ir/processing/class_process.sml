@@ -1426,6 +1426,13 @@ fun sym2iterators (class: DOF.class) sym =
 	(temporal_iterators, spatial_iterators)
     end
 
+fun sym2iterators' (class: DOF.class, class_outline) sym =
+    let
+	val temporal_iterators = DOFOutline.symbol_to_iters class_outline sym
+    in
+	(SymbolSet.listItems temporal_iterators, [])
+    end
+
 fun propagateStateIterators (class: DOF.class) =
     let
 	val exps = !(#exps class)
@@ -1558,6 +1565,7 @@ fun assignCorrectScope (class: DOF.class) =
 	val _ = (#exps class) := exps'
 	val _ = (#outputs class) := outputs'
 
+	val class_outline = DOFOutline.class_to_outline class
 
 	fun update_output2 (output) =
 	    let
@@ -1662,7 +1670,7 @@ fun assignCorrectScope (class: DOF.class) =
 			let
 			    val sym = Term.sym2curname name
 			    (* val _ = Util.log ("Finding iterator for '"^(Symbol.name sym)^"'") *)
-			    val (temporal_iterators, spatial_iterators) = sym2iterators class sym
+			    val (temporal_iterators, spatial_iterators) = sym2iterators' (class, class_outline) sym
 			    (* val _ = Util.log ("Found "^(i2s (List.length temporal_iterators))^" temporal and "^(i2s (List.length spatial_iterators))^" spatial") *)
 
 			    (* transform pp[x] and update[x] into x references*)
@@ -1686,7 +1694,7 @@ fun assignCorrectScope (class: DOF.class) =
 				    iterators'
 				end
 
-			    val temporal_iterators' = foldl transform_iterators nil (map #1 temporal_iterators)
+			    val temporal_iterators' = foldl transform_iterators nil ((*map #1*) temporal_iterators)
 
 			    (* assign the temporal iterator first *)
 			    val name' = 
@@ -1716,7 +1724,7 @@ fun assignCorrectScope (class: DOF.class) =
 	    handle e => DynException.checkpoint ("ClassProcess.AssignCorrectScope.update_output2 [name="^(e2s (Exp.TERM (DOF.Output.name output)))^"]") e
 
 	val outputs = !(#outputs class)
-	val outputs' = map update_output2 outputs
+	val outputs' = Profile.timeTwoCurryArgs "Update Output 2" map update_output2 outputs
 		      
 	(* write back output changes *)
 	val _ = (#outputs class) := outputs'
@@ -1748,7 +1756,7 @@ fun assignCorrectScope (class: DOF.class) =
 	    end
 
 
-	val _ = (#outputs class) := map update_output_immediate (! (#outputs class))
+	val _ = (#outputs class) := Profile.timeTwoCurryArgs "Update Output Immediate" map update_output_immediate (! (#outputs class))
     in
 	()
     end
@@ -1873,6 +1881,40 @@ fun pruneInputsFromOutput class output =
 	val _ = log (fn () => "expressions: " ^ (e2s (Exp.CONTAINER (Exp.EXPLIST exps))))
     in
 	inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputSymbols'
+    end
+
+fun pruneInputsFromOutput' (class: DOF.class, class_outline) output =
+    let
+	val output_inputs = DOF.Output.inputs output
+	val output_inputSymbols = SymbolSet.fromList (map Term.sym2curname (!output_inputs))
+	val {name,inputs,
+	     init_exps,intermediate_exps,state_exps,instance_exps,
+	     outputs} = class_outline
+	val inputSymbols = 
+	    SymbolSet.union (output_inputSymbols,
+			     SymbolSet.fromList (SymbolTable.listKeys inputs))
+	val outputDeps = foldl 
+			     (fn({syms,...}, set)=> SymbolSet.union (set, syms))
+			     SymbolSet.empty 
+			     (SymbolTable.listItems outputs)
+	val dependentSymbols = 
+	    foldl
+		(fn(sym, set)=>
+		   let
+		       val set' = DOFOutline.symbol_to_deps class_outline sym
+		   in
+		       SymbolSet.union (set, set')
+		   end)
+	        SymbolSet.empty
+		(SymbolSet.listItems outputDeps)
+
+	(* all the inputs are the ones that we need *)
+	val inputSymbols' = SymbolSet.listItems
+			    (SymbolSet.intersection (inputSymbols,
+						     dependentSymbols))
+
+    in
+	output_inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputSymbols'
     end
 
 fun pruneUnusedInputs (class: DOF.class) =
@@ -2118,7 +2160,8 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 			   outputs
 
 	(* take all inputs that aren't called by the outputs directly (very costly - does a full flatten here) *)
-	val _ = Profile.timeTwoCurryArgs "Pruning inputs from outputs" app (pruneInputsFromOutput class) outputs'
+	val class_outline = DOFOutline.class_to_outline class
+	val _ = Profile.timeTwoCurryArgs "Pruning inputs from outputs" app (pruneInputsFromOutput' (class, class_outline)) outputs'
 
 
 	(* find all the dependencies *)

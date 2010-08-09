@@ -1,4 +1,4 @@
-classdef Exp
+classdef Exp < handle
     
     properties (Constant, Access = private)
         NULLEXP = 0
@@ -14,6 +14,7 @@ classdef Exp
         val
         op
         args
+        str
         dims = [1 1]
         iterReference = false
     end
@@ -41,6 +42,7 @@ classdef Exp
                 e.val = [v '.' sub];
                 e.type = e.REFERENCE;
             end
+            generateStr(e);
         end
         
         % Algebraic operations
@@ -54,7 +56,8 @@ classdef Exp
                 case 2
                     er = oper('+', varargin);
                 otherwise
-                    er = List.foldl(fcn, varargin{1}, varargin(2:end));
+                    er = oper('add', varargin);
+                    %er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper('+', {e1, e2});
         end
@@ -81,7 +84,8 @@ classdef Exp
                 case 2
                     er = oper('*', varargin);
                 otherwise
-                    er = List.foldl(fcn, varargin{1}, varargin(2:end));
+                    er = oper('mul', varargin);
+                    %er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper('*', {e1, e2});
         end
@@ -170,7 +174,8 @@ classdef Exp
                 case 2
                     er = oper(' and ', varargin);
                 otherwise
-                    er = List.foldl(fcn, varargin{1}, varargin(2:end));
+                    er = oper('and', varargin);
+                    %er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper(' and ', {e1, e2});
         end
@@ -189,7 +194,8 @@ classdef Exp
                 case 2
                     er = oper(' or ', varargin);
                 otherwise
-                    er = List.foldl(fcn, varargin{1}, varargin(2:end));
+                    er = oper('or', varargin);
+                    %er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
             %er = oper(' or ', {e1, e2});
         end
@@ -399,6 +405,7 @@ classdef Exp
                         end
                         er = e;
                     end
+                    generateStr(er);
                 elseif strcmp(s(i).type,'.')
                     switch s(i).subs
                         case 'toStr'
@@ -451,11 +458,17 @@ classdef Exp
                 map = containers.Map;
             end
             
-            if isempty(e.type)
-                e
-                error('Simatra:Exp:findIterators', 'Unexpected empty expression type')
-            end
+%             if isempty(e.type)
+%                 e
+%                 error('Simatra:Exp:findIterators', 'Unexpected empty expression type')
+%             end
             switch e.type
+                case e.OPERATION
+                    for i=1:length(e.args)
+                      if isa(e.args{i}, 'Exp')
+                        map = findIterators(e.args{i}, map);
+                      end
+                    end
                 case {e.VARIABLE, e.REFERENCE}
                     if isa(e.iterReference, 'IteratorReference')
                         iter = e.iterReference.iterator;
@@ -463,12 +476,6 @@ classdef Exp
                     end
                 case e.ITERATOR
                     map(e.val) = e.iterReference;
-                case e.OPERATION
-                    for i=1:length(e.args)
-                      if isa(e.args{i}, 'Exp')
-                        map = findIterators(e.args{i}, map);
-                      end
-                    end
             end
             iters = map;            
         end
@@ -482,11 +489,15 @@ classdef Exp
         end
         
         function s = toStr(e)
+            s = e.str;
+        end
+        
+        function s = generateStr(e)
             if isempty(e.type)
                 e.val
                 error('Simatra:Exp:toStr', 'Unexpected empty expression type')
             end
-
+            s = '';
             switch e.type
                 case e.VARIABLE
                     s = e.val;
@@ -522,9 +533,12 @@ classdef Exp
                             s = ['(' e.op '(' toStr(e.args{1}) '))'];
                         elseif length(e.args) == 2
                             s = ['(' toStr(e.args{1}) e.op toStr(e.args{2}) ')'];
+                        else
+                            s = [e.op '(' List.stringConcatWith(', ', List.map(@(e)(toStr(e)), e.args)) ')'];
                         end
                     end
             end
+            e.str = s;
         end
         
         function s = toVariableName(e)
@@ -556,7 +570,11 @@ function er = oper(operation, args)
 len = length(args);
 exps = cell(1,len);
 for i=1:len
-    exps{i} = Exp(args{i});
+    if ~isa(args{i},'Exp')
+        exps{i} = Exp(args{i});
+    else
+        exps{i} = args{i};
+    end
 end
 er = Exp;
 % check binary operations
@@ -575,5 +593,6 @@ end
 er.type = er.OPERATION;
 er.op = operation;
 er.args = exps;
+generateStr(er);
 end
 
