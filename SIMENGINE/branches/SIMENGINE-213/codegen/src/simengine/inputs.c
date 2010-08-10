@@ -38,12 +38,15 @@ typedef struct {
 // functions are always executed on the host and may need to read inputs.
 #if NUM_CONSTANT_INPUTS > 0
 __DEVICE__ CDATAFORMAT constant_inputs[PARALLEL_MODELS * NUM_CONSTANT_INPUTS];
-CDATAFORMAT *host_constant_inputs;
+#else
+__DEVICE__ CDATAFORMAT *constant_inputs = NULL;
 #endif
+CDATAFORMAT *host_constant_inputs = NULL;
+
 #if NUM_SAMPLED_INPUTS > 0
 __DEVICE__ sampled_input_t sampled_inputs[STRUCT_SIZE * NUM_SAMPLED_INPUTS];
-sampled_input_t *host_sampled_inputs;
 #endif
+sampled_input_t *host_sampled_inputs = NULL;
 
 #define BYTE(val,n) ((val>>(n<<3))&0xff)
 
@@ -246,6 +249,67 @@ int initialize_states(CDATAFORMAT *model_states, const char *outputs_dirname, un
   return 0;
 }
 
+/* Reads user input data from files.
+ */
+void read_user_inputs(const char *outputs_dirname, unsigned int num_models, unsigned int models_per_batch, unsigned int modelid_offset, CDATAFORMAT start_time) {
+  unsigned int modelid;
+  unsigned int inputid = 0;
+  CDATAFORMAT *constants;
+  sampled_input_t *samples;
+#if defined TARGET_GPU
+  // If a previous grid has been run, we can reuse the host memory for inputs
+  if (!host_constant_inputs) {
+    host_constant_inputs = NUM_CONSTANT_INPUTS ? (CDATAFORMAT *)malloc(PARALLEL_MODELS * NUM_CONSTANT_INPUTS) : NULL;
+  }
+  if (!host_sampled_inputs) {
+    host_sampled_inputs = NUM_SAMPLED_INPUTS ? (sampled_input_t *)malloc(STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t)) : NULL;
+  }
+#else // CPU targets
+  host_constant_inputs = constant_inputs;
+  host_sampled_inputs = sampled_inputs;
+#endif
+
+  constants = host_constant_inputs;
+  samples = host_sampled_inputs;
+
+#if NUM_CONSTANT_INPUTS > 0
+  // Initialize constant inputs
+  for(;inputid<NUM_CONSTANT_INPUTS;inputid++){
+    read_constant_inputs(constants, outputs_dirname, inputid, num_models, models_per_batch, modelid_offset);
+  }
+#endif // NUM_CONSTANT_INPUTS > 0
+
+#if NUM_SAMPLED_INPUTS > 0
+  for(;inputid<NUM_CONSTANT_INPUTS+NUM_SAMPLED_INPUTS;inputid++){
+    for (modelid = 0; modelid < models_per_batch; modelid++) {
+      sampled_input_t *tmp = &samples[STRUCT_IDX * NUM_SAMPLED_INPUTS + SAMPLED_INPUT_ID(inputid)];
+
+      tmp->idx[ARRAY_IDX] = 0;
+      tmp->buffered_size[ARRAY_IDX] = 0;
+      tmp->file_idx[ARRAY_IDX] = 0;
+      tmp->current_time[ARRAY_IDX] = start_time;
+      tmp->timestep = seint.sampled_input_timesteps[SAMPLED_INPUT_ID(inputid)];
+      tmp->eof_option = seint.sampled_input_eof_options[SAMPLED_INPUT_ID(inputid)];
+
+      read_sampled_input(tmp, start_time, outputs_dirname, inputid, num_models, modelid_offset, modelid);
+    }
+  }
+#endif // NUM_SAMPLED_INPUTS > 0
+
+#if defined TARGET_GPU
+  if (constants) {
+    CDATAFORMAT *g_constants;
+    cutilSafeCall(cudaGetSymbolAddress((void **)&g_constants, constant_inputs));
+    cutilSafeCall(cudaMemcpy(g_constants, constants, PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT), cudaMemcpyHostToDevice));
+  }
+  if (samples) {
+    sampled_input_t *g_samples;
+    cutilSafeCall(cudaGetSymbolAddress((void **)&g_samples, sampled_inputs));
+    cutilSafeCall(cudaMemcpy(g_samples, samples, STRUCT_SIZE * NUM_SAMPLED_INPUTS * sizeof(sampled_input_t), cudaMemcpyHostToDevice));
+  }
+#endif
+}
+
 void initialize_inputs(CDATAFORMAT *tmp_constant_inputs, sampled_input_t *tmp_sampled_inputs, const char *outputs_dirname, unsigned int num_models, unsigned int models_per_batch, unsigned int modelid_offset, CDATAFORMAT start_time){
   unsigned int modelid;
   unsigned int inputid = 0;
@@ -351,3 +415,4 @@ __HOST__ __DEVICE__ static inline CDATAFORMAT get_input(unsigned int inputid, un
   ERROR(Simatra:Simex:get_input, "No such input id %d.\n", inputid);
 #endif
 }
+

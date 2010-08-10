@@ -1223,7 +1223,7 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 	     $("// Ignoring class '" ^ (Symbol.name (#name class)) ^ "'")]
 	else
 	    [$(""),
-	     $("// States for class " ^ (Symbol.name classTypeName)),
+	     $("// States for class " ^ (Symbol.name (#name class))),
 	     $("typedef struct  {"),	 
 	     SUB($("// states (count="^(i2s (List.length init_eqs_symbols))^")") ::
 		 (map ($ o state2member) init_eqs_symbols) @
@@ -1244,20 +1244,25 @@ fun iodatastruct_code (shardedModel as (shards,sysprops)) =
 	     shards)
 
 and iodatastruct_shard_code (shard as {classes,...}) =
-    Layout.align (map iodatastruct_class_code classes)
+    Layout.align 
+	(map (fn class as {name,...} => 
+		 iodatastruct_class_code (name = #classname (CurrentModel.top_inst ())) class)
+	     classes)
 
-and iodatastruct_class_code class =
+and iodatastruct_class_code is_top_class class =
     let
 	val classname = ClassProcess.class2classname class
     in
 	Layout.align
 	    [$("// Inputs for class " ^ (Symbol.name classname)),
-	     input_datastruct_class_code class,
+	     input_datastruct_class_code is_top_class class,
+	     $("// States for class " ^ (Symbol.name classname)),
+	     state_datastruct_class_code is_top_class class,
 	     $("// Outputs for class " ^ (Symbol.name classname)),
-	     output_datastruct_class_code class]
+	     output_datastruct_class_code is_top_class class]
     end
 
-and input_datastruct_class_code class =
+and input_datastruct_class_code is_top_class class =
     let
 	open Layout
 	val typename = ClassProcess.classTypeName class
@@ -1280,22 +1285,65 @@ and input_datastruct_class_code class =
 			   end)
 		       nil class)
     in
-	align
-	    [$("typedef struct {"),
-	     SUB [inputs_layout, instances_layout],
-	     $("} "^(Symbol.name typename)^"_input;")]
+	if isEmpty inputs_layout andalso isEmpty instances_layout then
+	    Layout.empty
+	else
+	    align
+		[$("typedef struct {"),
+		 SUB [inputs_layout, instances_layout],
+		 $("} "^(Symbol.name typename)^"_input;")]
     end
 
-and output_datastruct_class_code class =
+and state_datastruct_class_code is_top_class class =
+    let
+	open Layout
+	val typename = ClassProcess.classTypeName class
+	val states_layout =
+	    align (ClassProcess.foldInitialValueEquations
+		       (fn (it,lyt) =>
+			   let
+			       val sym = ExpProcess.lhs it
+			       val size = ExpProcess.exp2size sym
+			       val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
+			   in
+			       $("CDATAFORMAT " ^ name ^ "["^(i2s size)^"*VECTOR_WIDTH];") ::
+			       lyt
+			   end)
+		       nil class)
+	val instances_layout =
+	    align (ClassProcess.foldInstanceEquations
+		       (fn (it,lyt) => 
+			   let 
+			       val {classname,instname,...} = ExpProcess.deconstructInst it
+			       val class = CurrentModel.classname2class classname
+			       val typename = ClassProcess.classTypeName class
+			   in
+			       $((Symbol.name typename) ^ "_state " ^ (Symbol.name instname) ^ ";") ::
+			       lyt
+			   end)
+		       nil class)
+    in
+	if isEmpty states_layout andalso isEmpty instances_layout then
+	    Layout.empty
+	else
+	    align
+		[$("typedef struct {"),
+		 SUB [states_layout, instances_layout],
+		 $("} "^(Symbol.name typename)^"_state;")]
+    end
+
+and output_datastruct_class_code is_top_class class =
     let
 	open Layout
 	val typename = ClassProcess.classTypeName class
 	val outputs_layout =
 	    align (ClassProcess.foldOutputs
 		       (fn (it,lyt) => 
-			   let val outputsize = 1 + (List.length (DOF.Output.contents it));
+			   let 
+			       val size = List.length (DOF.Output.contents it)
+			       val name = Term.sym2name (DOF.Output.name it)
 			   in
-			       $("CDATAFORMAT "^ (Term.sym2name (DOF.Output.name it)) ^ "[" ^ (i2s outputsize) ^ "*VECTOR_WIDTH];") :: 
+			       $("CDATAFORMAT "^ name ^ "[" ^ (i2s size) ^ "*VECTOR_WIDTH];") :: 
 			       lyt
 			   end)
 		       nil class)
@@ -1860,11 +1908,13 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 			       (CWriterUtil.exp2c_str exp) ^ 
 			       ";")
 			 ) (Util.addCount (DOF.Output.contents output)))
+	    val classTypeName = ClassProcess.classTypeName class
+	    val (inputs_type,outputs_type) = ((Symbol.name classTypeName) ^ "_input", (Symbol.name classTypeName) ^ "_output")
 	in
 	    Layout.align 
 		[$("__HOST__ __DEVICE__ int output_" ^ (Symbol.name (#name class)) ^ "_" ^ (Term.sym2name (DOF.Output.name output)) ^
 		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ systemstatereadprototype ^
-		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {"),
+		   " "^inputs_type^" *input, "^outputs_type^" *output, const unsigned int first_iteration, const unsigned int modelid) {"),
 		 SUB [read_inputs_progs,
 		      Layout.align extra_equations,
 		      write_outputs_progs],
@@ -2001,6 +2051,9 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    end
 
 
+	val classTypeName = ClassProcess.classTypeName class
+	val (inputs_type,outputs_type) = ((Symbol.name classTypeName) ^ "_input", (Symbol.name classTypeName) ^ "_output")
+
 	val header_progs = 
 	    (map layoutExpressionConstants valid_exps) @
 	    (if useMatrixForm then
@@ -2011,21 +2064,24 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		 $("#endif"),
 		 $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
-		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+		   " "^inputs_type^" *input, "^outputs_type^" *output, const unsigned int first_iteration, const unsigned int modelid) {")]
 	    else
 		[$("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 		   "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
-		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {")]
+		   " "^inputs_type^" *input, "^outputs_type^" *output, const unsigned int first_iteration, const unsigned int modelid) {")]
 	    )
 
 
 	val input_automatic_var =
-	    if is_top_class then
-		fn (input,i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = get_input(" ^ (i2s i) ^ ", modelid);")
-	    else
-		fn (input,i) => 
-		   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
+	    fn (input,i) =>
+	       assign ($("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input)))),
+		       $("input->" ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ "[threadid]"))
+	    (* if is_top_class then *)
+	    (* 	fn (input,i) =>  *)
+	    (* 	   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = get_input(" ^ (i2s i) ^ ", modelid);") *)
+	    (* else *)
+	    (* 	fn (input,i) =>  *)
+	    (* 	   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];") *)
 
 	val eqn_symbolset = 
 	    SymbolSet.flatmap ExpProcess.exp2symbolset valid_exps
@@ -2122,19 +2178,12 @@ fun state_init_code shardedModel iter_sym =
 		val mastername = ClassProcess.class2preshardname class
 		val classTypeName = ClassProcess.classTypeName class
 
-		val (reads, writes, sysreads) = 
-		    (if reads_iterator iter class then
-			 (*"const " ^ *)"statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *rd_" ^ iter_name
-		     else "void *rd_" ^ iter_name,
-		     if writes_iterator iter class then
-			 "statedata_" ^ (Symbol.name mastername) ^ "_" ^ iter_name ^ " *wr_" ^ iter_name
-		     else "void *wr_" ^ iter_name,
-		     if reads_system class then
-			 "const systemstatedata_" ^ (Symbol.name mastername) ^ " *sys_rd"
-		     else "void *sys_rd")
+		val (inputs, writes) =
+		    ((Symbol.name classTypeName) ^ "_input *inputs",
+		     (Symbol.name classTypeName) ^ "_state *wr_"^iter_name)
 	    in
 		"__HOST__ int init_states_" ^ (Symbol.name (#name class)) ^
-		"(" ^ reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", CDATAFORMAT *inputs, const unsigned int modelid)"
+		"(" ^ inputs ^ ", " ^ writes ^ ", const unsigned int modelid, const unsigned int threadid)"
 	    end
 
 	fun stateInitFunction (iter as (iter_sym, iter_typ)) isTopClass class =
@@ -2161,14 +2210,13 @@ fun state_init_code shardedModel iter_sym =
 		    else
 			Util.addCount (!(#inputs class))
 
-
-		val inputLocalVar =
-		    if isTopClass then
-		     fn (input, i) => 
-			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = host_get_input(" ^ (i2s i) ^ ", modelid);")
-		    else
-		     fn (input, i) => 
-			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
+		fun inputLocalVar (input,ix) =
+		    let
+			val name = CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))
+		    in
+			assign($("CDATAFORMAT " ^ name),
+			       $("inputs->"^name^"[threadid]"))
+		    end
 
 		val ivqCode = ClassProcess.foldInitialValueEquations
 				  (fn (eqn, code) =>
@@ -2232,10 +2280,9 @@ fun state_init_code shardedModel iter_sym =
 				 val inpnames: Exp.term list = 
 				     rev (ClassProcess.foldInputs (fn (input, names) => (DOF.Input.name input) :: names) nil instclass)
 
-				 val (reads, writes, sysreads) = 
-				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
-				      if writes_iterator iter instclass then "&wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
-				      if reads_system instclass then "&" ^ sysreadsName else "NULL")
+				 val (inputs, writes) = 
+				     ("inputs->"^(Symbol.name instname),
+				      "wr_mdlvar__t->"^(Symbol.name instname))
 
 				 val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 
@@ -2261,13 +2308,9 @@ fun state_init_code shardedModel iter_sym =
 			     in
 				 if hasInitialValueEquation (fn _ => true) instclass then
 				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
-				      SUB(inps @
-					  inps_init @
-					  (if reads_system instclass then initSysreads else []) @
-					  [$("// " ^ (ExpPrinter.exp2str eqn)),
+				      SUB([$("// " ^ (ExpPrinter.exp2str eqn)),
 					   $("init_states_" ^ (Symbol.name classname) ^ "(" ^
-					     reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^
-					     inpvar ^ ", modelid);")]),
+					     inputs ^ ", " ^ writes ^ ", modelid, threadid);")]),
 				      $("}")] @
 				     code
 				 else code
@@ -2331,6 +2374,8 @@ fun flow_code shardedModel iter_sym =
 			 "const systemstatedata_" ^ (Symbol.name mastername) ^ " *sys_rd, "
 		     else "")
 
+		val (inputs_type,outputs_type) = ((Symbol.name classTypeName) ^ "_input", (Symbol.name classTypeName) ^ "_output")
+
 		fun class_flow_prototype class = 
 		    let
 			val useMatrixForm = ModelProcess.requiresMatrixSolution (iter_sym, iter_type)
@@ -2338,17 +2383,17 @@ fun flow_code shardedModel iter_sym =
 			if useMatrixForm then
 			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 			      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ "CDATAFORMAT *INTERNAL_M, CDATAFORMAT *INTERNAL_b, " ^ systemstatereadprototype ^
-			      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+			      " "^inputs_type^" *input, "^outputs_type^" *output, const unsigned int first_iteration, const unsigned int modelid);")
 			else
 			    $("__HOST__ __DEVICE__ int flow_" ^ (Symbol.name (#name class)) ^ 
 			      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ statewriteprototype ^ systemstatereadprototype ^
-			      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+			      " "^inputs_type^" *input, "^outputs_type^" *output, const unsigned int first_iteration, const unsigned int modelid);")
 		    end
 
 		and class_output_prototype class output =
 		    $("__HOST__ __DEVICE__ int output_" ^ (Symbol.name (#name class)) ^ "_" ^ (Term.sym2name (DOF.Output.name output)) ^
 		      "(CDATAFORMAT "^iter_name'^", " ^ statereadprototype ^ systemstatereadprototype ^
-		      " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid);")
+		      " "^inputs_type^" *input, "^outputs_type^" *output, const unsigned int first_iteration, const unsigned int modelid);")
 	    in
 		Layout.align ((class_flow_prototype class) ::
 			      (map (class_output_prototype class) (!(#outputs class))))
@@ -2734,9 +2779,9 @@ fun buildC (orig_name, shardedModel) =
 	val simengine_api_c = $(Codegen.getC "simengine/simengine_api.c")
 	val defines_h = $(Codegen.getC "simengine/defines.h")
 	val seint_h = $(Codegen.getC "simengine/seint.h")
+	val parallel_c = $(Codegen.getC "simengine/parallel.c")
 	val output_buffer_h = $(Codegen.getC "simengine/output_buffer.h")
 	val output_buffer_c = $(Codegen.getC "simengine/output_buffer.c")
-	val parallel_c = $(Codegen.getC "simengine/parallel.c")
 	val init_output_buffer_c = $(Codegen.getC "simengine/init_output_buffer.c")
 	val inputs_c = $(Codegen.getC "simengine/inputs.c")
 	val log_outputs_c = $(Codegen.getC "simengine/log_outputs.c")
@@ -2779,8 +2824,8 @@ fun buildC (orig_name, shardedModel) =
 				       (* Could be conditional on use of randoms *)
 				       [random_c] @
 				       [seint_h] @
-				       [output_buffer_h,output_buffer_c] @
 				       [parallel_c] @
+				       [output_buffer_h,output_buffer_c] @
 				       [iodatastruct_code shardedModel] @
 				       outputdatastruct_progs @
 				       outputstatestruct_progs @

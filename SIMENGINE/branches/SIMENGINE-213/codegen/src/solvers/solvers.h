@@ -37,6 +37,7 @@ typedef struct {
 
 // Each iterator associates with an instance of this structure.
 typedef struct {
+  int initialized;
   CDATAFORMAT timestep; // dt for fixed timestep solver, first dt for variable timestep,
                         // sample period for discrete
   CDATAFORMAT abstol;
@@ -51,6 +52,8 @@ typedef struct {
   // A pointer into system_states to the states for this iterator
   CDATAFORMAT *model_states;
   CDATAFORMAT *next_states;
+  CDATAFORMAT *model_inputs;
+  CDATAFORMAT *model_outputs;
   // freeme is not currently used.
   //  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states; 
   CDATAFORMAT *inputs;

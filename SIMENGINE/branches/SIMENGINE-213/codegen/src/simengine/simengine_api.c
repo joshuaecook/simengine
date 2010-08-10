@@ -177,6 +177,174 @@ void clean_up_output_buffers(int output_fd, unsigned int gridsize){
   free(global_ob_idx);
 }
 
+/* Allocates memory for solver properties of each iterator. */
+solver_props *alloc_solver_props(unsigned int gridsize, unsigned int blocksize) {
+  int i;
+  solver_props *props = (solver_props * )malloc(NUM_ITERATORS*sizeof(solver_props));
+
+  // System data shared by all iterators
+  top_systemstatedata *system_ptrs = (top_systemstatedata *)malloc(sizeof(top_systemstatedata));
+  
+  #if NUM_OUTPUTS > 0
+  output_data *od = (output_data*)malloc(PARALLEL_MODELS*sizeof(output_data));
+  unsigned int outputsize = sizeof(output_data)/sizeof(CDATAFORMAT);
+  #else
+  void *od = NULL;
+  unsigned int outputsize = 0;
+  #endif
+ 
+  for (i=0; i<NUM_ITERATORS; i++) {
+    props[i].initialized = 0;
+
+    props[i].od = od;
+    props[i].outputsize = outputsize;
+
+    props[i].system_states = system_ptrs;
+
+    props[i].time = (CDATAFORMAT *)malloc(gridsize*blocksize*sizeof(CDATAFORMAT));
+    props[i].next_time = (CDATAFORMAT *)malloc(gridsize*blocksize*sizeof(CDATAFORMAT));
+    props[i].count = NULL; // Allocated only by discrete solvers
+    props[i].running = (int *)malloc(gridsize*blocksize*sizeof(int));
+    props[i].last_iteration = (int*)malloc(gridsize*blocksize*sizeof(int));
+  }
+
+  return props;
+}
+
+/* Releases memory allocated for solver properties. */
+void free_solver_props(solver_props *props) {
+  int i;
+  assert(props);
+
+  #ifdef TARGET_GPU
+  systemstatedata_external *system_states_next = NULL;
+  #else
+  systemstatedata_internal *system_states_int = NULL;
+  systemstatedata_internal *system_states_next = NULL;
+  #endif
+  
+  for(i=0;i<NUM_ITERATORS;i++){
+    free(props[i].time);
+    free(props[i].next_time);
+    free(props[i].count);
+    free(props[i].running);
+    free(props[i].last_iteration);
+    if(!system_states_next && (props[i].statesize + props[i].algebraic_statesize > 0)){
+      system_states_next = (systemstatedata_external*)props[i].next_states;
+      #if !defined TARGET_GPU
+      system_states_int = (systemstatedata_internal*)props[i].model_states;
+      #endif
+    }
+  }
+
+  // System data shared by all iterators
+  free(system_states_next);
+  #if !defined TARGET_GPU
+  free(system_states_int);
+  #endif
+  free(props->od);
+  free(props->system_states);
+
+  free(props);
+}
+
+void initial_system_data (int resuming, fn_mdlvar__t_input *inputs, fn_mdlvar__t_state *states, fn_mdlvar__t_output *outputs, unsigned int num_models, unsigned int modelid_offset, unsigned int gridsize, unsigned int blocksize) {
+  unsigned int modelid = modelid_offset;
+  unsigned int blockid, threadid;
+  for (blockid=0; blockid<gridsize; blockid++) {
+    for (threadid=0; threadid<blocksize; threadid++, modelid++) {
+      initial_model_inputs(&inputs[blockid], modelid, threadid);
+      if (!resuming) {
+	initial_system_states(&inputs[blockid], &states[blockid], modelid, threadid);
+      }
+      initial_system_outputs(&inputs[blockid], &states[blockid], &outputs[blockid], modelid, threadid);
+      initial_system_inputs(&inputs[blockid], &states[blockid], modelid, threadid);
+    }
+  }
+}
+
+/* FIXME this should obviously be generated code. */
+/* Prepares model-specific solver properties for execution. */
+void init_solver_props(solver_props *props, CDATAFORMAT starttime, CDATAFORMAT stoptime, unsigned int num_models, CDATAFORMAT *model_states, unsigned int modelid_offset, unsigned int gridsize, unsigned int blocksize) {
+  // System data shared by all iterators
+  top_systemstatedata *system_ptrs = props->system_states;
+
+  #if defined TARGET_GPU
+  systemstatedata_external *system_states_int = (systemstatedata_external*)model_states;
+  systemstatedata_external *system_states_next = NULL;
+  if (props->initialized) {
+    // Reuse previously-allocated memory if possible.
+    for(i=0;i<NUM_ITERATORS;i++){
+      if(props[i].statesize + props[i].algebraic_statesize > 0){
+	system_states_next = (systemstatedata_external*)props[i].next_states;
+	break;
+      }
+    }
+  }
+  else {
+    system_states_next = (systemstatedata_external*)malloc(sizeof(systemstatedata_external));
+  }
+  #else
+  systemstatedata_internal *system_states_int = NULL;
+  systemstatedata_internal *system_states_next = NULL;
+  if (props->initialized) {
+    for(i=0;i<NUM_ITERATORS;i++){
+      if(props[i].statesize + props[i].algebraic_statesize > 0){
+	system_states_int = (systemstatedata_internal*)props[i].model_states;
+	system_states_next = (systemstatedata_internal*)props[i].next_states;
+	break;
+      }
+    }
+  }
+  else {
+    system_states_int = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));
+    system_states_next = (systemstatedata_internal*)malloc(sizeof(systemstatedata_internal));
+  }
+  #endif
+
+  system_ptrs->mdlvar__t = props[ITERATOR_t].time;
+  system_ptrs->states_mdlvar__t = system_states_int->states_mdlvar__t;
+  system_ptrs->states_mdlvar__t_next = system_states_next->states_mdlvar__t;
+
+  props[ITERATOR_t].initialized = 1;
+  props[ITERATOR_t].solver = DORMAND_PRINCE;
+  props[ITERATOR_t].iterator = ITERATOR_t;
+  props[ITERATOR_t].timestep = global_timestep ? global_timestep : 0.1;
+  props[ITERATOR_t].abstol = 1E-6;
+  props[ITERATOR_t].reltol = 1E-5;
+  props[ITERATOR_t].starttime = starttime;
+  props[ITERATOR_t].stoptime = stoptime;
+  props[ITERATOR_t].gridsize = gridsize;
+  props[ITERATOR_t].blocksize = blocksize;
+  props[ITERATOR_t].num_models = num_models;
+  props[ITERATOR_t].modelid_offset = modelid_offset;
+  props[ITERATOR_t].inputsize = NUM_INPUTS;
+  props[ITERATOR_t].statesize = 2;
+  props[ITERATOR_t].algebraic_statesize = 0;
+
+  // Initial values moved to model_states first time through the exec
+  props[ITERATOR_t].model_states = (CDATAFORMAT*)(&system_states_int->states_mdlvar__t);
+  props[ITERATOR_t].next_states = (CDATAFORMAT*)(&system_states_next->states_mdlvar__t);
+
+  memset(props[ITERATOR_t].last_iteration, 0, gridsize*blocksize*sizeof(int));
+  memset(props[ITERATOR_t].running, 1, num_models*sizeof(int));
+  if (num_models < gridsize * blocksize) {
+    memset(props[ITERATOR_t].running+num_models, 0, (gridsize*blocksize-num_models)*sizeof(int));
+  }
+
+  for (modelid=0; modelid<num_models; modelid++) {
+    props[ITERATOR_t].time[modelid] = starttime;
+    props[ITERATOR_t].next_time[modelid] = starttime;
+  }
+
+  #if defined TARGET_GPU
+  memcpy(system_states_next, system_states_int, sizeof(systemstatedata_external));
+  #else
+  memcpy(system_states_next, system_states_int, sizeof(systemstatedata_internal));
+  #endif
+}
+
+
 // simengine_runmodel()
 //
 //    executes the model for the given parameters, states and simulation time
@@ -204,11 +372,19 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
   unsigned int blocksize = BLOCK_WIDTH(PARALLEL_MODELS);
   unsigned int gridsize = GRID_WIDTH(PARALLEL_MODELS);
 
+  solver_props *props = alloc_solver_props(gridsize, blocksize);
+
 # if defined TARGET_GPU
   gpu_init();
 # endif
 
   open_progress_file(outputs_dirname, &progress, &progress_fd, num_models);
+
+  // FIXME this must be generated or generalized
+  // Create hierarchical model data structures
+  fn_mdlvar__t_input *inputs = (fn_mdlvar__t_input *)malloc(gridsize*sizeof(fn_mdlvar__t_input));
+  fn_mdlvar__t_state *states = (fn_mdlvar__t_input *)malloc(gridsize*sizeof(fn_mdlvar__t_state));
+  fn_mdlvar__t_output *outputs = (fn_mdlvar__t_output *)malloc(gridsize*sizeof(fn_mdlvar__t_output));
 	     
   // Create result structure
   simengine_result *seresult = (simengine_result*)malloc(sizeof(simengine_result));
@@ -235,10 +411,57 @@ simengine_result *simengine_runmodel(simengine_opts *opts){
 
   // Run the parallel simulation repeatedly until all requested models have been executed
   for(models_executed = 0 ; models_executed < num_models; models_executed += PARALLEL_MODELS){
-    models_per_batch = MIN(num_models - models_executed, PARALLEL_MODELS);
-
-    // Copy inputs and state initial values to internal representation
     unsigned int modelid_offset = global_modelid_offset + models_executed;
+    models_per_batch = MIN(num_models - models_executed, PARALLEL_MODELS);
+    /* Simulates one grid of parallel models.
+     *
+     * Before begining the loop, initialize the input, state, and
+     * output vectors for the zeroth generation.
+     * Evaluate user inputs first. User inputs may be read from
+     * external sources or default to constant values.
+     * Next evaluate state initial values. State initial value
+     * equations may include constants or user inputs.
+     * Then evaluate the entire system of outputs.
+     * Finally evaluate the entire system of outputs.
+     * 
+     * The loop then proceeds recursively with the computed results of each
+     * generation becoming the working data of the next generation,
+     * terminating when the final generation has been reached.
+     *
+     * After the loop terminates, obtain a copy of the state and
+     * output vectors of the final generation.
+     */
+
+    // Read initial data from optional user-specified files
+    read_user_inputs(outputs_dirname, num_models, models_per_batch, modelid_offset);
+    resuming = read_user_states(outputs_dirname, num_models, models_per_batch, modelid_offset);
+
+
+    // Initialize the solver properties and internal simulation memory structures
+    init_solver_props(props, start_time, stop_time, models_per_batch, model_states, models_executed+global_modelid_offset, gridsize, blocksize);
+
+    // Populate the initial values of the hierarchical model data structures
+    initial_system_data(resuming, inputs, states, outputs, models_per_batch, modelid_offset, gridsize, blocksize);
+
+    // Run the model
+    seresult->status = exec_loop(props, outputs_dirname, progress + models_executed, resuming);
+    seresult->status_message = (char*) simengine_errors[seresult->status];
+
+    return_model_outputs();
+    return_system_states();
+
+    if (SUCCESS != seresult->status) {
+      break;
+    }
+
+
+    continue;
+
+
+
+
+    
+    // Copy inputs and state initial values to internal representation
 #if NUM_CONSTANT_INPUTS > 0
 #if defined TARGET_GPU
     host_constant_inputs = (CDATAFORMAT *)malloc(PARALLEL_MODELS * NUM_CONSTANT_INPUTS * sizeof(CDATAFORMAT));
