@@ -14,7 +14,8 @@ verbose ?= 1
 noecho ?=
 
 #SVN_ROOT = https://svn1.hosted-projects.com/simatra/simEngine/
-SVN_PREFIX = https://simatra.jira.com/svn
+#SVN_PREFIX = https://simatra.jira.com/svn
+SVN_PREFIX := $(shell svn info |sed -n 's/^Repository Root: //p')
 SVN_ROOT = $(SVN_PREFIX)/SIMENGINE
 SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
 SVN_INFO = svn info $(CURDIR) 2>/dev/null
