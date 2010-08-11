@@ -13,12 +13,8 @@ simlib/simlib: simlib/simlib.c
 
 simlib/simlib.a: simlib/simlib.a(simlib/simlib.o)
 
-src/solvers_solvers_h.o: simlib/simlib src/solvers/* src/simengine/*
-# Create the intermediate objects from all source files
-	cd src; for i in `ls solvers/* simengine/*`; do ../simlib/simlib put $$i $$i;done
-
 .PHONY: codegen
-codegen: simlib/simlib simlib/simlib.a src/solvers_solvers_h.o
+codegen: simlib/simlib simlib/simlib.a
 
 .PHONY: clean
 clean:
