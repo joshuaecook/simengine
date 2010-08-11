@@ -454,8 +454,8 @@ endif
 COMPILER_BASIS = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell [ -f $(COMPILER_BASIS) ] && $(SMLC) -stop f $(COMPILER_BASIS) || echo "/no/compiler/basis/file/found")
 COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c ffi-license.c)
-COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a $(CRYPTO_LIB) $(COMPRESS_LIB) simatra.o
-COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
+COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a $(CRYPTO_LIB) $(COMPRESS_LIB)
+COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES) simatra_public_key.h
 
 # Dynamo Compilation Targets
 # ==============================================================================================
@@ -786,9 +786,6 @@ codegen_clean:
 codegen/simlib/simlib.a: codegen
 codegen/simlib/simlib: codegen
 codegen/src/*.o: codegen
-
-simatra.o: simatra_public.key
-	./codegen/simlib/simlib put simatra simatra_public.key
 
 # Dynamo and build directory
 # ==============================================================================================

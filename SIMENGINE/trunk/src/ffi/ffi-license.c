@@ -1,5 +1,7 @@
 /* Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. */
 
+#include "../../simatra_public_key.h"
+
 #define KEYLEN 256
 #define B64LEN 512
 
@@ -143,9 +145,9 @@ int decode(int clen, unsigned char *ctext, int *plen, unsigned char *ptext){
   }
 
   // Read in the RSA public key
-  if(get_contents_from_archive("", "simatra", &keylen, &keydata)){
-    return 2;
-  }
+  keylen = strlen(simatra);
+  keydata = simatra;
+
   mem = BIO_new_mem_buf(keydata, keylen);
   rsa_pub = PEM_read_bio_RSA_PUBKEY(mem, NULL, NULL, NULL);
   BIO_free(mem);
