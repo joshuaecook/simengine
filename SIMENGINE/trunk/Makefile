@@ -453,7 +453,7 @@ endif
 
 COMPILER_BASIS = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell [ -f $(COMPILER_BASIS) ] && $(SMLC) -stop f $(COMPILER_BASIS) || echo "/no/compiler/basis/file/found")
-COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c ffi-license.c) codegen/src/*.o
+COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c ffi-license.c)
 COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a $(CRYPTO_LIB) $(COMPRESS_LIB) simatra.o
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES)
 

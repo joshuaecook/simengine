@@ -138,6 +138,9 @@ fun main () =
 
 	val env = PopulatedEnv.new (rep_loop false)
 
+	(* Read all codegen source files into memory *)
+	val _ = Codegen.init()
+
 	(* Save/restore the world. *)
 	val _ = 
 	    if not MLton.Profile.isOn then
