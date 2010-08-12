@@ -1558,197 +1558,108 @@ fun assignCorrectScope (class: DOF.class) =
 	val _ = (#exps class) := exps'
 	val _ = (#outputs class) := outputs'
 
+	(* now, we're going through each of the outputs to determine the iterator *)
+	fun output_has_iterator (output) = 
+	    isSome (TermProcess.symbol2temporaliterator (DOF.Output.name output))
+	val outputs_to_process = List.filter (not o output_has_iterator) (!(#outputs class))
 
-	fun update_output2 (output) =
+	(* we won't assign an update or algebraic iterator to an output, so instead find what it is referencing *)
+	fun iter2baseiter iter_sym = 
+	    let
+		val (_, iter_type) = CurrentModel.itersym2iter iter_sym
+	    in
+		case iter_type of
+		    DOF.UPDATE base_iter => base_iter
+		  | DOF.ALGEBRAIC (_, base_iter) => base_iter
+		  | _ => iter_sym
+	    end
+
+	(* build a function that will return all the iterators per output *)
+	fun output_to_iterators output =
 	    let
 		val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
-		(* val _ = Util.log ("Processing output '"^(e2s (Exp.TERM name))^"'") *)
-		(* this line will add the appropriate scope to each symbol and will add the correct temporal iterator*)
-		(* TODO is this necessary? These rules have already been applied above. *)
-		val contents' = map (Match.applyRewritesExp actions) contents
-		val condition' = Match.applyRewritesExp actions condition
-
-		val name = 
-		    case TermProcess.symbol2temporaliterator name 
-		     of NONE => 
-			let 
-			    val exps = map (flattenExpressionThroughInstances class) (condition' :: contents')
-
-			    (* Flattening an output expressions may result in a TUPLE
-			     * if the output is grouped. Further flatten any TUPLE into
-			     * its component terms. *)
-			    fun flattenTuples (Exp.TERM (Exp.TUPLE terms)) = map Exp.TERM terms
-			      | flattenTuples exp = [exp]
-
-			    val exps = Util.flatmap flattenTuples exps
-
-				       
-			    val iters = SymbolSet.listItems (foldl SymbolSet.union SymbolSet.empty (map ExpProcess.iterators_of_expression exps))
-			    (* grab the iterators used in expression (ex. y = x when t > 10) *)
-
-			    (* Need to grab all iterators with the iterator tag *)
-			    val symbolset = SymbolSet.flatmap ExpProcess.exp2symbolset exps
-			    val used_iters = List.filter (fn(iter_sym)=>SymbolSet.exists (fn(sym)=>sym=iter_sym) symbolset) indexable_iterators
-			    (* val _ = Util.log ("Finding iterator for output '"^(Symbol.name (Term.sym2curname name))^"'") *)
-			    (* val _ = Util.log ("Found "^(i2s (List.length iters))^" temporal iterators in " ^ (i2s (List.length exps)) ^ " expressions:") *)
-			    (* val _ = Util.log ("\t"^(String.concatWith "\n\t" (map ExpPrinter.exp2prettystr exps))) *)
-			    (* val _ = Util.log (String.concatWith "\n" (map ExpPrinter.exp2str exps)) *)
-
-			    fun iter2baseiter iter_sym = 
-				let
-				    val (_, iter_type) = CurrentModel.itersym2iter iter_sym
-				in
-				    case iter_type of
-					DOF.UPDATE base_iter => base_iter
-				      | DOF.ALGEBRAIC (_, base_iter) => base_iter
-				      | _ => iter_sym
-				end
-
-			    fun prependIterator iter_sym = 
-				(case CurrentModel.itersym2iter iter_sym
-				  of (_, DOF.UPDATE base_iter) => 
-				     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
-				   | (_, DOF.ALGEBRAIC (_,base_iter)) => 
-				     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol base_iter (Exp.TERM name))
-				   | _ => 
-				     ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name)))
-
-			in case Util.uniquify (map iter2baseiter (iters @ used_iters))
-			    of nil => name
-			     | [iter_sym] => 
-			       prependIterator iter_sym
-			     | iters as (first::rest) => 
-			       let
-				   (* we want to see if all the iterators have the same dt.  If they do, it doesn't matter if multiple iterators 
-				    * drive an output.  We can just pick one, in this case, just the first. *)
-
-				   (* find all_dt, a list of option real values corresponding to the dt.  For the timesteps to be the same, every item in that list
-				    * must be SOME and have the dt all equal. *)
-				   val all_dt = List.map 
-						    (fn(itersym)=>case CurrentModel.itersym2iter itersym of 
-								      (_, DOF.CONTINUOUS solver) => Solver.solver2dt solver
-								    | (_, DOF.DISCRETE {sample_period}) => SOME sample_period
-								    | _ => NONE) 
-						    iters
-				   val (all_same, optdt) = List.foldl (fn(optdt, (result, optdt'))=>case (optdt, optdt') of 
-											      (SOME dt, NONE) => (result, SOME dt)
-											    | (SOME dt, SOME dt') => if Real.==(dt, dt') then
-															 (result, SOME dt)
-														     else
-															 (false, NONE)
-											    | (NONE, _) => (false, NONE))
-								      (true, NONE) 
-								      all_dt
-			       in
-				   case optdt of
-				       SOME dt => prependIterator first
-				     | NONE => name before
-					       (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."));
-						DynException.setErrored())
-			       end
-			       
-			end
-		      |	SOME iter => name (* keep the same *)
-
-
-		(* TODO: The iterator for the name should be defined in modeltranslate.  If it exists,
-  		 * the iterator vector will automatically be added to the output trace.  If it doesn't exist, 
-		 * only the values will be output.  This can be controlled with the "withtime" and "notime" 
-		 * properties *)
-		val name' = 
-		    case TermProcess.symbol2temporaliterator name of
-			SOME iter => name (* keep the same *)
-		      | NONE => (* we have to find the iterator *)
-			let
-			    val sym = Term.sym2curname name
-			    (* val _ = Util.log ("Finding iterator for '"^(Symbol.name sym)^"'") *)
-			    val (temporal_iterators, spatial_iterators) = sym2iterators class sym
-			    (* val _ = Util.log ("Found "^(i2s (List.length temporal_iterators))^" temporal and "^(i2s (List.length spatial_iterators))^" spatial") *)
-
-			    (* transform pp[x] and update[x] into x references*)
-			    fun transform_iterators (iterator, iterators) =
-				let
-				    val globaliterators = CurrentModel.iterators()
-				    val iterator' =
-					case List.find (fn(s,_) => s = iterator) globaliterators 
-					 of SOME (_, DOF.ALGEBRAIC (_,it)) => it
-					  | SOME (_, DOF.UPDATE it) => it
-					  | SOME _ => iterator
-					  | NONE => DynException.stdException("No global iterator found for temporal iterator " ^ (Symbol.name iterator),
-									      "ClassProcess.assignCorrectScope.outputs'",
-									      Logger.INTERNAL)
-
-				    val iterators' = if List.exists (fn(s) => s = iterator') iterators then
-							 iterators
-						     else
-							 iterator' :: iterators
-				in
-				    iterators'
-				end
-
-			    val temporal_iterators' = foldl transform_iterators nil (map #1 temporal_iterators)
-
-			    (* assign the temporal iterator first *)
-			    val name' = 
-				case temporal_iterators' of
-				    [] => (* no iterators present, just return name *)			
-				    name
-				  | [iter] => ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter (Exp.TERM name))
-				  | rest => (* this is an error *)
-				    (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value.  Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) temporal_iterators')) ^ ".  Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^"' must have an explicit iterator defined, for example, " ^ (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd temporal_iterators'))^"]."));
-				     DynException.setErrored();
-				     name)
-				    
-			    (* now add the spatial iterators *)
-			    val name'' = ExpProcess.exp2term 
-					     (foldl (fn(iter as (itersym,_),exp')=>ExpProcess.appendIteratorToSymbol itersym exp') 
-						    (Exp.TERM name')
-						    spatial_iterators)
-			in
-			    name''
-			end
-	    (*val _ = Util.log("Converting name from '"^(e2s (Exp.TERM name))^"' to '"^(e2s (Exp.TERM name'))^"'")*)
-		val inputs' = ref (! (DOF.Output.inputs output))
+		val expressions_to_search = 
+		    case contents of
+			nil => [flattenEquationThroughInstances class (Term.sym2curname name), 
+				condition]
+		      | _ => map (flattenExpressionThroughInstances class) (condition::contents)
+			     
+		(* two forms of iterators - iterators as values and iterators assigned to quantities *)
+		val iterators_as_values = 
+		    let val symbolset = SymbolSet.flatmap ExpProcess.exp2symbolset expressions_to_search
+		    in List.filter (fn(iter_sym)=>SymbolSet.exists (fn(sym)=>sym=iter_sym) symbolset) indexable_iterators
+		    end
+			     
+		val iterators_assigned = 
+		    SymbolSet.listItems (foldl SymbolSet.union SymbolSet.empty (map ExpProcess.iterators_of_expression exps))
 	    in
-		(* FIXME turn this into a call to DOF.Output.rewrite and DOF.Output.rename *)
-		DOF.Output.make {name=name', inputs=inputs', contents=contents', condition=condition'}
+		Util.uniquify (map iter2baseiter (iterators_as_values @ iterators_assigned))
 	    end
-	    handle e => DynException.checkpoint ("ClassProcess.AssignCorrectScope.update_output2 [name="^(e2s (Exp.TERM (DOF.Output.name output)))^"]") e
 
-	val outputs = !(#outputs class)
-	val outputs' = map update_output2 outputs
-		      
-	(* write back output changes *)
+	(* reduce iterators down to one or none *)
+	fun reduce_iterators _ [] = NONE
+	  | reduce_iterators _ [iter_sym] = SOME iter_sym
+	  | reduce_iterators output (iters as (first::rest)) =
+	    let
+		val name = DOF.Output.name output
+		(* we want to see if all the iterators have the same dt.  If they do, it doesn't matter if multiple iterators 
+		 * drive an output.  We can just pick one, in this case, just the first. *)
+
+		(* find all_dt, a list of option real values corresponding to the dt.  For the timesteps to be the same, every item in that list
+		 * must be SOME and have the dt all equal. *)
+		val all_dt = List.map 
+				 (fn(itersym)=>case CurrentModel.itersym2iter itersym of 
+						   (_, DOF.CONTINUOUS solver) => Solver.solver2dt solver
+						 | (_, DOF.DISCRETE {sample_period}) => SOME sample_period
+						 | _ => NONE) 
+				 iters
+		val (all_same, optdt) = List.foldl (fn(optdt, (result, optdt'))=>
+						      case (optdt, optdt') of 
+							  (SOME dt, NONE) => (result, SOME dt)
+							| (SOME dt, SOME dt') => if Real.==(dt, dt') then
+										     (result, SOME dt)
+										 else
+										     (false, NONE)
+							| (NONE, _) => (false, NONE))
+						   (true, NONE) 
+						   all_dt
+	    in
+		case optdt of
+		    SOME dt => SOME first
+		  | NONE => SOME first before
+			    (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value. "^
+							 "Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ "."^
+							 " Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^
+							 "' must have an explicit iterator defined, for example, " ^ 
+							 (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."));
+			     DynException.setErrored())
+	    end
+
+	fun apply_iterator_to_output output iter_sym = 
+	    let
+		val (name, inputs, contents, condition) = (DOF.Output.name output, DOF.Output.inputs output, DOF.Output.contents output, DOF.Output.condition output)
+		val name' = ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol iter_sym (Exp.TERM name))
+	    in
+		DOF.Output.make {name=name', inputs=inputs, contents=contents, condition=condition}
+	    end	
+
+	val outputs' = 
+	    let
+		fun output_to_iterator out =
+		    case reduce_iterators out (output_to_iterators out) of
+			SOME iter_sym => iter_sym
+		      | NONE => Symbol.symbol "always"
+	    in
+		map 
+		    (fn(out)=> 
+		       apply_iterator_to_output out (output_to_iterator out))
+		    outputs_to_process
+	    end
+	    
+	(* write back expression changes *)
+	val _ = (#exps class) := exps'
 	val _ = (#outputs class) := outputs'
 
-	(* Associates any output having no iterator dependencies to the immediate iterator. *)
-	fun update_output_immediate output =
-	    let
- 		val name = DOF.Output.name output
-	    in
-		case (TermProcess.symbol2temporaliterator name) of
-		    SOME t => output
-		  | NONE => 
-		    let 
-			val flatequ = flattenEquationThroughInstances class (Term.sym2curname name)
-			val terms = ExpProcess.exp2termsymbols flatequ
-			fun isIteratorTerm t =
-			    List.exists (fn(iter_sym)=> Term.sym2symname t = iter_sym) indexable_iterators
-			val name' = 
-			    if List.exists (fn(t)=> (Option.isSome (TermProcess.symbol2temporaliterator t)) orelse
-						    (isIteratorTerm t)) terms then
-				name
-			    else
-				((*Util.log("Prepending 'always' iterator to " ^ (e2s (ExpProcess.term2exp name)));
-				  Util.log(" -> FlatEqu: " ^ (e2s flatequ));*)
-				 ExpProcess.exp2term (ExpProcess.prependIteratorToSymbol (Symbol.symbol "always") (ExpProcess.term2exp name)))
-		    in
-			DOF.Output.rename (fn _ => name') output
-		    end
-	    end
-
-
-	val _ = (#outputs class) := map update_output_immediate (! (#outputs class))
     in
 	()
     end
