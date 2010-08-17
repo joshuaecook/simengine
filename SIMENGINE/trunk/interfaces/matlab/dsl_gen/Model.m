@@ -343,81 +343,135 @@ classdef Model < handle
             end
         end
         
-        function output(m, id, varargin)
+        function output(m, varargin)
+            % MODEL/OUTPUT - create a new output for the model
+            %
+            % Usage:
+            %   mdl.OUTPUT(NAME [, OPTIONS]) - create an output with string
+            %   name NAME and assign it to a variable with the same name.
+            %
+            %   mdl.OUTPUT(VARIABLE [, OPTIONS]) - create an output with
+            %   the same name as the variable
+            %
+            %   mdl.OUTPUT(NAME, EXP1 [, EXP2 , [...]] [, OPTIONS]) -
+            %   create an output with name NAME as a grouping of EXP1,
+            %   EXP2, ...
+            %
+            %   mdl.OUTPUT(NAME, {EXP1, EXP2, ...} [, OPTIONS]) - create an
+            %   output from a cell array of expressions
+            %
+            %   OPTIONS can be of the form ('iter', ITERATOR) supplying an
+            %   iterator for an output (for example, to downsample an
+            %   output) or ('when', EXPRESSION) to specify a condition when
+            %   the output is to be returned.
+            %
+            % Examples:
+            %   mdl.output(x); % output variable x with name 'x'
+            %
+            %   mdl.output('x'); % same as above
+            %
+            %   mdl.output('x', y, z); % output both y and z with the name
+            %   'x' - output structure will contain a matrix of three
+            %   columns, one for the time iterator and the other for the y
+            %   and z values
+            %
+            %   mdl.output('x', {y, z}); % same as above
+            %
+            %   n = Iterator('discrete', 'sample_period', 10);
+            %   mdl.output(x, 'iter', n); % output x as a sampled output
+            %   with period Ts = 10
+            %
+            %   mdl.output('x', 'when', mdl.time > 100); % output x
+            %   only after the model time exceeds 100
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
             condition = false;
             iterator = false;
-            if 2 == nargin
-                if ischar(id)
-                    if (identifier_exists(m, id))
-                        e = {Exp(id)};
-                        % This is the case if you specify a string output name
-                        % and that variable exists inside the model with that
-                        % name
-                    elseif evalin('caller',['exist(''' id ''',''var'')'])
-                        % This is the case if you specify a string output
-                        % name and that variable does not exist by name in
-                        % the model, but it does exist in the workspace as
-                        % a variable.
-                        e = {Exp(evalin('caller',id))};
-                    else
-                        msg = ['Variable ' id ' has not been defined in the system'];
-                        error('Simatra:Model', msg)
-                    end
-                elseif isa(id, 'Exp') || isa(id, 'Iterator')
-                    % Finally, this is the case where you specify an
-                    % expression to be output and it has to determine the
-                    % name from the inputname command
-                    e = {Exp(id)};
-                    id = inputname(2);
-                elseif isnumeric(id)
-                    % This is a degenerate case where we would like to
-                    % output a constant
-                    e = {Exp(id)};
-                    id = inputname(2);
-                else
-                    error('Simatra:Model', 'The first argument to the output method must be a string variable name.')
-                end
-            elseif 3 == nargin
-                if iscell(varargin{1})
-                    e = varargin{1};
-                else
-                    e = varargin;
-                end
+            
+            i = 1;
+            j = 1;
+            e = {};
+            args = varargin;
+            while ~isempty(args);
+                arg = args{1};
                 
-            else
-                i = 1;
-                j = 1;
-                e = {};
-                args = varargin;
-                while ~isempty(args);
-                    arg = args{1};
-                    if ischar(arg) && strcmpi(arg,'when') && length(args) > 1
-                        condition = args{2};
-                        if ~isa(condition, 'Exp')
-                            error('Simatra:Model:output', 'Expected an expression argument for the ''when'' condition')
-                        end
-                        i = i + 2;
-                    elseif ischar(arg) && strcmpi(arg,'iter') && length(args) > 1
-                        iterator = args{2};
-                        if ~isa(iterator, 'Iterator')
-                            error('Simatra:Model:output', 'Expected an iterator argument')
-                        end
-                        i = i + 2;
-                    else
-                        if iscell(varargin{i})
-                            for k=1:length(varargin{i})
-                                e{j} = varargin{i}{k};
-                                j = j + 1;
+                % look at the first argument
+                if i == 1
+                    if length(args) == 1 || ...
+                            ischar(args{2}) % ischar means that there is an option
+                        if ischar(arg)
+                            id = arg;
+                            if (identifier_exists(m, arg))
+                                e = {Exp(arg)};
+                                % This is the case if you specify a string output name
+                                % and that variable exists inside the model with that
+                                % name
+                            elseif evalin('caller',['exist(''' arg ''',''var'')'])
+                                % This is the case if you specify a string output
+                                % name and that variable does not exist by name in
+                                % the model, but it does exist in the workspace as
+                                % a variable.
+                                e = {Exp(evalin('caller',arg))};
+                            else
+                                msg = ['Variable ' arg ' has not been defined in the system'];
+                                error('Simatra:Model:output', msg)
                             end
+                        elseif isa(arg, 'Exp') || isa(arg, 'Iterator')
+                            % Finally, this is the case where you specify an
+                            % expression to be output and it has to determine the
+                            % name from the inputname command
+                            e = {Exp(arg)};
+                            id = inputname(2);
+                        elseif isnumeric(arg)
+                            % This is a degenerate case where we would like to
+                            % output a constant
+                            e = {Exp(arg)};
+                            id = inputname(2);
                         else
-                            e{j} = varargin{i};
+                            error('Simatra:Model:output', 'The first argument to the output method can be a string variable name or an expression type and must exist in the model.')
+                        end
+                    elseif ischar(arg)
+                        id = arg;
+                    else
+                        error('Simatra:Model:output', 'The first argument must be a string identifier when output is called in this form.')
+                    end
+                    % successfully processed the first argument, so just
+                    % fall through
+                    i = i + 1;
+                elseif ischar(arg) && strcmpi(arg,'when') && length(args) > 1
+                    % carry on processing the possible arguments
+                    condition = args{2};
+                    if ~isa(condition, 'Exp')
+                        if isnumeric(condition)
+                            condition = Exp(condition);
+                        else
+                            error('Simatra:Model:output', 'Expected an expression or numeric argument for the ''when'' condition')
+                        end
+                    end
+                    i = i + 2;
+                elseif ischar(arg) && strcmpi(arg,'iter') && length(args) > 1
+                    iterator = args{2};
+                    if ~isa(iterator, 'Iterator')
+                        error('Simatra:Model:output', 'Expected an iterator argument')
+                    end
+                    i = i + 2;
+                else
+                    if iscell(arg)
+                        for k=1:length(arg)
+                            e{j} = arg{k};
                             j = j + 1;
                         end
-                        i = i + 1;
+                    else
+                        e{j} = arg;
+                        j = j + 1;
                     end
-                    args = varargin(i:end);
+                    i = i + 1;
                 end
+                args = varargin(i:end);
             end
+
             e = List.map(@(elem)(Exp(elem)), e);
             if m.Outputs.isKey(id)
                 error('Simatra:Model', ['Output ' id ' already exists']);
