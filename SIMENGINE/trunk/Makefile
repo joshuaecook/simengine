@@ -517,9 +517,13 @@ MATLAB_GUI_FILES =
 MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simexamplepath simCheckVersion simEngineUpdate simCheckLicense))
 MATLAB_MEX = $(addprefix $(BUILD_DIR)/readSimulationData,$(MEXEXT))
 
-UNIT_FILES = $(addsuffix .m, GenericUnit BaseUnit SIUnit Unit Units test_units)
-DSLGEN_FILES = $(addsuffix .m, Exp Instance Iterator IteratorReference Model List)
-MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES) $(UNIT_FILES))
+# UNIT_FILES = $(addsuffix .m, GenericUnit BaseUnit SIUnit Unit Units test_units)
+DSLGEN = Exp Instance Iterator IteratorReference Model List
+DSLGEN_FILES = $(addsuffix .m, $(DSLGEN))
+DSLGEN_PFILES = $(addsuffix .p, $(DSLGEN))
+DSLGEN_HELP_FILES = $(addsuffix .m, $(DSLGEN_help.m))
+MATLAB_DSLGEN_HELP_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_HELP_FILES))
+MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES) $(DSLGEN_PFILES))
 
 # Just needed for the p files
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
@@ -569,8 +573,14 @@ $(BUILD_DIR)/%.m: interfaces/matlab/%_info.m
 $(BUILD_DIR)/%.m: interfaces/matlab/%.m
 	$(CP) $< $@
 
-$(BUILD_DIR)/%.m: interfaces/matlab/dsl_gen/%.m
+$(BUILD_DIR)/%.m: interfaces/matlab/dsl_gen/%_help.m
 	$(CP) $< $@
+
+$(BUILD_DIR)/%.p: interfaces/matlab/dsl_gen/%.m
+	-($(MATLABCMD) "curwd = pwd; cd $(BUILD_DIR); pcode([curwd '/$<']); exit")
+
+interfaces/matlab/dsl_gen/%_help.m: interfaces/matlab/dsl_gen/%.m
+	interfaces/matlab/generate_help.rb $< $@
 
 $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 	$(CP) $< $@
@@ -678,7 +688,7 @@ $(LOCAL_INSTALL)/%.mexw64: interfaces/matlab/src/%.mexw64
 $(LOCAL_INSTALL)/%.m: interfaces/matlab/dsl_gen/%.m
 	$(CP) $< $@
 
-LOCAL_DSLGEN = $(addprefix $(LOCAL_INSTALL)/,$(DSLGEN_FILES) $(UNIT_FILES))
+LOCAL_DSLGEN = $(addprefix $(LOCAL_INSTALL)/,$(DSLGEN_FILES))
 install-locally: $(LOCAL_INSTALL) 
 	@$(MAKE) expand_tgz $(LOCAL_INSTALL)/compile_tests.m
 	$(info Local install at $(LOCAL_INSTALL) ready)
