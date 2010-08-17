@@ -18,7 +18,7 @@
  *
  * Programming environment
  * 
- * A program executes at a particular point within a 4D Euclidean
+ * A program executes at a particular point within a multi-dimensional
  * space of identical programs. The program's coordinates within this
  * space are available as global constants, and the program's
  * behaviour may depend on its coordinates.
@@ -28,7 +28,7 @@
  * as a global constant.
  *
  * A program executes within a runtime environment which manages
- * memory and I/O and configures the 4D space.
+ * memory and I/O and configures the program topology.
  *     
  * Validity
  * 
@@ -53,6 +53,7 @@ signature SPIL = sig
     type label
     (* A literal value *)
     type immediate
+    type address
 
     structure Type: sig
 	datatype t
@@ -86,23 +87,23 @@ signature SPIL = sig
 	datatype t
 	  = Int_add
 	  | Int_sub
-	  | ...
+	  (* | ... *)
 
 	  | Float_add
 	  | Float_sub
-	  | ...
+	  (* | ... *)
 
 	  | Vector_extract
 	  | Vector_insert
-	  | ...
+	  (* | ... *)
 
 	  | Array_extract
 	  | Array_insert
-	  | ...
+	  (* | ... *)
 
 	  | Structure_extract
 	  | Structure_insert
-	  | ...
+	  (* | ... *)
     end
 
     structure Atom: sig
@@ -116,53 +117,67 @@ signature SPIL = sig
     end
 
     structure Expression: sig
+	type atom
+	type operator
 	datatype t
-	  = VALUE of Atom.t
-	  | APPLY of {oper: Operator.t,
+	  = Value of atom
+	  | Apply of {oper: operator,
 		      args: t vector}
     end
+    sharing type Expression.atom = Atom.t
+    sharing type Expression.operator = Operator.t
 
     structure Statement: sig
+	type atom
+	type operator
+	type expression
 	datatype t
 	  = HALT
 	  | NOP
 	  | COMMENT of string
 	  | PROFILE of ident
 	  | LABEL of ident
-	  | BIND of {src: Atom.t,
+	  | BIND of {src: atom,
 		     dest: ident * Type.t}
-	  | GRAPH of {src: Expresion.t,
+	  | GRAPH of {src: expression,
 		      dest: ident * Type.t}
-	  | PRIMITIVE of {oper: Operator.t,
-			  args: Atom.t vector,
+	  | PRIMITIVE of {oper: operator,
+			  args: atom vector,
 			  dest: ident * Type.t}
-	  | MOVE of {src: Atom.t,
-		     dest: Atom.t}
+	  | MOVE of {src: atom,
+		     dest: atom}
     end
+    sharing type Statement.atom = Atom.t
+    sharing type Statement.operator = Operator.t
+    sharing type Statement.expression = Expression.t
 
     structure Control: sig
+	type atom
 	datatype t
 	  = CALL of {func: ident,
-		     args: Atom.t vector, 
+		     args: atom vector, 
 		     return: label option} (* NONE for tail calls *)
 	  | JUMP of {block: label,
-		     args: Atom.t vector}
-	  | SWITCH of {test: Atom.t,
+		     args: atom vector}
+	  | SWITCH of {test: atom,
 		       cases: (immediate * label) vector,
 		       default: label}
-	  | RETURN of Atom.t vector
-	    
+	  | RETURN of atom vector
     end
+    sharing type Control.atom = Atom.t
 
     structure Block: sig
+	type statement
 	datatype t
 	  = BLOCK of {label: label,
 		      args: (ident * Type.t) vector,
 		      body: Statement.t vector,
 		      transfer: Control.t}
     end
+    sharing type Block.statement = Statement.t
     
     structure Function: sig
+	type block
 	datatype t
 	  = FUNCTION of {args: (ident * Type.t) vector,
 			 name: ident,
@@ -170,13 +185,16 @@ signature SPIL = sig
 			 blocks: Block.t vector,
 			 returns: Type.t}
     end
+    sharing type Function.block = Block.t
 
     structure Program: sig
+	type function
 	datatype t 
-	  = PROGRAM {functions: Function.t vector,
-		     main: Function.t,
-		     types: TypeDeclaration.t vector}
+	  = PROGRAM of {functions: function vector,
+			main: function,
+			types: TypeDeclaration.t vector}
     end
+    sharing type Program.function = Function.t
 end
 
 (*
