@@ -1591,7 +1591,7 @@ fun assignCorrectScope (class: DOF.class) =
 		    end
 			     
 		val iterators_assigned = 
-		    SymbolSet.listItems (foldl SymbolSet.union SymbolSet.empty (map ExpProcess.iterators_of_expression exps))
+		    SymbolSet.listItems (foldl SymbolSet.union SymbolSet.empty (map ExpProcess.iterators_of_expression expressions_to_search))
 	    in
 		Util.uniquify (map iter2baseiter (iterators_as_values @ iterators_assigned))
 	    end
