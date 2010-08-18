@@ -1,0 +1,21 @@
+create soma
+access soma
+
+soma nseg = 20
+soma diam = 18.8
+soma L = 18.8*20
+soma Ra = 123.0
+
+soma insert hh
+//soma insert pas
+
+objectvar stim
+stim = new IClamp(0.1)
+
+//stim.del = 100
+//stim.dur = 100
+//stim.amp = 0.1
+stim.del = 30
+stim.dur = 20
+stim.amp = 1
+tstop = 50
