@@ -1561,7 +1561,7 @@ fun assignCorrectScope (class: DOF.class) =
 	(* now, we're going through each of the outputs to determine the iterator *)
 	fun output_has_iterator (output) = 
 	    isSome (TermProcess.symbol2temporaliterator (DOF.Output.name output))
-	val outputs_to_process = List.filter (not o output_has_iterator) (!(#outputs class))
+	val (outputs_to_process, outputs_already_with_iterator) = List.partition (not o output_has_iterator) (!(#outputs class))
 
 	(* we won't assign an update or algebraic iterator to an output, so instead find what it is referencing *)
 	fun iter2baseiter iter_sym = 
@@ -1654,7 +1654,8 @@ fun assignCorrectScope (class: DOF.class) =
 		    (fn(out)=> 
 		       apply_iterator_to_output out (output_to_iterator out))
 		    outputs_to_process
-	    end
+	    end @
+	    outputs_already_with_iterator	    
 	    
 	(* write back expression changes *)
 	val _ = (#exps class) := exps'
