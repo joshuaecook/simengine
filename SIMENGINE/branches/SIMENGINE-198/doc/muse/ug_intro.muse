@@ -1,0 +1,150 @@
+* Introduction to Dynamical Systems Modeling and simEngine
+; #author Simatra Modeling Technologies
+
+; <html>
+; <table border=0><tr>
+; <td><img src="../images/SIMATRA.png"></td>
+; <td><img src="../images/simEngine.png" height=30></td></tr></table>
+; </html>
+
+** Welcome
+ Welcome to simEngine[1], the high-performance platform for dynamical
+ systems simulation.  This guide will introduce you to the simEngine
+ platform, and explain how you can use it to easily develop models of
+ complex systems, and run sophisticated simulations of those models
+ on high-performance hardware.
+
+ In this introductory chapter, we'll cover the basics of simEngine
+ and dynamical systems.  In the [[#GettingStarted][Getting Started Chapter]], we'll give
+ you a quick tutorial that covers all the basics of the simEngine
+ system.  In the [[#Overview][Overview Chapter]], we'll discuss the principles
+ behind the DIESEL modeling language, which allows you to easily
+ construct complex models with a minimum of coding effort.
+
+ The [[#LanguageReference][Language Reference Chapter]] provides a more detailed reference to
+ the language features of DIESEL.
+
+ In the [[#SimexOverview][Simex Overview Chapter]] we'll discuss the simex interface,
+ which allows you to access simEngine from within the MATLAB[2]
+ technical computing environment.  Specific details regarding
+ simEngine's differential equation solvers will be provided in
+ a section on [[#Solvers][Solvers]].
+ 
+** What are Dynamical Systems?
+ A dynamical system is a set of mathematical equations that describe
+ the time-dependent movement of a point in space.  Put more simply, a
+ dynamical system describes how something changes over
+ time. Dynamical systems are used to study real-world phenomena in
+ fields as diverse as biology, chemistry, physics, climatology,
+ psychology, and economics.
+ 
+ Every dynamical system is represented by a vector of real numbers
+ that are called *state variables*. The values of the state variables
+ taken together constitute the state of the system.  The length of the
+ state vector, the number of state variables in the system, is
+ called the *dimension* of the system.  Each state variable is
+ associated with an equation that defines a fixed rule for how the
+ system evolves in time.  Small changes in the state of the system
+ correspond to small changes in the numbers. The equations of the
+ dynamical system create a fixed rule that describes what future
+ states follow from the current state.  Collectively, the state
+ variables and equations of a dynamical system are referred to as a
+ *model*.
+ 
+** What is simEngine?
+ simEngine is a software tool that allows you to easily describe
+ sophisticated dynamical system models using familiar mathematical
+ notation, and to automatically turn these model descriptions into
+ high-performance executables for modern multi-core computer
+ hardware.  The result is a high performance simulation engine of the
+ dynamical system, highly optimized for your specific hardware.
+ 
+ If you've ever tried to build a complex dynamical system using
+ low-level programming languages, like C or Fortran, you know that
+ the process of implementing the system equations, defining system
+ inputs and outputs, implementing a numerical solver, and executing
+ the simulation is a time-consuming and error-prone process.
+ simEngine assumes that you'd rather focus on your model and running
+ your simulations, rather than struggling with low-level programming
+ details.
+ 
+ You may have tried building a dynamical system simulation using a
+ high-level technical computing tool, like MATLAB, Simulink, or
+ Octave.  Although these tools do a great job for describing and
+ simulating simple models, you've probably found their performance
+ limited for models with more than a few state variables.
+ 
+ You may have even used a custom simulator developed for your field
+ in order to get good performance with a high-level workflow.  In
+ that case, you've probably found out that these custom simulators
+ are difficult to adapt for your specific problem.
+ 
+ simEngine solves these problems by combining the ease-of-use of a
+ high-level modeling tool with the computational power and flexibility
+ of low-level coding.  It automatically parallelizes and optimizes
+ your model, producing high-performance simulations with a fraction of
+ the coding effort of low-level programming languages.  By using
+ simEngine, you'll find that you spend less time stuggling with
+ coding and waiting for simulations to run.  You'll get your results
+ faster, with less effort than ever before.  You'll also find that
+ simulations or problems you previously found intractable become very
+ easy to solve when you use the simEngine system.
+ 
+** The simEngine System
+ simEngine consists of two major pieces: the DIESEL modeling language,
+ and the simex simulation interface.  DIESEL provides a high-level
+ interface for describing models, while simex provides an intuitive
+ interface for creating powerful simulations from DIESEL models.
+ 
+ DIESEL is a high-level language for describing dynamical systems.  It
+ allows you to easily describe system inputs, outputs, states, and the
+ equations governing the system’s evolution.  It uses intuitive
+ mathematical expressions and high-level modelling syntax, allowing
+ you to easily describe complex models in a natural way.  It also
+ allows you to combine different models together into larger systems.
+ By using DIESEL, you'll find that you can easily build models that
+ were difficult to describe using other languages or tools.
+ 
+ simex is a lightweight simulation control interface for simEngine.
+ simex gives you a high-level interface for controlling the models
+ you've described using DIESEL.  When you issue a command through
+ simex, you specify how you want a run a simulation: the duration of
+ the simulation, the initial conditions, simulation inputs, etc.
+ simex then automatically calls the simEngine compiler, which
+ translates a DIESEL model description into a high-performance
+ executable.  simex handles running this executable for your
+ simulation protocol, collecting output data from the model and
+ delivering it back to you.
+ 
+*** simEngine and MATLAB
+ simEngine is currently enabled as a toolbox for the MATLAB technical
+ computing environment.  The combination of MATLAB and simEngine
+ allows you to leverage the computational power and ease-of-use of
+ simEngine while using MATLAB for data analysis, visualization, and
+ programmatic control.  For example, the differential equations for a
+ neural circuit can be defined in the DIESEL language and simulated
+ with simex, while the results of the simulation can be statistically
+ compared with an experimental result in MATLAB.
+ 
+** Typographic Conventions
+ 
+ Through the remainder of this manual, we'll be making references to
+ code written in DIESEL, and to commands issued in MATLAB.  When we
+ DIESEL reference code, it will be set aside, like this:
+ 
+<src lang="dsl"
+odel (x, y, z) = Lorenz(beta, rho, sigma)
+</src>
+ 
+ We'll also be making references to commands issued in MATLAB.  Any
+ MATLAB commands will be set aside and preceded by the >>
+ symbol, like this:
+
+<src lang="matlab"
+ >> data = simex('Lorenz.dsl', [1 2 3]);
+</src>
+ 
+; %  Copyright 2010 Simatra Modeling Technologies
+ 
+[1] simEngine is a registered trademark of Simatra Modeling Technologies
+[2] MATLAB is a registered trademark of The MathWorks, Inc. All other names and marks are property of their respective owner.

@@ -1,0 +1,149 @@
+* simex - MATLAB Interface to simEngine}
+
+This section describes the simex tool which is used to interact with
+simulations via MATLAB.
+
+** Inspecting a Model
+
+When invoked with only the pathname of a DIESEL model, simex returns a
+model description structure.
+
+<src lang="matlab">
+  >> model = SIMEX('leakyMembrane.dsl');
+</src>
+
+This structure comprises fields naming the inputs, states, and
+outputs. It also contains a structure of default inputs and a vector
+of state initial values.
+
+** Simulating a Model
+
+When simulating, you must specify the time over which to run the
+simulation. The time may be given as a scalar value representing total
+simulation time, or as a 2-element vector representing the start time
+and end time.
+
+<src lang="matlab">
+  % Simulate until t=10
+  >> outputs = SIMEX('leakyMembrane.dsl', 10);
+  % Simulate starting at t=100 until t=150
+  >> outputs = SIMEX('leakyMembrane.dsl', [100 150]);
+</src>
+
+*** Return values
+
+simex returns up to 3 values when the simulation is complete. The
+first is a structure comprising the values of the model outputs. Next
+is the vector of final state values. Third is the time at which the
+simulation stopped.
+
+Note that when using certain solvers, the final time returned by simex
+may be slightly different from the final time given as an
+argument. For example, with a fixed timestep solver having $dt=0.3$
+and a requested final time of =t=1.0=, the simulation will continue
+until =t=1.2= before stopping.
+
+*** Specifying model parameters
+
+Parameters are given as a structure with field names matching the
+names of inputs found in the model description. Inputs with default
+values in the model description may be considered optional, but inputs
+without default values must appear in the parameters structure.
+
+To simulate a model with parameters, create a structure containing the
+input values and pass it as an argument to simex:
+
+<src lang="matlab">
+  >> parameters.Iext = 1000;
+  >> outputs = SIMEX('leakyMembrane.dsl', 10, parameters);
+</src>
+
+*** Specifying state initial values
+
+Initial states may be given as a vector of values. The length of the
+state vector must precisely match the number of states in the model
+description; there are no optional states.
+
+The final states from a previous simulation can easily be captured and
+used to restart the simulation with different parameters:
+
+<src lang="matlab">
+  >> parameters.Iext = 1000;
+  >> [outputs finalState finalTime] = simex('leakyMembrane.dsl', 10, parameters);
+  >> parameters.Iext = 0;
+  >> outputs2 = simex('leakyMembrane.dsl', [finalTime finalTime+10], parameters, finalState);
+</src>
+
+** Parallel Simulations
+
+simex can execute a number of independent instances of a model
+concurrently. Any or all of the model parameters may be vector
+quantities, or the initial state values may be a 2D matrix.
+
+The values returned by simex will have a shape matching the shape of
+the inputs. That is, the model outputs are returned in a vector of
+structures, the final states are a 2D matrix, and the final time is a
+vector quantity.
+
+<src lang="matlab">
+  % Invoke a parameter sweep across 100 concurrent simulations
+  >> parameters.Iext = 1:10:1000
+  >> outputs = simex('-parallel-cpu', 'leakyMembrane.dsl', 10, parameters);
+</src>
+
+Note that the choice of target backend can affect the performance of
+concurrent simulations. See the following sections for more
+information.
+
+** Advanced Simulation Options
+
+*** Simulation targets
+
+A number of different high-performace backends are available for
+executing simulations. By default, simex creates a simulation
+optimized for a single CPU core. The following backend targets are
+available
+:
+; \begin{tabular}{l|p{5.25in}}
+; \verb/-cpu/ & Creates a simulation utilizing a single CPU core. Multiple
+; simulations may be executed in sequence. \\
+; \verb/-parallel-cpu/ & Creates a simulation capable of executing a small number of
+; concurrent simulation on all available CPU cores. \\
+; \verb/-gpu/ & Creates a simulation which can execute a large number of
+; concurrent simulations on a GPGPU device. \\
+; \end{tabular}
+
+|| Option || Description ||
+| =-cpu= | Creates a simulation utilizing a single CPU core.  Multiple simulations may be executed in sequence. |
+| =-parallel-cpu= | Creates a simulation capable of executing a small number of concurrent simulations on all available CPU cores. |
+||| =-gpu= ||| Creates a simulation which can execute a large number of concurrent simulations on a GPGPU device. |||
+
+
+*** Precision
+
+By default, simex executes simulations with numerical values
+represented in double precision floating-point. This representation
+offers the highest numerical accuracy and is the same representation
+used by default in MATLAB. Specify double precision by giving the
+=-double= argument to simex.
+
+Alternatively, simex can use a more compact single precision
+floating-point representation internally. In some circumstances, for
+example when simulating a large number of parallel models on a GPU,
+the single precision representation can offer much better performance
+at the expense of numerical accuracy. Specify single precision by
+giving the =-single= or =-float= argument to simex.
+
+Note that no digital floating-point representation can be perfectly
+accurate. Although double precision is more accurate, slight numerical
+variations can arise in both double and single precision.
+
+*** Using MATLAB solvers with simex
+
+Although simEngine provides a rich selection of numerical solvers, it
+is also possible to use a solver provided by MATLAB:
+
+<src lang="matlab">
+  % Solve the equations using MATLAB's ODE23 solver
+  >> out = simex('leakyMembrane.dsl', 10, '-solver=ode23')
+</src>
