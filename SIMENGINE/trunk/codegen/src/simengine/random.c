@@ -181,8 +181,13 @@ __HOST__ __DEVICE__ CDATAFORMAT uniform_random (unsigned int instances, unsigned
   return r / (FLITERAL(1.) * R250_MAX);
 }
 
+// We previously relied on the gaussian transform implemented below, which was shown to be slower both on the CPU and the GPU than Box Muller,
+// although the discrepancy is much more profound on the GPU
+//#define gaussian_random gaussian_transform
+#define gaussian_random box_muller_transform
+
 // Returns a normally-distributed random number centered at 0 on the interval (-Inf, Inf)
-__HOST__ __DEVICE__ CDATAFORMAT gaussian_random (unsigned int instances, unsigned int instanceId, CDATAFORMAT *buffer, unsigned int *ubuffer, unsigned int *uposition) {
+__HOST__ __DEVICE__ CDATAFORMAT gaussian_transform (unsigned int instances, unsigned int instanceId, CDATAFORMAT *buffer, unsigned int *ubuffer, unsigned int *uposition) {
   CDATAFORMAT grandom = buffer[instanceId];
   CDATAFORMAT x1, x2;
   CDATAFORMAT w;
@@ -204,6 +209,34 @@ __HOST__ __DEVICE__ CDATAFORMAT gaussian_random (unsigned int instances, unsigne
     w = pow(FLITERAL(-2.) * log(w) / w, FLITERAL(0.5));
     grandom = x1 * w;
     buffer[instanceId] = x2 * w;
+  }
+
+  return grandom;
+}
+
+
+// Returns a normally-distributed random number centered at 0 on the interval (-Inf, Inf)
+__HOST__ __DEVICE__ CDATAFORMAT box_muller_transform(unsigned int instances, unsigned int instanceId, CDATAFORMAT *buffer, unsigned int *ubuffer, unsigned int *uposition){
+  CDATAFORMAT grandom = buffer[instanceId];
+  CDATAFORMAT u0, u1;
+  CDATAFORMAT r;
+  CDATAFORMAT theta;
+  const CDATAFORMAT PI = FLITERAL(3.14159265358979323846);
+
+  if(R250_IS_VALID(&grandom)){
+    // Return the previously-computed value and invalidate the
+    // stored buffer.
+    R250_INVALIDATE(buffer + instanceId);
+  }
+  else{
+    // Compute 2 new values and hold one
+    u0 = uniform_random(instances, instanceId, ubuffer, uposition);
+    u1 = uniform_random(instances, instanceId, ubuffer, uposition);
+    r = sqrt(FLITERAL(-2.0) * log(u0));
+    theta = FLITERAL(2.0)*PI*u1;
+
+    grandom = r*sin(theta);
+    buffer[instanceId] = r*cos(theta);
   }
 
   return grandom;
