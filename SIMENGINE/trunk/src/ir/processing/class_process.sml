@@ -413,7 +413,7 @@ and flattenEquationThroughInstances class sym =
  *)
 and leafTermSymbolsOfInstanceEquation caller sym eqn =
     let
-	val {classname, outargs, inpargs, ...} = ExpProcess.deconstructInst eqn
+	val {classname, instname, outargs, inpargs, ...} = ExpProcess.deconstructInst eqn
 	val class = CurrentModel.classname2class classname
 	val inpassoc = 
 	    case inpargs
@@ -424,16 +424,17 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 					  Logger.INTERNAL)
 
 	val {outputs, inputs, ...} = class
-	val output_ix = case List.find (fn (x,_) => Term.sym2curname x = sym) (Util.addCount outargs)
-			 of SOME (_, index) => index
-			  | NONE => 
-			    DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), 
-						      "ClassProcess.leafTermSymbolsOfInstanceEquation", 
-						      Logger.INTERNAL)
-	val output = List.nth (! outputs, output_ix)
+	fun output_name_to_instance_output sym = 
+	    Symbol.symbol ((Symbol.name instname) ^ "." ^ (Symbol.name sym))
+	val output = case List.find (fn (out) => output_name_to_instance_output (Term.sym2curname (DOF.Output.name out)) = sym) (!outputs)
+		      of SOME out => out
+		       | NONE => 
+			 DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), 
+						   "ClassProcess.leafTermSymbolsOfInstanceEquation", 
+						   Logger.INTERNAL)
 	val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 
-	(* val _ = Util.log ("leafTermSymbolsOfInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'") *)
+	(*val _ = Util.log ("leafTermSymbolsOfInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'")*)
     in 
 	case TermProcess.symbol2temporaliterator name
 	 of SOME _ => ExpBuild.equals (ExpBuild.var (Symbol.name sym), Exp.TERM name)
