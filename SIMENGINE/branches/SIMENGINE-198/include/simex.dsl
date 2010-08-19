@@ -653,16 +653,18 @@ import "command_line.dsl"
 
     // Make sure the outputs directory exists, may be created before simEngine is called
     // otherwise, create it
-    if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
-      FileSystem.mkdir(settings.compiler.outputdir.getValue())
-      if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
-	nostack_error("Could not create directory " + settings.compiler.outputdir.getValue())
+    var outputDir = settings.compiler.outputdir.getValue()
+    var prevDir = FileSystem.pwd()
+
+    if not(FileSystem.isdir(outputDir)) then
+      FileSystem.mkdir(outputDir)
+      if not(FileSystem.isdir(outputDir)) then
+	nostack_error("Could not create directory " + outputDir)
       end
     end
 
     // Change working directory to outputdir directory, store the previous dir
-    var prevDir = FileSystem.pwd()
-    FileSystem.chdir(settings.compiler.outputdir.getValue())
+    FileSystem.chdir(outputDir)
 
     // Opening an archive succeeds if the file exists and a manifest can be read.
     var archive = Archive.openArchive (simfile)
@@ -731,9 +733,9 @@ import "command_line.dsl"
       end
     else
       exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
-      //if settings.simulation_debug.debug.getValue() then
-	println ("reusing existing SIM : " + exfile)
-      //end
+      if settings.simulation_debug.debug.getValue() then
+	println ("Reusing existing executable from sim file :" + exfile)
+      end
     end
 
     // Restore the previous working directory
