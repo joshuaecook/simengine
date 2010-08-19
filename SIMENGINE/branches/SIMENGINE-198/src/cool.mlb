@@ -23,8 +23,6 @@ local
       ffi/ffi-exports.sml
       ffi/simex.mlb
       ffi/devices.sml
-      ffi/simlib.sig
-      ffi/simlib.sml
       ffi/license.sml
   end
 
@@ -198,7 +196,6 @@ library/environment.sml
 library/process.sml
 library/devices.sml
 library/regexp.sml
-library/simlib.sml
 library/json.sml
 library/time.sml
 library/licensing.sml

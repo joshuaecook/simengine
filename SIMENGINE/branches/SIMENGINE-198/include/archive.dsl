@@ -2,13 +2,6 @@
 
 namespace Archive
 
-  namespace Simlib
-    function makeObjectFromFile(objectName, filename) = LF makeObjectFromFile(objectName, filename)
-    function makeObjectFromContents(objectName, data) = LF makeObjectFromContents(objectName, data)
-    function getFileFromArchive(archive, objectName, filename) = LF getFileFromArchive(archive, objectName, filename)
-    function getContentsFromArchive(archive, objectName) = LF getContentsFromArchive(archive, objectName)
-  end
-
   constant VERSION = 0
 
   class Archive
@@ -29,15 +22,32 @@ namespace Archive
   // Returns () if a file with that name doesn't exist or
   // if the file is not a valid archive.
   function openArchive (filename)
-    var manifest = Simlib.getContentsFromArchive (filename, "MANIFEST.json")
-    if () == manifest then 
-	// This is something that is unexpected, so it can be classified as a failure.  However, 
-	// we can work around this issue, so we can instead issue a warning.
-	if FileSystem.isfile(filename) then
-	    warning("Failure reading read manifest from " + filename + ".  A new SIM file will be generated.")
-	end
+    println("openArchive")
+    if (FileSystem.isfile(filename)) then
+
+      // Unzip the archive
+      var uzp = Process.run("unzip", ["-o", filename])
+      var allout = Process.readAll(uzp)
+      var uzstat = Process.reap(uzp)
+      var uzout = allout(1)
+      var uzerr = allout(2)
+
+      println("Unzip: unzip -o " + filename + "\nSTDOUT:\n" + join("", uzout) + "\n\nSTDERR:\n" + join("", uzerr))
+
+      if (uzstat <> 0) then
+	//FileSystem.rmfile(filename)
+	warning("Failure reading manifest from " + filename + ".  A new SIM file will be generated.")
+	()
+      else
+	var manifestFile = File.openTextIn("MANIFEST.json")
+	var manifest = JSON.decode(manifestFile.getall())
+	manifestFile.close()
+
+	Archive.new (false, filename, "", manifest)
+      end
     else
-      Archive.new (false, filename, Path.join (FileSystem.pwd (), ".simatra"), JSON.decode manifest)
+      println("Archive " + filename + " doesn't exist!")
+      ()
     end
   end
 
@@ -56,50 +66,43 @@ namespace Archive
     var environment = {FIXME="needs environment"}
 
     var cfile = settings.compiler.cSourceFilename.getValue()
-    var cfile_o = Simlib.makeObjectFromFile (Path.file cfile, cfile)
     var exfile = (Path.base (Path.file cfile))
     compilerSettings.add("exfile", exfile)
 
     var manifest = createManifest (dolFilename, dslFilenames, environment, [compilerSettings])
 
-    Archive.new (true, filename, Path.join (FileSystem.pwd (), ".simatra"), manifest)
+    Archive.new (true, filename, "", manifest)
 
     var manifestData = JSON.encode manifest
     manifestData = JSON.addMember (manifestData, "license", LF licenseToJSON ())
     manifestData = JSON.addMember (manifestData, "settings", LF settingsToJSON ())
 
-    var manifest_o = Simlib.makeObjectFromContents ("MANIFEST.json", manifestData)
-
     var main = dslFilenames.first ()
     var imports = dslFilenames.rest ()
-    var main_o = Simlib.makeObjectFromFile (Path.file main, main)
-    var import_os = []
-    foreach i in imports do
-      import_os.push_back (Simlib.makeObjectFromFile (i, i))
-    end
+
+    var manifestFile = File.openTextOut("MANIFEST.json")
+    manifestFile.putstr(manifestData)
+    manifestFile.close()
 
     var cc = target.compile (exfile, [cfile])
     if settings.simulation_debug.debug.getValue() == true then
       println ("Compile: " + cc(1) + " '" + join("' '", cc(2)) + "'")
     end
     compile (cc(1), cc(2))
-    var exfile_o = Simlib.makeObjectFromFile (Path.file exfile, exfile)
 
-    var objects = [exfile_o, manifest_o, cfile_o, main_o] + import_os
-    var ld = target.link (Path.file filename, filename, objects)
-    if settings.simulation_debug.debug.getValue() == true then
-      println ("Link: " + ld(1) + " '" + join("' '", ld(2)) + "'")
+    // Create the archive using zip
+    var zp = Process.run("zip", ["-r", filename, "."])
+    var zallout = Process.readAll(zp)
+    var zstat = Process.reap(zp)
+    var zout = zallout(1)
+    var zerr = zallout(2)
+
+    println("Zip: zip -r " + filename + " .\nSTDOUT:\n" + join("", zout) + "\n\nSTDERR:\n" + join("", zerr))
+
+    if zstat <> 0 then
+      warning("Failure to close/create archive: " + filename)
     end
-    link (ld(1), ld(2))
-
-    if settings.simulation_debug.debug.getValue() == false then
-      FileSystem.rmfile (cfile)
-      foreach o in objects do
-        FileSystem.rmfile (o)
-      end
-    end
-
-    filename
+    ()
   end
 
   hidden function compile (cc, ccflags)
@@ -114,21 +117,6 @@ namespace Archive
     end
     if 0 <> ccstat then
       failure ("Unexpected failure was encountered during generated code compilation.") //: " + join("", ccerr))
-    end
-  end
-
-  hidden function link (ld, ldflags)
-    var ldp = Process.run(ld, ldflags)
-    var ldallout = Process.readAll(ldp) 
-    var ldstat = Process.reap(ldp)
-    var ldout = ldallout(1)
-    var lderr = ldallout(2)
-    if settings.logging.logexternal.getValue() then 
-      println ("STDOUT:" + join("", ldout))
-      println ("STDERR:" + join("", lderr))
-    end
-    if 0 <> ldstat then
-      failure ("OOPS! Linker returned non-zero exit status " + ldstat)
     end
   end
 
