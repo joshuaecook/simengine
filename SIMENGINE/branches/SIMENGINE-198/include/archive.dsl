@@ -22,7 +22,7 @@ namespace Archive
   // Returns () if a file with that name doesn't exist or
   // if the file is not a valid archive.
   function openArchive (filename)
-    println("openArchive")
+    var debug = settings.simulation_debug.debug.getValue()
     if (FileSystem.isfile(filename)) then
 
       // Unzip the archive
@@ -32,23 +32,45 @@ namespace Archive
       var uzout = allout(1)
       var uzerr = allout(2)
 
-      println("Unzip: unzip -o " + filename + "\nSTDOUT:\n" + join("", uzout) + "\n\nSTDERR:\n" + join("", uzerr))
-
       if (uzstat <> 0) then
-	//FileSystem.rmfile(filename)
+	FileSystem.rmfile(filename)
 	warning("Failure reading manifest from " + filename + ".  A new SIM file will be generated.")
-	()
+	if debug == true then
+	  println("Unzip: unzip -o " + filename + "\nSTDOUT:\n" + join("", uzout) + "\n\nSTDERR:\n" + join("", uzerr))
+	end
+	() // Archive file is invalid
       else
-	var manifestFile = File.openTextIn("MANIFEST.json")
+	var manifestFile = File.openTextIn(Path.join("sim", "MANIFEST.json"))
 	var manifest = JSON.decode(manifestFile.getall())
 	manifestFile.close()
 
-	Archive.new (false, filename, "", manifest)
+	Archive.new (false, filename, Path.join(FileSystem.pwd(), "sim"), manifest)
       end
     else
-      println("Archive " + filename + " doesn't exist!")
-      ()
+      () // Archive file doesn't exist
     end
+  end
+
+  function closeArchive (archive)
+    var debug = settings.simulation_debug.debug.getValue()
+    if archive.dirty == true then
+      // Create the archive using zip
+      var zp = Process.run("zip", ["-r", archive.filename, "sim"])
+      var zallout = Process.readAll(zp)
+      var zstat = Process.reap(zp)
+      var zout = zallout(1)
+      var zerr = zallout(2)
+
+      if zstat <> 0 then
+	warning("Failure to close/create archive: " + archive.filename)
+	if debug == true then
+	  println("Zip: zip -r " + archive.filename + " sim\nSTDOUT:\n" + join("", zout) + "\n\nSTDERR:\n" + join("", zerr))
+	end
+      end
+
+      archive.dirty = false
+    end
+    archive
   end
 
   function createManifest (dolFilename, dslFilenames, environment, executables)
@@ -64,14 +86,15 @@ namespace Archive
   // It is an error to attempt to create an archive if a file with that name already exists.
   function createArchive (filename, dolFilename, dslFilenames, target, compilerSettings)
     var environment = {FIXME="needs environment"}
+    var debug = settings.simulation_debug.debug.getValue()
 
-    var cfile = settings.compiler.cSourceFilename.getValue()
-    var exfile = (Path.base (Path.file cfile))
+    var cfile = Path.join("sim", settings.compiler.cSourceFilename.getValue())
+    var exfile = Path.join("sim", (Path.base (Path.file cfile)))
     compilerSettings.add("exfile", exfile)
 
     var manifest = createManifest (dolFilename, dslFilenames, environment, [compilerSettings])
 
-    Archive.new (true, filename, "", manifest)
+    var archive = Archive.new (true, filename, Path.join(FileSystem.pwd(), "sim"), manifest)
 
     var manifestData = JSON.encode manifest
     manifestData = JSON.addMember (manifestData, "license", LF licenseToJSON ())
@@ -80,29 +103,19 @@ namespace Archive
     var main = dslFilenames.first ()
     var imports = dslFilenames.rest ()
 
-    var manifestFile = File.openTextOut("MANIFEST.json")
+    var manifestFile = File.openTextOut(Path.join("sim", "MANIFEST.json"))
     manifestFile.putstr(manifestData)
     manifestFile.close()
 
     var cc = target.compile (exfile, [cfile])
-    if settings.simulation_debug.debug.getValue() == true then
+    if debug == true then
       println ("Compile: " + cc(1) + " '" + join("' '", cc(2)) + "'")
     end
     compile (cc(1), cc(2))
 
-    // Create the archive using zip
-    var zp = Process.run("zip", ["-r", filename, "."])
-    var zallout = Process.readAll(zp)
-    var zstat = Process.reap(zp)
-    var zout = zallout(1)
-    var zerr = zallout(2)
+    closeArchive(archive)
 
-    println("Zip: zip -r " + filename + " .\nSTDOUT:\n" + join("", zout) + "\n\nSTDERR:\n" + join("", zerr))
-
-    if zstat <> 0 then
-      warning("Failure to close/create archive: " + filename)
-    end
-    ()
+    archive
   end
 
   hidden function compile (cc, ccflags)
