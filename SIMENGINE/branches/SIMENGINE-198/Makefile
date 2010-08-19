@@ -111,7 +111,7 @@ SRC = src/
 BUILD = build
 RM = rm -rf
 
-SIMPLE_ARGS = -link-opt "-ldl" -export-header src/ffi/ffi-exports.h -link-opt "$(COMPILER_EXTRA_LIBS) -fopenmp -rdynamic"
+SIMPLE_ARGS =  -link-opt "-ldl" -export-header src/ffi/ffi-exports.h -link-opt "$(COMPILER_EXTRA_LIBS) -fopenmp"
 ARGS = $(SIMPLE_ARGS) -const 'Exn.keepHistory true'
 ifneq ($(VERBOSE),)
 	SIMPLE_ARGS += -verbose 1
@@ -440,21 +440,18 @@ links: $(BUILD_DIR)
 
 ifeq ($(UNAME_KERNEL), Darwin)
 CRYPTO_LIB = /opt/local/lib/libcrypto.a
-COMPRESS_LIB = /opt/local/lib/libz.a
 else
 ifneq ($(ARCH64),)
 CRYPTO_LIB = /usr/lib64/libcrypto.a
-COMPRESS_LIB = /usr/lib64/libz.a
 else
 CRYPTO_LIB = /usr/lib/libcrypto.a
-COMPRESS_LIB = /usr/lib/libz.a
 endif
 endif
 
 COMPILER_BASIS = src/compiler_exec.mlb
 COMPILER_SOURCES = $(shell [ -f $(COMPILER_BASIS) ] && $(SMLC) -stop f $(COMPILER_BASIS) || echo "/no/compiler/basis/file/found")
-COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-simlib.c ffi-openmp.c ffi-cuda.c ffi-license.c)
-COMPILER_EXTRA_LIBS = codegen/simlib/simlib.a share/cuda/device_props.a $(CRYPTO_LIB) $(COMPRESS_LIB)
+COMPILER_EXTRA_SOURCES = $(addprefix src/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+COMPILER_EXTRA_LIBS = share/cuda/device_props.a $(CRYPTO_LIB)
 COMPILER_DEPENDENCIES = $(COMPILER_SOURCES) $(COMPILER_EXTRA_LIBS) $(COMPILER_EXTRA_SOURCES) simatra_public_key.h
 
 # Dynamo Compilation Targets
