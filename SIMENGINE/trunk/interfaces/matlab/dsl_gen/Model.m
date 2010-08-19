@@ -558,10 +558,10 @@ classdef Model < handle
         end
         
         function update(m, lhs, value, whenstr, condition)
-            % UPDATE - adds an update equation to a state
+            % MODEL/UPDATE - adds an update equation to a state
             % 
             % Usage:
-            %   model.UPDATE(state, equation, 'when', condition)
+            %   MDL.UPDATE(state, equation, 'when', condition)
             % 
             % Description:
             %   updates the state expression <state> with the expression
@@ -599,6 +599,20 @@ classdef Model < handle
         end
         
         function diffequ(m, lhs, rhs)
+            % MODEL/DIFFEQU - add a differential equation definition to a
+            % state
+            % 
+            % Usage:
+            %   MDL.DIFFEQU(VARIABLE, EXPRESSION, 'when', CONDITION)
+            % 
+            % Description:
+            %   updates the state expression <state> with the expression
+            %   <equation> when the <condition> is true.  This can be used
+            %   to define a reset condition for a state variable.
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
             id = toStr(lhs);
             if isfield(m.DiffEqs, id)
                 error('Simatra:Model', ['Differential Equation assigning ' lhs ' already exists']);
@@ -637,14 +651,70 @@ classdef Model < handle
         end        
 
         function t = time(m)
+            % MODEL/TIME - return the default time iterator as an
+            % expression
+            % 
+            % Usage:
+            %   ITER = TIMEITERATOR(MDL) - returns the current time
+            %   iterator as an expression type.  This can be used in
+            %   algebraic expressions.
+            %
+            % Examples:
+            %   t = mdl.time;
+            %   xf = a*t^2 + v*t + x0;
+            %
+            % See also MODEL/TIMEITERTOR MODEL/SET.SOLVER
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
             t = Exp(m.DefaultIterator);
         end
         
         function t = timeIterator(m)
+            % MODEL/TIMEITERATOR - return the default time iterator
+            % 
+            % Usage:
+            %   ITER = TIMEITERATOR(MDL) - returns the current time
+            %   iterator as an iterator type.  This can then be used, for
+            %   example, for back-referencing in time.
+            %
+            % Examples:
+            %   n = mdl.timeIterator;
+            %   y = x(n-5); % assign y to a value of x five steps ago
+            %
+            % See also MODEL/TIME MODEL/SET.SOLVER
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
             t = m.DefaultIterator;
         end
         
         function set.solver(m, varargin)
+            % MODEL/SET.SOLVER - set the default solver and properties
+            % 
+            % Usage:
+            %   MDL.SOLVER = SOLVE_PARAMS - SOLVE_PARAMS is a cell array of
+            %   parameters for the solver.  The first parameter is the name
+            %   of the solver and the following in pairs are the parameter
+            %   name and value.
+            %
+            % Examples:
+            %   mdl.solver = {'ode23'} - use the 2-3 pair Bogacki-Shampine
+            %   variable time step solver
+            %
+            %   mdl.solver = {'rk4', 'dt', 0.01} - use the 4th order
+            %   Runge-Kutta solver with fixed step size of 0.01.
+            %
+            % See also MODEL/TIME MODEL/TIMEITERATOR
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
             if iscell(varargin{1})
                 m.solver = varargin{1};
             else
@@ -744,11 +814,37 @@ classdef Model < handle
         end
 
         function [inputs, outputs] = interface(m)
+            % MODEL/INTERFACE - return the inputs and outputs of a model
+            % 
+            % Usage:
+            %   [INPUTS, OUTPUTS] = INTERFACE(MDL) - generates cell arrays
+            %   of inputs and outputs of a model.  These names are used for
+            %   both the input and output data structures passed to and
+            %   returned by SIMEX.
+            %
+            % See also MODEL/SIMEX
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
             inputs = keys(m.Inputs);
             outputs = keys(m.Outputs);
         end
         
         function str = toStr(m)
+            % MODEL/TOSTR - generate a string representation of a model
+            % 
+            % Usage:
+            %   STR = TOSTR(MDL) - generates a DSL file and returns the
+            %   entire file as a string
+            %
+            % See also MODEL/TODSL MODEL/TYPE
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
             inputs = keys(m.Inputs);
             outputs = keys(m.Outputs);
             states = keys(m.States);
@@ -910,6 +1006,20 @@ classdef Model < handle
         
         
         function filename = toDSL(m, filename)
+            % MODEL/TODSL - view the resulting generated DSL code
+            % 
+            % Usage:
+            %   TODSL(MDL [, FILENAME]) - generate a DSL file for the MDL
+            %   Model object.  By default, a file with the name MDL.name
+            %   will be generated in the tempdir.  If an optional FILENAME
+            %   is specified, that file will be generated.
+            %
+            % See also MODEL/TYPE
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %            
             disp(['Creating ' m.Name ' ...']);
             str = toStr(m);
             % if one is not specified, then create one
@@ -944,6 +1054,17 @@ classdef Model < handle
         end
         
         function type(m)
+            % MODEL/type - view the resulting generated DSL code
+            % 
+            % Usage:
+            %   TYPE(MDL) - display the model defined in MATLAB as DSL code
+            %
+            % See also MODEL/TODSL
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
             str = toStr(m);
             fprintf(1, str);
         end
@@ -998,6 +1119,23 @@ classdef Model < handle
     
     methods (Access = protected)
         function order_equations(m)
+            % MODEL/order_equations - protected method to order equations
+            % if possible - not necessary when running MODEL/SIMEX method
+            % 
+            % Usage:
+            %   ORDER_EQUATION(MDL) - updates the model ordering all the
+            %   equations.  Ordered equations are such that all inputs to
+            %   an equation are defined as states, inputs, or outputs of
+            %   other equations.
+            %
+            % Note:
+            %   Function may not terminate if equations can not be ordered.
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
+
             equkeys = m.IntermediateEqs.keys;
             
             % create dependency list
@@ -1078,6 +1216,18 @@ classdef Model < handle
         end
         
         function r = identifier_exists(m, id)
+            % MODEL/identifier_exists - protected method to check if an
+            % identifier has already been defined
+            % 
+            % Usage:
+            %   R = IDENTIFIER(MDL, ID) - Returns true if the ID refers to
+            %   an input, state, instance, or intermediate equation
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
+            
             r = m.Inputs.isKey(id) || ...
                 m.States.isKey(id) || ...
                 m.Instances.isKey(id) || ...
@@ -1085,6 +1235,18 @@ classdef Model < handle
         end
         
         function initializeModel(m)
+            % MODEL/initializeModel - protected method to clear all
+            % variables and declarations from a model definition
+            % 
+            % Usage:
+            %   INITIALIZEMODEL(MDL) - Clears all variables previously
+            %   defined in MDL
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
+            
             m.Inputs = containers.Map;
             m.Outputs = containers.Map;
             m.States = containers.Map;
