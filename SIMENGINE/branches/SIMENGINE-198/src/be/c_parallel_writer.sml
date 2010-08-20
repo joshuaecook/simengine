@@ -2371,7 +2371,7 @@ fun model_flows shardedModel =
 fun output_code (filename, block) =
     let
       val _ = Logger.log_notice (Printer.$("Generating C source file '"^ filename ^"'"))
-      val _ = if OS.FileSys.isDir("sim") then () else OS.FileSys.mkDir("sim")
+      val _ = if Directory.isDir("sim") then () else OS.FileSys.mkDir("sim")
       val file = TextIO.openOut (OS.Path.joinDirFile{dir="sim", file=filename})
     in
 	Printer.printLayout (Layout.align block) file
