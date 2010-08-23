@@ -231,8 +231,6 @@ end
     var zip_path = checkCmdExists("zip")
     var unzip_path = checkCmdExists("unzip")
 
-    println("zip path : " + zip_path + "\nunzip path : " + unzip_path)
-
     // libraries
     //libdl
     var libdl_path = checkLibExists("libdl")
