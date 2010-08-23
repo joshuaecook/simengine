@@ -227,6 +227,12 @@ end
     var sh_path = checkCmdExists ("sh")
     var sh_version = parseCmdForVersion ("version ([0-9]+.[0-9]+.[0-9]+)", sh_path, ["--version"])
 
+    // zip/unzip - sim file
+    var zip_path = checkCmdExists("zip")
+    var unzip_path = checkCmdExists("unzip")
+
+    println("zip path : " + zip_path + "\nunzip path : " + unzip_path)
+
     // libraries
     //libdl
     var libdl_path = checkLibExists("libdl")
@@ -253,6 +259,8 @@ end
                 file      = dep(file_path, (), file_version),
                 sh        = dep(sh_path, (), sh_version),
                 libdl     = dep(libdl_path, libdl_arch, ()),
+		zip       = dep(zip_path, (), ()),
+		unzip     = dep(unzip_path, (), ())
 		}
 
     var proDeps = {
