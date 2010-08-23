@@ -272,7 +272,7 @@ end
     
      //verify each of the above has a path
      foreach key in deps.keys do
-       if (deps.getMember(key) == ()) then
+       if (deps.getMember(key) == ()) or deps.getMember(key).fullpath == () then
          depsFailed = true
          warning ("Could not find location of " + key)
        end
@@ -280,7 +280,7 @@ end
 
      if (Licensing.featureEnabled("gpu")) then
        foreach key in proDeps.keys do
-	 if (proDeps.getMember(key) == ()) then
+	 if (proDeps.getMember(key) == () or proDeps.getMember(key).fullpath == ()) then
            depsFailed = true
            warning ("Could not find location of " + key)
          else
