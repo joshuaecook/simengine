@@ -72,14 +72,10 @@ signature SPIL = sig
 
     structure TypeDeclaration: sig
 	datatype t 
-	  = PARAMETRIC of {name: ident,
-			   vars: ident vector,
-			   base: Type.t}
-	  | ARRAY of {name: ident,
-		      vars: ident vector,
+	  = ARRAY of {name: ident,
+		      size: size,
 		      base: Type.t}
 	  | STRUCTURE of {name: ident,
-			  vars: ident vector,
 			  fields: (ident * Type.t) vector}
     end
 
@@ -154,23 +150,45 @@ signature SPIL = sig
     structure Control: sig
 	type atom
 	datatype t
+	  (* Invoke a named function with an optional return
+	   * continuation label. An absent return label indicates
+	   * a tail-position call. The continuation block must be unary.
+	   * Implementation note: the CALL control enables recursion
+	   * via tail position calls or non-tail calls. Tail call
+	   * recursion may be optimized to prevent stack
+	   * growth. Stackless platforms may reject programs having
+	   * non-tail calls. *)
 	  = CALL of {func: ident,
 		     args: atom vector, 
-		     return: label option} (* NONE for tail calls *)
+		     return: label option}
+	  (* "Goto-with-arguments" transfers control to a labeled
+	   * block. This makes variable versioning explicit without the
+	   * need for SSA-style "phi" functions *)
 	  | JUMP of {block: label,
 		     args: atom vector}
+
+	  (* Conditional branching to a labeled block. A given
+	   * atom is compared against a sequence of constants. If
+	   * an equal constant is found, control transfers to the
+	   * block having the corresponding label. If none match,
+	   * control transfers to a default labeled block. The
+	   * target block must be nullary. *)
 	  | SWITCH of {test: atom,
 		       cases: (immediate * label) vector,
 		       default: label}
-	  | RETURN of atom vector
+	  (* Exits the current calling context and passes the result value to the return continuation label. *)
+	  | RETURN of atom
     end
     sharing type Control.atom = Atom.t
 
     structure Block: sig
 	type statement
+	(* A basic block is a labeled sequence of statements
+	 * with a terminating control flow operation. Blocks may
+	 * accept an arbitrary number of parameters. *)
 	datatype t
 	  = BLOCK of {label: label,
-		      args: (ident * Type.t) vector,
+		      params: (ident * Type.t) vector,
 		      body: Statement.t vector,
 		      transfer: Control.t}
     end
@@ -192,6 +210,7 @@ signature SPIL = sig
 	datatype t 
 	  = PROGRAM of {functions: function vector,
 			main: function,
+			globals: (ident * Type.t) vector,
 			types: TypeDeclaration.t vector}
     end
     sharing type Program.function = Function.t

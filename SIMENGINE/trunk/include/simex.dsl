@@ -38,11 +38,6 @@ import "command_line.dsl"
       (CC, TARGET_ARCH + ["-o", exfile] + CFLAGS + CPPFLAGS + LDFLAGS + args + LDLIBS)
     end
 
-    /* Returns a tuple of (linker, options)
-     * suitable for application by Process.run(). */
-    function configureLink (outfile: String, args)
-      (LD, LD_TARGET_ARCH + ["-o", outfile] + LDFLAGS + args)
-    end
   end
 
   /* A target-specific Make configuration.
@@ -126,19 +121,6 @@ import "command_line.dsl"
       m.configureCompile(outfile, args)
     end
 
-    function link (soname: String, outfile: String, args)
-      var m = make()
-      var osLower = getOsLower()
-
-      if "darwin" <> osLower then
-	m.LDFLAGS.push_back("-shared")
-	m.LDFLAGS.push_back("-Wl,-soname,"+soname)
-      else
-	m.LDFLAGS.push_back("-dynamiclib")
-	m.LDFLAGS.push_back("-Wl,-install_name,"+soname)
-      end
-      m.configureLink(outfile, args)
-    end
   end
 
   class TargetCPU extends Target
@@ -383,9 +365,6 @@ import "command_line.dsl"
 	if () <> simulationSettings and "" <> exfile then
 	  var simulation = FileSystem.realpath(exfile)
 	  profileTime ("simulating", simulate, (simulation, simulationSettings, settings.simulation_debug.debug.getValue()))
-	  if not(settings.simulation_debug.debug.getValue()) then
-	    FileSystem.rmfile(simulation)
-	  end
 	else
 	  //println("Not running: " + compilerSettings.exfile)
 	end
@@ -672,6 +651,21 @@ import "command_line.dsl"
       nostack_error ("Unknown target " +target_setting)
     end
 
+    // Make sure the outputs directory exists, may be created before simEngine is called
+    // otherwise, create it
+    var outputDir = settings.compiler.outputdir.getValue()
+    var prevDir = FileSystem.pwd()
+
+    if not(FileSystem.isdir(outputDir)) then
+      FileSystem.mkdir(outputDir)
+      if not(FileSystem.isdir(outputDir)) then
+	nostack_error("Could not create directory " + outputDir)
+      end
+    end
+
+    // Change working directory to outputdir directory, store the previous dir
+    FileSystem.chdir(outputDir)
+
     // Opening an archive succeeds if the file exists and a manifest can be read.
     var archive = Archive.openArchive (simfile)
     // Check to make sure that regenerateTimings is not set
@@ -726,36 +720,27 @@ import "command_line.dsl"
     else
       notice ("Always recompiling when regenerateTimings flag is set to true")
     end
-    // Make sure the outputs directory exists, may be created before simEngine is called
-    // otherwise, create it
-    if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
-      FileSystem.mkdir(settings.compiler.outputdir.getValue())
-      if not(FileSystem.isdir(settings.compiler.outputdir.getValue())) then
-	nostack_error("Could not create directory " + settings.compiler.outputdir.getValue())
-      end
-    end
 
     var exfile
+
     if needsToCompile then
       populateCompilerSettings(compilerSettings)
-      var success = compile (filename, target, compilerSettings)
-      if success == 0 then
-	exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
-      else
+      var success = compile (filename, target, compilerSettings, simfile)
+      exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
+      if success <> 0 then
 	LF sys_exit(128)
 	exfile = ""
       end
     else
-      var cfile = Path.join(settings.compiler.outputdir.getValue(), settings.compiler.cSourceFilename.getValue())
       exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
-      Archive.Simlib.getFileFromArchive(archive.filename, compilerSettings.exfile, exfile)
-      shell("chmod", ["+x", exfile])
       if settings.simulation_debug.debug.getValue() then
-	println ("reusing existing SIM")
-	// Extract C file for debugging
-	Archive.Simlib.getFileFromArchive(archive.filename, settings.compiler.cSourceFilename.getValue(), cfile)
+	println ("Reusing existing executable from sim file :" + exfile)
       end
     end
+
+    // Restore the previous working directory
+    FileSystem.chdir(prevDir)
+
     exfile
   end
 
@@ -804,17 +789,13 @@ import "command_line.dsl"
     () <> Archive.findExecutable (archive, compatible)
   end
 
-  function compile (filename, target, compilerSettings)
+  function compile (filename, target, compilerSettings, simfile)
     if settings.simulation_debug.debug.getValue() then
       println ("Compiling " + filename)
     end
 
-    // Change working directory to outputdir directory
-    FileSystem.chdir(settings.compiler.outputdir.getValue())
-
     var name
     var stat
-    var simfile
     var imports
 
     if settings.compiler.fastcompile.getValue() then
@@ -835,7 +816,7 @@ import "command_line.dsl"
     LF sys_collect_and_pack ()
     
     if 0 == stat then
-      simfile = profileTime ("Create SIM File", Archive.createArchive, (Path.join("..", name + ".sim"), settings.compiler.registry.value, imports, target, compilerSettings))
+      profileTime ("Create SIM File", Archive.createArchive, (simfile, settings.compiler.registry.value, imports, target, compilerSettings))
       println("Compilation completed successfully")
     elseif 3 >= stat then
 	// Show the error code
@@ -847,9 +828,6 @@ import "command_line.dsl"
 	    println("Error encountered in code generation of DSL model")
 	end
     elseif 6 >= stat then
-	// Restore working directory
-	FileSystem.chdir("..")
-
 	if 4 == stat then
 	    failure("Unexpected internal exception was generated during translation")
 	elseif 5 == stat then
@@ -857,16 +835,9 @@ import "command_line.dsl"
 	elseif 6 == stat then
 	    failure("Unexpected internal exception was generated during code generation")
 	end
-
     elseif 7 == stat then
-	// Restore working directory
-	FileSystem.chdir("..")
-
 	failure("Unexpected DSL failure was generated during compilation")
     end
-
-    // Restore working directory
-    FileSystem.chdir("..")
 
     stat
   end
