@@ -227,6 +227,10 @@ end
     var sh_path = checkCmdExists ("sh")
     var sh_version = parseCmdForVersion ("version ([0-9]+.[0-9]+.[0-9]+)", sh_path, ["--version"])
 
+    // zip/unzip - sim file
+    var zip_path = checkCmdExists("zip")
+    var unzip_path = checkCmdExists("unzip")
+
     // libraries
     //libdl
     var libdl_path = checkLibExists("libdl")
@@ -253,6 +257,8 @@ end
                 file      = dep(file_path, (), file_version),
                 sh        = dep(sh_path, (), sh_version),
                 libdl     = dep(libdl_path, libdl_arch, ()),
+		zip       = dep(zip_path, (), ()),
+		unzip     = dep(unzip_path, (), ())
 		}
 
     var proDeps = {
@@ -264,7 +270,7 @@ end
     
      //verify each of the above has a path
      foreach key in deps.keys do
-       if (deps.getMember(key) == ()) then
+       if (deps.getMember(key) == ()) or deps.getMember(key).fullpath == () then
          depsFailed = true
          warning ("Could not find location of " + key)
        end
@@ -272,7 +278,7 @@ end
 
      if (Licensing.featureEnabled("gpu")) then
        foreach key in proDeps.keys do
-	 if (proDeps.getMember(key) == ()) then
+	 if (proDeps.getMember(key) == () or proDeps.getMember(key).fullpath == ()) then
            depsFailed = true
            warning ("Could not find location of " + key)
          else
