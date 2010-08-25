@@ -7,6 +7,8 @@ fun log s =
     (print (s ^ "\n");
      TextIO.flushOut(TextIO.stdOut))
 
+fun log_layout l = 
+    Printer.printLayout l TextIO.stdOut
 
 local 
 fun tilde2minus #"~" = "-"

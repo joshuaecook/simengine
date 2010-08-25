@@ -67,4 +67,9 @@ signature LAYOUT =
       val tuple5: ('a -> t) * ('b -> t) * ('c -> t) * ('d -> t) * ('e -> t)
          -> ('a * 'b * 'c * 'd * 'e) -> t
       val vector: t vector -> t
+
+      (* SIMATRA added functions *)
+      (* series wraps a list with a starting string, ending string, and a delimeter, 
+       * with mayAlign for all the entries *)
+      val series: (string * string * string) -> t list -> t
    end

@@ -142,6 +142,7 @@ be/mathematica.sml
 be/mathematica_writer.sml
 
 
+ir/datastructs/dof_layout.sml
 ir/datastructs/dof_printer.sml
 ir/processing/ordering.sml
 
