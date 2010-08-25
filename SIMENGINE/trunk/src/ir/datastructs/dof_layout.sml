@@ -23,11 +23,12 @@ val align = Layout.align
 val mayAlign = Layout.align
 val layout_to_string = Layout.toString
 val record = Layout.record
+val indent = Layout.indent
 val s2l = Layout.str
 val sym2l = s2l o Symbol.name
 val i2l = s2l o i2s
 val r2l = s2l o Real.toString
-val e2l = s2l o e2s
+val e2l = ExpPrinter.exp2terselayout false
 val paren = Layout.paren
 fun bracket(t) = seq [s2l "[", t, s2l "]"]
 fun curly(t) = seq [s2l "{", t, s2l "}"]
@@ -40,17 +41,17 @@ val bracketList = Layout.series ("[", "]", ",")
 val curlyList = Layout.series ("{", "}", ",")
 fun label (str, t) = seq [s2l str, s2l ": ", t]
 fun heading (str, t) = align [seq [s2l str, s2l ": "],
-			    Layout.indent (t, 2)]
+			      indent (t, 2)]
 
 
-fun genlist2layout data2str [data] = 
-    s2l (data2str data)
-  | genlist2layout data2str datalist =
-    parenList (map (s2l o data2str) datalist)
+fun genlist2layout data2layout [data] = 
+    data2layout data
+  | genlist2layout data2layout datalist =
+    parenList (map data2layout datalist)
     (*"(" ^ (String.concatWith ", " (map data2str datalist)) ^ ")"*)
 
-val symbollist2layout = genlist2layout Symbol.name
-val contents2layout = genlist2layout e2s
+val symbollist2layout = genlist2layout sym2l
+val contents2layout = genlist2layout e2l
 
 fun class_to_layout (class as {name, properties={sourcepos, preshardname, classform}, inputs, outputs, exps}) =
     align [label ("Class Name", sym2l name),
@@ -90,14 +91,14 @@ and equation_to_layout e =
 	    let
 		val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
 	    in
-		seq [prefix, 
-		     bracketList (map sym2l (#iterators props)),
-		     s2l ": ", 
-		     e2l e]
+		mayAlign [prefix, 
+			  indent (seq [bracketList (map sym2l (#iterators props)),
+				       s2l ": ", 
+				       e2l e], 2)]
 	    end
 	else
-	    seq [prefix,
-		 e2l e]
+	    mayAlign [prefix,
+		      indent (e2l e, 2)]
     end
 
 and output_to_layout output = seq [e2l (Exp.TERM (DOF.Output.name output)),
