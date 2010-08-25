@@ -15,6 +15,7 @@ datatype rep
   | Primitive of prim
 
 type 'a typet = rep
+type ('a,'b) operator = 'a typet -> 'b typet
 
 val var = Var
 val tuple = Pair
