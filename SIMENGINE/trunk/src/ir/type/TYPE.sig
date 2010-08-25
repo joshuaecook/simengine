@@ -14,6 +14,7 @@ signature TYPE = sig
       | Primitive of prim
 
     type 'a typet
+    type ('a,'b) operator = 'a typet -> 'b typet
 
     val var: var -> var typet
     val int: size -> int typet
@@ -22,9 +23,9 @@ signature TYPE = sig
 
     val tuple: ('a typet * 'b typet) -> ('a * 'b) typet
     val arrow: ('a typet * 'b typet) -> ('a -> 'b) typet
-    val array: ('a -> 'b) typet
+    val array: ('a,'b) operator typet
 
-    val apply: ('a -> 'b) typet -> 'a typet -> 'b typet
+    val apply: ('a,'b) operator typet -> 'a typet -> 'b typet
     val poly: ('a typet -> 'b typet) -> 'b typet
 
     val rep: 'a typet -> rep
