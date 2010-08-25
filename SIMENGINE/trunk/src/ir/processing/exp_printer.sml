@@ -4,6 +4,7 @@ sig
 (* will print in a full form or a terse form depending on the setting of "usefullform" in the options *)
 val exp2str : Exp.exp -> string
 val exp2prettystr : Exp.exp -> string (* this is for nicer printing for user error messages *)
+val exp2terselayout : bool -> Exp.exp -> Layout.t
 
 end
 structure ExpPrinter =
@@ -121,6 +122,149 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	   | Exp.MATRIX m => "("^(Matrix.infoString m)^")[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ "]"
     end
 
+local
+open Layout
+fun commas_seq t = seq (Layout.separate (t, ","))
+val parenList = Layout.series ("(", ")", ",")
+val curlyList = Layout.series ("{", "}", ",")
+val s2l = str
+val sym2l = s2l o Symbol.name
+val i2l = s2l o i2s
+val r2l = s2l o Real.toString
+val b2l = s2l o b2s
+fun bracket(t) = seq [s2l "[", t, s2l "]"]
+in
+fun exp2terselayout pretty (Exp.FUN (f, exps)) = 
+    let
+	fun useParen (Exp.FUN (f', _)) = 
+	    let
+		val sym = FunProcess.fun2name f
+		val sym' = FunProcess.fun2name f'
+		val (prec, assoc) = 
+		    case f of
+			Fun.BUILTIN _ => 
+			let
+			    val {precedence, associative, ...} = FunProcess.fun2props f
+			in
+			    (precedence, associative)
+			end
+		      | Fun.INST _ => (Inst.instancePrecedence, false)
+		      | Fun.OUTPUT _ => (Inst.instancePrecedence, false)
+		val prec' = case f' of
+				Fun.BUILTIN _ => #precedence (FunProcess.fun2props f')
+			      | Fun.INST _ => Inst.instancePrecedence
+			      | Fun.OUTPUT _ => Inst.instancePrecedence
+	    in
+		(prec = prec' andalso (sym <> sym' orelse (not assoc))) orelse prec < prec'
+	    end
+	  | useParen (Exp.TERM _) = 
+	    let
+		val (v, notation) = FunProps.fun2textstrnotation f
+	    in
+		case notation of
+		    FunProps.PREFIX => true (* for terms, use parentheses around single elements when applied to functions *)
+		  | _ => false
+	    end
+	  | useParen (Exp.META _) = false
+	  | useParen (Exp.CONTAINER _) = false
+
+	fun addParen (layout, exp) =
+	    if isEmpty layout then
+		empty
+	    else
+		let
+		    val first_neg_sign = hd (String.explode (toString layout)) = #"-"
+		in
+		    if first_neg_sign orelse useParen exp then
+			paren layout
+		    else
+			layout
+		end
+    in
+	case (FunProps.fun2textstrnotation f) of
+	    (v, FunProps.INFIX) => 
+	    if FunProps.hasVariableArguments f andalso length exps = 1 then
+		seq [str (FunProps.op2name f),
+		     commas_seq (map (fn(e)=>addParen((exp2terselayout pretty e,e))) exps)]
+	    else
+		mayAlign (Layout.separateRight ((map (fn(e)=>addParen ((exp2terselayout pretty e),e)) exps), v))
+	  | (v, FunProps.PREFIX) => 
+	    seq [str v,
+		 commas_seq (map (fn(e)=>addParen((exp2terselayout pretty e,e))) exps)]
+	  | (v, FunProps.POSTFIX) => 
+	    seq [series ("", "", "") (map (fn(e)=> addParen ((exp2terselayout pretty e),e)) exps),
+		 str " ",
+		 str v]
+	  | (v, FunProps.MATCH) => 
+	    let
+		fun replaceIndex str (i,e) = 
+		    Util.repStr(str, "$"^(i2s i), toString (addParen (exp2terselayout pretty e, e)))
+	    in
+		str (foldl (fn((exp, index),str')=>replaceIndex str' (index+1,exp)) v (Util.addCount exps))
+	    end
+			    
+    end
+  | exp2terselayout pretty (Exp.TERM term) =
+    (case term of 
+	 Exp.RATIONAL (n,d) => seq [i2l n,
+				    s2l "/",
+				    i2l d]
+       | Exp.INT v => i2l v
+       | Exp.REAL v => r2l v
+       | Exp.BOOL v => b2l v
+       | Exp.COMPLEX (t1,t2) => if Term.isZero t1 andalso Term.isZero t2 then (exp2terselayout pretty (Exp.TERM (Exp.INT 0)))
+				else if Term.isZero t1 then seq [exp2terselayout pretty (Exp.TERM t2), 
+								 s2l "i"]
+				else if Term.isZero t2 then exp2terselayout pretty (Exp.TERM t1)
+				else exp2terselayout pretty (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
+       | Exp.TUPLE l => paren (commas_seq (map (fn(t)=>exp2terselayout pretty (Exp.TERM t)) l))
+       | Exp.RANGE {low, high, step} => 
+	 if Term.isOne step then
+	     seq [exp2terselayout pretty (Exp.TERM low),
+		  s2l ":",
+		  exp2terselayout pretty (Exp.TERM high)]
+	 else
+	     seq [exp2terselayout pretty (Exp.TERM low),
+		  s2l ":",
+		  exp2terselayout pretty (Exp.TERM step),
+		  s2l ":", 
+		  exp2terselayout pretty (Exp.TERM high)]
+       | Exp.SYMBOL (s, props) => s2l (Term.sym2str pretty (s, props))
+       | Exp.STRING s => seq [s2l "\"",
+			      s2l (String.toCString s),
+			      s2l "\""]
+       | Exp.DONTCARE => s2l "?"
+       | Exp.INFINITY => s2l "Inf"
+       | Exp.NAN => s2l "NaN"
+       | Exp.RANDOM Exp.UNIFORM => s2l "UniformRand"
+       | Exp.RANDOM Exp.NORMAL => s2l "NormalRand"
+       | Exp.PATTERN p => s2l (PatternProcess.pattern2str p))
+  | exp2terselayout pretty (Exp.META meta) =
+    (case meta of 
+	 Exp.SEQUENCE e => series ("{: ", " :}", ",") (map (exp2terselayout pretty) e)
+       | Exp.LAMBDA {arg, body} => 
+	 paren (seq [s2l "lambda",
+		     paren (sym2l arg),
+		     exp2terselayout pretty body])
+       | Exp.APPLY {arg, func} => 
+	 seq [paren (exp2terselayout pretty func),
+	      paren (exp2terselayout pretty arg)]
+       | _ => s2l "<unresolved-meta>")
+  | exp2terselayout pretty (Exp.CONTAINER container) =
+    case container of
+	Exp.EXPLIST e => 
+	curlyList (map (exp2terselayout pretty) e)
+      | Exp.ARRAY v => bracket (commas_seq (map (exp2terselayout pretty) (Container.arrayToList v)))
+      | Exp.ASSOC t => 
+	record (ListPair.mapEq
+		    (fn (k,v) => (Symbol.name k, exp2terselayout pretty v))
+		    (SymbolTable.listKeys t, SymbolTable.listItems t))
+      | Exp.MATRIX m => 
+	seq [paren (s2l (Matrix.infoString m)),
+	     indent (bracket (align (map 
+					 ((exp2terselayout pretty) o Exp.CONTAINER o Exp.ARRAY) 
+					 (Matrix.toRows m))), 2)]
+end
 
 fun exp2fullstr (Exp.FUN (f, exps)) = 
     let
@@ -234,7 +378,7 @@ fun exp2str e =
     (if DynamoOptions.isFlagSet("usefullform") then
 	 exp2fullstr e
      else
-	 exp2tersestr false e)
+	 Layout.toString (exp2terselayout false e))
     handle e => DynException.checkpoint "ExpProcess.exp2str" e
 
 fun exp2prettystr e = 
