@@ -19,7 +19,9 @@
  * function `make,' which I define, the interface required here is 
  * satisfied by the ML basis String structure. Finally, I replace
  * references to Pervasive.Vector and Pervasive.Array of MLton by their
- * ML basis counterparts. JEC *)
+ * ML basis counterparts. JEC 
+ * Added series to aid in producing comma separated and other delimited 
+ * lists. 9/25/10 RKW *)
 
 structure Layout: LAYOUT =
 struct
@@ -286,5 +288,11 @@ fun tuple3 (l1, l2, l3) (x1, x2, x3) = tuple [l1 x1, l2 x2, l3 x3]
 fun tuple4 (l1, l2, l3, l4) (x1, x2, x3, x4) = tuple [l1 x1, l2 x2, l3 x3, l4 x4]
 fun tuple5 (l1, l2, l3, l4, l5) (x1, x2, x3, x4, x5) =
    tuple [l1 x1, l2 x2, l3 x3, l4 x4, l5 x5]
+
+(* Parenthesises and separates a list of layouts. *)
+fun series (start, finish, sep) layouts =
+    seq [str start, 
+	 mayAlign (separateRight (layouts, sep)), 
+	 str finish]
 
 end
