@@ -2,7 +2,12 @@ signature TYPE = sig
     (* See "Type Definitions" by Christopher A. Stone
      * from Advanced Topics in Types and Programming Languages. *)
 
-    type var = string
+    (* TODO:
+     * Add Void and Vector types.
+     * Remove Universal type? (useful for anything other than exceptions?)
+     *)
+
+    type var
     type size = int
 
     type prim
@@ -26,22 +31,40 @@ signature TYPE = sig
 
     (*= Constructors =*)
 
-    (* G |- int::* *)
-    val int: size -> ('G,proper) typet
-    (* G |- real::* *)
-    val real: size -> ('G,proper) typet
-    (* G |- bool::* *)
-    val bool: ('G,proper) typet
-    (* G |- array::(*->*) *)
-    val array: ('G,proper->proper) typet
+    val int:
+	(* G |- <>
+	 * -------
+	 * G |- intN::*
+	 *)
+	size -> (unit,proper) typet
 
-    (* FIXME: I'm not sure about this one. *)
+    val real:
+	(* G |- <>
+	 * -------
+	 * G |- realN::*
+	 *)
+	size -> (unit,proper) typet
+
+    val bool:
+	(* G |- <>
+	 * -------
+	 * G |- bool::*
+	 *)
+	(unit,proper) typet
+
+    val array: 
+	(* G |- <>
+	 * -------
+	 * G |- *->*::*
+	 *)
+	(unit,proper->proper) typet
+
     val var:
     	(* X::K in G    G |- <>
     	 * --------------------
     	 * G |- X::K
     	 *)
-	unit -> ('G, 'K) typet
+	(unit,'K) typet -> (unit, 'K) typet
 	 
     val poly: 
 	(* G,X::K1 |- T2::K2

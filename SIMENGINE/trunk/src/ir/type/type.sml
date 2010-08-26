@@ -1,8 +1,11 @@
 structure Type:> TYPE = struct
 
-type var = string
+type var = int ref
+(* Variables are equivalent iff their contents are pointer equivalent.
+ * The int inside the ref is only used for printing a name. *)
+
 type size = int
-type prim = var * size
+type prim = string * size
 
 datatype rep 
   = Var of var
@@ -20,17 +23,16 @@ type proper = unit
 local
     val n = ref 0
 in
-    fun fresh () = 
-	let val n' = 1 + !n in 
-	    ("a" ^ (Int.toString n')) before n := n'
-	end
+fun fresh () = 
+    (* Creates a new identifier. *)
+    let val s = ref (1+(!n)) in s before n := !s end
 end
 
-val var = fn _  => Var (fresh ())
+val var = fn x => x
 val tuple = Pair
 val arrow = Arrow
 val apply = Apply
-
+val array = Array (Var (fresh ()))
 
 fun poly f =
     let val x = fresh () in
@@ -42,8 +44,6 @@ fun universal f =
 	Universal (x, f (Var x))
     end
 
-
-val array = poly Array
 
 val int = fn n => Primitive ("int",n)
 val real = fn n => Primitive ("real",n)
@@ -154,16 +154,15 @@ type ('G,'K) eq = bool * ('G,'K) typet
 
 fun equiv (x,y) = 
     let 
-	val (pp,qq) = (reflectivity x, reflectivity y)
-
 	val is = fn (p,_) => p
+	val snd = fn (_,qq) => qq
 
 	val check 
  	  = case x
 	     of Arrow _ => is o arrow
 	      | Pair _ => is o tuple
-	      | Universal (v,_) => is o (fn (_,qq) => universal (Var v) qq)
-	      | Abstract (v,_) => is o (fn (_,qq) => poly (Var v) qq)
+	      | Universal (v,_) => is o (universal (Var v)) o snd
+	      | Abstract (v,_) => is o (poly (Var v)) o snd
 	      | Apply _ => is o apply
 
 	      | Array _ => raise Fail "TODO array equiv"
@@ -172,7 +171,7 @@ fun equiv (x,y) =
 	      | Primitive tx 
 		=> (fn _ => (case y of Primitive ty => tx = ty | _ => false))
     in
-	check (pp,qq)
+	check (reflectivity x, reflectivity y)
     end
 
 and reflectivity x = (true, x)
@@ -203,14 +202,16 @@ val equiv = Equivalence.equiv
 
 val rep = fn x => x
 
+val varToString = fn s => "a"^(Int.toString (!s))
+
 val rec toString =
- fn Var var => var
+ fn Var var => varToString var
   | Arrow (a, b) => "(-> "^(toString a)^" "^(toString b)^")"
   | Pair (a, b) => "(* "^(toString a)^" "^(toString b)^")"
   | Array rep => "(array "^(toString rep)^")"
-  | Abstract (var, rep) => "(mu ("^var^") "^(toString rep)^")"
+  | Abstract (var, rep) => "(mu ("^(varToString var)^") "^(toString rep)^")"
   | Apply (t, s) => "("^(toString t)^" "^(toString s)^")"
-  | Universal (var, rep) => "(all ("^var^") "^(toString rep)^")"
+  | Universal (var, rep) => "(all ("^(varToString var)^") "^(toString rep)^")"
   | Primitive (p,s) => "("^p^" "^(Int.toString s)^")"
 
 end
