@@ -17,31 +17,14 @@ val r2s = Util.r2s
 val e2s = ExpPrinter.exp2str
 
 (* Layout functions *)
-val empty = Layout.empty
-val seq = Layout.seq
-val align = Layout.align
-val mayAlign = Layout.align
-val layout_to_string = Layout.toString
-val record = Layout.record
-val indent = Layout.indent
-val s2l = Layout.str
+open Layout
+val s2l = str
 val sym2l = s2l o Symbol.name
 val i2l = s2l o i2s
 val r2l = s2l o Real.toString
 val e2l = ExpPrinter.exp2terselayout false
-val paren = Layout.paren
-fun bracket(t) = seq [s2l "[", t, s2l "]"]
-fun curly(t) = seq [s2l "{", t, s2l "}"]
-val newline = align [s2l " "]
-val list = Layout.list
-fun commas_seg t = seq (Layout.separate (t, ","))
-fun commas_aligned t = mayAlign (Layout.separate (t, ","))
-val parenList = Layout.series ("(", ")", ",")
-val bracketList = Layout.series ("[", "]", ",")
-val curlyList = Layout.series ("{", "}", ",")
-fun label (str, t) = seq [s2l str, s2l ": ", t]
-fun heading (str, t) = align [seq [s2l str, s2l ": "],
-			      indent (t, 2)]
+fun commas_seg t = seq (separate (t, ","))
+fun commas_aligned t = mayAlign (separate (t, ","))
 
 
 fun genlist2layout data2layout [data] = 

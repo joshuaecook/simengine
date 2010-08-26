@@ -72,4 +72,20 @@ signature LAYOUT =
       (* series wraps a list with a starting string, ending string, and a delimeter, 
        * with mayAlign for all the entries *)
       val series: (string * string * string) -> t list -> t
+      (* parenList, bracketList, and curlyList all use series *)
+      val parenList: t list -> t
+      val bracketList: t list -> t
+      val curlyList: t list -> t
+      (* bracket and curly are complementary to paren *)
+      val bracket: t -> t
+      val curly: t -> t
+      (* creates a newline token *)
+      val newline: t
+      (* or append a newline *)
+      val add_newline: t -> t
+      (* label and heading are useful for displaying tree like data.  In a label, the string is printed on the
+       * same line as the following layout.  For a heading, the layout appears on the line following the string, 
+       * indented by a two spaces. *)
+      val label: (string * t) -> t
+      val heading: (string * t) -> t
    end
