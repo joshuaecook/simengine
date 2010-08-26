@@ -20,8 +20,13 @@
  * satisfied by the ML basis String structure. Finally, I replace
  * references to Pervasive.Vector and Pervasive.Array of MLton by their
  * ML basis counterparts. JEC 
+ * 
  * Added series to aid in producing comma separated and other delimited 
- * lists. 9/25/10 RKW *)
+ * lists. 9/25/10 RKW 
+ *
+ * Added additional helper functions including bracket, curly, newline, 
+ * label, and heading. 9/26/10 RKW
+ *)
 
 structure Layout: LAYOUT =
 struct
@@ -295,4 +300,21 @@ fun series (start, finish, sep) layouts =
 	 mayAlign (separateRight (layouts, sep)), 
 	 str finish]
 
+(* useful shortcuts for series *)
+val parenList = series ("(", ")", ",")
+val bracketList = series ("[", "]", ",")
+val curlyList = series ("{", "}", ",")
+
+(* adding a bracket or curly brace manually like paren does *)
+fun bracket(t) = seq [str "[", t, str "]"]
+fun curly(t) = seq [str "{", t, str "}"]
+
+(* appending a newline character *)
+val newline = align [str " "]
+fun add_newline(t) = align[t, str " "]
+
+(* create labels and headings *)
+fun label (s, t) = seq [str s, str ": ", t]
+fun heading (s, t) = align [seq [str s, str ": "],
+			    indent (t, 2)]
 end
