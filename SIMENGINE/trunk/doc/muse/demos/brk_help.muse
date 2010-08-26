@@ -4,7 +4,7 @@
 
 The Booth, Rinzel, and Kiehn (BRK) motoneuron model is a two compartment vertebrate motoneuron demonstrating Ca<sup>2+</sup>-dependent spiking, plateau potentials, and bistability when under pharmacological treatment.  The ionic currents are distributed in a somatic and dendritic compartment.  Ionic currents follow Hodgkin-Huxley kinetics and include a fast inactivating Na<sup>+</sup> channel, K<sup>+</sup> delayed rectifier,  N-type Ca<sup>2+</sup> channels, a Ca<sup>2+</sup>-dependent K<sup>+</sup> channel, and a persistent L-type K<sup>+</sup> channel in the dendrite.  There are a total of 11 state variables, which include two voltage states, two calcium concentration states, and seven gating variables.
 
-* Model Description
+* Model description
 
 The brk demo is split into the DIESEL files.  The first one, *brk_inputs.dsl*, generates the neural spiking behavior.  The second model, *spikes.dsl*, is cascaded with the first and computes spike times from a continuous voltage trace.
 

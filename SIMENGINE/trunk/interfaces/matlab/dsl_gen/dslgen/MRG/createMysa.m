@@ -42,7 +42,7 @@ Vmp = m_mysa.state(0, 'iter', t_imp);
 %Geometric and membrane parameters of compartment
 SA = (3.1415926*fiberDiameter*length)/1e8;
 
-m_mysa.output('Raxonal', (4*(length/10000)*Ra)/(3.1415926*(fiberDiameter/10000)^2)/1e9);
+m_mysa.output('Raxonal', (4*(length/10000)*Ra)/(pi*(fiberDiameter/10000)^2)/1e9);
 m_mysa.output('Rperiaxonal', xraxial*(length/10000)/1e3);
 
 Cm = cm*SA*1e6;
