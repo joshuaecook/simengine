@@ -1,0 +1,9 @@
+local
+  (* import Basis Library *)
+  $(SML_LIB)/basis/basis.mlb
+
+in
+TYPE.sig
+type.sml
+test-type.sml
+end
