@@ -28,10 +28,11 @@ signature TYPE = sig
     type ('G,'K) typevar
 
     type context
-    val base: context
+    val bottom: context
 
+    datatype kind = Proper | Operator of kind * kind | Unknown
     type proper
-    (* The kind of a proper type, distinguishable from a type operator. *)
+    (* The specialized kind of a proper type, distinguishable from a type operator. *)
 
     (*= Constructors =*)
 
@@ -112,6 +113,8 @@ signature TYPE = sig
 
     val equiv: ('G,'a) typet * ('G,'b) typet -> bool
 
+    val context: ('G, 'a) typet -> context
+    val kind: ('G, 'a) typet -> kind
     val rep: ('G,'a) typet -> rep
     (* Recovers the concrete representation of a type. *)
 
