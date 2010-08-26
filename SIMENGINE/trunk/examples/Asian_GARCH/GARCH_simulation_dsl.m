@@ -23,11 +23,18 @@ discount = exp(-r*NumberOfSteps);
 
 %"tic" and "toc" are used to record the time spent in Monte Carlo
 %simulations.
+parallel = 50;
+serial = 1;
+dslfile = toDSL(createMultipleGARCH(parallel));
 tic;
-data = simex('GARCH.dsl', NumberOfSteps, '-instances', NumberOfPaths, '-parallelcpu');
+%data = simex('GARCH.dsl', NumberOfSteps, '-instances', NumberOfPaths, '-parallelcpu');
 
-for i = 1:NumberOfPaths,
-    AvePrice = mean(data(i).assetPrice(:,2));
+data = simex(dslfile, NumberOfSteps*serial, struct('S0', S0), '-instances', NumberOfPaths/(parallel*serial), '-parallelcpu');
+
+for i = 1:(NumberOfPaths/(parallel*serial)),
+    %AvePrice = mean(data(i).assetPrice(:,2));
+    AvePrice = mean(data(i).averagePrice(:,2));
+    %disp(sprintf('Average Prices: %g ? %g', AvePrice, AvePriceComputed));
     payoff=max(0,AvePrice-strike);
     if i == 1,
         summition(1)=payoff;
@@ -37,9 +44,9 @@ for i = 1:NumberOfPaths,
         OptionValue(i)= (summition(i)/i)*discount;
     end
     
-     if i>= 2 & i<=6
-         plotData(:,i-1) = [data(i).assetPrice(:,2)];                 %Plot 5 sample paths.
-     end
+%      if i>= 2 & i<=6
+%          plotData(:,i-1) = [data(i).assetPrice(:,2)];                 %Plot 5 sample paths.
+%      end
 end
  
 simulationTime = toc
@@ -61,12 +68,12 @@ simulationTime = toc
 %     end
 % end
 % simulationTime = toc
-figure,
-plot(plotData)
-xlabel('Time');
-ylabel('Stock Price');
-title('5 sample paths');
-hold off;
+% figure,
+% plot(plotData)
+% xlabel('Time');
+% ylabel('Stock Price');
+% title('5 sample paths');
+% hold off;
 
 figure;
 plot(1:NumberOfPaths,OptionValue);                     %Plot the convergence of option value as the number of paths increases.
@@ -75,5 +82,5 @@ ylabel('Asian Option Value');
 %set(gca, 'ylim', [4.3, 5]);
 title('The convergence of Asion option value as the number of sample paths increases');
 
-fprintf('The Asian Option value after %d simulations is %.4e\n', NumberOfPaths, OptionValue(NumberOfPaths));
+fprintf('The Asian Option value after %d simulations is %.4e\n', NumberOfPaths, OptionValue(NumberOfPaths/(parallel*serial)));
 fprintf('Completed %d simulations in %0.5g seconds\n', NumberOfPaths, simulationTime)

@@ -55,6 +55,27 @@ datatype t
   | STRUCTURE of {name: ident,
 		  vars: ident vector,
 		  fields: (ident * Type.t) vector}
+local
+    open Layout
+    fun v2l v = 
+	List.tabulate (Vector.length v, (fn(i)=> Vector.sub (v, i)))	
+    fun vectorMap mapfun v =
+	bracketList (map mapfun (v2l v))
+in
+fun toLayout (PARAMETRIC {name, vars, base}) =
+    heading ("Parametric", align [label ("name", str name),
+				  label ("vars", vectorMap str vars),
+				  label ("base", Type.toLayout base)])
+  | toLayout (ARRAY {name, vars, base}) =
+    heading ("Array", align [label ("name", str name),
+			     label ("vars", vectorMap str vars),
+			     label ("base", Type.toLayout base)])
+  | toLayout (STRUCTURE {name, vars, fields}) =
+    heading ("Structure", align [label ("name", str name),
+				 label ("vars", vectorMap str vars),
+				 label ("fields", vectorMap (fn(id, typ)=> paren (seq [str id, str ": ", Type.toLayout typ])) fields)])
+end
+
 end
 
 structure TypeApplication = struct
@@ -276,6 +297,20 @@ structure Program = struct
 datatype t
   = PROGRAM of {body: Expression.t,
 		types: TypeDeclaration.t vector}
+
+local
+    open Layout
+    fun v2l v = 
+	List.tabulate (Vector.length v, (fn(i)=> Vector.sub (v, i)))	
+    fun vectorMap mapfun v =
+	bracketList (map mapfun (v2l v))
+in
+fun toLayout (PROGRAM {body, types}) = 
+    heading ("Program", 
+	     align [heading ("body", expressionToLayout body),
+		    heading ("types", vectorMap TypeDeclaration.toLayout types)])
+end
+
 end
 
 

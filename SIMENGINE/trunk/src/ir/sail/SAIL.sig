@@ -106,6 +106,7 @@ signature SAIL = sig
 	  | STRUCTURE of {name: ident,
 			  vars: ident vector,
 			  fields: (ident * Type.t) vector}
+	val toLayout : t -> Layout.t		 
     end
 
     structure TypeApplication: sig
@@ -240,5 +241,6 @@ signature SAIL = sig
 	datatype t
 	  = PROGRAM of {body: Expression.t,
 			types: TypeDeclaration.t vector}
+	val toLayout : t -> Layout.t
     end
 end
