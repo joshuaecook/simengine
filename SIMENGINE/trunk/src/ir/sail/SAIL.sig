@@ -92,6 +92,7 @@ signature SAIL = sig
 
     structure Type: sig
 	type t
+	val toLayout : t -> Layout.t
     end
 
     structure TypeDeclaration: sig
@@ -111,6 +112,7 @@ signature SAIL = sig
 	datatype t
 	  = TypeApply of {var: ident,
 			  args: Type.t vector}
+	val toLayout : t -> Layout.t		 
     end
 
     structure Operator: sig
@@ -129,6 +131,7 @@ signature SAIL = sig
 	    val one: typeapp -> atom
 	    val two: typeapp -> atom
 	end
+	val toLayout : t -> Layout.t		 
    end
 
     structure Abstraction: sig
@@ -178,6 +181,9 @@ signature SAIL = sig
 
 	  | Fork of {divide: t, tasks: t vector, merge: t}
           (* Control parallelism. *)
+
+	val toLayout : t -> Layout.t
+
     end
 
     structure Atom: sig
@@ -191,6 +197,8 @@ signature SAIL = sig
 	  | Apply of typeapp * typeapp
 	  | Primitive of operator * typeapp vector
 	  | Literal of immediate
+
+	val toLayout : t -> Layout.t		 
     end
 
     structure Binding: sig
@@ -206,12 +214,17 @@ signature SAIL = sig
 	  | Function of {tyvars: ident vector,
 			 var: ident * Type.t,
 			 object: task}
+
+	val toLayout : t -> Layout.t		 
+
     end
 
     structure Expression: sig
 	type binding
 	type t
 	val new: {bindings: binding vector, result: TypeApplication.t} -> t
+	val toLayout : t -> Layout.t
+
     end
 
     sharing type Operator.atom = Atom.t

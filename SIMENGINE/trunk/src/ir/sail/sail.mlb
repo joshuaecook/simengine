@@ -9,16 +9,17 @@ local
   $(SML_LIB)/basis/c-types.mlb
 
   (* MLton-style Layout printer *)
-(*
   ../../util/layout.sig
   ../../util/layout.sml
-*)
+
 
   (* JSON Data Structure *)
-(*  ../../json/json.mlb
+(*
+  ../../json/json.mlb
   ../../util/json.sml
   ../../util/json-extensions.sml
 *)
+
 (*
   ann
       "allowFFI true"
@@ -29,10 +30,12 @@ local
       ../../ffi/license.sml
   end
 *)
-  ../../shell/symbol.sml
+
 in
 
 SAIL.sig
 sail.sml
+sail_util.sml
+mergesort.sml
 
 end
