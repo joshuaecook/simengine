@@ -2,7 +2,7 @@ functor TestType(T: TYPE) = struct
 
 local 
     open T
-    val cxt = T.base
+    val cxt = T.bottom
     val bool = bool cxt
     val int32 = int cxt 32
     val int64 = int cxt 64
