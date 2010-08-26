@@ -13,6 +13,8 @@
  * http://www.mathematik.uni-marburg.de/~eden/
  * http://skandium.niclabs.cl/
  *)
+
+(*
 signature IDENTITY = sig
     (* A type of object having a unique identity. *)
     type t
@@ -28,7 +30,7 @@ signature TYPE_CONSTRUCTOR = sig
     val bool: tycon
     val int: size -> tycon
     val float: size -> tycon
-    val ref: tycon
+    val reference: tycon
     val tuple: tycon
     val word: size -> tycon
     val vector: tycon
@@ -42,16 +44,18 @@ end
 
 signature TYPE_OPERATOR = sig
     type t
+
     val array: t -> t
     val arrow: t * t -> t
     val bool: t
     val int32: t
     val float32: t
     val float64: t
-    val ref: t -> t
+    val reference: t -> t
     val tuple: t vector -> t
     val word32: t
     val vector: t -> t
+
 end
 
 signature TYPE_ENVIRONMENT = sig
@@ -59,16 +63,21 @@ signature TYPE_ENVIRONMENT = sig
     structure Tyvar: TYPE_VARIABLE
     structure Tyop: TYPE_OPERATOR
 end
-
+*)
+(*
 signature TYPE = sig
     type ident
     type tycon
-    type t
+    type t = unit
 
     val var: ident -> t
     (* Creates a new variable type *)
 
     val tycon: t -> tycon option
+end
+*)
+signature TYPE = sig
+    type t = unit
 end
 
 signature SAIL = sig
@@ -110,7 +119,6 @@ signature SAIL = sig
 	type t
 	type atom
 
-(*
 	structure Array: sig
 	    val null: typeapp -> atom
 	    val split: typeapp -> atom
@@ -121,10 +129,10 @@ signature SAIL = sig
 	    val one: typeapp -> atom
 	    val two: typeapp -> atom
 	end
- *)
    end
 
     structure Abstraction: sig
+	type atom
 	type expression
 
 	datatype t
@@ -174,19 +182,19 @@ signature SAIL = sig
 
     structure Atom: sig
 	type typeapp
-	type lambda
+	type task
 	type operator
 
 	datatype t
 	  = Variable of ident
-	  | Abstract of lambda
+	  | Abstract of task
 	  | Apply of typeapp * typeapp
 	  | Primitive of operator * typeapp vector
 	  | Literal of immediate
     end
 
     structure Binding: sig
-	type lambda
+	type task
 	type atom
 	type expression
 	datatype t
@@ -197,7 +205,7 @@ signature SAIL = sig
 			  object: expression}
 	  | Function of {tyvars: ident vector,
 			 var: ident * Type.t,
-			 object: lambda}
+			 object: task}
     end
 
     structure Expression: sig
@@ -208,9 +216,9 @@ signature SAIL = sig
 
     sharing type Operator.atom = Atom.t
     sharing type Atom.typeapp = TypeApplication.t
-    sharing type Atom.lambda = Abstraction.t
+    sharing type Atom.task = Abstraction.t
     sharing type Atom.operator = Operator.t
-    sharing type Binding.lambda = Abstraction.t
+    sharing type Binding.task = Abstraction.t
     sharing type Binding.expression = Abstraction.expression
     sharing type Expression.t = Abstraction.expression
     sharing type Expression.binding = Binding.t
