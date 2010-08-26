@@ -32,8 +32,8 @@ signature TYPE = sig
     val real: size -> ('G,proper) typet
     (* G |- bool::* *)
     val bool: ('G,proper) typet
-    (* G |- array::(K1->K2) *)
-    val array: ('G,'K1->'K2) typet
+    (* G |- array::(*->*) *)
+    val array: ('G,proper->proper) typet
 
     (* FIXME: I'm not sure about this one. *)
     val var:
@@ -48,7 +48,7 @@ signature TYPE = sig
 	 * -----------------
 	 * G |- (\X::K1.T2)::(K1=>K2)
 	 *)
-	('G,'K1) typet -> ('G,'K2) typet
+	(('G,'K1) typet -> ('G,'K2) typet)
 	-> 
 	('G,'K1->'K2) typet
 
