@@ -2,10 +2,12 @@ functor TestType(T: TYPE) = struct
 
 local 
     open T
-    val bool = bool
-    val int32 = int 32
-    val int64 = int 64
-    val real64 = real 64
+    val cxt = T.base
+    val bool = bool cxt
+    val int32 = int cxt 32
+    val int64 = int cxt 64
+    val real64 = real cxt 64
+    val array = array cxt
 in
 val toString = toString
 val equiv = equiv
