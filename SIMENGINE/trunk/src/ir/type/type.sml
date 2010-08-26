@@ -14,11 +14,20 @@ datatype rep
   | Array of rep
   | Abstract of var * rep
   | Apply of rep * rep
-  | Universal of var * rep
   | Primitive of prim
 
-type ('G,'a) typet = rep
-type proper = unit
+type context = var list
+val base: context = nil
+
+datatype kind = Proper | Operator of kind * kind | Unknown
+datatype proper = datatype kind
+
+datatype ('G,'K) typet 
+  = TYPE of {context: context,
+	     kind: kind,
+	     rep: rep}
+
+datatype typevar = datatype typet
 
 local
     val n = ref 0
@@ -28,30 +37,248 @@ fun fresh () =
     let val s = ref (1+(!n)) in s before n := !s end
 end
 
-val var = fn x => x
-val tuple = Pair
-val arrow = Arrow
-val apply = Apply
-val array = Array (Var (fresh ()))
+fun proper (cxt,t) = TYPE {context= cxt, kind= Proper, rep= t}
+fun operator (kk,cxt,t) = TYPE {context= cxt, kind= Operator kk, rep= t}
+fun unknown (cxt,t) = TYPE {context= cxt, kind= Unknown, rep= t}
+
+fun int cxt 
+  = fn n => proper (cxt, Primitive ("int", n))
+
+fun real cxt 
+  = fn n => proper (cxt, Primitive ("real", n))
+
+fun bool cxt = proper (cxt, Primitive ("bool", 1))
+
+fun array cxt = operator ((Proper,Proper), cxt, Array (Var (fresh ())))
+
+val var = fn TYPE {context, rep= t as Var v, ...} 
+	     => proper (v::context, t)
+	   | _ => raise Fail "impossible!"
 
 fun poly f =
-    let val x = fresh () in
-	Abstract (x, f (Var x))
+    let
+	val id = fresh ()
+	val x = unknown (base, Var id)
+    in
+	case f x
+	 of y as TYPE {context, rep, kind} =>
+	    operator ((Unknown,kind), context, Abstract (id, rep))
     end
 
-fun universal f =
-    let val x = fresh () in
-	Universal (x, f (Var x))
+(* FIXME: kind? *)
+fun apply (TYPE {context, rep= t, kind= Operator (_,K)}, 
+	   TYPE {rep= s, ...})
+    = TYPE {context= context, kind= K, rep= Apply (t, s)}
+  | apply _ = raise Fail "impossible!"
+
+fun arrow (TYPE {context, rep= t, ...}, TYPE {rep= s, ...})
+    = proper (context, Arrow (t, s))
+
+fun tuple (TYPE {context, rep= t, ...}, TYPE {rep= s, ...})
+    = proper (context, Pair (s, t))
+
+(* (\*= Reduction =*\) *)
+(* structure Reduction: sig *)
+(*     (\* T red S *\) *)
+(*     type red *)
+
+(*     val reflectivity: *)
+(* 	(\* T red T *\) *)
+(* 	red *)
+
+(*     val poly: *)
+(* 	(\* S2 red T2 *)
+(* 	 * --------- *)
+(* 	 * (\X::K1.S2) red (\X::K1.T2) *)
+(* 	 *\) *)
+(* 	red *)
+(* 	-> *)
+(* 	red *)
+
+(*     val apply: *)
+(* 	(\* S1 red T1    S2 red T2 *)
+(* 	 * ---------------------- *)
+(* 	 * (S1 S2) red (T1 T2) *)
+(* 	 *\) *)
+(* 	red * red *)
+(* 	-> *)
+(* 	red *)
+
+(*     val beta: *)
+(* 	(\* S1 red T1    S2 red T2 *)
+(* 	 * ---------------------- *)
+(* 	 * (S1 S2) red (T1 T2) *)
+(* 	 *\) *)
+(* 	red * red *)
+(* 	-> *)
+(* 	red *)
+
+(*     val eta: *)
+(* 	(\* S red T    fresh X *)
+(* 	 * ------------------ *)
+(* 	 * (\X::K.S X) red T *)
+(* 	 *\) *)
+(* 	red *)
+(* 	-> *)
+(* 	red *)
+(* end = struct *)
+(* end *)
+(* (\*= end Reduction =*\) *)
+
+(*
+(*= Normalization =*)
+structure Normalization:> sig
+    (* S ~> T *)
+    type 'S whr
+    (* Weak head reduction. *)
+
+    (* S v T *)
+    type 'S whn
+    (* Weak head normalization. *)
+
+    (* G |- (S teq T)::K *)
+    type ('G, 'S, 'K) teq
+    (* Algorithmic term equivalence. *)
+
+    (* G |- (p peq q)::K *)
+    type ('G, 'p, 'K) peq
+    (* Algorithmic path equivalence. *)
+
+    val beta:
+	(* ((\X::K12.T12) T2) ~> ([X :-> T2] T12) *)
+	('G,'K) typet -> 'K whr
+
+    val apply:
+	(* T1 ~> T'1
+	 * ---------
+	 * (T1 T2) ~> (T'1 T2)
+	 *)
+	'T1 whr 
+	-> 
+	'T1T2 whr
+
+    val reduce:
+	(* S ~> T    T v U
+	 * ---------------
+	 * S v U
+	 *)
+	'S whr * 'T whn
+	->
+	'S whn
+
+    val normal:
+	(* T !~>
+	 * -----
+	 * T v T
+	 *)
+	'T whr
+	->
+	'T whn
+
+    val proper:
+	(* S v p    T v q    G |- (p peq q)::*
+	 * -----------------------------------
+	 * G |- (S teq T)::*
+	 *)
+	'S whn * 'T whn * ('G,'p,proper) peq
+	->
+	('G,'S,proper) teq
+
+    val arrow:
+	(* G,X::K1 |- ((S X) teq (T X))::K2
+	 * --------------------------------
+	 * G |- (S teq T)::(K1 => K2)
+	 *)
+	(('G,'K1) typet -> ('G,'SX,'K2) teq)
+	->
+	('G,'S,'K1->'K2) teq
+
+    (* val one: *)
+    (* 	(\* G |- (S teq T)::Unit *\) *)
+    (* 	('G, 'S, unit) teq *)
+
+    val var:
+	(* X::K in G    G |- <>
+	 * --------------------
+	 * G |- (X peq X)::K
+	 *)
+	(unit,'K) typet 
+	->
+	(unit,'X,'K) peq
+
+    val peqapply:
+	(* G |- (p peq q)::(K1=>K2)    G |- (S teq T)::K1
+	 * ----------------------------------------------
+	 * G |- ((p S) peq (q T))::K2
+	 *)
+	('G,'p,'K1->'K2) peq * ('G,'S,'K1) teq
+	->
+	('G,'pS,'K2) peq
+
+    val const:
+	(* G |- (R peq R)::proper *)
+	(unit,proper) typet -> ('G,'R,proper) peq
+
+end = struct
+datatype 'S whr = WHR of bool * rep
+datatype 'S whn = WHN of bool * rep
+datatype ('G,'S,'K) teq = TEQ of bool * rep
+datatype ('G,'p,'K) peq = PEQ of bool * rep
+
+fun beta term 
+  = case term 
+     of Apply (Abstract _, _) => WHR (true, term)
+      | _ => WHR (false, term)
+
+fun apply (WHR (p,term))
+  = WHR (p,term)
+
+fun reduce (WHR (p,term), WHN (q,_)) 
+  = WHN (p andalso q, term)
+
+fun normal (WHR (p,term))
+  = WHN (not p, term)
+
+fun proper (WHN (p,term), WHN (q,_), PEQ (r,_)) 
+  = TEQ (p andalso q andalso r, term)
+
+fun arrow f =
+    case f (Var (fresh()))
+     of TEQ (p, Apply (term, _)) => TEQ (p, term)
+      | TEQ (_, term) => TEQ (false, term)
+
+(* FIXME needs Unit type. *)
+(* val one = TEQ (true, Var (fresh ())) *)
+
+fun var _ 
+  = PEQ (true, Var (fresh ()))
+
+fun peqapply (PEQ (p,path), TEQ (q,term))
+  = PEQ (p andalso q, Apply (path, term))
+
+fun const term 
+  = case term
+     of Primitive _ => PEQ (true,term)
+      | _ => PEQ (false,term)
+
+
+fun equiv (a,b) =
+    let
+    in
+	false
     end
 
 
-val int = fn n => Primitive ("int",n)
-val real = fn n => Primitive ("real",n)
-val bool = Primitive ("bool",1)
+end
+(*= end Normalization =*)
+*)
 
+val equiv = fn _ => true
+
+(*
 (*= Equivalency =*)
 structure Equivalence: sig
-    (* G |- (T eq T)::K *)
+    (* G |- (T eq S)::K *)
     type ('G,'K) eq
 
     val equiv: ('G,'K1) typet * ('G,'K2) typet -> bool
@@ -101,15 +328,6 @@ structure Equivalence: sig
 	->
 	('G,proper) eq
 
-    val universal:
-	(* G,X::K1 |- (S2 eq T2)::*
-	 * ------------------------
-	 * G |- ((UX::K1.S2) eq (UX::K1.T2))::*
-	 *)
-	('G,'K1) typet -> ('G,proper) eq
-	->
-	('G,proper) eq
-
     val poly:
 	(* G,X::K1 |- (S2 eq T2)::K2
 	 * -----------------------
@@ -141,7 +359,7 @@ structure Equivalence: sig
 	->
 	('G,'K12) eq
 
-    val nu:
+    val extensional:
 	(* G,X::K1 |- ((S X) eq (T X))::K2
 	 * -----------------------------
 	 * G |- (S eq T)::K1->K2
@@ -161,7 +379,6 @@ fun equiv (x,y) =
  	  = case x
 	     of Arrow _ => is o arrow
 	      | Pair _ => is o tuple
-	      | Universal (v,_) => is o (universal (Var v)) o snd
 	      | Abstract (v,_) => is o (poly (Var v)) o snd
 	      | Apply _ => is o apply
 
@@ -186,23 +403,26 @@ and tuple ((p, x as Pair (tl1,tr1)), (q, Pair (tl2,tr2))) =
     (p andalso q andalso equiv (tl1,tl2) andalso equiv (tr1,tr2), x)
   | tuple ((_,x),_) = (false, x)
 
-and universal _ (p, x as Universal _) = (p,x)
-  | universal _ (_,x) = (false, x)
-
 and poly _ (p, x as Abstract _) = (p,x)
   | poly _ (_,x) = (false, x)
 
 and apply ((p,x),(q,_)) = (p andalso q, x)
 
 and beta _ = raise Fail "TODO beta equiv"
-and nu _ = raise Fail "TODO nu equiv"
+and extensional _ = raise Fail "TODO extensional equiv"
 end
+(*= end Equivalency =*)
+*)
 
-val equiv = Equivalence.equiv
 
-val rep = fn x => x
+
+val rep = fn TYPE {rep,...} => rep
 
 val varToString = fn s => "a"^(Int.toString (!s))
+val rec kindToString 
+  = fn Proper => "*"
+     | Unknown => "_"
+     | Operator (k1,k2) => "(-> "^(kindToString k1)^" "^(kindToString k2)^")"
 
 val rec toString =
  fn Var var => varToString var
@@ -211,8 +431,11 @@ val rec toString =
   | Array rep => "(array "^(toString rep)^")"
   | Abstract (var, rep) => "(mu ("^(varToString var)^") "^(toString rep)^")"
   | Apply (t, s) => "("^(toString t)^" "^(toString s)^")"
-  | Universal (var, rep) => "(all ("^(varToString var)^") "^(toString rep)^")"
-  | Primitive (p,s) => "("^p^" "^(Int.toString s)^")"
+  | Primitive (p,s) => p^(Int.toString s)
+
+val toString 
+  = fn TYPE {context, kind, rep} 
+       => (toString rep)^"::"^(kindToString kind)
 
 end
 

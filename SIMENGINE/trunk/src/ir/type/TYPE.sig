@@ -4,7 +4,6 @@ signature TYPE = sig
 
     (* TODO:
      * Add Void and Vector types.
-     * Remove Universal type? (useful for anything other than exceptions?)
      *)
 
     type var
@@ -19,12 +18,17 @@ signature TYPE = sig
       | Array of rep
       | Abstract of var * rep
       | Apply of rep * rep
-      | Universal of var * rep
       | Primitive of prim
 
     (* G |- T::K *)
     type ('G,'K) typet
     (* An specialization on types indicating well-formedness within a context of kinds. *)
+
+    (* X::K in G *)
+    type ('G,'K) typevar
+
+    type context
+    val base: context
 
     type proper
     (* The kind of a proper type, distinguishable from a type operator. *)
@@ -36,42 +40,44 @@ signature TYPE = sig
 	 * -------
 	 * G |- intN::*
 	 *)
-	size -> (unit,proper) typet
+	context -> size -> (context,proper) typet
 
     val real:
 	(* G |- <>
 	 * -------
 	 * G |- realN::*
 	 *)
-	size -> (unit,proper) typet
+	context -> size -> (context,proper) typet
 
     val bool:
 	(* G |- <>
 	 * -------
 	 * G |- bool::*
 	 *)
-	(unit,proper) typet
+	context -> (context,proper) typet
 
     val array: 
 	(* G |- <>
 	 * -------
-	 * G |- *->*::*
+	 * G |- array::*->*
 	 *)
-	(unit,proper->proper) typet
+	context -> (context,proper->proper) typet
 
     val var:
     	(* X::K in G    G |- <>
     	 * --------------------
     	 * G |- X::K
     	 *)
-	(unit,'K) typet -> (unit, 'K) typet
+	(context,'K) typevar
+	->
+	(context,'K) typet
 	 
     val poly: 
 	(* G,X::K1 |- T2::K2
 	 * -----------------
 	 * G |- (\X::K1.T2)::(K1=>K2)
 	 *)
-	(('G,'K1) typet -> ('G,'K2) typet)
+	(('G,'K1) typevar -> ('G,'K2) typet)
 	-> 
 	('G,'K1->'K2) typet
 
@@ -100,15 +106,6 @@ signature TYPE = sig
 	 *)
 	('G,proper) typet * ('G,proper) typet 
 	-> 
-	('G,proper) typet
-
-    val universal:
-	(* G,X::K1 |- T2::*
-	 * ----------------
-	 * G |- (UX::K1.T2)::*
-	 *)
-	(('G,'K1) typet -> ('G,proper) typet)
-	->
 	('G,proper) typet
 
     (*= Utilities =*)
