@@ -3,13 +3,9 @@ functor TestType(T: TYPE) = struct
 local 
     open T
     val bool = bool
-    (* These primitives are explicitly typed to work
-     * around the "value restriction" in SML.
-     * We use the unit type as the bottom of the context of kinds.
-     *)
-    val int32: (unit,proper) typet = int 32
-    val int64: (unit,proper) typet = int 64
-    val real64: (unit,proper) typet  = real 64
+    val int32 = int 32
+    val int64 = int 64
+    val real64 = real 64
 in
 val toString = toString
 val equiv = equiv
