@@ -33,6 +33,9 @@ local
 
 in
 
+../type/TYPE.sig
+../type/type.sml
+
 SAIL.sig
 sail.sml
 sail_util.sml

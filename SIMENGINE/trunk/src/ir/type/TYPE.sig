@@ -127,4 +127,5 @@ signature TYPE = sig
     val isOperator: ('G,'a) typet -> bool
 
     val toString: ('G,'a) typet -> string
+    val toLayout: ('G,'a) typet -> Layout.t
 end

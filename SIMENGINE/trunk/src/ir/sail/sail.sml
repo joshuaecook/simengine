@@ -6,15 +6,32 @@ type label = string
 type immediate = unit
 type address = int
 
+
+(* create a superset of Layout functions *)
+structure Layout= struct
+  open Layout
+  val i2l = str o Int.toString
+  fun v2l v = 
+      List.tabulate (Vector.length v, (fn(i)=> Vector.sub (v, i)))
+  fun vectorMap mapfun v =
+      bracketList (map mapfun (v2l v))
+end
+
+
 local
-open Layout
-val i2l = str o Int.toString
+    open Layout
 in
 fun sizeToLayout s = label ("size", i2l s)
 fun identToLayout i = label ("ident", str i)
 fun labelToLayout l = label ("label", str l)
 fun immediateToLayout i = label ("immediate", str "unit")
 fun addressToLayout a = label ("address", i2l a)
+
+fun sizeToSML s = bracket (i2l s)
+fun identToSML i = str i
+fun labelToSML l = str l
+fun immediateToSML i = paren empty
+fun addressToSML a = i2l a
 end
 
 
@@ -22,11 +39,12 @@ end
 local
     open Layout
 in
-fun typeToLayout t = label ("Type", str "Undefined type")
+fun typeToLayout t = label ("Type", Type.toLayout t)
+fun typeToSML t = str "UNDEFINED"
 end
 
 structure Type = struct
-type t = unit
+type t = (Type.context, Type.kind) Type.typet
 (*
   = VOID
   | PRIMITIVE of primitive_t
@@ -57,10 +75,6 @@ datatype t
 		  fields: (ident * Type.t) vector}
 local
     open Layout
-    fun v2l v = 
-	List.tabulate (Vector.length v, (fn(i)=> Vector.sub (v, i)))	
-    fun vectorMap mapfun v =
-	bracketList (map mapfun (v2l v))
 in
 fun toLayout (PARAMETRIC {name, vars, base}) =
     heading ("Parametric", align [label ("name", str name),
@@ -74,6 +88,7 @@ fun toLayout (PARAMETRIC {name, vars, base}) =
     heading ("Structure", align [label ("name", str name),
 				 label ("vars", vectorMap str vars),
 				 label ("fields", vectorMap (fn(id, typ)=> paren (seq [str id, str ": ", Type.toLayout typ])) fields)])
+fun toSML _ = str "???TypeDeclaration???"
 end
 
 end
@@ -83,10 +98,20 @@ datatype t
   = TypeApply of {var: ident,
 		  args: Type.t vector}
 local
-open Layout
+    open Layout
 in
 fun toLayout (TypeApply {var, args}) = 
     label ("TypeApply", str var)
+fun toSML (TypeApply {var, args}) = seq [identToSML var,
+					 if Vector.length args = 0 then
+					     empty
+					 else 
+					     seq [str " : ",
+						  if Vector.length args = 1 then
+						      typeToSML (Vector.sub (args, 0))
+						  else
+						      str "???UNEXPECTED_VECTOR_TYPE???"]]
+
 end
 end
 
@@ -101,18 +126,21 @@ datatype task
    * abstraction operators representing parallel and sequential control.
    *)
   = Lambda of {param: (ident * Type.t) vector, body: expression}
-  (* Typical lambda abstraction with variable parameter arity. *)
+  (* Typical lambda abstraction with variable parameter arity. 
+   * fun LAMBDA (params, body) = fn(params)=>body *)
 
   | Pipe of task * task
   (* Continuation abstraction.
    * The result of the first is the argument to the second.
    * The result of the second is the result of the whole.
    * The parameters of the first are the parameters of the whole.
+   * fun PIPE (t1, t2) args = (t2 o t1) args
    *)
 
-  | If of {condition: task, task: task, otherwise: task option}
+  | If of {condition: atom, task: task, otherwise: task}
   (* Conditional branching.
    * The result is NULL if condition indicates false and otherwise is NONE
+   * fun IF (p,ift,iff) = if p () then ift () else iff ()
    *)
 
   | For of {count: int, task: task}
@@ -166,8 +194,6 @@ datatype task
 (* Layout the SAIL data structure *)
 local
     open Layout
-    fun v2l v = 
-	List.tabulate (Vector.length v, (fn(i)=> Vector.sub (v, i)))
 in
 fun taskToLayout (Lambda {param, body}) = 
     heading ("Lambda",
@@ -221,6 +247,38 @@ and atomToLayout (Variable id) = heading ("Variable", identToLayout id)
     heading ("Literal", immediateToLayout imm)
     
 and operatorToLayout (Operator_bug) = str "Operator_bug"
+
+fun taskToSML (Lambda {param, body}) = 
+    seq [str "fn",
+	 parenList (map (fn(id,typ)=> seq [identToSML id,
+					   str ":",
+					   typeToSML typ]) (v2l param)),
+	 str " => ",
+	 expressionToSML body]
+
+  | taskToSML (Pipe (t1, t2)) = mayAlign [taskToSML t1,
+					  taskToSML t2]
+  | taskToSML (If {condition, task, otherwise}) = mayAlign [seq [str "if ", atomToSML condition],
+							    indent (taskToSML task, 2),
+							    str "else",
+							    indent (taskToSML otherwise, 2)]
+  | taskToSML (For {count, task}) = str "For"
+  | taskToSML (While {condition, task}) = str "While"
+  | taskToSML (Fixpoint t) = str "Fixpoint"
+  | taskToSML (DivideAndConquer {divisible, divide, task, merge}) = 
+    heading ("DivideAndConquer",
+	     align [heading ("divisible", taskToSML divisible),
+		    heading ("divide", taskToSML divide),
+		    heading ("task", taskToSML task),
+		    heading ("merge", taskToSML merge)])
+  | taskToSML (Map {divide, task, merge}) = str "Map"
+  | taskToSML (Reduce {divide, task, merge}) = str "Reduce"
+  | taskToSML (Scanl {divide, task, merge}) = str "Scanl"
+  | taskToSML (Fork {divide, tasks, merge}) = str "Fork"
+and expressionToSML _ = str "Expression"
+and atomToSML _ = str "Atom"
+
+
 end
 
 
@@ -300,10 +358,6 @@ datatype t
 
 local
     open Layout
-    fun v2l v = 
-	List.tabulate (Vector.length v, (fn(i)=> Vector.sub (v, i)))	
-    fun vectorMap mapfun v =
-	bracketList (map mapfun (v2l v))
 in
 fun toLayout (PROGRAM {body, types}) = 
     heading ("Program", 

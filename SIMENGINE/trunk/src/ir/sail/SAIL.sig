@@ -77,7 +77,7 @@ signature TYPE = sig
 end
 *)
 signature TYPE = sig
-    type t = unit
+    type t = (Type.context, Type.kind) Type.typet
 end
 
 signature SAIL = sig
@@ -153,7 +153,7 @@ signature SAIL = sig
 	   * The parameters of the first are the parameters of the whole.
 	   *)
 
-	  | If of {condition: t, task: t, otherwise: t option}
+	  | If of {condition: atom, task: t, otherwise: t}
 	  (* Conditional branching.
 	   * The result is NULL if condition indicates false and otherwise is NONE
 	   *)
