@@ -15,7 +15,7 @@ signature TYPE = sig
       = Var of var
       | Arrow of rep * rep
       | Pair of rep * rep
-      | Array of rep
+      | Array
       | Abstract of var * rep
       | Apply of rep * rep
       | Primitive of prim
@@ -111,12 +111,20 @@ signature TYPE = sig
 
     (*= Utilities =*)
 
-    val equiv: ('G,'a) typet * ('G,'b) typet -> bool
+    val equiv: 
+	(* Are two types equivalent? *)
+	('G,'a) typet * ('G,'a) typet 
+	-> 
+	bool
 
-    val context: ('G, 'a) typet -> context
-    val kind: ('G, 'a) typet -> kind
     val rep: ('G,'a) typet -> rep
     (* Recovers the concrete representation of a type. *)
+
+    val gen: ('G,'a) typet -> (context,kind) typet
+    (* Relaxes the kinding restriction. *)
+
+    val isProper: ('G,'a) typet -> bool
+    val isOperator: ('G,'a) typet -> bool
 
     val toString: ('G,'a) typet -> string
 end
