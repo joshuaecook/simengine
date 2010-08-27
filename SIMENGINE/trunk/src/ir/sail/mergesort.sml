@@ -1,5 +1,6 @@
 		       
 local
+    structure T = Type
     open Sail
     structure Op = Operator
     structure A = Atom
@@ -7,10 +8,23 @@ local
     structure Exp = Expression
     structure B = Binding
 
-    val a_t = () (*Type.VAR "a"*)
+    local
+	open T
+	(* Create a few basic types. *)
+	val bool = bool bottom
+	val int32 = int bottom 32
+	val int64 = int bottom 64
+	val real64 = real bottom 64
+	val array = array bottom
+    in
+    val a_t = (*poly (fn a => apply (array,a))*)
+	apply(array, int32)
+    val aa_t = gen(tuple (a_t, a_t))
+    val a_t = gen a_t
+    end
+
     val a_var = fn x => TypeApplication.TypeApply {var= x, args= Vector.fromList [a_t]}
 
-    val aa_t = () (*Type.PAIR (a_t, a_t)*)
     val aa_var = fn x => TypeApplication.TypeApply {var= x, args= Vector.fromList [aa_t]}
 
     val simple_list_fun 

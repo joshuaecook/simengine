@@ -103,6 +103,37 @@ val toString
   = fn TYPE {context, kind, rep} 
        => (toString rep)^"::"^(kindToString kind)
 
+local
+    open Layout
+in
+val varToLayout = fn s => seq [str "a", str (Int.toString (!s))]
+val rec kindToLayout 
+  = fn Proper => str "*"
+     | Unknown => str "_"
+     | Operator (k1,k2) => paren (seq [kindToLayout k1,
+				       str " => ",
+				       kindToLayout k2])
+val rec toLayout =
+ fn Var var => varToLayout var
+  | Arrow (a, b) => paren (seq [toLayout a,
+				str " -> ",
+				toLayout b])
+  | Pair (a, b) => paren (seq [toLayout a,
+			       str " * ",
+			       toLayout b])
+  | Array => str "array"
+  | Abstract (var, rep) => paren (seq [str "mu ",
+				       paren (varToLayout var),
+				       str " ",
+				       toLayout rep])
+  | Apply (t, s) => paren (seq [toLayout s, str " ", toLayout t])
+  | Primitive (p,s) => seq [str p, str (Int.toString s)]
+val toLayout
+  = fn TYPE {context, kind, rep} 
+       => seq [toLayout rep,
+	       str "::",
+	       kindToLayout kind]
+end
 (*= Normalization =*)
 structure Normalization: sig
     (* See "Logical Relations and a Case Study in 
