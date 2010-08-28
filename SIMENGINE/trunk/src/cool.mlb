@@ -105,9 +105,12 @@ ir/processing/exp_build.sml
 ir/processing/fun_properties.sml
 
 ir/datastructs/dof.sml
-ir/sail/sail.sig
-ir/sail/sail.sml
-
+(*
+ * ir/type/TYPE.sig
+ * ir/type/type.sml
+ * ir/sail/SAIL.sig
+ * ir/sail/sail.sml
+ *)
 ir/current_model.sml
 
 ir/processing/cost.sml
@@ -146,8 +149,6 @@ be/mathematica_writer.sml
 
 ir/datastructs/dof_layout.sml
 ir/datastructs/dof_printer.sml
-
-ir/sail/sail_layout.sml
 
 ir/processing/ordering.sml
 
