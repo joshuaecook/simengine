@@ -155,6 +155,20 @@ datatype task
    *)
 
   | Fixpoint of task
+  (*
+
+
+   local
+       datatype 'a t = In of 'a t -> 'a
+       fun out (In a) = a (In a)
+   in
+   fun Y f = let fun comb x = f (out x) 
+	     in
+		 comb (In (fn x => fn a => f (out x) a))
+	     end
+   end
+   
+   *)
 
   | DivideAndConquer of {divisible: task, divide: task, task: task, merge: task}
 

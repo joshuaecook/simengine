@@ -6,11 +6,9 @@ local
 
     open T
     (* Create a few basic types. *)
-    val bool = bool bottom
-    val int32 = int bottom 32
-    val int64 = int bottom 64
-    val real64 = real bottom 64
-    val array = array bottom
+    val int32 = int 32
+    val int64 = int 64
+    val real64 = real 64
 
     datatype hasatype 
       = HAS of (T.context,T.kind) T.typet
@@ -18,7 +16,7 @@ local
 
 in
 val toString = toString
-val equiv = equiv
+(* val equiv = equiv *)
 val app = apply
 
 val gen = gen
@@ -32,17 +30,37 @@ val realpair = tuple(real, real)
 val intreal = tuple(int, real)
 val realint = tuple(real, int)
 
-val atuple = poly(fn a => tuple (var a, int))
+val alist_to_a = poly(fn a => arrow(app(array,var a),var a))
+val intlist_to_int = app(alist_to_a,int32)
+
+val atuple = poly(fn a => 
+		     tuple (var a, int))
 
 val intarray = app(array, int)
 
 val intpairarray = app(array, intpair)
 
+val apair_list = poly(fn a =>
+			 app(array,tuple(var a,var a)))
+
+(* val b_list = poly(fn b => *)
+(* 		     tuple(var b,  *)
+(* 			   poly(fn a => *)
+(* 				   app(array,tuple(var a,var a))))) *)
+
+val b_list = poly(fn b =>
+		     poly (fn a => 
+			      tuple(var b, app(array,tuple(var a, var a)))))
+
 val thing
   = [ANOTHER (HAS (gen(int)), HAS (gen(app(array, int)))),
-     HAS (gen(app(atuple, int)))
+     HAS (gen(app(atuple, int))),
+     HAS (gen(alist_to_a)),
+     HAS (gen(intlist_to_int)),
+     HAS (gen(b_list))
     ]
 
+(*
 val _ = 
     case equiv (intpair, intpair)
      of false => fail "bug"
@@ -64,6 +82,7 @@ val _ =
     case equiv (intpair, intpairarray)
      of true => fail "bug"
       | _ => pass
+*)
 
 end
 

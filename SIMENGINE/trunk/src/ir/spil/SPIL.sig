@@ -1,4 +1,5 @@
 (* SimEngine Programmatic Intermediate Language
+ * Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C. 
  *
  * SPIL is a strict, explicitly-(simply-)typed, first-order,
  * functional intermediate form, similar to SSA, influenced by the
@@ -46,29 +47,20 @@
 
 signature SPIL = sig
     (* The dimensionality of a datum *)
-    type size
+    type size = int
+
     (* A variable identifier *)
-    type ident
+    type ident = string
+
     (* A program label *)
-    type label
+    type label = string
+
+    datatype immediate =
     (* A literal value *)
-    type immediate
-    type address
+	     Real of real
+	   | Int of int
 
-    structure Type: sig
-	datatype t
-	  = PRIMITIVE of primitive_t
-	  | VECTOR of primitive_t * size
-	  | IDENT of ident
-
-	     and primitive_t
-	       = Void
-	       | Integer of size
-	       | Float of size
-	       | Predicate
-	       | Label 
-	       | Address
-    end
+    type address = string
 
     structure TypeDeclaration: sig
 	datatype t 
@@ -87,6 +79,8 @@ signature SPIL = sig
 
 	  | Float_add
 	  | Float_sub
+	  | Float_mul
+	  | Float_neg
 	  (* | ... *)
 
 	  | Vector_extract
@@ -100,6 +94,8 @@ signature SPIL = sig
 	  | Structure_extract
 	  | Structure_insert
 	  (* | ... *)
+
+	val name: t -> string
     end
 
     structure Atom: sig
@@ -191,17 +187,25 @@ signature SPIL = sig
 		      params: (ident * Type.t) vector,
 		      body: Statement.t vector,
 		      transfer: Control.t}
+
+	val foldParams: (ident * Type.t * 'a -> 'a) -> 'a -> t -> 'a
+	val foldBody: (Statement.t * 'a -> 'a) -> 'a -> t -> 'a
     end
     sharing type Block.statement = Statement.t
     
     structure Function: sig
 	type block
 	datatype t
-	  = FUNCTION of {args: (ident * Type.t) vector,
+	  = FUNCTION of {params: (ident * Type.t) vector,
 			 name: ident,
 			 start: label,
 			 blocks: Block.t vector,
 			 returns: Type.t}
+
+	val foldBlocks: (block * 'a -> 'a) -> 'a -> t -> 'a
+	val foldParams: (ident * Type.t * 'a -> 'a) -> 'a -> t -> 'a
+
+	val startBlock: t -> block
     end
     sharing type Function.block = Block.t
 
@@ -212,169 +216,11 @@ signature SPIL = sig
 			main: function,
 			globals: (ident * Type.t) vector,
 			types: TypeDeclaration.t vector}
+
+	val foldFunctions: (function * 'a -> 'a) -> 'a -> t -> 'a
+	val foldGlobals: (ident * Type.t * 'a -> 'a) -> 'a -> t -> 'a
+	val foldTypes: (TypeDeclaration.t * 'a -> 'a) -> 'a -> t -> 'a
     end
     sharing type Program.function = Function.t
 end
-
-(*
-
-local 
-    open SPIL
-    structure Stm = Statement
-    structure Ctl = Control
-    structure Op = Operator
-    structure A = Atom
-    structure B = Block
-    structure F = Function
-    structure Pro = Program
-
-    val CDATAFORMAT = Type.PRIMITIVE (Float 4)
-in
-
-B.BLOCK
-    {label = "fn_u",
-     args = #[],
-     body = 
-     #[Stm.COMMENT "(1) u' = u + (u^3)/3 + I",
-       Stm.BIND {dest = ("y",CDATAFORMAT), 
-		 src = A.Address "fn_states"},
-       Stm.BIND {dest = ("u",CDATAFORMAT), 
-		 src = A.Offset {base=A.Variable "y",
-			       offset=U_OFF,
-			       scale=1}},
-       Stm.BIND {dest = ("I",CDATAFORMAT), 
-		 src = A.Offset {base=A.Address "fn_inputs",
-			       offset=I_OFF,
-			       scale=1}},
-       Stm.BIND {dest = ("dydt",CDATAFORMAT), 
-		 src = A.Address "fn_next_states"},
-       Stm.GRAPH {dest = ("dudt",CDATAFORMAT)
-		  src = 
-		  Exp.APPLY 
-		      {oper = Float_add,
-		       args = 
-		       #[Exp.VALUE (A.Variable "u"),
-			 Exp.APPLY
-			     {oper = Float_mul,
-			      args = 
-			      #[Exp.VALUE (A.Variable "u"),
-				Exp.VALUE (A.Variable "u"),
-				Exp.VALUE (A.Variable "u"),
-				Exp.VALUE (A.Literal (1/3))]},
-			 Exp.VALUE (A.Variable "I")]}},
-       Stm.MOVE {dest = A.Offset {base=A.Variable "dydt",
-				  offset=U_OFF,
-				  scale=1},
-		 src = A.Variable "dudt"}
-     ],
-     transfer = Ctl.JUMP {dest="fn_w",
-			  args=#[]}
-    }
-;
-B.BLOCK
-    {label = "fn_w",
-     args = #[],
-     body =
-     #[Stm.COMMENT "(2) w' = e * (b0 + b1 * u - w)",
-       Stm.BIND {dest= ("y", CDATAFORMAT), 
-		 src = A.Address "fn_states"},
-       Stm.BIND {dest = ("u", CDATAFORMAT),
-		 src = A.Offset {base=A.Variable "y",
-			       offset=u_OFF,
-			       scale=1}},
-       Stm.BIND {dest = ("w", CDATAFORMAT),
-		 src = A.Offset {base=A.Variable "y",
-			       offset=w_OFF,
-			       scale=1}},
-       Stm.BIND {dest = ("e", CDATAFORMAT),
-		 src = A.Offset {base=A.Address "fn_inputs",
-			       offset=e_OFF,
-			       scale=1}},
-       Stm.BIND {dest = ("b0", CDATAFORMAT),
-		 src = A.Offset {base=A.Address "fn_inputs",
-			       offset=b0_OFF,
-			       scale=1}},
-       Stm.BIND {dest = ("b1", CDATAFORMAT),
-		 src = A.Offset {base=A.Address "fn_inputs",
-			       offset=b1_OFF,
-			       scale=1}},
-       Stm.BIND {dest = ("dydt", CDATAFORMAT),
-		 src = A.Address "fn_next_states"},
-       Stm.GRAPH {dest = ("dwdt", CDATAFORMAT),
-		  src = 
-		  Exp.APPLY
-		      {oper = Float_mul,
-		       args =
-		       #[Exp.VALUE (A.Variable "e"),
-			 Exp.APPLY 
-			     {oper = Float_add,
-			      args = 
-			      #[Exp.VALUE (A.Variable "b0"),
-				Exp.APPLY 
-				    {oper = Float_mul,
-				     args =
-				     #[Exp.VALUE (A.Variable "b1"),
-				       Exp.VALUE (A.Variable "u")]},
-				Exp.APPLY 
-				    {oper = Float_neg,
-				     args = #[Exp.VALUE (A.Variable "w")]}]}]}},
-       Stm.MOVE {dest = A.Offset {base=A.Variable "dydt",
-				  offset=W_OFF,
-				  scale=1},
-		 src = A.Variable "dwdt"}
-       
-     ],
-     transfer = Ctl.RETURN #[]
-    }
-;
-
-F.FUNCTION
-    {args = #[],
-     name = "fn",
-     start = "fn_u",
-     blocks = #[fn_u,fn_w],
-     returns = Void
-    }
-
-;
-
-B.BLOCK
-    {label = "main_entry",
-     args = #[],
-     body = #[],
-     transfer = Ctl.CALL {func = "fn",
-			  args = #[],
-			  return = NONE}
-    }
-
-;
-
-F.FUNCTION
-    {args = #[],
-     name = "main",
-     start = "main_entry"
-     blocks = #[main_entry],
-     returns = Void
-    }
-
-;
-
-Pro.PROGRAM
-    {functions = #[fn],
-     main = main,
-     types = #[...]     
-    }
-
-
-end
-
-
-
-
-
-
-
-
-
-*)
 

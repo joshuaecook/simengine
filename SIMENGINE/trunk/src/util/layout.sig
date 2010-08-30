@@ -88,4 +88,6 @@ signature LAYOUT =
        * indented by a two spaces. *)
       val label: (string * t) -> t
       val heading: (string * t) -> t
+      (* separate with spaces *)
+      val space: t list -> t
    end
