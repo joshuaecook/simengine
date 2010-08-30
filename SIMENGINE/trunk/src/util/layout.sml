@@ -317,4 +317,6 @@ fun add_newline(t) = align[t, str " "]
 fun label (s, t) = seq [str s, str ": ", t]
 fun heading (s, t) = align [seq [str s, str ": "],
 			    indent (t, 2)]
+
+fun space t = seq (separateLeft (t, " "))
 end

@@ -1,27 +1,14 @@
 structure Spil: SPIL = struct
 
-
-
 type size = int
 type ident = string
 type label = string
-type immediate = unit
-type address = int
 
-structure Type = struct
-datatype t
-  = PRIMITIVE of primitive_t
-  | VECTOR of primitive_t * size
-  | IDENT of ident
+datatype immediate =
+	 Real of real
+       | Int of int
 
-     and primitive_t
-       = Void
-       | Integer of size
-       | Float of size
-       | Predicate
-       | Label 
-       | Address
-end
+type address = string
 
 structure TypeDeclaration = struct
 datatype t 
@@ -47,6 +34,8 @@ datatype atom
        | Int_sub
        | Float_add
        | Float_sub
+       | Float_mul
+       | Float_neg
        | Vector_extract
        | Vector_insert
        | Array_extract
@@ -93,7 +82,7 @@ datatype atom
 		   transfer: control}
 
      and function
-       = FUNCTION of {args: (ident * Type.t) vector,
+       = FUNCTION of {params: (ident * Type.t) vector,
 		      name: ident,
 		      start: label,
 		      blocks: block vector,
@@ -114,6 +103,21 @@ end
 
 structure Operator = struct
 datatype t = datatype operator
+
+val name =
+ fn Int_add => "Int_add"
+  | Int_sub => "Int_sub"
+  | Float_add => "Float_add"
+  | Float_sub => "Float_sub"
+  | Float_mul => "Float_mul"
+  | Float_neg => "Float_neg"
+  | Vector_extract => "Vector_extract"
+  | Vector_insert => "Vector_insert"
+  | Array_extract => "Array_extract"
+  | Array_insert => "Array_insert"
+  | Structure_extract => "Structure_extract"
+  | Structure_insert => "Structure_insert"
+
 end
 
 structure Expression = struct
@@ -138,16 +142,43 @@ structure Block = struct
 datatype t = datatype block
 datatype control = datatype control
 datatype statement = datatype statement
+
+fun foldParams f id (BLOCK {params, ...}) = 
+    Vector.foldr (fn ((id,t),i) => f (id,t,i)) id params
+
+fun foldBody f id (BLOCK {body, ...}) =
+    Vector.foldr f id body
+
 end
 
 structure Function = struct
 datatype t = datatype function
 datatype block = datatype block
+
+fun foldBlocks f id (FUNCTION {blocks, ...}) =
+    Vector.foldr f id blocks
+
+fun foldParams f id (FUNCTION {params, ...}) = 
+    Vector.foldr (fn ((id,t),i) => f (id,t,i)) id params
+
+fun startBlock (FUNCTION {start, blocks, ...}) =
+    valOf (Vector.find (fn (BLOCK {label,...}) => start = label) blocks)
+
 end
 
 structure Program = struct
 datatype t = datatype program
 datatype function = datatype function
+
+fun foldFunctions f id (PROGRAM {functions, ...}) =
+    Vector.foldr f id functions
+
+fun foldGlobals f id (PROGRAM {globals, ...}) = 
+    Vector.foldr (fn ((id,t),i) => f (id,t,i)) id globals
+
+fun foldTypes f id (PROGRAM {types, ...}) =
+    Vector.foldr f id types
+
 end
 
 end

@@ -1,0 +1,16 @@
+local
+  (* import Basis Library *)
+  $(SML_LIB)/basis/basis.mlb
+
+  ../util/layout.sig
+  ../util/layout.sml
+
+  ../ir/type/TYPE.sig
+  ../ir/type/type.sml
+
+  ../ir/spil/SPIL.sig
+  ../ir/spil/spil.sml
+in
+spil_to_scalar.sml
+test-spil_to_scalar.sml
+end
