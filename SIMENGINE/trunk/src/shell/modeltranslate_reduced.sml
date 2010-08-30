@@ -196,7 +196,7 @@ and modeloperation_to_dof_exp quantity =
 	      | _ => error "Derivatives of arbitrary expressions are not supported."
 	end
       | name => 
-	Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol name)),
+	Exp.FUN (Fun.BUILTIN (MathFunctionProperties.name2op (Symbol.symbol name)),
 		 map quantity_to_dof_exp (vec2list (method "args" quantity)))
 
 and simquantity_to_dof_exp quantity =
@@ -539,7 +539,7 @@ fun createClass top_class classes object =
 								 [(Iterator.inProcessOf timeiterator, Iterator.RELATIVE 0)])
 
 					  fun buildIf (condeq, exp) =
-					      Exp.FUN (Fun.BUILTIN (FunProps.name2op (Symbol.symbol "if")),
+					      Exp.FUN (Fun.BUILTIN (MathFunctionProperties.name2op (Symbol.symbol "if")),
 						       [quantity_to_dof_exp (method "cond" condeq), quantity_to_dof_exp (method "rhs" condeq), exp])
 
 

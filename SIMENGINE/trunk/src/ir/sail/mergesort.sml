@@ -11,11 +11,9 @@ local
     local
 	open T
 	(* Create a few basic types. *)
-	val bool = bool bottom
-	val int32 = int bottom 32
-	val int64 = int bottom 64
-	val real64 = real bottom 64
-	val array = array bottom
+	val int32 = int 32
+	val int64 = int 64
+	val real64 = real 64
     in
     val a_t = (*poly (fn a => apply (array,a))*)
 	apply(array, int32)
@@ -63,5 +61,6 @@ val mergesort =
     end
 
 val _ = SailUtil.print_task mergesort
+val _ = SailUtil.print_sml_task mergesort
 
 end

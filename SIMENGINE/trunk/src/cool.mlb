@@ -96,12 +96,14 @@ ir/datastructs/iterator.sml
 ir/datastructs/props.sml
 ir/datastructs/pattern.sml
 ir/processing/inst_properties.sml
+ir/math/math_functions.sml
 ir/datastructs/fun.sml
 ir/datastructs/exp.sml
 ir/datastructs/term.sml
 ir/datastructs/container.sml
 ir/datastructs/solver.sml
 ir/processing/exp_build.sml
+ir/math/math_function_properties.sml
 ir/processing/fun_properties.sml
 
 ir/datastructs/dof.sml

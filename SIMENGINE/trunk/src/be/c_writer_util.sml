@@ -33,13 +33,13 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	fun replaceIndex str (i,e) = 
 	    Util.repStr(str, "$"^(i2s i), addParen (exp2c_str e, e))
 
-	fun notation2c_str (v, FunProps.INFIX) = 
+	fun notation2c_str (v, MathFunctionProperties.INFIX) = 
 	    String.concatWith (" "^v^" ") (map (fn(e)=>addParen ((exp2c_str e),e)) exps)
-	  | notation2c_str (v, FunProps.PREFIX) = 
+	  | notation2c_str (v, MathFunctionProperties.PREFIX) = 
 	    v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2c_str e,e))) exps)) ^ ")"
-	  | notation2c_str (v, FunProps.POSTFIX) = 
+	  | notation2c_str (v, MathFunctionProperties.POSTFIX) = 
 	    (String.concatWith " " (map (fn(e)=> addParen ((exp2c_str e),e)) exps)) ^ " " ^ v
-	  | notation2c_str (v, FunProps.MATCH) = 
+	  | notation2c_str (v, MathFunctionProperties.MATCH) = 
 	    foldl (fn((exp, index),str')=>replaceIndex str' (index+1,exp)) v (Util.addCount exps)
 
     in

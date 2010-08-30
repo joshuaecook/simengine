@@ -13,26 +13,26 @@ fun inst2classform f =
 
 val instancePrecedence = 1
 
-fun generate_props {name, num_inputs} : FunProps.op_props = 
+fun generate_props {name, num_inputs} : MathFunctionProperties.op_props = 
     let
 	val classes = CurrentModel.classes()
 	val funname = Symbol.name name
     in
 	{name=funname,
-	 operands=FunProps.FIXED (num_inputs),
+	 operands=MathFunctionProperties.FIXED (num_inputs),
 	 precedence=1,
 	 commutative=false,
 	 associative=false,
-	 eval=FunProps.INSTANCE,
-	 text=(funname, FunProps.PREFIX),
-	 C=(funname, FunProps.PREFIX),
-	 mathematica=(funname, FunProps.PREFIX),
+	 eval=MathFunctionProperties.INSTANCE,
+	 text=(funname, MathFunctionProperties.PREFIX),
+	 C=(funname, MathFunctionProperties.PREFIX),
+	 mathematica=(funname, MathFunctionProperties.PREFIX),
 	 expcost=0, (* need to work on this ... *)
 	 codomain=fn(_) => [1]} (*TODO: ??? *)
     end
     handle e => DynException.checkpoint "Inst.inst2props" e
 
-fun inst2props f : FunProps.op_props = 
+fun inst2props f : MathFunctionProperties.op_props = 
     let
 	val classes = CurrentModel.classes()
     in
@@ -46,7 +46,7 @@ fun inst2props f : FunProps.op_props =
     end
     handle e => DynException.checkpoint "Inst.inst2props" e
 
-fun output2props (classname, outname) : FunProps.op_props = 
+fun output2props (classname, outname) : MathFunctionProperties.op_props = 
     let
 	val classes = CurrentModel.classes()
     in

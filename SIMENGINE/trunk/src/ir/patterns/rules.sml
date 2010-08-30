@@ -126,20 +126,20 @@ fun funop2rule oper =
 	    end
 
 	fun runlist nil : Exp.exp = 
-	    (case #operands (FunProps.op2props oper) of
-		 FunProps.VARIABLE exp => Exp.TERM(exp)
+	    (case #operands (MathFunctionProperties.op2props oper) of
+		 MathFunctionProperties.VARIABLE exp => Exp.TERM(exp)
 	       | _ => DynException.stdException ("Expected variable operands, received fixed", "Rules.funop2rule.runlist", Logger.INTERNAL))
 	  | runlist (list : Exp.exp list as (first: Exp.exp)::rest) =
-	    case #eval (FunProps.op2props oper) of
-		FunProps.UNARY execs => 
+	    case #eval (MathFunctionProperties.op2props oper) of
+		MathFunctionProperties.UNARY execs => 
 		if null rest then
 		    execUnaryOp execs first
 		else
 		    DynException.stdException ("Encountered Unary operation " ^ (op2name oper) ^ " with multiple args, received fixed", "Rules.funop2rule.runlist", Logger.INTERNAL)
-	      | FunProps.BINARY execs => foldl (execBinaryOp execs) first rest
+	      | MathFunctionProperties.BINARY execs => foldl (execBinaryOp execs) first rest
 					 
-	      | FunProps.IF_FUN execs => Exp.FUN (Fun.BUILTIN oper, list)
-	      | FunProps.INSTANCE => Exp.FUN (Fun.BUILTIN oper, list)
+	      | MathFunctionProperties.IF_FUN execs => Exp.FUN (Fun.BUILTIN oper, list)
+	      | MathFunctionProperties.INSTANCE => Exp.FUN (Fun.BUILTIN oper, list)
 					
 	    
 	    
@@ -152,8 +152,8 @@ fun funop2rule oper =
 	    end
 
 	val (argpattern, evalExp) = 
-	case #operands (FunProps.op2props oper) of
-	    FunProps.FIXED (x) => (List.tabulate (x, (fn(i)=>Match.anyconst ("#x" ^ (Int.toString i)))),
+	case #operands (MathFunctionProperties.op2props oper) of
+	    MathFunctionProperties.FIXED (x) => (List.tabulate (x, (fn(i)=>Match.anyconst ("#x" ^ (Int.toString i)))),
 				   fn(exp, assigned_patterns) =>
 				     if x = 1 then
 					 runlist[lookup assigned_patterns "#x0"]
@@ -165,8 +165,8 @@ fun funop2rule oper =
 								 (fn(i)=> lookup assigned_patterns 
 										 ("#x" ^ (Int.toString i))))))
 				  
-	  | FunProps.VARIABLE _ => 
-	    if (#commutative (FunProps.op2props oper)) then
+	  | MathFunctionProperties.VARIABLE _ => 
+	    if (#commutative (MathFunctionProperties.op2props oper)) then
 		([Match.any "#d1",
 		  Match.anyconst "#c1",
 		  Match.any "#d2",
@@ -179,7 +179,7 @@ fun funop2rule oper =
 					       run(lookup assigned_patterns ("#c1"), lookup assigned_patterns ("#c2"))])
 		)
 	    else
-		if (#associative (FunProps.op2props oper)) then
+		if (#associative (MathFunctionProperties.op2props oper)) then
 		    ([Match.any "#d1",
 		      Match.anyconst "#c1",
 		      Match.anyconst "#c2",
@@ -201,7 +201,7 @@ fun funop2rule oper =
     in
 	    {find = Exp.FUN (Fun.BUILTIN oper, argpattern),
 	     test=NONE,
-	     replace=Rewrite.MATCHEDACTION (("constant folding " ^ (#name (FunProps.op2props oper))),
+	     replace=Rewrite.MATCHEDACTION (("constant folding " ^ (#name (MathFunctionProperties.op2props oper))),
 					    evalExp)}
     end
 

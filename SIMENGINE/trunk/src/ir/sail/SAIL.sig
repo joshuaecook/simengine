@@ -133,6 +133,7 @@ signature SAIL = sig
 	    val two: typeapp -> atom
 	end
 	val toLayout : t -> Layout.t		 
+	val toSML : t -> Layout.t		 
    end
 
     structure Abstraction: sig
@@ -184,6 +185,7 @@ signature SAIL = sig
           (* Control parallelism. *)
 
 	val toLayout : t -> Layout.t
+	val toSML : t -> Layout.t
 
     end
 

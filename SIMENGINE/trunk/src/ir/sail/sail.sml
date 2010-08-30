@@ -14,7 +14,46 @@ structure Layout= struct
   fun v2l v = 
       List.tabulate (Vector.length v, (fn(i)=> Vector.sub (v, i)))
   fun vectorMap mapfun v =
-      bracketList (map mapfun (v2l v))
+      bracketList (v2l (Vector.map mapfun v))
+  fun comment t = 
+      seq [str " (* ", t, str " *) "]
+  fun multiline_comment tlist = 
+      align ([str "(*"] @
+	     (map (fn(t)=> seq [str " * ", t]) tlist) @
+	     [str " *)"])
+  fun sub t = indent (t, 3)  
+  fun smlfun (id, args, body) =
+      mayAlign [seq [str "fun ",
+		     id,
+		     parenList args,
+		     str " = "],
+		sub body]
+  fun smlfn (args, body) =
+      mayAlign [seq [str "fn ",
+		     parenList args,
+		     str " => "],
+		sub body]
+  fun smllet ([], expression) = 
+      expression
+    | smllet ([binding], expression) =
+      mayAlign [seq [str "let ", binding],
+		seq [str "in ", expression],
+		str "end"]
+    | smllet (bindings, expression) =
+      align [str "let",
+	     sub (align bindings),
+	     str "in",
+	     sub expression,
+	     str "end"]
+  fun smlval (lhs, rhs) = 
+      mayAlign [seq [str "val ", lhs, str " = "],
+		rhs]
+  fun smlif (cond, ift, iff) =
+      mayAlign [seq [str "if ", cond, str " then "],
+		sub (ift),
+		str "else",
+		sub (iff)]
+      
 end
 
 
@@ -40,7 +79,7 @@ local
     open Layout
 in
 fun typeToLayout t = label ("Type", Type.toLayout t)
-fun typeToSML t = str "UNDEFINED"
+fun typeToSML t = Type.toSML t
 end
 
 structure Type = struct
@@ -102,21 +141,26 @@ local
 in
 fun toLayout (TypeApply {var, args}) = 
     label ("TypeApply", str var)
-fun toSML (TypeApply {var, args}) = seq [identToSML var,
-					 if Vector.length args = 0 then
-					     empty
-					 else 
-					     seq [str " : ",
-						  if Vector.length args = 1 then
-						      typeToSML (Vector.sub (args, 0))
-						  else
-						      str "???UNEXPECTED_VECTOR_TYPE???"]]
 
+val usetypes = false
+fun toSML (TypeApply {var, args}) = 
+    if usetypes then
+	seq [identToSML var,
+	     if Vector.length args = 0 then
+		 empty
+	     else
+		 seq [str " : ",
+		      if Vector.length args = 1 then
+			  typeToSML (Vector.sub (args, 0))
+		      else
+			  str "???UNEXPECTED_VECTOR_TYPE???"]]
+    else
+	identToSML var
 end
 end
 
 val typeApplicationToLayout = TypeApplication.toLayout
-
+val typeApplicationToSML = TypeApplication.toSML
 
 
 datatype typeapp = datatype TypeApplication.t
@@ -140,24 +184,52 @@ datatype task
   | If of {condition: atom, task: task, otherwise: task}
   (* Conditional branching.
    * The result is NULL if condition indicates false and otherwise is NONE
-   * fun IF (p,ift,iff) = if p () then ift () else iff ()
+   * fn (args) => if p then ift (args) else iff (args)
    *)
 
   | For of {count: int, task: task}
   (* Parallel iteration.
    * A number of identical tasks are replicated, 
    * each taking an integer parameter representing its index.
+   * fun FOR (count, task) = 
+   *   if count <= 0 then
+   *     ()
+   *   else
+   *     FOR (count - 1, (task(count); task))
+
+
+   fun FOR (count,task) =
+       let
+           fun loop n = if n = 0 then () else (task n; loop n-1)
+       in
+	   loop count
+       end
+
+
    *)
 
   | While of {condition: task, task: task}
   (* Sequential repetition. 
    * A single (nullary) task is repeated until the condition indicates true.
+   * fun WHILE (cond, task) = 
+   *   if cond() then
+   *     WHILE (cond, (task(); task))
+   *   else
+   *     ()
+
+
+fun WHILE (cond, task) =
+    let
+	fun loop x = if cond () then loop (task ()) else x
+    in
+	loop ()
+    end
+
+
    *)
 
   | Fixpoint of task
   (*
-
-
    local
        datatype 'a t = In of 'a t -> 'a
        fun out (In a) = a (In a)
@@ -171,10 +243,39 @@ datatype task
    *)
 
   | DivideAndConquer of {divisible: task, divide: task, task: task, merge: task}
+  (*
+   * fn (a) =>
+   * let
+   *     val divisible = ...
+   *     val divide = ...
+   *     val task = ...
+   *     val merge = ...
+   *     fun DivideAndConquer (a) = 
+   * 	        if divisible(a) then
+   *     	    let
+   *     		val (first_half, second_half) = divide(a)
+   *     	    in
+   *     		merge (DivideAndConquer first_half, DivideAndConquer second_half)
+   *     	    end
+   *    	else
+   *    	    task (a)
+   * in
+   *     DivideAndConquer a
+   * end
+   *)
 
   | Map of {divide: task, task: task, merge: task}
+  (* fun MAP (divide, task, merge) = (merge o (map task) o divide) *)
+
+(*
+val divisible = fn [] => false | [x] => false | _ => true
+fun MAP (divide,task,merge) = 
+    DivideAndConquer (divisible, divide, task, merge)
+*)
+
 
   | Reduce of {divide: task, task: task, merge: task}
+  (* fun REDUCE (divide, task, merge) = (merge o (map task) o divide) *)
 
   (* Left-associative, exclusive cumulative sum. *)
   | Scanl of {divide: task, task: task, merge: task}
@@ -202,7 +303,9 @@ datatype task
        = Exp of {bindings: binding vector, result: TypeApplication.t}
 		
      and operator
-       = Operator_bug
+       = MathFunction of MathFunctions.operation
+       | SMLFunction of ident
+       | Operator_bug
 
 
 (* Layout the SAIL data structure *)
@@ -260,52 +363,89 @@ and atomToLayout (Variable id) = heading ("Variable", identToLayout id)
   | atomToLayout (Literal imm) = 
     heading ("Literal", immediateToLayout imm)
     
-and operatorToLayout (Operator_bug) = str "Operator_bug"
+and operatorToLayout (MathFunction oper) = label ("MathFunction", str (MathFunctionProperties.op2name oper))
+  | operatorToLayout (SMLFunction oper) = label ("SMLFunction", str oper)
+  | operatorToLayout (Operator_bug) = str "Operator_bug"
 
 fun taskToSML (Lambda {param, body}) = 
-    seq [str "fn",
-	 parenList (map (fn(id,typ)=> seq [identToSML id,
-					   str ":",
-					   typeToSML typ]) (v2l param)),
-	 str " => ",
-	 expressionToSML body]
-
-  | taskToSML (Pipe (t1, t2)) = mayAlign [taskToSML t1,
-					  taskToSML t2]
-  | taskToSML (If {condition, task, otherwise}) = mayAlign [seq [str "if ", atomToSML condition],
-							    indent (taskToSML task, 2),
-							    str "else",
-							    indent (taskToSML otherwise, 2)]
+    smlfn (map (fn(id,typ)=> seq [identToSML id,
+				  comment (seq [str ":",
+						typeToSML typ])]) (v2l param),
+	   expressionToSML body)
+  | taskToSML (Pipe (t1, t2)) = mayAlign [paren(taskToSML t1),
+					  str " o ",
+					  paren(taskToSML t2)]
+  | taskToSML (If {condition, task, otherwise}) = 
+    smlfn ([str "args"],
+	   smlif (atomToSML condition,
+		  seq [(taskToSML task), str " (args)"],
+		  seq [(taskToSML otherwise), str " (args)"]))
   | taskToSML (For {count, task}) = str "For"
   | taskToSML (While {condition, task}) = str "While"
   | taskToSML (Fixpoint t) = str "Fixpoint"
   | taskToSML (DivideAndConquer {divisible, divide, task, merge}) = 
-    heading ("DivideAndConquer",
-	     align [heading ("divisible", taskToSML divisible),
-		    heading ("divide", taskToSML divide),
-		    heading ("task", taskToSML task),
-		    heading ("merge", taskToSML merge)])
+    smlfn ([str "a"],
+	   smllet ([smlval (str "divisible", taskToSML divisible),
+		    smlval (str "divide", taskToSML divide),
+		    smlval (str "task", taskToSML task),
+		    smlval (str "merge", taskToSML merge),
+		    smlfun (str "DivideAndConquer", [str "a"],
+			    smlif (str "divisible(a)",
+				   smllet ([smlval (parenList [str "first_half", 
+							       str "second_half"], 
+						    str "divide(a)")],
+					   str "merge (DivideAndConquer first_half, DivideAndConquer second_half)"),
+				   str "task(a)"))],
+		   str "DivideAndConquer a"))
   | taskToSML (Map {divide, task, merge}) = str "Map"
   | taskToSML (Reduce {divide, task, merge}) = str "Reduce"
   | taskToSML (Scanl {divide, task, merge}) = str "Scanl"
   | taskToSML (Fork {divide, tasks, merge}) = str "Fork"
-and expressionToSML _ = str "Expression"
-and atomToSML _ = str "Atom"
+and expressionToSML (Exp {bindings, result}) = 
+    let val binding_list = v2l bindings
+    in smllet (map bindingToSML binding_list,
+	       typeApplicationToSML result)
+    end
 
+and atomToSML (Variable id) = identToSML id
+  | atomToSML (Abstract task) = taskToSML task
+  | atomToSML (Apply (ta1, ta2)) = seq [paren (typeApplicationToSML ta1),
+					paren (typeApplicationToSML ta2)]
+  | atomToSML (Primitive (oper, ta_vec)) = 
+    seq [operatorToSML oper,
+	 parenList (v2l (Vector.map typeApplicationToSML ta_vec))]
+  | atomToSML (Literal imm) = immediateToSML imm
+
+and bindingToSML (Value {var=(id,typ), object}) = seq [str "val ", 
+						       identToSML id,
+						       comment(seq[str " : ",
+								   typeToSML typ]),
+						       str " = ",
+						       atomToSML object]
+  | bindingToSML (PolyValue {tyvars, var, object}) = comment (str "PolyValue binding")
+  | bindingToSML (Function {tyvars, var=(id,typ), object}) = 
+    smlfun (seq [identToSML id, 
+		 comment (seq [str ":", typeToSML typ])],
+	    v2l (Vector.map identToSML tyvars),
+	    taskToSML object)
+
+and operatorToSML (MathFunction oper) = str (MathFunctionProperties.op2name oper)
+  | operatorToSML (SMLFunction oper) = str oper
+  | operatorToSML (Operator_bug) = str "Operator_bug"
 
 end
 
 
 structure ArrayOperators = struct
-val null = fn x => Primitive (Operator_bug, Vector.fromList [x])
-val split = fn x => Primitive (Operator_bug, Vector.fromList [x])
-val sort = fn x => Primitive (Operator_bug, Vector.fromList [x])
-val concat = fn (x,y) => Primitive (Operator_bug, Vector.fromList [x,y])
+val null = fn x => Primitive (SMLFunction "array_null", Vector.fromList [x])
+val split = fn x => Primitive (SMLFunction "array_split", Vector.fromList [x])
+val sort = fn x => Primitive (SMLFunction "array_sort", Vector.fromList [x])
+val concat = fn (x,y) => Primitive (SMLFunction "array_concat", Vector.fromList [x,y])
 end
 
 structure PairOperators = struct
-val one = fn x => Primitive (Operator_bug, Vector.fromList [x])
-val two = fn x => Primitive (Operator_bug, Vector.fromList [x])
+val one = fn x => Primitive (SMLFunction "pair_one", Vector.fromList [x])
+val two = fn x => Primitive (SMLFunction "pair_two", Vector.fromList [x])
 end
 
 structure Operator = struct
@@ -315,6 +455,7 @@ datatype atom = datatype atom
 structure Array = ArrayOperators
 structure Pair = PairOperators
 val toLayout = operatorToLayout
+val toSML = operatorToSML
 end
 
 structure Abstraction = struct
@@ -323,6 +464,7 @@ datatype expression = datatype expression
 datatype t = datatype task		      
 
 val toLayout = taskToLayout
+val toSML = taskToSML
 end
 
 

@@ -440,11 +440,11 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 	      | (Exp.FUN (Fun.BUILTIN fun1, args1), 
 		 Exp.FUN (Fun.BUILTIN fun2, args2)) => 
 		if fun1 = fun2 then
-		    case #operands (FunProps.op2props fun1) of
-			FunProps.VARIABLE _ => 
+		    case #operands (MathFunctionProperties.op2props fun1) of
+			MathFunctionProperties.VARIABLE _ => 
 			list_equivalent matchCandidates (args1, args2)
 
-		      | FunProps.FIXED _ => 
+		      | MathFunctionProperties.FIXED _ => 
 			allEquiv exp_equivalent matchCandidates (args1, args2)
 		else
 		    nil
