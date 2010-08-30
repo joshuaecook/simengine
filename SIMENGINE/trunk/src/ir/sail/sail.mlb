@@ -12,15 +12,11 @@ local
   ../../util/layout.sig
   ../../util/layout.sml
 
-
   (* JSON Data Structure *)
-(*
   ../../json/json.mlb
   ../../util/json.sml
   ../../util/json-extensions.sml
-*)
 
-(*
   ann
       "allowFFI true"
   in
@@ -29,9 +25,88 @@ local
       ../../ffi/devices.sml
       ../../ffi/license.sml
   end
-*)
 
+  ../../shell/symbol.sml
 in
+
+(* Utilities *)
+
+
+../../shell/symbol.sml
+
+../../util/simengine.sml
+../../util/build-options.sml
+
+
+../../util/general_util.sml
+../../util/sorting.sml
+../../util/symboltable.sml
+../../util/unique.sml
+../../util/testutils.sml
+
+../../shell/env.sml
+../../shell/poslog.sml
+
+
+../../shell/ast.sml
+../../shell/hlec.sml
+../../shell/kec.sml
+
+../../util/printing/printer.sml
+../../util/printing/logger.sml
+
+../../util/error/exceptions.sml
+../../shell/parser_settings.sml
+
+../../util/globals.sml
+
+../../util/registry/registry.sml
+../../util/registry/registry.grm.sig
+../../util/registry/registry.grm.sml
+../../util/registry/registry.lex.sml
+../../util/registry/registry_parser.sml
+../../util/options.sml
+../../util/options_process.sml
+
+../../util/files/filepath.sml
+../../util/files/directory.sml
+
+../../util/stdfun.sml
+
+../../util/printing/status.sml
+
+../../shell/prettyprint.sml
+
+(* Data structures *)
+../datastructs/sys.sig
+../util.sml
+
+../../util/profile.sml
+
+(* licensing and feature set *)
+../../util/process.sml
+../../util/current-license.sml
+../../util/features.sml
+
+../math/calculus.sml
+../math/matrix.sml
+../datastructs/target.sml
+
+../datastructs/iterator.sml
+../datastructs/props.sml
+../datastructs/pattern.sml
+../processing/inst_properties.sml
+../math/math_functions.sml
+../datastructs/fun.sml
+../datastructs/exp.sml
+../datastructs/term.sml
+../datastructs/container.sml
+../datastructs/solver.sml
+../processing/exp_build.sml
+../math/math_function_properties.sml
+../processing/fun_properties.sml
+
+../datastructs/dof.sml
 
 ../type/TYPE.sig
 ../type/type.sml

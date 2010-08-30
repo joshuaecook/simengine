@@ -165,8 +165,8 @@ in
 					str " => ",
 					kindToLayout k2])
       | Product (k1,k2) => paren (seq [kindToLayout k1,
-					str " * ",
-					kindToLayout k2])
+				       str " * ",
+				       kindToLayout k2])
 
  val rec toLayout =
   fn Var var => varToLayout var
@@ -188,8 +188,12 @@ in
 	=> seq [toLayout rep,
 		str "::",
 		kindToLayout kind]
- end
+ and toSML 
+   = fn TYPE {context, kind, rep}
+	=> toLayout rep
 
+end
+end
 
 (*
  (*= Normalization =*)

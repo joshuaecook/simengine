@@ -120,7 +120,7 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
       | "operator_deriv" => builtin (Fun.DERIV, args)
       | "power" => builtin (Fun.POW, args)
       | "ln" => builtin (Fun.LOG, args)
-      | _ => builtin (FunProps.name2op sym, args))
+      | _ => builtin (MathFunctionProperties.name2op sym, args))
      (*
       | "exp" => builtin (Fun.EXP, args)
       | "log10" => builtin (Fun.LOG10, args)

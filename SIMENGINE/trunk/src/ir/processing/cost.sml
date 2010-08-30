@@ -26,7 +26,7 @@ fun exp2generalcost deep exp =
     in
 	case exp of
 	    Exp.TERM t => 0
-	  | Exp.FUN (Fun.BUILTIN f, args) => #expcost (FunProps.op2props f) +
+	  | Exp.FUN (Fun.BUILTIN f, args) => #expcost (MathFunctionProperties.op2props f) +
 					     Util.sum (map exp2cost args)
 	  | Exp.FUN (Fun.INST {classname, instname, props}, args) => 
 	    let

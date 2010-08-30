@@ -43,7 +43,7 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 		val (v, notation) = FunProps.fun2textstrnotation f
 	    in
 		case notation of
-		    FunProps.PREFIX => true (* for terms, use parentheses around single elements when applied to functions *)
+		    MathFunctionProperties.PREFIX => true (* for terms, use parentheses around single elements when applied to functions *)
 		  | _ => false
 	    end
 	  | useParen (Exp.META _) = false
@@ -60,14 +60,14 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 		str
     in
 	case (FunProps.fun2textstrnotation f) of
-	    (v, FunProps.INFIX) => 
+	    (v, MathFunctionProperties.INFIX) => 
 	    if FunProps.hasVariableArguments f andalso length exps = 1 then
 		(FunProps.op2name f) ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr pretty e,e))) exps)) ^ ")"
 	    else
 		String.concatWith v (map (fn(e)=>addParen ((exp2tersestr pretty e),e)) exps)
-	  | (v, FunProps.PREFIX) => v ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr pretty e,e))) exps))
-	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr pretty e),e)) exps)) ^ " " ^ v
-	  | (v, FunProps.MATCH) => 
+	  | (v, MathFunctionProperties.PREFIX) => v ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2tersestr pretty e,e))) exps))
+	  | (v, MathFunctionProperties.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2tersestr pretty e),e)) exps)) ^ " " ^ v
+	  | (v, MathFunctionProperties.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
 		    Util.repStr(str, "$"^(i2s i), addParen (exp2tersestr pretty e, e))
@@ -162,7 +162,7 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 		val (v, notation) = FunProps.fun2textstrnotation f
 	    in
 		case notation of
-		    FunProps.PREFIX => true (* for terms, use parentheses around single elements when applied to functions *)
+		    MathFunctionProperties.PREFIX => true (* for terms, use parentheses around single elements when applied to functions *)
 		  | _ => false
 	    end
 	  | useParen (Exp.META _) = false
@@ -182,20 +182,20 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 		end
     in
 	case (FunProps.fun2textstrnotation f) of
-	    (v, FunProps.INFIX) => 
+	    (v, MathFunctionProperties.INFIX) => 
 	    if FunProps.hasVariableArguments f andalso length exps = 1 then
 		seq [str (FunProps.op2name f),
 		     commas_seq (map (fn(e)=>addParen((exp2terselayout pretty e,e))) exps)]
 	    else
 		mayAlign (Layout.separateRight ((map (fn(e)=>addParen ((exp2terselayout pretty e),e)) exps), v))
-	  | (v, FunProps.PREFIX) => 
+	  | (v, MathFunctionProperties.PREFIX) => 
 	    seq [str v,
 		 commas_seq (map (fn(e)=>addParen((exp2terselayout pretty e,e))) exps)]
-	  | (v, FunProps.POSTFIX) => 
+	  | (v, MathFunctionProperties.POSTFIX) => 
 	    seq [series ("", "", "") (map (fn(e)=> addParen ((exp2terselayout pretty e),e)) exps),
 		 str " ",
 		 str v]
-	  | (v, FunProps.MATCH) => 
+	  | (v, MathFunctionProperties.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
 		    Util.repStr(str, "$"^(i2s i), toString (addParen (exp2terselayout pretty e, e)))
@@ -304,10 +304,10 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	Symbol.name (FunProcess.fun2name f) ^ "(" ^ (String.concatWith "," (map exp2fullstr exps)) ^")"
     (*
 	case (FunProps.fun2textstrnotation str) of
-	    (v, FunProps.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2str e),e)) exps)
-	  | (v, FunProps.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2str e,e))) exps)) ^ ")"
-	  | (v, FunProps.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2fullstr e),e)) exps)) ^ " " ^ v
-	  | (v, FunProps.MATCH) => 
+	    (v, MathFunctionProperties.INFIX) => String.concatWith v (map (fn(e)=>addParen ((exp2str e),e)) exps)
+	  | (v, MathFunctionProperties.PREFIX) => v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2str e,e))) exps)) ^ ")"
+	  | (v, MathFunctionProperties.POSTFIX) => (String.concatWith " " (map (fn(e)=> addParen ((exp2fullstr e),e)) exps)) ^ " " ^ v
+	  | (v, MathFunctionProperties.MATCH) => 
 	    let
 		fun replaceIndex str (i,e) = 
 		    Util.repStr(str, "$"^(i2s i), addParen (exp2str e, e))

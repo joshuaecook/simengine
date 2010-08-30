@@ -173,4 +173,5 @@ signature TYPE = sig
 
     val toString: ('G,'a) typet -> string
     val toLayout: ('G,'a) typet -> Layout.t
+    val toSML: ('G,'a) typet -> Layout.t
 end

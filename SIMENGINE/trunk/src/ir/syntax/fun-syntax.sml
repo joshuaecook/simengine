@@ -16,7 +16,7 @@ fun symbol s = JSON.object [("$symbol", JSON.string (Symbol.name s))]
 
 fun toJSON (Fun.BUILTIN operation) =
     JSONTypedObject ("FUN.BUILTIN",
-		     string (#name (FunProps.op2props operation)))
+		     string (MathFunctionProperties.op2name operation))
   | toJSON (Fun.INST {classname, instname, props}) =
     JSONTypedObject ("FUN.INST",
 		     object [("classname", symbol classname),

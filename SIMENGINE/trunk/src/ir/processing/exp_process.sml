@@ -809,7 +809,7 @@ fun exp2size exp : int =
 			       1 (* out of default - need to do something better here *)
 		     | Exp.FUN (Fun.BUILTIN f, args) => 
 		       let
-			   val codomain = #codomain (FunProps.op2props f)
+			   val codomain = #codomain (MathFunctionProperties.op2props f)
 		       in
 			   Util.prod(codomain (map (fn(a) => [exp2size a]) args))
 (*		       foldl combineSizes 1 (map (exp2size iterator_list) args)*)
