@@ -8,6 +8,7 @@ local
     structure Exp = Expression
     structure B = Binding
 
+
     local
 	open T
 	(* Create a few basic types. *)
@@ -19,12 +20,15 @@ local
 	apply(array, int32)
     val aa_t = gen(tuple (a_t, a_t))
     val a_t = gen a_t
+
     end
 
-    val a_var = fn x => TypeApplication.TypeApply {var= x, args= Vector.fromList [a_t]}
+    val a_var = fn x => TypeApplication.TypeApply {var= Atom.Variable x, args= Vector.fromList [a_t]}
 
-    val aa_var = fn x => TypeApplication.TypeApply {var= x, args= Vector.fromList [aa_t]}
+    val aa_var = fn x => TypeApplication.TypeApply {var= Atom.Variable x, args= Vector.fromList [aa_t]}
 
+
+(*		  
     val simple_list_fun 
       = fn oper =>
 	   let val body
@@ -35,7 +39,22 @@ local
 	       L.Lambda {param= Vector.fromList [("x", a_t)],
 			 body= body}
 	   end
+*)
 
+    local
+	open SailBuild
+    in
+    val simple_list_fun = 
+	fn oper =>
+	   let val body
+		 = Exp.new {bindings= Vector.fromList [B.Value {var= ("y", a_t), 
+								object= oper (sailvar ("x", int32))}], 
+			    result= sailvar ("y", int32)}
+	   in
+	       L.Lambda {param= Vector.fromList [("x", a_t)],
+			 body= body}
+	   end
+    end
 in
 val mergesort =
     let
@@ -60,7 +79,7 @@ val mergesort =
 			    merge=merge}
     end
 
-val _ = SailUtil.print_task mergesort
+(*val _ = SailUtil.print_task mergesort*)
 val _ = SailUtil.print_sml_task mergesort
 
 end

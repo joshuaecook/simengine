@@ -3,7 +3,6 @@ structure Sail: SAIL = struct
 type size = int
 type ident = string
 type label = string
-type immediate = unit
 type address = int
 
 
@@ -11,6 +10,8 @@ type address = int
 structure Layout= struct
   open Layout
   val i2l = str o Int.toString
+  val r2l = str o Real.toString
+  val b2l = str o Util.b2s
   fun v2l v = 
       List.tabulate (Vector.length v, (fn(i)=> Vector.sub (v, i)))
   fun vectorMap mapfun v =
@@ -57,19 +58,45 @@ structure Layout= struct
 end
 
 
+structure Immediate = struct
+
+datatype t 
+  = String of string
+  | Real of real
+  | Int of int
+  | Bool of bool
+
+local
+    open Layout
+in
+fun toLayout (String s) = label ("immediate", str s)
+  | toLayout (Real r) = label ("immediate", r2l r)
+  | toLayout (Int i) = label ("immediate", i2l i)
+  | toLayout (Bool b) = label ("immediate", b2l b)
+
+fun toSML (String s) = seq [str "\"", str s, str "\""]
+  | toSML (Real r) = r2l r
+  | toSML (Int i) = i2l i
+  | toSML (Bool b) = b2l b
+end
+
+end
+
+datatype immediate = datatype Immediate.t
+val immediateToLayout = Immediate.toLayout
+val immediateToSML = Immediate.toSML
+
 local
     open Layout
 in
 fun sizeToLayout s = label ("size", i2l s)
 fun identToLayout i = label ("ident", str i)
 fun labelToLayout l = label ("label", str l)
-fun immediateToLayout i = label ("immediate", str "unit")
 fun addressToLayout a = label ("address", i2l a)
 
 fun sizeToSML s = bracket (i2l s)
 fun identToSML i = str i
 fun labelToSML l = str l
-fun immediateToSML i = paren empty
 fun addressToSML a = i2l a
 end
 
@@ -81,6 +108,7 @@ in
 fun typeToLayout t = label ("Type", Type.toLayout t)
 fun typeToSML t = Type.toSML t
 end
+
 
 structure Type = struct
 type t = (Type.context, Type.kind) Type.typet
@@ -132,38 +160,6 @@ end
 
 end
 
-structure TypeApplication = struct
-datatype t
-  = TypeApply of {var: ident,
-		  args: Type.t vector}
-local
-    open Layout
-in
-fun toLayout (TypeApply {var, args}) = 
-    label ("TypeApply", str var)
-
-val usetypes = false
-fun toSML (TypeApply {var, args}) = 
-    if usetypes then
-	seq [identToSML var,
-	     if Vector.length args = 0 then
-		 empty
-	     else
-		 seq [str " : ",
-		      if Vector.length args = 1 then
-			  typeToSML (Vector.sub (args, 0))
-		      else
-			  str "???UNEXPECTED_VECTOR_TYPE???"]]
-    else
-	identToSML var
-end
-end
-
-val typeApplicationToLayout = TypeApplication.toLayout
-val typeApplicationToSML = TypeApplication.toSML
-
-
-datatype typeapp = datatype TypeApplication.t
 
 datatype task
   (* We augment the familiar lambda calculus with a few additional
@@ -300,13 +296,16 @@ fun MAP (divide,task,merge) =
 		      var: ident * Type.t,
 		      object: task}
      and expression
-       = Exp of {bindings: binding vector, result: TypeApplication.t}
+       = Exp of {bindings: binding vector, result: typeapp}
 		
      and operator
        = MathFunction of MathFunctions.operation
        | SMLFunction of ident
        | Operator_bug
 
+     and typeapp
+       = TypeApply of {var: atom,
+		       args: Type.t vector}
 
 (* Layout the SAIL data structure *)
 local
@@ -366,6 +365,9 @@ and atomToLayout (Variable id) = heading ("Variable", identToLayout id)
 and operatorToLayout (MathFunction oper) = label ("MathFunction", str (MathFunctionProperties.op2name oper))
   | operatorToLayout (SMLFunction oper) = label ("SMLFunction", str oper)
   | operatorToLayout (Operator_bug) = str "Operator_bug"
+
+and typeApplicationToLayout (TypeApply {var, args}) =
+    label ("TypeApply", atomToLayout var)
 
 fun taskToSML (Lambda {param, body}) = 
     smlfn (map (fn(id,typ)=> seq [identToSML id,
@@ -433,8 +435,34 @@ and operatorToSML (MathFunction oper) = str (MathFunctionProperties.op2name oper
   | operatorToSML (SMLFunction oper) = str oper
   | operatorToSML (Operator_bug) = str "Operator_bug"
 
+and typeApplicationToSML (TypeApply {var, args}) =
+    let
+	val usetypes = false
+    in
+	if usetypes then
+	    seq [atomToSML var,
+		 if Vector.length args = 0 then
+		     empty
+		 else
+		     seq [str " : ",
+			  if Vector.length args = 1 then
+			      typeToSML (Vector.sub (args, 0))
+			  else
+			      str "???UNEXPECTED_VECTOR_TYPE???"]]
+	else
+	    atomToSML var
+    end
+
 end
 
+structure TypeApplication = struct
+
+datatype atom = datatype atom
+
+datatype t = datatype typeapp
+val toLayout = typeApplicationToLayout
+val toSML = typeApplicationToSML
+end
 
 structure ArrayOperators = struct
 val null = fn x => Primitive (SMLFunction "array_null", Vector.fromList [x])

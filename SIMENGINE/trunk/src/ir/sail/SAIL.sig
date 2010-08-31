@@ -110,8 +110,9 @@ signature SAIL = sig
     end
 
     structure TypeApplication: sig
+	type atom
 	datatype t
-	  = TypeApply of {var: ident,
+	  = TypeApply of {var: atom,
 			  args: Type.t vector}
 	val toLayout : t -> Layout.t		 
     end
@@ -231,6 +232,7 @@ signature SAIL = sig
     end
 
     sharing type Operator.atom = Atom.t
+    sharing type TypeApplication.atom = Atom.t
     sharing type Atom.typeapp = TypeApplication.t
     sharing type Atom.task = Abstraction.t
     sharing type Atom.operator = Operator.t

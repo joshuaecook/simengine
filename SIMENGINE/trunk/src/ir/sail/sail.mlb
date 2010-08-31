@@ -114,6 +114,7 @@ in
 SAIL.sig
 sail.sml
 sail_util.sml
+sail_build.sml
 mergesort.sml
 
 end

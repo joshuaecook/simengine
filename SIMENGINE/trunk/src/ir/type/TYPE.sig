@@ -37,6 +37,8 @@ signature TYPE = sig
 
     type t = (context,kind) typet
     (* The general type. *)
+    type proper_t = (context,proper) typet
+    (* The proper type. *)
 
     (*= Constructors =*)
 
@@ -61,6 +63,14 @@ signature TYPE = sig
 	(* G |- <>
 	 * -------
 	 * G |- bool::*
+	 *)
+	(context,proper) typet
+
+    (* A variable length string type. *)
+    val string:
+	(* G |- <>
+	 * -------
+	 * G |- string::*
 	 *)
 	(context,proper) typet
 

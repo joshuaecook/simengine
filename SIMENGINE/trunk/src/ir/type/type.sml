@@ -29,6 +29,7 @@ datatype ('G,'K) typevar
 
 datatype typet = datatype typevar
 type t = (context,kind) typet
+type proper_t = (context,proper) typet
 
 fun rep (TYPE {rep,...}) = rep
 fun kind (TYPE {kind,...}) = kind
@@ -78,6 +79,9 @@ fun int n
 
 fun real n 
   = proper (bottom, Primitive ("real", n))
+
+val string: (context,proper) typet
+  = proper (bottom, Primitive ("string", 0))
 
 val bool: (context,proper) typet
   = proper (bottom, Primitive ("bool", 1))
