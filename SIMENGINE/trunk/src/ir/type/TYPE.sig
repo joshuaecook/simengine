@@ -6,10 +6,11 @@ signature TYPE = sig
      * Add Void and Vector types.
      *)
 
-    type var
-    type size = int
 
-    type prim
+    eqtype var
+    type size = int
+    eqtype prim
+
     datatype rep 
       (* A concrete type representation. *)
       = Var of var
@@ -26,21 +27,25 @@ signature TYPE = sig
 
     (* X::K in G *)
     type ('G,'K) typevar
+    (* A specialization on types indicating a variable. *)
 
     type context
     val bottom: context
 
     type kind
     (* The kind of a type. *)
+
     type proper
-    (* The specialized kind of a proper type, distinguishable from a type operator. *)
+    (* The specialized kind of a proper type, distinguishable from a type constructor. 
+     * 
+     *)
 
     type t = (context,kind) typet
     (* The general type. *)
     type proper_t = (context,proper) typet
     (* The proper type. *)
 
-    (*= Constructors =*)
+    (*= Constants and Constructors =*)
 
     (* Creates an integer type identifier with an arbitrary bit length. *)
     val int:
@@ -92,7 +97,7 @@ signature TYPE = sig
 	(context,'K) typevar
 	->
 	(context,'K) typet
-	 
+	
     (* Constructs a polymorphic type constructor defined
      * by a given function.
      * 
@@ -148,30 +153,6 @@ signature TYPE = sig
 
     (*= Utilities =*)
 
-    (* val uncurry: *)
-    (* 	('G,'K1->'K2->'K3) typet *)
-    (* 	-> *)
-    (* 	('G,'K1*'K2->'K3) typet *)
-
-    (* val product: *)
-    (* 	('G,'K1) typet * ('G,'K2) typet *)
-    (* 	-> *)
-    (* 	('G,'K1*'K2) typet *)
-
-    (* val equiv:  *)
-    (* 	(\* Are two types equivalent? *\) *)
-    (* 	('G,'a) typet * ('G,'a) typet  *)
-    (* 	->  *)
-    (* 	bool *)
-
-    (* val recursive: *)
-    (* 	((('G,proper) typet -> ('G,'K2) typet) *)
-    (* 	 -> *)
-    (* 	 ('G,proper->'K2) typet) *)
-    (* 	-> *)
-    (* 	('G,proper) typet -> ('G,'K2) typet *)
-
-
     val rep: ('G,'a) typet -> rep
     (* Recovers the concrete representation of a type. *)
 
@@ -179,9 +160,23 @@ signature TYPE = sig
     (* Relaxes the kinding restriction. *)
 
     val isProper: ('G,'a) typet -> bool
-    val isOperator: ('G,'a) typet -> bool
+    val isConstructor: ('G,'a) typet -> bool
 
     val toString: ('G,'a) typet -> string
     val toLayout: ('G,'a) typet -> Layout.t
     val toSML: ('G,'a) typet -> Layout.t
+
+    val varName: var -> string
+
+    val primitiveName: prim -> string
+    val primitiveSize: prim -> size
+
+    val normal: ('G,'K) typet -> rep
+    val equiv: ('G,'K) typet * ('G,'K) typet -> bool
+
+
+
 end
+
+
+

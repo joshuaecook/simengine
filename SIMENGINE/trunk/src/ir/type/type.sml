@@ -7,6 +7,9 @@ type var = int ref
 type size = int
 type prim = string * size
 
+fun primitiveSize (_,x) = x
+fun primitiveName (x,_) = x
+
 datatype rep 
   = Var of var
   | Arrow of rep * rep
@@ -27,39 +30,52 @@ datatype ('G,'K) typevar
 	     kind: kind,
 	     rep: rep}
 
+type ('G,'K1,'K2) typecon = ('G,'K1->'K2) typevar
 datatype typet = datatype typevar
+
 type t = (context,kind) typet
 type proper_t = (context,proper) typet
 
 fun rep (TYPE {rep,...}) = rep
 fun kind (TYPE {kind,...}) = kind
 fun gen (TYPE {kind,context,rep}) = TYPE {kind= kind, context= context, rep= rep}
+fun gencon (TYPE {kind,context,rep}) = TYPE {kind= kind, context= context, rep= rep}
 
 fun isProper (TYPE {kind= Proper,...}) = true
   | isProper _ = false
 
-fun isOperator (TYPE {kind= Operator _, ...}) = true
-  | isOperator _ = false
+fun isConstructor (TYPE {kind= Operator _, ...}) = true
+  | isConstructor _ = false
 
 
-val varToString = fn s => "a"^(Int.toString (!s))
+val varName = fn s => "a"^(Int.toString (!s))
 val rec kindToString 
   = fn Proper => "*"
      | Unknown => "_"
      | Product (k1,k2) => "("^(kindToString k1)^" x "^(kindToString k2)^")"
      | Operator (k1,k2) => "("^(kindToString k1)^" => "^(kindToString k2)^")"
 val rec toString =
- fn Var var => varToString var
+ fn Var var => varName var
   | Arrow (a, b) => "("^(toString a)^"->"^(toString b)^")"
   | Pair (a, b) => "("^(toString a)^"*"^(toString b)^")"
   | Array => "array"
-  | Abstract (var, rep) => "(fn "^(varToString var)^" => "^(toString rep)^")"
+  | Abstract (var, rep) => "(fn "^(varName var)^" => "^(toString rep)^")"
   | Apply (t, s) => "("^(toString t)^" "^(toString s)^")"
   | Primitive (p,s) => p^(Int.toString s)
 val toString 
   = fn TYPE {context, kind, rep} 
        => (toString rep)^"::"^(kindToString kind)
 
+
+fun isfree (var, term)
+  = case term
+     of Var v => v = var
+      | Arrow (a,b) => isfree (var,a) andalso isfree (var,b)
+      | Pair (a,b) => isfree (var,a) andalso isfree (var,b)
+      | Array => true
+      | Abstract (v,b) => if v = var then false else isfree (var,b)
+      | Apply (a,b) => isfree (var,a) andalso isfree (var,b)
+      | Primitive _ => true
 
 
 local
@@ -105,16 +121,6 @@ fun poly f =
 	    operator ((Unknown,kind), context, Abstract (id, rep))
     end
 
-(* fun uncurry (TYPE {context, rep= t, kind= Operator(k1,Operator(k2,k3))}) *)
-(*     = TYPE {context= context, rep= t, kind= Operator(Product(k1,k2),k3)} *)
-(*   | uncurry (TYPE {kind,...}) *)
-(*     = raise Fail ("impossible! "^(kindToString kind)) *)
-
-(* fun product (TYPE {context, rep= t1, kind= k1}, *)
-(* 	     TYPE {rep= t2, kind= k2}) *)
-(*     = TYPE {context= context, rep= *)
-
-
 fun apply (TYPE {context, rep= t, kind= Operator (_,K)}, 
 	   TYPE {rep= s, ...})
     = TYPE {context= context, kind= K, rep= Apply (t, s)}
@@ -130,384 +136,221 @@ fun tuple (TYPE {context, rep= t, ...}, TYPE {rep= s, ...})
 
 
 local
-    datatype 'a t = In of 'a t -> 'a
-
-    val y = fn f => (fn (In x) => (f (fn a => x (In x) a)))
-			(In (fn (In x) => (f (fn a => x (In x) a))))
-
+    open Layout
 in
-
-(* fun polyproper (TYPE {context, rep, kind}) = TYPE {context= context, rep= rep, kind= kind} *)
-
-(* fun recursive f = *)
-(*     let *)
-(* 	val poly' = polyproper o poly *)
-(*     in *)
-(* 	apply (poly (fn x => f (poly' (fn a => apply (apply (x, x), a)))), *)
-(* 	       poly' (fn x => f (poly' (fn a => apply (apply (x, x), a))))) *)
-(*     end *)
-(* end *)
-
-(*
-
- val a_thing = recursive (fn t => poly (fn a => arrow (apply (t, var a), var a)))
-
- val _ = recursive (fn f => poly (fn a => arrow (apply (f, (var a)), var a))) 
-
- *)
-
-
-
- local
-     open Layout
- in
- val varToLayout = fn s => seq [str "a", str (Int.toString (!s))]
- val rec kindToLayout 
-   = fn Proper => str "*"
-      | Unknown => str "_"
-      | Operator (k1,k2) => paren (seq [kindToLayout k1,
-					str " => ",
-					kindToLayout k2])
-      | Product (k1,k2) => paren (seq [kindToLayout k1,
-				       str " * ",
+val varToLayout = fn s => seq [str "a", str (Int.toString (!s))]
+val rec kindToLayout 
+  = fn Proper => str "*"
+     | Unknown => str "_"
+     | Operator (k1,k2) => paren (seq [kindToLayout k1,
+				       str " => ",
 				       kindToLayout k2])
+     | Product (k1,k2) => paren (seq [kindToLayout k1,
+				      str " * ",
+				      kindToLayout k2])
 
- val rec toLayout =
-  fn Var var => varToLayout var
-   | Arrow (a, b) => paren (seq [toLayout a,
-				 str " -> ",
-				 toLayout b])
-   | Pair (a, b) => paren (seq [toLayout a,
-				str " * ",
+val rec toLayout =
+ fn Var var => varToLayout var
+  | Arrow (a, b) => paren (seq [toLayout a,
+				str " -> ",
 				toLayout b])
-   | Array => str "array"
-   | Abstract (var, rep) => paren (seq [str "mu ",
-					paren (varToLayout var),
-					str " ",
-					toLayout rep])
-   | Apply (t, s) => paren (seq [toLayout s, str " ", toLayout t])
-   | Primitive (p,s) => seq [str p, str (Int.toString s)]
- val toLayout
-   = fn TYPE {context, kind, rep} 
-	=> seq [toLayout rep,
-		str "::",
-		kindToLayout kind]
- and toSML 
-   = fn TYPE {context, kind, rep}
-	=> toLayout rep
+  | Pair (a, b) => paren (seq [toLayout a,
+			       str " * ",
+			       toLayout b])
+  | Array => str "array"
+  | Abstract (var, rep) => paren (seq [str "mu ",
+				       paren (varToLayout var),
+				       str " ",
+				       toLayout rep])
+  | Apply (t, s) => paren (seq [toLayout s, str " ", toLayout t])
+  | Primitive (p,s) => seq [str p, str (Int.toString s)]
+val toLayout
+  = fn TYPE {context, kind, rep} 
+       => seq [toLayout rep,
+	       str "::",
+	       kindToLayout kind]
+and toSML 
+  = fn TYPE {context, kind, rep}
+       => toLayout rep
 
 end
-end
 
-(*
- (*= Normalization =*)
- structure Normalization: sig
-     (* See "Logical Relations and a Case Study in 
-      * Equivalence Checking" by Karl Crary
-      * from Advanced Topics in Types and Programming Languages. *)
+structure Reduction: sig
+    type 'T poly
+    type ('T1,'T2) apply
+    type ('T1,'T2) beta
+    type 'T eta
 
-     (* S ~> T *)
-     type 'S whr
-     (* Weak head reduction. *)
+    (* (S red T) *)
+    type 'T typered
 
-     (* S v T *)
-     type 'S whn
-     (* Weak head normalization. *)
+    val reflect:
+	(* (T red T) *)
+	rep -> rep typered
 
-     (* G |- (S teq T)::K *)
-     type ('G, 'S, 'K) teq
-     (* Algorithmic term equivalence. *)
+    val poly:
+	(* (S2 red T2)
+	 * ----------
+	 * ((\X::K1.S2) red (\X::K1.T2))
+	 *)
+	'T2 typered
+	->
+	'T2 poly typered
 
-     (* G |- (p peq q)::K *)
-     type ('G, 'p, 'K) peq
-     (* Algorithmic path equivalence. *)
+    val apply:
+	(* (S1 red T1)    (S2 red T2)
+	 * -------------
+	 * ((S1 S2) red (T1 T2))
+	 *)
+	'T1 typered * 'T2 typered
+	->
+	('T1, 'T2) apply typered
 
-     val equiv: 
-	 (* Are two types equivalent? *)
-	 ('G,'a) typet * ('G,'a) typet
-	 ->
-	 bool
+    val beta:
+	(* (S1 red T1)    (S2 red T2)
+	 * ---------------
+	 * (((\X::K.S1) S2) red ([X :-> T2] T1))
+	 *)
+	'T1 typered * 'T2 typered
+	->
+	('T1,'T2) beta typered
 
-     val beta:
-	 (* ((\X::K12.T12) T2) ~> ([X :-> T2] T12) *)
-	 ('G,'K) typet -> 'K whr
+    val eta:
+	(* (S red T)    X not free in S
+	 * -----------------
+	 * ((\X::K.S X) red T)
+	 *)
+	'T typered
+	->
+	'T eta typered
 
-     val apply:
-	 (* T1 ~> T'1
-	  * ---------
-	  * (T1 T2) ~> (T'1 T2)
-	  *)
-	 'T1 whr 
-	 -> 
-	 'T1T2 whr
+    val eval:
+	(* (S red T)
+	 * --------
+	 * T
+	 *)
+	'T typered -> rep
+end = struct
 
-     val reduce:
-	 (* S ~> T    T v U
-	  * ---------------
-	  * S v U
-	  *)
-	 'S whr * 'T whn
-	 ->
-	 'S whn
+datatype class 
+  = Refl of rep
+  | Abs of class
+  | App of class * class
+  | Beta of class * class
+  | Eta of class
 
-     val normal:
-	 (* T !~>
-	  * -----
-	  * T v T
-	  *)
-	 'T whr
-	 ->
-	 'T whn
+type 'T poly = unit
+type ('T1,'T2) apply = unit
+type ('T1,'T2) beta = unit
+type 'T1 eta = unit
 
-     val base:
-	 (* S v p    T v q    G |- (p peq q)::*
-	  * -----------------------------------
-	  * G |- (S teq T)::*
-	  *)
-	 'S whn * 'T whn * ('G,'p,proper) peq
-	 ->
-	 ('G,'S,proper) teq
+type 'T typered = class
 
-     val arrow:
-    	 (* G,X::K1 |- ((S X) teq (T X))::K2
-    	  * --------------------------------
-    	  * G |- (S teq T)::(K1 => K2)
-    	  *)
-    	 (('G,'K1) typevar -> ('G,'SX,'K2) teq)
-    	 ->
-    	 ('G,'S,'K1->'K2) teq
+fun reflect t = Refl t
 
-     (* val one: *)
-     (* 	(\* G |- (S teq T)::Unit *\) *)
-     (* 	('G, 'S, unit) teq *)
+fun poly red = Abs red
 
-     val var:
-	 (* X::K in G    G |- <>
-	  * --------------------
-	  * G |- (X peq X)::K
-	  *)
-	 ('G,'K) typet 
-	 ->
-	 ('G,'X,'K) peq
+fun apply (red1,red2)
+  = App (red1, red2)
 
-     val peqapply:
-	 (* G |- (p peq q)::(K1=>K2)    G |- (S teq T)::K1
-	  * ----------------------------------------------
-	  * G |- ((p S) peq (q T))::K2
-	  *)
-	 ('G,'p,'K1->'K2) peq * ('G,'S,'K1) teq
-	 ->
-	 ('G,'pS,'K2) peq
+fun beta (red1, red2)
+  = Beta (red1, red2)
 
-     val const:
-	 (* G |- (R peq R)::proper *)
-	 ('G,proper) typet -> ('G,'R,proper) peq
-
- end = struct
- datatype 'S whr = WHR of bool * rep
- datatype 'S whn = WHN of bool * rep
- datatype ('G,'S,'K) teq = TEQ of bool * ('G,'K) typet
- datatype ('G,'p,'K) peq = PEQ of bool * ('G,'K) typet
-
- fun iswhr (WHR (p,_)) = p
- fun iswhn (WHN (p,_)) = p
- fun isteq (TEQ (p,_)) = p
- fun ispeq (PEQ (p,_)) = p
-
- (* Replaces x by substituting s in t. *)
- fun subst (x,s) =
-  (* [x :-> s] t *)
-  fn t => raise Fail "subst"
-
- fun beta' term 
-   = case rep term
-      of Apply (Abstract (x,t), s) =>
-	 WHR (true, subst (x,s) t)
-       | t => WHR (false, t)
-
- fun apply' (WHR (p,term))
-   = WHR (p,term)
-
- fun reduce' (WHR (p,term), WHN (q,_)) 
-   = WHN (p andalso q, term)
-
- fun normal' (WHR (p,term))
-   = WHN (not p, term)
-
- fun base' (WHN (p,term), 
-	    WHN (q,_), 
-	    PEQ (r, TYPE {context, kind= Proper, ...})) 
-     = TEQ (p andalso q andalso r, proper (context, term))
-   | base' _ = raise Fail "impossible!"
-
- fun arrow' f =
-     let
-	 (* Use any new variable. *)
-	 val id = fresh ()
-	 val TEQ (p, ptype) = f (unknown (bottom, Var id))
-	 val TYPE {context, kind, ...} = ptype
-     in
-	 case rep ptype
-	  of Apply (t, Var v) =>
-	     TEQ (p andalso v = id, operator ((Unknown, kind), context, t))
-	   | t =>
-	     TEQ (false, operator ((Unknown, kind), context, t))
-     end
-
- (* FIXME needs Unit type. *)
- (* val one = TEQ (true, Var (fresh ())) *)
-
- fun var' x
-   = case rep x
-      of Var _ => PEQ (true, x)
-       | _ => PEQ (false, x)
-
- fun peqapply' (q_peq, t_teq) =
-     let 
-	 val PEQ (p, qtype) = q_peq
-	 val TYPE {kind, ...} = qtype
-	 val TEQ (q, ttype) = t_teq
-     in
-	 PEQ (p andalso q, apply (qtype, ttype))
-     end
+fun eta red = Eta red
 
 
- fun const' term
-   = case term
-      of TYPE {context, kind= Proper, rep= Primitive _} => PEQ (true, term)
-       | _ => PEQ (false,term)
+fun beta_redex (subst, Abstract (var,body)) = 
+    let
+	fun redex term
+	  = case term
+	     of Array => term
+	      | Primitive _ => term
+	      | Arrow (s1,s2) => Arrow (redex s1, redex s2)
+	      | Pair (s1,s2) => Pair (redex s1, redex s2)
+	      | Apply (s1,s2) => Apply (redex s1,redex s2)
 
+	      | Var v
+		=> if v = var then subst else term
 
+	      | Abstract (v,s2)
+		=> if v = var then term else Abstract (v,redex s2)
+    in
+	redex body
+    end
+  | beta_redex _ = raise Fail "impossible!"
 
- fun cross (l1, l2) = 
-     let
-	 fun flatmap f list =
-	     List.rev (List.foldl (fn (x, flat) => List.revAppend (f x, flat)) nil list)
-     in
-	 flatmap (fn y => map (fn x => (x,y)) l1) l2
-     end
-
- fun cross3 (l1, l2, l3) = let
-     fun flatmap f list =
-	 List.rev (List.foldl (fn (x, flat) => List.revAppend (f x, flat)) nil list)
- in
-     flatmap (fn z => flatmap (fn y => map (fn x => (x,y,z)) l1) l2) l3
- end
-
- fun equiv (a,b) =
-     let
-	 val _ = print ("=? "^(toString a)^"\n   "^(toString b)^"\n")
-	 val teqs = nil
-	 val peqs = nil
-	 val whrs = nil
-	 val whns = nil
-
-	 val teqs = term_equiv (teqs,peqs,whrs,whns) (a,b)
-
-	 val peqs = path_equiv (teqs,peqs,whrs,whns) (a,b)
-
-	 val whrs = wh_reduction (teqs,peqs,whrs,whns) a
-	 val whrs = wh_reduction (teqs,peqs,whrs,whns) b
-
-	 val whns = wh_normal (teqs,peqs,whrs,whns) a
-	 val whns = wh_normal (teqs,peqs,whrs,whns) b
-     in
-	 true
-     end
-
- and term_equiv (teqs,peqs,whrs,whns) (a,b) =
-     let
-	 val teqs
-	   (* 3D crossproduct mapping of normalization judgements squared and path equivalance judgements giving base path equivalance judgements. *)
-	   = foldl
-		 (fn (sn_tn_qq,c) => base' sn_tn_qq :: c)
-		 teqs
-		 (cross3 (whns,whns,peqs))
-
-	 fun arrow_teq (TEQ (p,t)) =
-	  fn a => TEQ (p, apply (t, var a))
-
-	 val teqs
-	   (* Arrow term equivalance. *)
-	   = foldl
-		 (fn (tx_q, c) => arrow' (arrow_teq tx_q) :: c)
-		 teqs
-		 teqs
-     in
-	 teqs
-     end
-
- and path_equiv (teqs,peqs,whrs,whns) (p,q) =
-     let
-	 (* Variable self-equivalance judgements. *)
-	 val peqs = var' p :: var' q :: peqs
-
-	 val peqs
-	   (* Cross product mapping of path equivalence judgements and term equivalance judgements giving application path equivalance judgements. *)
-	   = foldl
-		 (fn (pq_tq,c) => peqapply' pq_tq :: c)
-		 peqs
-		 (cross (peqs,teqs))
-
-	 (* Constant self-equivalence judgements. *)
-	 val peqs = const' p :: const' q :: peqs
-     in
-	 peqs
-     end
-
- and wh_normal (teqs,peqs,whrs,whns) term =
-     let
-	 val whns
-	   (* Cross-product mapping of reduction and normalization judgements for further reduction judgements. *)
-	   = foldl
-		 (fn ((sq,tq),c) => reduce' (sq,tq) :: c)
-		 whns
-		 (cross (whrs,whns))
-
-	 val whns 
-	   (* Mapping of unreduceable judgements to normalization judgements. *)
-	   = foldl
-		 (fn (tr,c) => normal' tr :: c)
-		 whns
-		 whrs
-     in
-	 whns
-     end
-
- and wh_reduction (teqs,peqs,whrs,whns) term = 
-     let
-	 val whrs 
-	   (* Beta reduction judgement. *)
-	   = beta' term :: whrs
-
-	 val whrs
-	   (* Mapping of reduction judgements to application reduction judgements. *)
-	   = foldl
-		 (fn (tr,c) => apply' tr :: c)
-		 whrs
-		 whrs
-     in
-	 whrs
-     end
-
-
- val beta = beta'
- val apply = apply'
- val reduce = reduce'
- val normal = normal'
- val base = base'
- val arrow = arrow'
- val var = var'
- val peqapply = peqapply'
- val const = const'
-
- end
- (*= end Normalization =*)
- *)
-
-val equiv = 
- fn _ => raise Fail "equiv" (* Normalization.equiv*)
+val rec eval =
+ fn Refl t => t
+  | Abs r2 => eval r2
+  | App (r1,r2) => Apply (eval r1, eval r2)
+  | Beta (r1,r2) => beta_redex (eval r2, eval r1)
+  | Eta r2 => eval r2
 
 
 end
+
+
+
+
+
+
+
+
+fun equiv (a,b) = 
+    case (normal a, normal b)
+     of (Var va, Var vb) => va = vb
+      | (Primitive pa, Primitive pb) => pa = pb
+      | (Array, Array) => true
+
+      | (Arrow (s1,s2), Arrow(t1,t2))
+	=> equiv (s1,t1) andalso equiv (s2,t2)
+
+      | (Pair (s1,s2), Pair (t1,t2))
+	=> equiv (s1,t1) andalso equiv (s2,t2)
+
+      | (Abstract (va,s2), Abstract (vb,t2))
+	=> va = vb andalso equiv (s2,t2)
+
+      | (Apply (s1,s2), Apply (t1,t2))
+	=> equiv (s1,t1) andalso equiv (s2,t2)
+
+      | _ => false
+
+and normal term
+  = let open Reduction 
+    in
+	eval (case term
+	       of Var _ => reflect term
+		| Primitive _ => reflect term
+		| Array => reflect term
+
+		| Arrow (s1,s2) 
+		  => reflect (Arrow (normal s1, normal s2))
+
+		| Pair (s1,s2)
+		  => reflect (Pair (normal s1, normal s2))
+
+		| Apply (s1, s2) 
+		  => (case normal s1
+		       of t1 as Abstract (var, _)
+			  => beta (reflect t1, reflect (normal s2))
+			| t1 => reflect (Apply (t1, normal s2)))
+
+		| Abstract (var, s11)
+		  => (case normal s11
+		       of t2 as Apply (s21, s22)
+			  => if equiv (Var var, s22) andalso isfree (var, s21)
+			     then eta (reflect (normal s21))
+			     else reflect (Abstract (var, normal s22))
+		    | t2 => reflect (Abstract (var, t2))))
+    end
+
+
+val equiv = fn (a,b) => equiv (rep a, rep b)
+val normal = fn a => normal (rep a)
+
+end
+
+
+
 

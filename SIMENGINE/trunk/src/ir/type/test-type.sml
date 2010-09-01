@@ -16,7 +16,6 @@ local
 
 in
 val toString = toString
-(* val equiv = equiv *)
 val app = apply
 
 val gen = gen
@@ -60,29 +59,43 @@ val thing
      HAS (gen(b_list))
     ]
 
-(*
+
 val _ = 
     case equiv (intpair, intpair)
-     of false => fail "bug"
+     of false => raise Fail "equiv (intpair, intpair)"
       | _ => pass
 val _ =
     case equiv (array, array)
-     of false => fail "bug"
+     of false => raise Fail "equiv (array, array)"
       | _ => pass
 (* This is a static error: a proper type cannot be equivalent to an type operator. 
 val _ =
     case equiv (intpair, array)
-     of _ => fail "bug"
+     of _ => raise Fail "bug"
 *)
 (* Generalized types can be compared. *)
 val _ =
     case equiv (gen intpair, gen array)
-     of _ => fail "bug"
+     of true => raise Fail "equiv (gen intpair, gen array)"
+      | _ => pass
 val _ =
     case equiv (intpair, intpairarray)
-     of true => fail "bug"
+     of true => raise Fail "equiv (intpair, intpairarray)"
       | _ => pass
-*)
+val _ =
+    case equiv (b_list,b_list)
+     of false => raise Fail "equiv (b_list,b_list)"
+      | _ => pass
+
+
+val _ =
+    case normal (intlist_to_int)
+     of Arrow (Apply (Array, Primitive p1), Primitive p2) => 
+	if p1 <> p2
+	then raise Fail "normal (intlist_to_int)"
+	else pass 
+      |  _ => raise Fail "normal (intlist_to_int)"
+
 
 end
 
