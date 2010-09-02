@@ -157,7 +157,6 @@ signature SAIL = sig
 
 	  | If of {condition: atom, task: t, otherwise: t}
 	  (* Conditional branching.
-	   * The result is NULL if condition indicates false and otherwise is NONE
 	   *)
 
 	  | For of {count: int, task: t}

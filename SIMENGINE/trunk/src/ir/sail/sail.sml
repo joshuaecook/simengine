@@ -179,7 +179,6 @@ datatype task
 
   | If of {condition: atom, task: task, otherwise: task}
   (* Conditional branching.
-   * The result is NULL if condition indicates false and otherwise is NONE
    * fn (args) => if p then ift (args) else iff (args)
    *)
 

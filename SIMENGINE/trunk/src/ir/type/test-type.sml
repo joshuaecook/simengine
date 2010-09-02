@@ -15,7 +15,6 @@ local
       | ANOTHER of hasatype * hasatype
 
 in
-val toString = toString
 val app = apply
 
 val gen = gen
@@ -42,10 +41,12 @@ val intpairarray = app(array, intpair)
 val apair_list = poly(fn a =>
 			 app(array,tuple(var a,var a)))
 
-(* val b_list = poly(fn b => *)
-(* 		     tuple(var b,  *)
-(* 			   poly(fn a => *)
-(* 				   app(array,tuple(var a,var a))))) *)
+(* This is a static error; polymorphic types are not first-class values.
+val b_list = poly(fn b =>
+		     tuple(var b,
+			   poly(fn a =>
+				   app(array,tuple(var a,var a)))))
+*)
 
 val b_list = poly(fn b =>
 		     poly (fn a => 
