@@ -11,11 +11,14 @@ signature TYPE = sig
     type size = int
     eqtype prim
 
+    type field = string
+
     datatype rep 
       (* A concrete type representation. *)
       = Var of var
       | Arrow of rep * rep
-      | Pair of rep * rep
+      | Tuple of rep vector
+      | Record of (field * rep) vector
       | Array
       | Abstract of var * rep
       | Apply of rep * rep
@@ -36,9 +39,7 @@ signature TYPE = sig
     (* The kind of a type. *)
 
     type proper
-    (* The specialized kind of a proper type, distinguishable from a type constructor. 
-     * 
-     *)
+    (* The specialized kind of a proper type, distinguishable from a type constructor. *)
 
     type t = (context,kind) typet
     (* The general type. *)
@@ -151,20 +152,43 @@ signature TYPE = sig
 	-> 
 	('G,proper) typet
 
+    val tuplev:
+	(* G |- T[1..N]::*
+	 * --------------
+	 * G |- (T1*T2*...*TN)::*
+	 *)
+	('G,proper) typet vector
+	->
+	('G,proper) typet
+
+    val record:
+	(* G |- T1::*    G |- T2::*
+         * -----------------------
+	 * G |- {T1;T2}::*
+	 *)
+	(field * ('G,proper) typet) * (field * ('G,proper) typet)
+	->
+	('G,proper) typet
+
+    val recordv:
+	(* G |- T[1..N]::*
+	 * ---------------
+	 * G |- {T1;T2;...;T3}::*
+	 *)
+	(field * ('G,proper) typet) vector
+	->
+	('G,proper) typet
+	
     (*= Utilities =*)
 
-    val rep: ('G,'a) typet -> rep
+    val rep: ('G,'K) typet -> rep
     (* Recovers the concrete representation of a type. *)
 
-    val gen: ('G,'a) typet -> t
+    val gen: ('G,'K) typet -> t
     (* Relaxes the kinding restriction. *)
 
-    val isProper: ('G,'a) typet -> bool
-    val isConstructor: ('G,'a) typet -> bool
-
-    val toString: ('G,'a) typet -> string
-    val toLayout: ('G,'a) typet -> Layout.t
-    val toSML: ('G,'a) typet -> Layout.t
+    val isProper: ('G,'K) typet -> bool
+    val isConstructor: ('G,'K) typet -> bool
 
     val varName: var -> string
 
@@ -172,10 +196,10 @@ signature TYPE = sig
     val primitiveSize: prim -> size
 
     val normal: ('G,'K) typet -> rep
+    val subtype: ('G,'K) typet * ('G,'K) typet -> bool
     val equiv: ('G,'K) typet * ('G,'K) typet -> bool
 
-
-
+    val toLayout: ('G,'K) typet -> Layout.t
 end
 
 

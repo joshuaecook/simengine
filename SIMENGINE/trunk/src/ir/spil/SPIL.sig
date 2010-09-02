@@ -101,11 +101,33 @@ signature SPIL = sig
     structure Atom: sig
 	datatype t
 	  = Null
+
+	  | Literal of immediate
 	  | Variable of ident
+	  | RuntimeVar of ident
+	  | CompileVar of ident
 	  | Address of address
 	  | Label of ident
-	  | Literal of immediate
-	  | Offset of {base: t, offset: size, scale: size}
+
+	  | Offset of
+	    {base: t, index: size, offset: size, scale: size, basetype: Type.t}
+          (*
+	   #define OFFSET (b,i,o,s,t) \
+		   (*((t)*)((b) + ((i)*(s)) + (o)))
+	   *)
+	  | Offset2D of
+	    {base: t, 
+	     index: {x:size, y:size}, 
+	     offset: {x:size, y:size},
+	     scale: {x:size, y:size},
+	     basetype: Type.t}
+	  | Offset3D of
+	    {base: t,
+	     index: {x:size, y:size, z:size},
+	     offset: {x:size, y:size, z:size},
+	     scal: {x:size, y:size, z:size},
+	     basetype: Type.t}
+
     end
 
     structure Expression: sig
@@ -136,8 +158,8 @@ signature SPIL = sig
 	  | PRIMITIVE of {oper: operator,
 			  args: atom vector,
 			  dest: ident * Type.t}
-	  | MOVE of {src: atom,
-		     dest: atom}
+	  | MOVE of {src: atom, dest: atom}
+	  | CAST of {src: atom, dest: atom * Type.t}
     end
     sharing type Statement.atom = Atom.t
     sharing type Statement.operator = Operator.t
@@ -187,6 +209,16 @@ signature SPIL = sig
 		      params: (ident * Type.t) vector,
 		      body: Statement.t vector,
 		      transfer: Control.t}
+
+	val name: t -> string
+
+	val uses:
+	    (* The list of used variables. *)
+	    t -> ident list
+
+	val defs: 
+	    (* The list of defined variables. *)
+	    t -> (ident * Type.t) list
 
 	val foldParams: (ident * Type.t * 'a -> 'a) -> 'a -> t -> 'a
 	val foldBody: (Statement.t * 'a -> 'a) -> 'a -> t -> 'a

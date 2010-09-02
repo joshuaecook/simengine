@@ -24,6 +24,8 @@ end
 datatype atom
   = Null
   | Variable of ident
+  | RuntimeVar of ident
+  | CompileVar of ident
   | Address of address
   | Label of ident
   | Literal of immediate
@@ -148,6 +150,28 @@ fun foldParams f id (BLOCK {params, ...}) =
 
 fun foldBody f id (BLOCK {body, ...}) =
     Vector.foldr f id body
+
+fun name (BLOCK {label, ...}) = label
+
+fun defs block 
+  = foldParams
+	(fn (id,t,acc) => (id,t)::acc)
+	(foldBody
+	     (fn (stm, acc) =>
+		 case stm
+		  of BIND {dest, ...} => dest::acc
+		   | GRAPH {dest, ...} => dest::acc
+		   | PRIMITIVE {dest, ...} => dest::acc
+		   | _ => acc)
+	     nil block)
+	block
+
+fun uses block
+  = foldBody
+	(fn (stm, acc) => acc)
+	nil block
+    
+
 
 end
 
