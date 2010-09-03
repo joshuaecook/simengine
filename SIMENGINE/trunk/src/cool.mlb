@@ -89,6 +89,7 @@ util/current-license.sml
 util/features.sml
 
 ir/math/calculus.sml
+ir/math/LaPack.sml
 ir/math/matrix.sml
 ir/datastructs/target.sml
 
@@ -158,6 +159,14 @@ ir/processing/model_process.sml
 ir/processing/sharded_model.sml
 ir/processing/model_validate.sml
 
+ir/type/TYPE.sig
+ir/type/type.sml
+ir/type/c-types.sml
+
+ir/spil/SPIL.sig
+ir/spil/spil.sml
+
+be/c_operations.sml
 be/c_writer_util.sml
 be/codegen.sml
 be/c_parallel_writer.sml

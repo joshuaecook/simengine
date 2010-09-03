@@ -29,7 +29,19 @@ datatype atom
   | Address of address
   | Label of ident
   | Literal of immediate
-  | Offset of {base: atom, offset: size, scale: size}
+  | Offset of {base: atom, index: size, offset: size, scale: size, basetype: Type.t}
+  | Offset2D of
+    {base: atom, 
+     index: {x:size, y:size}, 
+     offset: {x:size, y:size},
+     scale: {x:size, y:size},
+     basetype: Type.t}
+  | Offset3D of
+    {base: atom,
+     index: {x:size, y:size, z:size},
+     offset: {x:size, y:size, z:size},
+     scal: {x:size, y:size, z:size},
+     basetype: Type.t}
 
      and operator
        = Int_add
@@ -65,6 +77,8 @@ datatype atom
 		       dest: ident * Type.t}
        | MOVE of {src: atom,
 		  dest: atom}
+       | CAST of {src: atom,
+		  dest: atom * Type.t}
 
      and control
        = CALL of {func: ident,

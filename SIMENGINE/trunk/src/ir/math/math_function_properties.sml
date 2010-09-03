@@ -1,10 +1,38 @@
 signature MATHFUNPROPS =
 sig
 
+
 type fix
 type operands
 type computationtype
+(*
+type type_t = Type.t
+type target_t = Target.target
+type arg = layout
+datatype destructive_t = bool (* indicated whether or not the input argument is changed by calling this procedure *)
+datatype passing_t = ByValue | ByReference
+datatype syntax_t = 
+	 InfixFunction of string
+       | PrefixFunction of string
+       | PrefixProcedure of {name: string,
+			     input_arguments: (destructive_t, passing_t) list, (* list of input types *)
+			     output_arguments: passing_t list, (* list of output types - in almost all cases, this has to be
+								* ByReference, except maybe if the function operators on a 
+								* pointer *)
+			     codegen_fn: arg list * arg list -> layout, (* use this function to create the c code, pass in a tuple 
+									 * of input args and output args *)
+			     return_status: bool (* does it return a status or a void *)
+			    }
 
+val codegenMatMul = syntaxToC matrix_syntax
+(*codegenMatMul ([str "M", str "x"],[str "b"]) -> str "MatrixMult(b, M, x, dim1, dim2)"*)
+
+(* helper functions to aid in determing how to codegen an operation *)
+val syntaxToC : syntax_t -> arg list -> layout
+val isFunctional : syntax_t -> bool
+val returnDestructiveArgs : syntax_t -> int list (* indices of input arguments that are destructively processed *)
+val returnsStatus : syntax_t -> int list (* used to determine for prefix procedures if a status value needs to be checked *)
+*)
 (* Every operation and instance will have a data structure with each of these properties *)
 type op_props = {name: string,
 		 operands: operands,
@@ -16,7 +44,9 @@ type op_props = {name: string,
 		 C: (string * fix),
 		 mathematica: (string * fix),
 		 expcost: int,
-		 codomain: int list list -> int list}
+		 codomain: int list list -> int list(*,
+		 selection: type_t list -> target_t -> type_t list*)
+		}
 
 (* standard operation functions *)
 val op2props : Fun.operation -> op_props (* returns the operation properties for a given function *)
