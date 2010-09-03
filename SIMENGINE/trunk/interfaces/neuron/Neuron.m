@@ -1,19 +1,35 @@
 classdef Neuron < Model
    
     properties (Access = public)
-        dt = 0.01;
         celsius = false
     end
     
+    properties
+        dt = 0.01;
+    end  
+
     properties (Access = protected)
         sections
         points = []
+        t_imp
+        t_exp
+        nmod
     end
     
     methods (Access = public)
         function n = Neuron(id)
             n@Model(id);
             n.sections = containers.Map;
+            
+            % Create the iterators
+            n.t_exp = Iterator('t_exp', 'continuous', 'solver', 'forwardeuler', 'dt', n.dt);
+            n.t_imp = Iterator('t_imp', 'continuous', 'solver', 'linearbackwardeuler', 'dt', n.dt);            
+            n.DefaultIterator = n.t_exp;
+            
+            % Create the nmod container
+            n.nmod = containers.Map;
+            
+            
         end
         
         
@@ -32,7 +48,7 @@ classdef Neuron < Model
                 s = [];
                 for i=1:num
                     sid = [id '_' num2str(i)];
-                    sec = Section(sid);
+                    sec = Section(sid, n.t_imp, n.t_exp);
                     sec.dt = n.dt;
                     %sec_sm = n.submodel(sec);
                     if isempty(s)
@@ -42,7 +58,7 @@ classdef Neuron < Model
                     end
                 end
             else
-                sec = Section(id);
+                sec = Section(id, n.t_imp, n.t_exp);
                 if isnumeric(n.celsius)
                     sec.celsius = n.celsius; % set the temperature in each section
                 end
@@ -63,8 +79,7 @@ classdef Neuron < Model
         end
         
         function stim = IClamp(n, sec, pos)
-            stim = IClamp();
-            stim.dt = n.dt;
+            stim = IClamp(n.t_exp);
             s = struct('model', stim, 'section', sec, 'position', pos);
             if isempty(n.points)
                 n.points = s;
@@ -87,6 +102,18 @@ classdef Neuron < Model
             s = toStr@Model(n); % now, create the string representation
         end
         
+    end
+
+    methods
+        function set.dt(n, val)
+            n.dt = val;
+            n.t_imp.dt = val;
+            n.t_exp.dt = val;
+        end
+        
+        function val = get.dt(n)
+            val = n.dt;
+        end
     end
     
     methods (Access = protected)

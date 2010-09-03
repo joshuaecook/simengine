@@ -12,7 +12,7 @@ classdef IClamp < Model
     end
     
     methods
-        function m = IClamp()
+        function m = IClamp(t_exp)
             [path, file, ext] = fileparts(tempname);
             
             % create a unique name
@@ -20,6 +20,14 @@ classdef IClamp < Model
             
             % construct the model object
             m@Model(id);
+
+            if 0 == nargin
+                % create an iterator
+                t_exp = Iterator('t_exp', 'continuous', 'solver', 'forwardeuler', 'dt', m.dt);
+            end
+            
+            m.DefaultIterator = t_exp;
+            m.t_exp = t_exp;
             
             % build now, but we'll build again when we produce DSL code
             build(m);
@@ -35,13 +43,7 @@ classdef IClamp < Model
     
     methods (Access = protected)
         function build(m)
-            % create an iterator
-            t_exp = Iterator('t_exp', 'continuous', 'solver', 'forwardeuler', 'dt', m.dt);
-            m.DefaultIterator = t_exp;
-            m.t_exp = t_exp;
-
-            time = Exp(m.t_exp);
-            equ = piecewise(m.amp, (time > m.del) & (time <= m.del + m.dur), 0);
+            equ = piecewise(m.amp, (m.time > m.del) & (m.time <= m.del + m.dur), 0);
             m.output('I', equ);
         end
     end
