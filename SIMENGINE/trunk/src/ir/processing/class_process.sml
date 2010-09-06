@@ -856,7 +856,8 @@ fun createEventIterators (class: DOF.class) =
 						      props 
 						      ((Iterator.postProcessOf (Symbol.name temporal),
 							Iterator.ABSOLUTE 0)::spatial)))
-			else if ExpProcess.isIntermediateEq exp then
+			else if ExpProcess.isIntermediateEq exp orelse
+				ExpProcess.isForwardReferencedContinuousEq exp then
 			    Exp.TERM (Exp.SYMBOL (sym, 
 						  Property.setIterator 
 						      props 
@@ -882,13 +883,13 @@ fun createEventIterators (class: DOF.class) =
 		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
 				  SOME eq => eq
 				| NONE => DynException.stdException ("Unexpected lack of initial condition",
-								     "ClassProcess.createEventIterators.pp_exp", 
+								     "ClassProcess.createEventIterators.in_exp", 
 								     Logger.INTERNAL)
 
 		val temporal = case ExpProcess.exp2temporaliterator (init_eq) of
 				   SOME v => #1 v
 				 | _ => DynException.stdException ("Unexpected init condition w/o temporal iterator",
-								   "ClassProcess.createEventIterators.pp_exp", 
+								   "ClassProcess.createEventIterators.in_exp", 
 								   Logger.INTERNAL)
 		val lhs' = 
 		    case lhs of 
@@ -899,7 +900,8 @@ fun createEventIterators (class: DOF.class) =
 						      props 
 						      ((Iterator.inProcessOf (Symbol.name temporal),
 							Iterator.ABSOLUTE 0)::spatial)))
-			else if ExpProcess.isIntermediateEq exp then
+			else if ExpProcess.isIntermediateEq exp orelse 
+				ExpProcess.isForwardReferencedContinuousEq exp then
 			    Exp.TERM (Exp.SYMBOL (sym, 
 						  Property.setIterator 
 						      props 
@@ -907,10 +909,10 @@ fun createEventIterators (class: DOF.class) =
 							Iterator.RELATIVE 1)::spatial)))
 			else
 			    DynException.stdException ("Unexpected non-intermediate and non-initial condition equation",
-						       "ClassProcess.createEventIterators.pp_exp", 
+						       "ClassProcess.createEventIterators.in_exp", 
 						       Logger.INTERNAL)
 		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate",
-							"ClassProcess.createEventIterators.pp_exp", 
+							"ClassProcess.createEventIterators.in_exp", 
 							Logger.INTERNAL)
 	    in
 		ExpBuild.equals (lhs', ExpProcess.rhs exp)
@@ -926,7 +928,8 @@ fun createEventIterators (class: DOF.class) =
 
 	(* update all the intermediate equations based on the initial condition iterators *)
 	val exps' = map
-			(fn(exp)=>if ExpProcess.isIntermediateEq exp then
+			(fn(exp)=>if ExpProcess.isIntermediateEq exp orelse 
+				     ExpProcess.isForwardReferencedContinuousEq exp then
 				      let
 					  val lhs_sym = ExpProcess.getLHSSymbol exp
 				      in

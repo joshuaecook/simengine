@@ -41,6 +41,7 @@ val isPreProcessStateEq : Exp.exp -> bool
 val isInProcessStateEq : Exp.exp -> bool
 val isPostProcessStateEq : Exp.exp -> bool
 val isUpdateEq : Exp.exp -> bool
+val isForwardReferencedContinuousEq : Exp.exp -> bool
 val isReadStateEq : Exp.exp -> bool (* checks whether the equation writes to a "read" state *)
 val isPattern : Exp.exp -> bool
 
@@ -492,6 +493,26 @@ fun isPreProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.PREPROCE
 fun isInProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.INPROCESS) exp
 fun isPostProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.POSTPROCESS) exp
 
+fun isForwardReferencedContinuousTerm exp =
+    case exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	let
+	    val iterators = Property.getIterator props
+	    val continuous_iterators = List.filter (fn(sym, itertype)=>case itertype of 
+									 DOF.CONTINUOUS _ => true
+								       | _ => false) (CurrentModel.iterators())
+	in
+	    case iterators of
+		SOME ((iterator, Iterator.RELATIVE 1)::rest) => List.exists (fn(sym, _)=> iterator = sym) continuous_iterators
+	      | _ => false
+	end
+      | _ => false
+
+fun isForwardReferencedContinuousEq exp =
+    isEquation exp andalso
+    isForwardReferencedContinuousTerm (lhs exp)
+
+
 fun isNextUpdateTerm exp =
     case exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
@@ -674,24 +695,30 @@ fun isMatrixEq exp =
 
 (* intermediate equations *)
 fun isIntermediateTerm exp =
-    case exp of
-	Exp.TERM (Exp.SYMBOL (_, props)) =>
-	let
-	    val derivative = Property.getDerivative props
-	    val iterators = Property.getIterator props
-	    val islocal = case Property.getScope props of
-			    Property.LOCAL => true
-			  | _ => false
-	    val all_iterators = CurrentModel.iterators()
-	in
-	    islocal andalso not (isAlgebraicStateTerm exp) andalso not (isNextUpdateTerm exp) andalso
-	    case (derivative, iterators) of
-		(SOME _, _) => false
-	      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
-	      | (_, SOME ((itersym, Iterator.RELATIVE 1)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
-	      | (_, _) => true
-	end
-      | _ => false
+    let
+	val isIntermediate = 
+	    case exp of
+		Exp.TERM (Exp.SYMBOL (_, props)) =>
+		let
+		    val derivative = Property.getDerivative props
+		    val iterators = Property.getIterator props
+		    val islocal = case Property.getScope props of
+				      Property.LOCAL => true
+				    | _ => false
+		    val all_iterators = CurrentModel.iterators()
+		in
+		    islocal andalso not (isAlgebraicStateTerm exp) andalso not (isNextUpdateTerm exp) andalso
+		    case (derivative, iterators) of
+			(SOME _, _) => false
+		      | (_, SOME ((itersym, Iterator.ABSOLUTE _)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
+		      | (_, SOME ((itersym, Iterator.RELATIVE 1)::rest)) => not (List.exists (fn(sym,_)=>sym=itersym) all_iterators)
+		      | (_, _) => true
+		end
+	      | _ => false
+	(*val _ = Util.log ("isIntermediate? ["^(e2s exp)^"]: " ^ (Util.b2s isIntermediate))*)
+    in
+	isIntermediate
+    end
 
 fun isIntermediateEq exp =
     isEquation exp andalso
