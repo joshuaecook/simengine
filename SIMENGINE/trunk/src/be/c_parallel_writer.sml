@@ -1503,6 +1503,7 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
  	      | _ => DynException.stdException(("Malformed output equation."),
 					  "CParallelWriter.outputeq2prog",
 					  Logger.INTERNAL)
+	    
 	val inpassoc = 
 	    case inpargs
 	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
@@ -1522,6 +1523,13 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val instclass = CurrentModel.classname2class classname
 
+	val output =
+	    case ClassProcess.findOutput (fn x => (Term.sym2symname (DOF.Output.name x)) = outname) instclass
+	     of SOME x => x
+	      | NONE
+		=> DynException.stdException(("No output named "^(Symbol.name outname)^"."),
+					     "CParallelWriter.outputeq2prog",
+					     Logger.INTERNAL)
 	val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
 
 	val systemdata = Unique.unique "subsys_rd"
@@ -1554,17 +1562,29 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
 
-	val (inps_init,num_inps) = 
-	    SymbolTable.foldli
-		(fn (k,v,(acc,idx)) =>
-		    ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str v) ^ "; // " ^ (Symbol.name k)) :: acc,
-		     1+idx)
-		    ) (nil,0) inpassoc
+	val inputs = 
+	    Util.addCount (!(DOF.Output.inputs output))
+
+	val inps_init =
+	    map (fn (input,idx) => 
+		    let
+			val key = Symbol.symbol (Util.removePrefix (Term.sym2name input))
+			val value = 
+			    case SymbolTable.look (inpassoc, key)
+			     of SOME x => x
+			      | NONE => DynException.stdException(("Cannot find "^(Symbol.name key)^" input value for output "^(Symbol.name outname)^"."),
+								  "CParallelWriter.outputeq2prog",
+								  Logger.INTERNAL)
+		    in
+			$(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str value) ^ "; // " ^ (Symbol.name key))
+		    end
+		) inputs
 
 	val inps_decl = 
-	    case num_inps
-	     of 0 => Layout.empty
-	      | n => $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")
+	    if List.null inputs then
+		Layout.empty
+	    else
+		$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inputs)) ^ "];")
 
 
 	val outs_decl = 
