@@ -1636,6 +1636,8 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 					| _ => iter_sym)
 
 	val instclass = CurrentModel.classname2class classname
+
+
 	val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
 	val statereads_top = "&rd_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
 			     
@@ -1670,19 +1672,30 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
-							   
+			
+	val inputs = 
+	    Util.addCount (!(#inputs instclass))
 
-	val (inps_init,num_inps) = 
-	    SymbolTable.foldli
-		(fn (k,v,(acc,idx)) =>
-		    ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str v) ^ "; // " ^ (Symbol.name k)) :: acc,
-		     1+idx)
-		    ) (nil,0) inpassoc
+	val inps_init =
+	    map (fn (input,idx) => 
+		    let
+			val key = Symbol.symbol (Util.removePrefix (Term.sym2name (DOF.Input.name input)))
+			val value = 
+			    case SymbolTable.look (inpassoc, key)
+			     of SOME x => x
+			      | NONE => DynException.stdException(("Cannot find "^(Symbol.name key)^" input value for instance "^(Symbol.name instname)^"."),
+								  "CParallelWriter.outputeq2prog",
+								  Logger.INTERNAL)
+		    in
+			$(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str value) ^ "; // " ^ (Symbol.name key))
+		    end
+		) inputs
 
-	val inps = 
-	    case num_inps
-	     of 0 => nil
-	      | n => [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")]
+	val inps_decl = 
+	    if List.null inputs then
+		Layout.empty
+	    else
+		$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inputs)) ^ "];")
 
 	val outs_decl = 
 	    if List.null outargs then []
@@ -1714,7 +1727,7 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	[$("{"),
 	 SUB([$("// Calling instance class " ^ (Symbol.name classname)),
 	      $("// " ^ (e2s exp))] @ 
-	     inps @
+	     [inps_decl] @
 	     inps_init @ 
 	     (if reads_system instclass then
 		  sysstates_init 
@@ -2158,9 +2171,6 @@ fun state_init_code shardedModel iter_sym =
 					 SymbolSet.member (symset, Term.sym2curname name)
 				     end
 				     
-				 val inpnames: Exp.term list = 
-				     rev (ClassProcess.foldInputs (fn (input, names) => (DOF.Input.name input) :: names) nil instclass)
-
 				 val (reads, writes, sysreads) = 
 				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
 				      if writes_iterator iter instclass then "&wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
@@ -2168,29 +2178,34 @@ fun state_init_code shardedModel iter_sym =
 
 				 val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 
-				 val (inps_init,num_inps) = 
-				     SymbolTable.foldli
-					 (fn (k,v,(acc,idx)) =>
-					     let
-						 val value = 
-						     if hasInitialValueEquation (fn exp => Match.exists (Match.asym (Util.sym2codegensym k)) exp) instclass then
-							 CWriterUtil.exp2c_str v
-						     else "NAN"
-					     in
-						 ($(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ value ^ "; // " ^ (Symbol.name k)) :: acc,
-						  1+idx)
-					     end
-					 ) (nil,0) inpassoc
+				 val inputs = 
+				     Util.addCount (!(#inputs instclass))
 
-				 val inps = 
-				     case num_inps
-				      of 0 => nil
-				       | n => [$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s n) ^ "];")]
+				 val inps_init =
+				     map (fn (input,idx) => 
+					     let
+						 val key = Symbol.symbol (Util.removePrefix (Term.sym2name (DOF.Input.name input)))
+						 val value = 
+						     case SymbolTable.look (inpassoc, key)
+						      of SOME x => x
+						       | NONE => DynException.stdException(("Cannot find "^(Symbol.name key)^" input value for instance "^(Symbol.name instname)^"."),
+											   "CParallelWriter.outputeq2prog",
+											   Logger.INTERNAL)
+					     in
+						 $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str value) ^ "; // " ^ (Symbol.name key))
+					     end
+					 ) inputs
+
+				 val inps_decl = 
+				     if List.null inputs then
+					 Layout.empty
+				     else
+					 $("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inputs)) ^ "];")
 
 			     in
 				 if hasInitialValueEquation (fn _ => true) instclass then
 				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
-				      SUB(inps @
+				      SUB([inps_decl] @
 					  inps_init @
 					  (if reads_system instclass then initSysreads else []) @
 					  [$("// " ^ (ExpPrinter.exp2str eqn)),
