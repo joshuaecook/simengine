@@ -5,6 +5,9 @@ local
   ../util/layout.sig
   ../util/layout.sml
 
+  ../ir/type/SIZE.sig
+  ../ir/type/size.sml
+
   ../ir/type/TYPE.sig
   ../ir/type/type.sml
 

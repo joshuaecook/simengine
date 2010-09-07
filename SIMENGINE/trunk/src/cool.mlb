@@ -107,10 +107,11 @@ ir/processing/exp_build.sml
 ir/math/math_function_properties.sml
 ir/processing/fun_properties.sml
 
+ir/type/TYPE.sig
+ir/type/type.sml
+
 ir/datastructs/dof.sml
 (*
- * ir/type/TYPE.sig
- * ir/type/type.sml
  * ir/sail/SAIL.sig
  * ir/sail/sail.sml
  *)

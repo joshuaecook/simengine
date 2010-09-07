@@ -11,8 +11,10 @@ local
     val real64 = real 64
 
     datatype hasatype 
-      = HAS of (T.context,T.kind) T.typet
+      = HAS of T.t
       | ANOTHER of hasatype * hasatype
+
+fun tuple (s1,s2) = record (("1",s1), ("2",s2))
 
 in
 val app = apply
@@ -21,7 +23,6 @@ val gen = gen
 
 val int = int32
 val real = real64
-val tuple = tuple
 
 val intpair = tuple(int, int)
 val realpair = tuple(real, real)
@@ -90,12 +91,24 @@ val _ =
 
 
 val _ =
-    case normal (intlist_to_int)
-     of Arrow (Apply (Array, Primitive p1), Primitive p2) => 
-	if p1 <> p2
-	then raise Fail "normal (intlist_to_int)"
-	else pass 
+    case (rep o normal) intlist_to_int
+     of Arrow (Apply (Array, Int b1), Int b2)
+	=> (case Size.Bits.compare (b1,b2)
+	     of EQUAL => pass
+	      | _ => raise Fail "normal (intlist_to_int)")
       |  _ => raise Fail "normal (intlist_to_int)"
+
+
+
+val _ =
+    case subtype (bool, int32)
+     of false => raise Fail "subtype (bool, int32)"
+      | _ => pass
+
+val _ =
+    case subtype (bool, intarray)
+     of false => raise Fail "subtype (bool, intarray)"
+      | _ => pass
 
 
 end
