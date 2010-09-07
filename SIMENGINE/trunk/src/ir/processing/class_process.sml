@@ -47,6 +47,8 @@ sig
      *)
     val foldExpressions: 'a ExpProcess.visitor -> 'a -> DOF.class -> 'a
     val foldInputs: (DOF.Input.input * 'a -> 'a) -> 'a -> DOF.class -> 'a
+    val foldOutputs: (DOF.Output.output * 'a -> 'a) -> 'a -> DOF.class -> 'a
+    val findOutput: (DOF.Output.output -> bool) -> DOF.class -> DOF.Output.output option
 
     (* foldInitialValueEquations visit zero class
      * Like foldExpressions, but visits only initial value equations.
@@ -717,6 +719,12 @@ fun 'a foldExpressions f (a: 'a) (class: DOF.class) =
 
 fun 'a foldInputs f (a: 'a) (class: DOF.class) =
     foldl f a (! (#inputs class))
+
+fun 'a foldOutputs f (a: 'a) (class: DOF.class) =
+    foldl f a (! (#outputs class))
+
+fun findOutput p (class: DOF.class) =
+    List.find p (! (#outputs class))
 
 fun foldInitialValueEquations f =
     foldExpressions (fn (exp, a) => if ExpProcess.isInitialConditionEq exp then f (exp, a) else a)
