@@ -33,6 +33,7 @@ datatype syntax_t =
 			     output_arguments: passing_t list, (* list of output types - in almost all cases, this has to be
 								* ByReference, except maybe if the function operators on a 
 								* pointer *)
+			     side_effect: bool, (* creates a side effect, so the ordering of this operation could be important *)
 			     return_status: bool (* does it return a status or a void *)
 			    }
 
@@ -44,7 +45,7 @@ fun unsupportedcontainer (oper) = DynException.stdException(("Operation "^oper^"
 
 local
     open CType
-    open MathFunctionProperties
+    structure F = MathFunctionProperties
     fun binary_infix (t1, t2) oper = 
 	let
 	    val (t1', t2') = commensuratePair (t1, t2)
@@ -62,35 +63,35 @@ local
 	    (([t1', t2'], [ot]), func)
 	end
 in
-fun operToUsage ADD type_list target =
+fun operToUsage F.ADD type_list target =
     (case type_list of
 	 [] => noargs "+"
        | [onetype] => (([onetype],[onetype]), PassThrough)
        | [t1 as (Scalar, _, _), t2 as (Scalar, _, _)] => binary_infix (t1, t2) "+"
        | [t1, t2] => unsupportedcontainer "+"
        | _ => binop "+")
-  | operToUsage SUB type_list target =
+  | operToUsage F.SUB type_list target =
     (case type_list of
 	 [] => noargs "-"
        | [onetype] => binop "-"
        | [t1 as (Scalar, _, _), t2 as (Scalar, _, _)] => binary_infix (t1, t2) "-"
        | [t1, t2] => unsupportedcontainer "-"
        | _ => binop "-")
-  | operToUsage MUL type_list target =
+  | operToUsage F.MUL type_list target =
     (case type_list of
 	 [] => noargs "*"
        | [onetype] => (([onetype],[onetype]), PassThrough)
        | [t1 as (Scalar, _, _), t2 as (Scalar, _, _)] => binary_infix (t1, t2) "*"
        | [t1, t2] => unsupportedcontainer "*"
        | _ => binop "*")
-  | operToUsage DIVIDE type_list target =
+  | operToUsage F.DIVIDE type_list target =
     (case type_list of
 	 [] => noargs "/"
        | [onetype] => binop "/"
        | [t1 as (Scalar, _, _), t2 as (Scalar, _, _)] => binary_infix (t1, t2) "/"
        | [t1, t2] => unsupportedcontainer "/"
        | _ => binop "/")
-  | operToUsage POWER type_list target =
+  | operToUsage F.POW type_list target =
     (case type_list of
 	 [] => noargs "power"
        | [onetype] => binop "power"
