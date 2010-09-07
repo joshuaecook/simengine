@@ -5,7 +5,11 @@ local
   ../../util/layout.sig
   ../../util/layout.sml
 in
+SIZE.sig
+size.sml
+
 TYPE.sig
 type.sml
+
 test-type.sml
 end

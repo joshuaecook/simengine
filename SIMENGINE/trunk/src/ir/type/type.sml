@@ -1,36 +1,58 @@
 structure Type:> TYPE = struct
 
+exception IllTyped
+
 type var = int ref
 (* Variables are equivalent iff their contents are pointer equivalent.
  * The int inside the ref is only used for printing a name. *)
 val varName = fn s => "a"^(Int.toString (!s))
 
-type size = int
-type prim = string * size
+type bits = Size.bits
+type prim = string * bits
 
 type field = string
 
-fun primitiveSize (_,x) = x
-fun primitiveName (x,_) = x
-
 datatype rep 
-  = Var of var
+  (* The terms of the TYPE language. *)
+  = Int of bits
+  | Real of bits
+  | String
+  | Bool
+  | Var of var
+  (* A type variable.*)
+  | Top
+  (* The "top" of all subtype relations. *)
+  | Bottom
+  (* The "bottom" of all subtype relations. *)
   | Arrow of rep * rep
-  | Tuple of rep vector
+  (* The type of a function. *)
   | Record of (field * rep) vector
-  | Array
+  (* The type of linear, keyed objects. *)
   | Abstract of var * rep
+  (* A polymorphic type abstraction. *)
   | Apply of rep * rep
-  | Primitive of prim
-
-
+  (* Type application. *)
+  | Universal of (var * rep) * rep
+  | Existential of (var * rep) * rep
+  | Array
+  | Vector
+  | Source
+  | Sink
+  | Void
 
 
 type context = var list
 val bottom: context = nil
 
-datatype kind = Proper | Operator of kind * kind | Product of kind * kind | Unknown
+datatype kind 
+  = Proper
+  | Operator of kind * kind
+  | Product of kind * kind
+  | Ref of kind
+  | Unknown
+
 datatype proper = datatype kind
+type 'a cell = unit
 
 datatype ('G,'K) typevar
   = TYPE of {context: context,
@@ -65,25 +87,41 @@ val rec kindToLayout
      | Product (k1,k2)
        => paren (seq [kindToLayout k1, str " x ", kindToLayout k2])
 
+     | Ref k
+       => paren (seq [str "Ref", kindToLayout k])
+
 val rec toLayout =
  fn Var var => varToLayout var
-  | Primitive (p,s) => seq [str p, str (Int.toString s)]
+  | Void => str "void"
+  | Top => str "top"
+  | Vector => str "vector"
+  | Bottom => str "bottom"
   | Array => str "array"
+  | Source => str "source"
+  | Sink => str "sink"
+  | Int bits => seq [str "int", str (Int.toString (Size.Bits.toInt bits))]
+  | Real bits => seq [str "float", str (Int.toString (Size.Bits.toInt bits))]
+  | String => seq [str "string"]
+  | Bool => seq [str "bool"]
 
-  | Apply (t, s)
-    => paren (seq [toLayout s, str " ", toLayout t])
+  | Apply (a, b)
+    => paren (space [tuple [toLayout a, toLayout b], str "apply"])
 
   | Arrow (a, b) 
     => paren (seq [toLayout a, str " -> ", toLayout b])
-
-  | Tuple ab
-    => vec parenList (Vector.map toLayout ab)
 
   | Record fs
     => vec curlyList (Vector.map (fn (f,s) => seq [str f,str ":",toLayout s]) fs)
 
   | Abstract (var, rep)
     => paren (seq [str "fn ", paren (varToLayout var), str " => ", toLayout rep])
+
+  | Universal ((var,arg), rep)
+    => paren (seq [str "any ", paren (toLayout arg), str " => ", toLayout rep])
+
+  | Existential ((var,arg), rep)
+    => paren (seq [str "some ", paren (toLayout arg), str " => ", toLayout rep])
+
 
 end
 
@@ -93,14 +131,26 @@ structure VectorX = struct
 local
 open Vector
 in
+fun zip (v1,v2) =
+    tabulate (Int.min (length v1, length v2),
+	   fn i => (sub (v1,i), sub (v2,i)))
+
 fun zipEq (v1,v2) =
     if length v1 <> length v2 then
 	raise ListPair.UnequalLengths
     else
-	tabulate (length v1, fn i => (sub (v1,i), sub (v2,i)))
+	tabulate (length v1, 
+	       fn i => (sub (v1,i), sub (v2,i)))
 end  
 end
 
+
+val isPrimitive =
+ fn Int _ => true
+  | Real _ => true
+  | String => true
+  | Bool => true
+  | _ => false
 
 fun isProper (TYPE {kind= Proper,...}) = true
   | isProper _ = false
@@ -108,19 +158,26 @@ fun isProper (TYPE {kind= Proper,...}) = true
 fun isConstructor (TYPE {kind= Operator _, ...}) = true
   | isConstructor _ = false
 
-
-
 fun isfree (var, term)
   = case term
      of Var v => v = var
       | Arrow (a,b) => isfree (var,a) andalso isfree (var,b)
-      | Tuple ab => Vector.all (fn a => isfree (var,a)) ab
       | Record fs => Vector.all (fn (f,s) => isfree (var,s)) fs
       | Array => true
+      | Vector => true
+      | Source => true
+      | Sink => true
       | Abstract (v,b) => if v = var then false else isfree (var,b)
+      | Universal ((v,a),b) => if v = var then false else isfree (var,a) andalso isfree (var,b)
+      | Existential ((v,a),b) => if v = var then false else isfree (var,a) andalso isfree (var,b)
       | Apply (a,b) => isfree (var,a) andalso isfree (var,b)
-      | Primitive _ => true
-
+      | Void => true
+      | Top => true
+      | Bottom => true
+      | Int _ => true
+      | Real _ => true
+      | String => true
+      | Bool => true
 
 local
     val n = ref 0
@@ -135,25 +192,29 @@ fun operator (kk,cxt,t) = TYPE {context= cxt, kind= Operator kk, rep= t}
 fun unknown (cxt,t) = TYPE {context= cxt, kind= Unknown, rep= t}
 
 fun int n
-  = proper (bottom, Primitive ("int", n))
+  = proper (bottom, Int n)
 
 fun real n 
-  = proper (bottom, Primitive ("real", n))
+  = proper (bottom, Real n)
 
 val string: (context,proper) typet
-  = proper (bottom, Primitive ("string", 0))
+  = proper (bottom, String)
 
 val bool: (context,proper) typet
-  = proper (bottom, Primitive ("bool", 1))
+  = proper (bottom, Bool)
 
 val array: (context,proper->proper) typet
   = operator ((Proper,Proper), bottom, Array)
 
+val vector: (context,proper->proper) typet
+  = operator ((Proper,Proper), bottom, Vector)
+
+val void
+  = proper (bottom, Void)
+
 val var = fn TYPE {context, rep= t as Var v, ...} 
 	     => unknown (v::context, t)
-	   | _ => raise Fail "impossible!"
-
-fun var v = v
+	   | _ => raise IllTyped
 
 fun poly f =
     let
@@ -161,8 +222,30 @@ fun poly f =
 	val x = unknown (bottom, Var id)
     in
 	case f x
-	 of y as TYPE {context, rep, kind} =>
+	 of TYPE {context, rep, kind} =>
 	    operator ((Unknown,kind), context, Abstract (id, rep))
+    end
+
+fun any (s, f) =
+    let
+	val id = fresh ()
+	val TYPE {context, rep= srep, kind} = s
+	val x = TYPE {context= context, kind= kind, rep= Var id}
+    in
+	case f x
+	 of TYPE {context, rep, kind} =>
+	    operator ((Unknown,kind), context, Universal ((id, srep), rep))
+    end
+
+fun some (s, f) =
+    let
+	val id = fresh ()
+	val TYPE {context, rep= srep, kind} = s
+	val x = TYPE {context= context, kind= kind, rep= Var id}
+    in
+	case f x
+	 of TYPE {context, rep, kind} =>
+	    operator ((Unknown,kind), context, Existential ((id, srep), rep))
     end
 
 fun apply (TYPE {context, rep= t, kind= Operator (_,K)}, 
@@ -175,18 +258,6 @@ fun apply (TYPE {context, rep= t, kind= Operator (_,K)},
 fun arrow (TYPE {context, rep= t, ...}, TYPE {rep= s, ...})
     = proper (context, Arrow (t, s))
 
-fun tuple (TYPE {context, rep= t, ...}, TYPE {rep= s, ...})
-    = proper (context, Tuple (Vector.fromList [s, t]))
-
-fun tuplev ts
-  = if Vector.length ts > 1 then
-	let
-	    val TYPE {context, ...} = Vector.sub (ts,0)
-	in
-	    proper (context, Tuple (Vector.map rep ts))
-	end
-    else raise Fail "impossible tuple length <= 1"
-
 fun record ((f1, TYPE {context, rep= t, ...}), (f2, TYPE {rep= s, ...}))
     = proper (context, Record (Vector.fromList [(f1,t), (f2,s)]))
 
@@ -197,7 +268,7 @@ fun recordv ts
 	in
 	    proper (context, Record (Vector.map (fn (f,s) => (f, rep s)) ts))
 	end
-    else raise Fail "impossible record length <= 1"
+    else raise IllTyped
 
 structure Reduction: sig
     type 'T poly
@@ -287,10 +358,18 @@ fun beta_redex (subst, Abstract (var,body)) =
     let
 	fun redex term
 	  = case term
-	     of Array => term
-	      | Primitive _ => term
+	     of Int _ => term
+	      | Real _ => term
+	      | String => term
+	      | Bool => term
+	      | Array => term
+	      | Vector => term
+	      | Source => term
+	      | Sink => term
+	      | Void => term
+	      | Top => term
+	      | Bottom => term
 	      | Arrow (s1,s2) => Arrow (redex s1, redex s2)
-	      | Tuple ss => Tuple (Vector.map redex ss)
 	      | Record fs => Record (Vector.map (fn (f,s) => (f, redex s)) fs)
 	      | Apply (s1,s2) => Apply (redex s1,redex s2)
 
@@ -299,10 +378,14 @@ fun beta_redex (subst, Abstract (var,body)) =
 
 	      | Abstract (v,s2)
 		=> if v = var then term else Abstract (v,redex s2)
+	      | Universal ((v,s1),s2)
+		=> if v = var then term else Universal ((v, redex s1),redex s2)
+	      | Existential ((v,s1),s2)
+		=> if v = var then term else Existential ((v, redex s1),redex s2)
     in
 	redex body
     end
-  | beta_redex _ = raise Fail "impossible!"
+  | beta_redex _ = raise IllTyped
 
 val rec eval =
  fn Refl t => t
@@ -328,20 +411,21 @@ val primitiveSubtype =
 fun equiv (a,b) = 
     case (normal a, normal b)
      of (Var va, Var vb) => va = vb
-      | (Primitive pa, Primitive pb) => pa = pb
+      | (Int b1, Int b2) => Size.Bits.equals (b1,b2)
+      | (Real b1, Real b2) => Size.Bits.equals (b1,b2)
+      | (String, String) => true
+      | (Bool, Bool) => true
+
       | (Array, Array) => true
 
       | (Arrow (s1,s2), Arrow(t1,t2))
 	=> equiv (s1,t1) andalso equiv (s2,t2)
 
-      | (Tuple ss, Tuple ts)
-	=> if Vector.length ss = Vector.length ts then
-	       Vector.all equiv (VectorX.zipEq (ss,ts))
-	   else false
-
       | (Record ss, Record ts)
 	=> if Vector.length ss = Vector.length ts then
-	       raise Fail "record equiv"
+	       Vector.all
+		   (fn ((f,s),(g,t)) => f = g andalso equiv (s,t))
+		   (VectorX.zipEq (ss,ts))
 	   else false
 
       | (Abstract (va,s2), Abstract (vb,t2))
@@ -354,27 +438,42 @@ fun equiv (a,b) =
 
 and subtype (a,b) =
     case (normal a, normal b)
-     of (Primitive pa, Primitive pb) => primitiveSubtype (pa,pb)
-      | (Array, Array) => true
+     of (Array, Array) => true
 
       | (Arrow (s1,s2), Arrow (t1,t2))
-	=> subtype (s1,t1) andalso subtype (s2,t2)
-
-      | (Tuple ss, Tuple ts)
-	=> if Vector.length ss = Vector.length ts then
-	       Vector.all subtype (VectorX.zipEq (ss,ts))
-	   else false 
+	=> subtype (t1,s1) andalso subtype (s2,t2)
 
       | (Record ss, Record ts)
 	=> if Vector.length ss = Vector.length ts then
-	       raise Fail "record subtype"
+	       Vector.all
+		   (fn ((f,s),(g,t)) => f = g andalso subtype (s,t))
+		   (VectorX.zipEq (ss,ts))
+	   else if Vector.length ss < Vector.length ts then
+	       Vector.all
+		   (fn ((f,s),(g,t)) => f = g andalso subtype (s,t))
+		   (VectorX.zip (ss,ts))
 	   else false
+
+      | (Record ss, Apply (Array,t))
+	=> Vector.all (fn (f,s) => subtype (s,t)) ss
+
+      | (s, Apply (Array, t)) => subtype (s,t)
 
       | (Abstract (_,s2), Abstract (_,t2))
 	=> subtype (s2,t2)
 
       | (Apply (s1,s2), Apply (t1,t2))
 	=> subtype (s1,t1) andalso subtype (s2,t2)
+
+      | (Apply (Array,s), Record ts)
+	=> Vector.all (fn (f,t) => subtype (s,t)) ts
+
+      | (s, Record ts)
+	=> if Vector.length ts > 1 then
+	       let val (_,t) = Vector.sub (ts,0) in
+		   subtype (s, t)
+	       end
+	   else raise IllTyped
 
       | _ => false
 
@@ -383,14 +482,20 @@ and normal term
     in
 	eval (case term
 	       of Var _ => reflect term
-		| Primitive _ => reflect term
+		| Int _ => reflect term
+		| Real _ => reflect term
+		| String => reflect term
+		| Bool => reflect term
 		| Array => reflect term
+		| Vector => reflect term
+		| Void => reflect term
+		| Source => reflect term
+		| Sink => reflect term
+		| Top => reflect term
+		| Bottom => reflect term
 
 		| Arrow (s1,s2) 
 		  => reflect (Arrow (normal s1, normal s2))
-
-		| Tuple ss
-		  => reflect (Tuple (Vector.map normal ss))
 
 		| Record fs
 		  => reflect (Record (Vector.map (fn (f,s) => (f, normal s)) fs))
@@ -407,13 +512,22 @@ and normal term
 			  => if equiv (Var var, s22) andalso isfree (var, s21)
 			     then eta (reflect (normal s21))
 			     else reflect (Abstract (var, normal s22))
-			| t2 => reflect (Abstract (var, t2))))
+			| t2 => reflect (Abstract (var, t2)))
+
+		| Universal ((var,s1), s11)
+		  => raise Fail "Universal"
+
+		| Existential (var, s11)
+		  => raise Fail "Existential")
     end
 
 
 val equiv = fn (a,b) => equiv (rep a, rep b)
 val subtype = fn (a,b) => subtype (rep a, rep b)
-val normal = fn a => normal (rep a)
+
+val normal =
+ fn (TYPE {context, rep, kind})
+    => TYPE {context= context, kind= kind, rep= normal rep}
 
 end
 

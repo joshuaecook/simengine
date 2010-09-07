@@ -55,10 +55,11 @@ signature SPIL = sig
     (* A program label *)
     type label = string
 
-    datatype immediate =
+    datatype immediate
     (* A literal value *)
-	     Real of real
-	   | Int of int
+      = Real of real
+      | Int of int
+      | Bool of bool
 
     type address = string
 
@@ -101,14 +102,13 @@ signature SPIL = sig
     structure Atom: sig
 	datatype t
 	  = Null
-
 	  | Literal of immediate
 	  | Variable of ident
-	  | RuntimeVar of ident
-	  | CompileVar of ident
+	  | RuntimeVar of ((unit -> t) * Type.t)
+	  | CompileVar of ((unit -> t) * Type.t)
 	  | Address of address
 	  | Label of ident
-
+	  | Cast of t * Type.t
 	  | Offset of
 	    {base: t, index: size, offset: size, scale: size, basetype: Type.t}
           (*
@@ -125,8 +125,11 @@ signature SPIL = sig
 	    {base: t,
 	     index: {x:size, y:size, z:size},
 	     offset: {x:size, y:size, z:size},
-	     scal: {x:size, y:size, z:size},
+	     scale: {x:size, y:size, z:size},
 	     basetype: Type.t}
+
+	type context
+	val typeof: t -> context -> (Type.t * context)
 
     end
 
@@ -150,7 +153,6 @@ signature SPIL = sig
 	  | NOP
 	  | COMMENT of string
 	  | PROFILE of ident
-	  | LABEL of ident
 	  | BIND of {src: atom,
 		     dest: ident * Type.t}
 	  | GRAPH of {src: expression,
@@ -159,7 +161,30 @@ signature SPIL = sig
 			  args: atom vector,
 			  dest: ident * Type.t}
 	  | MOVE of {src: atom, dest: atom}
-	  | CAST of {src: atom, dest: atom * Type.t}
+
+	type context
+
+	val bind: 
+	    atom -> (context * (ident * Type.t))
+	    -> 
+	    (t * context)
+
+	val bindExp: 
+	    expression -> (context * (ident * Type.t))
+	    -> 
+	    (t * context)
+
+	val bindPrim: 
+	    (operator * atom vector) -> (context * (ident * Type.t))
+	    ->
+	    (t * context)
+
+	val comment: string -> t
+	val profile: ident -> t
+	val move: {src:atom, dest:atom} -> t
+	val halt: t
+	val nop: t
+
     end
     sharing type Statement.atom = Atom.t
     sharing type Statement.operator = Operator.t

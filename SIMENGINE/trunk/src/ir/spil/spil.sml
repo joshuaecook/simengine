@@ -4,9 +4,10 @@ type size = int
 type ident = string
 type label = string
 
-datatype immediate =
-	 Real of real
-       | Int of int
+datatype immediate 
+  = Real of real
+  | Int of int
+  | Bool of bool
 
 type address = string
 
@@ -23,13 +24,15 @@ end
 
 datatype atom
   = Null
+  | Literal of immediate
   | Variable of ident
-  | RuntimeVar of ident
-  | CompileVar of ident
+  | RuntimeVar of ((unit -> atom) * Type.t)
+  | CompileVar of ((unit -> atom) * Type.t)
   | Address of address
   | Label of ident
-  | Literal of immediate
-  | Offset of {base: atom, index: size, offset: size, scale: size, basetype: Type.t}
+  | Cast of atom * Type.t
+  | Offset of
+    {base: atom, index: size, offset: size, scale: size, basetype: Type.t}
   | Offset2D of
     {base: atom, 
      index: {x:size, y:size}, 
@@ -40,7 +43,7 @@ datatype atom
     {base: atom,
      index: {x:size, y:size, z:size},
      offset: {x:size, y:size, z:size},
-     scal: {x:size, y:size, z:size},
+     scale: {x:size, y:size, z:size},
      basetype: Type.t}
 
      and operator
@@ -67,7 +70,6 @@ datatype atom
        | NOP
        | COMMENT of string
        | PROFILE of ident
-       | LABEL of ident
        | BIND of {src: atom,
 		  dest: ident * Type.t}
        | GRAPH of {src: expression,
@@ -77,8 +79,6 @@ datatype atom
 		       dest: ident * Type.t}
        | MOVE of {src: atom,
 		  dest: atom}
-       | CAST of {src: atom,
-		  dest: atom * Type.t}
 
      and control
        = CALL of {func: ident,
@@ -114,7 +114,25 @@ datatype atom
 
 
 structure Atom = struct
+type context = unit
 datatype t = datatype atom
+
+local structure T = Type in
+fun typeof atom cxt =
+    case atom
+     of Null => (T.gen T.void, cxt)
+      | Literal (Bool _) => (T.gen T.bool, cxt)
+      | Literal (Real _) => (T.gen (T.real 64), cxt)
+      | Literal (Int _) => (T.gen (T.int 32), cxt)
+      | RuntimeVar (_, t) => (t, cxt)
+      | CompileVar (_, t) => (t, cxt)
+      | Variable _ => raise Fail "lookup from context"
+      | Cast (_,t) => (t, raise Fail "add to context")
+      | Offset {basetype,...} => (basetype, cxt)
+      | Offset2D {basetype,...} => (basetype, cxt)
+      | Offset3D {basetype,...} => (basetype, cxt)
+
+end
 end
 
 structure Operator = struct
@@ -143,10 +161,27 @@ datatype operator = datatype operator
 end
 
 structure Statement = struct
+type context = unit
 datatype t = datatype statement
 datatype atom = datatype atom
 datatype operator = datatype operator
 datatype expression = datatype expression
+
+fun bind atom (cxt, (id,t)) 
+  = (BIND {src= atom, dest= (id,t)}, cxt)
+
+fun bindExp exp (cxt, (id,t)) 
+  = (GRAPH {src= exp, dest= (id,t)}, cxt)
+
+fun bindPrim (oper,args) (cxt, (id,t))
+  = (PRIMITIVE {oper= oper, args= args, dest= (id,t)}, cxt)
+
+val comment = COMMENT
+val profile = PROFILE
+val move = MOVE
+val halt = HALT
+val nop = NOP
+
 end
 
 structure Control = struct
