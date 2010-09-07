@@ -377,7 +377,13 @@ fun optimizeModel order (model:DOF.model) =
 	val _ = DynException.checkToProceed()
 	val (classes, _, _) = model
 
-	val _ = app ClassProcess.optimizeClass classes
+	val _ = app 
+		    (fn(c)=>
+		       let
+			   val msg = "Optimizing Class '"^(Symbol.name (#name c))^"'"
+		       in
+			   Profile.time msg ClassProcess.optimizeClass c
+		       end) classes
 
 	val _ = DynException.checkToProceed()
 

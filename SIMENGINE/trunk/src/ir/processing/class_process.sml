@@ -2102,9 +2102,12 @@ fun optimizeClass (class: DOF.class) =
 
 	val restore = (Rules.getRules "restoration")
 
-	val exps' = map ((Match.repeatApplyRewritesExp restore) o
-			 (Match.repeatApplyRewritesExp simplify))
-			exps
+	fun simplify_exps exps =
+	    map ((Match.repeatApplyRewritesExp restore) o
+		 (Match.repeatApplyRewritesExp simplify))
+		exps
+	val exps' = Profile.time "Simplify" simplify_exps exps
+		
 	val exps = 
 	    let
 		val orig_cost = Util.sum(map Cost.exp2cost exps)
@@ -2118,8 +2121,14 @@ fun optimizeClass (class: DOF.class) =
 	    end
 
 		       
-	val exps' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps
-	val exps'' = map (Match.repeatApplyRewritesExp restore) exps'
+	fun simplifyAndFactor_exps exps = 
+	    let
+		val exps' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps
+		val exps'' = map (Match.repeatApplyRewritesExp restore) exps'
+	    in
+		exps''
+	    end
+	val exps'' = Profile.time "SimplifyAndFactor" simplifyAndFactor_exps exps
 
 	val exps = 
 	    let
@@ -2133,11 +2142,15 @@ fun optimizeClass (class: DOF.class) =
 		     exps'')
 	    end
 
-	val exps' = map (Match.repeatApplyRewritesExp simplifyAndExpand) exps
-
-	val exps'' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps'
-
-	val exps''' = map (Match.repeatApplyRewritesExp restore) exps''
+	fun simplifyAndExpand_exps exps =
+	    let 
+		val exps' = map (Match.repeatApplyRewritesExp simplifyAndExpand) exps
+		val exps'' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps'
+		val exps''' = map (Match.repeatApplyRewritesExp restore) exps''
+	    in
+		exps'''
+	    end
+	val exps''' = Profile.time "simplifyAndExpand" simplifyAndExpand_exps exps
 
 	val exps = 
 	    let
