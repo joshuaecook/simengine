@@ -12,6 +12,10 @@ classdef Iterator < handle
         timestamp
     end
     
+    properties (GetAccess = public, SetAccess = private)
+        solvers = {'forwardeuler', 'linearbackwardeuler', 'exponentialeuler', 'heun', 'rk4', 'cvode', 'ode23', 'ode45'};
+    end
+    
     methods
         function iter = Iterator(varargin)
             iter.timestamp = now;
@@ -33,7 +37,12 @@ classdef Iterator < handle
                     args = args(2:end);
                 elseif strcmpi(arg, 'solver')
                     if length(args) > 1
-                        iter.solver = args{2};
+                        switch args{2}
+                            case iter.solvers
+                                iter.solver = args{2};
+                            otherwise
+                                error('Simatra:Iterator', 'Invalid solver specified.  Options are: %s', List.stringConcatWith(', ', iter.solvers));
+                        end
                         args = args(3:end);
                     else
                         error('no solver');

@@ -38,7 +38,7 @@ if strcmp(opts.mode, 'view')
 elseif strcmp(opts.mode, 'check')
   % Read license file
   if isempty(opts.filename)
-    [license, lic_str] = parseLicense();
+    [license, lic_str] = parseLicense(quiet);
   else % now we have a filename
     json = execSimEngine('LF licenseToJSON()', quiet, ['--license-file '...
                          opts.filename]);
@@ -52,7 +52,7 @@ elseif strcmp(opts.mode, 'check')
 elseif strcmp(opts.mode, 'update')
   % Read license file
   if isempty(opts.filename)
-    [license, lic_str] = parseLicense();
+    [license, lic_str] = parseLicense(quiet);
     placeLicense(opts, lic_str);
   else % now we have a filename
     json = execSimEngine('LF licenseToJSON()', quiet, ['--license-file '...
@@ -309,7 +309,7 @@ end
 
 
 % Grab the license from the command line
-function [license, lic_str] = parseLicense()
+function [license, lic_str] = parseLicense(quiet)
 
 % default for the license
 license = false;
@@ -349,7 +349,7 @@ while true()
                           ' to exit.'])
     else
       % it's all good now
-      license = evaluateLicense(str_array, true);
+      license = evaluateLicense(str_array, quiet);
       if isstruct(license)
         break;
       else
