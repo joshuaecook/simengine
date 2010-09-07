@@ -7,7 +7,7 @@ soma.L = 18.8;
 soma.Ra = 123;
 soma.insert('hh');
 
-stim = n.IClamp(soma, 0.025);
+stim = n.IClamp(soma, 0.5);
 stim.del = 100;
 stim.dur = 100;
 stim.amp = 0.1;

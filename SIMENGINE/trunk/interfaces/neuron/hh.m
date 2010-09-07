@@ -65,9 +65,9 @@ n = mdl.state('n', ninf0);
 
 % Evaluate the differential equations
 [minf, hinf, ninf, mtau, htau, ntau] = rates(v);
-mdl.diffequ(m, (minf-m)/mtau);
-mdl.diffequ(h, (hinf-h)/htau);
-mdl.diffequ(n, (ninf-n)/ntau);
+mdl.diffequ(m, (mdl.equ(minf)-m)/mdl.equ(mtau));
+mdl.diffequ(h, (mdl.equ(hinf)-h)/mdl.equ(htau));
+mdl.diffequ(n, (mdl.equ(ninf)-n)/mdl.equ(ntau));
 
 % Evaluate the breakpoint
 gna = gnabar*m^3*h;
