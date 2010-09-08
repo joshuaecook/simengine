@@ -1,16 +1,56 @@
 classdef NMODL < Model
-   
+% NMODL - create ion channels and other cellular mechanisms for insertion
+% into Neuron sections
+% 
+% NMODL Methods:
+%   NMODL - construct and visualize NMODL files
+%   range_parameter - define a range variable accessible to the segment
+%   global_parameter - define a global variable accessible to the section
+%   current - create an output current quantity
+%
+% NMODL Properties:
+%   v       - voltage potential in the segment    (mV)
+%   v0      - initial segment voltage             (mV)
+%   area    - surface area of the segment         (um^2)
+%   celsius - temperature of the cell             (C)
+%   diam    - diameter of the segment             (um)
+%   L       - length of the segment               (um)
+%   suffix  - string appended to range variables
+%
+%  The Neuron syntax and semantics are based on the NEURON Simulator by
+%  N.T. Carnevale and M.L. Hines at Yale University (www.neuron.yale.edu).
+%  
+%  Copyright (c) 2010 Simatra Modeling Technologies
+%
+%  Permission is hereby granted, free of charge, to any person obtaining a copy
+%  of this software and associated documentation files (the "Software"), to deal
+%  in the Software without restriction, including without limitation the rights
+%  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+%  copies of the Software, and to permit persons to whom the Software is
+%  furnished to do so, subject to the following conditions:
+% 
+%  The above copyright notice and this permission notice shall be included in
+%  all copies or substantial portions of the Software.
+% 
+%  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+%  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+%  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+%  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+%  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+%  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+%  THE SOFTWARE.
+
     properties (Access = public)
-        v
-        v0
-        area
-        celsius
-        diam
-        L
+        v       % voltage potential in the segment    (mV)
+        v0      % initial segment voltage             (mV)
+        area    % surface area of the segment         (um^2)
+        celsius % temperature of the cell             (C)
+        diam    % diameter of the segment             (um)
+        L       % length of the segment               (um)
     end
     
     properties (Access = public)
-        suffix = ''
+        suffix = '' % string appended to range variables
     end
     
     properties (Access = protected)
@@ -22,7 +62,27 @@ classdef NMODL < Model
     methods (Access = public)
         
         function n = NMODL(varargin)
-            
+            % NMODL - load a MOD function and characterize it through
+            % voltage ramps
+            %
+            % Usage:
+            %   NMODL(MOD) - verify and simulate the MOD file through a
+            %   voltage clamp simulation
+            %
+            % Examples:
+            %   NMODL('pas')
+            %   NMODL('hh')
+            %
+            % See also Section/insert
+            %
+            %  The Neuron syntax and semantics are based on the NEURON Simulator by
+            %  N.T. Carnevale and M.L. Hines at Yale University (www.neuron.yale.edu).
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %            
+
             if nargin == 1
                 channels = varargin{1};
                 % grab the name of the channel and look for it on the path or
@@ -67,11 +127,8 @@ classdef NMODL < Model
             n.current_vars = containers.Map;
             
             n.v = n.input('v');
-            %n.global_vars('v') = n.v;
             n.v0 = n.input('v0');
-            %n.global_vars('v0') = n.v0;
             n.area = n.input('area');
-            %n.global_vars('area') = n.area;
             n.celsius = n.input('celsius');
             n.global_vars('celsius') = n.celsius;
             n.diam = n.input('diam');
@@ -87,6 +144,35 @@ classdef NMODL < Model
         end
         
         function p = global_parameter(n, name, default)
+            % global_parameter - create a global parameter assigned to a
+            % Neuron section
+            %
+            % Usage:
+            %   p = global_parameter(name [, default]) - create a parameter
+            %   with name and optional default variable.  When inserted
+            %   into a section, it will be accessible as section_obj.name.
+            %   The return value p is a Exp type.
+            %
+            % Description:
+            %   A global_parameter is an extended version of a Model/input.
+            %   It is defined by the calling model, which in this case is
+            %   the Neuron Section.  As a global parameter, it is
+            %   accessible to be read and written as a property of the
+            %   Section object.
+            %
+            % Examples:
+            %   ena = mdl.global_parameter('ena');
+            %   ek = mdl.global_parameter('ek', -77);
+            %
+            % See also Section NMODL/range_parameter
+            %
+            %  The Neuron syntax and semantics are based on the NEURON Simulator by
+            %  N.T. Carnevale and M.L. Hines at Yale University (www.neuron.yale.edu).
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %            
             if nargin == 2
                 p = n.input(name);
             elseif nargin == 3
@@ -98,6 +184,48 @@ classdef NMODL < Model
         end
         
         function p = range_parameter(n, name, default)
+            % range_parameter - creates a range parameter assigned to a
+            % Neuron segment
+            %
+            % Usage:
+            %   p = range_parameter(name [, default]) - create a parameter
+            %   with name and optional default variable.  When inserted
+            %   into a section, it will be accessible as section_obj.name_suffix.
+            %   The return value p is a Exp type.
+            %
+            % Description:
+            %   A range__parameter is an extended version of a Model/input.
+            %   It is defined by the calling model, which in this case is
+            %   the Neuron Section.  As a range parameter, it is
+            %   accessible to be read and written as a property of the
+            %   Section object.
+            %
+            % Examples:
+            %   mdl.suffix = 'hh';
+            %   gnabar = mdl.range_parameter('gnabar', 0.12);
+            %   gkbar = mdl.range_parameter('gkbar', 0.036);
+            %   % with section called soma
+            %   soma.insert('hh');
+            %   soma.gnabar_hh = soma.gnabar_hh*2;
+            %
+            % Known limitations:
+            %   A range_parameter at this time can not be specified with a
+            %   different value per segment.  There can only be one value
+            %   per section.  In the future, this library will support
+            %   syntax incorporating a position as shown below:
+            %   soma.gnabar_hh(0) = soma.gnabar_hh/2;
+            %   soma.gnabar_hh(0.5) = soma.gnabar_hh;
+            %   soma.gnabar_hh(1) = 2*soma.gnabar_hh;
+            %
+            % See also Section NMODL/global_parameter
+            %
+            %  The Neuron syntax and semantics are based on the NEURON Simulator by
+            %  N.T. Carnevale and M.L. Hines at Yale University (www.neuron.yale.edu).
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %            
             if nargin == 2
                 p = n.input(name);
             elseif nargin == 3
@@ -109,6 +237,37 @@ classdef NMODL < Model
         end
 
         function current(n, out, ion)
+            % current - creates a current output 
+            %
+            % Usage:
+            %   current(var [, ion]) - creates a current output based on
+            %   the option ion specified
+            %
+            % Description:
+            %   The output of an NMODL channel can only be a current which
+            %   is then used in the computation of the membrane potential
+            %   per segment.
+            %
+            % Examples:
+            %   i = g*(mdl.v-e); % create a generic leakage current
+            %   current(i);
+            %   current(ina, 'na'); % assign the current ina to the 'na' ion.
+            %
+            % Known limitations:
+            %   The ion value is currently ignored.  In the future, this
+            %   can be used to keep track of, for example, Ca2+
+            %   concentration in the segment.
+            %
+            % See also Section
+            %
+            %  The Neuron syntax and semantics are based on the NEURON Simulator by
+            %  N.T. Carnevale and M.L. Hines at Yale University (www.neuron.yale.edu).
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %            
+            
             % pull out the name as a string
             if ischar(out)
                 name = out;

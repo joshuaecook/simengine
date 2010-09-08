@@ -1,21 +1,65 @@
 classdef Section < Model
-    
+% Section - class representing a section of a Neuron
+% 
+% Section Methods:
+%   insert - generate a section within the NEURON representing one or more
+%   segments
+%
+% Section Properties:
+%   dt      - time step of the simulation         (ms)
+%   nseg    - number of segments in the section
+%   area    - surface area of the section         (um^2)
+%   celsius - temperature of the cell             (C)
+%   diam    - diameter of the section             (um)
+%   L       - length of the section               (um)
+%   cm      - section membrane capacitance        (uF/cm^2)
+%   Ra      - axonal resistance                   (ohm*cm)
+%   ena     - sodium reversal potential           (mV)
+%   ek      - potassium reversal potential        (mV)
+%
+
+% See also Neuron Neuron/Section
+%
+%  The Neuron syntax and semantics are based on the NEURON Simulator by
+%  N.T. Carnevale and M.L. Hines at Yale University (www.neuron.yale.edu).
+%  
+%  Copyright (c) 2010 Simatra Modeling Technologies
+%  Website: www.simatratechnologies.com
+%  Support: support@simatratechnologies.com
+%
+%  Permission is hereby granted, free of charge, to any person obtaining a copy
+%  of this software and associated documentation files (the "Software"), to deal
+%  in the Software without restriction, including without limitation the rights
+%  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+%  copies of the Software, and to permit persons to whom the Software is
+%  furnished to do so, subject to the following conditions:
+% 
+%  The above copyright notice and this permission notice shall be included in
+%  all copies or substantial portions of the Software.
+% 
+%  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+%  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+%  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+%  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+%  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+%  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+%  THE SOFTWARE.    
     
     properties (Access = public)
-        dt = 0.01;
-        nseg = 1
-        diam = 500
-        L = 100
-        cm = 1
-        Ra = 35.4
-        ena = 50
-        ek = -77
-        celsius = 6.3
+        dt = 0.01      % time step of the simulation         (ms)
+        nseg = 1       % number of segments in the section
+        diam = 500     % diameter of the section             (um)
+        L = 100        % length of the section               (um)
+        cm = 1         % section membrane capacitance        (uF/cm^2)
+        Ra = 35.4      % axonal resistance                   (ohm*cm)
+        ena = 50       % sodium reversal potential           (mV)
+        ek = -77       % potassium reversal potential        (mV)
+        celsius = 6.3  % temperature of the cell             (C)
     end
     
     properties (Access = public)
-        area
-        unit_factor
+        area           % surface area of the section         (um^2)
+        unit_factor    % unit conversion factor for currents
     end
     
     % internal parameters
@@ -37,12 +81,13 @@ classdef Section < Model
     end
     
     properties (Access = public)
-        connections = [];
-        submodelInstance
+        connections = [];  % internal connection data structure
+        submodelInstance   % internal sub model data structure
     end
     
     methods (Access = public)
         function m = Section(id, t_imp, t_exp)
+            % Section - constructor called by Neuron
             m@Model(id, t_imp);
             m.t_imp = t_imp;
             m.t_exp = t_exp;
@@ -53,6 +98,41 @@ classdef Section < Model
         end
         
         function insert(m, channels)
+            % Insert - add NMODL formatted MATLAB function containing
+            % neural channels or mechanisms.
+            %
+            % Usage:
+            %   SECTION.Insert(MOD) - add the mechanism in MOD to the Neuron
+            %   Section SECTION. MOD can be a string representing a function
+            %   or a function handle.
+            % 
+            % Description:
+            %   Insert adds the channels or mechanisms described in the MOD
+            %   function to each of the segments within the section.  All
+            %   parameters inside the MOD function are promoted to be
+            %   accessible inside the Section using the '.' operator.  The naming convention from
+            %   NEURON is preserved where range parameters have the MOD
+            %   suffix appended and the global parameters do not.
+            %
+            % Example:
+            %   n = Neuron('myNeuron');
+            %   s = n.section('soma');
+            %   s.insert('hh'); % insert the channels found in hh.m
+            %
+            % Format:
+            %   The MOD file format must be a function with one input argument
+            %   and no return arguments.  The single input argument is an
+            %   NMODL object, which is inherited from a Model object.
+            %
+            % See also NMODL MODEL
+            %
+            %  The Neuron syntax and semantics are based on the NEURON Simulator by
+            %  N.T. Carnevale and M.L. Hines at Yale University (www.neuron.yale.edu).
+            %
+            %  Copyright (c) 2010 Simatra Modeling Technologies
+            %  Website: www.simatratechnologies.com
+            %  Support: support@simatratechnologies.com
+            %
             
             % grab the name of the channel and look for it on the path or
             % just use it as a function handle
@@ -122,6 +202,11 @@ classdef Section < Model
             initializeModel(m);
             build(m); % build the model
             s = toStr@Model(m); % now, create the string representation
+        end
+        
+        function initializeAndBuild(m)
+            initializeModel(m);
+            build(m);
         end
         
     end
@@ -218,12 +303,8 @@ classdef Section < Model
             end
             m.params_map(name) = c;
         end
-        
-        
-        
+            
         function build(m)
-            
-            
             disp(['Building Section: ' m.Name]);
             % define the voltage states
             m.voltages = cell(1,m.nseg);
