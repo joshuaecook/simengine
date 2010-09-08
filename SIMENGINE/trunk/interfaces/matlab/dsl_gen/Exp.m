@@ -1,5 +1,70 @@
 classdef Exp
-    
+% Exp - Build simEngine symbolic expressions in MATLAB
+%
+% Model Methods:
+%   Constructor:
+%   Exp - create a new Exp object
+%
+%   Algebraic operators:
+%   plus      - Plus (+)
+%   uplus     - Unary plus (+)
+%   minus     - Minus (-)
+%   uminus    - Unary minus (-)
+%   mtimes    - Multiply (*)
+%   mpower    - Power (^)
+%   mrdivide  - Divide (/)
+%   mldivide  - Left divide (\)
+%   mod       - Modulus
+%
+%   Relational operators:
+%   eq        - Equal (==)
+%   neq       - Not equal (~=)
+%   lt        - Less than (<)
+%   gt        - Greater than (>)
+%   le        - Less than or equal (<=)
+%   ge        - Greater than or equal (>=)
+%
+%   Logical operators:
+%   and       - Logical AND (&)
+%   or        - Logical OR (|)
+%   not       - Logical NOT (~)
+%   any       - True if any elements are true
+%   all       - True if all elements are true
+%
+%   Trigonometric operators:
+%   sin, cos, tan          - Trigonometric functions
+%   csc, sec, cot          - Reciprocal trigonometric functions
+%   asin, acos, atan       - Inverse trigonometric functions
+%   acsc, asec, acot       - Inverse reciprocal trigonometric functions
+%   sinh, cosh, tanh       - Hyperbolic functions
+%   csch, sech, coth       - Reciprocal hyperbolic functions
+%   asinh, acosh, atanh    - Inverse hyperbolic functions
+%   acsch, asech, acoth    - Inverse reciprocal hyperbolic functions
+%   
+%   Exponential operators:
+%   exp       - Exponential
+%   log       - Natural logarithm
+%   log10     - Base 10 logarithm
+%   sqrt      - Square root
+%
+%   Rounding:
+%   round     - Round towards nearest integer
+%   floor     - Round towards negative infinity
+%   ceil      - Round towards positive infinity
+%
+%   Speciality:
+%   abs       - Absolute value
+%   piecewise - Functional conditional
+%   sum       - Sum of elements
+%   prod      - Product of elements
+%   conv      - Convolution of Exp and numeric vector
+%   max       - Max of two arguments
+%   min       - Min of two arguments
+%
+% Copyright 2010 Simatra Modeling Technologies
+% Website: www.simatratechnologies.com
+% Support: support@simatratechnologies.com
+%    
     properties (Constant, Access = private)
         NULLEXP = 0
         VARIABLE = 1
@@ -20,6 +85,36 @@ classdef Exp
     
     methods
         function e = Exp(v, sub)
+            % Exp - create an Exp simEngine expression
+            %
+            % Usage:
+            %   E = Exp(ID) - create an expression from a string id
+            %   E = Exp(LITERAL) - create an expression from a number
+            %   E = Exp(ITER) - create an expression from an iterator
+            %   E = Exp(SUBMODEL, ID) - create a submodel variable
+            %   reference
+            %
+            % Description:
+            %   The Exp constructor creates simEngine expressions from
+            %   variables and literals.  In general, this constructor almost
+            %   never has to be called directly, since expression data
+            %   types are returned by calls to MODEL/STATE, MODEL/INPUT,
+            %   etc.  The Exp constructor can be used to convert iterators
+            %   into expressions so that iterators can be used as literal
+            %   quantities in computations.
+            %
+            % Examples:
+            %   x = Exp('x'); % define the 'x' variable
+            %   (x+1)^2 % will return 'Exp: ((x+1)^2)'
+            %
+            %   % Use an iterator in computation
+            %   t = Iterator('continuous', 'solver', 'ode45');
+            %   v = x*Exp(t); % Compute velocity from a position and time
+            %  
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
             if nargin == 0
                 e.val = '';
                 e.type = e.NULLEXP;
@@ -36,10 +131,16 @@ classdef Exp
                     e.type = e.ITERATOR;
                     e.iterReference = v;
                     e.val = v.id;
+                else
+                    error('Simatra:Exp', 'Invalid types passed to Exp.  Must be either a string variable name, a numeric literal, an Exp type, or an Iterator.');
                 end
             elseif nargin == 2
-                e.val = [v '.' sub];
-                e.type = e.REFERENCE;
+                if ischar(v) && ischar(sub)
+                    e.val = [v '.' sub];
+                    e.type = e.REFERENCE;
+                else
+                    error('Simatra:Exp', 'When calling Exp with two arguments, they must be both strings to create the instance reference arg1.arg2');
+                end
             end
         end
         
@@ -69,6 +170,10 @@ classdef Exp
         
         function er = uminus(e1)
             er = oper('-', {e1});
+        end
+        
+        function er = uplus(e1)
+            er = oper('+', {e1});
         end
         
         function er = times(varargin)
@@ -295,6 +400,30 @@ classdef Exp
         
         % Piecewise functions
         function er = piecewise(varargin)            
+            % Piecewise - functional conditional operator
+            %
+            % Usage:
+            %   RESULT = Piecewise(VALUE1, CONDITION1, [VALUE2, CONDITION2, [...]], OTHERWISE)  
+            %
+            % Description:
+            %   The piecewise operator allows conditional expressions to be 
+            %   embedded inline within a series of operations.  This is the
+            %   only way to provide IF type functionality to simEngine
+            %   since the MATLAB model framework can not see IF statements
+            %   in the code.  All IF statements in MATLAB are evaluated at
+            %   compile time.  The Piecewise operator, in contrast, is
+            %   evaluated at simulation time.
+            %  
+            % Examples:
+            %   % max of two value
+            %   max_value = piecewise(x, x>y, y);
+            %   % heavywise step function
+            %   step = piecewise(1, t>0, 0);
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
             if nargin == 1 && iscell(varargin{1})
                 args = varargin{1};
             else
@@ -319,6 +448,28 @@ classdef Exp
         % arguments)
         function er = max(e1, e2)
             er = piecewise(e1, e1 > e2, e2);
+            % Can't uncomment this since we can't efficiently model this in
+            % MATLAB - this exponentially explodes in size
+%             function r = maxfcn(a,b)
+%                 if ~isa(a, 'Exp')
+%                     a = Exp(a);
+%                 end
+%                 if ~isa(b, 'Exp')
+%                     b = Exp(b);
+%                 end
+%                 r = piecewise(a, a>b, b);
+%             end
+%             switch nargin
+%                 case 0
+%                     error('Simatra:Exp:max','Not enough input arguments');
+%                 case 1
+%                     er = Exp(varargin{1}); % NON STANDARD BEHAVIOR
+%                 case 2
+%                     er = maxfcn(varargin{1},varargin{2});
+%                 otherwise
+%                     er = List.foldl(@maxfcn, varargin{1}, varargin(2:end));
+%             end
+
         end
         function er = min(e1, e2)
             er = piecewise(e1, e1 < e2, e2);
@@ -326,6 +477,27 @@ classdef Exp
         
         % speciality functions
         function er = conv(e1, vec)
+            % Conv - Convolution operator
+            %
+            % Usage:
+            %   RESULT = Conv(EXPVAR, VECTOR)
+            %
+            % Description:
+            %   The convolution operator takes an Exp variable with a
+            %   defined iterator and convolutes it over time with a vector.
+            %   The first argument must be a variable with an iterator
+            %   defined and a relative index of 0, for example x[n].  The
+            %   second argument must be numeric.
+            %  
+            % Examples:
+            %   % three point moving averager
+            %   n = Iterator('n', 'discrete', 'sample_frequency', 44100);
+            %   y = conv(x(n), (1/3)*[1 1 1]);
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
             if ~isa(e1, 'Exp')
                 error('Simatra:Exp:conv', 'First argument must be an expression type');
             end

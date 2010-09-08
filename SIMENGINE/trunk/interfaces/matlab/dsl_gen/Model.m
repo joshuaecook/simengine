@@ -132,6 +132,8 @@ classdef Model < handle
             %   an iterator to the state.  Otherwise, it will use the
             %   iterator assigned to MDL.DefaultIterator.
             %
+            % See also MODEL/DIFFEQU MODEL/RECURRENCEEQU
+            %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
@@ -193,6 +195,8 @@ classdef Model < handle
             %   r = mdl.RANDOM(..., 'iter', ITERATOR) - explicitly set
             %   an iterator to the random number. A new random number will
             %   be generated according to the specified iterator
+            %
+            % See also MODEL/STATE
             %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
@@ -284,6 +288,8 @@ classdef Model < handle
             %     'repeat' - repeat the input sequence over and over again
             %     'stop' - end the simulation after the input sequence is
             %     finished
+            %
+            % See also MODEL/OUTPUT
             %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
@@ -384,6 +390,8 @@ classdef Model < handle
             %   mdl.output('x', 'when', mdl.time > 100); % output x
             %   only after the model time exceeds 100
             %
+            % See also MODEL/INPUT
+            %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
@@ -481,6 +489,31 @@ classdef Model < handle
         end
         
         function instance = submodel(m, arg1, arg2)
+            % MODEL/SUBMODEL - instantiate a submodel in an existing model
+            % 
+            % Usage:
+            %   INSTANCE = MDL.SUBMODEL([ID, ] SUB_MDL)
+            % 
+            % Description:
+            %   Creates a submodel instantiation inside another model.  The
+            %   submodel SUB_MDL is a Model object and is given an optional
+            %   label ID.  The SUBMODEL method returns an Instance object
+            %   INSTANCE.
+            %
+            % Examples:
+            %   m1 = Model('top');
+            %   m2 = Model('square');
+            %   x = m2.input('x');
+            %   m2.output('y', x^2); % create a simple square relationship
+            %   instance1 = m1.submodel(m2); % instantiate the submodel
+            %   x = m1.state(0);
+            %   m1.diffequ(x, 1); % increment by one
+            %   instance1.x = x; % assign into the submodel
+            %   m1.output('y', instance1.y); % read from the submodel
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
             if nargin == 2
                 inst = ['Instance_' num2str(m.instance_number)];
                 m.instance_number = m.instance_number + 1;
@@ -533,6 +566,21 @@ classdef Model < handle
         end
 
         function e = equ(m, lhs, rhs)
+            % MODEL/EQU - adds an update equation to a state
+            % 
+            % Usage:
+            %   VAR = MDL.EQU([ID, ] EXP)
+            % 
+            % Description:
+            %   creates an intermediate value VAR for an expression EXP.
+            %   Optionally, this VAR can have a name ID which will exist in
+            %   the generated DIESEL code.  This method can be a useful
+            %   tool to improve performance when equations get very long
+            %   and use common subexpressions.
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
             if 2 == nargin
                 rhs = Exp(lhs);
                 lhsstr = ['InternalIntermediate__' num2str(m.intermediate_number)];
@@ -567,6 +615,8 @@ classdef Model < handle
             %   updates the state expression <state> with the expression
             %   <equation> when the <condition> is true.  This can be used
             %   to define a reset condition for a state variable.
+            %
+            % See also MODEL/STATE MODEL/DIFFEQU MODEL/RECURRENCEEQU
             %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
@@ -603,12 +653,21 @@ classdef Model < handle
             % state
             % 
             % Usage:
-            %   MDL.DIFFEQU(VARIABLE, EXPRESSION, 'when', CONDITION)
+            %   MDL.DIFFEQU(VARIABLE, EXPRESSION)
             % 
             % Description:
-            %   updates the state expression <state> with the expression
-            %   <equation> when the <condition> is true.  This can be used
-            %   to define a reset condition for a state variable.
+            %   Adds a first order differential equation to the state
+            %   variable.  The equation is created as VARIABLE' =
+            %   EXPRESSION where the independent variable is the iterator
+            %   that the state VARIABLE was defined with.
+            %
+            % Examples:
+            %   m = Model('sine');
+            %   x = m.state(0); y = m.state(1);
+            %   m.diffequ(x, y-1);
+            %   m.diffequ(y, 1-x);
+            %
+            % See also MODEL/STATE MODEL/RECURRENCEEQU MODEL/UPDATE
             %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
@@ -622,6 +681,31 @@ classdef Model < handle
         end        
 
         function recurrenceequ(m, lhs, rhs)
+            % MODEL/RECURRENCEEQU - add a recurrence equation to a state
+            % variable
+            % 
+            % Usage:
+            %   MDL.RECURRENCEEQU(VARIABLE, EXPRESSION)
+            % 
+            % Description:
+            %   Creates a recurrence or difference equation for a
+            %   previously defined state.  The resulting equation is of the
+            %   form VARIABLE[n+1] = EXPRESSION, where n is the iterator
+            %   that the state was defined with.
+            %
+            % Examples:
+            %   m = Model('averager');
+            %   n = Iterator('discrete', 'sample_period', 1);
+            %   x = ...
+            %   y = m.state(0, 'iter', n);
+            %   % define y[n+1] = 1/3*(x[n]+x[n-1]+x[n-2])
+            %   m.recurrenceequ(y, 1/3*(x+x(n-1)+x(n-2)));
+            %
+            % See also MODEL/STATE MODEL/DIFFEQU MODEL/UPDATE
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com            
             id = toVariableName(lhs);
             iter = toIterReference(lhs);
             if isfield(m.RecurrenceEqs, id)
@@ -724,6 +808,12 @@ classdef Model < handle
         end
         
         function map = findIterators(m)
+            % MODEL/FINDITERATORS - return all the iterators used in the
+            % system as a containers.Map
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com            
             map = containers.Map;
             % Search for iterators everywhere
             %  - first in intermediate equations
