@@ -1,7 +1,7 @@
 classdef Exp
 % Exp - Build simEngine symbolic expressions in MATLAB
 %
-% Model Methods:
+% Exp Methods:
 %   Constructor:
 %   Exp - create a new Exp object
 %
