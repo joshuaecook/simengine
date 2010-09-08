@@ -2186,11 +2186,15 @@ fun state_init_code shardedModel iter_sym =
 					     let
 						 val key = Symbol.symbol (Util.removePrefix (Term.sym2name (DOF.Input.name input)))
 						 val value = 
-						     case SymbolTable.look (inpassoc, key)
-						      of SOME x => x
-						       | NONE => DynException.stdException(("Cannot find "^(Symbol.name key)^" input value for instance "^(Symbol.name instname)^"."),
-											   "CParallelWriter.outputeq2prog",
-											   Logger.INTERNAL)
+						     if hasInitialValueEquation (Match.exists (Match.asym (Util.sym2codegensym key))) instclass
+						     then
+							 case SymbolTable.look (inpassoc, key)
+							  of SOME x => x
+							   | NONE => DynException.stdException(("Cannot find "^(Symbol.name key)^" input value for instance "^(Symbol.name instname)^"."),
+											       "CParallelWriter.outputeq2prog",
+											       Logger.INTERNAL)
+						     else
+							 Exp.TERM Exp.NAN
 					     in
 						 $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str value) ^ "; // " ^ (Symbol.name key))
 					     end
