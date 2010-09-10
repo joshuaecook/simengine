@@ -89,10 +89,8 @@ __DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
   // Update solver time to next value
   props->time[modelid] = props->next_time[modelid];
 
-  // Only discrete iterators have a count field
-  if(props->count){
-    props->count[modelid]++;
-  }
+  // Now all solvers have a count field to keep track of the number of steps
+  props->count[modelid]++;
 
   return props->last_iteration[modelid];
 }
