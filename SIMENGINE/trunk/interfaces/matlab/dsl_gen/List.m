@@ -39,6 +39,25 @@ classdef List
             end
         end
         
+        function str = cell2str(c)
+            function s = toStr(var)
+                if isnumeric(var)
+                    s = num2str(var);
+                elseif iscell(var)
+                    s = cell2str(var);
+                elseif ischar(var)
+                    s = [''''  var ''''];
+                else
+                    warning('Simatra:List:cell2str:toStr', 'Don''t understand class type %s', class(var));
+                    s = '';
+                end
+            end
+            
+            % Turn everything into a string
+            str_list = List.map (@toStr, c);
+            
+            str = ['{' List.stringConcatWith(', ', str_list) '}'];
+        end
         
     end
     

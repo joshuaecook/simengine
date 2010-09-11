@@ -27,6 +27,7 @@ classdef Model < handle
 %   Model Processing:
 %   type - display the generated model
 %   toDSL - write the model to a file
+%   disp - display information about the model
 %
 %
 % Copyright 2010 Simatra Modeling Technologies
@@ -52,7 +53,8 @@ classdef Model < handle
     end
     
     properties (Access = public)
-        solver = {'ode45', 'dt', 0.1};
+        solver
+        dt
         stoptime = []
     end
     
@@ -84,11 +86,11 @@ classdef Model < handle
             switch nargin
                 case 0
                     Name = [];
-                    m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', m.solver{:});
+                    m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', 'ode45', 'dt', 0.01);
                 case 1
                     if ischar(varargin{1})
                         Name = varargin{1};
-                        m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', m.solver{:});
+                        m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', 'ode45', 'dt', 0.01);
                     elseif isa(varargin{1}, 'Iterator')
                         Name = [];
                         m.DefaultIterator = varargin{1};
@@ -777,35 +779,86 @@ classdef Model < handle
             t = m.DefaultIterator;
         end
         
-        function set.solver(m, varargin)
-            % MODEL/SET.SOLVER - set the default solver and properties
+        function set.solver(m, solver)
+            % MODEL/SET.SOLVER - set the default solver
             % 
             % Usage:
-            %   MDL.SOLVER = SOLVE_PARAMS - SOLVE_PARAMS is a cell array of
-            %   parameters for the solver.  The first parameter is the name
-            %   of the solver and the following in pairs are the parameter
-            %   name and value.
+            %   MDL.SOLVER = SOLVER - SOLVER is one of the defined solvers,
+            %   which can include 'forwardeuler', 'rk4', 'heun', 'ode23',
+            %   'ode45', 'cvode', 'exponentialeuler', and
+            %   'linearbackwardeuler'.
             %
             % Examples:
-            %   mdl.solver = {'ode23'} - use the 2-3 pair Bogacki-Shampine
+            %   mdl.solver = 'ode23' - use the 2-3 pair Bogacki-Shampine
             %   variable time step solver
             %
-            %   mdl.solver = {'rk4', 'dt', 0.01} - use the 4th order
-            %   Runge-Kutta solver with fixed step size of 0.01.
+            %   mdl.solver = 'rk4' - use the 4th order Runge-Kutta solver
+            %   mdl.dt = 0.01;     - with fixed step size of 0.01;
             %
-            % See also MODEL/TIME MODEL/TIMEITERATOR
+            % See also MODEL/TIME MODEL/TIMEITERATOR MODEL/SET.DT
             %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
             %    
-            if iscell(varargin{1})
-                m.solver = varargin{1};
+            
+            if m.DefaultIterator.isContinuous 
+                m.DefaultIterator.solver = solver;
             else
-                m.solver = varargin;
+                error('Simatra:Model.solver', 'Can only set the solver for a continuous iterator');
             end
-            update_iterator(m);
         end
+        
+        function set.dt(m, dt)
+            % MODEL/SET.DT - set the default time step
+            % 
+            % Usage:
+            %   MDL.DT = DT - DT is a time step quantity
+            %
+            % Examples:
+            %   mdl.dt = 0.01 - set the time step to 0.01
+            %
+            % See also MODEL/TIME MODEL/TIMEITERATOR MODEL/SET.SOLVER
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
+            
+            m.DefaultIterator.dt = dt;
+        end
+        
+        function solver = get.solver(m)
+            % MODEL/GET.SOLVER - gets the default solver
+            % 
+            % Usage:
+            %   solver = MDL.SOLVER - SOLVER is a string method name
+            %
+            % See also MODEL/GET.DT MODEL/SET.SOLVER
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
+            
+            solver = m.DefaultIterator.solver;
+        end
+        
+        function dt = get.dt(m)
+            % MODEL/GET.DT - gets the default time step
+            % 
+            % Usage:
+            %   dt = MDL.DT - DT is a time step quantity
+            %
+            % See also MODEL/SET.DT MODEL/GET.SOLVER
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
+            
+            dt = m.DefaultIterator.dt;
+        end        
         
         function map = findIterators(m)
             % MODEL/FINDITERATORS - return all the iterators used in the
@@ -1203,6 +1256,68 @@ classdef Model < handle
             else
                 varargout{1} = simex(toDSL(m), varargin{:}, '-fastcompile');
             end
+        end
+        
+        
+        function disp(m)
+            % MODEL/disp - display information on the model
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %
+            disp(['simEngine Model']);
+            disp(['        Name: ' m.Name]);
+            %disp(['      solver: ' List.cell2str(m.solver)]);
+            [inputs, outputs] = interface(m);
+            if isempty(inputs)
+                disp(['      inputs: <none>']);
+            else
+                disp(['      inputs: ' List.cell2str(inputs)]);
+            end
+            if isempty(outputs)
+                disp(['     outputs: <none>']);
+            else
+                disp(['     outputs: ' List.cell2str(outputs)]);
+            end
+            % count sub models
+            submodel_counts = containers.Map;
+            insts = keys(m.Instances);
+            for i=1:length(insts)
+                name = m.Instances(insts{i}).name;
+                if iskey(submodle_counts, m.Instances(inst{i}).name)
+                    submodel_counts(name) = submodel_counts(name) + 1;
+                else
+                    submodel_counts(name) = 1;
+                end
+            end
+            if isempty(insts)
+                disp(['  sub-models: <none>']);
+            else
+                disp(['  sub-models: ' num2str(length(insts))]);
+            end
+            names = keys(submodel_counts);
+            for i=1:length(names)
+                disp(['     ' names{i} ': ' num2str(submodel_counts(names{i}))]);
+            end
+            state_count = length(keys(m.States));
+            if state_count == 0
+                disp(['      states: <none>']);
+            else
+                disp(['      states: ' num2str(state_count)]);
+            end
+            iterators = findIterators(m);
+            iterator_keys = keys(iterators);
+            iterator_count = length(iterator_keys);
+            if iterator_count == 1
+                disp(['    iterator: ' iterators(iterator_keys{1}).toInfo]);
+            elseif iterator_count > 1
+                for i=1:iterator_count
+                    key = iterator_keys{i};
+                    disp(sprintf(' iterator %s: %s', key, iterators(key).toInfo));
+                end
+            end
+            disp(' ');
         end
         
     end

@@ -1,9 +1,13 @@
 classdef Iterator < handle
 % Iterator - Define a temporal iterator for use in a simEngine Model
 %
-% Model Methods
+% Iterator Methods
 %   Constructor:
 %   Iterator - create a new iterator object
+%
+% Iterator Properties
+%   solver   - string name of the numerical method
+%   dt       - time step of the numerical method
 %
 % Copyright 2010 Simatra Modeling Technologies
 % Website: www.simatratechnologies.com
@@ -88,12 +92,13 @@ classdef Iterator < handle
                     args = args(2:end);
                 elseif strcmpi(arg, 'solver')
                     if length(args) > 1
-                        switch args{2}
-                            case iter.solvers
-                                iter.solver = args{2};
-                            otherwise
-                                error('Simatra:Iterator', 'Invalid solver specified.  Options are: %s', List.stringConcatWith(', ', iter.solvers));
-                        end
+%                         switch args{2}
+%                             case iter.solvers
+%                                 iter.solver = args{2};
+%                             otherwise
+%                                 error('Simatra:Iterator', 'Invalid solver specified.  Options are: %s', List.stringConcatWith(', ', iter.solvers));
+%                         end
+                        iter.solver = args{2};
                         args = args(3:end);
                     else
                         error('no solver');
@@ -130,6 +135,28 @@ classdef Iterator < handle
             
         end
         
+        function set.solver(iter, solv)
+            if ~ischar(solv)
+                error('Simatra:Iterator:solver', 'The value passed for solver must be a string quantity');
+            end
+            switch solv
+                case iter.solvers
+                    iter.solver = solv;
+                otherwise
+                    error('Simatra:Iterator:solver', 'Invalid solver specified.  Options are: %s', List.stringConcatWith(', ', iter.solvers));
+            end
+        end
+        
+        function set.dt(iter, dt)
+            if ~isnumeric(dt)
+                error('Simatra:Iterator:dt', 'The value passed for dt must be a numeric quantity');
+            elseif dt <= 0
+                error('Simatra:Iterator:dt', 'The value passed for dt must be greater than zero');
+            end                
+                
+            iter.dt = dt;
+        end
+        
         function r = isDiscrete(iter)
             r = strcmpi(iter.type, 'discrete');
         end
@@ -154,6 +181,16 @@ classdef Iterator < handle
                 options = ['solver=' iter.solver '{dt=' num2str(iter.dt) '}'];
             end
             str = ['iterator ' iter.id ' with {' iter.type ', ' options '}'];
+        end
+        
+        function str = toInfo(iter)
+            if strcmpi(iter.type, 'discrete')
+                options = ['sample_period=' num2str(iter.dt)];
+                str = sprintf('Discrete iterator with {%s}', options);
+            else
+                options = ['solver=' iter.solver '{dt=' num2str(iter.dt) '}'];
+                str = sprintf('Continuous iterator with {%s}', options);
+            end
         end
         
         function disp(iter)
