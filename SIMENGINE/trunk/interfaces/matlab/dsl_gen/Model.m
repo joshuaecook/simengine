@@ -297,7 +297,7 @@ classdef Model < handle
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
             if identifier_exists(m, id)
-                error('Simatra:Model', ['Input ' id ' already exists']);
+                error('Simatra:Model:input', ['Input ' id ' already exists']);
             else
                 e = Exp(id);
                 s = struct('default', nan, 'exhausted', false, 'iterator', false);
@@ -428,12 +428,18 @@ classdef Model < handle
                                 msg = ['Variable ' arg ' has not been defined in the system'];
                                 error('Simatra:Model:output', msg)
                             end
-                        elseif isa(arg, 'Exp') || isa(arg, 'Iterator')
+                        elseif isa(arg, 'Exp')
                             % Finally, this is the case where you specify an
                             % expression to be output and it has to determine the
                             % name from the inputname command
                             e = {Exp(arg)};
                             id = inputname(2);
+                        elseif isa(arg, 'Iterator')
+                            % This will handle the case where you pass in
+                            % an iterator directly
+                            e = {};
+                            id = inputname(2);
+                            iterator = arg;
                         elseif isnumeric(arg)
                             % This is a degenerate case where we would like to
                             % output a constant
@@ -484,10 +490,9 @@ classdef Model < handle
 
             e = List.map(@(elem)(Exp(elem)), e);
             if m.Outputs.isKey(id)
-                error('Simatra:Model', ['Output ' id ' already exists']);
-            else
-                m.Outputs(id) = struct('contents', {e}, 'condition', condition, 'iterator', iterator);    
+                warning('Simatra:Model:output', ['Output ' id ' already exists and is being replaced']);
             end
+            m.Outputs(id) = struct('contents', {e}, 'condition', condition, 'iterator', iterator);
         end
         
         function instance = submodel(m, arg1, arg2)
@@ -1140,9 +1145,10 @@ classdef Model < handle
                 iter = output.iterator;
                 iter_str = '';
                 if isa(iter, 'Iterator')
-                    iter_str = ['[' iter.id ']'];
+                    %iter_str = ['[' iter.id ']'];
+                    iter_str = [' with {iter=' iter.id '}'];
                 end
-                str = [str '   output ' name iter_str ' = ' contentsList optcondition '\n'];
+                str = [str '   output ' name ' = ' contentsList iter_str optcondition '\n'];
             end
             str = [str 'end\n'];
         end
