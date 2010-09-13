@@ -674,9 +674,9 @@ classdef Exp
                     s = e.val;
                 case e.LITERAL
                     if length(e.val) > 1
-                        s = ['[' num2str(e.val) ']'];
+                        s = ['[' num2str(e.val, '%g') ']'];
                     else
-                        s = num2str(e.val);
+                        s = num2str(e.val, '%g');
                     end
                 case e.OPERATION
                     if strcmp(e.op, 'piecewise')
