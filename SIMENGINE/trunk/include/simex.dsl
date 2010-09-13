@@ -726,11 +726,11 @@ import "command_line.dsl"
     if needsToCompile then
       populateCompilerSettings(compilerSettings)
       var success = compile (filename, target, compilerSettings, simfile)
-      exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
       if success <> 0 then
 	LF sys_exit(128)
 	exfile = ""
       end
+      exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
     else
       exfile = Path.join(settings.compiler.outputdir.getValue(), compilerSettings.exfile)
       if settings.simulation_debug.debug.getValue() then

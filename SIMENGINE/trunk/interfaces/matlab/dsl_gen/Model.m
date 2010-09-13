@@ -445,6 +445,11 @@ classdef Model < handle
                             % output a constant
                             e = {Exp(arg)};
                             id = inputname(2);
+                        elseif iscell(arg)
+                            % This is ok only if they are all can be Exp
+                            % types
+                            e = List.map (@(a)(Exp(a)), arg);
+                            id = inputname(2);
                         else
                             error('Simatra:Model:output', 'The first argument to the output method can be a string variable name or an expression type and must exist in the model.')
                         end
@@ -1291,7 +1296,7 @@ classdef Model < handle
             insts = keys(m.Instances);
             for i=1:length(insts)
                 name = m.Instances(insts{i}).name;
-                if iskey(submodle_counts, m.Instances(inst{i}).name)
+                if isKey(submodel_counts, name)
                     submodel_counts(name) = submodel_counts(name) + 1;
                 else
                     submodel_counts(name) = 1;
