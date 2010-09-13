@@ -58,13 +58,13 @@ alpha_h = (0.34 * (-(Vm + 114)))/(1 - exp((Vm + 114)/11));
 beta_h = 12.6/(1 + exp(-(Vm + 31.8)/13.4));
 m_node.diffequ(m, alpha_m*(1 - m) - beta_m*m);
 m_node.diffequ(h, alpha_h*(1 - h) - beta_h*h);
-INaF = GNaF*m*m*m*h*(Vm - ENa);
+INaF = GNaF*m^3*h*(Vm - ENa);
 
 %Equations for persistant sodium current (pA)
 alpha_p = (0.0353 * (Vm + 27))/(1 - exp(-1*(Vm + 27)/10.2));
 beta_p = (0.000883 * (-(Vm + 34)))/(1 - exp((Vm + 34)/10));
 m_node.diffequ(p, alpha_p*(1-p) - beta_p*p);
-INaP = GNaP*p*p*p*(Vm - ENa);
+INaP = GNaP*p^3*(Vm - ENa);
 
 %Equations for slow potassium current (pA)
 alpha_s = 0.3/(1 + exp(-(Vm + 53)/5));
