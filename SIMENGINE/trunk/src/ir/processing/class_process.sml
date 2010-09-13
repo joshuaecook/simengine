@@ -75,6 +75,7 @@ sig
     val updateRealClassName : DOF.class -> Symbol.symbol -> DOF.class 
     val updatePreShardName : DOF.classproperties -> Symbol.symbol -> DOF.classproperties
     val pruneClass : (DOF.systemiterator option * bool) -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
+    val pruneInputsFromOutputs: DOF.class -> unit
     val pruneUnusedInputs: DOF.class -> unit
     val propagateSpatialIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
     val propagateStateIterators : DOF.class -> unit (* propagates just state iterators through equations into outputs *)
@@ -428,21 +429,14 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 
 	val {outputs, inputs, ...} = class
 
-	(* Two ways of matching an output symbol because this code
-	 * executes during different phases of compilation; in later
-	 * phases the names have been mangled.
-	 *)
 	fun output_name_to_instance_output sym = 
 	    Symbol.symbol ((Symbol.name instname) ^ "." ^ (Util.removePrefix sym))
-	fun output_name_to_instance_output' sym = 
-	    Symbol.symbol (Util.fixname (Util.commonPrefix ^ (Symbol.name instname) ^ "." ^ (Util.removePrefix sym)))
 
 	val output = case List.find (fn (out) => 
 					let
 					    (* val _ = log (fn () => Symbol.name (output_name_to_instance_output (Term.sym2name (DOF.Output.name out)))) *)
 					in
-					    sym = output_name_to_instance_output (Term.sym2name (DOF.Output.name out)) orelse
-					    sym = output_name_to_instance_output' (Term.sym2name (DOF.Output.name out))
+					    sym = output_name_to_instance_output (Term.sym2name (DOF.Output.name out))
 					end) (!outputs)
 		      of SOME out => out
 		       | NONE => 
@@ -452,12 +446,9 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 	val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 
 	val leaf = 
-	    (** FIXME What's the significance of this check?
-	     ** This causes flattening problems in later compilation phases.
-	     **)
-	    (* case TermProcess.symbol2temporaliterator name *)
-	    (*  of SOME _ => ExpBuild.equals (ExpBuild.var (Symbol.name sym), Exp.TERM name) *)
-	    (*   | NONE =>  *)
+	    case TermProcess.symbol2temporaliterator name
+	     of SOME _ => ExpBuild.equals (ExpBuild.var (Symbol.name sym), Exp.TERM name)
+	      | NONE =>
 		let 
 		    val terms = 
 			Util.flatmap (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) (condition :: contents)
@@ -1819,6 +1810,9 @@ fun pruneInputsFromOutput class output =
 	inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputSymbols'
     end
 
+fun pruneInputsFromOutputs class =
+    app (pruneInputsFromOutput class) (!(#outputs class))
+
 fun pruneUnusedInputs (class: DOF.class) =
     let
 	fun remove_unused_inputs (Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (func as Fun.OUTPUT {classname, instname, outname, props}, inpargs)])) =
@@ -2062,10 +2056,6 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
 			     | NONE => outputs
 		       else
 			   outputs
-
-	(* take all inputs that aren't called by the outputs directly (very costly - does a full flatten here) *)
-	val _ = Profile.timeTwoCurryArgs "Pruning inputs from outputs" app (pruneInputsFromOutput class) outputs'
-
 
 	(* find all the dependencies *)
 	val dependency_list = Profile.time "Finding dependencies" (fn()=>findAllDependencies class iter_option outputs') ()

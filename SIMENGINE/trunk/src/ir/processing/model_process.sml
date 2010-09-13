@@ -434,6 +434,14 @@ fun normalizeModel (model:DOF.model) =
 	val _ = DynException.checkToProceed()
 	val _ = Profile.mark()
 
+	(* prune unused inputs from output equations. *)
+	val _ = log ("Pruning output equations ...")
+	(* take all inputs that aren't called by the outputs directly (very costly - does a full flatten here) *)
+	val _ = Profile.time "Pruning inputs from outputs" (fn () => app ClassProcess.pruneInputsFromOutputs (CurrentModel.classes()))
+	val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+	val _ = DynException.checkToProceed()
+	val _ = Profile.mark()
+
 	(* expand out delays *)
 	val _ = log ("Adding delays to difference equations")
 	val () = Profile.time "Adding difference equation delays" (fn()=>app ClassProcess.addDelays (CurrentModel.classes())) ()
