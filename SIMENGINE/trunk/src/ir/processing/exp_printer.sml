@@ -4,7 +4,7 @@ sig
 (* will print in a full form or a terse form depending on the setting of "usefullform" in the options *)
 val exp2str : Exp.exp -> string
 val exp2prettystr : Exp.exp -> string (* this is for nicer printing for user error messages *)
-val exp2terselayout : bool -> Exp.exp -> Layout.t
+val exp2layout : bool -> Exp.exp -> Layout.t
 
 end
 structure ExpPrinter =
@@ -130,7 +130,7 @@ val curlyList = Layout.series ("{", "}", ",")
 val s2l = str
 val sym2l = s2l o Symbol.name
 val i2l = s2l o i2s
-val r2l = s2l o Real.toString
+val r2l = s2l o r2s
 val b2l = s2l o b2s
 fun bracket(t) = seq [s2l "[", t, s2l "]"]
 in
@@ -380,6 +380,13 @@ fun exp2str e =
      else
 	 Layout.toString (exp2terselayout false e))
     handle e => DynException.checkpoint "ExpProcess.exp2str" e
+
+fun exp2layout e = 
+    (if DynamoOptions.isFlagSet("usefullform") then
+	 Layout.str (exp2fullstr e)
+     else
+	 exp2terselayout false e)
+    handle e => DynException.checkpoint "ExpProcess.exp2layout" e
 
 fun exp2prettystr e = 
     exp2tersestr true e

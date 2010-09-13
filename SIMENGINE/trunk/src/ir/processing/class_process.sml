@@ -2264,10 +2264,13 @@ and outputExpressions caller equation =
 	val instanceName = ExpProcess.instOrigInstName equation
 	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
 	fun prefixSymbol prefix (Exp.TERM (Exp.SYMBOL (sym, props))) =
-	    Exp.TERM (Exp.SYMBOL (Symbol.symbol (prefix ^ (Symbol.name sym)), case Property.getRealName props of 
-										  SOME v => Property.setRealName props (Symbol.symbol (prefix ^ (Symbol.name v)))
-										| NONE => props))
-
+	    let
+		fun update sym = Symbol.symbol (prefix ^ (Symbol.name sym))
+	    in
+		Exp.TERM (Exp.SYMBOL (update sym, case Property.getRealName props of 
+						      SOME v => Property.setRealName props (update v)
+						    | NONE => props))
+	    end
 	  | prefixSymbol _ _ = 
 	    DynException.stdException(("Cannot rename non-symbol in instance '" ^ (Symbol.name instname) ^ "' of class '" ^ (Symbol.name name) ^ "'"), 
 				      "ClassProcess.unify.symbolExpansion", Logger.INTERNAL)

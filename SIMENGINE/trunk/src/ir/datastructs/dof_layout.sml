@@ -22,7 +22,7 @@ val s2l = str
 val sym2l = s2l o Symbol.name
 val i2l = s2l o i2s
 val r2l = s2l o Real.toString
-val e2l = ExpPrinter.exp2terselayout false
+val e2l = ExpPrinter.exp2layout
 fun commas_seg t = seq (separate (t, ","))
 fun commas_aligned t = mayAlign (separate (t, ","))
 
