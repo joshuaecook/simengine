@@ -415,6 +415,7 @@ and flattenEquationThroughInstances class sym =
  *)
 and leafTermSymbolsOfInstanceEquation caller sym eqn =
     let
+	val _ = log (fn () => "leafTermSymbolsOfInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'")
 	val {classname, instname, outargs, inpargs, ...} = ExpProcess.deconstructInst eqn
 	val class = CurrentModel.classname2class classname
 	val inpassoc = 
@@ -426,9 +427,23 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 					  Logger.INTERNAL)
 
 	val {outputs, inputs, ...} = class
+
+	(* Two ways of matching an output symbol because this code
+	 * executes during different phases of compilation; in later
+	 * phases the names have been mangled.
+	 *)
 	fun output_name_to_instance_output sym = 
-	    Symbol.symbol ((Symbol.name instname) ^ "." ^ (Symbol.name sym))
-	val output = case List.find (fn (out) => output_name_to_instance_output (Term.sym2curname (DOF.Output.name out)) = sym) (!outputs)
+	    Symbol.symbol ((Symbol.name instname) ^ "." ^ (Util.removePrefix sym))
+	fun output_name_to_instance_output' sym = 
+	    Symbol.symbol (Util.fixname (Util.commonPrefix ^ (Symbol.name instname) ^ "." ^ (Util.removePrefix sym)))
+
+	val output = case List.find (fn (out) => 
+					let
+					    (* val _ = log (fn () => Symbol.name (output_name_to_instance_output (Term.sym2name (DOF.Output.name out)))) *)
+					in
+					    sym = output_name_to_instance_output (Term.sym2name (DOF.Output.name out)) orelse
+					    sym = output_name_to_instance_output' (Term.sym2name (DOF.Output.name out))
+					end) (!outputs)
 		      of SOME out => out
 		       | NONE => 
 			 DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), 
@@ -436,29 +451,34 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 						   Logger.INTERNAL)
 	val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 
-	(*val _ = Util.log ("leafTermSymbolsOfInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'")*)
+	val leaf = 
+	    (** FIXME What's the significance of this check?
+	     ** This causes flattening problems in later compilation phases.
+	     **)
+	    (* case TermProcess.symbol2temporaliterator name *)
+	    (*  of SOME _ => ExpBuild.equals (ExpBuild.var (Symbol.name sym), Exp.TERM name) *)
+	    (*   | NONE =>  *)
+		let 
+		    val terms = 
+			Util.flatmap (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) (condition :: contents)
+		    (* Outputs connected to inputs are traced back to the caller. *)
+		    val terms = 
+			Util.flatmap (fn t => 
+					 if isSymInput class (Term.sym2curname t) then
+					     case SymbolTable.look (inpassoc, Term.sym2symname t)
+					      of SOME inp =>
+						 ExpProcess.exp2termsymbols (flattenExpressionThroughInstances caller inp)
+					       | NONE => 
+						 DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.leafTermSymbolsOfInstanceEquation", Logger.INTERNAL)
+					 else [t]
+				     ) terms
+		in		   
+		    ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
+				     Exp.TERM (if 1 = List.length terms then List.hd terms else Exp.TUPLE terms))
+		end
+	val _ = log (fn () => "leafTermSymbolsOfInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s leaf)^"'")
     in 
-	case TermProcess.symbol2temporaliterator name
-	 of SOME _ => ExpBuild.equals (ExpBuild.var (Symbol.name sym), Exp.TERM name)
-	  | NONE => 
-	    let 
-		val terms = 
-		    Util.flatmap (ExpProcess.exp2termsymbols o (flattenExpressionThroughInstances class)) (condition :: contents)
-		(* Outputs connected to inputs are traced back to the caller. *)
-		val terms = 
-		    Util.flatmap (fn t => 
-				     if isSymInput class (Term.sym2curname t) then
-					 case SymbolTable.look (inpassoc, Term.sym2symname t)
-					  of SOME inp =>
-					     ExpProcess.exp2termsymbols (flattenExpressionThroughInstances caller inp)
-					   | NONE => 
-					     DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.leafTermSymbolsOfInstanceEquation", Logger.INTERNAL)
-				     else [t]
-				 ) terms
-	    in		   
-		ExpBuild.equals (ExpBuild.var (Symbol.name sym), 
-				 Exp.TERM (if 1 = List.length terms then List.hd terms else Exp.TUPLE terms))
-	    end
+	leaf
     end
 
 (* flattenEq does not pass through instance equations - we need a different one that will pass through instance equations *)
@@ -1780,7 +1800,7 @@ fun pruneInputsFromOutput class output =
     let
 	val inputs = DOF.Output.inputs output
 	val inputSymbols = map Term.sym2curname (! inputs)
-	val exps = map (flattenExp class) 
+	val exps = map (flattenExpressionThroughInstances class) 
 			((DOF.Output.condition output) ::
 			 (DOF.Output.contents output))
 
@@ -1802,6 +1822,7 @@ fun pruneInputsFromOutput class output =
 fun pruneUnusedInputs (class: DOF.class) =
     let
 	fun remove_unused_inputs (Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (func as Fun.OUTPUT {classname, instname, outname, props}, inpargs)])) =
+	    (* Output function *)
 	    let
 		val class' = CurrentModel.classname2class classname
 
@@ -1838,6 +1859,7 @@ fun pruneUnusedInputs (class: DOF.class) =
 	    end
 
 	  | remove_unused_inputs (Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (func as Fun.INST {classname, instname, props}, inpargs)])) =
+	    (* Instance function *)
 	    let
 		val class' = CurrentModel.classname2class classname
 
