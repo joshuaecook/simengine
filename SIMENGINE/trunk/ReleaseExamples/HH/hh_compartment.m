@@ -3,7 +3,7 @@
 % Hodgkin & Huxley Giant Squid Axon Model (J Physiol, 1952)
 %
 % Adapted for use with simEngine
-% Copyright 2009 Simatra Modeling Technologies, L.L.C.
+% Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
 %
 function hh_compartment
 
