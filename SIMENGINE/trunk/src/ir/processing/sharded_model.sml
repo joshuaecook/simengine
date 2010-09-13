@@ -396,7 +396,7 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 								  var, 
 								  Match.any "d4"],
 					       (* use a test to make sure that we're only looking at the top most expression *)
-					       test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp', matched_exp)),
+					       test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp, matched_exp)),
 					       replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.int 1,
 											      ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
 					      
