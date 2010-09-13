@@ -483,8 +483,9 @@ fun normalizeModel (model:DOF.model) =
 			val _ = log ("Flattening model ...")
 			val _ = Profile.write_status "Flattening model"
 			val model' = Profile.time "Unifying " unify (CurrentModel.getCurrentModel())
+			val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 			val _ = log ("Optimizing ...")
-			val _ = optimizeModel model'
+			val _ = Profile.time "Optimizing" optimizeModel model'
 			val _ = CurrentModel.setCurrentModel(model')
 			val _ = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 		    in

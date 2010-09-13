@@ -367,7 +367,7 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 				    
 			  (* collect *)
 			  val exp' = ExpProcess.multicollect (map nextvarfromsym (SymbolSet.listItems deps), exp)
-			  (*val _ = Util.log("Calling multicollect: from '"^(e2s exp)^"' to '"^(e2s exp')^"'")*)
+			  val _ = Util.log("Calling multicollect: from '"^(e2s exp)^"' to '"^(e2s exp')^"'")
 
 			  (* for each dep (column) in the row: *)	
 			  fun addEntry (statedep, exp) =
@@ -378,6 +378,8 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 				      let
 					  val var = ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1) 
 										      (ExpBuild.nextavar (Symbol.name sym) itername)
+
+					  val _ = Util.log ("Searching for symbol '"^(Symbol.name sym)^"' as '"^(e2s var)^"' in expression '"^(e2s exp)^"'")
 					  val coeff_rewrite = 
 					      {find=ExpBuild.plus[Match.any "d1", 
 								  ExpBuild.times [Match.any "d2", 
@@ -411,7 +413,7 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 
 						      
 				  val (coeff, remainder) = extractCoefficient statedep
-				  (*val _ = Util.log (" -> coeff="^(e2s coeff)^", remainder="^(e2s remainder))*)
+				  val _ = Util.log (" -> coeff="^(e2s coeff)^", remainder="^(e2s remainder))
 
 				  (* insert coefficient into matrix at (rowindex, sym2index statedep)*)
 				  val columnIndex = case SymbolTable.look(sym2index, statedep) of
@@ -422,7 +424,6 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 								
 				  val _ = Matrix.setIndex matrix (rowIndex, columnIndex) (ExpProcess.simplify coeff)
 			      (* val _ = Array2.update (matrix, rowIndex, columnIndex, ExpProcess.simplify coeff)*)
-
 			      in
 				  (coeff, remainder)
 			      end
@@ -447,12 +448,12 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 
 			  val all_values = ExpBuild.explist (b_entry::coefficients)
 				      
-			  (*
+			  
 			   val _ = Util.log("Expression: " ^ (e2s exp'))
 			   val _ = Util.log(" -> Coeff: " ^ (e2s (ExpBuild.explist coefficients)))
 			   val _ = Util.log(" -> Remainder: " ^ (e2s b_entry))
 
-			   *)
+			  
 			  val _ = case Match.findOnce (Match.anysym_with_predlist preds (Symbol.symbol "#pattern"), all_values) of
 				      SOME e =>
 				      (Logger.log_error (Printer.$("Cannot use backwards euler because the equation for state " ^ (state_str()) ^ " is nonlinear in term " ^ (e2ps e) ^ ".  Eq: " ^ (e2ps eq)));
