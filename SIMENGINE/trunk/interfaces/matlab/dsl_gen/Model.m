@@ -500,17 +500,18 @@ classdef Model < handle
             m.Outputs(id) = struct('contents', {e}, 'condition', condition, 'iterator', iterator);
         end
         
-        function instance = submodel(m, arg1, arg2)
+        function instance = submodel(m, varargin)
             % MODEL/SUBMODEL - instantiate a submodel in an existing model
             % 
             % Usage:
-            %   INSTANCE = MDL.SUBMODEL([ID, ] SUB_MDL)
+            %   INSTANCE = MDL.SUBMODEL([ID, ] SUB_MDL [, COUNT])
             % 
             % Description:
             %   Creates a submodel instantiation inside another model.  The
             %   submodel SUB_MDL is a Model object and is given an optional
             %   label ID.  The SUBMODEL method returns an Instance object
-            %   INSTANCE.
+            %   INSTANCE.  If COUNT is greater than zero, then SUBMODEL
+            %   returns a cell array of instances.
             %
             % Examples:
             %   m1 = Model('top');
@@ -526,38 +527,72 @@ classdef Model < handle
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
-            if nargin == 2
-                inst = ['Instance_' num2str(m.instance_number)];
-                m.instance_number = m.instance_number + 1;
-                modelarg = arg1;
-            elseif nargin == 3
-                inst = arg1;
+            
+            if isa(varargin{1}, 'Model')
+                modelarg = varargin{1};
+                if nargin == 2
+                    count = 1;
+                elseif nargin == 3
+                    if isnumeric(varargin{2}) && varargin{2}>0
+                        count = varargin{2};
+                    else
+                        error('Simatra:Model:submodel', 'Invalid number of submodels defined');
+                    end
+                else
+                    error('Simatra:Model:submodel', 'Too many arguments passed to submodel')
+                end
+
+                % compute the instance names
+                if count == 1
+                    inst = ['Instance_' num2str(m.instance_number)];
+                    m.instance_number = m.instance_number + 1;
+                else
+                    inst = cell(1, count);
+                    for i=1:count
+                        inst{i} = ['Instance_' num2str(m.instance_number)];
+                        m.instance_number = m.instance_number + 1;
+                    end
+                end
+                
+            elseif ischar(varargin{1}) && nargin>2 && isa(varargin{2}, 'Model')
+                inst = varargin{1};
                 if identifier_exists(m, inst)
                     error('Simatra:Model:submodel', 'Identifier %s already defined', inst);
                 end
-                modelarg = arg2;
+                modelarg = varargin{2};
+                if nargin == 3
+                    % all good...
+                elseif nargin == 4
+                    if isnumeric(varargin{3}) && varargin{3}>0
+                        error('Simatra:Model:submodel', 'Can not define the number of submodels to be greater than one when an explicit identifier is assigned');                        
+                    else
+                        error('Simatra:Model:submodel', 'Invalid number of submodels defined');
+                    end
+                else
+                    error('Simatra:Model:submodel', 'Too many arguments passed to submodel')
+                end
             else
                 error('Simatra:Model:submodel:ArgumentError', 'Wrong number of arguments');
             end
             
-            if ischar(modelarg) && exist(modelarg, 'file')
-                [filepath, modelname, fileext] = fileparts(modelarg);
-                if m.cachedModels.isKey(modelname)
-                    name = modelname;
-                    name = m.cachedModels(modelname).name;
-                    inputs = m.cachedModels(modelname).inputs;
-                    outputs = m.cachedModels(modelname).outputs;
-                else
-                    disp(['Evaluating ' modelname ' ...'])
-                    minfo = simex(modelarg);
-                    name = minfo.name;
-                    inputs = minfo.inputs;
-                    outputs = minfo.outputs;
-                    modelStruct = struct('name', name, 'filename', modelarg, ...
-                        'inputs', {inputs}, 'outputs', {outputs});
-                    m.cachedModels(modelname) = modelStruct;
-                end
-            elseif isa(modelarg,'Model')
+%            if ischar(modelarg) && exist(modelarg, 'file')
+%                 [filepath, modelname, fileext] = fileparts(modelarg);
+%                 if m.cachedModels.isKey(modelname)
+%                     name = modelname;
+%                     name = m.cachedModels(modelname).name;
+%                     inputs = m.cachedModels(modelname).inputs;
+%                     outputs = m.cachedModels(modelname).outputs;
+%                 else
+%                     disp(['Evaluating ' modelname ' ...'])
+%                     minfo = simex(modelarg);
+%                     name = minfo.name;
+%                     inputs = minfo.inputs;
+%                     outputs = minfo.outputs;
+%                     modelStruct = struct('name', name, 'filename', modelarg, ...
+%                         'inputs', {inputs}, 'outputs', {outputs});
+%                     m.cachedModels(modelname) = modelStruct;
+%                 end
+            if isa(modelarg,'Model')
                 name = modelarg.Name;
                 if m.cachedModels.isKey(name)
                     model = m.cachedModels(name);
@@ -573,8 +608,16 @@ classdef Model < handle
             else
                 error('Simatra:Model', 'Unexpected instance')
             end
-            m.Instances(inst) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
-            instance = Instance(inst, m, inputs, outputs);
+            if iscell(inst)
+                instance = cell(1,length(inst));
+                for i=1:length(inst)
+                    m.Instances(inst{i}) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
+                    instance{i} = Instance(inst{i}, m, inputs, outputs);
+                end
+            else
+                m.Instances(inst) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
+                instance = Instance(inst, m, inputs, outputs);
+            end
         end
 
         function e = equ(m, lhs, rhs)
