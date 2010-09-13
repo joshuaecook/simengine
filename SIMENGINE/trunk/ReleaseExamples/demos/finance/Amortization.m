@@ -58,8 +58,6 @@ adjustableRate = @(period)(piecewise(3.75, period < 60, ...
 % Run simulations with the given loan data
 loan_information = struct('loan', loan, 'years', years);
 
-% Execute the parallel simulation
-%table = simex('Amortization.dsl', years*12, loan_information);
 % Execute two simulations, passing in the different rate functions
 table = simex(create_amortization(fixedRate), years*12, loan_information);
 table(2) = simex(create_amortization(adjustableRate), years*12, loan_information);
