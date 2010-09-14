@@ -96,7 +96,7 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
 		    | Date.Date => "Date exception at " ^ handlelocation
 		    | IEEEReal.Unordered => "IEEEReal.Unordered exception at " ^ handlelocation
 		    | IO.Io {name, function, cause} => 
-		      "IO.Io exception at " ^ handlelocation
+		      "IO.Io exception at " ^ handlelocation ^ ": " ^ name ^ " of " ^ function
 		    | IO.BlockingNotSupported => "IO.BlockingNotSupported at " ^ handlelocation
 		    | IO.NonblockingNotSupported => "IO.NonblockingNotSupported at " ^ handlelocation
 		    | IO.RandomAccessNotSupported => "IO.RandomAccessNotSupported at " ^ handlelocation
