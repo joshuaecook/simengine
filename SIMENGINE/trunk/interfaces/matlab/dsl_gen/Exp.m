@@ -420,6 +420,8 @@ classdef Exp
             %   % heavywise step function
             %   step = piecewise(1, t>0, 0);
             %
+            % See also PIECEWISE
+            %
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
