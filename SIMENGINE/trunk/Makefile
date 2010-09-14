@@ -511,7 +511,7 @@ SIMEX_M_FILES = $(addsuffix .m,simex simError simFailure simexError simEngineErr
 #MATLAB_GUI_FILES = $(addsuffix .fig, $(addprefix $(BUILD_DIR)/, simsweepdemo simex_gui simsweep_gui))
 MATLAB_GUI_FILES = 
 #MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simhelp simSensitivity simsweep simsweepdemo simexamplepath demo_models simex_gui getAveISI getAveSpikeHeight getMaxISI getMinISI getNumSpikes simsweep_gui simCheckVersion simEngineUpdate simCheckLicense))
-MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simexamplepath simCheckVersion simEngineUpdate simCheckLicense))
+MATLAB_SCRIPTS = $(addsuffix .m, $(addprefix $(BUILD_DIR)/,simex parse_json simplot simexamplepath simCheckVersion simEngineUpdate simCheckLicense piecewise))
 MATLAB_MEX = $(addprefix $(BUILD_DIR)/readSimulationData,$(MEXEXT))
 
 # UNIT_FILES = $(addsuffix .m, GenericUnit BaseUnit SIUnit Unit Units test_units)
