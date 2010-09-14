@@ -152,23 +152,35 @@ end
 
 
 function checkGPUDependencies (deps)
-    var depsFailed = false
-    if Licensing.featureEnabled("gpu") then
-	  // check nvcc is not a symbolic link
-	  var nvcc_path = deps.nvcc.fullpath
+    var depsPass = true
 
-	  if nvcc_path <> () and nvcc_path <> FileSystem.realpath nvcc_path then
-	      depsFailed = true
-	      warning ("nvcc installation corrupted: nvcc cannot be a symbolic link")
-	  end
+    if not(objectContains(deps, "nvcc")) then
+      depsPass = false
+      warning ("simEngine requires nvcc version 3.0, nvcc is not installed or cannot be found.")
+    end
 
-	  if deps.nvcc.version.tonumber() == () or deps.nvcc.version.tonumber() < 3.0 then
-	      depsFailed = true
-	      warning ("simEngine requires nvcc version 3.0, version " + deps.nvcc.version + " is installed")
-	  end
+    // check nvcc is not a symbolic link
+    if depsPass then
+      var nvcc_path = deps.nvcc.fullpath
+      if nvcc_path <> () and nvcc_path <> FileSystem.realpath nvcc_path then
+	depsPass = false
+	warning ("nvcc installation corrupted: nvcc cannot be a symbolic link")
       end
+    end
 
-      not depsFailed
+    if depsPass then
+      if deps.nvcc.version.tonumber() == () then
+	depsPass = false
+	warning ("simEngine requires nvcc version 3.0, nvcc is not installed or cannot be found.")
+      else
+	if deps.nvcc.version.tonumber() < 3.0 then
+	  depsPass = false
+	  warning ("simEngine requires nvcc version 3.0, nvcc version" + deps.nvcc.version + " is installed.")
+	end
+      end
+    end
+
+    depsPass
 end
 
 
@@ -279,7 +291,6 @@ end
      if (Licensing.featureEnabled("gpu")) then
        foreach key in proDeps.keys do
 	 if (proDeps.getMember(key) == () or proDeps.getMember(key).fullpath == ()) then
-           depsFailed = true
            warning ("Could not find location of " + key)
          else
            deps.add(key, proDeps.getMember(key))
@@ -306,7 +317,7 @@ end
        test_pass(not depsFailed)
      else
        if depsFailed then
-         error "Some dependencies were not satisfied"
+         nostack_error "Some dependencies were not satisfied"
        end
      end
 

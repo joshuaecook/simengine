@@ -476,27 +476,32 @@ import "command_line.dsl"
   function validateCompilerSettings(commandLineOptions: Table)
     var compilerSettings = {}
 
+    var systemDependencies = Dependency.getDependencies()
+
     var usingGPU = "gpu" == settings.simulation.target.getValue()
     if usingGPU and not (Dependency.checkGPUDependencies(systemDependencies)) then
 	println("Rechecking dependencies ... ")
-        Dependency.buildDependencyFile()
-	//nostack_error "Not all dependencies have been met for using the GPU."
-    end
-
-    if settings.simulation_debug.emulate.getValue() then
-	if usingGPU then
-	    // this is ok
-	else
-	    nostack_error("Emulation is only valid for the GPU.")
+        systemDependencies = Dependency.buildDependencyFile()
+	if not(Dependency.checkGPUDependencies(systemDependencies)) then
+	  nostack_error "Not all dependencies have been met for using the GPU, simEngine cannot continue with GPU compilation."
 	end
     end
+
+    // TODO: Remove all occurances of emulate - deprecated by nVidia
+    //if settings.simulation_debug.emulate.getValue() then
+	//if usingGPU then
+	    // this is ok
+	//else
+	    //nostack_error("Emulation is only valid for the GPU.")
+	//end
+    //end
 
     if usingGPU then
       var deviceid = settings.gpu.gpuid.getValue()
       if deviceid == 9999 then
         settings.gpu.gpuid.setValue(Devices.CUDA.getProp(1, "deviceId").tonumber())
       end
-  end
+    end
 
     // Set up the name of the c source file
     var name = Path.base(Path.file (settings.general.simex.getValue()))
