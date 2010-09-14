@@ -88,7 +88,9 @@ and output_to_layout output = seq [e2l (Exp.TERM (DOF.Output.name output)),
 				   s2l " = ",
 				   contents2layout (DOF.Output.contents output),
 				   s2l " when ",
-				   e2l (DOF.Output.condition output)]
+				   e2l (DOF.Output.condition output),
+				   s2l " ",
+				   curlyList (map (e2l o Exp.TERM) (!(DOF.Output.inputs output)))]
 
 fun model_to_layout (model: DOF.model) =
     let

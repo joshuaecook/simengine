@@ -381,8 +381,10 @@ fun optimizeModel order (model:DOF.model) =
 		    (fn(c)=>
 		       let
 			   val msg = "Optimizing Class '"^(Symbol.name (#name c))^"'"
+			   val _ = Profile.time msg ClassProcess.optimizeClass c
+			   val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
 		       in
-			   Profile.time msg ClassProcess.optimizeClass c
+			   ()
 		       end) classes
 
 	val _ = DynException.checkToProceed()
@@ -396,6 +398,8 @@ fun optimizeModel order (model:DOF.model) =
 					  else
 					      0
 			val _ = app ClassProcess.removeRedundancy classes
+			val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+
 		    in
 			if verbose then
 			    Logger.log_notice (Printer.$("Rendundancy elimination step before/after: "^(i2s cost_before)^"/"^(i2s (Cost.model2cost model))))
