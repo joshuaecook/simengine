@@ -175,7 +175,7 @@ function checkGPUDependencies (deps)
       else
 	if deps.nvcc.version.tonumber() < 3.0 then
 	  depsPass = false
-	  warning ("simEngine requires nvcc version 3.0, nvcc version" + deps.nvcc.version + " is installed.")
+	  warning ("simEngine requires nvcc version 3.0, nvcc version " + deps.nvcc.version + " is installed.")
 	end
       end
     end
