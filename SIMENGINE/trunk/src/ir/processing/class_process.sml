@@ -347,7 +347,7 @@ fun flattenExpressionThroughInstances class exp =
 	in
 	    exp'
 	end
-	handle e => DynException.checkpoint ("ClassProcess.flattenExpressionThroughInstances ["^(e2s exp)^"]") e
+	handle e => DynException.checkpoint ("ClassProcess.flattenExpressionThroughInstances [class="^(Symbol.name (#name class))^",exp="^(e2s exp)^"]") e
 
 and flattenEquationThroughInstances class sym =
     let
@@ -404,7 +404,7 @@ and flattenEquationThroughInstances class sym =
 		   exp
 	     | NONE => DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.flattenEquationThroughInstances", Logger.INTERNAL)
     end
-    handle e => DynException.checkpoint ("ClassProcess.flattenEquationThroughInstances ["^(Symbol.name sym)^"]") e
+    handle e => DynException.checkpoint ("ClassProcess.flattenEquationThroughInstances [class="^(Symbol.name (#name class))^",sym="^(Symbol.name sym)^"]") e
 
 (* Constructs a smashed expression by associating the given symbol with an output parameter,
  * then inspecting the instance class to find the class output expression. 
@@ -447,7 +447,7 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 		      of SOME out => out
 		       | NONE => 
 			 DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), 
-						   "ClassProcess.leafTermSymbolsOfInstanceEquation", 
+						   "ClassProcess.leafTermSymbolsOfInstanceEquation.output", 
 						   Logger.INTERNAL)
 	val (name, contents, condition) = (DOF.Output.name output, DOF.Output.contents output, DOF.Output.condition output)
 
@@ -469,7 +469,7 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
 					      of SOME inp =>
 						 ExpProcess.exp2termsymbols (flattenExpressionThroughInstances caller inp)
 					       | NONE => 
-						 DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.leafTermSymbolsOfInstanceEquation", Logger.INTERNAL)
+						 DynException.stdException(("Symbol '"^(Symbol.name sym)^"' not defined "), "ClassProcess.leafTermSymbolsOfInstanceEquation.terms", Logger.INTERNAL)
 					 else [t]
 				     ) terms
 		in		   
@@ -480,6 +480,7 @@ and leafTermSymbolsOfInstanceEquation caller sym eqn =
     in 
 	leaf
     end
+    handle e => DynException.checkpoint ("ClassProcess.leafTermSymbolsOfInstanceEquation [caller="^(Symbol.name (#name caller))^",sym="^(Symbol.name sym)^",eqn="^(e2s eqn)^"]") e
 
 (* flattenEq does not pass through instance equations - we need a different one that will pass through instance equations *)
 fun flattenEq (class:DOF.class) sym = 
@@ -1635,16 +1636,23 @@ fun assignCorrectScope (class: DOF.class) =
 	    let
 		val name = DOF.Output.name output
 		(* we want to see if all the iterators have the same dt.  If they do, it doesn't matter if multiple iterators 
-		 * drive an output.  We can just pick one, in this case, just the first. *)
+		 * drive an output.  We can just pick one, in this case, just the first. *)			   
+			   
+		(* always iterators can be any dt, so let's just prune them all out.  If there are just always iterators, then
+		 * that's not a big since we'll add it back after *)
+		val iterators = List.mapPartial (fn(itersym)=>case CurrentModel.itersym2iter itersym of
+								  (_, DOF.IMMEDIATE) => NONE
+								| iter => SOME iter) iters
+			   
 
 		(* find all_dt, a list of option real values corresponding to the dt.  For the timesteps to be the same, every item in that list
 		 * must be SOME and have the dt all equal. *)
 		val all_dt = List.map 
-				 (fn(itersym)=>case CurrentModel.itersym2iter itersym of 
-						   (_, DOF.CONTINUOUS solver) => Solver.solver2dt solver
-						 | (_, DOF.DISCRETE {sample_period}) => SOME sample_period
-						 | _ => NONE) 
-				 iters
+				 (fn(itersym, itertype)=>case itertype of 
+							     DOF.CONTINUOUS solver => Solver.solver2dt solver
+							   | DOF.DISCRETE {sample_period} => SOME sample_period
+							   | _ => NONE)
+				 iterators
 		val (all_same, optdt) = List.foldl (fn(optdt, (result, optdt'))=>
 						      case (optdt, optdt') of 
 							  (SOME dt, NONE) => (result, SOME dt)
@@ -1656,15 +1664,19 @@ fun assignCorrectScope (class: DOF.class) =
 						   (true, NONE) 
 						   all_dt
 	    in
-		case optdt of
-		    SOME dt => SOME first
-		  | NONE => SOME first before
-			    (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' has more than one temporal iterator driving the value. "^
-							 "Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ "."^
-							 " Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^
-							 "' must have an explicit iterator defined, for example, " ^ 
-							 (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."));
-			     DynException.setErrored())
+		if all_same then
+		    case optdt of
+			SOME dt => SOME first
+		      | NONE => NONE
+		else
+		    SOME first before
+		    (Logger.log_error (Printer.$("Particular output '"^(e2ps (Exp.TERM name))^"' in model '"^(Symbol.name (#name class))^
+						 "' has more than one temporal iterator driving the value. "^
+						 "Iterators are: " ^ (Util.l2s (map (fn(sym)=> Symbol.name sym) iters)) ^ "."^
+						 " Potentially some states defining the output have incorrect iterators, or the output '"^(e2ps (Exp.TERM name))^
+						 "' must have an explicit iterator defined, for example, " ^ 
+						 (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."));
+		     DynException.setErrored())
 	    end
 
 	fun apply_iterator_to_output output iter_sym = 
@@ -1818,6 +1830,7 @@ fun pruneInputsFromOutput class output =
     in
 	inputs := map (ExpProcess.exp2term o ExpBuild.svar) inputSymbols'
     end
+    handle e => DynException.checkpoint ("ClassProcess.pruneInputsFromOutput [class="^(Symbol.name (#name class))^", output="^((e2s o Exp.TERM o DOF.Output.name) output)^"]") e
 
 fun pruneUnusedInputs (class: DOF.class) =
     let
