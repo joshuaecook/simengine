@@ -46,7 +46,7 @@ classdef Neuron < Model
     end
     
     properties
-        dt = 0.01;
+        %dt = 0.01;
     end  
 
     properties (Access = protected)
@@ -106,7 +106,9 @@ classdef Neuron < Model
             
             % Create the iterators
             n.t_exp = Iterator('t_exp', 'continuous', 'solver', 'forwardeuler', 'dt', n.dt);
+            n.IteratorList{end+1} = n.t_exp;
             n.t_imp = Iterator('t_imp', 'continuous', 'solver', 'linearbackwardeuler', 'dt', n.dt);            
+            n.IteratorList{end+1} = n.t_imp;
             n.DefaultIterator = n.t_exp;
             
             % Create the nmod container
@@ -271,17 +273,17 @@ classdef Neuron < Model
     end
 
     methods
-        function set.dt(n, val)
-            % set.dt - update the dt value both as a property and within
-            % the global implicit and explicit iterators
-            n.dt = val;
-            n.t_imp.dt = val;
-            n.t_exp.dt = val;
-        end
-        
-        function val = get.dt(n)
-            val = n.dt;
-        end
+%         function set.dt(n, val)
+%             % set.dt - update the dt value both as a property and within
+%             % the global implicit and explicit iterators
+%             n.dt = val;
+%             n.t_imp.dt = val;
+%             n.t_exp.dt = val;
+%         end
+%         
+%         function val = get.dt(n)
+%             val = n.dt;
+%         end
     end
     
     methods (Access = protected)
