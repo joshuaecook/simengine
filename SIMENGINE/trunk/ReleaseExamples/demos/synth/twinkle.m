@@ -1,5 +1,5 @@
+% Sample driver for create_song.m that plays 'Twinkle, twinkle, little star'
 % Copyright (C) 2010 Simatra Modeling Technologies
-% Sample driver for song.dsl that plays 'Twinkle, twinkle, little star'
 
 function twinkle()
 % The song model samples inputs at 64Hz, the definitions provided
@@ -46,7 +46,7 @@ i.chords = {[chord_twinkle chord_diamond chord_twinkle]};
 % must be greater than or equal to the length of the song to prevent
 % truncation. The song will stop automatically when the notes or
 % chords inputs run out.
-o = simex('song.dsl', 24, i);
+o = simex(create_song, 24, i);
 
 % Play the resulting audio through the sound device, grabbing only
 % the second column of the output (first column is the time values
