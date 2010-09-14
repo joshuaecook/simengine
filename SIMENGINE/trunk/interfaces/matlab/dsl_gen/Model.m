@@ -29,6 +29,9 @@ classdef Model < handle
 %   toDSL - write the model to a file
 %   disp - display information about the model
 %
+% Model Properties:
+%   solver - choose the solver for the simulation
+%   dt - specify the time step, if it's a fixed time step solver
 %
 % Copyright 2010 Simatra Modeling Technologies
 % Website: www.simatratechnologies.com
@@ -50,11 +53,12 @@ classdef Model < handle
         RecurrenceEqs
         Randoms
         DefaultIterator
+        IteratorList = {}
     end
     
     properties (Access = public)
-        solver
-        dt
+        solver            % solver chosen for the simulation
+        dt                % fixed time step of the solver
         stoptime = []
     end
     
@@ -111,6 +115,8 @@ classdef Model < handle
                 otherwise
                     error('Simatra:Model', 'Must supply no more than two arguments to Model');
             end
+            
+            m.IteratorList{end+1} = m.DefaultIterator;
 
             if isempty(Name)
                 [filepath, filename, fileext] = fileparts(tempname);
@@ -878,7 +884,14 @@ classdef Model < handle
             % Support: support@simatratechnologies.com
             %    
             
-            m.DefaultIterator.dt = dt;
+            if isempty(m.IteratorList)
+                m.DefaultIterator.dt = dt;
+            else
+                for i=1:length(m.IteratorList)
+                    iter = m.IteratorList{i};
+                    iter.dt = dt;
+                end
+            end
         end
         
         function solver = get.solver(m)
@@ -910,7 +923,11 @@ classdef Model < handle
             % Support: support@simatratechnologies.com
             %    
             
-            dt = m.DefaultIterator.dt;
+            if isempty(m.IteratorList)
+                dt = m.DefaultIterator.dt;
+            else
+                dt = m.IteratorList{1}.dt;
+            end
         end        
         
         function map = findIterators(m)

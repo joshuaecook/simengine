@@ -30,7 +30,6 @@ classdef IClamp < Model
 %  THE SOFTWARE.
    
     properties
-        dt = 0.01
         del = 0    % deletion time before the current clamp begins
         dur = 0    % duration of the curent clamp
         amp = 0    % amplitude of the current clamp

@@ -46,7 +46,6 @@ classdef Section < Model
 %  THE SOFTWARE.    
     
     properties (Access = public)
-        dt = 0.01      % time step of the simulation         (ms)
         nseg = 1       % number of segments in the section
         diam = 500     % diameter of the section             (um)
         L = 100        % length of the section               (um)
