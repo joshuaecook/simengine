@@ -10,6 +10,11 @@ function [options] = simexOptions (dsl, varargin)
   [seroot] = fileparts(which('simex'));
   options.simengine = fullfile(seroot, 'bin', 'simEngine');
 
+  if ~ischar(dsl)
+      simexError('argumentError', ...
+                 ['First argument to simex must be a DSL model filename.']);
+  end
+  
   if ~exist(dsl, 'file')
       simexError('argumentError', ...
                  ['DSL model file ' dsl ' does not exist. Please ' ...
