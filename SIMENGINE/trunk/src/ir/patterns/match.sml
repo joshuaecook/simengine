@@ -269,6 +269,10 @@ fun rules2str rules =
 (* replaces the pat_exp with repl_exp in the expression, returning the new expression.  This function will operate recursively through the expression data structure. *)
 fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
     let
+	(* recurse into arguments first *)
+	val exp = (head exp) (map (fn(arg)=> applyRewriteExp rewrite arg) (level exp))
+
+
 	val assigned_patterns = (ExpEquality.findMatches (find, exp))
 
 	(*val _ = print ("  # matches = " ^ (Int.toString (length assigned_patterns)) ^ "\n")
@@ -302,12 +306,13 @@ fun applyRewriteExp (rewrite as {find,test,replace} : Rewrite.rewrite) exp =
 				       ()
 				   
 			   (* substitute it back in, but call replaceExp on its arguments *)
-			   val exp' = (head repl_exp') (map (fn(arg)=> applyRewriteExp rewrite arg) (level repl_exp'))
+			   val exp' = repl_exp' (*(head repl_exp') (map (fn(arg)=> applyRewriteExp rewrite arg) (level repl_exp'))*)
 		       in
 			   exp'
 		       end
 		   else
-		       (head exp) (map (fn(arg)=> applyRewriteExp rewrite arg) (level exp))
+		       exp
+		       (*(head exp) (map (fn(arg)=> applyRewriteExp rewrite arg) (level exp))*)
 
 	(*val _ = print ("new exp = " ^ (e2s (Normalize.normalize exp')) ^ "\n")*)
 		       
@@ -322,6 +327,9 @@ val applyRewriteExp = Profile.wrap (applyRewriteExp, Profile.alloc "Match.applyR
 fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp = 
     if List.length rewritelist > 0 then
 	let
+	    (* rewrite arguments first *)
+	    val exp = (head exp) (map (fn(arg)=> applyRewritesExp rewritelist arg) (level exp))
+
 	    val ret = foldl
 			  (fn({find, test, replace},ret : ((Exp.exp)SymbolTable.table * Rewrite.rewrite) option) => 
 			     case ret of 
@@ -364,12 +372,13 @@ fun applyRewritesExp (rewritelist:Rewrite.rewrite list) exp =
 					   ()
 					   
 			       (* substitute it back in, but call replaceExp on its arguments *)
-			       val exp' = (head repl_exp') (map (fn(arg)=> applyRewritesExp rewritelist arg) (level repl_exp'))
+			       val exp' = repl_exp' (*(head repl_exp') (map (fn(arg)=> applyRewritesExp rewritelist arg) (level repl_exp'))*)
 			   in
 			       exp'
 			   end
 			 | NONE => 
-			   (head exp) (map (fn(arg)=> applyRewritesExp rewritelist arg) (level exp))
+			   exp
+			   (*(head exp) (map (fn(arg)=> applyRewritesExp rewritelist arg) (level exp))*)
 		       
 	in
 	    exp'
