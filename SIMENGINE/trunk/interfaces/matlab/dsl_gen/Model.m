@@ -1554,7 +1554,7 @@ end
 
 function s = toStr(r)
 if isnumeric(r)
-    s = num2str(r);
+    s = num2str(r, '%g');
 elseif isstruct(r)
     disp('Simatra:Model:toStr', 'Unexpected structure found');
 elseif isstr(r)
