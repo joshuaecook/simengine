@@ -101,7 +101,13 @@ fun decode exec =
 		toVector (KEC.TUPLE entries)
 	    end
     in
-     fn [KEC.LITERAL (KEC.CONSTSTR json)] => exec (decoded (ParseJSON.parseString json))
+     fn [KEC.LITERAL (KEC.CONSTSTR json)] => 
+	let
+	    val json' = ParseJSON.parseString json
+		handle _ => raise TypeMismatch ("expected a JSON string; unable to parse "^json)
+	in
+	    exec (decoded json')
+	end
       | [a] => raise TypeMismatch ("expected a String but received " ^ (PrettyPrint.kecexp2nickname a))
       | args => raise IncorrectNumberOfArguments {expected = 1, actual = length args}
     end
