@@ -112,8 +112,15 @@ fun addMember exec =
 	    JSON.object ((name, elem) :: (valOf (JSON.members obj)))
     in
      fn [KEC.LITERAL (KEC.CONSTSTR obj), KEC.LITERAL (KEC.CONSTSTR name), KEC.LITERAL (KEC.CONSTSTR elem)] => 
-	(KEC.LITERAL (KEC.CONSTSTR (PrintJSON.toString (addMember' (ParseJSON.parseString obj, name, ParseJSON.parseString elem))))
-	 handle Fail _ => raise TypeMismatch ("expected two JSON strings; unable to parse"))
+	let
+	    val elem' = ParseJSON.parseString elem
+		handle _ => raise TypeMismatch ("expected a JSON string; unable to parse "^elem)
+
+	    val obj' = ParseJSON.parseString obj
+		handle _ => raise TypeMismatch ("expected a JSON string; unable to parse "^elem)
+	in
+	    KEC.LITERAL (KEC.CONSTSTR (PrintJSON.toString (addMember' (obj', name, elem'))))
+	end
       | [a, b] => raise TypeMismatch ("expected two JSON strings")
       | args => raise IncorrectNumberOfArguments {expected = 2, actual = length args}
     end
@@ -126,8 +133,16 @@ fun concat exec =
 	    handle Option => raise TypeMismatch ("expected two JSON object strings")
     in
      fn [KEC.LITERAL (KEC.CONSTSTR a), KEC.LITERAL (KEC.CONSTSTR b)] => 
-	(KEC.LITERAL (KEC.CONSTSTR (PrintJSON.toString (concat' (ParseJSON.parseString a, ParseJSON.parseString b))))
-	 handle Fail _ => raise TypeMismatch ("expected two JSON object strings; unable to parse"))
+	let
+	    val a' = ParseJSON.parseString a
+		handle _ => raise TypeMismatch ("expected a JSON string; unable to parse "^a)
+
+	    val b' = ParseJSON.parseString b
+		handle _ => raise TypeMismatch ("expected a JSON string; unable to parse "^b)
+	in
+	    KEC.LITERAL (KEC.CONSTSTR (PrintJSON.toString (concat' (a', b'))))
+
+	end
       | [a, b] => raise TypeMismatch ("expected two JSON object strings")
       | args => raise IncorrectNumberOfArguments {expected = 2, actual = length args}
     end
