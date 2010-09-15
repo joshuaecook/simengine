@@ -1741,25 +1741,31 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 		       | _ => sym = iter_sym)
 		  | isMyIteratorSymbol _ = false
 
-		fun discreteIteratorPeriod (Exp.TERM (Exp.SYMBOL (sym, _))) =
-		    case List.find (fn (sym', DOF.DISCRETE _) => sym = sym' | _ => false) iterators
-		     of SOME (_, DOF.DISCRETE {sample_period}) => SOME sample_period
-		      | _ => NONE
+		val discreteIteratorPeriod =
+		 fn (Exp.TERM (Exp.SYMBOL (sym, _))) =>
+		    (case List.find (fn (sym', DOF.DISCRETE _) => sym = sym' | _ => false) iterators
+		      of SOME (_, DOF.DISCRETE {sample_period}) => SOME sample_period
+		       | _ => NONE)
+		  | _ => NONE
 
 		fun predicate (exp, _) = 
 		    isIndexableIteratorSymbol exp andalso not (isMyIteratorSymbol exp)
 							  
 		fun action (term as Exp.TERM (Exp.SYMBOL (sym, props))) =
 		    let 
-			val props' = Property.setScope props Property.SYSTEMITERATOR
-			val props' = Property.setEPIndex props' (SOME Property.ARRAY)
+			val props' 
+			  = Property.setEPIndex (Property.setScope props Property.SYSTEMITERATOR)
+						(SOME Property.ARRAY)
 		    in
+			Exp.TERM (Exp.SYMBOL (sym, props'))
+(*
 			case discreteIteratorPeriod term
 			 of NONE => Exp.TERM (Exp.SYMBOL (sym, props'))
 			  | SOME period
 			    => Exp.FUN (Fun.BUILTIN MathFunctions.MUL, 
 					[Exp.TERM (Exp.SYMBOL (sym, props')),
 					 Exp.TERM (Exp.REAL period)])
+*)
 		    end
 		  | action _ = 
 		    DynException.stdException
