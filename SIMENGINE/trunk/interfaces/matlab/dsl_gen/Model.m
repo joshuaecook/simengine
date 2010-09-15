@@ -302,6 +302,12 @@ classdef Model < handle
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
+            %
+            
+            if ~ischar(id)
+                error('Simatra:Model:input', 'First argument to input must be a string name');                
+            end
+            
             if identifier_exists(m, id)
                 error('Simatra:Model:input', ['Input ' id ' already exists']);
             else
