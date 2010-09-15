@@ -325,7 +325,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 			     DOF.CONTINUOUS _ =>
 			     $("system_ptrs->"^(Symbol.name itersym)^" = props[ITERATOR_"^itername^"].time;")
 			   | DOF.DISCRETE _ =>
-			     $("system_ptrs->"^(Symbol.name itersym)^" = props[ITERATOR_"^itername^"].count;")
+			     $("system_ptrs->"^(Symbol.name itersym)^" = props[ITERATOR_"^itername^"].time;")
 			   | _ =>
 			     $("// Ignored "^itername)) ::
 			(if 0 < num_states then
@@ -414,7 +414,7 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				DOF.CONTINUOUS _ =>
 				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].time;")
 			      | DOF.DISCRETE _ =>
-				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].count;")
+				$("tmp_system->"^itername^" = tmp_props[ITERATOR_"^(Util.removePrefix itername)^"].time;")
 			      | DOF.IMMEDIATE =>
 				$("// no iterator value for 'always'")
 			      | _ =>
@@ -989,7 +989,7 @@ fun update_wrapper shardedModel =
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
+				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
@@ -1033,7 +1033,7 @@ fun preprocess_wrapper shardedModel preprocessIterators =
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->count[modelid], " ^
+				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
@@ -1082,7 +1082,7 @@ fun inprocess_wrapper shardedModel inprocessIterators =
 					 statereads ^ statewrites ^ systemstatereads ^
 					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 				| DOF.DISCRETE _ => 
-				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->count[modelid], " ^
+				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->time[modelid], " ^
 					 statereads ^ statewrites ^ systemstatereads ^
 					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 				| _ => $("#error BOGUS ITERATOR"))]
@@ -1126,7 +1126,7 @@ fun postprocess_wrapper shardedModel postprocessIterators =
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | DOF.DISCRETE _ => 
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->count[modelid], " ^
+				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->time[modelid], " ^
 				       statereads ^ statewrites ^ systemstatereads ^
 				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
 			      | _ => $("#error BOGUS ITERATOR")]
@@ -1287,7 +1287,7 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
 	(* Declares a pointer to an iterator value. *)
 	val systemPointerStructureIteratorValue =
 	    fn (sym, DOF.CONTINUOUS _) => SOME ("CDATAFORMAT * " ^ (Symbol.name sym) ^ ";")
-	     | (sym, DOF.DISCRETE _) => SOME ("unsigned int * " ^ (Symbol.name sym) ^ ";")
+	     | (sym, DOF.DISCRETE _) => SOME ("CDATAFORMAT * " ^ (Symbol.name sym) ^ ";")
 	     | _ => NONE
 
 	(* Declares pointers to the states of an iterator. *)
