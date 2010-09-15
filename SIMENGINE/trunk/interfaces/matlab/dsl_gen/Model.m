@@ -1108,7 +1108,7 @@ classdef Model < handle
                 input = m.Inputs(inputs{i});
                 attributes = ' with {';
                 if isfinite(input.default)
-                    attributes = [attributes 'default=' num2str(input.default) ', '];
+                    attributes = [attributes 'default=' toStr(input.default) ', '];
                 end
                 if isa(input.iterator, 'Iterator')
                     attributes = [attributes 'iter=' toStr(input.iterator.id) ', '];
@@ -1554,7 +1554,7 @@ end
 
 function s = toStr(r)
 if isnumeric(r)
-    s = num2str(r, '%g');
+    s = mat2str(r);
 elseif isstruct(r)
     disp('Simatra:Model:toStr', 'Unexpected structure found');
 elseif isstr(r)

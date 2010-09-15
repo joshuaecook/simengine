@@ -137,7 +137,9 @@ function [outputs y1 t1 interface] = simEngine (options)
   elseif(-1 == status)
     simEngineError('simCompile', ['User terminated simulation.'])
   elseif (156 == status)
-    warning('Simatra:simex:simCompile', ['Received unexpected code 156'])
+      % This does not seem like an issue at all - it happens enough with no
+      % side effects. Just ignore for now. 9-15-10
+      %warning('Simatra:simex:simCompile', ['Received unexpected code 156'])
   elseif (143 == status)
     simFailure('simCompile', 'simEngine abruptly stopped by kill signal');
   elseif (0 ~= status)
