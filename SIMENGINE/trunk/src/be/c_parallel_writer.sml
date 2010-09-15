@@ -2019,11 +2019,9 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
                          $("#if NUM_OUTPUTS > 0"),
                          $("if (first_iteration) {"),
                          SUB($("output_data *od = (output_data*)outputs;") 
-                             (* FIXME this is a temporary hack to catch reads of system iterator values. *)
                              :: (map (fn t => $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^
-                                                (if (Symbol.symbol iter_name) = (Term.sym2curname t) then
-                                                     (CWriterUtil.exp2c_str (Exp.TERM t))
-                                                 else ("sys_rd->" ^ (Symbol.name (Term.sym2curname t)) ^ "[ARRAY_IDX]")) ^ ";"))
+						(CWriterUtil.exp2c_str (Exp.TERM t)) ^
+						";"))
                                      iterators_symbols) 
                              @ (map (fn(t)=> $("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) t) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
                                     outputs_symbols)),
