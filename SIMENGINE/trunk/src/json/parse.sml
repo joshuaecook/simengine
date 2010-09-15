@@ -39,6 +39,8 @@ and parseObject lex =
 		  | T.ROBJECT => pair :: members
 		  | token => raise Fail ("Invalid token " ^ (T.toString token) ^ " when trying to parse object")
 	    end
+	    handle NoValue (T.ROBJECT) => members
+
     in
 	JS.object (List.rev (loop nil))
     end
