@@ -21,7 +21,11 @@ classdef Iterator < handle
         dt
     end
     
-    properties
+    properties (Access = protected)
+        params
+    end
+    
+    properties (Access = private)
         iterator_count = 0
         timestamp
     end
@@ -73,6 +77,7 @@ classdef Iterator < handle
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
             
+            iter.params = containers.Map;
             iter.timestamp = now;
             % set defaults
             iter.type = 'continuous';
@@ -89,6 +94,10 @@ classdef Iterator < handle
                     args = args(2:end);
                 elseif strcmpi(arg, 'discrete')
                     iter.type = 'discrete';
+                    
+                    % set the default params
+                    setDefaultParams(iter);
+                    
                     args = args(2:end);
                 elseif strcmpi(arg, 'solver')
                     if length(args) > 1
@@ -99,9 +108,15 @@ classdef Iterator < handle
 %                                 error('Simatra:Iterator', 'Invalid solver specified.  Options are: %s', List.stringConcatWith(', ', iter.solvers));
 %                         end
                         iter.solver = args{2};
+                        
+                        % once we know the solver, we can set the default
+                        % parameters
+                        setDefaultParams(iter);
+                        
+                        % continue on processing
                         args = args(3:end);
                     else
-                        error('no solver');
+                        error('Simatra:Iterator', ['Must follow the ''solver'' keyword with the name of one of the supported solvers: ' List.cell2str(iter.solvers)]);
                     end
                 elseif strcmpi(arg, 'dt') || strcmpi(arg, 'sample_period') || strcmpi(arg, 'sample_frequency')
                     if length(args) > 1
@@ -143,7 +158,7 @@ classdef Iterator < handle
                 case iter.solvers
                     iter.solver = solv;
                 otherwise
-                    error('Simatra:Iterator:solver', 'Invalid solver specified.  Options are: %s', List.stringConcatWith(', ', iter.solvers));
+                    error('Simatra:Iterator:solver', 'Invalid solver specified.  Options are: %s', List.cell2str(iter.solvers));
             end
         end
         
@@ -199,7 +214,111 @@ classdef Iterator < handle
             else
                 disp(['Continuous iterator ' iter.id ' with solver = ' iter.solver])
             end
-        end            
+        end
+    
+%         function [varargout] = properties(iter)
+%             % Determine all the properties
+%             props = keys(iter.params);
+%             if isDiscrete(iter)
+%                 p = cell(length(props),1);
+%             else
+%                 p = cell(length(props)+1,1);
+%             end
+%             p(1:length(props)) = props;
+%             if isContinuous(iter)
+%                 p{end} = 'solver';
+%             end
+%             
+%             % return the output
+%             if nargout == 0
+%                 disp(' ');
+%                 disp('Properties for class Iterator:')
+%                 disp(' ');
+%                 for i=1:length(p)
+%                     disp(['    ' p{i}]);
+%                 end
+%                 disp(' ');
+%             else
+%                 varargout{1} = p;
+%             end
+%         end
+        
+        function varargout = subsref(m, args)
+            varargout = cell(1,nargout);
+            for i=1:length(args)
+                switch args(i).type
+                    case '{}'
+                        error('unexpected {} type');
+                    case '()'
+                        error('unexpected () type');
+                    case '.'
+                        %disp(sprintf('Finding %s', args(i).subs));
+                        if any(strcmp(methods(m), args(i).subs))
+                            if nargout > 0
+                                [varargout{:}] = feval(args(i).subs, m, args(i+1).subs{:});
+                            else
+                                feval(args(i).subs, m, args(i+1).subs{:});
+                            end
+                        elseif any(strcmp(keys(m.params), args(i).subs))
+                            p = m.params(args(i).subs);
+                            varargout{1} = p;
+                        elseif any(strcmp(properties(m), args(i).subs))
+                            varargout{1} = m.(args(i).subs);
+                        else
+                            warning('Simatra:Iterator:subsref', ['There is no property or method with name ''' args(i).subs ''' defined'])
+                        end
+                        break;
+                end
+            end
+        end
+        
+        function m = subsasgn(m, args, val)
+            for i=1:length(args)
+                switch args(i).type
+                    case '{}'
+                        error('unexpected {} type');
+                    case '()'
+                        error('unexpected () type');
+                    case '.'
+                        %disp(sprintf('Assigning %s', args(i).subs));
+                        if any(strcmp(methods(m), args(i).subs))
+                            error('Simatra:Iterator:subsasgn', 'Can''t assign to method name %s', args(i).subs)
+                        elseif any(strcmp(keys(m.params), args(i).subs))
+                            m.params(args(i).subs) = val;
+                        elseif any(strcmp(properties(m), args(i).subs))
+                            m.(args(i).subs) = val;
+                        else
+                            warning('Simatra:Iterator:subsasgn', ['Don''t recognize ''' args(i).subs ''''])
+                        end
+                        break;
+                end
+            end
+            
+        end
+        
     end
     
+    
+    methods (Access = protected)
+        function setDefaultParams(iter)
+            if isDiscrete(iter)
+                iter.params('sample_period') = 1;
+                iter.params('sample_frequency') = 1;
+            else % else if is continuous
+                switch iter.solver
+                    case {'forwardeuler', 'linearbackwardeuler', 'exponentialeuler', 'rk4', 'heun'}
+                        iter.params('dt') = 1;
+                    case {'ode23', 'ode45'}
+                        iter.params('dt') = 1;
+                        iter.params('reltol') = 1e-3;
+                        iter.params('abstol') = 1e-6;
+                    case {'cvode'}
+                        iter.params('dt') = 1;
+                        iter.params('cv_lmm') = 'CV_BDF';
+                        iter.params('cv_iter') = 'CV_NEWTON';
+                end
+            end
+            
+        end
+    end
 end
