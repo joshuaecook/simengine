@@ -38,12 +38,22 @@ classdef Iterator < handle
     end
     
     properties (Access = private)
+        myid
         iterator_count = 0
         timestamp
     end
     
     properties (GetAccess = public, SetAccess = private)
         solvers = {'forwardeuler', 'linearbackwardeuler', 'exponentialeuler', 'heun', 'rk4', 'cvode', 'ode23', 'ode45'};
+    end
+    
+    methods (Static)
+        function ident = newid()
+            persistent lastid;
+            if isempty(lastid); lastid = 1; end
+            ident = ['iterator_' num2str(lastid)];
+            lastid = 1 + lastid;
+        end
     end
     
     methods
@@ -97,8 +107,6 @@ classdef Iterator < handle
             iter.timestamp = now;
             % set defaults
             iter.type = 'continuous';
-            [filepath, filename, fileext] = fileparts(tempname);
-            iter.id = ['iterator_' filename];
             %iter.solver = 'ode45';
             %iter.dt = 1;
             args = varargin;
@@ -153,8 +161,18 @@ classdef Iterator < handle
                 end
                 i = i + 1;
             end
-            
         end
+        
+        function ident = get.id(iter)
+            if isempty(iter.myid); iter.myid = iter.newid; end
+            ident = iter.myid;
+        end
+        
+        function iter = set.id(iter, newid)
+            iter.myid = newid;
+        end
+
+
 
         function r = isDiscrete(iter)
             r = strcmpi(iter.type, 'discrete');
