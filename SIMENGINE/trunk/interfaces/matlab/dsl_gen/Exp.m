@@ -717,7 +717,7 @@ classdef Exp
             
         
         function disp(e)
-            disp(['Exp: ' toStr(e)]);
+            disp(['Expression: ' toStr(e)]);
         end
     end
     
