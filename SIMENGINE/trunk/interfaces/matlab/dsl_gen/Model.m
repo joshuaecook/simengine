@@ -338,7 +338,7 @@ classdef Model < handle
                                 s.exhausted = 'repeat';
                                 i = i+1;
                             case 'stop'
-                                s.exhausted = 'stop';
+                                s.exhausted = 'halt';
                                 i = i+1;                                
                             otherwise
                                 error('Simatra:Model:input', 'Unknown input property %s', args{1});
