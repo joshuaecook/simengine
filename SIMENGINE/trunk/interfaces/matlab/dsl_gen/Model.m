@@ -1241,7 +1241,181 @@ classdef Model < handle
             end
             str = [str 'end\n'];
         end
-        
+
+        function toFile(m, fid)
+            % MODEL/TOFILE - generate a string representation of a
+            % model in a file
+            % 
+            % Usage:
+            %   TOFILE(MDL, FID) - generates a DSL file
+            %
+            % See also MODEL/TODSL MODEL/TYPE
+            %
+            % Copyright 2010 Simatra Modeling Technologies
+            % Website: www.simatratechnologies.com
+            % Support: support@simatratechnologies.com
+            %    
+            inputs = keys(m.Inputs);
+            outputs = keys(m.Outputs);
+            states = keys(m.States);
+            randoms = keys(m.Randoms);
+            eqs = keys(m.IntermediateEqs);
+            eqsNames = keys(m.IntermediateEqsNames);
+            diffeqs = fieldnames(m.DiffEqs); 
+            recurrenceeqs = fieldnames(m.RecurrenceEqs);
+            instances = keys(m.Instances);
+            cachedmodels = keys(m.cachedModels);
+            iterators = values(findIterators(m));
+            
+            fprintf(fid, ['// Generated DSL model: ' m.Name '\n']);
+            fprintf(fid, ['// Copyright 2010 Simatra Modeling ' ...
+                          'Technologies\n']);
+            fprintf(fid, '\n');
+            fprintf(fid, '// Import List\n');
+            for i=1:length(cachedmodels)
+                if isfield(m.cachedModels(cachedmodels{i}), 'filename')
+                    fprintf(fid, ['import "' m.cachedModels(cachedmodels{i}).filename '"' '\n']);
+                elseif isfield(m.cachedModels(cachedmodels{i}), 'model')
+                    fprintf(fid, [toStr(m.cachedModels(cachedmodels{i}).model) '\n']);
+                else
+                    error('Simatra:Model', ['Unexpected model type on model ' cachedmodels{i}]);
+                end
+            end
+            fprintf(fid, '\n');
+            
+            outputList = ['(' concatWith(', ', outputs) ')'];
+            inputList = ['(' concatWith(', ', inputs), ')'];
+            
+            fprintf(fid, ['model ' outputList ' = ' m.Name inputList '\n']);
+            fprintf(fid, '\n');
+            fprintf(fid, '   // Iterator definitions\n');
+            default_id = m.DefaultIterator.id;
+            defined = false;
+            for i=1:length(iterators)
+                if strcmp(iterators{i}.id, default_id);
+                    defined = true;
+                end
+                fprintf(fid, ['   ' iterators{i}.toStr '\n']);
+            end
+            if ~defined
+                fprintf(fid, ['   ' m.DefaultIterator.toStr '\n']);
+            end
+            fprintf(fid, '\n');
+            fprintf(fid, '   // Input definitions\n');
+            for i=1:length(inputs)
+                input = m.Inputs(inputs{i});
+                attributes = ' with {';
+                if isfinite(input.default)
+                    attributes = [attributes 'default=' toStr(input.default) ', '];
+                end
+                if isa(input.iterator, 'Iterator')
+                    attributes = [attributes 'iter=' toStr(input.iterator.id) ', '];
+                end 
+                attributes = [attributes input.exhausted '_when_exhausted}'];
+                fprintf(fid, ['   input ' inputs{i} attributes '\n']);
+            end
+            fprintf(fid, '\n');
+            fprintf(fid, '   // State definitions\n');
+            for i=1:length(states)
+                state = m.States(states{i});
+                iter_str = '';
+                if isa(state.iterator, 'Iterator')
+                    iter_str = [' with {iter=' state.iterator.id '}'];
+                end
+                fprintf(fid, ['   state ' states{i} ' = ' toStr(state.init) iter_str '\n']);
+            end
+            fprintf(fid, '\n');
+            fprintf(fid, '   // Random definitions\n');
+            for i=1:length(randoms)
+                state = m.Randoms(randoms{i});
+                iter_str = '';
+                if isa(state.iterator, 'Iterator')
+                    iter_str = ['iter=' state.iterator.id ', '];
+                end
+                if state.uniform
+                  parameter_str = sprintf('uniform, high=%g, low=%g', state.high, ...
+                                          state.low);
+                else
+                  parameter_str = sprintf('normal, mean=%g, stddev=%g', ...
+                                          state.mean, ...
+                                          state.stddev);
+                end
+                fprintf(fid, ['   random ' randoms{i} ' with {' iter_str ...
+                       parameter_str '}\n']);
+            end
+            fprintf(fid, '\n');
+            fprintf(fid, '   // Instance definitions\n');
+            for i=1:length(instances)
+                inst = m.Instances(instances{i});
+                name = inst.name;
+                fprintf(fid, ['   submodel ' name ' ' instances{i} '\n']);
+            end
+            fprintf(fid, '\n');
+            fprintf(fid, '   // Equation definitions\n');
+            for i=1:length(eqs)
+                index = eqs{i};
+                equ = m.IntermediateEqs(index);
+                lhs = equ.lhs;
+                if isfield(equ, 'rhs')
+                    rhs = equ.rhs;
+                    if isRef(lhs)
+                        fprintf(fid, ['   ' toStr(lhs) ' = ' toStr(rhs) '\n']);
+                    else
+                        fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(rhs) '\n']);
+                    end
+                elseif isfield(equ, 'value') && isfield(equ, 'condition')
+                    value = equ.value;
+                    condition = equ.condition;
+                    fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(value) ' when ' toStr(condition) '\n']);
+                else
+                    error('Simatra:Model:toStr', 'Unexpected equation form');
+                end
+            end
+            fprintf(fid, '\n');
+            fprintf(fid, '   // Differential equation definitions\n');
+            fprintf(fid, '   equations\n');
+            for i=1:length(diffeqs)
+                lhs = diffeqs{i};
+                rhs = m.DiffEqs.(lhs).rhs;
+                fprintf(fid, ['      ' lhs ''' = ' toStr(rhs) '\n']);
+            end
+            fprintf(fid, '   end\n');
+            fprintf(fid, '\n');
+            fprintf(fid, '   // Recurrence equation definitions\n');
+            fprintf(fid, '   equations\n');
+            for i=1:length(recurrenceeqs)
+              key = recurrenceeqs{i};
+                lhs = m.RecurrenceEqs.(key).lhs;
+                rhs = m.RecurrenceEqs.(key).rhs;
+                fprintf(fid, ['      ' toStr(lhs) ' = ' toStr(rhs) '\n']);
+            end
+            fprintf(fid, '   end\n');
+            fprintf(fid, '\n');
+            fprintf(fid, '   // Output definitions\n');
+            for i=1:length(outputs)
+                name = outputs{i};
+                output = m.Outputs(name);
+                contents = output.contents;                
+                contentsStr = cell(1,length(contents));
+                for j=1:length(contents);
+                    contentsStr{j} = contents{j}.toStr;
+                end
+                contentsList = ['(' concatWith(', ', contentsStr), ')'];
+                optcondition = '';
+                if isa(output.condition, 'Exp')
+                    optcondition = [' when ' output.condition.toStr];
+                end
+                iter = output.iterator;
+                iter_str = '';
+                if isa(iter, 'Iterator')
+                    %iter_str = ['[' iter.id ']'];
+                    iter_str = [' with {iter=' iter.id '}'];
+                end
+                fprintf(fid, ['   output ' name ' = ' contentsList iter_str optcondition '\n']);
+            end
+            fprintf(fid, 'end\n');
+        end
+
         
         function filename = toDSL(m, filename)
             % MODEL/TODSL - view the resulting generated DSL code
@@ -1259,7 +1433,11 @@ classdef Model < handle
             % Support: support@simatratechnologies.com
             %            
             disp(['Creating ' m.Name ' ...']);
-            str = toStr(m);
+            tempfile = tempname;
+            fid = fopen(tempfile, 'w');
+            toFile(m, fid);
+            fclose(fid);
+            
             % if one is not specified, then create one
             if nargin == 1
                 filename = fullfile(tempdir, [m.Name '.dsl']);
@@ -1267,10 +1445,10 @@ classdef Model < handle
             
             writeFile = true;
             if exist(filename, 'file')
-                str_from_file = fileread(filename);
-                str_from_file = regexprep(str_from_file, char(10), '\\n');
-                str_from_file = regexprep(str_from_file, char(37), '%%');
-                if strcmp(str, str_from_file)
+
+              [result,out] = system(['diff ' tempfile ' ' filename])
+              
+              if result == 0
                     disp(['Reusing file ' filename]);
                     writeFile = false;
                 else
@@ -1285,9 +1463,7 @@ classdef Model < handle
 %                 disp(sprintf('file %s does not exist', filename));
             end
             if writeFile
-                fid = fopen(filename, 'w');
-                fprintf(fid, str);
-                fclose(fid);
+              movefile(tempfile, filename);
             end
         end
         
