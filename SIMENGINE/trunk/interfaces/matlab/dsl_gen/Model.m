@@ -294,7 +294,7 @@ classdef Model < handle
             %   The possible modes are:
             %     'hold' - keep the last value until the simulation ends
             %     'repeat' - repeat the input sequence over and over again
-            %     'stop' - end the simulation after the input sequence is
+            %     'halt' - end the simulation after the input sequence is
             %     finished
             %
             % See also MODEL/OUTPUT
@@ -337,7 +337,7 @@ classdef Model < handle
                             case 'repeat'
                                 s.exhausted = 'repeat';
                                 i = i+1;
-                            case 'stop'
+                            case 'halt'
                                 s.exhausted = 'halt';
                                 i = i+1;                                
                             otherwise
