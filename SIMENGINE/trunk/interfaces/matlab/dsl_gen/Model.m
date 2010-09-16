@@ -870,7 +870,7 @@ classdef Model < handle
             if m.DefaultIterator.isContinuous 
                 m.DefaultIterator.solver = solver;
             else
-                error('Simatra:Model.solver', 'Can only set the solver for a continuous iterator');
+                error('Simatra:Model:solver', 'Can only set the solver for a continuous iterator');
             end
         end
         
@@ -891,11 +891,20 @@ classdef Model < handle
             %    
             
             if isempty(m.IteratorList)
-                m.DefaultIterator.dt = dt;
+                iter = m.DefaultIterator;
+                if isContinuous(iter)
+                    iter.dt = dt;
+                else
+                    iter.sample_period = dt;
+                end
             else
                 for i=1:length(m.IteratorList)
                     iter = m.IteratorList{i};
-                    iter.dt = dt;
+                    if isContinuous(iter)
+                        iter.dt = dt;
+                    else
+                        iter.sample_period = dt;
+                    end
                 end
             end
         end

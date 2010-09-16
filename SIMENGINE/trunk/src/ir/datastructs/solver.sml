@@ -226,7 +226,7 @@ local
 		       CV_NEWTON))
 	  | _ => CV_NEWTON
     fun getCVSolv settings =
-	case has settings "cv_iter" of
+	case has settings "cv_solv" of
 	    SOME (_, Exp.TERM (Exp.STRING s)) => 
 	    (case s of
 		 "CV_DENSE" => CVDENSE
