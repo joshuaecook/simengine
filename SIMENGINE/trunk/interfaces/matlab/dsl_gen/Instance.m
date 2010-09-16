@@ -8,12 +8,17 @@ classdef Instance
         Mdl
     end
     
+    properties (Access = protected)
+        definedInputs
+    end
+    
     methods
         function inst = Instance(InstName, Mdl, Inputs, Outputs)
             inst.Mdl = Mdl;
             inst.InstName = InstName;
             inst.Inputs = Inputs;
             inst.Outputs = Outputs;
+            inst.definedInputs = containers.Map;
         end
         
         function b = subsref(inst, s)
@@ -25,6 +30,15 @@ classdef Instance
                 if isOutput(inst, out)
                     output = Exp(inst.InstName, s.subs);
                     b = output;
+                elseif isInput(inst, out)
+                    % now, if it's an input, we can still handle that by
+                    % returning what ever is defined, if it has been
+                    % defined
+                    if isKey(inst.definedInputs, out)
+                        b = inst.definedInputs(out);
+                    else
+                        error('Simatra:Instance', 'Can not read from an input of a submodel if it has not been already defined.')
+                    end    
                 elseif strcmp(out, 'Inputs')
                     b = inst.Inputs;
                 elseif strcmp(out, 'Outputs')
@@ -51,6 +65,7 @@ classdef Instance
                 end
                 input = Exp(inst.InstName, s.subs);
                 inst.Mdl.equ(input, b);
+                inst.definedInputs(inp) = b;
             end
             i2 = inst;
         end
