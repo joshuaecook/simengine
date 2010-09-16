@@ -5,8 +5,11 @@
 //                         General simEngine Options
 // **********************************************************************
 
-// verbose: displays extra info during compilation/simulation
+// verbose: displays more info during compilation/simulation
 <verbose = false>
+
+// quiet: displays less info during compilation/simulation
+<quiet = false>
 
 // force: causes all directories/files to be overwritten
 <force = true>
