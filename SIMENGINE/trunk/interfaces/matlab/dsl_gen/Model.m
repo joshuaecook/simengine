@@ -1275,8 +1275,9 @@ classdef Model < handle
             for i=1:length(cachedmodels)
                 if isfield(m.cachedModels(cachedmodels{i}), 'filename')
                     fprintf(fid, ['import "' m.cachedModels(cachedmodels{i}).filename '"' '\n']);
-                elseif isfield(m.cachedModels(cachedmodels{i}), 'model')
-                    fprintf(fid, [toStr(m.cachedModels(cachedmodels{i}).model) '\n']);
+                elseif isfield(m.cachedModels(cachedmodels{i}), ...
+                               'model')
+                  toFile(m.cachedModels(cachedmodels{i}).model, fid);
                 else
                     error('Simatra:Model', ['Unexpected model type on model ' cachedmodels{i}]);
                 end
@@ -1446,7 +1447,7 @@ classdef Model < handle
             writeFile = true;
             if exist(filename, 'file')
 
-              [result,out] = system(['diff ' tempfile ' ' filename])
+              [result,out] = system(['diff ' tempfile ' ' filename]);
               
               if result == 0
                     disp(['Reusing file ' filename]);
