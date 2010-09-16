@@ -17,7 +17,7 @@ n = 0:end_time;
 inp.Iext = {interp1(points(:,1),points(:,2), n)};
 
 % Execute the simulation of the BRK motoneuron model
-o = simex('brk_inputs.dsl', end_time, inp);
+o = simex(create_brk_inputs, end_time, inp);
 
 % Plot the voltage traces from the neural model
 figure(1);
@@ -44,7 +44,7 @@ ylabel('Current (nA/cm^2)');
 dt = 0.01;
 n2 = 0:dt:end_time;
 inp2.Vm = {interp1(o.V(:,1),o.V(:,2),n2,'linear','extrap')};
-o2 = simex('spikes.dsl', end_time/dt, inp2);
+o2 = simex(create_spike_detector, end_time/dt, inp2);
 
 % Compute interspike intervals and spiking frequency from the spike data
 spike_times = (o2.events(:,1)*dt)'; % rescale based on dt used when generating the input stream Vm
