@@ -8,7 +8,7 @@ n = Iterator('n', 'discrete', 'sample_period', 1);
 
 % Define an input x that will be streaming and will cause the simulation to
 % stop when there is no more data
-x = m.input('x', 0, 'iter', n, 'stop');
+x = m.input('x', 0, 'iter', n, 'halt');
 
 % Compute a n point moving averager
 N = 50;
