@@ -304,6 +304,15 @@ WS      = [\012\ \t];
 			   SOME(a:int) => Tokens.INT(a, genpos yypos, genpos (yypos + (size yytext)))
 			 | NONE => (error (genpos yypos) ($"Integer number conversion error");
 				    continue())
+		   end
+		   handle Overflow => 		   
+		   let
+                       val realval = (Real.fromString(yytext))
+		   in
+		       case realval of
+			   SOME(a:real) => Tokens.REAL(a, genpos yypos, genpos (yypos + (size yytext)))
+		    | NONE => (error (genpos yypos) ($"Real number conversion error");
+			       continue())
 		   end);
 
 <INITIAL>{HEX} => ((* Rule to match hexadecimal numbers *)
