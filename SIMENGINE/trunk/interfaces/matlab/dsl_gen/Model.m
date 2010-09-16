@@ -662,9 +662,18 @@ classdef Model < handle
                     error('Simatra:Model:equ', 'First argument to EQU must be a string or an Exp type');
                 end
             end
-            if identifier_exists(m, lhsstr)
+            already_exists = identifier_exists(m, lhsstr);
+            isExpReference = isRef(lhs);
+            if already_exists && ~isExpReference
                 error('Simatra:Model:equ', ['Variable ' lhsstr ' has already been defined']);
             else
+                % if the name already exists, we should remove the
+                % intermediate equation that is already there and create a
+                % new one at the end
+                if already_exists
+                    number = m.IntermediateEqsNames(lhsstr);
+                    remove(m.IntermediateEqs, number); 
+                end
                 e = Exp(lhsstr);
                 m.IntermediateEqs(m.intermediate_number) = struct('lhs', lhs, 'rhs', rhs);
                 m.IntermediateEqsNames(lhsstr) = m.intermediate_number;
