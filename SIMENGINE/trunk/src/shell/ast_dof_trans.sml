@@ -14,7 +14,7 @@ open Ast
 open Printer
 
 (* perform basic error checking through these common commands *)
-val error_trace = true
+val error_trace = false
 
 fun except str =
     DynException.stdException ("Unexpected exception: " ^ str, "AstDOFTrans", Logger.INTERNAL)
@@ -47,6 +47,7 @@ fun log_progs progs = Printer.printtexts (TextIO.stdOut, progs, 0)
 
 (* Predicates: Create a set of predicates to find certain structures in the AST *)
 fun isModel (DEFINITION (DEFMODEL _, _)) = true | isModel _ = false
+fun isUnit (ACTION (EXP UNIT, _)) = true | isUnit _ = false
 (* these find all the parts of a model *)
 fun isIterator (ITERATORDEF _) = true | isIterator _ = false
 fun isInput (INPUTDEF _) = true | isInput _ = false
@@ -822,6 +823,7 @@ fun modeldef_to_class modeltable name =
 fun create_model_table astlist = 
     let
 	val (models, other) = List.partition isModel astlist
+	val (units, other) = List.partition isUnit other
 	val _ = if List.length other > 0 then
 		    let
 			val progs = Util.flatmap stm_to_printer other
@@ -894,10 +896,14 @@ fun ast_to_dof astlist =
 	val (modeltable, top_level_model) = create_model_table astlist
 
 	val modelnames = SymbolTable.listKeys modeltable
+
+	(* convert the top class first, so that way the top level iterators take precedence *)
+	val non_top_models = List.filter (fn(name)=> name <> top_level_model) modelnames
+
 	(* now we can convert each of the model definitions directly into classes.  We need to pass in the model table so that we can properly interpret submodels *)
 	val (classes, iterators) = 
 	    ListPair.unzip
-		(map (modeldef_to_class modeltable) modelnames)
+		(map (modeldef_to_class modeltable) (top_level_model::non_top_models))
 
 	(* remove duplicate iterators *)
 	val reduced_iterators = remove_duplicate_iterators (Util.flatten iterators)
