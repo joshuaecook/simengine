@@ -5,7 +5,7 @@ function startup ()
   Devices.init()
 
   // Display start up message
-  if settings.general.startupmessage.getValue() then
+  if not(settings.general.quiet.getValue()) and settings.general.startupmessage.getValue() then
       println(LF sys_startupMessage())
       // Now check to see if we are up to date
       var update_info = LF validateUpdate (settings.installation.updateBuildDate.getValue())
