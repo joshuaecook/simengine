@@ -65,6 +65,12 @@ val argument_groups =
 		dyntype=FLAG_T,
 		description=["Verbose printing from compiler"]},
 
+	       {short=SOME #"q",
+		long =SOME "quiet",
+		xmltag="quiet",
+		dyntype=FLAG_T,
+		description=["Quiet printing from compiler"]},
+
 	       {short=SOME #"s",
 		long =SOME "simex",
 		xmltag="simex",

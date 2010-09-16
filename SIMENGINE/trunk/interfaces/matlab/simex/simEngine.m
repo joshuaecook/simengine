@@ -86,7 +86,7 @@ function [outputs y1 t1 interface] = simEngine (options)
         simFailure('launchBackground', 'Unable to read from simEngine log file.')
       end
     end
-    if length(log) > outputlen
+    if ~options.quiet && length(log) > outputlen
       fprintf('%s', log(outputlen+1:end));
       outputlen = length(log);
     end
@@ -103,7 +103,7 @@ function [outputs y1 t1 interface] = simEngine (options)
   catch it
     simFailure('launchBackground', 'Process log file does not exist.')
   end
-  if length(log) > outputlen
+  if ~options.quiet && length(log) > outputlen
     fprintf('%s', log(outputlen+1:end));
   end
 

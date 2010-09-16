@@ -2,9 +2,11 @@ function [options] = simexOptions (dsl, varargin)
   % SIMEXOPTIONS Parses the arguments from command invocation.
   options = struct('simengine','', 'model', '', 'instances',1, 'startTime',0, ...
                    'stopTime',0, 'inputs',struct(), 'states',[], ...
-                   'outputs', '', 'jsonfile', '', 'debug', false, 'args', '--binary', ...
-                   'dslfile', '', 'target', 'default', 'precision', ...
-                   'double', 'shared_memory', true, 'buffer_count', 80);
+                   'outputs', '', 'jsonfile', '', 'debug', false, ...
+                   'quiet', false, 'args', '--binary', ...
+                   'dslfile', '', 'target', 'default', ...
+                   'precision', 'double', 'shared_memory', true, ...
+                   'buffer_count', 80);
   userOptions = varargin(:);
 
   [seroot] = fileparts(which('simex'));
@@ -240,6 +242,12 @@ function [options, restUserOptions] = getOption(options, userOptions)
         options.debug = true;
         options.args = [options.args ' --debug'];
       end
+    case 'quiet'
+      options.quiet = ~options.quiet;
+      options.args = [options.args ' --quiet'];
+    case 'q'
+      options.quiet = ~options.quiet;
+      options.args = [options.args ' --quiet'];
     case 'gdb'
       options.args = [options.args ' --gdb'];
       % Turn on debugging if gdb is requested and not already enabled
