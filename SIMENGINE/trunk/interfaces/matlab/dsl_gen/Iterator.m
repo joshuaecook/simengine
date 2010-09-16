@@ -185,7 +185,7 @@ classdef Iterator < handle
         
         function str = toInfo(iter)
             if strcmpi(iter.type, 'discrete')
-                options = ['sample_period=' iter.params('sample_period')];
+                options = ['sample_period=' num2str(iter.params('sample_period'))];
                 str = sprintf('Discrete iterator with {%s}', options);
             else
                 param_options = mapToString(iter.params);
