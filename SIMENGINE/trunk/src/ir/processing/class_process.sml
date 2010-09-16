@@ -2230,7 +2230,18 @@ fun wrap print f =
     
 
 fun unify print class = 
-    ((wrap print inlineIntermediates) o (wrap print expandInstances)) class
+    let
+	val classes = CurrentModel.classes()
+	val _ = Profile.timeTwoCurryArgs "Inlining classes" map inlineIntermediates classes
+		
+	val class' = Profile.time "Expanding instances" expandInstances class
+	val outline = Profile.time "Creating outline" DOFOutline.class_to_outline class'
+
+	val class'' = Profile.time "Inlining top class" inlineIntermediates class'
+    in
+	(*((wrap print inlineIntermediates) o (wrap print expandInstances)) class*)
+	class''
+    end
 
 and inlineIntermediates class =
     let val {name, properties, inputs, outputs, exps} : DOF.class = class
@@ -2260,7 +2271,8 @@ and inlineIntermediates class =
 	(* FIXME this has N^2 complexity in matching each intermediate against itself and every other. *)
 	(* First inlines intermediates within the right-hand expression of the intermediates themselves. *)
 	val intermediateEquations' = 
-	    map (rewriteRHS (Match.repeatApplyRewritesExp rewrites)) intermediateEquations
+	    Profile.timeTwoCurryArgs "Flatten Intermediates"
+				     map (rewriteRHS (Match.repeatApplyRewritesExp rewrites)) intermediateEquations
 
 	(* Then recomputes the rules before applying them to the remainder of the class. *)
 	val rewrites = map ExpProcess.intermediateEquation2rewrite intermediateEquations'
@@ -2272,13 +2284,15 @@ and inlineIntermediates class =
 	    let
 		val rewrite = (Match.repeatApplyRewritesExp rewrites)
 	    in
-		exps := map (rewriteRHS rewrite) exps'
+		exps := Profile.timeTwoCurryArgs "Flatten Remaining Expressions" map (rewriteRHS rewrite) exps'
 	      ; outputs := map (DOF.Output.rewrite rewrite) (! outputs)
 	      ; inputs := map (DOF.Input.rewrite rewrite) (! inputs)
 	    end
     in
         class
     end
+
+
 
 and expandInstances class =
     let val {name, properties, inputs, outputs, exps} : DOF.class = class
