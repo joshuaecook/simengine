@@ -21,11 +21,11 @@ end
 m = Model('adsr');
 
 % Create the inputs
-key = m.input('key', 'iter', n_in, 'stop');
-attackSlope = m.input('attackSlope', 15 * n_out.dt);
-decaySlope = m.input('decaySlope', -2 * n_out.dt);
+key = m.input('key', 'iter', n_in, 'halt');
+attackSlope = m.input('attackSlope', 15 * n_out.sample_period);
+decaySlope = m.input('decaySlope', -2 * n_out.sample_period);
 sustainLevel = m.input('sustainLevel', 0.75);
-releaseSlope = m.input('releaseSlope', -5 * n_out.dt);
+releaseSlope = m.input('releaseSlope', -5 * n_out.sample_period);
 
 % Create the states
 peaked = m.state('peaked', 0, 'iter', n_out);

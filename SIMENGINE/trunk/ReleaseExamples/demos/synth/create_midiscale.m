@@ -20,7 +20,7 @@ end
 m = Model('midiscale');
 
 % Create the inputs
-note = m.input('note', 'iter', n);
+note = m.input('note', 'iter', n, 'halt');
 
 % Equations
 frequency = piecewise(440 * (2^(1/12))^(note - 57), note > 3 & note < 124, 0);
