@@ -286,6 +286,13 @@ classdef Model < handle
             %   inp = mdl.INPUT(NAME [, DEFAULT] [, OPTIONS ...]) - create an input
             %   with name NAME and optional default value DEFAULT.  DEFAULT
             %   must be a numeric type.
+            %
+            %   inp = mdl.INPUT(SUBMODEL, INPUTNAME) - promote an input
+            %   from SUBMODEL to mdl.  All attributes will be copied such
+            %   that this input will be accessible at the top level.
+            %
+            %   mdl.INPUT(SUBMODEL, '-all') - promote all inputs from
+            %   SUBMODEL to mdl.
             %   
             %   OPTIONS can be of the form ('iter', ITERATOR) supplying an
             %   iterator to a time varying input or a specific mode for a
@@ -304,13 +311,11 @@ classdef Model < handle
             % Support: support@simatratechnologies.com
             %
             
-            if ~ischar(id)
-                error('Simatra:Model:input', 'First argument to input must be a string name');                
-            end
-            
-            if identifier_exists(m, id)
-                error('Simatra:Model:input', ['Input ' id ' already exists']);
-            else
+            % Do some error checking to begin
+            if ischar(id)
+                if identifier_exists(m, id)
+                    error('Simatra:Model:input', ['Input ' id ' already exists']);
+                end
                 e = Exp(id);
                 s = struct('default', nan, 'exhausted', false, 'iterator', false);
                 args = varargin;
@@ -360,8 +365,62 @@ classdef Model < handle
                     s.exhausted = 'hold';
                 end
                 m.Inputs(id) = s;
+
+            elseif isa(id, 'Instance')
+                if length(varargin) == 1
+                    inp = varargin{1};
+                    if ischar(inp)
+                        if strcmp(inp, '-all')
+                            % process all 
+                            all_inputs = id.Inputs;
+                            for i=1:length(all_inputs)
+                                addInputFromSubmodel(id, all_inputs{i});
+                            end
+                        elseif any(strcmp(id.Inputs, inp))
+                            addInputFromSubmodel(id, inp);
+                        else
+                            error('Simatra:Model:input', ['There is no input to submodel with name ''' inp '''']);
+                        end
+                    else
+                        error('Simatra:Model:input', 'Argument following submodel in input method must be an input name or the string ''-all''');
+                    end
+                else
+                    error('Simatra:Model:input', 'Argument following submodel in input method must be an input name or the string ''-all''');
+                end
+            else
+                error('Simatra:Model:input', 'First argument to input must be a string name or a submodel');                
+            end
+            
+            % addInputFromSubmodel - seeks out an input by name from the
+            % submodel and adds it to the top-level.  Then creates a link
+            % between the two by assigning the instance input to the newly
+            % generated top level input
+            function addInputFromSubmodel(sm, inp_id)
+                if isKey(m.Inputs, inp_id)
+                    warning('Simatra:Model:input', ['Input ' inp_id ' has already been defined in this model, won''t overwrite']);
+                else
+                    sm_mdl = sm.ModelObject;
+                    s = queryInput(sm_mdl, inp_id);
+                    m.Inputs(inp_id) = s;
+                    sm.(inp_id) = Exp(inp_id);
+                end
+            end
+            % queryInput just makes sure that an input is available before
+            % it adds it
+            function s = queryInput(m, inp)
+                if ischar(inp)
+                    if isKey(m.Inputs, inp)
+                        s = m.Inputs(inp);
+                    else
+                        error('Simatra:Model:queryInput', ['There is no input with name ' inp]);
+                    end
+                else
+                    error('Simatra:Model:queryInput', 'Must pass in an string input name to queryInput');
+                end
             end
         end
+        
+        
         
         function output(m, varargin)
             % MODEL/OUTPUT - create a new output for the model
@@ -624,11 +683,11 @@ classdef Model < handle
                 instance = cell(1,length(inst));
                 for i=1:length(inst)
                     m.Instances(inst{i}) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
-                    instance{i} = Instance(inst{i}, m, inputs, outputs);
+                    instance{i} = Instance(inst{i}, m, modelarg, inputs, outputs);
                 end
             else
                 m.Instances(inst) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
-                instance = Instance(inst, m, inputs, outputs);
+                instance = Instance(inst, m, modelarg, inputs, outputs);
             end
         end
 

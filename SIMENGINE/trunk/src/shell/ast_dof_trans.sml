@@ -160,6 +160,7 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
       | _ => error_exp ("APPLY:" ^ (Symbol.name sym) ^ " with args = " ^ (Util.list2str ExpPrinter.exp2str (map astexp_to_Exp args)))*)
      handle e => DynException.checkpoint ("AstDOFTrans.apply_to_Exp ["^(Symbol.name sym)^"]") e)
   | apply_to_Exp {func=(SYMBOL sym),...} = error_exp ("APPLY ["^(Symbol.name sym)^"]")
+  | apply_to_Exp {func=(SEND {message, object=(SYMBOL sym)}), ...} = error_exp ("Can not perform temporal indexing on " ^ (Symbol.name sym ^ "." ^ (Symbol.name message)))
   | apply_to_Exp {func,...} = error_exp ("APPLY")
 
 and send_to_Exp {message, object=(SYMBOL sym)} = ExpBuild.var (Symbol.name sym ^ "." ^ (Symbol.name message))

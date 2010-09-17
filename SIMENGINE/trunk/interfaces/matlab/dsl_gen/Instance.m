@@ -6,6 +6,7 @@ classdef Instance
         Inputs
         Outputs
         Mdl
+        SubMdl
     end
     
     properties (Access = protected)
@@ -13,8 +14,9 @@ classdef Instance
     end
     
     methods
-        function inst = Instance(InstName, Mdl, Inputs, Outputs)
+        function inst = Instance(InstName, Mdl, SubMdl, Inputs, Outputs)
             inst.Mdl = Mdl;
+            inst.SubMdl = SubMdl;
             inst.InstName = InstName;
             inst.Inputs = Inputs;
             inst.Outputs = Outputs;
@@ -43,6 +45,8 @@ classdef Instance
                     b = inst.Inputs;
                 elseif strcmp(out, 'Outputs')
                     b = inst.Outputs;
+                elseif strcmp(out, 'ModelObject')
+                    b = inst.SubMdl;
                 else
                     inst.Outputs
                     error('Simatra:Instance', 'No output with name %s found', s.subs);

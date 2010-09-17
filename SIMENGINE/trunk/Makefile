@@ -295,7 +295,7 @@ compiler:
 	$(MAKE) build-system
 	$(MAKE) $(BUILD_DIR)/data/default.sew
 	$(MAKE) matlab-files
-#	$(MAKE) documentation
+	$(MAKE) documentation
 	$(MAKE) $(INSTALL_TGZ)
 	$(MAKE) $(DSL_EL)
 	$(MAKE) install-locally
@@ -554,7 +554,12 @@ endif
 	@echo "%   simCheckLicense - Reports on current license, or installs a new license for simEngine" >> $@
 	@echo "%   simEngineUpdate - Auto-updates the simEngine installation to the latest available version" >> $@
 	@echo "% " >> $@
+	@echo "% simEngine additional functions" >> $@
+	@echo "%   piecewise       - Functional conditional operator" >> $@
+	@echo "% " >> $@
 	@echo "%  For more information, see http://www.simatratechnologies.com." >> $@
+	@echo "%  Product information: info@simatratechnologies.com " >> $@
+	@echo "%  Product support: support@simatratechnologies.com " >> $@
 	@echo "% " >> $@
 	@echo "%  Copyright 2010 Simatra Modeling Technologies" >> $@
 
