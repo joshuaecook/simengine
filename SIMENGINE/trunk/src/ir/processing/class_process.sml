@@ -2231,13 +2231,18 @@ fun wrap print f =
 
 fun unify print class = 
     let
+	(*
 	val classes = CurrentModel.classes()
 	val _ = Profile.timeTwoCurryArgs "Inlining classes" map inlineIntermediates classes
 		
 	val class' = Profile.time "Expanding instances" expandInstances class
 	val outline = Profile.time "Creating outline" DOFOutline.class_to_outline class'
 
+	val class'' = Profile.time "Inlining top class" inlineIntermediates class'*)
+	
+	val class' = Profile.time "Expanding instances" expandInstances class
 	val class'' = Profile.time "Inlining top class" inlineIntermediates class'
+
     in
 	(*((wrap print inlineIntermediates) o (wrap print expandInstances)) class*)
 	class''
@@ -2377,7 +2382,7 @@ and outputExpressions caller equation =
 		val (contents', condition') = (Output.contents output', Output.condition output')
 		val value' = 
 		    if 1 = List.length contents' then List.hd contents'
-		    else DynException.stdException(("Too many quantities for output '"^(Symbol.name (Term.sym2curname (Output.name output)))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
+		    else DynException.stdException(("One than one output per class is not supported '"^(Symbol.name (Term.sym2curname (Output.name output)))^"' in class '" ^ (Symbol.name classname) ^ "'"), 
 						   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
 
 		val name' = Exp.TERM outarg
@@ -2385,7 +2390,10 @@ and outputExpressions caller equation =
 		val value' = 
 		    case condition'
                       of Exp.TERM (Exp.BOOL true) => value'
-                       | _ => ExpBuild.cond (condition', value', name')
+                       | _ => (*ExpBuild.cond (condition', value', name')*)
+			 (Logger.log_warning (Printer.$("Condition not supported on '"^(Symbol.name (Term.sym2curname (Output.name output)))^"' in class '" ^ (Symbol.name classname) ^ "' when this class is part of a sub model"));
+			  value')
+
 		val _ = log (fn () => "output output " ^ (e2s (ExpBuild.equals (name', value'))))
 	    in
 		ExpBuild.equals (name', value')
