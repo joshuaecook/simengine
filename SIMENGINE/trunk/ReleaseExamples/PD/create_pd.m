@@ -4,11 +4,7 @@
 % Derived from Prinz et al, J Neurophysiol, December 2003
 % Copyright 2008-2010 Simatra Modeling Technolgies, L.L.C.
 %
-function m = create_pd(output_Vm)
-
-if nargin == 0
-  output_Vm = true;
-end
+function m = create_pd
 
 dt = 0.05;
 t_expeuler = Iterator('t_ee', 'solver', 'exponentialeuler', 'dt', dt); % this will be the default iterator
@@ -51,7 +47,7 @@ hA = m.state(0.571);
 mKCa = m.state(0.027);
 mKd = m.state(0.02);
 mh = m.state(0.031);
-Caconc = m.state('Caconc', 0.05, 'iter', t_expeuler);
+Caconc = m.state('Caconc', Caconc_rest, 'iter', t_expeuler);
 
 % Define all the equations
 
@@ -71,7 +67,7 @@ IKd = gKd*mKd^4*(Vm-EK)*Amem;
 Ih = gh*mh*(Vm - Eh)*Amem;
 Ileak = gleak*(Vm-Eleak)*Amem;
 
-m.diffequ(Caconc, (1/200)*(-14960*(ICaT + ICaS) - Caconc + 0.05));
+m.diffequ(Caconc, (1/Tau_Ca)*(-14960*(ICaT + ICaS) - Caconc + 0.05));
 m.diffequ(mNa, (xinf(25.5, -5.29, Vm) - mNa)/(taux(120, -25, 2.64, -2.52, Vm)));
 m.diffequ(hNa, (xinf(48.9, 5.18, Vm) - hNa)/(taux(62.9, -10, 0, 1.34, Vm)*taux(34.9, 3.6, 1.5, 1, Vm)));
 m.diffequ(mCaT, (xinf(27.1, -7.2, Vm) - mCaT)/(taux(68.1, -20.5, 43.4, -42.6, Vm)));
@@ -89,8 +85,6 @@ m.diffequ(Vm, (1/Cmem)*(-INa-ICaT-ICaS-IA-IKCa-IKd-Ih-Ileak));
 % Don't begin outputting data immediately - instead, allow model to settle
 start_data_time = m.input('start_data_time', 10000);
 
-if output_Vm
-  m.output('Vm', Vm, 'when', m.time > start_data_time);
-end
+m.output('Vm', Vm, 'when', m.time > start_data_time);
 
 end

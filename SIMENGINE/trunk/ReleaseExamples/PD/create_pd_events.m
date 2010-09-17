@@ -21,9 +21,9 @@ m = Model('pd_events', t);
 % Instantiate the pd model as a submodel
 pd = m.submodel(pd_mdl);
 
-% Define the output data start time
-start_data_time = m.input('start_data_time', 10000);
-pd.start_data_time = start_data_time;
+% Define the output data start time - it was already defined in the
+% submodel, so just pull that definition out
+start_data_time = m.input(pd, 'start_data_time');
 
 % Promote the remaining inputs
 m.input(pd, '-all');
@@ -44,8 +44,10 @@ m.recurrenceequ(last_spike_area, ...
     last_spike_area + (Vm(t-1)+40)*(dt/1000), Vm(t-1) >= -40 & Vm(t-2) <= -15, ...
     last_spike_area + 20*(dt/1000), Vm(t-1) > -15, ...
     last_spike_area));
+
+time = m.equ(m.time);
 m.recurrenceequ(last_spike_time, ...
-                piecewise(m.time, Vm < Vm(t-1) & Vm(t-1) > Vm(t-2),...
+                piecewise(time(t-1), Vm < Vm(t-1) & Vm(t-1) > Vm(t-2),...
                           last_spike_time));
 m.recurrenceequ(last_spike_height, ...
                 piecewise(Vm(t-1), Vm < Vm(t-1) & Vm(t-1) > Vm(t-2),...
@@ -59,5 +61,6 @@ start_data_time = Exp('start_data_time');
 output_data = (Vm < -40 & Vm(t-1) >= -40 & m.time > start_data_time);
 
 m.output('metrics', last_spike_time, last_spike_height, last_spike_area, 'when', output_data);
+m.output(Vm, 'when', m.time > start_data_time);
 
 end
