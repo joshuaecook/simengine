@@ -16,8 +16,8 @@ m = Model ('song');
 n_in = Iterator('n_in', 'discrete', 'sample_frequency', 64);
 n_out = Iterator('n_out', 'discrete', 'sample_frequency', 48e3);
 
-notes = m.input('notes', 'iter', n_in, 'stop');
-chords = m.input('chords', 'iter', n_in, 'stop');
+notes = m.input('notes', 'iter', n_in, 'halt');
+chords = m.input('chords', 'iter', n_in, 'halt');
 
 % Hold the last note/chord when released, ADSR does fade out
 last_note = m.state('last_note', 0, 'iter', n_in);
