@@ -1043,12 +1043,14 @@ DOCUMENTATION = tutorial userguide
 EXTERN_PUBLICATIONS = external-publications
 EXTERN_PUBLICATIONS_PREFIX = simEngine
 
+HTML_DOCUMENTATION_DESTINATION = $(addprefix $(realpath $(BUILD_DIR))/,html)
+
 .PHONY: documentation
 documentation: links html-documentation matlab-helpsearch
 
 .PHONY: html-documentation
 html-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
-html-documentation: export DOCUMENTATION_OUTPUT_DIR := $(addprefix $(realpath $(BUILD_DIR))/,html)
+html-documentation: export DOCUMENTATION_OUTPUT_DIR := $(HTML_DOCUMENTATION_DESTINATION)
 html-documentation: 
 	$(MAKE) -C $(EXTERN_PUBLICATIONS) html
 	$(CP) $(EXTERN_PUBLICATIONS)/helptoc.xml $(BUILD_DIR)/html/
@@ -1059,4 +1061,4 @@ html-documentation:
 matlab-helpsearch: html-documentation $(HTML_DOCUMENTATION_DESTINATION)/helpsearch/deletable
 
 $(HTML_DOCUMENTATION_DESTINATION)/helpsearch/deletable: html-documentation
-	$(MATLAB) -nosplash -nodesktop -r "cd $(HTML_DOCUMENTATION_DESTINATION); builddocsearchdb('.'); exit"
+	$(MATLAB) -nosplash -nodesktop -r "builddocsearchdb('$(HTML_DOCUMENTATION_DESTINATION)'); quit"
