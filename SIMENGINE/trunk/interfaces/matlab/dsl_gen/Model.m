@@ -372,12 +372,12 @@ classdef Model < handle
                     if ischar(inp)
                         if strcmp(inp, '-all')
                             % process all 
-                            all_inputs = id.Inputs;
-                            for i=1:length(all_inputs)
-                                addInputFromSubmodel(id, all_inputs{i});
+                            vars = List.map (@(inp)(addInputFromSubmodel(id, inp)), id.Inputs);
+                            if nargout > 0
+                                e = vars;
                             end
                         elseif any(strcmp(id.Inputs, inp))
-                            addInputFromSubmodel(id, inp);
+                            e = addInputFromSubmodel(id, inp);
                         else
                             error('Simatra:Model:input', ['There is no input to submodel with name ''' inp '''']);
                         end
@@ -395,14 +395,15 @@ classdef Model < handle
             % submodel and adds it to the top-level.  Then creates a link
             % between the two by assigning the instance input to the newly
             % generated top level input
-            function addInputFromSubmodel(sm, inp_id)
+            function e = addInputFromSubmodel(sm, inp_id)
+                e = Exp(inp_id);
                 if isKey(m.Inputs, inp_id)
                     warning('Simatra:Model:input', ['Input ' inp_id ' has already been defined in this model, won''t overwrite']);
                 else
                     sm_mdl = sm.ModelObject;
                     s = queryInput(sm_mdl, inp_id);
                     m.Inputs(inp_id) = s;
-                    sm.(inp_id) = Exp(inp_id);
+                    sm.(inp_id) = e;
                 end
             end
             % queryInput just makes sure that an input is available before
