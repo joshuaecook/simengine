@@ -552,6 +552,9 @@ classdef Exp
             er = e;
             for i=1:length(s)
                 if strcmp(s(i).type,'()')
+                    if isRef(e)
+                        error('Simatra:Exp:subsref', ['Can not perform any indexing or temporal referencing from an output of a submodel (' toStr(e) ').  Please first create an intermediate equation by wrapping the variable in an equ method call (myVar = mdl.equ(mySubModel.out);).  Then, perform the indexing on the returned variable.'])
+                    end
                     subs = s(i).subs;
                     for j=1:length(subs)
                         %disp(sprintf('j=%d; e.val=%s; subs{j}=%d', j, num2str(e.val), subs{j}));
