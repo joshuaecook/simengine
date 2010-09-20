@@ -295,7 +295,6 @@ compiler:
 	$(MAKE) build-system
 	$(MAKE) $(BUILD_DIR)/data/default.sew
 	$(MAKE) matlab-files
-	$(MAKE) documentation
 	$(MAKE) $(INSTALL_TGZ)
 	$(MAKE) $(DSL_EL)
 	$(MAKE) install-locally
@@ -1043,6 +1042,7 @@ clean-all:
 # ==============================================================================================
 
 DOCUMENTATION = tutorial userguide
+DOCUMENTATION_TOC = $(BUILD_DIR)/html/helptoc.xml $(BUILD_DIR)/info.xml
 
 # Local path of the publications repository
 EXTERN_PUBLICATIONS = external-publications
@@ -1056,11 +1056,17 @@ documentation: links html-documentation matlab-helpsearch
 .PHONY: html-documentation
 html-documentation: export SIMENGINE := $(realpath $(BUILD_DIR))
 html-documentation: export DOCUMENTATION_OUTPUT_DIR := $(HTML_DOCUMENTATION_DESTINATION)
-html-documentation: 
-	$(MAKE) -C $(EXTERN_PUBLICATIONS) html
-	$(CP) $(EXTERN_PUBLICATIONS)/helptoc.xml $(BUILD_DIR)/html/
-	$(CP) $(EXTERN_PUBLICATIONS)/info.xml $(BUILD_DIR)
+html-documentation: $(EXTERN_PUBLICATIONS) $(DOCUMENTATION_TOC)
 
+.PHONY: $(EXTERN_PUBLICATIONS)
+$(EXTERN_PUBLICATIONS):
+	$(MAKE) -C $(EXTERN_PUBLICATIONS) html
+
+$(BUILD_DIR)/html/helptoc.xml: $(EXTERN_PUBLICATIONS)/helptoc.xml
+	$(CP) $< $@
+
+$(BUILD_DIR)/info.xml: $(EXTERN_PUBLICATIONS)/info.xml
+	$(CP) $< $@
 
 .PHONY: matlab-helpsearch
 matlab-helpsearch: html-documentation $(HTML_DOCUMENTATION_DESTINATION)/helpsearch/deletable
