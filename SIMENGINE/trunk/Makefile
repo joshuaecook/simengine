@@ -399,9 +399,9 @@ build-examples: $(BUILD_DIR)/examples
 	$(info Building examples)
 #	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
 	@cd ReleaseExamples; $(CP) * ../$(BUILD_DIR)/examples
-	@$(CP) interfaces/matlab/dsl_gen/dslgen $(BUILD_DIR)/examples
-	@$(CP) interfaces/cellml/* $(BUILD_DIR)
-	@$(CP) interfaces/neuron/* $(BUILD_DIR)
+#	@$(CP) interfaces/matlab/dsl_gen/dslgen $(BUILD_DIR)/examples
+	@$(CP) interfaces/cellml/*.m $(BUILD_DIR)
+	@$(CP) interfaces/neuron/*.m $(BUILD_DIR)
 ifdef $(DYN)
 	@cd tests; $(CP) $(DYN) ../$(BUILD_DIR)/examples
 endif
