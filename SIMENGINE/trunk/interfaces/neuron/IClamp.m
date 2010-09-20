@@ -67,6 +67,13 @@ classdef IClamp < Model
             s = toStr@Model(m); % now, create the string representation
         end
         
+        function toFile(m, fid)
+            initializeModel(m);
+            build(m); % build the model
+            toFile@Model(m, fid); % now, create the string representation
+        end
+        
+
     end
     
     methods (Access = protected)
