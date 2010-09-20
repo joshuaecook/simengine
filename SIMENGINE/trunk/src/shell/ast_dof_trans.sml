@@ -447,7 +447,7 @@ local
 			    behaviour=behaviour}
 	end
       | translate_input _ = except "non-input"
-    fun translate_output inputNames (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = 
+    fun translate_output top_level inputNames (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = 
 	let
 	    val iterator = case settings of
 			       SOME settings => 
@@ -463,14 +463,18 @@ local
 							  | NONE => ExpBuild.svar name),
 			      inputs=ref inputNames,
 			      contents=case quantity of 
-					   TUPLE t => map astexp_to_Exp t
+					   TUPLE t => if top_level then 
+							  (* we only support this right now at the top level model *)
+							  map astexp_to_Exp t
+						      else
+							  [error_exp("Output " ^ (Symbol.name name) ^ " was found to have multiple outputs.  Grouped outputs are only supported at the upper most level.")]
 					 | UNIT => []
 					 | q => [astexp_to_Exp q],
 			      condition=case condition of
 					    SOME c => astexp_to_Exp c
 					  | NONE => ExpBuild.bool true})
 	end
-      | translate_output _ _ = except "non-output"
+      | translate_output _ _ _ = except "non-output"
     fun translate_iterator (ITERATORDEF {name, value, settings=(SOME (TABLE settings))}) =
 	let
 	    (* check for the continuous flag - if it is not continuous, assume that it is 
@@ -774,7 +778,7 @@ fun build_system_properties iterators =
 
 
 in
-fun modeldef_to_class modeltable name =
+fun modeldef_to_class top_level modeltable name =
     let
 	(* grab the pieces of the model out of the modeltable *)
 	val {args, returns, inputs, parts} = case SymbolTable.look (modeltable, name) of
@@ -809,7 +813,7 @@ fun modeldef_to_class modeltable name =
 	val class = {name=name,
 		     properties=create_classproperties name,
 		     inputs=ref inputs, (* we translated this earlier when we analyzed the model headers *)
-		     outputs=ref (map (translate_output (map DOF.Input.name inputs)) outputs),
+		     outputs=ref (map (translate_output top_level (map DOF.Input.name inputs)) outputs),
 		     exps=ref (state_equations @
 			       random_equations @
 			       (collect_submodels (modeltable, submodels, submodelassigns)) @
@@ -904,7 +908,8 @@ fun ast_to_dof astlist =
 	(* now we can convert each of the model definitions directly into classes.  We need to pass in the model table so that we can properly interpret submodels *)
 	val (classes, iterators) = 
 	    ListPair.unzip
-		(map (modeldef_to_class modeltable) (top_level_model::non_top_models))
+		((modeldef_to_class true modeltable top_level_model)::
+		 (map (modeldef_to_class false modeltable) non_top_models))
 
 	(* remove duplicate iterators *)
 	val reduced_iterators = remove_duplicate_iterators (Util.flatten iterators)
