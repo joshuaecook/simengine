@@ -130,9 +130,9 @@ s.add(Test('OutputTime', @()(simex(OutputTest8, 10, target)), '-equal', struct('
         m = Model('OutputTest9', t);
         x = m.state(0);
         m.diffequ(x, 1);
-        m.output('times', 'when', mod(x,3)==0);
+        m.output(t, 'when', mod(x,3)==0);
     end
-s.add(Test('OutputEvent', @()(simex(OutputTest9, 10, target)), '-equal', struct('times', [0 3 6 9]')));
+s.add(Test('OutputEvent', @()(simex(OutputTest9, 10, target)), '-equal', struct('t', [0 3 6 9]')));
 
 end
 
