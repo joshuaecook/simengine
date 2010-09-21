@@ -517,9 +517,7 @@ MATLAB_MEX = $(addprefix $(BUILD_DIR)/readSimulationData,$(MEXEXT))
 DSLGEN = Exp Instance Iterator IteratorReference Model List
 DSLGEN_FILES = $(addsuffix .m, $(DSLGEN))
 DSLGEN_PFILES = $(addsuffix .p, $(DSLGEN))
-DSLGEN_HELP_FILES = $(addsuffix .m, $(DSLGEN_help.m))
-MATLAB_DSLGEN_HELP_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_HELP_FILES))
-MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES) $(DSLGEN_PFILES))
+MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES))
 
 # Just needed for the p files
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
@@ -578,14 +576,14 @@ $(BUILD_DIR)/%.m: interfaces/matlab/%_info.m
 $(BUILD_DIR)/%.m: interfaces/matlab/%.m
 	$(CP) $< $@
 
-$(BUILD_DIR)/%.m: interfaces/matlab/dsl_gen/%_help.m
+$(BUILD_DIR)/%.m: interfaces/matlab/dsl_gen/%.m
 	$(CP) $< $@
 
-$(BUILD_DIR)/%.p: interfaces/matlab/dsl_gen/%.m
-	-($(MATLABCMD) "curwd = pwd; cd $(BUILD_DIR); pcode([curwd '/$<']); exit")
+# $(BUILD_DIR)/%.p: interfaces/matlab/dsl_gen/%.m
+# 	-($(MATLABCMD) "curwd = pwd; cd $(BUILD_DIR); pcode([curwd '/$<']); exit")
 
-interfaces/matlab/dsl_gen/%_help.m: interfaces/matlab/dsl_gen/%.m
-	interfaces/matlab/generate_help.rb $< $@
+# interfaces/matlab/dsl_gen/%_help.m: interfaces/matlab/dsl_gen/%.m
+# 	interfaces/matlab/generate_help.rb $< $@
 
 $(BUILD_DIR)/%.fig: interfaces/matlab/%.fig
 	$(CP) $< $@
