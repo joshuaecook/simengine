@@ -9,6 +9,11 @@
 %
 function m = createMRGAxon(numSegments)
 
+% if you don't specify a number of segments, just set it to a default value
+if nargin == 0
+    numSegments = 2;
+end
+
 % First define the global iterators
 dt = 0.001;
 t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
