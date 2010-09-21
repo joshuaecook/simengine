@@ -756,30 +756,98 @@ function s = DifferenceEquationTests(target)
 
 s = Suite(['Difference Equation Tests ' target]);
 
+function m = DifferenceEquationTest1
+n = Iterator('discrete', 'sample_period', 1);
+m = Model('DifferenceEquationTest1', n);
+x = m.state(0);
+m.recurrenceequ(x, x+1);
+m.output(x);
+end
+
 s.add(Test('Basic Difference Equation', ...
-           @()(simex('models_FeatureTests/DifferenceEquationTest1.dsl', 10, target)), ...
+           @()(simex(DifferenceEquationTest1, 10, target)), ...
            '-equal', struct('x', [0:10; 0:10]')));
+
+function m = DifferenceEquationTest2
+n = Iterator('discrete', 'sample_frequency', 2);
+m = Model('DifferenceEquationTest2', n);
+x = m.state(0);
+m.recurrenceequ(x, x+0.5);
+m.output(x);
+end
+
 s.add(Test('Difference Equation larger fs', ...
-           @()(simex('models_FeatureTests/DifferenceEquationTest2.dsl', 10, target)), ...
+           @()(simex(DifferenceEquationTest2, 10, target)), ...
            '-equal', struct('x', [0:0.5:10; 0:0.5:10]')));
+
+function m = DifferenceEquationTest3
+n = Iterator('discrete', 'sample_period', 1);
+m = Model('DifferenceEquationTest3', n);
+x = m.state(0);
+x_delay1 = m.state(0);
+x_delay2 = m.state(0);
+x_delay3 = m.state(0);
+m.recurrenceequ(x, x+1);
+m.recurrenceequ(x_delay1, x);
+m.recurrenceequ(x_delay2, x(n-1));
+m.recurrenceequ(x_delay3, x(n-2));
+m.output('y', x, x_delay1, x_delay2, x_delay3);
+end
+
 s.add(Test('Difference Equation State Delays', @ ...
-           ()(simex('models_FeatureTests/DifferenceEquationTest3.dsl', ...
+           ()(simex(DifferenceEquationTest3, ...
                     10, target)), '-equal', struct('y', [0:10; ...
                     0:10; [0 0:9]; [0 0 0:8]; [0 0 0 0:7]]')));
+
+function m = DifferenceEquationTest4
+n = Iterator('discrete', 'sample_period', 1);
+m = Model('DifferenceEquationTest4', n);
+x = m.state(0);
+m.recurrenceequ(x, x+1);
+m.output('y', x, x(n), x(n-1), x(n-2));
+end
+
 s.add(Test('Difference Equation Output Delays', @ ...
-           ()(simex('models_FeatureTests/DifferenceEquationTest4.dsl', ...
+           ()(simex(DifferenceEquationTest4, ...
                     10, target)), '-equal', struct('y', [0:10; ...
                     0:10; 0:10; [0 0:9]; [0 0 0:8]]')));
+
+function m = DifferenceEquationTest5
+n = Iterator('discrete', 'sample_period', 1);
+m = Model('DifferenceEquationTest5', n);
+x = m.state(1);
+m.recurrenceequ(x, x+1);
+m.output('y', x, x(n), x(n-1), x(n-2));
+end
+
 s.add(Test('Difference Equation Non-zero init', @ ...
-           ()(simex('models_FeatureTests/DifferenceEquationTest5.dsl', ...
+           ()(simex(DifferenceEquationTest5, ...
                     10, target)), '-equal', struct('y', [0:10; ...
                     1:11; 1:11; [1 1:10]; [1 1 1:9]]')));
+
+function m = DifferenceEquationTest6
+n = Iterator('discrete', 'sample_period', 1);
+m = Model('DifferenceEquationTest6', n);
+x = m.state(1);
+m.recurrenceequ(x, x+1);
+m.output('y', x(n-2));
+end
+
 s.add(Test('Difference Equation Multi-step', @ ...
-           ()(simex('models_FeatureTests/DifferenceEquationTest6.dsl', ...
+           ()(simex(DifferenceEquationTest6, ...
                     10, target)), '-equal', struct('y', [0:10; ...
                    [1 1 1:9]]')));
+
+function m = DifferenceEquationTest7
+n = Iterator('discrete', 'sample_period', 1);
+m = Model('DifferenceEquationTest7', n);
+x = m.state(0);
+m.recurrenceequ(x, x+1);
+m.output('iter', n, x(n-1));
+end
+
 s.add(Test('Difference Equation of n', ...
-           @()(simex('models_FeatureTests/DifferenceEquationTest7.dsl', 10, target)), ...
+           @()(simex(DifferenceEquationTest7, 10, target)), ...
            '-equal', struct('iter', [0:10; 0:10; [0 0:9]]')));
 
 end
