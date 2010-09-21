@@ -20,6 +20,7 @@ o = simex(ball, 20);
 
 x = o.position(1,2);
 y = o.position(1,3);
+figure,
 p = plot(x, y, 'o');
 set(p, 'MarkerSize', 15);
 set(p, 'MarkerFaceColor', 'r');

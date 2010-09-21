@@ -22,6 +22,7 @@ out1 = simex(pd, stop_time);
 out2 = simex(pd_events, stop_time);
 
 % Create the plot
+figure,
 subplot(2,1,1);
 simplot(out1);
 title('PD Model');

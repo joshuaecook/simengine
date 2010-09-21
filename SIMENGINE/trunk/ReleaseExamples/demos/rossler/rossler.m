@@ -9,6 +9,7 @@ o = simex(create_rossler, 1000);
 
 % Create four subplots, the first three being 2D and the final one
 % being a 3D plot
+figure,
 subplot(2,2,1)
 simplot(o.x(:,2),o.y(:,2))
 title('Rossler x vs. y')

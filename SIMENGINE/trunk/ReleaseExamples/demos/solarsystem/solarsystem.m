@@ -8,6 +8,7 @@ ss = create_solar_system;
 
 o = simex(ss, 1e8);
 
+figure,
 simplot(o.moondata(2:end,2:3), o.earthdata(2:end,2:3), o.sundata(2:end,2:3), o.marsdata(2:end,2:3), o.venusdata(2:end,2:3), o.mercurydata(2:end,2:3), o.jupiterdata(2:end,2:3), o.saturndata(2:end,2:3), o.uranusdata(2:end,2:3), o.neptunedata(2:end,2:3));
 
 end

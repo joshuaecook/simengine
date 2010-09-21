@@ -17,6 +17,7 @@ input.I = 10;
 out = simex(m, 200, input);
 
 % plot the results
+figure,
 simplot(out);
 title('Single Quadratic Integrate and Fire')
 ylabel('Membrane potential');

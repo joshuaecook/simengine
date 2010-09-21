@@ -16,6 +16,7 @@ inputs.I_end = 0;
 o = simex(m, 100, inputs);
 
 % plot the results
+figure,
 subplot(1,2,1);
 simplot(o.Vms);
 title('HH Compartment Voltage Traces');
