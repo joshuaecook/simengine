@@ -5,7 +5,7 @@ parameters.Eleak = num2cell(repmat(EleakValues, 1, length(gleakValues)));
 tmp = repmat(gleakValues, length(EleakValues), 1);
 parameters.gleak = num2cell(tmp(:)');
 
-data = simex('hn34.dsl', 100, parameters);
+data = simex(createHN34, 100, parameters);
 
 activity = zeros(length(gleakValues), length(EleakValues));
 
@@ -29,11 +29,11 @@ end
 
 singleCellData = activity;
 
-modelData = simex('hco.dsl');
+modelData = simex(createHCO);
 initConditions = modelData.defaultStates;
 initConditions(17) = -55;
 
-data = simex('hco.dsl', 100, parameters, '-resume', initConditions);
+data = simex(createHCO, 100, parameters, '-resume', initConditions);
 
 activity = zeros(length(gleakValues), length(EleakValues));
 

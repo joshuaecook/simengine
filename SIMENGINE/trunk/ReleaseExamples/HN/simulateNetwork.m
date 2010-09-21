@@ -1,17 +1,20 @@
 %compile the hco.dsl model and save model interface data
-modelInfo = simex('timingNetwork.dsl');
+modelInfo = simex(createTimingNetwork);
 
 %set up a good initial state vector
 initState = modelInfo.defaultStates;
 initState(initState == -45) = rand(1, length(initState(initState == -45))) ...
     *10 - 55;
-[~, initState, ~] = simex('timingNetwork.dsl', 100, '-resume', initState);
+[o, initState, ~] = simex(createTimingNetwork, 100, '-resume', initState);
+
+figure, simplot(o);
 
 %run the model with default parameters
-data = simex('timingNetwork.dsl', 200, '-resume', initState);
+data = simex(createTimingNetwork, 200, '-resume', initState);
 
 t = data.VmL1(:,1)-100;
 
+figure,
 subplot(6,1,1)
 plot(t, data.VmL1(:,2), 'r')
 axis([0 100 -60 5]);
