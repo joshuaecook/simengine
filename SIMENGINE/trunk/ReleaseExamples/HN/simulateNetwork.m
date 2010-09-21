@@ -13,7 +13,7 @@ parameters.HNL1_Vm0 = rand*10-55;
 parameters.HNR1_Vm0 = rand*10-55;
 
 %set up a good initial state vector
-[o, initState, ~] = simex(net, 100, parameters);
+[o, initState, ignore] = simex(net, 100, parameters);
 
 figure, simplot(o);
 
