@@ -394,12 +394,13 @@ $(EXCLUDE_LOG):
 # Build Directory per Build Type
 # ==============================================================================================
 
-build-examples: $(BUILD_DIR)/examples
+build-examples: $(BUILD_DIR)/examples $(BUILD_DIR)/examples/Neuron
 	$(info Building examples)
 #	@cd examples; $(CP) $(EXAMPLES) ../$(BUILD_DIR)/examples
 	@cd ReleaseExamples; $(CP) * ../$(BUILD_DIR)/examples
 #	@$(CP) interfaces/matlab/dsl_gen/dslgen $(BUILD_DIR)/examples
 	@$(CP) interfaces/cellml/*.m $(BUILD_DIR)
+	@$(CP) interfaces/neuron/examples/sth*.m $(BUILD_DIR)/examples/Neuron
 	@$(CP) interfaces/neuron/*.m $(BUILD_DIR)
 ifdef $(DYN)
 	@cd tests; $(CP) $(DYN) ../$(BUILD_DIR)/examples
@@ -811,7 +812,7 @@ else
 DEBUG_DIRECTORY =
 endif
 
-COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/share $(BUILD_DIR)/lib $(BUILD_DIR)/html $(BUILD_DIR)/images
+COMMON_DIRECTORIES = $(BUILD_DIR) $(BUILD_DIR)/data $(BUILD_DIR)/bin $(BUILD_DIR)/examples $(BUILD_DIR)/examples/Neuron $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/share $(BUILD_DIR)/lib $(BUILD_DIR)/html $(BUILD_DIR)/images
 
 FULL_DIRECTORIES = $(COMMON_DIRECTORIES) $(BUILD_DIR)/data/impl $(BUILD_DIR)/data/sim  $(BUILD_DIR)/factory
 
@@ -845,6 +846,9 @@ $(BUILD_DIR)/dslc: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/examples: $(BUILD_DIR)
+	@if test ! -d $@ ; then $(MKDIR) $@; fi
+
+$(BUILD_DIR)/examples/Neuron: $(BUILD_DIR)
 	@if test ! -d $@ ; then $(MKDIR) $@; fi
 
 $(BUILD_DIR)/src: $(BUILD_DIR)
