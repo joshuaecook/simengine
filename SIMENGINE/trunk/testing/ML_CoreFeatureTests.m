@@ -524,23 +524,63 @@ function s = FunctionFeatureTests(target)
 
 s = Suite(['Function Feature Tests ' target]);
 
+function m = FunctionTestMathFunction
+m = Model('FunctionTestMathFunction');
+m.solver = 'forwardeuler'; m.dt = 1;
+x = m.state(0);
+m.diffequ(x, 0.01);
+f = @(x)(x+1);
+y = f(x);
+z = f(y);
+m.output(x);
+m.output(y);
+m.output(z);
+end
+
 function y = MathFunction
-  o = simex('models_FeatureTests/FunctionTestMathFunction.dsl', 100);
+  o = simex(FunctionTestMathFunction, 100);
   tol = 1e-6;
   y = approx_equiv(1+(o.y(:,2)),o.z(:,2),tol) && ...
       approx_equiv(1+(o.x(:,2)),o.y(:,2),tol)
 end
 s.add(Test('MathFunction', @MathFunction));
     
+function m = FunctionTestRelational
+m = Model('FunctionTestRelational');
+m.solver = 'forwardeuler'; m.dt = 1;
+x = m.state(0);
+m.diffequ(x, 1);
+threshold = 5;
+m.output('y_eq', x, 'when', x==5);
+m.output('y_ne', x, 'when', x~=5);
+m.output('y_gt', x, 'when', x>5);
+m.output('y_lt', x, 'when', x<5);
+m.output('y_ge', x, 'when', x>=5);
+m.output('y_le', x, 'when', x<=5);
+end
 
-s.add(Test('RelationalOperations', @()(simex(['models_FeatureTests/' ...
-                    'FunctionTestRelational.dsl'],10, target)), ...
+s.add(Test('RelationalOperations', @()(simex(FunctionTestRelational,10, target)), ...
            '-equal', struct('y_eq', [5 5], 'y_ne', [[0:4 6:10]; [0:4 ...
                     6:10]]', 'y_gt', [6:10; 6:10]', 'y_lt', [0:4; 0:4]', ...
                             'y_ge', [5:10; 5:10]', 'y_le', [0:5; 0:5]')));
 
+function m = RandomTest1
+m = Model('RandomTest1');
+m.solver='forwardeuler'; m.dt=1;
+x = m.state(0);
+m.diffequ(x, 1);
+r1 = m.random('uniform', 'low', -10, 'high', 0);
+r2 = m.random('uniform', 'low', 0, 'high', 10);
+r3 = m.random('uniform', 'low', -5, 'high', 5);
+m.output(x);
+m.output(r1);
+m.output(r2);
+m.output(r3);
+end
+
+
 function y = RandomTest
-o = simex('models_FeatureTests/RandomTest1.dsl',10);
+o = simex(RandomTest1,10);
 outliers = [find(o.r1(:,2)<-10)' ...
             find(o.r1(:,2)>0)' ...
             find(o.r2(:,2)<0)' ...
@@ -551,19 +591,99 @@ y = not(length(outliers) > 0);
 end
 s.add(Test('RandomOperations', @RandomTest));
 % TODO validate the statistical distributions
+
+function m = RandomTest2
+m = Model('RandomTest2');
+m.solver='forwardeuler'; m.dt=1;
+x = m.state(0);
+m.diffequ(x, 1);
+r1 = m.random('normal', 'mean', 0, 'stddev', 1);
+r2 = m.random('normal', 'mean', 5, 'stddev', 10);
+r3 = m.random('normal', 'mean', -5, 'stddev', 5);
+m.output(x);
+m.output(r1);
+m.output(r2);
+m.output(r3);
+end
+
 s.add(Test('NormalDistribution', ...
-           @()(simex(['models_FeatureTests/RandomTest2.dsl'], 2, target)), ...
+           @()(simex(RandomTest2, 2, target)), ...
            '-withouterror'));
+
+function m = RandomTest3
+m = Model('RandomTest3');
+m.solver='forwardeuler'; m.dt=1;
+x = m.state(0);
+m.diffequ(x, 1);
+r1 = m.random('normal', 'mean', 0, 'stddev', 1);
+r2 = m.random('uniform', 'low', -10, 'high', 0);
+m.output(x);
+m.output(r1);
+m.output(r2);
+end
+
 s.add(Test('MixedDistribution', ...
-           @()(simex(['models_FeatureTests/RandomTest3.dsl'], 10, target)), ...
+           @()(simex(RandomTest3, 10, target)), ...
            '-withouterror'));
-s.add(Test('FunctionModulus', @()(simex(['models_FeatureTests/' ...
-                    'FunctionTestModulus.dsl'], 10, target)), '-equal', ...
+
+function m = FunctionTestModulus
+m = Model('FunctionTestModulus');
+m.solver = 'forwardeuler'; m.dt = 1;
+x = m.state(0);
+m.diffequ(x, 1);
+y = mod(x,2);
+m.output(y);
+end
+
+s.add(Test('FunctionModulus', @()(simex(FunctionTestModulus, 10, target)), '-equal', ...
            struct('y', [0:10; 0 1 0 1 0 1 0 1 0 1 0]')));
-    function y = FunctionTrig
+
+function m = FunctionTestTrig
+m = Model('FunctionTestTrig');
+m.solver = 'forwardeuler'; m.dt = 1;
+x = m.state(0);
+m.diffequ(x, 0.01);
+low = m.input('low', 0);
+high = m.input('high', pi);
+sx = x*(high-low)+low;
+    y1 = sin(sx);
+    y2 = cos(sx);
+    y3 = tan(sx);
+    y4 = csc(sx);
+    y5 = sec(sx);
+    y6 = cot(sx);
+
+    ay1 = asin(sx);
+    ay2 = acos(sx);
+    ay3 = atan(sx);
+    ay4 = acsc(sx);
+    ay5 = asec(sx);
+    ay6 = acot(sx);
+
+    yh1 = sinh(sx);
+    yh2 = cosh(sx);
+    yh3 = tanh(sx);
+    yh4 = csch(sx);
+    yh5 = sech(sx);
+    yh6 = coth(sx);
+
+    ayh1 = asinh(sx);
+    ayh2 = acosh(sx);
+    ayh3 = atanh(sx);
+    ayh4 = acsch(sx);
+    ayh5 = asech(sx);
+    ayh6 = acoth(sx);
+
+    m.output('y', sx, y1, y2, y3, y4, y5, y6);
+    m.output('ay', sx, ay1, ay2, ay3, ay4, ay5, ay6);
+    m.output('yh', sx, yh1, yh2, yh3, yh4, yh5, yh6);
+    m.output('ayh', sx, ayh1, ayh2, ayh3, ayh4, ayh5, ayh6);
+end
+
+function y = FunctionTrig
         i.low = -0.99*pi;
         i.high = 0.99*pi;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         tol = 1e-3;
         y = approx_equiv(sin(o.y(:,2)),o.y(:,3),tol) && ...
             approx_equiv(cos(o.y(:,2)),o.y(:,4),tol) && ...
@@ -576,14 +696,14 @@ s.add(Test('FunctionTrig', @FunctionTrig));
     function y = FunctionInverseTrig
         i.low = -0.999999;
         i.high = 0.999999;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         tol = 1e-3;
         y = approx_equiv(asin(o.ay(:,2)),o.ay(:,3),tol) && ...
             approx_equiv(acos(o.ay(:,2)),o.ay(:,4),tol) && ...
             approx_equiv(atan(o.ay(:,2)),o.ay(:,5),tol);
         i.low = 1.0001;
         i.high = 2;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         y = y && approx_equiv(acsc(o.ay(:,2)),o.ay(:,6),tol) && ...
             approx_equiv(asec(o.ay(:,2)),o.ay(:,7),tol) && ...
             approx_equiv(acot(o.ay(:,2)),o.ay(:,8),tol);
@@ -592,7 +712,7 @@ s.add(Test('FunctionInverseTrig', @FunctionInverseTrig));
     function y = FunctionHyperbolicTrig
         i.low = -pi;
         i.high = pi;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         tol = 1e-3;
         y = approx_equiv(sinh(o.yh(:,2)),o.yh(:,3),tol) && ...
             approx_equiv(cosh(o.yh(:,2)),o.yh(:,4),tol) && ...
@@ -605,25 +725,25 @@ s.add(Test('FunctionHyperbolicTrig', @FunctionHyperbolicTrig));
     function y = FunctionInverseHyperbolicTrig
         i.low = -pi;
         i.high = pi;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         tol = 1e-3;
         y = approx_equiv(asinh(o.ayh(:,2)),o.ayh(:,3),tol);
         i.low = 1;
         i.high = 2;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         y = y && approx_equiv(acosh(o.ayh(:,2)),o.ayh(:,4),tol);
         i.low = -0.999999;
         i.high = 0.999999;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         y = y && approx_equiv(atanh(o.ayh(:,2)),o.ayh(:,5),tol);
         i.low = 0.000001;
         i.high = 0.999999;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         y = y && approx_equiv(acsch(o.ayh(:,2)),o.ayh(:,6),tol) && ...
             approx_equiv(asech(o.ayh(:,2)),o.ayh(:,7),tol);
         i.low = 1.0001;
         i.high = 2;
-        o = simex('models_FeatureTests/FunctionTestTrig.dsl', 100, i, target);
+        o = simex(FunctionTestTrig, 100, i, target);
         y = y && approx_equiv(acoth(o.ayh(:,2)),o.ayh(:,8),tol);
     end
 s.add(Test('FunctionInverseHyperbolicTrig', @FunctionInverseHyperbolicTrig));
