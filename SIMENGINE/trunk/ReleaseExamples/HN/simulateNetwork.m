@@ -1,3 +1,5 @@
+function simulateNetwork()
+
 % build the Timing Network model using DIESEL for Matlab - return a
 % model object
 net = createTimingNetwork;
@@ -44,3 +46,5 @@ axis([0 100 -60 5]);
 subplot(6,1,6)
 plot(t, data.VmR1(:,2), 'r')
 axis([0 100 -60 5]);
+
+end
