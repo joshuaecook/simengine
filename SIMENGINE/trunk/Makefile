@@ -540,6 +540,8 @@ endif
 	@echo "% simEngine model construction" >> $@
 	@echo "%   Model           - Create simEngine models programmatically in MATLAB" >> $@
 	@echo "%   Iterator        - Create iterator objects used in Model generation" >> $@
+	@echo "%   Neuron          - Create Neuron models in simEngine" >> $@
+	@echo "%   CellMLModel     - Simulate CellML models directly in simEngine" >> $@
 	@echo "% " >> $@
 	@echo "% simEngine functions" >> $@
 	@echo "%   simex           - Compile and simulate DIESEL source files using simEngine" >> $@
