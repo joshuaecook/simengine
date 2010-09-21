@@ -16,25 +16,40 @@ m = Model('timingNetwork', t);
 % Create the inputs
 stimR4 = m.input('stimR4', 0);
 
+% For this model, we need an input for each of the initial voltage
+% values
+HNL3_Vm0 = m.input('HNL3_Vm0', -45);
+HNR3_Vm0 = m.input('HNR3_Vm0', -45);
+HNL4_Vm0 = m.input('HNL4_Vm0', -45);
+HNR4_Vm0 = m.input('HNR4_Vm0', -45);
+HNL1_Vm0 = m.input('HNL1_Vm0', -45);
+HNR1_Vm0 = m.input('HNR1_Vm0', -45);
+
 HNL3 = m.submodel(createHN34);
 HNL3.gleak = 11;
 HNL3.Eleak = -62.5;
+HNL3.Vm0 = HNL3_Vm0;
 
 HNR3 = m.submodel(createHN34);
-HNL3.gleak = 11;
-HNL3.Eleak = -62.4;
+HNR3.gleak = 11;
+HNR3.Eleak = -62.4;
+HNR3.Vm0 = HNR3_Vm0;
 
 HNL4 = m.submodel(createHN34);
-HNL3.gleak = 11;
-HNL3.Eleak = -62.5;
+HNL4.gleak = 11;
+HNL4.Eleak = -62.5;
+HNL4.Vm0 = HNL4_Vm0;
 
 HNR4 = m.submodel(createHN34);
-HNL3.gleak = 11;
-HNL3.Eleak = -62.4;
+HNR4.gleak = 11;
+HNR4.Eleak = -62.4;
+HNR4.Vm0 = HNR4_Vm0;
 
 
-HNR1 = m.submodel(createHN12);
 HNL1 = m.submodel(createHN12);
+HNL1.Vm0 = HNL1_Vm0;
+HNR1 = m.submodel(createHN12);
+HNR1.Vm0 = HNR1_Vm0;
 
 synapseR3L3 = m.submodel(createSynapse);
 synapseR3L3.Vpre = HNR3.Vm;
