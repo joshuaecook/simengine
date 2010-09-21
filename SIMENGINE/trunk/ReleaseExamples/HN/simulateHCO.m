@@ -1,9 +1,11 @@
+function simulateHCO()
+
 %compile the hco.dsl model and save model interface data
-modelInfo = simex('hco.dsl');
+modelInfo = simex(createHCO);
 
 %run the model with default states and paramters
 %output will NOT show half-center activity
-data1 = simex('hco.dsl', 100);
+data1 = simex(createHCO, 100);
 figure,
 simplot(data1)
 xlabel('Time (s)')
@@ -12,12 +14,12 @@ title('HCO model with default state (no HCO activity)')
 
 %set a stimulus current to R4, simulate and save the final state
 parameters.stimR4 = 1;
-[~, finalState, finalTime] = simex('hco.dsl', 100, parameters);
+[~, finalState, finalTime] = simex(createHCO, 100, parameters);
 
 %save the final state of the previous simulation as our new initial state
 initialState = finalState;
 %run simulation with default parameters and new initial conditions
-data2 = simex('hco.dsl', 100, '-resume', initialState);
+data2 = simex(createHCO, 100, '-resume', initialState);
 figure
 simplot(data2)
 xlabel('Time (s)')
@@ -47,3 +49,5 @@ view(0,90)
 title('Burtsing activity region for half-center')
 xlabel('gleak (nS)')
 ylabel('Eleak (mV)')
+
+end
