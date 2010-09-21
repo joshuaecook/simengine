@@ -29,11 +29,9 @@ end
 
 singleCellData = activity;
 
-modelData = simex(createHCO);
-initConditions = modelData.defaultStates;
-initConditions(17) = -55;
 
-data = simex(createHCO, 100, parameters, '-resume', initConditions);
+parameters.Vm0 = -55; % hyperpolarize second neuron
+data = simex(createHCO, 100, parameters);
 
 activity = zeros(length(gleakValues), length(EleakValues));
 
