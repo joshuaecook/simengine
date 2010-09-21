@@ -77,7 +77,7 @@ classdef Neuron < Model
             %   soma = n.section('soma'); % add a section called 'soma'
             %   soma.nseg = 1;
             %   soma.diam = 18.8;
-            %   soma.L = 18.8;
+            %   soma.L = 18.8; % create a spherical cell when L == diam
             %   soma.Ra = 123;
             %   soma.insert('hh'); % insert hh conductances
             %

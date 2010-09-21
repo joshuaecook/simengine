@@ -90,7 +90,7 @@ classdef Iterator < handle
             %   t_implicit = Iterator('continuous', 'solver',
             %   'linearbackwardeuler', 'dt', 0.01);
             %
-            %   t_accurate = Iterartor('continuous', 'solver', 'ode45',
+            %   t_accurate = Iterator('continuous', 'solver', 'ode45',
             %   'reltol', 1e-8, 'abstol', 1e-8);
             %   t_cvode = Iterator('continuous', 'solver', 'cvode');
             %
@@ -107,8 +107,6 @@ classdef Iterator < handle
             iter.timestamp = now;
             % set defaults
             iter.type = 'continuous';
-            %iter.solver = 'ode45';
-            %iter.dt = 1;
             args = varargin;
             i = 1;
             while (~isempty(args))
@@ -223,34 +221,6 @@ classdef Iterator < handle
                 disp(['  ' optionToString(options{i}, iter.params(options{i}))]);
             end
         end
-
-        
-%         function [varargout] = properties(iter)
-%             % Determine all the properties
-%             props = keys(iter.params);
-%             if isDiscrete(iter)
-%                 p = cell(length(props),1);
-%             else
-%                 p = cell(length(props)+1,1);
-%             end
-%             p(1:length(props)) = props;
-%             if isContinuous(iter)
-%                 p{end} = 'solver';
-%             end
-%             
-%             % return the output
-%             if nargout == 0
-%                 disp(' ');
-%                 disp('Properties for class Iterator:')
-%                 disp(' ');
-%                 for i=1:length(p)
-%                     disp(['    ' p{i}]);
-%                 end
-%                 disp(' ');
-%             else
-%                 varargout{1} = p;
-%             end
-%         end
         
         function varargout = subsref(m, args)
             varargout = cell(1,nargout);

@@ -2,8 +2,8 @@ classdef Section < Model
 % Section - class representing a section of a Neuron
 % 
 % Section Methods:
-%   insert - generate a section within the NEURON representing one or more
-%   segments
+%   insert - insert mechanism (an NMODL compliant function) into each
+%   segment
 %
 % Section Properties:
 %   dt      - time step of the simulation         (ms)
