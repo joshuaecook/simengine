@@ -8,7 +8,7 @@ function Amortization
 table = ComputeAmortization(250000, 30);
 
 % Create plots to visualize each mortgage option
-figure(1);
+figure,
 subplot(2,2,1);
 simplot(table(1).payments);
 title('Mortgage Payment Schedule (Fixed Rate)')

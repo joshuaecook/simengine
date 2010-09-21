@@ -7,6 +7,7 @@ function vdp
 out = simex(create_vdp, 500);
 
 % plot the results
+figure,
 simplot(out)
 title('Van der Pol oscillator')
 

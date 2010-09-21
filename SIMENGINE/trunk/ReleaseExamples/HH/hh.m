@@ -15,6 +15,7 @@ input.I_app = num2cell(I_app);
 o = simex(m, 100, input);
 
 % plot the results
+figure,
 simplot(o(:).Vm);
 c = cell(1, length(I_app));
 for i=1:length(I_app)

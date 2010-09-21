@@ -24,7 +24,7 @@ y_size = 30;
 
 % Draw to the same figure, turning off the axis and setting a black
 % background
-figure(1)
+figure,
 axis off;
 rectangle('Position', [0 0 x_size y_size], 'FaceColor', 'Black');
 

@@ -14,6 +14,7 @@ m = create_fn();
 o = m.simex(100);
 
 % Plot
+figure,
 simplot(o);
 title('FitzHugh-Nagumo Model');
 legend('u', 'w');

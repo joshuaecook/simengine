@@ -17,6 +17,7 @@ m = createMRGAxon(numSegments);
 out = simex(m, 200);
 
 % Plot the results
+figure,
 simplot(out.Vm);
 
 end

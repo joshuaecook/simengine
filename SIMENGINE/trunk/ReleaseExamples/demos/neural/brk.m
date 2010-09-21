@@ -20,7 +20,7 @@ inp.Iext = {interp1(points(:,1),points(:,2), n)};
 o = simex(create_brk_inputs, end_time, inp);
 
 % Plot the voltage traces from the neural model
-figure(1);
+figure,
 subplot(2,2,1);
 simplot(o.V);
 axis([0 end_time -80 60]);

@@ -47,7 +47,7 @@ hA = m.state(0.571);
 mKCa = m.state(0.027);
 mKd = m.state(0.02);
 mh = m.state(0.031);
-Caconc = m.state('Caconc', Caconc_rest, 'iter', t_expeuler);
+Caconc = m.state('Caconc', Caconc_rest);
 
 % Define all the equations
 
