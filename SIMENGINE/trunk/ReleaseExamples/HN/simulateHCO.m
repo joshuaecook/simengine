@@ -28,7 +28,7 @@ title('HCO model with default state (no HCO activity)')
 
 % set a stimulus current to R4, simulate and save the final state
 parameters.stimR4 = 1;
-[~, finalState, finalTime] = simex(hco, 100, parameters);
+[ignore, finalState, finalTime] = simex(hco, 100, parameters);
 
 % save the final state of the previous simulation as our new initial state
 initialState = finalState;
