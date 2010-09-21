@@ -4,7 +4,8 @@ classdef NMODL < Model
 % 
 % NMODL Methods:
 %   NMODL - construct and visualize NMODL files
-%   range_parameter - define a range variable accessible to the segment
+%   range_parameter - define a range variable accessible to each segment of
+%   the section
 %   global_parameter - define a global variable accessible to the section
 %   current - create an output current quantity
 %
