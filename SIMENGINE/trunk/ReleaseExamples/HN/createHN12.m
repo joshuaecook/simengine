@@ -33,7 +33,8 @@ EK = -70;
 
 
 % States
-Vm = m.state('Vm', -45, 'iter', t);
+Vm0 = m.input('Vm0', -45);
+Vm = m.state('Vm', Vm0, 'iter', t);
 hNa = m.state('hNa', 0.99 , 'iter', t);
 mK1 = m.state('mK1', 0.03, 'iter', t);
 hK1 = m.state('hK1', 0.81, 'iter', t);

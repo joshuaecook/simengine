@@ -1,16 +1,22 @@
-%compile the hco.dsl model and save model interface data
-modelInfo = simex(createTimingNetwork);
+% build the Timing Network model using DIESEL for Matlab - return a
+% model object
+net = createTimingNetwork;
+
+% randomize the initial state vectors
+parameters.HNL3_Vm0 = rand*10-55;
+parameters.HNR3_Vm0 = rand*10-55;
+parameters.HNL4_Vm0 = rand*10-55;
+parameters.HNR4_Vm0 = rand*10-55;
+parameters.HNL1_Vm0 = rand*10-55;
+parameters.HNR1_Vm0 = rand*10-55;
 
 %set up a good initial state vector
-initState = modelInfo.defaultStates;
-initState(initState == -45) = rand(1, length(initState(initState == -45))) ...
-    *10 - 55;
-[o, initState, ~] = simex(createTimingNetwork, 100, '-resume', initState);
+[o, initState, ~] = simex(net, 100, parameters);
 
 figure, simplot(o);
 
 %run the model with default parameters
-data = simex(createTimingNetwork, 200, '-resume', initState);
+data = simex(net, 200, '-resume', initState);
 
 t = data.VmL1(:,1)-100;
 
