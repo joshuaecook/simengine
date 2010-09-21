@@ -53,8 +53,7 @@ classdef Instance
                 end
             elseif length(s) == 2 && isfield(s(1), 'type') && ...
                   strcmp(s(1).type, '.') && isfield(s(2), 'type') && ...
-                         strcmp(s(2).type, '()') && strcmp(s(1).subs, ...
-                                                          'with')
+                  strcmp(s(2).type, '()') && strcmp(s(1).subs, 'with')
                 b = with(inst, s(2).subs);
             else
                 for i=1:length(s)

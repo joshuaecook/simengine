@@ -25,94 +25,68 @@ HNR4_Vm0 = m.input('HNR4_Vm0', -45);
 HNL1_Vm0 = m.input('HNL1_Vm0', -45);
 HNR1_Vm0 = m.input('HNR1_Vm0', -45);
 
+% Instantiate submodels
 HNL3 = m.submodel(createHN34);
-HNL3.gleak = 11;
-HNL3.Eleak = -62.5;
-HNL3.Vm0 = HNL3_Vm0;
-
 HNR3 = m.submodel(createHN34);
-HNR3.gleak = 11;
-HNR3.Eleak = -62.4;
-HNR3.Vm0 = HNR3_Vm0;
 
 HNL4 = m.submodel(createHN34);
-HNL4.gleak = 11;
-HNL4.Eleak = -62.5;
-HNL4.Vm0 = HNL4_Vm0;
-
 HNR4 = m.submodel(createHN34);
-HNR4.gleak = 11;
-HNR4.Eleak = -62.4;
-HNR4.Vm0 = HNR4_Vm0;
-
 
 HNL1 = m.submodel(createHN12);
-HNL1.Vm0 = HNL1_Vm0;
 HNR1 = m.submodel(createHN12);
-HNR1.Vm0 = HNR1_Vm0;
 
 synapseR3L3 = m.submodel(createSynapse);
-synapseR3L3.Vpre = HNR3.Vm;
-synapseR3L3.Vpost = HNL3.Vm;
-synapseR3L3.gSyn = 60;
 synapseL3R3 = m.submodel(createSynapse);
-synapseL3R3.Vpre = HNL3.Vm;
-synapseL3R3.Vpost = HNR3.Vm;
-synapseL3R3.gSyn = 60;
 
 synapseR4L4 = m.submodel(createSynapse);
-synapseR4L4.Vpre = HNR4.Vm;
-synapseR4L4.Vpost = HNL4.Vm;
-synapseR4L4.gSyn = 60;
 synapseL4R4 = m.submodel(createSynapse);
-synapseL4R4.Vpre = HNL4.Vm;
-synapseL4R4.Vpost = HNR4.Vm;
-synapseL4R4.gSyn = 60;
 
 synapseR1R3 = m.submodel(createSynapse);
-synapseR1R3.Vpre = HNR1.Vm;
-synapseR1R3.Vpost = HNR3.Vm;
-synapseR1R3.gSyn = 16;
 synapseR3R1 = m.submodel(createSynapse);
-synapseR3R1.Vpre = HNR3.Vm;
-synapseR3R1.Vpost = HNR1.Vm;
-synapseR3R1.gSyn = 6;
-synapseR3R1.tRise = 0.01;
-synapseR3R1.tFall = 0.055;
 
 synapseR1R4 = m.submodel(createSynapse);
-synapseR1R4.Vpre = HNR1.Vm;
-synapseR1R4.Vpost = HNR4.Vm;
-synapseR1R4.gSyn = 16;
 synapseR4R1 = m.submodel(createSynapse);
-synapseR4R1.Vpre = HNR4.Vm;
-synapseR4R1.Vpost = HNR1.Vm;
-synapseR4R1.gSyn = 6;
-synapseR4R1.tRise = 0.01;
-synapseR4R1.tFall = 0.055;
 
 synapseL1L3 = m.submodel(createSynapse);
-synapseL1L3.Vpre = HNL1.Vm;
-synapseL1L3.Vpost = HNL3.Vm;
-synapseL1L3.gSyn = 16;
 synapseL3L1 = m.submodel(createSynapse);
-synapseL3L1.Vpre = HNL3.Vm;
-synapseL3L1.Vpost = HNL1.Vm;
-synapseL3L1.gSyn = 6;
-synapseL3L1.tRise = 0.01;
-synapseL3L1.tFall = 0.055;
 
 synapseL1L4 = m.submodel(createSynapse);
-synapseL1L4.Vpre = HNL1.Vm;
-synapseL1L4.Vpost = HNL4.Vm;
-synapseL1L4.gSyn = 16;
 synapseL4L1 = m.submodel(createSynapse);
-synapseL4L1.Vpre = HNL4.Vm;
-synapseL4L1.Vpost = HNL1.Vm;
-synapseL4L1.gSyn = 6;
-synapseL4L1.tRise = 0.01;
-synapseL4L1.tFall = 0.055;
 
+% Connect submodels together
+% The 'with' keyword allows multiple inputs to be specified to the
+% same submodel in a single statement.
+HNL3.with('gleak', 11, 'Eleak', -62.5, 'Vm0', HNL3_Vm0);
+HNR3.with('gleak', 11, 'Eleak', -62.4, 'Vm0', HNR3_Vm0);
+
+HNL4.with('gleak', 11, 'Eleak', -62.5, 'Vm0', HNL4_Vm0);
+HNR4.with('gleak', 11, 'Eleak', -62.4, 'Vm0', HNR4_Vm0);
+
+HNL1.Vm0 = HNL1_Vm0;
+HNR1.Vm0 = HNR1_Vm0;
+
+
+synapseR3L3.with('Vpre', HNR3.Vm, 'Vpost', HNL3.Vm, 'gSyn', 60);
+synapseL3R3.with('Vpre', HNL3.Vm, 'Vpost', HNR3.Vm, 'gSyn', 60);
+
+synapseR4L4.with('Vpre', HNR4.Vm, 'Vpost', HNL4.Vm, 'gSyn', 60);
+synapseL4R4.with('Vpre', HNL4.Vm, 'Vpost', HNR4.Vm, 'gSyn', 60);
+
+synapseR1R3.with('Vpre', HNR1.Vm, 'Vpost', HNR3.Vm, 'gSyn', 16);
+synapseR3R1.with('Vpre', HNR3.Vm, 'Vpost', HNR1.Vm, 'gSyn', 6, ...
+                 'tRise', 0.01, 'tFall', 0.055);
+
+synapseR1R4.with('Vpre', HNR1.Vm, 'Vpost', HNR4.Vm, 'gSyn', 16);
+synapseR4R1.with('Vpre', HNR4.Vm, 'Vpost', HNR1.Vm, 'gSyn', 6, ...
+                 'tRise', 0.01, 'tFall', 0.055);
+
+synapseL1L3.with('Vpre', HNL1.Vm, 'Vpost', HNL3.Vm, 'gSyn', 16);
+synapseL3L1.with('Vpre', HNL3.Vm, 'Vpost', HNL1.Vm, 'gSyn', 6, ...
+                 'tRise', 0.01, 'tFall', 0.055);
+
+synapseL1L4.with('Vpre', HNL1.Vm, 'Vpost', HNL4.Vm, 'gSyn', 16);
+synapseL4L1.with('Vpre', HNL4.Vm, 'Vpost', HNL1.Vm, 'gSyn', 6, ...
+                 'tRise', 0.01, 'tFall', 0.055);
 
 HNL3.ISyn = synapseR3L3.ISyn + synapseL1L3.ISyn;
 HNR3.ISyn = synapseL3R3.ISyn + synapseR1R3.ISyn;
@@ -125,6 +99,7 @@ HNR1.ISyn = synapseR4R1.ISyn + synapseR3R1.ISyn;
 
 HNR4.IStim = stimR4;
 
+% Outputs
 m.output('VmL3', HNL3.Vm);
 m.output('VmR3', HNR3.Vm);
 m.output('VmL4', HNL4.Vm);
