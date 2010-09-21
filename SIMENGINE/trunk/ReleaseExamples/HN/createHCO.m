@@ -18,10 +18,13 @@ m = Model('hco', t);
 stimR4 = m.input('stimR4', 0);
 Eleak = m.input('Eleak', -62.5);
 gleak = m.input('gleak', 11);
+Vm0 = m.input('Vm0', -45);
 
 % Add HN34 cell submodels
 HNL3 = m.submodel(createHN34(t));
 HNR3 = m.submodel(createHN34(t));
+
+HNR3.Vm0 = Vm0;
 
 HNL3.Eleak = Eleak;
 HNL3.gleak = gleak;
