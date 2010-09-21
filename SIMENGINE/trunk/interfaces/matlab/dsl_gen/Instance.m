@@ -74,6 +74,12 @@ classdef Instance
         end
         
         function setInput(inst, inp, value)
+            if ~isa(inst, 'Instance')
+              error('Simatra:Instance', 'setInput requires an Instance object.');
+            end
+            if ~ischar(inp)
+              error('Simatra:Instance', 'setInput requires inp to be a string name of an input.');
+            end
             if ~isInput(inst, inp)
               inst.Inputs
               error('Simatra:Instance', 'No input with name %s found', inp);
@@ -88,12 +94,12 @@ classdef Instance
               error('Simatra:Instance', 'No arguments. Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [...]])');
             end
             if mod(length(inputValues),2) ~= 0
-              error('Simatra:Instance', 'Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [...]])');
+              error('Simatra:Instance', 'Odd number of arguments. Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [, ...]])');
             end
             for arg = 1:2:length(inputValues)
               setInput(inst, inputValues{arg}, inputValues{arg+1});
             end
-            b = inst.Inputs;
+            b = inst;
         end
         
         function r = isInput(inst, inp)
