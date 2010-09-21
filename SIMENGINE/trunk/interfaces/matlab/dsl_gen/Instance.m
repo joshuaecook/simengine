@@ -51,6 +51,11 @@ classdef Instance
                     inst.Outputs
                     error('Simatra:Instance', 'No output with name %s found', s.subs);
                 end
+            elseif length(s) == 2 && isfield(s(1), 'type') && ...
+                  strcmp(s(1).type, '.') && isfield(s(2), 'type') && ...
+                         strcmp(s(2).type, '()') && strcmp(s(1).subs, ...
+                                                          'with')
+                b = with(inst, s(2).subs);
             else
                 for i=1:length(s)
                     i
@@ -63,15 +68,32 @@ classdef Instance
         function i2 = subsasgn(inst, s, b)
             if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
                 inp = s.subs;
-                if ~isInput(inst, inp)
-                    inst.Inputs
-                    error('Simatra:Instance', 'No input with name %s found', inp);
-                end
-                input = Exp(inst.InstName, s.subs);
-                inst.Mdl.equ(input, b);
-                inst.definedInputs(inp) = b;
+                setInput(inst, inp, b);
             end
             i2 = inst;
+        end
+        
+        function setInput(inst, inp, value)
+            if ~isInput(inst, inp)
+              inst.Inputs
+              error('Simatra:Instance', 'No input with name %s found', inp);
+            end
+            input = Exp(inst.InstName, inp);
+            inst.Mdl.equ(input, value);
+            inst.definedInputs(inp) = value;
+        end
+        
+        function b = with(inst, inputValues)
+            if length(inputValues) == 0
+              error('Simatra:Instance', 'No arguments. Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [...]])');
+            end
+            if mod(length(inputValues),2) ~= 0
+              error('Simatra:Instance', 'Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [...]])');
+            end
+            for arg = 1:2:length(inputValues)
+              setInput(inst, inputValues{arg}, inputValues{arg+1});
+            end
+            b = inst.Inputs;
         end
         
         function r = isInput(inst, inp)
