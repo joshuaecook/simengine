@@ -36,12 +36,14 @@ SIMEX_NO_TEXT_STATUS_BAR = true;
 s = Suite('All Tests');
 
 if mode == RELEASE
-  s.add(AllCPUTests('-release'))
-  s.add(AllGPUTests('-release'))
+  s.add(ML_CoreFeatureTests('-release'));
+  s.add(AllCPUTests('-release'));
+  s.add(AllGPUTests('-release'));
   s.add(DSLTests('-release'));
 else
-  s.add(AllCPUTests)
-  s.add(AllGPUTests)
+  s.add(ML_CoreFeatureTests);
+  s.add(AllCPUTests);
+  s.add(AllGPUTests);
   s.add(DSLTests());
 end
 

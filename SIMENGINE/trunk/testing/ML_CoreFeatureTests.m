@@ -20,7 +20,7 @@ else
    mode = varargin{2};
 end
 
-s = Suite(['Core Feature Tests ' target]);
+s = Suite(['MATLAB DIESEL Core Feature Tests ' target]);
 
 % Add each of the language feature tests
 s.add(OutputFeatureTests(target));
@@ -450,25 +450,73 @@ function s = IntermediateFeatureTests(mode, target)
 INTERNAL = 0; RELEASE = 1;
 
 s = Suite(['Intermediate Feature Tests ' target]);
+
+function m = IntermediateTest1
+m = Model('IntermediateTest1');
+m.solver='forwardeuler'; m.dt = 1;
+x = m.state(0);
+m.diffequ(x, 1);
+m.output(x);
+m.output('y', x);
+end
+
 s.add(Test('Intermediate=State', ...
-           @()(simex('models_FeatureTests/IntermediateTest1.dsl', 10, target)), ...
-           '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0:10]')));
+           @()(simex(IntermediateTest1, 10, target)), ...
+           '-equal', struct('x', [0:10; 0:10]', 'y', [0:10; 0: ...
+                    10]')));
+
+function m = IntermediateTest2
+m = Model('IntermediateTest2');
+m.solver='forwardeuler'; m.dt = 1;
+x = m.input('x', 1);
+s = m.state(0);
+m.diffequ(s, 1);
+m.output(s);
+m.output('y', x);
+end
+
 s.add(Test('Intermediate=Input', ...
-           @()(simex('models_FeatureTests/IntermediateTest2.dsl', 10, target)), ...
-           '-equal', struct('s', [0:10; 0:10]', 'y', [[0 10]; ones(1,2)]')));
+           @()(simex(IntermediateTest2, 10, target)), ...
+           '-equal', struct('s', [0:10; 0:10]', 'y', [[0 10]; ...
+                    ones(1,2)]')));
+
+function m = IntermediateTest3
+m = Model('IntermediateTest3');
+m.solver='forwardeuler'; m.dt = 1;
+x = m.input('x', 1);
+s = m.state(0);
+m.diffequ(s, 1);
+m.output(s);
+m.output(x);
+end
+
 s.add(Test('InputToOutput', ...
-           @()(simex('models_FeatureTests/IntermediateTest3.dsl', 10, target)), ...
-           '-equal', struct('s', [0:10; 0:10]', 'x', [[0 10]; ones(1,2)]')));
+           @()(simex(IntermediateTest3, 10, target)), ...
+           '-equal', struct('s', [0:10; 0:10]', 'x', [[0 10]; ...
+                    ones(1,2)]')));
+
+
+function m = IntermediateTest5
+m = Model('IntermediateTest5');
+m.solver='forwardeuler'; m.dt = 1;
+y = m.state(0);
+I = m.equ(piecewise(0, m.time < 5, 1));
+m.diffequ(y, I);
+m.output(y);
+m.output(I);
+end
+
+
 s.add(Test('InputFcnOfTime', ...
-           @()(simex(['models_FeatureTests/IntermediateTest5.dsl'], 10, target)), ...
+           @()(simex(IntermediateTest5, 10, target)), ...
            '-equal', struct('y', [0:10; [zeros(1,6) 1:5]]', 'I', [0:10; [zeros(1,5) ones(1,6)]]')));
 
 % We want to add derivative suport soon
-if mode == INTERNAL
-  s.add(Test('Intermediate=Derivative', ...
-             @()(simex('models_FeatureTests/IntermediateTest4.dsl', 10, target)), ...
-             '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
-end
+% if mode == INTERNAL
+%   s.add(Test('Intermediate=Derivative', ...
+%              @()(simex('models_FeatureTests/IntermediateTest4.dsl', 10, target)), ...
+%              '-equal', struct('s', [0:10; 0:10]', 'y', [0:10; ones(1,11)]')));
+% end
 
 end
 
