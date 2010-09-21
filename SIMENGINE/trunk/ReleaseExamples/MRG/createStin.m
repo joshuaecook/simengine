@@ -10,6 +10,12 @@
 %
 function m_stin = createStin(t_imp)
 
+if nargin == 0
+    % define the t_imp iterator
+    dt = 0.001;
+    t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
+end
+    
 m_stin = Model('stin');
 
 %Geometric Parameters

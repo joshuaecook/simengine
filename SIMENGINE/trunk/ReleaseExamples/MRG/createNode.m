@@ -10,6 +10,13 @@
 %
 function m_node = createNode(t_imp, t_exp)
 
+if nargin == 0
+    % define the t_imp and t_exp iterator
+    dt = 0.001;
+    t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
+    t_exp = Iterator('t_exp', 'solver', 'forwardeuler', 'dt', dt);
+end
+    
 m_node = Model('node');
 
 length = m_node.input('length', 1);

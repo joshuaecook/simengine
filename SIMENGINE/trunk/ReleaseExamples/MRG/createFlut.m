@@ -10,6 +10,12 @@
 %
 function m_flut = createFlut(t_imp)
 
+if nargin == 0
+    % define the t_imp iterator
+    dt = 0.001;
+    t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
+end
+    
 m_flut = Model('flut');
 
 %Geometric Parameters
