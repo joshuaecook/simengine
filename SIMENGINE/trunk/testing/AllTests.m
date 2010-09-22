@@ -36,7 +36,7 @@ SIMEX_NO_TEXT_STATUS_BAR = true;
 s = Suite('All Tests');
 
 if mode == RELEASE
-  s.add(ML_CoreFeatureTests('-release'));
+  s.add(ML_CoreFeatureTests('-cpu', '-release'));
   s.add(ReleaseMatlabExampleTests)
   s.add(AllCPUTests('-release'));
   s.add(AllGPUTests('-release'));

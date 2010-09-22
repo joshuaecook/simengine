@@ -656,6 +656,7 @@ sx = x*(high-low)+low;
     ay1 = asin(sx);
     ay2 = acos(sx);
     ay3 = atan(sx);
+    ay3b = atan2(sx, sx^2);
     ay4 = acsc(sx);
     ay5 = asec(sx);
     ay6 = acot(sx);
@@ -673,9 +674,10 @@ sx = x*(high-low)+low;
     ayh4 = acsch(sx);
     ayh5 = asech(sx);
     ayh6 = acoth(sx);
+    
 
     m.output('y', sx, y1, y2, y3, y4, y5, y6);
-    m.output('ay', sx, ay1, ay2, ay3, ay4, ay5, ay6);
+    m.output('ay', sx, ay1, ay2, ay3, ay4, ay5, ay6, ay3b);
     m.output('yh', sx, yh1, yh2, yh3, yh4, yh5, yh6);
     m.output('ayh', sx, ayh1, ayh2, ayh3, ayh4, ayh5, ayh6);
 end
@@ -700,7 +702,8 @@ s.add(Test('FunctionTrig', @FunctionTrig));
         tol = 1e-3;
         y = approx_equiv(asin(o.ay(:,2)),o.ay(:,3),tol) && ...
             approx_equiv(acos(o.ay(:,2)),o.ay(:,4),tol) && ...
-            approx_equiv(atan(o.ay(:,2)),o.ay(:,5),tol);
+            approx_equiv(atan(o.ay(:,2)),o.ay(:,5),tol) && ...
+            approx_equiv(atan2(o.ay(:,2),o.ay(:,2).^2),o.ay(:,9),tol);
         i.low = 1.0001;
         i.high = 2;
         o = simex(FunctionTestTrig, 100, i, target);

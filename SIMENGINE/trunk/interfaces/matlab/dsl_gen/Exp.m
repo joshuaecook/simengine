@@ -35,6 +35,7 @@ classdef Exp
 %   sin, cos, tan          - Trigonometric functions
 %   csc, sec, cot          - Reciprocal trigonometric functions
 %   asin, acos, atan       - Inverse trigonometric functions
+%   atan2                  - Four quadrant inverse tangent
 %   acsc, asec, acot       - Inverse reciprocal trigonometric functions
 %   sinh, cosh, tanh       - Hyperbolic functions
 %   csch, sech, coth       - Reciprocal hyperbolic functions
@@ -72,6 +73,9 @@ classdef Exp
         OPERATION = 3
         REFERENCE = 4
         ITERATOR = 5
+        NONOTATION = 0
+        PREFIX = 1
+        INFIX = 2
     end
     
     properties (Access = private)
@@ -81,6 +85,7 @@ classdef Exp
         args
         dims = [1 1]
         iterReference = false
+        notation = 0
     end
     
     methods
@@ -351,6 +356,10 @@ classdef Exp
         end
         function er = atan(e1)
             er = oper('atan', {e1});
+        end
+        function er = atan2(e1, e2)
+            prefix = 1;
+            er = oper('atan2', {e1, e2}, prefix);
         end
         function er = acsc(e1)
             er = oper('acsc', {e1});
@@ -698,7 +707,11 @@ classdef Exp
                         if length(e.args) == 1
                             s = ['(' e.op '(' toStr(e.args{1}) '))'];
                         elseif length(e.args) == 2
-                            s = ['(' toStr(e.args{1}) e.op toStr(e.args{2}) ')'];
+                            if e.notation == e.INFIX
+                                s = ['(' toStr(e.args{1}) e.op toStr(e.args{2}) ')'];
+                            else
+                                s = ['(' e.op '(' toStr(e.args{1}) ', ' toStr(e.args{2}) '))'];
+                            end
                         end
                     end
             end
@@ -729,13 +742,22 @@ classdef Exp
     
 end
 
-function er = oper(operation, args)
+function er = oper(operation, args, infix)
 len = length(args);
 exps = cell(1,len);
 for i=1:len
     exps{i} = Exp(args{i});
 end
 er = Exp;
+if nargin == 2
+    er.notation = er.INFIX;
+else
+    if infix == er.INFIX;
+        er.notation = er.INFIX;
+    else
+        er.notation = infix;
+    end
+end
 % check binary operations
 if len == 2
     len1 = length(args{1});
