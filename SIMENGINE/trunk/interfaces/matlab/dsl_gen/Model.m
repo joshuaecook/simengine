@@ -1496,12 +1496,20 @@ classdef Model < handle
             disp(['Creating ' m.Name ' ...']);
             tempfile = tempname;
             fid = fopen(tempfile, 'w');
+            if fid == -1
+                error('Simatra:Model:toDSL', 'Can''t create a temporary file needed by simEngine, please check the temporary directory %s to make sure that there is space available and that you have permission to write into that directory.', tempdir);
+            end
             toFile(m, fid);
             fclose(fid);
             
             % if one is not specified, then create one
             if nargin == 1
-                filename = fullfile(tempdir, [m.Name '.dsl']);
+                d = tempname;
+                success = mkdir(d);
+                if ~success
+                    error('Simatra:Model:toDSL', 'Can''t create a temporary directory needed by simEngine, please check the temporary directory %s to make sure that there is space available and that you have permission to write into that directory.', tempdir);                    
+                end
+                filename = fullfile(d, [m.Name '.dsl']);
             end
             
             writeFile = true;
