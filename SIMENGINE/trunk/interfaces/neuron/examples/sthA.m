@@ -1,3 +1,12 @@
+% sthA - Neuron Tutorial A
+%
+% Based on the NEURON tutorial by Andrew Gillies and David Sterratt
+% http://www.anc.ed.ac.uk/school/neuron/tutorial/tutA.html
+%
+% Adapted for use in simEngine
+%
+% Copyright (c) 2010 Simatra Modeling Technologies, L.L.C.
+%
 function sthA()
 
 n = Neuron('sthA');
