@@ -1,3 +1,4 @@
+function sthB()
 
 n = Neuron('sthB');
 
@@ -42,6 +43,7 @@ stim.amp = 0.1;
 tstop = 300;
 o = n.simex(tstop);
 
+figure;
 subplot(1,2,1);
 simplot(o.v_soma);
 title('Somatic Voltage');
@@ -52,3 +54,4 @@ subplot(2,2,4);
 simplot(o.v_dend2);
 title('Dendritic branch #2')
 
+end
