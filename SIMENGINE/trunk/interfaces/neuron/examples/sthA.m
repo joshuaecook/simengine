@@ -1,3 +1,5 @@
+function sthA()
+
 n = Neuron('sthA');
 
 soma = n.section('soma');
@@ -14,5 +16,8 @@ stim.amp = 0.1;
 
 tstop = 300;
 o = n.simex(tstop);
+figure;
 simplot(o.v_soma);
 title('Somatic Voltage');
+
+end
