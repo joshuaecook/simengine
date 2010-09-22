@@ -73,6 +73,9 @@ classdef Exp
         OPERATION = 3
         REFERENCE = 4
         ITERATOR = 5
+    end
+    
+    properties (Constant, Access = private)
         NONOTATION = 0
         PREFIX = 1
         INFIX = 2
@@ -85,7 +88,7 @@ classdef Exp
         args
         dims = [1 1]
         iterReference = false
-        notation = 0
+        notation = Exp.NONOTATION
     end
     
     methods
@@ -358,8 +361,7 @@ classdef Exp
             er = oper('atan', {e1});
         end
         function er = atan2(e1, e2)
-            prefix = 1;
-            er = oper('atan2', {e1, e2}, prefix);
+            er = oper('atan2', {e1, e2}, Exp.PREFIX);
         end
         function er = acsc(e1)
             er = oper('acsc', {e1});
@@ -707,9 +709,10 @@ classdef Exp
                         if length(e.args) == 1
                             s = ['(' e.op '(' toStr(e.args{1}) '))'];
                         elseif length(e.args) == 2
-                            if e.notation == e.INFIX
+                            if e.notation == Exp.INFIX
                                 s = ['(' toStr(e.args{1}) e.op toStr(e.args{2}) ')'];
                             else
+                                % treat by default as Exp.PREFIX
                                 s = ['(' e.op '(' toStr(e.args{1}) ', ' toStr(e.args{2}) '))'];
                             end
                         end
@@ -750,12 +753,12 @@ for i=1:len
 end
 er = Exp;
 if nargin == 2
-    er.notation = er.INFIX;
+    er.notation = Exp.INFIX;
 else
-    if infix == er.INFIX;
-        er.notation = er.INFIX;
+    if infix == Exp.INFIX;
+        er.notation = Exp.INFIX;
     else
-        er.notation = infix;
+        er.notation = Exp.PREFIX;
     end
 end
 % check binary operations
