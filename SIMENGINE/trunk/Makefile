@@ -1001,7 +1001,7 @@ install: system
 
 
 .PHONY: clean
-clean: mostlyclean solvers_clean codegen_clean share_cuda_clean testing_clean
+clean: mostlyclean solvers_clean codegen_clean share_cuda_clean testing_clean documentation-clean
 	$(RM) -r $(BUILD)_*
 	$(RM) -r $(BUILD)
 #	$(RM) ../$(RPM_TEMP_DIR)
@@ -1077,3 +1077,11 @@ matlab-helpsearch: html-documentation $(HTML_DOCUMENTATION_DESTINATION)/helpsear
 
 $(HTML_DOCUMENTATION_DESTINATION)/helpsearch/deletable: html-documentation
 	$(MATLAB) -nosplash -nodesktop -r "builddocsearchdb('$(HTML_DOCUMENTATION_DESTINATION)'); quit"
+
+.PHONY: documentation-clean
+documentation-clean: export SIMENGINE := $(realpath $(BUILD_DIR))
+documentation-clean: export DOCUMENTATION_OUTPUT_DIR := $(HTML_DOCUMENTATION_DESTINATION)
+documentation-clean: 
+	$(MAKE) -C $(EXTERN_PUBLICATIONS) clean/simEngine
+	$(RM) $(HTML_DOCUMENTATION_DESTINATION)
+	$(RM) $(BUILD_DIR)/info.xml
