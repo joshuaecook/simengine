@@ -12,10 +12,19 @@ class MLBTempfile < Tempfile
 end # class
 
 
-tests = `find .. | grep [.]sml$ | xargs realpath`.split '\n'
+tests = `find .. | grep [.]sml$`.split '\n'
 
 puts tests.class.name 
 for test in tests do
+
+  puts "considering #{test}"
+
+  testpath = (test.split '/')
+  file = testpath.pop
+  
+  abspath = `cd #{testpath.join('/')}; pwd`.strip
+
+  test = abspath + '/' + file
 
   puts "handling #{test}"
   # create /tmp mlb
