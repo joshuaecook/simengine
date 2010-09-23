@@ -225,7 +225,7 @@ fun std_collect exec args =
 
 fun std_exp2str exec args =
     (case args of
-	 [object] => KEC.LITERAL(KEC.CONSTSTR (ExpPrinter.exp2str (valOf (ModelTranslate.translateExp(exec, object)))))
+	 [object] => KEC.LITERAL(KEC.CONSTSTR (ExpPrinter.exp2prettystr (valOf (ModelTranslate.translateExp(exec, object)))))
 
        | _ => raise IncorrectNumberOfArguments {expected=1, actual=(length args)})
     handle e => DynException.checkpoint "CompilerLib.std_exp2str" e 
