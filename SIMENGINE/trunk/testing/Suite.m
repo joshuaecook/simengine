@@ -216,13 +216,17 @@ classdef Suite < handle
             end
             
             root.setAttribute('errors', num2str(s.Errored));
-            root.setAttribute('tests', num2str(s.Total));
+            % Make sure to ignore skipped tests in Bamboo output
+            root.setAttribute('tests', num2str(s.Total - s.Skipped));
             root.setAttribute('time', num2str(s.Time));
             root.setAttribute('failures', num2str(s.Failed));
             root.setAttribute('name', s.Name);
             
             for i = 1:length(s.Tests)
+              % Ignore skipped tests
+              if s.Tests{i}.Enabled
                 s.Tests{i}.toXML(xml, root);
+              end
             end
         end
         
