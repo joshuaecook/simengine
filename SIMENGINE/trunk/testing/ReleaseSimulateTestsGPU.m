@@ -43,26 +43,51 @@ testInfos = createTestList;
 for i=1:length(testInfos)
     info = testInfos(i);
 
+    platform = computer;
+    % Treat MACI64 and MACI as equivalent
+    if strcmpi(platform, 'MACI64')
+      platform == 'MACI'
+    end
+    matfile = fullfile(templatedir, [info.name '_' platform '_gpu_exp.mat']);
+    
     % do different tasks depending on the mode
     switch mode
         case PLOT,
             disp(['Simulating and plotting ' info.name]);
             if isempty(info.states)
-                o = simex(info.model, info.time, info.inputs);
+                o = simex(info.model, info.time, info.inputs, '-gpu');
             else
-                o = simex(info.model, info.time, info.inputs, info.states);
+                o = simex(info.model, info.time, info.inputs, ...
+                          info.states, '-gpu');
             end
             figure;
-            simplot(reduceDataSet(o));
-            title(sprintf('Plot of ''%s''',info.name));
+            subplot(2,1,1);
+            if isempty(info.outputs) 
+              simplot(o);
+            else
+              o2 = struct();
+              for i=1:length(info.outputs)
+                id = info.outputs{i};
+                o2.(id) = o.(id);
+              end
+              simplot(o2);
+            end
+            title(sprintf('Plot of ''%s'' (gpu)',info.name));
+            subplot(2,1,2);
+            if isempty(info.outputs) 
+              simplot(reduceDataSet(o));
+            else
+              simplot(reduceDataSet(o2));
+            end
+            title(sprintf('Plot of ''%s'' (reduced data gpu)',info.name));
         case CREATE,
             if isempty(info.states)
-                o = simex(info.model, info.time, info.inputs);
+                o = simex(info.model, info.time, info.inputs, '-gpu');
             else
-                o = simex(info.model, info.time, info.inputs, info.states);
+                o = simex(info.model, info.time, info.inputs, ...
+                          info.states, '-gpu');
             end
             o_reduced = reduceDataSet(o);
-            matfile = fullfile(templatedir, [info.name '_exp.mat']);
             save(matfile, '-struct', 'o_reduced');
             disp(['Created expected results for model ' info.name ' in ' matfile]);
         case RUNTESTS,
@@ -74,8 +99,7 @@ for i=1:length(testInfos)
                 f = @()(reduceDataSet(simex(info.model, info.time, ...
                                             info.inputs, info.states, '-gpu')));
             end
-            matfile = fullfile(templatedir, [info.name '_exp.mat']);
-            s.add(Test(info.name, f, '-approxequal', matfile, 5));
+            s.add(Test(info.name, f, '-approxequal', matfile, 0.1));
     end
 end
 
@@ -96,7 +120,7 @@ t(i).name = 'FN';
 t(i).model = fullfile(simexamplepath, 'FN/fn.dsl');
 t(i).inputs = struct();
 t(i).states = [];
-t(i).time = 100;
+t(i).time = 30;
 
 % HH Model
 i = i + 1;
@@ -104,7 +128,7 @@ t(i).name = 'HH';
 t(i).model = fullfile(simexamplepath, 'HH/hh.dsl');
 t(i).inputs = struct();
 t(i).states = [];
-t(i).time = 100;
+t(i).time = 30;
 
 % BRK Model Iext = 10
 i = i + 1;
@@ -112,7 +136,7 @@ t(i).name = 'BRK_I10';
 t(i).model = fullfile(simexamplepath, 'BRK/brk.dsl');
 t(i).inputs = struct('Iext', 10);
 t(i).states = [];
-t(i).time = 100;
+t(i).time = 20;
 
 % BRK Model Iext = 30
 i = i + 1;
@@ -120,15 +144,24 @@ t(i).name = 'BRK_I30';
 t(i).model = fullfile(simexamplepath, 'BRK/brk.dsl');
 t(i).inputs = struct('Iext', 30);
 t(i).states = [];
-t(i).time = 100;
+t(i).time = 20;
 
-% STG Model
+% Segment test
+i = i + 1;
+t(i).name = 'Segment';
+t(i).model = fullfile(simexamplepath, 'MRG/segment.dsl');
+t(i).inputs = struct('Istim', 8);
+t(i).states = [];
+t(i).outputs = {'VmAxonal_L', 'VmAxonal_R'};
+t(i).time = 50;
+
+% PD Model
 i = i + 1;
 t(i).name = 'PD';
 t(i).model = fullfile(simexamplepath, 'PD/pd.dsl');
 t(i).inputs = struct();
 t(i).states = [];
-t(i).time = 1500;
+t(i).time = 500;
 
 % Timing Network Model (HN)
 % Have to remove this test - it's just too sensitive to variations
@@ -154,7 +187,7 @@ t(i).name = 'Two Cell Network';
 t(i).model = fullfile(simexamplepath, 'tutorial/twoCellNetwork.dsl');
 t(i).inputs = struct();
 t(i).states = [];
-t(i).time = 100;
+t(i).time = 30;
 
 % Van der Pol
 i = i + 1;
@@ -162,7 +195,7 @@ t(i).name = 'Van der Pol';
 t(i).model = fullfile(simexamplepath, 'VDP/vdpex.dsl');
 t(i).inputs = struct();
 t(i).states = [];
-t(i).time = 3000;
+t(i).time = 300;
 
 % Yeast
 i = i + 1;

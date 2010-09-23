@@ -28,7 +28,11 @@ end
 s = Suite('All CPU Tests');
 
 % Pull in each of the other test suites
-s.add(ReleaseCompileTests)
+if(mode == INTERNAL)
+  s.add(ReleaseCompileTests('-internal')
+else
+  s.add(ReleaseCompileTests)
+end
 
 % Add full simulation tests
 s.add(ReleaseSimulateTests)
