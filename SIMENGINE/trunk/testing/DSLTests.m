@@ -23,7 +23,7 @@ function [result] = run(strvec)
   for i = 1:length(strvec)
     s = strcat(s, strvec{i}, '\n');
   end
-  str = strcat('printf "', s, '" | ', simexamplepath ,'/../bin/simEngine --batch -')
+  str = strcat('printf "', s, '" | ', simexamplepath ,'/../bin/simEngine --batch -');
   
   function [res] = systemWrapper()
     status = system(str);
