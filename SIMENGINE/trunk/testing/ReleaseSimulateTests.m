@@ -46,7 +46,7 @@ for i=1:length(testInfos)
     platform = computer;
     % Treat MACI64 and MACI as equivalent
     if strcmpi(platform, 'MACI64')
-      platform == 'MACI'
+      platform = 'MACI';
     end
     matfile = fullfile(templatedir, [info.name '_' platform '_exp.mat']);
     
