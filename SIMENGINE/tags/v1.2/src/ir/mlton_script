@@ -1,0 +1,6 @@
+rm -f ir fn.c fn fn.csv fn_pop.c fn_pop.csv fn_pop
+mlton -default-ann 'allowFFI true' -target-link-opt linux -ldl -const 'Exn.keepHistory true' -verbose 1 ir.mlb
+./ir
+gcc fn_pop.c -g -O0 -lm -o fn_pop
+./fn_pop 100 > fn_pop.csv
+tail fn_pop.csv

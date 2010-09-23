@@ -1,0 +1,12 @@
+ann
+	"allowFFI true"
+in
+	local
+		$(SML_LIB)/basis/basis.mlb
+		$(SML_LIB)/basis/mlton.mlb
+		ffi-exports.sml
+		simex.mlb
+	in
+		simex-test.sml
+	end
+end

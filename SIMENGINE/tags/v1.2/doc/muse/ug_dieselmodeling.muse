@@ -1,0 +1,604 @@
+* Model Description in DIESEL
+
+DIESEL is a *model description language*, it is used to
+describe the various pieces that make up a dynamical system model.  In
+this chapter, we will provide an overview of DIESEL programming
+concepts.  The next chapter will describe the specific facilities
+provided by DIESEL.
+
+** DIESEL (.dsl) Files
+DIESEL model descriptions are stored in standard ASCII text files
+with a .dsl file extension (referred to hereafter as a *.dsl
+file*).  When a DIESEL model description gets built into a simulation
+engine (we’ll talk about this more when we talk about simex), the
+simEngine compiler searches through the .dsl file to find a model
+definition that matches the file name.  This model is referred to as
+the *top-level model*, because it ultimately contains all other
+models and functions.
+
+For example, if we tell the simEngine compiler to compile a .dsl file
+called **myModel.dsl**, it will search through **myModel.dsl** until it
+finds a definition for a model called **myModel**.  **myModel** is the
+top-level model.  The file can also define other models or functions,
+but it has to contain a model definition for **myModel** to be built by
+the simEngine compiler.  You can create a. dsl file without a matching
+model definition, but in that case that file has to be used as a model
+library, and models that it contains can not be directly built by the
+simEngine compiler.
+
+** Model Definition
+
+In DIESEL, a model represents a dynamical system.  Externally, it is
+a black box with inputs and outputs available.  Internally, it may use
+difference equations, differential equations, define its own internal
+models, and use various integration methods.
+
+Models are defined using the **model** keyword.  
+
+The first line of a model definition is always a *model definition
+header*.  A model definition header begins with the **model** keyword, and
+includes a list of one or more outputs, the equals sign, the name of
+the model class, and a list of one or more inputs.
+
+A model definition includes definitions of simulation quantities,
+equations, and nested submodels.
+
+The model definition ends with a matching **end** keyword.  
+
+For example:
+
+<src lang="dsl">
+   model (area, diameter, circumference) = Circle (r)
+      //The model definition line above defines a new model class called "Circle"
+      //With one input called "r"
+      //And three outputs called "area", "diameter", and "circumference"
+     constant pi = 3.1415926
+      equations
+         area = pi*r^2
+         diameter = 2*r
+         circumference = pi*diameter
+      end  //This "end" statement ends the equation block
+   end  //This "end" statement ends the definition of "Circle"
+</src>
+
+The **//** characters represent comments.  All text between the **//** and the
+end of the line is ignored.
+
+At a minimum, all DIESEL models must have at least one output.  So the
+following code would be correct:
+
+<src lang="dsl">
+model (pi) = piMaker
+  constant pi = 3.1415926
+end
+</src>
+
+** Model Inputs
+Model inputs are quantities which are not known at compile time and
+are to be modified during the course of a simulation.  Inputs can be
+both static values and can change in time through the course of a
+simulation.  Inputs can initialize states, specify run time
+parameters, or include a complicated input stimulus waveform pattern.
+
+Model inputs are defined in the model definition header.  Within the
+body of a model definition, the keyword **input** can be used to specify
+additional properties of model inputs.  **input** is followed by the
+keyword **with**, and a list of comma-delimited input options enclosed
+within curly braces .  In the current version of simEngine, the only
+option available for model inputs is to specify the default input
+value.  The default value is specified using the **default** keyword.
+
+<src lang="dsl">
+model(x) = expDecay(decayRate)
+  //a default decay rate of one
+  input x with {default = 1}
+  state x = 10
+  equation x' = -decayRate*x
+end
+</src>
+
+If a default value is not specified within the model definition block,
+it must be provided by a higher-level model, or explicity defined when
+calling simEngine through the simex interface.  If no options are
+specified for an input, then the declaration on the model definition
+header is sufficient for declaring an input.
+
+#sampledinputs
+*** Sampled Inputs
+
+The simEngine compiler supports the use of an input stimulus pattern
+through sampled inputs.  A sampled input is an input where the
+difference in time between successive values is constant, and is
+determined by a sampling frequency.  For example, a array of step
+input data might look like =[0, 0, 0, 1, 1, 1]=.  Apply a sampling
+frequency to that, for example of 100 Hz, would apply each of these
+values at *0 ms, 10 ms, ..., 50 ms*.  Copying, the same example before,
+but this time using a sampled input would be written as the following:
+
+<src lang="dsl">
+model(x) = expDecay(decayRate)
+  // specify a 100Hz discrete iterator
+  iterator n with {discrete, sample_frequency=100}
+  // specify the iterator that describes the sampling rate
+  input decayRate with {iter = n}
+  state x = 10
+  equation x' = -decayRate*x
+  // specify a fixed time step solver to match the input
+  solver=forwardeuler{dt=0.01}
+end
+</src>
+
+Inside simex, we can then define our input to our model using the same
+set of sampled data:
+
+<src lang="matlab">
+>> inputs.decayRate = [0 0 0 1 1 1];
+>> output = simex('expDecay.dsl', 0.1, inputs);
+</src>
+
+What happens when we the simulation runs out of data?  In **decayRate**,
+we defined only values from 0 ms to 50 ms, yet we requested the
+simulation to run until 0.1 s. There is an additional property of an
+input that specifies what the default behavior is when we run out of
+data.  The **exhausted** property has three possible settings: **hold** (the
+default), **repeat**, and **stop**.  The default property, **hold**, maintains the
+last value until the end of the simulation.  So in our example above,
+the value 1 will be maintained on **decayRate** until the simulation
+finishes.  If instead we specified that the input is to repeat as in
+
+<src lang="dsl">
+input decayRate with {iter=n, exhausted=repeat}
+</src>
+
+the input stimulus would look like =[0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1]=,
+ranging from 0 ms to 0.1 s in steps of 10 ms.  Finally, with the
+**stop** option, the simulation will prematurely end after
+0.05 ms after all the input data has been exhausted.
+
+There are no limits in simEngine to how many inputs there are or how
+many different sampling rates are defined.  It is suggested that
+sampled inputs are used with fixed time step solvers.  A variable time
+step solver, such as **ode23** or **ode45**, can take large enough time steps
+that input changes are effectively skipped over.  A fixed-time step
+solver, or the use of **CVODE** with an fixed update rate specified, is
+recommended to ensure that inputs are processed as expected in
+simulation.
+
+
+** Model Outputs
+Model outputs are defined in the model definition header.  Outputs are
+automatically assigned to model quantities (constants, state
+variables, or intermediate equations) with the same name.  If a model
+quantity with the same name does not exist, the **output** keyword can be
+used within the body of a model definition to alias or group model
+quantities to a named output.  For example,
+
+<src lang="dsl">
+model(out1, out2, out3) = simpleModel(in1)
+  input in1 with {default = 0}
+  state x = 1
+  state y = 2
+  state z = 3
+
+  /*State variable equations, etc. go here*/
+
+  output out1 = x           //assign output "out1" to "x"
+  output out2 = (x, y, z)   //assign "out2" to a group containing x, y, and z
+  output out3 = in1*(x + y) //assign "out3" to a computed expression
+end
+</src>
+
+The **output** keyword can also be used to create conditional outputs.
+Sometimes we only want a model to produce an output under specific
+conditions.  To do this, we follow the **output** keyword and definition
+with the keyword **with**, followed by a list of conditions contained
+within curly braces and seperated by commas.  For example:
+
+<src lang="dsl">
+output out1 = x when {x > 0}     //output x only when x is greater than zero
+  
+//The following equation detects the moment 
+//when x crosses zero in a rising direction
+equation crossing =                     
+  {1 when x[n-1] < 0 and x[n] >= 0,
+   0 otherwise}  
+output out2 = y when {crossing == 1}   //output y only when x crosses zero 
+</src>
+
+For more information on constructing conditional outputs, see
+[[#conditionalexps][conditional expressions]], below.
+
+** Constants
+
+Constants are model quantities that never change during the execution
+of a model.  Their value is set when the model is compiled by the
+simEngine compiler.  Constants are defined within the body of a model
+definition by using the **constant** keyword.  For example:
+
+<src lang="dsl">
+   model (x) = expDecay(decayRate)
+      constant pi = 3.1415926
+      state x = 10                 
+       
+      equation x' = -decayRate*pi*x
+   end
+</src>
+
+Constants are useful for two reasons.  First, by defining a value as a
+constant, you are assured that the quantity can not be reassigned
+later.  If you attempt to override the value of a constant, simEngine
+will generate an error message.  The second reason is that constants
+can be shared amongst models.  In the example above, the constant **pi**
+could be moved outside of the model declaration and then be visible to
+all models defined below the constant.
+
+** States
+A *state* is a quantity of which the value may evolve throughout a
+simulation.  Typically, the value of a state is governed by an initial
+value and one or more equations.
+
+A state is declared as follows:
+
+<src lang="dsl">
+model StateExample
+  state x = 3
+  state y
+  y.setInitialValue(2)
+  state z (0 to 1 by 0.1) = 0
+end
+</src>
+
+States *must* have initial values associated with them.  By default, a
+state will hold its initial values unless an equation is defined for
+it.  Initial values are set in the form
+
+<src lang="dsl">
+  state <name> = <initial value>
+</src>
+
+Because an initial value is *the initial value*, it must be able to be
+resolved prior to a simulation beginning.  An initial value is an
+expression constisting of numerical literals, constants, and inputs.
+
+All other properties of a state are assigned using the **with** syntax.
+The **with** syntax is optional.  If not used, all fields will assume
+their default values.
+
+<src lang="dsl">
+  state <name> = <initial value> with {<setting>=<value>, <setting>=<value>, ...}
+</src>
+
+All states have an iterator associated with them, the default being **t**.
+An example of changing the iterator is
+
+
+<src lang="dsl">
+  state Vi = 0 with {iter=n}
+</src>
+
+** Equations
+; %% \subsection{Algebraic State Equations and Intermediate Equations}
+
+; %% Algebraic equations assign the value of the right hand side of the
+; %% equation into the quantity specified on the left hand side.  If the
+; %% quantity is a state, this equation is called an \emph{algebraic state
+; %% equation}; if the quantity has not been declared, the equation is an
+; %% \emph{intermediate equation}.
+
+; %% \subsub
+
+; %% Algebraic equations are a special form of equation.  They are the only
+; %% form of equation in which the quantity on the left hand side does not
+; %% have to have been declared already.  If it does not exist, an
+; %% ``intermediate'' quantity will be created in the model (or submodel if
+; %% referenced as such).  If a quantity by that name already exists, it
+; %% must be an intermediate quantity (have been created by another
+; %% algebraic equation).  If so, its equation will be replaced by the
+; %% newer definition.
+
+; %% Examples follow:
+
+; %% <src lang="dsl">
+; %% model Interms
+; %%   model Test
+; %%   end
+  
+; %%   submodel t = Test.new()
+
+; %%   equations
+; %%     x = 3 //creates x
+; %%     t.z = 2 //creates z inside t
+; %%   end
+; %% end
+; %% </src>
+
+; %% Algebraic equations have a special behavior: they are macro expanded wherever they occur in other equations at compile time.  That is, the following two equations are equivalent:
+
+; %% <src lang="dsl">
+; %% equation x' = 3 + z
+
+; %% equation i = z
+; %% equation x' = 3 + i
+; %% </src>
+
+; %% Algebraic equations may also be used to couple models together.
+
+; %% <src lang="dsl">
+; %% model Component
+; %%   equation x = 0
+; %% end
+
+; %% model c1 = Component.new()
+; %% model c2 = Component.new()
+
+; %% equation c1.x = c2.x + 1
+; %% equation c2.x = c1.x - 1
+; %% </src>
+
+
+Equations are defined either individually or in equation blocks.  All
+equations (except intermediate equations) require a state on the left
+hand side of the equals sign and an expression on the right.
+
+Examples follow:
+
+<src lang="dsl">
+model (x,y) = Test
+
+  state x = 3
+  state y = 0
+
+  state w = 2
+
+  constant z = 2
+
+  equation w' = w - y
+
+  equations
+    x' = y + z - w
+    y' = z - x
+  end
+end
+</src>
+
+
+*** Differential Equations
+
+Differential equations are specified by placing a tick (') after the
+assigned state in an equation.  At the moment, only first order
+differential equations are supported in DIESEL.
+
+Example:
+
+<src lang="dsl">
+model Ramp
+  state x = 0
+  equation x' = 1
+end
+</src>
+  
+How the differential equation is solved depends on the integration
+method, or solver, specified on the iterator that is associated with
+the state.  See the section on [[#iterators][iterators]].
+
+
+*** Difference Equations
+
+A difference equation is specified by using temporal indexing with a
+discrete iterator.  The left hand side of the equation *must*
+reference the *next* time value, meaning for iterator **n** it
+would be **n+1**.
+
+An example would be
+
+<src lang="dsl">
+model (x) = fibbonaci
+  state x = 0 with {iterator=n}
+
+  equation x[n+1] = x[n] + x[n-1]
+end
+</src>
+
+Since this model uses time references before **n**, the simulation will
+populate storage for these sharing the same initial value as the state
+at the current iteration, **x[n]**.
+
+
+*** Intermediate Equations and Algebraic State Equations
+
+Algebraic equations assign the value of the right hand side of the
+equation into the quantity specified on the left hand side.  If the
+quantity is a state, this equation is called an *algebraic state
+equation*; if the quantity has not been declared, the equation is an
+*intermediate equation*.
+
+**** Intermediate Equations
+
+When a direct assignment equation is specified, and the assigned
+quantity does not have a previous state declaration, the equation is
+an *intermediate equation*.  This means that the value for this
+quantity is computed and then substituted into reads of the quantity
+during the same iteration.  For more information about iterations, see
+the section on iterators.
+
+The semantics make the following two equation blocks equivalent.
+
+<src lang="dsl">
+  equations
+    equation x' = y + z * 2
+  end
+  
+  equations
+    equation a = z * 2
+    equation x' = y + a
+  end
+</src>
+
+
+**** Algebraic State Equations
+
+*Algebraic State Equations* are direct assignment equations where the
+quantity on the left hand side has been declared previously as a
+state.  That is, the quantity has storage.
+
+Unlike Intermediate Equations, *Algebraic State Equations* update model
+state.  This means that a read to one will read the value of the
+*previous* iteration, not the one computed during the current
+iteration.
+
+An example algebraic equation is
+
+<src lang="dsl">
+  state x = 0
+  equation x = x + 1
+</src>
+
+
+
+An algebraic equation may have an optional boolean condition.  This
+condition specifies when the equation is to be evaluated and to update
+the quantity.  Multiple equations of this form, referred to as *Update
+Equations*, may be specified.  When multiple conditions are
+simultaneously true, the results are undefined.
+
+An example of using update equations to perform saturation is
+
+<src lang="dsl">
+  state x = 0
+  equation x' = y - 2
+  equation x = 10 when x > 10
+</src>
+
+In this case, the value **x** is governed by it's differential equation
+unless it's value becomes greater than 10.  Note that update equations
+are run after all other equations, so in this example if **x** passed 10,
+it would be reset to 10 in that same iteration.
+
+** Submodels
+
+An instance of a model may be nested inside of the definition of
+another model.  The nested model is referred to as a *submodel*.
+
+When a submodel is *instantiated*, the instance is given a name, the
+model definition of the instance is described, and inputs may be given
+values.
+
+An example is
+
+<src lang="dsl">
+model simpleSolarSystem
+  submodel celestialbody sun with {x=0, y=0, mass=1.99e30}
+  submodel celestialbody planet with {x=1.49e8, y=0}
+
+  planet.mass = 5.97e24
+end
+</src>
+
+Notice that there are two ways to assign inputs: by listing the name
+and value in a **with** clause or in an assignment after the definition.
+Notice the lack of an **equation** keyword.  Assignments to inputs are not
+treated as equations in the system.
+
+** The Top-Level Model
+
+The outermost model is considered to be the *top-level model*.  This
+model has several key differences from submodels.
+
+The iterators that it defines take precedence over any iterators (of
+the same name) defined in sub-models.  
+
+The inputs into it are *external inputs*.  External inputs are specified
+external to the simulation, in matlab.  See the section on
+[[sampled inputs][#sampledinputs]].
+
+#iterators
+** Iterators
+
+Iterators are a means to describe how state variables evolve in time
+and how simEngine should treat state variables that evolve with
+different time scales.  By assigning different iterators to different
+state variables, you can improve the performance of simEngine by
+devoting the computational resources of more accurate solvers to the
+state variables that require them.
+
+Iterators can be one of two types: *continuous* or
+*discrete*.  Continuous iterators represent *time*, and
+discrete iterators represent *iteration number*.
+
+DIESEL has two default iterators.  The default continuous iterator is
+**t** and the default discrete iterator is **n**.  Regardless as to whether an
+iterator is continuous or discrete, new iterators are defined using
+the **iterator** keyword.  States, by default, use the **t** iterator.  They
+must be manually reassigned to use a different one.  An example of how
+to do this is
+
+<src lang="dsl">
+state x = 0 with {iterator=n}
+</src>
+
+*** Continuous Iterators
+
+A *continuous iterator* is used to describe the integration method, and
+parameters thereof, used to solve differential equations.  It will
+also describe how time is evolved during a simulation.
+
+*** Discrete Iterators
+
+A discrete iterator is useful for difference equations and other
+equation and outputs that should be run at a regular frequency.  The
+value of the iterator itself is a count that is incremented at the
+specified sampling frequency.
+
+
+<src lang="dsl">
+model (x1,x2) = expDecay(decayRate)
+   input decayRate with {default = 10}
+   iterator i1 with {continuous, solver=cvode{dt=0.1}}
+   iterator i2 with {continuous, solver=forwardeuler{dt=0.01}}
+   state x1 = 100 with {iter = i1}
+   state x2 = 100 with {iter = i2}
+   equation x1' = -decayRate*x1
+   equation x2' = -decayRate*x2
+end 
+</src>
+
+
+
+** Solvers
+
+Solvers are the means by which a differential equation is numerically
+solved.  
+
+See the [[#solvers][section on solvers]] for more information.
+
+
+** Time Indexing
+
+Time indexing refers to the method for accessing past values of
+states.
+
+For discrete iterators, the syntax is brackets containing an offset
+relative to the discrete iterator.  An example is
+
+<src lang="dsl">
+equation x[n+1] = (x[n] + x[n-1] + y[n])/3
+</src>
+
+The offset must be an absolute difference from the discrete iterator.
+Other operations (multiply, divide, etc) may not be used in temporal
+indexing.
+
+For continuous iterators a different syntax is used.  Since the
+timestep is determined by the integration method, adding or
+subtracting to a continuous iterator does not necessarily translate to
+a reference that is a fixed number of iterations back.  The syntax is
+instead
+
+<src lang="dsl">
+equation x' = y + z[t[-1]]
+</src>
+
+In this case, the continuous iterator is referenced with a negative
+integer representing the number of iterations *before* the
+current one to look back.  Using no reference is equivalent to
+referencing at the iteration 0 ago.
