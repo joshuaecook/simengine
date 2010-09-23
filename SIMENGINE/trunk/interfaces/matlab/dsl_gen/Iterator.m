@@ -373,6 +373,8 @@ classdef Iterator < handle
                         iter.params('dt') = 1;
                         iter.params('cv_lmm') = 'CV_BDF';
                         iter.params('cv_iter') = 'CV_NEWTON';
+                    otherwise
+                        error('Simatra:Iterator:solver', 'Invalid solver %s specified.  Options are: %s', iter.solver, List.cell2str(iter.solvers));
                 end
             end
         end
