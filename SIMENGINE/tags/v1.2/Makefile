@@ -643,7 +643,7 @@ share/cuda/device_props.a: share_cuda
 
 .phony: matlab-files
 matlab-files: $(BUILD_DIR) $(MATLAB_FILES)
-$(info MATLAB_FILES are $(MATLAB_FILES))
+
 .PHONY: matlab-installer
 matlab-installer: $(MATLAB_FILES)
 
