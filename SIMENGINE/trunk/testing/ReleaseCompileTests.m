@@ -1,4 +1,10 @@
-function s = ReleaseCompileTests
+function s = ReleaseCompileTests(varargin)
+
+if nargin == 1 && strcmpi(varargin{1}, '-internal')
+  INTERNAL = 1;
+else
+  INTERNAL = 0;
+end
 
 % grab the buildEngine path
 buildenginepath = which('simex');
@@ -26,5 +32,12 @@ end
 % file name.  This is expected
 s.getTest('Model-neuronWithSynapse').ExpectFail = true;
 s.getTest('Model-circuit_elements').ExpectFail = true;
+
+% Remove tests that are internal
+if ~INTERNAL
+  % These tests fail because they don't compile within the time
+  % limit of the testing framework
+  s.getTest('Model-axon').Enabled = false;
+end
 
 end

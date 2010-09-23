@@ -55,6 +55,7 @@ classdef Test < handle
         Mode
         ExpectFail = false
         ExpectError = false % testing an error condition
+        Enabled = true
     end
     
     % enumeration for the Result

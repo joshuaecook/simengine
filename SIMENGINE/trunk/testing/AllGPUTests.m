@@ -28,7 +28,11 @@ end
 s = Suite('All GPU Tests');
 
 % Pull in each of the other test suites
-s.add(ReleaseCompileTestsGPU)
+if mode == INTERNAL
+  s.add(ReleaseCompileTestsGPU('-internal')
+else
+  s.add(ReleaseCompileTestsGPU)
+end
 
 % Add full simulation tests
 s.add(ReleaseSimulateTestsGPU)

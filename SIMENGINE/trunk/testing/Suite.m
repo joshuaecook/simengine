@@ -126,7 +126,7 @@ classdef Suite < handle
                             end
                     end
                     
-                    if cont && run_test
+                    if cont && run_test && t.Enabled
                         %disp(['Executing test ' t.Name])
                         t.Execute();
                         switch t.Result

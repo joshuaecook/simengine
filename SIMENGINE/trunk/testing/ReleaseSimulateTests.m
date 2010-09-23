@@ -43,6 +43,13 @@ testInfos = createTestList;
 for i=1:length(testInfos)
     info = testInfos(i);
 
+    platform = computer;
+    % Treat MACI64 and MACI as equivalent
+    if strcmpi(platform, 'MACI64')
+      platform == 'MACI'
+    end
+    matfile = fullfile(templatedir, [info.name '_' platform '_exp.mat']);
+    
     % do different tasks depending on the mode
     switch mode
         case PLOT,
@@ -79,7 +86,6 @@ for i=1:length(testInfos)
                 o = simex(info.model, info.time, info.inputs, info.states);
             end
             o_reduced = reduceDataSet(o);
-            matfile = fullfile(templatedir, [info.name '_exp.mat']);
             save(matfile, '-struct', 'o_reduced');
             disp(['Created expected results for model ' info.name ' in ' matfile]);
         case RUNTESTS,
@@ -91,8 +97,7 @@ for i=1:length(testInfos)
                 f = @()(reduceDataSet(simex(info.model, info.time, ...
                                             info.inputs, '-resume', info.states)));
             end
-            matfile = fullfile(templatedir, [info.name '_exp.mat']);            
-            s.add(Test(info.name, f, '-approxequal', matfile, 5));
+            s.add(Test(info.name, f, '-approxequal', matfile, 0.1));
     end
 end
 
@@ -114,7 +119,7 @@ t(i).model = fullfile(simexamplepath, 'FN/fn.dsl');
 t(i).inputs = struct();
 t(i).states = [];
 t(i).outputs = {};
-t(i).time = 100;
+t(i).time = 30;
 
 % HH Model
 i = i + 1;
@@ -123,7 +128,7 @@ t(i).model = fullfile(simexamplepath, 'HH/hh.dsl');
 t(i).inputs = struct();
 t(i).states = [];
 t(i).outputs = {};
-t(i).time = 100;
+t(i).time = 30;
 
 % BRK Model Iext = 10
 i = i + 1;
@@ -132,7 +137,7 @@ t(i).model = fullfile(simexamplepath, 'BRK/brk.dsl');
 t(i).inputs = struct('Iext', 10);
 t(i).states = [];
 t(i).outputs = {};
-t(i).time = 100;
+t(i).time = 20;
 
 % BRK Model Iext = 30
 i = i + 1;
@@ -141,7 +146,7 @@ t(i).model = fullfile(simexamplepath, 'BRK/brk.dsl');
 t(i).inputs = struct('Iext', 30);
 t(i).states = [];
 t(i).outputs = {};
-t(i).time = 100;
+t(i).time = 20;
 
 % Segment test
 i = i + 1;
@@ -150,7 +155,7 @@ t(i).model = fullfile(simexamplepath, 'MRG/segment.dsl');
 t(i).inputs = struct('Istim', 8);
 t(i).states = [];
 t(i).outputs = {'VmAxonal_L', 'VmAxonal_R'};
-t(i).time = 200;
+t(i).time = 50;
 
 % PD Model
 i = i + 1;
@@ -159,7 +164,7 @@ t(i).model = fullfile(simexamplepath, 'PD/pd.dsl');
 t(i).inputs = struct();
 t(i).states = [];
 t(i).outputs = {};
-t(i).time = 1500;
+t(i).time = 500;
 
 % PD Events Model
 i = i + 1;
@@ -196,7 +201,7 @@ t(i).model = fullfile(simexamplepath, 'tutorial/twoCellNetwork.dsl');
 t(i).inputs = struct();
 t(i).states = [];
 t(i).outputs = {};
-t(i).time = 100;
+t(i).time = 30;
 
 % Van der Pol
 i = i + 1;

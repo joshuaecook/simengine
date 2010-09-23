@@ -1,4 +1,10 @@
-function s = ReleaseCompileTestsGPU
+function s = ReleaseCompileTestsGPU(varargin)
+
+if nargin == 1 && strcmpi(varargin{1}, '-internal')
+  INTERNAL = 1;
+else
+  INTERNAL = 0;
+end
 
 % grab the buildEngine path
 buildenginepath = which('simex');
@@ -22,13 +28,23 @@ for i=1:length(dsl_files)
     end
 end
 
-% The below test won't pass because the model name is different than the
-% file name.  This is expected
-s.getTest('Model-neuronWithSynapse').ExpectFail = true;
-s.getTest('Model-circuit_elements').ExpectFail = true;
+  % The below test won't pass because the model name is different than the
+  % file name.  This is expected
+  s.getTest('Model-neuronWithSynapse').ExpectFail = true;
+  s.getTest('Model-circuit_elements').ExpectFail = true;
 
-% These tests use cvode and we should add a compiler error message to check against, but for now, just expect them to fail on the GPU
-s.getTest('Model-lorenz').ExpectFail = true;
-s.getTest('Model-purine').ExpectFail = true;
+  % These tests use cvode and we should add a compiler error message to check against, but for now, just expect them to fail on the GPU
+  s.getTest('Model-lorenz').ExpectFail = true;
+  s.getTest('Model-purine').ExpectFail = true;
+  
+% Remove tests that are internal
+if ~INTERNAL
+  % These tests fail because they don't compile within the time
+  % limit of the testing framework
+  s.getTest('Model-axon').Enabled = false;
+  s.getTest('Model-innersystem').Enabled = false;
+  s.getTest('Model-solarsystem').Enabled = false;
+  s.getTest('Model-song').Enabled = false;
+end
 
 end
