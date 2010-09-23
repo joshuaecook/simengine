@@ -38,12 +38,14 @@ s = Suite('All Tests');
 if mode == RELEASE
   s.add(ML_CoreFeatureTests('-cpu', '-release'));
   s.add(ReleaseMatlabExampleTests)
+  s.add(ML_SubModelTests('-cpu', '-release'));
   s.add(AllCPUTests('-release'));
   s.add(AllGPUTests('-release'));
   s.add(DSLTests('-release'));
 else
   s.add(ML_CoreFeatureTests);
   s.add(ReleaseMatlabExampleTests)
+  s.add(ML_SubModelTests('-cpu'));
   s.add(AllCPUTests);
   s.add(AllGPUTests);
   s.add(DSLTests());
