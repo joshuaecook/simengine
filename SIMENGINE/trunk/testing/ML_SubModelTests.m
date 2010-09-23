@@ -305,7 +305,7 @@ s.add(AlgebraicSubModelTests);
         function m = AlgebraicSubModelTest4
             sm = Model('Fcn');
             x = sm.input('x');
-            z = sm.equ(z, x^2);
+            z = sm.equ(x^2);
             sm.output('y', z);
             
             m = Model('AlgebraicSubModelTest3');
