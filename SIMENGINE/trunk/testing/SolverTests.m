@@ -48,7 +48,14 @@ for i=1:length(solvers)
         model = ['models_SolverTests/fn_' solver '.dsl'];
         time = 100;
         
-        % do different tasks depending on the mode
+        platform = computer;
+        % Treat MACI64 and MACI as equivalent
+        if strcmpi(platform, 'MACI64')
+          platform = 'MACI';
+        end
+        matfile = fullfile(templatedir, [name '_' platform '_exp.mat']);
+ 
+    % do different tasks depending on the mode
         switch mode
             case PLOT,
                 disp(['Simulating and plotting ' name]);
@@ -59,13 +66,11 @@ for i=1:length(solvers)
             case CREATE,
                 o = simex(model, time, ['-' precision]);
                 o_reduced = reduceDataSet(o);
-                matfile = fullfile(templatedir, [name '_exp.mat']);
                 save(matfile, '-struct', 'o_reduced');
                 disp(['Created expected results for model ' name ' in ' matfile]);
             case RUNTESTS,
                 % create function handle to run simulation
                 f = @()(reduceDataSet(simex(model, time, ['-' precision])));
-                matfile = fullfile(templatedir, [name '_exp.mat']);
                 s.add(Test(name, f, '-approxequal', matfile, 5));
         end
     end
