@@ -29,7 +29,7 @@ s = Suite('All GPU Tests');
 
 % Pull in each of the other test suites
 if mode == INTERNAL
-  s.add(ReleaseCompileTestsGPU('-internal')
+  s.add(ReleaseCompileTestsGPU('-internal'))
 else
   s.add(ReleaseCompileTestsGPU)
 end
