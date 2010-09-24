@@ -71,7 +71,7 @@ for i=1:length(solvers)
             case RUNTESTS,
                 % create function handle to run simulation
                 f = @()(reduceDataSet(simex(model, time, ['-' precision])));
-                s.add(Test(name, f, '-approxequal', matfile, 5));
+                s.add(Test(name, f, '-approxequal', matfile, 0.1));
         end
     end
 
