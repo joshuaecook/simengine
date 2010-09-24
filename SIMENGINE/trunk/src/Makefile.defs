@@ -1,0 +1,31 @@
+# Import subdirectory rules.
+
+# Define local variables.
+
+PARSERS_$(D)    := $(addprefix $(D)/util/registry/registry,.grm.sig .grm.sml .grm.desc .lex.sml)
+PARSERS_$(D)    := $(PARSERS_$(D)) $(addprefix $(D)/shell/cool,.grm.sig .grm.sml .grm.desc .lex.sml)
+BASIS_$(D)	:= $(D)/compiler_exec.mlb
+LIBS_$(D)	:= share/cuda/device_props.a $(CRYPTO_LIB)
+
+TARGETS_$(D)	:= $(D)/simEngine
+TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+DEPENDS_$(D)    := $(D)/simEngine.deps
+DEPENDS         := $(DEPENDS) $(DEPENDS_$(D))
+INSTALL_BIN	:= $(INSTALL_BIN) $(D)/simEngine
+CLEAN		:= $(CLEAN) $(TARGETS_$(D))
+CLEAN_ALL	:= $(CLEAN_ALL) $(PARSERS_$(D))
+
+
+# Define local rules.
+
+$(D)/simEngine.deps: LIBS := $(LIBS_$(D))
+$(D)/simEngine.deps: $(BASIS_$(D)) $(LIBS) $(D)/Makefile.defs 
+	$(info Computing dependencies for $@)
+	@echo $(basename $@) $@: $(LIBS) \\ > $@
+	@$(SMLC) -stop f $< | perl -pe 's/\n/ /g' >> $@
+
+$(D)/simEngine: SMLFLAGS := -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" $(if $DEBUG,-const 'Exn.keepHistory true',)
+$(D)/simEngine: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+
+# Include dependency rules but don't die if they haven't been generated yet.
+-include $(D)/simEngine.deps

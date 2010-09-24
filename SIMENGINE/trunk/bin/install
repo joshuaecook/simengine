@@ -1,0 +1,93 @@
+#!/bin/sh
+# A portable alternative to install(1).
+# Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.
+# Inspired by http://www.xs4all.nl/~evbergen/download/nonrecursive-make/build/install
+self=$(basename $0)
+
+default_options () {
+    verbose=
+    mode=
+    dirmode=
+    source=
+    force=
+}
+
+dosay () {
+    if [ -n "$verbose" ]; then echo $*; fi
+    $* || exit 1
+}
+
+install () {
+    destination="$1"
+
+    if [ ! -d "$destination" ]; then
+	if [ -e "$destination" ]; then
+	    echo "$self: Destination path $destination exists and is not a directory."
+	    exit 1
+	fi
+	dosay mkdir -p "$destination"
+	if [ -n "$dirmode" ]; then
+	    dosay chmod "$dirmode" "$destination"
+	fi
+    fi
+    
+    for file in $source; do
+	if [ -d "$file" ]; then
+	    destfile="$destination/"
+	    dosay cp -r "$file" "$destfile"
+	else
+	    destfile="$destination/$(basename $file)"
+	    dosay cp "$file" "$destfile"
+	fi
+
+	if [ -e "$destfile" -a -n "$force" ]; then
+	    if [ -d "$destfile" ]; then
+		dosay rm -r "$destfile"
+	    else
+		dosay rm "$destfile"
+	    fi
+	fi
+
+	if [ -n "$mode" ]; then
+	    if [ -d "$destfile" ]; then
+		dosay find "$destination" -type f -exec chmod "$mode" '{}' \;
+		if [ -n "$dirmode" ]; then
+		    dosay find "$destination" -type d -exec chmod "$dirmode" '{}' \;
+		fi
+	    else
+		dosay chmod "$mode" "$destfile"
+	    fi
+	fi
+    done
+}
+
+usage () {
+echo Usage: $self [OPTION]... [FILE]... -d DESTINATION
+echo
+echo "  -d	"Specifies the destination directory. The directory is
+echo "    	"created if it does not already exist.
+echo "  -dm	"Specifies the destination directory permissions if the
+echo "     	"directory is created by this invocation.
+echo "  -f	"Force installation by overwriting existing files.
+echo "  -h	"Displays this message.
+echo "  -m	"Specifies the permissions of the installed files.
+echo "  -v	"Display extra information while installing.
+}
+
+## Main
+default_options
+while [ -n "$1" ]; do
+    case "$1" in
+	-v) verbose="-v" ;;
+	-m) mode="$2"; shift ;;
+	-dm) dirmode="$2"; shift ;;
+	-f) force="-f" ;;
+	-h) usage; exit 0 ;;
+	-d) install "$2"; shift; default_options ;;
+	-*) echo $self: invalid option $1;
+	    echo Invoke \"$self -h\" for more information.;
+	    exit 2;;
+	*) source="$source $1" ;;
+    esac
+    shift
+done

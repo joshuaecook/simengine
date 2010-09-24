@@ -13,14 +13,22 @@ verbose ?= 1
 # If non-empty, will not echo commands as they are executed
 noecho ?=
 
-#SVN_ROOT = https://svn1.hosted-projects.com/simatra/simEngine/
+# Date and time
+TIME := $(shell date +%s)
+DATE := $(shell date +%d-%b-%Y)
+
+# Subversion RCS
+
 SVN_PREFIX = https://simatra.jira.com/svn
 SVN_ROOT = $(SVN_PREFIX)/SIMENGINE
 SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
-SVN_INFO = svn info $(CURDIR) 2>/dev/null
+SVN_INFO = svn info 2>/dev/null
 SVN_URL := $(shell $(SVN_INFO) | sed -n 's/^URL: //p')
-SVN_REVISION := $(shell svnversion -nc . | cut -d: -f2)
+SVN_REVISION := $(shell svnversion -nc . | cut -d: -f2 | sed -n 's/[^0-9]//p')
 SVN_BRANCH := $(subst $(SVN_ROOT),,$(SVN_URL))
+SVN_IS_BRANCH := $(findstring branches,$(SVN_URL))
+SVN_IS_TRUNK := $(findstring trunk,$(SVN_URL))
+SVN_IS_TAG := $(findstring tag,$(SVN_URL))
 
 DEBUG := $(or $(debug),$(findstring branches,$(SVN_BRANCH)))
 PROFILE := $(if $(profile),$(profile),)
@@ -29,6 +37,7 @@ NOECHO := $(if $(noecho),@,)
 
 ## Platform and operating system detection
 OSLOWER := $(shell uname -s|tr [:upper:] [:lower:])
+MACHINE := $(shell uname -m)
 DARWIN := $(findstring darwin,$(OSLOWER))
 LINUX := $(findstring linux,$(OSLOWER))
 
@@ -60,6 +69,9 @@ SMLYACC = mlyacc
 COMPILE.sml = $(SMLC) @MLton $(SMLRUNTIMEFLAGS) -- $(SMLFLAGS) $(SMLPPFLAGS) $(SMLTARGET_ARCH)
 LEX.sml = $(SMLLEX)
 YACC.sml = $(SMLYACC)
+
+%: %.mlb
+	$(COMPILE.sml) -output "$@" "$<" $(SML_FOREIGN)
 
 %.lex.sml: %.lex
 	$(LEX.sml) "$<"
@@ -212,13 +224,18 @@ COMPILE.mex = $(MEX) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
 %.mexw64: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 
+%.p: MATLABFLAGS = -nodisplay -nosplash -nojvm
+%.p: %.m
+	$(MATLAB) $(MATLABFLAGS) -r "cd('$(dir $<)'); pcode('$(abspath $<)'); exit"
+
 ## Other misc tools
 AR = ar
 ARFLAGS = rsc
 LN = ln -s
 MKDIR = mkdir -p
 PWD = pwd
-RM = rm -f
+RM = rm -fr
+CP = cp -r
 GRIND = valgrind
 ENV = $(if $(DARWIN),/usr/bin/env,/bin/env)
 MKDIR = mkdir -p
@@ -235,3 +252,27 @@ INSTALL_DOC = $(INSTALL) -m 644
 # of the working path for variable which appear in dependency lists. Substitute with
 # "$(CURDIR)" using quoting for variables appearing in commands.
 SAFE_CURDIR := $(shell echo $(CURDIR) | sed -e 's/ /\\ /g')
+
+
+define IMPORT_SUBSYSTEM
+DIR		:= $1
+
+# Pushes the directory "stack"
+# Increment the "stack pointer."
+SP		:= $$(addsuffix $$(SP),.x)
+# Save the previous directory.
+DIRS_$$(SP)	:= $$(D)
+# Save the current directory.
+D		:= $$(DIR)
+
+include $$(DIR)/Makefile.defs
+
+# Pops the directory "stack"
+# do not add anything after this line.
+# Restore the previous directory.
+D		:= $$(DIRS_$$(SP))
+# Decrement the "stack pointer."
+SP		:= $$(basename $$(SP))
+endef
+
+IMPORT_SUBSYSTEMS = $$(foreach subsys,$1,$$(eval $$(call IMPORT_SUBSYSTEM,$$(subsys))))

@@ -1,0 +1,137 @@
+$(info S   I   M   A   T   R   A)
+$(info simEngine Compiler Makefile)
+$(info Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.)
+$(info Invoke "make help" for additional options)
+$(info )
+
+define HELP_TEXT
+Targets
+==============================================================================
+help		Displays this message.
+all		Compiles the application and all its resources.
+install		Installs the compiled application and its resources.
+test		Tests an installed application.
+clean		Removes compiled objects.
+clean-all	Removes all generated resources.
+
+show-targets	Lists all defined targets.
+
+endef
+
+# Makefile practices
+# ============================================================================
+# Avoid invoking make recursively.
+#
+# Exploit builtin rules and automatic variables.
+#
+# Define target-specific variables.
+#
+# Don't write lengthy shell scripts in recipes.
+#
+# Produce objects within the same path as their sources.
+#
+# Include dependency files for targets with many dependencies. Generate the
+# dependency file automatically if possible.
+#
+# Use the functions "info," "warning," and "error," not the "echo"
+# statement for user interface messages.
+#
+# Avoid using the @ symbol to quiet recipes. Invoke "make -s" for
+# quiet builds.
+
+.SUFFIXES:
+.SUFFIXES: .c .h .o .a .m .sml .sig .fun .mlb .sew .json .dol .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex .lex .grm .desc
+
+.PHONY: all
+all: targets
+
+
+.PHONY: help
+help:
+	$(info $(HELP_TEXT))
+
+# Define top-level variables.
+
+include include/common.make
+
+# TODO move this to common.make
+INSTALL := ./bin/install
+
+MAJOR_VERSION := 1
+MINOR_VERSION := 2
+VERSION_REVISION :=
+
+define BUILD_OPTIONS_JSON
+{\
+\"allowSWBackend\": true, \"allowFPBackend\": false, \"allowHWBackend\": false,\
+\"build\": \"$(VERSION)\",\
+\"buildBranch\": \"$(SVN_BRANCH)\",\
+\"buildDate\": \"$(TIME)\",\
+\"buildRevision\": $(SVN_REVISION),\
+\"buildTime\": $(TIME),\
+\"devVersion\": $(if $(SVN_IS_BRANCH),true,false),\
+\"version\": \"$(VERSION_NUMBER)\",\
+\"majorVersion\": $(MAJOR_VERSION),\
+\"minorVersion\": $(MINOR_VERSION),\
+\"versionRevision\": \"$(VERSION_REVISION)\",\
+\"architecture\": \"$(MACHINE)\"\
+}
+endef
+
+CRYPTO_LIB := $(if $(DARWIN),/opt/local/lib/libcrypto.a,$(if $(ARCH64),/usr/lib64/libcrypto.a,/usr/lib/libcrypto.a))
+
+# Insired by http://www.xs4all.nl/~evbergen/nonrecursive-make.html
+
+# This system of Makefiles uses a directory "stack" to isolate
+# subsystems without the need for recursion. Within each subsystem, a
+# special variable named D contains the current directory
+# path. However, all recipes are executed from the top level
+# directory. Subsystems may use the value of D in target names, lists
+# of requirements, and variables bound with :=, but not in the
+# recipes.
+
+# Each subsystem is defined by a file "Makefile.defs" containing a
+# Makefile fragment. 
+
+# Subsystems may augment the following definitions.
+
+TARGETS :=
+INSTALL_BIN :=
+INSTALL_LIB :=
+INSTALL_DATA :=
+INSTALL_INCLUDE :=
+CLEAN :=
+CLEAN_ALL :=
+
+# Import subsystem definitions.
+
+$(eval $(call IMPORT_SUBSYSTEM,.))
+
+# Define top-level rules.
+
+.PHONY:
+targets: $(TARGETS)
+
+.PHONY:
+show-targets:
+	$(info $(TARGETS))
+
+.PHONY: install
+install: INSTALL_PREFIX ?= local-install
+install: $(INSTALL_ROOT) $(INSTALL_DATA) $(INSTALL_INCLUDE) $(INSTALL_LIB) $(INSTALL_BIN) $(INSTALL_EXAMPLES)
+	$(INSTALL) $(INSTALL_ROOT) -d $(INSTALL_PREFIX)
+	$(INSTALL) -m 644 $(INSTALL_DATA) -d $(INSTALL_PREFIX)/data
+	$(INSTALL) -m 644 $(INSTALL_INCLUDE) -d $(INSTALL_PREFIX)/include
+	$(INSTALL) -m 644 $(INSTALL_EXAMPLES) -d $(INSTALL_PREFIX)/examples
+	$(INSTALL) -m 755 $(INSTALL_LIB) -d $(INSTALL_PREFIX)/lib
+	$(INSTALL) -m 755 $(INSTALL_BIN) -d $(INSTALL_PREFIX)/bin
+
+
+.SECONDARY: $(CLEAN)
+.PHONY: clean
+clean:
+	$(RM) $(CLEAN)
+
+.PHONY: clean-all
+clean-all: clean
+	$(RM) $(CLEAN_ALL)
