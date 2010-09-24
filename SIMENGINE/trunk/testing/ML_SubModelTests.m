@@ -16,7 +16,7 @@ elseif nargin == 1
     target = varargin{1};
     mode = RELEASE;
 else
-    target = varargin{2};
+    target = varargin{1};
     switch lower(varargin{2})
         case '-release'
             mode = RELEASE;
