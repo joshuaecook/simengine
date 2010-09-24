@@ -12,7 +12,7 @@ CLEAN_ALL :=
 
 # Import subsystem rules.
 
-SUBSYSTEMS := src share/cuda interfaces/matlab codegen solvers
+SUBSYSTEMS := src share/cuda interfaces codegen solvers
 $(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
 
 # Define local rules.
