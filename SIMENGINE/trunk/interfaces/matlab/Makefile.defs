@@ -6,7 +6,7 @@ $(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
 # Define local variables.
 
 CLASSES_$(D)    := $(wildcard $(D)/sim*.m)
-PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D)))) $(D)/simex.p
+PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D)))) $(D)/simex.p $(D)/parse_json.p
 
 TARGETS_$(D)	:= $(PCODE_$(D)) $(addprefix $(D)/,Contents.m $(addprefix src/readSimulationData,$(MEXEXT)))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
