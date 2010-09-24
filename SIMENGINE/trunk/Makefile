@@ -524,9 +524,7 @@ MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES))
 MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 MATLAB_FILES += $(MATLAB_MEX)
-ifneq ($(TAG),1)
 MATLAB_FILES += $(MATLAB_DSLGEN_FILES)
-endif
 
 $(BUILD_DIR)/Contents.m:
 	@echo "% SIMATRA simEngine" > $@
