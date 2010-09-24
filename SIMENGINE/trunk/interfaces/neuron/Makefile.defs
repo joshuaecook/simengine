@@ -1,9 +1,9 @@
 # Define local variables.
 
 CLASSES_$(D)	:= $(wildcard $(D)/*.m)
-PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D))))
+#PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D))))
 
-TARGETS_$(D)	:= $(PCODE_$(D))
+TARGETS_$(D)	:= $(CLASSES_$(D)) #$(PCODE_$(D))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
 INSTALL_ROOT    := $(INSTALL_ROOT) $(TARGETS_$(D))
 CLEAN		:= $(CLEAN) $(TARGETS_$(D))

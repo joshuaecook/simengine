@@ -18,7 +18,12 @@ CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 # Define local rules.
 
 $(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode.a
-	$(INSTALL) -m 755 "$<" -d "$@"
+	$(CP) $< $@
+#$(D)/lib/libcvode_%.a: DIR := $(D)/lib
+#$(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode_%.a
+#	$(INSTALL) -m 755 "$<" -d "$(DIR)"
+#$(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode.a
+#	$(INSTALL) -m 755 "$<" -d "$@"
 
 $(INCLUDE_DIRS_$(D)):
 	$(INSTALL) -d $@
