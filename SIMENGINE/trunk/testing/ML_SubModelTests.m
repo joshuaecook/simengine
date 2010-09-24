@@ -31,6 +31,7 @@ s = Suite(['MATLAB Sub-model Feature Tests ' target]);
 s.add(BasicSubModelTests);
 s.add(HierarchySubModelTests);
 s.add(AlgebraicSubModelTests);
+s.add(OrderingTests);
 
     function s = BasicSubModelTests
         
@@ -324,5 +325,161 @@ s.add(AlgebraicSubModelTests);
             'z', [0:10; 0:10]')));
     end
 
+    function s = OrderingTests
 
+        s = Suite(['MATLAB Ordering Tests ' target]);
+        
+        function m = OrderingTest1
+            sm = Model('Sub');
+            step = sm.input('step');
+            x = sm.state(0);
+            sm.diffequ(x, step);
+            sm.output(x);
+            
+            m = Model('OrderingTest1');
+            m.solver = 'forwardeuler'; m.dt = 1;
+            s1 = m.submodel(sm);
+            s1.step = 1;
+            s2 = m.submodel(sm);
+            s2.step = s1.x;
+            m.output('y', s1.x, s2.x);
+        end
+        
+        s.add(Test('CascadedModelTest', ...
+            @()(simex(OrderingTest1, 10,target)), ...
+            '-equal', struct('y', [0:10; 0:10;cumsum([0 0:9])]')));
+        
+        function m = OrderingTest2
+            sm = Model('Sub');
+            step = sm.input('step');
+            x = sm.state(0);
+            sm.diffequ(x, step);
+            sm.output(x);
+            
+            m = Model('OrderingTest2');
+            m.solver = 'forwardeuler'; m.dt = 1;
+            s1 = m.submodel(sm);
+            s2 = m.submodel(sm);
+            s2.step = 1;
+            s1.step = s2.x;
+            m.output('y', s1.x, s2.x);
+        end
+        
+        s.add(Test('FlippedCascadedModelTest', @()(simex(OrderingTest2, 10,target)), '-equal', ...
+            struct('y', [0:10; cumsum([0 0:9]); 0:10]')));
+
+        function m = OrderingTest3
+            sm = Model('Sub');
+            step = sm.input('step');
+            x = sm.state(0);
+            sm.diffequ(x, step);
+            sm.output(x);
+            
+            m = Model('OrderingTest3');
+            m.solver = 'forwardeuler'; m.dt = 1;
+            s1 = m.submodel(sm);
+            s2 = m.submodel(sm);
+            s2.step = s1.x;
+            s1.step = s2.x;
+            m.output('y', s1.x, s2.x);
+        end
+        
+        
+        s.add(Test('InterconnectedModelTest1', @()(simex(OrderingTest3, 10,target)), '-equal', ...
+            struct('y', [0:10; zeros(1,11); zeros(1,11)]')));
+        
+        function m = OrderingTest4
+            sm = Model('Sub');
+            step = sm.input('step');
+            x = sm.state(1);
+            sm.diffequ(x, step);
+            sm.output(x);
+            
+            m = Model('OrderingTest4');
+            m.solver = 'forwardeuler'; m.dt = 1;
+            s1 = m.submodel(sm);
+            s2 = m.submodel(sm);
+            s2.step = s1.x;
+            s1.step = s2.x;
+            m.output('y', s1.x, s2.x);
+        end        
+        
+        
+        s.add(Test('InterconnectedModelTest2', @()(simex(OrderingTest4, 10,target)), '-equal', ...
+            struct('y', [0:10; 2.^(0:10); 2.^(0:10)]')));
+
+        function m = OrderingTest5
+            sm1 = Model('sub1');
+            x = sm1.input('x');
+            y = sm1.state(0);
+            sm1.diffequ(y, 1);
+            sm1.output(y);
+            
+            sm2 = Model('sub2');
+            x = sm2.input('x');
+            y = 0;
+            sm2.output(y);
+            
+            m = Model('OrderingTest5');
+            m.solver = 'forwardeuler'; m.dt = 1;
+            s1 = m.submodel(sm1);
+            s2 = m.submodel(sm2);
+            s2.x = s1.y;
+            s1.x = s1.y;
+            m.output('y', s1.y);
+        end
+        
+        
+        s.add(Test('InterconnectedModelTest3', @()(simex(OrderingTest5, 10,target)), '-equal', ...
+            struct('y', [0:10; 0:10]')));
+        
+        function m = OrderingTest6
+            sm = Model('sub');
+            x = sm.input('x');
+            sm.output('y', x);
+            
+            m = Model('OrderingTest6');
+            m.solver = 'forwardeuler'; m.dt = 1;
+            x = m.state(0);
+            m.diffequ(x, 1);
+            s1 = m.submodel(sm);
+            s1.x = x;
+            s2 = m.submodel(sm);
+            s2.x = s1.y;
+            s3 = m.submodel(sm);
+            s3.x = s2.y;
+            m.output('y', s3.y);
+        end
+        
+        s.add(Test('AlgebraicPathTest', @()(simex(OrderingTest6, 10,target)), '-equal', ...
+            struct('y', [0:10; 0:10]')));
+
+        function m = OrderingTest7
+            sm = Model('sub');
+            x1 = sm.input('x1');
+            x2 = sm.input('x2');
+            sm.output('y1', x1);
+            sm.output('y2', x2);
+            
+            m = Model('OrderingTest7');
+            m.solver = 'forwardeuler'; m.dt = 1;
+            x = m.state(0);
+            m.diffequ(x, 1);
+            s1 = m.submodel(sm);
+            s1.x1 = x; % go forward
+            s2 = m.submodel(sm);
+            s2.x1 = s1.y1;
+            s3 = m.submodel(sm);
+            s3.x1 = s2.y1;
+            s3.x2 = s3.y1; % and now back around
+            s2.x2 = s3.y2;
+            s1.x2 = s2.y2;
+            m.output('y', s1.y2);
+        end
+        
+        s.add(Test('BidirAlgebraicPathTest', @()(simex(OrderingTest7, 10,target)), '-equal', ...
+            struct('y', [0:10; 0:10]')));
+
+        
+    end
 end
