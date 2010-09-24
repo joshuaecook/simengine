@@ -29,7 +29,7 @@ s = Suite('All CPU Tests');
 
 % Pull in each of the other test suites
 if(mode == INTERNAL)
-  s.add(ReleaseCompileTests('-internal')
+  s.add(ReleaseCompileTests('-internal'))
 else
   s.add(ReleaseCompileTests)
 end
