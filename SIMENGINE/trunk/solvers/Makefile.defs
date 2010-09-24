@@ -1,0 +1,32 @@
+# Import subsystem rules.
+
+SUBSYSTEMS := $(D)/cvode
+$(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
+
+# Define local variables.
+
+CVODE_HEADERS_$(D) := $(CVODE_GENERATED_HEADERS_$(D)/cvode) $(CVODE_SOURCE_HEADERS_$(D)/cvode)
+INCLUDE_DIRS_$(D) := $(addprefix $(D)/include/,float double)
+
+TARGETS_$(D)	:= $(addprefix $(D)/lib/,libcvode_double.a libcvode_float.a)
+TARGETS_$(D)    := $(TARGETS_$(D)) $(addprefix $(D)/include/float/,$(subst $(SUNDIALS_$(D)/cvode)/,,$(CVODE_HEADERS_$(D)))) $(addprefix $(D)/include/double/,$(subst $(SUNDIALS_$(D)/cvode)/,,$(CVODE_HEADERS_$(D))))
+TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+INSTALL_LIB	:= $(INSTALL_LIB) $(addprefix $(D)/lib/,libcvode_double.a libcvode_float.a)
+INSTALL_INCLUDE := $(INSTALL_INCLUDE) $(INCLUDE_DIRS_$(D))
+CLEAN		:= $(CLEAN) $(TARGETS_$(D))
+
+# Define local rules.
+
+$(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode.a
+	$(INSTALL) -m 755 "$<" -d "$@"
+
+$(INCLUDE_DIRS_$(D)):
+	$(INSTALL) -d $@
+
+$(D)/include/float/%.h: DIR := $(D)/cvode/float/$(SUNDIALS_$(D)/cvode)/include
+$(D)/include/float/%.h: $(INCLUDE_DIRS_$(D))
+	$(INSTALL) -m 644 $(DIR)/$*.h -d $(@D)
+
+$(D)/include/double/%.h: DIR := $(D)/cvode/double/$(SUNDIALS_$(D)/cvode)/include
+$(D)/include/double/%.h: $(INCLUDE_DIRS_$(D))
+	$(INSTALL) -m 644 $(DIR)/$*.h -d $(@D)

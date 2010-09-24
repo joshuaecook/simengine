@@ -1,0 +1,23 @@
+# Define local variables.
+
+EXAMPLES_$(D) := $(wildcard $(D)/ReleaseExamples/*)
+
+TARGETS_$(D) := $(addprefix $(D)/datafiles/,build-options.json)
+TARGETS := $(TARGETS) $(TARGETS_$(D))
+INSTALL_BIN :=
+INSTALL_DATA := $(INSTALL_DATA) $(addprefix $(D)/datafiles/,default.dol global.dol build-options.json)
+INSTALL_EXAMPLES := $(INSTALL_EXAMPLES) $(EXAMPLES_$(D))
+CLEAN := $(CLEAN) $(TARGETS_$(D))
+CLEAN_ALL :=
+
+# Import subsystem rules.
+
+SUBSYSTEMS := src share/cuda interfaces/matlab codegen solvers
+$(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
+
+# Define local rules.
+
+.PHONY: $(D)/datafiles/build-options.json
+$(D)/datafiles/build-options.json:
+	$(info Generating $@)
+	@echo "$(BUILD_OPTIONS_JSON)" > $@

@@ -1,0 +1,179 @@
+# Define local variables.
+
+DATATYPES_$(D)		:= $(D)/float $(D)/double
+
+SUNDIALS_$(D)		:= sundials-2.4.0
+SUNDIALS_URI_$(D)	:= https\://computation.llnl.gov/casc/sundials/download/code/$(SUNDIALS_$(D)).tar.gz
+SUNDIALS_TGZ_$(D)	:= $(wildcard $(TMPDIR)/simEngine_support/$(SUNDIALS_$(D)).tar.gz)
+ifeq (,$(SUNDIALS_TGZ_$(D)))
+SUNDIALS_TGZ_$(D)	:= /var/tmp/$(SUNDIALS_$(D)).tar.gz
+endif
+
+CVODE_OBJECTS_$(D) := \
+	$(addprefix src/cvode/.libs/,cvode_dense.o cvode_direct.o cvode_io.o cvode.o cvode_diag.o cvode_band.o) \
+	$(addprefix src/nvec_ser/.libs/,nvector_serial.o) \
+	$(addprefix src/sundials/.libs/,sundials_dense.o sundials_direct.o sundials_math.o sundials_nvector.o sundials_band.o)
+
+CVODE_SOURCE_HEADERS_$(D) := \
+	sundials/sundials_types.h \
+	sundials/sundials_math.h \
+	sundials/sundials_nvector.h \
+	sundials/sundials_fnvector.h \
+	sundials/sundials_dense.h \
+	sundials/sundials_direct.h \
+	sundials/sundials_band.h \
+	sundials/sundials_lapack.h \
+	sundials/sundials_spgmr.h \
+	sundials/sundials_spbcgs.h \
+	sundials/sundials_sptfqmr.h \
+	sundials/sundials_iterative.h \
+	nvector/nvector_serial.h \
+	nvector/nvector_parallel.h \
+	cvode/cvode.h \
+	cvode/cvode_direct.h \
+	cvode/cvode_dense.h \
+	cvode/cvode_band.h \
+	cvode/cvode_lapack.h \
+	cvode/cvode_diag.h \
+	cvode/cvode_spgmr.h \
+	cvode/cvode_spbcgs.h \
+	cvode/cvode_sptfqmr.h \
+	cvode/cvode_spils.h \
+	cvode/cvode_bandpre.h \
+	cvode/cvode_bbdpre.h
+
+CVODE_GENERATED_HEADERS_$(D) := \
+	sundials/sundials_config.h
+
+BUILD_DEPENDENCIES_$(D) := \
+	configure \
+	Makefile.in \
+	configure.ac \
+	acinclude.m4 \
+	config.hin \
+	config/config.guess \
+	config/config.sub \
+	config/install-sh \
+	config/mkinstalldirs \
+	config/rminstalldirs \
+	config/ltmain.sh \
+	config/mod_c.m4 \
+	config/mod_fortran.m4 \
+	config/cust_general.m4 \
+	config/CheckFortranFunctionExists.cmake \
+	config/SundialsFortran.cmake \
+	config/SundialsLapack.cmake \
+	config/SundialsMPIC.cmake \
+	config/SundialsMPIF.cmake \
+	config/FindLAPACK.cmake \
+	config/FindBLAS.cmake \
+	config/FindMPI.cmake \
+	bin/sundials-config.in \
+	bin/fortran-update.in \
+	bin/makefile-update.in \
+	$(addprefix include/,$(CVODE_SOURCE_HEADERS_$(D))) \
+	include/sundials/sundials_config.in \
+	src/sundials/Makefile.in \
+	src/sundials/CMakeLists.txt \
+	src/sundials/sundials_math.c \
+	src/sundials/sundials_nvector.c \
+	src/sundials/sundials_dense.c \
+	src/sundials/sundials_direct.c \
+	src/sundials/sundials_band.c \
+	src/sundials/sundials_spgmr.c \
+	src/sundials/sundials_spbcgs.c \
+	src/sundials/sundials_sptfqmr.c \
+	src/sundials/sundials_iterative.c \
+	src/nvec_ser/Makefile.in \
+	src/nvec_ser/CMakeLists.txt \
+	src/nvec_ser/fnvector_serial.h \
+	src/nvec_ser/nvector_serial.c \
+	src/nvec_ser/fnvector_serial.c \
+	src/cvode/Makefile.in \
+	src/cvode/CMakeLists.txt \
+	src/cvode/cvode.c \
+	src/cvode/cvode_io.c \
+	src/cvode/cvode_direct.c \
+	src/cvode/cvode_dense.c \
+	src/cvode/cvode_band.c \
+	src/cvode/cvode_lapack.c \
+	src/cvode/cvode_diag.c \
+	src/cvode/cvode_spils.c \
+	src/cvode/cvode_spgmr.c \
+	src/cvode/cvode_spbcgs.c \
+	src/cvode/cvode_sptfqmr.c \
+	src/cvode/cvode_bandpre.c \
+	src/cvode/cvode_bbdpre.c \
+	src/cvode/cvode_impl.h \
+	src/cvode/cvode_direct_impl.h \
+	src/cvode/cvode_diag_impl.h \
+	src/cvode/cvode_spils_impl.h \
+	src/cvode/cvode_bandpre_impl.h \
+	src/cvode/cvode_bbdpre_impl.h 
+
+CVODE_OBJECTS_$(D)		:= $(addprefix $(SUNDIALS_$(D))/,$(CVODE_OBJECTS_$(D)))
+BUILD_DEPENDENCIES_$(D)		:= $(addprefix $(SUNDIALS_$(D))/,$(BUILD_DEPENDENCIES_$(D)))
+CVODE_GENERATED_HEADERS_$(D)	:= $(addprefix $(SUNDIALS_$(D))/,$(CVODE_GENERATED_HEADERS_$(D)))
+CVODE_SOURCE_HEADERS_$(D)	:= $(addprefix $(SUNDIALS_$(D))/,$(CVODE_SOURCE_HEADERS_$(D)))
+
+
+TARGETS_$(D)	:= $(addsuffix /libcvode.a,$(DATATYPES_$(D)))
+TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+DEPENDS_$(D)	:= $(addsuffix /build.deps,$(DATATYPES_$(D))) $(addsuffix /libcvode.deps,$(DATATYPES_$(D)))
+DEPENDS		:= $(DEPENDS) $(DEPENDS_$(D))
+CLEAN_ALL	:= $(CLEAN_ALL) $(DATATYPES_$(D)) $(SUNDIALS_TGZ_$(D))
+
+# Import subsystem rules.
+
+
+
+# Define local rules.
+
+$(D)/%/build.deps: DEPS := $(BUILD_DEPENDENCIES_$(D))
+$(D)/%/build.deps: $(D)/Makefile.defs
+	$(info Computing dependencies for $@)
+	[ -d $(@D) ] || $(MKDIR) $(@D)
+	@echo $(basename $@): $(@D)/config \\ > $@
+	@echo $(addprefix $(@D)/,$(DEPS)) >> $@
+
+$(D)/%/libcvode.deps: DEPS := $(CVODE_OBJECTS_$(D))
+$(D)/%/libcvode.deps: $(D)/Makefile.defs
+	$(info Computing dependencies for $@)
+	[ -d $(@D) ] || $(MKDIR) $(@D)
+	@echo $(basename $@).a: $(@D)/build \\ > $@
+	@echo $(addprefix $(@D)/,$(DEPS)) >> $@
+
+$(D)/%/extract: DIR := $(SUNDIALS_$(D))
+$(D)/%/extract: DEPS := $(BUILD_DEPENDENCIES_$(D))
+$(D)/%/extract: $(SUNDIALS_TGZ_$(D))
+	$(info Extracting sources for $@)
+	[ -d $(@D) ] || $(MKDIR) $(@D)
+	tar -C $(@D) -xf "$<" $(DEPS)
+	touch $@
+
+$(D)/%/config: DIR := $(SUNDIALS_$(D))
+$(D)/%/config: PRECISION = $(subst float,single,$(notdir $(basename $(@D))))
+$(D)/%/config: CONFIGURE_FLAGS += --with-precision=$(PRECISION) --disable-static --enable-shared --with-cflags="$(CFLAGS) $(TARGET_ARCH)"
+$(D)/%/config: $(D)/%/extract
+	$(info Configuring for $@)
+	(cd $(@D)/$(DIR); $(CONFIGURE) $(CONFIGURE_FLAGS))
+	touch $@
+
+$(D)/%/build: DIR := $(SUNDIALS_$(D))
+$(D)/%/build: $(D)/%/config
+	$(info Building for $@)
+	$(MAKE) -C $(@D)/$(DIR)
+	touch $@
+
+$(D)/%/libcvode.a:
+	$(AR) $(ARFLAGS) "$@" $(filter-out $(@D)/build,$?)
+
+$(SUNDIALS_TGZ_$(D)): | $(SUNDIALS_URI_$(D))
+	curl -o "$@" -# $|
+
+.PHONY: $(SUNDIALS_URI_$(D))
+$(SUNDIALS_URI_$(D)):
+
+# Include dependency rules but don't die if they haven't been generated yet.
+-include $(addsuffix /build.deps,$(DATATYPES_$(D)))
+-include $(addsuffix /libcvode.deps,$(DATATYPES_$(D)))
