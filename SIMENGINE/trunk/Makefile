@@ -521,7 +521,7 @@ DSLGEN_PFILES = $(addsuffix .p, $(DSLGEN))
 MATLAB_DSLGEN_FILES = $(addprefix $(BUILD_DIR)/, $(DSLGEN_FILES))
 
 # Just needed for the p files
-MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
+MATLAB_FILES = $(MATLAB_GUI_FILES) $(MATLAB_SCRIPTS) $(BUILD_DIR)/Contents.m $(BUILD_DIR)/simex.m $(BUILD_DIR)/simex.p $(BUILD_DIR)/simCheckLicense.p $(BUILD_DIR)/simCheckVersion.p
 MATLAB_FILES += $(BUILD_DIR)/lib/libcvode_float.a $(BUILD_DIR)/lib/libcvode_double.a 
 MATLAB_FILES += $(MATLAB_MEX)
 MATLAB_FILES += $(MATLAB_DSLGEN_FILES)
@@ -565,7 +565,7 @@ endif
 $(BUILD_DIR)/bin/%: interfaces/matlab/bin/%
 	$(CP) $< $@
 
-interfaces/matlab/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
+$(BUILD_DIR)/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
 	cat $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES)) > $@
 
 #$(BUILD_DIR)/simex.m: $(addprefix interfaces/matlab/simex/,$(SIMEX_M_FILES))
