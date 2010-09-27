@@ -6,7 +6,7 @@ structure Ordering : sig
      * such that dependencies appear before their dependents.
      *)
     val orderEquations: DOF.model -> unit
-				  
+
 end = struct
 
 exception SortFailed
@@ -37,13 +37,21 @@ and orderClassEquations (class: DOF.class) =
 	 * from the (non-empty) unsorted list. *)
 	val exps = #exps class
 
+	(* Use a custom isIterator predicate since iterators at this point may or
+	 * may not have the iterator flaag.  *)
+	fun isIterator (Exp.SYMBOL (sym, props)) =
+	    (case Property.getScope props
+	      of Property.ITERATOR => true
+	       | _ => List.exists (fn(itersym, _)=>itersym = sym) (CurrentModel.iterators()))
+	  | isIterator _ = false
+
       (* Indicates whether a given term symbol is automatically satisfied 
        * by its scope, or if it appears within a given set of previously-
        * satisfied symbols. *)
 	fun termSymbolIsSatisfied symset term =
 	    Term.isReadState term orelse
 	    Term.isReadSystemState term orelse
-	    Term.isIterator term orelse
+	    isIterator term orelse
 	    Term.isReadSystemIterator term orelse
 	    SymbolSet.member (symset, Term.sym2symname term)
 
@@ -60,12 +68,11 @@ and orderClassEquations (class: DOF.class) =
 		if null unordered' then
 		    ordered' @ ordered
 		else if null ordered' then
-		    ((Logger.log_error (Printer.$("Can't sort equations in model " ^ 
-						  (Symbol.name (#name class)) ^ 
-						  ".  Cycle includes: " ^ 
-						  (Util.symlist2s (Util.flatmap (fn exp =>
-										    ExpProcess.exp2symbols (ExpProcess.lhs exp)) unordered')))))
-		   ; raise Fail "cycle")
+		    let
+			val cycle = Util.flatmap (fn exp => ExpProcess.exp2symbols (ExpProcess.lhs exp)) unordered'
+		    in
+			raise (DynException.OrderingException (#name class, cycle))
+		    end
 		else 
 		    outerloop (satisfied', ordered' @ ordered, unordered')
 	    end

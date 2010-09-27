@@ -1,10 +1,10 @@
-% COREFEATURETESTS - this is a clearing house of tests relating to features of
+% ML_COREFEATURETESTS - this is a clearing house of tests relating to features of
 % the compiler
 %
 % Usage:
-%  s = CoreFeatureTests - runs all tests
-%  s = CoreFeatureTests('-cpu', '-release')
-%  s = CoreFeatureTests('-release') - runs only those required for a release
+%  s = ML_CoreFeatureTests - runs all tests
+%  s = ML_CoreFeatureTests('-cpu', '-release')
+%  s = ML_CoreFeatureTests('-release') - runs only those required for a release
 %
 function s = ML_CoreFeatureTests(varargin)
 

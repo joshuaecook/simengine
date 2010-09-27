@@ -11,6 +11,9 @@ struct
 
 datatype message_type = NOTICE | WARNING | ERROR
 
+fun notice s = Logger.log_notice (Printer.$(s))
+fun warning s = Logger.log_warning (Printer.$(s))
+fun error s = (Logger.log_error (Printer.$(s)); DynException.setErrored())
 
 (* using a function that extracts appropriate expressions from a class definition, apply a rewrite that will produce a logging message *)
 fun executeTestOverModel class2exps rewriteInfo =
@@ -20,9 +23,9 @@ fun executeTestOverModel class2exps rewriteInfo =
 	    let
 		val test = NONE
 		val action = case messagetype of
-				 NOTICE => (fn(exp) => (Logger.log_notice (Printer.$(messagefun(exp))); exp))
-			       | WARNING => (fn(exp) => (Logger.log_warning (Printer.$(messagefun(exp))); exp))
-			       | ERROR => (fn(exp) => (Logger.log_error (Printer.$(messagefun(exp))); DynException.setErrored(); exp))
+				 NOTICE => (fn(exp) => (notice(messagefun(exp)); exp))
+			       | WARNING => (fn(exp) => (warning(messagefun(exp)); exp))
+			       | ERROR => (fn(exp) => (error(messagefun(exp)); exp))
 		val replace = Rewrite.ACTION (Symbol.symbol "createTest", action)
 	    in
 		{find=find, test=test, replace=replace}
@@ -117,6 +120,40 @@ fun noRHSDerivatives () =
 	executeTestOverModel class2rhsexps (find, messageFun, messageType)
     end
 
+fun notEmpty statesize =
+    let
+	val result = 
+	    statesize > 0 orelse
+	    let
+		val top_class = CurrentModel.top_class()
+		val outputs = !(#outputs top_class)
+	    in
+		List.length outputs > 0
+	    end
+    in
+	if result then
+	    ()
+	else
+	    error("Model has no states or outputs")
+    end
+
+fun undefinedSymbols () = 
+    let
+	val classes = CurrentModel.classes()
+	fun checkUndefinedSymbolsInClass (class) =
+	    let
+		val outline = DOFOutline.class_to_outline class
+		val symbols = DOFOutline.class_to_undefined_symbols outline
+	    in
+		if SymbolSet.isEmpty symbols then
+		    ()
+		else
+		    app (fn(sym)=>error("Quantity " ^ (Symbol.name sym) ^ " is undefined")) (SymbolSet.listItems symbols)
+	    end
+    in
+	app checkUndefinedSymbolsInClass classes
+    end
+
 fun verifyTarget Target.CPU = ()
   | verifyTarget Target.OPENMP = Features.verifyEnabled Features.MULTI_CORE
   | verifyTarget Target.CUDA = Features.verifyEnabled Features.GPU
@@ -135,7 +172,8 @@ fun validate (model as (classes, instance, sysprops))=
 	    val _ = verifyTarget target
 
 	    (* check that the number of states is acceptable *)
-	    val _ = Features.verifyEnabled (Features.NUM_STATES (ModelProcess.model2statesize model))
+	    val statesize = ModelProcess.model2statesize model
+	    val _ = Features.verifyEnabled (Features.NUM_STATES statesize)
 
 	    (* verify that the solvers are all supported *)
 	    val _ = app (verifySolver o #2) (ModelProcess.returnContinuousIterators())
@@ -146,15 +184,33 @@ fun validate (model as (classes, instance, sysprops))=
 		    else
 			()
 
+	    (* verify that the model is not empty *)
+	    val _ = notEmpty (statesize)
+
+	    (* verify that no symbols are left undefined *)
+	    val _ = undefinedSymbols ()
+
 	    (* verify that the LHS of equations have difference equation terms that only reference [n+1] or [n] *)
 	    val _ = properLHSDiscreteState ()
 
 	    (* verify that no derivatives are used on the rhs of equations or in the outputs *)
 	    val _ = noRHSDerivatives ()
+		    
 
-		    (*
-	    val modelClone = ModelProcess.duplicateModel model (fn(s) => s)
-	    val _ = Ordering.orderModel modelClone*)
+	    val temporarily_disable = false
+	    val _ = 
+		if temporarily_disable then
+		    ()
+		else
+		    let
+			(* now perform an ordering step, just to make sure there aren't any loops *)
+			val modelClone = ModelProcess.duplicateModel model (fn(s) => s)
+			val _ = Ordering.orderEquations modelClone
+			    handle DynException.OrderingException (classname, cycle) => 
+				   error ("A cycle exists in model " ^ (Symbol.name classname) ^ " with the following quantiies: " ^ (Util.symlist2s cycle))
+		    in
+			()
+		    end
 
 	    val _ = CurrentModel.setCurrentModel model
 	in

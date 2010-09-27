@@ -17,6 +17,7 @@ sig
      * From this structure, it's very easy to determine the states, or the state inits, or 
      * traverse only from outputs through intermediates until reaching states or inputs.  *)
     type class_outline = {name: Symbol.symbol,
+			  iterators: SymbolSet.set,
 			  inputs: dependency_table,
 			  init_exps: dependency_table,
 			  intermediate_exps: dependency_table,
@@ -38,6 +39,10 @@ sig
     val symbol_to_deps : class_outline -> Symbol.symbol -> SymbolSet.set
     val symbol_to_iters : class_outline -> Symbol.symbol -> SymbolSet.set
 
+    (* perform tests on the outline *)
+    val class_to_assigned_symbols : class_outline -> SymbolSet.set
+    val class_to_used_symbols : class_outline -> SymbolSet.set
+    val class_to_undefined_symbols : class_outline -> SymbolSet.set
 end
 structure DOFOutline : DOFOUTLINE =
 struct
@@ -49,6 +54,7 @@ struct
     type instance_dependency_table = instance_dependencies SymbolTable.table
 
     type class_outline = {name: Symbol.symbol,
+			  iterators: SymbolSet.set,
 			  inputs: dependency_table,
 			  init_exps: dependency_table,
 			  intermediate_exps: dependency_table,
@@ -99,6 +105,7 @@ struct
 	    val (instance_exps, rest) = List.partition ExpProcess.isInstanceEq rest
 	    val (state_exps, intermediate_exps) = List.partition ExpProcess.isStateEq rest
 	    val outputs = !(#outputs class)
+	    val iterators = CurrentModel.iterators()
 
 	    (* first, the inputs - here just grab the iterator present *)
 	    val inputs_outline = 
@@ -195,8 +202,12 @@ struct
 		    empty
 		    instance_exps
 
+	    val iterator_outline =
+		SymbolSet.fromList (map #1 iterators)
+
 	in
 	    {name=name,
+	     iterators=iterator_outline,
 	     inputs=inputs_outline,
 	     init_exps=init_exps_outline,
 	     intermediate_exps=intermediate_exps_outline,
@@ -221,7 +232,8 @@ struct
 
     fun symbol_is_leaf (outline:class_outline) sym =
 	inTable (#inputs outline, sym) orelse
-	inTable (#init_exps outline, sym)
+	inTable (#init_exps outline, sym) orelse
+	SymbolSet.member (#iterators outline, sym)
 
     fun symbol_is_intermediate (outline:class_outline) sym = 
 	inTable (#intermediate_exps outline, sym) orelse
@@ -231,7 +243,7 @@ struct
     (* Take a symbol, find all the dependencies *)
     fun symbol_to_deps (outline:class_outline) sym =
 	let
-	    val {name, inputs, 
+	    val {name, iterators, inputs, 
 		 init_exps, intermediate_exps, state_exps, instance_exps, 
 		 outputs} = outline
 
@@ -257,7 +269,7 @@ struct
     (* now repeat for iterators *)
     fun symbol_to_iters (outline:class_outline) sym =
 	let
-	    val {name, inputs, 
+	    val {name, iterators, inputs, 
 		 init_exps, intermediate_exps, state_exps, instance_exps, 
 		 outputs} = outline
 
@@ -280,5 +292,67 @@ struct
 								  | NONE => SymbolSet.empty))))
 	end
 	handle e => DynException.checkpoint "DOFOutline.symbol_to_iters" e
+
+    (* class_to_assigned_symbols - list of all symbols that are defined as states, the lhs of intermediates, inputs, instance outputs, or iterators *)
+    fun class_to_assigned_symbols (outline: class_outline) = 
+	let
+	    (* grab all the expression types that return values *)
+	    val {inputs, iterators, init_exps, intermediate_exps, instance_exps, ...}  = outline
+
+	    (* create an initially empty list of defined symbols.  As we come across symbols that are defined, we'll add them to this list *)
+	    val assigned_symbols = SymbolSet.empty
+
+	    (* incrementally add to this list *)
+	    val assigned_symbols = SymbolSet.addList(assigned_symbols, SymbolTable.listKeys inputs)
+	    val assigned_symbols = SymbolSet.union(assigned_symbols, iterators)
+	    val assigned_symbols = SymbolSet.addList(assigned_symbols, SymbolTable.listKeys init_exps)
+	    val assigned_symbols = SymbolSet.addList(assigned_symbols, SymbolTable.listKeys intermediate_exps)
+	    val assigned_symbols = SymbolSet.addList(assigned_symbols, SymbolTable.listKeys instance_exps)
+
+	in
+	    assigned_symbols
+	end
+
+    (* class_to_used_symbols - list of all symbols that are used somewhere in the class *)
+    fun class_to_used_symbols (outline: class_outline) =
+	let
+	    (* grab all the expression types that use values *)
+	    val {init_exps, intermediate_exps, instance_exps, state_exps, outputs, ...} = outline
+
+	    (* create an initially empty list of used symbols. *)
+	    val used_symbols = SymbolSet.empty
+
+	    (* create two helper function to grab the symbols from the tables *)
+	    fun dep_table_to_symbols deptable = SymbolSet.flatmap #syms (SymbolTable.listItems deptable)
+	    fun inst_dep_table_to_symbols deptable = SymbolSet.flatmap #syms (SymbolTable.listItems deptable)
+
+	    (* incrementally add to this list *)
+	    val used_symbols = SymbolSet.union(used_symbols, dep_table_to_symbols init_exps)
+	    val used_symbols = SymbolSet.union(used_symbols, dep_table_to_symbols intermediate_exps)
+	    val used_symbols = SymbolSet.union(used_symbols, inst_dep_table_to_symbols instance_exps)
+	    val used_symbols = SymbolSet.union(used_symbols, dep_table_to_symbols state_exps)
+	    val used_symbols = SymbolSet.union(used_symbols, dep_table_to_symbols outputs)
+	in
+	    used_symbols
+	end
+
+    (* class_to_undefined_symbols - checks to make sure every symbol that appears on the rhs of an expression
+     * is defined either on the left hand side of an intermediate or initial value equation, as an input, or is returned by an instance *)
+    fun class_to_undefined_symbols (outline: class_outline) =
+	let
+	    (* first go through and find every symbol that is defined *)
+	    val assigned_symbols = class_to_assigned_symbols (outline)
+
+	    (* now create a list of all symbols that are used on the rhs *)
+	    val used_symbols = class_to_used_symbols (outline)
+
+	    (* see that the difference is *)
+	    val difference = SymbolSet.difference(used_symbols, assigned_symbols)
+
+	in
+	    difference
+	end
+	handle e => DynException.checkpoint "DOFOutline.class_to_undefined_symbols" e
+
 
 end
