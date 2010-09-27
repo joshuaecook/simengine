@@ -18,20 +18,12 @@ CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 # Define local rules.
 
 $(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode.a
-	$(CP) $< $@
-#$(D)/lib/libcvode_%.a: DIR := $(D)/lib
-#$(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode_%.a
-#	$(INSTALL) -m 755 "$<" -d "$(DIR)"
-#$(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode.a
-#	$(INSTALL) -m 755 "$<" -d "$@"
-
-$(INCLUDE_DIRS_$(D)):
-	$(INSTALL) -d $@
+	$(INSTALL) -d "$(@D)" "$(abspath $<)" "$@"
 
 $(D)/include/float/%.h: DIR := $(D)/cvode/float/$(SUNDIALS_$(D)/cvode)/include
-$(D)/include/float/%.h: $(INCLUDE_DIRS_$(D))
-	$(INSTALL) -m 644 $(DIR)/$*.h -d $(@D)
+$(D)/include/float/%.h:
+	$(INSTALL) -m 644 "$(DIR)/$*.h" -d "$(@D)"
 
 $(D)/include/double/%.h: DIR := $(D)/cvode/double/$(SUNDIALS_$(D)/cvode)/include
-$(D)/include/double/%.h: $(INCLUDE_DIRS_$(D))
-	$(INSTALL) -m 644 $(DIR)/$*.h -d $(@D)
+$(D)/include/double/%.h:
+	$(INSTALL) -m 644 "$(DIR)/$*.h" -d "$(@D)"

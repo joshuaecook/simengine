@@ -26,6 +26,8 @@ endef
 #
 # Define target-specific variables.
 #
+# Quote filenames to prevent problems with spaces and special characters.
+#
 # Don't write lengthy shell scripts or complex conditional logic in recipes.
 # Move these commands to an external shell script instead.
 #
