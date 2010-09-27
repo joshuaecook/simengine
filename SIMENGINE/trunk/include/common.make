@@ -61,6 +61,12 @@ SMLFLAGS =
 ifneq ($(DEBUG),)
 SMLFLAGS += -cc-opt "-g"
 endif
+ifneq ($(PROFILE),)
+SMLFLAGS += -cc-opt "-pg"
+endif
+ifneq ($(VERBOSE),)
+SMLFLAGS += -verbose 1
+endif
 SMLPPFLAGS =
 SMLTARGET_ARCH = -codegen native
 SMLLEX = mllex
@@ -90,6 +96,12 @@ CWARNINGS = -Wstrict-prototypes -Wmissing-prototypes \
 ifneq ($(DEBUG),)
 CFLAGS += -g
 endif
+ifneq ($(PROFILE),)
+CFLAGS += -pg
+endif
+ifneq ($(VERBOSE),)
+CFLAGS += -v
+endif
 
 # When producing a shared library, OS X requires different linker flags.
 SHARED_FLAGS = -shared
@@ -116,6 +128,12 @@ CXXWARNINGS = -W -Wall -Wimplicit -Wswitch -Wformat -Wchar-subscripts \
 	-Wreturn-type -Wno-unused-function
 ifneq ($(DEBUG),)
 CXXFLAGS += -g
+endif
+ifneq ($(PROFILE),)
+CXXFLAGS += -pg
+endif
+ifneq ($(VERBOSE),)
+CXXFLAGS += -v
 endif
 
 # OpenMP requires g++-4.2 on OS X Leopard
@@ -182,6 +200,9 @@ export MEXEXT
 #MEXFLAGS += CFLAGS="$(CFLAGS) $(CWARNINGS)" LDFLAGS="$(LDFLAGS)"
 ifneq ($(DEBUG),)
 MEXFLAGS += -g
+endif
+ifneq ($(PROFILE),)
+MEXFLAGS += -pg
 endif
 ifneq ($(VERBOSE),)
 MEXFLAGS += -v
