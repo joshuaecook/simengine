@@ -9,12 +9,26 @@ default_options () {
     mode=
     dirmode=
     source=
+    link=
     force=
+    dryrun=
 }
 
 dosay () {
-    if [ -n "$verbose" ]; then echo $*; fi
-    $* || exit 1
+    if [ -n "$verbose" -o -n "$dryrun" ]; then 
+	echo $*;
+    fi
+    if [ -z "$dryrun" ]; then
+	$* || exit 1
+    fi
+}
+
+copy () {
+    if [ -n "$link" ]; then
+	ln -s $*
+    else
+	cp $*
+    fi
 }
 
 install () {
@@ -31,38 +45,43 @@ install () {
 	fi
     fi
     
-    for file in $source; do
-	if [ -d "$file" ]; then
-	    destfile="$destination/"
-	    dosay cp -r "$file" "$destfile"
-	else
-	    destfile="$destination/$(basename $file)"
-	    dosay cp "$file" "$destfile"
-	fi
-
-	if [ -e "$destfile" -a -n "$force" ]; then
-	    if [ -d "$destfile" ]; then
-		dosay rm -r "$destfile"
+    if [ -n "$source" ]; then
+	for file in "$source"; do
+	    if [ -d "$file" ]; then
+		destfile="$destination/"
+		dosay copy -r "$file" "$destfile"
 	    else
-		dosay rm "$destfile"
+		destfile="$destination/$(basename $file)"
+		dosay copy "$file" "$destfile"
 	    fi
-	fi
 
-	if [ -n "$mode" ]; then
-	    if [ -d "$destfile" ]; then
-		dosay find "$destination" -type f -exec chmod "$mode" '{}' \;
-		if [ -n "$dirmode" ]; then
-		    dosay find "$destination" -type d -exec chmod "$dirmode" '{}' \;
+	    if [ -e "$destfile" -a -n "$force" ]; then
+		if [ -d "$destfile" ]; then
+		    dosay rm -r "$destfile"
+		else
+		    dosay rm "$destfile"
 		fi
-	    else
-		dosay chmod "$mode" "$destfile"
 	    fi
-	fi
-    done
+
+	    if [ -n "$mode" ]; then
+		if [ -d "$destfile" ]; then
+		    dosay find "$destination" -type f -exec chmod "$mode" '{}' \;
+		    if [ -n "$dirmode" ]; then
+			dosay find "$destination" -type d -exec chmod "$dirmode" '{}' \;
+		    fi
+		else
+		    dosay chmod "$mode" "$destfile"
+		fi
+	    fi
+	done
+    fi
+
+    source=
 }
 
 usage () {
 echo Usage: $self [OPTION]... [FILE]... -d DESTINATION
+echo        $self [OPTION]... FILE DESTINATION
 echo
 echo "  -d	"Specifies the destination directory. The directory is
 echo "    	"created if it does not already exist.
@@ -70,8 +89,28 @@ echo "  -dm	"Specifies the destination directory permissions if the
 echo "     	"directory is created by this invocation.
 echo "  -f	"Force installation by overwriting existing files.
 echo "  -h	"Displays this message.
+echo "  -l	"Create symbolic links instead of copying files.
 echo "  -m	"Specifies the permissions of the installed files.
+echo "  -n	"Print commands but do not execute them.
 echo "  -v	"Display extra information while installing.
+echo
+echo The -d flag terminates a list of arguments and resets all options
+echo to their default values. Multiple installations can be chained
+echo together into a single command like so:
+echo
+echo       $self FILE1 -d DIR1 FILE2 -d DIR2
+echo
+echo Specifying a directory with -d without any preceeding source files
+echo simply creates the destination directory.
+echo
+echo Renaming files during installation may be accomplished by omitting
+echo the -d flag like so:
+echo
+echo       $self FILE1 FILE2
+}
+
+count () {
+return $#
 }
 
 ## Main
@@ -79,6 +118,8 @@ default_options
 while [ -n "$1" ]; do
     case "$1" in
 	-v) verbose="-v" ;;
+	-n) dryrun="-n" ;;
+	-l) link="-l" ;;
 	-m) mode="$2"; shift ;;
 	-dm) dirmode="$2"; shift ;;
 	-f) force="-f" ;;
@@ -90,4 +131,15 @@ while [ -n "$1" ]; do
 	*) source="$source $1" ;;
     esac
     shift
+
 done
+
+count $source
+n=$?
+if [ 0 -lt $n ]; then
+    if [ 2 -eq $n ]; then
+	dosay copy "$source"
+    else
+	usage; exit 2
+    fi
+fi
