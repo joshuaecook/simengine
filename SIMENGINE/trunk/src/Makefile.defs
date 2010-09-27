@@ -4,15 +4,16 @@
 
 PARSERS_$(D)    := $(addprefix $(D)/util/registry/registry,.grm.sig .grm.sml .grm.desc .lex.sml)
 PARSERS_$(D)    := $(PARSERS_$(D)) $(addprefix $(D)/shell/cool,.grm.sig .grm.sml .grm.desc .lex.sml)
+PROFILERS_$(D)  := $(addprefix $(D)/simEngine,_profiletime _profilemem _profilebranch)
 BASIS_$(D)	:= $(D)/compiler_exec.mlb
 LIBS_$(D)	:= share/cuda/device_props.a $(CRYPTO_LIB)
 
-TARGETS_$(D)	:= $(D)/simEngine
+TARGETS_$(D)	:= $(D)/simEngine $(if $(PROFILE),$(PROFILERS_$(D)),)
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
 DEPENDS_$(D)    := $(D)/simEngine.deps
 DEPENDS         := $(DEPENDS) $(DEPENDS_$(D))
 INSTALL_BIN	:= $(INSTALL_BIN) $(D)/simEngine
-CLEAN		:= $(CLEAN) $(TARGETS_$(D))
+CLEAN		:= $(CLEAN) $(TARGETS_$(D)) $(PROFILERS_$(D))
 CLEAN_ALL	:= $(CLEAN_ALL) $(PARSERS_$(D))
 
 
@@ -21,11 +22,26 @@ CLEAN_ALL	:= $(CLEAN_ALL) $(PARSERS_$(D))
 $(D)/simEngine.deps: LIBS := $(LIBS_$(D))
 $(D)/simEngine.deps: $(BASIS_$(D)) $(LIBS) $(D)/Makefile.defs 
 	$(info Computing dependencies for $@)
-	@echo $(basename $@) $@: $(LIBS) \\ > $@
+	@echo $(basename $@) $(addprefix $(basename $@),_profiletime _profilemem _profilebranch) $@: $(LIBS) \\ > $@
 	@$(SMLC) -stop f $< | perl -pe 's/\n/ /g' >> $@
 
-$(D)/simEngine: SMLFLAGS := -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" $(if $DEBUG,-const 'Exn.keepHistory true',)
+$(D)/simEngine: SMLFLAGS := $(SMLFLAGS) -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" $(if $DEBUG,-const 'Exn.keepHistory true',)
 $(D)/simEngine: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+
+$(D)/simEngine_profiletime: SMLFLAGS := $(SMLFLAGS) -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" -profile-stack true -profile time
+$(D)/simEngine_profiletime: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+$(D)/simEngine_profiletime: $(D)/simEngine.mlb
+	$(COMPILE.sml) -output "$@" "$<" $(SML_FOREIGN)
+
+$(D)/simEngine_profilemem: SMLFLAGS := $(SMLFLAGS) -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" -profile alloc
+$(D)/simEngine_profilemem: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+$(D)/simEngine_profilemem: $(D)/simEngine.mlb
+	$(COMPILE.sml) -output "$@" "$<" $(SML_FOREIGN)
+
+$(D)/simEngine_profilebranch: SMLFLAGS := -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" -profile-branch true -profile count
+$(D)/simEngine_profilebranch: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+$(D)/simEngine_profilebranch: $(D)/simEngine.mlb
+	$(COMPILE.sml) -output "$@" "$<" $(SML_FOREIGN)
 
 # Include dependency rules but don't die if they haven't been generated yet.
 -include $(D)/simEngine.deps

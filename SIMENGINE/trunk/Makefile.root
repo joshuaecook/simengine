@@ -16,6 +16,12 @@ clean-all	Removes all generated resources.
 
 show-targets	Lists all defined targets.
 
+Variables
+==============================================================================
+debug		If non-empty, compile with extra debugging information.
+profile		If non-empty, compile with extra profiling information.
+verbose		If non-empty, print extra information when compiling.
+
 endef
 
 # Makefile practices
@@ -141,6 +147,7 @@ install: $(INSTALL_ROOT) $(INSTALL_DATA) $(INSTALL_INCLUDE) $(INSTALL_LIB) $(INS
 clean:
 	$(RM) $(CLEAN)
 
+.SECONDARY: $(CLEAN_ALL)
 .PHONY: clean-all
 clean-all: clean
 	$(RM) $(CLEAN_ALL)
