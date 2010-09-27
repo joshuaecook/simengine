@@ -121,7 +121,8 @@ TARGETS_$(D)	:= $(addsuffix /libcvode.a,$(DATATYPES_$(D)))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
 DEPENDS_$(D)	:= $(addsuffix /build.deps,$(DATATYPES_$(D))) $(addsuffix /libcvode.deps,$(DATATYPES_$(D)))
 DEPENDS		:= $(DEPENDS) $(DEPENDS_$(D))
-CLEAN_ALL	:= $(CLEAN_ALL) $(DATATYPES_$(D)) $(SUNDIALS_TGZ_$(D))
+CLEAN		:= $(TARGETS_$(D))
+CLEAN_ALL	:= $(CLEAN_ALL) $(DEPENDS_$(D)) $(SUNDIALS_TGZ_$(D)) $(addprefix $(D)/float/,extract config build) $(addprefix $(D)/double/,extract config build)
 
 # Import subsystem rules.
 
@@ -174,6 +175,3 @@ $(SUNDIALS_TGZ_$(D)): | $(SUNDIALS_URI_$(D))
 .PHONY: $(SUNDIALS_URI_$(D))
 $(SUNDIALS_URI_$(D)):
 
-# Include dependency rules but don't die if they haven't been generated yet.
--include $(addsuffix /build.deps,$(DATATYPES_$(D)))
--include $(addsuffix /libcvode.deps,$(DATATYPES_$(D)))

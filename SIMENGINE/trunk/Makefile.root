@@ -1,7 +1,9 @@
 $(info S   I   M   A   T   R   A)
 $(info simEngine Compiler Makefile)
 $(info Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.)
+ifeq ($(filter help,$(MAKECMDGOALS)),)
 $(info Invoke "make help" for additional options)
+endif
 $(info )
 
 define HELP_TEXT
@@ -112,6 +114,7 @@ INSTALL_BIN :=
 INSTALL_LIB :=
 INSTALL_DATA :=
 INSTALL_INCLUDE :=
+DEPENDS :=
 CLEAN :=
 CLEAN_ALL :=
 
@@ -130,7 +133,7 @@ show-targets:
 
 .PHONY: install
 install: INSTALL_PREFIX ?= local-install
-install: $(INSTALL_ROOT) $(INSTALL_DATA) $(INSTALL_INCLUDE) $(INSTALL_LIB) $(INSTALL_BIN) $(INSTALL_EXAMPLES)
+install: $(TARGETS)
 	$(info Installing in $(INSTALL_PREFIX))
 	$(INSTALL) $(INSTALL_ROOT) -d $(INSTALL_PREFIX)
 	$(INSTALL) -m 644 $(INSTALL_DATA) -d $(INSTALL_PREFIX)/data
@@ -139,15 +142,22 @@ install: $(INSTALL_ROOT) $(INSTALL_DATA) $(INSTALL_INCLUDE) $(INSTALL_LIB) $(INS
 	$(INSTALL) -m 755 $(INSTALL_LIB) -d $(INSTALL_PREFIX)/lib
 	$(INSTALL) -m 755 $(INSTALL_BIN) -d $(INSTALL_PREFIX)/bin
 	$(info Generating simEngine world)
+	rm -f $(INSTALL_PREFIX)/data/default.sew
 	SIMENGINEDOL=datafiles/system.dol $(INSTALL_PREFIX)/bin/simEngine --quiet --batch - --srcpath "$$(pwd)/include" --updateQuery "$(UPDATE_QUERY)" < /dev/null
 
 
 .SECONDARY: $(CLEAN)
 .PHONY: clean
 clean:
-	$(RM) $(CLEAN)
+	rm -f $(CLEAN)
 
 .SECONDARY: $(CLEAN_ALL)
 .PHONY: clean-all
 clean-all: clean
-	$(RM) $(CLEAN_ALL)
+	rm -f $(CLEAN_ALL)
+
+# Include dependency rules but don't die if they haven't been generated yet.
+# Don't include dependency files when cleaning to prevent needless generation.
+ifeq ("$(strip $(filter clean%,$(MAKECMDGOALS)))","")
+-include $(DEPENDS)
+endif

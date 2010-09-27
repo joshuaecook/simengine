@@ -42,6 +42,3 @@ $(D)/simEngine_profilebranch: SMLFLAGS := -link-opt "-ldl" -export-header $(D)/f
 $(D)/simEngine_profilebranch: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
 $(D)/simEngine_profilebranch: $(D)/simEngine.mlb
 	$(COMPILE.sml) -output "$@" "$<" $(SML_FOREIGN)
-
-# Include dependency rules but don't die if they haven't been generated yet.
--include $(D)/simEngine.deps
