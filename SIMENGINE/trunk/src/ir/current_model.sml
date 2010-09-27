@@ -20,6 +20,7 @@ sig
     val classes: unit -> DOF.class list
     val iterators: unit -> DOF.systemiterator list (* returns temporal iterators of the model *)
     val top_inst: unit -> DOF.instance
+    val top_class : unit -> DOF.class
 
     (* Useful functions *)
     val classname2class: Symbol.symbol -> DOF.class (* Searches for a class with the given name in the current model *)
@@ -96,6 +97,13 @@ fun classname2class(sym) : DOF.class =
 					  ("CurrentModel.classname2class"), Logger.INTERNAL)*)
     end
 
+
+fun top_class() = 
+    let
+	val {classname, ...} = top_inst()
+    in
+	classname2class(classname)
+    end
 
 fun iterators() =
     let 

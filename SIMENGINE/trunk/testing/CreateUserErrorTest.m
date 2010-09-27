@@ -1,9 +1,13 @@
 % CreateUserErrorTest - Creates a test case (suite) to search for an error message
 function s = CreateUserErrorTest(id, dslmodel, expectedstring)
-dsl = fullfile('models_MessageTests', dslmodel);
+if isa(dslmodel, 'Model')
+    mdl = dslmodel;
+else
+    mdl = fullfile('models_MessageTests', dslmodel);
+end
 
 s = Suite(id);
-t1 = Test('UserError', @()(simex(dsl)), '-regexpmatch', 'USER ERROR');
+t1 = Test('UserError', @()(simex(mdl)), '-regexpmatch', 'USER ERROR');
 t2 = Test('AppropriateMessage', @()(dispAndReturn(t1.Output)), '-regexpmatch', ...
           expectedstring);
 t3 = Test('NoFailure', @()(dispAndReturn(t1.Output)), '-regexpmatch', 'FAILURE:|Exception');

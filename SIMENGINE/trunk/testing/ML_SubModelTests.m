@@ -371,14 +371,14 @@ s.add(OrderingTests);
         function m = OrderingTest3
             sm = Model('Sub');
             step = sm.input('step');
-            x = sm.state(0);
+            x = sm.state('x', 0);
             sm.diffequ(x, step);
             sm.output(x);
             
             m = Model('OrderingTest3');
             m.solver = 'forwardeuler'; m.dt = 1;
-            s1 = m.submodel(sm);
-            s2 = m.submodel(sm);
+            s1 = m.submodel('u1', sm);
+            s2 = m.submodel('u2', sm);
             s2.step = s1.x;
             s1.step = s2.x;
             m.output('y', s1.x, s2.x);
@@ -480,6 +480,22 @@ s.add(OrderingTests);
         s.add(Test('BidirAlgebraicPathTest', @()(simex(OrderingTest7, 10,target)), '-equal', ...
             struct('y', [0:10; 0:10]')));
 
+        % do inputs going in and out of a model cause an ordering issue
+        function m = OrderingTest8
+            sm = Model('sub');
+            a1 = sm.input('a1');
+            a2 = sm.input('a2');
+            sm.output('b1', a1);
+            sm.output('b2', a2);
+            
+            m = Model('OrderingTest8');
+            m.solver = 'forwardeuler'; m.dt = 1;
+            sub = m.submodel(sm);
+            sub.a1 = sub.b2;
+            sub.a2 = sub.b1;
+            m.output('y', sub.b1, sub.b2);
+        end
         
+        s.add(CreateUserErrorTest('SubmodelLoop', OrderingTest8, 'cycle exists'));
     end
 end

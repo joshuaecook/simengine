@@ -55,6 +55,9 @@ exception UnknownError of string * exn
 exception NoClassFound of (Symbol.symbol * Symbol.symbol list)
 exception NoIteratorFound of (Symbol.symbol)
 
+(* Ordering exception of classname and symbol list making up the cycle *)
+exception OrderingException of (Symbol.symbol * Symbol.symbol list)
+
 val showStackTrace = ref false
 
 fun setShowStackTrace(bool) =
@@ -118,6 +121,10 @@ fun log handlelocation (e as InternalError {message, severity, characterization,
 		    | IncorrectNumberOfArguments {expected, actual} => "Incorrect number of arguments exception at " ^ handlelocation
 		    | NoClassFound (classname, classlist) => ("No class with name '"^(Symbol.name classname)^"' found, options are: " ^ (GeneralUtil.symlist2s classlist))
 		    | NoIteratorFound (itername) => "No iterator with name '"^(Symbol.name itername)^"' found"
+		    | OrderingException (classname, cycle) => "Can't sort equations in model " ^ 
+							      (Symbol.name classname) ^ 
+							      ".  Cycle includes: " ^ 
+							      (GeneralUtil.symlist2s cycle)
 		    | _ => raise UnknownError (handlelocation, e)
     in
 	Logger.log_exception Logger.OTHER Logger.FAILURE ($(message))
