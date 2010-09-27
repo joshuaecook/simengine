@@ -45,36 +45,34 @@ install () {
 	fi
     fi
     
-    if [ -n "$source" ]; then
-	for file in "$source"; do
-	    if [ -d "$file" ]; then
-		destfile="$destination/"
-		dosay copy -r "$file" "$destfile"
+    for file in $source; do
+	if [ -d "$file" ]; then
+	    destfile="$destination/"
+	    dosay copy -r "$file" "$destfile"
+	else
+	    destfile="$destination/$(basename $file)"
+	    dosay copy "$file" "$destfile"
+	fi
+
+	if [ -e "$destfile" -a -n "$force" ]; then
+	    if [ -d "$destfile" ]; then
+		dosay rm -r "$destfile"
 	    else
-		destfile="$destination/$(basename $file)"
-		dosay copy "$file" "$destfile"
+		dosay rm "$destfile"
 	    fi
+	fi
 
-	    if [ -e "$destfile" -a -n "$force" ]; then
-		if [ -d "$destfile" ]; then
-		    dosay rm -r "$destfile"
-		else
-		    dosay rm "$destfile"
+	if [ -n "$mode" ]; then
+	    if [ -d "$destfile" ]; then
+		dosay find "$destfile" -type f -exec chmod "$mode" '{}' \;
+		if [ -n "$dirmode" ]; then
+		    dosay find "$destfile" -type d -exec chmod "$dirmode" '{}' \;
 		fi
+	    else
+		dosay chmod "$mode" "$destfile"
 	    fi
-
-	    if [ -n "$mode" ]; then
-		if [ -d "$destfile" ]; then
-		    dosay find "$destination" -type f -exec chmod "$mode" '{}' \;
-		    if [ -n "$dirmode" ]; then
-			dosay find "$destination" -type d -exec chmod "$dirmode" '{}' \;
-		    fi
-		else
-		    dosay chmod "$mode" "$destfile"
-		fi
-	    fi
-	done
-    fi
+	fi
+    done
 
     source=
 }
