@@ -181,7 +181,7 @@ classdef Exp
         end
         
         function er = uplus(e1)
-            er = oper('+', {e1});
+           er = e1;
         end
         
         function er = times(varargin)
