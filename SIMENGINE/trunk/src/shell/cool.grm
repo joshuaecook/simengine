@@ -346,7 +346,7 @@ optassignment: (NONE)
 	     | ASSIGN optlines exp (SOME exp)
 
 optmapping: (NONE)
-	  | exp optlines ASSIGN (SOME exp)
+	  (*| exp optlines ASSIGN (SOME exp)*)
 
 elsechain: ELSE optlines stms END (stms)
 	 | ELSEIF exp optlines THEN optlines stms elsechain ([Ast.ACTION(Ast.COND {cond=exp, ift=stms, iff=elsechain}, expleft)])
