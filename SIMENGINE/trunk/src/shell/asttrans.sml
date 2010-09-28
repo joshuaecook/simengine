@@ -392,7 +392,7 @@ and trans_definition definition =
 				     PosLog.NOPOS)] 
 		    end
 		    
-		  | Ast.INPUTDEF {name, settings} 
+		  | Ast.INPUTDEF {name, quantity, settings} 
  		    =>  
 		    let 
 			fun inerror () =

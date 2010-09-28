@@ -265,11 +265,13 @@ and modelpart_to_printer (STM stm) = [$("Stm:"),
 												   SOME c => [$("Condition: " ^ (ExpPrinter.exp2str (astexp_to_Exp c)))]
 												 | NONE => []))]
 												    
-  | modelpart_to_printer (INPUTDEF {name, settings}) = [$("Inputdef: " ^ (Symbol.name name)),
-							SUB(case settings of
-								SOME e => [$("Settings"),
-									   SUB(exp_to_printer e)]
-							      | NONE => [])]
+  | modelpart_to_printer (INPUTDEF {name, quantity, settings}) = [$("Inputdef: " ^ (Symbol.name name)),
+								  SUB[$("quantity"),
+								      SUB(exp_to_printer quantity)],
+								  SUB(case settings of
+									  SOME e => [$("Settings"),
+										     SUB(exp_to_printer e)]
+									| NONE => [])]
   | modelpart_to_printer (ITERATORDEF {name, value, settings}) = [$("Iteratordef: " ^ (Symbol.name name)),
 								  SUB(case value of 
 									  SOME e => [$("Value: " ^ (ExpPrinter.exp2str (astexp_to_Exp e)))]
@@ -411,7 +413,7 @@ local
 	   | NONE => NONE)
       | lookupTable _ = NONE
 
-    fun translate_input (INPUTDEF {name, settings}) = 
+    fun translate_input (INPUTDEF {name, quantity, settings}) = 
 	let
 	    val default = case settings of 
 			      SOME settings => 
