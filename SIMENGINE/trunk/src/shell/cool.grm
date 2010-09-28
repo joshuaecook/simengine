@@ -73,6 +73,7 @@ start of Ast.stm
 | definition of Ast.definition
 | vardef of Ast.definition
 | optassignment of Ast.exp option
+| optmapping of Ast.exp option
 | action of Ast.action
 | header of Ast.header
 | returnheader of Ast.header 
@@ -252,8 +253,11 @@ outputdef: OUTPUT ID optdimensions optassignment opttable optwhen (Ast.OUTPUTDEF
 										  dimensions= optdimensions,
 										  settings=opttable,
 										  condition=optwhen}) 
-inputdef: INPUT ID opttable (Ast.INPUTDEF {name=Symbol.symbol ID,
-					   settings=opttable})
+inputdef: INPUT optmapping ID opttable (Ast.INPUTDEF {name=Symbol.symbol ID,
+						      quantity=case optmapping of
+								   SOME exp => exp
+								 | NONE => Ast.UNIT,
+						      settings=opttable})
 
 iteratordef: ITERATOR ID optassignment opttable (Ast.ITERATORDEF {name=Symbol.symbol ID,
 								  value=optassignment,
@@ -341,6 +345,8 @@ vardef: GLOBAL VAR ID opttyp optassignment (Ast.DEFGLOBAL (Symbol.symbol ID, opt
 optassignment: (NONE)
 	     | ASSIGN optlines exp (SOME exp)
 
+optmapping: (NONE)
+	  | exp optlines ASSIGN (SOME exp)
 
 elsechain: ELSE optlines stms END (stms)
 	 | ELSEIF exp optlines THEN optlines stms elsechain ([Ast.ACTION(Ast.COND {cond=exp, ift=stms, iff=elsechain}, expleft)])
