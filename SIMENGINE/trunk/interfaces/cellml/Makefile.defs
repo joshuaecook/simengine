@@ -5,9 +5,12 @@ PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D))))
 
 TARGETS_$(D)	:= $(PCODE_$(D))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
-INSTALL_ROOT    := $(INSTALL_ROOT) $(TARGETS_$(D))
+INSTALLS	:= $(INSTALLS) $(D)/installs
 CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 
 # Import subsystem rules.
 
 # Define local rules.
+
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)

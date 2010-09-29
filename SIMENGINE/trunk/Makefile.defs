@@ -4,8 +4,7 @@ EXAMPLES_$(D) := $(wildcard $(D)/ReleaseExamples/*)
 
 TARGETS_$(D) := $(addprefix $(D)/datafiles/,build-options.json)
 TARGETS := $(TARGETS) $(TARGETS_$(D))
-INSTALL_BIN :=
-INSTALL_DATA := $(INSTALL_DATA) $(addprefix $(D)/datafiles/,default.dol global.dol build-options.json)
+INSTALLS := $(INSTALLS) $(D)/installs
 INSTALL_EXAMPLES := $(INSTALL_EXAMPLES) $(EXAMPLES_$(D))
 CLEAN := $(CLEAN) $(TARGETS_$(D))
 CLEAN_ALL :=
@@ -21,3 +20,8 @@ $(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
 $(D)/datafiles/build-options.json:
 	$(info Generating $@)
 	@echo "$(BUILD_OPTIONS_JSON)" > $@
+
+.PHONY: $(D)/installs
+$(D)/installs: DATA := $(addprefix $(D)/datafiles/,default.dol global.dol build-options.json)
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $(DATA) -d $(INSTALL_PREFIX)/data

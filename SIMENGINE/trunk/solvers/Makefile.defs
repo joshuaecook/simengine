@@ -5,25 +5,42 @@ $(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
 
 # Define local variables.
 
-CVODE_HEADERS_$(D) := $(CVODE_GENERATED_HEADERS_$(D)/cvode) $(CVODE_SOURCE_HEADERS_$(D)/cvode)
+
+
+HEADERS_$(D) := $(HEADERS_$(D)/cvode)
+
 INCLUDE_DIRS_$(D) := $(addprefix $(D)/include/,float double)
+LIBS_$(D) := $(addprefix $(D)/lib/,libcvode_double.a libcvode_float.a)
 
 TARGETS_$(D)	:= $(addprefix $(D)/lib/,libcvode_double.a libcvode_float.a)
-TARGETS_$(D)    := $(TARGETS_$(D)) $(addprefix $(D)/include/float/,$(subst $(SUNDIALS_$(D)/cvode)/,,$(CVODE_HEADERS_$(D)))) $(addprefix $(D)/include/double/,$(subst $(SUNDIALS_$(D)/cvode)/,,$(CVODE_HEADERS_$(D))))
+TARGETS_$(D)    := $(TARGETS_$(D)) $(addprefix $(D)/include/float/,$(HEADERS_$(D))) $(addprefix $(D)/include/double/,$(HEADERS_$(D)))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
-INSTALL_LIB	:= $(INSTALL_LIB) $(addprefix $(D)/lib/,libcvode_double.a libcvode_float.a)
-INSTALL_INCLUDE := $(INSTALL_INCLUDE) $(INCLUDE_DIRS_$(D))
+INSTALLS	:= $(INSTALLS) $(D)/installs
 CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 
 # Define local rules.
 
 $(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode.a
-	$(INSTALL) -d "$(@D)" "$(abspath $<)" "$@"
+	$(INSTALL) -d "$(@D)" -C "$(abspath $<)" -T "$@"
 
 $(D)/include/float/%.h: DIR := $(D)/cvode/float/$(SUNDIALS_$(D)/cvode)/include
 $(D)/include/float/%.h:
-	$(INSTALL) -m 644 "$(DIR)/$*.h" -d "$(@D)"
+	$(INSTALL) -C -m 644 "$(DIR)/$*.h" -d "$(@D)"
 
 $(D)/include/double/%.h: DIR := $(D)/cvode/double/$(SUNDIALS_$(D)/cvode)/include
 $(D)/include/double/%.h:
-	$(INSTALL) -m 644 "$(DIR)/$*.h" -d "$(@D)"
+	$(INSTALL) -C -m 644 "$(DIR)/$*.h" -d "$(@D)"
+
+$(D)/installs: LIBS := $(LIBS_$(D))
+$(D)/installs: INCLUDE_DIR := $(D)/include
+$(D)/installs: SUNDIALS_INCLUDES := $(SUNDIALS_HEADERS_$(D)/cvode)
+$(D)/installs: NVEC_INCLUDES := $(NVEC_HEADERS_$(D)/cvode)
+$(D)/installs: CVODE_INCLUDES := $(CVODE_HEADERS_$(D)/cvode)
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $(LIBS) -d $(INSTALL_PREFIX)/lib
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/float/,$(SUNDIALS_INCLUDES)) -d $(INSTALL_PREFIX)/include/float/sundials
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/float/,$(NVEC_INCLUDES)) -d $(INSTALL_PREFIX)/include/float/nvector
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/float/,$(CVODE_INCLUDES)) -d $(INSTALL_PREFIX)/include/float/cvode
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/double/,$(SUNDIALS_INCLUDES)) -d $(INSTALL_PREFIX)/include/double/sundials
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/double/,$(NVEC_INCLUDES)) -d $(INSTALL_PREFIX)/include/double/nvector
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/double/,$(CVODE_INCLUDES)) -d $(INSTALL_PREFIX)/include/double/cvode

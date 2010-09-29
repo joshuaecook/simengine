@@ -10,8 +10,9 @@ default_options () {
     dirmode=
     source=
     link=
-    force=
     dryrun=
+    compare=
+    recursive=
 }
 
 dosay () {
@@ -23,11 +24,35 @@ dosay () {
     fi
 }
 
-copy () {
-    if [ -n "$link" ]; then
-	ln -s $*
+mkpath () {
+    if [ -n "$dirmode" ]; then
+	dosay mkdir -m "$dirmode" -p "$1"
     else
-	cp $*
+	dosay mkdir -p "$1"
+    fi
+}
+
+copy () {
+    if [ 2 -ne $# ]; then
+	echo "$self: too many arguments to copy."
+	exit 1
+    fi
+    if [ -n "$compare" -a -e "$2" ]; then
+	cmp -s "$1" "$2"
+	if [ 0 -eq $? ]; then
+	    return 0
+	fi
+    fi
+    if [ -e "$2" ]; then
+	dosay unlink "$2"
+    fi
+    if [ -n "$link" ]; then
+	dosay ln -s $1 $2
+    else
+	dosay cp $1 $2
+    fi
+    if [ -n "$mode" ]; then
+	dosay chmod "$mode" "$2"
     fi
 }
 
@@ -39,19 +64,16 @@ install () {
 	    echo "$self: Destination path $destination exists and is not a directory."
 	    exit 1
 	fi
-	dosay mkdir -p "$destination"
-	if [ -n "$dirmode" ]; then
-	    dosay chmod "$dirmode" "$destination"
-	fi
+	mkpath "$destination"
     fi
     
     for file in $source; do
 	if [ -d "$file" ]; then
 	    destfile="$destination/"
-	    dosay copy -r "$file" "$destfile"
+	    copy "$file" "$destfile"
 	else
 	    destfile="$destination/$(basename $file)"
-	    dosay copy "$file" "$destfile"
+	    copy "$file" "$destfile"
 	fi
 
 	if [ -e "$destfile" -a -n "$force" ]; then
@@ -61,50 +83,38 @@ install () {
 		dosay rm "$destfile"
 	    fi
 	fi
-
-	if [ -n "$mode" ]; then
-	    if [ -d "$destfile" ]; then
-		dosay find "$destfile" -type f -exec chmod "$mode" '{}' \;
-		if [ -n "$dirmode" ]; then
-		    dosay find "$destfile" -type d -exec chmod "$dirmode" '{}' \;
-		fi
-	    else
-		dosay chmod "$mode" "$destfile"
-	    fi
-	fi
     done
 
     source=
 }
 
 usage () {
-echo Usage: $self [OPTION]... [FILE]... -d DESTINATION
-echo        $self [OPTION]... FILE DESTINATION
+echo "Usage: "$self [OPTION]... [FILE]... -d DESTINATION
+echo "       "$self [OPTION]... FILE -T DESTINATION
 echo
 echo "  -d	"Specifies the destination directory. The directory is
 echo "    	"created if it does not already exist.
 echo "  -dm	"Specifies the destination directory permissions if the
 echo "     	"directory is created by this invocation.
-echo "  -f	"Force installation by overwriting existing files.
 echo "  -h	"Displays this message.
 echo "  -l	"Create symbolic links instead of copying files.
 echo "  -m	"Specifies the permissions of the installed files.
 echo "  -n	"Print commands but do not execute them.
+echo "  -r	"Treat sources as directories and install them recursively.
 echo "  -v	"Display extra information while installing.
+echo "  -C	"If the destination file exists, compare it with the
+echo "		"source and preserve the destination if they are the same.
+echo "  -T	"Treat the destination as a normal file, i.e. rename
+echo "		"the source when installing.
 echo
-echo The -d flag terminates a list of arguments and resets all options
-echo to their default values. Multiple installations can be chained
-echo together into a single command like so:
+echo The -d and -T flags terminate a list of arguments and reset
+echo all options to their default values. Multiple installations 
+echo can be chained together into a single command like so:
 echo
-echo       $self FILE1 -d DIR1 FILE2 -d DIR2
+echo "       "$self FILE1 -d DIR1 FILE2 -T FILE3
 echo
 echo Specifying a directory with -d without any preceeding source files
 echo simply creates the destination directory.
-echo
-echo Renaming files during installation may be accomplished by omitting
-echo the -d flag like so:
-echo
-echo       $self FILE1 FILE2
 }
 
 count () {
@@ -116,28 +126,23 @@ default_options
 while [ -n "$1" ]; do
     case "$1" in
 	-v) verbose="-v" ;;
+	-C) compare="-C" ;;
 	-n) dryrun="-n" ;;
 	-l) link="-l" ;;
 	-m) mode="$2"; shift ;;
 	-dm) dirmode="$2"; shift ;;
-	-f) force="-f" ;;
 	-h) usage; exit 0 ;;
 	-d) install "$2"; shift; default_options ;;
+	-T) copy $source "$2"; shift; default_options ;;
 	-*) echo $self: invalid option $1;
 	    echo Invoke \"$self -h\" for more information.;
 	    exit 2;;
 	*) source="$source $1" ;;
     esac
     shift
-
 done
 
-count $source
-n=$?
-if [ 0 -lt $n ]; then
-    if [ 2 -eq $n ]; then
-	dosay copy "$source"
-    else
-	usage; exit 2
-    fi
+if [ -n "$source" ]; then
+    echo "$self: No destination specified."
+    exit 1
 fi

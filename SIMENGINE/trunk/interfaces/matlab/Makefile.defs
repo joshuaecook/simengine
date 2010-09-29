@@ -10,7 +10,7 @@ PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D)))) $(D)/simex.p $(D)/pars
 
 TARGETS_$(D)	:= $(PCODE_$(D)) $(addprefix $(D)/,Contents.m $(addprefix src/readSimulationData,$(MEXEXT)))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
-INSTALL_ROOT    := $(INSTALL_ROOT) $(TARGETS_$(D))
+INSTALLS	:= $(INSTALLS) $(D)/installs
 CLEAN		:= $(CLEAN) $(TARGETS_$(D)) $(addprefix $(D)/src/readSimulationData,$(ALL_MEXEXT))
 CLEAN_ALL	:= $(CLEAN_ALL) $(D)/simex.m
 
@@ -48,3 +48,6 @@ $(D)/Contents.m: VERSION = $(MAJOR_VERSION).$(MINOR_VERSION) $(if $(VERSION_REVI
 $(D)/Contents.m: $(D)/Makefile.defs
 	$(info Generating $@)
 	@echo "$(CONTENTS_M)" > $@
+
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)
