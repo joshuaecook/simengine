@@ -809,10 +809,10 @@ classdef Model < handle
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
             id = toStr(lhs);
-            if isfield(m.DiffEqs, id)
+            if isKey(m.DiffEqs, id)
                 error('Simatra:Model', ['Differential Equation assigning ' lhs ' already exists']);
             else
-                m.DiffEqs.(id) = struct('lhs', lhs, 'rhs', rhs);    
+                m.DiffEqs(id) = struct('lhs', lhs, 'rhs', rhs);    
             end
         end        
 
@@ -844,12 +844,12 @@ classdef Model < handle
             % Support: support@simatratechnologies.com            
             id = toVariableName(lhs);
             iter = toIterReference(lhs);
-            if isfield(m.RecurrenceEqs, id)
+            if isKey(m.RecurrenceEqs, id)
                 error('Simatra:Model', ['Recurrence Equation assigning ' lhs ' already exists']);
             elseif isa(iter, 'IteratorReference')
               iter_id = iter.iterator.id;
               if iter.delay == 1
-                m.RecurrenceEqs.(id) = struct('lhs', lhs, 'rhs', ...
+                m.RecurrenceEqs(id) = struct('lhs', lhs, 'rhs', ...
                                               rhs);    
               else
                 error('Simatra:Model:recurrenceequ', ['Can only ' ...
@@ -859,10 +859,10 @@ classdef Model < handle
             elseif m.States.isKey(id) && isa(m.States(id).iterator, ...
                                              'Iterator')
               next_time = m.States(id).iterator+1;
-             m.RecurrenceEqs.(id) = struct('lhs', ...
+             m.RecurrenceEqs(id) = struct('lhs', ...
                                            lhs(next_time), ...
                                            'rhs', rhs);              
-%               m.RecurrenceEqs.(id) = struct('lhs', lhs, ...
+%               m.RecurrenceEqs(id) = struct('lhs', lhs, ...
 %                                             'rhs', rhs);              
             else
               error('Simatra:Model:recurrenceequ', ['No iterator was '...
@@ -1047,21 +1047,21 @@ classdef Model < handle
                 end
             end
             %  - Next in differential equations
-            ids = fieldnames(m.DiffEqs);
+            ids = keys(m.DiffEqs);
             for i=1:length(ids)
-                rhs = m.DiffEqs.(ids{i}).rhs;
+                rhs = m.DiffEqs(ids{i}).rhs;
                 if isa(rhs, 'Exp')
                     map = findIterators(rhs, map);
                 end
             end
             %  - Next in recurrence equations
-            ids = fieldnames(m.RecurrenceEqs);
+            ids = keys(m.RecurrenceEqs);
             for i=1:length(ids)
-                lhs = m.RecurrenceEqs.(ids{i}).lhs;
+                lhs = m.RecurrenceEqs(ids{i}).lhs;
                 if isa(lhs, 'Exp')
                     map = findIterators(lhs, map);
                 end
-                rhs = m.RecurrenceEqs.(ids{i}).rhs;
+                rhs = m.RecurrenceEqs(ids{i}).rhs;
                 if isa(rhs, 'Exp')
                     map = findIterators(rhs, map);
                 end
@@ -1148,8 +1148,8 @@ classdef Model < handle
             randoms = keys(m.Randoms);
             eqs = keys(m.IntermediateEqs);
             eqsNames = keys(m.IntermediateEqsNames);
-            diffeqs = fieldnames(m.DiffEqs); 
-            recurrenceeqs = fieldnames(m.RecurrenceEqs);
+            diffeqs = keys(m.DiffEqs); 
+            recurrenceeqs = keys(m.RecurrenceEqs);
             instances = keys(m.Instances);
             cachedmodels = keys(m.cachedModels);
             iterators = values(findIterators(m));
@@ -1262,7 +1262,7 @@ classdef Model < handle
             str = [str '   equations\n'];
             for i=1:length(diffeqs)
                 lhs = diffeqs{i};
-                rhs = m.DiffEqs.(lhs).rhs;
+                rhs = m.DiffEqs(lhs).rhs;
                 str = [str '      ' lhs ''' = ' toStr(rhs) '\n'];
             end
             str = [str '   end\n'];
@@ -1271,8 +1271,8 @@ classdef Model < handle
             str = [str '   equations\n'];
             for i=1:length(recurrenceeqs)
               key = recurrenceeqs{i};
-                lhs = m.RecurrenceEqs.(key).lhs;
-                rhs = m.RecurrenceEqs.(key).rhs;
+                lhs = m.RecurrenceEqs(key).lhs;
+                rhs = m.RecurrenceEqs(key).rhs;
                 str = [str '      ' toStr(lhs) ' = ' toStr(rhs) '\n'];
             end
             str = [str '   end\n'];
@@ -1321,8 +1321,8 @@ classdef Model < handle
             randoms = keys(m.Randoms);
             eqs = keys(m.IntermediateEqs);
             eqsNames = keys(m.IntermediateEqsNames);
-            diffeqs = fieldnames(m.DiffEqs); 
-            recurrenceeqs = fieldnames(m.RecurrenceEqs);
+            diffeqs = keys(m.DiffEqs); 
+            recurrenceeqs = keys(m.RecurrenceEqs);
             instances = keys(m.Instances);
             cachedmodels = keys(m.cachedModels);
             iterators = values(findIterators(m));
@@ -1437,7 +1437,7 @@ classdef Model < handle
             fprintf(fid, '   equations\n');
             for i=1:length(diffeqs)
                 lhs = diffeqs{i};
-                rhs = m.DiffEqs.(lhs).rhs;
+                rhs = m.DiffEqs(lhs).rhs;
                 fprintf(fid, ['      ' lhs ''' = ' toStr(rhs) '\n']);
             end
             fprintf(fid, '   end\n');
@@ -1446,8 +1446,8 @@ classdef Model < handle
             fprintf(fid, '   equations\n');
             for i=1:length(recurrenceeqs)
               key = recurrenceeqs{i};
-                lhs = m.RecurrenceEqs.(key).lhs;
-                rhs = m.RecurrenceEqs.(key).rhs;
+                lhs = m.RecurrenceEqs(key).lhs;
+                rhs = m.RecurrenceEqs(key).rhs;
                 fprintf(fid, ['      ' toStr(lhs) ' = ' toStr(rhs) '\n']);
             end
             fprintf(fid, '   end\n');
@@ -1800,8 +1800,8 @@ classdef Model < handle
             m.IntermediateEqs = containers.Map(1, struct());
             m.IntermediateEqs.remove(1);
             m.IntermediateEqsNames = containers.Map;
-            m.DiffEqs = struct();
-            m.RecurrenceEqs = struct();
+            m.DiffEqs = containers.Map;
+            m.RecurrenceEqs = containers.Map;
             m.cachedModels = containers.Map;
             m.instance_number = 1;
             m.state_number = 1;
