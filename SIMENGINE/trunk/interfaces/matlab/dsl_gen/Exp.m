@@ -652,10 +652,12 @@ classdef Exp
                 case e.ITERATOR
                     map(e.val) = e.iterReference;
                 case e.OPERATION
-                    for i=1:length(e.args)
-                      if isa(e.args{i}, 'Exp')
-                        map = findIterators(e.args{i}, map);
-                      end
+                    arguments = e.args;
+                    for i=1:length(arguments)
+                        a = arguments{i};
+                        if isa(a, 'Exp')
+                            map = findIterators(a, map);
+                        end
                     end
             end
             iters = map;            
