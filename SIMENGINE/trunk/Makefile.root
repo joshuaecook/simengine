@@ -137,12 +137,17 @@ install: $(TARGETS) $(INSTALLS)
 
 .PHONY: installer
 installer: INSTALL_PREFIX := Simatra
+installer: FILENAME := simEngine_$(PLATFORM)_$(ARCH)-$(VERSION_NUMBER).tgz
 installer: install html
-	tar chzf simEngine.tgz $(INSTALL_PREFIX)
+	tar chzf $(FILENAME) $(INSTALL_PREFIX)
 
 .PHONY: html
 html:
 	$(MAKE) -C external-publications SIMENGINE="$(realpath $(INSTALL_PREFIX))" DOCUMENTATION_OUTPUT_DIR="$(realpath $(INSTALL_PREFIX))/html" html
+	$(INSTALL) -C external-publications/helptoc.xml -d $(realpath $(INSTALL_PREFIX))/html
+	$(INSTALL) -C external-publications/info.xml -d $(realpath $(INSTALL_PREFIX))
+	$(MATLAB) -nosplash -nodesktop -r "builddocsearchdb('$(realpath $(INSTALL_PREFIX))/html'); quit"
+
 
 .SECONDARY: $(CLEAN)
 .PHONY: clean
