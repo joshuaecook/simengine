@@ -2154,11 +2154,11 @@ fun optimizeClass (class: DOF.class) =
 	val restore = (Rules.getRules "restoration")
 
 	fun simplify_exps exps =
-	    map ((Match.repeatApplyRewritesExp restore) o
-		 (Match.repeatApplyRewritesExp simplify))
-		exps
+	    (map Normalize.normalize (map ((Match.repeatApplyRewritesExp restore) o
+					   (Match.repeatApplyRewritesExp simplify))
+					  exps))
 	val exps' = Profile.time "Simplify" simplify_exps exps
-		
+
 	val exps = 
 	    let
 		val orig_cost = Util.sum(map Cost.exp2cost exps)
@@ -2177,7 +2177,7 @@ fun optimizeClass (class: DOF.class) =
 		val exps' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps
 		val exps'' = map (Match.repeatApplyRewritesExp restore) exps'
 	    in
-		exps''
+		map Normalize.normalize exps''
 	    end
 	val exps'' = Profile.time "SimplifyAndFactor" simplifyAndFactor_exps exps
 
@@ -2199,7 +2199,7 @@ fun optimizeClass (class: DOF.class) =
 		val exps'' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps'
 		val exps''' = map (Match.repeatApplyRewritesExp restore) exps''
 	    in
-		exps'''
+		map Normalize.normalize exps'''
 	    end
 	val exps''' = Profile.time "simplifyAndExpand" simplifyAndExpand_exps exps
 
