@@ -1,6 +1,7 @@
 # Define local variables.
 
 CLASSES_$(D)	:= $(wildcard $(D)/*.m)
+EXAMPLES_$(D)   := $(wildcard $(D)/examples/sth*.m)
 
 TARGETS_$(D)	:= $(CLASSES_$(D))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
@@ -10,5 +11,8 @@ INSTALLS	:= $(INSTALLS) $(D)/installs
 
 # Define local rules.
 
+$(D)/installs: CLASSES := $(CLASSES_$(D))
+$(D)/installs: EXAMPLES := $(EXAMPLES_$(D))
 $(D)/installs: $(TARGETS_$(D))
-	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)
+	$(INSTALL) -C $(CLASSES) -d $(INSTALL_PREFIX)
+	$(INSTALL) -C $(EXAMPLES) -d $(INSTALL_PREFIX)/examples/Neuron
