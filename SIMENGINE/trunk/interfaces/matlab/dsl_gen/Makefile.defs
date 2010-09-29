@@ -3,12 +3,10 @@
 # Define local variables.
 
 CLASSES_$(D)    := $(wildcard $(D)/*.m)
-PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D))))
 
-TARGETS_$(D)	:= $(PCODE_$(D))
+TARGETS_$(D)	:= $(CLASSES_$(D))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
 INSTALLS	:= $(INSTALLS) $(D)/install
-CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 
 # Define local rules.
 
