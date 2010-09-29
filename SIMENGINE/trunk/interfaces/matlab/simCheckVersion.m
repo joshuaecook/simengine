@@ -123,7 +123,8 @@ function versionInfo = retrieveLatestVersion(quiet)
                            'development', true, ...
                            'build', str2double(fields{8}));
     else
-      error('Simatra:simCheckVersion', ['Unexpected format of the version information: ' ver_str]);
+      error('Simatra:simCheckVersion', ['Unexpected format of the ' ...
+                          'version information at ' url ': ' ver_str]);
       versionInfo = false;
     end
   end
