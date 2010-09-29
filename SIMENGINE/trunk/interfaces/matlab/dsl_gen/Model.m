@@ -1823,7 +1823,7 @@ end
 
 function s = toStr(r)
 if isnumeric(r)
-    s = mat2str(r);
+    s = sprintf('%.15g', r);
 elseif isstruct(r)
     disp('Simatra:Model:toStr', 'Unexpected structure found');
 elseif isstr(r)
