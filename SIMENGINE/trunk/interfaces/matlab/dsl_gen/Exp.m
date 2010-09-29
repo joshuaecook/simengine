@@ -622,8 +622,9 @@ classdef Exp
                     syms = {}; % ignore this since this is a different scope
                 case e.OPERATION
                     syms = {};
-                    for i=1:length(e.args)
-                        syms = [syms exp_to_symbols(e.args{i})];
+                    arguments = e.args;
+                    for i=1:length(arguments)
+                        syms = [syms exp_to_symbols(arguments{i})];
                     end
             end
             syms = unique(syms);
@@ -697,25 +698,26 @@ classdef Exp
                         s = mat2str(e.val);
                     end
                 case e.OPERATION
+                    arguments = e.args;
                     if strcmp(e.op, 'piecewise')
-                        if length(e.args) == 1
-                            s = toStr(e.args{1});
+                        if length(arguments) == 1
+                            s = toStr(arguments{1});
                         else
                             s = '{';
-                            for i=1:2:(length(e.args)-1);
-                                s = [s toStr(e.args{i}) ' when ' toStr(e.args{i+1}) ', '];
+                            for i=1:2:(length(arguments)-1);
+                                s = [s toStr(arguments{i}) ' when ' toStr(arguments{i+1}) ', '];
                             end
-                            s = [s  toStr(e.args{end}) ' otherwise}'];
+                            s = [s  toStr(arguments{end}) ' otherwise}'];
                         end
                     else
-                        if length(e.args) == 1
-                            s = ['(' e.op '(' toStr(e.args{1}) '))'];
-                        elseif length(e.args) == 2
+                        if length(arguments) == 1
+                            s = ['(' e.op '(' toStr(arguments{1}) '))'];
+                        elseif length(arguments) == 2
                             if e.notation == Exp.INFIX
-                                s = ['(' toStr(e.args{1}) e.op toStr(e.args{2}) ')'];
+                                s = ['(' toStr(arguments{1}) e.op toStr(arguments{2}) ')'];
                             else
                                 % treat by default as Exp.PREFIX
-                                s = ['(' e.op '(' toStr(e.args{1}) ', ' toStr(e.args{2}) '))'];
+                                s = ['(' e.op '(' toStr(arguments{1}) ', ' toStr(arguments{2}) '))'];
                             end
                         end
                     end
@@ -745,6 +747,10 @@ classdef Exp
     
     
     
+end
+
+function s = mat2str(v)
+s = sprintf('%.15g', v);
 end
 
 function er = oper(operation, args, infix)
