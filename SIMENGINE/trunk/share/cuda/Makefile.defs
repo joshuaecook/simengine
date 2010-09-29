@@ -1,9 +1,3 @@
-# Import subdirectory rules in an arbitrary order by assigning
-# to DIR and including $(DIR)/Makdefile.defs
-# 
-# DIR := $(D)/
-# include $(DIR)/Makefile.defs
-
 # Define local variables.
 
 TARGETS_$(D)	:= $(D)/device_props $(D)/device_props.a
