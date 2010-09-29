@@ -138,7 +138,7 @@ TARGETS		:= $(TARGETS) $(TARGETS_$(D))
 DEPENDS_$(D)	:= $(addsuffix /build.deps,$(DATATYPES_$(D))) $(addsuffix /libcvode.deps,$(DATATYPES_$(D)))
 DEPENDS		:= $(DEPENDS) $(DEPENDS_$(D))
 CLEAN		:= $(CLEAN) $(TARGETS_$(D))
-CLEAN_ALL	:= $(CLEAN_ALL) $(DEPENDS_$(D)) $(SUNDIALS_TGZ_$(D)) $(addprefix $(D)/float/,extract config build) $(addprefix $(D)/double/,extract config build)
+CLEAN_ALL	:= $(CLEAN_ALL) $(shell find $(D)/float -type f) $(shell find $(D)/double -type f)
 
 # Import subsystem rules.
 

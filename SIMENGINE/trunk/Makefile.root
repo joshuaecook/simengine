@@ -12,6 +12,7 @@ Targets
 help		Displays this message.
 all		Compiles the application and all its resources.
 install		Installs the compiled application and its resources.
+installer	Creates a tarball installer for the complete application.
 test		Tests an installed application.
 clean		Removes compiled objects.
 clean-all	Removes all generated resources.
@@ -132,6 +133,11 @@ show-targets:
 .PHONY: install $(INSTALLS)
 install: $(TARGETS) $(INSTALLS)
 	$(info Installed in $(INSTALL_PREFIX))
+
+.PHONY: installer
+installer: INSTALL_PREFIX := Simatra
+installer: install
+	tar chzf simEngine.tgz $(INSTALL_PREFIX)
 
 .SECONDARY: $(CLEAN)
 .PHONY: clean

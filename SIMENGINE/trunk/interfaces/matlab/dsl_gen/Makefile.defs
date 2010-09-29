@@ -7,7 +7,10 @@ PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D))))
 
 TARGETS_$(D)	:= $(PCODE_$(D))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
-INSTALL_ROOT    := $(INSTALL_ROOT) $(TARGETS_$(D))
+INSTALLS	:= $(INSTALLS) $(D)/install
 CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 
 # Define local rules.
+
+$(D)/install: $(TARGETS_$(D))
+	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)
