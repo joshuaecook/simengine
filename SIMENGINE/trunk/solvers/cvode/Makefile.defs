@@ -9,12 +9,16 @@ ifeq (,$(SUNDIALS_TGZ_$(D)))
 SUNDIALS_TGZ_$(D)	:= /var/tmp/$(SUNDIALS_$(D)).tar.gz
 endif
 
-CVODE_OBJECTS_$(D) := \
-	$(addprefix src/cvode/.libs/,cvode_dense.o cvode_direct.o cvode_io.o cvode.o cvode_diag.o cvode_band.o) \
-	$(addprefix src/nvec_ser/.libs/,nvector_serial.o) \
+SUNDIALS_OBJECTS_$(D) := \
 	$(addprefix src/sundials/.libs/,sundials_dense.o sundials_direct.o sundials_math.o sundials_nvector.o sundials_band.o)
 
-CVODE_SOURCE_HEADERS_$(D) := \
+NVEC_OBJECTS_$(D) := \
+	$(addprefix src/nvec_ser/.libs/,nvector_serial.o)
+
+CVODE_OBJECTS_$(D) := \
+	$(addprefix src/cvode/.libs/,cvode_dense.o cvode_direct.o cvode_io.o cvode.o cvode_diag.o cvode_band.o)
+
+SUNDIALS_SOURCE_HEADERS_$(D) := \
 	sundials/sundials_types.h \
 	sundials/sundials_math.h \
 	sundials/sundials_nvector.h \
@@ -26,9 +30,11 @@ CVODE_SOURCE_HEADERS_$(D) := \
 	sundials/sundials_spgmr.h \
 	sundials/sundials_spbcgs.h \
 	sundials/sundials_sptfqmr.h \
-	sundials/sundials_iterative.h \
+	sundials/sundials_iterative.h
+NVEC_SOURCE_HEADERS_$(D) := \
 	nvector/nvector_serial.h \
-	nvector/nvector_parallel.h \
+	nvector/nvector_parallel.h
+CVODE_SOURCE_HEADERS_$(D) := \
 	cvode/cvode.h \
 	cvode/cvode_direct.h \
 	cvode/cvode_dense.h \
@@ -42,8 +48,16 @@ CVODE_SOURCE_HEADERS_$(D) := \
 	cvode/cvode_bandpre.h \
 	cvode/cvode_bbdpre.h
 
-CVODE_GENERATED_HEADERS_$(D) := \
+SUNDIALS_GENERATED_HEADERS_$(D) := \
 	sundials/sundials_config.h
+NVEC_GENERATED_HEADERS_$(D) :=
+CVODE_GENERATED_HEADERS_$(D) :=
+
+SUNDIALS_HEADERS_$(D)	:= $(SUNDIALS_SOURCE_HEADERS_$(D)) $(SUNDIALS_GENERATED_HEADERS_$(D))
+NVEC_HEADERS_$(D)	:= $(NVEC_SOURCE_HEADERS_$(D)) $(NVEC_GENERATED_HEADERS_$(D))
+CVODE_HEADERS_$(D)	:= $(CVODE_SOURCE_HEADERS_$(D)) $(CVODE_GENERATED_HEADERS_$(D))
+
+HEADERS_$(D) := $(SUNDIALS_HEADERS_$(D)) $(NVEC_HEADERS_$(D)) $(CVODE_HEADERS_$(D))
 
 BUILD_DEPENDENCIES_$(D) := \
 	configure \
@@ -71,7 +85,7 @@ BUILD_DEPENDENCIES_$(D) := \
 	bin/sundials-config.in \
 	bin/fortran-update.in \
 	bin/makefile-update.in \
-	$(addprefix include/,$(CVODE_SOURCE_HEADERS_$(D))) \
+	$(addprefix include/,$(SUNDIALS_SOURCE_HEADERS_$(D)) $(NVEC_SOURCE_HEADERS_$(D)) $(CVODE_SOURCE_HEADERS_$(D))) \
 	include/sundials/sundials_config.in \
 	src/sundials/Makefile.in \
 	src/sundials/CMakeLists.txt \
@@ -111,17 +125,19 @@ BUILD_DEPENDENCIES_$(D) := \
 	src/cvode/cvode_bandpre_impl.h \
 	src/cvode/cvode_bbdpre_impl.h 
 
-CVODE_OBJECTS_$(D)		:= $(addprefix $(SUNDIALS_$(D))/,$(CVODE_OBJECTS_$(D)))
 BUILD_DEPENDENCIES_$(D)		:= $(addprefix $(SUNDIALS_$(D))/,$(BUILD_DEPENDENCIES_$(D)))
-CVODE_GENERATED_HEADERS_$(D)	:= $(addprefix $(SUNDIALS_$(D))/,$(CVODE_GENERATED_HEADERS_$(D)))
-CVODE_SOURCE_HEADERS_$(D)	:= $(addprefix $(SUNDIALS_$(D))/,$(CVODE_SOURCE_HEADERS_$(D)))
+FLOAT_DEPENDENCIES_$(D)		:= $(addprefix $(D)/float/,$(BUILD_DEPENDENCIES_$(D)))
+DOUBLE_DEPENDENCIES_$(D)	:= $(addprefix $(D)/double/,$(BUILD_DEPENDENCIES_$(D)))
 
+OBJECTS_$(D)			:= $(addprefix $(SUNDIALS_$(D))/,$(SUNDIALS_OBJECTS_$(D)) $(NVEC_OBJECTS_$(D)) $(CVODE_OBJECTS_$(D)))
+FLOAT_OBJECTS_$(D)		:= $(addprefix $(D)/float/,$(OBJECTS_$(D)))
+DOUBLE_OBJECTS_$(D)		:= $(addprefix $(D)/double/,$(OBJECTS_$(D)))
 
 TARGETS_$(D)	:= $(addsuffix /libcvode.a,$(DATATYPES_$(D)))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
 DEPENDS_$(D)	:= $(addsuffix /build.deps,$(DATATYPES_$(D))) $(addsuffix /libcvode.deps,$(DATATYPES_$(D)))
 DEPENDS		:= $(DEPENDS) $(DEPENDS_$(D))
-CLEAN		:= $(TARGETS_$(D))
+CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 CLEAN_ALL	:= $(CLEAN_ALL) $(DEPENDS_$(D)) $(SUNDIALS_TGZ_$(D)) $(addprefix $(D)/float/,extract config build) $(addprefix $(D)/double/,extract config build)
 
 # Import subsystem rules.
@@ -137,7 +153,7 @@ $(D)/%/build.deps: $(D)/Makefile.defs
 	@echo $(basename $@): $(@D)/config \\ > $@
 	@echo $(addprefix $(@D)/,$(DEPS)) >> $@
 
-$(D)/%/libcvode.deps: DEPS := $(CVODE_OBJECTS_$(D))
+$(D)/%/libcvode.deps: DEPS := $(OBJECTS_$(D))
 $(D)/%/libcvode.deps: $(D)/Makefile.defs
 	$(info Computing dependencies for $@)
 	[ -d $(@D) ] || $(MKDIR) $(@D)
@@ -165,6 +181,12 @@ $(D)/%/build: $(D)/%/config
 	$(info Building for $@)
 	$(MAKE) -C $(@D)/$(DIR)
 	touch $@
+
+$(FLOAT_DEPENDENCIES_$(D)): $(D)/float/extract
+$(DOUBLE_DEPENDENCIES_$(D)): $(D)/double/extract
+
+$(FLOAT_OBJECTS_$(D)): $(D)/float/build
+$(DOUBLE_OBJECTS_$(D)): $(D)/double/build
 
 $(D)/%/libcvode.a:
 	$(AR) $(ARFLAGS) "$@" $(filter-out $(@D)/build,$?)

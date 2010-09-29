@@ -8,11 +8,11 @@ PROFILERS_$(D)  := $(addprefix $(D)/simEngine,_profiletime _profilemem _profileb
 BASIS_$(D)	:= $(D)/compiler_exec.mlb
 LIBS_$(D)	:= share/cuda/device_props.a $(CRYPTO_LIB)
 
-TARGETS_$(D)	:= $(D)/simEngine $(if $(PROFILE),$(PROFILERS_$(D)),)
+TARGETS_$(D)	:= $(D)/simEngine $(D)/data/default.sew $(if $(PROFILE),$(PROFILERS_$(D)),)
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+INSTALLS	:= $(INSTALLS) $(D)/install
 DEPENDS_$(D)    := $(D)/simEngine.deps
 DEPENDS         := $(DEPENDS) $(DEPENDS_$(D))
-INSTALL_BIN	:= $(INSTALL_BIN) $(D)/simEngine
 CLEAN		:= $(CLEAN) $(TARGETS_$(D)) $(PROFILERS_$(D))
 CLEAN_ALL	:= $(CLEAN_ALL) $(PARSERS_$(D))
 
@@ -22,11 +22,20 @@ CLEAN_ALL	:= $(CLEAN_ALL) $(PARSERS_$(D))
 $(D)/simEngine.deps: LIBS := $(LIBS_$(D))
 $(D)/simEngine.deps: $(BASIS_$(D)) $(LIBS) $(D)/Makefile.defs 
 	$(info Computing dependencies for $@)
-	@echo $(basename $@) $(addprefix $(basename $@),_profiletime _profilemem _profilebranch) $@: $(LIBS) \\ > $@
-	@$(SMLC) -stop f $< | perl -pe 's/\n/ /g' >> $@
+	@echo $(basename $@) $(addprefix $(basename $@),_profiletime _profilemem _profilebranch) $@: $(LIBS) \\ > "$@"
+	@$(SMLC) -stop f "$<" | perl -pe 's/\n/ /g' >> "$@"
 
 $(D)/simEngine: SMLFLAGS := $(SMLFLAGS) -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" $(if $DEBUG,-const 'Exn.keepHistory true',)
 $(D)/simEngine: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+
+
+$(D)/data/default.sew: DIR := $(D)
+$(D)/data/default.sew: $(D)/../datafiles/build-options.json $(D)/simEngine
+	$(INSTALL) "$<" datafiles/global.dol -d "$(@D)"
+	$(INSTALL) -l "$(abspath $(@D))" -T $(abspath $(DIR)/../data)
+	-unlink "$@"
+	SIMENGINEDOL="$(abspath $(DIR)/../datafiles/system.dol)" ./$(DIR)/simEngine --quiet --batch - --srcpath "$(abspath $(DIR)/../include)" --updateQuery "$(UPDATE_QUERY)" < /dev/null
+
 
 $(D)/simEngine_profiletime: SMLFLAGS := $(SMLFLAGS) -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" -profile-stack true -profile time
 $(D)/simEngine_profiletime: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
@@ -42,3 +51,9 @@ $(D)/simEngine_profilebranch: SMLFLAGS := -link-opt "-ldl" -export-header $(D)/f
 $(D)/simEngine_profilebranch: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
 $(D)/simEngine_profilebranch: $(D)/simEngine.mlb
 	$(COMPILE.sml) -output "$@" "$<" $(SML_FOREIGN)
+
+$(D)/installs: BINS := $(D)/simEngine
+$(D)/installs: DATA := $(D)/data/default.sew
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $(BINS) -d $(INSTALL_PREFIX)/bin
+	$(INSTALL) -C $(DATA) -d $(INSTALL_PREFIX)/data

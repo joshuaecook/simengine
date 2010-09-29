@@ -4,9 +4,11 @@ CLASSES_$(D)	:= $(wildcard $(D)/*.m)
 
 TARGETS_$(D)	:= $(CLASSES_$(D))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
-INSTALL_ROOT    := $(INSTALL_ROOT) $(TARGETS_$(D))
-CLEAN		:= $(CLEAN) $(TARGETS_$(D))
+INSTALLS	:= $(INSTALLS) $(D)/installs
 
 # Import subsystem rules.
 
 # Define local rules.
+
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)

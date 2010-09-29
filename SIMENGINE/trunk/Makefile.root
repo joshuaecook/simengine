@@ -73,6 +73,7 @@ MINOR_VERSION := 2
 VERSION_REVISION :=
 VERSION_NUMBER := $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
 
+INSTALL_PREFIX ?= local-install
 
 define BUILD_OPTIONS_JSON
 {\
@@ -110,10 +111,7 @@ UPDATE_QUERY := build=$(if $(SVN_IS_BRANCH),preview,$(if $(SVN_IS_TRUNK),develop
 # Subsystems may augment the following definitions.
 
 TARGETS :=
-INSTALL_BIN :=
-INSTALL_LIB :=
-INSTALL_DATA :=
-INSTALL_INCLUDE :=
+INSTALLS :=
 DEPENDS :=
 CLEAN :=
 CLEAN_ALL :=
@@ -124,27 +122,16 @@ $(eval $(call IMPORT_SUBSYSTEM,.))
 
 # Define top-level rules.
 
-.PHONY:
+.PHONY: targets
 targets: $(TARGETS)
 
-.PHONY:
+.PHONY: show-targets
 show-targets:
 	@(export TARGETS="$(TARGETS)"; echo $$TARGETS | perl -pe 's/ /\n/g')
 
-.PHONY: install
-install: INSTALL_PREFIX ?= local-install
-install: $(TARGETS)
-	$(info Installing in $(INSTALL_PREFIX))
-	$(INSTALL) $(INSTALL_ROOT) -d $(INSTALL_PREFIX)
-	$(INSTALL) -m 644 $(INSTALL_DATA) -d $(INSTALL_PREFIX)/data
-	$(INSTALL) -m 644 $(INSTALL_INCLUDE) -d $(INSTALL_PREFIX)/include
-	$(INSTALL) -m 644 $(INSTALL_EXAMPLES) -d $(INSTALL_PREFIX)/examples
-	$(INSTALL) -m 755 $(INSTALL_LIB) -d $(INSTALL_PREFIX)/lib
-	$(INSTALL) -m 755 $(INSTALL_BIN) -d $(INSTALL_PREFIX)/bin
-	$(info Generating simEngine world)
-	rm -f $(INSTALL_PREFIX)/data/default.sew
-	SIMENGINEDOL=datafiles/system.dol $(INSTALL_PREFIX)/bin/simEngine --quiet --batch - --srcpath "$$(pwd)/include" --updateQuery "$(UPDATE_QUERY)" < /dev/null
-
+.PHONY: install $(INSTALLS)
+install: $(TARGETS) $(INSTALLS)
+	$(info Installed in $(INSTALL_PREFIX))
 
 .SECONDARY: $(CLEAN)
 .PHONY: clean
