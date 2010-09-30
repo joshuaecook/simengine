@@ -197,7 +197,7 @@ fun validate (model as (classes, instance, sysprops))=
 	    val _ = noRHSDerivatives ()
 		    
 
-	    val temporarily_disable = false
+	    val temporarily_disable = true
 	    val _ = 
 		if temporarily_disable then
 		    ()
