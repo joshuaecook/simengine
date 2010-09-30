@@ -1504,8 +1504,13 @@ classdef Model < handle
             
             % if one is not specified, then create one
             if nargin == 1
-                d = tempname;
-                success = mkdir(d);
+                %d = tempname;
+                d = fullfile(tempdir, ['simEngine_' getenv('USER')]);
+                if ~exist(d, 'dir')
+                    success = mkdir(d);
+                else
+                    success = true;
+                end
                 if ~success
                     error('Simatra:Model:toDSL', 'Can''t create a temporary directory needed by simEngine, please check the temporary directory %s to make sure that there is space available and that you have permission to write into that directory.', tempdir);                    
                 end
