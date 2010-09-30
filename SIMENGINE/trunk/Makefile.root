@@ -26,6 +26,8 @@ debug		If non-empty, compile with extra debugging information.
 profile		If non-empty, compile with extra profiling information.
 verbose		If non-empty, print extra information when compiling.
 
+install-html	If non-empty, create HTML documentation with the installer.
+
 endef
 
 # Makefile practices
@@ -138,11 +140,11 @@ install: $(TARGETS) $(INSTALLS)
 .PHONY: installer
 installer: INSTALL_PREFIX := Simatra
 installer: FILENAME := simEngine_$(PLATFORM)_$(ARCH)-$(VERSION_NUMBER).tgz
-installer: install html
+installer: install $(if $(install-html),html,)
 	tar chzf $(FILENAME) $(INSTALL_PREFIX)
 
 .PHONY: html
-html:
+html: install
 	$(MAKE) -C external-publications SIMENGINE="$(realpath $(INSTALL_PREFIX))" DOCUMENTATION_OUTPUT_DIR="$(realpath $(INSTALL_PREFIX))/html" html
 	$(INSTALL) -C external-publications/helptoc.xml -d $(realpath $(INSTALL_PREFIX))/html
 	$(INSTALL) -C external-publications/info.xml -d $(realpath $(INSTALL_PREFIX))
