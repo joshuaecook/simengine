@@ -12,6 +12,10 @@ profile ?=
 verbose ?= 1
 # If non-empty, will not echo commands as they are executed
 noecho ?=
+# If non-empty, HTML documentation is created as part of the installer
+install-html ?=
+# Specifies which test suite to run when testing.
+test-suite ?= internal
 
 # Date and time
 TIME := $(shell date +%s)
@@ -30,10 +34,14 @@ SVN_IS_BRANCH := $(findstring branches,$(SVN_URL))
 SVN_IS_TRUNK := $(findstring trunk,$(SVN_URL))
 SVN_IS_TAG := $(findstring tag,$(SVN_URL))
 
+# User variables
 DEBUG := $(or $(debug),$(findstring branches,$(SVN_BRANCH)))
 PROFILE := $(if $(profile),$(profile),)
 VERBOSE := $(if $(verbose),$(verbose),)
 NOECHO := $(if $(noecho),@,)
+
+TEST_INTERNAL := $(findstring internal,$(test-suite))
+TEST_RELEASE := $(findstring release,$(test-suite))
 
 ## Platform and operating system detection
 OSLOWER := $(shell uname -s|tr [:upper:] [:lower:])

@@ -27,6 +27,8 @@ profile		If non-empty, compile with extra profiling information.
 verbose		If non-empty, print extra information when compiling.
 
 install-html	If non-empty, create HTML documentation with the installer.
+test-suite	Specifies which test suites to run; may contain "release" or 
+		"internal" (default.)
 
 endef
 
@@ -150,6 +152,10 @@ html: install
 	$(INSTALL) -C external-publications/info.xml -d $(realpath $(INSTALL_PREFIX))
 	$(MATLAB) -nosplash -nodesktop -r "builddocsearchdb('$(realpath $(INSTALL_PREFIX))/html'); quit"
 
+.PHONY: test
+test: TEST_SUITE := $(if $(TEST_RELEASE),-release,-internal)
+test: install
+	$(MATLAB) -nosplash -nodesktop -r "matlab_test_script('$(TEST_SUITE)'); quit"
 
 .SECONDARY: $(CLEAN)
 .PHONY: clean
