@@ -25,6 +25,7 @@ s = Suite(['MATLAB DIESEL Syntax Tests ' target]);
 % Add each of the syntax tests
 if strcmp(target, '-cpu')
     s.add(InvalidCodeTests);
+    s.add(SubModelTests);
 end
 
 end
@@ -65,3 +66,60 @@ s.add(CreateUserErrorTest('AlgebraicLoop', AlgebraicLoop, ...
 end
 
 
+function s = SubModelTests
+
+s = Suite('SubModel Tests');
+
+    function m = SquareSubModel
+        m = Model('sub');
+        x = m.input('x');
+        m.output('y', x^2);
+    end
+
+s_len = Suite('Length Tests');
+s.add(s_len);
+
+
+    function r = OneSubModelA
+        m = Model('top');
+        sm = m.submodel(SquareSubModel);
+        r = (length(sm) == 1);
+    end
+
+s_len.add(Test('OneSubModel A', @OneSubModelA));
+
+    function r = OneSubModelB
+        m = Model('top');
+        sm = m.submodel(SquareSubModel, 1);
+        r = (length(sm) == 1);
+    end
+
+s_len.add(Test('OneSubModel B', @OneSubModelB));
+
+    function r = MultiSubModels1D
+        m = Model('top');
+        sm = m.submodel(SquareSubModel, 10);
+        r = (length(sm) == 10);
+    end
+
+s_len.add(Test('1D Vector Submodels', @MultiSubModels1D));
+
+    function r = MultiSubModels2D
+        m = Model('top');
+        dims = [5 10];
+        sm = m.submodel(SquareSubModel, dims);
+        r = all(size(sm) == dims) && (length(sm) == dims(1));
+    end
+
+s_len.add(Test('2D Matrix Submodels', @MultiSubModels2D));
+
+    function r = MultiSubModels3D
+        m = Model('top');
+        dims = [5 10 20];
+        sm = m.submodel(SquareSubModel, dims);
+        r = all(size(sm) == dims) && (length(sm) == dims(1));
+    end
+
+s_len.add(Test('3D Volume Submodels', @MultiSubModels3D));
+
+end
