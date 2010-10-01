@@ -140,7 +140,8 @@ classdef Exp
                     e.iterReference = v;
                     e.val = v.id;
                 else
-                    error('Simatra:Exp', 'Invalid types passed to Exp.  Must be either a string variable name, a numeric literal, an Exp type, or an Iterator.');
+                    classname = class(v);
+                    error('Simatra:Exp', 'Invalid type ''%s'' passed to Exp.  Must be either a string variable name, a numeric literal, an Exp type, or an Iterator.', classname);
                 end
             elseif nargin == 2
                 if ischar(v) && ischar(sub)

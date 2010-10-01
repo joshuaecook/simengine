@@ -107,20 +107,21 @@ classdef CellMLModel < Model
                         for vid = 1:numvars
                             pvar = variables{vid,1};
                             cvar = variables{vid,2};
-                            if isInput(sm, cvar)
+                            if isInput(sm, cvar) && isOutput(parent_sm, pvar)
+                                %disp(sprintf('Assigning %s.%s = %s.%s', child, cvar, parent, pvar));
                                 sm.(cvar) = parent_sm.(pvar);
                                 output_name = [parent '_' pvar];
                                 if ~isKey(obj.Outputs, output_name)
                                    obj.output(output_name, parent_sm.(pvar));
                                 end
-                            elseif isOutput(sm, cvar)
+                            elseif isOutput(sm, cvar) && isInput(parent_sm, pvar)
                                 parent_sm.(pvar) = sm.(cvar);
                                 output_name = [child '_' cvar];
                                 if ~isKey(obj.Outputs, output_name)
                                     obj.output(output_name, sm.(cvar));
                                 end
                             else
-                                error('Simatra:CellMLModel:add_components', '%s is neither an input nor output of %s', cvar, child);
+                                error('Simatra:CellMLModel:add_components', 'Can not determine an input <-> output relationship between %s.%s and %s.%s', child, cvar, parent, pvar);
                             end
                             
                         end
@@ -258,7 +259,7 @@ classdef CellMLModel < Model
                 end
             end
                 
-            mod.order_equations;
+            %mod.order_equations;
             %type(mod)
         end
        
