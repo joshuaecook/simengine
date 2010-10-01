@@ -2,13 +2,10 @@
 
 # Define local variables.
 
-CLASSES_$(D)    := $(wildcard $(D)/*.m)
-
-TARGETS_$(D)	:= $(CLASSES_$(D))
-TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+CLASSES_$(D)	:= $(addprefix $(D)/,$(addsuffix .m,Instance List Exp Iterator Model IteratorReference))
 INSTALLS	:= $(INSTALLS) $(D)/install
 
 # Define local rules.
 
-$(D)/install: $(TARGETS_$(D))
+$(D)/install: $(CLASSES_$(D))
 	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)
