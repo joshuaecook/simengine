@@ -603,10 +603,10 @@ classdef Model < handle
             if isa(varargin{1}, 'Model')
                 modelarg = varargin{1};
                 if nargin == 2
-                    count = 1;
+                    dims = 1;
                 elseif nargin == 3
-                    if isnumeric(varargin{2}) && varargin{2}>0
-                        count = varargin{2};
+                    if isnumeric(varargin{2}) && all(varargin{2}>0)
+                        dims = varargin{2};
                     else
                         error('Simatra:Model:submodel', 'Invalid number of submodels defined');
                     end
@@ -614,17 +614,9 @@ classdef Model < handle
                     error('Simatra:Model:submodel', 'Too many arguments passed to submodel')
                 end
 
-                % compute the instance names
-                if count == 1
-                    inst = ['Instance_' num2str(m.instance_number)];
-                    m.instance_number = m.instance_number + 1;
-                else
-                    inst = cell(1, count);
-                    for i=1:count
-                        inst{i} = ['Instance_' num2str(m.instance_number)];
-                        m.instance_number = m.instance_number + 1;
-                    end
-                end
+                % compute the instance name
+                inst = ['Instance_' num2str(m.instance_number)];
+                m.instance_number = m.instance_number + 1;
                 
             elseif ischar(varargin{1}) && nargin>2 && isa(varargin{2}, 'Model')
                 inst = varargin{1};
@@ -635,8 +627,8 @@ classdef Model < handle
                 if nargin == 3
                     % all good...
                 elseif nargin == 4
-                    if isnumeric(varargin{3}) && varargin{3}>0
-                        error('Simatra:Model:submodel', 'Can not define the number of submodels to be greater than one when an explicit identifier is assigned');                        
+                    if isnumeric(varargin{3}) && all(varargin{3}>0)
+                      dims = varargin{3};
                     else
                         error('Simatra:Model:submodel', 'Invalid number of submodels defined');
                     end
@@ -680,16 +672,9 @@ classdef Model < handle
             else
                 error('Simatra:Model', 'Unexpected instance')
             end
-            if iscell(inst)
-                instance = cell(1,length(inst));
-                for i=1:length(inst)
-                    m.Instances(inst{i}) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
-                    instance{i} = Instance(inst{i}, m, modelarg, inputs, outputs);
-                end
-            else
-                m.Instances(inst) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
-                instance = Instance(inst, m, modelarg, inputs, outputs);
-            end
+
+            m.Instances(inst) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
+            instance = Instance(inst, m, modelarg, inputs, outputs, dims);
         end
 
         function e = equ(m, lhs, rhs)
@@ -1234,7 +1219,15 @@ classdef Model < handle
             for i=1:length(instances)
                 inst = m.Instances(instances{i});
                 name = inst.name;
-                str = [str '   submodel ' name ' ' instances{i} '\n'];
+                numSubInst = prod(inst.Dims);
+                % Handle multidimensional instances
+                if(numSubInst > 1)
+                  for j=1:numSubInst
+                    str = [str '   submodel ' name ' ' instances{i} '_' num2str(j) '\n'];
+                  end
+                else
+                  str = [str '   submodel ' name ' ' instances{i} '\n'];
+                end
             end
             str = [str '\n'];
             str = [str '   // Equation definitions\n'];
