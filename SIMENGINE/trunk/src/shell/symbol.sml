@@ -29,6 +29,7 @@ sig
   eqtype symbol
   val symbol : string -> symbol
   val name : symbol -> string
+  val layout : symbol -> Layout.t
   type 'a table
   val empty : 'a table
   val enter : 'a table * symbol * 'a -> 'a table
@@ -59,6 +60,7 @@ struct
 		  end
 
   fun name(s,n) = s
+  val layout = Layout.str o name
   fun compare ((_,i1),(_,i2)) = Int.compare (i1, i2)
 
   structure Table = IntMapTable(type key = symbol
@@ -118,6 +120,11 @@ fun toStrList symset =
     end
 fun toStr symset =
     "{" ^ (String.concatWith ", " (toStrList symset)) ^ "}"
+
+fun toLayout symset = 
+    let val strlist = toStrList symset
+    in Layout.curlyList (List.map Layout.str strlist)
+    end
 
 (* val unionList : set list -> set *)
 fun unionList [] = empty

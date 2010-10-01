@@ -16,8 +16,8 @@ val rhs : Exp.exp -> Exp.exp
 val deconstructInst : Exp.exp -> {classname: Symbol.symbol,
 				  instname: Symbol.symbol,
 				  props: InstProps.instproperties,
-				  inpargs: Exp.exp list,
-				  outargs: Exp.term list}
+				  inpargs: Exp.exp SymbolTable.table,
+				  outargs: Exp.term SymbolTable.table}
 
 (* Classification functions *)
 val isTerm : Exp.exp -> bool
@@ -353,18 +353,33 @@ fun deconstructInst exp =
 	val empty_return = {classname=Symbol.symbol "NULL", 
 			    instname=Symbol.symbol "NULL", 
 			    props=InstProps.emptyinstprops, 
-			    inpargs=[], 
-			    outargs=[]}
+			    inpargs=SymbolTable.empty, 
+			    outargs=SymbolTable.empty}
+
+	(* take all the instance outputs and return a mapping of the class outputs to the instance outputs *)
+	fun instance_outputs_to_output_table classname outargs = 
+	    let
+		val class = CurrentModel.classname2class classname
+		val outputs = !(#outputs class)
+	    in
+		foldl
+		    (fn((class_output, instance_output), table)=> SymbolTable.enter (table, class_output, instance_output))
+		    SymbolTable.empty
+		    (ListPair.zip (map (Term.sym2curname o DOF.Output.name) outputs, outargs))
+	    end
+	    
+	fun singleton_output_to_output_table outname outarg = 
+	    SymbolTable.enter (SymbolTable.empty, outname, outarg)
     in
 	if isInstanceEq exp then
 	    case exp of 
-		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.INST {classname, instname, props}, inpargs)]) => 
-		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=outargs}
+		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.INST {classname, instname, props}, [Exp.CONTAINER (Exp.ASSOC inpargs)])]) => 
+		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=(instance_outputs_to_output_table classname outargs)}
 	      | _ => (error_no_return exp "Malformed instance equation"; empty_return)
 	else if isOutputEq exp then
 	    case exp of
-		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, inpargs)]) => 
-		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=outargs}
+		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE [outarg]), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, [Exp.CONTAINER (Exp.ASSOC inpargs)])]) => 
+		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=(singleton_output_to_output_table outname outarg)}
 	      | _ => (error_no_return exp "Malformed output equation"; empty_return)
 	else
 	    (error_no_return exp "Not an instance or output equation"; empty_return)

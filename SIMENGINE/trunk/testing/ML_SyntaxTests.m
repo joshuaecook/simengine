@@ -60,7 +60,7 @@ s.add(CreateUserErrorTest('MadeUpVariable', MadeUpVariable, ...
         m.output('out', x, y);
     end
 s.add(CreateUserErrorTest('AlgebraicLoop', AlgebraicLoop, ...
-    'cycle exists'));
+    'Cycle found'));
 
 end
 

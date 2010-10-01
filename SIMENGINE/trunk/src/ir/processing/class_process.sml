@@ -416,15 +416,8 @@ and flattenEquationThroughInstances class sym =
 and leafTermSymbolsOfInstanceEquation caller sym eqn =
     let
 	val _ = log (fn () => "leafTermSymbolsOfInstanceEquation for sym '"^(Symbol.name sym)^"': '"^(e2s eqn)^"'")
-	val {classname, instname, outargs, inpargs, ...} = ExpProcess.deconstructInst eqn
+	val {classname, instname, outargs, inpargs=inpassoc, ...} = ExpProcess.deconstructInst eqn
 	val class = CurrentModel.classname2class classname
-	val inpassoc = 
-	    case inpargs
-	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
-	      | _ =>
-		DynException.stdException(("Inputs of output call should be an ASSOC container."),
-					  "CParallelWriter.class_flow_code.instaceeq2prog",
-					  Logger.INTERNAL)
 
 	val {outputs, inputs, ...} = class
 
@@ -1865,18 +1858,18 @@ fun pruneUnusedInputs (class: DOF.class) =
 
 		val inputSymbols = map Term.sym2curname (!(DOF.Output.inputs output))
 
-
+			
+		fun is_input_symbol sym =
+		    List.exists (fn sym' => sym = sym') inputSymbols
+		    
 		val inpassoc = 
 		    case inpargs
 		     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
 		      | _ =>
 			DynException.stdException(("Inputs of output call should be an ASSOC container."),
-						  "CParallelWriter.class_flow_code.instaceeq2prog",
+						  "ClassProcess.pruneClass.remove_unused_inputs",
 						  Logger.INTERNAL)
-			
-		fun is_input_symbol sym =
-		    List.exists (fn sym' => sym = sym') inputSymbols
-		    
+
 		val inpargs' =
 		    Exp.CONTAINER 
 			(Exp.ASSOC
@@ -1894,17 +1887,17 @@ fun pruneUnusedInputs (class: DOF.class) =
 
 		val inputSymbols = map (Term.sym2symname o DOF.Input.name) (!(#inputs class'))
 
+		fun is_input_symbol sym =
+		    List.exists (fn sym' => sym = sym') inputSymbols
+		    
 		val inpassoc = 
 		    case inpargs
 		     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
 		      | _ =>
 			DynException.stdException(("Inputs of output call should be an ASSOC container."),
-						  "CParallelWriter.class_flow_code.instaceeq2prog",
+						  "ClassProcess.pruneClass.remove_unused_inputs",
 						  Logger.INTERNAL)
-			
-		fun is_input_symbol sym =
-		    List.exists (fn sym' => sym = sym') inputSymbols
-		    
+
 		val inpargs' =
 		    Exp.CONTAINER 
 			(Exp.ASSOC
@@ -2323,7 +2316,7 @@ and expandInstances class =
 and outputExpressions caller equation =
     let 
 	(*val log = logdof ()*)
-	val {instname, classname, outargs, inpargs, ...} = ExpProcess.deconstructInst equation
+	val {instname, classname, outargs, inpargs=inpassoc, ...} = ExpProcess.deconstructInst equation
 	val outname = 
 	    case equation
 	     of Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, inpargs)]) => outname
@@ -2354,13 +2347,6 @@ and outputExpressions caller equation =
 
 	val renameWithInstanceNamePrefix = renameWithPrefix (ExpProcess.instOrigInstName equation)
 
-	val inpassoc = 
-	    case inpargs
-	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
-	      | _ =>
-		DynException.stdException(("Inputs of output call should be an ASSOC container."),
-					  "CParallelWriter.class_flow_code.instaceeq2prog",
-					  Logger.INTERNAL)
 
 	val inputs_exps =
 	    SymbolTable.foldli
@@ -2401,7 +2387,7 @@ and outputExpressions caller equation =
 
 
 	val outarg' = 
-	    if 1 = List.length outargs then List.hd outargs
+	    if 1 = SymbolTable.numItems outargs then List.hd (SymbolTable.listItems outargs)
 	    else DynException.stdException(("Too many output arguments"),
 					   "ClassProcess.unify.instanceEquationExpansion", Logger.INTERNAL)
 	val output' = 
@@ -2422,7 +2408,7 @@ and outputExpressions caller equation =
 and instanceExpressions caller equation =
     let 
 	(*val log = logdof ()*)
-	val {instname, classname, inpargs, ...} = ExpProcess.deconstructInst equation
+	val {instname, classname, inpargs=inpassoc, ...} = ExpProcess.deconstructInst equation
 	val instanceClass = CurrentModel.classname2class classname
 	val instanceName = ExpProcess.instOrigInstName equation
 	val {name, exps, outputs, inputs, ...} : DOF.class = instanceClass
@@ -2453,14 +2439,6 @@ and instanceExpressions caller equation =
 	     test = NONE}
 
 	val renameWithInstanceNamePrefix = renameWithPrefix instanceName
-
-	val inpassoc = 
-	    case inpargs
-	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
-	      | _ =>
-		DynException.stdException(("Inputs of output call should be an ASSOC container."),
-					  "CParallelWriter.class_flow_code.instaceeq2prog",
-					  Logger.INTERNAL)
 
 	val inputs_exps =
 	    SymbolTable.foldli

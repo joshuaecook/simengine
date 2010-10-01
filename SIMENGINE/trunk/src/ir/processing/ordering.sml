@@ -288,9 +288,9 @@ fun buildInstance (class, outputs, inputMap, original_instance_exp) : Exp.exp =
 
 	val instName = genUniqueName(Symbol.name (orig_inst_name))
 
-	val lhs' = Exp.TUPLE (map (sym2output orig_outs) outputs)
+	val lhs' = Exp.TUPLE (map (sym2output (SymbolTable.listItems orig_outs)) outputs)
 
-	val inputs = map (fn(i) => List.nth (oldinputs, i)) inputMap
+	val inputs = map (fn(i) => List.nth (SymbolTable.listItems oldinputs, i)) inputMap
 
 	val rhs' = Exp.FUN (Fun.INST {classname= #name class, 
 				      instname=instName,
