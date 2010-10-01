@@ -694,9 +694,9 @@ classdef Exp
                     s = e.val;
                 case e.LITERAL
                     if length(e.val) > 1
-                        s = ['[' mat2str(e.val) ']'];
+                        s = ['[' numberToString(e.val) ']'];
                     else
-                        s = mat2str(e.val);
+                        s = numberToString(e.val);
                     end
                 case e.OPERATION
                     arguments = e.args;
@@ -750,8 +750,13 @@ classdef Exp
     
 end
 
-function s = mat2str(v)
-s = sprintf('%.15g', v);
+function s = numberToString(v)
+if length(v) == 1
+    s = sprintf('%.15g', v);
+else
+    s = List.stringConcatWith(' ', List.map (@(v)(numberToString(v)), num2cell(v)));
+    %s = mat2str(v);
+end
 end
 
 function er = oper(operation, args, infix)
