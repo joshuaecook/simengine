@@ -100,6 +100,7 @@
 // logast, logdof, logrewrites, logredundancy: debugging information on internal data structures
 <logast = false>
 <logdof = false>
+<logoutline = false>
 <logrewrites = false>
 <logredundancy = false>
 <logordering = false>

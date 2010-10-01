@@ -1497,7 +1497,7 @@ and differenceeq2prog exp =
     [$((CWriterUtil.exp2c_str exp) ^ ";")]
 and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
-	val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
+	val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst exp
 	val outname = 
 	    case exp 
 	     of Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, inpargs)]) => outname
@@ -1505,14 +1505,6 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 					  "CParallelWriter.outputeq2prog",
 					  Logger.INTERNAL)
 	    
-	val inpassoc = 
-	    case inpargs
-	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
-	      | _ =>
-		DynException.stdException(("Inputs of output call should be an ASSOC container."),
-					  "CParallelWriter.class_flow_code.instaceeq2prog",
-					  Logger.INTERNAL)
-
 	(* every iterator except the update iterator uses an iter_name *)
 	val iter_name = Symbol.name (case iter_type of
 					 DOF.UPDATE v => v
@@ -1561,7 +1553,7 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val calling_name = "output_" ^ (Symbol.name classname) ^ "_" ^ (Symbol.name outname)
 	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
-	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
+	val outvar = if SymbolTable.null outargs then "NULL" else Unique.unique "outputdata"
 
 	val inputs = 
 	    Util.addCount (!(DOF.Output.inputs output))
@@ -1589,8 +1581,8 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 
 
 	val outs_decl = 
-	    if List.null outargs then Layout.empty
-	    else $("CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];")
+	    if SymbolTable.null outargs then Layout.empty
+	    else $("CDATAFORMAT " ^ outvar ^ "["^(i2s (SymbolTable.numItems outargs))^"];")
 
 	fun declare_output (sym, idx) =
 	    $("CDATAFORMAT " ^ (Symbol.name sym) ^ ";")
@@ -1598,7 +1590,7 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	    $((Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];")
 
 	val output_symbol_pairs =
-	    map (fn (out,idx) => (Term.sym2curname out,idx)) (Util.addCount outargs)
+	    map (fn (out,idx) => (Term.sym2curname out,idx)) (SymbolTable.addCount outargs)
     in
 	[Layout.align (map declare_output output_symbol_pairs),
 	 $("{"),
@@ -1616,15 +1608,7 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     end
 and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
-	val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst exp
-	val inpassoc = 
-	    case inpargs
-	     of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
-	      | _ =>
-		DynException.stdException(("Inputs of instance call should be an ASSOC container."),
-					  "CParallelWriter.class_flow_code.instaceeq2prog",
-					  Logger.INTERNAL)
-
+	val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst exp
 
 	val orig_instname = instname
 	(* every iterator except the update iterator uses an iter_name *)
@@ -1672,7 +1656,7 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	val calling_name = "flow_" ^ (Symbol.name classname)
 
 	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
-	val outvar = if List.null outargs then "NULL" else Unique.unique "outputdata"
+	val outvar = if SymbolTable.null outargs then "NULL" else Unique.unique "outputdata"
 			
 	val inputs = 
 	    Util.addCount (!(#inputs instclass))
@@ -1699,8 +1683,8 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 		$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inputs)) ^ "];")
 
 	val outs_decl = 
-	    if List.null outargs then []
-	    else [$("CDATAFORMAT " ^ outvar ^ "["^(i2s (List.length outargs))^"];")]
+	    if SymbolTable.null outargs then []
+	    else [$("CDATAFORMAT " ^ outvar ^ "["^(i2s (SymbolTable.numItems outargs))^"];")]
 
 	fun declare_output ((sym,_),_) = "CDATAFORMAT "^(Symbol.name sym)^";"
 
@@ -2129,17 +2113,9 @@ fun state_init_code shardedModel iter_sym =
 		val instCode = ClassProcess.foldInstanceEquations
 			 (fn (eqn, code) => 
 			     let
-				 val {classname, instname, props, inpargs, outargs} = ExpProcess.deconstructInst eqn
+				 val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst eqn
 				 val instclass = CurrentModel.classname2class classname
 				 val orig_instname = instname
-
-				 val inpassoc = 
-				     case inpargs
-				      of [Exp.CONTAINER (Exp.ASSOC tab)] => tab
-				       | _ =>
-					 DynException.stdException(("Inputs of output call should be an ASSOC container."),
-								   "CParallelWriter.class_flow_code.instaceeq2prog",
-								   Logger.INTERNAL)
 
 				 val sysreadsName = Unique.unique "subsys_rd"
 

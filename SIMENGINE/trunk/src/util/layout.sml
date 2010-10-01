@@ -319,4 +319,9 @@ fun heading (s, t) = align [seq [str s, str ": "],
 			    indent (t, 2)]
 
 fun space t = seq (separateLeft (t, " "))
+
+(* perform logging *)
+fun log t = (output (add_newline t, TextIO.stdOut);
+	     TextIO.flushOut(TextIO.stdOut))
+
 end

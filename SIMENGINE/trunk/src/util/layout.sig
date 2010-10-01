@@ -90,4 +90,6 @@ signature LAYOUT =
       val heading: (string * t) -> t
       (* separate with spaces *)
       val space: t list -> t
+      (* write to the screen *)
+      val log: t -> unit
    end

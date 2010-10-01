@@ -8,7 +8,7 @@ val i2s = Util.i2s
 val r2s = Util.real2exact_str
 val log = Util.log
 
-
+local
 fun exp2c_str (Exp.FUN (str, exps)) =
     let
 	fun useParen (Exp.FUN (str', _)) = 
@@ -81,8 +81,8 @@ fun exp2c_str (Exp.FUN (str, exps)) =
 	    DynException.stdException ("Cannot write ASSOC containers.", "CWriter.exp2c_str", Logger.INTERNAL)
 	  | Exp.MATRIX m => matrix2str m
     end
-  | exp2c_str (Exp.META _) = 
-    DynException.stdException ("Cannot write META expressions.", "CWriter.exp2c_str", Logger.INTERNAL)
+  | exp2c_str (e as Exp.META _) = 
+    DynException.stdException (("Cannot write META expressions. ["^(ExpPrinter.exp2str e)^"]"), "CWriter.exp2c_str", Logger.INTERNAL)
     
 
 and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (i2s d) ^ ".0))" (* must make it float for proper eval *)
@@ -108,6 +108,11 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
   | term2c_str Exp.DONTCARE = "_"
   | term2c_str term =
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
+in
+fun exp2c_str_helper exp = exp2c_str exp
+    handle e => DynException.checkpoint ("CWriterUtil.exp2c_str ["^(e2s exp)^"]") e
+end
+val exp2c_str = exp2c_str_helper
 
 fun iter2range class (itersym, itertype) = 
     (*case List.find (fn{name,...}=> name=itersym) (#iterators class) of

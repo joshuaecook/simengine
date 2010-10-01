@@ -39,16 +39,16 @@ s.add(OrderingTests);
 
         function m = SubModelTest1
             sm = Model('sub');
-            x = sm.state(0);
+            x = sm.state('x', 0);
             sm.diffequ(x, 1);
             sm.output(x);
             
             m = Model('SubModelTest1');
             m.solver = 'forwardeuler';
             m.dt = 1;
-            x1 = m.state(0);
+            x1 = m.state('x1', 0);
             m.diffequ(x1, 2);
-            s = m.submodel(sm);
+            s = m.submodel('s', sm);
             x2 = s.x;
             m.output('y', x1, x2);
         end
@@ -463,13 +463,13 @@ s.add(OrderingTests);
             
             m = Model('OrderingTest7');
             m.solver = 'forwardeuler'; m.dt = 1;
-            x = m.state(0);
+            x = m.state('x',0);
             m.diffequ(x, 1);
-            s1 = m.submodel(sm);
+            s1 = m.submodel('s1', sm);
             s1.x1 = x; % go forward
-            s2 = m.submodel(sm);
+            s2 = m.submodel('s2', sm);
             s2.x1 = s1.y1;
-            s3 = m.submodel(sm);
+            s3 = m.submodel('s3', sm);
             s3.x1 = s2.y1;
             s3.x2 = s3.y1; % and now back around
             s2.x2 = s3.y2;
@@ -496,6 +496,6 @@ s.add(OrderingTests);
             m.output('y', sub.b1, sub.b2);
         end
         
-        s.add(CreateUserErrorTest('SubmodelLoop', OrderingTest8, 'cycle exists'));
+        s.add(CreateUserErrorTest('SubmodelLoop', OrderingTest8, 'Cycle found'));
     end
 end

@@ -49,7 +49,7 @@ fun DOFToShardedModel forest =
 	val _ = CurrentModel.setCurrentModel forest
 
 	(* here, we can validate the model to catch issues that can't be found elsewhere *)
-	val _ = ModelValidate.validate forest
+	val _ = Profile.time "Validating model ..." ModelValidate.validate forest
 	val _ = DynException.checkToProceed()
 	val _ = Profile.mark()
 

@@ -50,13 +50,13 @@ fun exp2mathematica_str (exp as (Exp.FUN (Fun.BUILTIN Fun.ASSIGN,[_,Exp.FUN (Fun
 	val {classname,instname,props,inpargs,outargs} =
 	    ExpProcess.deconstructInst exp
 	val expsvar = addPrefix "exps" instname
-	val outputs = map Term.sym2symname outargs
+	val outputs = map Term.sym2symname (SymbolTable.listItems outargs)
 	val lhs = Exp.TERM (Exp.TUPLE 
 				[Term.sym2term expsvar, 
 					     Exp.TUPLE 
 						 (map Term.sym2term outputs)])
 	val lhs' = exp2mathematica_str lhs
-	val rhsargs = map exp2mathematica_str inpargs
+	val rhsargs = map exp2mathematica_str (SymbolTable.listItems inpargs)
 	val rhs' = "SubModel["^(fixname (Symbol.name classname))^"["^String.concatWith "," rhsargs^"]]"		   
     in
 	lhs' ^ " = " ^ rhs'

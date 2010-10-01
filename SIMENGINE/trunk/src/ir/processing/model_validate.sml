@@ -137,12 +137,11 @@ fun notEmpty statesize =
 	    error("Model has no states or outputs")
     end
 
-fun undefinedSymbols () = 
+fun undefinedSymbols (model_outline) = 
     let
-	val classes = CurrentModel.classes()
-	fun checkUndefinedSymbolsInClass (class) =
+	fun checkUndefinedSymbolsInClass (classname) =
 	    let
-		val outline = DOFOutline.class_to_outline class
+		val (_,outline) = DOFOutline.class_to_outline model_outline classname
 		val symbols = DOFOutline.class_to_undefined_symbols outline
 	    in
 		if SymbolSet.isEmpty symbols then
@@ -150,9 +149,21 @@ fun undefinedSymbols () =
 		else
 		    app (fn(sym)=>error("Quantity " ^ (Symbol.name sym) ^ " is undefined")) (SymbolSet.listItems symbols)
 	    end
+	    handle e => DynException.checkpoint "ModelValidate.undefinedSymbols.checkUndefinedSymbolsInClass" e
     in
-	app checkUndefinedSymbolsInClass classes
+	SymbolTable.appi (fn(key, _)=>checkUndefinedSymbolsInClass key) model_outline
     end
+    handle e => DynException.checkpoint "ModelValidate.undefinedSymbols" e
+
+fun noCycles (model_outline) =
+    let
+	val model_outline = DOFOutline.model_to_outline (CurrentModel.getCurrentModel())
+    in
+	case DOFOutline.model_to_cycles model_outline of
+	    [] => () (* no cycles *)
+	  | cycles => app (fn{classname, deps}=> error ("Cycle found in Model " ^ (Symbol.name classname) ^ " with the following quantites " ^ (Util.symlist2s deps))) cycles
+    end
+    handle e => DynException.checkpoint "ModelValidate.noCycles" e
 
 fun verifyTarget Target.CPU = ()
   | verifyTarget Target.OPENMP = Features.verifyEnabled Features.MULTI_CORE
@@ -186,31 +197,24 @@ fun validate (model as (classes, instance, sysprops))=
 
 	    (* verify that the model is not empty *)
 	    val _ = notEmpty (statesize)
+	    val _ = DynException.checkToProceed() (* see if any errors were thrown *)
 
 	    (* verify that no symbols are left undefined *)
-	    val _ = undefinedSymbols ()
+	    val model_outline = DOFOutline.model_to_outline (CurrentModel.getCurrentModel())
+	    val _ = Profile.time "Finding undefined symbols ..." undefinedSymbols (model_outline)
+	    val _ = DynException.checkToProceed() (* see if any errors were thrown *)
 
 	    (* verify that the LHS of equations have difference equation terms that only reference [n+1] or [n] *)
 	    val _ = properLHSDiscreteState ()
+	    val _ = DynException.checkToProceed() (* see if any errors were thrown *)
 
 	    (* verify that no derivatives are used on the rhs of equations or in the outputs *)
 	    val _ = noRHSDerivatives ()
+	    val _ = DynException.checkToProceed() (* see if any errors were thrown *)
 		    
-
-	    val temporarily_disable = true
-	    val _ = 
-		if temporarily_disable then
-		    ()
-		else
-		    let
-			(* now perform an ordering step, just to make sure there aren't any loops *)
-			val modelClone = ModelProcess.duplicateModel model (fn(s) => s)
-			val _ = Ordering.orderEquations modelClone
-			    handle DynException.OrderingException (classname, cycle) => 
-				   error ("A cycle exists in model " ^ (Symbol.name classname) ^ " with the following quantiies: " ^ (Util.symlist2s cycle))
-		    in
-			()
-		    end
+	    (* verify that there are no cycles present in the model *)
+	    val _ = Profile.time "Finding cycles through submodels ..." noCycles (model_outline)
+	    val _ = DynException.checkToProceed() (* see if any errors were thrown *)
 
 	    val _ = CurrentModel.setCurrentModel model
 	in
