@@ -1,0 +1,53 @@
+# Import subsystem rules.
+
+SUBSYSTEMS := $(D)/dsl_gen
+$(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
+
+# Define local variables.
+
+CLASSES_$(D)	:= $(addprefix $(D)/,$(addsuffix .m,simCheckLicense_info simEngineUpdate simCheckLicense simexamplepath simhelp simCheckVersion_info simplot simCheckVersion simex_info))
+PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D)))) $(D)/simex.p $(D)/parse_json.p
+
+TARGETS_$(D)	:= $(PCODE_$(D)) $(addprefix $(D)/,Contents.m $(addprefix src/readSimulationData,$(MEXEXT)))
+TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+INSTALLS	:= $(INSTALLS) $(D)/installs
+CLEAN		:= $(CLEAN) $(TARGETS_$(D)) $(addprefix $(D)/src/readSimulationData,$(ALL_MEXEXT))
+CLEAN_ALL	:= $(CLEAN_ALL) $(D)/simex.m
+
+define CONTENTS_M
+% SIMATRA simEngine\n\
+% Version $(VERSION)\n\
+% \n\
+% simEngine, the Dynamical System Compiler Toolbox by Simatra for MATLAB(TM)\n\
+% \n\
+% simEngine model construction\n\
+%   Model           - Create simEngine models programmatically in MATLAB\n\
+%   Iterator        - Create iterator objects used in Model generation\n\
+% \n\
+% simEngine functions\n\
+%   simex           - Compile and simulate DIESEL source files using simEngine\n\
+%   simplot         - Plotting utility to visualize the output of simEngine simulations\n\
+%   simexamplepath  - Returns the path for examples and demo files\n\
+% \n\
+% simEngine utility functions\n\
+%   simCheckVersion - Queries the Simatra servers for a new version of simEngine\n\
+%   simCheckLicense - Reports on current license, or installs a new license for simEngine\n\
+%   simEngineUpdate - Auto-updates the simEngine installation to the latest available version\n\
+% \n\
+%  For more information, see http://www.simatratechnologies.com.\n\
+% \n\
+%  Copyright 2010 Simatra Modeling Technologies
+endef
+
+# Define local rules.
+
+$(D)/simex.m: $(D)/simex/simex.m $(filter-out %simex.m,$(wildcard $(D)/simex/*.m))
+	cat $^ > $@
+
+$(D)/Contents.m: VERSION = $(MAJOR_VERSION).$(MINOR_VERSION) $(if $(VERSION_REVISION),($(VERSION_REVISION)) ,)$(BUILD_DATE_MATLAB)
+$(D)/Contents.m: $(D)/Makefile.defs
+	$(info Generating $@)
+	@echo "$(CONTENTS_M)" > $@
+
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)

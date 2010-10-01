@@ -1,0 +1,60 @@
+#!/bin/sh
+# Remote compilation
+# Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C.
+self=$(basename $0)
+
+usage () {
+echo "Usage: "$self [OPTION]... HOSTNAME [ARGUMENTS]...
+echo
+echo "Options:"
+echo "  -h	"Displays this message.
+echo "  -v	"Display extra information while executing.
+echo
+echo "Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C."
+}
+
+default_options () {
+    verbose=
+    hostname=
+    remote_dir=MakeRemote/$(hostname -f)
+}
+
+## Main
+default_options
+while [ -n "$1" ]; do
+    case "$1" in
+	-h) usage; exit 0 ;;
+	-v) verbose="-v" ;;
+	-*) echo $self: invalid option $1;
+	    echo Invoke \"$self -h\" for more information.;
+	    exit 2;;
+	*) hostname="$1"; shift; break ;;
+    esac
+    shift
+done
+
+if [ -z "$hostname" ]; then
+    echo $self: No hostname specified
+    echo Invoke \"$self -h\" for more information.
+    exit 2
+fi
+
+rsync_options="-az $verbose"
+ssh_options="-t -t -C"
+make_options="$*"
+
+mkremote_dir () {
+    echo "mkdir -p \"\$(dirname $remote_dir)\"; exit \$?" | ssh $ssh_options $hostname 
+}
+sync_put () {
+    rsync --delete $rsync_options ./ $hostname:"$remote_dir/"
+}
+remote_make () {
+    echo "make -C \"$remote_dir\" $make_options; exit \$?" | ssh $ssh_options $hostname
+}
+sync_get () {
+    rsync $rsync_options $hostname:"$remote_dir/" ./
+}
+
+mkremote_dir && sync_put && remote_make && sync_get
+

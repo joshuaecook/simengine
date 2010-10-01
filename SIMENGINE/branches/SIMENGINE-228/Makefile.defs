@@ -1,0 +1,27 @@
+# Define local variables.
+
+EXAMPLES_$(D) := $(wildcard $(D)/ReleaseExamples/*)
+
+TARGETS_$(D) := $(addprefix $(D)/datafiles/,build-options.json)
+TARGETS := $(TARGETS) $(TARGETS_$(D))
+INSTALLS := $(INSTALLS) $(D)/installs
+INSTALL_EXAMPLES := $(INSTALL_EXAMPLES) $(EXAMPLES_$(D))
+CLEAN := $(CLEAN) $(TARGETS_$(D))
+CLEAN_ALL :=
+
+# Import subsystem rules.
+
+SUBSYSTEMS := src share/cuda share/emacs interfaces codegen solvers ReleaseExamples
+$(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
+
+# Define local rules.
+
+.PHONY: $(D)/datafiles/build-options.json
+$(D)/datafiles/build-options.json:
+	$(info Generating $@)
+	@echo "$(BUILD_OPTIONS_JSON)" > $@
+
+.PHONY: $(D)/installs
+$(D)/installs: DATA := $(addprefix $(D)/datafiles/,default.dol global.dol build-options.json)
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $(DATA) -d $(INSTALL_PREFIX)/data
