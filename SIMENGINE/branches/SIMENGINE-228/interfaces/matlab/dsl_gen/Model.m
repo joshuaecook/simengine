@@ -626,6 +626,7 @@ classdef Model < handle
                 modelarg = varargin{2};
                 if nargin == 3
                     % all good...
+                    dims = 1;
                 elseif nargin == 4
                     if isnumeric(varargin{3}) && all(varargin{3}>0)
                       dims = varargin{3};
