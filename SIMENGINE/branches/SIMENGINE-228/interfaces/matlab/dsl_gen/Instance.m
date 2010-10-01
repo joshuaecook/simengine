@@ -7,6 +7,7 @@ classdef Instance
         Outputs
         Mdl
         SubMdl
+        Dims
     end
     
     properties (Access = protected)
@@ -14,23 +15,25 @@ classdef Instance
     end
     
     methods
-        function inst = Instance(InstName, Mdl, SubMdl, Inputs, Outputs)
+        function inst = Instance(InstName, Mdl, SubMdl, Inputs, Outputs, Dims)
             inst.Mdl = Mdl;
             inst.SubMdl = SubMdl;
             inst.InstName = InstName;
             inst.Inputs = Inputs;
             inst.Outputs = Outputs;
             inst.definedInputs = containers.Map;
+            inst.Dims = Dims;
         end
         
         function b = subsref(inst, s)
+        numSubInst = prod(Dims);
             if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
                 % make sure that the output exists
                 out = s.subs;
                 %items = strfind(inst.Outputs, s.subs);
                 %if isempty(cell2mat(items))
                 if isOutput(inst, out)
-                    output = Exp(inst.InstName, s.subs);
+                    output = Exp(inst.InstName, out);
                     b = output;
                 elseif isInput(inst, out)
                     % now, if it's an input, we can still handle that by
@@ -39,7 +42,7 @@ classdef Instance
                     if isKey(inst.definedInputs, out)
                         b = inst.definedInputs(out);
                     else
-                        error('Simatra:Instance', 'Can not read from a input ''%s'' of submodel ''%s'' if it has not been already defined.', out, inst.SubMdl.Name)
+                        error('Simatra:Instance', ['Can not read from an input ''%s'' of submodel ''%s'' if it has not been already defined.'], out, inst.SubMdl.Name)
                     end    
                 elseif strcmp(out, 'Inputs')
                     b = inst.Inputs;
