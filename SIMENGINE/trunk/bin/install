@@ -92,6 +92,7 @@ usage () {
 echo "Usage: "$self [OPTION]... [FILE]... -d DESTINATION
 echo "       "$self [OPTION]... FILE -T DESTINATION
 echo
+echo "Options:"
 echo "  -d	"Specifies the destination directory. The directory is
 echo "    	"created if it does not already exist.
 echo "  -dm	"Specifies the destination directory permissions if the
@@ -115,6 +116,9 @@ echo "       "$self FILE1 -d DIR1 FILE2 -T FILE3
 echo
 echo Specifying a directory with -d without any preceeding source files
 echo simply creates the destination directory.
+echo
+echo "Copyright (C) 2010 by Simatra Modeling Technologies, L.L.C."
+
 }
 
 count () {
