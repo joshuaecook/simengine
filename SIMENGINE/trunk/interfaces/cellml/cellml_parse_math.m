@@ -144,6 +144,8 @@ switch char(node.getNodeName)
                 expression = log10(operands{1});
             case 'cosh'
                 expression = cosh(operands{1});
+            case 'floor'
+                expression = floor(operands{1});
             case 'root'
                 if length(operands) == 1
                     expression = operands{1}^0.5;
@@ -156,6 +158,8 @@ switch char(node.getNodeName)
                 op = char(operator.getNodeName);
                 error('Simatra:cellml_parse_math','Unexpected operation %s with %d operands', op, length(operands));
         end
+    case 'pi'
+        expression = Exp(pi);
     otherwise
         name = char(node.getNodeName);
         disp(sprintf('operating on unknown %s', name));

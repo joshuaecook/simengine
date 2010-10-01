@@ -39,7 +39,7 @@ classdef Instance
                     if isKey(inst.definedInputs, out)
                         b = inst.definedInputs(out);
                     else
-                        error('Simatra:Instance', 'Can not read from an input of a submodel if it has not been already defined.')
+                        error('Simatra:Instance', 'Can not read from a input ''%s'' of submodel ''%s'' if it has not been already defined.', out, inst.SubMdl.Name)
                     end    
                 elseif strcmp(out, 'Inputs')
                     b = inst.Inputs;
@@ -89,7 +89,7 @@ classdef Instance
         end
         
         function b = with(inst, inputValues)
-            if length(inputValues) == 0
+            if isempty(inputValues)
               error('Simatra:Instance', 'No arguments. Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [...]])');
             end
             if mod(length(inputValues),2) ~= 0
