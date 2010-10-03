@@ -24,8 +24,9 @@ s = Suite(['MATLAB DIESEL Syntax Tests ' target]);
 
 % Add each of the syntax tests
 if strcmp(target, '-cpu')
-    s.add(InvalidCodeTests);
+    s.add(ExpTests);
     s.add(SubModelTests);
+    s.add(InvalidCodeTests);
 end
 
 end
@@ -65,6 +66,88 @@ s.add(CreateUserErrorTest('AlgebraicLoop', AlgebraicLoop, ...
 
 end
 
+% A series of tests to verify that expressions work as expected
+function s = ExpTests
+
+s = Suite('Expression Tests');
+
+noErrorTest = @(id, fcn)(Test(id, fcn, '-withouterror'));
+
+% First test basic instantiation of terminals
+s_usage = Suite('Instantiation Tests');
+s_usage.add(noErrorTest('literal', @()(Exp(1))));
+s_usage.add(noErrorTest('var', @()(Exp('a'))));
+s_usage.add(noErrorTest('reference', @()(Exp('s','x'))));
+s_usage.add(noErrorTest('iterator', @()(Exp(Iterator('t')))));
+t = Test('cell', @()(Exp({'a'})), '-withouterror');
+t.ExpectFail = true;
+s_usage.add(t);
+s.add(s_usage);
+
+% Now, we can move into symbolic operations
+s_ops = Suite('Operation Tests');
+a = Exp('a'); b = Exp('b'); c = Exp('c');
+% Algebraic operators
+s_ops.add(noErrorTest('uplus', @()(+a)));
+s_ops.add(noErrorTest('uminus', @()(-a)));
+s_ops.add(noErrorTest('plus', @()(a+b)));
+s_ops.add(noErrorTest('minus', @()(a-b)));
+s_ops.add(noErrorTest('times', @()(a.*b)));
+s_ops.add(noErrorTest('mtimes', @()(a*b)));
+s_ops.add(noErrorTest('mpower', @()(a^b)));
+s_ops.add(noErrorTest('mrdivide', @()(a/b)));
+s_ops.add(noErrorTest('mldivide', @()(a/b)));
+s_ops.add(noErrorTest('mod', @()(mod(a,b))));
+
+% Relational operators
+s_ops.add(noErrorTest('eq', @()(a==b)));
+s_ops.add(noErrorTest('neq', @()(a~=b)));
+s_ops.add(noErrorTest('lt', @()(a<b)));
+s_ops.add(noErrorTest('gt', @()(a>b)));
+s_ops.add(noErrorTest('le', @()(a<=b)));
+s_ops.add(noErrorTest('ge', @()(a>=b)));
+
+% Logical operators
+s_ops.add(noErrorTest('and', @()(a&b)));
+s_ops.add(noErrorTest('or', @()(a|b)));
+s_ops.add(noErrorTest('not', @()(~a)));
+s_ops.add(noErrorTest('any', @()(any(a,b,c))));
+s_ops.add(noErrorTest('all', @()(all(a,b,c))));
+
+% Trancendental and other unary functions
+fcns = {'sin', 'cos', 'tan', 'csc', 'sec', 'cot', ...
+       'asin', 'acos', 'atan', 'acsc', 'asec', 'acot', ...
+       'sinh', 'cosh', 'tanh', 'csch', 'sech', 'coth', ...
+       'asinh', 'acosh', 'atanh', 'acsch', 'asech', 'acoth', ...
+       'log', 'log10', 'log10', 'sqrt', ...
+        'round', 'floor', 'ceil', 'abs'};
+for i=1:length(fcns)
+  s_ops.add(noErrorTest(fcns{i}, @()(feval(fcns{i},a))));
+end
+
+% additional speciality functions
+s_ops.add(noErrorTest('atan2', @()(atan2(a,b))));
+s_ops.add(noErrorTest('piecewise', @()(piecewise(a,b,c))));
+s_ops.add(noErrorTest('sum', @()(sum(a,b,c))));
+s_ops.add(noErrorTest('prod', @()(prod(a,b,c))));
+s_conv = Suite('Convolution Tests');
+t = Test('conv_two_vars', @()(conv(a,b)), '-withouterror');
+t.ExpectFail = true; % wrong
+s_conv.add(t);
+t = Test('conv_with_vector', @()(conv(a,[1 1 1])), '-withouterror');
+t.ExpectFail = true; % wrong
+s_conv.add(t);
+t = Test('conv_with_vector', @()(conv(a(Iterator('n','discrete')),[1 ...
+                    1 1])), '-withouterror');
+t.ExpectFail = false; % correct
+s_conv.add(t);
+s_ops.add(s_conv);
+s_ops.add(noErrorTest('max', @()(max(a,b))));
+s_ops.add(noErrorTest('min', @()(min(a,b))));
+
+
+s.add(s_ops);
+end
 
 function s = SubModelTests
 
