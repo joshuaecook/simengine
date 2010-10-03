@@ -127,6 +127,7 @@ end
 
 % additional speciality functions
 s_ops.add(noErrorTest('atan2', @()(atan2(a,b))));
+s_ops.add(noErrorTest('transpose', @()(a')));
 s_ops.add(noErrorTest('piecewise', @()(piecewise(a,b,c))));
 s_ops.add(noErrorTest('sum', @()(sum(a,b,c))));
 s_ops.add(noErrorTest('prod', @()(prod(a,b,c))));
@@ -145,8 +146,74 @@ s_ops.add(s_conv);
 s_ops.add(noErrorTest('max', @()(max(a,b))));
 s_ops.add(noErrorTest('min', @()(min(a,b))));
 
-
 s.add(s_ops);
+
+% Vector and Matrix literals
+s_vec = Suite('Non-scalar Literal Tests')
+
+verifySizeTest = @(id, fcn, expected)(Test(id, @()(ndims(fcn()) == ...
+                                                  length(expected) ...
+                                                  && all(size(fcn())==expected))));
+s_vec.add(verifySizeTest('VerifyTestFunction', @()(rand(2,3,5)), [2 3 5]));
+a = Exp(1);
+v = Exp(rand(1,10));
+M = Exp(rand(3,5));
+Volume = Exp(rand(2,3,4));
+s_vec.add(verifySizeTest('vector', @()(v), [1 10]));
+s_vec.add(verifySizeTest('matrix', @()(M), [3 5]));
+s_vec.add(verifySizeTest('vector transpose', @()(v'), [10 1]));
+s_vec.add(verifySizeTest('matrix transpose', @()(M'), [5 3]));
+s_vec.add(verifySizeTest('volume', @()(Volume), [2 3 4]));
+
+s.add(s_vec);
+
+% Vector operations
+s_vec_ops = Suite('Vector operations');
+
+function t = expectErrorTest(id, fcn)
+t = Test(id, fcn, '-withouterror');
+t.ExpectFail = true;
+end
+
+s_vec_ops.add(verifySizeTest('vector-scalar mplus', @()(v+a), [1 10]));
+s_vec_ops.add(verifySizeTest('vector-scalar times', @()(v*a), [1 10]));
+s_vec_ops.add(verifySizeTest('vector-scalar power', @()(v^a), [1 10]));
+s_vec_ops.add(verifySizeTest('vector-scalar divide', @()(v/a), [1 10]));
+s_vec_ops.add(verifySizeTest('vector-scalar inverted mplus', @()(a+v), [1 10]));
+s_vec_ops.add(verifySizeTest('vector-scalar inverted times', @()(a*v), [1 10]));
+s_vec_ops.add(verifySizeTest('vector-scalar inverted power', @()(a^v), [1 10]));
+s_vec_ops.add(verifySizeTest('vector-scalar inverted divide', @()(a/v), [1 10]));
+
+s_vec_ops.add(verifySizeTest('vector mplus', @()(v+v), [1 10]));
+s_vec_ops.add(verifySizeTest('vector times', @()(v.*v), [1 10]));
+s_vec_ops.add(verifySizeTest('vector power', @()(v.^v), [1 10]));
+s_vec_ops.add(verifySizeTest('vector divide', @()(v./v), [1 10]));
+
+s_vec_ops.add(verifySizeTest('vector sin', @()(sin(v)), [1 10]));
+s_vec_ops.add(verifySizeTest('vector acoth', @()(acoth(v)), [1 10]));
+s_vec_ops.add(verifySizeTest('vector exp', @()(exp(v)), [1 10]));
+s_vec_ops.add(verifySizeTest('vector log', @()(log(v)), [1 10]));
+
+s_vec_ops.add(expectErrorTest('matrix times wrong dims', @()(v*v)));
+s_vec_ops.add(expectErrorTest('matrix times wrong dims transposed', @()(v'*v')));
+s_vec_ops.add(verifySizeTest('matrix times A', @()(v*v'), [1 1]));
+s_vec_ops.add(verifySizeTest('matrix times B', @()(v'*v), [10 10]));
+
+s.add(s_vec_ops);
+
+s_mat_ops = Suite('Matrix operations');
+
+s_mat_ops.add(expectErrorTest('matrix times wrong dims', @()(M*M)));
+s_mat_ops.add(expectErrorTest('matrix times wrong dims transposed', @()(M'*M')));
+s_mat_ops.add(verifySizeTest('matrix times A', @()(M*M'), [3 3]));
+s_mat_ops.add(verifySizeTest('matrix times B', @()(M'*M), [5 5]));
+
+s_mat_ops.add(verifySizeTest('linear solve', @()(linsolve(Exp(rand(10,10)), ...
+                                                  Exp(rand(10,1)))), ...
+                                                 [10 1]));
+
+s.add(s_mat_ops);
+
 end
 
 function s = SubModelTests
