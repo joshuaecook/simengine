@@ -600,18 +600,12 @@ classdef Model < handle
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
             
-            if isa(varargin{1}, 'Model')
+            if nargin > 1 && isa(varargin{1}, 'Model')
                 modelarg = varargin{1};
                 if nargin == 2
                     dims = 1;
-                elseif nargin == 3
-                    if isnumeric(varargin{2}) && all(varargin{2}>0)
-                        dims = varargin{2};
-                    else
-                        error('Simatra:Model:submodel', 'Invalid number of submodels defined');
-                    end
                 else
-                    error('Simatra:Model:submodel', 'Too many arguments passed to submodel')
+                  dims = [varargin{2:end}];
                 end
 
                 % compute the instance name
@@ -625,22 +619,25 @@ classdef Model < handle
                 end
                 modelarg = varargin{2};
                 if nargin == 3
-                    % all good...
-                    dims = 1;
-                elseif nargin == 4
-                    if isnumeric(varargin{3}) && all(varargin{3}>0)
-                      dims = varargin{3};
-                    else
-                        error('Simatra:Model:submodel', 'Invalid number of submodels defined');
-                    end
+                  % all good...
+                  dims = 1;
                 else
-                    error('Simatra:Model:submodel', 'Too many arguments passed to submodel')
+                  dims = [varargin{3:end}];
                 end
             else
                 error('Simatra:Model:submodel:ArgumentError', 'Wrong number of arguments');
             end
             
-%            if ischar(modelarg) && exist(modelarg, 'file')
+            if isnumeric(dims) && all(dims>0)
+              % Default behavior is to create an NxN matrix
+              if isscalar(dims)
+                dims = [dims dims];
+              end
+            else
+              error('Simatra:Model:submodel', 'Invalid number of submodels defined');
+            end
+
+%                if ischar(modelarg) && exist(modelarg, 'file')
 %                 [filepath, modelname, fileext] = fileparts(modelarg);
 %                 if m.cachedModels.isKey(modelname)
 %                     name = modelname;

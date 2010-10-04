@@ -7,11 +7,12 @@ classdef Instance
         Outputs
         Mdl
         SubMdl
-        Dims
     end
     
     properties (Access = protected)
         definedInputs
+        Dims
+        NumInst
     end
     
     methods
@@ -23,10 +24,10 @@ classdef Instance
             inst.Outputs = Outputs;
             inst.definedInputs = containers.Map;
             inst.Dims = Dims;
+            inst.NumInst = prod(Dims);
         end
         
         function b = subsref(inst, s)
-        numSubInst = prod(Dims);
             if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
                 % make sure that the output exists
                 out = s.subs;
@@ -73,6 +74,40 @@ classdef Instance
                 setInput(inst, inp, b);
             end
             i2 = inst;
+        end
+        
+        function d = size(inst, dim)
+            if nargin == 1
+              if isscalar(inst.Dims)
+                d = [1 inst.Dims];
+              else
+                d = inst.Dims;
+              end
+            elseif nargin == 2
+              if ~isnumeric(dim) || ~isscalar(dim)
+                error(['Requested dimension from size is not a scalar ' ...
+                       'numeric value.']);
+              elseif dim > length(inst.Dims)
+                d = 1;
+              else
+                d = inst.Dims(dim);
+              end
+            else
+              error(['Wrong number of arguments to Instance/size(). ' ...
+                     'Expected 1 or 2 but got ' num2str(nargin) '.']);
+            end
+        end
+        
+        function d = length(inst)
+            d = max(size(inst));
+        end
+        
+        function d = numel(inst, varargin)
+            if nargin == 1
+              d = inst.NumInst;
+            else
+              d = numel([varargin{:}]);
+            end
         end
         
         function setInput(inst, inp, value)
