@@ -1538,6 +1538,8 @@ classdef Model < handle
             end
             if writeFile
               movefile(tempfile, filename);
+            else
+              delete(tempfile);
             end
         end
         
