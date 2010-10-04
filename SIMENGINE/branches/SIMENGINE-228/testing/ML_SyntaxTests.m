@@ -241,33 +241,57 @@ s_len.add(Test('OneSubModel A', @OneSubModelA));
     function r = OneSubModelB
         m = Model('top');
         sm = m.submodel(SquareSubModel, 1);
-        r = (length(sm) == 1);
+        r = (length(sm) == 1) && (numel(sm) == 1);
     end
 
 s_len.add(Test('OneSubModel B', @OneSubModelB));
 
-    function r = MultiSubModels1D
+    function r = MultiSubModels1DA
         m = Model('top');
-        sm = m.submodel(SquareSubModel, 10);
-        r = (length(sm) == 10);
+        dims = [1 10];
+        sm = m.submodel(SquareSubModel, dims);
+        r = all(size(sm) == dims) && (length(sm) == max(dims)) && (numel(sm) ...
+                                                          == prod(dims));
     end
 
-s_len.add(Test('1D Vector Submodels', @MultiSubModels1D));
+s_len.add(Test('1D Vector Submodels A', @MultiSubModels1DA));
 
-    function r = MultiSubModels2D
+    function r = MultiSubModels1DB
+        m = Model('top');
+        dims = [10 1];
+        sm = m.submodel(SquareSubModel, dims);
+        r = all(size(sm) == dims) && (length(sm) == max(dims)) && (numel(sm) ...
+                                                          == prod(dims));
+    end
+
+s_len.add(Test('1D Vector Submodels B', @MultiSubModels1DB));
+
+    function r = MultiSubModels2DA
         m = Model('top');
         dims = [5 10];
         sm = m.submodel(SquareSubModel, dims);
-        r = all(size(sm) == dims) && (length(sm) == dims(1));
+        r = all(size(sm) == dims) && (length(sm) == max(dims)) && ...
+            (numel(sm) == prod(dims));
     end
 
-s_len.add(Test('2D Matrix Submodels', @MultiSubModels2D));
+s_len.add(Test('2D Matrix Submodels A', @MultiSubModels2DA));
 
-    function r = MultiSubModels3D
+    function r = MultiSubModels2DB
+        m = Model('top');
+        dims = 10;
+        sm = m.submodel(SquareSubModel, dims);
+        r = all(size(sm) == dims) && (length(sm) == max(dims)) && ...
+            (numel(sm) == prod([dims dims]));
+    end
+
+s_len.add(Test('2D Matrix Submodels B', @MultiSubModels2DB));
+
+function r = MultiSubModels3D
         m = Model('top');
         dims = [5 10 20];
         sm = m.submodel(SquareSubModel, dims);
-        r = all(size(sm) == dims) && (length(sm) == dims(1));
+        r = all(size(sm) == dims) && (length(sm) == max(dims)) && ...
+            (numel(sm) == prod(dims));
     end
 
 s_len.add(Test('3D Volume Submodels', @MultiSubModels3D));
