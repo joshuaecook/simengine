@@ -521,7 +521,6 @@ local
 		    val list = SymbolSet.listItems linear_set
 		    val linear_set' = SymbolSet.union (linear_set, SymbolSet.flatmap (#1 o state_to_sets) list)
 		    val nonlinear_set' = SymbolSet.flatmap (#2 o state_to_sets) list
-		    (*val _ = Util.log ("Recurse: Going from "^(SymbolSet.toStr linear_set)^" to " ^ (SymbolSet.toStr linear_set'))*)
 		in
 		    if SymbolSet.equal (linear_set, linear_set') then
 			(* here, we bottomed out *)
@@ -530,17 +529,24 @@ local
 			recurse linear_set'
 		end
 
+	    (* produce a list of aggreate linearly coupled variables and variables with non-linear relationships *)
 	    val (linear_set, nonlinear_set) = recurse (SymbolSet.singleton next)
-	    (*val _ = Util.log ("Linear set: "^(SymbolSet.toStr linear_set)^", Nonlinear set: " ^ (SymbolSet.toStr nonlinear_set))*)
+
+	    (* The linear list includes all the states that are included, and if any are in the non-linear set, 
+	     * then that means that we can't say they are truly linearly coupled *)
 	    val common = SymbolSet.intersection (linear_set, nonlinear_set)
 
 	    (* compute group now *)
 	    val group = if SymbolSet.numItems common = 0 andalso SymbolSet.numItems linear_set > 1 then
+			    (* there can be no common elements, else there is non-linear coupling, and the linear set
+			     * should have at least 2 elements *)
 			    linear_set
 			else
+			    (* otherwise the group is the one state all by itself ... *)
 			    SymbolSet.singleton next
+
+	    (* remove all the states that we just coupled together from the ungrouped list *)
 	    val remaining = SymbolSet.listItems (SymbolSet.difference (SymbolSet.fromList ungrouped, group))
-	    (*val _ = Util.log ("Group: "^(SymbolSet.toStr group)^", Remaining: " ^ (Util.symlist2s remaining))*)
 	in
 	    group_next_element table (group::grouped, remaining)
 	end
@@ -584,10 +590,9 @@ local
 			       val state_vars = map Exp.TERM (List.filter (fn(t)=> List.exists (fn(s)=> Term.sym2curname t = s) states) terms)
 			       val state_syms = map ExpProcess.exp2symbol state_vars
 			       val state_symbolset = SymbolSet.fromList state_syms
-			       (*val _ = Util.log ("Original equation: " ^ (e2s equ))
-			       val _ = Util.log (" -> Symbols: " ^ (SymbolSet.toStr state_symbolset))*)
+			       (* use the multi-collect function to factor out all the state variables *)
 			       val rhs' = ExpProcess.multicollect (map (fn(sym)=>ExpBuild.svar sym) (SymbolSet.listItems state_symbolset), rhs)
-			       (*val _ = Util.log (" -> new rhs: " ^ (e2s rhs'))*)
+			       (* then, the isLinear predicate can check to see for each state, if there is or isn't a linear relationship *)
 			       val (linear_states, non_linear_states) = SymbolSet.partition (fn(sym)=> ExpProcess.isLinear (rhs', sym)) state_symbolset
 			   in
 			       SymbolTable.enter (table, s, (linear_states, non_linear_states))
