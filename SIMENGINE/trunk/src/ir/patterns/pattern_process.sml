@@ -23,6 +23,7 @@ sig
     val predicate_anylocal : predicate
     val predicate_anydiffterm : predicate
     val gen_predicate_from_symbol : Symbol.symbol -> predicate (* create a predicate that matches a symbol by name *)
+    val predicate_anysymbol_with_iter : Symbol.symbol -> predicate
 
 end
 structure PatternProcess : PATTERNPROCESS =
@@ -136,6 +137,16 @@ fun gen_predicate_from_symbol sym =
      fn(x)=>case x 
 	     of Exp.TERM (Exp.SYMBOL (name, props)) => name = sym
 	      | _ => false)
+
+fun predicate_anysymbol_with_iter iter_sym =
+    ("ASYM_WITH_ITER", 
+     fn(x)=>case x
+	     of Exp.TERM (Exp.SYMBOL (name, props)) => 
+		(case Property.getIterator props of
+		     SOME iters => List.exists (fn(iter_sym', _)=>iter_sym = iter_sym') iters
+		   | NONE => false)
+	      | _ => false)
+							  
 
 fun combine_preds nil = ("NIL", fn(x)=>true)
   | combine_preds [pred1] = pred1

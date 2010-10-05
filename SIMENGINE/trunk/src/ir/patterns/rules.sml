@@ -204,6 +204,7 @@ fun funop2rule oper =
 	     replace=Rewrite.MATCHEDACTION (("constant folding " ^ (#name (MathFunctionProperties.op2props oper))),
 					    evalExp)}
     end
+    handle e => DynException.checkpoint "Rules.funop2rule" e
 
 val ifRules = [{find = Exp.FUN (Fun.BUILTIN Fun.IF, [Match.anyconst "#b", Match.one "#t", Match.one "#f"]),
 		test=NONE,
@@ -250,8 +251,8 @@ fun addRules (categoryname, rules) =
     
 
 fun getRules categoryname = 
-    case SymbolTable.look(!ruleTable, Symbol.symbol categoryname) of
-	SOME rules => rules
-      | NONE => nil
-
+    (case SymbolTable.look(!ruleTable, Symbol.symbol categoryname) of
+	 SOME rules => rules
+       | NONE => nil)
+    handle e => DynException.checkpoint "Rules.getRules" e
 end

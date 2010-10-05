@@ -414,6 +414,290 @@ fun optimizeModel order (model:DOF.model) =
 	()
     end
 
+
+local
+    fun create_replace_function (stateopt, iter_sym) =
+	fn(exp) => 
+	  (case exp of 
+	      Exp.TERM (Exp.SYMBOL (sym, props)) => 
+	      (case stateopt of 
+		   SOME state =>
+		   if sym = state andalso ExpProcess.hasTemporalIterator exp then
+		       ExpProcess.updateTemporalIteratorToSymbol (iter_sym, fn(_)=>iter_sym) exp
+		   else
+		       exp
+		 | NONE => if ExpProcess.hasTemporalIterator exp then
+			       ExpProcess.updateTemporalIteratorToSymbol (iter_sym, fn(_)=>iter_sym) exp
+			   else
+			       exp)
+	    | _ => exp)
+
+    fun iter_table_to_rewrites table = 
+	map 
+	    (fn(s, (iter_sym, _))=>
+	       {find=Match.asym s, 
+		test=NONE,
+		replace=Rewrite.ACTION (s, create_replace_function (SOME s, iter_sym))})
+	    (SymbolTable.listItemsi table)
+
+    fun iter_rewrites (from_sym, to_sym) =
+	[(* find and replace literal iterators *)
+	 {find=Match.asym from_sym,
+	  test=NONE,
+	  replace=Rewrite.RULE (ExpBuild.itersvar to_sym)},
+	 (* find and replace use anywhere else of that iterator, such as in inputs or outputs *)
+	 {find=Match.anysym_with_temporal_iterator from_sym "#a",
+	  test=NONE,
+	  replace=Rewrite.ACTION (to_sym, create_replace_function (NONE, to_sym))}]
+
+    fun updateSystemProperties sysprops (auto_iter as (auto_iter_sym, _), fe_iter as (fe_iter_sym, _)) other_iters =
+	let
+	    val {iterators, precision, target, parallel_models, debug, profile} = sysprops
+
+	    (* first replace auto_iter with fe_iter *)
+	    val iterators' = map (fn(iter as (iter_sym, iter_type)) => 
+				    if iter_sym = auto_iter_sym then 
+					fe_iter
+				    else 
+					case iter_type of
+					    DOF.UPDATE iter_sym' => 
+					    if iter_sym' = auto_iter_sym then
+						(iter_sym, DOF.UPDATE fe_iter_sym)
+					    else
+						iter
+					  | DOF.ALGEBRAIC (processtype, iter_sym') => 
+					    if iter_sym' = auto_iter_sym then
+						(iter_sym, DOF.ALGEBRAIC (processtype, fe_iter_sym))
+					    else
+						iter
+					  | _ => iter
+				 ) iterators
+
+	    (* now, append all the new ones *)
+	    val append_list = List.filter (fn(iter as (iter_sym, _)) => not (iter_sym = fe_iter_sym)) other_iters
+	    val iterators'' = iterators' @ append_list
+	in
+	    {iterators=iterators'',
+	     precision=precision,
+	     target=target,
+	     parallel_models=parallel_models,
+	     debug=debug,
+	     profile=profile}
+	end
+
+    fun log_linearity_table msg table = 
+	let
+	    open Layout
+	    fun entry_to_layout (key, (value1, value2)) =
+		label (Symbol.name key, align [label ("linear", SymbolSet.toLayout value1),
+					       label ("nonlinear", SymbolSet.toLayout value2)])
+	    val t = heading (msg, 
+			     align (map entry_to_layout (SymbolTable.listItemsi table)))
+	in
+	    log (add_newline t)
+	end
+
+    fun log_groups msg groups = 
+	let
+	    open Layout
+	    val t = heading (msg,
+			     align (map SymbolSet.toLayout groups))
+	in
+	    log (add_newline t)
+	end
+
+    fun except msg = DynException.stdException (msg, "ModelProcess.ExpandAutoSolver", Logger.INTERNAL)
+
+    fun group_next_element table (grouped, []) = grouped
+      | group_next_element table (grouped, next::ungrouped) = 
+	let
+	    fun state_to_sets state = 
+		case SymbolTable.look (table, state) of
+		    SOME sets => sets
+		  | NONE => except "No state in table"
+
+	    fun recurse (linear_set : SymbolSet.set) =
+		let
+		    val list = SymbolSet.listItems linear_set
+		    val linear_set' = SymbolSet.union (linear_set, SymbolSet.flatmap (#1 o state_to_sets) list)
+		    val nonlinear_set' = SymbolSet.flatmap (#2 o state_to_sets) list
+		    (*val _ = Util.log ("Recurse: Going from "^(SymbolSet.toStr linear_set)^" to " ^ (SymbolSet.toStr linear_set'))*)
+		in
+		    if SymbolSet.equal (linear_set, linear_set') then
+			(* here, we bottomed out *)
+			(linear_set, nonlinear_set')
+		    else
+			recurse linear_set'
+		end
+
+	    val (linear_set, nonlinear_set) = recurse (SymbolSet.singleton next)
+	    (*val _ = Util.log ("Linear set: "^(SymbolSet.toStr linear_set)^", Nonlinear set: " ^ (SymbolSet.toStr nonlinear_set))*)
+	    val common = SymbolSet.intersection (linear_set, nonlinear_set)
+
+	    (* compute group now *)
+	    val group = if SymbolSet.numItems common = 0 andalso SymbolSet.numItems linear_set > 1 then
+			    linear_set
+			else
+			    SymbolSet.singleton next
+	    val remaining = SymbolSet.listItems (SymbolSet.difference (SymbolSet.fromList ungrouped, group))
+	    (*val _ = Util.log ("Group: "^(SymbolSet.toStr group)^", Remaining: " ^ (Util.symlist2s remaining))*)
+	in
+	    group_next_element table (group::grouped, remaining)
+	end
+
+    fun group_linearity_table table = 
+	let
+	    (* create initial sets *)
+	    val grouped = []
+	    val ungrouped = SymbolTable.listKeys table
+	in
+	    group_next_element table (grouped, ungrouped)
+	end
+
+    fun replaceAutoIterator (auto_iter as (auto_iter_sym, DOF.CONTINUOUS (Solver.AUTO {dt}))) =
+	(let
+	    val model as (classes, inst, systemproperties) = CurrentModel.getCurrentModel()
+	    val class = CurrentModel.top_class()
+			
+	    (* find all the states with that iterator *)
+	    val (state_equs, other_equs) = List.partition (ExpProcess.isStateEqOfIter auto_iter) (!(#exps class))
+	    val (init_equs, other_equs) = List.partition ExpProcess.isInitialConditionEq other_equs
+	    val states = map ExpProcess.getLHSSymbol state_equs
+
+	    (* create a table mapping the states with their new iterator *)
+	    val itertable = SymbolTable.empty
+	    val newiterlist = []
+
+	    (* create a useful function to return the differential equation matching a state *)
+	    fun sym2differential_equation s = 
+		List.find ExpProcess.isFirstOrderDifferentialEq (ClassProcess.symbol2exps class s)
+
+	    (* create a table of linearity relationships *)
+	    val linearity_table = 
+		foldl
+		    (fn(s, table)=> 
+		       case sym2differential_equation s of
+			   SOME equ => 
+			   let
+			       val rhs = ExpProcess.rhs equ
+			       val terms = ExpProcess.exp2termsymbols rhs
+			       val state_vars = map Exp.TERM (List.filter (fn(t)=> List.exists (fn(s)=> Term.sym2curname t = s) states) terms)
+			       val state_syms = map ExpProcess.exp2symbol state_vars
+			       val state_symbolset = SymbolSet.fromList state_syms
+			       (*val _ = Util.log ("Original equation: " ^ (e2s equ))
+			       val _ = Util.log (" -> Symbols: " ^ (SymbolSet.toStr state_symbolset))*)
+			       val rhs' = ExpProcess.multicollect (map (fn(sym)=>ExpBuild.svar sym) (SymbolSet.listItems state_symbolset), rhs)
+			       (*val _ = Util.log (" -> new rhs: " ^ (e2s rhs'))*)
+			       val (linear_states, non_linear_states) = SymbolSet.partition (fn(sym)=> ExpProcess.isLinear (rhs', sym)) state_symbolset
+			   in
+			       SymbolTable.enter (table, s, (linear_states, non_linear_states))
+			   end
+			 | NONE => table)
+		    SymbolTable.empty
+		    states
+		    handle e => DynException.checkpoint "ModelProcess.replaceAutoIterator.linearity_table" e
+
+	    (*val _ = log_linearity_table "All dependencies" linearity_table*)
+
+	    val groups = group_linearity_table linearity_table
+	    (*val _ = log_groups "Grouped dependencies" groups*)
+
+	    (* define new iterators for the system *)
+	    val fe_iter_sym = ExpProcess.uniq (Symbol.symbol "#iter")
+	    val fe_iter = (fe_iter_sym, DOF.CONTINUOUS (Solver.FORWARD_EULER {dt=dt}))
+	    val ee_iter_sym = ExpProcess.uniq (Symbol.symbol "#iter")
+	    val ee_iter = (ee_iter_sym, DOF.CONTINUOUS (Solver.EXPONENTIAL_EULER {dt=dt}))
+	    val discrete_iter_sym = ExpProcess.uniq (Symbol.symbol "#iter")
+	    val discrete_iter = (discrete_iter_sym, DOF.DISCRETE {sample_period=dt})
+	    fun be_iter () = (ExpProcess.uniq (Symbol.symbol "#iter"), DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER {dt=dt, solv=Solver.LSOLVER_DENSE}))
+
+	    (* helper function to determine if exponential euler applies *)
+	    fun isLinearToSelf sym =
+		case SymbolTable.look (linearity_table, sym) of
+		    SOME (linear_set, nonlinear_set) => SymbolSet.equal (linear_set, SymbolSet.singleton sym)
+		  | NONE => except "Can't determine linearity of self"
+
+	    fun log (msg) = 
+		if DynamoOptions.isFlagSet "verbose" then
+		    Util.log msg
+		else
+		    ()
+
+	    (* go through the groups and apply iterators as needed *)
+	    val (itertable, newiterlist) = 
+		foldl
+		    (fn(group, (table, iterlist))=>
+		       case SymbolSet.listItems group of
+			   [sym] => if isLinearToSelf sym then
+					(log ("Assiging exp_euler to state " ^ (Symbol.name sym));
+					 (SymbolTable.enter (table, sym, ee_iter), iterlist))
+				    else
+					(log ("Assiging fwd_euler to state " ^ (Symbol.name sym));
+					 (SymbolTable.enter (table, sym, fe_iter), iterlist))
+			 | syms => 
+			   let
+			       (* create a unique be iterator for this group *)
+			       val iter = be_iter()
+			       val iterlist' = iter::iterlist
+			       val _ = log ("Assiging bwd_euler to states " ^ (Util.symlist2s syms))
+			   in
+			       (foldl
+				    (fn(sym, table')=>SymbolTable.enter (table', sym, iter))
+				    table
+				    syms,
+				iterlist')
+			   end)
+		    (itertable, newiterlist)
+		    groups
+
+	    (* if there is no other iterator assigned, use forward Euler or a discrete iterator *)
+	    val newiterlist = ee_iter::fe_iter::discrete_iter::newiterlist
+	    val itertable = foldl 
+				(fn(s, table)=> case SymbolTable.look (itertable, s) of
+						    SOME _ => table
+						  | NONE => 
+						    (case sym2differential_equation s of
+							 SOME _ => SymbolTable.enter (table, s, fe_iter)
+						       | NONE => SymbolTable.enter (table, s, discrete_iter)))
+				itertable
+				states
+
+	    (* update all the states with the new iterators *)
+	    val state_equs' = map (Match.applyRewritesExp (iter_table_to_rewrites itertable)) state_equs
+	    val init_equs' = map (Match.applyRewritesExp (iter_table_to_rewrites itertable)) init_equs
+	    val _ = #exps class := (init_equs' @ state_equs' @ other_equs)
+
+	    (* replace all other occurrences of auto_iter with fe_iter *)
+	    val _ = ClassProcess.applyRewritesToClass (iter_rewrites (auto_iter_sym, fe_iter_sym)) class
+		    
+	    (* update the model definition with the new iterator list *)
+	    val model' = (classes, inst, updateSystemProperties systemproperties (auto_iter, fe_iter) newiterlist)
+	in
+	    CurrentModel.setCurrentModel(model')
+	end
+	handle e => DynException.checkpoint ("ModelProcess.replaceAutoIterator [iter="^(Symbol.name auto_iter_sym)^"]") e)
+      | replaceAutoIterator _ = 
+	DynException.stdException ("called with invalid arguments", "ModelProcess.replaceAutoIterator", Logger.INTERNAL)
+in
+(* expandAutoSolver - replaces the auto solver with actual implementable solvers *)
+fun expandAutoSolver (model:DOF.model) =
+    let
+	(* first flatten the model *)
+	val model' = Profile.time "Unifying" unify model
+	val _ = CurrentModel.setCurrentModel(model')
+
+	(* find all the auto iterators *)
+	fun isAuto (_, DOF.CONTINUOUS (Solver.AUTO _)) = true
+	  | isAuto _ = false
+	val auto_iterators = List.filter isAuto (CurrentModel.iterators())
+
+    in
+	(* now replace them one by one*)
+	app replaceAutoIterator auto_iterators
+    end
+    handle e => DynException.checkpoint "ModelProcess.expandAutoSolver" e
+end
+
 fun normalizeModel (model:DOF.model) =
     let
 	val _ = DynException.checkToProceed()
@@ -428,6 +712,17 @@ fun normalizeModel (model:DOF.model) =
 			app ClassProcess.propagateStateIterators (CurrentModel.classes()); (* pre-run the assignCorrectScope *)
 			log ("Creating Mathematica model description (converting model to code) ...");
 			Printer.progs2file (MathematicaWriter.model2progs (CurrentModel.getCurrentModel()), Symbol.name classname ^ ".nb")))
+		else
+		    ()
+
+	(* expand out auto-solver *)
+	fun isAuto (_, DOF.CONTINUOUS (Solver.AUTO _)) = true
+	  | isAuto _ = false
+	val _ = if List.exists isAuto (CurrentModel.iterators()) then
+		    (log ("Expanding auto-solver ...");
+		     Profile.time "Expanding auto-solver" (fn()=>expandAutoSolver (CurrentModel.getCurrentModel())) ();
+		     DOFPrinter.printModel (CurrentModel.getCurrentModel());
+		     DynException.checkToProceed())
 		else
 		    ()
 
