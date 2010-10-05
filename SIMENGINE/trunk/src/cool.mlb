@@ -172,6 +172,7 @@ ir/spil/spil.sml
 be/c_operations.sml
 be/c_writer_util.sml
 be/codegen.sml
+be/spil_to_c.sml
 be/c_parallel_writer.sml
 
 (* Model Construction and Interactive Shell *)

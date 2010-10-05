@@ -43,6 +43,8 @@ signature TYPE = sig
       | Sink
       | Void
 
+      | CType of string
+
     (* G |- T::K *)
     type ('G,'K) typet
     (* A specialization on types indicating well-formedness within a context. *)
@@ -209,6 +211,8 @@ signature TYPE = sig
 	('G,proper) typet
 
     (*= Utilities =*)
+
+    val C: string -> t
 
     val rep: ('G,'K) typet -> rep
     (* Recovers the concrete representation of a type. *)
