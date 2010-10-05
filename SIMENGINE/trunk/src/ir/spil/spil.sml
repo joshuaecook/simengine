@@ -8,6 +8,7 @@ datatype immediate
   = Real of real
   | Int of int
   | Bool of bool
+  | Const of ident
 
 type address = string
 

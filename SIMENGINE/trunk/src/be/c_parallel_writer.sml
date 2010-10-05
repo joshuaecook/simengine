@@ -958,188 +958,159 @@ fun solver_wrappers solvers =
 
 
 
-fun update_wrapper shardedModel =
-    let 
-	fun call_update iter_sym =
-	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
+local 
+    open Spil 
+    structure T = Type
+    structure F = Function
+    structure B = Block
+    structure C = Control
+    structure A = Atom
+
+    val v = Vector.fromList
+
+    datatype kind = UPDATE | PREPROCESS | INPROCESS | POSTPROCESS
+in
+fun algebraic_wrapper kind shardedModel iterators =
+    let
+	val name =
+	    case kind
+	     of UPDATE => "update"
+	      | PREPROCESS => "pre_process"
+	      | INPROCESS => "in_process"
+	      | POSTPROCESS => "post_process"
+
+	val base_iterator =
+	    case kind
+	     of UPDATE => 
+		(fn (_, DOF.UPDATE dep) => CurrentModel.itersym2iter dep | (iter_name,_) => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.algebraic_wrapper", Logger.INTERNAL))
+	      | PREPROCESS =>
+		(fn (_, DOF.ALGEBRAIC (DOF.PREPROCESS, dep)) => CurrentModel.itersym2iter dep | (iter_name,_) => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.algebraic_wrapper", Logger.INTERNAL))
+	      | INPROCESS =>
+		(fn (_, DOF.ALGEBRAIC (DOF.INPROCESS, dep)) => CurrentModel.itersym2iter dep | (iter_name,_) => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.algebraic_wrapper", Logger.INTERNAL))
+	      | POSTPROCESS =>
+		(fn (_, DOF.ALGEBRAIC (DOF.POSTPROCESS, dep)) => CurrentModel.itersym2iter dep | (iter_name,_) => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.algebraic_wrapper", Logger.INTERNAL))
+
+	fun iterator_case iter_sym =
+	    let
+		val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
 		val iter = ShardedModel.toIterator shardedModel iter_sym
 	    in
-		CurrentModel.withModel 
-		    model 
+		CurrentModel.withModel
+		    model
 		    (fn _ =>
-			let val (iter_name, iter_typ) = iter
-			    val (base_iter_name, base_iter_typ) = 
-				case iter_typ 
-				 of DOF.UPDATE dep => CurrentModel.itersym2iter dep
-				  | _ => 
-				    DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
+			let
+			    val (base_iter_name, base_iter_typ) = base_iterator iter
+			    val iter_id = "ITERATOR_"^(Util.removePrefix (Symbol.name base_iter_name))
+			in
+			    (Const iter_id, name^"_iterator_case_"^iter_id)
+			end
+		    )
+	    end
 
+	fun iterator_call iter_sym =
+	    let
+		val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
+		val iter = ShardedModel.toIterator shardedModel iter_sym
+	    in
+		CurrentModel.withModel
+		    model
+		    (fn _ =>
+			let
+			    val (iter_name, iter_typ) = iter
+			    val (base_iter_name, base_iter_typ) = base_iterator iter
 			    val class = CurrentModel.classname2class top_class
 			    val basename = ClassProcess.class2preshardname class
 			    val basename_iter = (Symbol.name basename) ^ "_" ^ (Symbol.name base_iter_name)
+
+			    val iter_id = "ITERATOR_"^(Util.removePrefix (Symbol.name base_iter_name))
+			    val func_id = "flow_"^(Symbol.name top_class)
+
+			    val next_time = A.Variable "props->next_time[modelid]"
 			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "("^(*"const "^*)"statedata_" ^ basename_iter ^ " * )props->model_states, " else "",
-				 if writes_iterator iter class then "(statedata_" ^ basename_iter ^ " * )props->next_states, " else "",
-				 if reads_system class then "props->system_states, " else "")
+				(if reads_iterator iter class then A.Cast (A.Variable "props->model_states", T.C("statedata_"^basename_iter^"*")) else A.Null,
+				 if writes_iterator iter class then A.Cast (A.Variable "props->next_states", T.C("statedata_"^basename_iter^"*")) else A.Null,
+				 if reads_system class then A.Variable "props->system_states" else A.Null)
 
-			in [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
-			    case base_iter_typ
-			     of DOF.CONTINUOUS _ =>
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
-				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
-			      | DOF.DISCRETE _ => 
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
-				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
-			      | _ => $("#error BOGUS ITERATOR")]
-			end)
-	    end
+			    val states = 
+				List.mapPartial 
+				    (fn x => x)
+				    [if reads_iterator iter class then SOME (A.Cast (A.Variable "props->model_states", T.C("statedata_"^basename_iter^"*"))) else NONE,
+				     if writes_iterator iter class then SOME (A.Cast (A.Variable "props->next_states", T.C("statedata_"^basename_iter^"*"))) else NONE,
+				     if reads_system class then SOME (A.Variable "props->system_states") else NONE]
 
-    in [$("__HOST__ __DEVICE__ int update(solver_props *props, unsigned int modelid) {"),
-	SUB ($("switch (props->iterator) {") ::
-	     (Util.flatmap call_update (ShardedModel.iterators shardedModel)) @
-	     [$("default: return 1;"),
-	      $("}")]),
-	$("}")]
-    end
-
-fun preprocess_wrapper shardedModel preprocessIterators =
-    let 
-	fun call_update iter_sym =
-	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
-		val iter = ShardedModel.toIterator shardedModel iter_sym
-	    in	    
-		CurrentModel.withModel 
-		    model 
-		    (fn _ =>
-			let val (iter_name, iter_typ) = iter
-			    val (base_iter_name, base_iter_typ) = 
-				case iter_typ 
-				 of DOF.ALGEBRAIC (DOF.PREPROCESS, dep) => CurrentModel.itersym2iter dep
-				  | _ => 
-				    DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
-
-			    val class = CurrentModel.classname2class top_class
-			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "props->system_states->states_" ^ (Symbol.name iter_name) ^ ", " else "",
-				 if writes_iterator iter class then "props->system_states->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
-				 if reads_system class then "props->system_states, " else "")
-
-			in [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
-			    case base_iter_typ
-			     of DOF.CONTINUOUS _ =>
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
-				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
-			      | DOF.DISCRETE _ => 
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->time[modelid], " ^
-				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
-			      | _ => $("#error BOGUS ITERATOR")]
-			end)
-	    end
-
-    in [$("__HOST__ __DEVICE__ int pre_process(solver_props *props, unsigned int modelid) {"),
-	SUB ($("switch (props->iterator) {") ::
-	     (Util.flatmap call_update preprocessIterators) @
-	     [$("default: return 1;"),
-	      $("}")]),
-	$("}")]
-    end
-
-fun inprocess_wrapper shardedModel inprocessIterators =
-    let val _ = ()
-	fun call_update iter_sym =
-	    let val model as (_, instance, _) = ShardedModel.toModel shardedModel iter_sym
-		val topClassName = 
-		    case #name instance 
-		     of SOME x => x | NONE => #classname instance		
-
-		val iter = ShardedModel.toIterator shardedModel iter_sym
-	    in	    
-		CurrentModel.withModel 
-		    model 
-		    (fn _ =>
-			let val (iter_name, iter_typ) = iter
-			    val (base_iter_name, base_iter_typ) = 
-				case iter_typ 
-				 of DOF.ALGEBRAIC (DOF.INPROCESS, dep) => CurrentModel.itersym2iter dep
-				  | _ => 
-				    DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
-
-			    val class = CurrentModel.classname2class topClassName
-			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "props->system_states->states_" ^ (Symbol.name iter_name) ^ ", " else "",
-				 if writes_iterator iter class then "props->system_states->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
-				 if reads_system class then "props->system_states, " else "")
-
+			    val od = A.Cast (A.Variable "props->od", T.C"CDATAFORMAT*")
+			    val func_args =
+				case base_iter_typ
+				 of DOF.CONTINUOUS _ =>
+				    v(next_time :: states @ [A.Null, od, A.Literal (Int 1), A.Variable "modelid"])
+				  | DOF.DISCRETE _ =>
+				    v(next_time :: states @ [A.Null, od, A.Literal (Int 1), A.Variable "modelid"])
+				  | _ => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.algebraicwrapper", Logger.INTERNAL)
 			in
-			    [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
-			     (case base_iter_typ
-			       of DOF.CONTINUOUS _ =>
-				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->time[modelid], " ^
-					 statereads ^ statewrites ^ systemstatereads ^
-					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
-				| DOF.DISCRETE _ => 
-				  SUB [$("return flow_" ^ (Symbol.name topClassName) ^ "(props->time[modelid], " ^
-					 statereads ^ statewrites ^ systemstatereads ^
-					 "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
-				| _ => $("#error BOGUS ITERATOR"))]
-			end)
+			    B.BLOCK
+				{label= name^"_iterator_case_"^iter_id,
+				 params= v[],
+				 body= v[],
+				 transfer=
+				 C.CALL 
+				     {func= func_id,
+				      args= func_args,
+				      return= NONE
+				     }
+				}
+			end
+		    )
 	    end
 
-    in [$("__HOST__ __DEVICE__ int in_process(solver_props *props, unsigned int modelid) {"),
-	SUB ($("switch (props->iterator) {") ::
-	     (Util.flatmap call_update inprocessIterators) @
-	     [$("default: return 1;"),
-	      $("}")]),
-	$("}")]
+	val switch_iterator =
+	    B.BLOCK
+		{label= name^"_switch_iterator",
+		 params= v[],
+		 body= v[],
+		 transfer= 
+		 C.SWITCH
+		     {test= A.Variable "props->iterator",
+		      default= name^"_switch_iterator_default",
+		      cases= v(map iterator_case iterators)
+		     }
+		}
+
+	val switch_iterator_default =
+	    B.BLOCK
+		{label= name^"_switch_iterator_default",
+		 params= v[],
+		 body= v[],
+		 transfer= C.RETURN (A.Literal (Int 1))
+		}
+
+	val wrapper_function =
+	    if List.null iterators then
+		F.FUNCTION
+		    {name= name,
+		     params= v[("props", T.C"solver_props*"), ("modelid", T.C"unsigned int")],
+		     returns= T.C"int",
+		     start= name^"_switch_iterator_default",
+		     blocks= v[switch_iterator_default]
+		    }
+	    else
+		F.FUNCTION
+		    {name= name,
+		     params= v[("props", T.C"solver_props*"), ("modelid", T.C"unsigned int")],
+		     returns= T.C"int",
+		     start= name^"_switch_iterator",
+		     blocks= v(switch_iterator :: switch_iterator_default ::
+			       (map iterator_call iterators))
+		    }
+    in
+	[$("__HOST__ __DEVICE__"), SpilToC.layoutFunction wrapper_function]
     end
 
-fun postprocess_wrapper shardedModel postprocessIterators =
-    let val _ = ()
-	fun call_update iter_sym =
-	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
-		val iter = ShardedModel.toIterator shardedModel iter_sym
-	    in	    
-		CurrentModel.withModel 
-		    model 
-		    (fn _ =>
-			let val (iter_name, iter_typ) = iter
-			    val (base_iter_name, base_iter_typ) = 
-				case iter_typ 
-				 of DOF.ALGEBRAIC (DOF.POSTPROCESS, dep) => CurrentModel.itersym2iter dep
-				  | _ => 
-				    DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.update_wrapper", Logger.INTERNAL)
+val update_wrapper = algebraic_wrapper UPDATE
+val preprocess_wrapper = algebraic_wrapper PREPROCESS
+val inprocess_wrapper = algebraic_wrapper INPROCESS
+val postprocess_wrapper = algebraic_wrapper POSTPROCESS
 
-			    val class = CurrentModel.classname2class top_class
-			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then "props->system_states->states_" ^ (Symbol.name iter_name) ^ ", " else "",
-				 if writes_iterator iter class then "props->system_states->states_" ^ (Symbol.name iter_name) ^ "_next, " else "",
-				 if reads_system class then "props->system_states, " else "")
-
-			in [$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name base_iter_name)) ^ ":"),
-			    case base_iter_typ
-			     of DOF.CONTINUOUS _ =>
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(props->next_time[modelid], " ^
-				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
-			      | DOF.DISCRETE _ => 
-				SUB [$("return flow_" ^ (Symbol.name top_class) ^ "(1 + props->time[modelid], " ^
-				       statereads ^ statewrites ^ systemstatereads ^
-				       "NULL, (CDATAFORMAT * )props->od, 1, modelid);")]
-			      | _ => $("#error BOGUS ITERATOR")]
-			end)
-	    end
-
-    in [$("__HOST__ __DEVICE__ int post_process(solver_props *props, unsigned int modelid) {"),
-	SUB ($("switch (props->iterator) {") ::
-	     (Util.flatmap call_update postprocessIterators) @
-	     [$("default: return 1;"),
-	      $("}")]),
-	$("}")]
-    end
+end
 
 
 local
@@ -2577,7 +2548,7 @@ fun buildC (orig_name, shardedModel) =
 
 	val updateModels = (List.filter (fn {iter_sym, ...} => case itersym2iter iter_sym of (_, DOF.UPDATE _) => true | _ => false) shards,
 			    sysprops)
-
+	val updateIterators = ShardedModel.iterators updateModels
 	val algebraicIterators = map #iter_sym
 				     (List.filter (fn {iter_sym,...} => case itersym2iter iter_sym of (_, DOF.ALGEBRAIC _) => true | _ => false) shards)
 	val preprocessIterators = map #iter_sym
@@ -2642,7 +2613,7 @@ fun buildC (orig_name, shardedModel) =
 					    unique_solvers))
 	val solver_wrappers_c = solver_wrappers unique_solvers
 	val iterator_wrappers_c = 
-	    (update_wrapper updateModels) @ 
+	    (update_wrapper updateModels updateIterators) @ 
 	    (preprocess_wrapper shardedModel preprocessIterators) @
 	    (inprocess_wrapper shardedModel inprocessIterators) @
 	    (postprocess_wrapper shardedModel postprocessIterators)

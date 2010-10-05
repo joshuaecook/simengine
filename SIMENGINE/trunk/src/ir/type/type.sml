@@ -40,6 +40,8 @@ datatype rep
   | Sink
   | Void
 
+  | CType of string
+
 
 type context = var list
 val bottom: context = nil
@@ -65,7 +67,8 @@ datatype typet = datatype typevar
 type t = (context,kind) typet
 type proper_t = (context,proper) typet
 
-
+val C = CType
+fun C ctype = TYPE {kind= Proper, context= bottom, rep= CType ctype}
 
 fun rep (TYPE {rep,...}) = rep
 fun kind (TYPE {kind,...}) = kind
@@ -103,6 +106,7 @@ val rec toLayout =
   | Real bits => seq [str "float", str (Int.toString (Size.Bits.toInt bits))]
   | String => seq [str "string"]
   | Bool => seq [str "bool"]
+  | CType ctype => seq [str ctype]
 
   | Apply (a, b)
     => paren (space [tuple [toLayout a, toLayout b], str "apply"])
@@ -178,6 +182,7 @@ fun isfree (var, term)
       | Real _ => true
       | String => true
       | Bool => true
+      | CType _ => true
 
 local
     val n = ref 0
@@ -369,6 +374,7 @@ fun beta_redex (subst, Abstract (var,body)) =
 	      | Void => term
 	      | Top => term
 	      | Bottom => term
+	      | CType _ => term
 	      | Arrow (s1,s2) => Arrow (redex s1, redex s2)
 	      | Record fs => Record (Vector.map (fn (f,s) => (f, redex s)) fs)
 	      | Apply (s1,s2) => Apply (redex s1,redex s2)
@@ -493,6 +499,7 @@ and normal term
 		| Sink => reflect term
 		| Top => reflect term
 		| Bottom => reflect term
+		| CType _ => reflect term
 
 		| Arrow (s1,s2) 
 		  => reflect (Arrow (normal s1, normal s2))
