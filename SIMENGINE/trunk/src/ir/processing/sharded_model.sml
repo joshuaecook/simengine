@@ -30,6 +30,12 @@ sig
     (* order the classes in a particular shared *)
     val orderShard : (DOF.model * shard) -> shard
 
+    (* refresh system properties - update the solvers to match the matrices *)
+    val refreshSysProps : shardedModel -> shardedModel
+
+    (* utility *)
+    val printShardedModel : string -> shardedModel -> unit
+
 end
 structure ShardedModel : SHARDEDMODEL =
 struct
@@ -48,6 +54,26 @@ val i2s = Util.i2s
 val r2s = Util.r2s
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
+
+fun printShardedModel msg shardedModel =
+    let
+	val (forkedModels, sysprops) = shardedModel
+	val prevModel = CurrentModel.getCurrentModel()
+	val iter_count = List.length (CurrentModel.iterators())
+	val _ = app
+		    (fn({classes,instance,iter_sym},n)=>
+		       let
+			   val model' = (classes, instance, sysprops)
+		       in
+			   (CurrentModel.setCurrentModel(model');
+			    log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^")  ("^msg^") =====================");
+			    DOFPrinter.printModel model')
+		       end)
+		    (StdFun.addCount forkedModels)
+	val _ = CurrentModel.setCurrentModel(prevModel)
+    in
+	()
+    end
 
 (* define an empty sharded model useful for return when a current sharded model is invalid *)
 val empty_shardedModel = 
@@ -690,19 +716,20 @@ fun forkModel (model:DOF.model) =
 					    )
 					    forkedModels
 
-	val prevModel = CurrentModel.getCurrentModel()
-	val iter_count = List.length (CurrentModel.iterators())
-	val _ = app
-		    (fn({classes,instance,iter_sym},n)=>
-		       let
-			   val model' = (classes, instance, sysprops)
-		       in
-			   (CurrentModel.setCurrentModel(model');
-			    log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") =====================");
-			    DOFPrinter.printModel model')
-		       end)
-		    (StdFun.addCount forkedModels)
-	val _ = CurrentModel.setCurrentModel(prevModel)
+	val _ = printShardedModel "Before iterator updates" (forkedModels, sysprops)
+	(* val prevModel = CurrentModel.getCurrentModel() *)
+	(* val iter_count = List.length (CurrentModel.iterators()) *)
+	(* val _ = app *)
+	(* 	    (fn({classes,instance,iter_sym},n)=> *)
+	(* 	       let *)
+	(* 		   val model' = (classes, instance, sysprops) *)
+	(* 	       in *)
+	(* 		   (CurrentModel.setCurrentModel(model'); *)
+	(* 		    log("\n==================   Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") ====================="); *)
+	(* 		    DOFPrinter.printModel model') *)
+	(* 	       end) *)
+	(* 	    (StdFun.addCount forkedModels) *)
+	(* val _ = CurrentModel.setCurrentModel(prevModel) *)
 
 	val shardsWithIterators = map 
 				      (fn(s as {classes,instance,...}, iter)=> 
@@ -725,16 +752,17 @@ fun forkModel (model:DOF.model) =
 		 profile = profile}
 	    end
 
-	val _ = app
-		    (fn({classes,instance,iter_sym},n)=>	
-		       let
-			   val model' = (classes, instance, sysprops')
-		       in
-			   (CurrentModel.setCurrentModel(model');
-			    log("\n==================   () Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") (Updated shards) =====================");
-			    DOFPrinter.printModel model')
-		       end)
-		    (StdFun.addCount shards)
+	val _ = printShardedModel "Updated shards" (map #1 forkedModelsWithIterators, sysprops')
+	(* val _ = app *)
+	(* 	    (fn({classes,instance,iter_sym},n)=>	 *)
+	(* 	       let *)
+	(* 		   val model' = (classes, instance, sysprops') *)
+	(* 	       in *)
+	(* 		   (CurrentModel.setCurrentModel(model'); *)
+	(* 		    log("\n==================   () Iterator '"^(Symbol.name iter_sym)^"' ("^(i2s (n+1))^" of "^(i2s iter_count)^") (Updated shards) ====================="); *)
+	(* 		    DOFPrinter.printModel model') *)
+	(* 	       end) *)
+	(* 	    (StdFun.addCount shards) *)
 
 	(* we changed the system properties, so assign the new instance properties to the current model *)
 	val _ = CurrentModel.setCurrentModel (classes, instance, sysprops') 
@@ -1236,5 +1264,62 @@ fun combineDiscreteShards (shardedModel as (_, sysprops)) =
     end
     handle e => DynException.checkpoint "ShardedModel.combineDiscreteShards" e
 end
+
+fun refreshSysProps (shardedModel as (shards, sysprops)) =
+    let
+	fun isMatrixSolver (_, DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER {dt, solv})) = true
+	  | isMatrixSolver _ = false
+	val matrix_iterators = List.filter isMatrixSolver (map (toIterator shardedModel) (iterators shardedModel))
+
+	fun update_iterator (iter as (iter_sym, iter_type)) =
+	    let
+		val dt = case iter_type of
+			     DOF.CONTINUOUS (Solver.LINEAR_BACKWARD_EULER {dt, solv}) => dt
+			   | _ => DynException.stdException("No bwd Euler solver", 
+							    "ShardedModel.refreshSysProps.update_iterator",
+							    Logger.INTERNAL)
+		val model = toModel shardedModel iter_sym
+		val matrix_equ = CurrentModel.withModel 
+				     model 
+				     (fn()=> 
+					let 
+					    val class = CurrentModel.top_class()
+					    val matrix_equ = case List.find ExpProcess.isMatrixEq (!(#exps class)) of
+								 SOME exp => exp
+							       | NONE => DynException.stdException ("Shard with bwd Euler solver has no matrix equation", 
+												    "ShardedModel.refreshSysProps.update_iterator",
+												    Logger.INTERNAL)
+					in
+					    ExpProcess.rhs matrix_equ
+					end)
+		val matrix = Container.expMatrixToMatrix matrix_equ
+		val iter_type' = 
+		    DOF.CONTINUOUS (case !matrix of
+					Matrix.DENSE _ => Solver.LINEAR_BACKWARD_EULER {dt=dt, solv=Solver.LSOLVER_DENSE}
+				      | Matrix.BANDED _ => 
+					let val (upperbw, lowerbw) = Matrix.findBandwidth matrix
+					in Solver.LINEAR_BACKWARD_EULER {dt=dt, solv=Solver.LSOLVER_BANDED {upperhalfbw=upperbw, lowerhalfbw=lowerbw}}
+					end)
+	    in
+		(iter_sym, iter_type')
+	    end
+	    handle e => DynException.checkpoint "ShardedModel.refreshSysProps.update_iterator" e
+
+	val matrix_iterators' = map update_iterator matrix_iterators
+
+	val {iterators, precision, target, parallel_models, debug, profile} = sysprops
+	val iterators' = map (fn(iter as (iter_sym, _))=> case List.find (fn(iter_sym', _)=> iter_sym = iter_sym') matrix_iterators' of
+						    SOME iter' => iter'
+						  | NONE => iter) iterators
+				    
+    in
+	(shards, {iterators=iterators',
+		  precision=precision,
+		  target=target,
+		  parallel_models=parallel_models,
+		  debug=debug,
+		  profile=profile})
+    end
+    handle e => DynException.checkpoint "ShardedModel.refreshSysProps" e
 
 end

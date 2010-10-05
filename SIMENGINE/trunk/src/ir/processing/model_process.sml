@@ -382,7 +382,7 @@ fun optimizeModel order (model:DOF.model) =
 		       let
 			   val msg = "Optimizing Class '"^(Symbol.name (#name c))^"'"
 			   val _ = Profile.time msg ClassProcess.optimizeClass c
-			   val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())
+			   (*val () = DOFPrinter.printModel (CurrentModel.getCurrentModel())*)
 		       in
 			   ()
 		       end) classes
