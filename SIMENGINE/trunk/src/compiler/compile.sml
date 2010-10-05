@@ -91,20 +91,28 @@ fun DOFToShardedModel forest =
 			       forkedModels
 
 	(* perform another pass of optimizations *)
-	val _ = if DynamoOptions.isFlagSet "optimize" then
-		    let
-			val (shards, sysprops) = forkedModels
-			fun toModel {classes, instance, ...} = (classes, instance, sysprops)
-		    in
-			(log ("Optimizing model ...");
-			 app 
-			     (fn(shard) => 
-				(CurrentModel.withModel (toModel shard)
-							(fn() => Profile.timeTwoCurryArgs "Optimizing shard" ModelProcess.optimizeModel true (toModel shard)))) (* order after *)
-			     shards)
-		    end
-		else
-		    ()
+	val forkedModels = 
+	    if DynamoOptions.isFlagSet "optimize" then
+		let
+		    val (shards, sysprops) = forkedModels
+		    fun toModel {classes, instance, ...} = (classes, instance, sysprops)
+		    val _ = log ("Optimizing model ...")
+		    val _ = app 
+				(fn(shard) => 
+				   (CurrentModel.withModel (toModel shard)
+							   (fn() => Profile.timeTwoCurryArgs 
+									"Optimizing shard" 
+									ModelProcess.optimizeModel true (toModel shard)))) (* order after *)
+				shards
+		    val _ = ShardedModel.printShardedModel "After optimization" forkedModels
+		    val _ = log ("Refreshing system properties ...")
+		    val forkedModels' = ShardedModel.refreshSysProps forkedModels
+		    val _ = ShardedModel.printShardedModel "After refreshing sys props" forkedModels'
+		in
+		    forkedModels'
+		end
+	    else
+		forkedModels
 	val _ = Profile.mark()
 
 	val _ = log ("Ordering model classes ...")
