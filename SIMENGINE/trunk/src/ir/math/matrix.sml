@@ -525,6 +525,11 @@ fun optimize m =
 	val m' = clone m
 	val _ = normalize m'
 	val (nrows, ncols) = size m'
+	val enable_logging = DynamoOptions.isFlagSet "verbose"
+	fun log msgfcn = if enable_logging then
+			     Util.log (msgfcn ())
+			 else
+			     ()
     in
 	if isSquare m then
 	    let
@@ -536,14 +541,21 @@ fun optimize m =
 		if upperbw + lowerbw + 1 < dim then
 		    let
 			val bands = map (getBand m') (List.tabulate (upperbw+lowerbw+1, fn(i)=>i-lowerbw))
-			(*val _ = Util.log ("Displaying bands")*)
-			val toStrFcn = #toString (matrix2calculus m)
-			val strs = map 
-				       (fn(b)=>String.concatWith ", " (map toStrFcn (arrayToList b)))
-				       bands
-			(*val _ = app
-				    (fn(str)=>Util.log ("{"^(str)^"}"))
-				    strs*)
+			val _ = if enable_logging then
+				    let
+					val _ = log (fn()=>"Displaying bands")						
+					val toStrFcn = #toString (matrix2calculus m)
+					val strs = map 
+						       (fn(b)=>String.concatWith ", " (map toStrFcn (arrayToList b)))
+						       bands
+					val _ = app
+						    (fn(str)=>Util.log ("{"^(str)^"}"))
+						    strs
+				    in
+					()
+				    end
+				else
+				    ()
 		    in
 			m := (BANDED {nrows=nrows,
 				      ncols=ncols,
@@ -553,10 +565,12 @@ fun optimize m =
 				      data=bands})
 		    end
 		else
-		    () (* keep what we had *)
+		    (* keep what we had *)
+		    log (fn()=>("Matrix left as dense with bandwidth = ("^(i2s upperbw)^","^(i2s lowerbw)^")"))
 	    end
 	else
-	    () (* we can't simplify non-square matrices right now *)
+	    (* we can't simplify non-square matrices right now *)
+	    log (fn()=>("Non-square matrix found: " ^ (infoString m)))
     end
 
 (* set the value at the index *)
