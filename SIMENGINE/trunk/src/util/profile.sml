@@ -3,6 +3,7 @@ sig
 
     val time: string -> ('a -> 'b) -> 'a -> 'b
     val timeTwoCurryArgs : string -> ('a -> 'b -> 'c) -> 'a -> 'b -> 'c
+    val timeThreeCurryArgs : string -> ('a -> 'b -> 'c -> 'd) -> 'a -> 'b -> 'c -> 'd
     val mark: unit -> unit
     val displayTimes: unit -> unit
 
@@ -75,6 +76,14 @@ fun timeTwoCurryArgs message fcn arg1 arg2 =
 	fun fcn'' arg1 arg2 = fcn' (arg1, arg2)
     in
 	fcn'' arg1 arg2
+    end
+
+fun timeThreeCurryArgs message fcn arg1 arg2 arg3 = 
+    let
+	fun fcn' (arg1, arg2, arg3) = time message ((fcn arg1) arg2) arg3
+	fun fcn'' arg1 arg2 arg3 = fcn' (arg1, arg2, arg3)
+    in
+	fcn'' arg1 arg2 arg3
     end
 
 

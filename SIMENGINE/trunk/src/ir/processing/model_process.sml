@@ -516,10 +516,34 @@ local
 		    SOME sets => sets
 		  | NONE => except "No state in table"
 
+	    (* these two states are compatible if and only if they appear on each others linear list *)
+	    fun valid_linear_match (sym1, sym2) = 
+		let
+		    val linear_set1 = #1 (state_to_sets sym1)
+		    val linear_set2 = #1 (state_to_sets sym2)
+		in
+		    SymbolSet.member (linear_set1, sym2) andalso
+		    SymbolSet.member (linear_set2, sym1)
+		end
+
 	    fun recurse (linear_set : SymbolSet.set) =
 		let
 		    val list = SymbolSet.listItems linear_set
-		    val linear_set' = SymbolSet.union (linear_set, SymbolSet.flatmap (#1 o state_to_sets) list)
+			       
+		    val linear_deps = SymbolSet.flatmap 
+					  (fn(sym)=>
+					     let
+						 (* here are all the states that are linearly represented in the 
+						  * differential equation for state sym *)
+						 val set = #1 (state_to_sets sym)
+					     in
+						 (* here are the reduced list of states that are bidirectionally 
+						  * linearly coupled *)
+						 SymbolSet.filter (fn(sym')=> valid_linear_match (sym, sym')) set
+					     end)
+					  list
+
+		    val linear_set' = SymbolSet.union (linear_set, linear_deps)
 		    val nonlinear_set' = SymbolSet.flatmap (#2 o state_to_sets) list
 		in
 		    if SymbolSet.equal (linear_set, linear_set') then
@@ -535,9 +559,16 @@ local
 	    (* The linear list includes all the states that are included, and if any are in the non-linear set, 
 	     * then that means that we can't say they are truly linearly coupled *)
 	    val common = SymbolSet.intersection (linear_set, nonlinear_set)
+	    val _ = if SymbolSet.numItems common > 0 andalso SymbolSet.numItems linear_set > 1 then
+			if DynamoOptions.isFlagSet "logauto" orelse DynamoOptions.isFlagSet "verbose" then
+			    Logger.log_warning (Printer.$("There are some nonlinear interations on state(s) "^(SymbolSet.toStr common)^" between states " ^ (SymbolSet.toStr linear_set)))
+			else
+			    ()
+		    else
+			()
 
 	    (* compute group now *)
-	    val group = if SymbolSet.numItems common = 0 andalso SymbolSet.numItems linear_set > 1 then
+	    val group = if (*SymbolSet.numItems common = 0 andalso*) SymbolSet.numItems linear_set > 1 then
 			    (* there can be no common elements, else there is non-linear coupling, and the linear set
 			     * should have at least 2 elements *)
 			    linear_set
@@ -580,6 +611,7 @@ local
 
 	    (* create a table of linearity relationships *)
 	    val linearity_table = 
+		Profile.timeThreeCurryArgs "Creating linearity table"
 		foldl
 		    (fn(s, table)=> 
 		       case sym2differential_equation s of
@@ -602,10 +634,16 @@ local
 		    states
 		    handle e => DynException.checkpoint "ModelProcess.replaceAutoIterator.linearity_table" e
 
-	    (*val _ = log_linearity_table "All dependencies" linearity_table*)
+	    val _ = if DynamoOptions.isFlagSet "logauto" then
+			log_linearity_table "All dependencies" linearity_table
+		    else
+			()
 
-	    val groups = group_linearity_table linearity_table
-	    (*val _ = log_groups "Grouped dependencies" groups*)
+	    val groups = Profile.time "Grouping states" group_linearity_table linearity_table
+	    val _ = if DynamoOptions.isFlagSet "logauto" then
+			log_groups "Grouped dependencies" groups
+		    else
+			()
 
 	    (* define new iterators for the system *)
 	    val fe_iter_sym = ExpProcess.uniq (Symbol.symbol "#iter")
@@ -623,7 +661,7 @@ local
 		  | NONE => except "Can't determine linearity of self"
 
 	    fun log (msg) = 
-		if DynamoOptions.isFlagSet "verbose" then
+		if DynamoOptions.isFlagSet "verbose" orelse DynamoOptions.isFlagSet "logauto" then
 		    Util.log msg
 		else
 		    ()
@@ -688,6 +726,7 @@ in
 fun expandAutoSolver (model:DOF.model) =
     let
 	(* first flatten the model *)
+	val _ = log ("Flattening model ... ")
 	val model' = Profile.time "Unifying" unify model
 	val _ = CurrentModel.setCurrentModel(model')
 
@@ -698,7 +737,7 @@ fun expandAutoSolver (model:DOF.model) =
 
     in
 	(* now replace them one by one*)
-	app replaceAutoIterator auto_iterators
+	Profile.timeTwoCurryArgs "Replacing auto iterator" app replaceAutoIterator auto_iterators
     end
     handle e => DynException.checkpoint "ModelProcess.expandAutoSolver" e
 end
