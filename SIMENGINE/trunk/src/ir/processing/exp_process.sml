@@ -75,7 +75,10 @@ val intermediateEquation2rewrite : Exp.exp -> Rewrite.rewrite
 val simplify: Exp.exp -> Exp.exp
 val collect : Exp.exp * Exp.exp -> Exp.exp
 val multicollect : Exp.exp list * Exp.exp -> Exp.exp
-
+val factorsym : (Exp.exp * Symbol.symbol) -> (Exp.exp * Exp.exp) (* return the coefficient and remainder *)
+val hasSymbol : (Exp.exp * Symbol.symbol) -> bool
+val isLinear : (Exp.exp * Symbol.symbol) -> bool
+val coeff : (Exp.exp * Symbol.symbol) -> Exp.exp
 
 (* Expression manipulation functions - get/set differing properties *)
 val renameSym : (Symbol.symbol * Symbol.symbol) -> Exp.exp -> Exp.exp (* Traverse through the expression, changing symbol names from the first name to the second name *)
@@ -969,6 +972,7 @@ fun collect (symexp, exp) =
   in
       Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ collecters) (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
   end
+    handle e => DynException.checkpoint "ExpProcess.collect" e
 
 fun multicollect (symexps, exp) =
     let
@@ -999,12 +1003,94 @@ fun multicollect (symexps, exp) =
       val _ = app (fn(rules)=> (Util.log(" - ");app (fn(rule)=>Util.log (" -> Rule: " ^ (Rewrite.rewrite2str rule))) rules)) collecters
 *)
       val exp' = (Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp)
+      (*val _ = Util.log ("exp' -> " ^ (e2s exp'))*)
   in
-      foldl (fn(collecter_group,exp) => Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ collecter_group) exp) 
+      foldl (fn(collecter_group,exp) => 
+	       let
+		   (*val _ = Util.log ("In foldl: exp=" ^ (e2s exp))
+		   val _ = app (fn(rule)=>Util.log (" -> Rule: " ^ (Rewrite.rewrite2str rule))) collecter_group*)
+	       in
+		   Match.repeatApplyRewritesExp ((Rules.getRules "simplification") @ collecter_group) exp
+	       end) 
 	    exp' 
 	    collecters
   end
+    handle e => DynException.checkpoint "ExpProcess.multicollect" e
 
+
+(* factorsym - given an expression, attempt to factor out the coefficient, returning the coefficient and remainder 
+ * Note that this only works at the top level
+ * examples: 
+ *   factorsym (a + x*b + c, x) => (b, a + c)
+ *   factorsym (a + x + c, x) =>  (1, a + c)
+ *   factorsym (a + x + exp(y), y) => (0, a + x + exp(y))
+ *)
+
+fun factorsym (exp, sym) =
+    let
+	(* create a variable to seach for *)
+	val var = Match.asym sym
+
+	(* create a rewrite to match the resulting equation *)
+	val coeff_rewrite =
+	    {find=ExpBuild.plus[Match.any "d1", 
+				ExpBuild.times [Match.any "d2", 
+						var, 
+						Match.any "d3"], 
+				Match.any "d4"],
+	     (* use a test to make sure that we're only looking at the top most expression *)
+	     test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp, matched_exp)),
+	     replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.times [ExpBuild.pvar "d2", ExpBuild.pvar "d3"],
+							    ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+
+	(* it could be that there is no coefficient in front of the variable *)
+	val coeff_rewrite_degenerate_case =
+	    {find=ExpBuild.plus[Match.any "d1", 
+				var, 
+				Match.any "d4"],
+	     (* use a test to make sure that we're only looking at the top most expression *)
+	     test=SOME (fn(matched_exp, matchedPatterns)=>ExpEquality.equiv (exp, matched_exp)),
+	     replace=Rewrite.RULE(Exp.CONTAINER(Exp.EXPLIST[ExpBuild.int 1,
+							    ExpBuild.plus  [ExpBuild.pvar "d1", ExpBuild.pvar "d4"]]))}
+
+    in
+	(* run a rewrite to pull out the coeff and remainder *)
+	case Match.applyRewritesExp [coeff_rewrite, coeff_rewrite_degenerate_case] exp of
+	    Exp.CONTAINER(Exp.EXPLIST [coeff, remainder]) =>
+	    (coeff, remainder)
+	  | _ =>
+	    (ExpBuild.int 0, exp)
+    end	    
+    handle e => DynException.checkpoint "ExpProcess.factorsym" e
+
+fun hasSymbol (exp, sym) =
+    isSome (Match.findOnce (Match.asym sym, exp))
+    handle e => DynException.checkpoint "ExpProcess.hasSymbol" e
+
+fun isLinear (exp, sym) =
+    let
+	val (coeff, remainder) = factorsym (exp, sym)
+	(*val _ = Util.log ("Sym: "^(Symbol.name sym)^", Coeff: " ^ (e2s coeff) ^ ", Remainder: " ^ (e2s remainder))*)
+    in
+	(* Verify that remainder and coefficient does not contain 'sym' (indicating non-linearity) *)  		
+	not (hasSymbol (ExpBuild.explist [coeff, remainder], sym))
+    end
+    handle e => DynException.checkpoint "ExpProcess.isLinear" e
+
+(* coeff - given an expression, find the coefficient to that expression
+ * Note that this only works at the top level
+ * examples: 
+ *   coeff (a + x*b + c, x) => b
+ *   coeff (a + x + c, x) =>  1
+ *   coeff (a + x + exp(y), y) => 0
+ *)
+fun coeff (exp, sym) = 
+    let
+	val (coeff, _) = factorsym (exp, sym)
+    in
+	coeff
+    end
+    handle e => DynException.checkpoint "ExpProcess.coeff" e
 
 fun symterm2symterm term = 
     (case term of 

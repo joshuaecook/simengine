@@ -44,7 +44,8 @@ classdef Iterator < handle
     end
     
     properties (GetAccess = public, SetAccess = private)
-        solvers = {'forwardeuler', 'linearbackwardeuler', 'exponentialeuler', 'heun', 'rk4', 'cvode', 'ode23', 'ode45'};
+        solvers = {'forwardeuler', 'linearbackwardeuler', ...
+                   'exponentialeuler', 'auto', 'heun', 'rk4', 'cvode', 'ode23', 'ode45'};
     end
     
     methods (Static)
@@ -363,7 +364,8 @@ classdef Iterator < handle
                 iter.params('sample_frequency') = 1;
             else % else if is continuous
                 switch iter.solver
-                    case {'forwardeuler', 'linearbackwardeuler', 'exponentialeuler', 'rk4', 'heun'}
+                    case {'forwardeuler', 'linearbackwardeuler', ...
+                          'exponentialeuler', 'rk4', 'heun', 'auto'}
                         iter.params('dt') = 1;
                     case {'ode23', 'ode45'}
                         iter.params('dt') = 1;

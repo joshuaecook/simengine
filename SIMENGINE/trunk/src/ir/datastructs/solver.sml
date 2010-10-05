@@ -21,6 +21,7 @@ sig
 	   | RK4 of {dt:real}
 	   | MIDPOINT of {dt:real}
 	   | HEUN of {dt:real}
+	   | AUTO of {dt:real}
 	   | ODE23 of {dt:real, abs_tolerance: real, rel_tolerance: real}
 	   | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
 	   | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
@@ -67,6 +68,7 @@ datatype solver =
        | RK4 of {dt:real}
        | MIDPOINT of {dt:real}
        | HEUN of {dt:real}
+       | AUTO of {dt:real}
        | ODE23 of {dt:real, abs_tolerance: real, rel_tolerance: real}
        | ODE45 of {dt:real, abs_tolerance: real, rel_tolerance: real}
        | CVODE of {dt:real, abs_tolerance: real, rel_tolerance: real,
@@ -86,6 +88,7 @@ fun solver2name (FORWARD_EULER _) = "forwardeuler"
   | solver2name (RK4 _) = "rk4"
   | solver2name (MIDPOINT _) = "midpoint"
   | solver2name (HEUN _) = "heun"
+  | solver2name (AUTO _) = "auto_fixed_dt"
   | solver2name (ODE23 _) = (*"ode23"*) "bogacki_shampine"
   | solver2name (ODE45 _) = (*"ode45"*) "dormand_prince"
   | solver2name (CVODE _) = "cvode"
@@ -98,6 +101,7 @@ fun solver2shortname (FORWARD_EULER _) = "forwardeuler"
   | solver2shortname (RK4 _) = "rk4"
   | solver2shortname (MIDPOINT _) = "midpoint"
   | solver2shortname (HEUN _) = "heun"
+  | solver2shortname (AUTO _) = "auto"
   | solver2shortname (ODE23 _) = "ode23" (*"bogacki_shampine"*)
   | solver2shortname (ODE45 _) = "ode45" (*"dormand_prince"*)
   | solver2shortname (CVODE _) = "cvode"
@@ -119,6 +123,9 @@ fun solver2params (FORWARD_EULER {dt}) = [("timestep", r2s dt),
 				     ("abstol", "0.0"),
 				     ("reltol", "0.0")]
   | solver2params (HEUN {dt}) = [("timestep", r2s dt),
+				 ("abstol", "0.0"),
+				 ("reltol", "0.0")]
+  | solver2params (AUTO {dt}) = [("timestep", r2s dt),
 				 ("abstol", "0.0"),
 				 ("reltol", "0.0")]
   | solver2params (ODE23 {dt, abs_tolerance, rel_tolerance}) = 
@@ -168,6 +175,7 @@ fun solver2dt (FORWARD_EULER {dt}) = SOME dt
   | solver2dt (RK4 {dt}) = SOME dt
   | solver2dt (MIDPOINT {dt}) = SOME dt
   | solver2dt (HEUN {dt}) = SOME dt
+  | solver2dt (AUTO {dt}) = SOME dt
   | solver2dt (ODE23 _) = NONE
   | solver2dt (ODE45 _) = NONE
   | solver2dt (CVODE {dt,...}) = if dt > 0.0 then
@@ -274,6 +282,7 @@ fun name2solver (solver_sym, settings) =
 	  | "rk4" => RK4 {dt=getDT settings}
 	  | "midpoint" => MIDPOINT {dt=getDT settings}
 	  | "heun" => HEUN {dt=getDT settings}
+	  | "auto" => AUTO {dt=getDT settings}
 	  | "ode23" => ODE23 {dt=getDT settings, 
 			      abs_tolerance=getAbsTol settings, 
 			      rel_tolerance=getRelTol settings}

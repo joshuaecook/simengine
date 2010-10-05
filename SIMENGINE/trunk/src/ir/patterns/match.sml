@@ -19,6 +19,7 @@ val anylocal : Exp.exp
 val anyfun : string -> Exp.exp (* match one function *)
 val anybuiltin : string -> Exp.exp (* match one builtin function *)
 val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
+val anysym_with_temporal_iterator : Symbol.symbol -> string -> Exp.exp (* to match a symbol that has a temporal iterator *)
 val asym : Symbol.symbol -> Exp.exp (* match a particular symbol by name - ex. I want to find 'Vm' - asym (Symbol.symbol "Vm") *)
 
 (* Matching functions *)
@@ -62,6 +63,9 @@ fun somesym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predi
 fun anydiff sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anydiffterm, Pattern.ONE))
 (* this matches a symbol of a particular name *)
 fun anysym_with_predlist preds sym = Exp.TERM (Exp.PATTERN (sym, PatternProcess.combine_preds preds, Pattern.ONE))
+(* match a symbol with a particular iterator *)
+fun anysym_with_temporal_iterator iter_sym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol_with_iter iter_sym, Pattern.ONE))
+
 val anysymnotdiff = anysym_with_predlist [PatternProcess.predicate_anysymbol, PatternProcess.notpred PatternProcess.predicate_anydiffterm]
 (* This will match a particular symbol name *)
 fun asym sym = Exp.TERM (Exp.PATTERN (sym, PatternProcess.gen_predicate_from_symbol sym, Pattern.ONE))

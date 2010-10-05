@@ -100,8 +100,10 @@ fun var_with_iter (sym, iter) =
 			      [iter]))
 
 
-fun itervar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
-					Property.setScope Property.default_symbolproperty Property.ITERATOR))
+fun itersvar sym = Exp.TERM (Exp.SYMBOL (sym,
+					 Property.setScope Property.default_symbolproperty Property.ITERATOR))
+fun itervar str = itersvar (Symbol.symbol str)
+
 fun relitervar (str,ind) = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					   Property.setScope 
 					       (Property.setIterator 

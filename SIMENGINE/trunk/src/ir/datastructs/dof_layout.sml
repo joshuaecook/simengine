@@ -185,6 +185,8 @@ fun model_to_layout (model: DOF.model) =
 		 label ("solver", seq [s2l "Midpoint ", curlyList [label ("dt", r2l dt)]])
 	       | Solver.HEUN {dt} =>
 		 label ("solver", seq [s2l "Heun ", curlyList [label ("dt", r2l dt)]])
+	       | Solver.AUTO {dt} =>
+		 label ("solver", seq [s2l "Auto ", curlyList [label ("dt", r2l dt)]])
 	       | Solver.ODE23 {dt, abs_tolerance, rel_tolerance} =>
 		 label ("solver", seq [s2l "ODE23 ", curlyList [label ("dt", r2l dt),
 								label ("abstol", r2l abs_tolerance),
