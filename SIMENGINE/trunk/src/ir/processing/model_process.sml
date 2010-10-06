@@ -488,9 +488,13 @@ local
     fun log_linearity_table msg table = 
 	let
 	    open Layout
-	    fun entry_to_layout (key, (value1, value2)) =
-		label (Symbol.name key, align [label ("linear", SymbolSet.toLayout value1),
-					       label ("nonlinear", SymbolSet.toLayout value2)])
+	    fun entry_to_layout (key, {linear_states, nonlinear_states, conflict_table}) =
+		label (Symbol.name key, align [label ("linear", SymbolSet.toLayout linear_states),
+					       label ("nonlinear", SymbolSet.toLayout nonlinear_states),
+					       label ("conflicts", curlyList (map 
+										  (fn(key', set)=> 
+										     label (Symbol.name key', SymbolSet.toLayout set) )
+										  (SymbolTable.listItemsi conflict_table)))])
 	    val t = heading (msg, 
 			     align (map entry_to_layout (SymbolTable.listItemsi table)))
 	in
@@ -516,14 +520,30 @@ local
 		    SOME sets => sets
 		  | NONE => except "No state in table"
 
-	    (* these two states are compatible if and only if they appear on each others linear list *)
+	    (* these two states are compatible if and only if they appear on each others linear list 
+	     * and if they are not conflicted.  Two state are conflicted if they can not both have 
+	     * linear relationships, as in the simple case of z' = x*y.  *)
 	    fun valid_linear_match (sym1, sym2) = 
 		let
-		    val linear_set1 = #1 (state_to_sets sym1)
-		    val linear_set2 = #1 (state_to_sets sym2)
+		    val linear_set1 = #linear_states (state_to_sets sym1)
+		    val linear_set2 = #linear_states (state_to_sets sym2)
+		    fun has_conflict (sym1, sym2) =
+			case SymbolTable.look (#conflict_table (state_to_sets sym1), sym1) of
+			    SOME set => SymbolSet.member (set, sym2)
+			  | NONE => false
+			
+		    val r = SymbolSet.member (linear_set1, sym2) andalso
+			    SymbolSet.member (linear_set2, sym1) andalso
+			    not (has_conflict (sym1, sym2)) andalso
+			    not (has_conflict (sym2, sym1))
+			    (*
+		    val _ = if not r then
+				Util.log ("Conflict found between "^(Symbol.name sym1)^" and " ^ (Symbol.name sym2))
+			    else
+				()
+				*)
 		in
-		    SymbolSet.member (linear_set1, sym2) andalso
-		    SymbolSet.member (linear_set2, sym1)
+		    r
 		end
 
 	    fun recurse (linear_set : SymbolSet.set) =
@@ -535,7 +555,7 @@ local
 					     let
 						 (* here are all the states that are linearly represented in the 
 						  * differential equation for state sym *)
-						 val set = #1 (state_to_sets sym)
+						 val set = #linear_states (state_to_sets sym)
 					     in
 						 (* here are the reduced list of states that are bidirectionally 
 						  * linearly coupled *)
@@ -544,7 +564,7 @@ local
 					  list
 
 		    val linear_set' = SymbolSet.union (linear_set, linear_deps)
-		    val nonlinear_set' = SymbolSet.flatmap (#2 o state_to_sets) list
+		    val nonlinear_set' = SymbolSet.flatmap (#nonlinear_states o state_to_sets) list
 		in
 		    if SymbolSet.equal (linear_set, linear_set') then
 			(* here, we bottomed out *)
@@ -609,10 +629,12 @@ local
 	    fun sym2differential_equation s = 
 		List.find ExpProcess.isFirstOrderDifferentialEq (ClassProcess.symbol2exps class s)
 
+
 	    (* create a table of linearity relationships *)
+	    val timing_foldl = Profile.foldl "Creating linearity table"
 	    val linearity_table = 
 		Profile.timeThreeCurryArgs "Creating linearity table"
-		foldl
+		timing_foldl
 		    (fn(s, table)=> 
 		       case sym2differential_equation s of
 			   SOME equ => 
@@ -622,12 +644,57 @@ local
 			       val state_vars = map Exp.TERM (List.filter (fn(t)=> List.exists (fn(s)=> Term.sym2curname t = s) states) terms)
 			       val state_syms = map ExpProcess.exp2symbol state_vars
 			       val state_symbolset = SymbolSet.fromList state_syms
-			       (* use the multi-collect function to factor out all the state variables *)
-			       val rhs' = ExpProcess.multicollect (map (fn(sym)=>ExpBuild.svar sym) (SymbolSet.listItems state_symbolset), rhs)
-			       (* then, the isLinear predicate can check to see for each state, if there is or isn't a linear relationship *)
-			       val (linear_states, non_linear_states) = SymbolSet.partition (fn(sym)=> ExpProcess.isLinear (rhs', sym)) state_symbolset
+
+			       fun check_linear (exp, sym) = 
+				   let
+				       val var = ExpBuild.svar sym
+				       val exp' = ExpProcess.collect (var, exp)
+				   in
+				       if ExpProcess.isLinear (exp', sym) then
+					   let
+					       val coeff = ExpProcess.coeff (exp', sym)
+					       val syms = ExpProcess.exp2symbolset coeff
+					       val conflicts = SymbolSet.intersection (state_symbolset, syms)
+					   in
+					       SOME conflicts
+					   end
+				       else
+					   NONE
+				   end
+				   
+			       (* We going to iterate through each of the states found in the expression.  If the 
+				* state has a linear relationship with the computation of the derivative, we add it
+				* to the linear state list, otherwise add it to the nonlinear state list.  If there
+				* are any conflicts, meaning that a state is present in the coefficient for another 
+				* state, then that means that they are not linearly independent.  
+				* ex. z' = x*y + z + w^2
+				*   linear_set: {x, y, z}
+				*   nonlinear_set: {w}
+				*   conflicts: {x: {y}, y: {x}}
+				*)
+			       val entry = SymbolSet.foldl
+					       (fn(sym, (linear_set, nonlinear_set, conflict_table))=>
+						  case check_linear (rhs, sym) of
+						      SOME conflicts =>
+						      (SymbolSet.add (linear_set, sym),
+						       nonlinear_set,
+						       if SymbolSet.isEmpty conflicts then
+							   conflict_table
+						       else
+							   SymbolTable.enter (conflict_table, sym, conflicts))
+						    | NONE =>
+						      (linear_set,
+						       SymbolSet.add (nonlinear_set, sym),
+						       conflict_table))
+					       (SymbolSet.empty, SymbolSet.empty, SymbolTable.empty)
+					       state_symbolset
+
+			       val (linear_states, nonlinear_states, conflict_table) = entry
+			       val entry' = {linear_states=linear_states,
+					     nonlinear_states=nonlinear_states,
+					     conflict_table=conflict_table}
 			   in
-			       SymbolTable.enter (table, s, (linear_states, non_linear_states))
+			       SymbolTable.enter (table, s, entry')
 			   end
 			 | NONE => table)
 		    SymbolTable.empty
@@ -657,7 +724,7 @@ local
 	    (* helper function to determine if exponential euler applies *)
 	    fun isLinearToSelf sym =
 		case SymbolTable.look (linearity_table, sym) of
-		    SOME (linear_set, nonlinear_set) => SymbolSet.equal (linear_set, SymbolSet.singleton sym)
+		    SOME {linear_states, ...} => SymbolSet.equal (linear_states, SymbolSet.singleton sym)
 		  | NONE => except "Can't determine linearity of self"
 
 	    fun log (msg) = 

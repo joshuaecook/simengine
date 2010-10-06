@@ -541,7 +541,7 @@ fun optimize m =
 		if upperbw + lowerbw + 1 < dim then
 		    let
 			val bands = map (getBand m') (List.tabulate (upperbw+lowerbw+1, fn(i)=>i-lowerbw))
-			val _ = if enable_logging then
+			val _ = if false andalso enable_logging then
 				    let
 					val _ = log (fn()=>"Displaying bands")						
 					val toStrFcn = #toString (matrix2calculus m)
