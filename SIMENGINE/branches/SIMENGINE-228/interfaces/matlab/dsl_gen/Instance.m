@@ -1,22 +1,24 @@
 classdef Instance
     
     properties
+        MdlName
         InstName
         ClassName
         Inputs
         Outputs
         Mdl
         SubMdl
-    end
-    
-    properties (Access = protected)
-        definedInputs
         Dims
         NumInst
     end
     
+    properties (Access = protected)
+        definedInputs
+    end
+    
     methods
-        function inst = Instance(InstName, Mdl, SubMdl, Inputs, Outputs, Dims)
+        function inst = Instance(MdlName, InstName, Mdl, SubMdl, Inputs, Outputs, Dims)
+            inst.MdlName = MdlName;
             inst.Mdl = Mdl;
             inst.SubMdl = SubMdl;
             inst.InstName = InstName;
@@ -29,12 +31,21 @@ classdef Instance
         
         function b = subsref(inst, s)
             if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
-                % make sure that the output exists
                 out = s.subs;
-                %items = strfind(inst.Outputs, s.subs);
-                %if isempty(cell2mat(items))
-                if isOutput(inst, out)
-                    output = Exp(inst.InstName, out);
+                if strcmp(out, 'toStr')
+                    b = toStr(inst);
+                % Return any properties that are referenced
+                elseif any(strcmp(s.subs, fieldnames(inst)))
+                    b = inst.(s.subs);
+                elseif isOutput(inst, out)
+                    if inst.NumInst > 1
+                      output = cell(1, inst.NumInst); %cell(inst.Dims);
+                      for i = 1:inst.NumInst
+                        output{i} = Exp([inst.InstName '_' num2str(i)], out);
+                      end
+                    else
+                      output = Exp(inst.InstName, out);
+                    end
                     b = output;
                 elseif isInput(inst, out)
                     % now, if it's an input, we can still handle that by
@@ -45,16 +56,14 @@ classdef Instance
                     else
                         error('Simatra:Instance', ['Can not read from an input ''%s'' of submodel ''%s'' if it has not been already defined.'], out, inst.SubMdl.Name)
                     end    
-                elseif strcmp(out, 'Inputs')
-                    b = inst.Inputs;
-                elseif strcmp(out, 'Outputs')
-                    b = inst.Outputs;
-                elseif strcmp(out, 'ModelObject')
-                    b = inst.SubMdl;
                 else
                     inst.Outputs
                     error('Simatra:Instance', 'No output with name %s found', s.subs);
                 end
+            %elseif length(s) == 2 && isfield(s(1), 'type') && ...
+            %      strcmp(s(1).type, '()') && isfield(s(2), 'type') ...
+            %      && strcmp(s(2).type, '.'
+            %  out = s(2).subs;
             elseif length(s) == 2 && isfield(s(1), 'type') && ...
                   strcmp(s(1).type, '.') && isfield(s(2), 'type') && ...
                   strcmp(s(2).type, '()') && strcmp(s(1).subs, 'with')
@@ -102,13 +111,13 @@ classdef Instance
             d = max(size(inst));
         end
         
-        function d = numel(inst, varargin)
-            if nargin == 1
-              d = inst.NumInst;
-            else
-              d = numel([varargin{:}]);
-            end
-        end
+        %function d = numel(inst, varargin)
+        %    if nargin == 1
+        %      d = inst.NumInst;
+        %    else
+        %      d = numel([varargin{:}]);
+        %    end
+        %end
         
         function setInput(inst, inp, value)
             if ~isa(inst, 'Instance')
@@ -145,6 +154,17 @@ classdef Instance
         
         function r = isOutput(inst, out)
             r = any(strcmp(inst.Outputs, out));
+        end
+        
+        function str = toStr(inst)
+          str = '';
+          if inst.NumInst > 1
+            for i = 1:inst.NumInst;
+              str = [str '    submodel ' inst.MdlName ' ' inst.InstName '_' num2str(i) '\n'];
+            end
+          else
+            str = ['    submodel ' inst.MdlName ' ' inst.InstName '\n'];
+          end
         end
     end
     

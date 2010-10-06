@@ -671,8 +671,8 @@ classdef Model < handle
                 error('Simatra:Model', 'Unexpected instance')
             end
 
-            m.Instances(inst) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
-            instance = Instance(inst, m, modelarg, inputs, outputs, dims);
+            instance = Instance(name, inst, m, modelarg, inputs, outputs, dims);
+            m.Instances(inst) = instance;
         end
 
         function e = equ(m, lhs, rhs)
@@ -1216,16 +1216,7 @@ classdef Model < handle
             str = [str '   // Instance definitions\n'];
             for i=1:length(instances)
                 inst = m.Instances(instances{i});
-                name = inst.name;
-                numSubInst = prod(inst.Dims);
-                % Handle multidimensional instances
-                if(numSubInst > 1)
-                  for j=1:numSubInst
-                    str = [str '   submodel ' name ' ' instances{i} '_' num2str(j) '\n'];
-                  end
-                else
-                  str = [str '   submodel ' name ' ' instances{i} '\n'];
-                end
+                str = [str toStr(inst)];
             end
             str = [str '\n'];
             str = [str '   // Equation definitions\n'];
@@ -1399,8 +1390,7 @@ classdef Model < handle
             fprintf(fid, '   // Instance definitions\n');
             for i=1:length(instances)
                 inst = m.Instances(instances{i});
-                name = inst.name;
-                fprintf(fid, ['   submodel ' name ' ' instances{i} '\n']);
+                fprintf(fid, toStr(inst));
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // Equation definitions\n');

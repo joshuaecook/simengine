@@ -92,7 +92,7 @@ classdef Exp
     end
     
     methods
-        function e = Exp(v, sub)
+        function e = Exp(v, varargin)
             % Exp - create an Exp simEngine expression
             %
             % Usage:
@@ -143,12 +143,24 @@ classdef Exp
                     classname = class(v);
                     error('Simatra:Exp', 'Invalid type ''%s'' passed to Exp.  Must be either a string variable name, a numeric literal, an Exp type, or an Iterator.', classname);
                 end
-            elseif nargin == 2
-                if ischar(v) && ischar(sub)
-                    e.val = [v '.' sub];
+            elseif nargin == 2 && ischar(varargin{1})
+                if ischar(v)
                     e.type = e.REFERENCE;
+                    e.val = [v '.' varargin{1}];
                 else
-                    error('Simatra:Exp', 'When calling Exp with two arguments, they must be both strings to create the instance reference arg1.arg2');
+                  error('Simatra:Exp', 'When calling Exp with two arguments, they must be both strings to create the instance reference arg1.arg2');
+                end
+            else
+                dims = [varargin{:}];
+                if ischar(v) && isnumeric(dims)
+                  if all(dims > 0)
+                    e.val = v;
+                    e.dims = dims;
+                  else
+                    error('Simatra:Exp','Dimension extents must be > 0.');
+                  end
+                else
+                  error('Simatra:Exp', 'When calling Exp with multiple arguments.  Last arguments must all be numeric dimensions.')
                 end
             end
         end
