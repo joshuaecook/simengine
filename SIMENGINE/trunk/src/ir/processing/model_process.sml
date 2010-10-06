@@ -631,6 +631,7 @@ local
 
 
 	    (* create a table of linearity relationships *)
+	    val _ = Logger.log_notice (Printer.$ ("Creating linearity table ..."))
 	    val timing_foldl = Profile.foldl "Creating linearity table"
 	    val linearity_table = 
 		Profile.timeThreeCurryArgs "Creating linearity table"
@@ -706,6 +707,7 @@ local
 		    else
 			()
 
+	    val _ = Logger.log_notice (Printer.$("Grouping states ..."))
 	    val groups = Profile.time "Grouping states" group_linearity_table linearity_table
 	    val _ = if DynamoOptions.isFlagSet "logauto" then
 			log_groups "Grouped dependencies" groups

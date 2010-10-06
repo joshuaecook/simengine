@@ -2166,27 +2166,33 @@ local
 	    if orig_cost <= new_cost then
 		orig_exps
 	    else
-		(Logger.log_notice (Printer.$ (msg ^ " improved class " ^ (Symbol.name classname) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)) ^ " ("^(Util.r2s percent)^"% improvement)"));
+		(Logger.log_notice (Printer.$ ("Optimization " ^ msg ^ " improved class " ^ (Symbol.name classname) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)) ^ " ("^(Util.r2s percent)^"% improvement)"));
 		 new_exps)
 	end
 
+    fun runOptimization (optimization_level, chooseBest) (id, fcn, minimum_level) exps =
+	if optimization_level >= minimum_level then
+	    let
+		val exps' = Profile.time id fcn exps
+	    in
+		chooseBest id (exps, exps')
+	    end
+	else
+	    exps
 
 in
 fun optimizeClass (class: DOF.class) =
     let
+	val level = DynamoOptions.getIntegerSetting "optimizelevel"
 	val classname = #name class
 	val chooseBest = chooseBest classname
+	val runOptimization = runOptimization (level, chooseBest)
 	val exps = !(#exps class)
 
-	(* perform three passes of optimization *)
-	val exps' = Profile.time "Simplify" simplify exps
-	val exps = chooseBest "Simplification" (exps, exps')
-		       
-	val exps' = Profile.time "SimplifyAndFactor" simplifyAndFactor exps
-	val exps = chooseBest "Factoring" (exps, exps')
-
-	val exps' = Profile.time "SimplifyAndExpand" simplifyAndExpand exps
-	val exps = chooseBest "Expansion" (exps, exps')
+	(* perform three passes of optimization with different optimization levels *)
+	val exps = runOptimization ("Simplify", simplify, 1) exps
+	val exps = runOptimization ("SimplifyAndFactor", simplifyAndFactor, 2) exps
+	val exps = runOptimization ("SimplifyAndExpand", simplifyAndExpand, 3) exps
 
 	val _ = (#exps class) := exps
 

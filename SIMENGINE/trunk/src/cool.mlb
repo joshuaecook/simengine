@@ -131,6 +131,7 @@ ir/processing/exp_printer.sml
 
 ir/processing/term_process.sml
 
+ir/processing/exp_traverse.sml
 ir/processing/normalize.sml
 
 ir/datastructs/rewrite.sml

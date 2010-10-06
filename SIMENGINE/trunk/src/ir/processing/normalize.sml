@@ -7,6 +7,9 @@ end
 structure Normalize : NORMALIZE =
 struct
 
+val head = ExpTraverse.head
+val level = ExpTraverse.level
+
 fun normalize_with_env table exp =
     let
 	fun expFlatMap f exps =
@@ -33,20 +36,16 @@ fun normalize_with_env table exp =
 		    in
 			Container.listToArray l'
 		    end
-		fun normalize_matrix m =
-		    let
-			val arrays = Matrix.toRows m
-			val arrays' = map normalize_array arrays
-		    in
-			Matrix.fromRows (Exp.calculus ()) arrays'
-		    end
 	    in
 	    Exp.CONTAINER 
 	    (case c of
 		 Exp.EXPLIST l => Exp.EXPLIST (expFlatMap (normalize_with_env table) l)
 	       | Exp.ARRAY a => Exp.ARRAY (normalize_array a)
 	       | Exp.ASSOC t => Exp.ASSOC (SymbolTable.map (normalize_with_env table) t)
-	       | Exp.MATRIX m => Exp.MATRIX (normalize_matrix m))
+	       | Exp.MATRIX m => Exp.MATRIX 
+				     (Container.expMatrixToMatrix 
+					  ((head exp) (map (normalize_with_env table) (level exp))))
+	    )
 	    end
 	  | Exp.META m =>
 	    let

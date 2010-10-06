@@ -127,6 +127,8 @@ val log = Util.log
 val exp2str = ExpPrinter.exp2str
 val e2s = ExpPrinter.exp2str
 val e2ps = ExpPrinter.exp2prettystr
+val head = ExpTraverse.head
+val level = ExpTraverse.level
 
 open Printer
 
@@ -201,15 +203,23 @@ fun renameSym (orig_sym, new_sym) exp =
 	    fun renameArray a = (Container.listToArray o 
 				 renameList o
 				 Container.arrayToList) a
-	    fun renameMatrix m = ((Matrix.fromRows (Exp.calculus())) o
-				  (map renameArray) o
-				  Matrix.toRows) m
+	    fun renameMatrix m = 
+		let
+		    val _ = Util.log ("Remaining Matrix (exp_process): " ^ (Matrix.infoString m))
+		in
+		    ((Matrix.fromRows (Exp.calculus())) o
+		     (map renameArray) o
+		     Matrix.toRows) m
+		end
 				 
 	    val c' = case c of
 			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
 		       | Exp.ARRAY a => Exp.ARRAY (renameArray a)
 		       | Exp.ASSOC t => Exp.ASSOC (SymbolTable.map (renameSym (orig_sym, new_sym)) t)
-		       | Exp.MATRIX m => Exp.MATRIX (renameMatrix m)
+		       | Exp.MATRIX m => 
+			 Exp.MATRIX 
+			     (Container.expMatrixToMatrix 
+				  ((head exp) (map (renameSym (orig_sym, new_sym)) (level exp))))
 	in
 	    Exp.CONTAINER c'
 	end
