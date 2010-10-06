@@ -639,7 +639,7 @@ local
 		       case sym2differential_equation s of
 			   SOME equ => 
 			   let
-			       val rhs = ExpProcess.rhs equ
+			       val rhs = ExpProcess.expand (ExpProcess.rhs equ)
 			       val terms = ExpProcess.exp2termsymbols rhs
 			       val state_vars = map Exp.TERM (List.filter (fn(t)=> List.exists (fn(s)=> Term.sym2curname t = s) states) terms)
 			       val state_syms = map ExpProcess.exp2symbol state_vars

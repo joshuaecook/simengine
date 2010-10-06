@@ -8,14 +8,8 @@
 % Adapted for use with simEngine
 % Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
 %
-function m_flut = createFlut(t_imp)
+function m_flut = createFlut()
 
-if nargin == 0
-    % define the t_imp iterator
-    dt = 0.001;
-    t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
-end
-    
 m_flut = Model('flut');
 
 %Geometric Parameters
@@ -44,8 +38,8 @@ Iperiaxonal = m_flut.input('Iperiaxonal', 0);
 
 
 %State Declarations
-Vmem = m_flut.state(-80, 'iter', t_imp);
-Vmp = m_flut.state(0, 'iter', t_imp);
+Vmem = m_flut.state('Vmem', -80);
+Vmp = m_flut.state('Vmp', 0);
 
 % Model Equations
 

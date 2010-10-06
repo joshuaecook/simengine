@@ -14,16 +14,11 @@ if nargin == 0
     numSegments = 2;
 end
 
-% First define the global iterators
-dt = 0.001;
-t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
-t_exp = Iterator('t_exp', 'solver', 'forwardeuler', 'dt', dt);
-
 % Create the submodels
-m_node = createNode(t_imp, t_exp);
-m_flut = createFlut(t_imp);
-m_mysa = createMysa(t_imp);
-m_stin = createStin(t_imp);
+m_node = createNode();
+m_flut = createFlut();
+m_mysa = createMysa();
+m_stin = createStin();
 m_segment = createSegment(m_node, m_mysa, m_flut, m_stin);
 
 % =====================================================================
@@ -32,6 +27,11 @@ m_segment = createSegment(m_node, m_mysa, m_flut, m_stin);
     
 % Create the shell of a new model call MRGAxon
 m = Model('MRGAxon');
+
+% Add the auto iterator - this will automatically determine the appropriate
+% iterators for the model
+m.solver = 'auto';
+m.dt = 0.001;
 
 % Define all the inputs
 Istim = m.input('Istim', 20);
@@ -88,9 +88,10 @@ end
 spikes = cell(1,numSegments);
 for i=1:numSegments
     Vm = m.equ(segments{i}.VmAxonal_L);
-    spikes{i} = m.equ((Vm(t_imp-1) > Vm(t_imp-2)) & ...
-                      (Vm(t_imp-1) > Vm(t_imp)) & ...
-                      (Vm(t_imp-1) > -25));
+    t = m.timeIterator;
+    spikes{i} = m.equ((Vm(t-1) > Vm(t-2)) & ...
+                      (Vm(t-1) > Vm(t)) & ...
+                      (Vm(t-1) > -25));
 end
 
 % Add outputs

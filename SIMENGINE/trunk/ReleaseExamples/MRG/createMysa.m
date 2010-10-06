@@ -8,14 +8,8 @@
 % Adapted for use with simEngine
 % Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
 %
-function m_mysa = createMysa(t_imp)
+function m_mysa = createMysa()
 
-if nargin == 0
-    % define the t_imp iterator
-    dt = 0.001;
-    t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
-end
-    
 m_mysa = Model('mysa');
 
 %Geometric Parameters
@@ -46,8 +40,8 @@ Isegmental_periaxonal = m_mysa.input('Isegmental_periaxonal', 0);
 
 
 %State Declarations
-Vmem = m_mysa.state(-80, 'iter', t_imp);
-Vmp = m_mysa.state(0, 'iter', t_imp);
+Vmem = m_mysa.state('Vmem', -80);
+Vmp = m_mysa.state('Vmp', 0);
 
 % Model Equations
 

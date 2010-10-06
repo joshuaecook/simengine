@@ -8,13 +8,7 @@
 % Adapted for use with simEngine
 % Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
 %
-function m_stin = createStin(t_imp)
-
-if nargin == 0
-    % define the t_imp iterator
-    dt = 0.001;
-    t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
-end
+function m_stin = createStin()
     
 m_stin = Model('stin');
 
@@ -43,8 +37,8 @@ Iaxonal = m_stin.input('Iaxonal', 0);
 Iperiaxonal = m_stin.input('Iperiaxonal', 0);
 
 %State Declarations
-Vmem = m_stin.state(-80, 'iter', t_imp);
-Vmp = m_stin.state(0, 'iter', t_imp);
+Vmem = m_stin.state('Vmem', -80);
+Vmp = m_stin.state('Vmp', 0);
 
 % Model Equations
 
