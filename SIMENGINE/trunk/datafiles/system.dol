@@ -121,7 +121,7 @@
 
 // optimize: implement the internal expression optimization, otherwise leave equations mostly in tact
 <optimize = true>
-<optimizelevel = 5> // maximum optimization
+<optimizelevel = 1> // goes up to 5 for maximum optimization
 
 // redundancy: remove excess redundancy in the model by collecting like terms into subexpressions
 <redundancy = false>
