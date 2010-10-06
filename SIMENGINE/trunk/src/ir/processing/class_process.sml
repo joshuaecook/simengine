@@ -2119,99 +2119,81 @@ fun pruneClass (iter_option, top_class) (class: DOF.class) =
     end
 end
 
+local
+    fun simplify exps =
+	let
+	    val simplify = (Rules.getRules "simplification")
+	    val restore = (Rules.getRules "restoration")
+	    val exps' = map (Match.repeatApplyRewritesExp simplify) exps
+	    val exps'' = map (Match.repeatApplyRewritesExp restore) exps'
+			  
+	in
+	    map Normalize.normalize exps''
+	end
+
+    fun simplifyAndFactor exps = 
+	let
+	    val simplifyAndFactor = (Rules.getRules "simplification") @ 
+				    (Rules.getRules "factoring")				    
+	    val restore = (Rules.getRules "restoration")
+	    val exps' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps
+	    val exps'' = map (Match.repeatApplyRewritesExp restore) exps'
+	in
+	    map Normalize.normalize exps''
+	end
+
+    fun simplifyAndExpand exps =
+	let 
+	    val simplify = (Rules.getRules "simplification")
+	    val simplifyAndExpand = simplify @ 
+				    (Rules.getRules "expansion")				    
+	    val simplifyAndFactor = simplify @ 
+				    (Rules.getRules "factoring")
+	    val restore = (Rules.getRules "restoration")
+	    val exps' = map (Match.repeatApplyRewritesExp simplifyAndExpand) exps
+	    val exps'' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps'
+	    val exps''' = map (Match.repeatApplyRewritesExp restore) exps''
+	in
+	    map Normalize.normalize exps'''
+	end
+
+    fun chooseBest classname msg (orig_exps, new_exps) =
+	let
+	    val orig_cost = Util.sum(map Cost.exp2cost orig_exps)
+	    val new_cost = Util.sum(map Cost.exp2cost new_exps)
+	    val percent = 100.0 * (Real.fromInt (orig_cost - new_cost))/(Real.fromInt orig_cost)
+	in
+	    if orig_cost <= new_cost then
+		orig_exps
+	    else
+		(Logger.log_notice (Printer.$ (msg ^ " improved class " ^ (Symbol.name classname) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost)) ^ " ("^(Util.r2s percent)^"% improvement)"));
+		 new_exps)
+	end
+
+
+in
 fun optimizeClass (class: DOF.class) =
     let
+	val classname = #name class
+	val chooseBest = chooseBest classname
 	val exps = !(#exps class)
 
-	(* first, convert all subs to adds and divs to recip *)
-(*	val exps' = map (fn(exp)=> Match.applyRewritesExp [Rules.replaceSubWithNeg,
-							   Rules.replaceDivWithRecip] exp) exps
-
-	val _ = print "Round 2!\n"
-	(* next, aggregate all additions *)
-	val exps'' = map (fn(exp)=> Match.repeatApplyRewritesExp [Rules.distributeNeg,
-								  Rules.aggregateSums1,
-								  Rules.aggregateSums2,
-								  Rules.aggregateProds1,
-								  Rules.aggregateProds2,
-								  Rules.aggregateProds] exp) exps'
-*)
-	val simplify = (Rules.getRules "simplification")
-
-	val simplifyAndExpand = (Rules.getRules "simplification") @ 
-				(Rules.getRules "expansion")
-
-	val simplifyAndFactor = (Rules.getRules "simplification") @ 
-				(Rules.getRules "factoring")
-
-	val restore = (Rules.getRules "restoration")
-
-	fun simplify_exps exps =
-	    (map Normalize.normalize (map ((Match.repeatApplyRewritesExp restore) o
-					   (Match.repeatApplyRewritesExp simplify))
-					  exps))
-	val exps' = Profile.time "Simplify" simplify_exps exps
-
-	val exps = 
-	    let
-		val orig_cost = Util.sum(map Cost.exp2cost exps)
-		val new_cost = Util.sum(map Cost.exp2cost exps')
-	    in
-		if orig_cost <= new_cost then
-		    exps
-		else
-		    (Logger.log_notice (Printer.$ ("  Basic simplification improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost))));
-		     exps')
-	    end
-
+	(* perform three passes of optimization *)
+	val exps' = Profile.time "Simplify" simplify exps
+	val exps = chooseBest "Simplification" (exps, exps')
 		       
-	fun simplifyAndFactor_exps exps = 
-	    let
-		val exps' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps
-		val exps'' = map (Match.repeatApplyRewritesExp restore) exps'
-	    in
-		map Normalize.normalize exps''
-	    end
-	val exps'' = Profile.time "SimplifyAndFactor" simplifyAndFactor_exps exps
+	val exps' = Profile.time "SimplifyAndFactor" simplifyAndFactor exps
+	val exps = chooseBest "Factoring" (exps, exps')
 
-	val exps = 
-	    let
-		val orig_cost = Util.sum(map Cost.exp2cost exps)
-		val new_cost = Util.sum(map Cost.exp2cost exps'')
-	    in
-		if orig_cost <= new_cost then
-		    exps
-		else
-		    (Logger.log_notice (Printer.$ ("  Factoring improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost))));
-		     exps'')
-	    end
-
-	fun simplifyAndExpand_exps exps =
-	    let 
-		val exps' = map (Match.repeatApplyRewritesExp simplifyAndExpand) exps
-		val exps'' = map (Match.repeatApplyRewritesExp simplifyAndFactor) exps'
-		val exps''' = map (Match.repeatApplyRewritesExp restore) exps''
-	    in
-		map Normalize.normalize exps'''
-	    end
-	val exps''' = Profile.time "simplifyAndExpand" simplifyAndExpand_exps exps
-
-	val exps = 
-	    let
-		val orig_cost = Util.sum(map Cost.exp2cost exps)
-		val new_cost = Util.sum(map Cost.exp2cost exps''')
-	    in
-		if orig_cost <= new_cost then
-		    exps
-		else
-		    (Logger.log_notice (Printer.$ ("  Expanding and factoring improved class " ^ (Symbol.name (#name class)) ^ " from " ^ (Int.toString (orig_cost)) ^ " to " ^ (Int.toString (new_cost))));
-		     exps''')
-	    end
+	val exps' = Profile.time "SimplifyAndExpand" simplifyAndExpand exps
+	val exps = chooseBest "Expansion" (exps, exps')
 
 	val _ = (#exps class) := exps
+
     in
 	()
     end
+end
 
 fun wrap print f =
     fn x =>
