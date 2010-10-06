@@ -318,8 +318,10 @@ fun rows2array2 vectors =
 fun fromRows calculus rows = 
     let 
 	val a = rows2array2 rows
+	val m = ref (DENSE {calculus=calculus, data=a})
+	(*val _ = Util.log ("fromRows Matrix: " ^ (infoString m))*)
     in
-	ref (DENSE {calculus=calculus, data=a})
+	m
     end
 
 (* Pull out the columns from the matrix *)
@@ -491,6 +493,7 @@ fun toPaddedBands m =
 
 (* clone matrix - makes a copy of a matrix *)
 fun clone m =
+    ((*Util.log ("Cloning matrix: " ^ (infoString m));*)
     case !m of
 	DENSE {data,calculus} =>
 	let
@@ -505,10 +508,11 @@ fun clone m =
 	    val data' = map (Array.fromList o arrayToList) data
 	in
 	    ref (BANDED {data=data',calculus=calculus,nrows=nrows,ncols=ncols,upperbw=upperbw,lowerbw=lowerbw})
-	end
+	end)
 
 (* normalize - converts any matrix type into a dense matrix *)
 fun normalize m = 
+    ((*Util.log ("Normalizing matrix: " ^ (infoString m));*)
      case !m of
 	 DENSE _ => ()
        | BANDED {data,nrows,ncols,upperbw,lowerbw,calculus} =>
@@ -517,11 +521,12 @@ fun normalize m =
 	     val data = rows2array2 rows
 	 in
 	     m := (DENSE {data=data, calculus=calculus})
-	 end
+	 end)
 
 (* optimize - try to find the best internal representation for the given matrix *)
 fun optimize m =
     let
+	(*val _ = Util.log ("Optimizing matrix: " ^ (infoString m))*)
 	val m' = clone m
 	val _ = normalize m'
 	val (nrows, ncols) = size m'
@@ -566,7 +571,7 @@ fun optimize m =
 		    end
 		else
 		    (* keep what we had *)
-		    log (fn()=>("Matrix left as dense with bandwidth = ("^(i2s upperbw)^","^(i2s lowerbw)^")"))
+		    ()(*log (fn()=>("Matrix left as dense with bandwidth = ("^(i2s upperbw)^","^(i2s lowerbw)^")"))*)
 	    end
 	else
 	    (* we can't simplify non-square matrices right now *)
