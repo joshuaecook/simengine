@@ -73,6 +73,7 @@ val equation2rewrite : Exp.exp -> Rewrite.rewrite
 val intermediateEquation2rewrite : Exp.exp -> Rewrite.rewrite
 
 val simplify: Exp.exp -> Exp.exp
+val expand: Exp.exp -> Exp.exp
 val collect : Exp.exp * Exp.exp -> Exp.exp
 val multicollect : Exp.exp list * Exp.exp -> Exp.exp
 val factorsym : (Exp.exp * Symbol.symbol) -> (Exp.exp * Exp.exp) (* return the coefficient and remainder *)
@@ -946,6 +947,9 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 
 fun simplify exp =
     Match.repeatApplyRewritesExp (Rules.getRules "simplification") exp
+
+fun expand exp =
+    Match.repeatApplyRewritesExp (Rules.getRules "expansion") exp
 
 fun collect (symexp, exp) =
   let

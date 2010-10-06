@@ -8,16 +8,11 @@
 % Adapted for use with simEngine
 % Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
 %
-function m_node = createNode(t_imp, t_exp)
+function m_node = createNode()
 
-if nargin == 0
-    % define the t_imp and t_exp iterator
-    dt = 0.001;
-    t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
-    t_exp = Iterator('t_exp', 'solver', 'forwardeuler', 'dt', dt);
-end
-    
 m_node = Model('node');
+m_node.solver = 'auto';
+m_node.dt = 0.001;
 
 length = m_node.input('length', 1);
 diameter = m_node.input('diameter', 1.9);
@@ -44,11 +39,11 @@ Istim = m_node.input('Istim', 0);
 Iaxonal = m_node.input('Iaxonal', 0);
 Iperiaxonal = m_node.input('Iperiaxonal', 0);
 
-Vm = m_node.state(-80, 'iter', t_imp);
-m  = m_node.state(0.0732093,'iter', t_exp);
-h  = m_node.state(0.620695, 'iter', t_exp);
-p  = m_node.state(0.202604, 'iter', t_exp);
-s  = m_node.state(0.0430299, 'iter', t_exp);
+Vm = m_node.state('Vm', -80);
+m  = m_node.state('m', 0.0732093);
+h  = m_node.state('h', 0.620695);
+p  = m_node.state('p', 0.202604);
+s  = m_node.state('s', 0.0430299);
 
 Vmp = 0;
 
