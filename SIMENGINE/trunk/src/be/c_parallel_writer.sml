@@ -1026,17 +1026,20 @@ fun algebraic_wrapper kind shardedModel iterators =
 			    val func_id = "flow_"^(Symbol.name top_class)
 
 			    val next_time = A.Variable "props->next_time[modelid]"
-			    val (statereads, statewrites, systemstatereads) =
-				(if reads_iterator iter class then A.Cast (A.Variable "props->model_states", T.C("statedata_"^basename_iter^"*")) else A.Null,
-				 if writes_iterator iter class then A.Cast (A.Variable "props->next_states", T.C("statedata_"^basename_iter^"*")) else A.Null,
-				 if reads_system class then A.Variable "props->system_states" else A.Null)
 
 			    val states = 
 				List.mapPartial 
 				    (fn x => x)
-				    [if reads_iterator iter class then SOME (A.Cast (A.Variable "props->model_states", T.C("statedata_"^basename_iter^"*"))) else NONE,
-				     if writes_iterator iter class then SOME (A.Cast (A.Variable "props->next_states", T.C("statedata_"^basename_iter^"*"))) else NONE,
-				     if reads_system class then SOME (A.Variable "props->system_states") else NONE]
+				    (case kind 
+				      of UPDATE =>
+					 [if reads_iterator iter class then SOME (A.Cast (A.Variable "props->model_states", T.C("statedata_"^basename_iter^"*"))) else NONE,
+					  if writes_iterator iter class then SOME (A.Cast (A.Variable "props->next_states", T.C("statedata_"^basename_iter^"*"))) else NONE,
+					  if reads_system class then SOME (A.Variable "props->system_states") else NONE]
+				       | _ => 
+					 [if reads_iterator iter class then SOME (A.Variable ("props->system_states->states_"^(Symbol.name iter_name))) else NONE,
+					  if writes_iterator iter class then SOME (A.Variable ("props->system_states->states_"^(Symbol.name iter_name)^"_next")) else NONE,
+					  if reads_system class then SOME (A.Variable "props->system_states") else NONE]
+				    )
 
 			    val od = A.Cast (A.Variable "props->od", T.C"CDATAFORMAT*")
 			    val func_args =
