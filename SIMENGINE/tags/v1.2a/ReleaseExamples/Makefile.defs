@@ -1,0 +1,16 @@
+# Define local variables.
+
+EXAMPLES_$(D) := $(shell find "$(D)" -type f | grep -v \.svn | grep -v readme.txt | grep -v Makefile.defs)
+
+INSTALLS := $(INSTALLS) $(D)/installs
+
+# Import subsystem rules.
+
+# Define local rules.
+
+$(D)/installs: DIR := $(D)
+$(D)/installs: README := $(D)/readme.txt
+$(D)/installs: EXAMPLES := $(EXAMPLES_$(D))
+$(D)/installs:
+	$(INSTALL) $(foreach exam,$(EXAMPLES),-C $(exam) -d $(INSTALL_PREFIX)/examples/$(subst ReleaseExamples/,,$(dir $(exam))))
+	$(INSTALL) -C $(README) -d $(INSTALL_PREFIX)/examples

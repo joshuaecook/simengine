@@ -1,0 +1,18 @@
+# Import subdirectory rules.
+
+# Define local variables.
+
+TARGETS_$(D) := $(D)/simlib/simlib $(D)/simlib/simlib.a
+TARGETS := $(TARGETS) $(TARGETS_$(D))
+CLEAN := $(CLEAN) $(TARGETS_$(D))
+
+# Define local rules
+
+ifneq ($(DARWIN),)
+$(D)/%: TARGET_ARCH = -arch i386
+endif
+
+$(D)/simlib/simlib: CPPFLAGS += -DSIMLIB_MAIN
+$(D)/simlib/simlib: LDLIBS += -ldl -lz
+
+$(D)/simlib/simlib.a: $(D)/simlib/simlib.a($(D)/simlib/simlib.o)
