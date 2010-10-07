@@ -184,7 +184,7 @@ MATLAB := $(shell which matlab 2>/dev/null)
 ifneq ($(MATLAB),)
 MATLAB_INSTALL_PATH := $(shell dirname $$(dirname $(realpath $(MATLAB))))
 MATLAB = MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/matlab
-MEX = MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mex
+MEXC = MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mex
 endif
 
 # GNU Octave and the MKOCTFILE compiler
@@ -220,7 +220,7 @@ MEXFLAGS += -v
 endif
 
 # Rules for compiling various MEX targets
-COMPILE.mex = $(MEX) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
+COMPILE.mex = $(MEXC) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
 
 %.mexglx: override MEXTARGET_ARCH = -glnx86
 %.mexglx: %.c
@@ -231,14 +231,14 @@ COMPILE.mex = $(MEX) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
 	$(COMPILE.mex) -output "$*" "$<"
 
 %.mexmaci: override MEXTARGET_ARCH = -maci
-%.mexmaci: override MEX := MACI64=0 $(MEX)
+%.mexmaci: override MEX := MACI64=0 $(MEXC)
 %.mexmaci: override CFLAGS += -m32
 %.mexmaci: override LDFLAGS += -m32
 %.mexmaci: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 
 %.mexmaci64: override MEXTARGET_ARCH = -maci64
-%.mexmaci64: override MEX := MACI64=1 $(MEX)
+%.mexmaci64: override MEX := MACI64=1 $(MEXC)
 %.mexmaci64: override CFLAGS += -m64
 %.mexmaci64: override LDFLAGS += -m64
 %.mexmaci64: %.c
