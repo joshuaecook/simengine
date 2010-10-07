@@ -1,6 +1,6 @@
 # Define local variables.
 
-EXAMPLES_$(D) := $(filter-out %readme.txt,$(shell find "$(D)" -type f | grep -v \.svn))
+EXAMPLES_$(D) := $(shell find "$(D)" -type f | grep -v \.svn | grep -v readme.txt | grep -v Makefile.defs)
 
 INSTALLS := $(INSTALLS) $(D)/installs
 
