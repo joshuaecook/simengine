@@ -1,0 +1,1092 @@
+* Getting Started with simEngine
+
+** Installation
+
+***TODO Fill in the installation and licensing information***
+
+The installation of simEngine is almost completely automated and
+should take no longer than 5 minutes.  It follows a simple three step
+process:
+
+1. Download the latest version of simEngine from the Simatra Modeling
+Technologies website.  It can always be found at <http://www.simatratechnologies.com>.  From MATLAB, you can use the following commands:
+
+<src lang="matlab">
+>> simatra = 'http://www.simatratechnologies.com';
+>> installerpath = 'Downloads/simEngine/release/install_simEngine.p';
+>> urlwrite([simatra '/' installerpath], 'install.p');
+</src>
+
+2. After downloading simEngine, you'll have a p-code file called
+*install.p*.  Execute that by typing just
+
+<src lang="matlab">
+>> install
+</src>
+
+Follow the prompts and questions as you go.  If you have a license,
+you'll have an opportunity to enter it in during the installer,
+otherwise, simEngine will default to the Basic edition.
+
+Be sure to have simEngine automatically check for updates.  simEngine
+will not automatically update itself, but will alert you when a new
+version is available along with a simple command to upgrade from
+within MATLAB.  We are regularly adding more features and capabilities
+to simEngine, so this way you'll always be notified when there is a
+new version available.
+
+
+3. Begin to use simEngine.  There are lots of included example models
+and demos.  See the included examples and demos by typing
+
+<src lang="matlab">
+>> ls([simexamplepath '/*'])
+</src>
+
+and more specifically
+
+<src lang="matlab">
+>> ls([simexamplepath '/demos'])
+</src>
+
+for simEngine examples with DIESEL and MATLAB code.
+
+
+*** The simEngine toolbox for MATLAB
+
+The simEngine compiler is designed to function completely within
+MATLAB.  As such, it acts like a MATLAB toolbox adding its own
+commands and functionality to your MATLAB deployment.  Installation is
+performed by a single, platform-independent installer that works
+across Linux and Mac computers.
+
+simEngine is able to achieve its high performance by compiling the
+DIESEL source code into an optimized executable that takes advantage
+of your multi-core CPU and GPU.  simEngine takes advantage of the
+compilers that are already present on your machine, such as **gcc**
+for CPU compilation and **nvcc** for GPU compilation.  As part of
+the installation process, simEngine will search for a number of
+prerequisites and alert you if not all dependencies are available.
+
+When installing simEngine, and depending on whether MATLAB is locally
+installed or installed on a shared network server, you might be asked
+whether or not to install for all users.  This is asking whether or
+not simEngine should be installed in the globally accessible MATLAB
+toolbox directory.  That way, all users of that installation will be
+able to run simEngine.  The toolbox directory is not always
+user-writable, especially on network installations or on Linux
+installations, so simEngine reverts to installing for one particular
+user.  By default, a **Simatra** directory is created in the
+user's home directory, but the actual installation directory can be
+specified in the installer.  We will add some snippets of code to your
+**matlabrc.m** or **startup.m** file to add the Simatra
+installation directory to your path and to check for updates on
+startup.
+
+Checking for updates on startup adds less than one quarter second to
+the total startup time.  It can be removed by simply commenting out
+the call to **simCheckVersion**.  However, we recommend that you check for
+updates since we continuously update simEngine, fixing defects, adding
+new features, while ensuring backwards compatibility.  Also, no
+Simatra program will ever send information to our servers without your
+consent.  Checking for a new version is just that, checking to see if
+something is available.  Nothing is sent to our servers during that
+process.  If you are not checking for new versions at startup, running
+
+<src lang="matlab">
+>> simCheckVersion 
+</src>
+
+will list the most recent edition available for download.
+
+As always, if you face any difficulty during installation, assistance
+is offered through the support email address, <support@simatratechnologies.com>.
+
+*** Enabling your simEngine license
+
+simEngine defaults to running in the Basic edition without a license
+specified.  Additional features are opened up when a license is
+applied to simEngine.  A 30 day full featured trial license is
+available at <http://www.simatratechnologies.com>.  Standard and
+Professional licenses are available for purchase as well.  After
+purchasing your edition of simEngine or registering for a trial, a
+license will be sent to the specified email address.  This license can
+be copied and pasted directly into the installer at the time of
+installation or applied at anytime to an existing copy of simEngine.
+To add a license later, use the simCheckLicense command as follows:
+
+<src lang="matlab">
+>> simCheckLicense('-update')
+Please copy and paste the license data after this prompt.  The license should be 6 lines long and end with two '=' signs. Otherwise, press <return> to exit out
+Copy License Here:
+</src>
+
+After you copy the license into the prompt, simCheckLicense will
+validate it and assign it to the current installation of simEngine.
+Licenses are stored as **license.key** in either the installation
+directory or in the **.simatra** settings directory located in
+your home directory.  Updating a license never deletes the previous
+one.  They are all stored with time stamps in the **.simatra**
+directory if it is necessary to revert to a previous license file.
+
+** Tutorial
+
+Our goal with simEngine is to create an incredibly user-friendly
+system for high-performance modeling of dynamical systems.  This
+tutorial will explain the basic concepts used to create models using
+the DIESEL modeling language, and show you how to work with your
+models using the simex interface under MATLAB. We assume that you have
+some familiarity with MATLAB and dynamical systems.
+
+This tutorial is divided into four sections:
+
+1. Creating a basic model with DIESEL.
+2. Running simulations in MATLAB using simex.
+3. Using functions in DIESEL to simplify commonly used model expressions.
+4. Using hierarchical models in DIESEL to build more complex systems.
+
+This tutorial will include lots of code examples for DIESEL and
+MATLAB.  We recommend trying to type along with this guide, but if you
+want to use the DIESEL files we’ve already created, you can find many
+more examples in the **Simatra/examples/tutorials** directory in
+the directory you used to install simEngine.
+
+***TODO insert reference for this model***
+
+In this example, we will model a dynamical system representing a leaky
+membrane, an RC circuit model of a neuron governed by the equations
+
+<latex>
+\begin{eqnarray*}
+I_{leak} = g_{leak}  (V - E_{leak}) \\
+\\
+V' = -\frac{I_{leak}- I_{ext}}{C}, V_0 = -45
+\end{eqnarray*}
+</latex>
+
+ This system has one dynamical variable **V** with initial value **-45** and
+ one input variable **I_ext**.  The symbols **g_leak**, **E_leak**, and **C**
+ represent constant values.
+
+*** Creating a model with DIESEL
+
+In this section, we'll cover how to use the DIESEL modeling language
+to create a model of a dynamical system.
+
+**** The five parts of a model
+
+At its most basic, a DIESEL model is composed of 5 parts: the model
+description, constant definition, state declaration, equations, and a
+solver.  Actually, at its most basic a DIESEL model consists of a
+model description containing a single equation, but most of the models
+you create with DIESEL will contain several equations and most other
+model components.
+
+Let’s go over each of these one-by-one so we can understand what each
+one does.
+
+1. *The model description.* The first line of a model description
+is the most important part of a DIESEL model.  This is where we give
+our DIESEL model a name and describe the inputs and outputs of the
+model.  The DIESEL keyword **model** tells us that we’re defining
+a new model.  After the **model** keyword comes a list of the
+model's outputs in parentheses, an equals sign, the model's name, and
+a list of the model's inputs in parentheses. The **model**
+keyword must be matched by an **end** keyword at the end of the
+model description. Any other model components may appear in the lines
+between the **model** keyword and the matching **end**.
+
+For example:
+
+<src lang="dsl">
+model (output1, output2) = modelName(input1, input2, input3)
+  // model equations, etc. go here
+end
+</src>
+
+There are a couple of other important points to know about the model
+description. 
+
+- Each model must be saved in a file with a name exactly matching the
+model name, plus the **.dsl** extension. For example, our model is called
+**leakyMembrane**, so we will save it in a file called **leakyMembrane.dsl**.
+
+- The input and output lists can contain any number of inputs or
+outputs, but they must be contained in parentheses. Our example model
+only has one input variable and one output variable. The first line of
+the model description looks like this:
+
+<src lang="dsl">
+   model (V) = leakyMembrane(I_ext)
+</src>
+
+- An input or an output must be defined on the first line of a
+model description in order to be used in the model.  Later, we'll see
+how inputs and outputs are used to control your model and to construct
+larger systems. If you don’t define an output after the **model** keyword,
+it can’t be seen by higher-level models or the simulation interface.
+If you don’t define an input after the name of your model, it can’t be
+controlled by higher-level models or the simulation interface.
+
+2. *Defining constants.* Constants are the simplest data type in a
+DIESEL model.  Constants are given a value in the model description
+and they never change unless you change the model.  To define a
+constant, use the **constant** keyword:
+
+<src lang="dsl">
+constant C = 0.5
+constant g_leak = 8
+constant E_leak = -60
+</src>
+
+3. *Defining states.* States are the dynamical variables of the model.
+States are associated with a differential or difference equation, but
+we must name a state before it can be used in any equation.  When we
+define a state, we use the **state** keyword and provide a default initial
+value for the state.
+
+<src lang="dsl">
+state V = -45
+</src>
+
+With this line, we’re declaring that **V** is the name of a dynamical
+variable of our system, and that its default initial value is
+**-45**. State initial values are not constant; as we'll see later, they
+can be overridden by the simex interface without changing the model.
+
+4. *Equations*.  Equations are where most of the action is in a model
+definition.  Equations can be either intermediate equations, which
+combine inputs, constants, states, and other intermediates into a
+single expression, or differential equations, which must be associated
+with a state variable.  Both differentials equations and intermediate
+equations are defined using the equation keyword.  For example:
+
+<src lang="dsl">
+   equation area = pi*radius^2
+</src>
+
+creates an intermediate equation describing the area of a circle.
+
+The **I_leak** equation in our leaky membrane model is an intermediate equation. 
+
+<latex>
+\begin{equation*}
+I_{leak} = g_{leak}  (V - E_{leak})
+\end{equation*}
+</latex>
+
+Written in DIESEL, it look like this:
+
+<src lang="dsl">
+equation I_leak = g_leak * (V - E_leak)
+</src>
+
+Differential equations are described by placing an apostrophe symbol
+after a declared state variable.  For example, a first-order
+differential equation for a state variable **x** of the form
+
+<latex>
+\begin{equation*}
+{x}' = f(x)
+\end{equation*}
+</latex>
+
+is written in DIESEL like so:
+
+<src lang="dsl">
+equation x' = f(x)
+</src>
+
+The equation for **V** in our leaky membrane model is a first order
+differential equation.
+
+<latex>
+\begin{equation*}
+V' = -\frac{I_{leak}- I_{ext}}{C}
+\end{equation*}
+</latex>
+
+It is written in DIESEL like this:
+
+<src lang="dsl">
+equation V' = -(I_leak - I_ext) / C
+</src>
+
+Equations can also be described using an equation block.  An equation
+block can contain both intermediate equations and differential
+equations. To create an equation block, use the **equations**
+keyword and a terminating **end** keyword:
+
+<src lang="dsl">
+equations
+  I_leak = g_leak * (V - E_leak)
+  V' = -(I_leak - I_ext) / C
+end
+</src>
+
+5. *Numerical solvers* The **solver** keyword is used to specify what
+integration method we will use to solve the differential equations in
+the model.  For our leaky membrane model, we will use the simplest
+forward Euler method. To specify a solver, write **solver=**
+followed by the name of the solver:
+
+<src lang="dsl">
+solver = forwardeuler
+</src>
+
+The parameters of the integration method are set via properties of the
+solver. The forward Euler method is a fixed-step solver; its step size
+is specified by the solver's **dt** property:
+
+<src lang="dsl">
+solver.dt = 0.01
+</src>
+
+simEngine supports a wide variety of integration methods with
+differing parameters. See [[#solvers][the section on solvers]] for a complete
+reference.
+
+*** Putting it all together
+
+Now that we’ve gone over the five basic parts of a model, let’s put it
+all together.  Create a new file called **leakyMembrane.dsl** using
+your favorite text editor and enter the model description below.
+
+<src lang="dsl">
+ model (V) = leakyMembrane(I_ext)
+   constant C = 0.5
+   constant g_leak = 8
+   constant E_leak = -60
+   
+   state V = -45
+   
+   equation I_leak = g_leak * (V - E_leak)
+   equation V' = -(I_leak - I_ext) / C
+   
+   solver = forwardeuler
+   solver.dt = 0.01
+ end
+</src>
+
+Here, we've created a simple model called **leakyMembrane**, using the
+five basic components of model construction.  As we go on, you'll see
+how we can use these basic components (and a few others) to easily
+build sophisticated models using DIESEL.  But for now, let's turn our
+attention to how we run our DIESEL models using the simex interface in
+MATLAB.
+
+** Simulating models with simex
+
+*** Using simex to get model information
+
+simex is an interface between MATLAB and the simEngine compiler.
+simex automatically handles all the details of turning your model
+description into a high-performance simulation, and then executing the
+simulation and returning the results to MATLAB. In order to use simex,
+first start up a MATLAB workspace.
+
+We'll examine the model interface by invoking simex on our leaky
+membrane model without any additional arguments. In this section,
+we'll assume that you have created the **leakyMembrane.dsl**
+model file from the previous section in the current directory of
+your MATLAB workspace. If your model file is located elsewhere, you
+will need to specify its full pathname.
+
+<src lang="matlab">
+    >> modelInfo = simex('leakyMembrane.dsl')
+
+    modelInfo = 
+
+                       name: 'leakyMembrane'
+                     inputs: {'I_ext'}
+              defaultInputs: [1x1 struct]
+                     states: {'V'}
+              defaultStates: -45
+                    outputs: {'V'}
+        outputNumQuantities: 2
+</src>
+
+When we call simex without any additional arguments, it returns a
+structure that describes the various properties of the model, such as
+the names and default values of the model inputs, outputs, and states.
+
+*** Simulating a model
+
+In order to actually run the model, we need to call simex with the
+model name and the time we want to run the model for:
+
+<src lang="matlab">
+>> outputs = simex('leakyMembrane.dsl', 1);
+</src>
+
+This command tells simEngine to run the **leakyMembrane** model for
+one unit of time. (It's up to to modeler to decide how to interpret
+time units.) But instead of executing our model, this command returns
+an error:
+
+***TODO ensure this reflects our version of reality***
+
+<src lang="matlab">
+??? Error using ==> simex>vet_user_inputs at 324
+INPUTS.I_ext has no default value and must be specified.
+</src>
+
+What's going on?  Let's take a look at the **defaultInputs** field
+of the model interface structure.
+
+<src lang="matlab">
+   >> modelInfo.defaultInputs
+
+   ans =
+
+       I_ext: NaN
+</src>
+
+You can see that the interface contains a **NaN** for the default
+value of **I_ext**. simex cannot execute a simulation without a value
+for this input. It's easy to create a parameter for simex that
+represents the inputs to the simulation. Simply create a structure
+containing a field for each model input.
+
+<src lang="matlab">
+   >> inputs = struct('I_ext', 0);
+</src>
+
+Now that we have a real value for I_ext, we can run simex using our
+inputs structure:
+
+<src lang="matlab">
+    >> outputs = simex('leakyMembrane.dsl', 1, inputs)
+
+    outputs =
+
+        V: [100x2 double]
+</src>
+
+simex returns the data from our simulation in a structure with a field
+for each model output.
+
+You can see that the field contains 100 rows and 2 columns. There are
+100 rows because our fixed-step integration method divided the total
+running time of the simulation into steps of 0.01. Since we
+specified 1 time unit as the running time, our problem has been solved
+in 100 iterations. There are 2 columns because model outputs are
+automatically tagged as a time series. The first column contains the
+value of time and the second column contains the output value itself.
+
+We can use MATLAB's **plot** command to visualize this data.
+
+<src lang="matlab">
+   >> plot(outputs.Vm(:,1), outputs.Vm(:,2))
+</src>
+
+You should see that the output voltage of the leaky membrane decays
+exponentially to -60, the value of **E_leak** in our model
+definition. 
+
+***TODO insert an screenshot***
+
+simex includes its own plotting utility, ***simplot***, which can be used to
+create an equivalent plot.
+
+<src lang="matlab">
+    >> simplot(outputs)
+</src>
+
+*** Running multiple simulations in parallel
+
+What if we want to see how a model responds to a range of different
+inputs?  That's very easy to do using simex.  All we have to do is to
+specify an input value as a vector, and simex will automatically
+parallelize the model:
+
+<src lang="matlab">
+    >> inputs.I_ext = 0:10:50
+
+    inputs =
+
+        I_ext: [0 10 20 30 40 50]
+
+    >> outputs = simex('leakyMembrane.dsl', 1, inputs)
+
+    outputs =
+
+    1x6 struct array with fields:
+        V
+</src>
+
+The data returned is slightly different when we run a number of
+parallel simulations. Now the data are represented as a *struct array*
+with an element for each model instance. Since the input vector had 6
+elements, the output struct array also has 6 elements. Each element of
+the struct array looks like the output data we get from running a
+single model. The output data are ordered in the same way as the input
+vector.
+
+<src lang="matlab">
+    >> outputs(1)
+
+    ans =
+
+        V: [100x2 double]
+</src>
+
+You may like to visualize the different model behaviours created by
+different input values.
+
+<src lang="matlab">
+    >> figure, hold on;
+    >> for i = 1:6
+         subplot(5,2,i);
+         simplot(outputs(i)), axis([0 1 -60 -45]);
+         set(gca, 'YTick', [min(outputs(i).V(:,2)) max(outputs(i).V(:,2))]);
+         subplot(5,2,7:10), hold on; 
+         simplot(outputs(i)), axis([0 1 -60 -45]);
+       end
+</src>
+
+***TODO insert a screenshot***
+
+*** Restarting a model from a previously-computed state
+
+It's often useful to be able to save the final state of a model at the
+end of a simulation, a "snapshot" of the model's point in state space,
+so to speak. simex will return additional data representing the final
+states and time of the simulation. With simex, we can easily capture
+these data and use them to restart the simulation.
+
+<src lang="matlab">
+    >> inputs.I_ext = 1000;
+    >> [outputs finalState finalTime] = simex('leakyMembrane.dsl', 1, inputs);
+</src>
+
+To resume a simulation from that point, we simply pass the final state
+and time as arguments to simex. We can even make changes to the model
+inputs before resuming the simulation.
+
+<src lang="matlab">
+    >> inputs.I_ext = 0;
+    >> duration = [finalTime finalTime+1];
+    >> outputs2 = simex('leakyMembrane.dsl', duration, inputs, finalState);
+    >> simplot(outputs), hold on, simplot(outputs2);
+</src>
+
+When we call simex this way, we're doing things slightly different
+than we did before.  First, we're handling the time duration parameter
+(the argument that comes after the model name) differently.  Before,
+when we specified time duration, we gave only one value.  This meant
+that the simulation started at time 0 and continued until that much
+simulated time had elapsed.
+
+Since we want to resume our simulation at the exact time it was
+paused, we are now specifying a two-element vector for the time
+duration. The first element is the final time from the previous
+execution, which will now be the initial time for the resumed
+simulation. The second element is the new final time for the resumed
+simulation.
+
+The second thing we've done differently here is to pass the previous
+final state values into the simulation as the new initial state
+values. This overrides all the default initial state values we
+specified in the DIESEL model description.
+
+** Simplifying complex models
+
+In this section we will see how to simplify some of your modeling
+tasks by setting defaults for model inputs, and by using functions for
+commonly used expressions.
+
+*** Specifying default input properties
+
+Let's try something a little more interesting than our leaky membrane
+model. Type the model description from below into a file saved as
+**neuron.dsl**, or just copy the file from the tutorials directory.
+
+<src lang="dsl">
+model (Vm) = neuron(Iext)
+  input Iext with {default = 0}
+       
+  constant Cm = 1
+
+  constant gNa = 120
+  constant gK = 100
+  constant gleak = .51
+
+  constant ENa = 55
+  constant EK = -80
+  constant Eleak = -55
+
+  state Vm = -45
+  state hNa = 0.9
+  state mK = 0.1
+
+  equations
+    mNaInf = 1/(1+exp((Vm+35)/-7.8))
+    hNaInf = 1/(1+exp((Vm+55)/7))
+    mKInf = 1/(1+exp((Vm+28)/-15))
+        
+    hNaTau = 30/(exp((Vm+50)/15)+exp(-(Vm+50)/16))
+    mKTau = 7/(exp((Vm+40)/40)+exp(-(Vm+40)/50))
+
+    INa = gNa*mNaInf^3*hNa*(Vm - ENa)
+    IK = gK*mK^4*(Vm - EK)
+    Ileak = gleak*(Vm - Eleak)
+
+    hNa' = (hNaInf - hNa)/hNaTau
+    mK' = (mKInf - mK)/mKTau
+    Vm' = -(1/Cm)*(INa + IK + Ileak - Iext)
+  end
+
+  solver = forwardeuler
+  solver.dt = .001
+end
+</src>
+
+This is simple 4-state-variable model of a neuron.  We're not really
+doing anything new here that we didn't do with the leaky membrane
+model, except for this line:
+
+<src lang="dsl">
+input Iext with {default = 0} 
+</src>
+
+Remember how we had that problem the first time we tried to run our
+leaky membrane model?  Well, the line above will prevent that from
+happening.  This line says that we're going to describe some
+properties of the **I_ext** input.  When we want to describe
+additional properties of a model quantity in DIESEL, we use the
+**with { ... }** syntax.  Later on, we'll see how we can specify
+some additional properties using this syntax, but for right now, we'll
+just leave it to describing the default input value.
+
+Let's see what this model does:
+
+<src lang="matlab">
+    >> [data finalState finalTime] = simex('neuron.dsl', 100);
+    >> simplot(data)
+</src>
+
+Again, we can easily run multiple simulations with different values of
+Iext, and use MATLAB to manipulate and analyze our data and produce
+interesting visualizations:
+
+<src lang="matlab">
+    >> parameters.Iext = -50:2:100;
+    >> data = simex('neuron.dsl', 100, parameters, finalState);
+    >> for i = 1:76, data3d(:,i) = data(i).Vm(1:5:end,2);, end;
+    >> surf(data3d, 'EdgeAlpha', 0)
+</src>
+ 
+*** Simplifying model descriptions using functions
+
+You may have noticed that some parts of our neuron model have a great deal of similarity:
+
+<src lang="dsl">
+mNaInf = 1/(1+exp((Vm+35)/-7.8))
+hNaInf = 1/(1+exp((Vm+55)/7))
+mKInf = 1/(1+exp((Vm+28)/-15))
+
+hNaTau = 30/(exp((Vm+50)/15)+exp(-(Vm+50)/16))
+mKTau = 7/(exp((Vm+40)/40)+exp(-(Vm+40)/50))
+</src>
+
+Let's try to clean this up some.  In a DIESEL model we can create
+functions to handle commonly used expressions.  The function keyword
+is used to define a new function.  A function definition looks a lot
+like a model definition, and takes the following format:
+
+<src lang="dsl">
+function functionName(inputs) = expression
+</src>
+
+Where functionName is the name of the function, inputs is a list of
+inputs, and expression is the math that the function reproduces.  For
+example, a function to calculate the surface area of a cylinder would
+look like this:
+
+<src lang="dsl">
+function area(d, h) = 2*pi*(d/2)^2 + pi*d*h
+</src>
+
+where **d** and **h** are the diameter and the height of the cylinder,
+respectively.
+
+The example eblow shows how our neuron model looks when we use
+functions to replace some of the frequently used expressions
+
+<src lang="dsl">
+model (Vm) = simplifiedNeuron(Iext)
+  function xinf(a, b) = 1/(1+exp((Vm + a)/b))
+  function tau(a, b, c, d) = a/(exp((Vm+b)/c) + exp(-(Vm+b)/d))
+
+  input Iext with {default = 0}
+
+  constant Cm = 1
+
+  constant gNa = 120
+  constant gK = 100
+  constant gleak = .51
+
+  constant ENa = 55
+  constant EK = -80
+  constant Eleak = -55
+
+  state Vm = -45
+  state hNa = 0.9
+  state mK = 0.1
+
+  equations 
+     INa = gNa*xinf(35, -7.8)^3*hNa*(Vm - ENa)
+     IK = gK*mK^4*(Vm - EK)
+     Ileak = gleak*(Vm - Eleak)
+
+     hNa' = (xinf(55, 7) - hNa)/tau(30, 50, 15, 16)
+     mK' = (xinf(28, -15) - mK)/tau(7, 40, 40, 50)
+     Vm' = -(1/Cm)*(INa + IK + Ileak - Iext)
+  end
+
+  solver = forwardeuler
+  solver.dt = .001
+end
+</src>
+
+
+This model (which is in the file simplifiedNeuron.dsl) is equivalent
+to our original neuron model, but with five fewer equations.  As you
+start building more complicated models with DIESEL, you'll find that
+using functions will help you to reduce modeling errors and accelerate
+your model development process.
+
+** Using submodels to build larger models
+
+*** Building a model with submodels
+
+There's one last topic to cover before we end our tutorial.  One of
+the things that makes DIESEL so powerful is being able to take a
+complex piece of model code and easily re-use in a higher-level model.
+Using this approach, it is very easy to build large, complex systems
+with very little programming overhead.  In order to bring a model into
+another model, we need to use two commands.  The first is the
+**import** keyword at the top of a .dsl file and the second is
+the **submodel** keyword within a model description.
+
+Let's try building a simple two-cell neural network where one cell
+synapses onto the other.  To get started, we'll need to have models
+for both our neuron and a synapse saved in a new file called
+**neuronWithSynapse.dsl**, which contains the following code:
+
+<src lang="dsl">
+function xinf(a, b, V) = 1/(1+exp((V + a)/b))
+function tau(a, b, c, d, V) = a/(exp((V+b)/c) + exp(-(Vm+b)/d))
+
+model (Vm) = neuron(Iadd, Iext)
+  input Iext with {default = 0}
+  input Iadd with {default = 0}
+
+  constant Cm = 1
+
+  constant gNa = 120
+  constant gK = 100
+  constant gleak = .51
+
+  constant ENa = 55
+  constant EK = -80
+  constant Eleak = -55
+
+  state Vm = -45
+  state hNa = 0.9
+  state mK = 0.1
+
+  equations 
+     INa = gNa*xinf(35, -7.8, Vm)^3*hNa*(Vm - ENa)
+     IK = gK*mK^4*(Vm - EK)
+     Ileak = gleak*(Vm - Eleak)
+
+     hNa' = (xinf(55, 7, Vm) - hNa)/tau(30, 50, 15, 16, Vm)
+     mK' = (xinf(28, -15, Vm) - mK)/tau(7, 40, 40, 50, Vm)
+     Vm' = -(1/Cm)*(INa + IK + Ileak+ Iadd - Iext)
+  end
+
+  solver = forwardeuler
+  solver.dt = .001
+end
+
+model (ISyn) = synapse(Vpre, Vpost, gSyn, ESyn, Vthresh)
+  equation ISyn = {(gSyn*(Vpost-ESyn)) when Vpre > Vthresh,
+                   0                   otherwise}
+end
+</src>
+
+You'll notice we've done a couple of things differently here.  First,
+we've moved our **xinf** and **tau** functions outside of the neuron model
+definition block and changed their format slightly.  You'll see why we
+did this in next section.  Next, you'll notice that we have two
+different model definitions in the same file: **neuron** and **synapse**.  A
+single .dsl file can have as many model definition blocks as you want.
+
+You also may have noticed this line in the model definition for synapse:
+
+<src lang="dsl">
+equation ISyn = {(gSyn*(Vpost-ESyn)) when Vpre > Vthresh,
+                 0                   otherwise}
+</src>
+
+This line looks different from equations that we've seen before,
+because it contains a conditional expression.  A conditional
+expression let's you give an equation different values depending on
+what is going on within the model.  The format of a conditional
+expression uses curly braces and the when and otherwise keywords, like
+this:
+
+<src lang="dsl">
+{ value1 when condition1,
+  value2 when condition2,
+   ...
+  value otherwise}
+</src>
+A conditional expression can have as many value-condition pairs as you want.
+
+Finally, even though our file is called **neuronWithSynapse.dsl**, we
+don't have any models called **neuronWithSynapse** defined.  How can we
+get away with this?  Its because we're not going to use these models
+with the simex interface (which requires us to have a model name that
+matches the file name); instead, we're going to use these models
+inside of another model using the *import statement*.  Let's see how
+this works.  Create a file called **twoCellNetwork.dsl** and enter the
+following model definition:
+
+<src lang="dsl">
+import "neuronWithSynapse.dsl"
+
+model (Vm1, Vm2) = twoCellNetwork(IStim)
+  input IStim with {default = 0}
+  submodel neuron neuron1 with {Iext = IStim}
+  submodel neuron neuron2
+
+  submodel synapse synapse1 with {Vpre = neuron1.Vm, Vpost = neuron2.Vm,
+                                  gSyn = 1, ESyn = -60, Vthresh = -20}
+
+  neuron2.Iadd = synapse1.ISyn
+
+  output Vm1 = neuron1.Vm
+  output Vm2 = neuron2.Vm
+
+  solver = forwardeuler
+  solver.dt = .001
+end
+</src>
+
+Let's look at what's going on here.  The first line:
+
+<src lang="dsl">
+import "neuronWithSynapse.dsl"
+</src>
+
+Here, we're telling simEngine to import the models and functions
+described in **neuronWithSynapse.dsl** into the two-cell network model.
+That means that we can create new instances of the neuron model we
+originally developed inside our new network model.  After we've
+imported all of the sub-model definitions we're going to use, we can
+then move on to our definition of the network model:
+
+<src lang="dsl">
+model (Vm1, Vm2) = twoCellNetwork(IStim)
+</src>
+
+Not much is different about the model definition line, except that now
+we have two outputs defined, Vm1 and Vm2, instead of just one output.
+The next two lines are where we create a sub-model of a neuron, using
+the **submodel** keyword:
+
+<src lang="dsl">
+submodel neuron neuron1 with {Iext = IStim}
+submodel neuron neuron2
+</src>
+ 
+Because we imported the **neuron.dsl** file, we can now create sub-models
+out of the neuron model that was defined in **neuron.dsl**.  We create
+sub-models using the **submodel** keyword.  The **submodel** keyword is
+followed by the model type (in this case "neuron", because that is the
+name of the model we imported) and the name of the submodel ("neuron1"
+and "neuron2" for our two instances of the "neuron" model).  With
+neuron1, we're also going to use the **with { ...}* syntax to set
+neuron1's **Iext** input to the **IStim** input of our two-cell network
+model.  We make even more extensive use of the **with {...}** syntax when
+we define our **synapse** sub-model:
+
+<src lang="dsl">
+submodel synapse synapse1 with {Vpre = neuron1.Vm, Vpost = neuron2.Vm,
+                                gSyn = 1, ESyn = -60, Vthresh = -20}
+</src>
+
+Here, we're saying that the presynaptic potential is linked to **Vm** of
+**neuron1**, and the post-synaptic potential is linked to the **Vm** of
+**neuron2**.  How do we actually introduce the synaptic current produced
+by the **synapse** model into one of the neurons?  That comes in the next
+line:
+
+<src lang="dsl">
+neuron2.Iadd = synapse1.ISyn
+</src>
+
+Here, we're taking the **ISyn** output of **synapse1** and setting it to the
+**Iadd** input of **neuron2**.  Now that we've created our simple network, we
+just need to define our outputs, **Vm1** and **Vm2**.  We can do this using
+the **output** keyword:
+
+<src lang="dsl">
+output Vm1 = neuron1.Vm
+output Vm2 = neuron2.Vm
+</src>
+
+On the model definition line, we created two outputs for model named
+**Vm1** and **Vm2**.  By using the **output** keyword, we're defining what the **Vm1**
+and **Vm2** outputs actually are.  In this case, we're linking them to the
+**Vm** outputs of **neuron1** and **neuron2**, respectively.  As with out other
+models, we end the definition block with our solver and solver
+properties:
+
+<src lang="dsl">
+solver = forwardeuler
+solver.dt = 0.01
+</src>
+
+These lines are just like we used before to specify the solver and the
+solver timestep.  It is important to note here that any changes made
+to the solver in a higher-level model will trickle down to lower level
+models.  So if we changed our solver here to **ode23**, then the neuron
+sub-models would be solved using **ode23**, even if **forwardeuler** is
+specified in **neuron.dsl**.
+
+Go ahead and try running this model:
+
+\begin{verbatim}
+    >> m = simex('twoCellNetwork.dsl', 100)
+    >> simplot(m); legend({'Vm1', 'Vm2'})
+\end{verbatim}
+
+And there we can see our two-neuron network, with **neuron1**'s inhibitory
+synaptic connect to **neuron2**.
+
+*** Making changes with submodels, and using comments
+
+Often, you may want to change the property of a sub-model without
+changing the higher-level or top-level model that it links to.  That's
+very easy to do with simEngine.  The synapse model we used in the
+previous example was fairly simple.  Let's open up
+**neuronWithSynapse.dsl** and make the following changes:
+
+<src lang="dsl">
+model (ISyn) = synapse(Vpre, Vpost, gSyn, ESyn, Vthresh)
+  state m = 0.1
+  constant tau = 0.5
+  equation minf = xinf(28, -15, Vpre)
+  equation m' = (minf - m)/tau
+
+  equation ISyn = {(gSyn*m*(Vpost-ESyn)) when Vpre > Vthresh,
+                   0 otherwise}
+end
+
+/*
+model (ISyn) = synapse(Vpre, Vpost, gSyn, ESyn, Vthresh)
+  equation ISyn = {(gSyn*(Vpost-ESyn)) when Vpre > Vthresh,
+                   0 otherwise}
+end
+*/
+</src>
+
+Now we've added a state variable to the synapse model in order to give
+it some more complex dynamics.  Remember how we moved the **xinf**
+function outside of the **neuron** model block?  Because we defined the
+**xinf** function outside of a model block and at the start of the
+file, the **xinf** function is available to all models defined in
+**neuronWithSynapse.dsl**, so we can easily use the **xinf** function in our
+new **synapse** model.
+
+We've also "saved" our old synapse definition by using comments.
+DIESEL uses C-style comments, which means you can specify a comment
+two ways:
+
+<src lang="dsl">
+    //like this for a single line comment
+</src>
+
+or
+
+<src lang="dsl">
+    /*for a multiple-line comment
+        you can do it like this*/
+</src>
+
+Go ahead and run simex on **twoCellNetwork.dsl**.  The new **synapse**
+definition will be included when the model is re-compiled:
+
+
+** Some additional things to try
+
+Now you've learned about the basics of building models using DIESEL,
+and running them with the simex interface to MATLAB.  There's a lot
+more that you can do with simEngine, but in the end, everything comes
+back to the basics you've learned in this lesson.  Here's some
+additional ideas of things to try:
+
+*** Find out more about simEngine in MATLAB
+
+From the MATLAB prompt, type **simhelp**.  This command will print
+out all the of the various commands that are available with simEngine
+in MATLAB.
+
+*** Explore other example models
+
+Several example models are packaged with simEngine.  These are in the
+examples directory, which you can easily find using the **simexamplepath**
+command in MATLAB.  A readme file in the examples directory tells you
+what each model is.  You can even use this command as a shortcut to
+running models in the examples directory:
+
+\begin{verbatim}
+    >> data = simex([simexamplepath '/PD/pd.dsl'], 100)
+\end{verbatim}
+
+*** Make outputs conditional
+Sometimes you only want to output something from a model when certain
+conditions are met.  You can do this by specifying a condition using
+the **with {...}** syntax after the **output** keyword:
+
+<src lang="dsl">
+    output z with {condition = z > 0}
+</src>
+
+In the above, the output **z** will only be recorded when it is greater
+than zero.
+
+; removed since we have a solver section
+; ** Using additional solvers
+; The following solvers are available in the 0.93 release of simEngine:
+
+; \begin{itemize}
+;     \item forwardeuler, the standard 1st-order, fixed dt explicit euler method
+;     \item rk4, a 4th-order, fixed dt method
+;     \item ode23,  Bogacki-Shampine, variable dt method
+;     \item ode45, Dormand-Prince, variable dt method
+;     \item cvode, implicit, stiff variable dt method
+; \end{itemize}
+
+; You can specify different properties of the solvers by using the with {...} syntax.  The properties you can specify are:
+
+; \begin{itemize}
+;     \item dt, time step for fixed time step solvers, or initial time step to try for variable time step solvers
+;     \item reltol, relative tolerance for variable time step solvers
+;     \item* abstol, absolute tolerance for variable time step solvers
+; \end{itemize}
+
+; For example:
+
+; <src lang="dsl">
+;     sovler = ode45 with {dt = 1, reltol = 1e-3, abstol = 1e-6}
+; </src>
+
+; or
+; <src lang="dsl">
+;     solver = rk4 with {dt = 1e-2}
+; </src>

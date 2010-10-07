@@ -1,0 +1,46 @@
+# Import subsystem rules.
+
+SUBSYSTEMS := $(D)/cvode
+$(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
+
+# Define local variables.
+
+
+
+HEADERS_$(D) := $(HEADERS_$(D)/cvode)
+
+INCLUDE_DIRS_$(D) := $(addprefix $(D)/include/,float double)
+LIBS_$(D) := $(addprefix $(D)/lib/,libcvode_double.a libcvode_float.a)
+
+TARGETS_$(D)	:= $(addprefix $(D)/lib/,libcvode_double.a libcvode_float.a)
+TARGETS_$(D)    := $(TARGETS_$(D)) $(addprefix $(D)/include/float/,$(HEADERS_$(D))) $(addprefix $(D)/include/double/,$(HEADERS_$(D)))
+TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+INSTALLS	:= $(INSTALLS) $(D)/installs
+CLEAN		:= $(CLEAN) $(TARGETS_$(D))
+
+# Define local rules.
+
+$(D)/lib/libcvode_%.a: $(D)/cvode/%/libcvode.a
+	$(INSTALL) -d "$(@D)" -C "$(abspath $<)" -T "$@"
+
+$(D)/include/float/%.h: DIR := $(D)/cvode/float/$(SUNDIALS_$(D)/cvode)/include
+$(D)/include/float/%.h:
+	$(INSTALL) -C -m 644 "$(DIR)/$*.h" -d "$(@D)"
+
+$(D)/include/double/%.h: DIR := $(D)/cvode/double/$(SUNDIALS_$(D)/cvode)/include
+$(D)/include/double/%.h:
+	$(INSTALL) -C -m 644 "$(DIR)/$*.h" -d "$(@D)"
+
+$(D)/installs: LIBS := $(LIBS_$(D))
+$(D)/installs: INCLUDE_DIR := $(D)/include
+$(D)/installs: SUNDIALS_INCLUDES := $(SUNDIALS_HEADERS_$(D)/cvode)
+$(D)/installs: NVEC_INCLUDES := $(NVEC_HEADERS_$(D)/cvode)
+$(D)/installs: CVODE_INCLUDES := $(CVODE_HEADERS_$(D)/cvode)
+$(D)/installs: $(TARGETS_$(D))
+	$(INSTALL) -C $(LIBS) -d $(INSTALL_PREFIX)/lib
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/float/,$(SUNDIALS_INCLUDES)) -d $(INSTALL_PREFIX)/include/float/sundials
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/float/,$(NVEC_INCLUDES)) -d $(INSTALL_PREFIX)/include/float/nvector
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/float/,$(CVODE_INCLUDES)) -d $(INSTALL_PREFIX)/include/float/cvode
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/double/,$(SUNDIALS_INCLUDES)) -d $(INSTALL_PREFIX)/include/double/sundials
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/double/,$(NVEC_INCLUDES)) -d $(INSTALL_PREFIX)/include/double/nvector
+	$(INSTALL) -C $(addprefix $(INCLUDE_DIR)/double/,$(CVODE_INCLUDES)) -d $(INSTALL_PREFIX)/include/double/cvode
