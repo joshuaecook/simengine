@@ -53,8 +53,8 @@ $(D)/Contents.m: $(D)/Makefile.defs
 
 $(D)/installs: CLASSES := $(PCODE_$(D)) $(ADD_CLASSES_$(D)) 
 $(D)/installs: HELP := $(HELP_$(D)) $(addprefix $(D)/,Contents.m)
-$(D)/installs: MEX := $(addprefix $(D)/src/readSimulationData,$(MEXEXT))
+$(D)/installs: MEXES := $(addprefix $(D)/src/readSimulationData,$(MEXEXT))
 $(D)/installs: DIR := $(D)
-$(D)/installs: $(TARGETS_$(D)) $(ADD_CLASSES_$(D)) $(HELP_$(D)) 
-	$(INSTALL) -C $(CLASSES) $(MEX) -d $(INSTALL_PREFIX)
+$(D)/installs: $(TARGETS_$(D)) $(ADD_CLASSES_$(D)) $(HELP_$(D))
+	$(INSTALL) -C $(CLASSES) $(MEXES) -d $(INSTALL_PREFIX)
 	$(INSTALL) $(foreach help,$(HELP),-C $(help) -T $(subst _info,,$(subst $(DIR),$(INSTALL_PREFIX),$(help))))
