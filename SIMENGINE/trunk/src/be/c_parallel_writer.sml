@@ -1025,7 +1025,11 @@ fun algebraic_wrapper kind shardedModel iterators =
 			    val iter_id = "ITERATOR_"^(Util.removePrefix (Symbol.name base_iter_name))
 			    val func_id = "flow_"^(Symbol.name top_class)
 
-			    val next_time = A.Variable "props->next_time[modelid]"
+			    val time = 
+				case kind
+				 of UPDATE => A.Variable "props->next_time[modelid]"
+				  | POSTPROCESS => A.Variable "props->next_time[modelid]"
+				  | _ => A.Variable "props->time[modelid]"
 
 			    val states = 
 				List.mapPartial 
@@ -1045,9 +1049,9 @@ fun algebraic_wrapper kind shardedModel iterators =
 			    val func_args =
 				case base_iter_typ
 				 of DOF.CONTINUOUS _ =>
-				    v(next_time :: states @ [A.Null, od, A.Literal (Int 1), A.Variable "modelid"])
+				    v(time :: states @ [A.Null, od, A.Literal (Int 1), A.Variable "modelid"])
 				  | DOF.DISCRETE _ =>
-				    v(next_time :: states @ [A.Null, od, A.Literal (Int 1), A.Variable "modelid"])
+				    v(time :: states @ [A.Null, od, A.Literal (Int 1), A.Variable "modelid"])
 				  | _ => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.algebraicwrapper", Logger.INTERNAL)
 			in
 			    B.BLOCK
