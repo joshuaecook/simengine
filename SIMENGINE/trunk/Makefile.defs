@@ -22,6 +22,6 @@ $(D)/datafiles/build-options.json:
 	@echo "$(BUILD_OPTIONS_JSON)" > $@
 
 .PHONY: $(D)/installs
-$(D)/installs: DATA := $(addprefix $(D)/datafiles/,default.dol global.dol build-options.json)
+$(D)/installs: DATA := $(addprefix $(D)/datafiles/,global.dol build-options.json)
 $(D)/installs: $(TARGETS_$(D))
 	$(INSTALL) -C $(DATA) -d $(INSTALL_PREFIX)/data
