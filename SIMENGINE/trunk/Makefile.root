@@ -129,6 +129,10 @@ $(eval $(call IMPORT_SUBSYSTEM,.))
 
 # Define top-level rules.
 
+.PHONY: get-version
+get-version:
+	@echo "VERSION: $(VERSION_NUMBER)"
+
 .PHONY: targets
 targets: $(TARGETS)
 
