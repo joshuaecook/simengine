@@ -4,6 +4,10 @@ type size = int
 type ident = string
 type label = string
 
+structure Uses = BinarySetFn(type ord_key = ident val compare = String.compare)
+structure Defs = BinarySetFn(type ord_key = ident * Type.t val compare = fn ((a,_),(b,_)) => String.compare (a,b))
+
+
 fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
 
 
@@ -113,8 +117,8 @@ datatype atom
        | Random_normal
        | Cell_ref
        | Cell_deref
-       | Spil_if
-       | Spil_bug
+       | Sim_if
+       | Sim_bug
 
      and expression
        = Value of atom
@@ -247,8 +251,8 @@ val name =
   | Random_normal => "Random_normal"
   | Cell_ref => "Cell_ref"
   | Cell_deref => "Cell_deref"
-  | Spil_if => "Spil_if"
-  | Spil_bug => "Spil_bug"
+  | Sim_if => "Sim_if"
+  | Sim_bug => "Sim_bug"
 
 end
 
@@ -257,9 +261,13 @@ datatype t = datatype expression
 datatype atom = datatype atom
 datatype operator = datatype operator
 
+local open Uses in
 val rec uses =
- fn Apply {oper, args} => List.concat (vec uses args)
-  | Value atom => (case Atom.uses atom of SOME id => [id] | NONE => nil)
+ fn Apply {oper, args} => 
+    List.foldl union empty (vec uses args)
+  | Value atom => 
+    (case Atom.uses atom of SOME id => singleton id | NONE => empty)
+end
 end
 
 structure Statement = struct
@@ -274,23 +282,27 @@ val defs =
   | NOP => NONE
   | COMMENT _ => NONE
   | PROFILE _ => NONE
-  | BIND {src, dest as (id,t)} => SOME id
-  | GRAPH {src, dest as (id,t)} => SOME id
-  | PRIMITIVE {oper, args, dest as (id,t)} => SOME id
+  | BIND {src, dest} => SOME dest
+  | GRAPH {src, dest} => SOME dest
+  | PRIMITIVE {oper, args, dest} => SOME dest
   | MOVE {src, dest} => NONE
 
+local open Uses in
 val uses =
- fn HALT => nil
-  | NOP => nil
-  | COMMENT _ => nil
-  | PROFILE _ => nil
+ fn HALT => empty
+  | NOP => empty
+  | COMMENT _ => empty
+  | PROFILE _ => empty
   | BIND {src, dest} =>
-    (case Atom.uses src of SOME id => [id] | NONE => nil)
+    (case Atom.uses src of SOME id => singleton id | NONE => empty)
   | GRAPH {src, dest} => Expression.uses src
   | PRIMITIVE {oper, args, dest} => 
-    List.mapPartial (fn x => x) (vec Atom.uses args)
+    List.foldl
+	(fn (SOME id, set) => add (set, id) | (NONE, set) => set)
+	empty (vec Atom.uses args)
   | MOVE {src, dest} => 
-    (case Atom.uses src of SOME id => [id] | NONE => nil)
+    addList (empty, List.mapPartial (fn x => x) [Atom.uses src, Atom.uses dest])
+end
 end
 
 structure Control = struct
@@ -303,32 +315,44 @@ datatype t = datatype block
 datatype control = datatype control
 datatype statement = datatype statement
 
+structure Uses = Uses
+structure Free = Uses
+structure Defs = Defs
+
 fun foldParams f id (BLOCK {params, ...}) = 
-    Vector.foldr (fn ((id,t),i) => f (id,t,i)) id params
+    Vector.foldr f id params
 
 fun foldBody f id (BLOCK {body, ...}) =
     Vector.foldr f id body
 
 fun name (BLOCK {label, ...}) = label
 
+local open Defs in
 fun defs block 
-  = foldParams
-	(fn (id,t,acc) => (id,t)::acc)
-	(foldBody
-	     (fn (stm, acc) =>
-		 case stm
-		  of BIND {dest, ...} => dest::acc
-		   | GRAPH {dest, ...} => dest::acc
-		   | PRIMITIVE {dest, ...} => dest::acc
-		   | _ => acc)
-	     nil block)
-	block
+  = foldBody
+	(fn (stm, set) =>
+	    case Statement.defs stm
+	     of SOME dest => add (set, dest)
+	      | NONE => set)
+	(foldParams add' empty block) block
+end
 
+local open Uses in
 fun uses block
   = foldBody
-	(fn (stm, acc) => acc)
-	nil block
-    
+	(fn (stm, set) => union (set, (Statement.uses stm)))
+	empty block
+end
+
+local open Free in
+fun free block =
+    let 
+	val uses' = uses block 
+	val defs' = Defs.foldl (fn ((id,_),set) => add (set, id)) empty (defs block) 
+    in
+	difference (uses', defs')
+    end
+end
 
 
 end
@@ -341,7 +365,7 @@ fun foldBlocks f id (FUNCTION {blocks, ...}) =
     Vector.foldr f id blocks
 
 fun foldParams f id (FUNCTION {params, ...}) = 
-    Vector.foldr (fn ((id,t),i) => f (id,t,i)) id params
+    Vector.foldr f id params
 
 fun startBlock (FUNCTION {start, blocks, ...}) =
     valOf (Vector.find (fn (BLOCK {label,...}) => start = label) blocks)

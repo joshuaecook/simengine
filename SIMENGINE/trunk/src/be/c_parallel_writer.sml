@@ -1908,6 +1908,8 @@ local
     structure T = Type
     structure F = Function
     structure B = Block
+    structure S = Statement
+    structure A = Atom
     structure CC = Control
 
     val v = Vector.fromList
@@ -2134,18 +2136,28 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    val (equation_blocks, transfer_to_first_eq) =
 			equations_to_blocks (Symbol.name orig_name) is_top_class iter (Spil.Control.RETURN (Spil.Atom.Literal (Spil.Int 0))) valid_exps
 		    val flow_start_block =
-			B.BLOCK
-			    {label= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
-			     params= v[],
-			     body= v[],
-			     transfer= transfer_to_first_eq
-			    }
+			let
+			    val bind_input =
+				if is_top_class then
+				 fn (input, i) => S.MOVE {src= A.Variable ("get_input("^(i2s i)^",modelid)"),
+							  dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}
+				else
+				 fn (input, i) => S.MOVE {src= A.Offset {base= A.Variable "inputs", index= 1, offset= i, scale= 1, basetype= T.C"CDATAFORMAT"},
+							  dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}
+			in
+			    B.BLOCK
+				{label= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
+				 params= v[],
+				 body= v(map bind_input inputs),
+				 transfer= transfer_to_first_eq
+				}
+			end
 		    val iterval = (iter_name', T.C"CDATFORMAT")
 		    val states =
 			List.mapPartial
 			    (fn x => x)
-			    [if reads_iterator iter class then SOME ("rd_mdlvar__"^iter_name, T.C("statedata_"^(Symbol.name orig_name)^"_"^iter_name^"*")) else NONE,
-			     if writes_iterator iter class then SOME ("wr_mdlvar__"^iter_name, T.C("statedata_"^(Symbol.name orig_name)^"_"^iter_name^"*")) else NONE,
+			    [if reads_iterator iter class then SOME ("rd_"^iter_name, T.C("statedata_"^(Symbol.name orig_name)^"_"^iter_name^"*")) else NONE,
+			     if writes_iterator iter class then SOME ("wr_"^iter_name, T.C("statedata_"^(Symbol.name orig_name)^"_"^iter_name^"*")) else NONE,
 			     if reads_system class then SOME ("sys_rd", T.C("const systemstatedata_"^(Symbol.name orig_name)^"*")) else NONE]
 		in					    
 		    SOME (
