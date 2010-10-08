@@ -41,6 +41,18 @@ structure Out =
 structure Int = Int
 val detailed = ref false
 
+fun withDetail f =
+    let val old = ! detailed before detailed := true in
+	f () before detailed := old
+	handle e => (detailed := old; raise e)
+    end
+
+fun withoutDetail f =
+    let val old = ! detailed before detailed := false in
+	f () before detailed := old
+	handle e => (detailed := old; raise e)
+    end
+
 fun switch {detailed = d,normal = n} x =
    if !detailed then d x else n x
 

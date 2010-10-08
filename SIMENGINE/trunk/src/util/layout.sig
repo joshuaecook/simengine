@@ -92,4 +92,9 @@ signature LAYOUT =
       val space: t list -> t
       (* write to the screen *)
       val log: t -> unit
+
+      (* Sets the "detailed" option for the duration of a function. *)
+      val withDetail: (unit -> 'a) -> 'a
+      val withoutDetail: (unit -> 'a) -> 'a
+
    end

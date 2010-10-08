@@ -2140,11 +2140,18 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			     body= v[],
 			     transfer= transfer_to_first_eq
 			    }
+		    val iterval = (iter_name', T.C"CDATFORMAT")
+		    val states =
+			List.mapPartial
+			    (fn x => x)
+			    [if reads_iterator iter class then SOME ("rd_mdlvar__"^iter_name, T.C("statedata_"^(Symbol.name orig_name)^"_"^iter_name^"*")) else NONE,
+			     if writes_iterator iter class then SOME ("wr_mdlvar__"^iter_name, T.C("statedata_"^(Symbol.name orig_name)^"_"^iter_name^"*")) else NONE,
+			     if reads_system class then SOME ("sys_rd", T.C("const systemstatedata_"^(Symbol.name orig_name)^"*")) else NONE]
 		in					    
 		    SOME (
 		    F.FUNCTION
 			{name= ("spil_flow_" ^ (Symbol.name (#name class))),
-			 params= v[],
+			 params= v(iterval :: states @ [("inputs", T.C"CDATAFORMAT*"), ("outputs", T.C"CDATAFORMAT*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")]),
 			 returns= T.C"int",
 			 start= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
 			 blocks= v(flow_start_block :: equation_blocks)
@@ -2951,5 +2958,13 @@ fun buildC (orig_name, shardedModel) =
 	SUCCESS
     end
     handle e => DynException.checkpoint "CParallelWriter.buildC" e
+
+
+val buildC =
+ fn x => if DynamoOptions.isFlagSet "debug" then
+	     Layout.withDetail (fn () => buildC x)
+	 else buildC x
+
+
 
 end
