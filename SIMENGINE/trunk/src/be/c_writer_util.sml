@@ -9,6 +9,229 @@ val r2s = Util.real2exact_str
 val log = Util.log
 
 local
+    open Spil 
+    structure T = Type
+    structure X = Expression
+    structure A = Atom
+    structure Op = Operator
+
+    val v = Vector.fromList
+
+    structure MF = MathFunctions
+
+    fun symbol_to_expr (sym, props) =
+	if Property.isOutputBuffer props then
+	    X.Apply {oper= Op.Record_extract,
+		     args= v[X.Apply {oper= Op.Array_extract,
+				      args= v[X.Value (A.Variable "od"), X.Value (A.Variable "modelid")]},
+			     X.Value (A.Variable (Symbol.name sym))]}
+	else case Property.getScope props
+	      of Property.LOCAL => local_to_expr (sym, props)
+	       | Property.ITERATOR => iterator_to_expr (sym, props)
+	       | Property.READSTATE scope => read_to_expr scope (sym, props)
+	       | Property.READSYSTEMSTATE scope => sysread_to_expr scope (sym, props)
+	       | Property.WRITESTATE scope => write_to_expr scope (sym, props)
+	       | Property.SYSTEMITERATOR => sysiterator_to_expr (sym, props)
+    and local_to_expr (sym, props) =
+	X.Value (A.Variable (Symbol.name sym))
+    and iterator_to_expr (sym, props) =
+	X.Value (A.Variable (Symbol.name sym))
+    and read_to_expr scope (sym, props) =
+	let
+	    val record = 
+		X.Apply {oper= Op.Array_extract,
+			 args= v[X.Value (A.Variable ("rd_"^(Symbol.name scope))),
+				 case Property.getEPIndex props
+				  of SOME Property.STRUCT_OF_ARRAYS => 
+				     X.Value (A.Variable "STRUCT_IDX")
+				   | _ => X.Value (A.Variable "0")]}
+	    val field =
+		X.Apply {oper= Op.Record_extract,
+			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
+	in
+	    if Option.isSome (Property.getEPIndex props) then
+		X.Apply {oper= Op.Array_extract,
+			 args= v[field, X.Value (A.Variable "ARRAY_IDX")]}
+	    else field
+	end
+    and write_to_expr scope (sym, props) =
+	let
+	    val record = 
+		X.Apply {oper= Op.Array_extract,
+			 args= v[X.Value (A.Variable ("wr_"^(Symbol.name scope))),
+				 case Property.getEPIndex props
+				  of SOME Property.STRUCT_OF_ARRAYS => 
+				     X.Value (A.Variable "STRUCT_IDX")
+				   | _ => X.Value (A.Variable "0")]}
+	    val field =
+		X.Apply {oper= Op.Record_extract,
+			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
+	in
+	    if Option.isSome (Property.getEPIndex props) then
+		X.Apply {oper= Op.Array_extract,
+			 args= v[field, X.Value (A.Variable "ARRAY_IDX")]}
+	    else field
+	end
+    and sysread_to_expr scope (sym, props) =
+	let
+	    val record = 
+		X.Apply {oper= Op.Record_extract,
+			 args= v[X.Value (A.Variable "sys_rd"),
+				 X.Value (A.Variable ("states_"^(Symbol.name scope)))]}
+	    val record = 
+		X.Apply {oper= Op.Array_extract,
+			 args= v[record,
+				 case Property.getEPIndex props
+				  of SOME Property.STRUCT_OF_ARRAYS => 
+				     X.Value (A.Variable "STRUCT_IDX")
+				   | _ => X.Value (A.Variable "0")]}
+	    val field =
+		X.Apply {oper= Op.Record_extract,
+			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
+	in
+	    if Option.isSome (Property.getEPIndex props) then
+		X.Apply {oper= Op.Array_extract,
+			 args= v[field, X.Value (A.Variable "ARRAY_IDX")]}
+	    else field
+	end
+    and sysiterator_to_expr (sym, props) =
+	let
+	    val record = X.Value (A.Variable "sys_rd")
+	    val field =
+		X.Apply {oper= Op.Record_extract,
+			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
+	in
+	    if Option.isSome (Property.getEPIndex props) then
+		X.Apply {oper= Op.Array_extract,
+			 args= v[field, X.Value (A.Variable "modelid")]}
+	    else field
+	end
+
+in
+fun fun_to_spil to_spil (funtype, exps) =
+    case funtype
+     of Fun.BUILTIN oper =>
+	let 
+	    val spil_oper =
+		case oper
+		 of MF.ADD => Op.Float_add
+		  | MF.SUB => Op.Float_sub
+		  | MF.NEG => Op.Float_neg
+		  | MF.MUL => Op.Float_mul
+		  | MF.DIVIDE => Op.Float_div
+		  | MF.GT => Op.Float_gt
+		  | MF.LT => Op.Float_lt
+		  | MF.GE => Op.Float_ge
+		  | MF.LE => Op.Float_le
+		  | MF.EQ => Op.Float_eq
+		  | MF.NEQ => Op.Float_ne
+		  | MF.EXP => Op.Math_exp
+		  | MF.POW => Op.Math_pow
+		  | MF.SIN => Op.Math_sin
+		  | MF.COS => Op.Math_cos
+		  | MF.TAN => Op.Math_tan
+		  | MF.CSC => Op.Math_csc
+		  | MF.SEC => Op.Math_sec
+		  | MF.COT => Op.Math_cot
+		  | MF.ASIN => Op.Math_asin
+		  | MF.ACOS => Op.Math_acos
+		  | MF.ATAN => Op.Math_atan
+		  | MF.ATAN2 => Op.Math_atan2
+		  | MF.ACSC => Op.Math_acsc
+		  | MF.ASEC => Op.Math_asec
+		  | MF.ACOT => Op.Math_acot
+		  | MF.SINH => Op.Math_sinh
+		  | MF.COSH => Op.Math_cosh
+		  | MF.TANH => Op.Math_tanh
+		  | MF.CSCH => Op.Math_csch
+		  | MF.SECH => Op.Math_sech
+		  | MF.COTH => Op.Math_coth
+		  | MF.ASINH => Op.Math_asinh
+		  | MF.ACOSH => Op.Math_acosh
+		  | MF.ATANH => Op.Math_atanh
+		  | MF.ACSCH => Op.Math_acsch
+		  | MF.ASECH => Op.Math_asech
+		  | MF.ACOTH => Op.Math_acoth
+		  | MF.IF => Op.Spil_if
+		  | _ => Op.Spil_bug
+	in
+	    X.Apply {oper= spil_oper, args= v(map to_spil exps)}
+	end
+      | Fun.INST _ =>
+	X.Value (A.Literal (Const "inst"))
+      | Fun.OUTPUT _ =>
+	X.Value (A.Literal (Const "output"))
+
+val rec term_to_spil =
+ fn Exp.INT z => X.Value (A.Literal (Int z))
+  | Exp.REAL r => X.Value (A.Literal (Real r))
+  | Exp.NAN => X.Value (A.Literal Nan)
+  | Exp.INFINITY => X.Value (A.Literal Infinity)
+  | Exp.BOOL b => X.Value (A.Literal (Bool b))
+  | Exp.STRING s => X.Value (A.Literal (String s))
+  | Exp.RATIONAL (num, den) => X.Apply {oper= Op.Rational_rational, args= v[X.Value (A.Literal (Int num)), X.Value (A.Literal (Int den))]}
+  | Exp.COMPLEX (real, imag) => X.Apply {oper= Op.Complex_complex, args= v[term_to_spil real, term_to_spil imag]}
+  | Exp.TUPLE terms => 
+    let
+	val (fields, elems, _) =
+	    List.foldl
+		(fn (term, (fs, es, n)) =>
+		    ((X.Value (A.Literal (String ("t"^(Int.toString n))))) :: fs,
+		     (term_to_spil term) :: es,
+		     1+n)
+		)
+		(nil,nil,0)
+		terms
+    in
+	X.Apply {oper= Op.Record_record, 
+		 args= v[X.Apply {oper= Op.Array_array, args= v(List.rev fields)}, 
+			 X.Apply {oper= Op.Array_array, args= v(List.rev elems)}]}
+    end
+  | Exp.RANGE {low, high, step} => X.Apply {oper= Op.Range_range, args= v(map term_to_spil [low,high,step])}
+  | Exp.RANDOM Exp.UNIFORM => X.Apply {oper= Op.Random_uniform, args= v[]}
+  | Exp.RANDOM Exp.NORMAL => X.Apply {oper= Op.Random_normal, args= v[]}
+  | Exp.SYMBOL (sym, props) => symbol_to_expr (sym, props)
+  | term =>
+    DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriterUtil.term_to_spil", Logger.INTERNAL)
+
+fun container_to_spil to_spil =
+ fn Exp.ARRAY array => 
+    X.Apply {oper= Op.Array_array, args= v(map to_spil (Container.arrayToList array))}
+  | Exp.MATRIX matrix =>
+    let
+	val (rows,cols) = Matrix.size matrix
+    in
+	case ! matrix
+	 of Matrix.DENSE _ => 
+	    X.Apply {oper= Op.Matrix_dense, 
+		     args= v[X.Value (A.Literal (Int rows)), X.Value (A.Literal (Int cols)), 
+			     X.Apply {oper= Op.Array_array, args= v(map to_spil (Matrix.getElements matrix))}]}
+	  | Matrix.BANDED {upperbw, lowerbw, ...} =>
+	    let
+		val m' = Matrix.fromRows (Exp.calculus())  (Matrix.toPaddedBands matrix)
+		val _ = Matrix.transpose m'
+	    in
+		X.Apply {oper= Op.Matrix_banded,
+			 args= v[X.Value (A.Literal (Int rows)), X.Value (A.Literal (Int cols)), 
+				 X.Value (A.Literal (Int upperbw)), X.Value (A.Literal (Int lowerbw)), 
+				 X.Apply {oper= Op.Array_array, args= v(map to_spil (Matrix.getElements m'))}]}
+	    end
+    end
+  | Exp.EXPLIST list =>
+    DynException.stdException ("Cannot write EXPLIST expressions", "CWriterUtil.container_to_spil", Logger.INTERNAL)
+  | Exp.ASSOC assoc =>
+    DynException.stdException ("Cannot write ASSOC expressions", "CWriterUtil.container_to_spil", Logger.INTERNAL)
+
+val rec exp_to_spil =
+ fn Exp.FUN (str, exps) => fun_to_spil exp_to_spil (str, exps)
+  | Exp.TERM term => term_to_spil term
+  | Exp.CONTAINER con => container_to_spil exp_to_spil con
+  | exp as Exp.META _ => 
+    DynException.stdException (("Cannot write META expressions. ["^(ExpPrinter.exp2str exp)^"]"), "CWriterUtil.exp_to_spil", Logger.INTERNAL)
+
+end
+
+local
 fun exp2c_str (Exp.FUN (str, exps)) =
     let
 	fun useParen (Exp.FUN (str', _)) = 

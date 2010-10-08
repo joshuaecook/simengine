@@ -4,11 +4,17 @@ type size = int
 type ident = string
 type label = string
 
+fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
+
+
 datatype immediate 
   = Real of real
   | Int of int
   | Bool of bool
+  | String of string
   | Const of ident
+  | Nan
+  | Infinity
 
 type address = string
 
@@ -27,6 +33,8 @@ datatype atom
   = Null
   | Literal of immediate
   | Variable of ident
+  | Source of atom
+  | Sink of atom
   | RuntimeVar of ((unit -> atom) * Type.t)
   | CompileVar of ((unit -> atom) * Type.t)
   | Address of address
@@ -54,12 +62,59 @@ datatype atom
        | Float_sub
        | Float_mul
        | Float_neg
-       | Vector_extract
-       | Vector_insert
+       | Float_div
+       | Float_gt
+       | Float_ge
+       | Float_lt
+       | Float_le
+       | Float_eq
+       | Float_ne
+       | Math_exp
+       | Math_pow
+       | Math_sin
+       | Math_cos
+       | Math_tan
+       | Math_csc
+       | Math_sec
+       | Math_cot
+       | Math_asin
+       | Math_acos
+       | Math_atan
+       | Math_atan2
+       | Math_acsc
+       | Math_asec
+       | Math_acot
+       | Math_sinh
+       | Math_cosh
+       | Math_tanh
+       | Math_csch
+       | Math_sech
+       | Math_coth
+       | Math_asinh
+       | Math_acosh
+       | Math_atanh
+       | Math_acsch
+       | Math_asech
+       | Math_acoth
+       | Rational_rational
+       | Complex_complex
+       | Range_range
+       | Array_array
        | Array_extract
        | Array_insert
-       | Structure_extract
-       | Structure_insert
+       | Vector_extract
+       | Vector_insert
+       | Matrix_dense
+       | Matrix_banded
+       | Record_record
+       | Record_extract
+       | Record_insert
+       | Random_uniform
+       | Random_normal
+       | Cell_ref
+       | Cell_deref
+       | Spil_if
+       | Spil_bug
 
      and expression
        = Value of atom
@@ -118,25 +173,17 @@ structure Atom = struct
 type context = unit
 datatype t = datatype atom
 
-local structure T = Type in
-fun typeof atom cxt =
-    case atom
-     of Null => (T.gen T.void, cxt)
-      | Literal (Bool _) => (T.gen T.bool, cxt)
-      | Literal (Real _) => (T.gen (T.real 64), cxt)
-      | Literal (Int _) => (T.gen (T.int 32), cxt)
-      | Literal (Const _) => raise Fail "lookup from context"
-      | Address _ => raise Fail "typeof Address"
-      | Label _ => raise Fail "typeof Label"
-      | RuntimeVar (_, t) => (t, cxt)
-      | CompileVar (_, t) => (t, cxt)
-      | Variable _ => raise Fail "lookup from context"
-      | Cast (_,t) => (t, raise Fail "add to context")
-      | Offset {basetype,...} => (basetype, cxt)
-      | Offset2D {basetype,...} => (basetype, cxt)
-      | Offset3D {basetype,...} => (basetype, cxt)
-
-end
+val rec uses =
+ fn Variable id => SOME id
+  | Cast (atom, t) => uses atom
+  | Offset {base, ...} => uses base
+  | Offset2D {base, ...} => uses base
+  | Offset3D {base, ...} => uses base
+  | Source base => uses base
+  | Sink base => uses base
+  | RuntimeVar (f, t) => uses (f ())
+  | CompileVar (f, t) => uses (f ())
+  | _ => NONE
 end
 
 structure Operator = struct
@@ -149,12 +196,59 @@ val name =
   | Float_sub => "Float_sub"
   | Float_mul => "Float_mul"
   | Float_neg => "Float_neg"
-  | Vector_extract => "Vector_extract"
-  | Vector_insert => "Vector_insert"
+  | Float_div => "Float_div"
+  | Float_gt => "Float_gt"
+  | Float_ge => "Float_ge"
+  | Float_lt => "Float_lt"
+  | Float_le => "Float_le"
+  | Float_eq => "Float_eq"
+  | Float_ne => "Float_ne"
+  | Math_exp => "Math_exp"
+  | Math_pow => "Math_pow"
+  | Math_sin => "Math_sin"
+  | Math_cos => "Math_cos"
+  | Math_tan => "Math_tan"
+  | Math_csc => "Math_csc"
+  | Math_sec => "Math_sec"
+  | Math_cot => "Math_cot"
+  | Math_asin => "Math_asin"
+  | Math_acos => "Math_acos"
+  | Math_atan => "Math_atan"
+  | Math_atan2 => "Math_atan2"
+  | Math_acsc => "Math_acsc"
+  | Math_asec => "Math_asec"
+  | Math_acot => "Math_acot"
+  | Math_sinh => "Math_sinh"
+  | Math_cosh => "Math_cosh"
+  | Math_tanh => "Math_tanh"
+  | Math_csch => "Math_csch"
+  | Math_sech => "Math_sech"
+  | Math_coth => "Math_coth"
+  | Math_asinh => "Math_asinh"
+  | Math_acosh => "Math_acosh"
+  | Math_atanh => "Math_atanh"
+  | Math_acsch => "Math_acsch"
+  | Math_asech => "Math_asech"
+  | Math_acoth => "Math_acoth"
+  | Rational_rational => "Rational_rational"
+  | Complex_complex => "Complex_complex"
+  | Range_range => "Range_range"
+  | Array_array => "Array_array"
   | Array_extract => "Array_extract"
   | Array_insert => "Array_insert"
-  | Structure_extract => "Structure_extract"
-  | Structure_insert => "Structure_insert"
+  | Vector_extract => "Vector_extract"
+  | Vector_insert => "Vector_insert"
+  | Matrix_dense => "Matrix_dense"
+  | Matrix_banded => "Matrix_banded"
+  | Record_record => "Record_record"
+  | Record_extract => "Record_extract"
+  | Record_insert => "Record_insert"
+  | Random_uniform => "Random_uniform"
+  | Random_normal => "Random_normal"
+  | Cell_ref => "Cell_ref"
+  | Cell_deref => "Cell_deref"
+  | Spil_if => "Spil_if"
+  | Spil_bug => "Spil_bug"
 
 end
 
@@ -162,6 +256,10 @@ structure Expression = struct
 datatype t = datatype expression
 datatype atom = datatype atom
 datatype operator = datatype operator
+
+val rec uses =
+ fn Apply {oper, args} => List.concat (vec uses args)
+  | Value atom => (case Atom.uses atom of SOME id => [id] | NONE => nil)
 end
 
 structure Statement = struct
@@ -171,21 +269,28 @@ datatype atom = datatype atom
 datatype operator = datatype operator
 datatype expression = datatype expression
 
-fun bind atom (cxt, (id,t)) 
-  = (BIND {src= atom, dest= (id,t)}, cxt)
+val defs =
+ fn HALT => NONE
+  | NOP => NONE
+  | COMMENT _ => NONE
+  | PROFILE _ => NONE
+  | BIND {src, dest as (id,t)} => SOME id
+  | GRAPH {src, dest as (id,t)} => SOME id
+  | PRIMITIVE {oper, args, dest as (id,t)} => SOME id
+  | MOVE {src, dest} => NONE
 
-fun bindExp exp (cxt, (id,t)) 
-  = (GRAPH {src= exp, dest= (id,t)}, cxt)
-
-fun bindPrim (oper,args) (cxt, (id,t))
-  = (PRIMITIVE {oper= oper, args= args, dest= (id,t)}, cxt)
-
-val comment = COMMENT
-val profile = PROFILE
-val move = MOVE
-val halt = HALT
-val nop = NOP
-
+val uses =
+ fn HALT => nil
+  | NOP => nil
+  | COMMENT _ => nil
+  | PROFILE _ => nil
+  | BIND {src, dest} =>
+    (case Atom.uses src of SOME id => [id] | NONE => nil)
+  | GRAPH {src, dest} => Expression.uses src
+  | PRIMITIVE {oper, args, dest} => 
+    List.mapPartial (fn x => x) (vec Atom.uses args)
+  | MOVE {src, dest} => 
+    (case Atom.uses src of SOME id => [id] | NONE => nil)
 end
 
 structure Control = struct

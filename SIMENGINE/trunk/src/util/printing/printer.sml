@@ -14,7 +14,7 @@ fun takeWhile f nil = nil
 
 
 fun printLayout layout outstream =
-    Layout.output (layout, outstream)
+    Layout.outputWidth (layout, 120, outstream)
 
 
 

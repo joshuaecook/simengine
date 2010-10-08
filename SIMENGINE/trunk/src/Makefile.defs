@@ -22,7 +22,7 @@ CLEAN_ALL	:= $(CLEAN_ALL) $(PARSERS_$(D))
 $(D)/simEngine.deps: LIBS := $(LIBS_$(D))
 $(D)/simEngine.deps: $(BASIS_$(D)) $(LIBS) $(D)/Makefile.defs 
 	$(info Computing dependencies for $@)
-	@echo $(basename $@) $(addprefix $(basename $@),_profiletime _profilemem _profilebranch) $@: $(LIBS) \\ > "$@"
+	@echo $(basename $@) $(addprefix $(basename $@),_profiletime _profilemem _profilebranch): $(LIBS) \\ > "$@"
 	@$(SMLC) -stop f "$<" | perl -pe 's/\n/ /g' >> "$@"
 
 $(D)/simEngine: SMLFLAGS := $(SMLFLAGS) -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" $(if $DEBUG,-const 'Exn.keepHistory true',)

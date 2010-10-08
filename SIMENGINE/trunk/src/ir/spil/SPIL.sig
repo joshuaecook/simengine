@@ -60,7 +60,10 @@ signature SPIL = sig
       = Real of real
       | Int of int
       | Bool of bool
+      | String of string
       | Const of ident
+      | Infinity
+      | Nan
 
     type address = string
 
@@ -83,19 +86,74 @@ signature SPIL = sig
 	  | Float_sub
 	  | Float_mul
 	  | Float_neg
+	  | Float_div
+	  | Float_gt
+	  | Float_ge
+	  | Float_lt
+	  | Float_le
+	  | Float_eq
+	  | Float_ne
 	  (* | ... *)
+
+	  | Math_exp
+	  | Math_pow
+	  | Math_sin
+	  | Math_cos
+	  | Math_tan
+	  | Math_csc
+	  | Math_sec
+	  | Math_cot
+	  | Math_asin
+	  | Math_acos
+	  | Math_atan
+	  | Math_atan2
+	  | Math_acsc
+	  | Math_asec
+	  | Math_acot
+	  | Math_sinh
+	  | Math_cosh
+	  | Math_tanh
+	  | Math_csch
+	  | Math_sech
+	  | Math_coth
+	  | Math_asinh
+	  | Math_acosh
+	  | Math_atanh
+	  | Math_acsch
+	  | Math_asech
+	  | Math_acoth
+
+	  | Rational_rational
+
+	  | Complex_complex
+
+	  | Range_range
 
 	  | Vector_extract
 	  | Vector_insert
 	  (* | ... *)
 
+	  | Array_array
 	  | Array_extract
 	  | Array_insert
 	  (* | ... *)
 
-	  | Structure_extract
-	  | Structure_insert
+	  | Matrix_dense
+	  | Matrix_banded
+
+	  | Record_record
+	  | Record_extract
+	  | Record_insert
 	  (* | ... *)
+
+	  | Random_uniform
+	  | Random_normal
+
+	  | Cell_ref
+	  | Cell_deref
+
+	  | Spil_if
+	  | Spil_bug
 
 	val name: t -> string
     end
@@ -104,6 +162,8 @@ signature SPIL = sig
 	datatype t
 	  = Null
 	  | Literal of immediate
+	  | Source of t
+	  | Sink of t
 	  | Variable of ident
 	  | RuntimeVar of ((unit -> t) * Type.t)
 	  | CompileVar of ((unit -> t) * Type.t)
@@ -128,10 +188,6 @@ signature SPIL = sig
 	     offset: {x:size, y:size, z:size},
 	     scale: {x:size, y:size, z:size},
 	     basetype: Type.t}
-
-	type context
-	val typeof: t -> context -> (Type.t * context)
-
     end
 
     structure Expression: sig
@@ -162,30 +218,6 @@ signature SPIL = sig
 			  args: atom vector,
 			  dest: ident * Type.t}
 	  | MOVE of {src: atom, dest: atom}
-
-	type context
-
-	val bind: 
-	    atom -> (context * (ident * Type.t))
-	    -> 
-	    (t * context)
-
-	val bindExp: 
-	    expression -> (context * (ident * Type.t))
-	    -> 
-	    (t * context)
-
-	val bindPrim: 
-	    (operator * atom vector) -> (context * (ident * Type.t))
-	    ->
-	    (t * context)
-
-	val comment: string -> t
-	val profile: ident -> t
-	val move: {src:atom, dest:atom} -> t
-	val halt: t
-	val nop: t
-
     end
     sharing type Statement.atom = Atom.t
     sharing type Statement.operator = Operator.t

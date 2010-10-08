@@ -963,7 +963,7 @@ local
     structure T = Type
     structure F = Function
     structure B = Block
-    structure C = Control
+    structure CC = Control
     structure A = Atom
 
     val v = Vector.fromList
@@ -971,6 +971,9 @@ local
     datatype kind = UPDATE | PREPROCESS | INPROCESS | POSTPROCESS
 in
 fun algebraic_wrapper kind shardedModel iterators =
+    (* Constructs a SPIL function which wraps algebraic and update flows ensuring they are called with appropriate arguments. 
+     * The function switches on the iterator named in the properties struct to determine which flow is invoked.
+     *)
     let
 	val name =
 	    case kind
@@ -1059,7 +1062,7 @@ fun algebraic_wrapper kind shardedModel iterators =
 				 params= v[],
 				 body= v[],
 				 transfer=
-				 C.CALL 
+				 CC.CALL 
 				     {func= func_id,
 				      args= func_args,
 				      return= NONE
@@ -1075,7 +1078,7 @@ fun algebraic_wrapper kind shardedModel iterators =
 		 params= v[],
 		 body= v[],
 		 transfer= 
-		 C.SWITCH
+		 CC.SWITCH
 		     {test= A.Variable "props->iterator",
 		      default= name^"_switch_iterator_default",
 		      cases= v(map iterator_case iterators)
@@ -1087,7 +1090,7 @@ fun algebraic_wrapper kind shardedModel iterators =
 		{label= name^"_switch_iterator_default",
 		 params= v[],
 		 body= v[],
-		 transfer= C.RETURN (A.Literal (Int 1))
+		 transfer= CC.RETURN (A.Literal (Int 1))
 		}
 
 	val wrapper_function =
@@ -1212,7 +1215,7 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 end
 
 (* Nb depends on a CurrentModel context. *)
-fun outputstatestruct_code (iterator: DOF.systemiterator, shard as {classes, ...}) =
+fun outputstatestruct_code (iterator: DOF.systemiterator, shard: ShardedModel.shard as {classes, ...}) =
     let 
 	val () = ()
     in
@@ -1365,6 +1368,131 @@ fun outputsystemstatestruct_code (shardedModel as (shards,_)) statefulIterators 
     end
     handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code" e
 
+
+local 
+    open Spil 
+    structure T = Type
+    structure F = Function
+    structure B = Block
+    structure S = Statement
+    structure CC = Control
+    structure X = Expression
+    structure Op = Operator
+    structure A = Atom
+
+    val v = Vector.fromList
+in
+fun equations_to_blocks classname is_top_class (iter as (iter_sym, iter_type)) cc =
+    (* Working from the last equation, create a block with a unique label for each equation,
+     * accumulating the list of blocks along with the continuation for the
+     * block at the head of the list. 
+     * Returns the list of blocks and the continuation entering the first block.
+     *)
+    let
+	val label = 
+	    (* Returns a unique label for a block. *)
+	    let val id = ref 0 in
+	     fn () => (classname^"_eq_"^(Int.toString (!id)) before id := 1+(!id))
+	    end
+    in
+	List.foldr
+	    (fn (exp, (blocks,cc)) =>
+		let 
+		    val eq_blocks =
+			if (ExpProcess.isIntermediateEq exp) then
+			    [intermediateeq_to_block label (exp, cc)]
+			else if (ExpProcess.isFirstOrderDifferentialEq exp) then
+			    [firstorderdiffeq_to_block label (exp, cc)]
+			(*
+			 * else if (ExpProcess.isDifferenceEq exp) then
+			 *     [differenceeq_to_block exp]
+			 * else if (ExpProcess.isUpdateEq exp) then
+			 *     [differenceeq_to_block exp]
+			 * else if (ExpProcess.isAlgebraicStateEq exp) then
+			 *     [differenceeq_to_block exp]
+			 *)
+			else if (ExpProcess.isInstanceEq exp) then
+			    [instanceeq_to_block label (exp, is_top_class, iter, cc)]
+			else if (ExpProcess.isOutputEq exp) then
+			    outputeq_to_blocks label (exp, is_top_class, iter, cc)
+			(*
+			 * else if (ExpProcess.isReadStateEq exp) then
+			 *     [differenceeq_to_block exp]
+ 			 *)
+			else
+			    DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.equations_to_blocks", Logger.INTERNAL)
+		in
+		    (eq_blocks @ blocks, 
+		     CC.JUMP {block= (B.name (List.hd eq_blocks)), args= v[]})
+		end
+	    )
+	    (nil, cc)
+    end
+
+and intermediateeq_to_block label (exp, cc) =
+    if ExpProcess.isMatrixEq exp then
+	DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.intermediateeq_to_block", Logger.INTERNAL)
+    else if ExpProcess.isArrayEq exp then
+	DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.intermediateeq_to_block", Logger.INTERNAL)
+    else
+	let
+	    val dest =
+		case CWriterUtil.exp_to_spil (ExpProcess.lhs exp)
+		 of X.Value (A.Variable var) => var
+		  | _ =>
+		    DynException.stdException(("Unexpected lhs expression '"^(e2s exp)^"'"), "CParallelWriter.intermediateeq_to_block", Logger.INTERNAL)
+	    val name = label ()
+	in
+	    B.BLOCK
+		{label= name,
+		 params= v[],
+		 body= v[S.COMMENT (e2s exp),
+			 S.GRAPH {src= CWriterUtil.exp_to_spil (ExpProcess.rhs exp),
+				  dest= (name^"_src", T.C"CDATAFORMAT")},
+			 S.MOVE {src= A.Variable (name^"_src"),
+				 dest= A.Variable dest}],
+		 transfer=cc
+		}
+	end
+
+and firstorderdiffeq_to_block label (exp, cc) =
+    let val name = label () in
+	B.BLOCK
+	    {label= name,
+	     params= v[],
+	     body= v[S.COMMENT (e2s exp),
+		     S.GRAPH {src= CWriterUtil.exp_to_spil (ExpProcess.rhs exp),
+			      dest= (name^"_src", T.C"CDATAFORMAT")},
+		     S.GRAPH {src= X.Apply {oper= Op.Cell_ref, args= v[CWriterUtil.exp_to_spil (ExpProcess.lhs exp)]},
+			      dest= (name^"_dest", T.C"CDATAFORMAT*")},
+		     S.MOVE {src= A.Variable (name^"_src"),
+			     dest= A.Sink (A.Variable (name^"_dest"))}],
+	     transfer=cc
+	    }
+    end
+
+and instanceeq_to_block label (exp, is_top_class, iter, cc) =
+    B.BLOCK
+	{label= label (),
+	 params= v[],
+	 body= v[S.COMMENT (e2s exp)],
+	 transfer=cc
+	}
+
+and outputeq_to_blocks label (exp, is_top_class, iter, cc) =
+    [B.BLOCK
+	 {label= label (),
+	  params= v[],
+	  body= v[S.COMMENT (e2s exp)],
+	  transfer=cc
+	 }]
+
+and exp_to_name exp =
+    case CWriterUtil.exp_to_spil exp
+     of X.Value (A.Variable var) => var
+      | _ =>
+	DynException.stdException(("Unexpected lhs expression '"^(e2s exp)^"'"), "CParallelWriter.exp_to_name", Logger.INTERNAL)
+end
 
 fun exp2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     if (ExpProcess.isIntermediateEq exp) then
@@ -1775,7 +1903,15 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 		      write_outputs_progs],
 		 $("}")]
 	end	
+local
+    open Spil 
+    structure T = Type
+    structure F = Function
+    structure B = Block
+    structure CC = Control
 
+    val v = Vector.fromList
+in
 fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	(*val _ = Util.log("Generating code for class '"^(Symbol.name (#name class))^"'")
@@ -1963,8 +2099,6 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    [$(""),
 	     $("// writing all intermediate, instance, and differential equation expressions")] @
 	    (Util.flatmap (fn(exp)=> (exp2prog (exp,is_top_class,iter))) valid_exps)
-	    
-	val state_progs = []
 
         val output_progs = 
             if is_top_class then
@@ -1993,22 +2127,53 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	    else nil
 
 
+	(* Experimental SPIL flow functions. *)
+	val flow_function =
+	    if DynamoOptions.isFlagSet "x_irSPIL" then
+		let
+		    val (equation_blocks, transfer_to_first_eq) =
+			equations_to_blocks (Symbol.name orig_name) is_top_class iter (Spil.Control.RETURN (Spil.Atom.Literal (Spil.Int 0))) valid_exps
+		    val flow_start_block =
+			B.BLOCK
+			    {label= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
+			     params= v[],
+			     body= v[],
+			     transfer= transfer_to_first_eq
+			    }
+		in					    
+		    SOME (
+		    F.FUNCTION
+			{name= ("spil_flow_" ^ (Symbol.name (#name class))),
+			 params= v[],
+			 returns= T.C"int",
+			 start= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
+			 blocks= v(flow_start_block :: equation_blocks)
+			}
+		    )
+		end
+	    else NONE
+
         val mapping_back_progs = []
     in
 	header_progs @
 	[SUB(read_states_progs @
 	     read_inputs_progs @
 	     equ_progs @
-	     state_progs @
 	     output_progs @
 	     mapping_back_progs @
 	     [$(""),
 	      $("return 0;")]),
 	 $("}"),
 	 $("#undef INTERNAL_C"),
-	 $("")]
+	 $("")] @
+	(case flow_function
+	  of SOME ff =>
+	     [$("__HOST__ __DEVICE__"), SpilToC.layoutFunction ff]
+	   | NONE => nil)
+
     end
     handle e => DynException.checkpoint "CParallelWriter.class_flow_code" e
+end
 
 fun state_init_code shardedModel iter_sym =
     let 
@@ -2316,49 +2481,126 @@ fun init_states shardedModel =
     end
 
 
+local 
+    open Spil 
+    structure T = Type
+    structure F = Function
+    structure B = Block
+    structure CC = Control
+    structure A = Atom
+
+    val v = Vector.fromList
+
+    datatype kind = UPDATE | PREPROCESS | INPROCESS | POSTPROCESS
+in
 (* TODO remove the iterval parameter from IMMEDIATE flows. *)
 fun model_flows shardedModel = 
     let
-	fun subsystem_flow_call iter_sym =
-	    let val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
-		val iter as (_, iter_type) = ShardedModel.toIterator shardedModel iter_sym
-		val iter_name = Symbol.name (case iter_type of
-						 DOF.UPDATE v => v
-					       | _ => iter_sym)
+	val iterators = ShardedModel.iterators shardedModel
 
-		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
-	    in CurrentModel.withModel model (fn _ =>
-	       let val class = CurrentModel.classname2class top_class
-		   val basename = ClassProcess.class2preshardname class
-		   val (statereads, statewrites, systemstatereads) =
-		       (if reads_iterator iter class then "("(*^"const "*)^"statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ "* )y, " else "",
-			if requiresMatrix then
-			    "(CDATAFORMAT* ) props->mem, dydt, "
-			else if writes_iterator iter class then 
-			    "(statedata_" ^ (Symbol.name basename) ^ "_" ^ iter_name ^ "* )dydt, " 
-			else 
-			    "",
-			if reads_system class then "(const systemstatedata_" ^ (Symbol.name basename) ^ " *)props->system_states, " else "")
-	       in
-		SUB[$("case ITERATOR_" ^ (Util.removePrefix (Symbol.name iter_sym)) ^ ":"),
-		    $("return flow_" ^ (Symbol.name top_class) ^ 
-		      "(iterval, " ^ statereads ^ statewrites ^ systemstatereads ^ "NULL, (CDATAFORMAT *)props->od, first_iteration, modelid);")]
-	       end)
+	fun iterator_case iter_sym =
+	    let
+		val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
+		val iter = ShardedModel.toIterator shardedModel iter_sym
+		val iter_id = "ITERATOR_"^(Util.removePrefix (Symbol.name iter_sym))
+	    in
+		(Const iter_id, "model_flows_iterator_case_"^iter_id)
 	    end
 
+	fun iterator_call iter_sym =
+	    let
+		val model as (_, {classname=top_class,...}, _) = ShardedModel.toModel shardedModel iter_sym
+		val iter as (_, iter_type) = ShardedModel.toIterator shardedModel iter_sym
+		val iter_name = Symbol.name (case iter_type of DOF.UPDATE dep => dep | _ => iter_sym)
+		val iter_id = "ITERATOR_"^(Util.removePrefix (Symbol.name iter_sym))
+		val requiresMatrix = ModelProcess.requiresMatrixSolution iter
+	    in
+		CurrentModel.withModel 
+		    model
+		    (fn _ =>
+			let
+			    val class = CurrentModel.classname2class top_class
+			    val basename = ClassProcess.class2preshardname class
+			    val iterval = A.Variable "iterval"
+			    val states = 
+				List.mapPartial 
+				    (fn x => x)
+				    (if requiresMatrix then
+					 [if reads_iterator iter class then SOME (A.Cast (A.Variable "y", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
+					  SOME (A.Cast (A.Variable "props->mem", T.C"CDATAFORMAT*")),
+					  SOME (A.Variable "dydt"),
+					  if reads_system class then SOME (A.Cast (A.Variable "props->system_states", T.C(("systemstatedata_"^(Symbol.name basename)^"*")))) else NONE]
+				     else
+					 [if reads_iterator iter class then SOME (A.Cast (A.Variable "y", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
+					  if writes_iterator iter class then SOME (A.Cast (A.Variable "dydt", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
+					  if reads_system class then SOME (A.Cast (A.Variable "props->system_states", T.C(("systemstatedata_"^(Symbol.name basename)^"*")))) else NONE]
+				    )
+
+			    val od = A.Cast (A.Variable "props->od", T.C"CDATAFORMAT*")
+			    val func_args =
+				    v(iterval :: states @ [A.Null, od, A.Variable "first_iteration", A.Variable "modelid"])
+			    val func_id = "flow_"^(Symbol.name top_class)
+			in
+			    B.BLOCK
+				{label= "model_flows_iterator_case_"^iter_id,
+				 params= v[],
+				 body= v[],
+				 transfer=
+				 CC.CALL 
+				     {func= func_id,
+				      args= func_args,
+				      return= NONE
+				     }
+				}
+			end
+		    )
+	    end
+
+	val switch_iterator =
+	    B.BLOCK
+		{label= "model_flows_switch_iterator",
+		 params= v[],
+		 body= v[],
+		 transfer= 
+		 CC.SWITCH
+		     {test= A.Variable "props->iterator",
+		      default= "model_flows_switch_iterator_default",
+		      cases= v(map iterator_case iterators)
+		     }
+		}
+
+	val switch_iterator_default =
+	    B.BLOCK
+		{label= "model_flows_switch_iterator_default",
+		 params= v[],
+		 body= v[],
+		 transfer= CC.RETURN (A.Literal (Int 1))
+		}
+
+	val wrapper_function =
+	    if List.null iterators then
+		F.FUNCTION
+		    {name= "model_flows",
+		     params= v[("iterval", T.C"CDATAFORMAT"), ("y", T.C"CDATAFORMAT*"), ("dydt", T.C"CDATAFORMAT*"), ("props", T.C"solver_props*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")],
+		     returns= T.C"int",
+		     start= "model_flows_switch_iterator_default",
+		     blocks= v[switch_iterator_default]
+		    }
+	    else
+		F.FUNCTION
+		    {name= "model_flows",
+		     params= v[("iterval", T.C"CDATAFORMAT"), ("y", T.C"CDATAFORMAT*"), ("dydt", T.C"CDATAFORMAT*"), ("props", T.C"solver_props*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")],
+		     returns= T.C"int",
+		     start= "model_flows_switch_iterator",
+		     blocks= v(switch_iterator :: switch_iterator_default ::
+			       (map iterator_call iterators))
+		    }
+
     in
-	[$"",
-	 $("__HOST__ __DEVICE__ int model_flows(CDATAFORMAT iterval, "(*const *)^"CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, const unsigned int first_iteration, const unsigned int modelid){"),
-	 SUB($("switch(props->iterator){") ::
-	     (map subsystem_flow_call (ShardedModel.iterators shardedModel)) @
-	     [$("default: return 1;"),
-	      $("}")]
-	    ),
-	 $("}"),
-	 $("")]
+	[$("__HOST__ __DEVICE__"), SpilToC.layoutFunction wrapper_function]
     end
     handle e => DynException.checkpoint "CParallelWriter.model_flows" e
-
+end
 
 fun output_code (filename, block) =
     let
@@ -2367,8 +2609,6 @@ fun output_code (filename, block) =
       val file = TextIO.openOut (OS.Path.joinDirFile{dir="sim", file=filename})
     in
 	Printer.printLayout (Layout.align block) file
-	
-      (* printer.printtexts (file, block, 0) *)
       before TextIO.closeOut file
       handle exn => (TextIO.closeOut file; raise exn)
     end
