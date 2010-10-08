@@ -20,8 +20,10 @@ fun equals (left, right) = space [left, str "==", right]
 fun assign (left, right) = stmt (space [left, str "=", right])
 fun return lay = stmt (space [str "return", lay])
 fun goto label = stmt (space [str "goto", str label])
-fun real r = str ((if r < 0.0 then "-" else "")^(Real.fmt StringCvt.EXACT (Real.abs r)))
-fun int z = str ((if z < 0 then "-" else "")^(Int.fmt StringCvt.DEC (Int.abs z)))
+local val tr = String.map (fn #"~" => #"-" | c => c) in
+fun real r = str (tr (Real.fmt StringCvt.EXACT r))
+fun int z = str (tr (Int.fmt StringCvt.DEC z))
+end
 val bool = str o (fn true => "YES" | false => "NO")
 fun string s = seq (map str ["\"", String.toCString s, "\""])
 fun comment s = if ! detailed then seq (map str ["// ", s]) else empty
@@ -194,6 +196,7 @@ and layoutAtom atom =
     case atom
      of A.Null => L.str "NULL"
       | A.Variable id => L.str id
+      | A.Symbol id => L.str id
       | A.Literal lit => layoutImmediate lit
       | A.CompileVar (f, t) => layoutAtom (f ())
       | A.RuntimeVar (f, t) => layoutAtom (f ())
