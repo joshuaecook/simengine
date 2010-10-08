@@ -27,7 +27,7 @@ local
 	    X.Apply {oper= Op.Record_extract,
 		     args= v[X.Apply {oper= Op.Array_extract,
 				      args= v[X.Value (A.Variable "od"), X.Value (A.Variable "modelid")]},
-			     X.Value (A.Variable (Symbol.name sym))]}
+			     X.Value (A.Symbol (Symbol.name sym))]}
 	else case Property.getScope props
 	      of Property.LOCAL => local_to_expr (sym, props)
 	       | Property.ITERATOR => iterator_to_expr (sym, props)
@@ -49,7 +49,7 @@ local
 				   | _ => X.Value (A.Literal (Int 0))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
-			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
+			 args= v[record, X.Value (A.Symbol (Symbol.name sym))]}
 	in
 	    if Option.isSome (Property.getEPIndex props) then
 		X.Apply {oper= Op.Array_extract,
@@ -66,7 +66,7 @@ local
 				   | _ => X.Value (A.Literal (Int 0))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
-			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
+			 args= v[record, X.Value (A.Symbol (Symbol.name sym))]}
 	in
 	    if Option.isSome (Property.getEPIndex props) then
 		X.Apply {oper= Op.Array_extract,
@@ -78,7 +78,7 @@ local
 	    val record = 
 		X.Apply {oper= Op.Record_extract,
 			 args= v[X.Value (A.Variable "sys_rd"),
-				 X.Value (A.Variable ("states_"^(Symbol.name scope)))]}
+				 X.Value (A.Symbol ("states_"^(Symbol.name scope)))]}
 	    val record = 
 		X.Apply {oper= Op.Array_extract,
 			 args= v[record,
@@ -87,7 +87,7 @@ local
 				   | _ => X.Value (A.Literal (Int 0))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
-			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
+			 args= v[record, X.Value (A.Symbol (Symbol.name sym))]}
 	in
 	    if Option.isSome (Property.getEPIndex props) then
 		X.Apply {oper= Op.Array_extract,
@@ -99,7 +99,7 @@ local
 	    val record = X.Value (A.Variable "sys_rd")
 	    val field =
 		X.Apply {oper= Op.Record_extract,
-			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
+			 args= v[record, X.Value (A.Symbol (Symbol.name sym))]}
 	in
 	    if Option.isSome (Property.getEPIndex props) then
 		X.Apply {oper= Op.Array_extract,
@@ -176,7 +176,7 @@ val rec term_to_spil =
 	val (fields, elems, _) =
 	    List.foldl
 		(fn (term, (fs, es, n)) =>
-		    ((X.Value (A.Literal (String ("t"^(Int.toString n))))) :: fs,
+		    ((X.Value (A.Symbol ("t"^(Int.toString n)))) :: fs,
 		     (term_to_spil term) :: es,
 		     1+n)
 		)

@@ -1909,8 +1909,10 @@ local
     structure F = Function
     structure B = Block
     structure S = Statement
-    structure A = Atom
     structure CC = Control
+    structure X = Expression
+    structure Op = Operator
+    structure A = Atom
 
     val v = Vector.fromList
 in
@@ -2139,20 +2141,28 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			let
 			    val bind_input =
 				if is_top_class then
-				 fn (input, i) => S.MOVE {src= A.Variable ("get_input("^(i2s i)^",modelid)"),
-							  dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}
+				 fn (input, i) => 
+				    [S.PRIMITIVE
+					 {oper= Op.Sim_input,
+					  args= v[A.Symbol ("INPUT_"^(Term.sym2name (DOF.Input.name input)))],
+					  dest= ("input_"^(Term.sym2name (DOF.Input.name input)), T.C"CDATAFORMAT")},
+				     S.MOVE 
+					 {src= A.Variable ("input_"^(Term.sym2name (DOF.Input.name input))),
+					  dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}]
 				else
-				 fn (input, i) => S.MOVE {src= A.Offset {base= A.Variable "inputs", index= 1, offset= i, scale= 1, basetype= T.C"CDATAFORMAT"},
-							  dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}
+				 fn (input, i) => 
+				    [S.MOVE 
+					 {src= A.Offset {base= A.Variable "inputs", index= 1, offset= i, scale= 1, basetype= T.C"CDATAFORMAT"},
+					  dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}]
 			in
 			    B.BLOCK
 				{label= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
 				 params= v[],
-				 body= v(map bind_input inputs),
+				 body= v(List.concat (List.map bind_input inputs)),
 				 transfer= transfer_to_first_eq
 				}
 			end
-		    val iterval = (iter_name', T.C"CDATFORMAT")
+		    val iterval = (iter_name', T.C"CDATAFORMAT")
 		    val states =
 			List.mapPartial
 			    (fn x => x)

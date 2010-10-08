@@ -153,6 +153,8 @@ signature SPIL = sig
 	  | Cell_deref
 
 	  | Sim_if
+	  | Sim_input
+	  | Sim_output
 	  | Sim_bug
 
 	val name: t -> string
@@ -165,6 +167,7 @@ signature SPIL = sig
 	  | Source of t
 	  | Sink of t
 	  | Variable of ident
+	  | Symbol of ident
 	  | RuntimeVar of ((unit -> t) * Type.t)
 	  | CompileVar of ((unit -> t) * Type.t)
 	  | Address of address

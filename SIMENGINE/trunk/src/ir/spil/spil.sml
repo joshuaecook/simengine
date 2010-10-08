@@ -42,6 +42,7 @@ datatype atom
   | RuntimeVar of ((unit -> atom) * Type.t)
   | CompileVar of ((unit -> atom) * Type.t)
   | Address of address
+  | Symbol of ident
   | Label of ident
   | Cast of atom * Type.t
   | Offset of
@@ -118,6 +119,8 @@ datatype atom
        | Cell_ref
        | Cell_deref
        | Sim_if
+       | Sim_input
+       | Sim_output
        | Sim_bug
 
      and expression
@@ -252,6 +255,8 @@ val name =
   | Cell_ref => "Cell_ref"
   | Cell_deref => "Cell_deref"
   | Sim_if => "Sim_if"
+  | Sim_input => "Sim_input"
+  | Sim_output => "Sim_output"
   | Sim_bug => "Sim_bug"
 
 end
