@@ -1,24 +1,33 @@
 structure SpilToC: sig
     val layoutFunction: Spil.Function.t -> Layout.t
 end = struct
-exception Unimplemented of string
 
 open Spil
 structure T = Type
 structure F = Function
 structure B = Block
-structure C = Control
+structure S = Statement
+structure CC = Control
 structure A = Atom
+structure Op = Operator
+structure X = Expression
 
 structure L = struct
 open Layout
 fun stmt lay = seq [lay, str ";"]
 fun equals (left, right) = space [left, str "==", right]
+fun assign (left, right) = stmt (space [left, str "=", right])
 fun return lay = stmt (space [str "return", lay])
 fun goto label = stmt (space [str "goto", str label])
-val real = str o (Real.fmt StringCvt.EXACT)
-val int = str o (Int.fmt StringCvt.DEC)
+fun real r = str ((if r < 0.0 then "-" else "")^(Real.fmt StringCvt.EXACT (Real.abs r)))
+fun int z = str ((if z < 0 then "-" else "")^(Int.fmt StringCvt.DEC (Int.abs z)))
 val bool = str o (fn true => "YES" | false => "NO")
+fun string s = seq (map str ["\"", String.toCString s, "\""])
+fun comment s = if ! detailed then seq (map str ["// ", s]) else empty
+fun call (oper, args) = seq [str oper, tuple args]
+val exit = stmt (call ("exit", [int ~1]))
+fun profile id = call ("PROFILE", [string id])
+fun unimplemented id = call ("#error",[str "unimplemented", string id])
 end
 
 fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
@@ -59,16 +68,25 @@ and layoutBlock (B.BLOCK block) =
     end
 
 and layoutStatement statement =
-    let
-    in
-	raise Unimplemented "layoutStatement"
-    end
+    case statement
+     of S.HALT => L.exit
+      | S.NOP => L.stmt (L.empty)
+      | S.COMMENT str => L.comment str
+      | S.PROFILE id => L.profile id
+      | S.BIND {src, dest as (id,t)} =>
+	L.assign (L.space [layoutType t, L.str id], layoutAtom src) 
+      | S.GRAPH {src, dest as (id,t)} =>
+	L.assign (L.space [layoutType t, L.str id], layoutExpression false src) 
+      | S.PRIMITIVE {oper, args, dest as (id,t)} =>
+	L.assign (L.space [layoutType t, L.str id], layoutOperator false (oper, Vector.map X.Value args))
+      | S.MOVE {src, dest} =>
+	L.assign (layoutAtom dest, layoutAtom src)
 
 and layoutControl control =
     case control
-     of C.RETURN value => 
+     of CC.RETURN value => 
 	L.return (layoutAtom value)
-      | C.SWITCH {test, cases, default} => 
+      | CC.SWITCH {test, cases, default} => 
 	let
 	    fun layoutCase (value, label) =
 		L.align
@@ -98,32 +116,78 @@ and layoutControl control =
 		     L.str "}"
 		    ]
 	end
-      | C.JUMP {block, args} =>
-	raise Unimplemented "layoutControl"
-      | C.CALL {func, args, return} =>
+      | CC.JUMP {block, args} =>
+	L.goto block
+      | CC.CALL {func, args, return} =>
 	case return
 	 of NONE => L.return (L.seq [L.str func, L.tuple (vec layoutAtom args)])
-	  | SOME _ => raise Unimplemented "layoutControl"
+	  | SOME _ => L.unimplemented "layoutControl"
+
+and layoutExpression paren expr =
+    case expr
+     of X.Value atom => layoutAtom atom
+      | X.Apply {oper, args} => layoutOperator paren (oper, args)
+
+and layoutOperator paren (oper, args) = 
+    let 
+	val lay = 
+	    case oper
+	     of Op.Float_add =>
+		L.separate (vec (layoutExpression true) args, " + ")
+	      | Op.Float_sub =>
+		L.separate (vec (layoutExpression true) args, " - ")
+	      | Op.Float_mul =>
+		L.separate (vec (layoutExpression true) args, " * ")
+	      | Op.Float_div =>
+		L.separate (vec (layoutExpression true) args, " / ")
+	      | Op.Float_gt =>
+		L.separate (vec (layoutExpression true) args, " > ")
+	      | Op.Array_extract =>
+		(case Vector.length args
+		  of 2 => [layoutExpression true (Vector.sub (args,0)), L.bracket (layoutExpression false (Vector.sub (args,1)))]
+		   | _ => [L.unimplemented "Array_extract"])
+	      | Op.Record_extract =>
+		(case Vector.length args
+		  of 2 => [layoutExpression true (Vector.sub (args,0)), L.str ".", layoutExpression true (Vector.sub (args,1))]
+		   | _ => [L.unimplemented "Record_extract"])
+	      | Op.Cell_ref =>
+		(case Vector.length args
+		  of 1 => [L.str "&", layoutExpression true (Vector.sub (args,0))]
+		   | _ => [L.unimplemented "Cell_ref"])
+	      | Op.Cell_deref =>
+		(case Vector.length args
+		  of 1 => [L.str "*", layoutExpression true (Vector.sub (args,0))]
+		   | _ => [L.unimplemented "Cell_ref"])
+	      | _ => 
+		[L.call (Op.name oper, vec (layoutExpression false) args)]
+    in
+	if paren then L.paren (L.seq lay) else L.seq lay
+    end
 
 and layoutAtom atom =
     case atom
      of A.Null => L.str "NULL"
       | A.Variable id => L.str id
       | A.Literal lit => layoutImmediate lit
+      | A.Source atom => L.seq [L.str "&", layoutAtom atom]
+      | A.Sink atom => L.seq [L.str "*", layoutAtom atom]
       | A.Cast (atom, t) => L.seq [L.paren (layoutType t), layoutAtom atom]
-      | _ => raise Unimplemented "layoutAtom"
+      | _ => L.unimplemented "layoutAtom"
 
 and layoutImmediate literal =
     case literal
      of Real r => L.real r
       | Int z => L.int z
       | Bool b => L.bool b
+      | String s => L.string s
       | Const id => L.str id
+      | Nan => L.str "NAN"
+      | Infinity => L.str "INFINITY"
 
 and layoutType t =
     case T.rep t
      of T.CType name => L.str name
-      | _ => raise Unimplemented "layoutType"
+      | _ => L.unimplemented "layoutType"
 
 
 
