@@ -152,8 +152,8 @@ signature SPIL = sig
 	  | Cell_ref
 	  | Cell_deref
 
-	  | Spil_if
-	  | Spil_bug
+	  | Sim_if
+	  | Sim_bug
 
 	val name: t -> string
     end
@@ -258,6 +258,25 @@ signature SPIL = sig
     sharing type Control.atom = Atom.t
 
     structure Block: sig
+	structure Uses: sig
+	    (* A uses set comprises all variable identifiers
+	     * appearing in a block. *)
+	    include ORD_SET where type item = ident
+	end
+
+	structure Defs: sig
+	    (* A defs set comprises all variable definitions
+	     * appearing in a block, including parameters
+	     * and bindings. *)
+	    include ORD_SET where type item = ident * Type.t
+	end
+
+	structure Free: sig
+	    (* A free set comprises all variable identifers
+	     * appearing in a block, excluding definitions. *)
+	    include ORD_SET where type item = ident
+	end
+
 	type statement
 	(* A basic block is a labeled sequence of statements
 	 * with a terminating control flow operation. Blocks may
@@ -270,15 +289,11 @@ signature SPIL = sig
 
 	val name: t -> string
 
-	val uses:
-	    (* The list of used variables. *)
-	    t -> ident list
+	val uses: t -> Uses.set
+	val defs: t -> Defs.set
+	val free: t -> Free.set
 
-	val defs: 
-	    (* The list of defined variables. *)
-	    t -> (ident * Type.t) list
-
-	val foldParams: (ident * Type.t * 'a -> 'a) -> 'a -> t -> 'a
+	val foldParams: ((ident * Type.t) * 'a -> 'a) -> 'a -> t -> 'a
 	val foldBody: (Statement.t * 'a -> 'a) -> 'a -> t -> 'a
     end
     sharing type Block.statement = Statement.t
@@ -293,7 +308,7 @@ signature SPIL = sig
 			 returns: Type.t}
 
 	val foldBlocks: (block * 'a -> 'a) -> 'a -> t -> 'a
-	val foldParams: (ident * Type.t * 'a -> 'a) -> 'a -> t -> 'a
+	val foldParams: ((ident * Type.t) * 'a -> 'a) -> 'a -> t -> 'a
 
 	val startBlock: t -> block
     end

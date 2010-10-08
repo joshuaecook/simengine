@@ -15,6 +15,7 @@ structure X = Expression
 structure L = struct
 open Layout
 fun stmt lay = seq [lay, str ";"]
+fun sub text = indent (align text, 2)
 fun equals (left, right) = space [left, str "==", right]
 fun assign (left, right) = stmt (space [left, str "=", right])
 fun return lay = stmt (space [str "return", lay])
@@ -33,10 +34,30 @@ end
 fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
 fun veci f v = List.tabulate (Vector.length v, fn i => f (i,Vector.sub (v,i)))
 
-fun layoutFunction (F.FUNCTION function) =
+fun layoutFunction (f as F.FUNCTION function) =
     let
+	fun layoutLocal id =
+	    L.stmt (L.space [layoutType (T.C"CDATAFORMAT"), L.str id])
+
 	fun layoutParam (id, t) =
 	    L.space [layoutType t, L.str id]
+
+	(* Determine which variables are local by subtracting the
+	 * function's parameters from the union of all blocks' free variables. *)
+	val locals =
+	    let
+		val free =
+		    F.foldBlocks
+			(fn (b, set) => B.Free.union (set, B.free b))
+			B.Free.empty f
+	    in
+		B.Free.difference 
+		    (free,
+		     F.foldParams
+			 (fn ((id,_), set) => B.Free.add (set, id))
+			 B.Free.empty f
+		    )
+	    end
 
 	(* Find the start block and lay it out first. *)
 	val firstBlockId =
@@ -49,21 +70,25 @@ fun layoutFunction (F.FUNCTION function) =
 		    L.str (#name function),
 		    L.tuple (vec layoutParam (#params function))],
 	     L.str "{",
+	     L.sub (List.map layoutLocal (B.Free.listItems locals)),
 	     layoutBlock (Vector.sub (#blocks function, firstBlockId)),
 	     L.align (veci (fn (i,b) => if i = firstBlockId then L.empty else layoutBlock b) (#blocks function)),
 	     L.str "}"
 	    ]
     end
 
-and layoutBlock (B.BLOCK block) =
+and layoutBlock (b as B.BLOCK block) =
     let
+	val free = B.free b
     in
 	L.align
 	    [L.seq [L.str (#label block), L.str ":"],
-	     L.indent (L.str "{", 2),
-	     L.indent (L.align (vec layoutStatement (#body block)), 2),
-	     L.indent (layoutControl (#transfer block), 2),
-	     L.indent (L.str "}", 2)
+	     L.comment ("free: " ^ (String.concatWith "," (B.Free.listItems free))),
+	     L.sub
+		 [L.str "{", 
+		  L.align (vec layoutStatement (#body block)),
+		  layoutControl (#transfer block),
+		  L.str "}"]
 	    ]
     end
 
@@ -91,19 +116,20 @@ and layoutControl control =
 	    fun layoutCase (value, label) =
 		L.align
 		    [L.space [L.str "case", layoutImmediate value, L.str ":"],
-		     L.indent (L.goto label, 2),
-		     L.indent (L.stmt (L.str "break"), 2)
+		     L.sub
+			 [L.goto label,
+			  L.stmt (L.str "break")]
 		    ]
 	in
 	    case Vector.length cases
-	     of 0 => L.indent (L.goto default, 2)
+	     of 0 => L.sub [L.goto default]
 	      | 1 =>
 		let val (value, label) = Vector.sub (cases, 0) in
 		    L.align
 			[L.space [L.str "if", L.paren (L.equals (layoutAtom test, layoutImmediate value))],
-			 L.indent (L.goto label, 2),
+			 L.sub [L.goto label],
 			 L.str "else",
-			 L.indent (L.goto default, 2)
+			 L.sub [L.goto default]
 			]
 		end
 	      | _ =>
@@ -112,7 +138,7 @@ and layoutControl control =
 		     L.str "{",
 		     L.align (vec layoutCase cases),
 		     L.str "default :",
-		     L.indent (L.goto default, 2),
+		     L.sub [L.goto default],
 		     L.str "}"
 		    ]
 	end
@@ -169,9 +195,29 @@ and layoutAtom atom =
      of A.Null => L.str "NULL"
       | A.Variable id => L.str id
       | A.Literal lit => layoutImmediate lit
+      | A.CompileVar (f, t) => layoutAtom (f ())
+      | A.RuntimeVar (f, t) => layoutAtom (f ())
       | A.Source atom => L.seq [L.str "&", layoutAtom atom]
       | A.Sink atom => L.seq [L.str "*", layoutAtom atom]
       | A.Cast (atom, t) => L.seq [L.paren (layoutType t), layoutAtom atom]
+      | A.Offset {base, index, offset, scale, basetype} =>
+	L.call ("OFFSET", [layoutAtom base, 
+			   L.int index, 
+			   L.int offset, 
+			   L.int scale, 
+			   layoutType basetype])
+      | A.Offset2D {base, index, offset, scale, basetype} =>
+	L.call ("OFFSET2D", [layoutAtom base, 
+			     L.int (#x index), L.int (#y index), 
+			     L.int (#x offset), L.int (#y offset), 
+			     L.int (#x scale), L.int (#y scale), 
+			     layoutType basetype])
+      | A.Offset3D {base, index, offset, scale, basetype} =>
+	L.call ("OFFSET3D", [layoutAtom base, 
+			     L.int (#x index), L.int (#y index), L.int (#z index), 
+			     L.int (#x offset), L.int (#y offset), L.int (#z offset), 
+			     L.int (#x scale), L.int (#y scale), L.int (#z scale),
+			     layoutType basetype])
       | _ => L.unimplemented "layoutAtom"
 
 and layoutImmediate literal =

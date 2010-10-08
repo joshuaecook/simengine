@@ -19,6 +19,9 @@ local
 
     structure MF = MathFunctions
 
+    val STRUCT_IDX = A.CompileVar (fn () => A.Literal (Const "STRUCT_IDX"), T.C"int")
+    val ARRAY_IDX = A.CompileVar (fn () => A.Literal (Const "ARRAY_IDX"), T.C"int")
+
     fun symbol_to_expr (sym, props) =
 	if Property.isOutputBuffer props then
 	    X.Apply {oper= Op.Record_extract,
@@ -42,16 +45,15 @@ local
 		X.Apply {oper= Op.Array_extract,
 			 args= v[X.Value (A.Variable ("rd_"^(Symbol.name scope))),
 				 case Property.getEPIndex props
-				  of SOME Property.STRUCT_OF_ARRAYS => 
-				     X.Value (A.Variable "STRUCT_IDX")
-				   | _ => X.Value (A.Variable "0")]}
+				  of SOME Property.STRUCT_OF_ARRAYS => X.Value STRUCT_IDX
+				   | _ => X.Value (A.Literal (Int 0))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
 			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
 	in
 	    if Option.isSome (Property.getEPIndex props) then
 		X.Apply {oper= Op.Array_extract,
-			 args= v[field, X.Value (A.Variable "ARRAY_IDX")]}
+			 args= v[field, X.Value ARRAY_IDX]}
 	    else field
 	end
     and write_to_expr scope (sym, props) =
@@ -60,16 +62,15 @@ local
 		X.Apply {oper= Op.Array_extract,
 			 args= v[X.Value (A.Variable ("wr_"^(Symbol.name scope))),
 				 case Property.getEPIndex props
-				  of SOME Property.STRUCT_OF_ARRAYS => 
-				     X.Value (A.Variable "STRUCT_IDX")
-				   | _ => X.Value (A.Variable "0")]}
+				  of SOME Property.STRUCT_OF_ARRAYS => X.Value STRUCT_IDX
+				   | _ => X.Value (A.Literal (Int 0))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
 			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
 	in
 	    if Option.isSome (Property.getEPIndex props) then
 		X.Apply {oper= Op.Array_extract,
-			 args= v[field, X.Value (A.Variable "ARRAY_IDX")]}
+			 args= v[field, X.Value ARRAY_IDX]}
 	    else field
 	end
     and sysread_to_expr scope (sym, props) =
@@ -82,16 +83,15 @@ local
 		X.Apply {oper= Op.Array_extract,
 			 args= v[record,
 				 case Property.getEPIndex props
-				  of SOME Property.STRUCT_OF_ARRAYS => 
-				     X.Value (A.Variable "STRUCT_IDX")
-				   | _ => X.Value (A.Variable "0")]}
+				  of SOME Property.STRUCT_OF_ARRAYS => X.Value STRUCT_IDX
+				   | _ => X.Value (A.Literal (Int 0))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
 			 args= v[record, X.Value (A.Variable (Symbol.name sym))]}
 	in
 	    if Option.isSome (Property.getEPIndex props) then
 		X.Apply {oper= Op.Array_extract,
-			 args= v[field, X.Value (A.Variable "ARRAY_IDX")]}
+			 args= v[field, X.Value ARRAY_IDX]}
 	    else field
 	end
     and sysiterator_to_expr (sym, props) =
@@ -152,8 +152,8 @@ fun fun_to_spil to_spil (funtype, exps) =
 		  | MF.ACSCH => Op.Math_acsch
 		  | MF.ASECH => Op.Math_asech
 		  | MF.ACOTH => Op.Math_acoth
-		  | MF.IF => Op.Spil_if
-		  | _ => Op.Spil_bug
+		  | MF.IF => Op.Sim_if
+		  | _ => Op.Sim_bug
 	in
 	    X.Apply {oper= spil_oper, args= v(map to_spil exps)}
 	end
