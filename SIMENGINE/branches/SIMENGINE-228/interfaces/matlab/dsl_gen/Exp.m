@@ -573,44 +573,80 @@ classdef Exp
         end
         
         function er = subsref(e, s)
-            er = e;
-            for i=1:length(s)
-                if strcmp(s(i).type,'()')
-                    if isRef(e)
-                        error('Simatra:Exp:subsref', ['Can not perform any indexing or temporal referencing from an output of a submodel (' toStr(e) ').  Please first create an intermediate equation by wrapping the variable in an equ method call (myVar = mdl.equ(mySubModel.out);).  Then, perform the indexing on the returned variable.'])
-                    end
-                    subs = s(i).subs;
-                    for j=1:length(subs)
-                        %disp(sprintf('j=%d; e.val=%s; subs{j}=%d', j, num2str(e.val), subs{j}));
-                        if isnumeric(subs{j})
-                            if subs{j} >= 1 && (subs{j} <= e.dims(j) || (length(e) > e.dims(j) && subs{j} <= length(e)))
-                                e = Exp(e.val(subs{j}));
-                            else
-                                error('Simatra:Exp:subsref', 'Invalid index into quantity');
-                            end
-                        elseif isa(subs{j},'IteratorReference')
-                            e.iterReference = subs{j};
-                        elseif isa(subs{j},'Iterator')
-                            e.iterReference = subs{j}.toReference;
-                        else
-                            for i=1:length(s)
-                                s(i)
-                            end
-                            error('Simatra:Exp:subsref', 'Unexpected class type %s passed as an argument to an expression', class(subs{j}));
-                        end
-                        er = e;
-                    end
-                elseif strcmp(s(i).type,'.')
-                    switch s(i).subs
-                        case 'toStr'
-                            er = toStr(e);
-                        otherwise
-                            error('Simatra:Exp:subsref', 'Unrecognized method %s', s(i).subs);
-                    end
-                end
+          if strcmp(s(1).type, '.')
+            if strcmp(s(1).subs, 'toStr')
+              er = toStr(e);
+            else
+              error('Simatra:Exp:subsref', 'Invalid reference ''%s'' to Exp.', s(1).subs);
             end
-
+          elseif strcmp(s(1).type, '()')
+            ss = s(1);
+            switch e.type
+             case e.VARIABLE,
+              error('Need to figure out subsref for VARIABLE')
+             case e.LITERAL,
+              if isa(ss.subs, 'Iterator') || isa(ss.subs, 'IteratorReference')
+                er = e;
+                er.iterReference = ss.subs.toReference;
+              elseif isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
+                ss.subs = ss.subs(2:end);
+                er = Exp(subsref(e.val, ss));
+                er.iterReference = ss.subs{1}.toReference;
+              else
+                er = Exp(subsref(e.val, ss));
+              end
+             case e.ITERATOR,
+              error('Simatra:Exp:subsref', 'Can not index Exp.ITERATOR.');
+             case e.OPERATION,
+              if isa(ss.subs, 'Iterator') || isa(ss.subs, 'IteratorReference')
+                er = e;
+                er.iterReference = ss.subs.toReference;
+              else
+                args = cell(size(e.args));
+                if isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
+                  ss.subs = ss.subs(2:end);
+                  for i = 1:numel(e.args)
+                    if (length(e.dims ~=2) || all(e.dims ~= [1 1])) && ...
+                          length(e.args{i}.dims) == 2 && all(e.args{i}.dims == [1 1])
+                      % If the operation Exp is multidimensional but
+                      % an argument Exp is singular, pass on the
+                      % singular argument.  This is valid.
+                      args{i} = e.args{i};
+                    else
+                      % Otherwise, pass on the subsref to the argument
+                      args{i} = Exp(subsref(e.args{i}, ss));
+                    end
+                  end
+                  er = oper(e.op, args);
+                  er.iterReference = ss.subs{1}.toReference;
+                else
+                  for i = 1:numel(e.args)
+                    if (length(e.dims ~= 2) || all(e.dims ~= [1 1])) && ...
+                          length(e.args{i}.dims) == 2 && all(e.args{i}.dims == [1 1])
+                      % If the operation Exp is multidimensional but
+                      % an argument Exp is singular, pass on the
+                      % singular argument.  This is valid.
+                      args{i} = e.args{i};
+                    else
+                      % Otherwise, pass on the subsref to the argument
+                      args{i} = Exp(subsref(e.args{i}, ss));
+                    end
+                  end
+                  er = oper(e.op, args);
+                end
+              end
+             case e.REFERENCE,
+              error('Need to handle references...');
+            end
+            else
+            error('Simatra:Exp:subsref', 'Subsref type %s not supported', s(i).type);
+          end
+          % Recursively call subsref for additional references
+          if length(s) > 1
+            er = subsref(er, s(2:end));
+          end
         end
+
         
         % Expression Processing
         % =======================================================
@@ -771,7 +807,7 @@ else
 end
 end
 
-function er = oper(operation, args, infix)
+function er = oper(operation, args, infix, optdims)
 len = length(args);
 exps = cell(1,len);
 for i=1:len
@@ -787,6 +823,7 @@ else
         er.notation = Exp.PREFIX;
     end
 end
+
 % check binary operations
 if len == 2
     len1 = length(args{1});
@@ -803,5 +840,9 @@ end
 er.type = er.OPERATION;
 er.op = operation;
 er.args = exps;
+% Override result dimensions for operation (e.g. Matrix * Vector multiplication)
+if nargin == 4
+  er.dims = optdims;
+end
 end
 

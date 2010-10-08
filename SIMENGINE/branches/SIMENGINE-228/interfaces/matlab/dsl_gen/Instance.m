@@ -36,7 +36,7 @@ classdef Instance
                     b = toStr(inst);
                 % Return any properties that are referenced
                 elseif any(strcmp(s.subs, fieldnames(inst)))
-                    b = inst.(s.subs);
+                    b = inst.(out);
                 elseif isOutput(inst, out)
                     if inst.NumInst > 1
                       output = cell(1, inst.NumInst); %cell(inst.Dims);
@@ -60,10 +60,17 @@ classdef Instance
                     inst.Outputs
                     error('Simatra:Instance', 'No output with name %s found', s.subs);
                 end
-            %elseif length(s) == 2 && isfield(s(1), 'type') && ...
-            %      strcmp(s(1).type, '()') && isfield(s(2), 'type') ...
-            %      && strcmp(s(2).type, '.'
-            %  out = s(2).subs;
+            elseif length(s) == 2 && isfield(s(1), 'type') && ...
+                  strcmp(s(1).type, '()') && isfield(s(2), 'type') ...
+                  && strcmp(s(2).type, '.'
+              out = s(2).subs;
+              if isOutput(inst, out)
+              elseif isInput(inst, out)
+                b = inst.definedInputs(out);
+                b = {b{s(1)}};
+              else
+                error('Simatra:Instance', 'Can not provide multiple subscripts to an Instance unless accessing an Input or Output.')
+              end
             elseif length(s) == 2 && isfield(s(1), 'type') && ...
                   strcmp(s(1).type, '.') && isfield(s(2), 'type') && ...
                   strcmp(s(2).type, '()') && strcmp(s(1).subs, 'with')
