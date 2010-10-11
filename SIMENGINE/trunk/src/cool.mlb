@@ -94,6 +94,7 @@ ir/math/matrix.sml
 ir/datastructs/target.sml
 
 ir/datastructs/iterator.sml
+ir/datastructs/space.sml
 ir/datastructs/props.sml
 ir/datastructs/pattern.sml
 ir/processing/inst_properties.sml
