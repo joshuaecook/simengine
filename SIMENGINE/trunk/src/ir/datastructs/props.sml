@@ -34,7 +34,8 @@ type symbolproperty = {
      realname: Symbol.symbol option,
      scope: scope_type,
      outputbuffer: bool,
-     ep_index: ep_index_type option}
+     ep_index: ep_index_type option,
+     space: Space.space}
 
 val default_symbolproperty = 
     {iterator=NONE,
@@ -45,7 +46,8 @@ val default_symbolproperty =
      isevent=false,
      isrewritesymbol=false,
      outputbuffer=false,
-     ep_index=NONE}
+     ep_index=NONE,
+     space=Space.scalar}
 
 fun getIterator (props:symbolproperty) = #iterator props
 	
@@ -70,6 +72,8 @@ fun isOutputBuffer (props:symbolproperty) = #outputbuffer props
 
 fun getEPIndex (props:symbolproperty) = #ep_index props
 
+fun getSpace (props:symbolproperty) = #space props
+
 fun setIsEvent props flag = 
     {iterator=getIterator props,
      derivative=getDerivative props,
@@ -79,7 +83,8 @@ fun setIsEvent props flag =
      isevent=flag,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}
+     ep_index=getEPIndex props,
+     space=getSpace props}
 
 fun setIsRewriteSymbol props flag = 
     {iterator=getIterator props,
@@ -90,7 +95,8 @@ fun setIsRewriteSymbol props flag =
      isevent=getIsEvent props,
      isrewritesymbol = flag,
      outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}
+     ep_index=getEPIndex props,
+     space=getSpace props}
 	
 fun setIterator props p = 
     {iterator=SOME p,
@@ -101,7 +107,8 @@ fun setIterator props p =
      isevent=getIsEvent props,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}
+     ep_index=getEPIndex props,
+     space=getSpace props}
 	
 fun setDerivative props p = 
     {iterator=getIterator props,
@@ -112,7 +119,8 @@ fun setDerivative props p =
      isevent=getIsEvent props,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}
+     ep_index=getEPIndex props,
+     space=getSpace props}
 
 fun clearDerivative props = 
     {iterator=getIterator props,
@@ -123,7 +131,8 @@ fun clearDerivative props =
      isevent=getIsEvent props,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}
+     ep_index=getEPIndex props,
+     space=getSpace props}
 	
 fun setSourcePos props p = 
     {iterator=getIterator props,
@@ -134,7 +143,8 @@ fun setSourcePos props p =
      isevent=getIsEvent props,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}
+     ep_index=getEPIndex props,
+     space=getSpace props}
 	
 fun setRealName props p = 
     {iterator=getIterator props,
@@ -145,7 +155,8 @@ fun setRealName props p =
      isevent=getIsEvent props,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}	
+     ep_index=getEPIndex props,
+     space=getSpace props}	
 
 fun setScope props p = 
     {iterator=getIterator props,
@@ -156,7 +167,8 @@ fun setScope props p =
      isevent=getIsEvent props,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
-     ep_index=getEPIndex props}	
+     ep_index=getEPIndex props,
+     space=getSpace props}	
 
 fun setOutputBuffer props p = 
     {iterator=getIterator props,
@@ -167,7 +179,8 @@ fun setOutputBuffer props p =
      isevent=getIsEvent props,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=p,
-     ep_index=getEPIndex props}	
+     ep_index=getEPIndex props,
+     space=getSpace props}	
 
 fun setEPIndex props p = 
     {iterator=getIterator props,
@@ -178,7 +191,20 @@ fun setEPIndex props p =
      isevent=getIsEvent props,
      isrewritesymbol=getIsRewriteSymbol props,
      outputbuffer=isOutputBuffer props,
-     ep_index=p}	
+     ep_index=p,
+     space=getSpace props}	
+
+fun setSpace props p = 
+    {iterator=getIterator props,
+     derivative=getDerivative props,
+     sourcepos=getSourcePos props,
+     realname=getRealName props,
+     scope=getScope props,
+     isevent=getIsEvent props,
+     isrewritesymbol=getIsRewriteSymbol props,
+     outputbuffer=isOutputBuffer props,
+     ep_index=getEPIndex props,
+     space=p}	
 
 fun getCodeLocStr (props:symbolproperty) = 
     case (#sourcepos props)

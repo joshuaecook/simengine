@@ -23,7 +23,7 @@ datatype operation =
 	 (* rounding operations *)
 	 FLOOR | CEILING | ROUND | 
 	 (* reduction operations *)
-	 RADD | RMUL | RAND | ROR | 
+	 RADD | RMUL | RAND | ROR |
 	 (* special purpose operations *)
 	 DERIV | IF | ASSIGN | NULL
 

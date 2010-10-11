@@ -14,6 +14,7 @@ datatype exp =
        | TERM of term
        | META of meta	 
        | CONTAINER of container
+       | SUBREF of (exp * Space.subspace)
 		      
      and meta =
 	 LAMBDA of {arg:Symbol.symbol, body:exp}

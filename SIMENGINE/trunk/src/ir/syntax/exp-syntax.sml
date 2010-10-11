@@ -75,7 +75,7 @@ and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
   | termToJSON (Exp.STRING s) = 
     JSONTypedObject ("Exp.STRING", string s)
 
-and symbolPropertiesToJSON {iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index} =
+and symbolPropertiesToJSON {iterator, derivative, isevent, isrewritesymbol, sourcepos, realname, scope, outputbuffer, ep_index, space} =
     object [("derivative", JSONOption (derivativeToJSON, derivative)),
 	    ("epIndex", JSONOption (JSONType o (fn Property.STRUCT_OF_ARRAYS => "Property.STRUCT_OF_ARRAYS" | Property.ARRAY => "Property.ARRAY"), ep_index)),
 	    ("isEvent", bool isevent),
@@ -83,7 +83,8 @@ and symbolPropertiesToJSON {iterator, derivative, isevent, isrewritesymbol, sour
 	    ("iterators", JSONOption (fn its => array (map iteratorToJSON its), iterator)),
 	    ("outputBuffer", bool outputbuffer),
 	    ("scope", scopeToJSON scope),
-	    ("sourcePosition", JSONOption (PosLog.toJSON, sourcepos))]
+	    ("sourcePosition", JSONOption (PosLog.toJSON, sourcepos)),
+	    ("space", bool true) (* TODO fill this in later *)]
 
 and derivativeToJSON (degree, iterators) =
     object [("degree", int degree),
