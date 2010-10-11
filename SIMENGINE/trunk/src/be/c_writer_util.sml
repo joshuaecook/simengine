@@ -232,14 +232,14 @@ val rec exp_to_spil =
 end
 
 local
-fun exp2c_str (Exp.FUN (str, exps)) =
+fun exp2c_str (Exp.FUN (str : Fun.funtype, exps)) =
     let
-	fun useParen (Exp.FUN (str', _)) = 
+	fun useParen (Exp.FUN (str' : Fun.funtype, _)) = 
 	    let
 		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
 		val {precedence=prec',...} = FunProcess.fun2props str'
 	    in
-		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
+		(prec = prec' andalso (not (FunProcess.equal (str, str')) orelse (not assoc))) orelse prec < prec'
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false

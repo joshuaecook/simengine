@@ -68,7 +68,7 @@ fun exp2mathematica_str (exp as (Exp.FUN (Fun.BUILTIN Fun.ASSIGN,[_,Exp.FUN (Fun
 		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
 		val {precedence=prec',...} = FunProcess.fun2props str'
 	    in
-		(prec = prec' andalso (str <> str' orelse (not assoc))) orelse prec < prec'
+		(prec = prec' andalso (not (FunProcess.equal (str, str')) orelse (not assoc))) orelse prec < prec'
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
