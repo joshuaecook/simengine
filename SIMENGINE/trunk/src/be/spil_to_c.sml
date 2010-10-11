@@ -147,9 +147,11 @@ and layoutControl control =
       | CC.JUMP {block, args} =>
 	L.goto block
       | CC.CALL {func, args, return} =>
-	case return
-	 of NONE => L.return (L.seq [L.str func, L.tuple (vec layoutAtom args)])
-	  | SOME _ => L.unimplemented "layoutControl"
+	let val call = L.call (func, vec layoutAtom args) in
+	    case return
+	     of NONE => L.return call
+	      | SOME cc => L.align [L.stmt call, layoutControl cc]
+	end
 
 and layoutExpression paren expr =
     case expr
@@ -204,11 +206,8 @@ and layoutAtom atom =
       | A.Sink atom => L.seq [L.str "*", layoutAtom atom]
       | A.Cast (atom, t) => L.seq [L.paren (layoutType t), layoutAtom atom]
       | A.Offset {base, index, offset, scale, basetype} =>
-	L.call ("OFFSET", [layoutAtom base, 
-			   L.int index, 
-			   L.int offset, 
-			   L.int scale, 
-			   layoutType basetype])
+	L.paren (L.seq [L.paren (layoutType basetype), layoutAtom base, L.str"[", L.int ((index*scale)+offset), L.str"]"])
+	(* L.call ("OFFSET", [layoutAtom base, L.int index, L.int offset, L.int scale, layoutType basetype]) *)
       | A.Offset2D {base, index, offset, scale, basetype} =>
 	L.call ("OFFSET2D", [layoutAtom base, 
 			     L.int (#x index), L.int (#y index), 

@@ -146,7 +146,7 @@ datatype atom
      and control
        = CALL of {func: ident,
 		  args: atom vector, 
-		  return: label option} (* NONE for tail calls *)
+		  return: control option} (* NONE for tail calls *)
        | JUMP of {block: label,
 		  args: atom vector}
        | SWITCH of {test: atom,
