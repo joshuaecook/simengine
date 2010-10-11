@@ -41,7 +41,8 @@ withtype range = {start: real, stop: real, steps: real}
 (* define a subspace as a listing of intervals *)
 datatype interval = Empty
 		  | Full
-		  | Indices of (int * int) (* this is all zero indexed *)
+		  | Interval of (int * int) (* this is all zero indexed *)
+		  | Indices of int list
 type subspace = interval list (* assumption is that the length of the interval list is equivalent
 			       * to the number of dimensions *)
 
@@ -55,7 +56,7 @@ fun sub (Point (Tensor dims)) subspace =
 	    val pairs = ListPair.zip (dims, subspace)
 	    fun pairToDim (dim, Empty) = 0
 	      | pairToDim (dim, Full) = dim
-	      | pairToDim (dim, Indices (a, b)) = 
+	      | pairToDim (dim, Interval (a, b)) = 
 		if a < 0 then
 		    (error "index must by 0 or greater"; 0)
 		else if b >= dim then
@@ -64,6 +65,13 @@ fun sub (Point (Tensor dims)) subspace =
 		    (error "second index must be greater than or equal to the first index"; 0)
 		else
 		    b - a + 1
+	      | pairToDim (dim, Indices indices) =
+		if List.exists (fn(a)=>a < 0) indices then
+		    (error "indices must by 0 or greater"; 0)
+		else if List.exists (fn(b) => b >= dim) indices then
+		    (error "indices must be less than dimension"; 0)
+		else
+		    length indices
 	    val dims = map pairToDim pairs
 	    val dims' = List.filter (fn(d)=> d>0) dims
 	in
