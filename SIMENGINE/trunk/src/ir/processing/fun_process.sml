@@ -13,4 +13,10 @@ fun fun2props f = case f of
 		    | Fun.OUTPUT {classname,outname,...} => 
 		      Inst.output2props (classname, outname)
 
+fun equal (Fun.BUILTIN sym1, Fun.BUILTIN sym2) = sym1 = sym2
+  | equal (Fun.INST {classname=sym1, ...}, Fun.INST {classname=sym2,...}) = sym1 = sym2
+  | equal (Fun.OUTPUT {classname=sym1, outname=name1, ...}, Fun.OUTPUT {classname=sym2, outname=name2,...}) = sym1 = sym2 andalso name1 = name2
+  | equal _ = false
+
+
 end

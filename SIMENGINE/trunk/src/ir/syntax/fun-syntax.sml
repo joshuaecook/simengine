@@ -29,10 +29,11 @@ fun toJSON (Fun.BUILTIN operation) =
 			     ("outname", symbol outname),
 			     ("properties", propertiesToJSON props)])
 
-and propertiesToJSON {inline, iterators, realclassname, sourcepos} =
+and propertiesToJSON {inline, iterators, realclassname, sourcepos, space} =
     object [("inline", bool inline),
 	    ("iterators", array (map symbol iterators)),
 	    ("realClassName", JSONOption (symbol, realclassname)),
-	    ("sourcePosition", JSONOption (PosLog.toJSON, sourcepos))]
+	    ("sourcePosition", JSONOption (PosLog.toJSON, sourcepos)),
+	    ("space", bool true) (* TODO fill this in later *)]
 
 end
