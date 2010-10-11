@@ -239,7 +239,7 @@ signature SPIL = sig
 	   * non-tail calls. *)
 	  = CALL of {func: ident,
 		     args: atom vector, 
-		     return: label option}
+		     return: t option}
 	  (* "Goto-with-arguments" transfers control to a labeled
 	   * block. This makes variable versioning explicit without the
 	   * need for SSA-style "phi" functions *)
