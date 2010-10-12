@@ -87,6 +87,8 @@ classdef Exp
         op
         args
         dims = [1 1]
+        indices = 1
+        derived = false
         iterReference = false
         notation = Exp.NONOTATION
     end
@@ -154,8 +156,10 @@ classdef Exp
                 dims = [varargin{:}];
                 if ischar(v) && isnumeric(dims)
                   if all(dims > 0)
+                    e.type = e.VARIABLE;
                     e.val = v;
                     e.dims = dims;
+                    e.indices = reshape(1:prod(dims),dims);
                   else
                     error('Simatra:Exp','Dimension extents must be > 0.');
                   end
@@ -205,7 +209,7 @@ classdef Exp
                 case 1
                     er = Exp(varargin{1}); % NON STANDARD BEHAVIOR
                 case 2
-                    er = oper('*', varargin);
+                    er = oper('.*', varargin);
                 otherwise
                     er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
@@ -225,11 +229,11 @@ classdef Exp
         end
 
         function er = mrdivide(e1, e2)
-            er = oper('/', {e1, e2});
+            er = oper('./', {e1, e2});
         end
 
         function er = ldivide(e1, e2)
-            er = oper('/', {e2, e1});
+            er = oper('./', {e2, e1});
         end
 
         function er = mldivide(e1, e2)
@@ -576,6 +580,8 @@ classdef Exp
           if strcmp(s(1).type, '.')
             if strcmp(s(1).subs, 'toStr')
               er = toStr(e);
+            elseif strcmp(s(1).subs, 'toMatStr')
+              er = toMatStr(e);
             else
               error('Simatra:Exp:subsref', 'Invalid reference ''%s'' to Exp.', s(1).subs);
             end
@@ -583,7 +589,10 @@ classdef Exp
             ss = s(1);
             switch e.type
              case e.VARIABLE,
-              error('Need to figure out subsref for VARIABLE')
+              temp = subsref(e.indices, ss);
+              er = Exp(e.val, size(temp));
+              er.indices = temp;
+              er.derived = true;
              case e.LITERAL,
               if isa(ss.subs, 'Iterator') || isa(ss.subs, 'IteratorReference')
                 er = e;
@@ -722,6 +731,71 @@ classdef Exp
         end
         
         function s = toStr(e)
+            s = toMatStr(e);
+        end
+        
+        function s = toMatStr(e)
+            if isempty(e.type)
+                e.val
+                error('Simatra:Exp:toStr', 'Unexpected empty expression type')
+            end
+
+            switch e.type
+                case e.VARIABLE
+                    s = e.val;
+                    if e.derived
+                      if numel(e.indices) > 1
+                        s = ['reshape(' e.val '(' mat2str(reshape(e.indices, 1, numel(e.indices))) '),' mat2str(e.dims) ')'];
+                      else
+                        s = [e.val '(' e.indices ')'];
+                      end
+                    else
+                      s = e.val;
+                    end
+                    if isa(e.iterReference, 'IteratorReference')
+                        error('Iterator references to Exp not supported in Matlab.')
+                    end
+                case e.REFERENCE
+                    s = e.val;
+                    if isa(e.iterReference, 'IteratorReference')
+                        s = [s '[' e.iterReference.toStr ']'];
+                    end
+                case e.ITERATOR
+                    s = e.val;
+                case e.LITERAL
+                    if length(size(e.val)) > 2
+                        s = ['reshape(' mat2str(reshape(e.val,1, numel(e.val)),17) ',' mat2str(size(e.val)) ')'];
+                    else
+                        s = mat2str(e.val,17);
+                    end
+                case e.OPERATION
+                    arguments = e.args;
+                    if strcmp(e.op, 'piecewise')
+                        if length(arguments) == 1
+                            s = toStr(arguments{1});
+                        else
+                            s = 'piecewise(';
+                            for i=1:2:(length(arguments)-1);
+                                s = [s toStr(arguments{i}) ', ' toStr(arguments{i+1}) ', '];
+                            end
+                            s = [s  toStr(arguments{end})];
+                        end
+                    else
+                        if length(arguments) == 1
+                            s = ['(' e.op '(' toStr(arguments{1}) '))'];
+                        elseif length(arguments) == 2
+                            if e.notation == Exp.INFIX
+                                s = ['(' toStr(arguments{1}) e.op toStr(arguments{2}) ')'];
+                            else
+                                % treat by default as Exp.PREFIX
+                                s = ['(' e.op '(' toStr(arguments{1}) ', ' toStr(arguments{2}) '))'];
+                            end
+                        end
+                    end
+            end
+        end
+
+        function s = toDslStr(e)
             if isempty(e.type)
                 e.val
                 error('Simatra:Exp:toStr', 'Unexpected empty expression type')
@@ -741,10 +815,10 @@ classdef Exp
                 case e.ITERATOR
                     s = e.val;
                 case e.LITERAL
-                    if length(e.val) > 1
-                        s = ['[' numberToString(e.val) ']'];
+                    if length(size(e.val)) > 2
+                        s = ['reshape(' mat2str(reshape(e.val,1, numel(e.val)),17) ',' mat2str(size(e.val)) ')'];
                     else
-                        s = numberToString(e.val);
+                        s = mat2str(e.val,17);
                     end
                 case e.OPERATION
                     arguments = e.args;
@@ -772,7 +846,7 @@ classdef Exp
                     end
             end
         end
-        
+
         function s = toVariableName(e)
             if isempty(e.type)
                 e.val
@@ -796,15 +870,6 @@ classdef Exp
     
     
     
-end
-
-function s = numberToString(v)
-if length(v) == 1
-    s = sprintf('%.15g', v);
-else
-    s = List.stringConcatWith(' ', List.map (@(v)(numberToString(v)), num2cell(v)));
-    %s = mat2str(v);
-end
 end
 
 function er = oper(operation, args, infix, optdims)
