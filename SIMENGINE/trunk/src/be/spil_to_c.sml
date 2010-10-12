@@ -15,6 +15,7 @@ structure X = Expression
 structure L = struct
 open Layout
 fun stmt lay = seq [lay, str ";"]
+fun declare (id,t) = stmt (space [t, str id])
 fun sub text = indent (align text, 2)
 fun equals (left, right) = space [left, str "==", right]
 fun assign (left, right) = stmt (space [left, str "=", right])
@@ -34,15 +35,32 @@ fun unimplemented id = call ("#error",[str "unimplemented", string id])
 end
 
 fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
-fun veci f v = List.tabulate (Vector.length v, fn i => f (i,Vector.sub (v,i)))
+fun veci f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i), i))
 
 fun layoutFunction (f as F.FUNCTION function) =
     let
-	fun layoutLocal id =
-	    L.stmt (L.space [layoutType (T.C"CDATAFORMAT"), L.str id])
-
 	fun layoutParam (id, t) =
 	    L.space [layoutType t, L.str id]
+
+	fun layoutLocal id =
+	    L.declare (id, layoutType (T.C"CDATAFORMAT"))
+
+	fun defineBlockParams (b as B.BLOCK block) =
+	    if Vector.length (#params block) > 0 then
+		L.stmt (
+		L.align [L.str "struct {",
+			 L.sub (vec (fn (id,t) => L.declare (id, layoutType t)) (#params block)),
+			 L.space [L.str "}", L.str ((B.name b)^"_params")]]
+		)
+	    else L.empty
+
+	fun layoutBlockParams (b as B.BLOCK block) =
+	    if Vector.length (#params block) > 0 then
+		L.declare ((B.name b)^"_args", 
+			   L.align [L.str "struct {",
+				    L.sub (vec (fn (id,t) => L.declare (id, layoutType t)) (#params block)),
+				    L.str "}"])
+	    else L.empty
 
 	(* Determine which variables are local by subtracting the
 	 * function's parameters from the union of all blocks' free variables. *)
@@ -68,28 +86,44 @@ fun layoutFunction (f as F.FUNCTION function) =
 	      | NONE => DynException.stdException(("Malformed function: no block named "^(#start function)), "SpilToC.layoutFunction", Logger.INTERNAL)
     in
 	L.align
-	    [L.space [layoutType (#returns function),
+	    [L.align (vec defineBlockParams (#blocks function)),
+	     L.space [layoutType (#returns function),
 		    L.str (#name function),
 		    L.tuple (vec layoutParam (#params function))],
 	     L.str "{",
+	     L.comment "Function local declarations",
 	     L.sub (List.map layoutLocal (B.Free.listItems locals)),
-	     layoutBlock (Vector.sub (#blocks function, firstBlockId)),
-	     L.align (veci (fn (i,b) => if i = firstBlockId then L.empty else layoutBlock b) (#blocks function)),
+	     L.comment "Block parameter declarations",
+	     if Vector.exists (fn (B.BLOCK b) => Vector.length (#params b) > 0) (#blocks function) then
+		 L.sub [
+		 L.declare 
+		     ("block_args",
+		      L.align
+			  [L.str "union {",
+			   L.sub (vec layoutBlockParams (#blocks function)),
+			   L.str "}"])]
+	     else L.empty,
+	     L.comment "Block definitions",
+	     layoutBlock f (Vector.sub (#blocks function, firstBlockId)),
+	     L.align (veci (fn (b,i) => if i = firstBlockId then L.empty else layoutBlock f b) (#blocks function)),
 	     L.str "}"
 	    ]
     end
 
-and layoutBlock (b as B.BLOCK block) =
+and layoutBlock function (b as B.BLOCK block) =
     let
-	val free = B.free b
+	fun parameter (id,t) =
+	    L.assign (L.space [layoutType t, L.str id], 
+		      L.seq [L.str "block_args.", L.str (B.name b), L.str "_args.", L.str id]) 
     in
 	L.align
-	    [L.seq [L.str (#label block), L.str ":"],
-	     L.comment ("free: " ^ (String.concatWith "," (B.Free.listItems free))),
+	    [L.seq [L.str (B.name b), L.str ":"],
+	     L.comment ("free: " ^ (String.concatWith "," (B.Free.listItems (B.free b)))),
 	     L.sub
 		 [L.str "{", 
+		  L.align (vec parameter (#params block)),
 		  L.align (vec layoutStatement (#body block)),
-		  layoutControl (#transfer block),
+		  layoutControl function (#transfer block),
 		  L.str "}"]
 	    ]
     end
@@ -109,7 +143,7 @@ and layoutStatement statement =
       | S.MOVE {src, dest} =>
 	L.assign (layoutAtom dest, layoutAtom src)
 
-and layoutControl control =
+and layoutControl function control =
     case control
      of CC.RETURN value => 
 	L.return (layoutAtom value)
@@ -145,12 +179,28 @@ and layoutControl control =
 		    ]
 	end
       | CC.JUMP {block, args} =>
-	L.goto block
+	let
+	    val params = 
+		case F.findBlock (fn b => (B.name b) = block) function
+		 of SOME (B.BLOCK {params, ...}) => params
+		  | NONE => DynException.stdException(("Non-local jump to block named "^block), "SpilToC.layoutControl", Logger.INTERNAL)
+			    
+	    fun parameter idx = #1 (Vector.sub (params, idx))
+	    fun argument (value, idx) =
+		L.assign (L.seq [L.str "block_args.", L.str block, L.str "_args.", L.str (parameter idx)], 
+			  layoutAtom value)
+	in
+	    if Vector.length args > 0 then
+		L.align
+		    [L.align (veci argument args),
+		     L.goto block]
+	    else L.goto block
+	end
       | CC.CALL {func, args, return} =>
 	let val call = L.call (func, vec layoutAtom args) in
 	    case return
 	     of NONE => L.return call
-	      | SOME cc => L.align [L.stmt call, layoutControl cc]
+	      | SOME cc => L.align [L.stmt call, layoutControl function cc]
 	end
 
 and layoutExpression paren expr =
@@ -206,7 +256,7 @@ and layoutAtom atom =
       | A.Sink atom => L.seq [L.str "*", layoutAtom atom]
       | A.Cast (atom, t) => L.seq [L.paren (layoutType t), layoutAtom atom]
       | A.Offset {base, index, offset, scale, basetype} =>
-	L.paren (L.seq [L.paren (layoutType basetype), layoutAtom base, L.str"[", L.int ((index*scale)+offset), L.str"]"])
+	L.seq [L.paren (layoutType basetype), layoutAtom base, L.str"[", L.int ((index*scale)+offset), L.str"]"]
 	(* L.call ("OFFSET", [layoutAtom base, L.int index, L.int offset, L.int scale, layoutType basetype]) *)
       | A.Offset2D {base, index, offset, scale, basetype} =>
 	L.call ("OFFSET2D", [layoutAtom base, 
