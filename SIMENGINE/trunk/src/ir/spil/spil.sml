@@ -366,14 +366,20 @@ structure Function = struct
 datatype t = datatype function
 datatype block = datatype block
 
+fun name (FUNCTION {name, ...}) = name
+
 fun foldBlocks f id (FUNCTION {blocks, ...}) =
     Vector.foldr f id blocks
+
+fun findBlock p (FUNCTION {blocks, ...}) =
+    Vector.find p blocks
 
 fun foldParams f id (FUNCTION {params, ...}) = 
     Vector.foldr f id params
 
-fun startBlock (FUNCTION {start, blocks, ...}) =
-    valOf (Vector.find (fn (BLOCK {label,...}) => start = label) blocks)
+fun startBlock (function as FUNCTION {start, ...}) =
+    valOf (findBlock (fn (BLOCK {label,...}) => start = label) function)
+    handle Option => DynException.stdException(("Malformed function: no block named "^start), "Spil.Function.startBlock", Logger.INTERNAL)
 
 end
 

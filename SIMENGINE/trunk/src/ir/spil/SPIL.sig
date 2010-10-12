@@ -310,8 +310,12 @@ signature SPIL = sig
 			 blocks: Block.t vector,
 			 returns: Type.t}
 
-	val foldBlocks: (block * 'a -> 'a) -> 'a -> t -> 'a
+	val name: t -> string
+
 	val foldParams: ((ident * Type.t) * 'a -> 'a) -> 'a -> t -> 'a
+
+	val foldBlocks: (block * 'a -> 'a) -> 'a -> t -> 'a
+	val findBlock: (block -> bool) -> t -> block option
 
 	val startBlock: t -> block
     end
