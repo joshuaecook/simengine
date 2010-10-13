@@ -205,7 +205,11 @@ classdef Test < handle
             else
               t.Result = t.FAILED;
               if isnumeric(t.Return)
-                t.Message = ['Returned ''' num2str(t.Return) ''' instead'];
+                if ndims(t.Return) > 2
+                  t.Message = ['Returned a [' mat2str(size(t.Return)) '] sized matrix that did not match.'];
+                else
+                  t.Message = ['Returned ''' mat2str(t.Return) ''' instead'];
+                end
               elseif isstruct(t.Return)
                 t.Message = ['Returned a different structure instead'];
               else

@@ -2,11 +2,19 @@
 
 function s = ML_ExpTests(varargin)
 s = Suite('MATLAB Exp Tests');
-s.add(ExpLiteralTests);
-s.add(ExpLiteralSubsRefTests);
+s.add(LiteralExpTests);
+s.add(VariableExpTests);
 end
 
-function s = ExpLiteralTests()
+% *************************************** Literal Exp Tests ************************************
+function s = LiteralExpTests()
+s = Suite('MATLAB Literal Exp Tests');
+s.add(ExpLiteralEquivalenceTests);
+s.add(ExpLiteralSubsRefTests);
+s.add(ExpLiteralSubsRefEndTests);
+end
+
+function s = ExpLiteralEquivalenceTests()
 s = Suite('Exp Literal Equivalency Tests');
 s.add(LiteralEquivalentTest('Single literal', rand(1)));
 s.add(LiteralEquivalentTest('1D literal', rand(1,100)));
@@ -23,7 +31,7 @@ function s = ExpLiteralSubsRefTests()
 s = Suite('Exp Literal SubsRef Tests');
 s.add(LiteralSubsRefTest('single literal - single subref', rand(1,1), ':'));
 s.add(LiteralSubsRefTest('1D literal - single subref', rand(1,10), 5));
-s.add(LiteralSubsRefTest('1D literal - 1D subref', rand(1,10), 2:8));
+s.add(LiteralSubsRefTest('1D literal - 1D subref', rand(1,10), 2:10));
 s.add(LiteralSubsRefTest('2D literal - single subref', rand(10), 2, 5));
 s.add(LiteralSubsRefTest('2D literal - 1D subref', rand(10), ':', 5));
 s.add(LiteralSubsRefTest('2D literal - 2D subref', rand(10), 1:5, 5:10));
@@ -36,11 +44,74 @@ s.add(LiteralSubsRefTest('4D literal - 1D subref', rand(5,5,5,5), 1,2,3,4:5));
 s.add(LiteralSubsRefTest('4D literal - 2D subref', rand(5,5,5,5), 1,2,':',4:5));
 s.add(LiteralSubsRefTest('4D literal - 3D subref', rand(5,5,5,5), [1 3 5],2,':',4:5));
 s.add(LiteralSubsRefTest('4D literal - 4D subref', rand(5,5,5,5), [1 3 5],3:4,':',4:5));
-% Not sure how to pass 'end' as part of a subsref in this fashion?  Need a separate test?
 end
 
 function t = LiteralSubsRefTest(testname, literal, varargin)
 e = Exp(literal);
-m = literal(varargin{:});
-t = Test(testname, @()(eval(e(varargin{:}).toMatStr)), '-equal', m);
+l = literal(varargin{:});
+t = Test(testname, @()(eval(e(varargin{:}).toMatStr)), '-equal', l);
+end
+
+function s = ExpLiteralSubsRefEndTests()
+s = Suite('Exp Literal SubsRef End Tests');
+l = rand(5,5,5,5);
+e = Exp(l);
+s.add(Test('4D literal - end', @()(eval(e(end).toMatStr)), '-equal', l(end)));
+s.add(Test('4D literal - 2:end,5', @()(eval(e(2:end,5).toMatStr)), '-equal', l(2:end,5)));
+s.add(Test('4D literal - 5,end,3', @()(eval(e(5,end,3).toMatStr)), '-equal', l(5,end,3)));
+s.add(Test('4D literal - end,end,end,end-1', @()(eval(e(end,end,end,end-1).toMatStr)), '-equal', l(end,end,end,end-1)));
+s.add(Test('4D literal - 1:2:end', @()(eval(e(1:2:end).toMatStr)), '-equal', l(1:2:end)));
+s.add(Test('4D literal - 1,2,2:end', @()(eval(e(1,2,2:end).toMatStr)), '-equal', l(1,2,2:end)));
+end
+
+% *************************************** Variable Exp Tests ************************************
+
+function s = VariableExpTests()
+s = Suite('Variable Exp Tests');
+s.add(VariableExpEquivalenceTests);
+s.add(VariableExpSubsRefTests);
+end
+
+function s = VariableExpEquivalenceTests()
+s = Suite('Variable Exp Equivalence Tests');
+v = 5;
+s.add(Test('Single variable', @()(VariableExpEquivalence(5))));
+s.add(Test('1D variable', @()(VariableExpEquivalence(rand(1,10)))));
+s.add(Test('2D variable', @()(VariableExpEquivalence(rand(5)))));
+s.add(Test('3D variable', @()(VariableExpEquivalence(rand(5,5,5)))));
+s.add(Test('4D variable', @()(VariableExpEquivalence(rand(5,5,5,5)))));
+end
+
+function p = VariableExpEquivalence(value)
+v = value;
+e = Exp('v', size(v));  % We are using a variable 'v' defined in Matlab to validate a variable Exp
+                        % Size is not really needed here, but is included for consistency with the subsref tests
+p = isequal(size(v), size(eval(e.toMatStr))) && isequal(v, eval(e.toMatStr));
+end
+
+function s = VariableExpSubsRefTests()
+s = Suite('Variable Exp SubsRef Tests');
+s.add(Test('single variable - single subref', @()(VariableSubsRefTest(rand(1,1), ':'))));
+s.add(Test('1D variable - single subref', @()(VariableSubsRefTest(rand(1,10), 5))));
+s.add(Test('1D variable - 1D subref', @()(VariableSubsRefTest(rand(1,10), 2:10))));
+s.add(Test('2D variable - single subref', @()(VariableSubsRefTest(rand(10), 2, 5))));
+s.add(Test('2D variable - 1D subref', @()(VariableSubsRefTest(rand(10), ':', 5))));
+s.add(Test('2D variable - 2D subref', @()(VariableSubsRefTest(rand(10), 1:5, 5:10))));
+s.add(Test('3D variable - single subref', @()(VariableSubsRefTest(rand(10,10,10), 503))));
+s.add(Test('3D variable - 1D subref', @()(VariableSubsRefTest(rand(10,10,10), 6,7,':'))));
+s.add(Test('3D variable - 2D subref', @()(VariableSubsRefTest(rand(10,10,10), 6,7:-1:4,':'))));
+s.add(Test('3D variable - 3D subref', @()(VariableSubsRefTest(rand(10,10,10), 5:6,7,':'))));
+s.add(Test('4D variable - single subref', @()(VariableSubsRefTest(rand(5,5,5,5), 1,2,3,4))));
+s.add(Test('4D variable - 1D subref', @()(VariableSubsRefTest(rand(5,5,5,5), 1,2,3,4:5))));
+s.add(Test('4D variable - 2D subref', @()(VariableSubsRefTest(rand(5,5,5,5), 1,2,':',4:5))));
+s.add(Test('4D variable - 3D subref', @()(VariableSubsRefTest(rand(5,5,5,5), [1 3 5],2,':',4:5))));
+s.add(Test('4D variable - 4D subref', @()(VariableSubsRefTest(rand(5,5,5,5), [1 3 5],3:4,':',4:5))));
+end
+
+function p = VariableSubsRefTest(value, varargin)
+v = value;
+e = Exp('v', size(v));
+v2 = v(varargin{:});
+e2 = e(varargin{:});
+p = isequal(size(v2), size(eval(e2.toMatStr))) && isequal(v2, eval(e2.toMatStr));
 end
