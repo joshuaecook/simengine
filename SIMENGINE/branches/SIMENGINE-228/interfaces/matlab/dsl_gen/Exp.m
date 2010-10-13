@@ -553,11 +553,7 @@ classdef Exp
         
         % for arrays
         function l = length(e1)
-            if e1.dims(1) == 1 && length(e1.dims)>1
-                l = e1.dims(2);
-            else
-                l = e1.dims(1);
-            end
+            l = max(e1.dims);
         end
         
         function s = size(e1, ind)
@@ -566,6 +562,17 @@ classdef Exp
             else
                 s = e1.dims(ind);
             end
+        end
+        
+        function i = end(e1, k, n)
+          k
+          n
+          error('You have run the end method of Exp!')
+          if(n == k)
+            out = prod(e1.dims(k:end))
+          else
+            out = e1.dims(k)
+          end
         end
         
         function str = toId(e)
