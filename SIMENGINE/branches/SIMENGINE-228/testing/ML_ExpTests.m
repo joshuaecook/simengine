@@ -4,6 +4,7 @@ function s = ML_ExpTests(varargin)
 s = Suite('MATLAB Exp Tests');
 s.add(LiteralExpTests);
 s.add(VariableExpTests);
+s.add(OperationExpTests);
 end
 
 % *************************************** Literal Exp Tests ************************************
@@ -74,7 +75,6 @@ end
 
 function s = VariableExpEquivalenceTests()
 s = Suite('Variable Exp Equivalence Tests');
-v = 5;
 s.add(Test('Single variable', @()(VariableExpEquivalence(5))));
 s.add(Test('1D variable', @()(VariableExpEquivalence(rand(1,10)))));
 s.add(Test('2D variable', @()(VariableExpEquivalence(rand(5)))));
@@ -114,4 +114,60 @@ e = Exp('v', size(v));
 v2 = v(varargin{:});
 e2 = e(varargin{:});
 p = isequal(size(v2), size(eval(e2.toMatStr))) && isequal(v2, eval(e2.toMatStr));
+end
+
+% *************************************** Operation Exp Tests ************************************
+function s = OperationExpTests()
+s = Suite('Operation Exp Tests');
+s.add(OperationExpEquivalenceTests);
+%s.add(OperationExpSubsRefTests);
+end
+
+function s = OperationExpEquivalenceTests()
+s = Suite('Operation Exp Equivalence Tests');
+literal = true;
+variable = false;
+ops = {'+', '-', '.*', './'};
+dims = {[1 1], [5 5], [5 5 5], [5 5 5 5]};
+for o = 1:length(ops)
+  for da = 1:length(dims)
+    for db = [1 da]
+      s.add(Test(['literal' mat2str(dims{da}) ops{o} 'literal' mat2str(dims{db})], @()(BinaryOperatorExpEquivalence(ops{o}, dims{da}, dims{db}, literal, literal))));
+      s.add(Test(['literal' mat2str(dims{da}) ops{o} 'variable' mat2str(dims{db})], @()(BinaryOperatorExpEquivalence(ops{o}, dims{da}, dims{db}, literal, variable))));
+      s.add(Test(['variable' mat2str(dims{da}) ops{o} 'literal' mat2str(dims{db})], @()(BinaryOperatorExpEquivalence(ops{o}, dims{da}, dims{db}, variable, literal))));
+      s.add(Test(['variable' mat2str(dims{da}) ops{o} 'variable' mat2str(dims{db})], @()(BinaryOperatorExpEquivalence(ops{o}, dims{da}, dims{db}, literal, variable))));
+      if ~isequal(dims{da}, dims{db})
+        s.add(Test(['literal' mat2str(dims{db}) ops{o} 'literal' mat2str(dims{da})], @()(BinaryOperatorExpEquivalence(ops{o}, dims{db}, dims{da}, literal, literal))));
+        s.add(Test(['literal' mat2str(dims{db}) ops{o} 'variable' mat2str(dims{da})], @()(BinaryOperatorExpEquivalence(ops{o}, dims{db}, dims{da}, literal, variable))));
+        s.add(Test(['variable' mat2str(dims{db}) ops{o} 'literal' mat2str(dims{da})], @()(BinaryOperatorExpEquivalence(ops{o}, dims{db}, dims{da}, variable, literal))));
+        s.add(Test(['variable' mat2str(dims{db}) ops{o} 'variable' mat2str(dims{da})], @()(BinaryOperatorExpEquivalence(ops{o}, dims{db}, dims{da}, literal, variable))));
+      end
+    end
+  end
+end
+end
+
+function p = BinaryOperatorExpEquivalence(oper, dimOpA, dimOpB, litA, litB)
+% Matlab operation on literals
+opA = rand(dimOpA);
+opB = rand(dimOpB);
+r = eval(['opA' oper 'opB']);
+
+% Create expression operands
+if litA
+  eOpA = Exp(opA);
+else
+  eOpA = Exp('opA', dimOpA);
+end
+if litB
+  eOpB = Exp(opB);
+else
+  eOpB = Exp('opB', dimOpB);
+end
+
+% Create resultant expression
+eR = eval(['eOpA' oper 'eOpB']);
+
+p = isequal(size(eR), size(r)) && isequal(eval(eR.toMatStr), r);
+
 end
