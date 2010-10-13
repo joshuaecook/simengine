@@ -565,13 +565,10 @@ classdef Exp
         end
         
         function i = end(e1, k, n)
-          k
-          n
-          error('You have run the end method of Exp!')
-          if(n == k)
-            out = prod(e1.dims(k:end))
+          if n == k
+            i = prod(e1.dims(k:end));
           else
-            out = e1.dims(k)
+            i = e1.dims(k);
           end
         end
         
@@ -754,7 +751,7 @@ classdef Exp
                       if numel(e.indices) > 1
                         s = ['reshape(' e.val '(' mat2str(reshape(e.indices, 1, numel(e.indices))) '),' mat2str(e.dims) ')'];
                       else
-                        s = [e.val '(' e.indices ')'];
+                        s = [e.val '(' num2str(e.indices) ')'];
                       end
                     else
                       s = e.val;
