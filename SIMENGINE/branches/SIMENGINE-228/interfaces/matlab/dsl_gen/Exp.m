@@ -225,11 +225,11 @@ classdef Exp
         end
         
         function er = rdivide(e1, e2)
-            er = oper('/', {e1, e2});
+            er = oper('./', {e1, e2});
         end
 
         function er = mrdivide(e1, e2)
-            er = oper('./', {e1, e2});
+            er = oper('/', {e1, e2});
         end
 
         function er = ldivide(e1, e2)
@@ -241,7 +241,7 @@ classdef Exp
         end
         
         function er = power(e1, e2)
-            er = oper('^', {e1, e2});
+            er = oper('.^', {e1, e2});
         end
         
         function er = mpower(e1, e2)
