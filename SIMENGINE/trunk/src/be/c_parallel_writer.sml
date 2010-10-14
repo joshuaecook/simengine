@@ -909,6 +909,140 @@ fun class2stateiterators (class: DOF.class) =
 	(iterators, iterators)
     end
 
+fun iodatastruct_code (shardedModel as (shards,sysprops)) =
+    Layout.align 
+	(map 
+	     (fn (shard as {iter_sym,...}) =>
+		 CurrentModel.withModel 
+		     (ShardedModel.toModel shardedModel iter_sym)
+		     (fn _ => iodatastruct_shard_code shard))
+	     shards)
+
+and iodatastruct_shard_code (shard as {classes,...}) =
+    Layout.align 
+	(map (fn class as {name,...} => 
+		 iodatastruct_class_code (name = #classname (CurrentModel.top_inst ())) class)
+	     classes)
+
+and iodatastruct_class_code is_top_class class =
+    let
+	val classname = ClassProcess.class2classname class
+    in
+	Layout.align
+	    [$("// Inputs for class " ^ (Symbol.name classname)),
+	     input_datastruct_class_code is_top_class class,
+	     $("// States for class " ^ (Symbol.name classname)),
+	     state_datastruct_class_code is_top_class class,
+	     $("// Outputs for class " ^ (Symbol.name classname)),
+	     output_datastruct_class_code is_top_class class]
+    end
+
+and input_datastruct_class_code is_top_class class =
+    let
+	open Layout
+	val typename = ClassProcess.classTypeName class
+	val inputs_layout =
+	    align (ClassProcess.foldInputs
+		       (fn (it,lyt) => 
+			   $("CDATAFORMAT "^ (Term.sym2name (DOF.Input.name it)) ^ "[VECTOR_WIDTH];") :: 
+			   lyt)
+		       nil class)
+	val instances_layout =
+	    align (ClassProcess.foldInstanceEquations
+		       (fn (it,lyt) => 
+			   let 
+			       val {classname,instname,...} = ExpProcess.deconstructInst it
+			       val class = CurrentModel.classname2class classname
+			       val typename = ClassProcess.classTypeName class
+			   in
+			       $((Symbol.name typename) ^ "_input " ^ (Symbol.name instname) ^ ";") ::
+			       lyt
+			   end)
+		       nil class)
+    in
+	if isEmpty inputs_layout andalso isEmpty instances_layout then
+	    Layout.empty
+	else
+	    align
+		[$("typedef struct {"),
+		 SUB [inputs_layout, instances_layout],
+		 $("} "^(Symbol.name typename)^"_input;")]
+    end
+
+and state_datastruct_class_code is_top_class class =
+    let
+	open Layout
+	val typename = ClassProcess.classTypeName class
+	val states_layout =
+	    align (ClassProcess.foldInitialValueEquations
+		       (fn (it,lyt) =>
+			   let
+			       val sym = ExpProcess.lhs it
+			       val name = Symbol.name (Term.sym2curname (ExpProcess.exp2term sym))
+			   in
+			       $("CDATAFORMAT " ^ name ^ "[VECTOR_WIDTH];") ::
+			       lyt
+			   end)
+		       nil class)
+	val instances_layout =
+	    align (ClassProcess.foldInstanceEquations
+		       (fn (it,lyt) => 
+			   let 
+			       val {classname,instname,...} = ExpProcess.deconstructInst it
+			       val class = CurrentModel.classname2class classname
+			       val typename = ClassProcess.classTypeName class
+			   in
+			       $((Symbol.name typename) ^ "_state " ^ (Symbol.name instname) ^ ";") ::
+			       lyt
+			   end)
+		       nil class)
+    in
+	if isEmpty states_layout andalso isEmpty instances_layout then
+	    Layout.empty
+	else
+	    align
+		[$("typedef struct {"),
+		 SUB [states_layout, instances_layout],
+		 $("} "^(Symbol.name typename)^"_state;")]
+    end
+
+and output_datastruct_class_code is_top_class class =
+    let
+	open Layout
+	val typename = ClassProcess.classTypeName class
+	val outputs_layout =
+	    align (ClassProcess.foldOutputs
+		       (fn (it,lyt) => 
+			   let 
+			       val size = List.length (DOF.Output.contents it)
+			       val name = Term.sym2name (DOF.Output.name it)
+			   in
+			       $("CDATAFORMAT "^ name ^ "[" ^ (i2s size) ^ "*VECTOR_WIDTH];") :: 
+			       lyt
+			   end)
+		       nil class)
+	val instances_layout =
+	    align (ClassProcess.foldInstanceEquations
+		       (fn (it,lyt) => 
+			   let 
+			       val {classname,instname,...} = ExpProcess.deconstructInst it
+			       val class = CurrentModel.classname2class classname
+			       val typename = ClassProcess.classTypeName class
+			   in
+			       $((Symbol.name typename) ^ "_output " ^ (Symbol.name instname) ^ ";") ::
+			       lyt
+			   end)
+		       nil class)
+    in
+	if isEmpty outputs_layout andalso isEmpty instances_layout then
+	    Layout.empty
+	else
+	    align
+		[$("typedef struct {"),
+		 SUB [outputs_layout, instances_layout],
+		 $("} "^(Symbol.name typename)^"_output;")]
+    end
+
 
 local
     fun output2struct (term,sym) =
@@ -1395,23 +1529,19 @@ fun equations_to_blocks label classname is_top_class (iter as (iter_sym, iter_ty
 		    if (ExpProcess.isIntermediateEq exp) then
 			[intermediateeq_to_block label (exp, cc)]
 		    else if (ExpProcess.isFirstOrderDifferentialEq exp) then
-			[firstorderdiffeq_to_block label (exp, cc)]
-		    (*
-		     * else if (ExpProcess.isDifferenceEq exp) then
-		     *     [differenceeq_to_block exp]
-		     * else if (ExpProcess.isUpdateEq exp) then
-		     *     [differenceeq_to_block exp]
-		     * else if (ExpProcess.isAlgebraicStateEq exp) then
-		     *     [differenceeq_to_block exp]
-		     *)
+			[stateeq_to_block label (exp, cc)]
+		    else if (ExpProcess.isDifferenceEq exp) then
+		        [stateeq_to_block label (exp, cc)]
+		    else if (ExpProcess.isUpdateEq exp) then
+		        [stateeq_to_block label (exp, cc)]
+		    else if (ExpProcess.isAlgebraicStateEq exp) then
+		        [stateeq_to_block label (exp, cc)]
 		    else if (ExpProcess.isInstanceEq exp) then
 			[instanceeq_to_block label (exp, is_top_class, iter, cc)]
 		    else if (ExpProcess.isOutputEq exp) then
 			outputeq_to_blocks label (exp, is_top_class, iter, cc)
-		    (*
-		     * else if (ExpProcess.isReadStateEq exp) then
-		     *     [differenceeq_to_block exp]
- 		     *)
+		    else if (ExpProcess.isReadStateEq exp) then
+		        [stateeq_to_block label (exp, cc)]
 		    else
 			DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.equations_to_blocks", Logger.INTERNAL)
 	    in
@@ -1423,9 +1553,107 @@ fun equations_to_blocks label classname is_top_class (iter as (iter_sym, iter_ty
 
 and intermediateeq_to_block label (exp, cc) =
     if ExpProcess.isMatrixEq exp then
-	DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.intermediateeq_to_block", Logger.INTERNAL)
+	let
+	    val dest =
+		case CWriterUtil.exp_to_spil (ExpProcess.lhs exp)
+		 of X.Value (A.Variable var) => var
+		  | _ =>
+		    DynException.stdException(("Unexpected lhs expression '"^(e2s exp)^"'"), "CParallelWriter.intermediateeq_to_block", Logger.INTERNAL)
+	    val name = label ()
+
+	    val mat = case Container.expMatrixToMatrix (ExpProcess.rhs exp) 
+		       of m as (ref (Matrix.BANDED _)) =>
+			  let
+			      val bands = Matrix.toPaddedBands m
+			      val m' = Matrix.fromRows (Exp.calculus()) bands
+			      val _ = Matrix.transpose m'
+			  in
+			      m'
+			  end
+
+			| m => m
+
+	    val (rows, cols) = Matrix.size mat
+
+	    (* Emits only non-constant values *)
+	    fun createEntry (i, j, entry as Exp.TERM t) = 
+		(case t 
+		  of Exp.BOOL _ => nil
+		   | Exp.INFINITY => nil
+		   | Exp.INT _ => nil
+		   | Exp.NAN => nil
+		   | Exp.RATIONAL _ => nil
+		   | Exp.REAL _ => nil
+		   | _ =>
+		     [S.GRAPH
+			  {src= CWriterUtil.exp_to_spil entry,
+			   dest= (name^"_src_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT")},
+		      S.GRAPH
+			  {src= X.Apply {oper= Op.Cell_ref,
+					 args= v[X.Apply {oper= Op.Array_extract,
+							  args= v[X.Value (A.Variable dest),
+								  X.Value (A.Literal (Const ("MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^",PARALLEL_MODELS,modelid)")))]}]},
+			   dest= (name^"_dest"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT*")},
+		      S.MOVE
+			  {src= A.Variable (name^"_src"^(i2s i)^"_"^(i2s j)),
+			   dest= A.Sink (A.Variable (name^"_dest"^(i2s i)^"_"^(i2s j)))}])
+	      | createEntry (i, j, entry) =
+		[S.GRAPH
+		     {src= CWriterUtil.exp_to_spil entry,
+		      dest= (name^"_src_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT")},
+		 S.GRAPH
+		     {src= X.Apply {oper= Op.Cell_ref,
+				    args= v[X.Apply {oper= Op.Array_extract,
+						     args= v[X.Value (A.Variable dest),
+							     X.Value (A.Literal (Const ("MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^",PARALLEL_MODELS,modelid)")))]}]},
+		      dest= (name^"_dest"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT*")},
+		 S.MOVE
+		     {src= A.Variable (name^"_src"^(i2s i)^"_"^(i2s j)),
+		      dest= A.Sink (A.Variable (name^"_dest"^(i2s i)^"_"^(i2s j)))}]
+
+	in
+	    B.BLOCK
+		{label= name,
+		 params= v[],
+		 body= v(
+		 S.COMMENT (e2s exp) ::
+		 (List.concat (Matrix.mapi createEntry mat))
+		 ),
+		 transfer= cc}
+	end
     else if ExpProcess.isArrayEq exp then
-	DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.intermediateeq_to_block", Logger.INTERNAL)
+	let
+	    val dest =
+		case CWriterUtil.exp_to_spil (ExpProcess.lhs exp)
+		 of X.Value (A.Variable var) => var
+		  | _ =>
+		    DynException.stdException(("Unexpected lhs expression '"^(e2s exp)^"'"), "CParallelWriter.intermediateeq_to_block", Logger.INTERNAL)
+	    val name = label ()
+
+	    val size = (Container.arrayToSize o Container.expArrayToArray) (ExpProcess.rhs exp)
+	    fun createEntry (entry, i) = 
+		[S.GRAPH
+		     {src= CWriterUtil.exp_to_spil entry,
+		      dest= (name^"_src_"^(i2s i), T.C"CDATAFORMAT")},
+		 S.GRAPH
+		     {src= X.Apply {oper= Op.Cell_ref,
+				    args= v[X.Apply {oper= Op.Array_extract,
+						     args= v[X.Value (A.Variable dest),
+							     X.Value (A.Literal (Const ("VEC_IDX("^(i2s size)^","^(i2s i)^",PARALLEL_MODELS,modelid)")))]}]},
+		      dest= (name^"_dest_"^(i2s i), T.C"CDATAFORMAT*")},
+		 S.MOVE
+		     {src= A.Variable (name^"_src_"^(i2s i)),
+		      dest= A.Sink (A.Variable (name^"_dest_"^(i2s i)))}]
+	in
+	    B.BLOCK
+		{label= name,
+		 params= v[],
+		 body= v(
+		 S.COMMENT (e2s exp) ::
+		 (Util.flatmap createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray (ExpProcess.rhs exp)))))
+		 ),
+		 transfer= cc}
+	end
     else
 	let
 	    val dest =
@@ -1447,7 +1675,7 @@ and intermediateeq_to_block label (exp, cc) =
 		}
 	end
 
-and firstorderdiffeq_to_block label (exp, cc) =
+and stateeq_to_block label (exp, cc) =
     let val name = label () in
 	B.BLOCK
 	    {label= name,
@@ -1476,59 +1704,40 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 					| DOF.ALGEBRAIC (_,v) => v
 					| _ => iter_sym)
 
+	val STRUCT_IDX = A.CompileVar (fn () => A.Literal (Const "STRUCT_IDX"), T.C"int")
+	val ARRAY_IDX = A.CompileVar (fn () => A.Literal (Const "ARRAY_IDX"), T.C"int")
 
-	(* Instance input bindings. *)
-	fun input_binding (input,idx) =
-	    case input_value input
-	     of X.Value atom => [S.MOVE {src= atom, dest= A.Offset {base= A.Variable "sub_inputs", index= 0, offset= idx, scale= 1, basetype= T.C"CDATAFORMAT"}}]
-	      | value =>
-		[S.GRAPH {src= value, dest= ("sub_input_"^(i2s idx), T.C"CDATAFORMAT")},
-		 S.MOVE
-		     {src= A.Variable ("sub_input_"^(i2s idx)),
-		      dest= A.Offset {base= A.Variable "sub_inputs", index= 0, offset= idx, scale= 1, basetype= T.C"CDATAFORMAT"}}]
-	and input_value input =
-	    let
-		val key = Symbol.symbol (Util.removePrefix (Term.sym2name (DOF.Input.name input)))
-		val value = 
-		    case SymbolTable.look (inpargs, key)
-		     of SOME x => x
-		      | NONE => DynException.stdException(("Cannot find "^(Symbol.name key)^" input value for instance "^(Symbol.name instname)^"."),
-							  "CParallelWriter.instanceeq_to_block",
-							  Logger.INTERNAL)
-	    in
-		CWriterUtil.exp_to_spil value
-	    end
-
+	(* Instance inputs structure. *)
 	val declare_inputs =
-	    if List.null inputs then S.COMMENT "no inputs"
+	    if SymbolTable.null inpargs then S.COMMENT "no inputs"
 	    else
-		S.PRIMITIVE
-		    {oper= Op.Array_array,
-		     args= v(map (fn _ => A.Literal Nan) inputs),
-		     dest= ("sub_inputs", T.C"CDATAFORMAT[]")
-		    }
-
-	val bind_inputs =
-	    if List.null inputs then nil
-	    else Util.flatmap input_binding (Util.addCount inputs)
+		S.GRAPH
+		    {src= X.Apply {oper= Op.Cell_ref,
+				   args= v[X.Apply {oper= Op.Record_extract,
+						    args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable "inputs"), X.Value STRUCT_IDX]},
+							    X.Value (A.Symbol (Symbol.name instname))]}]},
+		     dest= ("sub_inputs", T.C((Symbol.name classname)^"_input*"))}
+		
 
 	(* Instance state structure declarations. *)
-	val STRUCT_IDX = A.CompileVar (fn () => A.Literal (Const "STRUCT_IDX"), T.C"int")
-	val deref =
-	    if is_top_class then
-	     fn (record,field) => X.Apply {oper= Op.Record_extract,
-					   args= v[X.Apply {oper= Op.Array_extract,
-							    args= v[X.Value (A.Variable record), X.Value STRUCT_IDX]},
-						   X.Value (A.Symbol field)]}
-	    else
-	     fn (record,field) => X.Apply {oper= Op.Record_extract,
-					   args= v[X.Value (A.Variable record), X.Value (A.Symbol field)]}
+	val declare_reads = 
+	    S.GRAPH 
+		{src= X.Apply {oper= Op.Cell_ref,
+			       args= v[X.Apply {oper= Op.Record_extract,
+						args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable ("rd_"^iter_name)), X.Value STRUCT_IDX]},
+							X.Value (A.Symbol (Symbol.name instname))]}]},
+		 dest= ("sub_rd", T.C((Symbol.name classname)^"_state*"))}
 
-	val declare_reads = S.GRAPH {src= X.Apply {oper= Op.Cell_ref, args= v[deref ("rd_"^iter_name, Symbol.name instname)]},
-				     dest= ("sub_rd_"^iter_name, T.C("statedata_"^(Symbol.name classname)^"*"))}
-	val declare_writes = S.GRAPH {src= X.Apply {oper= Op.Cell_ref, args= v[deref ("wr_"^iter_name, Symbol.name instname)]},
-				      dest= ("sub_wr_"^iter_name, T.C("statedata_"^(Symbol.name classname)^"*"))}
-	val declare_sysreads = S.NOP
+	val declare_writes = 
+	    S.GRAPH 
+		{src= X.Apply {oper= Op.Cell_ref,
+			       args= v[X.Apply {oper= Op.Record_extract,
+						args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable ("wr_"^iter_name)), X.Value STRUCT_IDX]},
+							X.Value (A.Symbol (Symbol.name instname))]}]},
+		 dest= ("sub_wr", T.C((Symbol.name classname)^"_state*"))}
+
+	val declare_sysreads = S.COMMENT "TODO: system states"
+
 	val declare_states =
 	    List.mapPartial 
 		(fn x => x)
@@ -1541,15 +1750,15 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 	val states = 
 	    List.mapPartial 
 		(fn x => x)
-		[if reads_iterator iter instclass then SOME (A.Variable ("sub_rd_"^iter_name)) else NONE,
-		 if writes_iterator iter instclass then SOME (A.Variable ("sub_wr_"^iter_name)) else NONE,
+		[if reads_iterator iter instclass then SOME (A.Variable "sub_rd") else NONE,
+		 if writes_iterator iter instclass then SOME (A.Variable "sub_wr") else NONE,
 		 if reads_system instclass then SOME (A.Variable "sub_sysrd") else NONE]
 
 
 	val invar = if SymbolTable.null inpargs then A.Null else A.Variable "sub_inputs"
 	val func_args =
 	    v(itervar :: states @ [invar, A.Null, A.Variable "first_iteration", A.Variable "modelid"])
-	val func_id = "flow_"^(Symbol.name classname)
+	val func_id = "spil_flow_"^(Symbol.name classname)
     in
 	B.BLOCK
 	    {label= label (),
@@ -1557,7 +1766,6 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 	     body= v(
 	     S.COMMENT (e2s exp) ::
 	     declare_inputs ::
-	     bind_inputs @ 
 	     declare_states),
 	     transfer= 
 	     CC.CALL 
@@ -1593,117 +1801,39 @@ and outputeq_to_blocks label (exp, is_top_class, iter as (iter_sym, iter_type), 
 					     Logger.INTERNAL)
 	val inputs = ! (DOF.Output.inputs output)
 
-	(* Instance input bindings. *)
-	fun input_binding (input,idx) =
-	    case input_value input
-	     of X.Value atom => [S.MOVE {src= atom, dest= A.Offset {base= A.Variable "sub_inputs", index= 0, offset= idx, scale= 1, basetype= T.C"CDATAFORMAT"}}]
-	      | value =>
-		[S.GRAPH {src= value, dest= ("sub_input_"^(i2s idx), T.C"CDATAFORMAT")},
-		 S.MOVE
-		     {src= A.Variable ("sub_input_"^(i2s idx)),
-		      dest= A.Offset {base= A.Variable "sub_inputs", index= 0, offset= idx, scale= 1, basetype= T.C"CDATAFORMAT"}}]
-	and input_value input =
-	    let
-		val key = Symbol.symbol (Util.removePrefix (Term.sym2name input))
-		val value = 
-		    case SymbolTable.look (inpargs, key)
-		     of SOME x => x
-		      | NONE => DynException.stdException(("Cannot find "^(Symbol.name key)^" input value for instance "^(Symbol.name instname)^"."),
-							  "CParallelWriter.outputeq_to_blocks",
-							  Logger.INTERNAL)
-	    in
-		CWriterUtil.exp_to_spil value
-	    end
-
-	val declare_inputs =
-	    if List.null inputs then S.COMMENT "no inputs"
-	    else
-		S.PRIMITIVE
-		    {oper= Op.Array_array,
-		     args= v(map (fn _ => A.Literal Nan) inputs),
-		     dest= ("sub_inputs", T.C"CDATAFORMAT[]")}
-
-	val declare_outputs =
-	    if SymbolTable.null outargs then S.COMMENT "no outputs"
-	    else
-		S.PRIMITIVE
-		    {oper= Op.Array_array,
-		     args= v(map (fn _ => A.Literal Nan) (SymbolTable.listItems outargs)),
-		     dest= ("sub_outputs", T.C"CDATAFORMAT[]")}
-
-	val bind_inputs =
-	    if List.null inputs then nil
-	    else Util.flatmap input_binding (Util.addCount inputs)
-
-	(* Instance state structure declarations. *)
 	val STRUCT_IDX = A.CompileVar (fn () => A.Literal (Const "STRUCT_IDX"), T.C"int")
-	val deref =
-	    if is_top_class then
-	     fn (record,field) => X.Apply {oper= Op.Record_extract,
-					   args= v[X.Apply {oper= Op.Array_extract,
-							    args= v[X.Value (A.Variable record), X.Value STRUCT_IDX]},
-						   X.Value (A.Symbol field)]}
-	    else
-	     fn (record,field) => X.Apply {oper= Op.Record_extract,
-					   args= v[X.Value (A.Variable record), X.Value (A.Symbol field)]}
-
-	val declare_reads = S.GRAPH {src= X.Apply {oper= Op.Cell_ref, args= v[deref ("rd_"^iter_name, Symbol.name instname)]},
-				     dest= ("sub_rd_"^iter_name, T.C("statedata_"^(Symbol.name classname)^"*"))}
-	val declare_writes = S.GRAPH {src= X.Apply {oper= Op.Cell_ref, args= v[deref ("wr_"^iter_name, Symbol.name instname)]},
-				      dest= ("sub_wr_"^iter_name, T.C("statedata_"^(Symbol.name classname)^"*"))}
-	val declare_sysreads = S.NOP
-	val declare_states =
-	    List.mapPartial 
-		(fn x => x)
-		[if reads_iterator iter instclass then SOME declare_reads else NONE,
-		 if writes_iterator iter instclass then SOME declare_writes else NONE,
-		 if reads_system instclass then SOME declare_sysreads else NONE]
-
-	(* Flow function call arguments. *)
-	val itervar = A.Variable iter_name'
-	val states = 
-	    List.mapPartial 
-		(fn x => x)
-		[if reads_iterator iter instclass then SOME (A.Variable ("sub_rd_"^iter_name)) else NONE,
-		 if writes_iterator iter instclass then SOME (A.Variable ("sub_wr_"^iter_name)) else NONE,
-		 if reads_system instclass then SOME (A.Variable "sub_sysrd") else NONE]
-
-
-	val invar = if SymbolTable.null inpargs then A.Null else A.Variable "sub_inputs"
-	val func_args =
-	    v(itervar :: states @ [invar, A.Null, A.Variable "first_iteration", A.Variable "modelid"])
-	val func_id = "output_"^(Symbol.name classname)
+	val ARRAY_IDX = A.CompileVar (fn () => A.Literal (Const "ARRAY_IDX"), T.C"int")
 
 	(* Outputs value extraction. *)
 	val output_symbol_pairs =
 	    map (fn (out,idx) => (Symbol.name (Term.sym2curname out),idx)) (SymbolTable.addCount outargs)
-	fun assign_output (name, idx) =
-	    S.MOVE {src= A.Offset {base= A.Variable "sub_outputs", index= 0, offset= idx, scale= 1, basetype= T.C"CDATAFORMAT"},
-		    dest= A.Variable name}
-
-	val output_block_label = label ()
-	val output_block =
-	    B.BLOCK
-		{label= output_block_label,
-		 params= v[("sub_outputs", T.C"CDATAFORMAT*")],
-		 body= v(map assign_output output_symbol_pairs),
-		 transfer= cc}
+	fun assign_output (output, idx) =
+	    let
+		val curname = Symbol.name (Term.sym2curname output)
+	    in
+		[S.GRAPH
+		     {src= X.Apply {oper= Op.Array_extract,
+				    args= v[X.Apply {oper= Op.Record_extract,
+						     args= v[X.Apply {oper= Op.Record_extract,
+								      args= v[X.Apply {oper= Op.Array_extract, 
+										       args= v[X.Value (A.Variable "outputs"), X.Value STRUCT_IDX]},
+									      X.Value (A.Symbol (Symbol.name instname))]},
+							     X.Value (A.Symbol (Symbol.name outname))]},
+					    X.Value ARRAY_IDX]},
+		      dest= ("output_"^curname, T.C"CDATAFORMAT")},
+		 S.MOVE
+		     {src= A.Variable ("output_"^curname),
+		      dest= A.Variable curname}]
+	    end
     in
 	[B.BLOCK
 	     {label= label (),
 	      params= v[],
 	      body= v(
 	      S.COMMENT (e2s exp) ::
-	      declare_outputs ::
-	      declare_inputs ::
-	      bind_inputs @ 
-	      declare_states),
-	      transfer= 
-	      CC.CALL 
-		  {func= func_id, 
-		   args= func_args, 
-		   return= SOME (CC.JUMP {block= output_block_label, args= v[A.Variable "sub_outputs"]})}},
-	 output_block
+	      (Util.flatmap assign_output (SymbolTable.addCount outargs))),
+	      transfer= cc
+	      }
 	]
     end
 
@@ -2355,6 +2485,9 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 	val flow_function =
 	    if DynamoOptions.isFlagSet "x_irSPIL" then
 		let
+		    val STRUCT_IDX = A.CompileVar (fn () => A.Literal (Const "STRUCT_IDX"), T.C"int")
+		    val ARRAY_IDX = A.CompileVar (fn () => A.Literal (Const "ARRAY_IDX"), T.C"int")
+
 		    val label = 
 			(* Returns a unique label for a block. *)
 			let val id = ref 0 in
@@ -2365,21 +2498,18 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			equations_to_blocks label (Symbol.name orig_name) is_top_class iter (Spil.Control.RETURN (Spil.Atom.Literal (Spil.Int 0))) valid_exps
 		    val flow_start_block =
 			let
-			    val bind_input =
-				if is_top_class then
-				 fn (input, i) => 
-				    [S.PRIMITIVE
-					 {oper= Op.Sim_input,
-					  args= v[A.Symbol ("INPUT_"^(Term.sym2name (DOF.Input.name input)))],
-					  dest= ("input_"^(Term.sym2name (DOF.Input.name input)), T.C"CDATAFORMAT")},
-				     S.MOVE 
-					 {src= A.Variable ("input_"^(Term.sym2name (DOF.Input.name input))),
-					  dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}]
-				else
-				 fn (input, i) => 
-				    [S.MOVE 
-					 {src= A.Offset {base= A.Variable "inputs", index= 0, offset= i, scale= 1, basetype= T.C"CDATAFORMAT"},
-					  dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}]
+			    fun bind_input (input, idx) =
+				[S.GRAPH
+				     {src= X.Apply {oper= Op.Array_extract,
+						    args= v[X.Apply {oper= Op.Record_extract,
+								     args= v[X.Apply {oper= Op.Array_extract, 
+										      args= v[X.Value (A.Variable "inputs"), X.Value STRUCT_IDX]},
+									     X.Value (A.Symbol (Term.sym2name (DOF.Input.name input)))]},
+							    X.Value ARRAY_IDX]},
+				      dest= ("input_"^(Term.sym2name (DOF.Input.name input)), T.C"CDATAFORMAT")},
+				 S.MOVE 
+				     {src= A.Variable ("input_"^(Term.sym2name (DOF.Input.name input))),
+				      dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}]
 			in
 			    B.BLOCK
 				{label= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
@@ -2392,14 +2522,19 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    val states =
 			List.mapPartial
 			    (fn x => x)
-			    [if reads_iterator iter class then SOME ("rd_"^iter_name, T.C("statedata_"^(Symbol.name orig_name)^"_"^iter_name^"*")) else NONE,
-			     if writes_iterator iter class then SOME ("wr_"^iter_name, T.C("statedata_"^(Symbol.name orig_name)^"_"^iter_name^"*")) else NONE,
+			    [if reads_iterator iter class then SOME ("rd_"^iter_name, T.C((Symbol.name orig_name)^"_"^iter_name^"_state*")) else NONE,
+			     if writes_iterator iter class then SOME ("wr_"^iter_name, T.C((Symbol.name orig_name)^"_"^iter_name^"_state*")) else NONE,
 			     if reads_system class then SOME ("sys_rd", T.C("const systemstatedata_"^(Symbol.name orig_name)^"*")) else NONE]
+		    val inputs =
+			("inputs", T.C((Symbol.name orig_name)^"_"^iter_name^"_input*"))
+		    val outputs =
+			("outputs", T.C((Symbol.name orig_name)^"_"^iter_name^"_output*"))
+
 		in					    
 		    SOME (
 		    F.FUNCTION
 			{name= ("spil_flow_" ^ (Symbol.name (#name class))),
-			 params= v(iterval :: states @ [("inputs", T.C"CDATAFORMAT*"), ("outputs", T.C"CDATAFORMAT*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")]),
+			 params= v(iterval :: states @ [inputs, outputs, ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")]),
 			 returns= T.C"int",
 			 start= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
 			 blocks= v(flow_start_block :: equation_blocks)
@@ -3074,6 +3209,11 @@ fun buildC (orig_name, shardedModel) =
 	val init_solver_props_c = init_solver_props orig_name shardedModel (iteratorsWithSolvers, algebraicIterators)
 	val simengine_interface_progs = simengine_interface class_name shardedModel outputIterators
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
+	val iodatastruct_progs = 
+	    if DynamoOptions.isFlagSet "x_irSPIL" then
+		iodatastruct_code shardedModel
+	    else Layout.empty
+
 	val outputdatastruct_progs = outputdatastruct_code shardedModel
 	val outputstatestruct_progs = Util.flatmap 
 					  (fn(iter_sym) => 
@@ -3166,6 +3306,7 @@ fun buildC (orig_name, shardedModel) =
 				       [random_c] @
 				       [seint_h] @
 				       [output_buffer_h] @
+				       [iodatastruct_progs] @
 				       outputdatastruct_progs @
 				       outputstatestruct_progs @
 				       systemstate_progs @

@@ -302,6 +302,12 @@ signature SPIL = sig
     sharing type Block.statement = Statement.t
     
     structure Function: sig
+	structure Locals: sig
+	    (* A locals set comprises all variable identifers
+	     * appearing free in blocks, excluding function parameters. *)
+	    include ORD_SET where type item = ident
+	end
+
 	type block
 	datatype t
 	  = FUNCTION of {params: (ident * Type.t) vector,
@@ -311,6 +317,8 @@ signature SPIL = sig
 			 returns: Type.t}
 
 	val name: t -> string
+
+	val locals: t -> Locals.set
 
 	val foldParams: ((ident * Type.t) * 'a -> 'a) -> 'a -> t -> 'a
 
