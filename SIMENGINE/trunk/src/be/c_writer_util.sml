@@ -23,18 +23,29 @@ local
     val ARRAY_IDX = A.CompileVar (fn () => A.Literal (Const "ARRAY_IDX"), T.C"int")
 
     fun symbol_to_expr (sym, props) =
-	if Property.isOutputBuffer props then
-	    X.Apply {oper= Op.Record_extract,
-		     args= v[X.Apply {oper= Op.Array_extract,
-				      args= v[X.Value (A.Variable "od"), X.Value (A.Variable "modelid")]},
-			     X.Value (A.Symbol (Symbol.name sym))]}
-	else case Property.getScope props
-	      of Property.LOCAL => local_to_expr (sym, props)
-	       | Property.ITERATOR => iterator_to_expr (sym, props)
-	       | Property.READSTATE scope => read_to_expr scope (sym, props)
-	       | Property.READSYSTEMSTATE scope => sysread_to_expr scope (sym, props)
-	       | Property.WRITESTATE scope => write_to_expr scope (sym, props)
-	       | Property.SYSTEMITERATOR => sysiterator_to_expr (sym, props)
+	let
+	    fun rename sym =
+		Symbol.symbol (
+		let val name = Symbol.name sym in
+		    if String.isPrefix "#" name then
+			"INTERNAL_"^(String.extract (name,1,NONE))
+		    else name
+		end)
+	    val sym = rename sym
+	in
+	    if Property.isOutputBuffer props then
+		X.Apply {oper= Op.Record_extract,
+			 args= v[X.Apply {oper= Op.Array_extract,
+					  args= v[X.Value (A.Variable "od"), X.Value (A.Variable "modelid")]},
+				 X.Value (A.Symbol (Symbol.name sym))]}
+	    else case Property.getScope props
+		  of Property.LOCAL => local_to_expr (sym, props)
+		   | Property.ITERATOR => iterator_to_expr (sym, props)
+		   | Property.READSTATE scope => read_to_expr scope (sym, props)
+		   | Property.READSYSTEMSTATE scope => sysread_to_expr scope (sym, props)
+		   | Property.WRITESTATE scope => write_to_expr scope (sym, props)
+		   | Property.SYSTEMITERATOR => sysiterator_to_expr (sym, props)
+	end
     and local_to_expr (sym, props) =
 	X.Value (A.Variable (Symbol.name sym))
     and iterator_to_expr (sym, props) =

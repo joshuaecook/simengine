@@ -363,6 +363,8 @@ end
 end
 
 structure Function = struct
+structure Locals = Uses
+
 datatype t = datatype function
 datatype block = datatype block
 
@@ -380,6 +382,22 @@ fun foldParams f id (FUNCTION {params, ...}) =
 fun startBlock (function as FUNCTION {start, ...}) =
     valOf (findBlock (fn (BLOCK {label,...}) => start = label) function)
     handle Option => DynException.stdException(("Malformed function: no block named "^start), "Spil.Function.startBlock", Logger.INTERNAL)
+
+fun locals function =
+    (* Determine which variables are local by subtracting the
+     * function's parameters from the union of all blocks' free variables. *)
+    let
+	val free =
+	    foldBlocks 
+		(fn (b, set) => Locals.union (set, Block.free b))
+		Locals.empty function
+	val params =
+	    foldParams
+		(fn ((id,_), set) => Locals.add (set, id))
+		Locals.empty function
+    in
+	Locals.difference (free, params)
+    end
 
 end
 

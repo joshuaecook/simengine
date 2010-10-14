@@ -45,15 +45,6 @@ fun layoutFunction (f as F.FUNCTION function) =
 	fun layoutLocal id =
 	    L.declare (id, layoutType (T.C"CDATAFORMAT"))
 
-	fun defineBlockParams (b as B.BLOCK block) =
-	    if Vector.length (#params block) > 0 then
-		L.stmt (
-		L.align [L.str "struct {",
-			 L.sub (vec (fn (id,t) => L.declare (id, layoutType t)) (#params block)),
-			 L.space [L.str "}", L.str ((B.name b)^"_params")]]
-		)
-	    else L.empty
-
 	fun layoutBlockParams (b as B.BLOCK block) =
 	    if Vector.length (#params block) > 0 then
 		L.declare ((B.name b)^"_args", 
@@ -62,23 +53,6 @@ fun layoutFunction (f as F.FUNCTION function) =
 				    L.str "}"])
 	    else L.empty
 
-	(* Determine which variables are local by subtracting the
-	 * function's parameters from the union of all blocks' free variables. *)
-	val locals =
-	    let
-		val free =
-		    F.foldBlocks
-			(fn (b, set) => B.Free.union (set, B.free b))
-			B.Free.empty f
-	    in
-		B.Free.difference 
-		    (free,
-		     F.foldParams
-			 (fn ((id,_), set) => B.Free.add (set, id))
-			 B.Free.empty f
-		    )
-	    end
-
 	(* Find the start block and lay it out first. *)
 	val firstBlockId =
 	    case Vector.findi (fn (i, B.BLOCK block) => (#start function) = (#label block)) (#blocks function)
@@ -86,13 +60,12 @@ fun layoutFunction (f as F.FUNCTION function) =
 	      | NONE => DynException.stdException(("Malformed function: no block named "^(#start function)), "SpilToC.layoutFunction", Logger.INTERNAL)
     in
 	L.align
-	    [L.align (vec defineBlockParams (#blocks function)),
-	     L.space [layoutType (#returns function),
+	    [L.space [layoutType (#returns function),
 		    L.str (#name function),
 		    L.tuple (vec layoutParam (#params function))],
 	     L.str "{",
 	     L.comment "Function local declarations",
-	     L.sub (List.map layoutLocal (B.Free.listItems locals)),
+	     L.sub (List.map layoutLocal (F.Locals.listItems (F.locals f))),
 	     L.comment "Block parameter declarations",
 	     if Vector.exists (fn (B.BLOCK b) => Vector.length (#params b) > 0) (#blocks function) then
 		 L.sub [
