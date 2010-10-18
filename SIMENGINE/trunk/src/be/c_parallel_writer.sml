@@ -909,14 +909,157 @@ fun class2stateiterators (class: DOF.class) =
 	(iterators, iterators)
     end
 
-fun iodatastruct_code (shardedModel as (shards,sysprops)) =
-    Layout.align 
-	(map 
-	     (fn (shard as {iter_sym,...}) =>
-		 CurrentModel.withModel 
-		     (ShardedModel.toModel shardedModel iter_sym)
-		     (fn _ => iodatastruct_shard_code shard))
-	     shards)
+fun iodatastruct_code (shardedModel as (shards,sysprops), statefulIterators) =
+    let
+	val all_classes = Util.flatmap (fn{classes,...}=>classes) shards
+	val iterators = map (ShardedModel.toIterator shardedModel) statefulIterators
+
+	fun subsystem_classname_iterator_pair iter_sym =
+	    let val model = ShardedModel.toModel shardedModel iter_sym
+		val iter = ShardedModel.toIterator shardedModel iter_sym
+		val (_, {classname, ...}, _) = model
+	    in
+		CurrentModel.withModel model (fn _ =>
+		let val (iter_sym, iter_typ) = iter
+		    val class = CurrentModel.classname2class classname
+		in if has_states iter class then
+		       SOME (classname, iter_sym, iter_typ)
+		   else NONE
+		end)
+	    end
+	    handle e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code.subsystem_classname_iterator_pair" e
+
+	val class_names_iterators = 
+	    List.mapPartial subsystem_classname_iterator_pair statefulIterators
+
+	val system_struct =
+	    if List.null class_names_iterators then Layout.empty
+	    else
+		Layout.align [
+		$(""),
+		$("// System data (external ordering)"),
+		$("typedef struct {"),
+		SUB(map (fn(classname, iter_sym, _) => $((Symbol.name classname) ^ "_state " ^ (Symbol.name iter_sym) ^ "_state[1];")) class_names_iterators),
+		$("} system_data_external;"),
+                $(""),
+		(* Should make the following conditional on whether we are targetting CPU or OPENMP (not GPU) *)
+		$("#ifndef TARGET_GPU"),
+		$("// System data (internal ordering)"),
+		$("typedef struct {"),
+		SUB(map (fn(classname, iter_sym, _) => $((Symbol.name classname) ^ "_state " ^ (Symbol.name iter_sym) ^ "_state[PARALLEL_MODELS];")) class_names_iterators),
+		$("} system_data_internal;"),
+		$("#else"),
+		$("typedef system_data_external system_data_internal"),
+		$("#endif"),
+                $("")]
+
+	
+	(* Declares a pointer to an iterator value. *)
+	val systemPointerStructureIteratorValue =
+	 fn (sym, DOF.CONTINUOUS _) => SOME ("CDATAFORMAT * " ^ (Symbol.name sym) ^ ";")
+	  | (sym, DOF.DISCRETE _) => SOME ("CDATAFORMAT * " ^ (Symbol.name sym) ^ ";")
+	  | _ => NONE
+
+	(* Declares pointers to the states of an iterator. *)
+	fun systemPointerStructureStates (typename, (iter_sym, iter_typ)) =
+	    case iter_typ
+	     of DOF.CONTINUOUS _ => 
+		[(Symbol.name typename) ^ "_state * " ^ (Symbol.name iter_sym) ^ "_state;",
+		 (Symbol.name typename) ^ "_state * " ^ (Symbol.name iter_sym) ^ "_state_next;"]
+	      | DOF.DISCRETE _ => 
+		[(Symbol.name typename) ^ "_state * " ^ (Symbol.name iter_sym) ^ "_state;",
+		 (Symbol.name typename) ^ "_state * " ^ (Symbol.name iter_sym) ^ "_state_next;"]
+	      | DOF.ALGEBRAIC _ => 
+		[(Symbol.name typename) ^ "_state * " ^ (Symbol.name iter_sym) ^ "_state;",
+		 (Symbol.name typename) ^ "_state * " ^ (Symbol.name iter_sym) ^ "_state_next;"]
+	      | _ => nil
+
+	(* Declares a structured data type representing the system of iterators for a class.
+	 * This data type comprises references to the iterator values themselves, followed
+	 * by references to each iterator's states. *)
+	fun systemPointerStructure {basename, iterators, typedIterators} =
+	    if List.null iterators andalso List.null typedIterators then
+		[$("// Class " ^ (Symbol.name basename) ^ " is stateless."),
+		 $("typedef void * " ^ (Symbol.name basename) ^ "_system;"),$("")]
+	    else
+
+		[$("// The system of iterators for class " ^ (Symbol.name basename) ^ "."),
+		 $("typedef struct {"),
+		 SUB (map $
+			  (List.mapPartial systemPointerStructureIteratorValue
+					   iterators)),
+		 SUB (map $
+			  (Util.flatmap systemPointerStructureStates typedIterators)),
+		 $("} "^(Symbol.name basename)^"_system;"),$("")]
+
+	val classBaseNames = 
+	    let val classes = Util.flatmap #classes shards
+	    in Util.uniquify_by_fun (op =) (map ClassProcess.class2preshardname classes)
+	    end
+
+	val topClassBaseName =
+	    let 
+		val model = ShardedModel.toModel shardedModel (hd (ShardedModel.iterators shardedModel))
+		val classname = 
+		    let 
+			val {instance, ...} = hd shards
+			val class = CurrentModel.withModel model 
+							   (fn _ => CurrentModel.classname2class (#classname instance))
+		    in 
+			ClassProcess.class2preshardname class
+		    end
+	    in
+		classname
+	    end
+
+	val systems =
+	    map (fn bn => 
+		    let 
+			fun findTypeForIterator (sym,_) =
+			    let val shard = valOf (ShardedModel.findShard (shardedModel, sym))
+				val class = valOf (List.find (fn c => bn = (ClassProcess.class2preshardname c)) (#classes shard))
+			    in
+				ClassProcess.classTypeName class
+			    end
+			    handle Option => DynException.stdException(("Option error: " ^ (Symbol.name sym)), "CParallelWriter.outputsystemstatestruct_code.findTypeForIterator", Logger.INTERNAL)
+				 | e => DynException.checkpoint "CParallelWriter.outputsystemstatestruct_code.findTypeForIterator" e
+
+			val iterators_with_states = 
+			    List.filter (fn(it as (iter_sym,_))=> 
+					   let
+					       val model as (classes,{classname=top_class,...},_) = ShardedModel.toModel shardedModel iter_sym
+					       val classesOfBaseName = List.filter (fn(c)=> ClassProcess.class2preshardname c = bn) classes
+					       val hasStates = CurrentModel.withModel 
+								   model
+								   (fn()=> List.exists (has_states it) classesOfBaseName)
+					   in
+					       hasStates
+					   end)
+					iterators
+			val typedIterators = map (fn it => (findTypeForIterator it, it)) iterators_with_states
+		    in
+			systemPointerStructure {basename = bn, iterators=iterators, typedIterators = typedIterators}
+		    end)
+		classBaseNames
+
+
+	val per_class_system_struct = 
+	    Layout.align (
+	    $("// Per-class system pointer structures") ::
+	    (List.concat systems) @
+	    [$("typedef " ^ (Symbol.name topClassBaseName) ^ "_system top_system;")])
+
+	val shard_code =
+	 fn (shard as {iter_sym,...}) =>
+	    CurrentModel.withModel 
+		(ShardedModel.toModel shardedModel iter_sym)
+		(fn _ => iodatastruct_shard_code shard)
+    in
+	Layout.align 
+	    ((map shard_code shards) @
+	     [system_struct, 
+	      per_class_system_struct])
+    end
 
 and iodatastruct_shard_code (shard as {classes,...}) =
     Layout.align 
@@ -927,14 +1070,17 @@ and iodatastruct_shard_code (shard as {classes,...}) =
 and iodatastruct_class_code is_top_class class =
     let
 	val classname = ClassProcess.class2classname class
+	val input_struct = input_datastruct_class_code is_top_class class
+	val state_struct = state_datastruct_class_code is_top_class class
+	val output_struct = output_datastruct_class_code is_top_class class
     in
 	Layout.align
 	    [$("// Inputs for class " ^ (Symbol.name classname)),
-	     input_datastruct_class_code is_top_class class,
+	     input_struct,
 	     $("// States for class " ^ (Symbol.name classname)),
-	     state_datastruct_class_code is_top_class class,
+	     state_struct,
 	     $("// Outputs for class " ^ (Symbol.name classname)),
-	     output_datastruct_class_code is_top_class class]
+	     output_struct]
     end
 
 and input_datastruct_class_code is_top_class class =
@@ -961,7 +1107,7 @@ and input_datastruct_class_code is_top_class class =
 		       nil class)
     in
 	if isEmpty inputs_layout andalso isEmpty instances_layout then
-	    Layout.empty
+	    $("typedef void "^(Symbol.name typename)^"_input;")
 	else
 	    align
 		[$("typedef struct {"),
@@ -998,7 +1144,7 @@ and state_datastruct_class_code is_top_class class =
 		       nil class)
     in
 	if isEmpty states_layout andalso isEmpty instances_layout then
-	    Layout.empty
+	    $("typedef void "^(Symbol.name typename)^"_state;")
 	else
 	    align
 		[$("typedef struct {"),
@@ -1035,7 +1181,7 @@ and output_datastruct_class_code is_top_class class =
 		       nil class)
     in
 	if isEmpty outputs_layout andalso isEmpty instances_layout then
-	    Layout.empty
+	    $("typedef void "^(Symbol.name typename)^"_output;")
 	else
 	    align
 		[$("typedef struct {"),
@@ -1593,10 +1739,10 @@ and intermediateeq_to_block label (exp, cc) =
 					 args= v[X.Apply {oper= Op.Array_extract,
 							  args= v[X.Value (A.Variable dest),
 								  X.Value (A.Literal (Const ("MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^",PARALLEL_MODELS,modelid)")))]}]},
-			   dest= (name^"_dest"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT*")},
+			   dest= (name^"_dest_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT*")},
 		      S.MOVE
-			  {src= A.Variable (name^"_src"^(i2s i)^"_"^(i2s j)),
-			   dest= A.Sink (A.Variable (name^"_dest"^(i2s i)^"_"^(i2s j)))}])
+			  {src= A.Variable (name^"_src_"^(i2s i)^"_"^(i2s j)),
+			   dest= A.Sink (A.Variable (name^"_dest_"^(i2s i)^"_"^(i2s j)))}])
 	      | createEntry (i, j, entry) =
 		[S.GRAPH
 		     {src= CWriterUtil.exp_to_spil entry,
@@ -1606,10 +1752,10 @@ and intermediateeq_to_block label (exp, cc) =
 				    args= v[X.Apply {oper= Op.Array_extract,
 						     args= v[X.Value (A.Variable dest),
 							     X.Value (A.Literal (Const ("MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^",PARALLEL_MODELS,modelid)")))]}]},
-		      dest= (name^"_dest"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT*")},
+		      dest= (name^"_dest_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT*")},
 		 S.MOVE
-		     {src= A.Variable (name^"_src"^(i2s i)^"_"^(i2s j)),
-		      dest= A.Sink (A.Variable (name^"_dest"^(i2s i)^"_"^(i2s j)))}]
+		     {src= A.Variable (name^"_src_"^(i2s i)^"_"^(i2s j)),
+		      dest= A.Sink (A.Variable (name^"_dest_"^(i2s i)^"_"^(i2s j)))}]
 
 	in
 	    B.BLOCK
@@ -2522,19 +2668,27 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 		    val states =
 			List.mapPartial
 			    (fn x => x)
-			    [if reads_iterator iter class then SOME ("rd_"^iter_name, T.C((Symbol.name orig_name)^"_"^iter_name^"_state*")) else NONE,
-			     if writes_iterator iter class then SOME ("wr_"^iter_name, T.C((Symbol.name orig_name)^"_"^iter_name^"_state*")) else NONE,
-			     if reads_system class then SOME ("sys_rd", T.C("const systemstatedata_"^(Symbol.name orig_name)^"*")) else NONE]
+			    (if useMatrixForm then
+				 [if reads_iterator iter class then SOME ("rd_"^iter_name, T.C((Symbol.name orig_name)^"_"^iter_name^"_state*")) else NONE,
+				  SOME ("INTERNAL_M", T.C"CDATAFORMAT*"),
+				  SOME ("INTERNAL_b", T.C"CDATAFORMAT*"),
+				  if reads_system class then SOME ("sys_rd", T.C("const systemstatedata_"^(Symbol.name orig_name)^"*")) else NONE]
+			     else 
+				 [if reads_iterator iter class then SOME ("rd_"^iter_name, T.C((Symbol.name orig_name)^"_"^iter_name^"_state*")) else NONE,
+				  if writes_iterator iter class then SOME ("wr_"^iter_name, T.C((Symbol.name orig_name)^"_"^iter_name^"_state*")) else NONE,
+				  if reads_system class then SOME ("sys_rd", T.C("const systemstatedata_"^(Symbol.name orig_name)^"*")) else NONE])
+
 		    val inputs =
 			("inputs", T.C((Symbol.name orig_name)^"_"^iter_name^"_input*"))
 		    val outputs =
 			("outputs", T.C((Symbol.name orig_name)^"_"^iter_name^"_output*"))
-
+		    val params =
+			v(iterval :: states @ [inputs, outputs, ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")])
 		in					    
 		    SOME (
 		    F.FUNCTION
 			{name= ("spil_flow_" ^ (Symbol.name (#name class))),
-			 params= v(iterval :: states @ [inputs, outputs, ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")]),
+			 params= params,
 			 returns= T.C"int",
 			 start= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
 			 blocks= v(flow_start_block :: equation_blocks)
@@ -2967,11 +3121,14 @@ fun model_flows shardedModel =
 		 transfer= CC.RETURN (A.Literal (Int 1))
 		}
 
+	val params =
+	    v[("iterval", T.C"CDATAFORMAT"), ("y", T.C"CDATAFORMAT*"), ("dydt", T.C"CDATAFORMAT*"), ("props", T.C"solver_props*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")]
+
 	val wrapper_function =
 	    if List.null iterators then
 		F.FUNCTION
 		    {name= "model_flows",
-		     params= v[("iterval", T.C"CDATAFORMAT"), ("y", T.C"CDATAFORMAT*"), ("dydt", T.C"CDATAFORMAT*"), ("props", T.C"solver_props*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")],
+		     params= params,
 		     returns= T.C"int",
 		     start= "model_flows_switch_iterator_default",
 		     blocks= v[switch_iterator_default]
@@ -2979,7 +3136,7 @@ fun model_flows shardedModel =
 	    else
 		F.FUNCTION
 		    {name= "model_flows",
-		     params= v[("iterval", T.C"CDATAFORMAT"), ("y", T.C"CDATAFORMAT*"), ("dydt", T.C"CDATAFORMAT*"), ("props", T.C"solver_props*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")],
+		     params= params,
 		     returns= T.C"int",
 		     start= "model_flows_switch_iterator",
 		     blocks= v(switch_iterator :: switch_iterator_default ::
@@ -3211,7 +3368,7 @@ fun buildC (orig_name, shardedModel) =
 	(*val iteratordatastruct_progs = iteratordatastruct_code iterators*)
 	val iodatastruct_progs = 
 	    if DynamoOptions.isFlagSet "x_irSPIL" then
-		iodatastruct_code shardedModel
+		iodatastruct_code (shardedModel, statefulIterators)
 	    else Layout.empty
 
 	val outputdatastruct_progs = outputdatastruct_code shardedModel
