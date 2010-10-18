@@ -88,7 +88,8 @@ local
 	let
 	    val record = 
 		X.Apply {oper= Op.Record_extract,
-			 args= v[X.Value (A.Variable "sys_rd"),
+			 args= v[X.Apply {oper= Op.Array_extract,
+					  args= v[X.Value (A.Variable "sys_rd"), X.Value (A.Literal (Int 0))]},
 				 X.Value (A.Symbol ("states_"^(Symbol.name scope)))]}
 	    val record = 
 		X.Apply {oper= Op.Array_extract,
