@@ -76,6 +76,7 @@ fun layoutFunction (f as F.FUNCTION function) =
 			   L.sub (vec layoutBlockParams (#blocks function)),
 			   L.str "}"])]
 	     else L.empty,
+	     L.goto (B.name (Vector.sub (#blocks function, firstBlockId))),
 	     L.comment "Block definitions",
 	     layoutBlock f (Vector.sub (#blocks function, firstBlockId)),
 	     L.align (veci (fn (b,i) => if i = firstBlockId then L.empty else layoutBlock f b) (#blocks function)),
@@ -195,6 +196,10 @@ and layoutOperator paren (oper, args) =
 		L.separate (vec (layoutExpression true) args, " / ")
 	      | Op.Float_gt =>
 		L.separate (vec (layoutExpression true) args, " > ")
+	      | Op.Float_neg =>
+		(case Vector.length args
+		  of 1 => [L.str "-", layoutExpression true (Vector.sub (args,0))]
+		   | _ => [L.unimplemented "Float_neg"])
 	      | Op.Array_extract =>
 		(case Vector.length args
 		  of 2 => [layoutExpression true (Vector.sub (args,0)), L.bracket (layoutExpression false (Vector.sub (args,1)))]
@@ -211,8 +216,22 @@ and layoutOperator paren (oper, args) =
 		(case Vector.length args
 		  of 1 => [L.str "*", layoutExpression true (Vector.sub (args,0))]
 		   | _ => [L.unimplemented "Cell_ref"])
+	      | Op.Sim_if =>
+		(case Vector.length args
+		  of 3 => [layoutExpression true (Vector.sub (args,0)), L.str "?", 
+			   layoutExpression true (Vector.sub (args,1)), L.str ":", 
+			   layoutExpression true (Vector.sub (args,2))]
+		   | _ => [L.unimplemented "Cell_ref"])
 	      | _ => 
-		[L.call (Op.name oper, vec (layoutExpression false) args)]
+		let 
+		    fun rename name =
+			if String.isPrefix "Math_" name then
+			    String.extract (name, String.size "Math_", NONE)
+			else name
+		    val opname = rename (Op.name oper)
+		in
+		    [L.call (opname, vec (layoutExpression false) args)]
+		end
     in
 	if paren then L.paren (L.seq lay) else L.seq lay
     end
