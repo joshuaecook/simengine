@@ -30,23 +30,16 @@ classdef Instance
         end
         
         function b = subsref(inst, s)
-            if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
-                out = s.subs;
+            nextsub = 2;
+            if strcmp(s(1).type, '.')
+                out = s(1).subs;
                 if strcmp(out, 'toStr')
                     b = toStr(inst);
                 % Return any properties that are referenced
                 elseif any(strcmp(s.subs, fieldnames(inst)))
                     b = inst.(out);
                 elseif isOutput(inst, out)
-                    if inst.NumInst > 1
-                      output = cell(1, inst.NumInst); %cell(inst.Dims);
-                      for i = 1:inst.NumInst
-                        output{i} = Exp([inst.InstName '_' num2str(i)], out);
-                      end
-                    else
-                      output = Exp(inst.InstName, out);
-                    end
-                    b = output;
+                    b = Exp(inst, out);
                 elseif isInput(inst, out)
                     % now, if it's an input, we can still handle that by
                     % returning what ever is defined, if it has been
@@ -56,31 +49,24 @@ classdef Instance
                     else
                         error('Simatra:Instance', ['Can not read from an input ''%s'' of submodel ''%s'' if it has not been already defined.'], out, inst.SubMdl.Name)
                     end    
+                elseif length(s) >= 2 && strcmp(s(1).subs, 'with') && strcmp(s(2).type, '()')
+                    b = with(inst, s(2).subs);
+                    nextsub = 3;
                 else
                     inst.Outputs
                     error('Simatra:Instance', 'No output with name %s found', s.subs);
                 end
-            elseif length(s) == 2 && isfield(s(1), 'type') && ...
-                  strcmp(s(1).type, '()') && isfield(s(2), 'type') ...
-                  && strcmp(s(2).type, '.'
-              out = s(2).subs;
-              if isOutput(inst, out)
-              elseif isInput(inst, out)
-                b = inst.definedInputs(out);
-                b = {b{s(1)}};
-              else
-                error('Simatra:Instance', 'Can not provide multiple subscripts to an Instance unless accessing an Input or Output.')
-              end
-            elseif length(s) == 2 && isfield(s(1), 'type') && ...
-                  strcmp(s(1).type, '.') && isfield(s(2), 'type') && ...
-                  strcmp(s(2).type, '()') && strcmp(s(1).subs, 'with')
-                b = with(inst, s(2).subs);
+            elseif strcmp(s(1).type, '()')
+              error('Simatra:Instance', 'Subsref () on Instances not yet implemented. Need indices like Exp.')
             else
                 for i=1:length(s)
                     i
                     s(i)
                 end
                 error('Simatra:Instance', 'Unexpected argument syntax');
+            end
+            if length(s) >= nextsub
+              subsref(b, s(nextsub:end))
             end
         end
         
