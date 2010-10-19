@@ -83,6 +83,7 @@ classdef Exp
     
     properties (Access = private)
         type
+        inst
         val
         op
         args
@@ -145,13 +146,12 @@ classdef Exp
                     classname = class(v);
                     error('Simatra:Exp', 'Invalid type ''%s'' passed to Exp.  Must be either a string variable name, a numeric literal, an Exp type, or an Iterator.', classname);
                 end
-            elseif nargin == 2 && ischar(varargin{1})
-                if ischar(v)
-                    e.type = e.REFERENCE;
-                    e.val = [v '.' varargin{1}];
-                else
-                  error('Simatra:Exp', 'When calling Exp with two arguments, they must be both strings to create the instance reference arg1.arg2');
-                end
+            elseif nargin == 2 && isa(v, 'Instance') && ischar(varargin{1})
+              e.type = e.REFERENCE;
+              e.inst = v.InstName;
+              e.val = varargin{1};
+              e.dims = size(v);
+              e.indices = reshape(1:prod(e.dims), e.dims);
             else
                 dims = [varargin{:}];
                 if ischar(v) && isnumeric(dims)
@@ -592,9 +592,11 @@ classdef Exp
           elseif strcmp(s(1).type, '()')
             ss = s(1);
             switch e.type
-             case e.VARIABLE,
+             case {e.VARIABLE, e.REFERENCE}
               temp = subsref(e.indices, ss);
               er = Exp(e.val, size(temp));
+              er.type = e.type;
+              er.inst = e.inst;
               er.indices = temp;
               er.derived = true;
              case e.LITERAL,
@@ -648,8 +650,6 @@ classdef Exp
                   er = oper(e.op, args);
                 end
               end
-             case e.REFERENCE,
-              error('Need to handle references...');
             end
             else
             error('Simatra:Exp:subsref', 'Subsref type %s not supported', s(i).type);
@@ -735,7 +735,7 @@ classdef Exp
         end
         
         function s = toStr(e)
-            s = toMatStr(e);
+            s = toDslStr(e);
         end
         
         function s = toMatStr(e)
@@ -759,8 +759,12 @@ classdef Exp
                     if isa(e.iterReference, 'IteratorReference')
                         error('Iterator references to Exp not supported in Matlab.')
                     end
-                case e.REFERENCE
-                    s = e.val;
+               case e.REFERENCE
+                    if e.derived
+                      error('Simatra:Exp:toMatStr','Unhandled derived Exp for Exp.REFERENCE.');
+                    else
+                      s = [e.inst '.' e.val];
+                    end
                     if isa(e.iterReference, 'IteratorReference')
                         s = [s '[' e.iterReference.toStr ']'];
                     end
@@ -802,49 +806,57 @@ classdef Exp
         function s = toDslStr(e)
             if isempty(e.type)
                 e.val
-                error('Simatra:Exp:toStr', 'Unexpected empty expression type')
+                error('Simatra:Exp:toDslStr', 'Unexpected empty expression type')
+            end
+            
+            if ~isequal(e.dims, [1 1])
+              error('Simatra:Exp:toDslStr', 'Multidimensional elements are not supported in Diesel. \n%s', toMatStr(e))
             end
 
             switch e.type
                 case e.VARIABLE
-                    s = e.val;
+                    if e.derived == true
+                      s = [e.val '_' num2str(e.indices)]; % Flatten the variable name with its index
+                    else
+                      s = e.val;
+                    end
                     if isa(e.iterReference, 'IteratorReference')
                         s = [s '[' e.iterReference.toStr ']'];
                     end
-                case e.REFERENCE
-                    s = e.val;
+             case e.REFERENCE
+                    if e.derived == true
+                      s = [e.inst '_' num2str(e.indices) '.' e.val];
+                    else
+                      s = [e.inst '.' e.val];
+                    end
                     if isa(e.iterReference, 'IteratorReference')
                         s = [s '[' e.iterReference.toStr ']'];
                     end
                 case e.ITERATOR
                     s = e.val;
                 case e.LITERAL
-                    if length(size(e.val)) > 2
-                        s = ['reshape(' mat2str(reshape(e.val,1, numel(e.val)),17) ',' mat2str(size(e.val)) ')'];
-                    else
-                        s = mat2str(e.val,17);
-                    end
+                    s = mat2str(e.val,17);
                 case e.OPERATION
                     arguments = e.args;
                     if strcmp(e.op, 'piecewise')
                         if length(arguments) == 1
-                            s = toStr(arguments{1});
+                            s = toDslStr(arguments{1});
                         else
                             s = '{';
                             for i=1:2:(length(arguments)-1);
-                                s = [s toStr(arguments{i}) ' when ' toStr(arguments{i+1}) ', '];
+                                s = [s toDslStr(arguments{i}) ' when ' toStr(arguments{i+1}) ', '];
                             end
-                            s = [s  toStr(arguments{end}) ' otherwise}'];
+                            s = [s  toDslStr(arguments{end}) ' otherwise}'];
                         end
                     else
                         if length(arguments) == 1
-                            s = ['(' e.op '(' toStr(arguments{1}) '))'];
+                            s = ['(' e.op '(' toDslStr(arguments{1}) '))'];
                         elseif length(arguments) == 2
                             if e.notation == Exp.INFIX
-                                s = ['(' toStr(arguments{1}) e.op toStr(arguments{2}) ')'];
+                                s = ['(' toDslStr(arguments{1}) e.op toDslStr(arguments{2}) ')'];
                             else
                                 % treat by default as Exp.PREFIX
-                                s = ['(' e.op '(' toStr(arguments{1}) ', ' toStr(arguments{2}) '))'];
+                                s = ['(' e.op '(' toDslStr(arguments{1}) ', ' toDslStr(arguments{2}) '))'];
                             end
                         end
                     end
@@ -867,7 +879,7 @@ classdef Exp
             
         
         function disp(e)
-            disp(['Expression: ' toStr(e)]);
+            disp(['Expression: ' toMatStr(e)]);
         end
     end
     
