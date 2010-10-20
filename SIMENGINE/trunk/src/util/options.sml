@@ -189,7 +189,12 @@ val argument_groups =
 		long=SOME "termRewriteLimit",
 		xmltag="termrewritelimit",
 		dyntype=INTEGER_T,
-		description=["Set limit for number of iterations through evaluating one term rewrite"]}
+		description=["Set limit for number of iterations through evaluating one term rewrite"]},
+	       {short= NONE,
+		long= SOME "x_irSPIL",
+		xmltag= "x_irSPIL",
+		dyntype= FLAG_T,
+		description= ["Enable/disable experimental SPIL internal representation."]}
 
      ]},
 
@@ -248,11 +253,6 @@ val argument_groups =
 		xmltag="logsettings",
 		dyntype=FLAG_T,
 		description=["Enable/disable logging of settings values"]},
-	       {short= NONE,
-		long= SOME "x_irSPIL",
-		xmltag= "x_irSPIL",
-		dyntype= FLAG_T,
-		description= ["Enable/disable experimental SPIL internal representation."]},
 	       {short=NONE,
 		long =NONE,
 		xmltag="compilerTimingData",

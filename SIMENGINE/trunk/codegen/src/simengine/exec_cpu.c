@@ -94,7 +94,11 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 	props[i].last_iteration[modelid] = 0;
 
 	pre_process(&props[i], modelid);
+#if defined X_IR_SPIL
+	model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, props[i].model_inputs, props[i].model_outputs, &props[i], 1, modelid);
+#else
 	model_flows(props[i].time[modelid], props[i].model_states, props[i].next_states, &props[i], 1, modelid);
+#endif
 	in_process(&props[i], modelid);
 	  
 	// Updates and postprocess should not write to the output data structure

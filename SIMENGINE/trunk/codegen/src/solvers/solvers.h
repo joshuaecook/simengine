@@ -49,8 +49,15 @@ typedef struct {
   CDATAFORMAT *next_time;
   unsigned int *count; // Discrete iterators
   // A pointer into system_states to the states for this iterator
+#if defined X_IR_SPIL
+  union model_state *model_states;
+  union model_state *next_states;
+  union model_input *model_inputs;
+  union model_output *model_outputs;
+#else
   CDATAFORMAT *model_states;
   CDATAFORMAT *next_states;
+#endif
   // freeme is not currently used.
   //  CDATAFORMAT *freeme; // Keeps track of which buffer was dynamically allocated for states; 
   CDATAFORMAT *inputs;
@@ -71,7 +78,11 @@ typedef struct {
 } solver_props;
 
 // Pre-declaration of model_flows, the interface between the solver and the model
+#if defined X_IR_SPIL
+__DEVICE__ int model_flows(CDATAFORMAT iterval, union model_state *y, union model_state *dydt, union model_input *input, union model_output *output, solver_props *props, unsigned int first_iteration, unsigned int modelid);
+#else
 __DEVICE__ int model_flows(CDATAFORMAT iterval, CDATAFORMAT *y, CDATAFORMAT *dydt, solver_props *props, unsigned int first_iteration, unsigned int modelid);
+#endif
 __DEVICE__ int model_running(solver_props *props, unsigned int modelid);
 int init_states(solver_props *props, const unsigned int modelid);
 
@@ -98,14 +109,17 @@ __DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
 __HOST__ __DEVICE__ void solver_writeback(solver_props *props, const unsigned int modelid){
   unsigned int i, index;
   CDATAFORMAT *algebraic_states, *algebraic_next_states;
+  CDATAFORMAT *y0 = (CDATAFORMAT *)props->model_states;
+  CDATAFORMAT *y1 = (CDATAFORMAT *)props->next_states;
+
   // Update model states to next value
   for(i=0; i<props->statesize; i++){
     index = TARGET_IDX(props->statesize, PARALLEL_MODELS, i, modelid);
-    props->model_states[index] = props->next_states[index];
+    y0[index] = y1[index];
   }
 
-  algebraic_states = props->model_states + (props->statesize * PARALLEL_MODELS);
-  algebraic_next_states = props->next_states + (props->statesize * PARALLEL_MODELS);
+  algebraic_states = y0 + (props->statesize * PARALLEL_MODELS);
+  algebraic_next_states = y1 + (props->statesize * PARALLEL_MODELS);
 
   for (i = 0; i < props->algebraic_statesize; i++) {
     index = TARGET_IDX(props->algebraic_statesize, PARALLEL_MODELS, i, modelid);

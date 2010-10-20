@@ -77,6 +77,7 @@ signature SPIL = sig
     end
 
     structure Operator: sig
+	type expression
 	datatype t
 	  = Int_add
 	  | Int_sub
@@ -130,12 +131,10 @@ signature SPIL = sig
 	  | Range_range
 
 	  | Vector_extract
-	  | Vector_insert
 	  (* | ... *)
 
 	  | Array_array
 	  | Array_extract
-	  | Array_insert
 	  (* | ... *)
 
 	  | Matrix_dense
@@ -143,14 +142,13 @@ signature SPIL = sig
 
 	  | Record_record
 	  | Record_extract
-	  | Record_insert
 	  (* | ... *)
 
 	  | Random_uniform
 	  | Random_normal
 
-	  | Cell_ref
-	  | Cell_deref
+	  | Address_addr
+	  | Address_deref
 
 	  | Sim_if
 	  | Sim_input
@@ -158,6 +156,18 @@ signature SPIL = sig
 	  | Sim_bug
 
 	val name: t -> string
+
+	structure Record: sig
+	    val extract: expression * ident -> expression
+	end
+	structure Array: sig
+	    val extract: expression * int -> expression
+	end
+	structure Address: sig
+	    val addr: expression -> expression
+	    val deref: expression -> expression
+	end
+
     end
 
     structure Atom: sig
@@ -200,9 +210,12 @@ signature SPIL = sig
 	  = Value of atom
 	  | Apply of {oper: operator,
 		      args: t vector}
+
+	val var: ident -> t
     end
     sharing type Expression.atom = Atom.t
     sharing type Expression.operator = Operator.t
+    sharing type Expression.t = Operator.expression
 
     structure Statement: sig
 	type atom

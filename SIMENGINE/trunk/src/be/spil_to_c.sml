@@ -208,14 +208,14 @@ and layoutOperator paren (oper, args) =
 		(case Vector.length args
 		  of 2 => [layoutExpression true (Vector.sub (args,0)), L.str ".", layoutExpression true (Vector.sub (args,1))]
 		   | _ => [L.unimplemented "Record_extract"])
-	      | Op.Cell_ref =>
+	      | Op.Address_addr =>
 		(case Vector.length args
 		  of 1 => [L.str "&", layoutExpression true (Vector.sub (args,0))]
-		   | _ => [L.unimplemented "Cell_ref"])
-	      | Op.Cell_deref =>
+		   | _ => [L.unimplemented "Address_addr"])
+	      | Op.Address_deref =>
 		(case Vector.length args
 		  of 1 => [L.str "*", layoutExpression true (Vector.sub (args,0))]
-		   | _ => [L.unimplemented "Cell_ref"])
+		   | _ => [L.unimplemented "Address_deref"])
 	      | Op.Sim_if =>
 		(case Vector.length args
 		  of 3 => [layoutExpression true (Vector.sub (args,0)), L.str "?", 
