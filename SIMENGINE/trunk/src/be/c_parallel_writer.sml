@@ -310,6 +310,10 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 				"(CDATAFORMAT*)(&system_states_next->states_"^first_algebraic_iterator^");"
 			    else
 				"NULL;")),
+			 $("#if defined X_IR_SPIL"),
+			 $("props[ITERATOR_"^itername^"].model_inputs = (union model_input*)malloc(PARALLEL_MODELS*sizeof(union model_input));"),
+			 $("props[ITERATOR_"^itername^"].model_outputs = (union model_output*)malloc(PARALLEL_MODELS*sizeof(union model_output));"),
+			 $("#endif"),
 			 $("props[ITERATOR_"^itername^"].solver = " ^ solvernameCaps ^ ";"),
 			 $("props[ITERATOR_"^itername^"].iterator = ITERATOR_" ^ itername ^";")] @
 			[$("props[ITERATOR_"^itername^"].inputsize = NUM_INPUTS;"),
@@ -1054,10 +1058,41 @@ fun iodatastruct_code (shardedModel as (shards,sysprops), statefulIterators) =
 	    CurrentModel.withModel 
 		(ShardedModel.toModel shardedModel iter_sym)
 		(fn _ => iodatastruct_shard_code shard)
+
+	val union_structs =
+	    let
+		val typenames =
+		    map (fn (shard as {iter_sym,...}) =>
+			    CurrentModel.withModel
+				(ShardedModel.toModel shardedModel iter_sym)
+				(fn _ => (iter_sym,ClassProcess.classTypeName (CurrentModel.classname2class (#classname (CurrentModel.top_inst ()))))))
+			shards
+	    in
+		Layout.align [
+		$("union model_input {"),
+		Layout.align
+		    (map (fn (iter_sym,typename) => 
+			     $((Symbol.name typename)^"_input "^(Symbol.name iter_sym)^"_input;")) 
+			 typenames),
+		$("};"),
+		$("union model_state {"),
+		Layout.align
+		    (map (fn (iter_sym,typename) => 
+			     $((Symbol.name typename)^"_state "^(Symbol.name iter_sym)^"_state;")) 
+			 typenames),
+		$("};"),
+		$("union model_output {"),
+		Layout.align
+		    (map (fn (iter_sym,typename) => 
+			     $((Symbol.name typename)^"_output "^(Symbol.name iter_sym)^"_output;")) 
+			 typenames),
+		$("};")]
+	    end
     in
 	Layout.align 
 	    ((map shard_code shards) @
-	     [system_struct, 
+	     [union_structs,
+	      system_struct, 
 	      per_class_system_struct])
     end
 
@@ -1107,7 +1142,7 @@ and input_datastruct_class_code is_top_class class =
 		       nil class)
     in
 	if isEmpty inputs_layout andalso isEmpty instances_layout then
-	    $("typedef void "^(Symbol.name typename)^"_input;")
+	    $("typedef void* "^(Symbol.name typename)^"_input;")
 	else
 	    align
 		[$("typedef struct {"),
@@ -1144,7 +1179,7 @@ and state_datastruct_class_code is_top_class class =
 		       nil class)
     in
 	if isEmpty states_layout andalso isEmpty instances_layout then
-	    $("typedef void "^(Symbol.name typename)^"_state;")
+	    $("typedef void* "^(Symbol.name typename)^"_state;")
 	else
 	    align
 		[$("typedef struct {"),
@@ -1181,7 +1216,7 @@ and output_datastruct_class_code is_top_class class =
 		       nil class)
     in
 	if isEmpty outputs_layout andalso isEmpty instances_layout then
-	    $("typedef void "^(Symbol.name typename)^"_output;")
+	    $("typedef void* "^(Symbol.name typename)^"_output;")
 	else
 	    align
 		[$("typedef struct {"),
@@ -1243,7 +1278,10 @@ local
     structure T = Type
     structure F = Function
     structure B = Block
+    structure S = Statement
     structure CC = Control
+    structure X = Expression
+    structure Op = Operator
     structure A = Atom
 
     val v = Vector.fromList
@@ -1356,10 +1394,10 @@ fun algebraic_wrapper kind shardedModel iterators =
 	    B.BLOCK
 		{label= name^"_switch_iterator",
 		 params= v[],
-		 body= v[],
+		 body= v[S.GRAPH {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "iterator")}],
 		 transfer= 
 		 CC.SWITCH
-		     {test= A.Variable "props->iterator",
+		     {test= A.Variable "iter",
 		      default= name^"_switch_iterator_default",
 		      cases= v(map iterator_case iterators)
 		     }
@@ -1735,7 +1773,7 @@ and intermediateeq_to_block label (exp, cc) =
 			  {src= CWriterUtil.exp_to_spil entry,
 			   dest= (name^"_src_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT")},
 		      S.GRAPH
-			  {src= X.Apply {oper= Op.Cell_ref,
+			  {src= X.Apply {oper= Op.Address_addr,
 					 args= v[X.Apply {oper= Op.Array_extract,
 							  args= v[X.Value (A.Variable dest),
 								  X.Value (A.Literal (Const ("MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^",PARALLEL_MODELS,modelid)")))]}]},
@@ -1748,7 +1786,7 @@ and intermediateeq_to_block label (exp, cc) =
 		     {src= CWriterUtil.exp_to_spil entry,
 		      dest= (name^"_src_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT")},
 		 S.GRAPH
-		     {src= X.Apply {oper= Op.Cell_ref,
+		     {src= X.Apply {oper= Op.Address_addr,
 				    args= v[X.Apply {oper= Op.Array_extract,
 						     args= v[X.Value (A.Variable dest),
 							     X.Value (A.Literal (Const ("MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^",PARALLEL_MODELS,modelid)")))]}]},
@@ -1782,7 +1820,7 @@ and intermediateeq_to_block label (exp, cc) =
 		     {src= CWriterUtil.exp_to_spil entry,
 		      dest= (name^"_src_"^(i2s i), T.C"CDATAFORMAT")},
 		 S.GRAPH
-		     {src= X.Apply {oper= Op.Cell_ref,
+		     {src= X.Apply {oper= Op.Address_addr,
 				    args= v[X.Apply {oper= Op.Array_extract,
 						     args= v[X.Value (A.Variable dest),
 							     X.Value (A.Literal (Const ("VEC_IDX("^(i2s size)^","^(i2s i)^",PARALLEL_MODELS,modelid)")))]}]},
@@ -1829,7 +1867,7 @@ and stateeq_to_block label (exp, cc) =
 	     body= v[S.COMMENT (e2s exp),
 		     S.GRAPH {src= CWriterUtil.exp_to_spil (ExpProcess.rhs exp),
 			      dest= (name^"_src", T.C"CDATAFORMAT")},
-		     S.GRAPH {src= X.Apply {oper= Op.Cell_ref, args= v[CWriterUtil.exp_to_spil (ExpProcess.lhs exp)]},
+		     S.GRAPH {src= X.Apply {oper= Op.Address_addr, args= v[CWriterUtil.exp_to_spil (ExpProcess.lhs exp)]},
 			      dest= (name^"_dest", T.C"CDATAFORMAT*")},
 		     S.MOVE {src= A.Variable (name^"_src"),
 			     dest= A.Sink (A.Variable (name^"_dest"))}],
@@ -1858,17 +1896,16 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 	    if SymbolTable.null inpargs then S.COMMENT "no inputs"
 	    else
 		S.GRAPH
-		    {src= X.Apply {oper= Op.Cell_ref,
+		    {src= X.Apply {oper= Op.Address_addr,
 				   args= v[X.Apply {oper= Op.Record_extract,
 						    args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable "inputs"), X.Value STRUCT_IDX]},
 							    X.Value (A.Symbol (Symbol.name instname))]}]},
 		     dest= ("sub_inputs", T.C((Symbol.name classname)^"_input*"))}
-		
 
 	(* Instance state structure declarations. *)
 	val declare_reads = 
 	    S.GRAPH 
-		{src= X.Apply {oper= Op.Cell_ref,
+		{src= X.Apply {oper= Op.Address_addr,
 			       args= v[X.Apply {oper= Op.Record_extract,
 						args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable ("rd_"^iter_name)), X.Value STRUCT_IDX]},
 							X.Value (A.Symbol (Symbol.name instname))]}]},
@@ -1876,7 +1913,7 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 
 	val declare_writes = 
 	    S.GRAPH 
-		{src= X.Apply {oper= Op.Cell_ref,
+		{src= X.Apply {oper= Op.Address_addr,
 			       args= v[X.Apply {oper= Op.Record_extract,
 						args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable ("wr_"^iter_name)), X.Value STRUCT_IDX]},
 							X.Value (A.Symbol (Symbol.name instname))]}]},
@@ -3030,7 +3067,10 @@ local
     structure T = Type
     structure F = Function
     structure B = Block
+    structure S = Statement
     structure CC = Control
+    structure X = Expression
+    structure Op = Operator
     structure A = Atom
 
     val v = Vector.fromList
@@ -3066,29 +3106,94 @@ fun model_flows shardedModel =
 			    val class = CurrentModel.classname2class top_class
 			    val basename = ClassProcess.class2preshardname class
 			    val iterval = A.Variable "iterval"
-			    val states = 
-				List.mapPartial 
-				    (fn x => x)
-				    (if requiresMatrix then
-					 [if reads_iterator iter class then SOME (A.Cast (A.Variable "y", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
-					  SOME (A.Cast (A.Variable "props->mem", T.C"CDATAFORMAT*")),
-					  SOME (A.Variable "dydt"),
-					  if reads_system class then SOME (A.Cast (A.Variable "props->system_states", T.C(("systemstatedata_"^(Symbol.name basename)^"*")))) else NONE]
-				     else
-					 [if reads_iterator iter class then SOME (A.Cast (A.Variable "y", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
-					  if writes_iterator iter class then SOME (A.Cast (A.Variable "dydt", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
-					  if reads_system class then SOME (A.Cast (A.Variable "props->system_states", T.C(("systemstatedata_"^(Symbol.name basename)^"*")))) else NONE]
-				    )
+			    val body =
+				if DynamoOptions.isFlagSet "x_irSPIL" then
+				    List.mapPartial
+					(fn x => x)
+					[if reads_iterator iter class then 
+					     SOME (S.GRAPH {dest= ("rd_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_state*")),
+							    src= Op.Address.addr (Op.Record.extract (Op.Array.extract (X.var "y", 0), iter_name^"_state"))})
+					 else NONE,
+					 if writes_iterator iter class then
+					     SOME (S.GRAPH {dest= ("wr_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_state*")),
+							    src= Op.Address.addr (Op.Record.extract (Op.Array.extract (X.var "dydt", 0), iter_name^"_state"))})
+					 else NONE,
+					 if requiresMatrix then
+					     SOME (S.GRAPH {dest= ("internal_M", T.C"CDATAFORMAT*"),
+							    src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "mem")})
+					 else NONE,
+					 if reads_system class then 
+					     SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
+							    src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "system_states")})
+					 else NONE,
+					 SOME (S.GRAPH {dest= ("input_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_input*")),
+							src= Op.Address.addr (Op.Record.extract (Op.Array.extract (X.var "input", 0), iter_name^"_input"))}),
+					 SOME (S.GRAPH {dest= ("output_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_output*")),
+							src= Op.Address.addr (Op.Record.extract (Op.Array.extract (X.var "output", 0), iter_name^"_output"))})
+					]
+				else
+				    List.mapPartial
+					(fn x => x)
+					[if requiresMatrix then
+					     SOME (S.GRAPH {dest= ("internal_M", T.C"CDATAFORMAT*"),
+							    src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "mem")})
+					 else NONE,
+					 if reads_system class then 
+					     SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
+							    src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "system_states")})
+					 else NONE,
+					 SOME (S.GRAPH {dest= ("output_"^iter_name, T.C("CDATAFORMAT*")),
+							src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "od")})
+					]
 
-			    val od = A.Cast (A.Variable "props->od", T.C"CDATAFORMAT*")
+			    val states = 
+				if DynamoOptions.isFlagSet "x_irSPIL" then
+				    List.mapPartial
+					(fn x => x)
+					(if requiresMatrix then
+					     [if reads_iterator iter class then SOME (A.Variable ("rd_"^iter_name)) else NONE,
+					      SOME (A.Variable "internal_M"),
+					      SOME (A.Cast (A.Variable ("wr_"^iter_name), T.C"CDATAFORMAT*")),
+					      if reads_system class then SOME (A.Variable "sys_rd") else NONE]
+					 else
+					     [if reads_iterator iter class then SOME (A.Variable ("rd_"^iter_name)) else NONE,
+					      if writes_iterator iter class then SOME (A.Variable ("wr_"^iter_name)) else NONE,
+					      if reads_system class then SOME (A.Variable "sys_rd") else NONE])
+				else
+				    List.mapPartial 
+					(fn x => x)
+					(if requiresMatrix then
+					     [if reads_iterator iter class then SOME (A.Cast (A.Variable "y", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
+					      SOME (A.Variable "internal_M"),
+					      SOME (A.Variable "dydt"),
+					      if reads_system class then SOME (A.Variable "sys_rd") else NONE]
+					 else
+					     [if reads_iterator iter class then SOME (A.Cast (A.Variable "y", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
+					      if writes_iterator iter class then SOME (A.Cast (A.Variable "dydt", T.C("statedata_"^(Symbol.name basename)^"_"^iter_name^"*"))) else NONE,
+					      if reads_system class then SOME (A.Variable "sys_rd") else NONE]
+					)
+
+			    val inputs =
+				if DynamoOptions.isFlagSet "x_irSPIL" then
+				    A.Variable ("input_"^iter_name)
+				else
+				    A.Null
+
+			    val outputs =
+				A.Variable ("output_"^iter_name)
+
 			    val func_args =
-				    v(iterval :: states @ [A.Null, od, A.Variable "first_iteration", A.Variable "modelid"])
-			    val func_id = "flow_"^(Symbol.name top_class)
+				    v(iterval :: states @ [inputs, outputs, A.Variable "first_iteration", A.Variable "modelid"])
+			    val func_id = 
+				if DynamoOptions.isFlagSet "x_irSPIL" then
+				    "spil_flow_"^(Symbol.name top_class)
+				else
+				    "flow_"^(Symbol.name top_class)
 			in
 			    B.BLOCK
 				{label= "model_flows_iterator_case_"^iter_id,
 				 params= v[],
-				 body= v[],
+				 body= v(body),
 				 transfer=
 				 CC.CALL 
 				     {func= func_id,
@@ -3104,10 +3209,10 @@ fun model_flows shardedModel =
 	    B.BLOCK
 		{label= "model_flows_switch_iterator",
 		 params= v[],
-		 body= v[],
+		 body= v[S.GRAPH {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "iterator")}],
 		 transfer= 
 		 CC.SWITCH
-		     {test= A.Variable "props->iterator",
+		     {test= A.Variable "iter",
 		      default= "model_flows_switch_iterator_default",
 		      cases= v(map iterator_case iterators)
 		     }
@@ -3122,7 +3227,10 @@ fun model_flows shardedModel =
 		}
 
 	val params =
-	    v[("iterval", T.C"CDATAFORMAT"), ("y", T.C"CDATAFORMAT*"), ("dydt", T.C"CDATAFORMAT*"), ("props", T.C"solver_props*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")]
+	    if DynamoOptions.isFlagSet "x_irSPIL" then
+		v[("iterval", T.C"CDATAFORMAT"), ("y", T.C"union model_state*"), ("dydt", T.C"union model_state*"), ("input", T.C"union model_input*"), ("output", T.C"union model_output*"), ("props", T.C"solver_props*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")]
+	    else
+		v[("iterval", T.C"CDATAFORMAT"), ("y", T.C"CDATAFORMAT*"), ("dydt", T.C"CDATAFORMAT*"), ("props", T.C"solver_props*"), ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")]
 
 	val wrapper_function =
 	    if List.null iterators then

@@ -80,6 +80,10 @@ import "command_line.dsl"
         m.CFLAGS.push_back("-I" + simEngine + "/include/double")
       end
 
+      if settings.ir.x_irSPIL.getValue () then
+	m.CPPFLAGS.push_back("-DX_IR_SPIL")
+      end
+
       m.LDFLAGS.push_back("-L" + simEngine + "/lib")
 
       if "darwin" == osLower then

@@ -9,6 +9,7 @@ structure Defs = BinarySetFn(type ord_key = ident * Type.t val compare = fn ((a,
 
 
 fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
+val v = Vector.fromList
 
 
 datatype immediate 
@@ -106,18 +107,15 @@ datatype atom
        | Range_range
        | Array_array
        | Array_extract
-       | Array_insert
        | Vector_extract
-       | Vector_insert
        | Matrix_dense
        | Matrix_banded
        | Record_record
        | Record_extract
-       | Record_insert
        | Random_uniform
        | Random_normal
-       | Cell_ref
-       | Cell_deref
+       | Address_addr
+       | Address_deref
        | Sim_if
        | Sim_input
        | Sim_output
@@ -194,7 +192,19 @@ val rec uses =
 end
 
 structure Operator = struct
+datatype expression = datatype expression
 datatype t = datatype operator
+
+structure Record = struct
+fun extract (expr, field) = Apply {oper= Record_extract, args= v[expr, Value (Symbol field)]}
+end
+structure Array = struct
+fun extract (expr, index) = Apply {oper= Array_extract, args= v[expr, Value (Literal (Int index))]}
+end
+structure Address = struct
+fun addr expr = Apply {oper= Address_addr, args= v[expr]}
+fun deref expr = Apply {oper= Address_deref, args= v[expr]}
+end
 
 val name =
  fn Int_add => "Int_add"
@@ -242,18 +252,14 @@ val name =
   | Range_range => "Range_range"
   | Array_array => "Array_array"
   | Array_extract => "Array_extract"
-  | Array_insert => "Array_insert"
   | Vector_extract => "Vector_extract"
-  | Vector_insert => "Vector_insert"
   | Matrix_dense => "Matrix_dense"
   | Matrix_banded => "Matrix_banded"
   | Record_record => "Record_record"
   | Record_extract => "Record_extract"
-  | Record_insert => "Record_insert"
   | Random_uniform => "Random_uniform"
   | Random_normal => "Random_normal"
-  | Cell_ref => "Cell_ref"
-  | Cell_deref => "Cell_deref"
+  | Address_addr => "Address_addr"
   | Sim_if => "Sim_if"
   | Sim_input => "Sim_input"
   | Sim_output => "Sim_output"
@@ -265,6 +271,8 @@ structure Expression = struct
 datatype t = datatype expression
 datatype atom = datatype atom
 datatype operator = datatype operator
+
+fun var ident = Value (Variable ident)
 
 local open Uses in
 val rec uses =
@@ -313,6 +321,23 @@ end
 structure Control = struct
 datatype t = datatype control
 datatype atom = datatype atom
+
+local open Uses in
+val rec uses =
+ fn CALL {args, return, ...} =>
+    List.foldl
+	(fn (SOME id, set) => add (set, id) | (NONE, set) => set)
+	(if Option.isSome return then uses (Option.valOf return) else empty)
+	(vec Atom.uses args)
+  | JUMP {args, ...} =>
+    List.foldl
+	(fn (SOME id, set) => add (set, id) | (NONE, set) => set)
+	empty (vec Atom.uses args)
+  | SWITCH {test, ...} =>
+    (case Atom.uses test of SOME id => singleton id | NONE => empty)
+  | RETURN atom =>
+    (case Atom.uses atom of SOME id => singleton id | NONE => empty)
+end
 end
 
 structure Block = struct
@@ -333,20 +358,22 @@ fun foldBody f id (BLOCK {body, ...}) =
 fun name (BLOCK {label, ...}) = label
 
 local open Defs in
-fun defs block 
+fun defs block
   = foldBody
 	(fn (stm, set) =>
 	    case Statement.defs stm
 	     of SOME dest => add (set, dest)
 	      | NONE => set)
-	(foldParams add' empty block) block
+	(foldParams add' empty block) 
+	block
 end
 
 local open Uses in
-fun uses block
+fun uses (block as BLOCK {transfer, ...})
   = foldBody
 	(fn (stm, set) => union (set, (Statement.uses stm)))
-	empty block
+	(Control.uses transfer)
+	block
 end
 
 local open Free in

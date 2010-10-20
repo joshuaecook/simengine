@@ -50,7 +50,33 @@ int linearbackwardeuler_init(solver_props *props){
 
   return 0;
 }
+#if defined X_IR_SPIL
+__DEVICE__
+int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
+  CDATAFORMAT* M = (CDATAFORMAT *)props->mem;
+  CDATAFORMAT *b = (CDATAFORMAT *)props->next_states;
+  linearbackwardeuler_opts *opts = (linearbackwardeuler_opts*)&props->opts;
 
+  // Produce the matrix M and vector b
+  int ret = model_flows(props->time[modelid], props->model_states, props->next_states, props->model_inputs, props->model_outputs, props, 1, modelid);
+
+  // Run the specified linear solver
+  switch(opts->lsolver){
+  case LSOLVER_DENSE:
+    lsolver_dense(props->statesize, M, b, PARALLEL_MODELS, modelid);
+    break;
+  case LSOLVER_BANDED:
+    lsolver_banded(props->statesize, opts->lowerhalfbw, opts->upperhalfbw, M, b, PARALLEL_MODELS, modelid);
+    break;
+  default:
+    return 1;
+  }
+
+  props->next_time[modelid] += props->timestep;
+
+  return ret;
+}
+#else
 __DEVICE__
 int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
   CDATAFORMAT* M = (CDATAFORMAT *)props->mem;
@@ -75,6 +101,7 @@ int linearbackwardeuler_eval(solver_props *props, unsigned int modelid){
 
   return ret;
 }
+#endif
 
 __HOST__
 int linearbackwardeuler_free(solver_props *props){
