@@ -199,7 +199,7 @@ structure Record = struct
 fun extract (expr, field) = Apply {oper= Record_extract, args= v[expr, Value (Symbol field)]}
 end
 structure Array = struct
-fun extract (expr, index) = Apply {oper= Array_extract, args= v[expr, Value (Literal (Int index))]}
+fun extract (expr, index) = Apply {oper= Array_extract, args= v[expr, index]}
 end
 structure Address = struct
 fun addr expr = Apply {oper= Address_addr, args= v[expr]}

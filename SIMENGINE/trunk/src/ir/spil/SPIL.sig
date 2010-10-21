@@ -161,7 +161,7 @@ signature SPIL = sig
 	    val extract: expression * ident -> expression
 	end
 	structure Array: sig
-	    val extract: expression * int -> expression
+	    val extract: expression * expression -> expression
 	end
 	structure Address: sig
 	    val addr: expression -> expression
