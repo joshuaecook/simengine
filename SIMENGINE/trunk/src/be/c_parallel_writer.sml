@@ -1394,7 +1394,7 @@ fun algebraic_wrapper kind shardedModel iterators =
 	    B.BLOCK
 		{label= name^"_switch_iterator",
 		 params= v[],
-		 body= v[S.GRAPH {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "iterator")}],
+		 body= v[S.GRAPH {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Address.deref (X.var "props"), "iterator")}],
 		 transfer= 
 		 CC.SWITCH
 		     {test= A.Variable "iter",
@@ -3112,38 +3112,38 @@ fun model_flows shardedModel =
 					(fn x => x)
 					[if reads_iterator iter class then 
 					     SOME (S.GRAPH {dest= ("rd_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_state*")),
-							    src= Op.Address.addr (Op.Record.extract (Op.Array.extract (X.var "y", 0), iter_name^"_state"))})
+							    src= Op.Address.addr (Op.Record.extract (Op.Address.deref (X.var "y"), iter_name^"_state"))})
 					 else NONE,
 					 if writes_iterator iter class then
 					     SOME (S.GRAPH {dest= ("wr_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_state*")),
-							    src= Op.Address.addr (Op.Record.extract (Op.Array.extract (X.var "dydt", 0), iter_name^"_state"))})
+							    src= Op.Address.addr (Op.Record.extract (Op.Address.deref (X.var "dydt"), iter_name^"_state"))})
 					 else NONE,
 					 if requiresMatrix then
 					     SOME (S.GRAPH {dest= ("internal_M", T.C"CDATAFORMAT*"),
-							    src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "mem")})
+							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "mem")})
 					 else NONE,
 					 if reads_system class then 
 					     SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
-							    src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "system_states")})
+							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")})
 					 else NONE,
 					 SOME (S.GRAPH {dest= ("input_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_input*")),
-							src= Op.Address.addr (Op.Record.extract (Op.Array.extract (X.var "input", 0), iter_name^"_input"))}),
+							src= Op.Address.addr (Op.Record.extract (Op.Address.deref (X.var "input"), iter_name^"_input"))}),
 					 SOME (S.GRAPH {dest= ("output_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_output*")),
-							src= Op.Address.addr (Op.Record.extract (Op.Array.extract (X.var "output", 0), iter_name^"_output"))})
+							src= Op.Address.addr (Op.Record.extract (Op.Address.deref (X.var "output"), iter_name^"_output"))})
 					]
 				else
 				    List.mapPartial
 					(fn x => x)
 					[if requiresMatrix then
 					     SOME (S.GRAPH {dest= ("internal_M", T.C"CDATAFORMAT*"),
-							    src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "mem")})
+							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "mem")})
 					 else NONE,
 					 if reads_system class then 
 					     SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
-							    src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "system_states")})
+							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")})
 					 else NONE,
 					 SOME (S.GRAPH {dest= ("output_"^iter_name, T.C("CDATAFORMAT*")),
-							src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "od")})
+							src= Op.Record.extract (Op.Address.deref (X.var "props"), "od")})
 					]
 
 			    val states = 
@@ -3209,7 +3209,7 @@ fun model_flows shardedModel =
 	    B.BLOCK
 		{label= "model_flows_switch_iterator",
 		 params= v[],
-		 body= v[S.GRAPH {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Array.extract (X.var "props", 0), "iterator")}],
+		 body= v[S.GRAPH {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Address.deref (X.var "props"), "iterator")}],
 		 transfer= 
 		 CC.SWITCH
 		     {test= A.Variable "iter",
