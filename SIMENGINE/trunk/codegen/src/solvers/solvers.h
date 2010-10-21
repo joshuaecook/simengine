@@ -91,19 +91,22 @@ int init_states(solver_props *props, const unsigned int modelid);
 // Unsets the running flag if the solver would overstep the stop time
 // on the next iteration.
 // Return indicates when the last iteration has occurred.
-__DEVICE__ int solver_advance(solver_props *props, const unsigned int modelid){
-  props->last_iteration[modelid] = props->running[modelid];
-  props->running[modelid] = (props->next_time[modelid] < props->stoptime) &&
-    (props->next_time[modelid] + props->timestep <= props->stoptime);
-  props->last_iteration[modelid] ^= props->running[modelid];
+__DEVICE__ void solver_advance(CDATAFORMAT min_time, solver_props *props, const unsigned int modelid, int resuming){
+  int i;
+  for(i=0;i<NUM_ITERATORS;i++){
+    if(props[i].running[modelid] && (resuming && props[i].next_time[modelid] == min_time)){
+      props[i].last_iteration[modelid] = props[i].running[modelid];
+      props[i].running[modelid] = (props[i].next_time[modelid] < props[i].stoptime) &&
+	(props[i].next_time[modelid] + props[i].timestep <= props[i].stoptime);
+      props[i].last_iteration[modelid] ^= props[i].running[modelid];
 
-  // Update solver time to next value
-  props->time[modelid] = props->next_time[modelid];
+      // Update solver time to next value
+      props[i].time[modelid] = props[i].next_time[modelid];
 
-  // Now all solvers have a count field to keep track of the number of steps
-  props->count[modelid]++;
-
-  return props->last_iteration[modelid];
+      // Now all solvers have a count field to keep track of the number of steps
+      props[i].count[modelid]++;
+    }
+  }
 }
 
 __HOST__ __DEVICE__ void solver_writeback(solver_props *props, const unsigned int modelid){

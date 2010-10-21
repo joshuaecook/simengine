@@ -12,9 +12,6 @@
 #ifndef VECTOR_WIDTH
 #define VECTOR_WIDTH 32
 #endif
-#ifndef GPU_BLOCK_SIZE
-#define GPU_BLOCK_SIZE 128
-#endif
 #define BLOCK_WIDTH(MODELS) ((GPU_BLOCK_SIZE) < (MODELS) ? (CPU_BLOCK_SIZE) : (MODELS))
 #define GRID_WIDTH(MODELS) (((MODELS) + (GPU_BLOCK_SIZE) - 1) / (CPU_BLOCK_SIZE))
 #define __DEVICE__ __device__

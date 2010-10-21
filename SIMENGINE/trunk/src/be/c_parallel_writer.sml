@@ -3142,7 +3142,7 @@ fun model_flows shardedModel =
 					     SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
 							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")})
 					 else NONE,
-					 SOME (S.GRAPH {dest= ("output_"^iter_name, T.C("CDATAFORMAT*")),
+					 SOME (S.GRAPH {dest= ("output_"^iter_name, T.C("void*")),
 							src= Op.Record.extract (Op.Address.deref (X.var "props"), "od")})
 					]
 
@@ -3180,7 +3180,7 @@ fun model_flows shardedModel =
 				    A.Null
 
 			    val outputs =
-				A.Variable ("output_"^iter_name)
+				A.Cast (A.Variable ("output_"^iter_name), T.C"CDATAFORMAT*")
 
 			    val func_args =
 				    v(iterval :: states @ [inputs, outputs, A.Variable "first_iteration", A.Variable "modelid"])
