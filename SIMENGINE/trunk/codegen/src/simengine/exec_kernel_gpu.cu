@@ -128,12 +128,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int 
     }
 
     // Advance the iterator.
-    for(i=0;i<NUM_ITERATORS;i++){
-      if(props[i].running[modelid] && props[i].next_time[modelid] == min_time) {
-	// Now time == next_time
-	solver_advance(&props[i], modelid);
-      }
-    }
+    solver_advance(min_time,props,modelid,resuming);
     for(i=0;i<NUM_ITERATORS;i++){
       if (dirty_states[i * PARALLEL_MODELS + modelid] && props[i].next_time[modelid] == min_time) {
 	solver_writeback(&props[i], modelid);
