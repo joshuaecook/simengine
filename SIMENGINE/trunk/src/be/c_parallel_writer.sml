@@ -1355,16 +1355,22 @@ fun algebraic_wrapper kind shardedModel iterators =
 							   | POSTPROCESS => Op.Array.extract (Op.Record.extract (Op.Address.deref (X.var "props"), "next_time"), X.var "modelid")
 							   | _ => Op.Array.extract (Op.Record.extract (Op.Address.deref (X.var "props"), "time"), X.var "modelid")}),
 				     if reads_iterator iter class then 
-					 SOME (S.GRAPH {dest= ("rd_"^(Symbol.name iter_name), T.C("CDATAFORMAT*")),
-							src= case kind
-							      of UPDATE => Op.Record.extract (Op.Address.deref (X.var "props"), "model_states")
-							       | _ => Op.Record.extract (Op.Address.deref (Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")), "states_"^(Symbol.name iter_name))})
+					 case kind
+					  of UPDATE =>
+					     SOME (S.GRAPH {dest= ("rd_"^(Symbol.name iter_name), T.C("CDATAFORMAT*")),
+							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "model_states")})
+					   | _ => 
+					     SOME (S.GRAPH {dest= ("rd_"^(Symbol.name iter_name), T.C("statedata_"^basename_iter^"*")),
+							    src= Op.Record.extract (Op.Address.deref (Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")), "states_"^(Symbol.name iter_name))})
 				     else NONE,
-				     if reads_iterator iter class then 
-					 SOME (S.GRAPH {dest= ("wr_"^(Symbol.name iter_name), T.C("CDATAFORMAT*")),
-							src= case kind
-							      of UPDATE => Op.Record.extract (Op.Address.deref (X.var "props"), "next_states")
-							       | _ => Op.Record.extract (Op.Address.deref (Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")), "states_"^(Symbol.name iter_name)^"_next")})
+				     if writes_iterator iter class then 
+					 case kind
+					  of UPDATE =>
+					     SOME (S.GRAPH {dest= ("wr_"^(Symbol.name iter_name), T.C("CDATAFORMAT*")),
+							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "next_states")})
+					   | _ => 
+					     SOME (S.GRAPH {dest= ("wr_"^(Symbol.name iter_name), T.C("statedata_"^basename_iter^"*")),
+							    src= Op.Record.extract (Op.Address.deref (Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")), "states_"^(Symbol.name iter_name)^"_next")})
 				     else NONE,
 				     if reads_system class then 
 					 SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
@@ -1379,8 +1385,8 @@ fun algebraic_wrapper kind shardedModel iterators =
 			    val states = 
 				List.mapPartial 
 				    (fn x => x)
-				    [if reads_iterator iter class then SOME (A.Cast (A.Variable ("rd_"^(Symbol.name iter_name)), T.C("statedata_"^basename_iter^"*"))) else NONE,
-				     if writes_iterator iter class then SOME (A.Cast (A.Variable ("wr_"^(Symbol.name iter_name)), T.C("statedata_"^basename_iter^"*"))) else NONE,
+				    [if reads_iterator iter class then case kind of UPDATE => SOME (A.Cast (A.Variable ("rd_"^(Symbol.name iter_name)), T.C("statedata_"^basename_iter^"*"))) | _ => SOME (A.Variable ("rd_"^(Symbol.name iter_name))) else NONE,
+				     if writes_iterator iter class then case kind of UPDATE => SOME (A.Cast (A.Variable ("wr_"^(Symbol.name iter_name)), T.C("statedata_"^basename_iter^"*"))) | _ => SOME (A.Variable ("wr_"^(Symbol.name iter_name))) else NONE,
 				     if reads_system class then SOME (A.Variable "sys_rd") else NONE]
 
 			    val od = 
