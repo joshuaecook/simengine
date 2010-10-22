@@ -136,6 +136,10 @@ classdef Exp
                 elseif isnumeric(v)
                     e.type = e.LITERAL;
                     e.dims = size(v);
+                elseif islogical(v)
+                    e.type = e.LITERAL;
+                    e.dims = size(v);
+                    e.val = v * 1; % promote logical to numeric
                 elseif isa(v, 'Exp')
                     e = v;
                 elseif isa(v, 'Iterator')
@@ -593,23 +597,37 @@ classdef Exp
             ss = s(1);
             switch e.type
              case {e.VARIABLE, e.REFERENCE}
-              temp = subsref(e.indices, ss);
-              er = Exp(e.val, size(temp));
-              er.type = e.type;
-              er.inst = e.inst;
-              er.indices = temp;
-              er.derived = true;
-             case e.LITERAL,
               if isa(ss.subs, 'Iterator') || isa(ss.subs, 'IteratorReference')
                 er = e;
                 er.iterReference = ss.subs.toReference;
               elseif isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
-                ss.subs = ss.subs(2:end);
-                er = Exp(subsref(e.val, ss));
-                er.iterReference = ss.subs{1}.toReference;
+                iref = ss.subs{1}.toReference;
+                if length(ss.subs) > 1
+                  ss.subs = ss.subs(2:end);
+                  er = Exp(subsref(e.val, ss));
+                else
+                  er = e;
+                end
+                er.iterReference = iref;
               else
-                er = Exp(subsref(e.val, ss));
+                temp = subsref(e.indices, ss);
+                er = Exp(e.val, size(temp));
+                er.type = e.type;
+                er.inst = e.inst;
+                er.indices = temp;
+                er.derived = true;
               end
+             case e.LITERAL,
+              %if isa(ss.subs, 'Iterator') || isa(ss.subs, 'IteratorReference')
+              %  er = e;
+              %  er.iterReference = ss.subs.toReference;
+              %elseif isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
+              %  ss.subs = ss.subs(2:end);
+              %  er = Exp(subsref(e.val, ss));
+              %  er.iterReference = ss.subs{1}.toReference;
+              %else
+                er = Exp(subsref(e.val, ss));
+              %end
              case e.ITERATOR,
               error('Simatra:Exp:subsref', 'Can not index Exp.ITERATOR.');
              case e.OPERATION,
@@ -619,10 +637,10 @@ classdef Exp
               else
                 args = cell(size(e.args));
                 if isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
+                  iref = ss.subs{1}.toReference;
                   ss.subs = ss.subs(2:end);
                   for i = 1:numel(e.args)
-                    if (length(e.dims ~=2) || all(e.dims ~= [1 1])) && ...
-                          length(e.args{i}.dims) == 2 && all(e.args{i}.dims == [1 1])
+                    if ~isequal(e.dims, [1 1]) && isequal(e.args{i}.dims, [1 1])
                       % If the operation Exp is multidimensional but
                       % an argument Exp is singular, pass on the
                       % singular argument.  This is valid.
@@ -633,7 +651,7 @@ classdef Exp
                     end
                   end
                   er = oper(e.op, args);
-                  er.iterReference = ss.subs{1}.toReference;
+                  er.iterReference = iref;
                 else
                   for i = 1:numel(e.args)
                     if (length(e.dims ~= 2) || all(e.dims ~= [1 1])) && ...
@@ -741,7 +759,7 @@ classdef Exp
         function s = toMatStr(e)
             if isempty(e.type)
                 e.val
-                error('Simatra:Exp:toStr', 'Unexpected empty expression type')
+                error('Simatra:Exp:toMatStr', 'Unexpected empty expression type')
             end
 
             switch e.type
@@ -766,7 +784,7 @@ classdef Exp
                       s = [e.inst '.' e.val];
                     end
                     if isa(e.iterReference, 'IteratorReference')
-                        s = [s '[' e.iterReference.toStr ']'];
+                        s = [s '[' e.iterReference.toMatStr ']'];
                     end
                 case e.ITERATOR
                     s = e.val;
@@ -780,23 +798,23 @@ classdef Exp
                     arguments = e.args;
                     if strcmp(e.op, 'piecewise')
                         if length(arguments) == 1
-                            s = toStr(arguments{1});
+                            s = toMatStr(arguments{1});
                         else
                             s = 'piecewise(';
                             for i=1:2:(length(arguments)-1);
-                                s = [s toStr(arguments{i}) ', ' toStr(arguments{i+1}) ', '];
+                                s = [s toMatStr(arguments{i}) ', ' toMatStr(arguments{i+1}) ', '];
                             end
-                            s = [s  toStr(arguments{end})];
+                            s = [s  toMatStr(arguments{end})];
                         end
                     else
                         if length(arguments) == 1
-                            s = ['(' e.op '(' toStr(arguments{1}) '))'];
+                            s = ['(' e.op '(' toMatStr(arguments{1}) '))'];
                         elseif length(arguments) == 2
                             if e.notation == Exp.INFIX
-                                s = ['(' toStr(arguments{1}) e.op toStr(arguments{2}) ')'];
+                                s = ['(' toMatStr(arguments{1}) e.op toMatStr(arguments{2}) ')'];
                             else
                                 % treat by default as Exp.PREFIX
-                                s = ['(' e.op '(' toStr(arguments{1}) ', ' toStr(arguments{2}) '))'];
+                                s = ['(' e.op '(' toMatStr(arguments{1}) ', ' toMatStr(arguments{2}) '))'];
                             end
                         end
                     end
@@ -853,7 +871,7 @@ classdef Exp
                             s = ['(' e.op '(' toDslStr(arguments{1}) '))'];
                         elseif length(arguments) == 2
                             if e.notation == Exp.INFIX
-                                s = ['(' toDslStr(arguments{1}) e.op toDslStr(arguments{2}) ')'];
+                              s = ['(' toDslStr(arguments{1}) e.op toDslStr(arguments{2}) ')'];
                             else
                                 % treat by default as Exp.PREFIX
                                 s = ['(' e.op '(' toDslStr(arguments{1}) ', ' toDslStr(arguments{2}) '))'];
@@ -879,7 +897,7 @@ classdef Exp
             
         
         function disp(e)
-            disp(['Expression: ' toMatStr(e)]);
+            disp(['Expression: ' toDslStr(e)]);
         end
     end
     

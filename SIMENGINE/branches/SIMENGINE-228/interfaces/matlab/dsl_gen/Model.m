@@ -338,13 +338,13 @@ classdef Model < handle
                 if identifier_exists(m, id)
                     error('Simatra:Model:input', ['Input ' id ' already exists']);
                 end
-                e = Exp(id);
-                s = struct('default', nan, 'exhausted', false, 'iterator', false);
+                s = struct('default', nan, 'exhausted', false, 'iterator', false, 'dims', [1 1]);
                 args = varargin;
                 i = 1;
                 while ~isempty(args)
                     if i == 1 && isnumeric(args{1})
                         s.default = args{1};
+                        s.dims = size(s.default);
                         i = i+1;
                     elseif ischar(args{1})
                         switch (args{1})
@@ -386,6 +386,7 @@ classdef Model < handle
                 elseif ~ischar(s.exhausted)
                     s.exhausted = 'hold';
                 end
+                e = Exp(id, s.dims);
                 m.Inputs(id) = s;
 
             elseif isa(id, 'Instance')
@@ -719,7 +720,7 @@ classdef Model < handle
                 lhs = Exp(lhsstr, size(rhs));
             else
                 if isa(lhs, 'Exp')
-                    lhsstr = toId(lhs);
+                    lhsstr = tempname; %toId(lhs); FIXME - can't use toStr for everything
                 elseif ischar(lhs)
                     lhsstr = lhs;
                     lhs = Exp(lhs, size(rhs));
@@ -771,8 +772,8 @@ classdef Model < handle
                 error('Simatra:Model:update', 'State variable must be an expression type');
             elseif ~isa(value, 'Exp') && ~isnumeric(value) || ~isequal(size(value), size(lhs)) && ~isequal(size(value), [1 1])
                 error('Simatra:Model:update', 'Value assigned in update must be an expression type of single value or matching dimensions');
-            elseif ~isa(condition, 'Exp') && ~isnumeric(condition) || ~isequal(size(condition), [1 1])
-                error('Simatra:Model:update', 'Condition tested in update must be a single valued expression type');
+            elseif (~isa(condition, 'Exp') && ~isnumeric(condition)) || (~isequal(size(condition), [1 1]) && ~isequal(size(condition), size(lhs)))
+                error('Simatra:Model:update', 'Condition tested in update must be a single valued or match dimensions of the update equation lhs.');
             elseif ~strcmpi(whenstr, 'when')
                 error('Simatra:Model:update', 'Incorrect usage - see help Model/update for info');
             elseif ~m.States.isKey(toStr(lhs))
@@ -1197,15 +1198,29 @@ classdef Model < handle
             fprintf(fid, '   // Input definitions\n');
             for i=1:length(inputs)
                 input = m.Inputs(inputs{i});
-                attributes = ' with {';
-                if isfinite(input.default)
-                    attributes = [attributes 'default=' toStr(input.default) ', '];
-                end
                 if isa(input.iterator, 'Iterator')
-                    attributes = [attributes 'iter=' toStr(input.iterator.id) ', '];
-                end 
-                attributes = [attributes input.exhausted '_when_exhausted}'];
-                fprintf(fid, ['   input ' inputs{i} attributes '\n']);
+                  iterator = ['iter=' toStr(input.iterator.id) ', '];
+                else
+                  iterator = '';
+                end
+                inputsize = prod(input.dims);
+                if inputsize > 1
+                  for j = 1:inputsize
+                    if isfinite(input.default(j))
+                      default = ['default=' toStr(input.default(j)) ', '];
+                    else
+                      default = '';
+                    end
+                    fprintf(fid, ['   input ' inputs{i} '_' num2str(j) ' with{' default iterator input.exhausted '_when_exhausted}\n']);
+                  end
+                else
+                  if isfinite(input.default)
+                    default = ['default=' toStr(input.default) ', '];
+                  else
+                    default = '';
+                  end
+                  fprintf(fid, ['   input ' inputs{i} ' with{' default iterator input.exhausted '_when_exhausted}\n']);
+                end
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // State definitions\n');
@@ -1215,13 +1230,18 @@ classdef Model < handle
                 if isa(state.iterator, 'Iterator')
                     iter_str = [' with {iter=' state.iterator.id '}'];
                 end
-                for j = 1:prod(state.dims)
-                  if isequal(size(state.init), [1 1])
-                    init = state.init;
-                  else
-                    init = state.init(j);
+                statesize = prod(state.dims);
+                if statesize > 1
+                  for j = 1:statesize
+                    if isequal(size(state.init), [1 1])
+                      sinit = state.init;
+                    else
+                      sinit = state.init(j);
+                    end
+                    fprintf(fid, ['   state ' states{i} '_' num2str(j) ' = ' toStr(sinit) iter_str '\n']);
                   end
-                  fprintf(fid, ['   state ' states{i} '_' num2str(j) ' = ' toStr(init) iter_str '\n']);
+                else
+                    fprintf(fid, ['   state ' states{i} ' = ' toStr(state.init) iter_str '\n']);
                 end
             end
             fprintf(fid, '\n');
@@ -1240,9 +1260,14 @@ classdef Model < handle
                                           state.mean, ...
                                           state.stddev);
                 end
-                for j = 1:prod(state.dims)
-                  fprintf(fid, ['   random ' randoms{i} '_' num2str(j) ' with {' iter_str ...
-                                parameter_str '}\n']);
+                statesize = prod(state.dims);
+                if statesize > 1
+                  for j = 1:statesize
+                    fprintf(fid, ['   random ' randoms{i} '_' num2str(j) ' with {' iter_str ...
+                                  parameter_str '}\n']);
+                  end
+                else
+                  fprintf(fid, ['   random ' randoms{i} ' with {' iter_str parameter_str '}\n']);
                 end
             end
             fprintf(fid, '\n');
@@ -1257,29 +1282,48 @@ classdef Model < handle
                 index = eqs{i};
                 equ = m.IntermediateEqs(index);
                 lhs = equ.lhs;
-                for j = 1:prod(size(lhs))
-                  if isfield(equ, 'rhs')
-                    if isequal(size(equ.rhs), [1 1])
-                      rhs = equ.rhs;
+                lhssize = prod(size(lhs));
+                if lhssize > 1
+                  for j = 1:lhssize
+                    if isfield(equ, 'rhs')
+                      if isequal(size(equ.rhs), [1 1])
+                        rhs = equ.rhs;
+                      else
+                        rhs = equ.rhs(j);
+                      end
+                      if isRef(lhs)
+                        fprintf(fid, ['   ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
+                      else
+                        fprintf(fid, ['   equation ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
+                      end
+                    elseif isfield(equ, 'value') && isfield(equ, 'condition')
+                      if isequal(size(equ.value), [1 1])
+                        value = equ.value;
+                      else
+                        value = equ.value(j);
+                      end
+                      if isequal(size(equ.condition), [1 1])
+                        condition = equ.condition;
+                      else
+                        condition = equ.condition(j);
+                      end
+                      fprintf(fid, ['   equation ' toStr(lhs(j)) ' = ' toStr(value) ' when ' toStr(condition) '\n']);
                     else
-                      rhs = equ.rhs(j);
+                      error('Simatra:Model:toStr', 'Unexpected equation form');
                     end
-                    if isRef(lhs)
-                      fprintf(fid, ['   ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
-                    else
-                      fprintf(fid, ['   equation ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
-                    end
-                  elseif isfield(equ, 'value') && isfield(equ, 'condition')
-                    if isequal(size(equ.value), [1 1])
-                      value = equ.value;
-                    else
-                      value = equ.value(j);
-                    end
-                    condition = equ.condition;
-                    fprintf(fid, ['   equation ' toStr(lhs(j)) ' = ' toStr(value) ' when ' toStr(condition) '\n']);
-                  else
-                    error('Simatra:Model:toStr', 'Unexpected equation form');
                   end
+                else
+                    if isfield(equ, 'rhs')
+                      if isRef(lhs)
+                        fprintf(fid, ['   ' toStr(lhs) ' = ' toStr(equ.rhs) '\n']);
+                      else
+                        fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(equ.rhs) '\n']);
+                      end
+                    elseif isfield(equ, 'value') && isfield(equ, 'condition')
+                      fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(equ.value) ' when ' toStr(equ.condition) '\n']);
+                    else
+                      error('Simatra:Model:toStr', 'Unexpected equation form');
+                    end
                 end
             end
             fprintf(fid, '\n');
@@ -1288,13 +1332,19 @@ classdef Model < handle
             for i=1:length(diffeqs)
                 lhsid = diffeqs{i};
                 lhs = m.DiffEqs(lhsid).lhs;
-                for j = 1:prod(size(lhs))
-                  if isequal(size(m.DiffEqs(lhsid).rhs), [1 1])
-                    rhs = m.DiffEqs(lhsid).rhs;
-                  else
-                    rhs = m.DiffEqs(lhsid).rhs(j);
+                lhssize = prod(size(lhs));
+                if lhssize > 1
+                  for j = 1:lhssize
+                    if isequal(size(m.DiffEqs(lhsid).rhs), [1 1])
+                      rhs = m.DiffEqs(lhsid).rhs;
+                    else
+                      rhs = m.DiffEqs(lhsid).rhs(j);
+                    end
+                    fprintf(fid, ['      ' toStr(lhs(j)) ''' = ' toStr(rhs) '\n']);
                   end
-                  fprintf(fid, ['      ' toStr(lhs(j)) ''' = ' toStr(rhs) '\n']);
+                else
+                  rhs = m.DiffEqs(lhsid).rhs;
+                  fprintf(fid, ['      ' toStr(lhs) ''' = ' toStr(rhs) '\n']);
                 end
             end
             fprintf(fid, '   end\n');
@@ -1304,13 +1354,19 @@ classdef Model < handle
             for i=1:length(recurrenceeqs)
               key = recurrenceeqs{i};
               lhs = m.RecurrenceEqs(key).lhs;
-              for j = 1:prod(size(lhs))
-                if isequal(size(rhs), [1 1])
-                  rhs = m.RecurrenceEqs(key).rhs;
-                else
-                  rhs = m.RecurrenceEqs(key).rhs(j);
+              lhssize = prod(size(lhs));
+              if lhssize > 1
+                for j = 1:prod(size(lhs))
+                  if isequal(size(rhs), [1 1])
+                    rhs = m.RecurrenceEqs(key).rhs;
+                  else
+                    rhs = m.RecurrenceEqs(key).rhs(j);
+                  end
+                  fprintf(fid, ['      ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
                 end
-                fprintf(fid, ['      ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
+              else
+                rhs = m.RecurrenceEqs(key).rhs;
+                fprintf(fid, ['      ' toStr(lhs) ' = ' toStr(rhs) '\n']);
               end
             end
             fprintf(fid, '   end\n');
@@ -1322,12 +1378,17 @@ classdef Model < handle
                 contents = output.contents;                
                 contentsStr = cell(1,length(contents));
                 for j=1:length(contents);
-                  subcontents = contents{j};
-                  subcontentsStr = cell(1, prod(size(subcontents)));
-                  for k = 1:prod(size(subcontents))
-                    subcontentsStr{k} = subcontents(k).toStr;
+                  subcontentssize = prod(size(contents{j}));
+                  if subcontentssize > 1
+                    subcontents = contents{j};
+                    subcontentsStr = cell(1, subcontentssize);
+                    for k = 1:subcontentssize
+                      subcontentsStr{k} = subcontents(k).toStr;
+                    end
+                    contentsStr{j} = concatWith(', ', subcontentsStr);
+                  else
+                    contentsStr{j} = toStr(contents{j});
                   end
-                  contentsStr{j} = concatWith(', ', subcontentsStr);
                 end
                 contentsList = ['(' concatWith(', ', contentsStr), ')'];
                 optcondition = '';
@@ -1508,12 +1569,13 @@ classdef Model < handle
             submodel_counts = containers.Map;
             insts = keys(m.Instances);
             for i=1:length(insts)
-                name = m.Instances(insts{i}).name;
-                if isKey(submodel_counts, name)
-                    submodel_counts(name) = submodel_counts(name) + 1;
-                else
-                    submodel_counts(name) = 1;
-                end
+              inst = m.Instances(insts{i});
+              name = inst.MdlName;
+              if isKey(submodel_counts, name)
+                submodel_counts(name) = submodel_counts(name) + prod(size(inst));
+              else
+                submodel_counts(name) = 1;
+              end
             end
             if isempty(insts)
                 disp(['  sub-models: <none>']);
