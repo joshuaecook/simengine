@@ -1,52 +1,52 @@
 // Run a single model to completion on a single processor core
-void exec_writeback (CDATAFORMAT min_time, solver_props *props, unsigned int *dirty_states, unsigned int modelid) {
+void exec_writeback (CDATAFORMAT min_time, solver_props *props, unsigned int modelid) {
   int i;
   for(i=0;i<NUM_ITERATORS;i++){
-    if (dirty_states[i] && props[i].time[modelid] == min_time) {
+    if (props[i].dirty_states[modelid] && props[i].time[modelid] == min_time) {
       solver_writeback(&props[i], modelid);
-      dirty_states[i] = 0;
+      props[i].dirty_states[modelid] = 0;
     }
   }
 }
 
-void exec_buffer_outputs (CDATAFORMAT min_time, solver_props *props, unsigned int *ready_outputs, unsigned int *dirty_states, unsigned int modelid, int resuming) {
+void exec_buffer_outputs (CDATAFORMAT min_time, solver_props *props, unsigned int modelid, int resuming) {
   int i;
   for(i=0;i<NUM_ITERATORS;i++){
-    if (ready_outputs[i]) {
+    if (props[i].ready_outputs[modelid]) {
 #if NUM_OUTPUTS > 0
       buffer_outputs(&props[i], modelid);
 #endif
-      ready_outputs[i] = 0;
+      props[i].ready_outputs[modelid] = 0;
     }
-    if (dirty_states[i] && (resuming && props[i].next_time[modelid] == min_time)) {
+    if (resuming && props[i].dirty_states[modelid] && props[i].next_time[modelid] == min_time) {
       solver_writeback(&props[i], modelid);
-      dirty_states[i] = 0;
+      props[i].dirty_states[modelid] = 0;
     }
   }
 }
 
-void exec_update_and_postprocess (CDATAFORMAT min_time, solver_props *props, unsigned int *dirty_states, unsigned int modelid, int resuming) {
+void exec_update_and_postprocess (CDATAFORMAT min_time, solver_props *props, unsigned int modelid, int resuming) {
   int i;
   for(i=0;i<NUM_ITERATORS;i++){
     if(props[i].running[modelid] && (!resuming || props[i].next_time[modelid] == min_time)){
-      dirty_states[i] = 0 == update(&props[i], modelid);
+      props[i].dirty_states[modelid] = 0 == update(&props[i], modelid);
     }	  
     if(props[i].running[modelid] && (resuming && props[i].next_time[modelid] == min_time)){
-      dirty_states[i] |= 0 == post_process(&props[i], modelid);
+      props[i].dirty_states[modelid] |= 0 == post_process(&props[i], modelid);
     }
   }
 }
 
-void exec_preprocess (CDATAFORMAT min_time, solver_props *props, unsigned int *dirty_states, unsigned int modelid) {
+void exec_preprocess (CDATAFORMAT min_time, solver_props *props, unsigned int modelid) {
   int i;
   for(i=0;i<NUM_ITERATORS;i++){
     if(props[i].running[modelid] && props[i].time[modelid] == min_time){
-      dirty_states[i] = 0 == pre_process(&props[i], modelid);
+      props[i].dirty_states[modelid] = 0 == pre_process(&props[i], modelid);
     }
   }
 }
 
-int exec_solver_and_inprocess (CDATAFORMAT min_time, solver_props *props, unsigned int *ready_outputs, unsigned int *dirty_states, unsigned int modelid) {
+int exec_solver_and_inprocess (CDATAFORMAT min_time, solver_props *props, unsigned int modelid) {
   int i;
   for(i=0;i<NUM_ITERATORS;i++){
     if(props[i].running[modelid] && props[i].time[modelid] == min_time){
@@ -54,8 +54,8 @@ int exec_solver_and_inprocess (CDATAFORMAT min_time, solver_props *props, unsign
 	return ERRCOMP;
       }
       // Now next_time == time + dt
-      dirty_states[i] = 1;
-      ready_outputs[i] = 1;
+      props[i].dirty_states[modelid] = 1;
+      props[i].ready_outputs[modelid] = 1;
       // Run any in-process algebraic evaluations
       in_process(&props[i], modelid);
     }
@@ -93,14 +93,14 @@ void exec_final_outputs (solver_props *props, unsigned int modelid) {
 int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress, unsigned int modelid, int resuming){
   unsigned int i;
   CDATAFORMAT min_time;
-  unsigned int dirty_states[NUM_ITERATORS] = {0};
-  unsigned int ready_outputs[NUM_ITERATORS] = {0};
   int inputs_available = 1;
   unsigned int iterid = NUM_ITERATORS - 1;
 
   // Initialize all iterators to running
   for(i=0;i<NUM_ITERATORS;i++){
     props[i].running[modelid] = 1;
+    props[i].dirty_states[modelid] = 0;
+    props[i].ready_outputs[modelid] = 0;
   }
 
   // Initialize a temporary output buffer
@@ -130,7 +130,7 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
     // Inputs: in[t] = f(x[t],out[t])
 
     // Buffer any available outputs
-    exec_buffer_outputs(min_time,props,ready_outputs,dirty_states,modelid,resuming);
+    exec_buffer_outputs(min_time,props,modelid,resuming);
 
 #if NUM_OUTPUTS > 0
     // Log outputs if the buffer is full
@@ -148,12 +148,12 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
 
     // Update and postprocess phase: x[t+dt] = f(x[t+dt])
     // Update occurs before the first iteration and after every subsequent iteration.
-    exec_update_and_postprocess(min_time,props,dirty_states,modelid,resuming);
+    exec_update_and_postprocess(min_time,props,modelid,resuming);
 
     // Advance the iterator.
     solver_advance(min_time,props,modelid,resuming);
 
-    exec_writeback(min_time,props,dirty_states,modelid);
+    exec_writeback(min_time,props,modelid);
 
     // Capture outputs for final iteration
     exec_final_outputs(props,modelid);
@@ -167,13 +167,13 @@ int exec_cpu(solver_props *props, const char *outputs_dirname, double *progress,
     resuming = 1;
 
     // Preprocess phase: x[t] = f(x[t])
-    exec_preprocess(min_time,props,dirty_states,modelid);
+    exec_preprocess(min_time,props,modelid);
 
-    exec_writeback(min_time,props,dirty_states,modelid);
+    exec_writeback(min_time,props,modelid);
 
     // Main solver evaluation phase, including inprocess.
     // x[t+dt] = f(x[t])
-    if (SUCCESS != exec_solver_and_inprocess(min_time, props, ready_outputs, dirty_states, modelid)) {
+    if (SUCCESS != exec_solver_and_inprocess(min_time, props, modelid)) {
       return ERRCOMP;
     }
   }
