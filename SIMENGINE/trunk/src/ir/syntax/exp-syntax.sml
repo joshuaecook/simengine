@@ -27,6 +27,9 @@ fun toJSON (Exp.FUN (operator, operands)) =
     JSONTypedObject ("Exp.META", metaToJSON meta)
   | toJSON (Exp.CONTAINER container) = 
     JSONTypedObject ("Exp.CONTAINER", containerToJSON container)
+  | toJSON (Exp.SUBREF (operand, subspace)) =
+    JSONTypedObject ("Exp.SUBREF", object [("operand", toJSON operand),
+					   ("subspace", Space.subspaceToJSON subspace)])
 
 and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
   | termToJSON (Exp.REAL r) = JSONTypedObject ("Exp.REAL", real r)
@@ -37,7 +40,7 @@ and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
   | termToJSON (Exp.RATIONAL (num, denom)) =
     JSONTypedObject ("Exp.RATIONAL", 
 		     object [("numerator", int num), ("denominator", int num)])
-  | termToJSON (Exp.RANDOM typ) =
+  | termToJSON (Exp.RANDOM (typ, space)) =
     JSONTypedObject ("Exp.RANDOM",
 		     case typ 
 		      of Exp.UNIFORM => JSONType "Exp.RANDOM"

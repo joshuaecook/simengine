@@ -38,6 +38,7 @@ fun level (exp) =
 		  (Matrix.toRows m)
 	   | Matrix.BANDED {data,calculus,...} =>
 	     (#zero calculus)::(map Container.arrayToExpArray data))
+       | Exp.SUBREF (exp, space) => [exp]
       | _ => [])
     handle e => DynException.checkpoint ("ExpTraverse.level ["^(e2s exp)^"]") e
 
@@ -102,6 +103,9 @@ fun head (exp) =
 			    Exp.CONTAINER (Exp.MATRIX (ref (Matrix.DENSE {data=data', calculus=calculus})))
 			end
 		  | _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [Banded Matrix]", Logger.INTERNAL)))
+      | Exp.SUBREF (exp, space) => (fn(all_args) => case all_args of
+							[onearg] => Exp.SUBREF (exp, space)
+						      | _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [SUBREF]", Logger.INTERNAL))
       | _ => (fn(args') => exp))
     handle e => DynException.checkpoint ("ExpTraverse.head ["^(e2s exp)^"]") e
 

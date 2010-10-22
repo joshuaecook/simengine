@@ -28,7 +28,7 @@ fun generate_props {name, num_inputs} : MathFunctionProperties.op_props =
 	 C=(funname, MathFunctionProperties.PREFIX),
 	 mathematica=(funname, MathFunctionProperties.PREFIX),
 	 expcost=0, (* need to work on this ... *)
-	 codomain=fn(_) => [1]} (*TODO: ??? *)
+	 codomain=fn(_) => Space.scalar} (*TODO: ??? *)
     end
     handle e => DynException.checkpoint "Inst.inst2props" e
 

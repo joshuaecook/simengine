@@ -48,6 +48,7 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	    end
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
+	  | useParen (Exp.SUBREF _) = false
 
 	fun addParen ("", exp) = 
 	    ""
@@ -97,8 +98,8 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN"
-       | Exp.RANDOM Exp.UNIFORM => "UniformRand"
-       | Exp.RANDOM Exp.NORMAL => "NormalRand"
+       | Exp.RANDOM (Exp.UNIFORM, space) => "UniformRand"
+       | Exp.RANDOM (Exp.NORMAL, space) => "NormalRand"
        | Exp.PATTERN p => PatternProcess.pattern2str p)
   | exp2tersestr pretty (Exp.META meta) =
     (case meta of 
@@ -121,6 +122,13 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	     "}"
 	   | Exp.MATRIX m => "("^(Matrix.infoString m)^")[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ "]"
     end
+  | exp2tersestr pretty (Exp.SUBREF (exp', subspace)) = 
+    let
+	val interval = Space.subspaceToStr subspace
+    in
+	exp2tersestr pretty exp' ^ interval
+    end
+    
 
 local
 open Layout
@@ -167,6 +175,7 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 	    end
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
+	  | useParen (Exp.SUBREF _) = false
 
 	fun addParen (layout, exp) =
 	    if isEmpty layout then
@@ -236,8 +245,8 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
        | Exp.DONTCARE => s2l "?"
        | Exp.INFINITY => s2l "Inf"
        | Exp.NAN => s2l "NaN"
-       | Exp.RANDOM Exp.UNIFORM => s2l "UniformRand"
-       | Exp.RANDOM Exp.NORMAL => s2l "NormalRand"
+       | Exp.RANDOM (Exp.UNIFORM, space) => s2l "UniformRand"
+       | Exp.RANDOM (Exp.NORMAL, space) => s2l "NormalRand"
        | Exp.PATTERN p => s2l (PatternProcess.pattern2str p))
   | exp2terselayout pretty (Exp.META meta) =
     (case meta of 
@@ -251,19 +260,26 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 	      paren (exp2terselayout pretty arg)]
        | _ => s2l "<unresolved-meta>")
   | exp2terselayout pretty (Exp.CONTAINER container) =
-    case container of
-	Exp.EXPLIST e => 
-	curlyList (map (exp2terselayout pretty) e)
-      | Exp.ARRAY v => bracket (commas_seq (map (exp2terselayout pretty) (Container.arrayToList v)))
-      | Exp.ASSOC t => 
-	record (ListPair.mapEq
-		    (fn (k,v) => (Symbol.name k, exp2terselayout pretty v))
-		    (SymbolTable.listKeys t, SymbolTable.listItems t))
-      | Exp.MATRIX m => 
-	seq [paren (s2l (Matrix.infoString m)),
-	     indent (bracket (align (map 
-					 ((exp2terselayout pretty) o Exp.CONTAINER o Exp.ARRAY) 
-					 (Matrix.toRows m))), 2)]
+    (case container of
+	 Exp.EXPLIST e => 
+	 curlyList (map (exp2terselayout pretty) e)
+       | Exp.ARRAY v => bracket (commas_seq (map (exp2terselayout pretty) (Container.arrayToList v)))
+       | Exp.ASSOC t => 
+	 record (ListPair.mapEq
+		     (fn (k,v) => (Symbol.name k, exp2terselayout pretty v))
+		     (SymbolTable.listKeys t, SymbolTable.listItems t))
+       | Exp.MATRIX m => 
+	 seq [paren (s2l (Matrix.infoString m)),
+	      indent (bracket (align (map 
+					  ((exp2terselayout pretty) o Exp.CONTAINER o Exp.ARRAY) 
+					  (Matrix.toRows m))), 2)])
+  | exp2terselayout pretty (Exp.SUBREF (exp', subspace)) = 
+    let
+	val interval = Space.subspaceToLayout subspace
+    in
+	seq [exp2terselayout pretty exp', interval]
+    end
+
 end
 
 fun exp2fullstr (Exp.FUN (f, exps)) = 
@@ -292,6 +308,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
+	  | useParen (Exp.SUBREF _) = false
 
 	fun addParen (str, exp) = 
 	    if hd (String.explode str) = #"-" then
@@ -334,8 +351,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
        | Exp.DONTCARE => "?"
        | Exp.INFINITY => "Inf"
        | Exp.NAN => "NaN" 
-       | Exp.RANDOM Exp.UNIFORM => "UniformRandom"
-       | Exp.RANDOM Exp.NORMAL => "NormalRandom"
+       | Exp.RANDOM (Exp.UNIFORM, space) => "UniformRandom"
+       | Exp.RANDOM (Exp.NORMAL, space) => "NormalRandom"
        | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")")
   | exp2fullstr (Exp.META meta) =
     (case meta of 
@@ -373,6 +390,13 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	       | Matrix.BANDED _ => 
 		 "BandedMatrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ ")"
     end
+  | exp2fullstr (Exp.SUBREF (exp', subspace)) = 
+    let
+	val interval = Space.subspaceToStr subspace
+    in
+	"subsref(" ^ (exp2fullstr exp') ^ ", " ^ interval ^ ")"
+    end
+    
 
 fun exp2str e = 
     (if DynamoOptions.isFlagSet("usefullform") then

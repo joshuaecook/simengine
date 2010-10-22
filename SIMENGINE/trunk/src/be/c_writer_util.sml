@@ -200,8 +200,8 @@ val rec term_to_spil =
 			 X.Apply {oper= Op.Array_array, args= v(List.rev elems)}]}
     end
   | Exp.RANGE {low, high, step} => X.Apply {oper= Op.Range_range, args= v(map term_to_spil [low,high,step])}
-  | Exp.RANDOM Exp.UNIFORM => X.Apply {oper= Op.Random_uniform, args= v[]}
-  | Exp.RANDOM Exp.NORMAL => X.Apply {oper= Op.Random_normal, args= v[]}
+  | Exp.RANDOM (Exp.UNIFORM, space) => X.Apply {oper= Op.Random_uniform, args= v[]}
+  | Exp.RANDOM (Exp.NORMAL, space) => X.Apply {oper= Op.Random_normal, args= v[]}
   | Exp.SYMBOL (sym, props) => symbol_to_expr (sym, props)
   | term =>
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriterUtil.term_to_spil", Logger.INTERNAL)
@@ -238,6 +238,8 @@ val rec exp_to_spil =
  fn Exp.FUN (str, exps) => fun_to_spil exp_to_spil (str, exps)
   | Exp.TERM term => term_to_spil term
   | Exp.CONTAINER con => container_to_spil exp_to_spil con
+  | exp as Exp.SUBREF _ => 
+    DynException.stdException (("Cannot write SUBREF expressions just yet. ["^(ExpPrinter.exp2str exp)^"]"), "CWriterUtil.exp_to_spil", Logger.INTERNAL)
   | exp as Exp.META _ => 
     DynException.stdException (("Cannot write META expressions. ["^(ExpPrinter.exp2str exp)^"]"), "CWriterUtil.exp_to_spil", Logger.INTERNAL)
 
@@ -256,6 +258,7 @@ fun exp2c_str (Exp.FUN (str : Fun.funtype, exps)) =
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
+	  | useParen (Exp.SUBREF _) = false
 
 	fun addParen (str, exp) = 
 	    if String.isPrefix "-" str then
@@ -316,6 +319,8 @@ fun exp2c_str (Exp.FUN (str : Fun.funtype, exps)) =
 	    DynException.stdException ("Cannot write ASSOC containers.", "CWriter.exp2c_str", Logger.INTERNAL)
 	  | Exp.MATRIX m => matrix2str m
     end
+  | exp2c_str (e as Exp.SUBREF _) = 
+    DynException.stdException (("Cannot write SUBREF expressions just yet. ["^(ExpPrinter.exp2str e)^"]"), "CWriter.exp2c_str", Logger.INTERNAL)
   | exp2c_str (e as Exp.META _) = 
     DynException.stdException (("Cannot write META expressions. ["^(ExpPrinter.exp2str e)^"]"), "CWriter.exp2c_str", Logger.INTERNAL)
     
@@ -338,8 +343,8 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
 	in
 	    base_str ^ (if List.length iter_strs > 0 then "["^(String.concatWith ", " iter_strs)^"]" else "")
 	end
-  | term2c_str (Exp.RANDOM Exp.UNIFORM) = "UNIFORM_RANDOM(PARALLEL_MODELS, modelid)"
-  | term2c_str (Exp.RANDOM Exp.NORMAL) = "NORMAL_RANDOM(PARALLEL_MODELS, modelid)"
+  | term2c_str (Exp.RANDOM (Exp.UNIFORM, space)) = "UNIFORM_RANDOM(PARALLEL_MODELS, modelid)"
+  | term2c_str (Exp.RANDOM (Exp.NORMAL, space)) = "NORMAL_RANDOM(PARALLEL_MODELS, modelid)"
   | term2c_str Exp.DONTCARE = "_"
   | term2c_str term =
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
