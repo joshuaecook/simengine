@@ -9,11 +9,11 @@ classdef Instance
         Mdl
         SubMdl
         Dims
-        NumInst
     end
     
     properties (Access = protected)
         definedInputs
+        definedIndices
     end
     
     methods
@@ -26,7 +26,7 @@ classdef Instance
             inst.Outputs = Outputs;
             inst.definedInputs = containers.Map;
             inst.Dims = Dims;
-            inst.NumInst = prod(Dims);
+            inst.definedIndices = zeros(Dims);
         end
         
         function b = subsref(inst, s)
@@ -36,7 +36,7 @@ classdef Instance
                 if strcmp(out, 'toStr')
                     b = toStr(inst);
                 % Return any properties that are referenced
-                elseif any(strcmp(s.subs, fieldnames(inst)))
+                elseif any(strcmp(out, fieldnames(inst)))
                     b = inst.(out);
                 elseif isOutput(inst, out)
                     b = Exp(inst, out);
@@ -44,7 +44,7 @@ classdef Instance
                     % now, if it's an input, we can still handle that by
                     % returning what ever is defined, if it has been
                     % defined
-                    if isKey(inst.definedInputs, out)
+                    if isKey(inst.definedInputs, out) && isequal(inst.definedIndices, ones(inst.Dims))
                         b = inst.definedInputs(out);
                     else
                         error('Simatra:Instance', ['Can not read from an input ''%s'' of submodel ''%s'' if it has not been already defined.'], out, inst.SubMdl.Name)
@@ -57,7 +57,14 @@ classdef Instance
                     error('Simatra:Instance', 'No output with name %s found', s.subs);
                 end
             elseif strcmp(s(1).type, '()')
-              error('Simatra:Instance', 'Subsref () on Instances not yet implemented. Need indices like Exp.')
+              if length(s) >= 2 && strcmp(s(2).type, '.')
+                news = s;
+                news([1 2]) = s([2 1]); % flip first and second subsref
+                b = subsref(inst, news);
+                nextsub = 3;
+              else
+                error('Simatra:Instance', 'Subsref () on Instances not allowed. Only allowed for Instance inputs/outputs.')
+              end
             else
                 for i=1:length(s)
                     i
@@ -66,14 +73,30 @@ classdef Instance
                 error('Simatra:Instance', 'Unexpected argument syntax');
             end
             if length(s) >= nextsub
-              subsref(b, s(nextsub:end))
+              b = subsref(b, s(nextsub:end));
             end
         end
         
         function i2 = subsasgn(inst, s, b)
-            if length(s) == 1 && isfield(s, 'type') && strcmp(s.type, '.')
+            if length(s) == 1
+              if strcmp(s.type, '.')
                 inp = s.subs;
                 setInput(inst, inp, b);
+              else
+                error('Simatra:Instance:subsasgn', 'Inputs of instances must be assigned as Inst.inp, Inst(subs).inp or Inst.inp(subs)');
+              end
+            elseif length(s) == 2
+              if strcmp(s(1).type, '.') && strcmp(s(2).type, '()')
+                error('Simatra:Instance:subsasgn', 'Not yet implemented inst.out(subs) = value.');
+                setInput(inst, s(1).subs, b, s(2));
+              elseif strcmp(s(1).type, '()') && strcmp(s(2).type, '.')
+                error('Simatra:Instance:subsasgn', 'Not yet implemented inst(subs).out = value.');
+                setInput(inst, s(2).subs, b, s(1));
+              else
+                error('Simatra:Instance:subsasgn', 'Inputs of instances must be assigned as Inst.inp, Inst(subs).inp or Inst.inp(subs)');
+              end
+            else
+              error('Simatra:Instance:subsasgn', 'Inputs of instances must be assigned as Inst.inp, Inst(subs).inp or Inst.inp(subs)');
             end
             i2 = inst;
         end
@@ -87,16 +110,14 @@ classdef Instance
               end
             elseif nargin == 2
               if ~isnumeric(dim) || ~isscalar(dim)
-                error(['Requested dimension from size is not a scalar ' ...
-                       'numeric value.']);
+                error('Requested dimension from size is not a scalar numeric value.');
               elseif dim > length(inst.Dims)
                 d = 1;
               else
                 d = inst.Dims(dim);
               end
             else
-              error(['Wrong number of arguments to Instance/size(). ' ...
-                     'Expected 1 or 2 but got ' num2str(nargin) '.']);
+              error(['Wrong number of arguments to Instance/size(). Expected 1 or 2 but got ' num2str(nargin) '.']);
             end
         end
         
@@ -104,15 +125,7 @@ classdef Instance
             d = max(size(inst));
         end
         
-        %function d = numel(inst, varargin)
-        %    if nargin == 1
-        %      d = inst.NumInst;
-        %    else
-        %      d = numel([varargin{:}]);
-        %    end
-        %end
-        
-        function setInput(inst, inp, value)
+        function setInput(inst, inp, value, subs)
             if ~isa(inst, 'Instance')
               error('Simatra:Instance', 'setInput requires an Instance object.');
             end
@@ -123,8 +136,23 @@ classdef Instance
               inst.Inputs
               error('Simatra:Instance', 'No input with name %s found', inp);
             end
-            input = Exp(inst.InstName, inp);
+            input = Exp(inst, inp);
+            if nargin == 4
+              input = subsref(input, subs);
+            end
             inst.Mdl.equ(input, value);
+            if nargin == 4
+              if isKey(inst.definedInputs, inp)
+                oldvalue = inst.definedInputs(inp);
+              else
+                oldvalue = zeros(inst.Dims);
+              end
+              oldvalue(subs) = value;
+              value = oldvalue;
+              newIndices = zeros(inst.Dims);
+              newIndices(subs) = 1;
+              inst.definedIndices = inst.definedIndices | newIndices;
+            end
             inst.definedInputs(inp) = value;
         end
         
@@ -151,8 +179,9 @@ classdef Instance
         
         function str = toStr(inst)
           str = '';
-          if inst.NumInst > 1
-            for i = 1:inst.NumInst;
+          numInst = prod(inst.Dims);
+          if numInst > 1
+            for i = 1:numInst;
               str = [str '    submodel ' inst.MdlName ' ' inst.InstName '_' num2str(i) '\n'];
             end
           else
