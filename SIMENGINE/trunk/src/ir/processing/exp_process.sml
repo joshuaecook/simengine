@@ -142,11 +142,15 @@ fun exp2termsymbols (Exp.FUN (_, exps)) =
     (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
   | exp2termsymbols (Exp.CONTAINER c) =
     Util.flatmap exp2termsymbols (Container.containerToElements c)
+  | exp2termsymbols (Exp.SUBREF (exp, subspace)) = 
+    (* TODO: we must do a pairing down of this at some point *)
+    exp2termsymbols exp
   | exp2termsymbols _ = []
     
 fun exp2symbols (Exp.FUN (_, operands))		= Util.flatmap exp2symbols operands
   | exp2symbols (Exp.TERM term) 		= term2symbols term
   | exp2symbols (Exp.CONTAINER c)               = Util.flatmap exp2symbols (Container.containerToElements c)
+  | exp2symbols (Exp.SUBREF (exp, subspace))    = exp2symbols exp
   | exp2symbols _ 				= nil
 
 and term2symbols (Exp.SYMBOL (var, _)) 		= [var]
@@ -168,6 +172,7 @@ fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
 
 fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(Util.flatmap exp2fun_names exps)
   | exp2fun_names (Exp.CONTAINER c) = Util.flatmap exp2fun_names (Container.containerToElements c)
+  | exp2fun_names (Exp.SUBREF (exp, subspace)) = exp2fun_names exp
   | exp2fun_names _ = []
 
 val uniqueid = ref 0
@@ -205,7 +210,7 @@ fun renameSym (orig_sym, new_sym) exp =
 				 Container.arrayToList) a
 	    fun renameMatrix m = 
 		let
-		    val _ = Util.log ("Remaining Matrix (exp_process): " ^ (Matrix.infoString m))
+		    (*val _ = Util.log ("Renaming Matrix (exp_process): " ^ (Matrix.infoString m))*)
 		in
 		    ((Matrix.fromRows (Exp.calculus())) o
 		     (map renameArray) o
@@ -223,6 +228,7 @@ fun renameSym (orig_sym, new_sym) exp =
 	in
 	    Exp.CONTAINER c'
 	end
+      | Exp.SUBREF (exp', _) => renameSym (orig_sym, new_sym) exp'
       | _ => exp
 
 fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
@@ -255,10 +261,14 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
 			 Exp.EXPLIST l => Exp.EXPLIST (renameList l)
 		       | Exp.ARRAY a => Exp.ARRAY (renameArray a)
 		       | Exp.ASSOC t => Exp.ASSOC (SymbolTable.map (renameInst syms) t)
-		       | Exp.MATRIX m => Exp.MATRIX (renameMatrix m)
+		       | Exp.MATRIX m => 
+			 Exp.MATRIX
+			     (Container.expMatrixToMatrix 
+				  ((head exp) (map (renameInst syms) (level exp))))
 	in
 	    Exp.CONTAINER c'
 	end     
+      | Exp.SUBREF (exp', _) => renameInst syms exp'
       | _ => exp
 
 fun log_exps (header, exps) = 
@@ -867,7 +877,8 @@ fun exp2size exp : int =
 		       let
 			   val codomain = #codomain (MathFunctionProperties.op2props f)
 		       in
-			   Util.prod(codomain (map (fn(a) => [exp2size a]) args))
+			   1 (* TODO: we need to do a better job here *)
+			   (*Util.prod(codomain (map (fn(a) => [exp2size a]) args))*)
 (*		       foldl combineSizes 1 (map (exp2size iterator_list) args)*)
 		       end
 		     | Exp.FUN (Fun.INST _, args) => 1 (*TODO: ???? *)
@@ -884,6 +895,7 @@ fun exp2size exp : int =
 			    in
 				nrows * ncols
 			    end)
+		     | Exp.SUBREF (exp, subspace) => Space.size (Space.sub (ExpSpace.expToSpace exp) subspace)
     in
 	size
     end

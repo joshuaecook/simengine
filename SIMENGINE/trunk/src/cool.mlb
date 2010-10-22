@@ -140,6 +140,7 @@ ir/patterns/exp_equality.sml
 ir/patterns/match.sml
 ir/patterns/rules.sml
 
+ir/processing/exp_space.sml
 
 ir/processing/exp_validate.sml
 ir/processing/exp_process.sml

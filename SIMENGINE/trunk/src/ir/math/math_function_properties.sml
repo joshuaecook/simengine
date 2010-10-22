@@ -59,7 +59,7 @@ val fun2textstrnotation : Fun.funtype -> (string * fix) (* accessor to determine
 val fun2cstrnotation : Fun.funtype -> (string * fix) (* accessor to determine how to display op as C code *)
 val fun2mathematicastrnotation : Fun.funtype -> (string * fix) (* accessor to determine how to display op as Mathematica code *)
 val hasVariableArguments : Fun.funtype -> bool (* operations like ADD and MUL can allow arbitrary numbers of operands *)
-
+val propagateSpaces : Fun.funtype -> Space.space list -> Space.space (* evaluate the spaces through functions *)
 
 end
 structure MathFunctionProperties =
@@ -109,37 +109,30 @@ type op_props = {name: string,
 		 C: (string * fix),
 		 mathematica: (string * fix),
 		 expcost: int,
-		 codomain: int list list -> int list}
+		 codomain: Space.space list -> Space.space}
 
 
 (* define default expression costs *)
 val basicOpCost = 1
 val transcendentalOpCost = 20
 
-fun vectorizedCodomain (nil: int list list) : int list = nil
+fun vectorizedCodomain nil = DynException.stdException (("must have arguments for a vectorized codomain"), "FunProperties.vectorizedCodomain'.combineSizes", Logger.INTERNAL)
   | vectorizedCodomain (first::rest) =
     let
-	fun combineSizes (size1, size2) = 
-	    if (size1 = size2) then size1
-	    else if (size1 = 1) then size2
-	    else if (size2 = 1) then size1
+	fun combineSpaces (space1, space2) = 
+	    if Space.equal (space1, space2) then space1
+	    else if Space.isScalar space1 then space2
+	    else if Space.isScalar space2 then space1
 	    else
-		(DynException.stdException (("Arguments have mismatched sizes ("^(Int.toString size1)^","^(Int.toString size2)^")"), "FunProperties.vectorizedCodomain.combineSizes", Logger.INTERNAL))
-
+		(DynException.stdException (("Arguments have mismatched spaces"), "FunProperties.vectorizedCodomain.combineSizes", Logger.INTERNAL))
     in
-	foldl (fn(a,b) => map combineSizes
-			      (ListPair.zip(a,b))) 
-	      first 
-	      rest
+	foldl combineSpaces first rest
     end
     handle e => DynException.checkpoint "FunProperties.vectorizedCodomain" e
 
-fun safeTail nil = nil
-  | safeTail (a::rest) = rest
-
-fun codomainReduction (nil: int list list) : int list = nil
-  | codomainReduction args =
-    safeTail(vectorizedCodomain(args))
+fun codomainReduction [arg] = 
+    Space.reduceCodomain arg
+  | codomainReduction _ = DynException.stdException (("There should be only one argument for reduction operations, instead found"), "FunProperties.codomainReduction", Logger.INTERNAL)
 
 fun unaryfun2props (name, eval, cost) : op_props =
     {name=name,

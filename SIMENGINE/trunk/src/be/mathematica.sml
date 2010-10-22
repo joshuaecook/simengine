@@ -72,6 +72,7 @@ fun exp2mathematica_str (exp as (Exp.FUN (Fun.BUILTIN Fun.ASSIGN,[_,Exp.FUN (Fun
 	    end
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
+	  | useParen (Exp.SUBREF _) = false
 	  | useParen (Exp.CONTAINER _) = false
 
 	fun addParen (str, exp) = 
@@ -112,6 +113,8 @@ fun exp2mathematica_str (exp as (Exp.FUN (Fun.BUILTIN Fun.ASSIGN,[_,Exp.FUN (Fun
 					  (explist2str o Container.arrayToList)
 					  (Matrix.toRows m))
     end    
+  | exp2mathematica_str (Exp.SUBREF _) = 
+    DynException.stdException ("Cannot write SUBREF expressions just yet.", "Mathematica.exp2mathematica_str", Logger.INTERNAL)
   | exp2mathematica_str (Exp.META _) = 
     DynException.stdException ("Cannot write META expressions.", "Mathematica.exp2mathematica_str", Logger.INTERNAL)
     
