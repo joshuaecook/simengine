@@ -834,70 +834,9 @@ fun intermediateEquation2rewrite exp =
 
 fun exp2size exp : int = 
     let
-	fun combineSizes (size1, size2) = 
-	    if (size1 = size2) then size1
-	    else if (size1 = 1) then size2
-	    else if (size2 = 1) then size1
-	    else
-		(error_no_return Exp.null ("Arguments have mismatched sizes ("^(i2s size1)^","^(i2s size2)^")"); 1)
-	
-	val size = case exp of
-		       Exp.TERM t => 
-		       if Term.isNumeric t then
-			   Term.termCount t
-		       else if Term.isScalar t andalso Term.isSymbol t then
-			   let
-			       val spatial_iterators = TermProcess.symbol2spatialiterators t
-			       (*val _ = Util.log ("Returned spatial iterators: " ^ (Util.symlist2s (map #1 spatial_iterators)))*)
-			       fun lookupsize itersym = 
-				   (*case List.find (fn{name,...}=>name=itersym) iterator_list of
-					    SOME {name, low, high, step} => Real.ceil((high-low)/step + 1.0)
-					  | _ => *)DynException.stdException(
-						 ("Iterator '"^(Symbol.name itersym)^"' not defined for exp '"^(e2s exp)^"'"), 
-						 "ExpProcess.exp2size.lookupsize", 
-						 Logger.INTERNAL)
-
-			       fun iterator2size (itersym, itertype) = 
-				   case itertype of
-				       Iterator.ABSOLUTE _ => 1
-				     | Iterator.RELATIVE _ => lookupsize itersym
-				     | Iterator.RANGE (a, b) => b-a + 1 (* inclusive *)
-				     | Iterator.LIST l => List.length l
-				     | Iterator.ALL => lookupsize itersym				       
-				       
-			   in
-			       (*Term.symbolSpatialSize t*)
-			       (*Util.prod (map iterator2size spatial_iterators)*)
-			       (* TODO: We're not supporting spatial iterators anyway... *)
-			       1
-			   end
-		       else 
-			       1 (* out of default - need to do something better here *)
-		     | Exp.FUN (Fun.BUILTIN f, args) => 
-		       let
-			   val codomain = #codomain (MathFunctionProperties.op2props f)
-		       in
-			   1 (* TODO: we need to do a better job here *)
-			   (*Util.prod(codomain (map (fn(a) => [exp2size a]) args))*)
-(*		       foldl combineSizes 1 (map (exp2size iterator_list) args)*)
-		       end
-		     | Exp.FUN (Fun.INST _, args) => 1 (*TODO: ???? *)
-		     | Exp.FUN (Fun.OUTPUT _, args) => 1 (*TODO: ???? *)
-		     | Exp.META _ => 1 (*TODO: ???? *)
-		     | Exp.CONTAINER c => 
-		       (case c of
-			    Exp.EXPLIST l => Util.sum (map exp2size l)
-			  | Exp.ARRAY a => Array.length a
-			  | Exp.ASSOC t => Util.sum (map exp2size (SymbolTable.listItems t))
-			  | Exp.MATRIX m => 
-			    let
-				val (nrows, ncols) = Matrix.size m
-			    in
-				nrows * ncols
-			    end)
-		     | Exp.SUBREF (exp, subspace) => Space.size (Space.sub (ExpSpace.expToSpace exp) subspace)
+	val space = ExpSpace.expToSpace exp
     in
-	size
+	Space.size space
     end
 
 
