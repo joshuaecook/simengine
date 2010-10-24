@@ -125,6 +125,7 @@ fun DOFToShardedModel forest =
 	    in 
 		(shards', sysprops) 
 	    end
+	    handle e => DynException.checkpoint "Compile.OrderingModels" e
 
     in
 	(forkedModels, SUCCESS)

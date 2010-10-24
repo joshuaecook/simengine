@@ -9,6 +9,12 @@ end
 structure TermProcess : TERMPROCESS =
 struct
 
+fun symbol2temporaliterator term =
+	case term of
+	    Exp.SYMBOL (sym, props) => Property.getIterator props	    
+	  | _ => NONE
+
+(*
 fun symbol2temporaliterator term = 
     let
 	val iterators = CurrentModel.iterators()
@@ -24,8 +30,10 @@ fun symbol2temporaliterator term =
 	       | NONE => NONE)
 	  | _ => NONE
     end
+*)
 
-fun symbol2spatialiterators term = 
+fun symbol2spatialiterators term = []
+(*
     case symbol2temporaliterator term of
 	SOME (itersym,_) => 
 	 (case term of
@@ -41,5 +49,5 @@ fun symbol2spatialiterators term =
 			| NONE => [])
 		   | _ => [])
 
-
+*)
 end

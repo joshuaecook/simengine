@@ -11,22 +11,23 @@ fun pvar str =
 fun tvar str = Exp.TERM 
 		   (Exp.SYMBOL (Symbol.symbol str, 
 				Property.setIterator Property.default_symbolproperty 
-						     [(Symbol.symbol "t",Iterator.RELATIVE 0)]))
+						     (Symbol.symbol "t",Iterator.RELATIVE 0)))
 
 fun avar str temporal_iterator = Exp.TERM 
 		   (Exp.SYMBOL (Symbol.symbol str, 
 				Property.setIterator Property.default_symbolproperty 
-						     [(Symbol.symbol temporal_iterator, Iterator.RELATIVE 0)]))
+						     (Symbol.symbol temporal_iterator, Iterator.RELATIVE 0)))
 
-fun ivar str iterators = Exp.TERM 
+
+fun ivar str iterator = Exp.TERM 
 			 (Exp.SYMBOL (Symbol.symbol str, 
-				      Property.setIterator Property.default_symbolproperty iterators))
+				      Property.setIterator Property.default_symbolproperty iterator))
 
 fun tvar_from_state str = Exp.TERM 
 			      (Exp.SYMBOL (Symbol.symbol str, 
 					   Property.setScope 
 					       (Property.setIterator Property.default_symbolproperty 
-								     [(Symbol.symbol "t",Iterator.RELATIVE 0)])
+								     (Symbol.symbol "t",Iterator.RELATIVE 0))
 					       (Property.READSTATE (Symbol.symbol "rd_t"))))
 
 fun event str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, Property.setIsEvent Property.default_symbolproperty true))
@@ -36,7 +37,7 @@ fun diff str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					 (Property.setDerivative 
 					      (Property.setIterator 
 						   Property.default_symbolproperty 
-						   [(Symbol.symbol "t",Iterator.RELATIVE 0)])
+						   (Symbol.symbol "t",Iterator.RELATIVE 0))
 					      (1, [Symbol.symbol "t"])
 					 )					
 					 (Property.WRITESTATE (Symbol.symbol "wr_t"))
@@ -47,17 +48,18 @@ fun diff str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 fun initvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 					 (Property.setIterator 
 					      Property.default_symbolproperty 
-					      [(Symbol.symbol "t",Iterator.ABSOLUTE 0)])
+					      (Symbol.symbol "t",Iterator.ABSOLUTE 0))
 					)
 			   )
 
 fun initnvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 					 (Property.setIterator 
 					      Property.default_symbolproperty 
-					      [(Symbol.symbol "n",Iterator.ABSOLUTE 0)])
+					      (Symbol.symbol "n",Iterator.ABSOLUTE 0))
 					)
 			   )
 
+(*
 fun initavar (str, temporal_iterator, spatial_iterators) = 
     Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 			  (Property.setIterator 
@@ -66,18 +68,18 @@ fun initavar (str, temporal_iterator, spatial_iterators) =
 				(map (fn(iter)=>(Symbol.symbol iter, Iterator.RELATIVE 0)) spatial_iterators)))
 			 )
 	     )
-
+*)
 fun state_init_var (sym, iter_sym) = 
     Exp.TERM (Exp.SYMBOL (sym,
 			 (Property.setIterator
 			      Property.default_symbolproperty
-			      [(iter_sym, Iterator.ABSOLUTE 0)])))
+			      (iter_sym, Iterator.ABSOLUTE 0))))
 
 fun state_next_var (sym, iter_sym) = 
     Exp.TERM (Exp.SYMBOL (sym,
 			 (Property.setIterator
 			      Property.default_symbolproperty
-			      [(iter_sym, Iterator.RELATIVE 1)])))
+			      (iter_sym, Iterator.RELATIVE 1))))
 
 
 fun diff_state_var (sym, iter_sym) =
@@ -86,7 +88,7 @@ fun diff_state_var (sym, iter_sym) =
 			      (Property.setDerivative 
 				   (Property.setIterator 
 					Property.default_symbolproperty 
-					[(iter_sym,Iterator.RELATIVE 0)])
+					(iter_sym,Iterator.RELATIVE 0))
 				   (1, [iter_sym])
 			      )					
 			      (Property.WRITESTATE (Symbol.symbol ("wr_" ^ (Symbol.name iter_sym))))
@@ -97,7 +99,7 @@ fun var_with_iter (sym, iter) =
     Exp.TERM (Exp.SYMBOL (sym,
 			  Property.setIterator
 			      Property.default_symbolproperty
-			      [iter]))
+			      iter))
 
 
 fun itersvar sym = Exp.TERM (Exp.SYMBOL (sym,
@@ -108,14 +110,14 @@ fun relitervar (str,ind) = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 					   Property.setScope 
 					       (Property.setIterator 
 						    Property.default_symbolproperty 
-						    [(Symbol.symbol str, Iterator.RELATIVE ind)])
+						    (Symbol.symbol str, Iterator.RELATIVE ind))
 					       Property.ITERATOR))
 
 fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 					Property.setScope
 					    (Property.setIterator 
 						 Property.default_symbolproperty 
-						 [(Symbol.symbol "n",Iterator.RELATIVE 1)])
+						 (Symbol.symbol "n",Iterator.RELATIVE 1))
 					    (Property.WRITESTATE (Symbol.symbol "n"))
 				       )
 			   )
@@ -123,7 +125,7 @@ fun nextvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 fun nextavar str temporal_iterator = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 							   (Property.setIterator 
 								Property.default_symbolproperty 
-								[(temporal_iterator,Iterator.RELATIVE 1)])
+								(temporal_iterator,Iterator.RELATIVE 1))
 							  )
 					      )
 				     
@@ -131,7 +133,7 @@ fun curvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 				       Property.setScope
 					   (Property.setIterator 
 						Property.default_symbolproperty 
-						[(Symbol.symbol "n",Iterator.RELATIVE 0)])
+						(Symbol.symbol "n",Iterator.RELATIVE 0))
 					   (Property.READSTATE (Symbol.symbol "n"))
 				      )
 			  )
@@ -139,7 +141,7 @@ fun curvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str,
 fun prevvar str = Exp.TERM (Exp.SYMBOL (Symbol.symbol str, 
 				       (Property.setIterator 
 					    Property.default_symbolproperty 
-					    [(Symbol.symbol "n",Iterator.RELATIVE ~1)])
+					    (Symbol.symbol "n",Iterator.RELATIVE ~1))
 				      )
 			  )
 
@@ -147,7 +149,7 @@ fun relvar (sym, itersym, offset) =
     Exp.TERM (Exp.SYMBOL (sym, 
 			  (Property.setIterator 
 			       Property.default_symbolproperty 
-			       [(itersym, Iterator.RELATIVE offset)])
+			       (itersym, Iterator.RELATIVE offset))
 			 )
 	     )
 

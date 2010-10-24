@@ -109,6 +109,8 @@ fun orderShard (model, shard as {classes, instance, iter_sym} : shard) =
 	 instance = instance, 
 	 iter_sym = iter_sym}
     end
+    handle e => DynException.checkpoint ("ShardedModel.orderShard ["^(Symbol.name (case #name instance 
+	     of SOME x => x | NONE => #classname instance))^"]") e
 
 
 fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, iter as (itername, DOF.CONTINUOUS solvertype)) =
@@ -226,21 +228,19 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 							 SOME (1, symlist) => ()
 						       | _ => DynException.stdException (("Original equation '"^(e2s eq)^"' is not a first order differential equation"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
 						 val props' = Property.clearDerivative props
-						 val iterators = Property.getIterator props'
-						 val iterators' = case iterators of
-								      SOME iters =>
-								      (map (fn(sym,index)=>
-									      if sym=itername then
-										  case index of
-										      Iterator.RELATIVE 0 => (sym, Iterator.RELATIVE 1)
-										    | _ => DynException.stdException(("Unexpected iterator found in lhs symbol"), 
-"ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", 
-														     Logger.INTERNAL) iters
-									      else
-										  (sym, index))
-									   iters)
+						 val iterator = Property.getIterator props'
+						 val iterator' = case iterator of
+								      SOME (iter as (sym, index)) =>
+								      if sym=itername then
+									  case index of
+									      Iterator.RELATIVE 0 => (sym, Iterator.RELATIVE 1)
+									    | _ => DynException.stdException(("Unexpected iterator found in lhs symbol"), 
+													     "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", 
+													     Logger.INTERNAL)
+								      else
+									  (sym, index)
 								    | NONE => DynException.stdException (("Original equation '"^(e2s eq)^"' does not have any defined iterators"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
-						 val props'' = Property.setIterator props' iterators'
+						 val props'' = Property.setIterator props' iterator'
 					     in
 						 Exp.SYMBOL (sym, props'')
 					     end
@@ -613,21 +613,19 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 							    SOME (1, symlist) => ()
 							  | _ => DynException.stdException (("Original equation '"^(e2s eq)^"' is not a first order differential equation"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
 						    val props' = Property.clearDerivative props
-						    val iterators = Property.getIterator props'
-						    val iterators' = case iterators of
-									 SOME iters =>
-									 (map (fn(sym,index)=>
-										 if sym=itername then
-										     case index of
-											 Iterator.RELATIVE 0 => (sym, Iterator.RELATIVE 1)
-										       | _ => DynException.stdException(("Unexpected iterator found in lhs symbol"), 
-															"ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", 
-															Logger.INTERNAL) iters
-										 else
-										     (sym, index))
-									      iters)
-								       | NONE => DynException.stdException (("Original equation '"^(e2s eq)^"' does not have any defined iterators"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
-						    val props'' = Property.setIterator props' iterators'
+						    val iterator = Property.getIterator props'
+						    val iterator' = case iterator of
+									SOME (iter as (sym,index)) =>
+									if sym=itername then
+									    case index of
+										Iterator.RELATIVE 0 => (sym, Iterator.RELATIVE 1)
+									      | _ => DynException.stdException(("Unexpected iterator found in lhs symbol"), 
+													       "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", 
+													       Logger.INTERNAL)
+									else
+									    (sym, index)
+								      | NONE => DynException.stdException (("Original equation '"^(e2s eq)^"' does not have any defined iterators"), "ShardedModel.updateShardForSolver.[EXPONENTIAL_EULER].setAsReadState", Logger.INTERNAL)
+						    val props'' = Property.setIterator props' iterator'
 						in
 						    Exp.SYMBOL (sym, props'')
 						end
@@ -1004,17 +1002,17 @@ local
 	let
 	    val id = Symbol.symbol "ApplyPostIteratorRewrites"
 
-	    fun update_exp_to_post (Exp.TERM (Exp.SYMBOL (sym, props as {iterator=SOME ((iter_sym,Iterator.RELATIVE 0)::rest),...}))) =
+	    fun update_exp_to_post (Exp.TERM (Exp.SYMBOL (sym, props as {iterator=SOME (iter_sym,Iterator.RELATIVE 0),...}))) =
 		let
-		    val props' = Property.setIterator props ((iter_sym,Iterator.RELATIVE 1)::rest)
+		    val props' = Property.setIterator props (iter_sym,Iterator.RELATIVE 1)
 		in
 		    Exp.TERM (Exp.SYMBOL (sym, props'))
 		end
 	      | update_exp_to_post exp = exp
 
-	    fun update_exp_to_pre (Exp.TERM (Exp.SYMBOL (sym, props as {iterator=SOME ((iter_sym,Iterator.RELATIVE 1)::rest),...}))) =
+	    fun update_exp_to_pre (Exp.TERM (Exp.SYMBOL (sym, props as {iterator=SOME (iter_sym,Iterator.RELATIVE 1),...}))) =
 		let
-		    val props' = Property.setIterator props ((iter_sym,Iterator.RELATIVE 0)::rest)
+		    val props' = Property.setIterator props (iter_sym,Iterator.RELATIVE 0)
 		in
 		    Exp.TERM (Exp.SYMBOL (sym, props'))
 		end
