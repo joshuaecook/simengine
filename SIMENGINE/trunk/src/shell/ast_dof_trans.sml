@@ -176,7 +176,26 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
   | astexp_to_Exp (LAMBDA _) = error_exp "LAMBDA"
   | astexp_to_Exp (APPLY {func, args}) = apply_to_Exp {func=func, args=args}
   | astexp_to_Exp (IFEXP {cond, ift, iff}) = builtin (Fun.IF, [cond, ift, iff])
-  | astexp_to_Exp (VECTOR _) = error_exp "VECTOR"
+  | astexp_to_Exp (VECTOR v) = 
+    let
+	val exps = map astexp_to_Exp v
+	val spaces = map ExpSpace.expToSpace exps
+	fun allScalar () = 
+	    List.all Space.isScalar spaces
+	fun allEqual [] = false
+	  | allEqual [first] = true
+	  | allEqual (first::rest) = List.all (fn(e)=> Space.equal (first, e)) rest
+	fun allEqualArrays () =
+	    List.all ExpProcess.isArray exps andalso
+	    allEqual spaces
+    in
+	if allScalar () then
+	    Container.arrayToExpArray (Container.listToArray exps)
+	else if allEqualArrays () then
+	    Container.matrixToExpMatrix (Matrix.fromRows (Exp.calculus()) (Container.expListToArrayList exps))
+	else
+	    error_exp "Unsupported VECTOR"
+    end
   | astexp_to_Exp (TUPLE l) = Exp.CONTAINER (Exp.EXPLIST (map astexp_to_Exp l))
   | astexp_to_Exp (ASSERTION _) = error_exp "ASSERTION"
   | astexp_to_Exp (UNIT) = error_exp "UNIT"

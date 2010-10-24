@@ -113,7 +113,7 @@ fun sym2str pretty (s, props) =
 		""
 	    else
 		(case Property.getIterator props
-		  of SOME iters => Iterator.iterators2str iters
+		  of SOME iter => Iterator.iterator2str iter
 		   | NONE => "")
 
 	val n = (if pretty then "" else prefix) ^ (case (Property.getRealName props)
@@ -156,7 +156,7 @@ fun sym2fullstr (s, props) =
 			       | NONE => (0, [])
 
 	val iters = (case Property.getIterator props
-		      of SOME iters => Iterator.iterators2str iters
+		      of SOME iter => Iterator.iterator2str iter
 		       | NONE => "")
 
 	val n = prefix ^ (case (Property.getRealName props)
@@ -228,7 +228,7 @@ fun sym2c_str (s, props) =
 			       | NONE => (0, [])
 
 	val iters = (case Property.getIterator props
-		      of SOME iters => Iterator.iterators2c_str iters
+		      of SOME iter => Iterator.iterator2c_str iter
 		       | NONE => "")
 
 	(* remove # from the symbols *)
@@ -292,12 +292,14 @@ fun sym2mathematica_str (s, props) =
 			      of SOME (order, iters) => (order, iters)
 			       | NONE => (0, [])
 
-	val ignore_iter = Symbol.symbol "always"
-	fun filter_iters iters =
-	    List.filter (fn(sym,_)=> sym<>ignore_iter) iters
+	val ignore_itersym = Symbol.symbol "always"
+	fun ignore_iter (sym,_) = sym = ignore_itersym
 
 	val iters = (case Property.getIterator props
-		      of SOME iters => Iterator.iterators2mathematica_str (filter_iters iters)
+		      of SOME iter => if ignore_iter iter then
+					  ""
+				      else
+					  Iterator.iterator2mathematica_str iter
 		       | NONE => "")
 
 	val n = Util.mathematica_fixname (Symbol.name s)
@@ -461,7 +463,7 @@ fun symbolSampleDelay term =
     case term
      of Exp.SYMBOL (sym, props) =>
 	(case Property.getIterator props
-	      of SOME ((sym, Iterator.RELATIVE i)::rest) => if sym = (Symbol.symbol "n") then 
+	      of SOME (sym, Iterator.RELATIVE i) => if sym = (Symbol.symbol "n") then 
 								i
 							    else
 								0
@@ -500,7 +502,7 @@ fun termSize term =
 
 	    (* for difference equations *)
 	    val relative = case Property.getIterator props
-			    of SOME ((sym, Iterator.RELATIVE i)::rest) => if i=1 then 1 else 0
+			    of SOME (sym, Iterator.RELATIVE i) => if i=1 then 1 else 0
 			     | _ => 0
 	in
 	    order+relative
@@ -512,7 +514,7 @@ fun termSizeByIterator iter term =
      of Exp.SYMBOL (sym, props) =>
 	let
 	    val absolute = case Property.getIterator props
-			    of SOME ((iter', Iterator.ABSOLUTE i)::rest) => if i=0 andalso iter=iter' then 1 else 0
+			    of SOME (iter', Iterator.ABSOLUTE i) => if i=0 andalso iter=iter' then 1 else 0
 			     | _ => 0
 	in
 	    absolute

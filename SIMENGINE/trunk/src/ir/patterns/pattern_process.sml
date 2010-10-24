@@ -143,7 +143,7 @@ fun predicate_anysymbol_with_iter iter_sym =
      fn(x)=>case x
 	     of Exp.TERM (Exp.SYMBOL (name, props)) => 
 		(case Property.getIterator props of
-		     SOME iters => List.exists (fn(iter_sym', _)=>iter_sym = iter_sym') iters
+		     SOME (iter_sym',_) => iter_sym = iter_sym'
 		   | NONE => false)
 	      | _ => false)
 							  

@@ -835,7 +835,6 @@ fun createEventIterators (class: DOF.class) =
 	    let
 		val lhs = ExpProcess.lhs exp
 
-		val spatial = ExpProcess.exp2spatialiterators exp
 		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
 				  SOME eq => eq
 				| NONE => DynException.stdException ("Unexpected lack of initial condition", "ClassProcess.createEventIterators.update_exp", Logger.INTERNAL)
@@ -846,7 +845,7 @@ fun createEventIterators (class: DOF.class) =
 		val lhs' = 		
 		    case lhs of 
 			Exp.TERM (Exp.SYMBOL (sym, props)) => 
-			Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.updateOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE 1)::spatial)))
+			Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props ((Iterator.updateOf (Symbol.name temporal),(*iterindex*)Iterator.RELATIVE 1))))
 		      | _ => DynException.stdException ("Non symbol on left hand side of intermediate", "ClassProcess.createEventIterators.update_exp", Logger.INTERNAL)
 			     
 	    in
@@ -857,7 +856,6 @@ fun createEventIterators (class: DOF.class) =
 	    let
 		val lhs = ExpProcess.lhs exp
 
-		val spatial = ExpProcess.exp2spatialiterators exp
 		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
 				  SOME eq => eq
 				| NONE => DynException.stdException ("Unexpected lack of initial condition",
@@ -877,14 +875,14 @@ fun createEventIterators (class: DOF.class) =
 						  Property.setIterator 
 						      props 
 						      ((Iterator.postProcessOf (Symbol.name temporal),
-							Iterator.ABSOLUTE 0)::spatial)))
+							Iterator.ABSOLUTE 0))))
 			else if ExpProcess.isIntermediateEq exp orelse
 				ExpProcess.isForwardReferencedContinuousEq exp then
 			    Exp.TERM (Exp.SYMBOL (sym, 
 						  Property.setIterator 
 						      props 
 						      ((Iterator.postProcessOf (Symbol.name temporal),
-							Iterator.RELATIVE 1)::spatial)))
+							Iterator.RELATIVE 1))))
 			else
 			    DynException.stdException ("Unexpected non-intermediate and non-initial condition equation",
 						       "ClassProcess.createEventIterators.pp_exp", 
@@ -901,7 +899,6 @@ fun createEventIterators (class: DOF.class) =
 	    let
 		val lhs = ExpProcess.lhs exp
 
-		val spatial = ExpProcess.exp2spatialiterators exp
 		val init_eq = case List.find (ExpProcess.isInitialConditionEq) (symbol2exps class (ExpProcess.getLHSSymbol exp)) of
 				  SOME eq => eq
 				| NONE => DynException.stdException ("Unexpected lack of initial condition",
@@ -921,14 +918,14 @@ fun createEventIterators (class: DOF.class) =
 						  Property.setIterator 
 						      props 
 						      ((Iterator.inProcessOf (Symbol.name temporal),
-							Iterator.ABSOLUTE 0)::spatial)))
+							Iterator.ABSOLUTE 0))))
 			else if ExpProcess.isIntermediateEq exp orelse 
 				ExpProcess.isForwardReferencedContinuousEq exp then
 			    Exp.TERM (Exp.SYMBOL (sym, 
 						  Property.setIterator 
 						      props 
 						      ((Iterator.inProcessOf (Symbol.name temporal),
-							Iterator.RELATIVE 1)::spatial)))
+							Iterator.RELATIVE 1))))
 			else
 			    DynException.stdException ("Unexpected non-intermediate and non-initial condition equation",
 						       "ClassProcess.createEventIterators.in_exp", 
@@ -1051,9 +1048,9 @@ fun addDelays (class: DOF.class) =
 	    (fn{sym,iter_sym,delays=d_list,is_state}=>
 	       let
 		   val max_d = StdFun.max d_list
-		   val (init_condition_value, spatial_iterators) = case List.find (fn(exp)=> ExpProcess.isInitialConditionEq exp) (symbol2exps class sym) of
-								       SOME exp => (ExpProcess.rhs exp, ExpProcess.exp2spatialiterators exp) 
-								     | NONE => (ExpBuild.int 0,[])
+		   val init_condition_value = case List.find (fn(exp)=> ExpProcess.isInitialConditionEq exp) (symbol2exps class sym) of
+								       SOME exp => ExpProcess.rhs exp
+								     | NONE => ExpBuild.int 0
 									       
 		   val (_, iter_type) = CurrentModel.itersym2iter iter_sym
 		   val inline_iter_sym = case iter_type of
@@ -1064,10 +1061,10 @@ fun addDelays (class: DOF.class) =
 		   fun d2symname d = 
 		       Symbol.symbol ("#intdelay_" ^ (Symbol.name sym) ^ "_" ^ (Util.i2s d))
 		   val init_conditions = map
-					     (fn(d)=>ExpBuild.equals (Exp.TERM (Exp.SYMBOL (d2symname d, (Property.setIterator Property.default_symbolproperty ((inline_iter_sym, Iterator.ABSOLUTE 0)::spatial_iterators)))), init_condition_value))
+					     (fn(d)=>ExpBuild.equals (Exp.TERM (Exp.SYMBOL (d2symname d, (Property.setIterator Property.default_symbolproperty (inline_iter_sym, Iterator.ABSOLUTE 0)))), init_condition_value))
 					     (List.tabulate (max_d,fn(x)=>x+1))
 
-		   fun sym_props r = Property.setIterator Property.default_symbolproperty ((inline_iter_sym, Iterator.RELATIVE r)::spatial_iterators)
+		   fun sym_props r = Property.setIterator Property.default_symbolproperty (inline_iter_sym, Iterator.RELATIVE r)
 		   fun d2lhs_exp d r = Exp.TERM (Exp.SYMBOL (d2symname d, sym_props r))
 		   val pp_equations = map
 					  (fn(d)=>if d = 1 then 
@@ -1076,11 +1073,9 @@ fun addDelays (class: DOF.class) =
 											     if is_state then
 												 Property.setIterator 
 												     Property.default_symbolproperty 
-												     ((iter_sym, Iterator.RELATIVE 0)::spatial_iterators)
+												     (iter_sym, Iterator.RELATIVE 0)
 											     else
-												 Property.setIterator
-												     Property.default_symbolproperty
-												     spatial_iterators)))
+												     Property.default_symbolproperty)))
 						  else
 						      ExpBuild.equals (d2lhs_exp d 1,
 								       d2lhs_exp (d-1) 0))
@@ -1386,14 +1381,11 @@ fun propagateSpatialIterators (class: DOF.class) =
 	fun create_rewrite_action expsym =
 	    let
 		
-		val spatial_iterators = TermProcess.symbol2spatialiterators (ExpProcess.exp2term expsym)
-
 		val noSpatialIteratorsPredicate = (("is:"^(e2s expsym)), 
 						fn(sym)=> 
 						  case sym of 
 						      Exp.TERM (s as (Exp.SYMBOL (sym', props))) => 
-						      sym' = (Term.sym2curname (ExpProcess.exp2term expsym)) andalso
-						      (List.length (TermProcess.symbol2spatialiterators s) = 0)
+						      sym' = (Term.sym2curname (ExpProcess.exp2term expsym))
 						    | _ => false)
 
 		val pattern = Match.anysym_with_predlist [noSpatialIteratorsPredicate] (Symbol.symbol "a")
@@ -1401,15 +1393,18 @@ fun propagateSpatialIterators (class: DOF.class) =
 		val action = (fn(exp)=>
 				case exp of
 				    Exp.TERM (s as (Exp.SYMBOL (sym, props))) =>
-				    let
-					val temporal_iterator = case TermProcess.symbol2temporaliterator s of
-								    SOME v => [v]
-								  | NONE => []
+				    (case TermProcess.symbol2temporaliterator s of
+					 SOME v => Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props v))
+				       | NONE => Exp.TERM (Exp.SYMBOL (sym, props)))
+				    (* let *)
+				    (* 	val temporal_iterator = case TermProcess.symbol2temporaliterator s of *)
+				    (* 				    SOME v => v *)
+				    (* 				  | NONE => [] *)
 									      
-					val iterators = temporal_iterator @ spatial_iterators
-				    in
-					Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props iterators))
-				    end
+				    (* 	val iterators = temporal_iterator *)
+				    (* in *)
+				    (* 	Exp.TERM (Exp.SYMBOL (sym, Property.setIterator props iterators)) *)
+				    (* end *)
 				  | _ => exp)
 
 		val rewrite = {find=pattern,

@@ -60,8 +60,7 @@ fun class_to_layout (class as {name, properties={sourcepos, preshardname, classf
 
 and equation_to_layout e = 
     let
-	val size = (*(ExpProcess.exp2size iterators e)
-		    handle _ => *)(~1)
+	val size = ExpProcess.exp2size e
 
 	val cost = (Cost.exp2cost e)
 	    handle _ => (~1)
@@ -83,6 +82,7 @@ and equation_to_layout e =
 	    mayAlign [prefix,
 		      indent (e2l e, 2)]
     end
+    handle e => DynException.checkpoint "DOFLayout.equation_to_layout" e
 
 and output_to_layout output = seq [e2l (Exp.TERM (DOF.Output.name output)),
 				   s2l " = ",
