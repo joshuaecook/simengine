@@ -29,6 +29,7 @@ fun expToSpace exp =
 			 | Exp.REAL _ => scalar
 			 | Exp.BOOL _ => scalar
 			 | Exp.COMPLEX _ => scalar
+			 | Exp.FILEREF (fe, space) => space
 			 | Exp.TUPLE tuple => tensor [length tuple]
 			 | Exp.RANGE {low, high, step} => 
 			   let

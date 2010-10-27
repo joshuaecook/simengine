@@ -47,6 +47,7 @@ datatype exp =
        | NAN
        | PATTERN of (Symbol.symbol * predicate * Pattern.patterncount)
        | STRING of string
+       | FILEREF of FileEntry.fileentry * Space.space
 
      and randomtype = 
 	 UNIFORM
