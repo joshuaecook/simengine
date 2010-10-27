@@ -83,16 +83,19 @@ classdef Exp
     
     properties (Access = private)
         type
+        inst
         val
         op
         args
         dims = [1 1]
+        indices = 1
+        derived = false
         iterReference = false
         notation = Exp.NONOTATION
     end
     
     methods
-        function e = Exp(v, sub)
+        function e = Exp(v, varargin)
             % Exp - create an Exp simEngine expression
             %
             % Usage:
@@ -133,6 +136,10 @@ classdef Exp
                 elseif isnumeric(v)
                     e.type = e.LITERAL;
                     e.dims = size(v);
+                elseif islogical(v)
+                    e.type = e.LITERAL;
+                    e.dims = size(v);
+                    e.val = v * 1; % promote logical to numeric
                 elseif isa(v, 'Exp')
                     e = v;
                 elseif isa(v, 'Iterator')
@@ -143,12 +150,33 @@ classdef Exp
                     classname = class(v);
                     error('Simatra:Exp', 'Invalid type ''%s'' passed to Exp.  Must be either a string variable name, a numeric literal, an Exp type, or an Iterator.', classname);
                 end
-            elseif nargin == 2
-                if ischar(v) && ischar(sub)
-                    e.val = [v '.' sub];
-                    e.type = e.REFERENCE;
+            elseif nargin == 2 && isa(v, 'Instance') && ischar(varargin{1})
+              e.type = e.REFERENCE;
+              e.inst = v.InstName;
+              e.val = varargin{1};
+              e.dims = size(v);
+              e.indices = reshape(1:prod(e.dims), e.dims);
+            else
+                dims = [varargin{:}];
+                if isscalar(dims)
+                  dims = [dims dims];
+                end
+                if ischar(v) && isnumeric(dims)
+                  if all(dims > 0)
+                    if(strcmp(v, 'NULLEXP'))
+                      e.type = e.NULLEXP
+                      e.val = '';
+                    else
+                      e.type = e.VARIABLE;
+                      e.val = v;
+                    end
+                    e.dims = dims;
+                    e.indices = reshape(1:prod(dims),dims);
+                  else
+                    error('Simatra:Exp','Dimension extents must be > 0.');
+                  end
                 else
-                    error('Simatra:Exp', 'When calling Exp with two arguments, they must be both strings to create the instance reference arg1.arg2');
+                  error('Simatra:Exp', 'When calling Exp with multiple arguments.  Last arguments must all be numeric dimensions.')
                 end
             end
         end
@@ -193,7 +221,7 @@ classdef Exp
                 case 1
                     er = Exp(varargin{1}); % NON STANDARD BEHAVIOR
                 case 2
-                    er = oper('*', varargin);
+                    er = oper('.*', varargin);
                 otherwise
                     er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
@@ -209,7 +237,7 @@ classdef Exp
         end
         
         function er = rdivide(e1, e2)
-            er = oper('/', {e1, e2});
+            er = oper('./', {e1, e2});
         end
 
         function er = mrdivide(e1, e2)
@@ -217,7 +245,7 @@ classdef Exp
         end
 
         function er = ldivide(e1, e2)
-            er = oper('/', {e2, e1});
+            er = oper('./', {e2, e1});
         end
 
         function er = mldivide(e1, e2)
@@ -225,7 +253,7 @@ classdef Exp
         end
         
         function er = power(e1, e2)
-            er = oper('^', {e1, e2});
+            er = oper('.^', {e1, e2});
         end
         
         function er = mpower(e1, e2)
@@ -447,15 +475,18 @@ classdef Exp
             if ~isOdd
                 error('Simatra:Exp:piecewise', 'Pieceswise expects an odd number of Expression arguments')
             end
+            maxsize = [1 1];
+            for i = 1:numel(varargin)
+              argsize = size(varargin{i});
+              if ~isequal(argsize, [1 1])
+                if isequal(maxsize, [1 1])
+                  maxsize = argsize;
+                elseif ~isequal(argsize, maxsize)
+                  error('Simatra:Exp:piecewise', 'All arguments to piecewise must be equal dimensions or have dimensions [1 1]. (%s ~= %s)', mat2str(maxsize), mat2str(argsize));
+                end
+              end
+            end
             er = oper('piecewise', varargin);
-        end
-        
-        % extra functions
-        function er = piecewise_piece(e1, e2)
-            er = oper('piece', {e1, e2});
-        end
-        function er = piecewise_otherwise(e1)
-            er = oper('otherwise', e1);
         end
         
         % Compound functions (TODO - make these have arbitrary numbers of
@@ -537,11 +568,7 @@ classdef Exp
         
         % for arrays
         function l = length(e1)
-            if e1.dims(1) == 1 && length(e1.dims)>1
-                l = e1.dims(2);
-            else
-                l = e1.dims(1);
-            end
+            l = max(e1.dims);
         end
         
         function s = size(e1, ind)
@@ -550,6 +577,40 @@ classdef Exp
             else
                 s = e1.dims(ind);
             end
+        end
+        
+        function i = end(e1, k, n)
+          if n == k
+            i = prod(e1.dims(k:end));
+          else
+            i = e1.dims(k);
+          end
+        end
+        
+        function er = reshape(e, varargin)
+        dims = [varargin{:}];
+        switch e.type
+         case e.LITERAL
+          er = Exp(reshape(e.val, dims));
+         case {e.VARIABLE, e.REFERENCE}
+          er = e;
+          er.indices = reshape(er.indices, dims);
+          er.dims = dims;
+          er.derived = true;
+         case e.OPERATION
+          if isequal(e.dims, [1 1])
+            error('Simatra:Exp:reshape', 'Cannot use reshape on an Exp that has only one element.');
+          else
+            er = e;
+            for i = 1:numel(er.args)
+              if ~isequal(er.args{i}.dims, [1 1])
+                er.args{i} = reshape(er.args{i}, dims);
+              end
+            end
+          end
+         case e.ITERATOR
+          error('Reshape of an Iterator Exp is not allowed.');
+        end
         end
         
         function str = toId(e)
@@ -561,44 +622,116 @@ classdef Exp
         end
         
         function er = subsref(e, s)
-            er = e;
-            for i=1:length(s)
-                if strcmp(s(i).type,'()')
-                    if isRef(e)
-                        error('Simatra:Exp:subsref', ['Can not perform any indexing or temporal referencing from an output of a submodel (' toStr(e) ').  Please first create an intermediate equation by wrapping the variable in an equ method call (myVar = mdl.equ(mySubModel.out);).  Then, perform the indexing on the returned variable.'])
-                    end
-                    subs = s(i).subs;
-                    for j=1:length(subs)
-                        %disp(sprintf('j=%d; e.val=%s; subs{j}=%d', j, num2str(e.val), subs{j}));
-                        if isnumeric(subs{j})
-                            if subs{j} >= 1 && (subs{j} <= e.dims(j) || (length(e) > e.dims(j) && subs{j} <= length(e)))
-                                e = Exp(e.val(subs{j}));
-                            else
-                                error('Simatra:Exp:subsref', 'Invalid index into quantity');
-                            end
-                        elseif isa(subs{j},'IteratorReference')
-                            e.iterReference = subs{j};
-                        elseif isa(subs{j},'Iterator')
-                            e.iterReference = subs{j}.toReference;
-                        else
-                            for i=1:length(s)
-                                s(i)
-                            end
-                            error('Simatra:Exp:subsref', 'Unexpected class type %s passed as an argument to an expression', class(subs{j}));
-                        end
-                        er = e;
-                    end
-                elseif strcmp(s(i).type,'.')
-                    switch s(i).subs
-                        case 'toStr'
-                            er = toStr(e);
-                        otherwise
-                            error('Simatra:Exp:subsref', 'Unrecognized method %s', s(i).subs);
-                    end
-                end
+          if strcmp(s(1).type, '.')
+            if strcmp(s(1).subs, 'toStr')
+              er = toStr(e);
+            elseif strcmp(s(1).subs, 'toMatStr')
+              er = toMatStr(e);
+            else
+              error('Simatra:Exp:subsref', 'Invalid reference ''%s'' to Exp.', s(1).subs);
             end
-
+          elseif strcmp(s(1).type, '()')
+            ss = s(1);
+            switch e.type
+             case {e.VARIABLE, e.REFERENCE}
+              if isa(ss.subs, 'Iterator') || isa(ss.subs, 'IteratorReference')
+                er = e;
+                er.iterReference = ss.subs.toReference;
+              elseif isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
+                iref = ss.subs{1}.toReference;
+                if length(ss.subs) > 1
+                  ss.subs = ss.subs(2:end);
+                  er = Exp(subsref(e.val, ss));
+                else
+                  er = e;
+                end
+                er.iterReference = iref;
+              else
+                temp = subsref(e.indices, ss);
+                er = Exp(e.val, size(temp));
+                er.type = e.type;
+                er.inst = e.inst;
+                er.indices = temp;
+                er.derived = true;
+              end
+             case e.LITERAL,
+              %if isa(ss.subs, 'Iterator') || isa(ss.subs, 'IteratorReference')
+              %  er = e;
+              %  er.iterReference = ss.subs.toReference;
+              %elseif isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
+              %  ss.subs = ss.subs(2:end);
+              %  er = Exp(subsref(e.val, ss));
+              %  er.iterReference = ss.subs{1}.toReference;
+              %else
+                er = Exp(subsref(e.val, ss));
+              %end
+             case e.ITERATOR,
+              error('Simatra:Exp:subsref', 'Can not index Exp.ITERATOR.');
+             case e.OPERATION,
+              if isa(ss.subs, 'Iterator') || isa(ss.subs, 'IteratorReference')
+                er = e;
+                er.iterReference = ss.subs.toReference;
+              else
+                args = cell(size(e.args));
+                if isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
+                  hasiref = true;
+                  iref = ss.subs{1}.toReference;
+                  ss.subs = ss.subs(2:end);
+                else
+                  hasiref = false;
+                end
+                % Test for piecewise op for pruning NULLEXP
+                checkpieces = strcmp(e.op, 'piecewise');
+                for i = 1:numel(e.args)
+                  if ~isequal(e.dims, [1 1]) && isequal(e.args{i}.dims, [1 1])
+                    % If the operation Exp is multidimensional but
+                    % an argument Exp is singular, pass on the
+                    % singular argument.  This is valid.
+                    args{i} = e.args{i};
+                  else
+                    % Otherwise, pass on the subsref to the argument
+                    args{i} = Exp(subsref(e.args{i}, ss));
+                  end
+                  % If a subsref produces an argument that is NULLEXP, the entire result is NULLEXP
+                  if ~checkpieces && args{i}.type == e.NULLEXP
+                    er = Exp();
+                    return;
+                  end
+                end
+                if checkpieces
+                  for i = 2:2:numel(args)
+                    if args{i}.type == e.LITERAL
+                      % Prune any unused arguments
+                      if isequal(args{i}.val, ones(args{i}.dims))
+                        args = args{1:i-1};
+                        i = 2; % Restart check
+                      elseif isequal(args{i}.val, zeros(args{i}.dims))
+                        args = args{i+1:end};
+                        i = 2; % Restart check
+                      end
+                    end
+                  end
+                  if numel(args) == 1
+                    er = args;
+                    return;
+                  end
+                end
+                
+                er = oper(e.op, args);
+                if hasiref
+                  er.iterReference = iref;
+                end
+              end
+            end
+            else
+            error('Simatra:Exp:subsref', 'Subsref type %s not supported', s(i).type);
+          end
+          % Recursively call subsref for additional references
+          if length(s) > 1
+            er = subsref(er, s(2:end));
+          end
         end
+
         
         % Expression Processing
         % =======================================================
@@ -674,57 +807,135 @@ classdef Exp
         end
         
         function s = toStr(e)
+            s = toDslStr(e);
+        end
+        
+        function s = toMatStr(e)
+        s = '';
             if isempty(e.type)
                 e.val
-                error('Simatra:Exp:toStr', 'Unexpected empty expression type')
+                error('Simatra:Exp:toMatStr', 'Unexpected empty expression type')
             end
 
             switch e.type
                 case e.VARIABLE
                     s = e.val;
+                    if e.derived
+                      if numel(e.indices) > 1
+                        s = ['reshape(' e.val '(' mat2str(reshape(e.indices, 1, numel(e.indices))) '),' mat2str(e.dims) ')'];
+                      else
+                        s = [e.val '(' num2str(e.indices) ')'];
+                      end
+                    else
+                      s = e.val;
+                    end
+                    if isa(e.iterReference, 'IteratorReference')
+                        error('Iterator references to Exp not supported in Matlab.')
+                    end
+               case e.REFERENCE
+                    if e.derived
+                      error('Simatra:Exp:toMatStr','Unhandled derived Exp for Exp.REFERENCE.');
+                    else
+                      s = [e.inst '.' e.val];
+                    end
+                    if isa(e.iterReference, 'IteratorReference')
+                        s = [s '[' e.iterReference.toMatStr ']'];
+                    end
+                case e.ITERATOR
+                    s = e.val;
+                case e.LITERAL
+                    if length(size(e.val)) > 2
+                        s = ['reshape(' mat2str(reshape(e.val,1, numel(e.val)),17) ',' mat2str(size(e.val)) ')'];
+                    else
+                        s = mat2str(e.val,17);
+                    end
+                case e.OPERATION
+                    arguments = e.args;
+                    if strcmp(e.op, 'piecewise')
+                        if length(arguments) == 1
+                            s = toMatStr(arguments{1});
+                        else
+                            s = 'piecewise(';
+                            for i=1:2:(length(arguments)-1);
+                                s = [s toMatStr(arguments{i}) ', ' toMatStr(arguments{i+1}) ', '];
+                            end
+                            s = [s  toMatStr(arguments{end}) ')'];
+                        end
+                    else
+                        if length(arguments) == 1
+                            s = ['(' e.op '(' toMatStr(arguments{1}) '))'];
+                        elseif length(arguments) == 2
+                            if e.notation == Exp.INFIX
+                                s = ['(' toMatStr(arguments{1}) e.op toMatStr(arguments{2}) ')'];
+                            else
+                                % treat by default as Exp.PREFIX
+                                s = ['(' e.op '(' toMatStr(arguments{1}) ', ' toMatStr(arguments{2}) '))'];
+                            end
+                        end
+                    end
+            end
+        end
+
+        function s = toDslStr(e)
+            if isempty(e.type)
+                e.val
+                error('Simatra:Exp:toDslStr', 'Unexpected empty expression type')
+            end
+            
+            if ~isequal(e.dims, [1 1])
+              error('Simatra:Exp:toDslStr', 'Multidimensional elements are not supported in Diesel. \n%s', toMatStr(e))
+            end
+
+            switch e.type
+                case e.VARIABLE
+                    if e.derived == true
+                      s = [e.val '_' num2str(e.indices)]; % Flatten the variable name with its index
+                    else
+                      s = e.val;
+                    end
                     if isa(e.iterReference, 'IteratorReference')
                         s = [s '[' e.iterReference.toStr ']'];
                     end
-                case e.REFERENCE
-                    s = e.val;
+             case e.REFERENCE
+                    if e.derived == true
+                      s = [e.inst '_' num2str(e.indices) '.' e.val];
+                    else
+                      s = [e.inst '.' e.val];
+                    end
                     if isa(e.iterReference, 'IteratorReference')
                         s = [s '[' e.iterReference.toStr ']'];
                     end
                 case e.ITERATOR
                     s = e.val;
                 case e.LITERAL
-                    if length(e.val) > 1
-                        s = ['[' numberToString(e.val) ']'];
-                    else
-                        s = numberToString(e.val);
-                    end
+                    s = mat2str(e.val,17);
                 case e.OPERATION
                     arguments = e.args;
                     if strcmp(e.op, 'piecewise')
                         if length(arguments) == 1
-                            s = toStr(arguments{1});
+                            s = toDslStr(arguments{1});
                         else
                             s = '{';
                             for i=1:2:(length(arguments)-1);
-                                s = [s toStr(arguments{i}) ' when ' toStr(arguments{i+1}) ', '];
+                                s = [s toDslStr(arguments{i}) ' when ' toStr(arguments{i+1}) ', '];
                             end
-                            s = [s  toStr(arguments{end}) ' otherwise}'];
+                            s = [s  toDslStr(arguments{end}) ' otherwise}'];
                         end
                     else
                         if length(arguments) == 1
-                            s = ['(' e.op '(' toStr(arguments{1}) '))'];
+                            s = ['(' e.op '(' toDslStr(arguments{1}) '))'];
                         elseif length(arguments) == 2
                             if e.notation == Exp.INFIX
-                                s = ['(' toStr(arguments{1}) e.op toStr(arguments{2}) ')'];
+                              s = ['(' toDslStr(arguments{1}) e.op toDslStr(arguments{2}) ')'];
                             else
                                 % treat by default as Exp.PREFIX
-                                s = ['(' e.op '(' toStr(arguments{1}) ', ' toStr(arguments{2}) '))'];
+                                s = ['(' e.op '(' toDslStr(arguments{1}) ', ' toDslStr(arguments{2}) '))'];
                             end
                         end
                     end
             end
         end
-        
+
         function s = toVariableName(e)
             if isempty(e.type)
                 e.val
@@ -741,7 +952,7 @@ classdef Exp
             
         
         function disp(e)
-            disp(['Expression: ' toStr(e)]);
+            disp(['Expression: ' toMatStr(e)]);
         end
     end
     
@@ -750,16 +961,7 @@ classdef Exp
     
 end
 
-function s = numberToString(v)
-if length(v) == 1
-    s = sprintf('%.15g', v);
-else
-    s = List.stringConcatWith(' ', List.map (@(v)(numberToString(v)), num2cell(v)));
-    %s = mat2str(v);
-end
-end
-
-function er = oper(operation, args, infix)
+function er = oper(operation, args, infix, optdims)
 len = length(args);
 exps = cell(1,len);
 for i=1:len
@@ -775,21 +977,26 @@ else
         er.notation = Exp.PREFIX;
     end
 end
+
 % check binary operations
-if len == 2
-    len1 = length(args{1});
-    len2 = length(args{2});
-    if len1 > 1 && len2 > 1 && (len1 ~= len2)
-        error('Simatra:Exp', 'Invalid array sizes');
+if len == 2 && nargin < 4
+    size1 = size(args{1});
+    size2 = size(args{2});
+    if ~isequal(size1, [1 1]) && ~isequal(size2, [1 1]) && ~isequal(size1, size2)
+        error('Simatra:Exp', 'Invalid expression dimensions %s and %s', mat2str(size1), mat2str(size2));
     end
-    if len1 > len2
-        er.dims = exps{1}.dims;
+    if isequal(size1, [1 1])
+        er.dims = size2;
     else
-        er.dims = exps{2}.dims;
+        er.dims = size1;
     end
 end
 er.type = er.OPERATION;
 er.op = operation;
 er.args = exps;
+% Override result dimensions for operation (e.g. Matrix * Vector multiplication)
+if nargin == 4
+  er.dims = optdims;
+end
 end
 

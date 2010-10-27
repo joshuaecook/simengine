@@ -152,6 +152,7 @@ classdef Model < handle
             id = ['InternalState__' num2str(m.state_number)];
             m.state_number = m.state_number + 1;
             iterator = m.DefaultIterator;
+            dims = [1 1];
             
             args = varargin;
             i = 1; % argument counter
@@ -160,7 +161,7 @@ classdef Model < handle
                 if 1 == i && ischar(arg)
                     id = arg;
                     i = i + 1;
-                elseif isnumeric(arg) || isa(arg, 'Exp')
+                elseif (isnumeric(arg) || isa(arg, 'Exp')) && init == false
                     init = arg;
                     i = i + 1;
                 elseif ischar(arg) && strcmpi(arg, 'iter') && length(args)>1
@@ -170,7 +171,14 @@ classdef Model < handle
                     end
                     i = i + 2;
                 else
+                  dims = [varargin{1:end}];
+                  i = i + numel(dims);
+                  if isscalar(dims)
+                    dims = [dims dims];
+                  end
+                  if ~isnumeric(dims)
                     error('Simatra:Model', 'Unexpected argument to state')
+                  end
                 end
                 args = varargin(i:end);
             end
@@ -178,8 +186,14 @@ classdef Model < handle
             if identifier_exists(m, id)
                 error('Simatra:Model', ['Identifier ' id ' already defined']);
             else
-                e = Exp(id);
-                m.States(id) = struct('init', init, 'iterator', iterator);
+              if isequal(dims, [1 1]) && ~isequal(size(init), [1 1])
+                dims = size(init);
+              end
+              if ~isequal(size(init), [1 1]) && ~isequal(size(init), dims)
+                error('Simatra:Model:state', 'State initialization must be single valued or match state dimensions.')
+              end
+                e = Exp(id, dims);
+                m.States(id) = struct('init', init, 'iterator', iterator, 'dims', dims);
             end
     
         end
@@ -220,6 +234,7 @@ classdef Model < handle
             stddev = 1;
             high = 1;
             low = 0;
+            dims = [1 1];
             
             args = varargin;
             i = 1; % argument counter
@@ -254,7 +269,14 @@ classdef Model < handle
                   end
                   i = i + 2;
                 else
+                  dims = [varargin{i:end}];
+                  i = i + numel(dims);
+                  if isscalar(dims)
+                    dims = [dims dims];
+                  end
+                  if ~isnumeric(dims)
                     error('Simatra:Model', 'Unexpected argument to state')
+                  end
                 end
                 args = varargin(i:end);
             end
@@ -262,8 +284,8 @@ classdef Model < handle
             if m.Randoms.isKey(id)
                 error('Simatra:Model', ['Random ' id ' already exists']);
             else
-                e = Exp(id);
-                s = struct('iterator', iterator);
+                e = Exp(id, dims);
+                s = struct('iterator', iterator, 'dims', dims);
                 if uniform
                   s.uniform = true;
                   s.high = high;
@@ -316,13 +338,13 @@ classdef Model < handle
                 if identifier_exists(m, id)
                     error('Simatra:Model:input', ['Input ' id ' already exists']);
                 end
-                e = Exp(id);
-                s = struct('default', nan, 'exhausted', false, 'iterator', false);
+                s = struct('default', nan, 'exhausted', false, 'iterator', false, 'dims', [1 1]);
                 args = varargin;
                 i = 1;
                 while ~isempty(args)
                     if i == 1 && isnumeric(args{1})
                         s.default = args{1};
+                        s.dims = size(s.default);
                         i = i+1;
                     elseif ischar(args{1})
                         switch (args{1})
@@ -364,6 +386,7 @@ classdef Model < handle
                 elseif ~ischar(s.exhausted)
                     s.exhausted = 'hold';
                 end
+                e = Exp(id, s.dims);
                 m.Inputs(id) = s;
 
             elseif isa(id, 'Instance')
@@ -600,31 +623,17 @@ classdef Model < handle
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
             
-            if isa(varargin{1}, 'Model')
+            if nargin > 1 && isa(varargin{1}, 'Model')
                 modelarg = varargin{1};
                 if nargin == 2
-                    count = 1;
-                elseif nargin == 3
-                    if isnumeric(varargin{2}) && varargin{2}>0
-                        count = varargin{2};
-                    else
-                        error('Simatra:Model:submodel', 'Invalid number of submodels defined');
-                    end
+                    dims = 1;
                 else
-                    error('Simatra:Model:submodel', 'Too many arguments passed to submodel')
+                  dims = [varargin{2:end}];
                 end
 
-                % compute the instance names
-                if count == 1
-                    inst = ['Instance_' num2str(m.instance_number)];
-                    m.instance_number = m.instance_number + 1;
-                else
-                    inst = cell(1, count);
-                    for i=1:count
-                        inst{i} = ['Instance_' num2str(m.instance_number)];
-                        m.instance_number = m.instance_number + 1;
-                    end
-                end
+                % compute the instance name
+                inst = ['Instance_' num2str(m.instance_number)];
+                m.instance_number = m.instance_number + 1;
                 
             elseif ischar(varargin{1}) && nargin>2 && isa(varargin{2}, 'Model')
                 inst = varargin{1};
@@ -633,21 +642,25 @@ classdef Model < handle
                 end
                 modelarg = varargin{2};
                 if nargin == 3
-                    % all good...
-                elseif nargin == 4
-                    if isnumeric(varargin{3}) && varargin{3}>0
-                        error('Simatra:Model:submodel', 'Can not define the number of submodels to be greater than one when an explicit identifier is assigned');                        
-                    else
-                        error('Simatra:Model:submodel', 'Invalid number of submodels defined');
-                    end
+                  % all good...
+                  dims = 1;
                 else
-                    error('Simatra:Model:submodel', 'Too many arguments passed to submodel')
+                  dims = [varargin{3:end}];
                 end
             else
                 error('Simatra:Model:submodel:ArgumentError', 'Wrong number of arguments');
             end
             
-%            if ischar(modelarg) && exist(modelarg, 'file')
+            if isnumeric(dims) && all(dims>0)
+              % Default behavior is to create an NxN matrix
+              if isscalar(dims)
+                dims = [dims dims];
+              end
+            else
+              error('Simatra:Model:submodel', 'Invalid number of submodels defined');
+            end
+
+%                if ischar(modelarg) && exist(modelarg, 'file')
 %                 [filepath, modelname, fileext] = fileparts(modelarg);
 %                 if m.cachedModels.isKey(modelname)
 %                     name = modelname;
@@ -680,16 +693,9 @@ classdef Model < handle
             else
                 error('Simatra:Model', 'Unexpected instance')
             end
-            if iscell(inst)
-                instance = cell(1,length(inst));
-                for i=1:length(inst)
-                    m.Instances(inst{i}) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
-                    instance{i} = Instance(inst{i}, m, modelarg, inputs, outputs);
-                end
-            else
-                m.Instances(inst) = struct('name', name, 'inputs', {inputs}, 'outputs', {outputs}, 'obj', modelarg);
-                instance = Instance(inst, m, modelarg, inputs, outputs);
-            end
+
+            instance = Instance(name, inst, m, modelarg, inputs, outputs, dims);
+            m.Instances(inst) = instance;
         end
 
         function e = equ(m, lhs, rhs)
@@ -711,13 +717,13 @@ classdef Model < handle
             if 2 == nargin
                 rhs = Exp(lhs);
                 lhsstr = ['InternalIntermediate__' num2str(m.intermediate_number)];
-                lhs = Exp(lhsstr);
+                lhs = Exp(lhsstr, size(rhs));
             else
                 if isa(lhs, 'Exp')
-                    lhsstr = toId(lhs);
+                    lhsstr = tempname; %toId(lhs); FIXME - can't use toStr for everything
                 elseif ischar(lhs)
                     lhsstr = lhs;
-                    lhs = Exp(lhs);
+                    lhs = Exp(lhs, size(rhs));
                 else
                     error('Simatra:Model:equ', 'First argument to EQU must be a string or an Exp type');
                 end
@@ -734,7 +740,7 @@ classdef Model < handle
                     number = m.IntermediateEqsNames(lhsstr);
                     remove(m.IntermediateEqs, number); 
                 end
-                e = Exp(lhsstr);
+                e = Exp(lhsstr, size(rhs));
                 m.IntermediateEqs(m.intermediate_number) = struct('lhs', lhs, 'rhs', rhs);
                 m.IntermediateEqsNames(lhsstr) = m.intermediate_number;
             end
@@ -764,10 +770,10 @@ classdef Model < handle
             % check input correctness
             if ~isa(lhs, 'Exp')
                 error('Simatra:Model:update', 'State variable must be an expression type');
-            elseif ~isa(value, 'Exp') && ~isnumeric(value)
-                error('Simatra:Model:update', 'Value assigned in update must be an expression type');
-            elseif ~isa(condition, 'Exp') && ~isnumeric(condition)
-                error('Simatra:Model:update', 'Condition tested in update must be an expression type');
+            elseif ~isa(value, 'Exp') && ~isnumeric(value) || ~isequal(size(value), size(lhs)) && ~isequal(size(value), [1 1])
+                error('Simatra:Model:update', 'Value assigned in update must be an expression type of single value or matching dimensions');
+            elseif (~isa(condition, 'Exp') && ~isnumeric(condition)) || (~isequal(size(condition), [1 1]) && ~isequal(size(condition), size(lhs)))
+                error('Simatra:Model:update', 'Condition tested in update must be a single valued or match dimensions of the update equation lhs.');
             elseif ~strcmpi(whenstr, 'when')
                 error('Simatra:Model:update', 'Incorrect usage - see help Model/update for info');
             elseif ~m.States.isKey(toStr(lhs))
@@ -808,9 +814,9 @@ classdef Model < handle
             % Copyright 2010 Simatra Modeling Technologies
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
-            id = toStr(lhs);
+            id = toVariableName(lhs);
             if isKey(m.DiffEqs, id)
-                error('Simatra:Model', ['Differential Equation assigning ' lhs ' already exists']);
+                error('Simatra:Model', ['Differential Equation assigning ' id ' already exists']);
             else
                 m.DiffEqs(id) = struct('lhs', lhs, 'rhs', rhs);    
             end
@@ -1129,179 +1135,6 @@ classdef Model < handle
             outputs = keys(m.Outputs);
         end
         
-        function str = toStr(m)
-            % MODEL/TOSTR - generate a string representation of a model
-            % 
-            % Usage:
-            %   STR = TOSTR(MDL) - generates a DSL file and returns the
-            %   entire file as a string
-            %
-            % See also MODEL/TODSL MODEL/TYPE
-            %
-            % Copyright 2010 Simatra Modeling Technologies
-            % Website: www.simatratechnologies.com
-            % Support: support@simatratechnologies.com
-            %    
-            inputs = keys(m.Inputs);
-            outputs = keys(m.Outputs);
-            states = keys(m.States);
-            randoms = keys(m.Randoms);
-            eqs = keys(m.IntermediateEqs);
-            eqsNames = keys(m.IntermediateEqsNames);
-            diffeqs = keys(m.DiffEqs); 
-            recurrenceeqs = keys(m.RecurrenceEqs);
-            instances = keys(m.Instances);
-            cachedmodels = keys(m.cachedModels);
-            iterators = values(findIterators(m));
-            
-            str = '';
-            str = [str '// Generated DSL model: ' m.Name '\n'];
-            %str = [str '// Created: ' datestr(now) '\n'];
-            str = [str '// Copyright 2010 Simatra Modeling Technologies\n'];
-            str = [str '\n'];
-            str = [str '// Import List\n'];
-            for i=1:length(cachedmodels)
-                if isfield(m.cachedModels(cachedmodels{i}), 'filename')
-                    str = [str 'import "' m.cachedModels(cachedmodels{i}).filename '"' '\n'];
-                elseif isfield(m.cachedModels(cachedmodels{i}), 'model')
-                    str = [str toStr(m.cachedModels(cachedmodels{i}).model) '\n'];
-                else
-                    error('Simatra:Model', ['Unexpected model type on model ' cachedmodels{i}]);
-                end
-            end
-            str = [str '\n'];                
-            outputList = ['(' concatWith(', ', outputs) ')'];
-            inputList = ['(' concatWith(', ', inputs), ')'];
-            str = [str 'model ' outputList ' = ' m.Name inputList '\n'];
-            str = [str '\n'];
-            str = [str '   // Iterator definitions\n'];
-            default_id = m.DefaultIterator.id;
-            defined = false;
-            for i=1:length(iterators)
-                if strcmp(iterators{i}.id, default_id);
-                    defined = true;
-                end
-                str = [str '   ' iterators{i}.toStr '\n'];
-            end
-            if ~defined
-                str = [str '   ' m.DefaultIterator.toStr '\n'];
-            end
-            str = [str '\n'];
-            str = [str '   // Input definitions\n'];
-            for i=1:length(inputs)
-                input = m.Inputs(inputs{i});
-                attributes = ' with {';
-                if isfinite(input.default)
-                    attributes = [attributes 'default=' toStr(input.default) ', '];
-                end
-                if isa(input.iterator, 'Iterator')
-                    attributes = [attributes 'iter=' toStr(input.iterator.id) ', '];
-                end 
-                attributes = [attributes input.exhausted '_when_exhausted}'];
-                str = [str '   input ' inputs{i} attributes '\n'];
-            end
-            str = [str '\n'];
-            str = [str '   // State definitions\n'];
-            for i=1:length(states)
-                state = m.States(states{i});
-                iter_str = '';
-                if isa(state.iterator, 'Iterator')
-                    iter_str = [' with {iter=' state.iterator.id '}'];
-                end
-                str = [str '   state ' states{i} ' = ' toStr(state.init) iter_str '\n'];
-            end
-            str = [str '\n'];
-            str = [str '   // Random definitions\n'];
-            for i=1:length(randoms)
-                state = m.Randoms(randoms{i});
-                iter_str = '';
-                if isa(state.iterator, 'Iterator')
-                    iter_str = ['iter=' state.iterator.id ', '];
-                end
-                if state.uniform
-                  parameter_str = sprintf('uniform, high=%g, low=%g', state.high, ...
-                                          state.low);
-                else
-                  parameter_str = sprintf('normal, mean=%g, stddev=%g', ...
-                                          state.mean, ...
-                                          state.stddev);
-                end
-                str = [str '   random ' randoms{i} ' with {' iter_str ...
-                       parameter_str '}\n'];
-            end
-            str = [str '\n'];
-            str = [str '   // Instance definitions\n'];
-            for i=1:length(instances)
-                inst = m.Instances(instances{i});
-                name = inst.name;
-                str = [str '   submodel ' name ' ' instances{i} '\n'];
-            end
-            str = [str '\n'];
-            str = [str '   // Equation definitions\n'];
-            for i=1:length(eqs)
-                index = eqs{i};
-                equ = m.IntermediateEqs(index);
-                lhs = equ.lhs;
-                if isfield(equ, 'rhs')
-                    rhs = equ.rhs;
-                    if isRef(lhs)
-                        str = [str '   ' toStr(lhs) ' = ' toStr(rhs) '\n'];
-                    else
-                        str = [str '   equation ' toStr(lhs) ' = ' toStr(rhs) '\n'];
-                    end
-                elseif isfield(equ, 'value') && isfield(equ, 'condition')
-                    value = equ.value;
-                    condition = equ.condition;
-                    str = [str '   equation ' toStr(lhs) ' = ' toStr(value) ' when ' toStr(condition) '\n'];
-                else
-                    error('Simatra:Model:toStr', 'Unexpected equation form');
-                end
-            end
-            str = [str '\n'];
-            str = [str '   // Differential equation definitions\n'];
-            str = [str '   equations\n'];
-            for i=1:length(diffeqs)
-                lhs = diffeqs{i};
-                rhs = m.DiffEqs(lhs).rhs;
-                str = [str '      ' lhs ''' = ' toStr(rhs) '\n'];
-            end
-            str = [str '   end\n'];
-            str = [str '\n'];
-            str = [str '   // Recurrence equation definitions\n'];
-            str = [str '   equations\n'];
-            for i=1:length(recurrenceeqs)
-              key = recurrenceeqs{i};
-                lhs = m.RecurrenceEqs(key).lhs;
-                rhs = m.RecurrenceEqs(key).rhs;
-                str = [str '      ' toStr(lhs) ' = ' toStr(rhs) '\n'];
-            end
-            str = [str '   end\n'];
-            str = [str '\n'];
-            str = [str '   // Output definitions\n'];
-            for i=1:length(outputs)
-                name = outputs{i};
-                output = m.Outputs(name);
-                contents = output.contents;                
-                contentsStr = cell(1,length(contents));
-                for j=1:length(contents);
-                    contentsStr{j} = contents{j}.toStr;
-                end
-                contentsList = ['(' concatWith(', ', contentsStr), ')'];
-                optcondition = '';
-                if isa(output.condition, 'Exp')
-                    optcondition = [' when ' output.condition.toStr];
-                end
-                iter = output.iterator;
-                iter_str = '';
-                if isa(iter, 'Iterator')
-                    %iter_str = ['[' iter.id ']'];
-                    iter_str = [' with {iter=' iter.id '}'];
-                end
-                str = [str '   output ' name ' = ' contentsList iter_str optcondition '\n'];
-            end
-            str = [str 'end\n'];
-        end
-
         function toFile(m, fid)
             % MODEL/TOFILE - generate a string representation of a
             % model in a file
@@ -1365,15 +1198,29 @@ classdef Model < handle
             fprintf(fid, '   // Input definitions\n');
             for i=1:length(inputs)
                 input = m.Inputs(inputs{i});
-                attributes = ' with {';
-                if isfinite(input.default)
-                    attributes = [attributes 'default=' toStr(input.default) ', '];
-                end
                 if isa(input.iterator, 'Iterator')
-                    attributes = [attributes 'iter=' toStr(input.iterator.id) ', '];
-                end 
-                attributes = [attributes input.exhausted '_when_exhausted}'];
-                fprintf(fid, ['   input ' inputs{i} attributes '\n']);
+                  iterator = ['iter=' toStr(input.iterator.id) ', '];
+                else
+                  iterator = '';
+                end
+                inputsize = prod(input.dims);
+                if inputsize > 1
+                  for j = 1:inputsize
+                    if isfinite(input.default(j))
+                      default = ['default=' toStr(input.default(j)) ', '];
+                    else
+                      default = '';
+                    end
+                    fprintf(fid, ['   input ' inputs{i} '_' num2str(j) ' with{' default iterator input.exhausted '_when_exhausted}\n']);
+                  end
+                else
+                  if isfinite(input.default)
+                    default = ['default=' toStr(input.default) ', '];
+                  else
+                    default = '';
+                  end
+                  fprintf(fid, ['   input ' inputs{i} ' with{' default iterator input.exhausted '_when_exhausted}\n']);
+                end
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // State definitions\n');
@@ -1383,7 +1230,19 @@ classdef Model < handle
                 if isa(state.iterator, 'Iterator')
                     iter_str = [' with {iter=' state.iterator.id '}'];
                 end
-                fprintf(fid, ['   state ' states{i} ' = ' toStr(state.init) iter_str '\n']);
+                statesize = prod(state.dims);
+                if statesize > 1
+                  for j = 1:statesize
+                    if isequal(size(state.init), [1 1])
+                      sinit = state.init;
+                    else
+                      sinit = state.init(j);
+                    end
+                    fprintf(fid, ['   state ' states{i} '_' num2str(j) ' = ' toStr(sinit) iter_str '\n']);
+                  end
+                else
+                    fprintf(fid, ['   state ' states{i} ' = ' toStr(state.init) iter_str '\n']);
+                end
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // Random definitions\n');
@@ -1401,15 +1260,21 @@ classdef Model < handle
                                           state.mean, ...
                                           state.stddev);
                 end
-                fprintf(fid, ['   random ' randoms{i} ' with {' iter_str ...
-                       parameter_str '}\n']);
+                statesize = prod(state.dims);
+                if statesize > 1
+                  for j = 1:statesize
+                    fprintf(fid, ['   random ' randoms{i} '_' num2str(j) ' with {' iter_str ...
+                                  parameter_str '}\n']);
+                  end
+                else
+                  fprintf(fid, ['   random ' randoms{i} ' with {' iter_str parameter_str '}\n']);
+                end
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // Instance definitions\n');
             for i=1:length(instances)
                 inst = m.Instances(instances{i});
-                name = inst.name;
-                fprintf(fid, ['   submodel ' name ' ' instances{i} '\n']);
+                fprintf(fid, toStr(inst));
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // Equation definitions\n');
@@ -1417,28 +1282,70 @@ classdef Model < handle
                 index = eqs{i};
                 equ = m.IntermediateEqs(index);
                 lhs = equ.lhs;
-                if isfield(equ, 'rhs')
-                    rhs = equ.rhs;
-                    if isRef(lhs)
-                        fprintf(fid, ['   ' toStr(lhs) ' = ' toStr(rhs) '\n']);
+                lhssize = prod(size(lhs));
+                if lhssize > 1
+                  for j = 1:lhssize
+                    if isfield(equ, 'rhs')
+                      if isequal(size(equ.rhs), [1 1])
+                        rhs = equ.rhs;
+                      else
+                        rhs = equ.rhs(j);
+                      end
+                      if isRef(lhs)
+                        fprintf(fid, ['   ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
+                      else
+                        fprintf(fid, ['   equation ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
+                      end
+                    elseif isfield(equ, 'value') && isfield(equ, 'condition')
+                      if isequal(size(equ.value), [1 1])
+                        value = equ.value;
+                      else
+                        value = equ.value(j);
+                      end
+                      if isequal(size(equ.condition), [1 1])
+                        condition = equ.condition;
+                      else
+                        condition = equ.condition(j);
+                      end
+                      fprintf(fid, ['   equation ' toStr(lhs(j)) ' = ' toStr(value) ' when ' toStr(condition) '\n']);
                     else
-                        fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(rhs) '\n']);
+                      error('Simatra:Model:toStr', 'Unexpected equation form');
                     end
-                elseif isfield(equ, 'value') && isfield(equ, 'condition')
-                    value = equ.value;
-                    condition = equ.condition;
-                    fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(value) ' when ' toStr(condition) '\n']);
+                  end
                 else
-                    error('Simatra:Model:toStr', 'Unexpected equation form');
+                    if isfield(equ, 'rhs')
+                      if isRef(lhs)
+                        fprintf(fid, ['   ' toStr(lhs) ' = ' toStr(equ.rhs) '\n']);
+                      else
+                        fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(equ.rhs) '\n']);
+                      end
+                    elseif isfield(equ, 'value') && isfield(equ, 'condition')
+                      fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(equ.value) ' when ' toStr(equ.condition) '\n']);
+                    else
+                      error('Simatra:Model:toStr', 'Unexpected equation form');
+                    end
                 end
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // Differential equation definitions\n');
             fprintf(fid, '   equations\n');
             for i=1:length(diffeqs)
-                lhs = diffeqs{i};
-                rhs = m.DiffEqs(lhs).rhs;
-                fprintf(fid, ['      ' lhs ''' = ' toStr(rhs) '\n']);
+                lhsid = diffeqs{i};
+                lhs = m.DiffEqs(lhsid).lhs;
+                lhssize = prod(size(lhs));
+                if lhssize > 1
+                  for j = 1:lhssize
+                    if isequal(size(m.DiffEqs(lhsid).rhs), [1 1])
+                      rhs = m.DiffEqs(lhsid).rhs;
+                    else
+                      rhs = m.DiffEqs(lhsid).rhs(j);
+                    end
+                    fprintf(fid, ['      ' toStr(lhs(j)) ''' = ' toStr(rhs) '\n']);
+                  end
+                else
+                  rhs = m.DiffEqs(lhsid).rhs;
+                  fprintf(fid, ['      ' toStr(lhs) ''' = ' toStr(rhs) '\n']);
+                end
             end
             fprintf(fid, '   end\n');
             fprintf(fid, '\n');
@@ -1446,9 +1353,21 @@ classdef Model < handle
             fprintf(fid, '   equations\n');
             for i=1:length(recurrenceeqs)
               key = recurrenceeqs{i};
-                lhs = m.RecurrenceEqs(key).lhs;
+              lhs = m.RecurrenceEqs(key).lhs;
+              lhssize = prod(size(lhs));
+              if lhssize > 1
+                for j = 1:prod(size(lhs))
+                  if isequal(size(rhs), [1 1])
+                    rhs = m.RecurrenceEqs(key).rhs;
+                  else
+                    rhs = m.RecurrenceEqs(key).rhs(j);
+                  end
+                  fprintf(fid, ['      ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
+                end
+              else
                 rhs = m.RecurrenceEqs(key).rhs;
                 fprintf(fid, ['      ' toStr(lhs) ' = ' toStr(rhs) '\n']);
+              end
             end
             fprintf(fid, '   end\n');
             fprintf(fid, '\n');
@@ -1459,7 +1378,17 @@ classdef Model < handle
                 contents = output.contents;                
                 contentsStr = cell(1,length(contents));
                 for j=1:length(contents);
-                    contentsStr{j} = contents{j}.toStr;
+                  subcontentssize = prod(size(contents{j}));
+                  if subcontentssize > 1
+                    subcontents = contents{j};
+                    subcontentsStr = cell(1, subcontentssize);
+                    for k = 1:subcontentssize
+                      subcontentsStr{k} = subcontents(k).toStr;
+                    end
+                    contentsStr{j} = concatWith(', ', subcontentsStr);
+                  else
+                    contentsStr{j} = toStr(contents{j});
+                  end
                 end
                 contentsList = ['(' concatWith(', ', contentsStr), ')'];
                 optcondition = '';
@@ -1477,6 +1406,17 @@ classdef Model < handle
             fprintf(fid, 'end\n');
         end
 
+        function str = toStr(m)
+        tempfile = tempname;
+        fid = fopen(tempfile, 'w');
+        if fid == -1
+          error('Simatra:Model:toStr', 'Could not open temporary file %s for writing model.', tempfile);
+        end
+        toFile(m, fid);
+        fclose(fid);
+        str = fileread(tempfile);
+        delete(tempfile);
+        end
         
         function filename = toDSL(m, filename)
             % MODEL/TODSL - view the resulting generated DSL code
@@ -1631,12 +1571,13 @@ classdef Model < handle
             submodel_counts = containers.Map;
             insts = keys(m.Instances);
             for i=1:length(insts)
-                name = m.Instances(insts{i}).name;
-                if isKey(submodel_counts, name)
-                    submodel_counts(name) = submodel_counts(name) + 1;
-                else
-                    submodel_counts(name) = 1;
-                end
+              inst = m.Instances(insts{i});
+              name = inst.MdlName;
+              if isKey(submodel_counts, name)
+                submodel_counts(name) = submodel_counts(name) + prod(size(inst));
+              else
+                submodel_counts(name) = 1;
+              end
             end
             if isempty(insts)
                 disp(['  sub-models: <none>']);
