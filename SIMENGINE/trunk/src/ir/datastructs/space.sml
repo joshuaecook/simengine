@@ -18,8 +18,11 @@ sig
     val isEmpty : space -> bool              (* test to see if it's an empty space *)
     val collection : space list -> space     (* combine spaces into a collection of spaces *)
     val isCollection: space -> bool          (* test for collections - if it's a collection, we can't operate over it, just subreference it *)
+    val separate: space -> space list        (* separate a space into a collection of spaces *)
     val tensor : int list -> space           (* construct a tensor space *)
     val equal : (space * space) -> bool      (* see if two spaces are equal *)
+    val toLayout : space -> Layout.t         (* convert the space to a layout for debugging *)
+
 
     (* -------- Methods for Math --------*)
     val reduceCodomain : space -> space      (* replace the first dimension quantity from a space with a singleton *)
@@ -188,6 +191,9 @@ fun collection spaces = Collection spaces
 fun isCollection (Collection _) = true
   | isCollection _ = false
 
+fun separate (Collection spaces) = spaces
+  | separate space = [space]
+
 fun reduceCodomain (Point (Tensor [])) = scalar (* special case which causes the default value to emerge *)
   | reduceCodomain (Point (Tensor [dim])) = scalar
   | reduceCodomain (Point (Tensor (dim::dims))) = Point (Tensor (1::dims))
@@ -222,6 +228,14 @@ fun equal (space1, space2) =
       | (Collection spaces1, Collection spaces2) => (length spaces1) = (length spaces2) andalso
 						    List.all equal (ListPair.zip (spaces1, spaces2))
       | _ => false
+
+local
+    open Layout
+    val int = str o Util.i2s
+in
+fun toLayout (Point (Tensor dims)) = label ("Tensor", bracketList (map int dims))
+  | toLayout (Collection spaces) = label ("Collection", parenList (map toLayout spaces))
+end
 
 fun subspaceToStr subspace =
     let
