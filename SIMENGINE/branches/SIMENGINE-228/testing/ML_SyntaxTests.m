@@ -77,7 +77,7 @@ noErrorTest = @(id, fcn)(Test(id, fcn, '-withouterror'));
 s_usage = Suite('Instantiation Tests');
 s_usage.add(noErrorTest('literal', @()(Exp(1))));
 s_usage.add(noErrorTest('var', @()(Exp('a'))));
-s_usage.add(noErrorTest('reference', @()(Exp('s','x'))));
+s_usage.add(noErrorTest('reference', @()(Exp('s','x')))); % This is failing because I switched the first parameter to an instance in Exp.m
 s_usage.add(noErrorTest('iterator', @()(Exp(Iterator('t')))));
 t = Test('cell', @()(Exp({'a'})), '-withouterror');
 t.ExpectFail = true;
@@ -153,7 +153,7 @@ s_vec = Suite('Non-scalar Literal Tests')
 
 verifySizeTest = @(id, fcn, expected)(Test(id, @()(ndims(fcn()) == ...
                                                   length(expected) ...
-                                                  && all(size(fcn())==expected))));
+                                                  && isequal(size(fcn()),expected))));
 s_vec.add(verifySizeTest('VerifyTestFunction', @()(rand(2,3,5)), [2 3 5]));
 a = Exp(1);
 v = Exp(rand(1,10));
@@ -250,8 +250,7 @@ s_len.add(Test('OneSubModel B', @OneSubModelB));
         m = Model('top');
         dims = [1 10];
         sm = m.submodel(SquareSubModel, dims);
-        r = all(size(sm) == dims) && (length(sm) == max(dims)) && (numel(sm) ...
-                                                          == prod(dims));
+        r = isequal(size(sm), dims) && (length(sm) == max(dims));
     end
 
 s_len.add(Test('1D Vector Submodels A', @MultiSubModels1DA));
@@ -260,8 +259,7 @@ s_len.add(Test('1D Vector Submodels A', @MultiSubModels1DA));
         m = Model('top');
         dims = [10 1];
         sm = m.submodel(SquareSubModel, dims);
-        r = all(size(sm) == dims) && (length(sm) == max(dims)) && (numel(sm) ...
-                                                          == prod(dims));
+        r = isequal(size(sm),dims) && (length(sm) == max(dims));
     end
 
 s_len.add(Test('1D Vector Submodels B', @MultiSubModels1DB));
@@ -270,8 +268,7 @@ s_len.add(Test('1D Vector Submodels B', @MultiSubModels1DB));
         m = Model('top');
         dims = [5 10];
         sm = m.submodel(SquareSubModel, dims);
-        r = all(size(sm) == dims) && (length(sm) == max(dims)) && ...
-            (numel(sm) == prod(dims));
+        r = isequal(size(sm), dims) && (length(sm) == max(dims));
     end
 
 s_len.add(Test('2D Matrix Submodels A', @MultiSubModels2DA));
@@ -280,8 +277,7 @@ s_len.add(Test('2D Matrix Submodels A', @MultiSubModels2DA));
         m = Model('top');
         dims = 10;
         sm = m.submodel(SquareSubModel, dims);
-        r = all(size(sm) == dims) && (length(sm) == max(dims)) && ...
-            (numel(sm) == prod([dims dims]));
+        r = isequal(size(sm), [dims dims]) && (length(sm) == dims);
     end
 
 s_len.add(Test('2D Matrix Submodels B', @MultiSubModels2DB));
@@ -290,8 +286,7 @@ function r = MultiSubModels3D
         m = Model('top');
         dims = [5 10 20];
         sm = m.submodel(SquareSubModel, dims);
-        r = all(size(sm) == dims) && (length(sm) == max(dims)) && ...
-            (numel(sm) == prod(dims));
+        r = isequal(size(sm), dims) && (length(sm) == max(dims));
     end
 
 s_len.add(Test('3D Volume Submodels', @MultiSubModels3D));
