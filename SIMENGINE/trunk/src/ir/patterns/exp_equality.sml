@@ -113,7 +113,10 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
 			     (case (Property.getIterator p1, Property.getIterator p2)
 			       of (NONE, NONE) => true
 				| (SOME i1, SOME i2) => Iterator.iter_equiv (i1, i2)
-				| _ => false))
+				| _ => false)
+			     (* check the spaces *)
+			     andalso
+			     (Space.equal (Property.getSpace p1, Property.getSpace p2)))
 
       | (Exp.INFINITY, Exp.INFINITY) => matchCandidates
       | (Exp.NAN, Exp.NAN) => matchCandidates
