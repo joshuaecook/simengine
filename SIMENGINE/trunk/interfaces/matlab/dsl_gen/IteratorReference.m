@@ -29,6 +29,10 @@ classdef IteratorReference
             end
         end
         
+        function iterref2 = toReference(iterref)
+          iterref2 = iterref;
+        end
+        
         function index = subsindex(iterref)
             index = 0;
         end
