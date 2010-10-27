@@ -100,6 +100,7 @@ ir/datastructs/pattern.sml
 ir/processing/inst_properties.sml
 ir/math/math_functions.sml
 ir/datastructs/fun.sml
+ir/datastructs/fileentry.sml
 ir/datastructs/exp.sml
 ir/datastructs/term.sml
 ir/datastructs/container.sml

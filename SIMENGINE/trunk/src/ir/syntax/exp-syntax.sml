@@ -48,7 +48,10 @@ and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
   | termToJSON (Exp.COMPLEX (r, i)) =
     JSONTypedObject ("Exp.COMPLEX",
 		     object [("real", termToJSON r), ("imaginary", termToJSON i)])
-  | termToJSON (Exp.TUPLE terms) =
+  | termToJSON (Exp.FILEREF (fileentry, space)) =
+    JSONTypedObject ("Exp.FILEREF", object[("file", symbol (FileEntry.file fileentry)),
+					   ("entry", symbol (FileEntry.entry fileentry))])
+  | termToJSON (Exp.TUPLE terms) = 
     JSONTypedObject ("Exp.TUPLE", array (map termToJSON terms))
   | termToJSON (Exp.RANGE {low, high, step}) =
     JSONTypedObject ("Exp.RANGE",

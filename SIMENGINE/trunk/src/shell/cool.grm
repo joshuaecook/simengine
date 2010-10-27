@@ -80,6 +80,8 @@ start of Ast.stm
 | args of Ast.typedname list 
 | optargs of Ast.typedname list
 | optdims of Symbol.symbol list option
+| optliteraldims of int list option
+| intlist of int list
 | modelarg of Symbol.symbol * Symbol.symbol list option
 | modelargs of (Symbol.symbol * Symbol.symbol list option) list
 | optmodelargs of (Symbol.symbol * Symbol.symbol list option) list 
@@ -223,6 +225,12 @@ modelarg: ID optdims(Symbol.symbol ID, optdims)
 optdims: (NONE)
        | LBRACE idlist RBRACE (SOME idlist)
 
+optliteraldims: (NONE)
+    | LBRACE intlist RBRACE (SOME intlist)
+
+intlist: (nil)
+       | INT intlist (INT :: intlist)
+
 optargs: ([])
        | LPAREN args RPAREN (args)
 
@@ -253,10 +261,11 @@ outputdef: OUTPUT ID optdimensions optassignment opttable optwhen (Ast.OUTPUTDEF
 										  dimensions= optdimensions,
 										  settings=opttable,
 										  condition=optwhen}) 
-inputdef: INPUT optmapping ID opttable (Ast.INPUTDEF {name=Symbol.symbol ID,
+inputdef: INPUT optmapping ID opttable optliteraldims (Ast.INPUTDEF {name=Symbol.symbol ID,
 						      quantity=case optmapping of
 								   SOME exp => exp
 								 | NONE => Ast.UNIT,
+						      dimensions=optliteraldims,
 						      settings=opttable})
 
 iteratordef: ITERATOR ID optassignment opttable (Ast.ITERATORDEF {name=Symbol.symbol ID,
@@ -488,6 +497,7 @@ conditions: lambda optlines WHEN optlines lambda COMMA optlines conditions
 aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
     | INT (Ast.LITERAL(Ast.CONSTREAL (Real.fromInt INT)))
     | string (string)
+    | AMPERSAND ID COLON ID optliteraldims (Ast.FILEREF({file=Symbol.symbol ID1, entry=Symbol.symbol ID2}, optliteraldims))
     | UNDERSCORE (Ast.WILDCARD)
     | PATTERN (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "Pattern")},
 			 args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR PATTERN)]})

@@ -88,6 +88,7 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 				else if Term.isZero t2 then exp2tersestr pretty (Exp.TERM t1)
 				else exp2tersestr pretty (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
        | Exp.TUPLE l => "("^(String.concatWith ", " (map (fn(t)=>exp2tersestr pretty (Exp.TERM t)) l))^")"
+       | Exp.FILEREF (fileentry, _) => FileEntry.tostring fileentry
        | Exp.RANGE {low, high, step} => 
 	 if Term.isOne step then
 	     (exp2tersestr pretty (Exp.TERM low)) ^ ":" ^ (exp2tersestr pretty (Exp.TERM high))
@@ -227,6 +228,7 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 				else if Term.isZero t2 then exp2terselayout pretty (Exp.TERM t1)
 				else exp2terselayout pretty (ExpBuild.plus [Exp.TERM t1, ExpBuild.times [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))]])
        | Exp.TUPLE l => paren (commas_seq (map (fn(t)=>exp2terselayout pretty (Exp.TERM t)) l))
+       | Exp.FILEREF (fileentry, _) => s2l (FileEntry.tostring fileentry)
        | Exp.RANGE {low, high, step} => 
 	 if Term.isOne step then
 	     seq [exp2terselayout pretty (Exp.TERM low),
@@ -345,6 +347,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	 else if Term.isZero t2 then exp2fullstr (Exp.TERM t1)
 	 else exp2fullstr (Exp.FUN (Symbol.symbol "PLUS", [Exp.TERM t1, Exp.FUN (Symbol.symbol "TIMES", [Exp.TERM t2, Exp.TERM (Exp.SYMBOL (Symbol.symbol "i",Property.default_symbolproperty))])]))	*)
        | Exp.TUPLE l => "Tuple("^(String.concatWith ", " (map (fn(t)=>exp2fullstr (Exp.TERM t)) l))^")"
+       | Exp.FILEREF (fileentry, _) => FileEntry.tostring fileentry
        | Exp.RANGE {low, high, step} => "Range("^(exp2fullstr (Exp.TERM low))^":"^(exp2fullstr (Exp.TERM step))^":"^(exp2fullstr (Exp.TERM high))^")"
        | Exp.SYMBOL (s, props) => Term.sym2fullstr (s, props)
        | Exp.STRING s => "\"" ^ s ^ "\""

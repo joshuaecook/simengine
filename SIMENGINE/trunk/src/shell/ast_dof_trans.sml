@@ -166,11 +166,17 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
 and send_to_Exp {message, object=(SYMBOL sym)} = ExpBuild.var (Symbol.name sym ^ "." ^ (Symbol.name message))
   | send_to_Exp {message, object} = ExpBuild.var ("SEND:" ^ (Symbol.name message))
 
+and dims2space dims =
+    case dims of
+	NONE => Space.scalar
+      | SOME ints => Space.tensor ints
+
 and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
   | astexp_to_Exp (LITERAL (CONSTBOOL b)) = Exp.TERM (Exp.BOOL b)
   | astexp_to_Exp (LITERAL (CONSTSTR str)) = Exp.TERM (Exp.STRING str)
   | astexp_to_Exp (LITERAL (CONSTBINARY _)) = error_exp "CONSTBINARY"
   | astexp_to_Exp (STRINGEXP _) = error_exp "STRINGEXP"
+  | astexp_to_Exp (FILEREF ({file, entry}, dims)) = Exp.TERM (Exp.FILEREF (FileEntry.makeFileEntry (file, entry), dims2space dims))
   | astexp_to_Exp (SYMBOL sym) = ExpBuild.svar sym
   | astexp_to_Exp (LIBFUN _) = error_exp "LIBFUN"
   | astexp_to_Exp (LAMBDA _) = error_exp "LAMBDA"
@@ -284,13 +290,13 @@ and modelpart_to_printer (STM stm) = [$("Stm:"),
 												   SOME c => [$("Condition: " ^ (ExpPrinter.exp2str (astexp_to_Exp c)))]
 												 | NONE => []))]
 												    
-  | modelpart_to_printer (INPUTDEF {name, quantity, settings}) = [$("Inputdef: " ^ (Symbol.name name)),
-								  SUB[$("quantity"),
-								      SUB(exp_to_printer quantity)],
-								  SUB(case settings of
-									  SOME e => [$("Settings"),
-										     SUB(exp_to_printer e)]
-									| NONE => [])]
+  | modelpart_to_printer (INPUTDEF {name, quantity, settings, dimensions}) = [$("Inputdef: " ^ (Symbol.name name)),
+										 SUB[$("quantity"),
+										     SUB(exp_to_printer quantity)],
+										 SUB(case settings of
+											 SOME e => [$("Settings"),
+												    SUB(exp_to_printer e)]
+										       | NONE => [])]
   | modelpart_to_printer (ITERATORDEF {name, value, settings}) = [$("Iteratordef: " ^ (Symbol.name name)),
 								  SUB(case value of 
 									  SOME e => [$("Value: " ^ (ExpPrinter.exp2str (astexp_to_Exp e)))]
@@ -393,6 +399,12 @@ and exp_to_printer (LITERAL lit) = [$("Literal: " ^ (literal_to_string lit))]
 				       SUB(map (SUB o exp_to_printer) explist)]
   | exp_to_printer (TUPLE explist) = [$("Tuple: "),
 				      SUB(Util.flatmap exp_to_printer explist)]
+  | exp_to_printer (FILEREF ({file, entry}, dims)) = [$("FileReference: "),
+						      SUB[$("File "^ (Symbol.name file)),
+							  $("Entry "^ (Symbol.name entry)),
+							  $("Dimensions " ^ (case dims of
+										 SOME dims => String.concatWith ", " (map Int.toString dims)
+									       | NONE => "NONE"))]]
   | exp_to_printer (ASSERTION exp) = [$("Assertion")]
   | exp_to_printer (UNIT) = [$("Unit")]
   | exp_to_printer (UNDEFINED) = [$("Undefined")]
@@ -432,7 +444,7 @@ local
 	   | NONE => NONE)
       | lookupTable _ = NONE
 
-    fun translate_input (INPUTDEF {name, quantity, settings}) = 
+    fun translate_input (INPUTDEF {name, quantity, settings, dimensions}) = 
 	let
 	    val default = case settings of 
 			      SOME settings => 
@@ -441,7 +453,7 @@ local
 				 | NONE => NONE)
 			    | NONE => NONE
 	    val behaviour = case settings of
-				SOME settings => 
+				SOME settings =>
 				(case lookupTable (settings, Symbol.symbol "cycle_when_exhausted") of
 				     SOME _ => DOF.Input.CYCLE
 				   | NONE => (case lookupTable (settings, Symbol.symbol "halt_when_exhausted") of
@@ -460,9 +472,11 @@ local
 					       NONE)
 				  | NONE => NONE)
 			     | NONE => NONE
+
+	    val space = dims2space dimensions
 	in
 	    DOF.Input.make {name=case iterator of
-				     SOME iter => ExpProcess.exp2term (ExpBuild.var_with_iter (name, iter))
+				     SOME iter => ExpProcess.exp2term (ExpBuild.spacevar_with_iter (name, iter, space))
 				   | NONE => ExpProcess.exp2term (ExpBuild.svar name),
 			    default=default, 
 			    behaviour=behaviour}
