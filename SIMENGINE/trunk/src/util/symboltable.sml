@@ -40,6 +40,7 @@ structure H = ListMapFn (struct
 			     (fn((k, v), t) => enter (t, k, v))
 			     empty
 			     (ListPair.zipEq (l, (List.map fcn l)))
+  fun iskey (t, k) = isSome (H.find (t, k))
 
 (*
   type 'a table = (string * 'a) list
