@@ -8,20 +8,21 @@
 % Adapted for use with simEngine
 % Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
 %
-function m = createSegment(node, mysa, flut, stin)
+function m = createSegment(t_imp, t_exp)
 
 if nargin == 0
     % First define the global iterators
     dt = 0.001;
     t_imp = Iterator('t_imp', 'solver', 'linearbackwardeuler', 'dt', dt);
     t_exp = Iterator('t_exp', 'solver', 'forwardeuler', 'dt', dt);
-    
-    % Create the submodels
-    node = createNode(t_imp, t_exp);
-    flut = createFlut(t_imp);
-    mysa = createMysa(t_imp);
-    stin = createStin(t_imp);
 end
+
+% Create the submodels
+node = createNode(t_imp, t_exp);
+flut = createFlut(t_imp);
+mysa = createMysa(t_imp);
+stin = createStin(t_imp);
+
 
 m = Model('segment');
 
@@ -33,24 +34,17 @@ VextLeft = m.input('VextLeft', 0);
 VextRight = m.input('VextRight', 0);
 
 nodeA = m.submodel(node);
-nodeA.diameter = 1.9; nodeA.length = 1; nodeA.Isegmental = Isegmental_L; nodeA.Vext = VextLeft;
+nodeA.with('diameter', 1.9, 'length', 1, 'Istim', Istim, 'Isegmental', Isegmental_L, 'Vext', VextLeft);
 mysaA = m.submodel(mysa);
-mysaA.diameter = 1.9; mysaA.length=3; mysaA.Vext = VextLeft + (VextRight - VextLeft)*3/497;
+mysaA.with('diameter', 1.9, 'length', 3, 'Vext', VextLeft + (VextRight - VextLeft)*3/497);
 flutA = m.submodel(flut);
-flutA.diameter = 3.4; flutA.length=35; flutA.Vext = VextLeft + (VextRight - VextLeft)*38/497;
-numStins = 6;
-stins = cell(1,numStins);
-for i=1:numStins
-    stins{i} = m.submodel(stin);
-    stins{i}.diameter = 3.4; stins{i}.length=70; stins{i}.Vext = VextLeft + (VextRight - VextLeft)*(108+i*70)/497;
-end
+flutA.with('diameter', 3.4, 'length', 35, 'Vext', VextLeft + (VextRight - VextLeft)*38/497);
+stins = m.submodel(stin, 1, 6);
+stins.with('diameter', 3.4, 'length', 70, 'Vext', VextLeft + (VextRight - VextLeft)*(108+i*70)/497);
 flutB = m.submodel(flut);
-flutB.diameter = 3.4; flutB.length=35; flutB.Vext = VextLeft + (VextRight - VextLeft)*493/497;
+flutA.with('diameter', 3.4, 'length', 35, 'Vext', VextLeft + (VextRight - VextLeft)*493/497);
 mysaB = m.submodel(mysa);
-mysaB.diameter = 1.9; mysaB.length=3; mysaB.Vext = VextLeft + (VextRight - VextLeft)*496/497;
-mysaB.Isegmental_axonal = Isegmental_R; mysaB.Isegmental_periaxonal = Iperiaxonal_R;
-
-nodeA.Istim = Istim;
+mysaB.with('diameter', 1.9, 'length', 3, 'Isegmental_axonal', Isegmental_R, 'Isegmental_periaxonal', Iperiaxonal_R, 'Vext', VextLeft + (VextRight - VextLeft)*496/497);
 
 function join1(c1, c2)
   %function to join node to another section

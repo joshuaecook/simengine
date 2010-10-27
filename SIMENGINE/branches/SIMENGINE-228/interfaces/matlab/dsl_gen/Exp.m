@@ -158,10 +158,18 @@ classdef Exp
               e.indices = reshape(1:prod(e.dims), e.dims);
             else
                 dims = [varargin{:}];
+                if isscalar(dims)
+                  dims = [dims dims];
+                end
                 if ischar(v) && isnumeric(dims)
                   if all(dims > 0)
-                    e.type = e.VARIABLE;
-                    e.val = v;
+                    if(strcmp(v, 'NULLEXP'))
+                      e.type = e.NULLEXP
+                      e.val = '';
+                    else
+                      e.type = e.VARIABLE;
+                      e.val = v;
+                    end
                     e.dims = dims;
                     e.indices = reshape(1:prod(dims),dims);
                   else
@@ -467,15 +475,18 @@ classdef Exp
             if ~isOdd
                 error('Simatra:Exp:piecewise', 'Pieceswise expects an odd number of Expression arguments')
             end
+            maxsize = [1 1];
+            for i = 1:numel(varargin)
+              argsize = size(varargin{i});
+              if ~isequal(argsize, [1 1])
+                if isequal(maxsize, [1 1])
+                  maxsize = argsize;
+                elseif ~isequal(argsize, maxsize)
+                  error('Simatra:Exp:piecewise', 'All arguments to piecewise must be equal dimensions or have dimensions [1 1]. (%s ~= %s)', mat2str(maxsize), mat2str(argsize));
+                end
+              end
+            end
             er = oper('piecewise', varargin);
-        end
-        
-        % extra functions
-        function er = piecewise_piece(e1, e2)
-            er = oper('piece', {e1, e2});
-        end
-        function er = piecewise_otherwise(e1)
-            er = oper('otherwise', e1);
         end
         
         % Compound functions (TODO - make these have arbitrary numbers of
@@ -576,6 +587,32 @@ classdef Exp
           end
         end
         
+        function er = reshape(e, varargin)
+        dims = [varargin{:}];
+        switch e.type
+         case e.LITERAL
+          er = Exp(reshape(e.val, dims));
+         case {e.VARIABLE, e.REFERENCE}
+          er = e;
+          er.indices = reshape(er.indices, dims);
+          er.dims = dims;
+          er.derived = true;
+         case e.OPERATION
+          if isequal(e.dims, [1 1])
+            error('Simatra:Exp:reshape', 'Cannot use reshape on an Exp that has only one element.');
+          else
+            er = e;
+            for i = 1:numel(er.args)
+              if ~isequal(er.args{i}.dims, [1 1])
+                er.args{i} = reshape(er.args{i}, dims);
+              end
+            end
+          end
+         case e.ITERATOR
+          error('Reshape of an Iterator Exp is not allowed.');
+        end
+        end
+        
         function str = toId(e)
             str = regexprep(toStr(e),'\.','__');
         end
@@ -637,35 +674,52 @@ classdef Exp
               else
                 args = cell(size(e.args));
                 if isa(ss.subs{1}, 'Iterator') || isa(ss.subs{1}, 'IteratorReference')
+                  hasiref = true;
                   iref = ss.subs{1}.toReference;
                   ss.subs = ss.subs(2:end);
-                  for i = 1:numel(e.args)
-                    if ~isequal(e.dims, [1 1]) && isequal(e.args{i}.dims, [1 1])
-                      % If the operation Exp is multidimensional but
-                      % an argument Exp is singular, pass on the
-                      % singular argument.  This is valid.
-                      args{i} = e.args{i};
-                    else
-                      % Otherwise, pass on the subsref to the argument
-                      args{i} = Exp(subsref(e.args{i}, ss));
-                    end
-                  end
-                  er = oper(e.op, args);
-                  er.iterReference = iref;
                 else
-                  for i = 1:numel(e.args)
-                    if (length(e.dims ~= 2) || all(e.dims ~= [1 1])) && ...
-                          length(e.args{i}.dims) == 2 && all(e.args{i}.dims == [1 1])
-                      % If the operation Exp is multidimensional but
-                      % an argument Exp is singular, pass on the
-                      % singular argument.  This is valid.
-                      args{i} = e.args{i};
-                    else
-                      % Otherwise, pass on the subsref to the argument
-                      args{i} = Exp(subsref(e.args{i}, ss));
+                  hasiref = false;
+                end
+                % Test for piecewise op for pruning NULLEXP
+                checkpieces = strcmp(e.op, 'piecewise');
+                for i = 1:numel(e.args)
+                  if ~isequal(e.dims, [1 1]) && isequal(e.args{i}.dims, [1 1])
+                    % If the operation Exp is multidimensional but
+                    % an argument Exp is singular, pass on the
+                    % singular argument.  This is valid.
+                    args{i} = e.args{i};
+                  else
+                    % Otherwise, pass on the subsref to the argument
+                    args{i} = Exp(subsref(e.args{i}, ss));
+                  end
+                  % If a subsref produces an argument that is NULLEXP, the entire result is NULLEXP
+                  if ~checkpieces && args{i}.type == e.NULLEXP
+                    er = Exp();
+                    return;
+                  end
+                end
+                if checkpieces
+                  for i = 2:2:numel(args)
+                    if args{i}.type == e.LITERAL
+                      % Prune any unused arguments
+                      if isequal(args{i}.val, ones(args{i}.dims))
+                        args = args{1:i-1};
+                        i = 2; % Restart check
+                      elseif isequal(args{i}.val, zeros(args{i}.dims))
+                        args = args{i+1:end};
+                        i = 2; % Restart check
+                      end
                     end
                   end
-                  er = oper(e.op, args);
+                  if numel(args) == 1
+                    er = args;
+                    return;
+                  end
+                end
+                
+                er = oper(e.op, args);
+                if hasiref
+                  er.iterReference = iref;
                 end
               end
             end
@@ -757,6 +811,7 @@ classdef Exp
         end
         
         function s = toMatStr(e)
+        s = '';
             if isempty(e.type)
                 e.val
                 error('Simatra:Exp:toMatStr', 'Unexpected empty expression type')
@@ -804,7 +859,7 @@ classdef Exp
                             for i=1:2:(length(arguments)-1);
                                 s = [s toMatStr(arguments{i}) ', ' toMatStr(arguments{i+1}) ', '];
                             end
-                            s = [s  toMatStr(arguments{end})];
+                            s = [s  toMatStr(arguments{end}) ')'];
                         end
                     else
                         if length(arguments) == 1
@@ -897,7 +952,7 @@ classdef Exp
             
         
         function disp(e)
-            disp(['Expression: ' toDslStr(e)]);
+            disp(['Expression: ' toMatStr(e)]);
         end
     end
     
@@ -924,16 +979,16 @@ else
 end
 
 % check binary operations
-if len == 2
-    len1 = length(args{1});
-    len2 = length(args{2});
-    if len1 > 1 && len2 > 1 && (len1 ~= len2)
-        error('Simatra:Exp', 'Invalid array sizes');
+if len == 2 && nargin < 4
+    size1 = size(args{1});
+    size2 = size(args{2});
+    if ~isequal(size1, [1 1]) && ~isequal(size2, [1 1]) && ~isequal(size1, size2)
+        error('Simatra:Exp', 'Invalid expression dimensions %s and %s', mat2str(size1), mat2str(size2));
     end
-    if len1 > len2
-        er.dims = exps{1}.dims;
+    if isequal(size1, [1 1])
+        er.dims = size2;
     else
-        er.dims = exps{2}.dims;
+        er.dims = size1;
     end
 end
 er.type = er.OPERATION;

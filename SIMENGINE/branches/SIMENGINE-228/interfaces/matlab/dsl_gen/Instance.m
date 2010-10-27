@@ -1,4 +1,4 @@
-classdef Instance
+classdef Instance < handle
     
     properties
         MdlName
@@ -9,6 +9,9 @@ classdef Instance
         Mdl
         SubMdl
         Dims
+        MainInst
+        Derived
+        Indices
     end
     
     properties (Access = protected)
@@ -26,6 +29,8 @@ classdef Instance
             inst.Outputs = Outputs;
             inst.definedInputs = containers.Map;
             inst.Dims = Dims;
+            inst.Derived = false;
+            inst.Indices = reshape(1:prod(Dims), Dims);
             inst.definedIndices = zeros(Dims);
         end
         
@@ -39,13 +44,23 @@ classdef Instance
                 elseif any(strcmp(out, fieldnames(inst)))
                     b = inst.(out);
                 elseif isOutput(inst, out)
+                  if inst.Derived
                     b = Exp(inst, out);
+                    b = reshape(b(inst.Indices), inst.Dims);
+                  else
+                    b = Exp(inst, out);
+                  end
                 elseif isInput(inst, out)
                     % now, if it's an input, we can still handle that by
                     % returning what ever is defined, if it has been
                     % defined
-                    if isKey(inst.definedInputs, out) && isequal(inst.definedIndices, ones(inst.Dims))
-                        b = inst.definedInputs(out);
+                    if inst.derived
+                      maininst = inst.MainInst;
+                    else
+                      maininst = inst;
+                    end
+                    if isKey(maininst.definedInputs, out) && isequal(maininst.definedIndices, ones(maininst.Dims))
+                        b = maininst.definedInputs(out);
                     else
                         error('Simatra:Instance', ['Can not read from an input ''%s'' of submodel ''%s'' if it has not been already defined.'], out, inst.SubMdl.Name)
                     end    
@@ -63,7 +78,12 @@ classdef Instance
                 b = subsref(inst, news);
                 nextsub = 3;
               else
-                error('Simatra:Instance', 'Subsref () on Instances not allowed. Only allowed for Instance inputs/outputs.')
+                % Create a derived Instance that is a subset of the original instance
+                b = Instance(inst.MdlName, inst.InstName, inst.Mdl, inst.SubMdl, inst.Inputs, inst.Outputs, inst.Dims);
+                b.Derived = true;
+                b.MainInst = inst;
+                b.Indices = subsref(inst.Indices, s);
+                b.Dims = size(b.Indices);
               end
             else
                 for i=1:length(s)
@@ -81,16 +101,21 @@ classdef Instance
             if length(s) == 1
               if strcmp(s.type, '.')
                 inp = s.subs;
-                setInput(inst, inp, b);
+                if inst.Derived
+                  s = struct('type', '()', 'subs', inst.Indices);
+                  setInput(inst.MainInst, inp, b, s);
+                else
+                  setInput(inst, inp, b);
+                end
               else
                 error('Simatra:Instance:subsasgn', 'Inputs of instances must be assigned as Inst.inp, Inst(subs).inp or Inst.inp(subs)');
               end
             elseif length(s) == 2
               if strcmp(s(1).type, '.') && strcmp(s(2).type, '()')
-                error('Simatra:Instance:subsasgn', 'Not yet implemented inst.out(subs) = value.');
+                %error('Simatra:Instance:subsasgn', 'Not yet implemented inst.out(subs) = value.');
                 setInput(inst, s(1).subs, b, s(2));
               elseif strcmp(s(1).type, '()') && strcmp(s(2).type, '.')
-                error('Simatra:Instance:subsasgn', 'Not yet implemented inst(subs).out = value.');
+                %error('Simatra:Instance:subsasgn', 'Not yet implemented inst(subs).out = value.');
                 setInput(inst, s(2).subs, b, s(1));
               else
                 error('Simatra:Instance:subsasgn', 'Inputs of instances must be assigned as Inst.inp, Inst(subs).inp or Inst.inp(subs)');
@@ -145,7 +170,7 @@ classdef Instance
               if isKey(inst.definedInputs, inp)
                 oldvalue = inst.definedInputs(inp);
               else
-                oldvalue = zeros(inst.Dims);
+                oldvalue = Exp('NULLEXP', inst.Dims);
               end
               oldvalue(subs) = value;
               value = oldvalue;
@@ -158,10 +183,10 @@ classdef Instance
         
         function b = with(inst, inputValues)
             if isempty(inputValues)
-              error('Simatra:Instance', 'No arguments. Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [...]])');
+              error('Simatra:Instance:with', 'No arguments. Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [...]])');
             end
             if mod(length(inputValues),2) ~= 0
-              error('Simatra:Instance', 'Odd number of arguments. Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [, ...]])');
+              error('Simatra:Instance:with', 'Odd number of arguments. Setting inputs using .with() requires .with(''input'', value [,''input2'', value2 [, ...]])');
             end
             for arg = 1:2:length(inputValues)
               setInput(inst, inputValues{arg}, inputValues{arg+1});
@@ -178,6 +203,9 @@ classdef Instance
         end
         
         function str = toStr(inst)
+          if inst.Derived
+            error('Simatra:Instance:toStr', 'Subsrefernced submodels should never be written to strings.');
+          end
           str = '';
           numInst = prod(inst.Dims);
           if numInst > 1
