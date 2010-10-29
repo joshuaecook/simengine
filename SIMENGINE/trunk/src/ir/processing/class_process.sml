@@ -76,7 +76,6 @@ sig
     val updatePreShardName : DOF.classproperties -> Symbol.symbol -> DOF.classproperties
     val pruneClass : (DOF.systemiterator option * bool) -> DOF.class -> unit (* prunes unneeded equations in the class, the initial bool causes all states to be kept as well *)
     val pruneUnusedInputs: DOF.class -> unit
-    val propagateSpatialIterators : DOF.class -> unit (* propagates iterators through equations into outputs *)
     val propagateStateIterators : DOF.class -> unit (* propagates just state iterators through equations into outputs *)
     val assignCorrectScope : DOF.class -> unit (* sets read state or write state properties on symbols *)
     val updateForkedClassScope : DOF.systemiterator -> DOF.class -> unit (* update the scopes on symbols for those reads that are to be read from a per-iterator state structure instead of the system state structure *)
@@ -1363,6 +1362,8 @@ fun class2instancesbyiterator iter_sym class =
 	    instances
     end
 	
+
+
 (* this will propagate an iterator from an input to an output *)
 fun propagateSpatialIterators (class: DOF.class) =
     let

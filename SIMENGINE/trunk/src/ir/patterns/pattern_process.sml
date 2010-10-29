@@ -24,6 +24,8 @@ sig
     val predicate_anydiffterm : predicate
     val gen_predicate_from_symbol : Symbol.symbol -> predicate (* create a predicate that matches a symbol by name *)
     val predicate_anysymbol_with_iter : Symbol.symbol -> predicate
+    val predicate_instance_with_classname : Symbol.symbol -> predicate
+    val predicate_instance_with_classname_and_output : (Symbol.symbol * Symbol.symbol) -> predicate
 
 end
 structure PatternProcess : PATTERNPROCESS =
@@ -127,6 +129,16 @@ val predicate_anydiffterm = ("DIFFTERM",
 				       of SOME (order, _) => order >= 1 
 					| NONE => false)
 				   | _ => false)
+
+fun predicate_instance_with_classname sym = ("INST",
+					     fn(x)=>case x 
+						     of Exp.FUN (Fun.INST {classname,...}, _) => classname = sym
+						      | _ => false)
+fun predicate_instance_with_classname_and_output (name, output) = 
+    ("INST", fn(x)=>case x 
+		     of Exp.FUN (Fun.OUTPUT {classname, outname, ...}, _) => 
+			classname = name andalso outname = output
+		      | _ => false)
 
 fun notpred ((id, pred):predicate):predicate = 
     ("!" ^ id, (fn(x) => not (pred x)))

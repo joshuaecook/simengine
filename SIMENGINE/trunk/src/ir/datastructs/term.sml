@@ -113,7 +113,7 @@ fun sym2str pretty (s, props) =
 		""
 	    else
 		(case Property.getIterator props
-		  of SOME iter => Iterator.iterator2str iter
+		  of SOME iter => "[" ^ (Iterator.iterator2str iter) ^ "]"
 		   | NONE => "")
 
 	val n = (if pretty then "" else prefix) ^ (case (Property.getRealName props)

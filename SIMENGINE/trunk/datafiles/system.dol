@@ -102,6 +102,7 @@
 <logdof = false>
 <logoutline = false>
 <logauto = false>
+<logspaces = false>
 <logrewrites = false>
 <logredundancy = false>
 <logordering = false>

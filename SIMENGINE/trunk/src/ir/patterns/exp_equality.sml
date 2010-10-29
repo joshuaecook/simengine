@@ -88,6 +88,8 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
 	    (* check that all the terms are the same *)
 	    allEquiv terms_equivalent matchCandidates' (l1, l2)
 	end
+      | (Exp.RANGE {low=l1, step=s1, high=h1}, Exp.RANGE {low=l2, step=s2, high=h2}) =>
+	allEquiv terms_equivalent matchCandidates ([l1, s1, h1], [l2, s2, h2])
       | (Exp.SYMBOL (s1, p1), Exp.SYMBOL (s2, p2)) =>
 	checkAndKillMatches matchCandidates 
 			    (* symbol names must be the same *)

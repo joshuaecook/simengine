@@ -16,12 +16,15 @@ sig
     val scalar : space                       (* construct a scalar space *)
     val isScalar : space -> bool             (* test to see if it's a scalar space *)
     val isEmpty : space -> bool              (* test to see if it's an empty space *)
+    val emptyCollection : space              (* return an empty collection *)
     val collection : space list -> space     (* combine spaces into a collection of spaces *)
     val isCollection: space -> bool          (* test for collections - if it's a collection, we can't operate over it, just subreference it *)
     val separate: space -> space list        (* separate a space into a collection of spaces *)
+    val multiply: (space * space) -> space   (* cascade multiple spaces together *)
     val tensor : int list -> space           (* construct a tensor space *)
     val equal : (space * space) -> bool      (* see if two spaces are equal *)
     val toLayout : space -> Layout.t         (* convert the space to a layout for debugging *)
+    val toString : space -> string           (* convert the space to a string for debugging *)
 
 
     (* -------- Methods for Math --------*)
@@ -37,6 +40,7 @@ sig
     val subspaceToStr : subspace -> string        (* create a string representation for logging *)
     val subspaceToLayout : subspace -> Layout.t   (* create a string representation for logging *)
     val subspaceToJSON : subspace -> JSON.json    (* create the serialized json representation *)
+				     
 
 end
 structure Space: SPACE =
@@ -182,11 +186,16 @@ fun size (Point (Tensor dims)) = Util.prod dims
 val scalar = Point (Tensor [1])
 fun tensor dims = Point (Tensor dims) 
 fun isEmpty (Point (Tensor [])) = true
+  | isEmpty (Point (Tensor [0])) = true
   | isEmpty (Collection []) = true
   | isEmpty (Collection [Point (Tensor [])]) = true
   | isEmpty _ = false
 fun isScalar (Point (Tensor [1])) = true
+  | isScalar (Collection [s]) = isScalar s
   | isScalar _ = false
+
+
+val emptyCollection  = Collection []
 fun collection spaces = Collection spaces
 fun isCollection (Collection _) = true
   | isCollection _ = false
@@ -236,6 +245,19 @@ in
 fun toLayout (Point (Tensor dims)) = label ("Tensor", bracketList (map int dims))
   | toLayout (Collection spaces) = label ("Collection", parenList (map toLayout spaces))
 end
+val toString  = Layout.toString o toLayout
+
+
+fun multiply (space1, space2) = 
+    if isScalar space1 then
+	space2
+    else if isScalar space2 then
+	space1
+    else case (space1, space2) of
+	     (Point (Tensor dims1), Point (Tensor dims2)) => tensor (dims1 @ dims2)
+	   | _ => (error ("Do not know how to multiply space "^(toString space1)^" with "^(toString space2));
+		   space1)
+
 
 fun subspaceToStr subspace =
     let

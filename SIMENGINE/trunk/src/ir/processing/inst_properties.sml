@@ -14,7 +14,7 @@ val emptyinstprops = {sourcepos=NONE,
 		      realclassname=NONE,
 		      iterators=nil,
 		      inline=false,
-		      space=Space.scalar}
+		      space=Space.emptyCollection}
 
 fun getSourcePos (props : instproperties)= #sourcepos props
 fun getRealClassName (props : instproperties)= #realclassname props
