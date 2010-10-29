@@ -221,4 +221,14 @@ fun apply (func, arg) = Exp.META(Exp.APPLY{func=func, arg=arg})
 fun map (func, args) = Exp.META(Exp.MAP{func=func, args=args})
 fun explist (args) = Exp.CONTAINER(Exp.EXPLIST args)
 
+fun error msg = (Logger.log_error (Printer.$ msg); DynException.setErrored)
+fun exp2term (Exp.TERM t) = t
+  | exp2term _ = (error "Invalid expression used where terminal was required";
+		  Exp.NAN)
+fun range [low, high] = Exp.TERM (Exp.RANGE {low=exp2term low, high=exp2term high, step=exp2term (int 1)})
+  | range [low, step, high] = Exp.TERM (Exp.RANGE {low=exp2term low, high=exp2term high, step=exp2term step})
+  | range _ = (error "Range expects either two arguments (low, high) or three (low, step, high)";
+	       Exp.TERM (Exp.NAN))
+
+
 end

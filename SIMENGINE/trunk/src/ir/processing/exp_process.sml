@@ -839,7 +839,6 @@ fun exp2size exp : int =
 	Space.size space
     end
 
-
 fun exp2spatialiterators exp = 
     if isEquation exp then
 	exp2spatialiterators (lhs exp)
@@ -1059,7 +1058,8 @@ fun coeff (exp, sym) =
 
 fun symterm2symterm term = 
     (case term of 
-	 Exp.SYMBOL s => Exp.SYMBOL s
+	 Exp.SYMBOL s => term
+       | Exp.TUPLE [Exp.SYMBOL s] => term
        | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
 	       Exp.SYMBOL (Symbol.symbol "???", Property.default_symbolproperty)))
     handle e => DynException.checkpoint "ExpProcess.symterm2symterm" e
@@ -1085,6 +1085,7 @@ fun getLHSTerms exp =
 fun term2sym term = 
     (case term of 
 	 Exp.SYMBOL (sym,_) => sym
+       | Exp.TUPLE [Exp.SYMBOL (sym,_)] => sym
        | _ => (error_no_return (term2exp term) ("No valid symbol found on term");
 	       Symbol.symbol "???"))
     handle e => DynException.checkpoint "ExpProcess.term2sym" e

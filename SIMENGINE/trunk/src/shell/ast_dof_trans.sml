@@ -119,6 +119,7 @@ and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
       | "operator_eq" => builtin (Fun.EQ, args)
       | "operator_ne" => builtin (Fun.NEQ, args)
       | "operator_deriv" => builtin (Fun.DERIV, args)
+      | "operator_tabulate" => ExpBuild.range (map astexp_to_Exp args)
       | "power" => builtin (Fun.POW, args)
       | "ln" => builtin (Fun.LOG, args)
       | _ => builtin (MathFunctionProperties.name2op sym, args))
@@ -313,7 +314,7 @@ and modelpart_to_printer (STM stm) = [$("Stm:"),
 	     SOME e => [$("Opttable: " ^ (ExpPrinter.exp2str (astexp_to_Exp e)))]
 	   | NONE => []),
      SUB(case optdimensions of 
-	     SOME dims => [$("Dimensions: " ^ (Util.symlist2s dims))]
+	     SOME dims => [$("Dimensions: " ^ (Util.list2str Util.i2s dims))]
 	   | NONE => [])]
 
 and typedname_to_printer (sym, typeopt) = 
@@ -667,6 +668,10 @@ local
 								       raise TranslationError)
 
 		     val instprops = InstProps.setRealClassName InstProps.emptyinstprops class
+		     val instprops = case optdimensions of
+					 SOME dims => InstProps.setSpace instprops (Space.tensor dims)
+				       | NONE => InstProps.setSpace instprops Space.scalar
+
 		     fun submodel_to_funtype () =
 			 Fun.INST {classname=class, 
 				   instname=name, 
@@ -726,7 +731,7 @@ local
 				     val rhs = Exp.FUN (Fun.OUTPUT {classname=class,
 								    instname=name,
 								    outname=outname,
-								    props=InstProps.emptyinstprops},
+								    props=instprops},
 							[instanceInputs])
 				 in
 				     ExpBuild.equals (lhs, rhs)

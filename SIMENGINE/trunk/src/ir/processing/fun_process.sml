@@ -9,9 +9,16 @@ fun fun2name f = case f of
 
 fun fun2props f = case f of
 		      Fun.BUILTIN sym => MathFunctionProperties.op2props sym
-		    | Fun.INST {classname=sym,...} => Inst.inst2props sym
-		    | Fun.OUTPUT {classname,outname,...} => 
-		      Inst.output2props (classname, outname)
+		    | Fun.INST {classname=sym,props,...} => Inst.inst2props (sym, props)
+		    | Fun.OUTPUT {classname,outname,props,...} => 
+		      Inst.output2props (classname, outname, props)
+
+fun inst2classname f = case f of
+			   Fun.BUILTIN _ => DynException.stdException ("Unexpected builtin function", 
+								       "FunProcess.inst2classname",
+								       Logger.INTERNAL)
+			 | Fun.INST {classname,...} => classname
+			 | Fun.OUTPUT {classname,...} => classname
 
 fun equal (Fun.BUILTIN sym1, Fun.BUILTIN sym2) = sym1 = sym2
   | equal (Fun.INST {classname=sym1, ...}, Fun.INST {classname=sym2,...}) = sym1 = sym2

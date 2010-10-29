@@ -338,7 +338,7 @@ and trans_definition definition =
 						      table,
 						      HLEC.VECTOR (case optdimensions of
 								       NONE => []
-								     | SOME dims => map (fn(s) => HLEC.SYMBOL s) dims)])), 
+								     | SOME dims => map (fn(s) => HLEC.LITERAL (HLEC.CONSTREAL (Real.fromInt s))) dims)])), 
 				     PosLog.NOPOS),
 			 
 			 HLEC.DEFINITION(HLEC.DEFCONST (name, HLEC.DONTCARE, HLEC.SEND{message=name,

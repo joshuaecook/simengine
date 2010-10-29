@@ -296,7 +296,7 @@ equation: exp EQARROW optlines exp (Ast.MATHFUNCTION (exp1, exp2))
 ticks: TICK (1)
      | ticks TICK (1 + ticks)
 
-submodelinst: SUBMODEL ID ID optdimensions opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable, optdimensions=optdimensions}))
+submodelinst: SUBMODEL ID ID (*optdimensions*)optliteraldims opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable, optdimensions=optliteraldims}))
 
 modifiers: (nil)
 	 | modifier modifiers (modifier::modifiers)

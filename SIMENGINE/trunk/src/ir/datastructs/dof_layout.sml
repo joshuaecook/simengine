@@ -37,30 +37,36 @@ val symbollist2layout = genlist2layout sym2l
 val contents2layout = genlist2layout e2l
 
 fun class_to_layout (class as {name, properties={sourcepos, preshardname, classform}, inputs, outputs, exps}) =
-    align [label ("Class Name", sym2l name),
-	   align ((case classform of 
-		       DOF.INSTANTIATION {readstates, writestates} => 
-		       [label ("States read", symbollist2layout readstates),
-			label ("States written", symbollist2layout writestates)]) @
-		  [label ("Class cost", i2l (Cost.class2cost class))]),
-	   label ("Inputs", 
-		  curlyList (map 
-				 (fn input => seq [e2l (Exp.TERM (DOF.Input.name input)),
-						   (case DOF.Input.default input of 
-							SOME v => seq [s2l " = ", (e2l v)] 
-						      | NONE => empty)]) 
-				 (!inputs))),
-	   heading ("Equations",
-		    align (map equation_to_layout (!exps))),
-	   heading ("Outputs",
-		    align (map output_to_layout (!outputs))),
-	   label ("Symbols", 
-		  curlyList (map s2l (SymbolSet.toStrList (ClassProcess.findSymbols class))))]		
+    heading ("Class " ^ (Symbol.name name),
+	     align[align ((case classform of 
+			       DOF.INSTANTIATION {readstates, writestates} => 
+			       [label ("States read", symbollist2layout readstates),
+				label ("States written", symbollist2layout writestates)]) @
+			  [label ("Class cost", i2l (Cost.class2cost class))]),
+		   label ("Inputs", 
+			  curlyList (map 
+					 (fn input => seq [e2l (Exp.TERM (DOF.Input.name input)),
+							   (case DOF.Input.default input of 
+								SOME v => seq [s2l " = ", (e2l v)] 
+							      | NONE => empty)]) 
+					 (!inputs))),
+		   heading ("Equations",
+			    align (map equation_to_layout (!exps))),
+		   heading ("Outputs",
+			    align (map output_to_layout (!outputs))),
+		   label ("Symbols", 
+			  curlyList (map s2l (SymbolSet.toStrList (ClassProcess.findSymbols class))))])
     handle e => DynException.checkpoint "DOFLayout.class_to_layout" e
 
 and equation_to_layout e = 
     let
 	val size = ExpProcess.exp2size e
+	    handle ExpSpace.SpaceException {exp=exp', spaces} => 
+		   ((*Logger.log_error (Printer.$("Can not evaluate the size of '"^(e2s exp')^"' with spatial dimensions " ^ (Util.list2str Space.toString spaces)));
+		    DynException.setErrored();*)
+		    ~1)
+		 | e => DynException.checkpoint "ExpProcess.exp2size" e
+
 
 	val cost = (Cost.exp2cost e)
 	    handle _ => (~1)
@@ -74,7 +80,7 @@ and equation_to_layout e =
 		val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
 	    in
 		mayAlign [prefix, 
-			  indent (seq [bracketList (map sym2l (#iterators props)),
+			  indent (seq [bracket (Space.toLayout (InstProps.getSpace props)),
 				       s2l ": ", 
 				       e2l e], 2)]
 	    end
@@ -85,6 +91,7 @@ and equation_to_layout e =
     handle e => DynException.checkpoint "DOFLayout.equation_to_layout" e
 
 and output_to_layout output = seq [e2l (Exp.TERM (DOF.Output.name output)),
+				   bracket (Space.toLayout (ExpSpace.expToSpace (Exp.TERM (DOF.Output.name output)))),
 				   s2l " = ",
 				   contents2layout (DOF.Output.contents output),
 				   s2l " when ",

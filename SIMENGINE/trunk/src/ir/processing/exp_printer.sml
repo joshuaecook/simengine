@@ -412,7 +412,7 @@ fun exp2layout e =
     (if DynamoOptions.isFlagSet("usefullform") then
 	 Layout.str (exp2fullstr e)
      else
-	 exp2terselayout false e)
+	 exp2terselayout true e)
     handle e => DynException.checkpoint "ExpProcess.exp2layout" e
 
 fun exp2prettystr e = 

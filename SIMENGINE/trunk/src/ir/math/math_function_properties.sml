@@ -116,23 +116,24 @@ type op_props = {name: string,
 val basicOpCost = 1
 val transcendentalOpCost = 20
 
-fun vectorizedCodomain nil = DynException.stdException (("must have arguments for a vectorized codomain"), "FunProperties.vectorizedCodomain'.combineSizes", Logger.INTERNAL)
+fun vectorizedCodomain nil = DynException.stdException (("must have arguments for a vectorized codomain"), "MathFunctionProperties.vectorizedCodomain'.combineSizes", Logger.INTERNAL)
   | vectorizedCodomain (first::rest) =
     let
 	fun combineSpaces (space1, space2) = 
 	    if Space.equal (space1, space2) then space1
 	    else if Space.isScalar space1 then space2
 	    else if Space.isScalar space2 then space1
+	    else if Space.isEmpty space1 andalso Space.isEmpty space2 then
+		Space.emptyCollection
 	    else
-		(DynException.stdException (("Arguments have mismatched spaces"), "FunProperties.vectorizedCodomain.combineSizes", Logger.INTERNAL))
+		(DynException.stdException (("Arguments have mismatched spaces ("^(Space.toString space1)^","^(Space.toString space2)^")"), "MathFunctionProperties.vectorizedCodomain.combineSizes", Logger.INTERNAL))
     in
 	foldl combineSpaces first rest
     end
-    handle e => DynException.checkpoint "FunProperties.vectorizedCodomain" e
 
 fun codomainReduction [arg] = 
     Space.reduceCodomain arg
-  | codomainReduction _ = DynException.stdException (("There should be only one argument for reduction operations, instead found"), "FunProperties.codomainReduction", Logger.INTERNAL)
+  | codomainReduction _ = DynException.stdException (("There should be only one argument for reduction operations, instead found"), "MathFunctionProperties.codomainReduction", Logger.INTERNAL)
 
 fun unaryfun2props (name, eval, cost) : op_props =
     {name=name,
@@ -839,11 +840,11 @@ fun op2props optype =
 
 and eval exp = exp
     handle UnsupportedType e => DynException.stdException(("Could not evaluate '"^(e2s e)^"' in expression '"^(e2s exp)^"'"),
-							"FunProps.eval", Logger.INTERNAL)
+							"MathFunctionProperties.eval", Logger.INTERNAL)
 	 | Overflow => DynException.stdException(("Overflow detected when evaluating expression '"^(e2s exp)^"'"),
-						 "FunProps.eval", Logger.INTERNAL)
+						 "MathFunctionProperties.eval", Logger.INTERNAL)
 	 | e => (Logger.log_error (Printer.$("Unknown error detected when evaluating expression '"^(e2s exp)^"'"));
- 		 DynException.checkpoint "FunProps.eval" e)
+ 		 DynException.checkpoint "MathFunctionProperties.eval" e)
 
 (* Create new Symbol Table *)
 

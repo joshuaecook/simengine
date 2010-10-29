@@ -27,6 +27,7 @@ fun level (exp) =
 	 Exp.FUN (_,args) => args
        | Exp.TERM (Exp.TUPLE termlist) => map Exp.TERM termlist
        | Exp.TERM (Exp.COMPLEX (a, b)) => map Exp.TERM [a,b]
+       | Exp.TERM (Exp.RANGE {low, step, high}) => map Exp.TERM [low, step, high]
        | Exp.CONTAINER (Exp.EXPLIST l) => l
        | Exp.CONTAINER (Exp.ARRAY a) => Container.arrayToList a
        | Exp.CONTAINER (Exp.ASSOC tab) => SymbolTable.listItems tab
@@ -48,6 +49,9 @@ fun head (exp) =
 	Exp.FUN (funtype, args) => (fn(args')=> Exp.FUN (funtype, args'))
       | Exp.TERM (Exp.TUPLE (termlist)) => (fn(args') => Exp.TERM (Exp.TUPLE (map exp2term args')))
       | Exp.TERM (Exp.COMPLEX (a, b)) => (fn(args') => Exp.TERM (Exp.COMPLEX (exp2term (List.nth (args', 0)), exp2term (List.nth (args', 1)))))
+      | Exp.TERM (Exp.RANGE {low, step, high}) => (fn(args') => Exp.TERM (Exp.RANGE {low=exp2term (List.nth (args', 0)),
+										     step=exp2term (List.nth (args', 1)),
+										     high=exp2term (List.nth (args', 2))}))
       | Exp.CONTAINER (Exp.EXPLIST l) => (fn(args') => Exp.CONTAINER (Exp.EXPLIST args'))
       | Exp.CONTAINER (Exp.ARRAY a) => (fn(args') => Exp.CONTAINER (Exp.ARRAY (Container.listToArray args')))
       | Exp.CONTAINER (Exp.ASSOC tab) =>
