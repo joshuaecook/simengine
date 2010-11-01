@@ -78,7 +78,7 @@ endif
 ifneq ($(VERBOSE),)
 SMLFLAGS += -verbose 1
 endif
-SMLPPFLAGS =
+SMLPPFLAGS = -drop-pass deepFlatten
 SMLTARGET_ARCH = -codegen native
 SMLLEX = mllex
 SMLYACC = mlyacc

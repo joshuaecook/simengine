@@ -47,6 +47,7 @@ fun file_to_ast file =
 		    ast_list
 		else
 		    let
+			(*val ast = OOLCParse.parse instream*)
 			val ast = DMLLCParse.parse instream
 			(*val _ = Util.log ("#" ^ (Util.i2s (!ParserSettings.lineCount)))*)
 		    (*val _ = AstDOFTrans.ast_to_dof [ast]*)

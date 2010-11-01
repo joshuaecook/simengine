@@ -36,7 +36,7 @@ datatype exp =
 	 LITERAL   of lit
        | STRINGEXP of exp list
        | SYMBOL    of Symbol.symbol 
-       | FILEREF   of {file: Symbol.symbol, entry: Symbol.symbol} * int list option
+       | FILEREF   of {file: Symbol.symbol, entry: Symbol.symbol} * space option
        | LIBFUN    of Symbol.symbol * exp 
        | LAMBDA    of {args:Symbol.symbol list, body:exp}
        | APPLY     of {func:exp, args:exp}
@@ -109,10 +109,10 @@ and modelpart =
     STM of stm
   | QUANTITYDEF of {modifiers: simq_modifier list, basetype: quantitytype, name: Symbol.symbol, precision: exp option, exp: exp option, settingstable: exp option, dimensions: Symbol.symbol list option}
   | OUTPUTDEF of {name: Symbol.symbol, quantity: exp, dimensions: Symbol.symbol list option, settings: exp option, condition: exp option}
-  | INPUTDEF of {name: Symbol.symbol, quantity: exp, settings: exp option, dimensions: int list option}
+  | INPUTDEF of {name: Symbol.symbol, quantity: exp, settings: exp option, dimensions: space option}
   | ITERATORDEF of {name: Symbol.symbol, value: exp option, settings: exp option}
   | SUBMODELDEF of definition (* assumed to be DEFMODEL *)
-  | SUBMODELINST of {class: Symbol.symbol, name: Symbol.symbol, opttable: exp option, optdimensions: int list option}
+  | SUBMODELINST of {class: Symbol.symbol, name: Symbol.symbol, opttable: exp option, optdimensions: space option}
 (*    STATEDEF of {modifiers: simq_modifier list,
 		 name: Symbol.symbol,
 		 precision: exp option,
@@ -160,5 +160,7 @@ and equation =
   | MATHFUNCTION of exp * exp
   | EVENT of Symbol.symbol * exp
 	      
+and space =
+    TENSOR of int list
 
 end

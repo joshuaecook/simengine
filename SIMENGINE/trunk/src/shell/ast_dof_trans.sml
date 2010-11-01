@@ -170,7 +170,7 @@ and send_to_Exp {message, object=(SYMBOL sym)} = ExpBuild.var (Symbol.name sym ^
 and dims2space dims =
     case dims of
 	NONE => Space.scalar
-      | SOME ints => Space.tensor ints
+      | SOME (Ast.TENSOR ints) => Space.tensor ints
 
 and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
   | astexp_to_Exp (LITERAL (CONSTBOOL b)) = Exp.TERM (Exp.BOOL b)
@@ -314,7 +314,7 @@ and modelpart_to_printer (STM stm) = [$("Stm:"),
 	     SOME e => [$("Opttable: " ^ (ExpPrinter.exp2str (astexp_to_Exp e)))]
 	   | NONE => []),
      SUB(case optdimensions of 
-	     SOME dims => [$("Dimensions: " ^ (Util.list2str Util.i2s dims))]
+	     SOME (TENSOR dims) => [$("Dimensions: " ^ (Util.list2str Util.i2s dims))]
 	   | NONE => [])]
 
 and typedname_to_printer (sym, typeopt) = 
@@ -404,7 +404,7 @@ and exp_to_printer (LITERAL lit) = [$("Literal: " ^ (literal_to_string lit))]
 						      SUB[$("File "^ (Symbol.name file)),
 							  $("Entry "^ (Symbol.name entry)),
 							  $("Dimensions " ^ (case dims of
-										 SOME dims => String.concatWith ", " (map Int.toString dims)
+										 SOME (TENSOR dims) => String.concatWith ", " (map Int.toString dims)
 									       | NONE => "NONE"))]]
   | exp_to_printer (ASSERTION exp) = [$("Assertion")]
   | exp_to_printer (UNIT) = [$("Unit")]
@@ -669,7 +669,7 @@ local
 
 		     val instprops = InstProps.setRealClassName InstProps.emptyinstprops class
 		     val instprops = case optdimensions of
-					 SOME dims => InstProps.setSpace instprops (Space.tensor dims)
+					 SOME (TENSOR dims) => InstProps.setSpace instprops (Space.tensor dims)
 				       | NONE => InstProps.setSpace instprops Space.scalar
 
 		     fun submodel_to_funtype () =
