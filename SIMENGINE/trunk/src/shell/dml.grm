@@ -185,14 +185,6 @@ stm: programmatic_stm (programmatic_stm)
 
 
 
-(*
-programmatic_stm: definition (Ast.DEFINITION (definition, definitionleft))
-		| vardef (Ast.DEFINITION (vardef, vardefleft))
-		| action (Ast.ACTION (action, actionleft))
-		| modeldef (Ast.DEFINITION(modeldef, modeldefleft))
-		| enumdef (Ast.DEFINITION (enumdef, enumdefleft))
-		| equationsdef (Ast.ACTION (equationsdef, equationsdefleft))
-*)
 programmatic_stm: action (Ast.ACTION (action, actionleft))
 		| modeldef (Ast.DEFINITION(modeldef, modeldefleft))
 		| equationsdef (Ast.ACTION (equationsdef, equationsdefleft))
@@ -215,12 +207,7 @@ modelargs: (nil)
 modelarg: ID optdims(Symbol.symbol ID, optdims)
 
 optdims: (NONE)
-      (* | LBRACE idlist RBRACE (SOME idlist) *)
 
-(*
-optliteraldims: (NONE)
-	      | LBRACE intlist RBRACE (SOME intlist)
-*)		    
 intlist: (nil)
        | INT intlist (INT :: intlist)
 
@@ -248,9 +235,8 @@ modelpart: quantitydef newlines (quantitydef)
 	 | iteratordef newlines (iteratordef)
 
 
-quantitydef: (*modifiers*) quantitytype ID optdimensions (*precinfoopt*) optassignment opttable(Ast.QUANTITYDEF {modifiers=[], basetype=quantitytype, name=Symbol.symbol ID, precision=NONE, exp=optassignment, settingstable = opttable, dimensions=optdimensions})
-(*	   | modifiers PARAMETER ID optdimensions precinfoopt ASSIGN exp opttable (Ast.STM (Ast.DEFINITION (Ast.DEFCONST (Symbol.symbol ID, NONE, exp), PARAMETERleft)) before error_at_pos PARAMETERleft "The parameter keyword has been removed.  Please use inputs for all tunable quantities or set as a constant.")*)
-	   | (*modifiers*) RANDOM ID optdimensions (*precinfoopt*) opttable (Ast.QUANTITYDEF {modifiers=[], basetype=Ast.RANDOM_QUANTITY, name=Symbol.symbol ID, precision=NONE, exp=NONE, settingstable = opttable, dimensions=optdimensions})
+quantitydef: quantitytype ID optdimensions optassignment opttable(Ast.QUANTITYDEF {modifiers=[], basetype=quantitytype, name=Symbol.symbol ID, precision=NONE, exp=optassignment, settingstable = opttable, dimensions=optdimensions})
+	   | RANDOM ID optdimensions opttable (Ast.QUANTITYDEF {modifiers=[], basetype=Ast.RANDOM_QUANTITY, name=Symbol.symbol ID, precision=NONE, exp=NONE, settingstable = opttable, dimensions=optdimensions})
 
 outputdef: OUTPUT ID optdimensions optassignment opttable optwhen (Ast.OUTPUTDEF {name=Symbol.symbol ID,  
 										  quantity=(case optassignment 
@@ -271,7 +257,7 @@ inputdef: INPUT optmapping ID opttable optspace (Ast.INPUTDEF {name=Symbol.symbo
 						      dimensions=optspace,
 						      settings=opttable})
 
-iteratordef: ITERATOR ID (*optassignment*) opttable (Ast.ITERATORDEF {name=Symbol.symbol ID,
+iteratordef: ITERATOR ID opttable (Ast.ITERATORDEF {name=Symbol.symbol ID,
 								      value=NONE,
 								      settings=opttable})
 
@@ -281,11 +267,9 @@ optdimensions: (NONE)
 opttable: (NONE)
 	| WITH LCBRACE tableentries RCBRACE (SOME (Ast.TABLE tableentries))
 
-quantitytype: (*QUANTITY (Ast.GENERIC_QUANTITY)
-	 |*) STATE (Ast.STATE_QUANTITY)
+quantitytype: STATE (Ast.STATE_QUANTITY)
 
 equationsdef: EQUATION equation (Ast.EQUATIONS ([equation]))
-(*	    | EQUATION (Ast.EQUATIONS nil before error_at_pos EQUATIONleft "EQUATION keyword must be followed by an expression. Use an EQUATIONS block to define more than one equation.")*)
 	    | EQUATIONS newlines equations END (Ast.EQUATIONS(equations))
 
 equations: (nil)
@@ -299,7 +283,7 @@ equation: exp EQARROW exp (Ast.MATHFUNCTION (exp1, exp2))
 ticks: TICK (1)
      | TICK ticks (1 + ticks)
 
-submodelinst: SUBMODEL ID ID (*optdimensions*) optspace opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable, optdimensions=optspace}))
+submodelinst: SUBMODEL ID ID optspace opttable (Ast.SUBMODELINST ({class=Symbol.symbol ID1, name=Symbol.symbol ID2, opttable=opttable, optdimensions=optspace}))
 
 
 optassignment: (NONE)
@@ -321,7 +305,6 @@ string: BEGIN_STRING string_contents END_STRING
 		     [] => Ast.LITERAL (Ast.CONSTSTR "")
 		   | [Ast.LITERAL (Ast.CONSTSTR s)] => Ast.LITERAL (Ast.CONSTSTR s)
 		   | _ => Ast.STRINGEXP (List.rev string_contents))
-     (* | BEGIN_STRING END_STRING (Ast.LITERAL (Ast.CONSTSTR ""))*)
 
 action: exp (Ast.EXP exp)
       | IMPORT string 
@@ -329,13 +312,6 @@ action: exp (Ast.EXP exp)
 		    Ast.LITERAL (Ast.CONSTSTR s) => Ast.IMPORT s
 		  | _ => raise StubbedOut)
       | exp ASSIGN exp (Ast.ASSIGN (exp1, exp2))
-	(*
-      | IF exp THEN stms elsechain (Ast.COND {cond=exp, ift=stms, iff=elsechain})
-      | WHILE exp DO stms END (Ast.WHILE {cond=exp, stms=stms})
-      | FOREACH ID IN exp DO stms END(Ast.FOR {var=Symbol.symbol ID, collection=exp, stms=stms})
-      | exp SATISFIES exp (Ast.EXP(Ast.SATISFIES {class=exp1, interface=exp2}))
-      | OPEN exp (Ast.OPEN (exp))
-	 *)
 
 exp: lambda (lambda)
 
@@ -344,14 +320,8 @@ exp: lambda (lambda)
 
 
 lambda: lambdaapp (lambdaapp)
-	(* | ERROR lambda (Ast.POS(Ast.ERROR lambda, ERRORleft))*)
 	 | lambda AND lambda (Ast.POS(Ast.AND [lambda1, lambda2], ANDleft))
 	 | lambda OR lambda (Ast.POS(Ast.OR [lambda1, lambda2], ORleft))
-	 (*| FORALL ID IN lambda SUCHTHAT lambda  (Ast.FORALL {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
-	 | EXISTS ID IN lambda SUCHTHAT lambda  (Ast.EXISTS {var=Symbol.symbol ID, collection=lambda1, test=lambda2})
-	 | LET ID ASSIGN lambda IN lambda END (Ast.LET (Symbol.symbol ID, lambda1, lambda2))
-	 | RULEMATCH lambda ARROW lambda (Ast.RULEMATCH{find=lambda1, conds=Ast.LITERAL(Ast.CONSTBOOL true), replace=lambda2})
-	 | RULEMATCH lambda WHERE lambda ARROW lambda (Ast.RULEMATCH{find=lambda1, conds=lambda2, replace=lambda3})*)
 
 lambdalist : lambda COMMA lambda ([lambda1, lambda2])
 	   | lambda COMMA lambdalist (lambda :: lambdalist)
@@ -393,8 +363,6 @@ aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
     | AMPERSAND ID COLON ID optspace (Ast.FILEREF({file=Symbol.symbol ID1, entry=Symbol.symbol ID2}, optspace))
     (*| AT LPAREN spacedef COMMA lambda RPAREN (lambda)*)
     | UNDERSCORE (Ast.WILDCARD)
-   (* | PATTERN (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "Pattern")},
-			 args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR PATTERN)]})*)
     | HEX (Ast.LITERAL(Ast.CONSTBINARY HEX))
     | OCT (Ast.LITERAL(Ast.CONSTBINARY OCT))
     | BIN (Ast.LITERAL(Ast.CONSTBINARY BIN))
@@ -405,19 +373,9 @@ aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
     | LPAREN RPAREN (Ast.UNIT)
     | LPAREN lambdalist RPAREN (Ast.TUPLE lambdalist)
     | ID (Ast.SYMBOL (Symbol.symbol ID))
-    (*| LPAREN LAMBDAFUN LPAREN idlist RPAREN ASSIGN lambda RPAREN (Ast.LAMBDA {args=idlist, body=lambda})*)
-    (*| LBRACE lambda forgenerator RBRACE (Ast.FORGENERATOR (forgenerator, lambda))*)
     | LBRACE lambdapatternlist RBRACE (Ast.VECTOR lambdapatternlist)
-    (*| LBRACE lambdapattern RBRACE (Ast.VECTOR [lambdapattern])*)
-    (*| LBRACE RBRACE (Ast.VECTOR [])*)
     | LCBRACE tableentries RCBRACE (Ast.TABLE tableentries)
     | LCBRACE conditions RCBRACE (conditions)
-    (*| TYPE typ (Ast.TYPEEXP typ)*)
-    (*| ASSERT lambda (Ast.ASSERTION lambda)
-    | DOLLAR ID (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "Symbol")},
-			   args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR ID)]})
-    | DOLLAR DOLLAR ID (Ast.APPLY{func=Ast.SEND{message=Symbol.symbol "new", object=Ast.SYMBOL (Symbol.symbol "SymbolPattern")},
-				  args=Ast.TUPLE [Ast.LITERAL(Ast.CONSTSTR ID)]})*)
 
 lambdapatternlist: (nil)
 		 | lambdapattern (lambdapattern :: nil)
@@ -426,8 +384,7 @@ lambdapatternlist: (nil)
 lambdapattern: lambda (lambda)
 	     | ID ASSIGN lambda (Ast.NAMEDPATTERN (Symbol.symbol ID, lambda))
 
-tableentries: (*(nil)
-	     | *)tableentry (tableentry::nil)
+tableentries: tableentry (tableentry::nil)
 	     | tableentry COMMA tableentries (tableentry :: tableentries)
 
 tableentry: ID ((Symbol.symbol ID, Ast.LITERAL(Ast.CONSTBOOL true)))
