@@ -80,7 +80,7 @@ start of Ast.stm
 | args of Ast.typedname list 
 | optargs of Ast.typedname list
 | optdims of Symbol.symbol list option
-| optliteraldims of int list option
+| optliteraldims of Ast.space option
 | intlist of int list
 | modelarg of Symbol.symbol * Symbol.symbol list option
 | modelargs of (Symbol.symbol * Symbol.symbol list option) list
@@ -226,7 +226,7 @@ optdims: (NONE)
        | LBRACE idlist RBRACE (SOME idlist)
 
 optliteraldims: (NONE)
-    | LBRACE intlist RBRACE (SOME intlist)
+    | LBRACE intlist RBRACE (SOME (Ast.TENSOR intlist))
 
 intlist: (nil)
        | INT intlist (INT :: intlist)
