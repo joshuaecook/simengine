@@ -200,6 +200,10 @@ shell/cool.grm.sig
 shell/cool.grm.sml
 shell/cool.lex.sml
 
+shell/dml.grm.sig
+shell/dml.grm.sml
+shell/dml.lex.sml
+
 shell/parse.sml
 
 library/libraryutil.sml

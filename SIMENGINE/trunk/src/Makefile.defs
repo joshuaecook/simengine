@@ -4,6 +4,7 @@
 
 PARSERS_$(D)    := $(addprefix $(D)/util/registry/registry,.grm.sig .grm.sml .grm.desc .lex.sml)
 PARSERS_$(D)    := $(PARSERS_$(D)) $(addprefix $(D)/shell/cool,.grm.sig .grm.sml .grm.desc .lex.sml)
+PARSERS_$(D)    := $(PARSERS_$(D)) $(addprefix $(D)/shell/dml,.grm.sig .grm.sml .grm.desc .lex.sml)
 PROFILERS_$(D)  := $(addprefix $(D)/simEngine,_profiletime _profilemem _profilebranch)
 BASIS_$(D)	:= $(D)/compiler_exec.mlb
 LIBS_$(D)	:= share/cuda/device_props.a $(CRYPTO_LIB) $(Z_LIB)
