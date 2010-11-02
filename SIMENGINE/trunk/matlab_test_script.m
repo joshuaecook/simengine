@@ -44,8 +44,8 @@ else
 %  s = CoreFeatureTests('-internal');
 end
 
-% Execute
-s.Execute
+% Execute (all tests now - this will be paired down in the future)
+s.Execute(Tag(true))
 
 % Print the summary at the bottom after some blank lines
 for i=1:5

@@ -93,8 +93,11 @@ classdef Test < handle
         FunctionName
         FunctionLine
         OutputFileName
+        TagContainer
+        TagCondition
     end
-   
+
+    
     methods
         
         
@@ -110,6 +113,10 @@ classdef Test < handle
             else
                 error('Test:ArgumentError', 'Wrong number of arguments');
             end
+            
+            % initialize the tags
+            t.TagContainer = containers.Map;
+            t.TagCondition = Tag(false);
             
             % Find the filename and line #
             try
@@ -174,152 +181,167 @@ classdef Test < handle
             elseif nargin >= 3 && not(ischar(varargin{1}))
                 error('Test:ArgumentError', 'Expected string as third argument')
             end
+            
         end
         
         function Execute(t)
-        curDir = pwd;
-        cd(t.Dir);
-        %                localtime = tic;
-        %                if ischar(t.Function)
-        %                    [t.Output, t.Return] = evalc('feval(t.Function)');
-        %                else
-        %                    finfo = functions(t.Function);
-        %                    [t.Output, t.Return] = evalc('feval(t.Function)');
-        %                end
-        %                t.Time = toc(localtime);
-        [t.Output, t.Return, t.Time, errored] = executeFunction(t.Function);
-        if ~errored 
-          % check the output
-          switch t.Mode
-           case t.NOTERROR
-            t.Result = t.PASSED;
-           case t.BOOLEAN
-            if t.Return
-              t.Result = t.PASSED;
-            else
-              t.Result = t.FAILED;
-            end
-           case t.EQUAL
-            if equiv(t.Return, t.CompareOptions{1})
-              t.Result = t.PASSED;
-            else
-              t.Result = t.FAILED;
-              if isnumeric(t.Return)
-                if ndims(t.Return) > 2
-                  t.Message = ['Returned a [' mat2str(size(t.Return)) '] sized matrix that did not match.'];
-                else
-                  t.Message = ['Returned ''' mat2str(t.Return) ''' instead'];
+            curDir = pwd;
+            cd(t.Dir);
+            %                localtime = tic;
+            %                if ischar(t.Function)
+            %                    [t.Output, t.Return] = evalc('feval(t.Function)');
+            %                else
+            %                    finfo = functions(t.Function);
+            %                    [t.Output, t.Return] = evalc('feval(t.Function)');
+            %                end
+            %                t.Time = toc(localtime);
+            [t.Output, t.Return, t.Time, errored] = executeFunction(t.Function);
+            if ~errored
+                % check the output
+                switch t.Mode
+                    case t.NOTERROR
+                        t.Result = t.PASSED;
+                    case t.BOOLEAN
+                        if t.Return
+                            t.Result = t.PASSED;
+                        else
+                            t.Result = t.FAILED;
+                        end
+                    case t.EQUAL
+                        if equiv(t.Return, t.CompareOptions{1})
+                            t.Result = t.PASSED;
+                        else
+                            t.Result = t.FAILED;
+                            if isnumeric(t.Return)
+                                if ndims(t.Return) > 2
+                                    t.Message = ['Returned a [' mat2str(size(t.Return)) '] sized matrix that did not match.'];
+                                else
+                                    t.Message = ['Returned ''' mat2str(t.Return) ''' instead'];
+                                end
+                            elseif isstruct(t.Return)
+                                t.Message = ['Returned a different structure instead'];
+                            else
+                                t.Message = ['Returned a different quantity instead'];
+                            end
+                        end
+                    case t.APPROXEQUAL
+                        if approx_equiv(t.CompareOptions{1}, t.Return, t.CompareOptions{2})
+                            t.Result = t.PASSED;
+                        else
+                            t.Result = t.FAILED;
+                            %t.Message = sprintf('Returned ''%s'' instead, which is not +/- %g%% of %g', num2str(t.Return), t.CompareOptions(2), t.CompareOptions(1));
+                            if isnumeric(t.Return)
+                                t.Message = ['Returned ''' num2str(t.Return) ''' instead'];
+                            elseif isstruct(t.Return)
+                                t.Message = ['Returned a different structure instead'];
+                            else
+                                t.Message = ['Returned a different quantity instead'];
+                                %error('Test:ExecuteError:ApproxEqual', 'Return value ''%s'' not numeric or does not have length of one', num2str(t.Return));
+                            end
+                        end
+                    case t.ALLEQUAL
+                        if all_equiv(t.Return)
+                            t.Result = t.PASSED;
+                        else
+                            t.Result = t.FAILED;
+                            t.Message = ['Not all parallel structures are identical'];
+                        end
+                    case t.RANGE
+                        if isnumeric(t.Return) && length(t.Return) == 1
+                            l = t.CompareOptions{1};
+                            h = t.CompareOptions{2};
+                            if t.Return <= h && t.Return >= l
+                                t.Result = t.PASSED;
+                            else
+                                t.Result = t.FAILED;
+                                t.Message = sprintf('Returned ''%s'' instead, which is not within [%g,%g]', num2str(t.Return), t.CompareOptions{1}, t.CompareOptions{2});
+                            end
+                        else
+                            t.Message = ['Unexpected return value ''' num2str(t.Return) ''''];
+                            error('Test:ExecuteError:Range', 'Return value ''%s'' not numeric or does not have length of one', num2str(t.Return));
+                        end
+                    case t.REGEXP
+                        matches = regexp(t.Output, ...
+                            t.CompareOptions{1});
+                        if isempty(matches)
+                            t.Result = t.FAILED;
+                            t.Message = sprintf('Regular expression ''%s'' not found in command output', t.CompareOptions{1});
+                        else
+                            t.Result = t.PASSED;
+                        end
+                    otherwise
+                        error('Test:ExecuteError', 'Unknown mode encountered');
                 end
-              elseif isstruct(t.Return)
-                t.Message = ['Returned a different structure instead'];
-              else
-                t.Message = ['Returned a different quantity instead'];
-              end
+            else % an error occured
+                switch t.Mode
+                    case t.REGEXP % in REGEXP mode, we don't care if an
+                        % error occured, since we are often
+                        % looking for error messages
+                        matches = regexp(t.Output, ...
+                            t.CompareOptions{1});
+                        if isempty(matches)
+                            t.Result = t.FAILED;
+                            t.Message = sprintf('Regular expression ''%s'' not found in command output', t.CompareOptions{1});
+                        else
+                            t.Result = t.PASSED;
+                        end
+                    otherwise
+                        if t.Mode == t.NOTERROR
+                            t.Result = t.FAILED;
+                            t.Message = t.Return.message;
+                        else
+                            t.Result = t.ERROR;
+                            t.Message = t.Return.message;
+                        end
+                end
             end
-           case t.APPROXEQUAL
-            if approx_equiv(t.CompareOptions{1}, t.Return, t.CompareOptions{2})
-              t.Result = t.PASSED;
+            
+            % Check if expected fail
+            if t.ExpectFail
+                if t.Result == t.PASSED
+                    t.Result = t.FAILED;
+                    t.Message = [t.Message '(Test passed, but expected to FAIL)'];
+                elseif t.Result == t.FAILED
+                    t.Result = t.PASSED;
+                    t.Message = [t.Message ' (Expected to FAIL)'];
+                end
+            end
+            
+            % Location string
+            location = ['(' t.FunctionFile ':' num2str(t.FunctionLine) ')'];
+            
+            % Show result of this test
+            if t.Result == t.PASSED
+                status = 'Passed';
+            elseif t.Result == t.FAILED
+                status = ['FAILED  <---- ' location];
             else
-              t.Result = t.FAILED;
-              %t.Message = sprintf('Returned ''%s'' instead, which is not +/- %g%% of %g', num2str(t.Return), t.CompareOptions(2), t.CompareOptions(1));
-              if isnumeric(t.Return)
-                t.Message = ['Returned ''' num2str(t.Return) ''' instead'];
-              elseif isstruct(t.Return)
-                t.Message = ['Returned a different structure instead'];
-              else
-                t.Message = ['Returned a different quantity instead'];
-                %error('Test:ExecuteError:ApproxEqual', 'Return value ''%s'' not numeric or does not have length of one', num2str(t.Return));
-              end
+                status = ['ERRORED <---- ' location];
             end
-           case t.ALLEQUAL
-            if all_equiv(t.Return)
-              t.Result = t.PASSED;
-            else
-              t.Result = t.FAILED;
-              t.Message = ['Not all parallel structures are identical'];
-            end
-           case t.RANGE
-            if isnumeric(t.Return) && length(t.Return) == 1
-              l = t.CompareOptions{1};
-              h = t.CompareOptions{2};  
-              if t.Return <= h && t.Return >= l
-                t.Result = t.PASSED;
-              else
-                t.Result = t.FAILED;
-                t.Message = sprintf('Returned ''%s'' instead, which is not within [%g,%g]', num2str(t.Return), t.CompareOptions{1}, t.CompareOptions{2});
-              end
-            else
-              t.Message = ['Unexpected return value ''' num2str(t.Return) ''''];
-              error('Test:ExecuteError:Range', 'Return value ''%s'' not numeric or does not have length of one', num2str(t.Return));
-            end
-           case t.REGEXP
-            matches = regexp(t.Output, ...
-                             t.CompareOptions{1});
-            if isempty(matches)
-              t.Result = t.FAILED;
-              t.Message = sprintf('Regular expression ''%s'' not found in command output', t.CompareOptions{1});
-            else
-              t.Result = t.PASSED;
-            end
-           otherwise
-            error('Test:ExecuteError', 'Unknown mode encountered');
-          end
-        else % an error occured
-          switch t.Mode
-           case t.REGEXP % in REGEXP mode, we don't care if an
-                         % error occured, since we are often
-                         % looking for error messages
-            matches = regexp(t.Output, ...
-                             t.CompareOptions{1});
-            if isempty(matches)
-              t.Result = t.FAILED;
-              t.Message = sprintf('Regular expression ''%s'' not found in command output', t.CompareOptions{1});
-            else
-              t.Result = t.PASSED;
-            end
-           otherwise
-            if t.Mode == t.NOTERROR
-              t.Result = t.FAILED;
-              t.Message = t.Return.message;
-            else
-              t.Result = t.ERROR;
-              t.Message = t.Return.message;
-            end
-          end
+            s = sprintf('%40s:\t%s', t.Name, status);
+            disp(s)
+            
+            cd(curDir);
         end
-        
-        % Check if expected fail
-        if t.ExpectFail
-          if t.Result == t.PASSED 
-            t.Result = t.FAILED;
-            t.Message = [t.Message '(Test passed, but expected to FAIL)'];
-          elseif t.Result == t.FAILED
-            t.Result = t.PASSED;
-            t.Message = [t.Message ' (Expected to FAIL)'];
-          end
-        end 
-        
-        % Location string
-        location = ['(' t.FunctionFile ':' num2str(t.FunctionLine) ')'];
-        
-        % Show result of this test
-        if t.Result == t.PASSED
-          status = 'Passed';
-        elseif t.Result == t.FAILED
-          status = ['FAILED  <---- ' location];
-        else
-          status = ['ERRORED <---- ' location];
-        end
-        s = sprintf('%40s:\t%s', t.Name, status);
-        disp(s)
-        
-        cd(curDir);
-        end
-        
+
         function Skip(t)
             t.Result = t.SKIPPED;
         end
         
+        function addTags(t, varargin)
+            for i=1:length(varargin)
+                tag = varargin{i};
+                if ischar(tag)
+                    t.TagContainer(tag) = true;
+                else
+                    error('Simatra:Test:addTags', 'All tags must be strings');
+                end
+            end
+        end
+        
+        function c = tags(t)
+            c = keys(t.TagContainer);
+        end
         
         function s = tostr(t)
             if isempty(t.Message)

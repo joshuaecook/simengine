@@ -29,20 +29,20 @@ s = Suite('All CPU Tests');
 
 % Pull in each of the other test suites
 if(mode == INTERNAL)
-  s.add(ReleaseCompileTests('-internal'))
+  s.add(ReleaseCompileTests('-internal'), {'examples'})
 else
-  s.add(ReleaseCompileTests)
+  s.add(ReleaseCompileTests, {'examples'})
 end
 
 % Add full simulation tests
-s.add(ReleaseSimulateTests)
+s.add(ReleaseSimulateTests, {'examples'})
 
 % Add tests for each solver
-s.add(SolverTests)
+s.add(SolverTests, {'solvers'})
 
 % Additional compilation tests for internal use
 if mode == INTERNAL
-    s.add(InternalCompileTests)
+    s.add(InternalCompileTests, {'examples'})
 end
 
 % Add feature tests
@@ -53,6 +53,6 @@ else
 end
 
 % Add performance tests
-s.add(PerformanceTests('-cpu'));
+s.add(PerformanceTests('-cpu'), {'performance'});
 
 end

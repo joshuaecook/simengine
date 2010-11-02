@@ -36,21 +36,21 @@ SIMEX_NO_TEXT_STATUS_BAR = true;
 s = Suite('All Tests');
 
 if mode == RELEASE
-  s.add(ML_CoreFeatureTests('-cpu', '-release'));
-  s.add(ReleaseMatlabExampleTests)
-  s.add(ML_SyntaxTests('-cpu', '-release'));
-  s.add(ML_SubModelTests('-cpu', '-release'));
-  s.add(AllCPUTests('-release'));
-  s.add(AllGPUTests('-release'));
-  s.add(DSLTests('-release'));
+  s.add(ML_CoreFeatureTests('-cpu', '-release'), {'cpu', 'matlab', 'core'});
+  s.add(ReleaseMatlabExampleTests, {'cpu', 'examples', 'matlab'})
+  s.add(ML_SyntaxTests('-cpu', '-release'), {'cpu', 'matlab'});
+  s.add(ML_SubModelTests('-cpu', '-release'), {'cpu', 'matlab', 'submodels'});
+  s.add(AllCPUTests('-release'), {'cpu'});
+  s.add(AllGPUTests('-release'), {'gpu'});
+  s.add(DSLTests('-release'), {'dsl'});
 else
-  s.add(ML_CoreFeatureTests);
-  s.add(ReleaseMatlabExampleTests)
-  s.add(ML_SyntaxTests('-cpu'));
-  s.add(ML_SubModelTests('-cpu'));
-  s.add(AllCPUTests);
-  s.add(AllGPUTests);
-  s.add(DSLTests());
+  s.add(ML_CoreFeatureTests, {'cpu', 'matlab', 'core'});
+  s.add(ReleaseMatlabExampleTests, {'cpu', 'examples', 'matlab'})
+  s.add(ML_SyntaxTests('-cpu'), {'cpu', 'matlab'});
+  s.add(ML_SubModelTests('-cpu'), {'cpu', 'matlab', 'submodels'});
+  s.add(AllCPUTests, {'cpu'});
+  s.add(AllGPUTests, {'gpu'});
+  s.add(DSLTests(), {'dsl'});
 end
 
 % Add message tests (for checking compiler output)
