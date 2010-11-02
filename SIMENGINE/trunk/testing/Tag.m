@@ -2,7 +2,8 @@ classdef Tag
    
     properties (Constant)
         TAG = 0
-        EXPRESSION = 1
+        BOOL = 1
+        EXPRESSION = 2
     end
     
     properties (Access = protected)
@@ -10,17 +11,29 @@ classdef Tag
         type
         op
         args
+        value
     end
     
     methods (Access = public)
         
         function t = Tag(value, args)
             if nargin == 1
-                if ~ischar(value)
-                    error('Simatra:Tag', 'Tag inputs can only be strings');
+                if ~ischar(value) && ~islogical(value)
+                    error('Simatra:Tag', 'Tag inputs can only be strings or logicals');
                 end
-                t.name = lower(value);
-                t.type = Tag.TAG;
+                if ischar(value)
+                    t.name = lower(value);
+                    t.type = Tag.TAG;
+                else
+                    if value
+                        t.name = 'true';
+                    else
+                        t.name = 'false';
+                    end
+                    t.type = Tag.BOOL;
+                    t.value = value;
+                end
+                        
             else
                 switch (value)
                     case {'~', '&', '|'}
@@ -65,6 +78,8 @@ classdef Tag
         function r = evaluate(t, exists)
             if t.type == Tag.TAG
                 r = exists(t.name);
+            elseif t.type == Tag.BOOL
+                r = t.value;
             else
                 switch t.op
                     case '~'
@@ -81,6 +96,8 @@ classdef Tag
         
         function s = toStr(t)
             if t.type == Tag.TAG
+                s = t.name;
+            elseif t.type == Tag.BOOL
                 s = t.name;
             else
                 switch t.op

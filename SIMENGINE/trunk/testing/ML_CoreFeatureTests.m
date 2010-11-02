@@ -36,7 +36,7 @@ end
 
 function s = OutputFeatureTests(target)
 
-s = Suite(['Output Feature Tests ' target]);
+s = Suite(['Output Feature Tests ' target], {'outputs'});
 
 % Define a common iterator
 t = Iterator('continuous', 'solver', 'forwardeuler', 'dt', 1);
@@ -138,7 +138,7 @@ end
 
 function s = InputFeatureTests(target)
 
-s = Suite(['Input Feature Tests ' target]);
+s = Suite(['Input Feature Tests ' target], {'inputs'});
 
 % Define a common iterator
 t = Iterator('continuous', 'solver', 'forwardeuler', 'dt', 1);
@@ -182,7 +182,7 @@ end
 function s = StateFeatureTests(mode, target)
 INTERNAL = 0; RELEASE = 1;
 
-s = Suite(['State Feature Tests ' target]);
+s = Suite(['State Feature Tests ' target], {'states'});
 
 % Define a common iterator
 t = Iterator('continuous', 'solver', 'forwardeuler', 'dt', 1);
@@ -522,7 +522,7 @@ end
 
 function s = FunctionFeatureTests(target)
 
-s = Suite(['Function Feature Tests ' target]);
+s = Suite(['Function Feature Tests ' target], {'functions'});
 
 function m = FunctionTestMathFunction
 m = Model('FunctionTestMathFunction');
@@ -757,7 +757,7 @@ end
 
 function s = DifferenceEquationTests(target)
 
-s = Suite(['Difference Equation Tests ' target]);
+s = Suite(['Difference Equation Tests ' target], 'differenceequs');
 
 function m = DifferenceEquationTest1
 n = Iterator('discrete', 'sample_period', 1);

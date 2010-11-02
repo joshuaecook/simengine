@@ -29,13 +29,13 @@ s = Suite('All GPU Tests');
 
 % Pull in each of the other test suites
 if mode == INTERNAL
-  s.add(ReleaseCompileTestsGPU('-internal'))
+  s.add(ReleaseCompileTestsGPU('-internal'), {'examples'})
 else
-  s.add(ReleaseCompileTestsGPU)
+  s.add(ReleaseCompileTestsGPU, {'examples'})
 end
 
 % Add full simulation tests
-s.add(ReleaseSimulateTestsGPU)
+s.add(ReleaseSimulateTestsGPU, {'examples'})
 
 % Add feature tests
 if mode == INTERNAL
@@ -45,6 +45,6 @@ else
 end
 
 % Add performance tests
-s.add(PerformanceTests('-gpu'));
+s.add(PerformanceTests('-gpu'), {'performance'});
 
 end

@@ -38,12 +38,12 @@ if nargin == 2
 end
 
 s = Suite(['Feature Tests ' target]);
-s.add(CoreFeatureTests(target,mode));
+s.add(CoreFeatureTests(target,mode), {'core'});
 s.add(MathFeatureTests(target,mode));
-s.add(SubModelTests(target,mode));
-s.add(TemporalIteratorTests(target,mode));
-s.add(SampledInputTests(varargin{:}));
-s.add(ParallelTests(target,mode));
+s.add(SubModelTests(target,mode), {'submodels'});
+s.add(TemporalIteratorTests(target,mode), {'iterators'});
+s.add(SampledInputTests(varargin{:}), {'inputs'});
+s.add(ParallelTests(target,mode), {'parallel'});
 
 end
 

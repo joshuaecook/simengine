@@ -23,6 +23,11 @@ classdef Suite < handle
         Enabled = true;
         Dir
     end
+
+    properties (Access = protected)
+        TagContainer
+        TagCondition
+    end
     
     % define the instance methods
     methods
@@ -31,21 +36,28 @@ classdef Suite < handle
         function s = Suite(name, varargin)
             s.Name = name;
             s.Dir = pwd;
+            s.TagContainer = containers.Map;
+            s.TagCondition = Tag(false);
             if nargin == 2
                 if iscell(varargin{1})
-                    s.Tests = varargin{1};
-                    s.Total = length(s);
+                    suite_tags = varargin{1};
+                    s.addTags(suite_tags{:});
                 else
-                    error('Suite:ArgumentError', 'Second argument must be a cell array')
+                    s.addTags(varargin{:})
                 end
             end
-                   
+            
         end
         
         % add tests
-        function add(s, obj)
+        function add(s, obj, extra_tags)
             if isa(obj, 'Test') || isa(obj, 'Suite')
                 s.Tests{length(s.Tests)+1} = obj;
+                suite_tags = tags(s);
+                obj.addTags(suite_tags{:});
+                if nargin == 3 && iscell(extra_tags)
+                    obj.addTags(extra_tags{:});
+                end
             else
                 error('Suite:AddTestOrSuite', 'Must pass in a test or a suite');
             end
@@ -64,25 +76,103 @@ classdef Suite < handle
             end
         end
         
+        % addTags - add tags to the current suite
+        function addTags(s, varargin)
+            for i=1:length(varargin)
+                tag = varargin{i};
+                if ischar(tag)
+                    s.TagContainer(tag) = true;
+                else
+                    error('Simatra:Test:addTags', 'All tags must be strings');
+                end
+            end
+            % recurse through and add tags ...
+            for i=1:length(s.Tests)
+                ss = s.Tests{i};
+                ss.addTags(varargin{:});
+            end
+        end
+        
+        function t = tags(s)
+            t = keys(s.TagContainer);
+        end
+        
+        % internal functoin = returns a containers.Map structure of the
+        % tags and their counts
+        function return_tags = countTags(s, tags)
+            for i=1:length(s.Tests)
+                t = s.Tests{i};
+                if isa(t, 'Test') 
+                    test_tags = t.tags;
+                    for i=1:length(test_tags)
+                        tag = test_tags{i};
+                        if isKey(tags, tag)
+                            tags(tag) = tags(tag) + 1;
+                        else
+                            tags(tag) = 1;
+                        end
+                    end
+                else
+                    tags = t.countTags(tags);
+                end
+            end
+            return_tags = tags;
+        end
+        
+        % return the count of tests with a particular condition met
+        function count = Count(s, condition)
+            if nargin == 1
+                condition = s.TagCondition;
+            end
+            count = 0;
+            if isa(condition, 'Tag')
+                for i = 1:length(s.Tests)
+                    t = s.Tests{i};
+                    if isa(t, 'Suite')
+                        count = count + t.Count(condition);
+                    else
+                        count = count + test(condition, t.tags);
+                    end
+                end
+            elseif ischar(condition)
+                count = Count(s, Tag(condition));
+            else
+                error('Simatra:Suite:Count', 'Must pass in either a tag condition or a string tag name');
+            end
+        end
+        
         % execute tests
         function Execute(s, varargin)
-            if s.Enabled
-                if nargin == 2 && ischar(varargin{1})
+            % set the some options to start
+            runfailures = true;
+            runall = false;
+            condition = s.TagCondition;
+            
+            for i=1:length(varargin);
+                arg = varargin{i};
+                if ischar(arg)
                     switch lower(varargin{1})
                         case '-all'
-                            execute_helper(s, 0, true, true);
+                            runall = true;
                         otherwise
-                            error('Suite:Execute:ArgumentError', 'Only -all is a supported argument');
+                            error('Suite:Execute:ArgumentError', 'Only -all is a supported string argument');
                     end
+                elseif isa(arg, 'Tag')
+                    condition = arg;
+                else
+                    error('Suite:Execute:ArgumentError', 'Only -all or a Tag is a supported argument');
+                end                    
 
-                end
-                execute_helper(s, 0, false, true);
+            end
+            
+            if s.Enabled && s.Count(condition) > 0
+                execute_helper(s, 0, runall, runfailures, condition);
             else
                 s.Skipped = s.Skipped + length(s);
             end
         end
         
-        function execute_helper(s, level, runall, runfailures)
+        function execute_helper(s, level, runall, runfailures, condition)
         % delete any sim files that may exist in the working
         % directory
         if s.DeleteSIMs
@@ -126,7 +216,7 @@ classdef Suite < handle
                             end
                     end
                     
-                    if cont && run_test && t.Enabled
+                    if cont && run_test && t.Enabled && test(condition, t.tags)
                         %disp(['Executing test ' t.Name])
                         t.Execute();
                         switch t.Result
@@ -156,8 +246,8 @@ classdef Suite < handle
                     s.Skipped = s.Skipped - ss.Skipped;
                     % Now re-execute as necessary
                     if cont
-                        if ss.Enabled 
-                            ss.execute_helper(level+1, runall, runfailures);
+                        if ss.Enabled && ss.Count(condition) > 0
+                            ss.execute_helper(level+1, runall, runfailures, condition);
                             s.Passed = s.Passed + ss.Passed;
                             s.Failed = s.Failed + ss.Failed;
                             s.Errored = s.Errored + ss.Errored;
@@ -247,6 +337,8 @@ classdef Suite < handle
                         summary_helper(s, 0, true, false, false);
                     elseif strcmpi(varargin{1},'-failures')
                         summary_helper(s, 0, false, false, true);
+                    elseif strcmpi(varargin{1},'-tags')
+                        showTags(s);
                     else
                         error('Suite:Summary:ArgumentError', 'Only -detailed, -short, or -failures flag is allowed');
                     end
@@ -319,6 +411,26 @@ classdef Suite < handle
         end
         function disable(s)
             s.Enabled = false;
+        end
+        
+        function showTags(s)
+            counts = countTags(s, containers.Map);
+            tags = keys(counts);
+            str_length = 0;
+            count_list = zeros(length(tags), 2);
+            count_list(:,2) = 1:length(tags);
+            for i=1:length(tags)
+                l = length(tags{i});
+                if l > str_length
+                    str_length = l;
+                end
+                count_list(i,1) = counts(tags{i});
+            end
+            sorted_count_list = sortrows(count_list, -1);
+            pad = @(str)([str ':' blanks(str_length-length(str)+1)]);
+            for i = 1:length(tags)
+                disp(['  ' pad(tags{sorted_count_list(i,2)}) num2str(sorted_count_list(i,1))]);
+            end
         end
         
     end % end methods

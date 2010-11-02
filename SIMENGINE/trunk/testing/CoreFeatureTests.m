@@ -37,7 +37,7 @@ end
 
 function s = OutputFeatureTests(target)
 
-s = Suite(['Output Feature Tests ' target]);
+s = Suite(['Output Feature Tests ' target], {'outputs'});
 
 s.add(Test('OutputStateDirectly',@()(simex('models_FeatureTests/OutputTest1.dsl', 10, target)), '-equal', struct('y', [0:10; 0:10]')));
 s.add(Test('OutputIntermediateDirectly',@()(simex('models_FeatureTests/OutputTest2.dsl', 10, target)), '-equal', struct('y', [0:10; 0:10]')));
@@ -56,7 +56,7 @@ end
 
 function s = InputFeatureTests(target)
 
-s = Suite(['Input Feature Tests ' target]);
+s = Suite(['Input Feature Tests ' target], {'inputs'});
 
 t1 = Test('NoInputToState', @()(simex('models_FeatureTests/InputTest1.dsl', 10, target)), '-withouterror');
 t1.ExpectFail = true;
@@ -78,7 +78,7 @@ end
 function s = StateFeatureTests(mode, target)
 INTERNAL = 0; RELEASE = 1;
 
-s = Suite(['State Feature Tests ' target]);
+s = Suite(['State Feature Tests ' target], {'states'});
 
     function y = VerifyDefaultStateInits
         m = simex('models_FeatureTests/StateTest1.dsl', target);
@@ -190,7 +190,7 @@ end
 
 function s = FunctionFeatureTests(target)
 
-s = Suite(['Function Feature Tests ' target]);
+s = Suite(['Function Feature Tests ' target], {'functions'});
 
 function y = MathFunction
   o = simex('models_FeatureTests/FunctionTestMathFunction.dsl', 100);
@@ -302,7 +302,7 @@ end
 
 function s = DifferenceEquationTests(target)
 
-s = Suite(['Difference Equation Tests ' target]);
+s = Suite(['Difference Equation Tests ' target], 'differenceequs');
 
 s.add(Test('Basic Difference Equation', ...
            @()(simex('models_FeatureTests/DifferenceEquationTest1.dsl', 10, target)), ...

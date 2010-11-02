@@ -20,7 +20,7 @@ else
    mode = varargin{2};
 end
 
-s = Suite(['MATLAB DIESEL Syntax Tests ' target]);
+s = Suite(['MATLAB DIESEL Syntax Tests ' target], {'matlab'});
 
 % Add each of the syntax tests
 if strcmp(target, '-cpu')
@@ -34,7 +34,7 @@ end
 
 function s = InvalidCodeTests
 
-s = Suite('Invalid Code');
+s = Suite('Invalid Code', {'simex'});
 
 % empty model
     function m = EmptyModel
@@ -149,7 +149,7 @@ s_ops.add(noErrorTest('min', @()(min(a,b))));
 s.add(s_ops);
 
 % Vector and Matrix literals
-s_vec = Suite('Non-scalar Literal Tests')
+s_vec = Suite('Non-scalar Literal Tests');
 
 verifySizeTest = @(id, fcn, expected)(Test(id, @()(ndims(fcn()) == ...
                                                   length(expected) ...
@@ -218,7 +218,7 @@ end
 
 function s = SubModelTests
 
-s = Suite('SubModel Tests');
+s = Suite('SubModel Tests', {'submodels'});
 
     function m = SquareSubModel
         m = Model('sub');
