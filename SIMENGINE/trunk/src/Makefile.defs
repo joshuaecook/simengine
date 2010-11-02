@@ -15,7 +15,7 @@ INSTALLS	:= $(INSTALLS) $(D)/installs
 DEPENDS_$(D)    := $(D)/simEngine.deps
 DEPENDS         := $(DEPENDS) $(DEPENDS_$(D))
 CLEAN		:= $(CLEAN) $(TARGETS_$(D)) $(PROFILERS_$(D))
-CLEAN_ALL	:= $(CLEAN_ALL) $(PARSERS_$(D))
+CLEAN_ALL	:= $(CLEAN_ALL) $(PARSERS_$(D)) $(DEPENDS_$(D))
 
 
 # Define local rules.
