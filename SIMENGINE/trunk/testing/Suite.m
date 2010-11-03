@@ -179,6 +179,8 @@ classdef Suite < handle
                 end                    
 
             end
+    
+            disp(sprintf('Running %d tests in total using condition %s', s.Count(condition), toStr(condition)));
             
             if s.Enabled && s.Count(condition) > 0
                 execute_helper(s, 0, runall, runfailures, condition);

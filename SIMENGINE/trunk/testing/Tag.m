@@ -70,7 +70,23 @@ classdef Tag
         
         function r = or(t1, t2)
             r = Tag('|', {t1, t2});
-        end    
+        end
+        
+        function s = toStr(t)
+            if t.type == Tag.TAG
+                s = t.name;
+            elseif t.type == Tag.BOOL
+                s = t.name;
+            else
+                switch t.op
+                    case '~'
+                        s = ['(~' toStr(t.args{1}) ')'];
+                    otherwise
+                        s = ['(' toStr(t.args{1}) t.op toStr(t.args{2}) ')'];
+                end
+            end
+        end
+        
     end
         
     methods (Access = protected)
@@ -94,20 +110,6 @@ classdef Tag
             end
         end
         
-        function s = toStr(t)
-            if t.type == Tag.TAG
-                s = t.name;
-            elseif t.type == Tag.BOOL
-                s = t.name;
-            else
-                switch t.op
-                    case '~'
-                        s = ['(~' toStr(t.args{1}) ')'];
-                    otherwise
-                        s = ['(' toStr(t.args{1}) t.op toStr(t.args{2}) ')'];
-                end
-            end
-        end
     end
     
 end
