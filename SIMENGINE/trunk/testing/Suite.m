@@ -154,6 +154,21 @@ classdef Suite < handle
                     switch lower(varargin{1})
                         case '-all'
                             runall = true;
+                        case '-tag'
+                            if i == length(varargin)
+                                error('Suite:Execute:ArgumentError', '-tag option requires an additional tag argument')
+                            end
+                            tag_arg = varargin{i+1};
+                            switch class(tag_arg)
+                                case 'Tag'
+                                    condition = tag_arg;
+                                case 'char'
+                                    conv_str = regexprep(tag_arg, '(\w+)', 'Tag(''$1'')');
+                                    condition = eval(conv_str);
+                                otherwise
+                                    error('Suite:Execute:ArgumentError', 'Unexpected non Tag or string -tag argument');
+                            end
+                            break;
                         otherwise
                             error('Suite:Execute:ArgumentError', 'Only -all is a supported string argument');
                     end
