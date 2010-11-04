@@ -10,19 +10,9 @@ function s = AllTests(varargin)
 % Set testing modes - right now there are two modes.  One is used for
 % development and has tests that will likely not pass.  The other is used
 % for release and should always pass.
+% NOTE: this has been superceded by tags
 INTERNAL = 0; RELEASE = 1;
 mode = RELEASE;
-
-if nargin == 1
-    if strcmpi(varargin{1},'-internal')
-        mode = INTERNAL;
-    elseif strcmpi(varargin{1},'-release')
-        mode = RELEASE;
-    else
-        error('Simatra:AllTests', 'Unexpected argument');
-    end
-end
-
 
 % Timeout after 10 minutes to make sure testing framework never hangs
 global SIMEX_TIMEOUT;
