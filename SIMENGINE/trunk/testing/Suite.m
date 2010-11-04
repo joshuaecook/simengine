@@ -343,11 +343,10 @@ classdef Suite < handle
             root.setAttribute('time', num2str(s.Time));
             root.setAttribute('failures', num2str(s.Failed));
             root.setAttribute('name', s.Name);
-            s
+            
             for i = 1:length(s.Tests)
               % Ignore skipped tests
               
-              s.Tests{i}.Result
               if s.Tests{i}.Enabled && not(s.Tests{i}.Result == Test.SKIPPED || s.Tests{i}.Result == Test.NOT_EXECUTED)
                 s.Tests{i}.toXML(xml, root);
               end
