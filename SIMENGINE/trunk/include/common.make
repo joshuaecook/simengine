@@ -28,7 +28,11 @@ SVN_ROOT = $(SVN_PREFIX)/SIMENGINE
 SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
 SVN_INFO = svn info 2>/dev/null
 SVN_URL := $(shell $(SVN_INFO) | sed -n 's/^URL: //p')
-SVN_REVISION := $(shell svnversion -nc . | cut -d: -f2 | sed -e 's/[^0-9]//g')
+# The revision code below grabbed the latest revision number from the working copy - this is not
+# the same method used in the build makefile which takes the highest overall build number
+#SVN_REVISION := $(shell svnversion -nc . | cut -d: -f2 | sed -e 's/[^0-9]//g')
+SVN_REVISION := $(shell svnversion -n . | sed -e 's/[^0-9]//g')
+
 SVN_BRANCH := $(subst $(SVN_ROOT),,$(SVN_URL))
 SVN_IS_BRANCH := $(findstring branches,$(SVN_URL))
 SVN_IS_TRUNK := $(findstring trunk,$(SVN_URL))
