@@ -10,6 +10,7 @@ classdef Suite < handle
         ExitOnFailure = false;
         ExitOnError = false;
         DeleteSIMs = true;     
+        Result
     end
     
     properties (SetAccess = private)
@@ -38,6 +39,7 @@ classdef Suite < handle
             s.Dir = pwd;
             s.TagContainer = containers.Map;
             s.TagCondition = Tag(false);
+            s.Result = Test.NOT_EXECUTED;
             if nargin == 2
                 if iscell(varargin{1})
                     suite_tags = varargin{1};
@@ -269,10 +271,19 @@ classdef Suite < handle
                             s.Failed = s.Failed + ss.Failed;
                             s.Errored = s.Errored + ss.Errored;
                             s.Skipped = s.Skipped + ss.Skipped;
+                            if ss.Errored > 0
+                                ss.Result = Test.ERROR;
+                            elseif ss.Failed > 0
+                                ss.Result = Test.FAILED;
+                            else
+                                ss.Result = Test.PASSED;
+                            end
                         else
+                            ss.Skip();
                             s.Skipped = s.Skipped + length(ss);
                         end
                     else
+                        ss.Skip();
                         s.Skipped = s.Skipped + length(ss);
                     end
                 end
@@ -282,6 +293,10 @@ classdef Suite < handle
 
             disp(sprintf('%sSuite ''%s'' finished in %g seconds (Total=%d, Passed=%d, Failed=%d, Errored=%d, Skipped=%d)', spaces, s.Name, s.Time, s.Total, s.Passed, s.Failed, s.Errored, s.Skipped));
             
+        end
+        
+        function Skip(s)
+            s.Result = Test.SKIPPED;
         end
         
         % override the disp function
@@ -328,10 +343,12 @@ classdef Suite < handle
             root.setAttribute('time', num2str(s.Time));
             root.setAttribute('failures', num2str(s.Failed));
             root.setAttribute('name', s.Name);
-            
+            s
             for i = 1:length(s.Tests)
               % Ignore skipped tests
-              if s.Tests{i}.Enabled
+              
+              s.Tests{i}.Result
+              if s.Tests{i}.Enabled && not(s.Tests{i}.Result == Test.SKIPPED || s.Tests{i}.Result == Test.NOT_EXECUTED)
                 s.Tests{i}.toXML(xml, root);
               end
             end
