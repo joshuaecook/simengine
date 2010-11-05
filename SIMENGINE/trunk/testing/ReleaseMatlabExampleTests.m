@@ -15,7 +15,7 @@ exclusion_list = {'exploreEleakGleak', 'Capacitor', 'CurrentSource', 'Ground', '
 % add each of the dsl files to a run script
 for i=1:length(m_files)
     [path, name, ext] = fileparts(m_files{i});
-    if name(1) ~= '.'
+    if not(strcmp(name(1), '.'))
         switch name
             case exclusion_list
                 % ... don't do anything here

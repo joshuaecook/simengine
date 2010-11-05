@@ -22,7 +22,7 @@ s = Suite('Release Compile Tests');
 % add each of the dsl files to a run script
 for i=1:length(dsl_files)
     [path, name, ext] = fileparts(dsl_files{i});
-    if name(1) ~= '.'
+    if not(strcmp(name(1), '.'))
         filename = fullfile(path, [name ext]);
         s.add(Test(['Model-' name], @()(simex(filename)), '-withouterror'));
     end
