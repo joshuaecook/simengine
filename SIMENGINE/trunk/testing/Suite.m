@@ -166,7 +166,15 @@ classdef Suite < handle
                                     condition = tag_arg;
                                 case 'char'
                                     conv_str = regexprep(tag_arg, '(\w+)', 'Tag(''$1'')');
-                                    condition = eval(conv_str);
+                                    try
+                                        condition = eval(conv_str);
+                                    catch me
+                                        disp(getReport(me, 'extended'));
+                                        error('Simatra:Suite:Execute', 'Can not process condition <%s>', conv_str);
+                                    end
+                                    if ~isa(condtion, 'Tag')
+                                        error('Simatra:Suite:Execute', 'A tag was not generated out of the passed in string <%s>', tag_arg);
+                                    end
                                 otherwise
                                     error('Suite:Execute:ArgumentError', 'Unexpected non Tag or string -tag argument');
                             end
