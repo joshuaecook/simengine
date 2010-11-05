@@ -172,12 +172,12 @@ classdef Suite < handle
                             end
                             break;
                         otherwise
-                            error('Suite:Execute:ArgumentError', 'Only -all is a supported string argument');
+                            error('Suite:Execute:ArgumentError', 'Only -all and -tag are supported string arguments');
                     end
                 elseif isa(arg, 'Tag')
                     condition = arg;
                 else
-                    error('Suite:Execute:ArgumentError', 'Only -all or a Tag is a supported argument');
+                    error('Suite:Execute:ArgumentError', 'Only -all, a Tag object, or a -tag <char> are a supported arguments');
                 end                    
 
             end
