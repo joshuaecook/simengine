@@ -15,7 +15,9 @@ exclusion_list = {'exploreEleakGleak', 'Capacitor', 'CurrentSource', 'Ground', '
 % add each of the dsl files to a run script
 for i=1:length(m_files)
     [path, name, ext] = fileparts(m_files{i});
-    if not(strcmp(name(1), '.'))
+    if isempty(name)
+        warning('Simatra:ReleaseMatlabExampleTests', 'Unexpected file %s', m_files{i});
+    elseif name(1) ~= '.'
         switch name
             case exclusion_list
                 % ... don't do anything here
