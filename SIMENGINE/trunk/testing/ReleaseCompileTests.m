@@ -23,7 +23,7 @@ s = Suite('Release Compile Tests');
 for i=1:length(dsl_files)
     [path, name, ext] = fileparts(dsl_files{i});
     if isempty(name)
-        warning('Simatra:ReleaseCompileTests', 'Unexpected file %s', m_files{i});
+        warning('Simatra:ReleaseCompileTests', 'Unexpected file %s', dsl_files{i});
     elseif name(1) ~= '.'
         filename = fullfile(path, [name ext]);
         s.add(Test(['Model-' name], @()(simex(filename)), '-withouterror'));
