@@ -22,7 +22,9 @@ s = Suite('Release Compile Tests GPU');
 % add each of the dsl files to a run script
 for i=1:length(dsl_files)
     [path, name, ext] = fileparts(dsl_files{i});
-    if not(strcmp(name(1), '.'))
+    if isempty(name)
+        warning('Simatra:ReleaseCompileTestsGPU', 'Unexpected file %s', m_files{i});
+    elseif name(1) ~= '.'
         filename = fullfile(path, [name ext]);
         s.add(Test(['Model-' name], @()(simex(filename,'-gpu')), '-withouterror'));
     end
