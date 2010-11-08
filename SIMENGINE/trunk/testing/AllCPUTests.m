@@ -42,7 +42,7 @@ s.add(SolverTests, {'solvers'})
 
 % Additional compilation tests for internal use
 if mode == INTERNAL
-    s.add(InternalCompileTests, {'examples'})
+    s.add(InternalCompileTests, {'internal','examples'})
 end
 
 % Add feature tests

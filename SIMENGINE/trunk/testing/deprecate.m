@@ -1,7 +1,7 @@
 % deprecate - tags a test/suite as deprecated....
-function depracated_test = deprecate(test)
+function deprecated_test = deprecate(test)
 
-test.addTags('depracated');
-depracated_test = test;
+test.addTags('deprecated');
+deprecated_test = test;
 
 end

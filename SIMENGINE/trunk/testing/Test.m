@@ -145,7 +145,7 @@ classdef Test < handle
                         t.Mode = t.NOTERROR;
                     case '-equal'
                         t.Mode = t.EQUAL;
-                        if nargin == 4
+                        if nargin >= 4
                             t.CompareOptions = varargin(2);
                         else
                             error('Test:ArgumentError', 'When using the -equal option, there should be a fourth required option')
@@ -154,7 +154,7 @@ classdef Test < handle
                         t.Mode = t.ALLEQUAL;
                     case '-approxequal'
                         t.Mode = t.APPROXEQUAL;
-                        if nargin == 4
+                        if nargin >= 4
                             t.CompareOptions = {varargin{2}, 1}; % by default, stay within one percent
                         elseif nargin == 5 && isnumeric(varargin{3})
                             t.CompareOptions = {varargin{2}, varargin{3}}; % by default, stay within one percent
@@ -163,14 +163,14 @@ classdef Test < handle
                         end
                     case '-range'
                         t.Mode = t.RANGE;
-                        if nargin == 4 && length(varargin{2}) == 2 && isnumeric(varargin{2})
+                        if nargin >= 4 && length(varargin{2}) == 2 && isnumeric(varargin{2})
                             t.CompareOptions = varargin(2);
                         else
                             error('Test:ArgumentError', 'When using the -range option, there should be a fourth required option of length 2')
                         end      
                     case '-regexpmatch'
                         t.Mode = t.REGEXP;
-                        if nargin == 4 && ischar(varargin{2})
+                        if nargin >= 4 && ischar(varargin{2})
                             t.CompareOptions = varargin(2);
                         else
                             error('Test:ArgumentError', 'When using the -regexpmatch option, there should be a required string option');
@@ -178,10 +178,20 @@ classdef Test < handle
                     otherwise
                         error('Test:ArgumentError','Unexpected third argument to Test')
                 end
-            elseif nargin >= 3 && not(ischar(varargin{1}))
-                error('Test:ArgumentError', 'Expected string as third argument')
+            elseif nargin >= 3 && not(ischar(varargin{1}) || iscell(varargin{1}))
+                error('Test:ArgumentError', 'Expected string or tag cell array as third argument')
             end
             
+            % find some tags
+            if ~isempty(varargin) && iscell(varargin{end})
+                tags = varargin{end};
+                t.addTags(tags{:});
+            end
+            
+        end
+        
+        function l = length(t)
+            l = 1;
         end
         
         function Execute(t)

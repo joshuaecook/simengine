@@ -32,14 +32,17 @@ end
 
 % The below test won't pass because the model name is different than the
 % file name.  This is expected
-s.getTest('Model-neuronWithSynapse').ExpectFail = true;
-s.getTest('Model-circuit_elements').ExpectFail = true;
+t = s.getTest('Model-neuronWithSynapse');
+t.ExpectFail = true;
+
+t = s.getTest('Model-circuit_elements');
+t.ExpectFail = true;
 
 % Remove tests that are internal
-if ~INTERNAL
-  % These tests fail because they don't compile within the time
-  % limit of the testing framework
-  s.getTest('Model-axon').Enabled = false;
-end
+% These tests fail because they don't compile within the time
+% limit of the testing framework
+t = s.getTest('Model-axon');
+t.addTags('backlog');
+%t.Enabled = false;
 
 end
