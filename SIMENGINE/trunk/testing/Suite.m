@@ -172,7 +172,7 @@ classdef Suite < handle
                                         disp(getReport(me, 'extended'));
                                         error('Simatra:Suite:Execute', 'Can not process condition <%s>', conv_str);
                                     end
-                                    if ~isa(condtion, 'Tag')
+                                    if ~isa(condition, 'Tag')
                                         error('Simatra:Suite:Execute', 'A tag was not generated out of the passed in string <%s>', tag_arg);
                                     end
                                 otherwise
