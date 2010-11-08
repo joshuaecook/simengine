@@ -6,7 +6,7 @@ else
     mdl = fullfile('models_MessageTests', dslmodel);
 end
 
-s = Suite(id);
+s = Suite(id, {'messages'});
 t1 = Test('UserError', @()(simex(mdl)), '-regexpmatch', 'USER ERROR');
 t2 = Test('AppropriateMessage', @()(dispAndReturn(t1.Output)), '-regexpmatch', ...
           expectedstring);

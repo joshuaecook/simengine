@@ -100,21 +100,19 @@ simp = {'var a = State.new(\"a\")'
 s.add(Test('Simplification Test a*a^b->a^(1+b)', run(simp)));
 
 % These tests don't pass right now, but that's not a problem...
-if mode == INTERNAL
-    simp = {'var a = State.new(\"a\")'
-        'var b = State.new(\"b\")'
-        'var c = State.new(\"c\")'
-         'test_pass ((LF repeatApplyRewritesExp(\"simplification\", a+1-a)).tostring() == \"1\")'};
-     s.add(Test('Simplification Test a+1-a->1', run(simp)));
+simp = {'var a = State.new(\"a\")'
+    'var b = State.new(\"b\")'
+    'var c = State.new(\"c\")'
+    'test_pass ((LF repeatApplyRewritesExp(\"simplification\", a+1-a)).tostring() == \"1\")'};
+s.add(Test('Simplification Test a+1-a->1', run(simp), {'backlog'}));
 
-     %
+%
 
-     simp = {'var a = State.new(\"a\")'
-         'var b = State.new(\"b\")'
-         'var c = State.new(\"c\")'
-         'test_pass ((LF repeatApplyRewritesExp(\"simplification\", a/a)).tostring() == \"1\")'};
-     s.add(Test('Simplification Test a/a->1', run(simp)));
-end
+simp = {'var a = State.new(\"a\")'
+    'var b = State.new(\"b\")'
+    'var c = State.new(\"c\")'
+    'test_pass ((LF repeatApplyRewritesExp(\"simplification\", a/a)).tostring() == \"1\")'};
+s.add(Test('Simplification Test a/a->1', run(simp)));
 end
 
 function s = DSLDiffTests(mode)

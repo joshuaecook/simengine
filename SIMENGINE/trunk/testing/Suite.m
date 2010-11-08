@@ -1,7 +1,22 @@
 % Suite class
 %   Executes suites of simEngine tests
 %
+% Suite Methods:
+%   Constructor:
+%   Suite/Suite - constructor for a Suite object
+%
+%   Suite Actions:
+%   add - add a Suite or a Test to a Suite object
+%   Execute - run a Suite of tests
+%   
+%   Suite Logging:
+%   Summary - list the tests/suites in the Suite object
+%   showTags - list the tags in the Suite sorted by count
+%   Count - return the number of tests matching a Tag condition
+%   writeXML - write the test results to an XML file
+%
 % Copyright 2009, 2010 Simatra Modeling Technologies, L.L.C.
+%
 classdef Suite < handle
    
     % define properties of the Suite
@@ -14,8 +29,9 @@ classdef Suite < handle
     end
     
     properties (SetAccess = private)
-        Tests = {};
-        Total = 0;
+        %Tests = {};
+        TestsMap;
+        %Total = 0;
         Passed = 0;
         Failed = 0;
         Errored = 0;
@@ -23,6 +39,7 @@ classdef Suite < handle
         Time = 0;
         Enabled = true;
         Dir
+        CountInSuite = 1;
     end
 
     properties (Access = protected)
@@ -35,8 +52,18 @@ classdef Suite < handle
         
         % define the constructor
         function s = Suite(name, varargin)
+            % Suite - create a new suite object
+            %
+            % Usage:
+            %   s = Suite(NAME [, {TAG1, TAG2, ...}]) - create a suite and
+            %   optionally assign tags to the suite
+            %
+            % Examples:
+            %   s = Suite('Performance', {'performance', 'fast'});
+            %
             s.Name = name;
             s.Dir = pwd;
+            s.TestsMap = containers.Map;
             s.TagContainer = containers.Map;
             s.TagCondition = Tag(false);
             s.Result = Test.NOT_EXECUTED;
@@ -53,8 +80,20 @@ classdef Suite < handle
         
         % add tests
         function add(s, obj, extra_tags)
+            % add - add a test or suite to a Suite object
+            %
+            % Usage:
+            %   s.add(TEST|SUITE [, {TAG1, TAG2, ...}]) - add a test or
+            %   suite with optional tags applied to that suite/test
+            %
+            % Examples:
+            %   s.add(fast_cpu_test, {'fast', 'cpu'});
+            %
+            
             if isa(obj, 'Test') || isa(obj, 'Suite')
-                s.Tests{length(s.Tests)+1} = obj;
+                key_str = sprintf('%04d: %s', s.CountInSuite, obj.Name);
+                s.TestsMap(key_str) = obj;
+                %s.Tests{length(s.Tests)+1} = obj;
                 suite_tags = tags(s);
                 obj.addTags(suite_tags{:});
                 if nargin == 3 && iscell(extra_tags)
@@ -63,18 +102,29 @@ classdef Suite < handle
             else
                 error('Suite:AddTestOrSuite', 'Must pass in a test or a suite');
             end
-            s.Total = length(s);
+            %s.Total = length(s);
+            s.CountInSuite = s.CountInSuite + 1;
         end
         
         % helper functions
         function total = length(s)
             total = 0;
-            for i=1:length(s.Tests)
-               if isa(s.Tests{i}, 'Test')
-                   total = total + 1;
-               elseif isa(s.Tests{i}, 'Suite')
-                   total = total + length(s.Tests{i});
-               end 
+            tests = s.TestsMap;
+            test_values = values(tests);
+            for i=1:length(test_values)
+                t = test_values{i};
+                if isa(t, 'Suite')
+                    total = total + length(t);
+                else
+                    total = total + 1;
+                end
+%                total = total + length(t);
+%                 switch class(t)
+%                     case 'Test'
+%                         total = total + 1;
+%                     case 'Suite'
+%                         total = total + length(t);
+%                 end
             end
         end
         
@@ -89,8 +139,9 @@ classdef Suite < handle
                 end
             end
             % recurse through and add tags ...
-            for i=1:length(s.Tests)
-                ss = s.Tests{i};
+            tests = values(s.TestsMap);
+            for i=1:length(tests)
+                ss = tests{i};
                 ss.addTags(varargin{:});
             end
         end
@@ -102,8 +153,9 @@ classdef Suite < handle
         % internal functoin = returns a containers.Map structure of the
         % tags and their counts
         function return_tags = countTags(s, tags)
-            for i=1:length(s.Tests)
-                t = s.Tests{i};
+            tests = values(s.TestsMap);
+            for i=1:length(tests)
+                t = tests{i};
                 if isa(t, 'Test') 
                     test_tags = t.tags;
                     for i=1:length(test_tags)
@@ -122,29 +174,49 @@ classdef Suite < handle
         end
         
         % return the count of tests with a particular condition met
-        function count = Count(s, condition)
+        function count = Count(s, tag)
+            % COUNT - return the count of tests with satisfying a Tag
+            % condition
+            %
+            % Usage:
+            %   NUMTESTS = s.Count(CONDITION)
+            %
+            % Examples:
+            %   numTests = s.Count('core&cpu&~internal');
+            %
             if nargin == 1
                 condition = s.TagCondition;
+            else
+                condition = toTag(tag);
             end
             count = 0;
-            if isa(condition, 'Tag')
-                for i = 1:length(s.Tests)
-                    t = s.Tests{i};
-                    if isa(t, 'Suite')
-                        count = count + t.Count(condition);
-                    else
-                        count = count + test(condition, t.tags);
-                    end
+            tests = values(s.TestsMap);
+            for i = 1:length(tests)
+                t = tests{i};
+                if isa(t, 'Suite')
+                    count = count + t.Count(condition);
+                else
+                    count = count + test(condition, t.tags);
                 end
-            elseif ischar(condition)
-                count = Count(s, Tag(condition));
-            else
-                error('Simatra:Suite:Count', 'Must pass in either a tag condition or a string tag name');
             end
         end
         
         % execute tests
         function Execute(s, varargin)
+            % Execute - execute the tests contained in the suite object
+            %
+            % Usage
+            %   s.Execute() - execute based on the default condition (no
+            %   tests)
+            %   s.Execute('-all') - execute all tests, even if they have
+            %   already passed
+            %   s.Execute('-tag', CONDITION) - execute all tests satisfying
+            %   a Tag CONDITION
+            %
+            % Examples
+            %   s.Execute('performance&gpu')
+            %
+            
             % set the some options to start
             runfailures = true;
             runall = false;
@@ -156,28 +228,13 @@ classdef Suite < handle
                     switch lower(varargin{1})
                         case '-all'
                             runall = true;
+                            condition = Tag(true);
                         case '-tag'
                             if i == length(varargin)
                                 error('Suite:Execute:ArgumentError', '-tag option requires an additional tag argument')
                             end
                             tag_arg = varargin{i+1};
-                            switch class(tag_arg)
-                                case 'Tag'
-                                    condition = tag_arg;
-                                case 'char'
-                                    conv_str = regexprep(tag_arg, '(\w+)', 'Tag(''$1'')');
-                                    try
-                                        condition = eval(conv_str);
-                                    catch me
-                                        disp(getReport(me, 'extended'));
-                                        error('Simatra:Suite:Execute', 'Can not process condition <%s>', conv_str);
-                                    end
-                                    if ~isa(condition, 'Tag')
-                                        error('Simatra:Suite:Execute', 'A tag was not generated out of the passed in string <%s>', tag_arg);
-                                    end
-                                otherwise
-                                    error('Suite:Execute:ArgumentError', 'Unexpected non Tag or string -tag argument');
-                            end
+                            condition = toTag(tag_arg);
                             break;
                         otherwise
                             error('Suite:Execute:ArgumentError', 'Only -all and -tag are supported string arguments');
@@ -213,12 +270,14 @@ classdef Suite < handle
           end
         end
         spaces = blanks(level*2);
-            disp(sprintf('\n%sRunning Suite ''%s'' (Total of %d tests)', spaces, s.Name, s.Total));
+        total = Count(s, condition);
+            disp(sprintf('\n%sRunning Suite ''%s'' (Total of %d tests)', spaces, s.Name, total));
             localtime = tic;
             cont = true;
-            for i=1:length(s.Tests)
-                if isa(s.Tests{i}, 'Test')
-                    t = s.Tests{i};          
+            tests = values(s.TestsMap);
+            for i=1:length(tests)
+                if isa(tests{i}, 'Test')
+                    t = tests{i};          
                     % Check the previous result
                     switch t.Result
                         case t.NOT_EXECUTED
@@ -264,8 +323,8 @@ classdef Suite < handle
                         t.Skip();
                         s.Skipped = s.Skipped + 1;
                     end
-                elseif isa(s.Tests{i}, 'Suite')
-                    ss = s.Tests{i};
+                elseif isa(tests{i}, 'Suite')
+                    ss = tests{i};
                     % Remove the previously computed totals
                     s.Passed = s.Passed - ss.Passed;
                     s.Failed = s.Failed - ss.Failed;
@@ -299,7 +358,7 @@ classdef Suite < handle
             totalTime = toc(localtime);
             s.Time = totalTime;
 
-            disp(sprintf('%sSuite ''%s'' finished in %g seconds (Total=%d, Passed=%d, Failed=%d, Errored=%d, Skipped=%d)', spaces, s.Name, s.Time, s.Total, s.Passed, s.Failed, s.Errored, s.Skipped));
+            disp(sprintf('%sSuite ''%s'' finished in %g seconds (Total=%d, Passed=%d, Failed=%d, Errored=%d, Skipped=%d)', spaces, s.Name, s.Time, length(s), s.Passed, s.Failed, s.Errored, s.Skipped));
             
         end
         
@@ -309,15 +368,15 @@ classdef Suite < handle
         
         % override the disp function
         function disp(s)
-            s.Total = s.length;
+            total = s.length;
             disp(sprintf('Suite: %s', s.Name));
             disp('------------------------------------------');
-            if s.Total == 0
+            if total == 0
                 disp('  No Tests Defined');
-            elseif s.Total == s.Passed
-                disp(sprintf('  All Passed (%g out of %g, total time=%g)', s.Passed, s.Total, s.Time));
+            elseif total == s.Passed
+                disp(sprintf('  All Passed (%g out of %g, total time=%g)', s.Passed, total, s.Time));
             elseif s.Passed == 0 && s.Failed == 0 && s.Errored == 0 && s.Skipped == 0
-                disp(sprintf('  No Tests Executed (%g total tests)', s.Total));
+                disp(sprintf('  No Tests Executed (%g total tests)', total));
             else
                 if s.Passed > 0
                     disp(sprintf('  Passed: %d', s.Passed));
@@ -347,21 +406,26 @@ classdef Suite < handle
             
             root.setAttribute('errors', num2str(s.Errored));
             % Make sure to ignore skipped tests in Bamboo output
-            root.setAttribute('tests', num2str(s.Total - s.Skipped));
+            root.setAttribute('tests', num2str(length(s) - s.Skipped));
             root.setAttribute('time', num2str(s.Time));
             root.setAttribute('failures', num2str(s.Failed));
             root.setAttribute('name', s.Name);
             
-            for i = 1:length(s.Tests)
+            values = values(s.TestsMap);
+            for i = 1:length(tests)
               % Ignore skipped tests
               
-              if s.Tests{i}.Enabled && not(s.Tests{i}.Result == Test.SKIPPED || s.Tests{i}.Result == Test.NOT_EXECUTED)
-                s.Tests{i}.toXML(xml, root);
+              if s.Tests{i}.Enabled && not(tests{i}.Result == Test.SKIPPED || tests{i}.Result == Test.NOT_EXECUTED)
+                tests{i}.toXML(xml, root);
               end
             end
         end
         
         function writeXML(s, file)
+            % writeXML - create an XML output
+            %
+            % Usage:
+            %   s.writeXML(FILENAME) - output XML to the specified FILENAME
             xmlwrite(file, s.toXML);
         end
       
@@ -396,18 +460,18 @@ classdef Suite < handle
         function summary_helper(s, level, showSuites, showTests, showFailures)
             spaces = blanks(level*2);
             base_str = sprintf('%sSuite ''%s'': ', spaces, s.Name);
-            s.Total = s.length;
+            total = s.length;
             if ~showSuites && ~showTests && showFailures && s.Failed == 0 && s.Errored ...
                   == 0
                 summary_str = '';
-            elseif s.Total == 0
+            elseif total == 0
                 summary_str = 'No Tests Defined';
-            elseif s.Total == s.Passed
-                summary_str = sprintf('All PASSED (%d total tests, time=%g s)', s.Total, s.Time);                
+            elseif total == s.Passed
+                summary_str = sprintf('All PASSED (%d total tests, time=%g s)', total, s.Time);                
             elseif s.Passed == 0 && s.Failed == 0 && s.Errored == 0 && s.Skipped == 0
-                summary_str = sprintf('Suite not yet executed (%d total tests)', s.Total);
+                summary_str = sprintf('Suite not yet executed (%d total tests)', total);
             else
-                summary_str = sprintf('%d of %d Passed with %d Errored and %d Skipped (time=%g)', s.Passed, s.Total, s.Errored, s.Skipped, s.Time);
+                summary_str = sprintf('%d of %d Passed with %d Errored and %d Skipped (time=%g)', s.Passed, total, s.Errored, s.Skipped, s.Time);
             end
             if ~isempty(summary_str)
               disp([base_str summary_str]);
@@ -429,22 +493,26 @@ classdef Suite < handle
         
         % more accessors
         function list = getTests(s)
-            list = cell(length(s.Tests),1);
-            for i=1:length(s.Tests)
-                list{i} = s.Tests{i}.Name;
-            end
+            %list = cell(length(s.TestsMap),1);
+            list = keys(s.TestsMap);
+            %for i=1:length(s.Tests)
+            %    list{i} = s.Tests{i}.Name;
+            %end
         end
         
         function t = getTest(s, name)
-            for i=1:length(s.Tests)
-                if strcmpi(s.Tests{i}.Name, name)
-                    t = s.Tests{i};
-                    return;
-                end
+            all_tests = values(s.TestsMap);
+            tests = List.map (@(t)(t.Name), all_tests);
+            matching = find(strcmpi(tests, name));
+            if isempty(matching)
+                disp(['All tests in suite ''' s.Name ''':'])
+                disp(getTests(s));
+                error('Simatra:Suite:TestNotFound', 'Can''t find test with name ''%s''',name);
+            elseif length(matching) == 1
+                t = all_tests{matching};
+            else
+                error('Simatra:Suite:getTest', 'More than one matching test found with name ''%s''', name);
             end
-            disp(['All tests in suite ''' s.Name ''':'])
-            disp(getTests(s));
-            error('Simatra:Suite:TestNotFound', 'Can''t find test with name ''%s''',name);
         end
         
         function enable(s)
@@ -457,23 +525,51 @@ classdef Suite < handle
         function showTags(s)
             counts = countTags(s, containers.Map);
             tags = keys(counts);
-            str_length = 0;
-            count_list = zeros(length(tags), 2);
-            count_list(:,2) = 1:length(tags);
-            for i=1:length(tags)
-                l = length(tags{i});
-                if l > str_length
-                    str_length = l;
+            if isempty(tags)
+                disp('<no tags defined>');
+            else
+                str_length = 0;
+                count_list = zeros(length(tags), 2);
+                count_list(:,2) = 1:length(tags);
+                for i=1:length(tags)
+                    l = length(tags{i});
+                    if l > str_length
+                        str_length = l;
+                    end
+                    count_list(i,1) = counts(tags{i});
                 end
-                count_list(i,1) = counts(tags{i});
-            end
-            sorted_count_list = sortrows(count_list, -1);
-            pad = @(str)([str ':' blanks(str_length-length(str)+1)]);
-            for i = 1:length(tags)
-                disp(['  ' pad(tags{sorted_count_list(i,2)}) num2str(sorted_count_list(i,1))]);
+                sorted_count_list = sortrows(count_list, -1);
+                pad = @(str)([str ':' blanks(str_length-length(str)+1)]);
+                for i = 1:length(tags)
+                    disp(['  ' pad(tags{sorted_count_list(i,2)}) num2str(sorted_count_list(i,1))]);
+                end
             end
         end
+        
+
         
     end % end methods
     
 end % end classdef Suite
+
+function tag = toTag(val)
+switch class(val)
+    case 'Tag'
+        tag = val;
+    case 'char'
+        conv_str = regexprep(val, '([^\&\(\)\|\~]+)', 'Tag(''$1'')');
+        try
+            tag = eval(conv_str);
+        catch me
+            disp(getReport(me, 'extended'));
+            error('Simatra:Suite:charToTag', 'Can not process condition <%s>', conv_str);
+        end
+        if ~isa(tag, 'Tag')
+            error('Simatra:Suite:charToTag', 'A tag was not generated out of the passed in string <%s>', val);
+        end
+    case 'logical'
+        tag = Tag(val);
+    otherwise
+        error('Simatra:Suite:charToTag:ArgumentError', 'Unexpected non Tag or string argument');
+end
+end

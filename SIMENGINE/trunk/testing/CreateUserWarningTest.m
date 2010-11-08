@@ -7,7 +7,7 @@ else
     mdl = fullfile('models_MessageTests', dslmodel);
 end
 
-s = Suite(id);
+s = Suite(id, {'messages'});
 t1 = Test('Completes', @()(simex(mdl)), '-withouterror');
 t2 = Test('UserWarning', @()(dispAndReturn(t1.Output)), '-regexpmatch', 'WARNING');
 t3 = Test('AppropriateMessage', @()(dispAndReturn(t1.Output)), '-regexpmatch', ...

@@ -34,7 +34,7 @@ end
 
 function s = InvalidCodeTests
 
-s = Suite('Invalid Code', {'simex'});
+s = Suite('Invalid Code', {'simex', 'messages'});
 
 % empty model
     function m = EmptyModel
@@ -149,7 +149,7 @@ s_ops.add(noErrorTest('min', @()(min(a,b))));
 s.add(s_ops);
 
 % Vector and Matrix literals
-s_vec = Suite('Non-scalar Literal Tests');
+s_vec = Suite('Non-scalar Literal Tests', {'vectorization', 'v2.0'});
 
 verifySizeTest = @(id, fcn, expected)(Test(id, @()(ndims(fcn()) == ...
                                                   length(expected) ...
@@ -168,7 +168,7 @@ s_vec.add(verifySizeTest('volume', @()(Volume), [2 3 4]));
 s.add(s_vec);
 
 % Vector operations
-s_vec_ops = Suite('Vector operations');
+s_vec_ops = Suite('Vector operations', {'vectorization', 'v2.0'});
 
 function t = expectErrorTest(id, fcn)
 t = Test(id, fcn, '-withouterror');
@@ -201,7 +201,7 @@ s_vec_ops.add(verifySizeTest('matrix times B', @()(v'*v), [10 10]));
 
 s.add(s_vec_ops);
 
-s_mat_ops = Suite('Matrix operations');
+s_mat_ops = Suite('Matrix operations', {'vectorization', 'v2.0'});
 
 s_mat_ops.add(expectErrorTest('matrix times wrong dims', @()(M*M)));
 s_mat_ops.add(expectErrorTest('matrix times wrong dims transposed', @()(M'*M')));
@@ -226,7 +226,7 @@ s = Suite('SubModel Tests', {'submodels'});
         m.output('y', x^2);
     end
 
-s_len = Suite('Length Tests');
+s_len = Suite('Length Tests', {'vectorization', 'v2.0'});
 s.add(s_len);
 
 

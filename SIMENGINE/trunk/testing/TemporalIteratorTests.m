@@ -9,7 +9,7 @@ else
   target = '-cpu';
 end
 
-s = Suite(['Temporal Iterator Feature Tests ' target]);
+s = Suite(['Temporal Iterator Feature Tests ' target], {'iterators'});
 s.add(SimpleIteratorTests(target));
 s.add(UpdateIteratorTests(target));
 s.add(AlgebraicIteratorTests(target));
@@ -190,7 +190,7 @@ end
 
 function s = AggregatgeIteratorTests(target)
 
-s = Suite(['Aggregate Multiple Iterators ' target]);
+s = Suite(['Aggregate Multiple Iterators ' target], {'aggregate'});
 
 s.add(Test('AggregateDiscrete', @()(simex('models_FeatureTests/AggregateIteratorTest1.dsl',10,'-aggregate',target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
 s.add(Test('AggregateContinuous', @()(simex('models_FeatureTests/AggregateIteratorTest2.dsl',10,'-aggregate',target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
