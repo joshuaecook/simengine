@@ -25,23 +25,22 @@ NUM_HARMONICS = 10;
 fundamental_tone = m.submodel(create_lfo(n));
 fundamental_tone.w = fundamental;
 
-upper_harmonics = m.submodel(create_lfo(n), NUM_HARMONICS-1);
-lower_harmonics = m.submodel(create_lfo(n), NUM_HARMONICS-1);
+upper_harmonics = m.submodel(create_lfo(n), 1, NUM_HARMONICS-1);
+lower_harmonics = m.submodel(create_lfo(n), 1, NUM_HARMONICS-1);
 
-for multiple = 2:NUM_HARMONICS
-  % Upper harmonics
-  upper_harmonics{multiple-1}.w = fundamental * multiple;
-  % Lower harmonics
-  lower_harmonics{multiple-1}.w = fundamental / multiple;
-end
+multiple = 2:NUM_HARMONICS;
+% Upper harmonics
+upper_harmonics.w = fundamental * multiple;
+% Lower harmonics
+lower_harmonics.w = fundamental / multiple;
 
 % Harmonic superposition
 y = 1/2 * fundamental_tone.y;
 % Add each successive harmonic pair with a lesser amplitude, such that
 % the total amplitude is <= 1
+
 for multiple = 2:NUM_HARMONICS
-  y = y + ((0.5 * (1/(2^multiple))) * (upper_harmonics{multiple-1}.y + ...
-                                       lower_harmonics{multiple-1}.y));
+  y = y + ((0.5 * (1/(2^multiple))) * (upper_harmonics(multiple-1).y + lower_harmonics(multiple-1).y));
 end
 
 % Create an output for y, the generated wave
