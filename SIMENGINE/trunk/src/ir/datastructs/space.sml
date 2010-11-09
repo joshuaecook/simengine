@@ -249,7 +249,11 @@ val toString  = Layout.toString o toLayout
 
 
 fun multiply (space1, space2) = 
-    if isScalar space1 then
+    if isEmpty space1 then
+	emptyCollection
+    else if isEmpty space2 then
+	emptyCollection
+    else if isScalar space1 then
 	space2
     else if isScalar space2 then
 	space1
