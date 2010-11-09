@@ -118,15 +118,14 @@ classdef Suite < handle
                 else
                     total = total + 1;
                 end
-%                total = total + length(t);
-%                 switch class(t)
-%                     case 'Test'
-%                         total = total + 1;
-%                     case 'Suite'
-%                         total = total + length(t);
-%                 end
             end
         end
+        
+        % just a helper function
+        function t = Total(s)
+            t = length(s);
+        end
+        
         
         % addTags - add tags to the current suite
         function addTags(s, varargin)
