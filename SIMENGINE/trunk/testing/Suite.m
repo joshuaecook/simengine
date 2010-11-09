@@ -411,11 +411,11 @@ classdef Suite < handle
             root.setAttribute('failures', num2str(s.Failed));
             root.setAttribute('name', s.Name);
             
-            values = values(s.TestsMap);
+            tests = values(s.TestsMap);
             for i = 1:length(tests)
               % Ignore skipped tests
               
-              if s.Tests{i}.Enabled && not(tests{i}.Result == Test.SKIPPED || tests{i}.Result == Test.NOT_EXECUTED)
+              if tests{i}.Enabled && not(tests{i}.Result == Test.SKIPPED || tests{i}.Result == Test.NOT_EXECUTED)
                 tests{i}.toXML(xml, root);
               end
             end
