@@ -423,7 +423,7 @@ classdef Model < handle
                 if isKey(m.Inputs, inp_id)
                     warning('Simatra:Model:input', ['Input ' inp_id ' has already been defined in this model, won''t overwrite']);
                 else
-                    sm_mdl = sm.ModelObject;
+                    sm_mdl = sm.SubMdl;
                     s = queryInput(sm_mdl, inp_id);
                     m.Inputs(inp_id) = s;
                     sm.(inp_id) = e;
