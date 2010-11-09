@@ -190,6 +190,7 @@ MATLAB_INSTALL_PATH := $(shell dirname $$(dirname $(realpath $(MATLAB))))
 MATLAB = MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/matlab
 MEXC = MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mex
 endif
+MATLAB_RELEASE := $(shell echo $(MATLAB_INSTALL_PATH) | sed -e 's/^.*\(R[0-9]*[a-z]\).*$$/\1/')
 
 # GNU Octave and the MKOCTFILE compiler
 OCTAVE := $(shell which octave 2>/dev/null)
@@ -205,7 +206,11 @@ ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex
 # Determines the appropriate MEX extension for the current platform.
 ifneq ($(MATLAB),)
 ifneq ($(DARWIN),)
+ifeq ($(MATLAB_RELEASE),R2010b)
+MEXEXT = .mexmaci64
+else
 MEXEXT = .mexmaci .mexmaci64
+endif
 else
 MEXEXT := .$(shell MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mexext)
 endif
