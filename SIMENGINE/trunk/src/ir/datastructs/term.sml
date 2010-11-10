@@ -36,12 +36,19 @@ val processInternalName : Symbol.symbol -> Symbol.symbol (* make internal names 
 
 val makeCommensurable : Exp.term * Exp.term -> Exp.term * Exp.term
 
+val setCurrentIterators : Iterator.iteratordef list -> unit
+
 end
 structure Term : TERM =
 struct
 
 val i2s = Util.i2s
 val same = Util.same
+
+val CurrentIterators = ref []
+fun getCurrentIterators () = !CurrentIterators
+fun setCurrentIterators iterlist =
+    CurrentIterators := iterlist
 
 (*open DSLPATTERN*)
 
@@ -97,20 +104,27 @@ fun sym2str pretty (s, props) =
 	val iters = 
 	    if pretty then
 		(* can't do the following code because of code ordering.  but we should filter out iterators when we do pretty printing *)
-		(*let
-		    val iterators = CurrentModel.iterators()
+		let
 		    fun iter2prettyiter iter = 
-			case List.find (fn(iter_sym,_)=> iter=iter_sym) iterators of
-			    SOME (_, DOF.POST_PROCESS iter_sym) => SOME iter_sym
-			  | SOME (_, DOF.UPDATE iter_sym) => SOME iter_sym
-			  | SOME (_, DOF.IMMEDIATE) => NONE
+			case List.find (fn(iter_sym,_)=> iter=iter_sym) (getCurrentIterators()) of
+			    SOME (_, Iterator.ALGEBRAIC (_, iter_sym)) => SOME iter_sym
+			  | SOME (_, Iterator.UPDATE iter_sym) => SOME iter_sym
+			  | SOME (_, Iterator.IMMEDIATE) => NONE
 			  | _ => SOME iter
 		in
 		    (case Property.getIterator props 
-		      of SOME iters => Iterator.iterators2str (List.mapPartial iter2prettyiter iters)
+		      of SOME (iter_sym, iter_index) => (case iter2prettyiter iter_sym of
+							     SOME sym => 
+							     let
+								 val iter_sym' = Util.removePrefixFromSymbol sym
+								 val iter' = (iter_sym', iter_index)
+							     in
+								 "[" ^ (Iterator.iterator2str iter') ^ "]"
+							     end
+							   | NONE => "")
 		       | NONE => "")			 
-		end*)
-		""
+		end
+		(*""*)
 	    else
 		(case Property.getIterator props
 		  of SOME iter => "[" ^ (Iterator.iterator2str iter) ^ "]"
