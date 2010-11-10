@@ -34,8 +34,9 @@ for i=1:length(suite_keys)
     files = doc_targets(suite_keys{i});
     for j=1:length(files)
         file = files{j};
-        test_fcn = @()(run_make([file ' DOCUMENTATION_OUTPUT_DIR=html']));
-        t = Test(['Building ' file], test_fcn, '-withoutError');
+        test_fcn = @()(run_make_disp_output([file ' DOCUMENTATION_OUTPUT_DIR=html']));
+        t = Test(['Building ' file], test_fcn, '-regexpmatch', '[Ee]rror');
+        t.ExpectFail = true;
         sub_suite.add(t);
     end
     if ~isempty(files)
@@ -56,12 +57,20 @@ if nargin == 1
     directory = '../external-publications';
 end
 
-make_cmd = ['make -C' directory ' -s SIMENGINE=../local-install doc-base ' target];
+simEngine_install = fullfile(pwd, '..', 'local-install');
+make_cmd = ['make -C' directory ' -s SIMENGINE=' simEngine_install ' doc-base ' target];
 [status, result] = system(make_cmd);
     
 if status ~= 0
     error('Simatra:run_make', 'Unexpected non-zero status, returned:\n%s', result);
 end
 
+end
+
+function r = run_make_disp_output(varargin)
+
+result = run_make(varargin{:});
+disp(result);
+r = 0;
 
 end
