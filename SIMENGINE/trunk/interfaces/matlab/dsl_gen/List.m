@@ -1,3 +1,25 @@
+% List - collection of functional list manipulation methods loosely based on
+% ML-style languages
+%
+% List Methods:
+%    map - evaluate a function across all elements of a cell array
+%    app - evaluate a function across all elements of a cell array
+%    returning no arguments
+%    foldl - successively evaluate a function across a list, returning an
+%    aggregated value
+%    filter - return only those elements matching a condition
+%    partition - separate elements in a list based on if they match a
+%    condition
+%    exists - returns true if any element matches the condition
+%    all - returns true if all elements match the condition
+%
+% List Utilities:
+%    cell2str - Convert a cell array into a string representation
+%    stringConcatWith - Concatenate a cell array of strings with a given
+%    delimeter
+%
+% Copyright 2010 Simatra Modeling Technologies
+%
 classdef List
     
     methods (Static)
@@ -27,8 +49,46 @@ classdef List
                 otherwise
                     r = List.foldl(fcn, fcn(list{1}, init), list(2:end));
             end
-            
-            
+        end
+
+        function r = filter(fcn, l)
+            % FILTER - returns a filtered cell array of only those elements
+            % that when applied to the function are true
+            %
+            % Examples:
+            %   List.filter(@(x)(isprime(x)), num2cell(1:100)) - return a
+            %   list of all prime numbers from 1 to 100
+            %
+            logicals = false(1, length(l));
+            for i=1:length(l)
+                logicals(i) = logical(fcn(l{i}));
+            end
+            r = l(logicals);
+        end
+        
+        function does_exist = exists(fcn, l)
+            does_exist = false;
+            for i=1:length(l)
+                if logical(fcn(l{i}))
+                    does_exist = true;
+                    break;
+                end
+            end
+        end
+
+        function all_exist = all(fcn, l)
+            [matching, notmatching] = List.partition(fcn, l);
+            all_exist = isempty(notmatching);
+        end
+
+        
+        function [matching, notmatching] = partition(fcn, l)
+            logicals = false(1, length(l));
+            for i=1:length(l)
+                logicals(i) = logical(fcn(l{i}));
+            end
+            matching = l(logicals);
+            notmatching = l(~logicals);
         end
         
         function s = stringConcatWith(delim, l)
