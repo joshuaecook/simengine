@@ -830,7 +830,8 @@ classdef Exp
                       s = e.val;
                     end
                     if isa(e.iterReference, 'IteratorReference')
-                        error('Iterator references to Exp not supported in Matlab.')
+                        s = [s '[' toStr(e.iterReference) ']'];
+                        %error('Iterator references to Exp not supported in Matlab.')
                     end
                case e.REFERENCE
                     if e.derived
@@ -839,7 +840,7 @@ classdef Exp
                       s = [e.inst '.' e.val];
                     end
                     if isa(e.iterReference, 'IteratorReference')
-                        s = [s '[' e.iterReference.toMatStr ']'];
+                        s = [s '[' e.iterReference.toStr ']'];
                     end
                 case e.ITERATOR
                     s = e.val;
