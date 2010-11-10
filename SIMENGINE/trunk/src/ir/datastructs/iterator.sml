@@ -16,6 +16,32 @@ sig
 				     
     type iterator = (Symbol.symbol * iteratorindex)
 
+    (* All algebraic iterators have a process type which describes when in the execution loop a particular equation will be evaluated *)
+    datatype processtype = (* assuming iterator t*)
+	 PREPROCESS (* x[t] = f(x[t]) *)
+       | INPROCESS (* x[t+1] = f(x[t]) *)
+       | POSTPROCESS (* x[t+1] = f(x[t+1]) *)
+
+
+    datatype iteratortype 
+      (* A continuous iterator, e.g. t, is in the real domain and
+       * has an associated numerical solver. *)
+      = CONTINUOUS of Solver.solver
+      (* A discrete iterator, e.g. n, is self-evaluating and
+       * has a period relative to the global time scale. *)
+      | DISCRETE of {sample_period:real}
+      (* An update iterator is dependent upon another named iterator. 
+       * Update evaluations occur after the primary evalation. *)
+      | UPDATE of Symbol.symbol
+      (* A postprocess iterator is dependent upon another named iterator. 
+       * Postprocess evaluations occur after primary evaluation and 
+       * any update evaluations. *)
+      | ALGEBRAIC of (processtype * Symbol.symbol)
+      (* An immediate iterator is used for outputs having no other iterator. *)
+      | IMMEDIATE
+		    
+    type iteratordef = (Symbol.symbol * iteratortype)
+
     (* Useful functions *)
     val iterator2str : iterator -> string
     val iterators2str : iterator list -> string
@@ -33,6 +59,8 @@ sig
 end
 structure Iterator : ITERATOR =
 struct
+
+
 
 val i2s = Util.i2s
 
@@ -57,6 +85,31 @@ datatype iteratorindex = ALL
 		       | LIST of int list
 
 type iterator = (Symbol.symbol * iteratorindex)
+
+(* All algebraic iterators have a process type which describes when in the execution loop a particular equation will be evaluated *)
+datatype processtype = (* assuming iterator t*)
+	 PREPROCESS (* x[t] = f(x[t]) *)
+       | INPROCESS (* x[t+1] = f(x[t]) *)
+       | POSTPROCESS (* x[t+1] = f(x[t+1]) *)
+
+datatype iteratortype 
+  (* A continuous iterator, e.g. t, is in the real domain and
+   * has an associated numerical solver. *)
+  = CONTINUOUS of Solver.solver
+  (* A discrete iterator, e.g. n, is self-evaluating and
+   * has a period relative to the global time scale. *)
+  | DISCRETE of {sample_period:real}
+  (* An update iterator is dependent upon another named iterator. 
+   * Update evaluations occur after the primary evalation. *)
+  | UPDATE of Symbol.symbol
+  (* A postprocess iterator is dependent upon another named iterator. 
+   * Postprocess evaluations occur after primary evaluation and 
+   * any update evaluations. *)
+  | ALGEBRAIC of (processtype * Symbol.symbol)
+  (* An immediate iterator is used for outputs having no other iterator. *)
+  | IMMEDIATE
+		    
+type iteratordef = (Symbol.symbol * iteratortype)
 
 fun iterator2str (iterator as (sym, i))= 
     let

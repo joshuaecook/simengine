@@ -51,6 +51,8 @@ fun removePrefix str =
     else
 	str
 
+fun removePrefixFromSymbol sym = (Symbol.symbol o removePrefix o Symbol.name) sym
+
 fun fixname name = 
     let
 	fun lbrack c = if c = "[" then "" else c

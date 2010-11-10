@@ -526,9 +526,9 @@ local
 		let
 		    val solver=case List.find (fn(sym, exp)=>sym = (Symbol.symbol "solver")) settings of
 				   SOME (_, POS (APPLY {func=(SYMBOL solver_sym), args=(TUPLE [TABLE solver_settings])}, _)) => 
-				   Solver.name2solver (solver_sym, translate_table solver_settings)
+				   SolverProcess.name2solver (solver_sym, translate_table solver_settings)
 				 | SOME (_, APPLY {func=(SYMBOL solver_sym), args=(TUPLE [TABLE solver_settings])}) => 
-				   Solver.name2solver (solver_sym, translate_table solver_settings)
+				   SolverProcess.name2solver (solver_sym, translate_table solver_settings)
 				 | SOME (_, APPLY {func=(SYMBOL solver_sym), args}) => 
 				   (error ("unexpected args with table in solver");
 				    Solver.default)
