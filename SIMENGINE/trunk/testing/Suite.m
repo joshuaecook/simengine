@@ -8,6 +8,7 @@
 %   Suite Actions:
 %   add - add a Suite or a Test to a Suite object
 %   Execute - run a Suite of tests
+%   Tests - index into the suite
 %   
 %   Suite Logging:
 %   Summary - list the tests/suites in the Suite object
@@ -125,7 +126,20 @@ classdef Suite < handle
         function t = Total(s)
             t = length(s);
         end
-        
+                
+        % subsref - pull out specific tests
+        function t = Tests(s, index)
+            if nargin == 1
+                error('Simatra:Suite:Tests', 'Tests now takes one argument for the index <s.Tests(4) %% the fourth test>');
+            end
+            test_keys = keys(s.TestsMap);
+            
+            if ~isnumeric(index) || ~isscalar(index) || index < 1 || index > length(test_keys)
+                error('Simatra:Suite:Tests', 'Only a scalar index is supported in Tests');
+            end
+            
+            t = s.TestsMap(test_keys{index});
+        end
         
         % addTags - add tags to the current suite
         function addTags(s, varargin)
@@ -147,6 +161,10 @@ classdef Suite < handle
         
         function t = tags(s)
             t = keys(s.TagContainer);
+        end
+        
+        function setCondition(s, condition)
+            s.TagCondition = toTag(condition);
         end
         
         % internal functoin = returns a containers.Map structure of the
@@ -475,16 +493,17 @@ classdef Suite < handle
             if ~isempty(summary_str)
               disp([base_str summary_str]);
             end
-            for i=1:length(s.Tests)
-                if isa(s.Tests{i},'Test') 
-                    t = s.Tests{i};
+            tests = values(s.TestsMap);
+            for i=1:length(tests)
+                if isa(tests{i},'Test') 
+                    t = tests{i};
                     if showTests
-                        display([spaces '  ' s.Tests{i}.tostr]);
+                        display([spaces '  ' tests{i}.tostr]);
                     elseif showFailures && (t.Result == t.FAILED || t.Result == t.ERROR)
-                        display([spaces '  ' s.Tests{i}.tostr]);                        
+                        display([spaces '  ' tests{i}.tostr]);                        
                     end
-                elseif isa(s.Tests{i}, 'Suite')
-                    summary_helper(s.Tests{i}, level+1, showSuites, ...
+                elseif isa(tests{i}, 'Suite')
+                    summary_helper(tests{i}, level+1, showSuites, ...
                                    showTests, showFailures);
                 end
             end
