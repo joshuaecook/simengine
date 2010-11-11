@@ -39,7 +39,8 @@ for i=1:length(suite_keys)
         %test_fcn = @()(run_make_disp_output([file '
         %DOCUMENTATION_OUTPUT_DIR=html']));
         test_fcn = @()(run_test(file));
-        t = Test(['Building ' file], test_fcn);
+        error_count = 0;
+        t = Test(['Building ' file], test_fcn, '-equal', error_count);
         sub_suite.add(t);
     end
     if ~isempty(files)
@@ -54,7 +55,7 @@ end
 
 end
 
-function [result] = run_test(file)
+function [error_count] = run_test(file)
 
 output = run_make([file ' DOCUMENTATION_OUTPUT_DIR=html']);
 disp(output);
@@ -64,7 +65,9 @@ if ~exist(fullfile('..', 'external-publications', file), 'file')
     error('Simatra:BuildDocumentation:FileNotFound', 'File %s was never created', file);
 end
 
-result = true;
+% check the results for any errors
+t = regexp(output, '[Ee]rror');
+error_count = length(t);
 
 end
 
