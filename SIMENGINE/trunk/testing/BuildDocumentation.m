@@ -20,11 +20,13 @@ lines = List.filter (@(line)(~isempty(line)), lines);
 % pull out the file names from each line
 doc_targets = containers.Map;
 for i=1:length(lines)
-    t = regexp(lines{i}, '^(\S+):\s+(.*)$', 'tokens');
-    key = t{1}{1};
-    docs = regexp(t{1}{2}, '\s+', 'split');
-    docs = List.filter (@(str)(~isempty(str)), docs);
-    doc_targets(key) = docs;
+    t = regexp(lines{i}, '^DOCUMENTATION_SET\s+(\S+):\s+(.*)$', 'tokens');
+    if iscell(t) && ~isempty(t)
+        key = t{1}{1};
+        docs = regexp(t{1}{2}, '\s+', 'split');
+        docs = List.filter (@(str)(~isempty(str)), docs);
+        doc_targets(key) = docs;
+    end
 end
 
 % create a suite around each key and a test around each doc
@@ -34,9 +36,10 @@ for i=1:length(suite_keys)
     files = doc_targets(suite_keys{i});
     for j=1:length(files)
         file = files{j};
-        test_fcn = @()(run_make_disp_output([file ' DOCUMENTATION_OUTPUT_DIR=html']));
-        t = Test(['Building ' file], test_fcn, '-regexpmatch', '[Ee]rror');
-        t.ExpectFail = true;
+        %test_fcn = @()(run_make_disp_output([file '
+        %DOCUMENTATION_OUTPUT_DIR=html']));
+        test_fcn = @()(run_test(file));
+        t = Test(['Building ' file], test_fcn);
         sub_suite.add(t);
     end
     if ~isempty(files)
@@ -51,6 +54,20 @@ end
 
 end
 
+function [result] = run_test(file)
+
+output = run_make([file ' DOCUMENTATION_OUTPUT_DIR=html']);
+disp(output);
+
+% check the results to see if it passed
+if ~exist(fullfile('..', 'external-publications', file), 'file')
+    error('Simatra:BuildDocumentation:FileNotFound', 'File %s was never created', file);
+end
+
+result = true;
+
+end
+
 function [result] = run_make(target, directory)
 
 if nargin == 1
@@ -58,7 +75,7 @@ if nargin == 1
 end
 
 simEngine_install = fullfile(pwd, '..', 'local-install');
-make_cmd = ['make -C' directory ' -s SIMENGINE=' simEngine_install ' doc-base ' target];
+make_cmd = ['make -C' directory ' SIMENGINE=' simEngine_install ' doc-base ' target];
 [status, result] = system(make_cmd);
     
 if status ~= 0
