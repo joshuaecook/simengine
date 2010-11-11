@@ -62,6 +62,7 @@ make_cmd = ['make -C' directory ' -s SIMENGINE=' simEngine_install ' doc-base ' 
 [status, result] = system(make_cmd);
     
 if status ~= 0
+    disp(['Ran command: ' make_cmd]);
     error('Simatra:run_make', 'Unexpected non-zero status, returned:\n%s', result);
 end
 
