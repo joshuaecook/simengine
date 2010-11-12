@@ -51,6 +51,7 @@ end
 % if there's no return argument, just run the suite
 if nargout == 0
     s.Execute;
+    s.writeXML('DocumentationResults.xml');
 end
 
 end
