@@ -151,8 +151,12 @@ installer: FILENAME := simEngine_$(PLATFORM)_$(ARCH)-$(VERSION_NUMBER)$(if $(SVN
 installer: install $(if $(install-html),html,)
 	tar chzf $(FILENAME) $(INSTALL_PREFIX)
 
+external-publications:
+	$(info Pulling down external-publications from subversion)
+	svn up
+
 .PHONY: html
-html: install
+html: install external-publications
 	#$(MAKE) -C external-publications SIMENGINE="$(realpath $(INSTALL_PREFIX))" DOCUMENTATION_OUTPUT_DIR="$(realpath $(INSTALL_PREFIX))/html" html
 	cd testing; $(MATLAB) -nosplash -nodesktop -r "addpath('$(realpath $(INSTALL_PREFIX))'); try; BuildDocumentation; catch me; disp(getReport(me, 'extended')); end; quit;"
 	$(INSTALL) -C external-publications/helptoc.xml -d $(realpath $(INSTALL_PREFIX))/html
