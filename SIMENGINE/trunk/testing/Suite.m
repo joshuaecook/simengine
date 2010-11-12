@@ -411,13 +411,17 @@ classdef Suite < handle
             end
         end
         
-        function root = toXML (s, varargin)
+        function [root] = toXML (s, varargin)
             if 1 == nargin
                 xml = com.mathworks.xml.XMLUtils.createDocument('testsuite');
                 root = xml.getDocumentElement;
+                uniqueTests = containers.Map;
+                uniqueSuites = containers.Map;
             else
                 xml = varargin{1};
                 parent = varargin{2};
+                uniqueTests = varargin{3};
+                uniqueSuites = varargin{4};
                 root = parent.appendChild(xml.createElement('testsuite'));
             end
             
@@ -426,14 +430,24 @@ classdef Suite < handle
             root.setAttribute('tests', num2str(length(s) - s.Skipped));
             root.setAttribute('time', num2str(s.Time));
             root.setAttribute('failures', num2str(s.Failed));
-            root.setAttribute('name', s.Name);
+            
+            if isKey(uniqueSuites, s.Name)
+                count = uniqueSuites(s.Name);
+                count = count + 1;
+                uniqueSuites(s.Name) = count;
+                name = [s.Name ' ###' num2str(count)];
+            else
+                uniqueSuites(s.Name) = 1;
+                name = s.Name;
+            end
+            root.setAttribute('name', name);
             
             tests = values(s.TestsMap);
             for i = 1:length(tests)
               % Ignore skipped tests
               
               if tests{i}.Enabled && not(tests{i}.Result == Test.SKIPPED || tests{i}.Result == Test.NOT_EXECUTED)
-                tests{i}.toXML(xml, root);
+                tests{i}.toXML(xml, root, uniqueTests, uniqueSuites);
               end
             end
         end

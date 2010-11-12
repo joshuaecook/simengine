@@ -373,14 +373,28 @@ classdef Test < handle
             if 1 == nargin
                 xml = com.mathworks.xml.XMLUtils.createDocument('testcase');
                 root = xml.getDocumentElement;
+                uniqueTests = containers.Map;
+                uniqueSuites = containers.Map;
             else
                 xml = varargin{1};
                 parent = varargin{2};
+                uniqueTests = varargin{3};
+                uniqueSuites = varargin{4};
                 root = parent.appendChild(xml.createElement('testcase'));
             end
 
             root.setAttribute('time', num2str(t.Time));
-            root.setAttribute('name', num2str(t.Name));
+
+            name = num2str(t.Name);
+            if isKey(uniqueTests, name)
+                count = uniqueTests(name);
+                count = count + 1;
+                uniqueTests(name) = count;
+                name = [name ' ###' num2str(count)];
+            else
+                uniqueTests(name) = 1;
+            end
+            root.setAttribute('name', name);
 
             output = root.appendChild(xml.createElement('system-out'));
             output.appendChild(xml.createTextNode(t.Output));
