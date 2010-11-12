@@ -160,7 +160,7 @@ s.add(t);
     end
 % these cause errors in model translate so they don't really need to be
 % fixed..
-s.add(deprecate(Test('InternalConstants',@InternalConstants)));
+s.add(Test('InternalConstants',@InternalConstants));
 
 s.add(deprecate(Test('ConstantToState',@()(simex('models_FeatureTests/ConstantTest6.dsl', 10, target)), '-equal', struct('two_const', [[0 10];[2 2]]'))));
 

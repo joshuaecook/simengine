@@ -451,7 +451,7 @@ classdef Suite < handle
             disp(' ')
             disp('Suite Summary')
             disp('--------------------------')
-            if nargin == 2
+            if nargin >= 2
                 if ischar(varargin{1}) 
                     if strcmpi(varargin{1},'-detailed')
                         summary_helper(s, 0, true, true, true);
@@ -461,6 +461,8 @@ classdef Suite < handle
                         summary_helper(s, 0, false, false, true);
                     elseif strcmpi(varargin{1},'-tags')
                         showTags(s);
+                    elseif strcmpi(varargin{1},'-tag') && length(varargin) > 1
+                        summary_helper(s, 0, true, true, true, toTag(varargin{2}));
                     else
                         error('Suite:Summary:ArgumentError', 'Only -detailed, -short, or -failures flag is allowed');
                     end
@@ -474,7 +476,10 @@ classdef Suite < handle
             disp(' ')
         end
         
-        function summary_helper(s, level, showSuites, showTests, showFailures)
+        function summary_helper(s, level, showSuites, showTests, showFailures, condition)
+            if nargin == 5
+                condition = Tag(true);
+            end
             spaces = blanks(level*2);
             base_str = sprintf('%sSuite ''%s'': ', spaces, s.Name);
             total = s.length;
@@ -486,7 +491,12 @@ classdef Suite < handle
             elseif total == s.Passed
                 summary_str = sprintf('All PASSED (%d total tests, time=%g s)', total, s.Time);                
             elseif s.Passed == 0 && s.Failed == 0 && s.Errored == 0 && s.Skipped == 0
-                summary_str = sprintf('Suite not yet executed (%d total tests)', total);
+                count_matching_condition = s.Count(condition);
+                if count_matching_condition == total
+                    summary_str = sprintf('Suite not yet executed (%d total tests)', total);
+                else
+                    summary_str = sprintf('Suite not yet executed (%d of %d total tests)', count_matching_condition, total);
+                end                    
             else
                 summary_str = sprintf('%d of %d Passed with %d Errored and %d Skipped (time=%g)', s.Passed, total, s.Errored, s.Skipped, s.Time);
             end
@@ -495,16 +505,16 @@ classdef Suite < handle
             end
             tests = values(s.TestsMap);
             for i=1:length(tests)
-                if isa(tests{i},'Test') 
-                    t = tests{i};
+                t = tests{i};
+                if isa(t,'Test') && test(condition, t.tags)
                     if showTests
-                        display([spaces '  ' tests{i}.tostr]);
+                        display([spaces '  ' t.tostr '  ' List.cell2str(t.tags)]);
                     elseif showFailures && (t.Result == t.FAILED || t.Result == t.ERROR)
-                        display([spaces '  ' tests{i}.tostr]);                        
+                        display([spaces '  ' t.tostr]);
                     end
-                elseif isa(tests{i}, 'Suite')
-                    summary_helper(tests{i}, level+1, showSuites, ...
-                                   showTests, showFailures);
+                elseif isa(t, 'Suite') && t.Count(condition) > 0
+                    summary_helper(t, level+1, showSuites, ...
+                        showTests, showFailures, condition);
                 end
             end
         end
