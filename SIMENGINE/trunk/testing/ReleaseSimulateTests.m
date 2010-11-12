@@ -17,7 +17,7 @@ PLOT = 1;
 CREATE = 2;
 
 % Create the return argument
-s = Suite(suitename);
+s = Suite(suitename, {'simulate'});
 
 
 % Process arguments
