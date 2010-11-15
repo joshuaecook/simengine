@@ -53,11 +53,11 @@ s.add(Test('UpdateOtherDiscreteIterator',@ ...
 s.add(Test('UpdateTwoStates',@ ...
            ()(simex('models_FeatureTests/UpdateContinuousIteratorTest3.dsl',10,target)), '-equal', struct('x', [0:10; sawtooth; sawtooth]')));
 s.add(Test('UpdateTwoStatesAggregated',@ ...
-           ()(simex('models_FeatureTests/UpdateContinuousIteratorTest4.dsl',10,target,'-aggregate')), '-equal', struct('x', [0:10; sawtooth; sawtooth]')));
+           ()(simex('models_FeatureTests/UpdateContinuousIteratorTest4.dsl',10,target,'-aggregate')), '-equal', struct('x', [0:10; sawtooth; sawtooth]'), {'aggregate', 'backlog'}));
 s.add(Test('UpdateThreeStates',@ ...
            ()(simex('models_FeatureTests/UpdateContinuousIteratorTest5.dsl',10,target)), '-equal', struct('x', [0:10; sawtooth; sawtooth; sawtooth]')));
 s.add(Test('UpdateThreeStatesAggregated',@ ...
-           ()(simex('models_FeatureTests/UpdateContinuousIteratorTest6.dsl',10,target,'-aggregate')), '-equal', struct('x', [0:10; sawtooth; sawtooth; sawtooth]')));
+           ()(simex('models_FeatureTests/UpdateContinuousIteratorTest6.dsl',10,target,'-aggregate')), '-equal', struct('x', [0:10; sawtooth; sawtooth; sawtooth]'), {'aggregate', 'backlog'}));
 s.add(Test('UpdateFromTime',@ ...
            ()(simex('models_FeatureTests/UpdateContinuousIteratorTest7.dsl',10,target)), '-equal', struct('x', [0:10; sawtooth]')));
 
@@ -190,7 +190,7 @@ end
 
 function s = AggregatgeIteratorTests(target)
 
-s = Suite(['Aggregate Multiple Iterators ' target], {'aggregate'});
+s = Suite(['Aggregate Multiple Iterators ' target], {'aggregate', 'backlog'});
 
 s.add(Test('AggregateDiscrete', @()(simex('models_FeatureTests/AggregateIteratorTest1.dsl',10,'-aggregate',target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
 s.add(Test('AggregateContinuous', @()(simex('models_FeatureTests/AggregateIteratorTest2.dsl',10,'-aggregate',target)), '-equal', struct('y1', [0:10; 0:10; 10:20]', 'y2', [0:10; 0:10; 10:20]')));
