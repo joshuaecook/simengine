@@ -24,6 +24,8 @@ datatype operation =
 	 FLOOR | CEILING | ROUND | 
 	 (* reduction operations *)
 	 RADD | RMUL | RAND | ROR |
+	 (* matrix operations *)
+	 TRANSPOSE | MATRIX_MUL |
 	 (* special purpose operations *)
 	 DERIV | IF | ASSIGN | NULL
 
@@ -49,7 +51,9 @@ val op_list =
      (* rounding operations *)
      FLOOR, CEILING, ROUND,
      (* reduction operations *)
-     RADD, RMUL, RAND, ROR, 
+     RADD, RMUL, RAND, ROR,
+     (* matrix operations *)
+     TRANSPOSE, MATRIX_MUL, 
      (* special purpose operations *)
      DERIV, IF, ASSIGN]
 

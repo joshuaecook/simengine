@@ -16,6 +16,7 @@ end
 s = Suite(['Vectorized Tests (target=' target ')']);
 s.add(VectorizedStateTests(target));
 s.add(VectorizedSubModelTests(target), {'submodels'});
+s.add(VectorizedOperationTests(target), {'submodels'});
 
 
 end
@@ -56,6 +57,43 @@ exp_output.x.values(:,1) = [0 1 2 3 4];
 exp_output.x.values = cumsum(exp_output.x.values, 2);
 s.add(Test('Vectorized Input to Submodel', @()(simex('models_VectorizedTests/SubModelTest3.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
+end
+
+function s = VectorizedOperationTests(target)
+
+s = Suite('VectorizedOperationTests');
+
+exp_output = struct('x', struct('time', 0:10, 'values', zeros(3,2,11)), ...
+                    'transpose_x', struct('time', 0:10, 'values', zeros(2,3,11)));
+exp_output.x.values(:,:,2:11) = cumsum(ones(3,2,10),3);
+exp_output.transpose_x.values(:,:,2:11) = cumsum(ones(2,3,10),3);
+s.add(Test('Transpose Matrix', @()(simex('models_VectorizedTests/OpTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+
+exp_output = struct('x', struct('time', 0:10, 'values', ones(4,11)), ...
+                    't_x', struct('time', 0:10, 'values', ones(1,4,11)), ...
+                    't_t_x', struct('time', 0:10, 'values', ones(4,11)));
+exp_output.x.values(:,1) = 0:3;
+exp_output.x.values = cumsum(exp_output.x.values,2);
+exp_output.t_x.values(:,:,1) = (0:3)';
+exp_output.t_x.values = cumsum(exp_output.t_x.values,2);
+exp_output.t_t_x.values = exp_output.x.values;  % same as original (t_t_x = (x')')
+s.add(Test('Transpose Vector', @()(simex('models_VectorizedTests/OpTest2.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+
+% do a matrix multiplication test, copy the logic from the dsl file
+x = [1,2;3,4;5,6];
+y = -[1,2,3;4,5,6];
+mul1 = zeros(3,3,11);
+mul2 = zeros(2,2,11);
+for i=1:11
+    mul1(:,:,i) = x*y;
+    mul2(:,:,i) = y*x;
+    x = x + 1;
+    y = y - 1;
+end
+time = 0:10;
+exp_output = struct('mul1', struct('time', time, 'value', mul1),...
+                    'mul2', struct('time', time, 'value', mul2));
+s.add(Test('Matrix Multiplication', @()(simex('models_VectorizedTests/OpTest3.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
 
 end
