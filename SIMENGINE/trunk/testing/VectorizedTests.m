@@ -95,5 +95,15 @@ exp_output = struct('mul1', struct('time', time, 'value', mul1),...
                     'mul2', struct('time', time, 'value', mul2));
 s.add(Test('Matrix Multiplication', @()(simex('models_VectorizedTests/OpTest3.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
-
+% solve a linear set of equations
+M = [1 2; 3 4];
+b = [1 2]';
+x = zeros(2,11);
+for i=1:11
+    x(:,i) = linsolve(M, b);
+    b = b + 1;
+end
+exp_output = struct('x', struct('time', time, 'value', x));
+s.add(Test('Linear Solver', @()(simex('models_VectorizedTests/OpTest4.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+    
 end
