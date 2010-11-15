@@ -260,8 +260,11 @@ classdef Suite < handle
                     condition = arg;
                 else
                     error('Suite:Execute:ArgumentError', 'Only -all, a Tag object, or a -tag <char> are a supported arguments');
-                end                    
-
+                end
+            end
+            if 0 == length(varargin)
+                runall = true;
+                condition = Tag(true);
             end
     
             disp(sprintf('Running %d tests in total using condition %s', s.Count(condition), toStr(condition)));
