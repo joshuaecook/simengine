@@ -19,6 +19,8 @@ int exec_parallel_gpu(solver_props *props, const char *outputs_dirname, double *
   for(modelid = 0; modelid < props->num_models; modelid++){
     for(i=0;i<NUM_ITERATORS;i++){
       props[i].running[modelid] = 1;
+      props[i].dirty_states[modelid] = 0;
+      props[i].ready_outputs[modelid] = 0;
     }
   }
   
