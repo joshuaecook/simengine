@@ -48,8 +48,8 @@ typedef struct {
   CDATAFORMAT *time; // Continuous iterators (discrete mapped to continuous)
   CDATAFORMAT *next_time;
   unsigned int *count; // Discrete iterators
-  unsigned int *dirty_states;
-  unsigned int *ready_outputs;
+  int *dirty_states;
+  int *ready_outputs;
   // A pointer into system_states to the states for this iterator
 #if defined X_IR_SPIL
   union model_state *model_states;

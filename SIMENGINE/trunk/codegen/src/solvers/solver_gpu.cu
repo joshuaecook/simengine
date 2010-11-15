@@ -24,7 +24,8 @@ __DEVICE__ systemstatedata_external gpu_model_states[1];
 __DEVICE__ systemstatedata_external gpu_next_states[1];
 #endif
 
-__DEVICE__ unsigned int dirty_states[PARALLEL_MODELS * NUM_ITERATORS];
+__DEVICE__ unsigned int gpu_dirty_states[PARALLEL_MODELS * NUM_ITERATORS];
+__DEVICE__ unsigned int gpu_ready_outputs[PARALLEL_MODELS * NUM_ITERATORS];
 
 #if NUM_INPUTS > 0
 // Needs to be copied host-to-device.
@@ -83,6 +84,7 @@ solver_props *gpu_init_props(solver_props *props){
   CDATAFORMAT *g_time, *g_next_time;
   unsigned int *g_count;
   int *g_running, *g_last_iteration;
+  int *g_dirty_states, *g_ready_outputs;
   output_buffer *g_ob;
 
   // Obtains the addresses of statically allocated variables.
@@ -111,6 +113,8 @@ solver_props *gpu_init_props(solver_props *props){
 
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_running, gpu_running));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_last_iteration, gpu_last_iteration));
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_dirty_states, gpu_dirty_states));
+  cutilSafeCall(cudaGetSymbolAddress((void **)&g_ready_outputs, gpu_ready_outputs));
   cutilSafeCall(cudaGetSymbolAddress((void **)&g_ob, gpu_ob));
 # if NUM_OUTPUTS > 0
   output_data *g_od;
@@ -143,6 +147,8 @@ solver_props *gpu_init_props(solver_props *props){
     tmp_props[i].count = g_count + (i * PARALLEL_MODELS);
     tmp_props[i].running = g_running + (i * PARALLEL_MODELS);
     tmp_props[i].last_iteration = g_last_iteration + (i * PARALLEL_MODELS);
+    tmp_props[i].dirty_states = g_dirty_states + (i * PARALLEL_MODELS);
+    tmp_props[i].ready_outputs = g_ready_outputs + (i * PARALLEL_MODELS);
 
     // The amount of memory varies for each iterator
     if (0 < props[i].statesize + props[i].algebraic_statesize) {
