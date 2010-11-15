@@ -109,6 +109,12 @@ fun spacevar_with_iter (sym, iter, space) =
 				   iter)
 			      space))
 
+fun spacevar (sym, space) =
+    Exp.TERM (Exp.SYMBOL (sym,
+			  Property.setSpace
+			      Property.default_symbolproperty
+			      space))
+
 
 fun itersvar sym = Exp.TERM (Exp.SYMBOL (sym,
 					 Property.setScope Property.default_symbolproperty Property.ITERATOR))
