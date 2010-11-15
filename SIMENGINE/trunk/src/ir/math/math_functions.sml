@@ -25,7 +25,7 @@ datatype operation =
 	 (* reduction operations *)
 	 RADD | RMUL | RAND | ROR |
 	 (* matrix operations *)
-	 TRANSPOSE | MATRIX_MUL |
+	 TRANSPOSE | MATRIX_MUL | LINEAR_SOLVE |
 	 (* special purpose operations *)
 	 DERIV | IF | ASSIGN | NULL
 
@@ -53,7 +53,7 @@ val op_list =
      (* reduction operations *)
      RADD, RMUL, RAND, ROR,
      (* matrix operations *)
-     TRANSPOSE, MATRIX_MUL, 
+     TRANSPOSE, MATRIX_MUL, LINEAR_SOLVE, 
      (* special purpose operations *)
      DERIV, IF, ASSIGN]
 
