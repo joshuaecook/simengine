@@ -77,7 +77,15 @@ noErrorTest = @(id, fcn)(Test(id, fcn, '-withouterror'));
 s_usage = Suite('Instantiation Tests');
 s_usage.add(noErrorTest('literal', @()(Exp(1))));
 s_usage.add(noErrorTest('var', @()(Exp('a'))));
-s_usage.add(noErrorTest('reference', @()(Exp('s','x')))); % This is failing because I switched the first parameter to an instance in Exp.m
+
+    function sub = getSubModel()
+        mdl = Model('MyModel');
+        sub_mdl = Model('MySubModel');
+        sub_mdl.output('x', 1);
+        sub = mdl.submodel(sub_mdl);
+    end
+
+s_usage.add(noErrorTest('reference', @()(Exp(getSubModel(),'x')))); % This is failing because I switched the first parameter to an instance in Exp.m
 s_usage.add(noErrorTest('iterator', @()(Exp(Iterator('t')))));
 t = Test('cell', @()(Exp({'a'})), '-withouterror');
 t.ExpectFail = true;
