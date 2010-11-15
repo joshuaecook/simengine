@@ -358,7 +358,7 @@ local
 	    (* we're going to propagate the spaces in the following order: 
 	     * inputs, states, intermediates ... *)
 	    val input_terms = map DOF.Input.name (!(#inputs class))
-	    val space_table = add_terms_to_table symbol_to_space_table input_terms (* update table with inputs *)
+	    val symbol_to_space_table = add_terms_to_table symbol_to_space_table input_terms (* update table with inputs *)
 			      
 	    (* now add the states *)
 	    val (init_conditions, rest_exps) = List.partition ExpProcess.isInitialConditionEq (!(#exps class))

@@ -478,7 +478,7 @@ local
 	in
 	    DOF.Input.make {name=case iterator of
 				     SOME iter => ExpProcess.exp2term (ExpBuild.spacevar_with_iter (name, iter, space))
-				   | NONE => ExpProcess.exp2term (ExpBuild.svar name),
+				   | NONE => ExpProcess.exp2term (ExpBuild.spacevar (name, space)),
 			    default=default, 
 			    behaviour=behaviour}
 	end
