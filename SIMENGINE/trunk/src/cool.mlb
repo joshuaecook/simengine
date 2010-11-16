@@ -95,6 +95,7 @@ ir/datastructs/target.sml
 
 ir/datastructs/solver.sml
 ir/datastructs/iterator.sml
+ir/datastructs/subspace.sml
 ir/datastructs/space.sml
 ir/datastructs/props.sml
 ir/datastructs/pattern.sml

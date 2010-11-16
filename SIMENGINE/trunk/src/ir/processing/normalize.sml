@@ -78,8 +78,8 @@ fun normalize_with_env table exp =
 		     exp
 		   | Exp.SEQUENCE exps => Exp.META(Exp.SEQUENCE(expFlatMap (normalize_with_env table) exps)))
 	    end
-	  | Exp.SUBREF (exp', subspace) =>
-	    Exp.SUBREF (normalize_with_env table exp', subspace)
+	  | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) =>
+	    Exp.CONVERSION (Exp.SUBREF (normalize_with_env table exp', subspace))
     end
 
 fun normalize exp = normalize_with_env SymbolTable.empty exp

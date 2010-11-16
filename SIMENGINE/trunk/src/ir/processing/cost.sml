@@ -45,7 +45,7 @@ fun exp2generalcost deep exp =
 	  | Exp.META (Exp.SEQUENCE s) => Util.sum (map exp2cost s)
 	  | Exp.META _ => 0
 	  | Exp.CONTAINER c => Util.sum (map exp2cost (Container.containerToElements c))
-	  | Exp.SUBREF (exp', space) => exp2generalcost deep exp'
+	  | Exp.CONVERSION (Exp.SUBREF (exp', space)) => exp2generalcost deep exp'
     end
     
 and class2generalcost deep (c:DOF.class) = 

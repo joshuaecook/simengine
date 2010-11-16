@@ -27,7 +27,10 @@ fun toJSON (Exp.FUN (operator, operands)) =
     JSONTypedObject ("Exp.META", metaToJSON meta)
   | toJSON (Exp.CONTAINER container) = 
     JSONTypedObject ("Exp.CONTAINER", containerToJSON container)
-  | toJSON (Exp.SUBREF (operand, subspace)) =
+  | toJSON (Exp.CONVERSION conversion) = 
+    JSONTypedObject ("Exp.CONVERSION", conversionToJSON conversion)
+
+and conversionToJSON (Exp.SUBREF (operand, subspace)) =
     JSONTypedObject ("Exp.SUBREF", object [("operand", toJSON operand),
 					   ("subspace", Space.subspaceToJSON subspace)])
 

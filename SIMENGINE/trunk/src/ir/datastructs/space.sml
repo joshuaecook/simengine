@@ -5,7 +5,7 @@ sig
     type space
 
     (* a portion of a space that is specified during indexing *)
-    type subspace
+    type subspace = SubSpace.subspace
 
 
     (* ------ Methods on Spaces ------*)
@@ -68,23 +68,71 @@ withtype range = {start: real, stop: real, steps: real}
 
 
 (* define a subspace as a listing of intervals *)
-datatype interval = Empty
-		  | Full
-		  | Interval of (int * int) (* this is all zero indexed *)
-		  | Indices of int list
-		  | IntervalCollection of (interval * interval list list)
-type subspace = interval list (* assumption is that the length of the interval list is equivalent
-			       * to the number of dimensions *)
+open SubSpace
 
 fun except msg = DynException.stdException (msg, "Space", Logger.INTERNAL)
 fun error msg = (Logger.log_error (Printer.$ (msg)); DynException.setErrored())
 
 val empty_space = Point (Tensor [])
 
+local
+    open Layout
+    val int = str o Util.i2s
+in
+fun toLayout (Point (Tensor dims)) = label ("Tensor", bracketList (map int dims))
+  | toLayout (Collection spaces) = label ("Collection", parenList (map toLayout spaces))
+end
+val toString  = Layout.toString o toLayout
+
+fun subspaceToStr subspace =
+    let
+	val i2s = Util.i2s
+	fun intervalToStr Empty = "_"
+	  | intervalToStr Full = ":"
+	  | intervalToStr (Interval (a,b)) = (i2s a) ^ ":" ^ (i2s b)
+	  | intervalToStr (Indices int_list) = "[" ^ (String.concatWith ", " (map i2s int_list)) ^ "]" 
+	  | intervalToStr (IntervalCollection (interval, subspace_list)) = "("^(intervalToStr interval)^", {"^ (String.concatWith ", " (map subspaceToStr subspace_list)) ^"})"
+
+	val interval_str = String.concatWith ", " (map intervalToStr subspace)
+    in
+	"[" ^ interval_str ^ "]"
+    end
+
+fun subspaceToLayout subspace =
+    let
+	open Layout
+	val int = str o Util.i2s
+	fun intervalToLayout Empty = str "_"
+	  | intervalToLayout Full = str ":"
+	  | intervalToLayout (Interval (a,b)) = seq[int a, str ":", int b]
+	  | intervalToLayout (Indices int_list) = bracketList (map int int_list)
+	  | intervalToLayout (IntervalCollection (interval, subspace_list)) = 
+	    parenList [intervalToLayout interval,
+		       curlyList (map subspaceToLayout subspace_list)]
+
+    in
+	bracketList (map intervalToLayout subspace)
+    end
+
+
+
 (* methods operating over spaces *)
-fun sub (Point (Tensor dims)) subspace =
+fun sub (space as (Point (Tensor dims))) subspace =
     if (length dims) = (length subspace) then
 	let
+	    (*
+	    val _ = 
+		let
+		    val heading = Layout.heading
+		    val label = Layout.label
+		    val align = Layout.align
+		    val l = heading("Space.sub", 
+				    align[label("Space", toLayout space),
+					  label("SubSpace", subspaceToLayout subspace)])
+		in
+		    Layout.log l
+		end
+	     *)
 	    val pairs = ListPair.zip (dims, subspace)
 	    fun pairToDim (dim, Empty) = 0
 	      | pairToDim (dim, Full) = dim
@@ -238,15 +286,6 @@ fun equal (space1, space2) =
 						    List.all equal (ListPair.zip (spaces1, spaces2))
       | _ => false
 
-local
-    open Layout
-    val int = str o Util.i2s
-in
-fun toLayout (Point (Tensor dims)) = label ("Tensor", bracketList (map int dims))
-  | toLayout (Collection spaces) = label ("Collection", parenList (map toLayout spaces))
-end
-val toString  = Layout.toString o toLayout
-
 
 fun multiply (space1, space2) = 
     if isEmpty space1 then
@@ -262,36 +301,6 @@ fun multiply (space1, space2) =
 	   | _ => (error ("Do not know how to multiply space "^(toString space1)^" with "^(toString space2));
 		   space1)
 
-
-fun subspaceToStr subspace =
-    let
-	val i2s = Util.i2s
-	fun intervalToStr Empty = "_"
-	  | intervalToStr Full = ":"
-	  | intervalToStr (Interval (a,b)) = (i2s a) ^ ":" ^ (i2s b)
-	  | intervalToStr (Indices int_list) = "[" ^ (String.concatWith ", " (map i2s int_list)) ^ "]" 
-	  | intervalToStr (IntervalCollection (interval, subspace_list)) = "("^(intervalToStr interval)^", {"^ (String.concatWith ", " (map subspaceToStr subspace_list)) ^"})"
-
-	val interval_str = String.concatWith ", " (map intervalToStr subspace)
-    in
-	"[" ^ interval_str ^ "]"
-    end
-
-fun subspaceToLayout subspace =
-    let
-	open Layout
-	val int = str o Util.i2s
-	fun intervalToLayout Empty = str "_"
-	  | intervalToLayout Full = str ":"
-	  | intervalToLayout (Interval (a,b)) = seq[int a, str ":", int b]
-	  | intervalToLayout (Indices int_list) = bracketList (map int int_list)
-	  | intervalToLayout (IntervalCollection (interval, subspace_list)) = 
-	    parenList [intervalToLayout interval,
-		       curlyList (map subspaceToLayout subspace_list)]
-
-    in
-	bracketList (map intervalToLayout subspace)
-    end
 
 fun subspaceToJSON subspace =
     let

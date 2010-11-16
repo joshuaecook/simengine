@@ -66,6 +66,9 @@ fun typepattern_to_str (TYPE sym) = "Type '"^(Symbol.name sym)^"'"
   | typepattern_to_str (UNITTYPE) = "Unit"
   | typepattern_to_str (DONTCARE) = "DontCare"
 
+datatype subscript = IteratorReference of Iterator.iterator
+		   | SubReference of Space.subspace
+
 fun builtin (fcn,args) = Exp.FUN (Fun.BUILTIN fcn, map astexp_to_Exp args)
 			 handle e => DynException.checkpoint "AstDOFTrans.builtin" e
 
@@ -75,35 +78,45 @@ and astexp_to_Iterator (POS (APPLY {func=(SYMBOL itersym), args=(TUPLE [VECTOR [
     (case offsetexp of
 	 LITERAL (CONSTREAL offset) => 
 	 (* case #1a - x[t[1]] *)
-	 (itersym, Iterator.RELATIVE (Real.round offset))
+	 IteratorReference (itersym, Iterator.RELATIVE (Real.round offset))
        | APPLY {func=(SYMBOL opsym), args=(TUPLE [LITERAL (CONSTREAL offset)])} =>
 	 if opsym = (Symbol.symbol "operator_neg") then
 	     (* case #1b - x[t[-1]] *)
-	     (itersym, Iterator.RELATIVE (~(Real.round offset)))
+	     IteratorReference (itersym, Iterator.RELATIVE (~(Real.round offset)))
 	 else if opsym = (Symbol.symbol "operator_add") then
 	     (* case #1c - x[t[+1]] *)
-	     (itersym, Iterator.RELATIVE ((Real.round offset)))
+	     IteratorReference (itersym, Iterator.RELATIVE ((Real.round offset)))
 	 else
 	     (error ("unexpected operation '"^(Symbol.name opsym)^"' iterator '"^(Symbol.name itersym)^"' reference");
-	      (itersym, Iterator.RELATIVE 0))
+	      IteratorReference (itersym, Iterator.RELATIVE 0))
        | _ => (error ("invalid referencing of iterator '"^(Symbol.name itersym)^"'");
-	       (itersym, Iterator.RELATIVE 0)))
+	       IteratorReference (itersym, Iterator.RELATIVE 0)))
   | astexp_to_Iterator (APPLY {func=(SYMBOL opsym), args=(TUPLE [SYMBOL itersym, LITERAL (CONSTREAL offset)])}) = 
     (* case #2 - handles iterator references that look like x[n-5] *)
     (case (Symbol.name opsym) of
-	 "operator_add" => (itersym, Iterator.RELATIVE (Real.round offset))
-       | "operator_subtract" => (itersym, Iterator.RELATIVE (~(Real.round offset)))
+	 "operator_add" => IteratorReference (itersym, Iterator.RELATIVE (Real.round offset))
+       | "operator_subtract" => IteratorReference (itersym, Iterator.RELATIVE (~(Real.round offset)))
        | _ => (error ("Unexpected iterator operation <"^(Symbol.name opsym)^">");
-	       (itersym, Iterator.RELATIVE 0)))
+	       IteratorReference (itersym, Iterator.RELATIVE 0)))
   | astexp_to_Iterator (SYMBOL itersym) = 
     (* case #3 - handles iterator references that look like y[t] or x[n] *)
-    (itersym, Iterator.RELATIVE 0)
+    IteratorReference (itersym, Iterator.RELATIVE 0)
+  | astexp_to_Iterator (i as LITERAL (CONSTREAL r)) = 
+    (* case #4 - handle subscript references that look like y[0] or x[10] *)
+    SubReference [astexp_to_Interval i]
   | astexp_to_Iterator exp = (log_progs (exp_to_printer exp);
 			      error "invalid iterator";
-			      (Symbol.symbol "undefined", Iterator.RELATIVE 0))
+			      IteratorReference (Symbol.symbol "undefined", Iterator.RELATIVE 0))
+  
+and astexp_to_Interval (LITERAL (CONSTREAL r)) = SubSpace.Indices [Real.floor r]
+  | astexp_to_Interval exp = (log_progs (exp_to_printer exp);
+			      error "invalid iterator";
+			      SubSpace.Empty)
 
 and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}= 
-    ExpBuild.var_with_iter (sym, astexp_to_Iterator arg)
+    (case astexp_to_Iterator arg of
+	 IteratorReference iter => ExpBuild.var_with_iter (sym, iter)
+       | SubReference subspace => ExpBuild.subref (ExpBuild.svar sym, subspace))
   | apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
     ((case (Symbol.name sym) of
 	"operator_add" => builtin (Fun.ADD, args)

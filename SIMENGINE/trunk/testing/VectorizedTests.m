@@ -16,7 +16,8 @@ end
 s = Suite(['Vectorized Tests (target=' target ')']);
 s.add(VectorizedStateTests(target));
 s.add(VectorizedSubModelTests(target), {'submodels'});
-s.add(VectorizedOperationTests(target), {'submodels'});
+s.add(VectorizedOperationTests(target));
+s.add(SubReferenceTests(target), {'subref'});
 
 
 end
@@ -106,4 +107,31 @@ end
 exp_output = struct('x', struct('time', time, 'value', x));
 s.add(Test('Linear Solver', @()(simex('models_VectorizedTests/OpTest4.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
     
+end
+
+function s = SubReferenceTests(target)
+
+s = Suite('Sub Referencing Tests');
+
+s.add(SubReferenceReadTests(target));
+s.add(SubReferenceAssignTests(target));
+
+end
+
+function s = SubReferenceReadTests(target)
+
+s = Suite('Sub Referencing Read Tests');
+
+a = ones(11,5);
+a(1,:) = 0:4;
+exp_output = struct('x', cumsum(a, 1));
+s.add(Test('SubReferenceReadScalar', @()(simex('models_VectorizedTests/SubRefTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+
+
+end
+
+function s = SubReferenceAssignTests(target)
+
+s = Suite('Sub Referencing Assign Tests');
+
 end
