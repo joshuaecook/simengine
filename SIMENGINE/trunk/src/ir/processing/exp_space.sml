@@ -65,7 +65,16 @@ fun expToSpace exp =
 			       | Exp.ARRAY a => fromVectorDim (Array.length a)
 			       | Exp.ASSOC table => collection (map expToSpace (SymbolTable.listItems table))
 			       | Exp.EXPLIST exps => collection (map expToSpace exps))
-       | Exp.SUBREF (exp', subspace) => sub (expToSpace exp') subspace
+       | Exp.CONVERSION c => (case c of
+				  Exp.SUBREF (exp', subspace) => 
+				  let
+				      val space' = expToSpace exp'
+				      (*val _ = Util.log ("space': " ^ (Space.toString space'))*)
+				      val space'' = sub space' subspace
+				      (*val _ = Util.log ("space'': " ^ (Space.toString space''))*)
+				  in
+				      space''
+				  end)
        | Exp.META _ => scalar (* have no idea what to do here... *))
     handle SpaceException e => raise SpaceException e
 	 | _ => raise (SpaceException {exp=exp, spaces=[]})

@@ -110,10 +110,6 @@ fun model_to_layout (model: DOF.model) =
 	    SOME (CurrentModel.classname2class classname)
 	    handle DynException.NoClassFound _ => NONE
 		       
-	val num_states = case getClass (#classname topinstance) of 
-			      SOME class => ClassProcess.class2statesize class
-			    | NONE => ~1
-
 	fun header_to_layout () =
 	    align [label ("Top Level Model", sym2l (#classname topinstance)),
 		   label ("Class List", curlyList (map (fn{name,...}=> sym2l name) classes))]
@@ -123,6 +119,9 @@ fun model_to_layout (model: DOF.model) =
 	    let
 		val class = getClass(classname)
 			    
+		val num_states = case getClass (#classname topinstance) of 
+				     SOME class => ClassProcess.class2statesize class
+				   | NONE => ~1
 	    in
 		case class of
 		    SOME class =>

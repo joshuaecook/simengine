@@ -140,6 +140,9 @@ fun sym2str pretty (s, props) =
 		else 
 		    n
 
+	val space =  Property.getSpace props
+	val space_str = "<<" ^ (Space.toString space) ^ ">>" 
+	val n = n ^ space_str
     in
 	if order < 0 then (* integral *)
 	    "Int(" ^ n ^ iters ^ ",["^(String.concatWith "," (map Symbol.name vars))^"])"

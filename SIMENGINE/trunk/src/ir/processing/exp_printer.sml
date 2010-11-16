@@ -48,7 +48,7 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	    end
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
-	  | useParen (Exp.SUBREF _) = false
+	  | useParen (Exp.CONVERSION _) = true
 
 	fun addParen ("", exp) = 
 	    ""
@@ -123,7 +123,7 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	     "}"
 	   | Exp.MATRIX m => "("^(Matrix.infoString m)^")[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ "]"
     end
-  | exp2tersestr pretty (Exp.SUBREF (exp', subspace)) = 
+  | exp2tersestr pretty (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
     let
 	val interval = Space.subspaceToStr subspace
     in
@@ -176,7 +176,7 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 	    end
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
-	  | useParen (Exp.SUBREF _) = false
+	  | useParen (Exp.CONVERSION _) = true
 
 	fun addParen (layout, exp) =
 	    if isEmpty layout then
@@ -275,7 +275,7 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 	      indent (bracket (align (map 
 					  ((exp2terselayout pretty) o Exp.CONTAINER o Exp.ARRAY) 
 					  (Matrix.toRows m))), 2)])
-  | exp2terselayout pretty (Exp.SUBREF (exp', subspace)) = 
+  | exp2terselayout pretty (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
     let
 	val interval = Space.subspaceToLayout subspace
     in
@@ -310,7 +310,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
-	  | useParen (Exp.SUBREF _) = false
+	  | useParen (Exp.CONVERSION _) = true
 
 	fun addParen (str, exp) = 
 	    if hd (String.explode str) = #"-" then
@@ -393,7 +393,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	       | Matrix.BANDED _ => 
 		 "BandedMatrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ ")"
     end
-  | exp2fullstr (Exp.SUBREF (exp', subspace)) = 
+  | exp2fullstr (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
     let
 	val interval = Space.subspaceToStr subspace
     in

@@ -238,8 +238,8 @@ val rec exp_to_spil =
  fn Exp.FUN (str, exps) => fun_to_spil exp_to_spil (str, exps)
   | Exp.TERM term => term_to_spil term
   | Exp.CONTAINER con => container_to_spil exp_to_spil con
-  | exp as Exp.SUBREF _ => 
-    DynException.stdException (("Cannot write SUBREF expressions just yet. ["^(ExpPrinter.exp2str exp)^"]"), "CWriterUtil.exp_to_spil", Logger.INTERNAL)
+  | exp as Exp.CONVERSION _ => 
+    DynException.stdException (("Cannot write CONVERSION expressions just yet. ["^(ExpPrinter.exp2str exp)^"]"), "CWriterUtil.exp_to_spil", Logger.INTERNAL)
   | exp as Exp.META _ => 
     DynException.stdException (("Cannot write META expressions. ["^(ExpPrinter.exp2str exp)^"]"), "CWriterUtil.exp_to_spil", Logger.INTERNAL)
 
@@ -258,7 +258,7 @@ fun exp2c_str (Exp.FUN (str : Fun.funtype, exps)) =
 	  | useParen (Exp.TERM _) = false
 	  | useParen (Exp.META _) = false
 	  | useParen (Exp.CONTAINER _) = false
-	  | useParen (Exp.SUBREF _) = false
+	  | useParen (Exp.CONVERSION _) = false
 
 	fun addParen (str, exp) = 
 	    if String.isPrefix "-" str then
@@ -319,8 +319,8 @@ fun exp2c_str (Exp.FUN (str : Fun.funtype, exps)) =
 	    DynException.stdException ("Cannot write ASSOC containers.", "CWriter.exp2c_str", Logger.INTERNAL)
 	  | Exp.MATRIX m => matrix2str m
     end
-  | exp2c_str (e as Exp.SUBREF _) = 
-    DynException.stdException (("Cannot write SUBREF expressions just yet. ["^(ExpPrinter.exp2str e)^"]"), "CWriter.exp2c_str", Logger.INTERNAL)
+  | exp2c_str (e as Exp.CONVERSION _) = 
+    DynException.stdException (("Cannot write CONVERSION expressions just yet. ["^(ExpPrinter.exp2str e)^"]"), "CWriter.exp2c_str", Logger.INTERNAL)
   | exp2c_str (e as Exp.META _) = 
     DynException.stdException (("Cannot write META expressions. ["^(ExpPrinter.exp2str e)^"]"), "CWriter.exp2c_str", Logger.INTERNAL)
     
