@@ -92,7 +92,7 @@ model (Vm, spike, tmp) = gpe(excitatoryInput, inhibitoryInput)
 
 output spike with {condition = spike > 0}
 output tmp = IsynE
-solver = cvode
-solver.dt = 2e-1
-//solver = ode23
+//solver = cvode
+//solver.dt = 2e-1
+solver = ode23
 end
