@@ -74,7 +74,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int 
     // Cannot continue if no inputs data are buffered
     if(!inputs_available) {
       if (1 == num_iterations) {
-	  gpu_ob->finished[modelid] = 1;
+	gpu_ob->finished[modelid] = 1;
       }
       break;
     }
@@ -95,6 +95,7 @@ __GLOBAL__ void exec_kernel_gpu(solver_props *props, int resuming, unsigned int 
     // Main solver evaluation phase, including inprocess.
     // x[t+dt] = f(x[t])
     if (SUCCESS != exec_solver_and_inprocess(min_time, props, modelid)) {
+      gpu_ob->finished[modelid] = 1;
       return;
     }
   }
