@@ -228,7 +228,7 @@ fun renameSym (orig_sym, new_sym) exp =
 	in
 	    Exp.CONTAINER c'
 	end
-      | Exp.CONVERSION (Exp.SUBREF (exp', _)) => renameSym (orig_sym, new_sym) exp'
+      | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) => Exp.CONVERSION (Exp.SUBREF (renameSym (orig_sym, new_sym) exp', subspace))
       | _ => exp
 
 fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
@@ -268,7 +268,7 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
 	in
 	    Exp.CONTAINER c'
 	end     
-      | Exp.CONVERSION (Exp.SUBREF (exp', _)) => renameInst syms exp'
+      | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) => Exp.CONVERSION (Exp.SUBREF (renameInst syms exp', subspace))
       | _ => exp
 
 fun log_exps (header, exps) = 
@@ -896,6 +896,8 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
   | iterators_of_expression (Exp.TERM (Exp.RANGE {low, step, high})) = 
     foldl SymbolSet.union SymbolSet.empty (map (iterators_of_expression o Exp.TERM) [low, step, high])
 
+  | iterators_of_expression (Exp.TERM _) = SymbolSet.empty
+
   | iterators_of_expression (Exp.CONTAINER c) = 
     let
 	fun list2iters l = foldl SymbolSet.union SymbolSet.empty (map iterators_of_expression l)
@@ -903,7 +905,10 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 	list2iters (Container.containerToElements c)
     end
 
-  | iterators_of_expression _ = SymbolSet.empty
+  | iterators_of_expression (Exp.CONVERSION c) =
+    (case c of 
+	 Exp.SUBREF (exp', subspace) => iterators_of_expression exp')
+  | iterators_of_expression (Exp.META _) = SymbolSet.empty
 
 fun simplify exp =
     Match.repeatApplyRewritesExp (Rules.getRules "simplification") exp

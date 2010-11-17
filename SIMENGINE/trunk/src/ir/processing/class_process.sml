@@ -1617,6 +1617,7 @@ fun assignCorrectScope (class: DOF.class) =
 	    in
 		Util.uniquify (map iter2baseiter (iterators_as_values @ iterators_assigned))
 	    end
+	    handle e => DynException.checkpoint "ClassProcess.assignCorrectScope.output_to_iterators" e
 
 	(* reduce iterators down to one or none *)
 	fun reduce_iterators _ [] = NONE
@@ -1667,6 +1668,7 @@ fun assignCorrectScope (class: DOF.class) =
 						 (e2ps (Exp.TERM name)) ^ "["^(Symbol.name (StdFun.hd iters))^"]."));
 		     DynException.setErrored())
 	    end
+	    handle e => DynException.checkpoint "ClassProcess.assignCorrectScope.reduce_iterators" e
 
 	fun apply_iterator_to_output output iter_sym = 
 	    let
@@ -1675,13 +1677,16 @@ fun assignCorrectScope (class: DOF.class) =
 	    in
 		DOF.Output.make {name=name', inputs=inputs, contents=contents, condition=condition}
 	    end	
+	    handle e => DynException.checkpoint "ClassProcess.assignCorrectScope.apply_iterator_to_output" e
+
 
 	val outputs' = 
 	    let
 		fun output_to_iterator out =
-		    case reduce_iterators out (output_to_iterators out) of
+		    (case reduce_iterators out (output_to_iterators out) of
 			SOME iter_sym => iter_sym
-		      | NONE => Symbol.symbol "always"
+		      | NONE => Symbol.symbol "always")
+		    handle e => DynException.checkpoint "ClassProcess.assignCorrectScope.output_to_iterator" e
 	    in
 		map 
 		    (fn(out)=> 

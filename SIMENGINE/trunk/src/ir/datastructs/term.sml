@@ -140,9 +140,15 @@ fun sym2str pretty (s, props) =
 		else 
 		    n
 
-	val space =  Property.getSpace props
-	val space_str = "<<" ^ (Space.toString space) ^ ">>" 
-	val n = n ^ space_str
+	val n = if DynamoOptions.isFlagSet "logspaces" then
+		    let
+			val space =  Property.getSpace props
+			val space_str = "<<" ^ (Space.toString space) ^ ">>" 
+		    in 
+			n ^ space_str
+		    end
+		else
+		    n
     in
 	if order < 0 then (* integral *)
 	    "Int(" ^ n ^ iters ^ ",["^(String.concatWith "," (map Symbol.name vars))^"])"
