@@ -124,9 +124,15 @@ s = Suite('Sub Referencing Read Tests');
 
 a = ones(11,5);
 a(1,:) = 0:4;
-exp_output = struct('x', cumsum(a, 1));
-s.add(Test('SubReferenceReadScalar', @()(simex('models_VectorizedTests/SubRefTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+x = cumsum(a, 1);
+exp_output = struct('x', x);
+s.add(Test('SubReferenceReadScalars', @()(simex('models_VectorizedTests/SubRefTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
+exp_output = struct('lower', x(:,1:3), 'upper', [x(:,1) x(:,4:5)]);
+s.add(Test('SubReferenceReadIntervals', @()(simex('models_VectorizedTests/SubRefTest2.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+
+exp_output = struct('explict', x, 'implicit', x, 'none', x(:,1));
+s.add(Test('SubReferenceReadFullAndEmpty', @()(simex('models_VectorizedTests/SubRefTest3.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
 end
 

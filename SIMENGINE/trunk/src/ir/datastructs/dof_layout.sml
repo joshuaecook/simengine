@@ -78,11 +78,12 @@ and equation_to_layout e =
 	if ExpProcess.isInstanceEq e orelse ExpProcess.isOutputEq e then
 	    let
 		val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst e
+		val space = bracket (Space.toLayout (InstProps.getSpace props))
 	    in
 		mayAlign [prefix, 
-			  indent (seq [bracket (Space.toLayout (InstProps.getSpace props)),
-				       s2l ": ", 
-				       e2l e], 2)]
+			  indent (seq (space::
+				       [s2l ": ", 
+					e2l e]), 2)]
 	    end
 	else
 	    mayAlign [prefix,
@@ -90,15 +91,24 @@ and equation_to_layout e =
     end
     handle e => DynException.checkpoint "DOFLayout.equation_to_layout" e
 
-and output_to_layout output = seq [e2l (Exp.TERM (DOF.Output.name output)),
-				   bracket (Space.toLayout (ExpSpace.expToSpace (Exp.TERM (DOF.Output.name output)))),
-				   s2l " = ",
-				   contents2layout (DOF.Output.contents output),
-				   s2l " when ",
-				   e2l (DOF.Output.condition output),
-				   s2l " ",
-				   curlyList (map (e2l o Exp.TERM) (!(DOF.Output.inputs output)))]
-
+and output_to_layout output = 
+    let
+	val space = if DynamoOptions.isFlagSet "logspaces" then
+			[] (* we log as part of terms, so this is redundant *)
+		    else
+			[bracket (Space.toLayout (ExpSpace.expToSpace (Exp.TERM (DOF.Output.name output))))]
+			
+    in
+	seq ([e2l (Exp.TERM (DOF.Output.name output))] @
+	     space @
+	     [s2l " = ",
+	      contents2layout (DOF.Output.contents output),
+	      s2l " when ",
+	      e2l (DOF.Output.condition output),
+	      s2l " ",
+	      curlyList (map (e2l o Exp.TERM) (!(DOF.Output.inputs output)))])
+    end
+	     
 fun model_to_layout (model: DOF.model) =
     let
 	val prevModel = CurrentModel.getCurrentModel()

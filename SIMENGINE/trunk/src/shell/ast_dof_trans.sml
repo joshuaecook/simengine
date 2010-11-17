@@ -104,11 +104,36 @@ and astexp_to_Iterator (POS (APPLY {func=(SYMBOL itersym), args=(TUPLE [VECTOR [
   | astexp_to_Iterator (i as LITERAL (CONSTREAL r)) = 
     (* case #4 - handle subscript references that look like y[0] or x[10] *)
     SubReference [astexp_to_Interval i]
+  | astexp_to_Iterator (i as (APPLY {func=(SYMBOL opsym), args=(TUPLE args)})) =
+    (* case #5 - handle ranges such as x[0:9] or y[10:-1:1] *)
+    SubReference [astexp_to_Interval i]
+  | astexp_to_Iterator (i as WILDCARD) =
+    (* case #6 - handle wildcards such as x[_] to mean all values *)
+    SubReference [astexp_to_Interval i]
+  | astexp_to_Iterator (i as UNIT) =
+    (* case #6 - handle nothing such as x[] to mean no values *)
+    SubReference [astexp_to_Interval i]
   | astexp_to_Iterator exp = (log_progs (exp_to_printer exp);
 			      error "invalid iterator";
 			      IteratorReference (Symbol.symbol "undefined", Iterator.RELATIVE 0))
   
 and astexp_to_Interval (LITERAL (CONSTREAL r)) = SubSpace.Indices [Real.floor r]
+  | astexp_to_Interval (exp as APPLY {func=(SYMBOL opsym), args=(TUPLE args)}) =
+    (case (Symbol.name opsym, args) of
+	 ("operator_tabulate", [LITERAL (CONSTREAL lower), 
+				LITERAL (CONSTREAL upper)]) => SubSpace.Interval {start=Real.floor lower,
+										  stop=Real.floor upper,
+										  step=if lower<upper then 1 else ~1}
+       | ("operator_tabulate", [LITERAL (CONSTREAL lower),
+				LITERAL (CONSTREAL step),
+				LITERAL (CONSTREAL upper)]) => SubSpace.Interval {start=Real.floor lower,
+										  stop=Real.floor upper,
+										  step=Real.floor step}
+       | (opstr, _) => (log_progs (exp_to_printer exp);
+			error "invalid iterator";
+			SubSpace.Empty))
+  | astexp_to_Interval WILDCARD = SubSpace.Full
+  | astexp_to_Interval UNIT = SubSpace.Empty
   | astexp_to_Interval exp = (log_progs (exp_to_printer exp);
 			      error "invalid iterator";
 			      SubSpace.Empty)
@@ -458,6 +483,26 @@ local
 	   | NONE => NONE)
       | lookupTable _ = NONE
 
+    fun DMLTableToSymbolTable (TABLE symexplist) =
+	foldl
+	    (fn((key,value),table)=> SymbolTable.enter (table, key, value))
+	    SymbolTable.empty
+	    symexplist
+      | DMLTableToSymbolTable _ = (except "non table to DMLTableToSymbolTable";
+				   SymbolTable.empty)
+
+    fun verifyOptions table optlist = 
+	let
+	    val allowed_options = SymbolSet.fromList (map Symbol.symbol optlist)
+	    val entered_keys = SymbolSet.fromList (SymbolTable.listKeys table)
+	    val diff = SymbolSet.difference (entered_keys, allowed_options)
+	in
+	    if SymbolSet.isEmpty diff then
+		()
+	    else
+		error ("unexpected settings applied to quantity " ^(SymbolSet.toStr diff))
+	end
+
     fun translate_input (INPUTDEF {name, quantity, settings, dimensions}) = 
 	let
 	    val default = case settings of 
@@ -498,30 +543,50 @@ local
       | translate_input _ = except "non-input"
     fun translate_output top_level inputNames (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = 
 	let
-	    val iterator = case settings of
-			       SOME settings => 
-			       (case lookupTable (settings, Symbol.symbol "iter") of
-				    SOME (SYMBOL sym) => SOME (sym, Iterator.RELATIVE 0)
-				  | SOME _ => (error ("unexpected non symbol parameter for iter property for output " ^ (Symbol.name name));
-					       NONE)
-				  | NONE => NONE)
+	    val settings_table = case settings of
+				     SOME settings => DMLTableToSymbolTable settings
+				   | NONE => SymbolTable.empty				     
+	    
+	    val iterator = case SymbolTable.look (settings_table, Symbol.symbol "iter") of
+			       SOME (SYMBOL sym) => SOME (sym, Iterator.RELATIVE 0)
+			     | SOME _ => (error ("unexpected non symbol parameter for iter property for output " ^ (Symbol.name name));
+					  NONE)
 			     | NONE => NONE
+						 
+	    val defaultOutputIterator = true
+	    val outputIterator = case SymbolTable.look (settings_table, Symbol.symbol "notime") of
+				      SOME (LITERAL (CONSTBOOL b)) => not b
+				    | SOME _ => (error ("unexpected non boolean parameter for notime property of output " ^ (Symbol.name name));
+						 defaultOutputIterator)
+				    | _ => defaultOutputIterator
+
+	    val defaultOutputAsStructure = true
+	    val outputAsStructure = case SymbolTable.look (settings_table, Symbol.symbol "structure") of
+				      SOME (LITERAL (CONSTBOOL b)) => not b
+				    | SOME _ => (error ("unexpected non boolean parameter for structure property of output " ^ (Symbol.name name));
+						 defaultOutputAsStructure)
+				    | _ => defaultOutputAsStructure
+
+	    (* make sure that no other settings were passed *)
+	    val _ = verifyOptions settings_table ["iter", "notime", "structure"]
 	in
-	    (DOF.Output.make {name=ExpProcess.exp2term (case iterator of
-							    SOME iter => ExpBuild.var_with_iter (name, iter)
-							  | NONE => ExpBuild.svar name),
-			      inputs=ref inputNames,
-			      contents=case quantity of 
-					   TUPLE t => if top_level then 
-							  (* we only support this right now at the top level model *)
-							  map astexp_to_Exp t
-						      else
-							  [error_exp("Output " ^ (Symbol.name name) ^ " was found to have multiple outputs.  Grouped outputs are only supported at the upper most level.")]
-					 | UNIT => []
-					 | q => [astexp_to_Exp q],
-			      condition=case condition of
-					    SOME c => astexp_to_Exp c
-					  | NONE => ExpBuild.bool true})
+	    (DOF.Output.make_full {name=ExpProcess.exp2term (case iterator of
+								 SOME iter => ExpBuild.var_with_iter (name, iter)
+							       | NONE => ExpBuild.svar name),
+				   inputs=ref inputNames,
+				   contents=case quantity of 
+						TUPLE t => if top_level then 
+							       (* we only support this right now at the top level model *)
+							       map astexp_to_Exp t
+							   else
+							       [error_exp("Output " ^ (Symbol.name name) ^ " was found to have multiple outputs.  Grouped outputs are only supported at the upper most level.")]
+					      | UNIT => []
+					      | q => [astexp_to_Exp q],
+				   condition=case condition of
+						 SOME c => astexp_to_Exp c
+					       | NONE => ExpBuild.bool true,
+				   outputIterator=outputIterator,
+				   outputAsStructure=outputAsStructure})
 	end
       | translate_output _ _ _ = except "non-output"
     fun translate_iterator (ITERATORDEF {name, value, settings=(SOME (TABLE settings))}) =

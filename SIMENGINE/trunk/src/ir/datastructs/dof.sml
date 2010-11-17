@@ -55,6 +55,10 @@ structure Output: sig
     val contents: output -> expression list
     val condition: output -> expression
 
+    (* properties of outputs *)
+    val outputIteratorFlag: output -> bool
+    val outputAsStructureFlag: output -> bool
+
     (* Returns an identical output with a new name. *)
     val rename: (term -> term) -> output -> output
     val renameInputs: (term -> term) -> output -> output
@@ -63,30 +67,54 @@ structure Output: sig
     val rewrite: (expression -> expression) -> output -> output
 
     val make: {name: term, inputs: term list ref, contents: expression list, condition: expression} -> output
+    val make_full: {name: term, inputs: term list ref, contents: expression list, condition: expression,
+		    outputIterator: bool, outputAsStructure: bool} -> output
 end = struct
 datatype output = 
 	 OUTPUT of {name: term,
 		    inputs: term list ref,
 		    contents: expression list,
-		    condition: expression}
+		    condition: expression,
+		    props: 
+		    (* outputIterator - return the iterator with the value, or return just the value *)
+		    {outputIterator: bool, 
+		     (* outputAsStructure - return the output as a structured quantity with the iterator separate from the value *)
+		     outputAsStructure: bool}}
 
-val make = OUTPUT
+fun make {name, inputs, contents, condition} = 
+    OUTPUT {name=name,
+	    inputs=inputs,
+	    contents=contents,
+	    condition=condition,
+	    props={outputIterator=true,
+		   outputAsStructure=false}}
+fun make_full {name, inputs, contents, condition, outputIterator, outputAsStructure} = 
+    OUTPUT {name=name,
+	    inputs=inputs,
+	    contents=contents,
+	    condition=condition,
+	    props={outputIterator=outputIterator,
+		   outputAsStructure=outputAsStructure}}
+    
 local fun attr f (OUTPUT x) = f x
 in
 val name = attr #name
 val inputs = attr #inputs
 val contents = attr #contents
 val condition = attr #condition
+val props = attr #props
+val outputIteratorFlag = attr (#outputIterator o #props)
+val outputAsStructureFlag = attr (#outputAsStructure o #props)
 end
 
 fun rename f output =
-    OUTPUT {name=f (name output), inputs=inputs output, contents=contents output, condition=condition output}
+    OUTPUT {name=f (name output), inputs=inputs output, contents=contents output, condition=condition output, props=props output}
 
 fun renameInputs f output =
-    OUTPUT {name=name output, inputs=ref (map f (!(inputs output))), contents=contents output, condition=condition output}
+    OUTPUT {name=name output, inputs=ref (map f (!(inputs output))), contents=contents output, condition=condition output, props=props output}
 
 fun rewrite f output =
-    OUTPUT {name=name output, inputs=inputs output, contents=map f (contents output), condition=f (condition output)}
+    OUTPUT {name=name output, inputs=inputs output, contents=map f (contents output), condition=f (condition output), props=props output}
 end (* structure Output *)
 
 structure Class: sig

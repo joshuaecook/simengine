@@ -125,7 +125,7 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
     end
   | exp2tersestr pretty (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
     let
-	val interval = Space.subspaceToStr subspace
+	val interval = SubSpace.toString subspace
     in
 	exp2tersestr pretty exp' ^ interval
     end
@@ -277,7 +277,7 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 					  (Matrix.toRows m))), 2)])
   | exp2terselayout pretty (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
     let
-	val interval = Space.subspaceToLayout subspace
+	val interval = SubSpace.toLayout subspace
     in
 	seq [exp2terselayout pretty exp', interval]
     end
@@ -395,7 +395,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
     end
   | exp2fullstr (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
     let
-	val interval = Space.subspaceToStr subspace
+	val interval = SubSpace.toString subspace
     in
 	"subsref(" ^ (exp2fullstr exp') ^ ", " ^ interval ^ ")"
     end

@@ -36,11 +36,6 @@ sig
     val fromMatrixDims : (int * int) -> space
     val fromVectorDim : int -> space
 
-    (* ------ Methods on SubSpaces ------*)
-    val subspaceToStr : subspace -> string        (* create a string representation for logging *)
-    val subspaceToLayout : subspace -> Layout.t   (* create a string representation for logging *)
-    val subspaceToJSON : subspace -> JSON.json    (* create the serialized json representation *)
-				     
 
 end
 structure Space: SPACE =
@@ -84,39 +79,36 @@ fun toLayout (Point (Tensor dims)) = label ("Tensor", bracketList (map int dims)
 end
 val toString  = Layout.toString o toLayout
 
-fun subspaceToStr subspace =
-    let
-	val i2s = Util.i2s
-	fun intervalToStr Empty = "_"
-	  | intervalToStr Full = ":"
-	  | intervalToStr (Interval (a,b)) = (i2s a) ^ ":" ^ (i2s b)
-	  | intervalToStr (Indices int_list) = "[" ^ (String.concatWith ", " (map i2s int_list)) ^ "]" 
-	  | intervalToStr (IntervalCollection (interval, subspace_list)) = "("^(intervalToStr interval)^", {"^ (String.concatWith ", " (map subspaceToStr subspace_list)) ^"})"
-
-	val interval_str = String.concatWith ", " (map intervalToStr subspace)
-    in
-	"[" ^ interval_str ^ "]"
-    end
-
-fun subspaceToLayout subspace =
-    let
-	open Layout
-	val int = str o Util.i2s
-	fun intervalToLayout Empty = str "_"
-	  | intervalToLayout Full = str ":"
-	  | intervalToLayout (Interval (a,b)) = seq[int a, str ":", int b]
-	  | intervalToLayout (Indices int_list) = bracketList (map int int_list)
-	  | intervalToLayout (IntervalCollection (interval, subspace_list)) = 
-	    parenList [intervalToLayout interval,
-		       curlyList (map subspaceToLayout subspace_list)]
-
-    in
-	bracketList (map intervalToLayout subspace)
-    end
-
 
 
 (* methods operating over spaces *)
+local
+    val i2r = Real.fromInt
+    val r2i = Real.floor
+in
+fun count(start, step, stop) = r2i(i2r (stop-start)/(i2r step))+1
+fun count_interval dim {start, step, stop} = 
+    if step = 0 then
+	(error "step size can not be zero"; 0)
+    else if step > 0 then
+	if start < 0 then
+	    (error "index must by 0 or greater"; 0)
+	else if stop >= dim then
+	    (error "index must be less than the dimension"; 0)
+	else if stop < start then
+	    (error "second index must be greater than or equal to the first index"; 0)
+	else
+	    count (start, step, stop)
+    else
+	if stop < 0 then
+	    (error "index must by 0 or greater"; 0)
+	else if start >= dim then
+	    (error "index must be less than the dimension"; 0)
+	else if start < stop then
+	    (error "first index must be greater than or equal to the second index when the step < 0"; 0)
+	else
+	    count (start, step, stop)		    
+end
 fun sub (space as (Point (Tensor dims))) subspace =
     if (length dims) = (length subspace) then
 	let
@@ -134,17 +126,10 @@ fun sub (space as (Point (Tensor dims))) subspace =
 		end
 	     *)
 	    val pairs = ListPair.zip (dims, subspace)
+
 	    fun pairToDim (dim, Empty) = 0
 	      | pairToDim (dim, Full) = dim
-	      | pairToDim (dim, Interval (a, b)) = 
-		if a < 0 then
-		    (error "index must by 0 or greater"; 0)
-		else if b >= dim then
-		    (error "index must be less than the dimension"; 0)
-		else if b < a then
-		    (error "second index must be greater than or equal to the first index"; 0)
-		else
-		    b - a + 1
+	      | pairToDim (dim, Interval (i as {start, step, stop})) = count_interval dim i
 	      | pairToDim (dim, Indices indices) =
 		if List.exists (fn(a)=>a < 0) indices then
 		    (error "indices must by 0 or greater"; 0)
@@ -187,17 +172,13 @@ fun sub (space as (Point (Tensor dims))) subspace =
 		in
 		(case interval of
 		     Empty => empty_space
-		   | Interval (a, b) => 
+		   | Interval (i as {start, step, stop}) => 
 		     let
-			 val indices = 
-			     if a < 0 then
-				 (error "index must by 0 or greater"; [])
-			     else if b >= dim then
-				 (error "index must be less than the dimension"; [])
-			     else if b < a then
-				 (error "second index must be greater than or equal to the first index"; [])
-			     else
-				 List.tabulate (b - a + 1, fn(x)=>x+a)
+			 val num_interval = count_interval dim i
+			 val indices = if num_interval = 0 then
+					   []
+				       else
+					   List.tabulate (num_interval, fn(x) => x*step + start)
 		     in
 			 filterSpaces indices
 		     end
@@ -301,23 +282,6 @@ fun multiply (space1, space2) =
 	   | _ => (error ("Do not know how to multiply space "^(toString space1)^" with "^(toString space2));
 		   space1)
 
-
-fun subspaceToJSON subspace =
-    let
-	open JSON
-	open JSONExtensions
-	fun intervalToJSON Empty = JSONType "Empty"
-	  | intervalToJSON Full = JSONType "Full"
-	  | intervalToJSON (Interval (a, b)) = JSONTypedObject ("Interval", array [int (IntInf.fromInt a), 
-										   int (IntInf.fromInt b)])
-	  | intervalToJSON (Indices int_list) = JSONTypedObject ("Indices", 
-								 array (map (int o IntInf.fromInt) int_list))
-	  | intervalToJSON (IntervalCollection (interval, subspace_list)) = 
-	    JSONTypedObject ("IntervalCollection", object [("interval", intervalToJSON interval),
-							   ("subspaces", array (map subspaceToJSON subspace_list))])
-    in
-	array (map intervalToJSON subspace)
-    end
 
 
 end

@@ -32,7 +32,7 @@ fun toJSON (Exp.FUN (operator, operands)) =
 
 and conversionToJSON (Exp.SUBREF (operand, subspace)) =
     JSONTypedObject ("Exp.SUBREF", object [("operand", toJSON operand),
-					   ("subspace", Space.subspaceToJSON subspace)])
+					   ("subspace", SubSpace.toJSON subspace)])
 
 and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
   | termToJSON (Exp.REAL r) = JSONTypedObject ("Exp.REAL", real r)
