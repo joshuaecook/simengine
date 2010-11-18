@@ -12,5 +12,5 @@ model (x) = StateMatrixTest1()
    end
 
    // Output definitions
-   output x = (x)
+   output x = (x) with {structure}
 end

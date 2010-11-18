@@ -3,6 +3,10 @@ sig
     
     (* given an exp, return the space *)
     val expToSpace : Exp.exp -> Space.space
+    (* same as above but logs a user error if a space exception occurs *)
+    val expToSpace_UserError: Exp.exp -> Space.space
+    (* same as above but returns a space option *)
+    val expToSpaceOption: Exp.exp -> Space.space option
 
     (* Space exception when space propagation fails *)
     exception SpaceException of {spaces: Space.space list, exp: Exp.exp}
@@ -79,6 +83,26 @@ fun expToSpace exp =
     handle SpaceException e => raise SpaceException e
 	 | _ => raise (SpaceException {exp=exp, spaces=[]})
 val _ = Inst.expToSpace := expToSpace
+
+(* adaption of expToSpace to throw user errors instead of exceptions*)
+fun expToSpace_UserError exp =
+    expToSpace exp
+    handle SpaceException {exp, spaces} => 
+	   (case (exp, spaces) of 
+		(Exp.TERM _, nil) => Logger.log_error (Printer.$("Invalid dimensions present in term: " ^ (ExpPrinter.exp2str exp)))
+	      | (Exp.CONVERSION (Exp.SUBREF (exp, subspace)), nil) => Logger.log_error (Printer.$("Invalid dimension when subreferencing "^(ExpPrinter.exp2str exp)^" by " ^ (SubSpace.toString subspace)))
+	      | (_, nil) => Logger.log_error (Printer.$("Invalid dimensions present in exp: " ^ (ExpPrinter.exp2str exp)))
+	      | (_, spaces) => Logger.log_error (Printer.SUB[Printer.$("Invalid dimensions present in arguments to expression"),
+							     Printer.SUB[Printer.$("Exp: " ^ (ExpPrinter.exp2str exp)),
+									 Printer.$("Dimensions: " ^ (Util.list2str Space.toString spaces))]]);
+	    DynException.setErrored();
+	    Space.emptyCollection)
+	 | e => raise e
+
+(* return NONE when an error occurs*)
+fun expToSpaceOption exp = 
+    SOME (expToSpace exp)
+    handle _ => NONE
 
 end
 

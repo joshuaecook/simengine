@@ -12,7 +12,7 @@ model (x) = OpTest2()
    end
 
    // Output definitions
-   output x = (x)
-   output t_x = (transpose(x))
-   output t_t_x = (transpose(transpose(x)))
+   output x = (x) with {structure}
+   output t_x = (transpose(x)) with {structure}
+   output t_t_x = (transpose(transpose(x))) with {structure}
 end

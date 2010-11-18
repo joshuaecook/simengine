@@ -57,6 +57,7 @@ fun toString subspace =
 		(i2s start) ^ ":" ^ (i2s stop)
 	    else
 		(i2s start) ^ ":" ^ (i2s step) ^ ":" ^ (i2s stop)
+	  | intervalToStr (Indices [int]) = i2s int
 	  | intervalToStr (Indices int_list) = "[" ^ (String.concatWith ", " (map i2s int_list)) ^ "]" 
 	  | intervalToStr (IntervalCollection (interval, subspace_list)) = "("^(intervalToStr interval)^", {"^ (String.concatWith ", " (map toString subspace_list)) ^"})"
 

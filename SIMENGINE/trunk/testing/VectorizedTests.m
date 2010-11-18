@@ -71,12 +71,12 @@ exp_output.transpose_x.values(:,:,2:11) = cumsum(ones(2,3,10),3);
 s.add(Test('Transpose Matrix', @()(simex('models_VectorizedTests/OpTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
 exp_output = struct('x', struct('time', 0:10, 'values', ones(4,11)), ...
-                    't_x', struct('time', 0:10, 'values', ones(1,4,11)), ...
+                    't_x', struct('time', 0:10, 'values', ones(11,4)), ...
                     't_t_x', struct('time', 0:10, 'values', ones(4,11)));
 exp_output.x.values(:,1) = 0:3;
 exp_output.x.values = cumsum(exp_output.x.values,2);
-exp_output.t_x.values(:,:,1) = (0:3)';
-exp_output.t_x.values = cumsum(exp_output.t_x.values,2);
+exp_output.t_x.values(1,:) = (0:3)';
+exp_output.t_x.values = cumsum(exp_output.t_x.values,1);
 exp_output.t_t_x.values = exp_output.x.values;  % same as original (t_t_x = (x')')
 s.add(Test('Transpose Vector', @()(simex('models_VectorizedTests/OpTest2.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
@@ -133,6 +133,25 @@ s.add(Test('SubReferenceReadIntervals', @()(simex('models_VectorizedTests/SubRef
 
 exp_output = struct('explict', x, 'implicit', x, 'none', x(:,1));
 s.add(Test('SubReferenceReadFullAndEmpty', @()(simex('models_VectorizedTests/SubRefTest3.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+
+% now for a two dimensional matrix subreferencing case
+M = reshape(1:9, 3, 3);
+V = ones(3,3,11);
+V(:,:,1) = M;
+V = cumsum(V, 3);
+exp_output = struct();
+exp_output.none = (0:10)';
+exp_output.all = V;
+exp_output.row1 = (reshape(V(1,:,:), 3, 11))';
+exp_output.row2 = (reshape(V(2,:,:), 3, 11))';
+exp_output.row3 = (reshape(V(3,:,:), 3, 11))';
+exp_output.col1 = reshape(V(:,1,:), 3, 11);
+exp_output.col2 = reshape(V(:,2,:), 3, 11);
+exp_output.col3 = reshape(V(:,3,:), 3, 11);
+exp_output.diag1 = (reshape([V(1,1,:), V(2,2,:), V(3,3,:)], 3, 11))';
+exp_output.diag2 = (reshape([V(1,3,:), V(2,2,:), V(3,1,:)], 3, 11))';
+exp_output.corners = V(1:2:3,1:2:3,:);
+s.add(Test('SubReferenceMatrix', @()(simex('models_VectorizedTests/SubRefTest4.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
 end
 

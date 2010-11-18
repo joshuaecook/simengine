@@ -138,11 +138,69 @@ and astexp_to_Interval (LITERAL (CONSTREAL r)) = SubSpace.Indices [Real.floor r]
 			      error "invalid iterator";
 			      SubSpace.Empty)
 
-and apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}= 
+and reference_to_Exp (r as {sym, args=[TABLE _]}) = (log_progs (exp_to_printer (REFERENCE r));
+						     error_exp "invalid table reference")
+  | reference_to_Exp {sym, args} =
+    let
+	val iterators = map astexp_to_Iterator args
+	val (iter_references, sub_references) = 
+	    foldl
+		(fn(iter, (iters, subs))=>
+		   case iter of
+		       IteratorReference i => (iters @ [i], subs)
+		     | SubReference s => (iters, subs @ [s]))
+		([],[])
+		iterators
+	val toSymbol = ExpBuild.svar
+	val toIterSymbol = ExpBuild.var_with_iter
+	val toSubref = ExpBuild.subref
+	val flatten_subspace = Util.flatten
+    in
+	case (iter_references, sub_references) of
+	    (* case #1: x[n], u[t[-1]], y[n-4] *)
+	    ([iter], nil) => toIterSymbol (sym, iter)
+	  (* case #2: x[n, 1:2], y[t, 4, _] *)
+	  | ([iter], subrefs) => toSubref (toIterSymbol (sym, iter), flatten_subspace subrefs)
+	  (* case #3: x[], y[] *)
+	  | (nil, nil) => toSymbol sym
+	  (* case #4: x[1:2], M[_,_] *)
+	  | (nil, subrefs) => toSubref (toSymbol sym, flatten_subspace subrefs)
+	  | (iters, _) => error_exp ("Symbol '"^(Symbol.name sym)^"' can only be defined with one temporal iterator")
+    end
+    
+
+and (*apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}= 
     (case astexp_to_Iterator arg of
 	 IteratorReference iter => ExpBuild.var_with_iter (sym, iter)
        | SubReference subspace => ExpBuild.subref (ExpBuild.svar sym, subspace))
-  | apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
+  | apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR args])}=
+    let
+	val iterators = map astexp_to_Iterator args
+	val (iter_references, sub_references) = 
+	    foldl
+		(fn(iter, (iters, subs))=>
+		   case iter of
+		       IteratorReference i => (iters @ [i], subs)
+		     | SubReference s => (iters, subs @ [s]))
+		([],[])
+		iterators
+	val toSymbol = ExpBuild.svar
+	val toIterSymbol = ExpBuild.var_with_iter
+	val toSubref = ExpBuild.subref
+	val flatten_subspace = Util.flatten
+    in
+	case (iter_references, sub_references) of
+	    (* case #1: x[n], u[t[-1]], y[n-4] *)
+	    ([iter], nil) => toIterSymbol (sym, iter)
+	  (* case #2: x[n, 1:2], y[t, 4, _] *)
+	  | ([iter], subrefs) => toSubref (toIterSymbol (sym, iter), flatten_subspace subrefs)
+	  (* case #3: x[], y[] *)
+	  | (nil, nil) => toSymbol sym
+	  (* case #4: x[1:2], M[_,_] *)
+	  | (nil, subrefs) => toSubref (toSymbol sym, flatten_subspace subrefs)
+	  | (iters, _) => error_exp ("Symbol '"^(Symbol.name sym)^"' can only be defined with one temporal iterator")
+    end
+  | *)apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
     ((case (Symbol.name sym) of
 	"operator_add" => builtin (Fun.ADD, args)
       | "operator_subtract" => builtin (Fun.SUB, args)
@@ -220,11 +278,13 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
   | astexp_to_Exp (LIBFUN _) = error_exp "LIBFUN"
   | astexp_to_Exp (LAMBDA _) = error_exp "LAMBDA"
   | astexp_to_Exp (APPLY {func, args}) = apply_to_Exp {func=func, args=args}
+  | astexp_to_Exp (REFERENCE r) = reference_to_Exp r
   | astexp_to_Exp (IFEXP {cond, ift, iff}) = builtin (Fun.IF, [cond, ift, iff])
-  | astexp_to_Exp (VECTOR v) = 
+  | astexp_to_Exp (exp as (VECTOR v)) = 
     let
 	val exps = map astexp_to_Exp v
-	val spaces = map ExpSpace.expToSpace exps
+	val spaces = List.mapPartial ExpSpace.expToSpaceOption exps
+	val spaces_determined = (List.length exps) = (List.length spaces)
 	fun allScalar () = 
 	    List.all Space.isScalar spaces
 	fun allEqual [] = false
@@ -234,12 +294,15 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
 	    List.all ExpProcess.isArray exps andalso
 	    allEqual spaces
     in
-	if allScalar () then
+	if spaces_determined andalso allScalar () then
 	    Container.arrayToExpArray (Container.listToArray exps)
-	else if allEqualArrays () then
+	else if spaces_determined andalso allEqualArrays () then
 	    Container.matrixToExpMatrix (Matrix.fromRows (Exp.calculus()) (Container.expListToArrayList exps))
 	else
-	    error_exp "Unsupported VECTOR"
+	    (* here, we just don't know what to do, so leave it as a vector *)
+	    Container.arrayToExpArray (Container.listToArray exps)	    
+	    (*(log_progs (exp_to_printer exp);
+	     error_exp "Unsupported VECTOR")*)
     end
   | astexp_to_Exp (TUPLE l) = Exp.CONTAINER (Exp.EXPLIST (map astexp_to_Exp l))
   | astexp_to_Exp (ASSERTION _) = error_exp "ASSERTION"
@@ -255,9 +318,11 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
   | astexp_to_Exp (FORGENERATOR _) = error_exp "FORGENERATOR"
   | astexp_to_Exp (FORALL _) = error_exp "FORALL"
   | astexp_to_Exp (EXISTS _) = error_exp "EXISTS"
-  | astexp_to_Exp (TABLE _) = error_exp "TABLE"
+  | astexp_to_Exp (exp as (TABLE _)) = (log_progs (exp_to_printer exp);
+					error_exp "TABLE")
   | astexp_to_Exp (LET _) = error_exp "LET"
-  | astexp_to_Exp (NAMEDPATTERN _) = error_exp "NAMEDPATTERN"
+  | astexp_to_Exp (exp as (NAMEDPATTERN _)) = (log_progs (exp_to_printer exp);
+					       error_exp "NAMEDPATTERN")
   | astexp_to_Exp (WILDCARD) = error_exp "NAMEDPATTERN"
   | astexp_to_Exp (RULEMATCH _) = error_exp "RULEMATCH"
 				      
@@ -323,7 +388,8 @@ and modelpart_to_printer (STM stm) = [$("Stm:"),
 												    SOME dimlist => [$("Dimensions: " ^ (Util.symlist2s dimlist))]
 												  | NONE => []) @
 											       (case settings of
-												    SOME e => [$("Settings: " ^ (ExpPrinter.exp2str (astexp_to_Exp e)))]
+												    SOME e => [$("Settings: "),
+													       SUB(exp_to_printer e)]
 												  | NONE => []) @
 											      (case condition of
 												   SOME c => [$("Condition: " ^ (ExpPrinter.exp2str (astexp_to_Exp c)))]
@@ -427,6 +493,9 @@ and exp_to_printer (LITERAL lit) = [$("Literal: " ^ (literal_to_string lit))]
 						SUB(exp_to_printer func)],
 					    SUB[$("args"),
 						SUB(exp_to_printer args)]]
+  | exp_to_printer (REFERENCE {sym, args}) = [$("Reference (sym=" ^ (Symbol.name sym) ^ ")"),
+					      SUB[$("args"),
+						  SUB(Util.flatmap exp_to_printer args)]]
   | exp_to_printer (IFEXP {cond, ift, iff}) = [$("Ifexp"),
 					       SUB[$("cond"),
 						   SUB(exp_to_printer cond)],
@@ -471,7 +540,10 @@ and exp_to_printer (LITERAL lit) = [$("Literal: " ^ (literal_to_string lit))]
 					 SUB(Util.flatmap (fn(sym, exp)=> [$(Symbol.name sym),
 									   SUB(exp_to_printer exp)]) symexplist)]
   | exp_to_printer (LET (sym, exp1, exp2)) = [$("Let")]
-  | exp_to_printer (NAMEDPATTERN (sym, exp)) = [$("NamedPattern")]
+  | exp_to_printer (NAMEDPATTERN (sym, exp)) = [$("NamedPattern"),
+						SUB[$("sym: " ^ (Symbol.name sym)),
+						    $("exp:"),
+						    SUB(exp_to_printer(exp))]]
   | exp_to_printer (WILDCARD) = [$("Wildcard")]
   | exp_to_printer (RULEMATCH {find, conds, replace}) = [$("Rulematch")]
 
@@ -607,6 +679,13 @@ local
 				   SolverProcess.name2solver (solver_sym, translate_table solver_settings)
 				 | SOME (_, APPLY {func=(SYMBOL solver_sym), args=(TUPLE [TABLE solver_settings])}) => 
 				   SolverProcess.name2solver (solver_sym, translate_table solver_settings)
+				 | SOME (_, POS (REFERENCE {sym=solver_sym, args=[TABLE solver_settings]}, _)) => 
+				   SolverProcess.name2solver (solver_sym, translate_table solver_settings)
+				 | SOME (_, REFERENCE {sym=solver_sym, args=[TABLE solver_settings]}) => 
+				   SolverProcess.name2solver (solver_sym, translate_table solver_settings)
+				 | SOME (_, REFERENCE {sym, args}) =>
+				   (error ("unexpected args with table in solver");
+				    Solver.default)
 				 | SOME (_, APPLY {func=(SYMBOL solver_sym), args}) => 
 				   (error ("unexpected args with table in solver");
 				    Solver.default)

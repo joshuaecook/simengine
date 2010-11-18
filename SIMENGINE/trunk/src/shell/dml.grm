@@ -326,35 +326,46 @@ lambda: lambdaapp (lambdaapp)
 lambdalist : lambda COMMA lambda ([lambda1, lambda2])
 	   | lambda COMMA lambdalist (lambda :: lambdalist)
 
-lambdaapp : lambdaapp aexp (Ast.POS(Ast.APPLY {func=lambdaapp, 
-						   args=case aexp of Ast.TUPLE _ => aexp 
-								   | Ast.UNIT => aexp
-								   | _ => Ast.TUPLE [aexp]}, 
-					lambdaappleft))
-	  | lambdaapp PERIOD ID (Ast.SEND {message=Symbol.symbol ID, object=lambdaapp})
-	  | lambdaapp PERIOD CLASS (Ast.SEND {message=Symbol.symbol "class", object=lambdaapp})
-	  | aexp (aexp)
-	  | LF ID aexp (Ast.LIBFUN (Symbol.symbol ID, aexp))
-	  | lambdaapp PLUS lambdaapp (callfun("operator_add", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp MINUS lambdaapp (callfun("operator_subtract", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp STAR lambdaapp (callfun("operator_multiply", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp SLASH lambdaapp (callfun("operator_divide", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp CARROT lambdaapp (callfun("power", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp PERCENT lambdaapp (callfun("operator_modulus", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp LT lambdaapp (callfun("operator_lt", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp LEQUAL lambdaapp (callfun("operator_le", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp GT lambdaapp (callfun("operator_gt", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp GEQUAL lambdaapp (callfun("operator_ge", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp EQ lambdaapp (callfun("operator_eq", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp NEQ lambdaapp (callfun("operator_ne", [lambdaapp1, lambdaapp2]))
-	  | MINUS lambdaapp %prec UMINUS(callfun("operator_neg", [lambdaapp]))
-	  | lambdaapp ELLIPSIS lambdaapp (callfun("operator_tabulate", [lambdaapp1, lambdaapp2]))
-	  | lambdaapp ticks (callfun("operator_deriv", [Ast.LITERAL(Ast.CONSTREAL (Real.fromInt ticks)), lambdaapp]))
-	  | aexp COLON aexp COLON aexp (callfun ("operator_tabulate", [aexp1, aexp2, aexp3]))
-	  | aexp COLON aexp (callfun ("operator_tabulate", [aexp1, aexp2]))
+(*lambdaapp : lambdaapp aexp (Ast.POS(Ast.APPLY {func=lambdaapp, 
+							     args=case aexp of Ast.TUPLE _ => aexp 
+									     | Ast.UNIT => aexp
+									     | _ => Ast.TUPLE [aexp]}, 
+						    lambdaappleft))*)
+lambdaapp: ID LPAREN lambda RPAREN (Ast.APPLY {func=Ast.SYMBOL (Symbol.symbol ID), 
+					       args=Ast.TUPLE [lambda]})
+	 | ID LPAREN RPAREN (Ast.APPLY {func=Ast.SYMBOL (Symbol.symbol ID), 
+					       args=Ast.TUPLE []})	
+	 | ID LPAREN lambdalist RPAREN (Ast.APPLY {func=Ast.SYMBOL (Symbol.symbol ID), 
+						   args=Ast.TUPLE lambdalist})
+	 | lambdaapp PERIOD ID (Ast.SEND {message=Symbol.symbol ID, object=lambdaapp})
+	 | lambdaapp PERIOD CLASS (Ast.SEND {message=Symbol.symbol "class", object=lambdaapp})
+	 | aexp (aexp)
+		(* matches 'a[1,2]' and 'x[n-4]' *)
+	 | ID LBRACE lambdapatternlist RBRACE (Ast.REFERENCE {sym=Symbol.symbol ID, 
+							      args=lambdapatternlist})
+		(* matches 'forwardeuler{dt=1}' *)
+	 | ID LCBRACE tableentries RCBRACE (Ast.REFERENCE {sym=Symbol.symbol ID,
+							   args=[Ast.TABLE tableentries]})
+	 | lambdaapp PLUS lambdaapp (callfun("operator_add", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp MINUS lambdaapp (callfun("operator_subtract", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp STAR lambdaapp (callfun("operator_multiply", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp SLASH lambdaapp (callfun("operator_divide", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp CARROT lambdaapp (callfun("power", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp PERCENT lambdaapp (callfun("operator_modulus", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp LT lambdaapp (callfun("operator_lt", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp LEQUAL lambdaapp (callfun("operator_le", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp GT lambdaapp (callfun("operator_gt", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp GEQUAL lambdaapp (callfun("operator_ge", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp EQ lambdaapp (callfun("operator_eq", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp NEQ lambdaapp (callfun("operator_ne", [lambdaapp1, lambdaapp2]))
+	 | MINUS lambdaapp %prec UMINUS(callfun("operator_neg", [lambdaapp]))
+	 | lambdaapp ELLIPSIS lambdaapp (callfun("operator_tabulate", [lambdaapp1, lambdaapp2]))
+	 | lambdaapp ticks (callfun("operator_deriv", [Ast.LITERAL(Ast.CONSTREAL (Real.fromInt ticks)), lambdaapp]))
+	 | aexp COLON aexp COLON aexp (callfun ("operator_tabulate", [aexp1, aexp2, aexp3]))
+	 | aexp COLON aexp (callfun ("operator_tabulate", [aexp1, aexp2]))
 
 conditions: lambda WHEN lambda COMMA conditions 
-	    (Ast.IFEXP {cond=lambda2, ift=lambda1, iff=conditions})
+		(Ast.IFEXP {cond=lambda2, ift=lambda1, iff=conditions})
 	  | lambda OTHERWISE (lambda)
 
 aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))

@@ -852,6 +852,17 @@ fun op2props optype =
 			 mathematica=("LinearSolve",PREFIX),
 			 expcost=basicOpCost,
 			 codomain=Codomain.linearSolveCodomain}
+      | CONCAT => {name="concat",
+			 operands=VARIABLE Exp.DONTCARE,
+			 precedence=1,
+			 commutative=false,
+			 associative=false,
+			 eval=empty_unary,
+			 text=("concat",PREFIX),
+			 C=("simEngine_library_concat",PREFIX),
+			 mathematica=("Join",PREFIX),
+			 expcost=basicOpCost,
+			 codomain=Codomain.concatCodomain}
 		      
 
 and eval exp = exp

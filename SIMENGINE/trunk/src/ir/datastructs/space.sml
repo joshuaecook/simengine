@@ -29,8 +29,10 @@ sig
 
     (* -------- Methods for Math --------*)
     val reduceCodomain : space -> space      (* replace the first dimension quantity from a space with a singleton *)
+    val isTensor : space -> bool
     val isMatrix : space -> bool
     val isVector : space -> bool
+    val toDims : space -> int list
     val toMatrixDims : space -> (int * int)
     val toVectorDim : space -> int
     val fromMatrixDims : (int * int) -> space
@@ -236,6 +238,12 @@ fun reduceCodomain (Point (Tensor [])) = scalar (* special case which causes the
   | reduceCodomain (Point (Tensor [dim])) = scalar
   | reduceCodomain (Point (Tensor (dim::dims))) = Point (Tensor (1::dims))
   | reduceCodomain (Collection _) = except "Can not perform a codomain reduction on a space collection"
+
+fun isTensor (Point (Tensor _)) = true
+  | isTensor _ = false
+
+fun toDims (Point (Tensor dims)) = dims
+  | toDims _ = except "unexpected non-tensor"
 
 fun isMatrix (Point (Tensor [x, y])) = true
   | isMatrix (Point _) = false

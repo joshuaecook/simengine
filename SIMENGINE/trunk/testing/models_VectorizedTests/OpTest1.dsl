@@ -12,6 +12,6 @@ model (x) = OpTest1()
    end
 
    // Output definitions
-   output x = (x)
-   output transpose_x = (transpose(x))
+   output x = (x) with {structure}
+   output transpose_x = (transpose(x)) with {structure}
 end
