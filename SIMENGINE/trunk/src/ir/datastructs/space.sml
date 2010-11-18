@@ -92,7 +92,7 @@ fun count_interval dim {start, step, stop} =
 	(error "step size can not be zero"; 0)
     else if step > 0 then
 	if start < 0 then
-	    (error "index must by 0 or greater"; 0)
+	    (error "index must be 0 or greater"; 0)
 	else if stop >= dim then
 	    (error "index must be less than the dimension"; 0)
 	else if stop < start then
@@ -101,7 +101,7 @@ fun count_interval dim {start, step, stop} =
 	    count (start, step, stop)
     else
 	if stop < 0 then
-	    (error "index must by 0 or greater"; 0)
+	    (error "index must be 0 or greater"; 0)
 	else if start >= dim then
 	    (error "index must be less than the dimension"; 0)
 	else if start < stop then
