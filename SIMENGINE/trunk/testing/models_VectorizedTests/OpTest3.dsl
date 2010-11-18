@@ -14,6 +14,6 @@ model (x) = OpTest3()
    end
 
    // Output definitions
-   output mul1 = (matrix_mul(x,y))
-   output mul2 = (matrix_mul(y,x))
+   output mul1 = (matrix_mul (x,y)) with {structure}
+   output mul2 = (matrix_mul (y,x)) with {structure}
 end

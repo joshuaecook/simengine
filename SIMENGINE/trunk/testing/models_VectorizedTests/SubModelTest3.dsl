@@ -27,6 +27,6 @@ model (x) = SubModelTest3()
    s.I = 0..4
    
    // Output definitions
-   output x = (s.x)
+   output x = (s.x) with {structure}
 
 end

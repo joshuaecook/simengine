@@ -13,5 +13,5 @@ model (x) = OpTest4()
    end
 
    // Output definitions
-   output x = (linear_solve(M,b))
+   output x = (linear_solve(M,b)) with {structure}
 end

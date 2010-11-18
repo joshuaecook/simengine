@@ -9,6 +9,7 @@ sig
     val transposeCodomain : transform
     val matrixMulCodomain : transform
     val linearSolveCodomain : transform
+    val concatCodomain : transform
 
 end
 structure Codomain : CODOMAIN = 
@@ -112,6 +113,28 @@ fun linearSolveCodomain [space1, space2] =
     end
   | linearSolveCodomain args = DynException.stdException (("There should be only two arguments for the linear_solve operation, instead found " ^ (i2s (List.length args))), "MathFunctionProperties.linearSolveCodomain", Logger.INTERNAL)
 
+fun concatCodomain spaces =
+    let
+	fun concatTwoSpaces (space1, space2) =
+	    if Space.isCollection space1 andalso Space.isCollection space2 then
+		Space.collection ((Space.separate space1) @ (Space.separate space2))
+	    else if Space.isCollection space1 then
+		Space.collection ((Space.separate space1) @ [space2])
+	    else if Space.isCollection space2 then
+		Space.collection (space1::(Space.separate space2))
+	    else if Space.isTensor space1 andalso Space.isTensor space2 then
+		Space.tensor ((Space.toDims space1) @ (Space.toDims space2))
+	    else
+		DynException.stdException (("Can not concatenate spaces with dimensions "^(Space.toString space1)^" and " ^ (Space.toString space2)),
+					      "MathFunctionProperties.concatDomain",
+					      Logger.INTERNAL)
+    in
+	case spaces of
+	    [] => Space.emptyCollection
+	  | [space] => space
+	  | [space1, space2] => concatTwoSpaces (space1, space2)
+	  | space1::rest => foldl (fn(sp2, sp1)=>concatTwoSpaces (sp1, sp2)) space1 rest
+    end
 
 
 end

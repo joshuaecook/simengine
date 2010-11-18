@@ -24,6 +24,6 @@ model (x) = SubModelTest1()
    submodel vector_x s
    
    // Output definitions
-   output x = (s.x)
+   output x = (s.x) with {structure}
 
 end
