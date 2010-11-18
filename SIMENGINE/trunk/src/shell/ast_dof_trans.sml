@@ -73,7 +73,7 @@ fun builtin (fcn,args) = Exp.FUN (Fun.BUILTIN fcn, map astexp_to_Exp args)
 			 handle e => DynException.checkpoint "AstDOFTrans.builtin" e
 
 (* astexp_to_Iterator - pulls out iterator references *)
-and astexp_to_Iterator (POS (APPLY {func=(SYMBOL itersym), args=(TUPLE [VECTOR [offsetexp]])}, _)) =
+and astexp_to_Iterator (REFERENCE {sym=itersym, args=[offsetexp]}) =
     (* case #1 - handles iterator references that look like x[t[-1]] or x[t[0]] *)
     (case offsetexp of
 	 LITERAL (CONSTREAL offset) => 
