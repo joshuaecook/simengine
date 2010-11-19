@@ -131,6 +131,8 @@ end
 fun sub (space as (Point (Tensor dims))) subspace =
     if (length dims) = (length subspace) then
 	let
+	    (* redefine because sub errors will cause SpaceExceptions in expToSpace *)
+	    val error = except
 	    (*
 	    val _ = 
 		let
@@ -167,6 +169,8 @@ fun sub (space as (Point (Tensor dims))) subspace =
 	except "Unexpected dimension mismatch"
   | sub (space as (Collection spaces)) subspace =
 	 let val dim = length spaces
+	     (* redefine because sub errors will cause SpaceExceptions in expToSpace *)
+	     val error = except
 	 in case (spaces, subspace) of
 		([], []) => empty_space
 	      | ([], _) => (error "can't subreference from an empty collection"; 
