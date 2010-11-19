@@ -169,7 +169,7 @@ s = Suite('Sub Referencing Assign Tests');
 base = ones(11,1) * (0:4);
 base(2:11,1) = ones(10,1);
 exp_output = cumsum(base, 1);
-s.add(Test('SubReferenceMatrix', @()(simex('models_VectorizedTests/SubAsgnTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+s.add(Test('SubAsgnVectorElements', @()(simex('models_VectorizedTests/SubAsgnTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
 
 end
