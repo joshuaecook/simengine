@@ -29,10 +29,11 @@ sig
     type subspace = interval list
 
     (* ------ Methods on SubSpaces ------*)
+    val equal : (subspace * subspace) -> bool (* verify equivalency for subspaces *)
     val toString : subspace -> string        (* create a string representation for logging *)
     val toLayout : subspace -> Layout.t   (* create a string representation for logging *)
     val toJSON : subspace -> JSON.json    (* create the serialized json representation *)
-				     
+
 end
 structure SubSpace : SUBSPACE =
 struct
@@ -46,6 +47,44 @@ datatype interval = Empty
 type subspace = interval list (* assumption is that the length of the interval list is equivalent
 			       * to the number of dimensions *)
 
+
+fun equal (subspace1, subspace2) = 
+    let
+	fun int_list_equal (l1, l2) = 
+	    (List.length l1) = (List.length l2) andalso
+	    let
+		val s1 = GeneralUtil.sort_compare (op <) l1
+		val s2 = GeneralUtil.sort_compare (op <) l2
+	    in
+		List.all (op =) (ListPair.zip (s1, s2))
+	    end
+
+	fun isEmpty (Empty) = true
+	  | isEmpty (Indices []) = true
+	  | isEmpty (Interval {step, ...}) = step = 0
+	  | isEmpty (IntervalCollection (i,_)) = isEmpty i
+	  | isEmpty _ = false
+
+	fun interval_equal (i1, i2) = 
+	    case (i1, i2) of
+		(Empty, Empty) => true
+	      | (Full, Full) => true
+	      | (Interval {start=start1, stop=stop1, step=step1},
+		 Interval {start=start2, stop=stop2, step=step2}) => start1 = start2 andalso
+								     stop1 = stop2 andalso
+								     step1 = step2
+	      | (Indices l1, Indices l2) => int_list_equal (l1, l2)
+	      | (IntervalCollection (i1, s1), 
+		 IntervalCollection (i2, s2)) => interval_equal (i1, i2) andalso
+						 (List.length s1) = (List.length s2) andalso
+						 (List.all equal (ListPair.zip (s1, s2)))
+	      | _ => (isEmpty i1) andalso (isEmpty i2)
+    in
+	if (List.length subspace1) = (List.length subspace2) then
+	    List.all interval_equal (ListPair.zip (subspace1, subspace2))
+	else
+	    false
+    end
 
 fun toString subspace =
     let
@@ -93,14 +132,17 @@ fun toJSON subspace =
 	open JSONExtensions
 	fun intervalToJSON Empty = JSONType "Empty"
 	  | intervalToJSON Full = JSONType "Full"
-	  | intervalToJSON (Interval {start, step, stop}) = JSONTypedObject ("Interval", array [int (IntInf.fromInt start), 
-												int (IntInf.fromInt step),
-												int (IntInf.fromInt stop)])
-	  | intervalToJSON (Indices int_list) = JSONTypedObject ("Indices", 
-								 array (map (int o IntInf.fromInt) int_list))
+	  | intervalToJSON (Interval {start, step, stop}) = 
+	    JSONTypedObject ("Interval", array [int (IntInf.fromInt start), 
+						int (IntInf.fromInt step),
+						int (IntInf.fromInt stop)])
+	  | intervalToJSON (Indices int_list) = 
+	    JSONTypedObject ("Indices", 
+			     array (map (int o IntInf.fromInt) int_list))
 	  | intervalToJSON (IntervalCollection (interval, subspace_list)) = 
-	    JSONTypedObject ("IntervalCollection", object [("interval", intervalToJSON interval),
-							   ("subspaces", array (map toJSON subspace_list))])
+	    JSONTypedObject ("IntervalCollection", 
+			     object [("interval", intervalToJSON interval),
+				     ("subspaces", array (map toJSON subspace_list))])
     in
 	array (map intervalToJSON subspace)
     end

@@ -17,7 +17,8 @@ datatype exp =
        | CONVERSION of conversion
 
      and conversion =
-	 SUBREF of (exp * Space.subspace)
+	 SUBREF of (exp * SubSpace.subspace)
+       | RESHAPE of (exp * Space.space)
 		      
      and meta =
 	 LAMBDA of {arg:Symbol.symbol, body:exp}

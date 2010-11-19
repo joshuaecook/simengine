@@ -497,6 +497,20 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 			      Container.containerToElements c2)
 		else
 		    nil
+
+	      | (Exp.CONVERSION (Exp.SUBREF (exp1, subspace1)),
+		 Exp.CONVERSION (Exp.SUBREF (exp2, subspace2))) =>
+		 if SubSpace.equal (subspace1, subspace2) then
+		     exp_equivalent matchCandidates (exp1, exp2)
+		 else
+		     nil
+
+	      | (Exp.CONVERSION (Exp.RESHAPE (exp1, space1)),
+		 Exp.CONVERSION (Exp.RESHAPE (exp2, space2))) =>
+		 if Space.equal (space1, space2) then
+		     exp_equivalent matchCandidates (exp1, exp2)
+		 else
+		     nil
 		
 	      | (exp1, Exp.TERM (Exp.PATTERN p)) => 
 		pattern_equivalent matchCandidates (p, exp1) 

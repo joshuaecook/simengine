@@ -9,14 +9,26 @@ sig
     val expToSpaceOption: Exp.exp -> Space.space option
 
     (* Space exception when space propagation fails *)
-    exception SpaceException of {spaces: Space.space list, exp: Exp.exp}
+    datatype space_exception_type = 
+	     FunException of {spaces: Space.space list, exp: Exp.exp}
+	   | TermException of Exp.exp
+	   | SubRefException of {subspace: SubSpace.subspace, exp: Exp.exp}
+	   | ReshapeException of {orig_space: Space.space, new_space: Space.space, exp: Exp.exp}
+	   | UnknownException of Exp.exp
+    exception SpaceException of space_exception_type
 
 end
 structure ExpSpace : EXPSPACE =
 struct
 
 (* Space exception when space propagation fails *)
-exception SpaceException of {spaces: Space.space list, exp: Exp.exp}
+datatype space_exception_type = 
+	 FunException of {spaces: Space.space list, exp: Exp.exp}
+       | TermException of Exp.exp
+       | SubRefException of {subspace: SubSpace.subspace, exp: Exp.exp}
+       | ReshapeException of {orig_space: Space.space, new_space: Space.space, exp: Exp.exp}
+       | UnknownException of Exp.exp
+exception SpaceException of space_exception_type
 
 
 local
@@ -31,10 +43,13 @@ local
     val head = ExpTraverse.head
     val level = ExpTraverse.level
 
+    val e2s = ExpPrinter.exp2str
+    val s2s = Space.toString
+    val ss2s = SubSpace.toString
 in
 fun expToSpace exp =
     (case exp of
-	 Exp.TERM t => (case t of
+	 Exp.TERM t => ((case t of
 			    Exp.RATIONAL _ => scalar
 			  | Exp.INT _ => scalar
 			  | Exp.REAL _ => scalar
@@ -55,6 +70,7 @@ fun expToSpace exp =
 			  | Exp.NAN => scalar
 			  | Exp.PATTERN _ => scalar (* let's just support scalars here *)
 			  | Exp.STRING _ => scalar)
+			handle _ => raise SpaceException (TermException exp))
        | Exp.FUN (f,_) => 
 	 let
 	     val codomain = #codomain (FunProcess.fun2props f)
@@ -62,7 +78,7 @@ fun expToSpace exp =
 	 in
 	     (codomain spaces)
 	     handle SpaceException e => raise SpaceException e
-		  | _ => raise (SpaceException {exp=exp, spaces=spaces})
+		  | _ => raise (SpaceException (FunException {exp=exp, spaces=spaces}))
 	 end
        | Exp.CONTAINER c => (case c of
 				 Exp.MATRIX m => fromMatrixDims (Matrix.size m)
@@ -71,33 +87,58 @@ fun expToSpace exp =
 			       | Exp.EXPLIST exps => collection (map expToSpace exps))
        | Exp.CONVERSION c => (case c of
 				  Exp.SUBREF (exp', subspace) => 
-				  let
-				      val space' = expToSpace exp'
-				      (*val _ = Util.log ("space': " ^ (Space.toString space'))*)
-				      val space'' = sub space' subspace
-				      (*val _ = Util.log ("space'': " ^ (Space.toString space''))*)
-				  in
-				      space''
-				  end)
+				  (let
+				       val space' = expToSpace exp'
+				       (*val _ = Util.log ("space': " ^ (s2s space'))*)
+				       val space'' = sub space' subspace
+				   (*val _ = Util.log ("space'': " ^ (s2s space''))*)
+				   in
+				       space''
+				   end
+				   handle SpaceException e => raise (SpaceException e)
+					| e => raise (SpaceException (SubRefException {subspace=subspace,
+										       exp=exp'})))
+				| Exp.RESHAPE (exp', space) =>
+				  (let
+				       val space' = expToSpace exp'
+				       val _ = if (Space.size space) = (Space.size space') then
+						   ()
+					       else
+						   raise (SpaceException (ReshapeException {exp=exp', 
+											    orig_space=space', 
+											    new_space=space}))
+				   in
+				       space
+				   end
+				   handle SpaceException e => raise (SpaceException e))
+			     )
        | Exp.META _ => scalar (* have no idea what to do here... *))
     handle SpaceException e => raise SpaceException e
-	 | _ => raise (SpaceException {exp=exp, spaces=[]})
+	 | _ => raise (SpaceException (UnknownException exp))
 val _ = Inst.expToSpace := expToSpace
 
 (* adaption of expToSpace to throw user errors instead of exceptions*)
 fun expToSpace_UserError exp =
     expToSpace exp
-    handle SpaceException {exp, spaces} => 
-	   (case (exp, spaces) of 
-		(Exp.TERM _, nil) => Logger.log_error (Printer.$("Invalid dimensions present in term: " ^ (ExpPrinter.exp2str exp)))
-	      | (Exp.CONVERSION (Exp.SUBREF (exp, subspace)), nil) => Logger.log_error (Printer.$("Invalid dimension when subreferencing "^(ExpPrinter.exp2str exp)^" by " ^ (SubSpace.toString subspace)))
-	      | (_, nil) => Logger.log_error (Printer.$("Invalid dimensions present in exp: " ^ (ExpPrinter.exp2str exp)))
-	      | (_, spaces) => Logger.log_error (Printer.SUB[Printer.$("Invalid dimensions present in arguments to expression"),
-							     Printer.SUB[Printer.$("Exp: " ^ (ExpPrinter.exp2str exp)),
-									 Printer.$("Dimensions: " ^ (Util.list2str Space.toString spaces))]]);
+    handle SpaceException e =>
+	   ((case e of
+		TermException exp => 
+		Logger.log_error (Printer.$("Invalid dimensions present in term: " ^ (e2s exp)))
+	      | FunException {exp, spaces} => 
+		Logger.log_error (Printer.SUB[Printer.$("Invalid dimensions present in arguments to expression"),
+					      Printer.SUB[Printer.$("Exp: " ^ (e2s exp)),
+							  Printer.$("Dimensions: " ^ (Util.list2str s2s spaces))]])
+	      | SubRefException {exp, subspace} => 
+		Logger.log_error (Printer.$("Invalid dimension when subreferencing "^(e2s exp)^" by " ^ (ss2s subspace)))
+	      | ReshapeException {exp, orig_space, new_space} => 
+		Logger.log_error (Printer.$("Can not reshape "^(e2s exp)^" with dimension "^(s2s orig_space)^
+					    " to " ^ (s2s new_space)))
+	      | UnknownException exp => 
+		Logger.log_error (Printer.$("Invalid dimensions present in exp: " ^ (e2s exp)))
+	    );
 	    DynException.setErrored();
 	    Space.emptyCollection)
-	 | e => raise e
+	 | e => DynException.checkpoint ("ExpSpace.expToSpace ["^(e2s exp)^"]") e
 
 (* return NONE when an error occurs*)
 fun expToSpaceOption exp = 

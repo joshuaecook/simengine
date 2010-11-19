@@ -279,6 +279,7 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
   | astexp_to_Exp (LAMBDA _) = error_exp "LAMBDA"
   | astexp_to_Exp (APPLY {func, args}) = apply_to_Exp {func=func, args=args}
   | astexp_to_Exp (REFERENCE r) = reference_to_Exp r
+  | astexp_to_Exp (RESHAPE {space, exp}) = Exp.CONVERSION (Exp.RESHAPE (astexp_to_Exp exp, (dims2space o SOME) space))
   | astexp_to_Exp (IFEXP {cond, ift, iff}) = builtin (Fun.IF, [cond, ift, iff])
   | astexp_to_Exp (exp as (VECTOR v)) = 
     let
@@ -496,6 +497,9 @@ and exp_to_printer (LITERAL lit) = [$("Literal: " ^ (literal_to_string lit))]
   | exp_to_printer (REFERENCE {sym, args}) = [$("Reference (sym=" ^ (Symbol.name sym) ^ ")"),
 					      SUB[$("args"),
 						  SUB(Util.flatmap exp_to_printer args)]]
+  | exp_to_printer (RESHAPE {space, exp}) = [$("Reshape"),
+					     SUB($("space: " ^ (Space.toString (dims2space (SOME space))))::
+						 (exp_to_printer exp))]
   | exp_to_printer (IFEXP {cond, ift, iff}) = [$("Ifexp"),
 					       SUB[$("cond"),
 						   SUB(exp_to_printer cond)],

@@ -387,6 +387,8 @@ aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
     | LBRACE lambdapatternlist RBRACE (Ast.VECTOR lambdapatternlist)
     | LCBRACE tableentries RCBRACE (Ast.TABLE tableentries)
     | LCBRACE conditions RCBRACE (conditions)
+      (* @(space, exp) - for ex. @(tensor [10 10 10], 1..1000) *)
+    | AT LPAREN spacedef COMMA lambda RPAREN (Ast.RESHAPE {space=spacedef, exp=lambda})
 
 lambdapatternlist: (nil)
 		 | lambdapattern (lambdapattern :: nil)

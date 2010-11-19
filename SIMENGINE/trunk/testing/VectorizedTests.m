@@ -39,6 +39,14 @@ exp_output.x.values(:,1) = [0 1 2 3 4];
 exp_output.x.values = cumsum(exp_output.x.values, 2);
 s.add(Test('Vector State Output', @()(simex('models_VectorizedTests/StateVectorTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
+r = 1:1000;
+V = reshape(r, 10, 10, 10);
+values = ones(10,10,10,11);
+values(:,:,:,1) = V;
+values = cumsum(values, 4);
+exp_output.x = values;
+s.add(Test('Tensor State Output', @()(simex('models_VectorizedTests/StateTensorTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+
 end
 
 function s = VectorizedSubModelTests(target)

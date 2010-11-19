@@ -25,7 +25,7 @@ sig
     val equal : (space * space) -> bool      (* see if two spaces are equal *)
     val toLayout : space -> Layout.t         (* convert the space to a layout for debugging *)
     val toString : space -> string           (* convert the space to a string for debugging *)
-
+    val toJSON : space -> JSON.json          (* serialize the space to JSON format *)
 
     (* -------- Methods for Math --------*)
     val reduceCodomain : space -> space      (* replace the first dimension quantity from a space with a singleton *)
@@ -80,6 +80,23 @@ fun toLayout (Point (Tensor dims)) = label ("Tensor", bracketList (map int dims)
   | toLayout (Collection spaces) = label ("Collection", parenList (map toLayout spaces))
 end
 val toString  = Layout.toString o toLayout
+
+fun toJSON space =
+    let
+	open JSON
+	open JSONExtensions
+    in
+	case space of
+	    Point p =>
+	    JSONTypedObject ("Point", 
+			     case p of 
+				 Tensor dims => 
+				 JSONTypedObject ("Tensor", 
+						  array (map (int o IntInf.fromInt) dims)))
+	  | Collection spaces =>
+	    JSONTypedObject ("Collection",
+			     array (map toJSON spaces))
+    end
 
 
 
