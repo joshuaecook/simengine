@@ -129,7 +129,8 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
     in
 	exp2tersestr pretty exp' ^ interval
     end
-    
+  | exp2tersestr pretty (Exp.CONVERSION (Exp.RESHAPE (exp', space))) =
+    "@(" ^ (Space.toString space) ^ "," ^ (exp2tersestr pretty exp') ^ ")"
 
 local
 open Layout
@@ -281,6 +282,9 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
     in
 	seq [exp2terselayout pretty exp', interval]
     end
+  | exp2terselayout pretty (Exp.CONVERSION (Exp.RESHAPE (exp', space))) =
+    seq [str "@", parenList [Space.toLayout space,
+			     exp2terselayout pretty exp']]
 
 end
 
@@ -399,7 +403,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
     in
 	"subsref(" ^ (exp2fullstr exp') ^ ", " ^ interval ^ ")"
     end
-    
+  | exp2fullstr (Exp.CONVERSION (Exp.RESHAPE (exp', space))) =
+    "reshape("^(exp2fullstr exp')^", "^(Space.toString space)^")"
 
 fun exp2str e = 
     (if DynamoOptions.isFlagSet("usefullform") then

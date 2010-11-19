@@ -61,7 +61,7 @@ fun class_to_layout (class as {name, properties={sourcepos, preshardname, classf
 and equation_to_layout e = 
     let
 	val size = ExpProcess.exp2size e
-	    handle ExpSpace.SpaceException {exp=exp', spaces} => 
+	    handle ExpSpace.SpaceException e => 
 		   ((*Logger.log_error (Printer.$("Can not evaluate the size of '"^(e2s exp')^"' with spatial dimensions " ^ (Util.list2str Space.toString spaces)));
 		    DynException.setErrored();*)
 		    ~1)
@@ -96,7 +96,9 @@ and output_to_layout output =
 	val space = if DynamoOptions.isFlagSet "logspaces" then
 			[] (* we log as part of terms, so this is redundant *)
 		    else
-			[bracket (Space.toLayout (ExpSpace.expToSpace (Exp.TERM (DOF.Output.name output))))]
+			case ExpSpace.expToSpaceOption (Exp.TERM (DOF.Output.name output)) of
+			    SOME space => [bracket (Space.toLayout space)]
+			  | NONE => [bracket (str "SPACE ERRORED")]
 			
     in
 	seq ([e2l (Exp.TERM (DOF.Output.name output))] @

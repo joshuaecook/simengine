@@ -17,15 +17,8 @@ local
 						Logger.INTERNAL)
 
     val e2s = ExpPrinter.exp2str
-    fun expToSpace exp = ExpSpace.expToSpace exp
-	handle ExpSpace.SpaceException {exp=exp', spaces} => 
-	       (Logger.log_error (Printer.$("Can not evaluate the size of '"
-					    ^(e2s exp')
-					    ^"' with spatial dimensions "
-					    ^(Util.list2str Space.toString spaces)));
-		DynException.setErrored();
-		Space.emptyCollection)
-	     | e => DynException.checkpoint "ModelSpace.propagateSpaceThroughModel.expToSpace" e
+    fun expToSpace exp = ExpSpace.expToSpace_UserError exp
+	handle e => DynException.checkpoint "ModelSpace.propagateSpaceThroughModel.expToSpace" e
 
     (* function that given an exp and a space table, will use the term rewriter to 
      * replace all known symbols in the expression *)

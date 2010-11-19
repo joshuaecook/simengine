@@ -33,6 +33,10 @@ fun toJSON (Exp.FUN (operator, operands)) =
 and conversionToJSON (Exp.SUBREF (operand, subspace)) =
     JSONTypedObject ("Exp.SUBREF", object [("operand", toJSON operand),
 					   ("subspace", SubSpace.toJSON subspace)])
+  | conversionToJSON (Exp.RESHAPE (operand, space)) =
+    JSONTypedObject ("Exp.RESHAPE", object [("operand", toJSON operand),
+					    ("space", Space.toJSON space)])
+
 
 and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
   | termToJSON (Exp.REAL r) = JSONTypedObject ("Exp.REAL", real r)

@@ -80,6 +80,8 @@ fun normalize_with_env table exp =
 	    end
 	  | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) =>
 	    Exp.CONVERSION (Exp.SUBREF (normalize_with_env table exp', subspace))
+	  | Exp.CONVERSION (Exp.RESHAPE (exp', space)) =>
+	    Exp.CONVERSION (Exp.RESHAPE (normalize_with_env table exp', space))
     end
 
 fun normalize exp = normalize_with_env SymbolTable.empty exp

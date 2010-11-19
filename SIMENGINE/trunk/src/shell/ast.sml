@@ -41,6 +41,7 @@ datatype exp =
        | LAMBDA    of {args:Symbol.symbol list, body:exp}
        | APPLY     of {func:exp, args:exp}
        | REFERENCE of {sym: Symbol.symbol, args: exp list}
+       | RESHAPE   of {space: space, exp: exp}
        | IFEXP     of {cond: exp, ift: exp, iff: exp}
        | VECTOR    of exp list
        | TUPLE     of exp list

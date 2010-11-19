@@ -142,15 +142,19 @@ fun exp2termsymbols (Exp.FUN (_, exps)) =
     (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
   | exp2termsymbols (Exp.CONTAINER c) =
     Util.flatmap exp2termsymbols (Container.containerToElements c)
-  | exp2termsymbols (Exp.CONVERSION (Exp.SUBREF (exp, subspace))) = 
-    (* TODO: we must do a pairing down of this at some point *)
-    exp2termsymbols exp
+  | exp2termsymbols (Exp.CONVERSION c) =
+    (case c of 
+	 Exp.SUBREF (exp, subspace) =>
+	 (* TODO: we must do a pairing down of this at some point *)
+	 exp2termsymbols exp
+       | Exp.RESHAPE (exp, space) => exp2termsymbols exp)
   | exp2termsymbols _ = []
     
 fun exp2symbols (Exp.FUN (_, operands))		= Util.flatmap exp2symbols operands
   | exp2symbols (Exp.TERM term) 		= term2symbols term
   | exp2symbols (Exp.CONTAINER c)               = Util.flatmap exp2symbols (Container.containerToElements c)
-  | exp2symbols (Exp.CONVERSION c)              = (case c of Exp.SUBREF (exp, subspace) => exp2symbols exp)
+  | exp2symbols (Exp.CONVERSION c)              = (case c of Exp.SUBREF (exp, subspace) => exp2symbols exp
+							   | Exp.RESHAPE (exp, space) => exp2symbols exp)
   | exp2symbols _ 				= nil
 
 and term2symbols (Exp.SYMBOL (var, _)) 		= [var]
@@ -172,7 +176,8 @@ fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
 
 fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(Util.flatmap exp2fun_names exps)
   | exp2fun_names (Exp.CONTAINER c)         = Util.flatmap exp2fun_names (Container.containerToElements c)
-  | exp2fun_names (Exp.CONVERSION c)        = (case c of Exp.SUBREF (exp, subspace) => exp2fun_names exp)
+  | exp2fun_names (Exp.CONVERSION c)        = (case c of Exp.SUBREF (exp, subspace) => exp2fun_names exp
+						       | Exp.RESHAPE (exp, space) => exp2fun_names exp)
   | exp2fun_names _                         = []
 
 val uniqueid = ref 0
@@ -228,7 +233,11 @@ fun renameSym (orig_sym, new_sym) exp =
 	in
 	    Exp.CONTAINER c'
 	end
-      | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) => Exp.CONVERSION (Exp.SUBREF (renameSym (orig_sym, new_sym) exp', subspace))
+      | Exp.CONVERSION c =>
+	Exp.CONVERSION
+	    (case c of
+		 Exp.SUBREF (exp', subspace) => Exp.SUBREF (renameSym (orig_sym, new_sym) exp', subspace)
+	       | Exp.RESHAPE (exp', space) => Exp.RESHAPE (renameSym (orig_sym, new_sym) exp', space))
       | _ => exp
 
 fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
@@ -268,7 +277,11 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
 	in
 	    Exp.CONTAINER c'
 	end     
-      | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) => Exp.CONVERSION (Exp.SUBREF (renameInst syms exp', subspace))
+      | Exp.CONVERSION c =>
+	Exp.CONVERSION 
+	    (case c of 
+		 Exp.SUBREF (exp', subspace) => Exp.SUBREF (renameInst syms exp', subspace)
+	       | Exp.RESHAPE (exp', space) => Exp.RESHAPE (renameInst syms exp', space))
       | _ => exp
 
 fun log_exps (header, exps) = 
@@ -907,7 +920,8 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 
   | iterators_of_expression (Exp.CONVERSION c) =
     (case c of 
-	 Exp.SUBREF (exp', subspace) => iterators_of_expression exp')
+	 Exp.SUBREF (exp', subspace) => iterators_of_expression exp'
+       | Exp.RESHAPE (exp', space) => iterators_of_expression exp')
   | iterators_of_expression (Exp.META _) = SymbolSet.empty
 
 fun simplify exp =
