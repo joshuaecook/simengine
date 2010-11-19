@@ -726,13 +726,47 @@ local
 			  APPLY {func=(SYMBOL sym), args=(TUPLE arglist)} => 
 			  if sym = (Symbol.symbol "operator_deriv") then
 			      let
+				  fun prefix str sym = Symbol.symbol ("wr_" ^ (Symbol.name sym))
+				  fun add_deriv (Exp.TERM (Exp.SYMBOL (sym, props))) =
+				      (case SymbolTable.look (statetable, sym) of
+					  SOME iter_sym => 
+					  let
+					      val props' = case Property.getIterator props of
+							       SOME (iter_sym',_) => if iter_sym = iter_sym' then
+											 props
+										     else
+											 (error ("State '"^(Symbol.name sym)^
+												 "' has already beed defined with iterator '"^
+												 (Symbol.name iter_sym')^
+												 "'. Therefore, this state can not be redefined with iterator '"
+												 ^(Symbol.name iter_sym)^"'");
+											  props)
+							     | NONE => Property.setIterator props (iter_sym, Iterator.RELATIVE 0)
+					      val props'' = case Property.getDerivative props' of
+								SOME _ => except ("Unexpected iterator found on state '"^(Symbol.name sym)^"'")
+							      | NONE => Property.setDerivative props' (1, [iter_sym])
+					      val props''' = Property.setScope props'' (Property.WRITESTATE (prefix "wr_" iter_sym))
+					  in
+					      Exp.TERM (Exp.SYMBOL (sym, props'''))
+					  end
+					| NONE => (error ("State '"^(Symbol.name sym)^"' has not been properly defined");
+						   ExpBuild.svar sym))
+				    | add_deriv exp = (error ("Can not add a derivative to non symbol quantity: " ^ (ExpPrinter.exp2str exp));
+							exp)
+
 				  val (id) = case arglist of
-						 [LITERAL (CONSTREAL order), SYMBOL sym] => 
+						 [LITERAL (CONSTREAL order), arg] =>
 						 if Real.== (order, 1.0) then
-						     case SymbolTable.look (statetable, sym) of
-							 SOME iter_id => ExpBuild.diff_state_var (sym, iter_id)
-						       | NONE => (error ("State '"^(Symbol.name sym)^"' has not been properly defined");
-								  ExpBuild.svar sym)
+						     case arg of
+							 SYMBOL sym => add_deriv (ExpBuild.svar sym)
+						       | REFERENCE r => (case reference_to_Exp r of
+									     (exp as Exp.TERM (Exp.SYMBOL (sym, props))) => add_deriv exp
+									   | Exp.CONVERSION (Exp.SUBREF (exp, subspace)) => 
+									     Exp.CONVERSION (Exp.SUBREF (add_deriv exp, subspace))
+									   | exp => (error ("Can not add derivative to expression of type " ^ (ExpPrinter.exp2str exp));
+										     exp))
+						       | _ => (log_progs (exp_to_printer arg);
+							       error_exp "Unexpected non symbol or reference")							       
 						 else
 						     (error ("Derivative on variable '"^(Symbol.name sym)^"' on left-hand-side must be of order one");
 						      ExpBuild.svar sym)

@@ -25,6 +25,7 @@ val isSymbol : Exp.exp -> bool
 val isIterator : Exp.exp -> bool
 val isEquation : Exp.exp -> bool
 val isExpList : Exp.exp -> bool
+val isSubRef : Exp.exp -> bool
 val isArray : Exp.exp -> bool
 val isArrayEq : Exp.exp -> bool
 val isMatrix : Exp.exp -> bool
@@ -188,7 +189,9 @@ fun uniq(sym) =
 
 
 fun exp2term (Exp.TERM t) = t
+  | exp2term (Exp.CONVERSION (Exp.SUBREF (Exp.TERM t, _))) = t
   | exp2term exp = Exp.NAN before (Logger.log_warning (Printer.$ ("Can not convert expression '"^(e2s exp)^"' to a term, replacing with NaN")))
+
 fun term2exp t = Exp.TERM t
 
 fun renameSym (orig_sym, new_sym) exp =
@@ -341,6 +344,14 @@ fun isExpList exp =
 	Exp.CONTAINER (Exp.EXPLIST _) => true
       | _ => false
 
+fun isSubRef exp = 
+    case exp of
+	Exp.CONVERSION (Exp.SUBREF _) => true
+      | _ => false
+
+fun pruneSubRef (Exp.CONVERSION (Exp.SUBREF (exp,_))) = exp
+  | pruneSubRef exp = exp
+
 fun isArray exp =
     case exp of
 	Exp.CONTAINER (Exp.ARRAY _) => true
@@ -456,7 +467,7 @@ fun instOrigInstName inst =
 
 (* the lhs is something of the form of x'[t] *)
 fun isFirstOrderDifferentialTerm exp = 
-    case exp of
+    case pruneSubRef exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val derivative = Property.getDerivative props
@@ -476,7 +487,7 @@ fun isFirstOrderDifferentialEq exp =
 
 (* now difference equations of the form x[n+1] *)
 fun isNextVarDifferenceTerm exp = 
-    case exp of
+    case pruneSubRef exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
@@ -516,7 +527,7 @@ fun isPPEq exp =
     isNextPPTerm (lhs exp)
 *)
 fun isAlgebraicStateTermOfProcessType process exp =
-    case exp of
+    case pruneSubRef exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
@@ -546,7 +557,7 @@ fun isInProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.INPROCESS
 fun isPostProcessStateEq exp = isAlgebraicStateEqOfProcessType (SOME DOF.POSTPROCESS) exp
 
 fun isForwardReferencedContinuousTerm exp =
-    case exp of
+    case pruneSubRef exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
@@ -566,7 +577,7 @@ fun isForwardReferencedContinuousEq exp =
 
 
 fun isNextUpdateTerm exp =
-    case exp of
+    case pruneSubRef exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
@@ -584,20 +595,24 @@ fun isUpdateEq exp =
     isEquation exp andalso
     isNextUpdateTerm (lhs exp)
     
-fun isStateBufferTerm (Exp.TERM (Exp.SYMBOL (_, props))) =
-    (case Property.getScope props of
-	Property.READSYSTEMSTATE _ => true
-      | Property.READSTATE _ => true
-      | Property.WRITESTATE _ => true
-      | _ => false)
-  | isStateBufferTerm _ = false
+fun isStateBufferTerm exp =
+    case pruneSubRef exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	(case Property.getScope props of
+	     Property.READSYSTEMSTATE _ => true
+	   | Property.READSTATE _ => true
+	   | Property.WRITESTATE _ => true
+	   | _ => false)
+      | _ => false
 
-fun isReadStateTerm (Exp.TERM (Exp.SYMBOL (_, props))) =
-    (case Property.getScope props of
-	Property.READSYSTEMSTATE _ => true
-      | Property.READSTATE _ => true (* is the case for pre-process iterators when aggregated *)
-      | _ => false)
-  | isReadStateTerm _ = false
+fun isReadStateTerm exp =
+    case pruneSubRef exp of
+	Exp.TERM (Exp.SYMBOL (_, props)) =>
+	(case Property.getScope props of
+	     Property.READSYSTEMSTATE _ => true
+	   | Property.READSTATE _ => true (* is the case for pre-process iterators when aggregated *)
+	   | _ => false)
+      | _ => false
 
 fun isReadStateEq exp =
     isEquation exp andalso
@@ -608,7 +623,7 @@ fun isPattern (Exp.TERM(Exp.PATTERN _)) = true
 
 (* difference terms of the form x[n] *)
 fun isCurVarDifferenceTerm exp = 
-    case exp of
+    case pruneSubRef exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
@@ -624,7 +639,7 @@ fun isCurVarDifferenceTerm exp =
 
 (* anything of the form x[0] *)
 fun isInitialConditionTerm exp = 
-    case exp of
+    case pruneSubRef exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	let
 	    val iterators = Property.getIterator props
@@ -642,7 +657,7 @@ fun isInitialConditionEq exp =
 
 (* look for state equations of a particular iterator type *)
 fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
-    (case exp of
+    (case pruneSubRef exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
 	     val derivative = Property.getDerivative props
@@ -653,7 +668,7 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	 end
        | _ => false)
   | isStateTermOfIter (iter as (name, DOF.DISCRETE _)) exp =
-    (case exp of
+    (case pruneSubRef exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
 	     val derivative = Property.getDerivative props
@@ -673,7 +688,7 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
        | _ => false)
     
   | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.PREPROCESS, _))) exp =
-    (case exp of
+    (case pruneSubRef exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
 	     val iterators = Property.getIterator props
@@ -684,7 +699,7 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	 end
        | _ => false)
   | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.INPROCESS, _))) exp =
-    (case exp of
+    (case pruneSubRef exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
 	     val iterators = Property.getIterator props
@@ -695,7 +710,7 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	 end
        | _ => false)
   | isStateTermOfIter (iter as (name, DOF.ALGEBRAIC (DOF.POSTPROCESS, _))) exp =
-    (case exp of
+    (case pruneSubRef exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
 	     val iterators = Property.getIterator props
@@ -706,7 +721,7 @@ fun isStateTermOfIter (iter as (name, DOF.CONTINUOUS _)) exp =
 	 end
        | _ => false)
   | isStateTermOfIter (iter as (name, DOF.UPDATE _)) exp =
-    (case exp of
+    (case pruneSubRef exp of
 	 Exp.TERM (Exp.SYMBOL (_, props)) =>
 	 let
 	     val iterators = Property.getIterator props
@@ -749,7 +764,7 @@ fun isMatrixEq exp =
 fun isIntermediateTerm exp =
     let
 	val isIntermediate = 
-	    case exp of
+	    case pruneSubRef exp of
 		Exp.TERM (Exp.SYMBOL (_, props)) =>
 		let
 		    val derivative = Property.getDerivative props
@@ -789,7 +804,7 @@ fun isNonSupportedEq exp =
 	(error_no_return exp "Not an equation"; true)
 
 fun doesTermHaveIterator iter exp =
-    case exp of
+    case pruneSubRef exp of
 	Exp.TERM (Exp.SYMBOL (_, props)) =>
 	(case (Property.getIterator props) of
 	     SOME (sym, _) => sym=iter
@@ -865,7 +880,7 @@ fun exp2temporaliterator exp =
     (if isEquation exp then
 	 exp2temporaliterator (lhs exp)
      else
-	 case exp of 
+	 case pruneSubRef exp of 
 	     Exp.TERM (term as (Exp.SYMBOL (sym, props))) => 
 	     TermProcess.symbol2temporaliterator term
 	   | Exp.TERM (term as (Exp.TUPLE (termlist))) => 
@@ -1306,6 +1321,8 @@ fun updateTemporalIterator (iter as (iter_sym, iter_index)) (exp as Exp.TERM (t 
 	 Exp.TERM (Exp.SYMBOL (sym, props'))
      end
      handle e => DynException.checkpoint ("ExpProcess.updateTemporalIterator [exp="^(e2s exp)^", new_iter="^(Iterator.iterator2str iter)^"]") e)
+  | updateTemporalIterator iter (Exp.CONVERSION (Exp.SUBREF (exp,subspace))) = 
+    Exp.CONVERSION (Exp.SUBREF (updateTemporalIterator iter exp, subspace))
   | updateTemporalIterator iter _ = DynException.stdException("Non symbol encountered",
 							      "ExpProcess.updateTemporalIterator",
 							      Logger.INTERNAL)
@@ -1331,6 +1348,8 @@ fun renameTemporalIteratorForAggregating (before_iter_sym_list, after_iter_sym) 
 						else 
 						    exp (* not an iterator that matters *)
 	       | NONE => exp) (* does not have a temporal iterator *)
+      | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) =>
+	Exp.CONVERSION (Exp.SUBREF (renameTemporalIteratorForAggregating (before_iter_sym_list, after_iter_sym) exp', subspace))
       | _ => exp) (* not a symbol *)
     handle e => DynException.checkpoint "ExpProcess.renameTemporalIteratorForAggregating" e
 
@@ -1445,6 +1464,8 @@ fun assignCorrectScopeOnSymbol exp =
 			    DynException.setErrored();*)
 		 exp
 	 end
+       | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) =>
+	 Exp.CONVERSION (Exp.SUBREF (assignCorrectScopeOnSymbol exp', subspace))
        | _ => error exp "Unexpected expression found when assign correct scope - not a symbol")
     handle e => DynException.checkpoint "ExpProcess.assignCorrectScopeOnSymbol" e
 
