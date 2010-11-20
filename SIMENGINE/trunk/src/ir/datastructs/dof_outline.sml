@@ -127,7 +127,7 @@ fun error_no_return msg = DynException.stdException (msg, "DOFOutline", Logger.I
 
     fun exp_to_symbols_and_iterators exp =
 	let
-	    val terms = ExpProcess.exp2termsymbols exp
+	    val terms = ExpProcess.exp2freetermsymbols exp
 	    val syms = SymbolSet.fromList (map Term.sym2curname terms)
 	    val embedded_iterators = SymbolSet.fromList
 					 (map (fn(iter_sym, _)=>iter_sym)

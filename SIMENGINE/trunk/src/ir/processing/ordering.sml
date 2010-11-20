@@ -17,6 +17,7 @@ fun log message =
     else
 	()
 
+val exp2termsymbols = ExpProcess.exp2freetermsymbols (* sort only based on free variables *)
 
 fun orderEquations (model as (classes,top_instance,props)) = 
     app orderClassEquations classes
@@ -93,14 +94,14 @@ and orderClassEquations (class: DOF.class) =
 				 " with satisfied symbols " ^
 				 (SymbolSet.toStr satisfied) ^ ".")
 			val rhs_term_syms = 
-			    ExpProcess.exp2termsymbols (ExpProcess.rhs exp)
+			    exp2termsymbols (ExpProcess.rhs exp)
 		    in
 			if List.all (termSymbolIsSatisfied satisfied) rhs_term_syms then 
 			    let 
 				val _ = 
 				    log ("Equation " ^ (ExpPrinter.exp2str exp) ^ " is in order.")
 				val lhs_term_syms =
-				    ExpProcess.exp2termsymbols (ExpProcess.lhs exp)
+				    exp2termsymbols (ExpProcess.lhs exp)
 				val satisfied' = 
 				    SymbolSet.addList (satisfied, map Term.sym2symname lhs_term_syms)
 			    in
@@ -416,7 +417,7 @@ fun orderClass classMap (class:DOF.class) =
 					       | _ => false)
 	  | isRead _ = false
 
-	val readSyms = map Term.sym2curname (List.filter isRead (Util.flatmap (ExpProcess.exp2termsymbols o ExpProcess.rhs) exps))
+	val readSyms = map Term.sym2curname (List.filter isRead (Util.flatmap (exp2termsymbols o ExpProcess.rhs) exps))
 
 	val availSyms = (GeneralUtil.flatten (map (ExpProcess.exp2symbols o ExpProcess.lhs) (init_exps @ master_init_exps @ state_exps)))
 			@ (map (term2sym o DOF.Input.name) (!(#inputs class)))

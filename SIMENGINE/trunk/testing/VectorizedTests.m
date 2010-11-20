@@ -170,6 +170,7 @@ base = ones(11,1) * (0:4);
 base(2:11,1) = ones(10,1);
 exp_output = cumsum(base, 1);
 s.add(Test('SubAsgnVectorElements', @()(simex('models_VectorizedTests/SubAsgnTest1.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
+s.add(Test('SubAsgnNamedItervalElements', @()(simex('models_VectorizedTests/SubAsgnTest2.dsl', 10, target, '-fastcompile')), '-equal', exp_output));
 
 
 end
