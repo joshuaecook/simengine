@@ -67,7 +67,8 @@ fun typepattern_to_str (TYPE sym) = "Type '"^(Symbol.name sym)^"'"
   | typepattern_to_str (DONTCARE) = "DontCare"
 
 datatype subscript = IteratorReference of Iterator.iterator
-		   | SubReference of Space.subspace
+		   | SubReference of SubSpace.interval
+		   | NamedReference of (Symbol.symbol * subscript)
 
 fun builtin (fcn,args) = Exp.FUN (Fun.BUILTIN fcn, map astexp_to_Exp args)
 			 handle e => DynException.checkpoint "AstDOFTrans.builtin" e
@@ -103,16 +104,19 @@ and astexp_to_Iterator (REFERENCE {sym=itersym, args=[offsetexp]}) =
     IteratorReference (itersym, Iterator.RELATIVE 0)
   | astexp_to_Iterator (i as LITERAL (CONSTREAL r)) = 
     (* case #4 - handle subscript references that look like y[0] or x[10] *)
-    SubReference [astexp_to_Interval i]
+    SubReference (astexp_to_Interval i)
   | astexp_to_Iterator (i as (APPLY {func=(SYMBOL opsym), args=(TUPLE args)})) =
     (* case #5 - handle ranges such as x[0:9] or y[10:-1:1] *)
-    SubReference [astexp_to_Interval i]
+    SubReference (astexp_to_Interval i)
   | astexp_to_Iterator (i as WILDCARD) =
     (* case #6 - handle wildcards such as x[_] to mean all values *)
-    SubReference [astexp_to_Interval i]
+    SubReference (astexp_to_Interval i)
   | astexp_to_Iterator (i as UNIT) =
     (* case #6 - handle nothing such as x[] to mean no values *)
-    SubReference [astexp_to_Interval i]
+    SubReference (astexp_to_Interval i)
+  | astexp_to_Iterator (i as (NAMEDPATTERN (sym, exp))) =
+    (* case #7 - handle named spatial iterators, such as x[i=_] *)
+    NamedReference (sym, astexp_to_Iterator exp)
   | astexp_to_Iterator exp = (log_progs (exp_to_printer exp);
 			      error "invalid iterator";
 			      IteratorReference (Symbol.symbol "undefined", Iterator.RELATIVE 0))
@@ -148,7 +152,9 @@ and reference_to_Exp (r as {sym, args=[TABLE _]}) = (log_progs (exp_to_printer (
 		(fn(iter, (iters, subs))=>
 		   case iter of
 		       IteratorReference i => (iters @ [i], subs)
-		     | SubReference s => (iters, subs @ [s]))
+		     | SubReference s => (iters, subs @ [s])
+		     | NamedReference (sym, SubReference s) => (iters, subs @ [SubSpace.NamedInterval (sym, s)])
+		     | _ => except "NamedReference with IteratorReference")
 		([],[])
 		iterators
 	val toSymbol = ExpBuild.svar
@@ -160,11 +166,11 @@ and reference_to_Exp (r as {sym, args=[TABLE _]}) = (log_progs (exp_to_printer (
 	    (* case #1: x[n], u[t[-1]], y[n-4] *)
 	    ([iter], nil) => toIterSymbol (sym, iter)
 	  (* case #2: x[n, 1:2], y[t, 4, _] *)
-	  | ([iter], subrefs) => toSubref (toIterSymbol (sym, iter), flatten_subspace subrefs)
+	  | ([iter], subrefs) => toSubref (toIterSymbol (sym, iter), subrefs)
 	  (* case #3: x[], y[] *)
 	  | (nil, nil) => toSymbol sym
 	  (* case #4: x[1:2], M[_,_] *)
-	  | (nil, subrefs) => toSubref (toSymbol sym, flatten_subspace subrefs)
+	  | (nil, subrefs) => toSubref (toSymbol sym, subrefs)
 	  | (iters, _) => error_exp ("Symbol '"^(Symbol.name sym)^"' can only be defined with one temporal iterator")
     end
     
@@ -324,7 +330,7 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
   | astexp_to_Exp (LET _) = error_exp "LET"
   | astexp_to_Exp (exp as (NAMEDPATTERN _)) = (log_progs (exp_to_printer exp);
 					       error_exp "NAMEDPATTERN")
-  | astexp_to_Exp (WILDCARD) = error_exp "NAMEDPATTERN"
+  | astexp_to_Exp (WILDCARD) = error_exp "WILDCARD"
   | astexp_to_Exp (RULEMATCH _) = error_exp "RULEMATCH"
 				      
 
@@ -783,6 +789,17 @@ local
 	    val rhs = case optcond of
 			  SOME cond => ExpBuild.cond (astexp_to_Exp cond, rhs, lhs)
 			| NONE => rhs
+
+	    (* if there are any named intervals on the lhs, use them to construct a lambda around the rhs *)
+	    val named_intervals = case lhs of
+				      Exp.CONVERSION (Exp.SUBREF (_, subspace)) => 
+				      List.mapPartial (fn(interval) => case interval of 
+									   SubSpace.NamedInterval (sym, _) => SOME sym 
+									 | _ => NONE) subspace
+				    | _ => []
+	    val rhs = case named_intervals of
+			  [] => rhs (* there are none, so just return the rhs *)
+			| _ => ExpBuild.func (named_intervals, rhs)
 	in
 	    ExpBuild.equals (lhs, rhs)
 	end

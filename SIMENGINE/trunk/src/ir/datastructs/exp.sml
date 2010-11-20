@@ -21,8 +21,8 @@ datatype exp =
        | RESHAPE of (exp * Space.space)
 		      
      and meta =
-	 LAMBDA of {arg:Symbol.symbol, body:exp}
-       | APPLY of {func:exp, arg:exp}
+	 LAMBDA of {args: Symbol.symbol list, body:exp}
+       | APPLY of {func:exp, args: exp list}
        | MAP of {func:exp, args: exp}
        | SEQUENCE of exp list
 	 

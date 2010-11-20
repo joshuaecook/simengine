@@ -160,6 +160,7 @@ fun sub (space as (Point (Tensor dims))) subspace =
 		    length indices
 	      | pairToDim (dim, IntervalCollection _) =
 		(error "interval collections are not supported inside tensor spaces"; 0)
+	      | pairToDim (dim, NamedInterval (_, i)) = pairToDim (dim, i)
 	    val dims = map pairToDim pairs
 	    val dims' = List.filter (fn(d)=> d>0) dims
 	in
@@ -192,38 +193,42 @@ fun sub (space as (Point (Tensor dims))) subspace =
 			in
 			    recurse spaces'
 			end
-		in
-		(case interval of
-		     Empty => empty_space
-		   | Interval (i as {start, step, stop}) => 
-		     let
-			 val num_interval = count_interval dim i
-			 val indices = if num_interval = 0 then
-					   []
-				       else
-					   List.tabulate (num_interval, fn(x) => x*step + start)
-		     in
-			 filterSpaces indices
-		     end
-		   | Indices indices => 
-		     let
-			 val indices = 
-			     if List.exists (fn(a)=>a < 0) indices then
-				 (error "indices must by 0 or greater"; [])
-			     else if List.exists (fn(b) => b >= dim) indices then
-				 (error "indices must be less than dimension"; [])
+
+		    fun interval_to_space interal = 
+			case interval of
+			     Empty => empty_space
+			   | Interval (i as {start, step, stop}) => 
+			     let
+				 val num_interval = count_interval dim i
+				 val indices = if num_interval = 0 then
+						   []
+					       else
+						   List.tabulate (num_interval, fn(x) => x*step + start)
+			     in
+				 filterSpaces indices
+			     end
+			   | Indices indices => 
+			     let
+				 val indices = 
+				     if List.exists (fn(a)=>a < 0) indices then
+					 (error "indices must by 0 or greater"; [])
+				     else if List.exists (fn(b) => b >= dim) indices then
+					 (error "indices must be less than dimension"; [])
+				     else
+					 indices
+			     in
+				 filterSpaces indices
+			     end
+			   | Full => 
+			     if length subspace_list = dim then
+				 recurse spaces
 			     else
-				 indices
-		     in
-			 filterSpaces indices
-		     end
-		   | Full => 
-		     if length subspace_list = dim then
-			 recurse spaces
-		     else
-			 (error "when using full indexing, the interval list must be equal in size to the collection";
-			  space)
-		   | IntervalCollection _ => (error "unexpected interval collection"; space))
+				 (error "when using full indexing, the interval list must be equal in size to the collection";
+				  space)
+			   | IntervalCollection _ => (error "unexpected interval collection"; space)
+			   | NamedInterval (_, interval) => interval_to_space interval
+		in
+		    interval_to_space interval
 		end
 	      | (_, _) => (error "unexpected non interval collection indexing found in collection space";
 			 space)

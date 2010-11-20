@@ -43,6 +43,7 @@ fun level (exp) =
 	 (case c of 
 	      Exp.SUBREF (exp, subspace) => [exp]
 	    | Exp.RESHAPE (exp, space) => [exp])
+       | Exp.META (Exp.LAMBDA {args, body}) => [body]
       | _ => [])
     handle e => DynException.checkpoint ("ExpTraverse.level ["^(e2s exp)^"]") e
 
@@ -122,6 +123,9 @@ fun head (exp) =
 				| _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [RESHAPE]", Logger.INTERNAL))
 
 	)
+      | Exp.META (Exp.LAMBDA {args, body}) => (fn(all_args) => case all_args of
+								   [onearg] => Exp.META (Exp.LAMBDA {args=args, body=onearg})
+								 | _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [LAMBDA]", Logger.INTERNAL))
       | _ => (fn(args') => exp))
     handle e => DynException.checkpoint ("ExpTraverse.head ["^(e2s exp)^"]") e
 

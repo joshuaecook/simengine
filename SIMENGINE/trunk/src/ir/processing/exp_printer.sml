@@ -105,8 +105,8 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
   | exp2tersestr pretty (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map (exp2tersestr pretty) e)) ^ " :}"
-       | Exp.LAMBDA {arg, body} => "(lambda ("^(Symbol.name arg)^") " ^ (exp2tersestr pretty body) ^ ")"
-       | Exp.APPLY {arg, func} => "("^(exp2tersestr pretty func) ^ ")(" ^ (exp2tersestr pretty arg) ^ ")"
+       | Exp.LAMBDA {args, body} => "(lambda ("^(Util.symlist2s args)^") " ^ (exp2tersestr pretty body) ^ ")"
+       | Exp.APPLY {args, func} => "("^(exp2tersestr pretty func) ^ ")(" ^ (String.concatWith ", " (map (exp2tersestr pretty) args)) ^ ")"
        | _ => "<unresolved-meta>")
   | exp2tersestr pretty (Exp.CONTAINER container) =
     let
@@ -254,13 +254,13 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
   | exp2terselayout pretty (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => series ("{: ", " :}", ",") (map (exp2terselayout pretty) e)
-       | Exp.LAMBDA {arg, body} => 
+       | Exp.LAMBDA {args, body} => 
 	 paren (seq [s2l "lambda",
-		     paren (sym2l arg),
+		     parenList (map sym2l args),
 		     exp2terselayout pretty body])
-       | Exp.APPLY {arg, func} => 
+       | Exp.APPLY {args, func} => 
 	 seq [paren (exp2terselayout pretty func),
-	      paren (exp2terselayout pretty arg)]
+	      parenList (map (exp2terselayout pretty) args)]
        | _ => s2l "<unresolved-meta>")
   | exp2terselayout pretty (Exp.CONTAINER container) =
     (case container of
@@ -364,8 +364,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
   | exp2fullstr (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2fullstr e)) ^ " :}"
-       | Exp.LAMBDA {arg, body} => "(lambda ("^(Symbol.name arg)^") " ^ (exp2fullstr body) ^ ")"
-       | Exp.APPLY {arg, func} => "("^ (exp2fullstr func) ^ ")(" ^ (exp2fullstr arg) ^ ")"
+       | Exp.LAMBDA {args, body} => "(lambda ("^(Util.symlist2s args)^") " ^ (exp2fullstr body) ^ ")"
+       | Exp.APPLY {args, func} => "("^ (exp2fullstr func) ^ ")(" ^ (Util.list2str exp2fullstr args) ^ ")"
        | _ => "<unresolved-meta>")
   | exp2fullstr (Exp.CONTAINER container) =
     let

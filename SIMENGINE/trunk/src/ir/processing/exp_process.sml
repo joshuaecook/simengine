@@ -134,34 +134,11 @@ val level = ExpTraverse.level
 open Printer
 
 (* TODO: Refactor*)
-fun exp2termsymbols (Exp.FUN (_, exps)) = 
-    Util.flatmap exp2termsymbols exps
-  | exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
-  | exp2termsymbols (Exp.TERM (Exp.TUPLE terms)) = 
-    Util.flatmap (fn(t)=> exp2termsymbols (Exp.TERM t)) terms
-  | exp2termsymbols (Exp.TERM (Exp.COMPLEX (t1, t2))) =
-    (exp2termsymbols (Exp.TERM t1)) @ (exp2termsymbols (Exp.TERM t2))
-  | exp2termsymbols (Exp.CONTAINER c) =
-    Util.flatmap exp2termsymbols (Container.containerToElements c)
-  | exp2termsymbols (Exp.CONVERSION c) =
-    (case c of 
-	 Exp.SUBREF (exp, subspace) =>
-	 (* TODO: we must do a pairing down of this at some point *)
-	 exp2termsymbols exp
-       | Exp.RESHAPE (exp, space) => exp2termsymbols exp)
-  | exp2termsymbols _ = []
-    
-fun exp2symbols (Exp.FUN (_, operands))		= Util.flatmap exp2symbols operands
-  | exp2symbols (Exp.TERM term) 		= term2symbols term
-  | exp2symbols (Exp.CONTAINER c)               = Util.flatmap exp2symbols (Container.containerToElements c)
-  | exp2symbols (Exp.CONVERSION c)              = (case c of Exp.SUBREF (exp, subspace) => exp2symbols exp
-							   | Exp.RESHAPE (exp, space) => exp2symbols exp)
-  | exp2symbols _ 				= nil
+fun exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
+  | exp2termsymbols exp = Util.flatmap exp2termsymbols (level exp)
 
-and term2symbols (Exp.SYMBOL (var, _)) 		= [var]
-  | term2symbols (Exp.TUPLE terms) 		= Util.flatmap term2symbols terms
-  | term2symbols (Exp.COMPLEX (real, imag)) 	= (term2symbols real) @ (term2symbols imag)
-  | term2symbols _ 				= nil
+fun exp2symbols (Exp.TERM (Exp.SYMBOL (var, _))) = [var]
+  | exp2symbols exp = Util.flatmap exp2symbols (level exp)
 
 fun exp2symbol_names exp =
     let
@@ -174,12 +151,8 @@ fun exp2symbol_names exp =
 
 fun exp2symbolset exp = SymbolSet.fromList (exp2symbols exp)
     
-
 fun exp2fun_names (Exp.FUN (funtype, exps)) = (FunProcess.fun2name funtype)::(Util.flatmap exp2fun_names exps)
-  | exp2fun_names (Exp.CONTAINER c)         = Util.flatmap exp2fun_names (Container.containerToElements c)
-  | exp2fun_names (Exp.CONVERSION c)        = (case c of Exp.SUBREF (exp, subspace) => exp2fun_names exp
-						       | Exp.RESHAPE (exp, space) => exp2fun_names exp)
-  | exp2fun_names _                         = []
+  | exp2fun_names exp = Util.flatmap exp2fun_names (level exp)
 
 val uniqueid = ref 0
 
@@ -954,9 +927,9 @@ fun collect (symexp, exp) =
 				  | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
 
 	      fun subTerm exp repl_exp = 
-		  Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
+		  Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {args=[Symbol.symbol "term"], 
 										   body=exp}),
-							 arg=repl_exp}))
+							 args=[repl_exp]}))
 
 	      val collecter = {find=subTerm find symexp,
 			       test=test,
@@ -981,9 +954,9 @@ fun multicollect (symexps, exp) =
 				    | _ => DynException.stdException("Unexpected collect rule","Match.collect", Logger.INTERNAL)
 
 		fun subTerm exp repl_exp = 
-		    Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {arg=Symbol.symbol "term", 
+		    Normalize.normalize(Exp.META(Exp.APPLY{func=Exp.META(Exp.LAMBDA {args=[Symbol.symbol "term"], 
 										     body=exp}),
-							   arg=repl_exp}))
+							   args=[repl_exp]}))
 
 		val collecter = {find=subTerm find sym,
 				 test=test,

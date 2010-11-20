@@ -221,9 +221,10 @@ fun complex_logn (b, z) =
     end
 
 fun tuple l = Exp.TERM (Exp.TUPLE l)
-fun lambda (arg, body) = Exp.META(Exp.LAMBDA{arg=Symbol.symbol arg, body=body})
+fun lambda (args, body) = Exp.META(Exp.LAMBDA{args=map Symbol.symbol args, body=body})
+fun func (args, body) = Exp.META(Exp.LAMBDA{args=args, body=body})
 fun sequence (exps) = Exp.META(Exp.SEQUENCE exps)
-fun apply (func, arg) = Exp.META(Exp.APPLY{func=func, arg=arg})
+fun apply (func, args) = Exp.META(Exp.APPLY{func=func, args=args})
 fun map (func, args) = Exp.META(Exp.MAP{func=func, args=args})
 fun explist (args) = Exp.CONTAINER(Exp.EXPLIST args)
 
