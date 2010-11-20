@@ -130,14 +130,14 @@ and scopeToJSON Property.LOCAL =
   | scopeToJSON (Property.WRITESTATE name) = 
     JSONTypedObject ("Iterator.WRITESTATE", symbol name)
 
-and metaToJSON (Exp.LAMBDA {arg, body}) =
+and metaToJSON (Exp.LAMBDA {args, body}) =
     JSONTypedObject ("Exp.LAMBDA",
-		     object [("argument", symbol arg),
+		     object [("arguments", array (map symbol args)),
 			     ("body", toJSON body)])
-  | metaToJSON (Exp.APPLY {func, arg}) =
+  | metaToJSON (Exp.APPLY {func, args}) =
     JSONTypedObject ("Exp.APPLY",
 		     object [("function", toJSON func),
-			     ("arg", toJSON arg)])
+			     ("args", array (map toJSON args))])
   | metaToJSON (Exp.MAP {func, args}) =
     JSONTypedObject ("Exp.MAP",
 		     object [("function", toJSON func),

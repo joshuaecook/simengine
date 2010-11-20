@@ -23,6 +23,9 @@ sig
 	    * of the space collection.  Those intervals are then applied recursively to each space
 	    * in the collection.*)
 	   | IntervalCollection of (interval * interval list list)
+	   (* This is an inteval like x[i=_] where you are creating a generator function around 
+	    * x using the variable i as an index for each element. *)
+	   | NamedInterval of (Symbol.symbol * interval)
 
     (* the subspace is a list of intervals, with the assumption is that the length of the interval 
      * list is equivalent to the number of dimensions *)
@@ -44,6 +47,7 @@ datatype interval = Empty
 		  | Interval of {start: int, stop: int, step: int} (* this is all zero indexed *)
 		  | Indices of int list
 		  | IntervalCollection of (interval * interval list list)
+		  | NamedInterval of (Symbol.symbol * interval)
 type subspace = interval list (* assumption is that the length of the interval list is equivalent
 			       * to the number of dimensions *)
 
@@ -63,6 +67,7 @@ fun equal (subspace1, subspace2) =
 	  | isEmpty (Indices []) = true
 	  | isEmpty (Interval {step, ...}) = step = 0
 	  | isEmpty (IntervalCollection (i,_)) = isEmpty i
+	  | isEmpty (NamedInterval (_,i)) = isEmpty i
 	  | isEmpty _ = false
 
 	fun interval_equal (i1, i2) = 
@@ -78,6 +83,9 @@ fun equal (subspace1, subspace2) =
 		 IntervalCollection (i2, s2)) => interval_equal (i1, i2) andalso
 						 (List.length s1) = (List.length s2) andalso
 						 (List.all equal (ListPair.zip (s1, s2)))
+	      | (NamedInterval (sym1, i1), NamedInterval (sym2, i2)) =>
+		sym1 = sym2 andalso
+		interval_equal (i1, i2)
 	      | _ => (isEmpty i1) andalso (isEmpty i2)
     in
 	if (List.length subspace1) = (List.length subspace2) then
@@ -99,6 +107,7 @@ fun toString subspace =
 	  | intervalToStr (Indices [int]) = i2s int
 	  | intervalToStr (Indices int_list) = "[" ^ (String.concatWith ", " (map i2s int_list)) ^ "]" 
 	  | intervalToStr (IntervalCollection (interval, subspace_list)) = "("^(intervalToStr interval)^", {"^ (String.concatWith ", " (map toString subspace_list)) ^"})"
+	  | intervalToStr (NamedInterval (sym, interval)) = (Symbol.name sym) ^ "=" ^ (intervalToStr interval)
 
 	val interval_str = String.concatWith ", " (map intervalToStr subspace)
     in
@@ -120,6 +129,8 @@ fun toLayout subspace =
 	  | intervalToLayout (IntervalCollection (interval, subspace_list)) = 
 	    parenList [intervalToLayout interval,
 		       curlyList (map toLayout subspace_list)]
+	  | intervalToLayout (NamedInterval (sym, interval)) =
+	    seq [str (Symbol.name sym), str "=", intervalToLayout interval]
 
     in
 	bracketList (map intervalToLayout subspace)
@@ -130,6 +141,7 @@ fun toJSON subspace =
     let
 	open JSON
 	open JSONExtensions
+	fun symbol s = object [("$symbol", string (Symbol.name s))]
 	fun intervalToJSON Empty = JSONType "Empty"
 	  | intervalToJSON Full = JSONType "Full"
 	  | intervalToJSON (Interval {start, step, stop}) = 
@@ -143,6 +155,10 @@ fun toJSON subspace =
 	    JSONTypedObject ("IntervalCollection", 
 			     object [("interval", intervalToJSON interval),
 				     ("subspaces", array (map toJSON subspace_list))])
+	  | intervalToJSON (NamedInterval (sym, interval)) =
+	    JSONTypedObject ("NamedInterval",
+			     object [("id", symbol sym),
+				     ("interval", intervalToJSON interval)])
     in
 	array (map intervalToJSON subspace)
     end

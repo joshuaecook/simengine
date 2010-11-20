@@ -175,15 +175,15 @@ fun replaceSymbol (sym,repl_exp) exp : Exp.exp=
       | Exp.META (Exp.MAP {func, args} )
 	=> Exp.META (Exp.MAP {func= replaceSymbol (sym, repl_exp) func,
 			      args= replaceSymbol (sym, repl_exp) args})
-      | Exp.META (Exp.APPLY {func, arg}) 
+      | Exp.META (Exp.APPLY {func, args}) 
 	=> Exp.META (Exp.APPLY {func= replaceSymbol (sym, repl_exp) func,
-				arg= replaceSymbol (sym, repl_exp) arg})
-      | Exp.META (Exp.LAMBDA {arg, body})
-	=> if arg = sym then
+				args= map (replaceSymbol (sym, repl_exp)) args})
+      | Exp.META (Exp.LAMBDA {args, body})
+	=> if List.exists (fn(a)=> a = sym) args (*arg = sym*) then
 	       (* arg is a new binding for the name sym. *)
 	       exp
 	   else
-	       Exp.META (Exp.LAMBDA {arg=arg, body= replaceSymbol (sym, repl_exp) body})
+	       Exp.META (Exp.LAMBDA {args=args, body= replaceSymbol (sym, repl_exp) body})
       | _ => exp
 
 val replaceSymbol = Profile.wrap (replaceSymbol, Profile.alloc "Match.replaceSymbol")

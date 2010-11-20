@@ -49,29 +49,34 @@ fun normalize_with_env table exp =
 	    end
 	  | Exp.META m =>
 	    let
-		fun run argsym exp arg =
+		fun run argsyms exp args =
 		    let
-			val table' = SymbolTable.enter (table, argsym, arg)
+			val _ = if (List.length argsyms) = (List.length args) then
+				    ()
+				else
+				    DynException.stdException("Lists not the same length", "Normalize.normalize_with_env.run", Logger.INTERNAL)
+
+			val table' = foldl (fn((argsym, arg), table') => SymbolTable.enter (table', argsym, arg)) table (ListPair.zip (argsyms, args))
 		    in 
 			normalize_with_env table' exp
 		    end
 	    in
 		(case m of
-		     Exp.APPLY {func, arg} =>
+		     Exp.APPLY {func, args} =>
 		     (case normalize_with_env table func of
-			  Exp.META(Exp.LAMBDA {arg=argsym, body}) 
+			  Exp.META(Exp.LAMBDA {args=argsyms, body}) 
 			  => 
-			  run argsym body arg 
+			  run argsyms body args 
 			| _ => exp)
 
 		   | Exp.MAP {func, args} =>
 		     (case normalize_with_env table func of
-			  Exp.META(Exp.LAMBDA {arg=argsym, body}) 
+			  Exp.META(Exp.LAMBDA {args=argsyms, body}) 
 			  => 
 			  (case normalize_with_env table args of
 			       Exp.META(Exp.SEQUENCE exps) =>
-			       Exp.META(Exp.SEQUENCE (map (run argsym body) exps))
-			     | arg => run argsym body arg)
+			       Exp.META(Exp.SEQUENCE (map (fn(exp)=>run argsyms body [exp]) exps))
+			     | arg => run argsyms body [arg])
 			| _ => exp)				
      
 		   | Exp.LAMBDA _ =>
