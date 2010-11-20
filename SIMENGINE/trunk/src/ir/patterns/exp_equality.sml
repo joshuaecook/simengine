@@ -521,6 +521,13 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 	      | (Exp.META(Exp.SEQUENCE s1), Exp.META(Exp.SEQUENCE s2))
 		=> allEquiv exp_equivalent matchCandidates (s1, s2)
 
+	      | (Exp.META(Exp.LAMBDA {args=a1, body=b1}), Exp.META(Exp.LAMBDA {args=a2, body=b2}))
+		=> if (List.length a1) = (List.length a2) andalso
+		      List.all (fn(a,b)=> a=b) (ListPair.zip (a1, a2)) then
+		       exp_equivalent matchCandidates (b1, b2)
+		   else
+		       nil
+
 	      | _ => nil
 
     in

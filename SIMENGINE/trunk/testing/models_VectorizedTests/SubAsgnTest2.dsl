@@ -8,7 +8,7 @@ model (x) = SubAsgnTest2()
 
    // Differential equation definitions
    equations
-      x[i=_]' = i
+      x[i=_]' = i+1
    end
 
    // Output definitions

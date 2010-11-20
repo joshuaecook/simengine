@@ -342,7 +342,13 @@ fun repeatApplyRewritesExp rewrites exp =
 			     
 	    fun repeatApplyRewritesExp_helper limit rewrites exp =
 		if limit = 0 then
-		    (Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit) ^ " (expression: "^(ExpPrinter.exp2prettystr exp)^")"));
+		    (if DynamoOptions.isFlagSet "logrewrites" then
+			 Logger.log_warning(Printer.SUB[Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit)),
+							Printer.SUB[Printer.$("expression: "^(ExpPrinter.exp2prettystr exp)),
+								    Printer.$("rewrites: "),
+								    Printer.SUB(map (Printer.$ o Rewrite.rewrite2str) rewrites)]])
+		     else
+			 Logger.log_warning(Printer.$("Exceeded iteration limit of " ^ (i2s iter_limit)));
 		     exp)
 		else
 		    let

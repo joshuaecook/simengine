@@ -99,6 +99,7 @@ val exp2symbol : Exp.exp -> Symbol.symbol
 val exp2symbols : Exp.exp -> Symbol.symbol list
 val exp2symbolset: Exp.exp -> SymbolSet.set
 val exp2termsymbols : Exp.exp -> Exp.term list
+val exp2freetermsymbols : Exp.exp -> Exp.term list (* return only free vars (ignore those that are lambda args) *)
 val getLHSTerm : Exp.exp -> Exp.term (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
 val getLHSTerms : Exp.exp -> Exp.term list (* assuming exp is an equation, pulls out the symbol as a term from the lhs *)
 val getLHSSymbol : Exp.exp -> Symbol.symbol (* assuming exp is an equation, pulls out the symbol as just a symbol name *)
@@ -136,6 +137,19 @@ open Printer
 (* TODO: Refactor*)
 fun exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
   | exp2termsymbols exp = Util.flatmap exp2termsymbols (level exp)
+
+local
+    fun exp2freetermsymbols_helper ignored (Exp.TERM (s as Exp.SYMBOL (sym, _))) = if SymbolSet.member (ignored, sym) then
+										       []
+										   else
+										       [s]
+      | exp2freetermsymbols_helper ignored (Exp.META (Exp.LAMBDA {args, body})) = exp2freetermsymbols_helper (SymbolSet.addList (ignored, args)) body
+      | exp2freetermsymbols_helper ignored exp = Util.flatmap (exp2freetermsymbols_helper ignored) (level exp)
+in
+fun exp2freetermsymbols exp = 
+    exp2freetermsymbols_helper SymbolSet.empty exp
+end
+
 
 fun exp2symbols (Exp.TERM (Exp.SYMBOL (var, _))) = [var]
   | exp2symbols exp = Util.flatmap exp2symbols (level exp)
