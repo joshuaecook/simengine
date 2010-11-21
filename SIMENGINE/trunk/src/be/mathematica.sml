@@ -143,12 +143,20 @@ and term2mathematica_str (Exp.RATIONAL (n,d)) = "("^(i2s n) ^ "/" ^ (i2s d) ^ ")
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"Mathematica.exp2mathematica_str", Logger.INTERNAL)
 
 
+local
+open Layout
+in
 fun mexp2prog mexp = 
     case mexp of
-	MASSIGN {lhs,rhs} => $((text2str (mexp2prog lhs)) ^ " = " ^ (text2str (mexp2prog rhs)))
-      | MDELAYASSIGN {lhs,rhs} => $((text2str (mexp2prog lhs)) ^ " := " ^ (text2str (mexp2prog rhs)))
-      | MEXP exp => $(exp2mathematica_str exp)
-      | MBUILTIN {funname, args} => $(Symbol.name funname ^ "["^(String.concatWith ",\n" (map (text2str o mexp2prog) args))^"]")
+	MASSIGN {lhs,rhs} => seq [mexp2prog lhs, str " = " , mexp2prog rhs]
+				 (*$((text2str (mexp2prog lhs)) ^ " = " ^ (text2str (mexp2prog rhs)))*)
+      | MDELAYASSIGN {lhs,rhs} => seq [mexp2prog lhs, str " := " , mexp2prog rhs]
+      (*$((text2str (mexp2prog lhs)) ^ " := " ^ (text2str (mexp2prog rhs)))*)
+      | MEXP exp => str (exp2mathematica_str exp)
+      (*$(exp2mathematica_str exp)*)
+      | MBUILTIN {funname, args} => 
+	seq [str (Symbol.name funname), bracketList (map mexp2prog args)]
+	(*$(Symbol.name funname ^ "["^(String.concatWith ",\n" (map (text2str o mexp2prog) args))^"]")*)
       | MFUN {name,args} => 
 	let
 	    fun sym2pat sym = 
@@ -156,31 +164,43 @@ fun mexp2prog mexp =
 	    fun arg2str (asym, SOME default) = (sym2pat asym ^ ":" ^ (text2str (mexp2prog default)))
 	      | arg2str (asym, NONE) = sym2pat asym		
 	in
-	    $(sym2str name ^ "["^(String.concatWith "," (map arg2str args))^"]")
+	    seq [str (sym2str name), bracketList (map (str o arg2str) args)]
+	    (*$(sym2str name ^ "["^(String.concatWith "," (map arg2str args))^"]")*)
 	end
       | MREWRITE {mexp,rewrites} =>
 	let
-	    fun exps2rewrite (from,to) =
+	    (*fun exps2rewrite (from,to) =
 		(text2str (mexp2prog from)) ^ "->" ^
-		(text2str (mexp2prog to))
+		(text2str (mexp2prog to))*)
+	    fun exps2rewrite (from, to) =
+		seq [mexp2prog from, 
+		     str "->",
+		     mexp2prog to]
 	in
-	    $(text2str (mexp2prog mexp) ^ " /.\n{" ^ (String.concatWith "," (map exps2rewrite rewrites)) ^ "}")
+	    mayAlign [mexp2prog mexp,
+		      curlyList (map exps2rewrite rewrites)]
+	    (*$(text2str (mexp2prog mexp) ^ " /.\n{" ^ (String.concatWith "," (map exps2rewrite rewrites)) ^ "}")*)
 	end
       | MODULE {locals,exps,return} =>
 	SUB[$("Module["),
 	    (
 	     let 
-		 val local_prog : text = $("{"^(String.concatWith "," (map sym2str locals))^"},")
-		 val exp_progs : text list = map 
-						 (fn(e)=> case mexp2prog e of 
-							      $ str => $(str ^ ";")
-							    | SUB progs => SUB(progs @ [$(";")]))
-				     exps
+		 val local_prog : text =
+		     curlyList (map (str o sym2str) locals)
+			       (*$("{"^(String.concatWith "," (map sym2str locals))^"},")*)
+		 val exp_progs : text list = 
+		     map (fn(e)=>seq [mexp2prog e, str ";"]) exps
+			 (*map 
+			       (fn(e)=> case mexp2prog e of 
+					    $ str => $(str ^ ";")
+					  | SUB progs => SUB(progs @ [$(";")]))
+			       exps*)
 		 val return_prog : text = mexp2prog return
 	     in
 		 SUB([local_prog] @ exp_progs @ [return_prog])
 	     end
 	    ),
 	    $("]")]
+end
 
 end
