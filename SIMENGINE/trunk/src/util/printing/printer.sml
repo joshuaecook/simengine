@@ -1,56 +1,60 @@
-structure Printer =
+signature PRINTER = 
+sig
+
+type text = Layout.t
+val $ : string -> text
+val SUB : text list -> text
+(*datatype text = SUB of text list | $ of string*)
+
+val printtext : (IOUtil.outstream * text * int) -> unit
+val printtexts : (IOUtil.outstream * text list * int) -> unit
+val progs2file : (text list * string) -> unit
+val printLayout : Layout.t -> IOUtil.outstream -> unit
+val text2str : text -> string
+
+end
+structure Printer : PRINTER =
 struct
 
-datatype text = SUB of text list | $ of string
+type text = Layout.t
 
-fun text2str ($(str)) = 
-    str
-  | text2str (SUB(progs)) =
-    String.concatWith "\n" (map text2str progs)
+local
+open Layout
+in
+fun text2layout text = text
 
-fun takeWhile f nil = nil
-  | takeWhile f (x::xs) =
-    if f x then x :: (takeWhile f xs) else takeWhile f xs
+fun $ string = 
+    str string
+fun SUB texts = 
+    indent (align texts, 2)
 
+end
+
+
+fun text2str text =
+    Layout.toString (text2layout text)
 
 fun printLayout layout outstream =
     Layout.outputWidth (layout, 120, outstream)
 
-
-
-fun printtext (outstream, text, i) =
-    let
-	val indent_factor = 2
-
-	fun say str = TextIO.output(outstream, str)		      
-	    
-	fun sayln str = (say str; say "\n"; TextIO.StreamIO.flushOut (TextIO.getOutstream outstream))
-
-	fun ind n =
-	    let 
-		fun ind' (n) = 
-		    if n <= 0 then () else (say " "; ind' (n-1))
-	    in
-		ind' (n)
-	    end
-	    
-	fun indent n = 
-	    ind(n * indent_factor)
-
-    in
-	case text of 
-	    SUB texts => app (fn(text) => printtext (outstream, text, i+1)) texts
-	  | $ line => (indent i; sayln line)
+fun printtexts (outstream, texts, i) = 
+    let 
+	val l = Layout.align (map text2layout texts)
+	val l' = Layout.indent (l, i*2)
+    in 
+	printLayout l' outstream
     end
-    before TextIO.flushOut(outstream)
-(*    handle e => 
-	   (DynException.log ("Printer.printtext") e;
-	    raise e)*)
 
-fun printtexts (outstream, texts, i) =
-    app (fn(t) => printtext (outstream, t, i)) texts
+fun printtext (outstream, text, i) = 
+    let 
+	val l = text2layout text
+	val l' = Layout.indent (l, i*2)
+    in 
+	printLayout l' outstream
+    end
 
 
+	
 fun prog2file (text, filename) = 
     let
 	val outputstream = TextIO.openOut filename
