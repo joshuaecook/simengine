@@ -305,11 +305,11 @@ and simquantity_to_dof_exp quantity =
 	let val name = Symbol.symbol (exp2str (method "name" quantity))
 	    val arity
 	      = case (exp2int (method "min" quantity), exp2int (method "max" quantity))
-		 of (1, 1) => Pattern.ONE
-		  | (1, ~1) => Pattern.ONE_OR_MORE
-		  | (0, ~1) => Pattern.ZERO_OR_MORE
-		  | (x, y) => if x = y then Pattern.SPECIFIC_COUNT x
-			      else Pattern.SPECIFIC_RANGE (x, y)
+		 of (1, 1) => Exp.ONE
+		  | (1, ~1) => Exp.ONE_OR_MORE
+		  | (0, ~1) => Exp.ZERO_OR_MORE
+		  | (x, y) => if x = y then Exp.SPECIFIC_COUNT x
+			      else Exp.SPECIFIC_RANGE (x, y)
 	in
 	    Exp.TERM (Exp.PATTERN (name, PatternProcess.predicate_any, arity))
 	end

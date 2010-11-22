@@ -2,16 +2,25 @@ signature SPACE =
 sig
 
     (* a definition of a space - can be anything from a point space to being multi-dimensional *)
-    type space
+    (* there are four types of spaces *)
+    datatype space =
+	     Point of pointspace
+	   | Collection of space list
+	 (* comment these out until we are ready *)
+	 (*| Curve
+	   | Surface
+	   | Volume*)
 
-    (* a portion of a space that is specified during indexing *)
-    type subspace = SubSpace.subspace
+	 (* for a point space, there is a tensor or one based on a coordinate system *)
+	 and pointspace =
+	     Tensor of int list (* the int list is the dimensions *)
+         (* comment these out until we are ready *)
+         (*| Rectangular of {l: range, w: range, h: range}
+	   | Cylindrical of {rho: range, phi: range, z: range}
+	   | Spherical of {r: range, theta: range, phi: range}*)
 
 
     (* ------ Methods on Spaces ------*)
-    val sub : space -> subspace -> space     (* create a new space out of a subspace of an existing space *)
-    val empty : space -> subspace            (* create an empty subspace from an existing space *)
-    val full : space -> subspace             (* create a subspace encompassing the entire space *)
     val size : space -> int                  (* count the elements in the space *)
     val scalar : space                       (* construct a scalar space *)
     val isScalar : space -> bool             (* test to see if it's a scalar space *)
@@ -64,9 +73,6 @@ and pointspace =
 withtype range = {start: real, stop: real, steps: real}
 
 
-(* define a subspace as a listing of intervals *)
-open SubSpace
-
 fun except msg = DynException.stdException (msg, "Space", Logger.INTERNAL)
 fun error msg = (Logger.log_error (Printer.$ (msg)); DynException.setErrored())
 
@@ -100,144 +106,7 @@ fun toJSON space =
 
 
 
-(* methods operating over spaces *)
-local
-    val i2r = Real.fromInt
-    val r2i = Real.floor
-in
-fun count(start, step, stop) = r2i(i2r (stop-start)/(i2r step))+1
-fun count_interval dim {start, step, stop} = 
-    if step = 0 then
-	(error "step size can not be zero"; 0)
-    else if step > 0 then
-	if start < 0 then
-	    (error "index must be 0 or greater"; 0)
-	else if stop >= dim then
-	    (error "index must be less than the dimension"; 0)
-	else if stop < start then
-	    (error "second index must be greater than or equal to the first index"; 0)
-	else
-	    count (start, step, stop)
-    else
-	if stop < 0 then
-	    (error "index must be 0 or greater"; 0)
-	else if start >= dim then
-	    (error "index must be less than the dimension"; 0)
-	else if start < stop then
-	    (error "first index must be greater than or equal to the second index when the step < 0"; 0)
-	else
-	    count (start, step, stop)		    
-end
-fun sub (space as (Point (Tensor dims))) subspace =
-    if (length dims) = (length subspace) then
-	let
-	    (* redefine because sub errors will cause SpaceExceptions in expToSpace *)
-	    val error = except
-	    (*
-	    val _ = 
-		let
-		    val heading = Layout.heading
-		    val label = Layout.label
-		    val align = Layout.align
-		    val l = heading("Space.sub", 
-				    align[label("Space", toLayout space),
-					  label("SubSpace", subspaceToLayout subspace)])
-		in
-		    Layout.log l
-		end
-	     *)
-	    val pairs = ListPair.zip (dims, subspace)
-
-	    fun pairToDim (dim, Empty) = 0
-	      | pairToDim (dim, Full) = dim
-	      | pairToDim (dim, Interval (i as {start, step, stop})) = count_interval dim i
-	      | pairToDim (dim, Indices indices) =
-		if List.exists (fn(a)=>a < 0) indices then
-		    (error "indices must by 0 or greater"; 0)
-		else if List.exists (fn(b) => b >= dim) indices then
-		    (error "indices must be less than dimension"; 0)
-		else
-		    length indices
-	      | pairToDim (dim, IntervalCollection _) =
-		(error "interval collections are not supported inside tensor spaces"; 0)
-	      | pairToDim (dim, NamedInterval (_, i)) = pairToDim (dim, i)
-	    val dims = map pairToDim pairs
-	    val dims' = List.filter (fn(d)=> d>0) dims
-	in
-	    Point (Tensor dims')
-	end
-    else
-	except "Unexpected dimension mismatch"
-  | sub (space as (Collection spaces)) subspace =
-	 let val dim = length spaces
-	     (* redefine because sub errors will cause SpaceExceptions in expToSpace *)
-	     val error = except
-	 in case (spaces, subspace) of
-		([], []) => empty_space
-	      | ([], _) => (error "can't subreference from an empty collection"; 
-			    empty_space)
-	      | (_, []) => (error "index must have at least one dimension";
-			    space)
-	      | (_, [IntervalCollection (interval, subspace_list)]) => 
-		let
-		    fun recurse spaces' =
-			let
-			    val pairs = ListPair.zip (spaces', subspace_list)
-			in
-			    Collection (map (fn(space', subspace')=>  sub space' subspace') pairs)		 
-			end
-			    
-		    fun filterSpaces indices =
-			let
-			    val spaces' = map (fn(index)=> List.nth (spaces, index+1)) indices
-			in
-			    recurse spaces'
-			end
-
-		    fun interval_to_space interal = 
-			case interval of
-			     Empty => empty_space
-			   | Interval (i as {start, step, stop}) => 
-			     let
-				 val num_interval = count_interval dim i
-				 val indices = if num_interval = 0 then
-						   []
-					       else
-						   List.tabulate (num_interval, fn(x) => x*step + start)
-			     in
-				 filterSpaces indices
-			     end
-			   | Indices indices => 
-			     let
-				 val indices = 
-				     if List.exists (fn(a)=>a < 0) indices then
-					 (error "indices must by 0 or greater"; [])
-				     else if List.exists (fn(b) => b >= dim) indices then
-					 (error "indices must be less than dimension"; [])
-				     else
-					 indices
-			     in
-				 filterSpaces indices
-			     end
-			   | Full => 
-			     if length subspace_list = dim then
-				 recurse spaces
-			     else
-				 (error "when using full indexing, the interval list must be equal in size to the collection";
-				  space)
-			   | IntervalCollection _ => (error "unexpected interval collection"; space)
-			   | NamedInterval (_, interval) => interval_to_space interval
-		in
-		    interval_to_space interval
-		end
-	      | (_, _) => (error "unexpected non interval collection indexing found in collection space";
-			 space)
-	 end
 	 
-fun empty (Point (Tensor dims)) = []
-  | empty (Collection spaces) = [IntervalCollection (Empty, [])]
-fun full (Point (Tensor dims)) = map (fn(_)=>Full) dims
-  | full (Collection spaces) = [IntervalCollection (Full, map full spaces)]
 fun size (Point (Tensor dims)) = Util.prod dims
   | size (Collection spaces) = Util.sum (map size spaces)
 val scalar = Point (Tensor [1])

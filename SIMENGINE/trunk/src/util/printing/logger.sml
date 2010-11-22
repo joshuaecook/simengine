@@ -156,11 +156,16 @@ fun output_text outstream characterization messagetype message =
 	    
 	val mt = messagetype2str messagetype
 
+(*
 	val prefix = case c ^ mt of
 		       "" => []
 		     | prefix => [Printer.$(prefix ^ ": ")]
 
 	val text = Printer.SUB (prefix @ [message])
+*)
+	val text = case c ^ mt of
+		       "" => message
+		     | prefix => Layout.heading (prefix, message)
     in
 	Printer.printtext (outstream, text, ~1)
     end

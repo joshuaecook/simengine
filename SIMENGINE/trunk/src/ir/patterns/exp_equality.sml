@@ -199,7 +199,7 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 			Exp.TERM(Exp.PATTERN (sym, (predname,pred), patcount'))
 		in
 		    (case patcount of
-			 Pattern.ONE => 
+			 Exp.ONE => 
 			 (case SymbolTable.look(candidate, sym) of
 			      SOME e => (* match against a single, previously matched item *)
 			      map (fn(c) => 
@@ -214,7 +214,7 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 				    pattern')]
 			      else
 				  nil)
-		       | Pattern.ONE_OR_MORE => (* 1+ *)
+		       | Exp.ONE_OR_MORE => (* 1+ *)
 			 (case SymbolTable.look(candidate, sym) of
 			      SOME (Exp.META(Exp.SEQUENCE exps)) =>  (* previously matched sequence found *)
 			      (case openMatch of 
@@ -222,7 +222,7 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 				   if (length exps) > 0 andalso not (null (exp_equivalent [candidate] (element, List.nth(exps, 0)))) then
 				       [(candidate, 
 					 SOME (PRIORMATCH (sym, 1)),
-					 (rebuildPattern Pattern.ZERO_OR_MORE) :: pattern')]
+					 (rebuildPattern Exp.ZERO_OR_MORE) :: pattern')]
 				   else
 				       []
 				 | SOME (NEWMATCH s) => [] (* this isn't a valid case, since we cannot have a previous match on record AND be a new match of indeterminate length *)
@@ -231,7 +231,7 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
  			    | SOME e => (* previously matched single item found *)
 			      (case openMatch of 
 				   NONE =>  (* this is the beginning of a 1+ match against a single item, so it's equivalent to a ONE *)
-				   matchPattern element (candidate, NONE, (rebuildPattern Pattern.ONE) :: pattern')
+				   matchPattern element (candidate, NONE, (rebuildPattern Exp.ONE) :: pattern')
 				 | SOME (NEWMATCH s) => [] (* this isn't a valid case, since we cannot have a previous match on record AND be a new match of indeterminate length *)
 				 | SOME (PRIORMATCH (s, i)) => [](* this isn't a valid case, since the previous matched single item isn't a sequence *)
 			      )
@@ -239,10 +239,10 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 			      if pred element then
 				  [(SymbolTable.enter (candidate, sym, element),
 				    SOME (NEWMATCH sym),
-				    (rebuildPattern Pattern.ZERO_OR_MORE) :: pattern')]
+				    (rebuildPattern Exp.ZERO_OR_MORE) :: pattern')]
 			      else
 				  nil)
-		       | Pattern.ZERO_OR_MORE =>
+		       | Exp.ZERO_OR_MORE =>
 			 (case SymbolTable.look(candidate, sym) of
 			      SOME (Exp.META(Exp.SEQUENCE exps)) =>  (* previously matched sequence found *)
 			      (case openMatch of 
@@ -252,14 +252,14 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 				   else if (length exps) > 0 andalso not (null (exp_equivalent [candidate] (element, List.nth(exps, 0)))) then
 				       [(candidate, 
 					 SOME (PRIORMATCH (sym, 1)),
-					 (rebuildPattern Pattern.ZERO_OR_MORE) :: pattern')] (* we've matched previously, and it is a sequence we're going to start going through  *)
+					 (rebuildPattern Exp.ZERO_OR_MORE) :: pattern')] (* we've matched previously, and it is a sequence we're going to start going through  *)
 				   else
 				       []
 				 | SOME (NEWMATCH s) =>  (* we have matched some number of elements and are trying to match more *)
 				   (if pred element then
 					[(SymbolTable.enter (candidate, sym, Exp.META(Exp.SEQUENCE(exps @ [element]))),
 					  SOME (NEWMATCH sym),
-					  (rebuildPattern Pattern.ZERO_OR_MORE) :: pattern')]
+					  (rebuildPattern Exp.ZERO_OR_MORE) :: pattern')]
 				    else
 					[]) @
 				   (matchPattern element (candidate,
@@ -273,19 +273,19 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 				   else if not (null (exp_equivalent [candidate] (element, List.nth(exps, i)))) then
 				       [(candidate, 
 					 SOME (PRIORMATCH (sym, i+1)),
-					 (rebuildPattern Pattern.ZERO_OR_MORE) :: pattern')] (* we've matched previously, and it is a sequence we're going through  *)
+					 (rebuildPattern Exp.ZERO_OR_MORE) :: pattern')] (* we've matched previously, and it is a sequence we're going through  *)
 				   else
 				       []
 			      )
  			    | SOME e => (* previously matched single item found *)
 			      (case openMatch of 
 				   NONE =>  (* this is the beginning of a 0+ match against a single item, equivalent to a ONE*)
-				   matchPattern element (candidate, NONE, (rebuildPattern Pattern.ONE) :: pattern')
+				   matchPattern element (candidate, NONE, (rebuildPattern Exp.ONE) :: pattern')
 				 | SOME (NEWMATCH s) =>  (* we have matched 1 element and are trying to match more *)
 				   (if pred element then
 					[(SymbolTable.enter (candidate, sym, Exp.META(Exp.SEQUENCE(e :: element :: nil))),
 					  SOME (NEWMATCH sym),
-					  (rebuildPattern Pattern.ZERO_OR_MORE) :: pattern')] 
+					  (rebuildPattern Exp.ZERO_OR_MORE) :: pattern')] 
 				    else
 					[]) @
 				   (matchPattern element (candidate,
@@ -298,20 +298,20 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 			      (if pred element then (* if the element matches the pred, try starting a new sequence *)
 				   [(SymbolTable.enter (candidate, sym, element),
 				     SOME (NEWMATCH sym),
-				     (rebuildPattern Pattern.ZERO_OR_MORE) :: pattern')]
+				     (rebuildPattern Exp.ZERO_OR_MORE) :: pattern')]
 			       else
 				   nil)
 			      @ (matchPattern element (SymbolTable.enter (candidate, sym, Exp.META(Exp.SEQUENCE [])), NONE, pattern')) (* handle the case that we should match NOTHING and continue *)
 			 )
 
 		       (* TODO: fill in*)
-		       | Pattern.SPECIFIC_COUNT c =>
+		       | Exp.SPECIFIC_COUNT c =>
 			 (case SymbolTable.look(candidate, sym) of
 			      SOME (Exp.META(Exp.SEQUENCE exps)) => nil  (* previously matched sequence found *)
  			    | SOME e => nil(* previously matched single item found *)
 			    | NONE => nil(* no previous matches found *)
 			 )
-		       | Pattern.SPECIFIC_RANGE (low, high) =>
+		       | Exp.SPECIFIC_RANGE (low, high) =>
 			 (case SymbolTable.look(candidate, sym) of
 			      SOME (Exp.META(Exp.SEQUENCE exps)) => nil (* previously matched sequence found *)
  			    | SOME e => nil (* previously matched single item found *)
@@ -355,9 +355,9 @@ and patternListMatch (candidate: Exp.exp SymbolTable.table) (pattern: Exp.exp li
 
 	fun isZeroable (Exp.TERM(Exp.PATTERN (sym, (predname,pred), patcount))) =
 	    (case patcount of
-		 Pattern.ZERO_OR_MORE => true
-	       | Pattern.SPECIFIC_COUNT 0 => true
-	       | Pattern.SPECIFIC_RANGE (0, _) => true
+		 Exp.ZERO_OR_MORE => true
+	       | Exp.SPECIFIC_COUNT 0 => true
+	       | Exp.SPECIFIC_RANGE (0, _) => true
 	       | _ => false)
 	  | isZeroable _ = false
 
@@ -500,10 +500,13 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 
 	      | (Exp.CONVERSION (Exp.SUBREF (exp1, subspace1)),
 		 Exp.CONVERSION (Exp.SUBREF (exp2, subspace2))) =>
-		 if SubSpace.equal (subspace1, subspace2) then
-		     exp_equivalent matchCandidates (exp1, exp2)
-		 else
-		     nil
+		let
+		    val matchCandidates' = subspace_equivalent matchCandidates (subspace1, subspace2)
+		in
+		    case matchCandidates' of
+			nil => nil
+		      | mc => exp_equivalent mc (exp1, exp2)
+		end
 
 	      | (Exp.CONVERSION (Exp.RESHAPE (exp1, space1)),
 		 Exp.CONVERSION (Exp.RESHAPE (exp2, space2))) =>
@@ -532,6 +535,65 @@ and exp_equivalent (matchCandidates: patterns_matched) (exp1, exp2) =
 
     in
 	matchCandidates'
+    end
+
+and subspace_equivalent matchCandidates (subspace1, subspace2) = 
+    if (List.length subspace1) = (List.length subspace2) then
+	allEquiv interval_equivalent matchCandidates (subspace1, subspace2)
+    else
+	[]
+
+and interval_equivalent matchCandidates (i1, i2) = 
+    let
+	fun int_list_equal (l1, l2) = 
+	    (List.length l1) = (List.length l2) andalso
+	    let
+		val s1 = GeneralUtil.sort_compare (op <) l1
+		val s2 = GeneralUtil.sort_compare (op <) l2
+	    in
+		List.all (op =) (ListPair.zip (s1, s2))
+	    end
+
+	fun isEmpty (Exp.Empty) = true
+	  | isEmpty (Exp.Indices []) = true
+	  | isEmpty (Exp.Interval {step, ...}) = step = 0
+	  | isEmpty (Exp.IntervalCollection (i,_)) = isEmpty i
+	  | isEmpty (Exp.NamedInterval (_,i)) = isEmpty i
+	  | isEmpty (Exp.ExpInterval (Exp.CONTAINER (Exp.EXPLIST []))) = true
+	  | isEmpty (Exp.ExpInterval (Exp.CONTAINER (Exp.ARRAY a))) = Container.arrayToSize a = 0
+	  | isEmpty _ = false
+    in
+	case (i1, i2) of
+	    (Exp.Empty, Exp.Empty) => checkAndKillMatches matchCandidates true
+	  | (Exp.Full, Exp.Full) => checkAndKillMatches matchCandidates true
+	  | (Exp.Interval {start=start1, stop=stop1, step=step1},
+	     Exp.Interval {start=start2, stop=stop2, step=step2}) => 
+	    checkAndKillMatches matchCandidates (start1 = start2 andalso
+						 stop1 = stop2 andalso
+						 step1 = step2)
+	  | (Exp.Indices l1, Exp.Indices l2) => 
+	    checkAndKillMatches matchCandidates (int_list_equal (l1, l2))
+	  | (Exp.IntervalCollection (i1, s1), 
+	     Exp.IntervalCollection (i2, s2)) => 
+	    let
+		val matchCandidates' = interval_equivalent matchCandidates (i1, i2)
+	    in
+		case matchCandidates' of
+		    nil => nil
+		  | _ => 
+		    allEquiv 
+			subspace_equivalent 
+			(checkAndKillMatches matchCandidates' ((List.length s1) = (List.length s2))) 
+			(s1, s2)
+	    end
+	  | (Exp.NamedInterval (sym1, i1), Exp.NamedInterval (sym2, i2)) =>
+	    if sym1 = sym2 then		
+		interval_equivalent matchCandidates (i1, i2)
+	    else
+		nil
+	  | (Exp.ExpInterval exp1, Exp.ExpInterval exp2) =>
+	    exp_equivalent matchCandidates (exp1, exp2)
+	  | _ => checkAndKillMatches matchCandidates ((isEmpty i1) andalso (isEmpty i2))
     end
 
 (* Perform equivalency check on expressions *)

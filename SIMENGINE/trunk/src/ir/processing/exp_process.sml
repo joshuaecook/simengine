@@ -25,6 +25,7 @@ val isSymbol : Exp.exp -> bool
 val isIterator : Exp.exp -> bool
 val isEquation : Exp.exp -> bool
 val isExpList : Exp.exp -> bool
+val isEmpty : Exp.exp -> bool
 val isSubRef : Exp.exp -> bool
 val isArray : Exp.exp -> bool
 val isArrayEq : Exp.exp -> bool
@@ -139,10 +140,16 @@ fun exp2termsymbols (Exp.TERM (s as Exp.SYMBOL _)) = [s]
   | exp2termsymbols exp = Util.flatmap exp2termsymbols (level exp)
 
 local
-    fun exp2freetermsymbols_helper ignored (Exp.TERM (s as Exp.SYMBOL (sym, _))) = if SymbolSet.member (ignored, sym) then
-										       []
-										   else
-										       [s]
+    fun exp2freetermsymbols_helper ignored (Exp.TERM (s as Exp.SYMBOL (sym, props))) = 
+	if SymbolSet.member (ignored, sym) then
+	    []
+	else 
+	    (case Property.getRealName props of 
+		 SOME v => if SymbolSet.member (ignored, v) then
+			       []
+			   else
+			       [s]
+	       | NONE => [s])
       | exp2freetermsymbols_helper ignored (Exp.META (Exp.LAMBDA {args, body})) = exp2freetermsymbols_helper (SymbolSet.addList (ignored, args)) body
       | exp2freetermsymbols_helper ignored exp = Util.flatmap (exp2freetermsymbols_helper ignored) (level exp)
 in
@@ -181,6 +188,18 @@ fun exp2term (Exp.TERM t) = t
 
 fun term2exp t = Exp.TERM t
 
+fun renameSym (orig_sym, new_sym) exp = 
+    case exp of
+	Exp.TERM (Exp.SYMBOL (sym, props)) => if sym = orig_sym then
+						  Exp.TERM (Exp.SYMBOL (new_sym, 
+									case Property.getRealName props
+									 of SOME sym => props
+									  | NONE  => Property.setRealName props orig_sym))
+					      else
+						  exp
+      | _ => (head exp) (map (renameSym (orig_sym, new_sym)) (level exp))
+
+(*
 fun renameSym (orig_sym, new_sym) exp =
     case exp of
 	Exp.FUN (f, args) => Exp.FUN (f, map (renameSym (orig_sym, new_sym)) args)
@@ -223,13 +242,37 @@ fun renameSym (orig_sym, new_sym) exp =
 	in
 	    Exp.CONTAINER c'
 	end
-      | Exp.CONVERSION c =>
+(*      | Exp.CONVERSION c =>*)
+      | _ => exp
+	(head exp) (map (renameSym (orig_sym, new_sym)) (level exp))
+		   (*
 	Exp.CONVERSION
 	    (case c of
 		 Exp.SUBREF (exp', subspace) => Exp.SUBREF (renameSym (orig_sym, new_sym) exp', subspace)
-	       | Exp.RESHAPE (exp', space) => Exp.RESHAPE (renameSym (orig_sym, new_sym) exp', space))
-      | _ => exp
+	       | Exp.RESHAPE (exp', space) => Exp.RESHAPE (renameSym (orig_sym, new_sym) exp', space)
+	       | )*)
+(*      | _ => exp*)
+*)
 
+fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
+    case exp of
+	Exp.FUN (Fun.INST (inst as {classname,instname,props}), args) =>
+	if classname=sym then
+	    ((*Util.log("Renaming '"^(Symbol.name sym)^"' to '"^(Symbol.name new_sym)^"' and '"^(Symbol.name orig_sym)^"' to '"^(Symbol.name new_orig_sym)^"'");*)
+	     Exp.FUN (Fun.INST {classname=new_sym,instname=instname,props=InstProps.setRealClassName props new_orig_sym}, 
+		     map (renameInst syms) args))
+	else
+	    Exp.FUN (Fun.INST inst, map (renameInst syms) args)
+      | Exp.FUN (Fun.OUTPUT (output as {classname,instname,outname,props}), args) =>
+	if classname = sym then
+	    Exp.FUN (Fun.OUTPUT {classname = new_sym, instname = instname, outname = outname, props = InstProps.setRealClassName props new_orig_sym},
+		     map (renameInst syms) args)
+	else
+	    Exp.FUN (Fun.OUTPUT output, map (renameInst syms) args)
+	    
+      | _ => (head exp) (map (renameInst syms) (level exp))
+
+(*
 fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
     case exp of
 	Exp.FUN (Fun.INST (inst as {classname,instname,props}), args) =>
@@ -273,7 +316,7 @@ fun renameInst (syms as ((sym, new_sym),(orig_sym,new_orig_sym))) exp =
 		 Exp.SUBREF (exp', subspace) => Exp.SUBREF (renameInst syms exp', subspace)
 	       | Exp.RESHAPE (exp', space) => Exp.RESHAPE (renameInst syms exp', space))
       | _ => exp
-
+*)
 fun log_exps (header, exps) = 
     (log "";
      log header;
@@ -329,6 +372,12 @@ fun isIterator exp =
 fun isExpList exp =
     case exp of
 	Exp.CONTAINER (Exp.EXPLIST _) => true
+      | _ => false
+
+fun isEmpty exp = 
+    case exp of
+	Exp.CONTAINER (Exp.EXPLIST []) => true
+      | Exp.CONTAINER (Exp.ARRAY a) => Container.arrayToSize a = 0
       | _ => false
 
 fun isSubRef exp = 
@@ -890,6 +939,18 @@ fun isDelayedVarDifferenceTerm exp =
       | _ => false
 
 
+fun iterators_of_expression exp =
+    case exp of
+	Exp.TERM (Exp.SYMBOL (name, properties)) =>
+	SymbolSet.union (case Property.getScope properties
+			  of Property.ITERATOR => SymbolSet.singleton name
+			   | _ => SymbolSet.empty,
+			 case Property.getIterator properties
+			  of SOME (itersym,_) => SymbolSet.singleton itersym
+			   | _ => SymbolSet.empty)
+      | _ => foldl (fn(exp', set)=> SymbolSet.union (set, iterators_of_expression exp')) SymbolSet.empty (level exp)
+
+(*
 fun iterators_of_expression (Exp.FUN (typ, operands)) = 
     foldl SymbolSet.union SymbolSet.empty (map iterators_of_expression operands)
 
@@ -925,7 +986,7 @@ fun iterators_of_expression (Exp.FUN (typ, operands)) =
 	 Exp.SUBREF (exp', subspace) => iterators_of_expression exp'
        | Exp.RESHAPE (exp', space) => iterators_of_expression exp')
   | iterators_of_expression (Exp.META _) = SymbolSet.empty
-
+*)
 fun simplify exp =
     Match.repeatApplyRewritesExp (Rules.getRules "simplification") exp
 

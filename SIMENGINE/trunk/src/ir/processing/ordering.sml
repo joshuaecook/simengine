@@ -1,6 +1,6 @@
 structure Ordering : sig
     (* Obsolete. *)
-    val orderModel : DOF.model -> DOF.model
+    (*val orderModel : DOF.model -> DOF.model*)
 
     (* Ensures that equations within classes are sorted
      * such that dependencies appear before their dependents.
@@ -13,7 +13,7 @@ exception SortFailed
 
 fun log message = 
     if DynamoOptions.isFlagSet "logordering" then
-	Util.log message
+	Util.log (message ())
     else
 	()
 
@@ -89,17 +89,17 @@ and orderClassEquations (class: DOF.class) =
 		(fn (exp,(satisfied,ordered,unordered)) =>
 		    let
 			val _ = 
-			    log ("Attempting to order " ^ 
-				 (ExpPrinter.exp2str exp) ^ 
-				 " with satisfied symbols " ^
-				 (SymbolSet.toStr satisfied) ^ ".")
+			    log (fn()=>("Attempting to order " ^ 
+					(ExpPrinter.exp2str exp) ^ 
+					" with satisfied symbols " ^
+					(SymbolSet.toStr satisfied) ^ "."))
 			val rhs_term_syms = 
 			    exp2termsymbols (ExpProcess.rhs exp)
 		    in
 			if List.all (termSymbolIsSatisfied satisfied) rhs_term_syms then 
 			    let 
 				val _ = 
-				    log ("Equation " ^ (ExpPrinter.exp2str exp) ^ " is in order.")
+				    log (fn()=>"Equation " ^ (ExpPrinter.exp2str exp) ^ " is in order.")
 				val lhs_term_syms =
 				    exp2termsymbols (ExpProcess.lhs exp)
 				val satisfied' = 
@@ -108,7 +108,19 @@ and orderClassEquations (class: DOF.class) =
 				(satisfied', exp :: ordered, unordered)
 			    end
 			else 
-			    (satisfied, ordered, exp :: unordered)
+			    let
+				val _ = 
+				    log (fn()=>
+					   let
+					       val (satisfied, unsatisfied) = List.partition (termSymbolIsSatisfied satisfied) rhs_term_syms
+					       fun termListToString terms = 
+						   Util.symlist2s (map Term.sym2curname terms)
+					   in
+					       "Of the terms "^(termListToString rhs_term_syms)^", "^(termListToString satisfied)^" are satisfied and "^(termListToString unsatisfied)^" are left unsatisfied"
+					   end)
+			    in
+				(satisfied, ordered, exp :: unordered)
+			    end
 		    end)
 		(satisfied,nil,nil) exps
 
@@ -128,7 +140,7 @@ and orderClassEquations (class: DOF.class) =
 
 
 
-
+(*
 
 (*remove line for debugging *)
 fun print x = if DynamoOptions.isFlagSet "logordering" then
@@ -1292,5 +1304,5 @@ fun orderModel (model:DOF.model)=
 		 DynException.checkpoint "Ordering.orderModel" e)
 
 
-		
+*)		
 end

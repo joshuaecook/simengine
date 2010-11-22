@@ -101,7 +101,7 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
        | Exp.NAN => "NaN"
        | Exp.RANDOM (Exp.UNIFORM, space) => "UniformRand"
        | Exp.RANDOM (Exp.NORMAL, space) => "NormalRand"
-       | Exp.PATTERN p => PatternProcess.pattern2str p)
+       | Exp.PATTERN p => Pattern.toString p)
   | exp2tersestr pretty (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map (exp2tersestr pretty) e)) ^ " :}"
@@ -123,14 +123,18 @@ fun exp2tersestr pretty (Exp.FUN (f, exps)) =
 	     "}"
 	   | Exp.MATRIX m => "("^(Matrix.infoString m)^")[" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ "]"
     end
-  | exp2tersestr pretty (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
-    let
-	val interval = SubSpace.toString subspace
-    in
-	exp2tersestr pretty exp' ^ interval
-    end
-  | exp2tersestr pretty (Exp.CONVERSION (Exp.RESHAPE (exp', space))) =
-    "@(" ^ (Space.toString space) ^ "," ^ (exp2tersestr pretty exp') ^ ")"
+  | exp2tersestr pretty (Exp.CONVERSION c) =
+    (case c of
+	 Exp.SUBREF (exp', subspace) => 
+	 let
+	     val interval = SubSpace.toString subspace
+	 in
+	     exp2tersestr pretty exp' ^ interval
+	 end
+       | Exp.RESHAPE (exp', space) =>
+	 "@(" ^ (Space.toString space) ^ "," ^ (exp2tersestr pretty exp') ^ ")"
+       | Exp.SUBSPACE s => SubSpace.toString s	 
+    )
 
 local
 open Layout
@@ -250,7 +254,7 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
        | Exp.NAN => s2l "NaN"
        | Exp.RANDOM (Exp.UNIFORM, space) => s2l "UniformRand"
        | Exp.RANDOM (Exp.NORMAL, space) => s2l "NormalRand"
-       | Exp.PATTERN p => s2l (PatternProcess.pattern2str p))
+       | Exp.PATTERN p => s2l (Pattern.toString p))
   | exp2terselayout pretty (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => series ("{: ", " :}", ",") (map (exp2terselayout pretty) e)
@@ -276,15 +280,19 @@ fun exp2terselayout pretty (Exp.FUN (f, exps)) =
 	      indent (bracket (align (map 
 					  ((exp2terselayout pretty) o Exp.CONTAINER o Exp.ARRAY) 
 					  (Matrix.toRows m))), 2)])
-  | exp2terselayout pretty (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
-    let
-	val interval = SubSpace.toLayout subspace
-    in
-	seq [exp2terselayout pretty exp', interval]
-    end
-  | exp2terselayout pretty (Exp.CONVERSION (Exp.RESHAPE (exp', space))) =
-    seq [str "@", parenList [Space.toLayout space,
-			     exp2terselayout pretty exp']]
+  | exp2terselayout pretty (Exp.CONVERSION c) =
+    (case c of
+	 Exp.SUBREF (exp', subspace) =>
+	 let
+	     val interval = SubSpace.toLayout subspace
+	 in
+	     seq [exp2terselayout pretty exp', interval]
+	 end
+       | Exp.RESHAPE (exp', space) =>
+	 seq [str "@", parenList [Space.toLayout space,
+				  exp2terselayout pretty exp']]
+       | Exp.SUBSPACE s => SubSpace.toLayout s
+    )
 
 end
 
@@ -360,7 +368,7 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
        | Exp.NAN => "NaN" 
        | Exp.RANDOM (Exp.UNIFORM, space) => "UniformRandom"
        | Exp.RANDOM (Exp.NORMAL, space) => "NormalRandom"
-       | Exp.PATTERN p => "Pattern(" ^ (PatternProcess.pattern2str p) ^ ")")
+       | Exp.PATTERN p => "Pattern(" ^ (Pattern.toString p) ^ ")")
   | exp2fullstr (Exp.META meta) =
     (case meta of 
 	 Exp.SEQUENCE e => "{: " ^ (String.concatWith ", " (map exp2fullstr e)) ^ " :}"
@@ -397,14 +405,19 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	       | Matrix.BANDED _ => 
 		 "BandedMatrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ ")"
     end
-  | exp2fullstr (Exp.CONVERSION (Exp.SUBREF (exp', subspace))) = 
-    let
-	val interval = SubSpace.toString subspace
-    in
-	"subsref(" ^ (exp2fullstr exp') ^ ", " ^ interval ^ ")"
-    end
-  | exp2fullstr (Exp.CONVERSION (Exp.RESHAPE (exp', space))) =
-    "reshape("^(exp2fullstr exp')^", "^(Space.toString space)^")"
+  | exp2fullstr (Exp.CONVERSION c) =
+    (case c of 
+	 Exp.SUBREF (exp', subspace) =>
+	 let
+	     val interval = SubSpace.toString subspace
+	 in
+	     "subsref(" ^ (exp2fullstr exp') ^ ", " ^ interval ^ ")"
+	 end
+       | Exp.RESHAPE (exp', space) =>
+	 "reshape("^(exp2fullstr exp')^", "^(Space.toString space)^")"   
+       | Exp.SUBSPACE s => 
+	 "subspace("^(SubSpace.toString s)^")"
+    )
 
 fun exp2str e = 
     (if DynamoOptions.isFlagSet("usefullform") then
@@ -423,7 +436,8 @@ fun exp2layout e =
 fun exp2prettystr e = 
     exp2tersestr true e
 
-val _ = Exp.exp2str := exp2str
+val _ = Exp.toString := exp2str
+val _ = Exp.toLayout := exp2layout
 
 
 

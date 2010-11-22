@@ -42,7 +42,7 @@ fun printtexts (outstream, texts, i) =
 	val l = Layout.align (map text2layout texts)
 	val l' = Layout.indent (l, i*2)
     in 
-	printLayout l' outstream
+	printLayout (Layout.add_newline l') outstream
     end
 
 fun printtext (outstream, text, i) = 
@@ -50,7 +50,7 @@ fun printtext (outstream, text, i) =
 	val l = text2layout text
 	val l' = Layout.indent (l, i*2)
     in 
-	printLayout l' outstream
+	printLayout (Layout.add_newline l') outstream
     end
 
 

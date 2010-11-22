@@ -41,11 +41,22 @@ fun level (exp) =
 	     (#zero calculus)::(map Container.arrayToExpArray data))
        | Exp.CONVERSION c =>
 	 (case c of 
-	      Exp.SUBREF (exp, subspace) => [exp]
-	    | Exp.RESHAPE (exp, space) => [exp])
+	      Exp.SUBREF (exp, subspace) => exp::(subspace_level subspace)
+	    | Exp.RESHAPE (exp, space) => [exp]
+	    | Exp.SUBSPACE subspace => subspace_level subspace)
        | Exp.META (Exp.LAMBDA {args, body}) => [body]
       | _ => [])
     handle e => DynException.checkpoint ("ExpTraverse.level ["^(e2s exp)^"]") e
+and subspace_level subspace =
+    (case subspace of
+	 [Exp.ExpInterval exp'] => [exp']
+       | [Exp.IntervalCollection (interval, subspaces)] => 
+	 (Exp.CONVERSION (Exp.SUBSPACE [interval]))::
+	 (map (Exp.CONVERSION o Exp.SUBSPACE) subspaces)
+       | intervals as (one::two::rest) => 
+	 map (fn(i) => Exp.CONVERSION (Exp.SUBSPACE [i])) intervals
+       | _ => [])
+    
 
 (* this will return a function to rebuild the head *)
 fun head (exp) =
@@ -111,23 +122,65 @@ fun head (exp) =
 			    Exp.CONTAINER (Exp.MATRIX (ref (Matrix.DENSE {data=data', calculus=calculus})))
 			end
 		  | _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [Banded Matrix]", Logger.INTERNAL)))
-      | Exp.CONVERSION c => 	 
+      | Exp.CONVERSION c =>
+ 	let
+	    fun expToSubspace (Exp.CONVERSION (Exp.SUBSPACE subspace)) = subspace
+	      | expToSubspace _ = DynException.stdException("Unexpected expression",
+							    "ExpTraverse.subspace_head.expToSubspace",
+							    Logger.INTERNAL)
+	    fun subspaceToExp subspace = Exp.CONVERSION (Exp.SUBSPACE subspace)
+	in
 	(case c of 
-	     Exp.SUBREF (exp, subspace) =>
+	     Exp.SUBREF (exp, subspace) => 
 	     (fn(all_args) => case all_args of
-				  [onearg] => Exp.CONVERSION (Exp.SUBREF (onearg, subspace))
+				  exp_arg::subspace_args => 
+				  let
+				      val subspace_exp : Exp.exp = (subspace_head (subspaceToExp subspace)) subspace_args
+				      val subspace : Exp.subspace = expToSubspace subspace_exp
+				  in
+				      Exp.CONVERSION (Exp.SUBREF (exp_arg, subspace))
+				  end
 				| _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [SUBREF]", Logger.INTERNAL))
 	   | Exp.RESHAPE (exp, space) =>
 	     (fn(all_args) => case all_args of
 				  [onearg] => Exp.CONVERSION (Exp.RESHAPE (onearg, space))
 				| _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [RESHAPE]", Logger.INTERNAL))
 
-	)
+	   | Exp.SUBSPACE subspace => subspace_head (subspaceToExp subspace))
+	end
       | Exp.META (Exp.LAMBDA {args, body}) => (fn(all_args) => case all_args of
 								   [onearg] => Exp.META (Exp.LAMBDA {args=args, body=onearg})
 								 | _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [LAMBDA]", Logger.INTERNAL))
       | _ => (fn(args') => exp))
     handle e => DynException.checkpoint ("ExpTraverse.head ["^(e2s exp)^"]") e
+and subspace_head (subspace_exp : Exp.exp) : (Exp.exp list -> Exp.exp) =
+    let
+	fun expToSubspace (Exp.CONVERSION (Exp.SUBSPACE subspace)) = subspace
+	  | expToSubspace _ = DynException.stdException("Unexpected expression",
+							"ExpTraverse.subspace_head.expToSubspace",
+							Logger.INTERNAL)
+    in
+	case expToSubspace subspace_exp of
+	    [Exp.ExpInterval _] => 
+	    (fn(all_args) => 
+	       case all_args of
+		   [onearg] => Exp.CONVERSION (Exp.SUBSPACE [Exp.ExpInterval onearg])
+		 | _ => DynException.stdException("Unexpected number of arguments",
+						  "ExpTraverse.subspace_head [SUBSPACE]",
+						  Logger.INTERNAL))
+	  | [Exp.IntervalCollection _] => 
+	    (fn(all_args) =>
+	       case all_args of
+		   (Exp.CONVERSION (Exp.SUBSPACE [first]))::rest => 
+		   Exp.CONVERSION (Exp.SUBSPACE [Exp.IntervalCollection (first, map expToSubspace rest)])
+		 | _ => DynException.stdException("Unexpected number and type of arguments",
+						  "ExpTraverse.subspace_head [SUBSPACE.IntervalCollection]",
+						  Logger.INTERNAL))
+	  | (one::two::rest) => 
+	    (fn(all_args) =>
+	       Exp.CONVERSION (Exp.SUBSPACE (Util.flatmap expToSubspace all_args)))
+	  | _ => (fn(args') => subspace_exp)
+    end
 
 
 
