@@ -66,9 +66,13 @@ fun typepattern_to_str (TYPE sym) = "Type '"^(Symbol.name sym)^"'"
   | typepattern_to_str (UNITTYPE) = "Unit"
   | typepattern_to_str (DONTCARE) = "DontCare"
 
+(* list of globally defined iterators *)
+val defined_iterators = ref SymbolSet.empty
+
 datatype subscript = IteratorReference of Iterator.iterator
 		   | SubReference of SubSpace.interval
 		   | NamedReference of (Symbol.symbol * subscript)
+		   | SpatialReference of Exp.exp
 
 fun builtin (fcn,args) = Exp.FUN (Fun.BUILTIN fcn, map astexp_to_Exp args)
 			 handle e => DynException.checkpoint "AstDOFTrans.builtin" e
@@ -101,7 +105,10 @@ and astexp_to_Iterator (REFERENCE {sym=itersym, args=[offsetexp]}) =
 	       IteratorReference (itersym, Iterator.RELATIVE 0)))
   | astexp_to_Iterator (SYMBOL itersym) = 
     (* case #3 - handles iterator references that look like y[t] or x[n] *)
-    IteratorReference (itersym, Iterator.RELATIVE 0)
+    if SymbolSet.member (!defined_iterators, itersym) then
+	IteratorReference (itersym, Iterator.RELATIVE 0)
+    else
+	SpatialReference (ExpBuild.svar itersym)
   | astexp_to_Iterator (i as LITERAL (CONSTREAL r)) = 
     (* case #4 - handle subscript references that look like y[0] or x[10] *)
     SubReference (astexp_to_Interval i)
@@ -1055,6 +1062,10 @@ fun modeldef_to_class top_level modeltable name =
 		else
 		    ()
 
+	(* save iterators from the class *)
+	val class_iterators = map translate_iterator iterators
+	val _ = defined_iterators := (SymbolSet.fromList (map #1 class_iterators))
+
 	(* we're going to need a state - iterator mapping so that we can use the 
 	 * iterator when we define the differential equations *)
 	val statetable = SymbolTable.empty
@@ -1073,7 +1084,7 @@ fun modeldef_to_class top_level modeltable name =
 
 	(*val _ = DOFPrinter.printClass class*)
     in
-	(class, map translate_iterator iterators)
+	(class, class_iterators)
     end
     handle e => DynException.checkpoint ("AstDOFTrans.modeldef_to_class ["^(Symbol.name name)^"]") e
 
