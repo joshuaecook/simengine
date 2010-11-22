@@ -6,9 +6,9 @@ sig
 
     (* useful functions *)
     val pattern2str : Exp.pattern -> string
-    val patcount_compatible : Pattern.patterncount -> int -> bool
-    val min_patcount : Pattern.patterncount -> int
-    val max_patcount : Pattern.patterncount -> int option
+    val patcount_compatible : Exp.patterncount -> int -> bool
+    val min_patcount : Exp.patterncount -> int
+    val max_patcount : Exp.patterncount -> int option
     val combine_preds : predicate list -> predicate (* reduction predicate list *)
     val notpred : predicate -> predicate (* invert a predicate *)
 
@@ -52,17 +52,17 @@ datatype patterntype = ANY
 				     
 
 fun pattern2str ((symbol, (predicate_name, predicate_fun), patcount):
-		 (Symbol.symbol * Exp.predicate * Pattern.patterncount)) =
+		 (Symbol.symbol * Exp.predicate * Exp.patterncount)) =
     let
 	val name = Symbol.name symbol
 	val typestr = "{"^predicate_name^"}"
 
 	val countstr = case patcount 
-			of Pattern.ONE => "_"
-			 | Pattern.ONE_OR_MORE => "__"
-			 | Pattern.ZERO_OR_MORE  => "___"
-			 | Pattern.SPECIFIC_COUNT i => "_{"^(i2s i)^"}"
-			 | Pattern.SPECIFIC_RANGE (i1, i2) => "_{"^(i2s i1)^":"^(i2s i2)^"}"
+			of Exp.ONE => "_"
+			 | Exp.ONE_OR_MORE => "__"
+			 | Exp.ZERO_OR_MORE  => "___"
+			 | Exp.SPECIFIC_COUNT i => "_{"^(i2s i)^"}"
+			 | Exp.SPECIFIC_RANGE (i1, i2) => "_{"^(i2s i1)^":"^(i2s i2)^"}"
     in
 	name ^ typestr ^ countstr
     end
@@ -72,11 +72,11 @@ fun patcount_compatible patcount count =
 	val _ = print ("patcount_compatible (" ^ (Int.toString count) ^ ") = ")
 val res =
     case patcount 
-     of Pattern.ONE => count = 1
-      | Pattern.ONE_OR_MORE => count >= 1
-      | Pattern.ZERO_OR_MORE => count >= 0
-      | Pattern.SPECIFIC_COUNT i => i=count
-      | Pattern.SPECIFIC_RANGE (i1, i2) => i1 <= count andalso count <= i2
+     of Exp.ONE => count = 1
+      | Exp.ONE_OR_MORE => count >= 1
+      | Exp.ZERO_OR_MORE => count >= 0
+      | Exp.SPECIFIC_COUNT i => i=count
+      | Exp.SPECIFIC_RANGE (i1, i2) => i1 <= count andalso count <= i2
 val _ = print ((Bool.toString res) ^ "\n")
     in
     res						       
@@ -84,19 +84,19 @@ end
 
 fun min_patcount patcount =
     case patcount 
-     of Pattern.ONE => 1
-      | Pattern.ONE_OR_MORE => 1
-      | Pattern.ZERO_OR_MORE => 0
-      | Pattern.SPECIFIC_COUNT i => i
-      | Pattern.SPECIFIC_RANGE (i1, i2) => i1
+     of Exp.ONE => 1
+      | Exp.ONE_OR_MORE => 1
+      | Exp.ZERO_OR_MORE => 0
+      | Exp.SPECIFIC_COUNT i => i
+      | Exp.SPECIFIC_RANGE (i1, i2) => i1
 
 fun max_patcount patcount =
     case patcount 
-     of Pattern.ONE => SOME 1
-      | Pattern.ONE_OR_MORE => NONE
-      | Pattern.ZERO_OR_MORE => NONE
-      | Pattern.SPECIFIC_COUNT i => SOME i
-      | Pattern.SPECIFIC_RANGE (i1, i2) => SOME i2
+     of Exp.ONE => SOME 1
+      | Exp.ONE_OR_MORE => NONE
+      | Exp.ZERO_OR_MORE => NONE
+      | Exp.SPECIFIC_COUNT i => SOME i
+      | Exp.SPECIFIC_RANGE (i1, i2) => SOME i2
 
 (* Define common predicates *)
 val predicate_any = ("ANY", fn(x)=>true)

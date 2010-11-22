@@ -36,6 +36,8 @@ and conversionToJSON (Exp.SUBREF (operand, subspace)) =
   | conversionToJSON (Exp.RESHAPE (operand, space)) =
     JSONTypedObject ("Exp.RESHAPE", object [("operand", toJSON operand),
 					    ("space", Space.toJSON space)])
+  | conversionToJSON (Exp.SUBSPACE (subspace)) =
+    JSONTypedObject ("Exp.SUBSPACE", SubSpace.toJSON subspace)
 
 
 and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
@@ -68,13 +70,13 @@ and termToJSON (Exp.INT z) = JSONTypedObject ("Exp.INT", int z)
   | termToJSON (Exp.PATTERN (name, predicate, arity)) =
     let val js_arity = 
 	    case arity
-	     of Pattern.ONE => JSONType ("Pattern.ONE")
-	      | Pattern.ONE_OR_MORE => JSONType ("Pattern.ONE_OR_MORE")
-	      | Pattern.ZERO_OR_MORE => JSONType ("Pattern.ZERO_OR_MORE")
-	      | Pattern.SPECIFIC_COUNT z => 
-		JSONTypedObject ("Pattern.SPECIFIC_COUNT", int z)
-	      | Pattern.SPECIFIC_RANGE (low, high) =>
-		JSONTypedObject ("Pattern.SPECIFIC_COUNT", 
+	     of Exp.ONE => JSONType ("Exp.ONE")
+	      | Exp.ONE_OR_MORE => JSONType ("Exp.ONE_OR_MORE")
+	      | Exp.ZERO_OR_MORE => JSONType ("Exp.ZERO_OR_MORE")
+	      | Exp.SPECIFIC_COUNT z => 
+		JSONTypedObject ("Exp.SPECIFIC_COUNT", int z)
+	      | Exp.SPECIFIC_RANGE (low, high) =>
+		JSONTypedObject ("Exp.SPECIFIC_COUNT", 
 				 object [("low", int low), ("high", int high)])
     in
 	JSONTypedObject ("Exp.PATTERN",
@@ -156,7 +158,7 @@ and containerToJSON (Exp.EXPLIST exps) =
 
 
 
-val _ = Exp.exp2JSON := toJSON
+val _ = Exp.toJSON := toJSON
 
 
 end

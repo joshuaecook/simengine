@@ -1,7 +1,11 @@
 signature SUBSPACE =
 sig
 
-    (* An interval defines how to select across one dimension of data.  The top four types, Empty, Full,
+type interval = Exp.interval
+type subspace = Exp.subspace
+
+
+(*    (* An interval defines how to select across one dimension of data.  The top four types, Empty, Full,
      * Interval, and Indices can be used to iterate across one dimension of a Tensor or other geometric 
      * space.  The IntervalCollection defines how to iterator across a collection of spaces. *)
     datatype interval = 
@@ -29,11 +33,11 @@ sig
 
     (* the subspace is a list of intervals, with the assumption is that the length of the interval 
      * list is equivalent to the number of dimensions *)
-    type subspace = interval list
 
+    type subspace = interval list
+*)
     (* ------ Methods on SubSpaces ------*)
-    val equal : (subspace * subspace) -> bool (* verify equivalency for subspaces *)
-    val toString : subspace -> string        (* create a string representation for logging *)
+    val toString : subspace -> string     (* create a string representation for logging *)
     val toLayout : subspace -> Layout.t   (* create a string representation for logging *)
     val toJSON : subspace -> JSON.json    (* create the serialized json representation *)
 
@@ -41,7 +45,10 @@ end
 structure SubSpace : SUBSPACE =
 struct
 
+open Exp
+
 (* define a subspace as a listing of intervals *)
+(*
 datatype interval = Empty
 		  | Full
 		  | Interval of {start: int, stop: int, step: int} (* this is all zero indexed *)
@@ -50,49 +57,7 @@ datatype interval = Empty
 		  | NamedInterval of (Symbol.symbol * interval)
 type subspace = interval list (* assumption is that the length of the interval list is equivalent
 			       * to the number of dimensions *)
-
-
-fun equal (subspace1, subspace2) = 
-    let
-	fun int_list_equal (l1, l2) = 
-	    (List.length l1) = (List.length l2) andalso
-	    let
-		val s1 = GeneralUtil.sort_compare (op <) l1
-		val s2 = GeneralUtil.sort_compare (op <) l2
-	    in
-		List.all (op =) (ListPair.zip (s1, s2))
-	    end
-
-	fun isEmpty (Empty) = true
-	  | isEmpty (Indices []) = true
-	  | isEmpty (Interval {step, ...}) = step = 0
-	  | isEmpty (IntervalCollection (i,_)) = isEmpty i
-	  | isEmpty (NamedInterval (_,i)) = isEmpty i
-	  | isEmpty _ = false
-
-	fun interval_equal (i1, i2) = 
-	    case (i1, i2) of
-		(Empty, Empty) => true
-	      | (Full, Full) => true
-	      | (Interval {start=start1, stop=stop1, step=step1},
-		 Interval {start=start2, stop=stop2, step=step2}) => start1 = start2 andalso
-								     stop1 = stop2 andalso
-								     step1 = step2
-	      | (Indices l1, Indices l2) => int_list_equal (l1, l2)
-	      | (IntervalCollection (i1, s1), 
-		 IntervalCollection (i2, s2)) => interval_equal (i1, i2) andalso
-						 (List.length s1) = (List.length s2) andalso
-						 (List.all equal (ListPair.zip (s1, s2)))
-	      | (NamedInterval (sym1, i1), NamedInterval (sym2, i2)) =>
-		sym1 = sym2 andalso
-		interval_equal (i1, i2)
-	      | _ => (isEmpty i1) andalso (isEmpty i2)
-    in
-	if (List.length subspace1) = (List.length subspace2) then
-	    List.all interval_equal (ListPair.zip (subspace1, subspace2))
-	else
-	    false
-    end
+*)
 
 fun toString subspace =
     let
@@ -108,6 +73,7 @@ fun toString subspace =
 	  | intervalToStr (Indices int_list) = "[" ^ (String.concatWith ", " (map i2s int_list)) ^ "]" 
 	  | intervalToStr (IntervalCollection (interval, subspace_list)) = "("^(intervalToStr interval)^", {"^ (String.concatWith ", " (map toString subspace_list)) ^"})"
 	  | intervalToStr (NamedInterval (sym, interval)) = (Symbol.name sym) ^ "=" ^ (intervalToStr interval)
+	  | intervalToStr (ExpInterval exp) = (!Exp.toString) exp
 
 	val interval_str = String.concatWith ", " (map intervalToStr subspace)
     in
@@ -131,6 +97,7 @@ fun toLayout subspace =
 		       curlyList (map toLayout subspace_list)]
 	  | intervalToLayout (NamedInterval (sym, interval)) =
 	    seq [str (Symbol.name sym), str "=", intervalToLayout interval]
+	  | intervalToLayout (ExpInterval exp) = (!Exp.toLayout exp)
 
     in
 	bracketList (map intervalToLayout subspace)
@@ -159,6 +126,8 @@ fun toJSON subspace =
 	    JSONTypedObject ("NamedInterval",
 			     object [("id", symbol sym),
 				     ("interval", intervalToJSON interval)])
+	  | intervalToJSON (ExpInterval exp) =
+	    JSONTypedObject ("ExpInterval", (!Exp.toJSON) exp)
     in
 	array (map intervalToJSON subspace)
     end

@@ -14,6 +14,7 @@ sig
 	   | TermException of Exp.exp
 	   | SubRefException of {subspace: SubSpace.subspace, exp: Exp.exp}
 	   | ReshapeException of {orig_space: Space.space, new_space: Space.space, exp: Exp.exp}
+	   | SubspaceException of SubSpace.subspace
 	   | UnknownException of Exp.exp
     exception SpaceException of space_exception_type
 
@@ -27,12 +28,14 @@ datatype space_exception_type =
        | TermException of Exp.exp
        | SubRefException of {subspace: SubSpace.subspace, exp: Exp.exp}
        | ReshapeException of {orig_space: Space.space, new_space: Space.space, exp: Exp.exp}
+       | SubspaceException of SubSpace.subspace
        | UnknownException of Exp.exp
 exception SpaceException of space_exception_type
 
 
 local
     open Space
+    open SpaceProcess
 
     fun termToReal (Exp.REAL v) = v
       | termToReal (Exp.INT v) = Real.fromInt v
@@ -111,10 +114,13 @@ fun expToSpace exp =
 				       space
 				   end
 				   handle SpaceException e => raise (SpaceException e))
+				| Exp.SUBSPACE subspace => raise (SpaceException (SubspaceException subspace))
 			     )
        | Exp.META _ => scalar (* have no idea what to do here... *))
     handle SpaceException e => raise SpaceException e
 	 | _ => raise (SpaceException (UnknownException exp))
+
+
 val _ = Inst.expToSpace := expToSpace
 
 (* adaption of expToSpace to throw user errors instead of exceptions*)
@@ -133,6 +139,8 @@ fun expToSpace_UserError exp =
 	      | ReshapeException {exp, orig_space, new_space} => 
 		Logger.log_error (Printer.$("Can not reshape "^(e2s exp)^" with dimension "^(s2s orig_space)^
 					    " to " ^ (s2s new_space)))
+	      | SubspaceException subspace =>
+		Logger.log_error (Layout.str "Unexpected subspace found as an expression type")
 	      | UnknownException exp => 
 		Logger.log_error (Printer.$("Invalid dimensions present in exp: " ^ (e2s exp)))
 	    );
@@ -146,5 +154,8 @@ fun expToSpaceOption exp =
     handle _ => NONE
 
 end
+
+(* Assign the method to SpaceProcess *)
+val _ = SpaceProcess.setExpToSpace expToSpace
 
 end

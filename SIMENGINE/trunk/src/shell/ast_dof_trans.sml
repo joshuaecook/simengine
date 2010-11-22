@@ -68,53 +68,67 @@ fun typepattern_to_str (TYPE sym) = "Type '"^(Symbol.name sym)^"'"
 
 (* list of globally defined iterators *)
 val defined_iterators = ref SymbolSet.empty
+fun isTimeIterator sym = SymbolSet.member (!defined_iterators, sym)
 
 datatype subscript = IteratorReference of Iterator.iterator
-		   | SubReference of SubSpace.interval
+		   | SubReference of Exp.interval
 		   | NamedReference of (Symbol.symbol * subscript)
 		   | SpatialReference of Exp.exp
 
 fun builtin (fcn,args) = Exp.FUN (Fun.BUILTIN fcn, map astexp_to_Exp args)
-			 handle e => DynException.checkpoint "AstDOFTrans.builtin" e
+    handle e => DynException.checkpoint "AstDOFTrans.builtin" e
 
 (* astexp_to_Iterator - pulls out iterator references *)
 and astexp_to_Iterator (REFERENCE {sym=itersym, args=[offsetexp]}) =
-    (* case #1 - handles iterator references that look like x[t[-1]] or x[t[0]] *)
-    (case offsetexp of
-	 LITERAL (CONSTREAL offset) => 
-	 (* case #1a - x[t[1]] *)
-	 IteratorReference (itersym, Iterator.RELATIVE (Real.round offset))
-       | APPLY {func=(SYMBOL opsym), args=(TUPLE [LITERAL (CONSTREAL offset)])} =>
-	 if opsym = (Symbol.symbol "operator_neg") then
-	     (* case #1b - x[t[-1]] *)
-	     IteratorReference (itersym, Iterator.RELATIVE (~(Real.round offset)))
-	 else if opsym = (Symbol.symbol "operator_add") then
-	     (* case #1c - x[t[+1]] *)
-	     IteratorReference (itersym, Iterator.RELATIVE ((Real.round offset)))
-	 else
-	     (error ("unexpected operation '"^(Symbol.name opsym)^"' iterator '"^(Symbol.name itersym)^"' reference");
-	      IteratorReference (itersym, Iterator.RELATIVE 0))
-       | _ => (error ("invalid referencing of iterator '"^(Symbol.name itersym)^"'");
-	       IteratorReference (itersym, Iterator.RELATIVE 0)))
-  | astexp_to_Iterator (APPLY {func=(SYMBOL opsym), args=(TUPLE [SYMBOL itersym, LITERAL (CONSTREAL offset)])}) = 
-    (* case #2 - handles iterator references that look like x[n-5] *)
-    (case (Symbol.name opsym) of
-	 "operator_add" => IteratorReference (itersym, Iterator.RELATIVE (Real.round offset))
-       | "operator_subtract" => IteratorReference (itersym, Iterator.RELATIVE (~(Real.round offset)))
-       | _ => (error ("Unexpected iterator operation <"^(Symbol.name opsym)^">");
-	       IteratorReference (itersym, Iterator.RELATIVE 0)))
+    if isTimeIterator itersym then
+	(* case #1a - handles iterator references that look like x[t[-1]] or x[t[0]] *)
+	(case offsetexp of
+	     LITERAL (CONSTREAL offset) => 
+	     (* case #1a - x[t[1]] *)
+	     IteratorReference (itersym, Iterator.RELATIVE (Real.round offset))
+	   | APPLY {func=(SYMBOL opsym), args=(TUPLE [LITERAL (CONSTREAL offset)])} =>
+	     if opsym = (Symbol.symbol "operator_neg") then
+		 (* case #1b - x[t[-1]] *)
+		 IteratorReference (itersym, Iterator.RELATIVE (~(Real.round offset)))
+	     else if opsym = (Symbol.symbol "operator_add") then
+		 (* case #1c - x[t[+1]] *)
+		 IteratorReference (itersym, Iterator.RELATIVE ((Real.round offset)))
+	     else
+		 (error ("unexpected operation '"^(Symbol.name opsym)^"' iterator '"^(Symbol.name itersym)^"' reference");
+		  IteratorReference (itersym, Iterator.RELATIVE 0))
+	   | _ => (error ("invalid referencing of iterator '"^(Symbol.name itersym)^"'");
+		   IteratorReference (itersym, Iterator.RELATIVE 0)))
+    else
+	(* case #1b - handle multi-indirection spatial references that look like x[c[i]] *)
+	SpatialReference (ExpBuild.subref (ExpBuild.svar itersym, [Exp.ExpInterval (astexp_to_Exp offsetexp)]))
+  | astexp_to_Iterator (exp as (APPLY {func=(SYMBOL opsym), args=(TUPLE [SYMBOL itersym, LITERAL (CONSTREAL offset)])})) = 
+    if isTimeIterator itersym then
+	(* case #2a - handles iterator references that look like x[n-5] *)
+	(case (Symbol.name opsym) of
+	     "operator_add" => IteratorReference (itersym, Iterator.RELATIVE (Real.round offset))
+	   | "operator_subtract" => IteratorReference (itersym, Iterator.RELATIVE (~(Real.round offset)))
+	   | _ => (error ("Unexpected iterator operation <"^(Symbol.name opsym)^">");
+		   IteratorReference (itersym, Iterator.RELATIVE 0)))
+    else
+	(* case #2b - handle spatial references that look like x[i-1] *)
+	SpatialReference (astexp_to_Exp exp)
   | astexp_to_Iterator (SYMBOL itersym) = 
-    (* case #3 - handles iterator references that look like y[t] or x[n] *)
-    if SymbolSet.member (!defined_iterators, itersym) then
+    if isTimeIterator itersym then
+	(* case #3 - handles iterator references that look like y[t] or x[n] *)
 	IteratorReference (itersym, Iterator.RELATIVE 0)
     else
+	(* case #3 - handles spatial references that look like y[i] or x[j] *)
 	SpatialReference (ExpBuild.svar itersym)
   | astexp_to_Iterator (i as LITERAL (CONSTREAL r)) = 
     (* case #4 - handle subscript references that look like y[0] or x[10] *)
     SubReference (astexp_to_Interval i)
   | astexp_to_Iterator (i as (APPLY {func=(SYMBOL opsym), args=(TUPLE args)})) =
-    (* case #5 - handle ranges such as x[0:9] or y[10:-1:1] *)
-    SubReference (astexp_to_Interval i)
+    if Symbol.name opsym = "operator_tabulate" then
+	(* case #5a - handle ranges such as x[0:9] or y[10:-1:1] *)
+	SubReference (astexp_to_Interval i)
+    else
+	(* case #5b - handle spatial operations such as x[2*i+1] *)
+	SpatialReference (astexp_to_Exp i)
   | astexp_to_Iterator (i as WILDCARD) =
     (* case #6 - handle wildcards such as x[_] to mean all values *)
     SubReference (astexp_to_Interval i)
@@ -127,27 +141,27 @@ and astexp_to_Iterator (REFERENCE {sym=itersym, args=[offsetexp]}) =
   | astexp_to_Iterator exp = (log_progs (exp_to_printer exp);
 			      error "invalid iterator";
 			      IteratorReference (Symbol.symbol "undefined", Iterator.RELATIVE 0))
-  
-and astexp_to_Interval (LITERAL (CONSTREAL r)) = SubSpace.Indices [Real.floor r]
+			     
+and astexp_to_Interval (LITERAL (CONSTREAL r)) = Exp.Indices [Real.floor r]
   | astexp_to_Interval (exp as APPLY {func=(SYMBOL opsym), args=(TUPLE args)}) =
     (case (Symbol.name opsym, args) of
 	 ("operator_tabulate", [LITERAL (CONSTREAL lower), 
-				LITERAL (CONSTREAL upper)]) => SubSpace.Interval {start=Real.floor lower,
-										  stop=Real.floor upper,
-										  step=if lower<upper then 1 else ~1}
+				LITERAL (CONSTREAL upper)]) => Exp.Interval {start=Real.floor lower,
+									     stop=Real.floor upper,
+									     step=if lower<upper then 1 else ~1}
        | ("operator_tabulate", [LITERAL (CONSTREAL lower),
 				LITERAL (CONSTREAL step),
-				LITERAL (CONSTREAL upper)]) => SubSpace.Interval {start=Real.floor lower,
-										  stop=Real.floor upper,
-										  step=Real.floor step}
+				LITERAL (CONSTREAL upper)]) => Exp.Interval {start=Real.floor lower,
+									     stop=Real.floor upper,
+									     step=Real.floor step}
        | (opstr, _) => (log_progs (exp_to_printer exp);
 			error "invalid iterator";
-			SubSpace.Empty))
-  | astexp_to_Interval WILDCARD = SubSpace.Full
-  | astexp_to_Interval UNIT = SubSpace.Empty
+			Exp.Empty))
+  | astexp_to_Interval WILDCARD = Exp.Full
+  | astexp_to_Interval UNIT = Exp.Empty
   | astexp_to_Interval exp = (log_progs (exp_to_printer exp);
 			      error "invalid iterator";
-			      SubSpace.Empty)
+			      Exp.Empty)
 
 and reference_to_Exp (r as {sym, args=[TABLE _]}) = (log_progs (exp_to_printer (REFERENCE r));
 						     error_exp "invalid table reference")
@@ -160,8 +174,9 @@ and reference_to_Exp (r as {sym, args=[TABLE _]}) = (log_progs (exp_to_printer (
 		   case iter of
 		       IteratorReference i => (iters @ [i], subs)
 		     | SubReference s => (iters, subs @ [s])
-		     | NamedReference (sym, SubReference s) => (iters, subs @ [SubSpace.NamedInterval (sym, s)])
-		     | _ => except "NamedReference with IteratorReference")
+		     | NamedReference (sym, SubReference s) => (iters, subs @ [Exp.NamedInterval (sym, s)])
+		     | NamedReference _ => (error "Incorrect named reference"; (iters, subs))
+		     | SpatialReference exp => (iters, subs @ [Exp.ExpInterval exp]))
 		([],[])
 		iterators
 	val toSymbol = ExpBuild.svar
@@ -183,56 +198,56 @@ and reference_to_Exp (r as {sym, args=[TABLE _]}) = (log_progs (exp_to_printer (
     
 
 and (*apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}= 
-    (case astexp_to_Iterator arg of
-	 IteratorReference iter => ExpBuild.var_with_iter (sym, iter)
-       | SubReference subspace => ExpBuild.subref (ExpBuild.svar sym, subspace))
-  | apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR args])}=
-    let
-	val iterators = map astexp_to_Iterator args
-	val (iter_references, sub_references) = 
-	    foldl
-		(fn(iter, (iters, subs))=>
-		   case iter of
-		       IteratorReference i => (iters @ [i], subs)
-		     | SubReference s => (iters, subs @ [s]))
-		([],[])
-		iterators
-	val toSymbol = ExpBuild.svar
-	val toIterSymbol = ExpBuild.var_with_iter
-	val toSubref = ExpBuild.subref
-	val flatten_subspace = Util.flatten
-    in
-	case (iter_references, sub_references) of
-	    (* case #1: x[n], u[t[-1]], y[n-4] *)
-	    ([iter], nil) => toIterSymbol (sym, iter)
-	  (* case #2: x[n, 1:2], y[t, 4, _] *)
-	  | ([iter], subrefs) => toSubref (toIterSymbol (sym, iter), flatten_subspace subrefs)
-	  (* case #3: x[], y[] *)
-	  | (nil, nil) => toSymbol sym
-	  (* case #4: x[1:2], M[_,_] *)
-	  | (nil, subrefs) => toSubref (toSymbol sym, flatten_subspace subrefs)
-	  | (iters, _) => error_exp ("Symbol '"^(Symbol.name sym)^"' can only be defined with one temporal iterator")
-    end
-  | *)apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
-    ((case (Symbol.name sym) of
-	"operator_add" => builtin (Fun.ADD, args)
-      | "operator_subtract" => builtin (Fun.SUB, args)
-      | "operator_multiply" => builtin (Fun.MUL, args)
-      | "operator_divide" => builtin (Fun.DIVIDE, args)
-      | "operator_modulus" => builtin (Fun.MODULUS, args)
-      | "operator_neg" => builtin (Fun.NEG, args)
-      | "operator_ge" => builtin (Fun.GE, args)
-      | "operator_le" => builtin (Fun.LE, args)
-      | "operator_gt" => builtin (Fun.GT, args)
-      | "operator_lt" => builtin (Fun.LT, args)
-      | "operator_eq" => builtin (Fun.EQ, args)
-      | "operator_ne" => builtin (Fun.NEQ, args)
-      | "operator_deriv" => builtin (Fun.DERIV, args)
-      | "operator_tabulate" => ExpBuild.range (map astexp_to_Exp args)
-      | "power" => builtin (Fun.POW, args)
-      | "ln" => builtin (Fun.LOG, args)
-      | _ => builtin (MathFunctionProperties.name2op sym, args))
-     (*
+     (case astexp_to_Iterator arg of
+	  IteratorReference iter => ExpBuild.var_with_iter (sym, iter)
+	| SubReference subspace => ExpBuild.subref (ExpBuild.svar sym, subspace))
+    | apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR args])}=
+      let
+	  val iterators = map astexp_to_Iterator args
+	  val (iter_references, sub_references) = 
+	      foldl
+		  (fn(iter, (iters, subs))=>
+		     case iter of
+			 IteratorReference i => (iters @ [i], subs)
+		       | SubReference s => (iters, subs @ [s]))
+		  ([],[])
+		  iterators
+	  val toSymbol = ExpBuild.svar
+	  val toIterSymbol = ExpBuild.var_with_iter
+	  val toSubref = ExpBuild.subref
+	  val flatten_subspace = Util.flatten
+      in
+	  case (iter_references, sub_references) of
+	      (* case #1: x[n], u[t[-1]], y[n-4] *)
+	      ([iter], nil) => toIterSymbol (sym, iter)
+	    (* case #2: x[n, 1:2], y[t, 4, _] *)
+	    | ([iter], subrefs) => toSubref (toIterSymbol (sym, iter), flatten_subspace subrefs)
+	    (* case #3: x[], y[] *)
+	    | (nil, nil) => toSymbol sym
+	    (* case #4: x[1:2], M[_,_] *)
+	    | (nil, subrefs) => toSubref (toSymbol sym, flatten_subspace subrefs)
+	    | (iters, _) => error_exp ("Symbol '"^(Symbol.name sym)^"' can only be defined with one temporal iterator")
+      end
+    | *)apply_to_Exp {func=(SYMBOL sym), args=(TUPLE args)} =
+	((case (Symbol.name sym) of
+	      "operator_add" => builtin (Fun.ADD, args)
+	    | "operator_subtract" => builtin (Fun.SUB, args)
+	    | "operator_multiply" => builtin (Fun.MUL, args)
+	    | "operator_divide" => builtin (Fun.DIVIDE, args)
+	    | "operator_modulus" => builtin (Fun.MODULUS, args)
+	    | "operator_neg" => builtin (Fun.NEG, args)
+	    | "operator_ge" => builtin (Fun.GE, args)
+	    | "operator_le" => builtin (Fun.LE, args)
+	    | "operator_gt" => builtin (Fun.GT, args)
+	    | "operator_lt" => builtin (Fun.LT, args)
+	    | "operator_eq" => builtin (Fun.EQ, args)
+	    | "operator_ne" => builtin (Fun.NEQ, args)
+	    | "operator_deriv" => builtin (Fun.DERIV, args)
+	    | "operator_tabulate" => ExpBuild.range (map astexp_to_Exp args)
+	    | "power" => builtin (Fun.POW, args)
+	    | "ln" => builtin (Fun.LOG, args)
+	    | _ => builtin (MathFunctionProperties.name2op sym, args))
+	 (*
       | "exp" => builtin (Fun.EXP, args)
       | "log10" => builtin (Fun.LOG10, args)
       | "logn" => builtin (Fun.LOGN, args)
@@ -268,10 +283,10 @@ and (*apply_to_Exp {func=(SYMBOL sym), args=(TUPLE [VECTOR [arg]])}=
       | "ceil" => builtin (Fun.CEILING, args)
       | "round" => builtin (Fun.ROUND, args) 
       | _ => error_exp ("APPLY:" ^ (Symbol.name sym) ^ " with args = " ^ (Util.list2str ExpPrinter.exp2str (map astexp_to_Exp args)))*)
-     handle e => DynException.checkpoint ("AstDOFTrans.apply_to_Exp ["^(Symbol.name sym)^"]") e)
-  | apply_to_Exp {func=(SYMBOL sym),...} = error_exp ("APPLY ["^(Symbol.name sym)^"]")
-  | apply_to_Exp {func=(SEND {message, object=(SYMBOL sym)}), ...} = error_exp ("Can not perform temporal indexing on " ^ (Symbol.name sym ^ "." ^ (Symbol.name message)))
-  | apply_to_Exp {func,...} = error_exp ("APPLY")
+	 handle e => DynException.checkpoint ("AstDOFTrans.apply_to_Exp ["^(Symbol.name sym)^"]") e)
+      | apply_to_Exp {func=(SYMBOL sym),...} = error_exp ("APPLY ["^(Symbol.name sym)^"]")
+      | apply_to_Exp {func=(SEND {message, object=(SYMBOL sym)}), ...} = error_exp ("Can not perform temporal indexing on " ^ (Symbol.name sym ^ "." ^ (Symbol.name message)))
+      | apply_to_Exp {func,...} = error_exp ("APPLY")
 
 and send_to_Exp {message, object=(SYMBOL sym)} = ExpBuild.var (Symbol.name sym ^ "." ^ (Symbol.name message))
   | send_to_Exp {message, object} = ExpBuild.var ("SEND:" ^ (Symbol.name message))
@@ -315,8 +330,8 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
 	else
 	    (* here, we just don't know what to do, so leave it as a vector *)
 	    Container.arrayToExpArray (Container.listToArray exps)	    
-	    (*(log_progs (exp_to_printer exp);
-	     error_exp "Unsupported VECTOR")*)
+    (*(log_progs (exp_to_printer exp);
+       error_exp "Unsupported VECTOR")*)
     end
   | astexp_to_Exp (TUPLE l) = Exp.CONTAINER (Exp.EXPLIST (map astexp_to_Exp l))
   | astexp_to_Exp (ASSERTION _) = error_exp "ASSERTION"
@@ -339,7 +354,7 @@ and astexp_to_Exp (LITERAL (CONSTREAL r)) = Exp.TERM (Exp.REAL r)
 					       error_exp "NAMEDPATTERN")
   | astexp_to_Exp (WILDCARD) = error_exp "WILDCARD"
   | astexp_to_Exp (RULEMATCH _) = error_exp "RULEMATCH"
-				      
+				  
 
 
 and stm_to_printer (DEFINITION (def, log)) = ([$("Definition"),
@@ -352,7 +367,7 @@ and stm_to_printer (DEFINITION (def, log)) = ([$("Definition"),
 and def_to_printer (DEFFUN _) = [$("Deffun")]
   | def_to_printer (DEFPROTOCOL _) = [$("Defprotocol")]
   | def_to_printer (DEFCLASS {name, classheader, methods}) = [$("Defclass"),
-						     SUB[$("name: " ^ (Symbol.name name))]]
+							      SUB[$("name: " ^ (Symbol.name name))]]
   | def_to_printer (DEFNAMESPACE {name, stms}) = [$("Defnamespace")]
   | def_to_printer (DEFINTERFACE {name, headers}) = [$("Definterface")]
   | def_to_printer (DEFGLOBAL (sym, optpat, optexp)) = [$("Defglobal: " ^ (Symbol.name sym))]
@@ -364,17 +379,17 @@ and def_to_printer (DEFFUN _) = [$("Deffun")]
      SUB(modelheader_to_printer header),
      $("Parts:"),
      SUB(Util.flatmap modelpart_to_printer parts)]
-								      
+    
   | def_to_printer (INSTMODEL {name, exp}) = [$("Instmodel: " ^ (Symbol.name name))]
   | def_to_printer (DEFPROPERTY {name, io={read,write}}) = [$("Defproperty: " ^ (Symbol.name name))]
 
 and modelheader_to_printer {name, args, returns} = 
     [$("Model Header"),
      SUB([$("Args"),
-	 SUB(map (fn(sym, symlist)=> $("Sym: '"^(Symbol.name sym)^"'" ^ 
-				       (case symlist of 
-					    SOME symlist => " ["^(Util.symlist2s symlist)^"]"
-					  | NONE => ""))) args)] @
+	  SUB(map (fn(sym, symlist)=> $("Sym: '"^(Symbol.name sym)^"'" ^ 
+					(case symlist of 
+					     SOME symlist => " ["^(Util.symlist2s symlist)^"]"
+					   | NONE => ""))) args)] @
 	 [SUB(case returns of 
 		  SOME symlist => [$("Returns: "^(Util.symlist2s symlist))]
 		| NONE => [])])]
@@ -392,30 +407,30 @@ and modelpart_to_printer (STM stm) = [$("Stm:"),
 	     SOME exp => [$("exp"),
 			  SUB(exp_to_printer exp)]
 	   | NONE => []),
-    SUB(case settingstable of
-	    SOME exp => [$("settingstable"),
-			 SUB(exp_to_printer exp)]
-	  | NONE => [])]
+     SUB(case settingstable of
+	     SOME exp => [$("settingstable"),
+			  SUB(exp_to_printer exp)]
+	   | NONE => [])]
   | modelpart_to_printer (OUTPUTDEF {name, quantity, dimensions, settings, condition}) = [$("Outputdef: " ^ (Symbol.name name)),
 											  SUB([$("Quantity: " ^ (ExpPrinter.exp2str (astexp_to_Exp quantity)))] @ 
-											       (case dimensions of
-												    SOME dimlist => [$("Dimensions: " ^ (Util.symlist2s dimlist))]
-												  | NONE => []) @
-											       (case settings of
-												    SOME e => [$("Settings: "),
-													       SUB(exp_to_printer e)]
-												  | NONE => []) @
+											      (case dimensions of
+												   SOME dimlist => [$("Dimensions: " ^ (Util.symlist2s dimlist))]
+												 | NONE => []) @
+											      (case settings of
+												   SOME e => [$("Settings: "),
+													      SUB(exp_to_printer e)]
+												 | NONE => []) @
 											      (case condition of
 												   SOME c => [$("Condition: " ^ (ExpPrinter.exp2str (astexp_to_Exp c)))]
 												 | NONE => []))]
-												    
+											 
   | modelpart_to_printer (INPUTDEF {name, quantity, settings, dimensions}) = [$("Inputdef: " ^ (Symbol.name name)),
-										 SUB[$("quantity"),
-										     SUB(exp_to_printer quantity)],
-										 SUB(case settings of
-											 SOME e => [$("Settings"),
-												    SUB(exp_to_printer e)]
-										       | NONE => [])]
+									      SUB[$("quantity"),
+										  SUB(exp_to_printer quantity)],
+									      SUB(case settings of
+										      SOME e => [$("Settings"),
+												 SUB(exp_to_printer e)]
+										    | NONE => [])]
   | modelpart_to_printer (ITERATORDEF {name, value, settings}) = [$("Iteratordef: " ^ (Symbol.name name)),
 								  SUB(case value of 
 									  SOME e => [$("Value: " ^ (ExpPrinter.exp2str (astexp_to_Exp e)))]
@@ -459,22 +474,22 @@ and act_to_printer (EXP exp) = [$("Expression"),
 
 and equation_to_printer (EQUATION (e1, e2, e3opt)) = 
     ((case e3opt of
-	 SOME e3 =>
-	 [$("Equation: "),
-	  SUB[$("e1"),
-	      SUB(exp_to_printer e1)],
-	  SUB[$("e2"),
-	      SUB(exp_to_printer e2)],
-	  SUB[$("e3"),
-	      SUB(exp_to_printer e3)]]
-       | NONE =>
-(*	 [$("Equ: " ^ (ExpPrinter.exp2str (ExpBuild.equals (astexp_to_Exp e1, 
-							    astexp_to_Exp e2))))]*)
-	 [$("Equation: "),
-	  SUB[$("e1"),
-	      SUB(exp_to_printer e1)],
-	  SUB[$("e2"),
-	      SUB(exp_to_printer e2)]])
+	  SOME e3 =>
+	  [$("Equation: "),
+	   SUB[$("e1"),
+	       SUB(exp_to_printer e1)],
+	   SUB[$("e2"),
+	       SUB(exp_to_printer e2)],
+	   SUB[$("e3"),
+	       SUB(exp_to_printer e3)]]
+	| NONE =>
+	  (*	 [$("Equ: " ^ (ExpPrinter.exp2str (ExpBuild.equals (astexp_to_Exp e1, 
+								    astexp_to_Exp e2))))]*)
+	  [$("Equation: "),
+	   SUB[$("e1"),
+	       SUB(exp_to_printer e1)],
+	   SUB[$("e2"),
+	       SUB(exp_to_printer e2)]])
      handle e => DynException.checkpoint "AstDOFTrans.equation_to_printer [EQUATION]" e)
 
   | equation_to_printer (MATHFUNCTION (e1, e2)) = [$("MathFunction: "),
@@ -503,10 +518,10 @@ and exp_to_printer (LITERAL lit) = [$("Literal: " ^ (literal_to_string lit))]
 					    SUB[$("body"),
 						SUB(exp_to_printer body)]]
   | exp_to_printer (APPLY {func, args}) = [$("Apply"),
-					    SUB[$("func"),
-						SUB(exp_to_printer func)],
-					    SUB[$("args"),
-						SUB(exp_to_printer args)]]
+					   SUB[$("func"),
+					       SUB(exp_to_printer func)],
+					   SUB[$("args"),
+					       SUB(exp_to_printer args)]]
   | exp_to_printer (REFERENCE {sym, args}) = [$("Reference (sym=" ^ (Symbol.name sym) ^ ")"),
 					      SUB[$("args"),
 						  SUB(Util.flatmap exp_to_printer args)]]
@@ -608,10 +623,10 @@ local
 						  SOME _ => DOF.Input.HALT
 						| NONE => ((* don't need to check for hold since we don't use it anyway *)
 							   (*case lookupTable (settings, Symbol.symbol "hold_when_exhausted") of
-							       SOME _ => DOF.Input.HOLD
-							     | NONE =>*) DOF.Input.HOLD)))
+								 SOME _ => DOF.Input.HOLD
+							       | NONE =>*) DOF.Input.HOLD)))
 			      | NONE => DOF.Input.HOLD
-						  
+					
 	    val iterator = case settings of
 			       SOME settings => 
 			       (case lookupTable (settings, Symbol.symbol "iter") of
@@ -635,26 +650,26 @@ local
 	    val settings_table = case settings of
 				     SOME settings => DMLTableToSymbolTable settings
 				   | NONE => SymbolTable.empty				     
-	    
+					     
 	    val iterator = case SymbolTable.look (settings_table, Symbol.symbol "iter") of
 			       SOME (SYMBOL sym) => SOME (sym, Iterator.RELATIVE 0)
 			     | SOME _ => (error ("unexpected non symbol parameter for iter property for output " ^ (Symbol.name name));
 					  NONE)
 			     | NONE => NONE
-						 
+				       
 	    val defaultOutputIterator = true
 	    val outputIterator = case SymbolTable.look (settings_table, Symbol.symbol "notime") of
-				      SOME (LITERAL (CONSTBOOL b)) => not b
-				    | SOME _ => (error ("unexpected non boolean parameter for notime property of output " ^ (Symbol.name name));
-						 defaultOutputIterator)
-				    | _ => defaultOutputIterator
+				     SOME (LITERAL (CONSTBOOL b)) => not b
+				   | SOME _ => (error ("unexpected non boolean parameter for notime property of output " ^ (Symbol.name name));
+						defaultOutputIterator)
+				   | _ => defaultOutputIterator
 
 	    val defaultOutputAsStructure = true
 	    val outputAsStructure = case SymbolTable.look (settings_table, Symbol.symbol "structure") of
-				      SOME (LITERAL (CONSTBOOL b)) => not b
-				    | SOME _ => (error ("unexpected non boolean parameter for structure property of output " ^ (Symbol.name name));
-						 defaultOutputAsStructure)
-				    | _ => defaultOutputAsStructure
+					SOME (LITERAL (CONSTBOOL b)) => not b
+				      | SOME _ => (error ("unexpected non boolean parameter for structure property of output " ^ (Symbol.name name));
+						   defaultOutputAsStructure)
+				      | _ => defaultOutputAsStructure
 
 	    (* make sure that no other settings were passed *)
 	    val _ = verifyOptions settings_table ["iter", "notime", "structure"]
@@ -722,12 +737,12 @@ local
 		let
 		    val settings' = translate_table settings
 		in
-		case List.find (fn(sym, exp)=>sym = (Symbol.symbol "sample_period")) settings' of
-		    SOME (_, Exp.TERM (Exp.REAL r)) => (name, DOF.DISCRETE {sample_period=r})
-		  | _ => (case List.find (fn(sym, exp)=>sym = (Symbol.symbol "sample_frequency")) settings' of
-			      SOME (_, Exp.TERM (Exp.REAL r)) => (name, DOF.DISCRETE {sample_period=1.0/r})
-			    | _ => (Logger.log_warning ($("No sample period or frequency specified for discrete iterator, default to one"));
-				    (name, DOF.DISCRETE {sample_period=1.0})))
+		    case List.find (fn(sym, exp)=>sym = (Symbol.symbol "sample_period")) settings' of
+			SOME (_, Exp.TERM (Exp.REAL r)) => (name, DOF.DISCRETE {sample_period=r})
+		      | _ => (case List.find (fn(sym, exp)=>sym = (Symbol.symbol "sample_frequency")) settings' of
+				  SOME (_, Exp.TERM (Exp.REAL r)) => (name, DOF.DISCRETE {sample_period=1.0/r})
+				| _ => (Logger.log_warning ($("No sample period or frequency specified for discrete iterator, default to one"));
+					(name, DOF.DISCRETE {sample_period=1.0})))
 		end
 	end
       | translate_iterator _ = except "non-iterator"
@@ -742,30 +757,30 @@ local
 				  fun prefix str sym = Symbol.symbol ("wr_" ^ (Symbol.name sym))
 				  fun add_deriv (Exp.TERM (Exp.SYMBOL (sym, props))) =
 				      (case SymbolTable.look (statetable, sym) of
-					  SOME iter_sym => 
-					  let
-					      val props' = case Property.getIterator props of
-							       SOME (iter_sym',_) => if iter_sym = iter_sym' then
-											 props
-										     else
-											 (error ("State '"^(Symbol.name sym)^
-												 "' has already beed defined with iterator '"^
-												 (Symbol.name iter_sym')^
-												 "'. Therefore, this state can not be redefined with iterator '"
-												 ^(Symbol.name iter_sym)^"'");
-											  props)
-							     | NONE => Property.setIterator props (iter_sym, Iterator.RELATIVE 0)
-					      val props'' = case Property.getDerivative props' of
-								SOME _ => except ("Unexpected iterator found on state '"^(Symbol.name sym)^"'")
-							      | NONE => Property.setDerivative props' (1, [iter_sym])
-					      val props''' = Property.setScope props'' (Property.WRITESTATE (prefix "wr_" iter_sym))
-					  in
-					      Exp.TERM (Exp.SYMBOL (sym, props'''))
-					  end
-					| NONE => (error ("State '"^(Symbol.name sym)^"' has not been properly defined");
-						   ExpBuild.svar sym))
+					   SOME iter_sym => 
+					   let
+					       val props' = case Property.getIterator props of
+								SOME (iter_sym',_) => if iter_sym = iter_sym' then
+											  props
+										      else
+											  (error ("State '"^(Symbol.name sym)^
+												  "' has already beed defined with iterator '"^
+												  (Symbol.name iter_sym')^
+												  "'. Therefore, this state can not be redefined with iterator '"
+												  ^(Symbol.name iter_sym)^"'");
+											   props)
+							      | NONE => Property.setIterator props (iter_sym, Iterator.RELATIVE 0)
+					       val props'' = case Property.getDerivative props' of
+								 SOME _ => except ("Unexpected iterator found on state '"^(Symbol.name sym)^"'")
+							       | NONE => Property.setDerivative props' (1, [iter_sym])
+					       val props''' = Property.setScope props'' (Property.WRITESTATE (prefix "wr_" iter_sym))
+					   in
+					       Exp.TERM (Exp.SYMBOL (sym, props'''))
+					   end
+					 | NONE => (error ("State '"^(Symbol.name sym)^"' has not been properly defined");
+						    ExpBuild.svar sym))
 				    | add_deriv exp = (error ("Can not add a derivative to non symbol quantity: " ^ (ExpPrinter.exp2str exp));
-							exp)
+						       exp)
 
 				  val (id) = case arglist of
 						 [LITERAL (CONSTREAL order), arg] =>
@@ -801,7 +816,7 @@ local
 	    val named_intervals = case lhs of
 				      Exp.CONVERSION (Exp.SUBREF (_, subspace)) => 
 				      List.mapPartial (fn(interval) => case interval of 
-									   SubSpace.NamedInterval (sym, _) => SOME sym 
+									   Exp.NamedInterval (sym, _) => SOME sym 
 									 | _ => NONE) subspace
 				    | _ => []
 	    val rhs = case named_intervals of
@@ -870,7 +885,7 @@ local
 	    val in_process_iterator_sym = Iterator.inProcessOf (Symbol.name iter)
 	    val equations = [(* first the initialization equation *)
 			     ExpBuild.equals (ExpBuild.state_init_var (name, in_process_iterator_sym), rhs),
-			    (* second the algebraic equation to define the next iteration's random number *)
+			     (* second the algebraic equation to define the next iteration's random number *)
 			     ExpBuild.equals (ExpBuild.state_next_var (name, in_process_iterator_sym), rhs)]
 	in
 	    equations
@@ -955,7 +970,7 @@ local
 				 in
 				     ExpBuild.equals (lhs, rhs)
 				 end
-				 ) returns
+			     ) returns
 		 in
 		     exp :: output_exps
 		 end
@@ -972,68 +987,68 @@ local
 	 classform=DOF.INSTANTIATION {readstates=[], writestates=[]}  (* FIXME!!! *)
 	}
 
-fun remove_duplicate_iterators iterators = 
-    let
-	val itertable = SymbolTable.empty
-	val itertable = foldl 
-			    (fn(iter as (iter_sym, _),itertable')=>
-			       case SymbolTable.look (itertable', iter_sym) of
-				   SOME _ => itertable' (* already exists - should do an equality check here *)
-				 | NONE => SymbolTable.enter (itertable', iter_sym, iter))
-			    itertable
-			    iterators
-    in
-	SymbolTable.listItems itertable
-    end
-    handle e => DynException.checkpoint "AstDOFTrans.remove_duplicate_iterators" e
+    fun remove_duplicate_iterators iterators = 
+	let
+	    val itertable = SymbolTable.empty
+	    val itertable = foldl 
+				(fn(iter as (iter_sym, _),itertable')=>
+				   case SymbolTable.look (itertable', iter_sym) of
+				       SOME _ => itertable' (* already exists - should do an equality check here *)
+				     | NONE => SymbolTable.enter (itertable', iter_sym, iter))
+				itertable
+				iterators
+	in
+	    SymbolTable.listItems itertable
+	end
+	handle e => DynException.checkpoint "AstDOFTrans.remove_duplicate_iterators" e
 
-fun build_system_properties iterators =
-    let
-	(* grab settings from the registry *)
-	val precision = DynamoOptions.getStringSetting "precision"
-	val target = DynamoOptions.getStringSetting "target"
-	val parallel_models = DynamoOptions.getIntegerSetting "parallel_models"
-	val debug = DynamoOptions.isFlagSet "debug"
-	val profile = DynamoOptions.isFlagSet "profile"
-			
-	(* update to licensing default if set to default *)
-	val target = if StdFun.toLower target = "default" then
-			 Features.defaultTarget()
-		     else
-			 target			 
-		      
-	(* only support openmp right now *)
-	val target = if StdFun.toLower target = "parallelcpu" then
-			 "openmp"
-		     else
-			 target
+    fun build_system_properties iterators =
+	let
+	    (* grab settings from the registry *)
+	    val precision = DynamoOptions.getStringSetting "precision"
+	    val target = DynamoOptions.getStringSetting "target"
+	    val parallel_models = DynamoOptions.getIntegerSetting "parallel_models"
+	    val debug = DynamoOptions.isFlagSet "debug"
+	    val profile = DynamoOptions.isFlagSet "profile"
+			  
+	    (* update to licensing default if set to default *)
+	    val target = if StdFun.toLower target = "default" then
+			     Features.defaultTarget()
+			 else
+			     target			 
+			     
+	    (* only support openmp right now *)
+	    val target = if StdFun.toLower target = "parallelcpu" then
+			     "openmp"
+			 else
+			     target
 
-	(* only support cuda right now *)
-	val target = if StdFun.toLower target = "gpu" then
-			 "cuda"
-		     else
-			 target
-    in
-	{iterators=iterators,
-	 precision= case (StdFun.toLower precision)
-		     of "single" => DOF.SINGLE
-		      | "float" => DOF.SINGLE
-		      | "double" => DOF.DOUBLE
-		      | _ => (error ("unsupported precision '"^precision^"'");
-			      DOF.DOUBLE),
-	 target=case (StdFun.toLower target)
-		  of "cpu" => Target.CPU
-		   | "openmp" => Target.OPENMP
-		   | "cuda" => Target.CUDA (*{compute=deviceCapability, 
-					      multiprocessors=numMPs, 
-					      globalMemory=globalMemory} *)
-		   | _ => (error ("unsupported target '"^target^"'");
-			   Target.CPU),
-	 parallel_models=parallel_models,
-	 debug=debug,
-	 profile=profile}
-    end
-    handle e => DynException.checkpoint "AstDOFTrans.build_system_properties" e
+	    (* only support cuda right now *)
+	    val target = if StdFun.toLower target = "gpu" then
+			     "cuda"
+			 else
+			     target
+	in
+	    {iterators=iterators,
+	     precision= case (StdFun.toLower precision)
+			 of "single" => DOF.SINGLE
+			  | "float" => DOF.SINGLE
+			  | "double" => DOF.DOUBLE
+			  | _ => (error ("unsupported precision '"^precision^"'");
+				  DOF.DOUBLE),
+	     target=case (StdFun.toLower target)
+		     of "cpu" => Target.CPU
+		      | "openmp" => Target.OPENMP
+		      | "cuda" => Target.CUDA (*{compute=deviceCapability, 
+						 multiprocessors=numMPs, 
+						 globalMemory=globalMemory} *)
+		      | _ => (error ("unsupported target '"^target^"'");
+			      Target.CPU),
+	     parallel_models=parallel_models,
+	     debug=debug,
+	     profile=profile}
+	end
+	handle e => DynException.checkpoint "AstDOFTrans.build_system_properties" e
 
 
 in
@@ -1041,8 +1056,8 @@ fun modeldef_to_class top_level modeltable name =
     let
 	(* grab the pieces of the model out of the modeltable *)
 	val {args, returns, inputs, parts} = case SymbolTable.look (modeltable, name) of
-					 SOME r => r
-				       | NONE => except "Can't access model by name"
+						 SOME r => r
+					       | NONE => except "Can't access model by name"
 
 	(* for the parts, we need to sort them and make sure there's nothing that
 	 * we're not expecting, for example, some type of syntax that we can't
@@ -1082,7 +1097,7 @@ fun modeldef_to_class top_level modeltable name =
 			       (collect_submodels (modeltable, submodels, submodelassigns)) @
 			       (map (translate_equation statetable) (Util.flatmap expand_equations equations)))}
 
-	(*val _ = DOFPrinter.printClass class*)
+    (*val _ = DOFPrinter.printClass class*)
     in
 	(class, class_iterators)
     end
@@ -1183,7 +1198,7 @@ fun ast_to_dof astlist =
 								     (Iterator.inProcessOf (Symbol.name iter_sym), DOF.ALGEBRAIC (DOF.INPROCESS, iter_sym)),
 								     (Iterator.updateOf (Symbol.name iter_sym), DOF.UPDATE iter_sym)])
 				 reduced_iterators)
-	    
+			    
 	(* put together the system properties *)
 	val systemproperties = build_system_properties all_iterators
 	val instance = {name=NONE, classname=top_level_model}

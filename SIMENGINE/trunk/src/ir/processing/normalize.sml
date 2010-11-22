@@ -28,6 +28,8 @@ fun normalize_with_env table exp =
 		    | SOME e => e)
 	       | _ => exp)
 	  | Exp.CONTAINER c =>
+	    (head exp) (map (normalize_with_env table) (level exp))
+	    (*
 	    let
 		fun normalize_array a =
 		    let
@@ -46,7 +48,7 @@ fun normalize_with_env table exp =
 				     (Container.expMatrixToMatrix 
 					  ((head exp) (map (normalize_with_env table) (level exp))))
 	    )
-	    end
+	    end*)
 	  | Exp.META m =>
 	    let
 		fun run argsyms exp args =
@@ -83,10 +85,15 @@ fun normalize_with_env table exp =
 		     exp
 		   | Exp.SEQUENCE exps => Exp.META(Exp.SEQUENCE(expFlatMap (normalize_with_env table) exps)))
 	    end
-	  | Exp.CONVERSION (Exp.SUBREF (exp', subspace)) =>
-	    Exp.CONVERSION (Exp.SUBREF (normalize_with_env table exp', subspace))
-	  | Exp.CONVERSION (Exp.RESHAPE (exp', space)) =>
-	    Exp.CONVERSION (Exp.RESHAPE (normalize_with_env table exp', space))
+	  | Exp.CONVERSION c => 
+	    (head exp) (map (normalize_with_env table) (level exp))
+		 (*
+	    Exp.CONVERSION 
+		(case c of
+		     Exp.SUBREF (exp', subspace) => Exp.SUBREF (normalize_with_env table exp', subspace)
+		   | Exp.RESHAPE (exp', space) => Exp.RESHAPE (normalize_with_env table exp', space)
+		   | Exp.SUBSPACE subspace =>  Exp.SUBSPACE subspace)
+		  *)
     end
 
 fun normalize exp = normalize_with_env SymbolTable.empty exp
