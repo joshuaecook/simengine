@@ -41,6 +41,7 @@ signature TYPE = sig
       | Vector
       | Source
       | Sink
+      | Unit
       | Void
 
       | CType of string
@@ -113,6 +114,13 @@ signature TYPE = sig
 	(context,proper->proper) typet
 
     val void:
+	(* G |- <>
+	 * -------
+	 * G |- void::*
+	 *)
+	(context,proper) typet
+
+    val unit:
 	(* G |- <>
 	 * -------
 	 * G |- void::*

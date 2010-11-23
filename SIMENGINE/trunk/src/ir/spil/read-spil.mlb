@@ -1,0 +1,31 @@
+local
+  (* import Basis Library *)
+  $(SML_LIB)/basis/basis.mlb
+  $(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
+  $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+
+  ../../util/layout.sig
+  ../../util/layout.sml
+
+  ../type/SIZE.sig
+  ../type/size.sml
+
+  ../type/TYPE.sig
+  ../type/type.sml
+
+  SPIL.sig
+  spil.sml
+
+  print_spil.sml
+
+  parser_context.sml
+
+  spil.grm.sig
+  spil.lex.sml
+  spil.grm.sml
+
+  parse.sml
+  spilc.sml
+in
+	read-spil.sml
+end

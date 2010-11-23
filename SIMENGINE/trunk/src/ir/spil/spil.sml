@@ -4,22 +4,15 @@ type size = int
 type ident = string
 type label = string
 
-structure Uses = BinarySetFn(type ord_key = ident val compare = String.compare)
-structure Defs = BinarySetFn(type ord_key = ident * Type.t val compare = fn ((a,_),(b,_)) => String.compare (a,b))
-
-
-fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
-val v = Vector.fromList
-
-
 datatype immediate 
-  = Real of real
-  | Int of int
-  | Bool of bool
+  = Real of string
+  | Int of string
+  | Bool of string
   | String of string
   | Const of ident
   | Nan
   | Infinity
+  | Undefined
 
 type address = string
 
@@ -36,6 +29,7 @@ end
 
 datatype atom
   = Null
+  | Void
   | Literal of immediate
   | Variable of ident
   | Source of atom
@@ -46,24 +40,12 @@ datatype atom
   | Symbol of ident
   | Label of ident
   | Cast of atom * Type.t
-  | Offset of
-    {base: atom, index: size, offset: size, scale: size, basetype: Type.t}
-  | Offset2D of
-    {base: atom, 
-     index: {x:size, y:size}, 
-     offset: {x:size, y:size},
-     scale: {x:size, y:size},
-     basetype: Type.t}
-  | Offset3D of
-    {base: atom,
-     index: {x:size, y:size, z:size},
-     offset: {x:size, y:size, z:size},
-     scale: {x:size, y:size, z:size},
-     basetype: Type.t}
 
      and operator
        = Int_add
        | Int_sub
+       | Int_mul
+       | Int_lt
        | Float_add
        | Float_sub
        | Float_mul
@@ -127,63 +109,106 @@ datatype atom
 		   args: expression vector}
 
      and statement
-       = HALT
-       | NOP
-       | COMMENT of string
-       | PROFILE of ident
-       | BIND of {src: atom,
+       = Halt
+       | Nop
+       | Comment of string
+       | Profile of ident
+       | Bind of {src: atom,
 		  dest: ident * Type.t}
-       | GRAPH of {src: expression,
+       | Graph of {src: expression,
 		   dest: ident * Type.t}
-       | PRIMITIVE of {oper: operator,
+       | Primitive of {oper: operator,
 		       args: atom vector,
 		       dest: ident * Type.t}
-       | MOVE of {src: atom,
+       | Move of {src: atom,
 		  dest: atom}
 
      and control
-       = CALL of {func: ident,
+       = Call of {func: ident,
 		  args: atom vector, 
 		  return: control option} (* NONE for tail calls *)
-       | JUMP of {block: label,
+       | Jump of {block: label,
 		  args: atom vector}
-       | SWITCH of {test: atom,
-		    cases: (immediate * label) vector,
-		    default: label}
-       | RETURN of atom
+       | Switch of {test: atom,
+		    cases: (immediate * control) vector,
+		    default: control}
+       | Return of atom
 
      and block
-       = BLOCK of {label: label,
+       = Block of {label: label,
 		   params: (ident * Type.t) vector,
 		   body: statement vector,
 		   transfer: control}
 
      and function
-       = FUNCTION of {params: (ident * Type.t) vector,
+       = Function of {params: (ident * Type.t) vector,
 		      name: ident,
 		      start: label,
 		      blocks: block vector,
 		      returns: Type.t}
 
      and program
-       = PROGRAM of {functions: function vector,
+       = Program of {functions: function vector,
 		     main: function,
 		     globals: (ident * Type.t) vector,
 		     types: TypeDeclaration.t vector}
 
+     and fragment
+       = ATOM of atom
+       | OPERATOR of operator
+       | EXPRESSION of expression
+       | STATEMENT of statement
+       | CONTROL of control
+       | BLOCK of block
+       | FUNCTION of function
+       | PROGRAM of program
+       | TYPENAME of Type.t
+       | SERIES of fragment vector (* Comma-delimited *)
+       | SEQUENCE of fragment vector (* Semicolon-delimited *)
+		   
 
+fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
+val v = Vector.fromList
 
+structure Uses = BinarySetFn(type ord_key = ident val compare = String.compare)
+structure Defs = BinarySetFn(type ord_key = ident * Type.t val compare = fn ((a,_),(b,_)) => String.compare (a,b))
+
+structure Context = struct
+type atom = atom
+type expression = expression
+type operator = operator
+datatype binding
+  = Assumption of Type.t
+  | Bind of atom * Type.t
+  | Graph of expression * Type.t
+  | Primitive of operator * Type.t
+type context = (ident * binding) list
+val empty = nil
+val add = fn (cxt,id,def) => (id,def)::cxt
+val rec find =
+ fn (nil, name) => NONE
+  | ((id,def)::rest, name) => if name = id then SOME def else find (rest,name)
+end
+
+structure Environment = struct
+type context = Context.context
+type expression = expression
+datatype binding
+  = Assumption of Type.t
+  | Function of Type.t
+  | Global of expression * Type.t
+  | Type of Type.t
+type env = (context * ident * binding) list
+val empty = nil
+val add = fn (env,cxt,id,def) => (cxt,id,def)::env
+end
 
 structure Atom = struct
-type context = unit
 datatype t = datatype atom
 
 val rec uses =
  fn Variable id => SOME id
   | Cast (atom, t) => uses atom
-  | Offset {base, ...} => uses base
-  | Offset2D {base, ...} => uses base
-  | Offset3D {base, ...} => uses base
   | Source base => uses base
   | Sink base => uses base
   | RuntimeVar (f, t) => uses (f ())
@@ -209,6 +234,8 @@ end
 val name =
  fn Int_add => "Int_add"
   | Int_sub => "Int_sub"
+  | Int_mul => "Int_mul"
+  | Int_lt => "Int_lt"
   | Float_add => "Float_add"
   | Float_sub => "Float_sub"
   | Float_mul => "Float_mul"
@@ -260,10 +287,74 @@ val name =
   | Random_uniform => "Random_uniform"
   | Random_normal => "Random_normal"
   | Address_addr => "Address_addr"
+  | Address_deref => "Address_deref"
   | Sim_if => "Sim_if"
   | Sim_input => "Sim_input"
   | Sim_output => "Sim_output"
   | Sim_bug => "Sim_bug"
+
+val find =
+ fn "Int_add" => SOME Int_add
+  | "Int_sub" => SOME Int_sub
+  | "Int_mul" => SOME Int_mul
+  | "Int_lt" => SOME Int_lt
+  | "Float_add" => SOME Float_add
+  | "Float_sub" => SOME Float_sub
+  | "Float_mul" => SOME Float_mul
+  | "Float_neg" => SOME Float_neg
+  | "Float_div" => SOME Float_div
+  | "Float_gt" => SOME Float_gt
+  | "Float_ge" => SOME Float_ge
+  | "Float_lt" => SOME Float_lt
+  | "Float_le" => SOME Float_le
+  | "Float_eq" => SOME Float_eq
+  | "Float_ne" => SOME Float_ne
+  | "Math_exp" => SOME Math_exp
+  | "Math_pow" => SOME Math_pow
+  | "Math_sin" => SOME Math_sin
+  | "Math_cos" => SOME Math_cos
+  | "Math_tan" => SOME Math_tan
+  | "Math_csc" => SOME Math_csc
+  | "Math_sec" => SOME Math_sec
+  | "Math_cot" => SOME Math_cot
+  | "Math_asin" => SOME Math_asin
+  | "Math_acos" => SOME Math_acos
+  | "Math_atan" => SOME Math_atan
+  | "Math_atan2" => SOME Math_atan2
+  | "Math_acsc" => SOME Math_acsc
+  | "Math_asec" => SOME Math_asec
+  | "Math_acot" => SOME Math_acot
+  | "Math_sinh" => SOME Math_sinh
+  | "Math_cosh" => SOME Math_cosh
+  | "Math_tanh" => SOME Math_tanh
+  | "Math_csch" => SOME Math_csch
+  | "Math_sech" => SOME Math_sech
+  | "Math_coth" => SOME Math_coth
+  | "Math_asinh" => SOME Math_asinh
+  | "Math_acosh" => SOME Math_acosh
+  | "Math_atanh" => SOME Math_atanh
+  | "Math_acsch" => SOME Math_acsch
+  | "Math_asech" => SOME Math_asech
+  | "Math_acoth" => SOME Math_acoth
+  | "Rational_rational" => SOME Rational_rational
+  | "Complex_complex" => SOME Complex_complex
+  | "Range_range" => SOME Range_range
+  | "Array_array" => SOME Array_array
+  | "Array_extract" => SOME Array_extract
+  | "Vector_extract" => SOME Vector_extract
+  | "Matrix_dense" => SOME Matrix_dense
+  | "Matrix_banded" => SOME Matrix_banded
+  | "Record_record" => SOME Record_record
+  | "Record_extract" => SOME Record_extract
+  | "Random_uniform" => SOME Random_uniform
+  | "Random_normal" => SOME Random_normal
+  | "Address_addr" => SOME Address_addr
+  | "Address_deref" => SOME Address_deref
+  | "Sim_if" => SOME Sim_if
+  | "Sim_input" => SOME Sim_input
+  | "Sim_output" => SOME Sim_output
+  | "Sim_bug" => SOME Sim_bug
+  | _ => NONE
 
 end
 
@@ -284,36 +375,35 @@ end
 end
 
 structure Statement = struct
-type context = unit
 datatype t = datatype statement
 datatype atom = datatype atom
 datatype operator = datatype operator
 datatype expression = datatype expression
 
 val defs =
- fn HALT => NONE
-  | NOP => NONE
-  | COMMENT _ => NONE
-  | PROFILE _ => NONE
-  | BIND {src, dest} => SOME dest
-  | GRAPH {src, dest} => SOME dest
-  | PRIMITIVE {oper, args, dest} => SOME dest
-  | MOVE {src, dest} => NONE
+ fn Halt => NONE
+  | Nop => NONE
+  | Comment _ => NONE
+  | Profile _ => NONE
+  | Bind {src, dest} => SOME dest
+  | Graph {src, dest} => SOME dest
+  | Primitive {oper, args, dest} => SOME dest
+  | Move {src, dest} => NONE
 
 local open Uses in
 val uses =
- fn HALT => empty
-  | NOP => empty
-  | COMMENT _ => empty
-  | PROFILE _ => empty
-  | BIND {src, dest} =>
+ fn Halt => empty
+  | Nop => empty
+  | Comment _ => empty
+  | Profile _ => empty
+  | Bind {src, dest} =>
     (case Atom.uses src of SOME id => singleton id | NONE => empty)
-  | GRAPH {src, dest} => Expression.uses src
-  | PRIMITIVE {oper, args, dest} => 
+  | Graph {src, dest} => Expression.uses src
+  | Primitive {oper, args, dest} => 
     List.foldl
 	(fn (SOME id, set) => add (set, id) | (NONE, set) => set)
 	empty (vec Atom.uses args)
-  | MOVE {src, dest} => 
+  | Move {src, dest} => 
     addList (empty, List.mapPartial (fn x => x) [Atom.uses src, Atom.uses dest])
 end
 end
@@ -324,18 +414,18 @@ datatype atom = datatype atom
 
 local open Uses in
 val rec uses =
- fn CALL {args, return, ...} =>
+ fn Call {args, return, ...} =>
     List.foldl
 	(fn (SOME id, set) => add (set, id) | (NONE, set) => set)
 	(if Option.isSome return then uses (Option.valOf return) else empty)
 	(vec Atom.uses args)
-  | JUMP {args, ...} =>
+  | Jump {args, ...} =>
     List.foldl
 	(fn (SOME id, set) => add (set, id) | (NONE, set) => set)
 	empty (vec Atom.uses args)
-  | SWITCH {test, ...} =>
+  | Switch {test, ...} =>
     (case Atom.uses test of SOME id => singleton id | NONE => empty)
-  | RETURN atom =>
+  | Return atom =>
     (case Atom.uses atom of SOME id => singleton id | NONE => empty)
 end
 end
@@ -349,13 +439,13 @@ structure Uses = Uses
 structure Free = Uses
 structure Defs = Defs
 
-fun foldParams f id (BLOCK {params, ...}) = 
+fun foldParams f id (Block {params, ...}) = 
     Vector.foldr f id params
 
-fun foldBody f id (BLOCK {body, ...}) =
+fun foldBody f id (Block {body, ...}) =
     Vector.foldr f id body
 
-fun name (BLOCK {label, ...}) = label
+fun name (Block {label, ...}) = label
 
 local open Defs in
 fun defs block
@@ -369,7 +459,7 @@ fun defs block
 end
 
 local open Uses in
-fun uses (block as BLOCK {transfer, ...})
+fun uses (block as Block {transfer, ...})
   = foldBody
 	(fn (stm, set) => union (set, (Statement.uses stm)))
 	(Control.uses transfer)
@@ -395,20 +485,20 @@ structure Locals = Uses
 datatype t = datatype function
 datatype block = datatype block
 
-fun name (FUNCTION {name, ...}) = name
+fun name (Function {name, ...}) = name
 
-fun foldBlocks f id (FUNCTION {blocks, ...}) =
+fun foldBlocks f id (Function {blocks, ...}) =
     Vector.foldr f id blocks
 
-fun findBlock p (FUNCTION {blocks, ...}) =
+fun findBlock p (Function {blocks, ...}) =
     Vector.find p blocks
 
-fun foldParams f id (FUNCTION {params, ...}) = 
+fun foldParams f id (Function {params, ...}) = 
     Vector.foldr f id params
 
-fun startBlock (function as FUNCTION {start, ...}) =
-    valOf (findBlock (fn (BLOCK {label,...}) => start = label) function)
-    handle Option => DynException.stdException(("Malformed function: no block named "^start), "Spil.Function.startBlock", Logger.INTERNAL)
+fun startBlock (function as Function {start, ...}) =
+    valOf (findBlock (fn (Block {label,...}) => start = label) function)
+    handle Option => raise Fail ("Malformed function: no block named "^start)
 
 fun locals function =
     (* Determine which variables are local by subtracting the
@@ -432,13 +522,13 @@ structure Program = struct
 datatype t = datatype program
 datatype function = datatype function
 
-fun foldFunctions f id (PROGRAM {functions, ...}) =
+fun foldFunctions f id (Program {functions, ...}) =
     Vector.foldr f id functions
 
-fun foldGlobals f id (PROGRAM {globals, ...}) = 
+fun foldGlobals f id (Program {globals, ...}) = 
     Vector.foldr (fn ((id,t),i) => f (id,t,i)) id globals
 
-fun foldTypes f id (PROGRAM {types, ...}) =
+fun foldTypes f id (Program {types, ...}) =
     Vector.foldr f id types
 
 end
