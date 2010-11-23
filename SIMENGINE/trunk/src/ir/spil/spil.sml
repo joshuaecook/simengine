@@ -17,12 +17,7 @@ datatype immediate
 type address = string
 
 structure TypeDeclaration = struct
-datatype t 
-  = ARRAY of {name: ident,
-	      size: size,
-	      base: Type.t}
-  | STRUCTURE of {name: ident,
-		  fields: (ident * Type.t) vector}
+type t = unit
 end
 
 

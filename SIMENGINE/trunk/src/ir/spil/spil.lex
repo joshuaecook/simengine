@@ -15,7 +15,9 @@ val tab
      ("switch", Tokens.SWITCH),
      ("return", Tokens.RETURN),
      ("default", Tokens.DEFAULT),
-     ("halt", Tokens.HALT)]
+     ("halt", Tokens.HALT),
+     ("type", Tokens.TYPE),
+     ("global", Tokens.GLOBAL)]
 
 fun find yytext =
     case List.find (fn (name,_) => name = yytext) tab

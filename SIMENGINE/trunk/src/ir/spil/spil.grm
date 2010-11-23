@@ -71,7 +71,9 @@ exception Unimplemented
        | function of Function.t
        | functions of Function.t vector
        | functions_rec of Function.t list
+       | typedecl of TypeDeclaration.t
        | typedecls of TypeDeclaration.t vector
+       | typedecls_rec of TypeDeclaration.t list
        | global of (ident * Type.t)
        | globals of (ident * Type.t) vector
        | globals_rec of (ident * Type.t) list
@@ -140,8 +142,9 @@ expression : atom (Expression.Value atom)
 | operator expressions (Expression.Apply {oper= operator, args= expressions})
 | expression LSQUARE expression RSQUARE (Operator.Array.extract (expression1, expression2))
 
-expressions_rec : expression ([expression])
-| expressions_rec COMMA expression (expression :: expressions_rec)
+expressions_rec 
+: expressions_rec COMMA expression (expression :: expressions_rec)
+| expression ([expression])
 
 expressions : LPAREN RPAREN (vec nil)
 | LPAREN expressions_rec RPAREN (vec expressions_rec)
@@ -150,7 +153,16 @@ typename
 : QCTYPE c_type_name QUOTE (c_type_name)
 | QTYPE type_specification QUOTE (Type.gen type_specification)
 
-typedecls : (vec nil)
+typedecl
+: TYPE ID EQUALS typename (())
+
+typedecls_rec
+: typedecls_rec typedecl (typedecl :: typedecls_rec)
+| typedecl ([typedecl])
+
+typedecls
+: typedecls_rec (vec typedecls_rec)
+| (vec nil)
 
 global : GLOBAL ID COLON typename ((ID,typename))
 
