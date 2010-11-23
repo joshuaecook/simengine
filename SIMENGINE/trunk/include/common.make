@@ -165,6 +165,9 @@ OPENMP_CFLAGS = -fopenmp
 
 # The CUDA compiler
 NVCC := $(shell which nvcc 2>/dev/null)
+ifeq ($(NVCC),)
+NVCC = /usr/local/cuda/bin/nvcc
+endif
 ifneq ($(NVCC),)
 CUDA_INSTALL_PATH := $(shell dirname $$(dirname $(realpath $(NVCC))))
 NVCC = $(CUDA_INSTALL_PATH)/bin/nvcc
