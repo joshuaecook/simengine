@@ -37,7 +37,7 @@ end
 fun vec f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i)))
 fun veci f v = List.tabulate (Vector.length v, fn i => f (Vector.sub (v,i), i))
 
-fun layoutFunction (f as F.FUNCTION function) =
+fun layoutFunction (f as F.Function function) =
     let
 	fun layoutParam (id, t) =
 	    L.space [layoutType t, L.str id]
@@ -45,7 +45,7 @@ fun layoutFunction (f as F.FUNCTION function) =
 	fun layoutLocal id =
 	    L.declare (id, layoutType (T.C"CDATAFORMAT"))
 
-	fun layoutBlockParams (b as B.BLOCK block) =
+	fun layoutBlockParams (b as B.Block block) =
 	    if Vector.length (#params block) > 0 then
 		L.declare ((B.name b)^"_args", 
 			   L.align [L.str "struct {",
@@ -55,7 +55,7 @@ fun layoutFunction (f as F.FUNCTION function) =
 
 	(* Find the start block and lay it out first. *)
 	val firstBlockId =
-	    case Vector.findi (fn (i, B.BLOCK block) => (#start function) = (#label block)) (#blocks function)
+	    case Vector.findi (fn (i, B.Block block) => (#start function) = (#label block)) (#blocks function)
 	     of SOME (i,_) => i
 	      | NONE => DynException.stdException(("Malformed function: no block named "^(#start function)), "SpilToC.layoutFunction", Logger.INTERNAL)
     in
@@ -67,7 +67,7 @@ fun layoutFunction (f as F.FUNCTION function) =
 	     L.comment "Function local declarations",
 	     L.sub (List.map layoutLocal (F.Locals.listItems (F.locals f))),
 	     L.comment "Block parameter declarations",
-	     if Vector.exists (fn (B.BLOCK b) => Vector.length (#params b) > 0) (#blocks function) then
+	     if Vector.exists (fn (B.Block b) => Vector.length (#params b) > 0) (#blocks function) then
 		 L.sub [
 		 L.declare 
 		     ("block_args",
@@ -84,7 +84,7 @@ fun layoutFunction (f as F.FUNCTION function) =
 	    ]
     end
 
-and layoutBlock function (b as B.BLOCK block) =
+and layoutBlock function (b as B.Block block) =
     let
 	fun parameter (id,t) =
 	    L.assign (L.space [layoutType t, L.str id], 
@@ -104,42 +104,42 @@ and layoutBlock function (b as B.BLOCK block) =
 
 and layoutStatement statement =
     case statement
-     of S.HALT => L.exit
-      | S.NOP => L.stmt (L.empty)
-      | S.COMMENT str => L.comment str
-      | S.PROFILE id => L.profile id
-      | S.BIND {src, dest as (id,t)} =>
+     of S.Halt => L.exit
+      | S.Nop => L.stmt (L.empty)
+      | S.Comment str => L.comment str
+      | S.Profile id => L.profile id
+      | S.Bind {src, dest as (id,t)} =>
 	L.assign (L.space [layoutType t, L.str id], layoutAtom src) 
-      | S.GRAPH {src, dest as (id,t)} =>
+      | S.Graph {src, dest as (id,t)} =>
 	L.assign (L.space [layoutType t, L.str id], layoutExpression false src) 
-      | S.PRIMITIVE {oper, args, dest as (id,t)} =>
+      | S.Primitive {oper, args, dest as (id,t)} =>
 	L.assign (L.space [layoutType t, L.str id], layoutOperator false (oper, Vector.map X.Value args))
-      | S.MOVE {src, dest} =>
+      | S.Move {src, dest} =>
 	L.assign (layoutAtom dest, layoutAtom src)
 
 and layoutControl function control =
     case control
-     of CC.RETURN value => 
+     of CC.Return value => 
 	L.return (layoutAtom value)
-      | CC.SWITCH {test, cases, default} => 
+      | CC.Switch {test, cases, default} => 
 	let
-	    fun layoutCase (value, label) =
+	    fun layoutCase (match, cc) =
 		L.align
-		    [L.space [L.str "case", layoutImmediate value, L.str ":"],
+		    [L.space [L.str "case", layoutImmediate match, L.str ":"],
 		     L.sub
-			 [L.goto label,
+			 [layoutControl function cc,
 			  L.stmt (L.str "break")]
 		    ]
 	in
 	    case Vector.length cases
-	     of 0 => L.sub [L.goto default]
+	     of 0 => layoutControl function default
 	      | 1 =>
-		let val (value, label) = Vector.sub (cases, 0) in
+		let val (match, cc) = Vector.sub (cases, 0) in
 		    L.align
-			[L.space [L.str "if", L.paren (L.equals (layoutAtom test, layoutImmediate value))],
-			 L.sub [L.goto label],
+			[L.space [L.str "if", L.paren (L.equals (layoutAtom test, layoutImmediate match))],
+			 layoutControl function cc,
 			 L.str "else",
-			 L.sub [L.goto default]
+			 layoutControl function default
 			]
 		end
 	      | _ =>
@@ -148,15 +148,15 @@ and layoutControl function control =
 		     L.str "{",
 		     L.align (vec layoutCase cases),
 		     L.str "default :",
-		     L.sub [L.goto default],
+		     layoutControl function default,
 		     L.str "}"
 		    ]
 	end
-      | CC.JUMP {block, args} =>
+      | CC.Jump {block, args} =>
 	let
 	    val params = 
 		case F.findBlock (fn b => (B.name b) = block) function
-		 of SOME (B.BLOCK {params, ...}) => params
+		 of SOME (B.Block {params, ...}) => params
 		  | NONE => DynException.stdException(("Non-local jump to block named "^block), "SpilToC.layoutControl", Logger.INTERNAL)
 			    
 	    fun parameter idx = #1 (Vector.sub (params, idx))
@@ -170,7 +170,7 @@ and layoutControl function control =
 		     L.goto block]
 	    else L.goto block
 	end
-      | CC.CALL {func, args, return} =>
+      | CC.Call {func, args, return} =>
 	let val call = L.call (func, vec layoutAtom args) in
 	    case return
 	     of NONE => L.return call
@@ -247,28 +247,13 @@ and layoutAtom atom =
       | A.Source atom => L.seq [L.str "&", layoutAtom atom]
       | A.Sink atom => L.seq [L.str "*", layoutAtom atom]
       | A.Cast (atom, t) => L.seq [L.paren (layoutType t), layoutAtom atom]
-      | A.Offset {base, index, offset, scale, basetype} =>
-	L.seq [L.paren (layoutType basetype), layoutAtom base, L.str"[", L.int ((index*scale)+offset), L.str"]"]
-	(* L.call ("OFFSET", [layoutAtom base, L.int index, L.int offset, L.int scale, layoutType basetype]) *)
-      | A.Offset2D {base, index, offset, scale, basetype} =>
-	L.call ("OFFSET2D", [layoutAtom base, 
-			     L.int (#x index), L.int (#y index), 
-			     L.int (#x offset), L.int (#y offset), 
-			     L.int (#x scale), L.int (#y scale), 
-			     layoutType basetype])
-      | A.Offset3D {base, index, offset, scale, basetype} =>
-	L.call ("OFFSET3D", [layoutAtom base, 
-			     L.int (#x index), L.int (#y index), L.int (#z index), 
-			     L.int (#x offset), L.int (#y offset), L.int (#z offset), 
-			     L.int (#x scale), L.int (#y scale), L.int (#z scale),
-			     layoutType basetype])
       | _ => L.unimplemented "layoutAtom"
 
 and layoutImmediate literal =
     case literal
-     of Real r => L.real r
-      | Int z => L.int z
-      | Bool b => L.bool b
+     of Real r => L.str r
+      | Int z => L.str z
+      | Bool b => (case b of "no" => L.str "0" | _ => L.str "1")
       | String s => L.string s
       | Const id => L.str id
       | Nan => L.str "NAN"

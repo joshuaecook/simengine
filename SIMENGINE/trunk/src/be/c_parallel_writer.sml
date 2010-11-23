@@ -1327,7 +1327,7 @@ fun algebraic_wrapper kind shardedModel iterators =
 			    val (base_iter_name, base_iter_typ) = base_iterator iter
 			    val iter_id = "ITERATOR_"^(Util.removePrefix (Symbol.name base_iter_name))
 			in
-			    (Const iter_id, name^"_iterator_case_"^iter_id)
+			    (Const iter_id, CC.Jump {block= name^"_iterator_case_"^iter_id, args= v[]})
 			end
 		    )
 	    end
@@ -1353,7 +1353,7 @@ fun algebraic_wrapper kind shardedModel iterators =
 			    val body =
 				List.mapPartial
 				    (fn x => x)
-				    [SOME (S.GRAPH {dest= (Symbol.name iter_name, T.C"CDATAFORMAT"),
+				    [SOME (S.Graph {dest= (Symbol.name iter_name, T.C"CDATAFORMAT"),
 						    src= case kind
 							  of UPDATE => Op.Array.extract (Op.Record.extract (Op.Address.deref (X.var "props"), "next_time"), X.var "modelid")
 							   | POSTPROCESS => Op.Array.extract (Op.Record.extract (Op.Address.deref (X.var "props"), "next_time"), X.var "modelid")
@@ -1361,32 +1361,32 @@ fun algebraic_wrapper kind shardedModel iterators =
 				     if reads_iterator iter class then 
 					 case kind
 					  of UPDATE =>
-					     SOME (S.GRAPH {dest= ("rd_"^(Symbol.name iter_name), T.C("CDATAFORMAT*")),
+					     SOME (S.Graph {dest= ("rd_"^(Symbol.name iter_name), T.C("CDATAFORMAT*")),
 							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "model_states")})
 					   | INPROCESS =>
-					     SOME (S.GRAPH {dest= ("rd_"^(Symbol.name iter_name), T.C("statedata_"^(Symbol.name basename)^"_"^(Symbol.name iter_name)^"*")),
+					     SOME (S.Graph {dest= ("rd_"^(Symbol.name iter_name), T.C("statedata_"^(Symbol.name basename)^"_"^(Symbol.name iter_name)^"*")),
 							    src= Op.Record.extract (Op.Address.deref (Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")), "states_"^(Symbol.name iter_name))})
 					   | _ => 
-					     SOME (S.GRAPH {dest= ("rd_"^(Symbol.name iter_name), T.C("statedata_"^basename_iter^"*")),
+					     SOME (S.Graph {dest= ("rd_"^(Symbol.name iter_name), T.C("statedata_"^basename_iter^"*")),
 							    src= Op.Record.extract (Op.Address.deref (Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")), "states_"^(Symbol.name iter_name))})
 				     else NONE,
 				     if writes_iterator iter class then 
 					 case kind
 					  of UPDATE =>
-					     SOME (S.GRAPH {dest= ("wr_"^(Symbol.name iter_name), T.C("CDATAFORMAT*")),
+					     SOME (S.Graph {dest= ("wr_"^(Symbol.name iter_name), T.C("CDATAFORMAT*")),
 							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "next_states")})
 					   | INPROCESS =>
-					     SOME (S.GRAPH {dest= ("wr_"^(Symbol.name iter_name), T.C("statedata_"^(Symbol.name basename)^"_"^(Symbol.name iter_name)^"*")),
+					     SOME (S.Graph {dest= ("wr_"^(Symbol.name iter_name), T.C("statedata_"^(Symbol.name basename)^"_"^(Symbol.name iter_name)^"*")),
 							    src= Op.Record.extract (Op.Address.deref (Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")), "states_"^(Symbol.name iter_name)^"_next")})
 					   | _ => 
-					     SOME (S.GRAPH {dest= ("wr_"^(Symbol.name iter_name), T.C("statedata_"^basename_iter^"*")),
+					     SOME (S.Graph {dest= ("wr_"^(Symbol.name iter_name), T.C("statedata_"^basename_iter^"*")),
 							    src= Op.Record.extract (Op.Address.deref (Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")), "states_"^(Symbol.name iter_name)^"_next")})
 				     else NONE,
 				     if reads_system class then 
-					 SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
+					 SOME (S.Graph {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
 							src= Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")})
 				     else NONE,
-				     SOME (S.GRAPH {dest= ("output_"^(Symbol.name iter_name), T.C("void*")),
+				     SOME (S.Graph {dest= ("output_"^(Symbol.name iter_name), T.C("void*")),
 						    src= Op.Record.extract (Op.Address.deref (X.var "props"), "od")})
 				    ]
 					 
@@ -1404,17 +1404,17 @@ fun algebraic_wrapper kind shardedModel iterators =
 			    val func_args =
 				case base_iter_typ
 				 of DOF.CONTINUOUS _ =>
-				    v(time :: states @ [A.Null, od, A.Literal (Int 1), A.Variable "modelid"])
+				    v(time :: states @ [A.Null, od, A.Literal (Int "1"), A.Variable "modelid"])
 				  | DOF.DISCRETE _ =>
-				    v(time :: states @ [A.Null, od, A.Literal (Int 1), A.Variable "modelid"])
+				    v(time :: states @ [A.Null, od, A.Literal (Int "1"), A.Variable "modelid"])
 				  | _ => DynException.stdException(("Unexpected iterator '"^(Symbol.name iter_name)^"'"), "CParallelWriter.algebraicwrapper", Logger.INTERNAL)
 			in
-			    B.BLOCK
+			    B.Block
 				{label= name^"_iterator_case_"^iter_id,
 				 params= v[],
 				 body= v(body),
 				 transfer=
-				 CC.CALL 
+				 CC.Call 
 				     {func= func_id,
 				      args= func_args,
 				      return= NONE
@@ -1425,43 +1425,39 @@ fun algebraic_wrapper kind shardedModel iterators =
 	    end
 
 	val switch_iterator =
-	    B.BLOCK
+	    B.Block
 		{label= name^"_switch_iterator",
 		 params= v[],
-		 body= v[S.GRAPH {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Address.deref (X.var "props"), "iterator")}],
+		 body= v[S.Graph {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Address.deref (X.var "props"), "iterator")}],
 		 transfer= 
-		 CC.SWITCH
+		 CC.Switch
 		     {test= A.Variable "iter",
-		      default= name^"_switch_iterator_default",
+		      default= CC.Return (A.Literal (Int "1")),
 		      cases= v(map iterator_case iterators)
 		     }
 		}
 
-	val switch_iterator_default =
-	    B.BLOCK
-		{label= name^"_switch_iterator_default",
-		 params= v[],
-		 body= v[],
-		 transfer= CC.RETURN (A.Literal (Int 1))
-		}
-
 	val wrapper_function =
 	    if List.null iterators then
-		F.FUNCTION
+		F.Function
 		    {name= name,
 		     params= v[("props", T.C"solver_props*"), ("modelid", T.C"unsigned int")],
 		     returns= T.C"int",
 		     start= name^"_switch_iterator_default",
-		     blocks= v[switch_iterator_default]
+		     blocks= v[
+		     B.Block
+			 {label= name^"_switch_iterator_default",
+			  params= v[],
+			  body= v[],
+			  transfer= CC.Return (A.Literal (Int "1"))}]
 		    }
 	    else
-		F.FUNCTION
+		F.Function
 		    {name= name,
 		     params= v[("props", T.C"solver_props*"), ("modelid", T.C"unsigned int")],
 		     returns= T.C"int",
 		     start= name^"_switch_iterator",
-		     blocks= v(switch_iterator :: switch_iterator_default ::
-			       (map iterator_call iterators))
+		     blocks= v(switch_iterator :: (map iterator_call iterators))
 		    }
     in
 	[$("__HOST__ __DEVICE__"), SpilToC.layoutFunction wrapper_function]
@@ -1764,7 +1760,7 @@ fun equations_to_blocks label classname is_top_class (iter as (iter_sym, iter_ty
 			DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.equations_to_blocks", Logger.INTERNAL)
 	    in
 		(eq_blocks @ blocks, 
-		 CC.JUMP {block= (B.name (List.hd eq_blocks)), args= v[]})
+		 CC.Jump {block= (B.name (List.hd eq_blocks)), args= v[]})
 	    end
 	)
 	(nil, cc)
@@ -1803,38 +1799,38 @@ and intermediateeq_to_block label (exp, cc) =
 		   | Exp.RATIONAL _ => nil
 		   | Exp.REAL _ => nil
 		   | _ =>
-		     [S.GRAPH
+		     [S.Graph
 			  {src= CWriterUtil.exp_to_spil entry,
 			   dest= (name^"_src_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT")},
-		      S.GRAPH
+		      S.Graph
 			  {src= X.Apply {oper= Op.Address_addr,
 					 args= v[X.Apply {oper= Op.Array_extract,
 							  args= v[X.Value (A.Variable dest),
 								  X.Value (A.Literal (Const ("MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^",PARALLEL_MODELS,modelid)")))]}]},
 			   dest= (name^"_dest_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT*")},
-		      S.MOVE
+		      S.Move
 			  {src= A.Variable (name^"_src_"^(i2s i)^"_"^(i2s j)),
 			   dest= A.Sink (A.Variable (name^"_dest_"^(i2s i)^"_"^(i2s j)))}])
 	      | createEntry (i, j, entry) =
-		[S.GRAPH
+		[S.Graph
 		     {src= CWriterUtil.exp_to_spil entry,
 		      dest= (name^"_src_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT")},
-		 S.GRAPH
+		 S.Graph
 		     {src= X.Apply {oper= Op.Address_addr,
 				    args= v[X.Apply {oper= Op.Array_extract,
 						     args= v[X.Value (A.Variable dest),
 							     X.Value (A.Literal (Const ("MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^",PARALLEL_MODELS,modelid)")))]}]},
 		      dest= (name^"_dest_"^(i2s i)^"_"^(i2s j), T.C"CDATAFORMAT*")},
-		 S.MOVE
+		 S.Move
 		     {src= A.Variable (name^"_src_"^(i2s i)^"_"^(i2s j)),
 		      dest= A.Sink (A.Variable (name^"_dest_"^(i2s i)^"_"^(i2s j)))}]
 
 	in
-	    B.BLOCK
+	    B.Block
 		{label= name,
 		 params= v[],
 		 body= v(
-		 S.COMMENT (e2s exp) ::
+		 S.Comment (e2s exp) ::
 		 (List.concat (Matrix.mapi createEntry mat))
 		 ),
 		 transfer= cc}
@@ -1850,24 +1846,24 @@ and intermediateeq_to_block label (exp, cc) =
 
 	    val size = (Container.arrayToSize o Container.expArrayToArray) (ExpProcess.rhs exp)
 	    fun createEntry (entry, i) = 
-		[S.GRAPH
+		[S.Graph
 		     {src= CWriterUtil.exp_to_spil entry,
 		      dest= (name^"_src_"^(i2s i), T.C"CDATAFORMAT")},
-		 S.GRAPH
+		 S.Graph
 		     {src= X.Apply {oper= Op.Address_addr,
 				    args= v[X.Apply {oper= Op.Array_extract,
 						     args= v[X.Value (A.Variable dest),
 							     X.Value (A.Literal (Const ("VEC_IDX("^(i2s size)^","^(i2s i)^",PARALLEL_MODELS,modelid)")))]}]},
 		      dest= (name^"_dest_"^(i2s i), T.C"CDATAFORMAT*")},
-		 S.MOVE
+		 S.Move
 		     {src= A.Variable (name^"_src_"^(i2s i)),
 		      dest= A.Sink (A.Variable (name^"_dest_"^(i2s i)))}]
 	in
-	    B.BLOCK
+	    B.Block
 		{label= name,
 		 params= v[],
 		 body= v(
-		 S.COMMENT (e2s exp) ::
+		 S.Comment (e2s exp) ::
 		 (Util.flatmap createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray (ExpProcess.rhs exp)))))
 		 ),
 		 transfer= cc}
@@ -1881,13 +1877,13 @@ and intermediateeq_to_block label (exp, cc) =
 		    DynException.stdException(("Unexpected lhs expression '"^(e2s exp)^"'"), "CParallelWriter.intermediateeq_to_block", Logger.INTERNAL)
 	    val name = label ()
 	in
-	    B.BLOCK
+	    B.Block
 		{label= name,
 		 params= v[],
-		 body= v[S.COMMENT (e2s exp),
-			 S.GRAPH {src= CWriterUtil.exp_to_spil (ExpProcess.rhs exp),
+		 body= v[S.Comment (e2s exp),
+			 S.Graph {src= CWriterUtil.exp_to_spil (ExpProcess.rhs exp),
 				  dest= (name^"_src", T.C"CDATAFORMAT")},
-			 S.MOVE {src= A.Variable (name^"_src"),
+			 S.Move {src= A.Variable (name^"_src"),
 				 dest= A.Variable dest}],
 		 transfer=cc
 		}
@@ -1895,15 +1891,15 @@ and intermediateeq_to_block label (exp, cc) =
 
 and stateeq_to_block label (exp, cc) =
     let val name = label () in
-	B.BLOCK
+	B.Block
 	    {label= name,
 	     params= v[],
-	     body= v[S.COMMENT (e2s exp),
-		     S.GRAPH {src= CWriterUtil.exp_to_spil (ExpProcess.rhs exp),
+	     body= v[S.Comment (e2s exp),
+		     S.Graph {src= CWriterUtil.exp_to_spil (ExpProcess.rhs exp),
 			      dest= (name^"_src", T.C"CDATAFORMAT")},
-		     S.GRAPH {src= X.Apply {oper= Op.Address_addr, args= v[CWriterUtil.exp_to_spil (ExpProcess.lhs exp)]},
+		     S.Graph {src= X.Apply {oper= Op.Address_addr, args= v[CWriterUtil.exp_to_spil (ExpProcess.lhs exp)]},
 			      dest= (name^"_dest", T.C"CDATAFORMAT*")},
-		     S.MOVE {src= A.Variable (name^"_src"),
+		     S.Move {src= A.Variable (name^"_src"),
 			     dest= A.Sink (A.Variable (name^"_dest"))}],
 	     transfer=cc
 	    }
@@ -1927,9 +1923,9 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 
 	(* Instance inputs structure. *)
 	val declare_inputs =
-	    if SymbolTable.null inpargs then S.COMMENT "no inputs"
+	    if SymbolTable.null inpargs then S.Comment "no inputs"
 	    else
-		S.GRAPH
+		S.Graph
 		    {src= X.Apply {oper= Op.Address_addr,
 				   args= v[X.Apply {oper= Op.Record_extract,
 						    args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable "inputs"), X.Value STRUCT_IDX]},
@@ -1938,7 +1934,7 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 
 	(* Instance state structure declarations. *)
 	val declare_reads = 
-	    S.GRAPH 
+	    S.Graph 
 		{src= X.Apply {oper= Op.Address_addr,
 			       args= v[X.Apply {oper= Op.Record_extract,
 						args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable ("rd_"^iter_name)), X.Value STRUCT_IDX]},
@@ -1946,14 +1942,14 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 		 dest= ("sub_rd", T.C((Symbol.name classname)^"_state*"))}
 
 	val declare_writes = 
-	    S.GRAPH 
+	    S.Graph 
 		{src= X.Apply {oper= Op.Address_addr,
 			       args= v[X.Apply {oper= Op.Record_extract,
 						args= v[X.Apply {oper= Op.Array_extract, args= v[X.Value (A.Variable ("wr_"^iter_name)), X.Value STRUCT_IDX]},
 							X.Value (A.Symbol (Symbol.name instname))]}]},
 		 dest= ("sub_wr", T.C((Symbol.name classname)^"_state*"))}
 
-	val declare_sysreads = S.COMMENT "TODO: system states"
+	val declare_sysreads = S.Comment "TODO: system states"
 
 	val declare_states =
 	    List.mapPartial 
@@ -1977,15 +1973,15 @@ and instanceeq_to_block label (exp, is_top_class, iter as (iter_sym, iter_type),
 	    v(itervar :: states @ [invar, A.Null, A.Variable "first_iteration", A.Variable "modelid"])
 	val func_id = "spil_flow_"^(Symbol.name classname)
     in
-	B.BLOCK
+	B.Block
 	    {label= label (),
 	     params= v[],
 	     body= v(
-	     S.COMMENT (e2s exp) ::
+	     S.Comment (e2s exp) ::
 	     declare_inputs ::
 	     declare_states),
 	     transfer= 
-	     CC.CALL 
+	     CC.Call 
 		 {func= func_id, 
 		  args= func_args, 
 		  return= SOME cc}
@@ -2028,7 +2024,7 @@ and outputeq_to_blocks label (exp, is_top_class, iter as (iter_sym, iter_type), 
 	    let
 		val curname = Symbol.name (Term.sym2curname output)
 	    in
-		[S.GRAPH
+		[S.Graph
 		     {src= X.Apply {oper= Op.Array_extract,
 				    args= v[X.Apply {oper= Op.Record_extract,
 						     args= v[X.Apply {oper= Op.Record_extract,
@@ -2038,16 +2034,16 @@ and outputeq_to_blocks label (exp, is_top_class, iter as (iter_sym, iter_type), 
 							     X.Value (A.Symbol (Symbol.name outname))]},
 					    X.Value ARRAY_IDX]},
 		      dest= ("output_"^curname, T.C"CDATAFORMAT")},
-		 S.MOVE
+		 S.Move
 		     {src= A.Variable ("output_"^curname),
 		      dest= A.Variable curname}]
 	    end
     in
-	[B.BLOCK
+	[B.Block
 	     {label= label (),
 	      params= v[],
 	      body= v(
-	      S.COMMENT (e2s exp) ::
+	      S.Comment (e2s exp) ::
 	      (Util.flatmap assign_output (SymbolTable.addCount outargs))),
 	      transfer= cc
 	      }
@@ -2712,11 +2708,11 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			end
 
 		    val (equation_blocks, transfer_to_first_eq) =
-			equations_to_blocks label (Symbol.name orig_name) is_top_class iter (Spil.Control.RETURN (Spil.Atom.Literal (Spil.Int 0))) valid_exps
+			equations_to_blocks label (Symbol.name orig_name) is_top_class iter (CC.Return (A.Literal (Int "0"))) valid_exps
 		    val flow_start_block =
 			let
 			    fun bind_input (input, idx) =
-				[S.GRAPH
+				[S.Graph
 				     {src= X.Apply {oper= Op.Array_extract,
 						    args= v[X.Apply {oper= Op.Record_extract,
 								     args= v[X.Apply {oper= Op.Array_extract, 
@@ -2724,11 +2720,11 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 									     X.Value (A.Symbol (Term.sym2name (DOF.Input.name input)))]},
 							    X.Value ARRAY_IDX]},
 				      dest= ("input_"^(Term.sym2name (DOF.Input.name input)), T.C"CDATAFORMAT")},
-				 S.MOVE 
+				 S.Move 
 				     {src= A.Variable ("input_"^(Term.sym2name (DOF.Input.name input))),
 				      dest= A.Variable ("mdlvar__"^(Term.sym2name (DOF.Input.name input)))}]
 			in
-			    B.BLOCK
+			    B.Block
 				{label= ("spil_flow_" ^ (Symbol.name (#name class)) ^ "_start"),
 				 params= v[],
 				 body= v(List.concat (List.map bind_input inputs)),
@@ -2757,7 +2753,7 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			v(iterval :: states @ [inputs, outputs, ("first_iteration", T.C"const unsigned int"), ("modelid", T.C"const unsigned int")])
 		in					    
 		    SOME (
-		    F.FUNCTION
+		    F.Function
 			{name= ("spil_flow_" ^ (Symbol.name (#name class))),
 			 params= params,
 			 returns= T.C"int",
@@ -3122,7 +3118,7 @@ fun model_flows shardedModel =
 		val iter = ShardedModel.toIterator shardedModel iter_sym
 		val iter_id = "ITERATOR_"^(Util.removePrefix (Symbol.name iter_sym))
 	    in
-		(Const iter_id, "model_flows_iterator_case_"^iter_id)
+		(Const iter_id, CC.Jump {block= "model_flows_iterator_case_"^iter_id, args= v[]})
 	    end
 
 	fun iterator_call iter_sym =
@@ -3145,38 +3141,38 @@ fun model_flows shardedModel =
 				    List.mapPartial
 					(fn x => x)
 					[if reads_iterator iter class then 
-					     SOME (S.GRAPH {dest= ("rd_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_state*")),
+					     SOME (S.Graph {dest= ("rd_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_state*")),
 							    src= Op.Address.addr (Op.Record.extract (Op.Address.deref (X.var "y"), iter_name^"_state"))})
 					 else NONE,
 					 if writes_iterator iter class then
-					     SOME (S.GRAPH {dest= ("wr_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_state*")),
+					     SOME (S.Graph {dest= ("wr_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_state*")),
 							    src= Op.Address.addr (Op.Record.extract (Op.Address.deref (X.var "dydt"), iter_name^"_state"))})
 					 else NONE,
 					 if requiresMatrix then
-					     SOME (S.GRAPH {dest= ("internal_M", T.C"CDATAFORMAT*"),
+					     SOME (S.Graph {dest= ("internal_M", T.C"CDATAFORMAT*"),
 							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "mem")})
 					 else NONE,
 					 if reads_system class then 
-					     SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
+					     SOME (S.Graph {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
 							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")})
 					 else NONE,
-					 SOME (S.GRAPH {dest= ("input_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_input*")),
+					 SOME (S.Graph {dest= ("input_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_input*")),
 							src= Op.Address.addr (Op.Record.extract (Op.Address.deref (X.var "input"), iter_name^"_input"))}),
-					 SOME (S.GRAPH {dest= ("output_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_output*")),
+					 SOME (S.Graph {dest= ("output_"^iter_name, T.C((Symbol.name basename)^"_"^iter_name^"_output*")),
 							src= Op.Address.addr (Op.Record.extract (Op.Address.deref (X.var "output"), iter_name^"_output"))})
 					]
 				else
 				    List.mapPartial
 					(fn x => x)
 					[if requiresMatrix then
-					     SOME (S.GRAPH {dest= ("internal_M", T.C"CDATAFORMAT*"),
+					     SOME (S.Graph {dest= ("internal_M", T.C"CDATAFORMAT*"),
 							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "mem")})
 					 else NONE,
 					 if reads_system class then 
-					     SOME (S.GRAPH {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
+					     SOME (S.Graph {dest= ("sys_rd", T.C(("systemstatedata_"^(Symbol.name basename)^"*"))),
 							    src= Op.Record.extract (Op.Address.deref (X.var "props"), "system_states")})
 					 else NONE,
-					 SOME (S.GRAPH {dest= ("output_"^iter_name, T.C("void*")),
+					 SOME (S.Graph {dest= ("output_"^iter_name, T.C("void*")),
 							src= Op.Record.extract (Op.Address.deref (X.var "props"), "od")})
 					]
 
@@ -3224,12 +3220,12 @@ fun model_flows shardedModel =
 				else
 				    "flow_"^(Symbol.name top_class)
 			in
-			    B.BLOCK
+			    B.Block
 				{label= "model_flows_iterator_case_"^iter_id,
 				 params= v[],
 				 body= v(body),
 				 transfer=
-				 CC.CALL 
+				 CC.Call 
 				     {func= func_id,
 				      args= func_args,
 				      return= NONE
@@ -3240,24 +3236,16 @@ fun model_flows shardedModel =
 	    end
 
 	val switch_iterator =
-	    B.BLOCK
+	    B.Block
 		{label= "model_flows_switch_iterator",
 		 params= v[],
-		 body= v[S.GRAPH {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Address.deref (X.var "props"), "iterator")}],
+		 body= v[S.Graph {dest= ("iter", T.C"Iterator"), src= Op.Record.extract (Op.Address.deref (X.var "props"), "iterator")}],
 		 transfer= 
-		 CC.SWITCH
+		 CC.Switch
 		     {test= A.Variable "iter",
-		      default= "model_flows_switch_iterator_default",
+		      default= CC.Return (A.Literal (Int "1")),
 		      cases= v(map iterator_case iterators)
 		     }
-		}
-
-	val switch_iterator_default =
-	    B.BLOCK
-		{label= "model_flows_switch_iterator_default",
-		 params= v[],
-		 body= v[],
-		 transfer= CC.RETURN (A.Literal (Int 1))
 		}
 
 	val params =
@@ -3268,20 +3256,25 @@ fun model_flows shardedModel =
 
 	val wrapper_function =
 	    if List.null iterators then
-		F.FUNCTION
+		F.Function
 		    {name= "model_flows",
 		     params= params,
 		     returns= T.C"int",
 		     start= "model_flows_switch_iterator_default",
-		     blocks= v[switch_iterator_default]
+		     blocks= v[
+		     B.Block
+			 {label= "model_flows_switch_iterator_default",
+			  params= v[],
+			  body= v[],
+			  transfer= CC.Return (A.Literal (Int "1"))}]
 		    }
 	    else
-		F.FUNCTION
+		F.Function
 		    {name= "model_flows",
 		     params= params,
 		     returns= T.C"int",
 		     start= "model_flows_switch_iterator",
-		     blocks= v(switch_iterator :: switch_iterator_default ::
+		     blocks= v(switch_iterator ::
 			       (map iterator_call iterators))
 		    }
 
