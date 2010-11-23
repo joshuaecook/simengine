@@ -39,7 +39,7 @@ datatype rep
   | Source
   | Sink
   | Void
-
+  | Unit
   | CType of string
 
 
@@ -96,6 +96,7 @@ val rec kindToLayout
 val rec toLayout =
  fn Var var => varToLayout var
   | Void => str "void"
+  | Unit => str "unit"
   | Top => str "top"
   | Vector => str "vector"
   | Bottom => str "bottom"
@@ -176,6 +177,7 @@ fun isfree (var, term)
       | Existential ((v,a),b) => if v = var then false else isfree (var,a) andalso isfree (var,b)
       | Apply (a,b) => isfree (var,a) andalso isfree (var,b)
       | Void => true
+      | Unit => true
       | Top => true
       | Bottom => true
       | Int _ => true
@@ -214,8 +216,13 @@ val array: (context,proper->proper) typet
 val vector: (context,proper->proper) typet
   = operator ((Proper,Proper), bottom, Vector)
 
-val void
+val void: (context,proper) typet
   = proper (bottom, Void)
+
+val unit: (context,proper) typet
+  = proper (bottom, Unit)
+
+
 
 val var = fn TYPE {context, rep= t as Var v, ...} 
 	     => unknown (v::context, t)
@@ -372,6 +379,7 @@ fun beta_redex (subst, Abstract (var,body)) =
 	      | Source => term
 	      | Sink => term
 	      | Void => term
+	      | Unit => term
 	      | Top => term
 	      | Bottom => term
 	      | CType _ => term
@@ -495,6 +503,7 @@ and normal term
 		| Array => reflect term
 		| Vector => reflect term
 		| Void => reflect term
+		| Unit => reflect term
 		| Source => reflect term
 		| Sink => reflect term
 		| Top => reflect term

@@ -1,0 +1,374 @@
+structure Cxt = Context
+open Syntax
+
+fun vec list = Vector.fromList (List.rev list)
+
+exception Unimplemented
+
+%%
+%header (functor MakeSpilGrammar(structure Token: TOKEN structure Syntax: SPIL structure Context: PARSER_CONTEXT))
+
+%name SpilGrammar
+%start fragment
+%pos Cxt.point
+%arg (context) : Cxt.context
+%verbose
+
+%keyword PROGRAM CALL JUMP SWITCH RETURN DEFAULT HALT TYPE GLOBAL
+
+%term PROGRAM | CALL | JUMP | SWITCH | RETURN | DEFAULT | HALT
+    | REAL of string | INT of string | BOOL of string
+    | ID of string | LABEL of string | ADDRESS of string 
+    | OP of string
+    | VOID | NULL | TYPE | GLOBAL
+    | COMMA | LPAREN | RPAREN | LBRACE | RBRACE | LSQUARE | RSQUARE 
+    | SEMICOLON | COLON | ARROW | DARROW | EQUALS | ELLIPSIS | STAR | VERTICAL
+    | LT | GT | PLUS | MINUS | AND | OR | NOT
+    | QUOTE | QQQAPOS | QTYPE | QCTYPE
+    | TYPENAME of string | TYPE_ID of string
+    | TYPE_INT | TYPE_REAL | TYPE_BOOL | TYPE_STRING | TYPE_UNIT
+    | C_ID of string | C_TYPENAME of string
+    | C_CONST | C_VOLATILE
+    | C_STRUCT | C_UNION | C_ENUM
+    | EOF | INVALID
+
+%value REAL ("0.0")
+%value INT ("0")
+%value BOOL ("NO")
+%value ID ("!UNIDENTIFIED")
+%value LABEL ("!UNLABELLED")
+%value ADDRESS ("!UNADDRESSABLE")
+%value TYPENAME ("!UNTYPED")
+%value OP ("Sim_bug")
+
+%eop EOF SEMICOLON
+%noshift EOF
+
+%nonterm fragment of Syntax.fragment
+       | atom of Atom.t
+       | args of Atom.t vector
+       | args_rec of Atom.t list
+       | expression of Expression.t
+       | expressions of Expression.t vector
+       | expressions_rec of Expression.t list
+       | typename of Type.t
+       | param of (ident * Type.t)
+       | params of (ident * Type.t) vector
+       | params_rec of (ident * Type.t) list
+       | operator of Operator.t
+       | comment of string
+       | statement of Statement.t
+       | statements of Statement.t vector
+       | statements_rec of Statement.t list
+       | control of Control.t
+       | check of Atom.t
+       | switchcase of (immediate * Control.t)
+       | cases of (immediate * Control.t) vector
+       | cases_rec of (immediate * Control.t) list
+       | block of Block.t
+       | blocks of Block.t vector
+       | blocks_rec of Block.t list
+       | function of Function.t
+       | functions of Function.t vector
+       | functions_rec of Function.t list
+       | typedecls of TypeDeclaration.t vector
+       | global of (ident * Type.t)
+       | globals of (ident * Type.t) vector
+       | globals_rec of (ident * Type.t) list
+       | program of Program.t
+       | type_specification of Type.proper_t
+       | atomic_type of Type.proper_t
+       | type_dependencies of unit
+       | type_vector of int
+       | type_proposition of unit
+       | proposition_term of unit
+       | c_type_name of Type.t
+       | c_specifier_qualifier_list of string list
+       | c_type_specifier of string
+       | c_type_qualifier of string
+       | c_struct_or_union_specifier of string
+       | c_struct_or_union of string
+       | c_struct_declaration_list of string list
+       | c_struct_declaration of string
+       | c_struct_declarator_list of string list
+       | c_struct_declarator of string
+       | c_declarator of string
+       | c_pointer of string
+       | c_type_qualifier_list of string list
+       | c_direct_declarator of string
+       | c_direct_abstract_declarator of string
+       | c_parameter_type_list of string list
+       | c_parameter_list of string list
+       | c_parameter_declaration of string
+       | c_declaration_specifiers of string list
+       | c_abstract_declarator of string
+       | c_identifier_list of string list
+       | c_enum_specifier of string
+       | c_enumerator_list of string list
+       | c_enumerator of string
+       | c_constant_expression of string
+
+
+%%
+
+fragment : atom (ATOM atom)
+| operator (OPERATOR operator)
+| statement (STATEMENT statement)
+| control (CONTROL control)
+| block (BLOCK block)
+| function (FUNCTION function)
+| program (PROGRAM program)
+| typename (TYPENAME typename)
+
+atom : NULL (Atom.Null)
+     | VOID (Atom.Void)
+     | REAL (Atom.Literal (Real REAL))
+     | INT (Atom.Literal (Int INT))
+     | BOOL (Atom.Literal (Bool BOOL))
+     | ADDRESS (Atom.Address ADDRESS)
+     | ID (Atom.Variable ID)
+
+args_rec : atom ([atom])
+	 | args_rec atom (atom :: args_rec)
+
+args : (vec nil)
+     | args_rec (vec args_rec)
+
+operator : OP (Option.valOf (Operator.find OP))
+
+expression : atom (Expression.Value atom)
+| operator expressions (Expression.Apply {oper= operator, args= expressions})
+| expression LSQUARE expression RSQUARE (Operator.Array.extract (expression1, expression2))
+
+expressions_rec : expression ([expression])
+| expressions_rec COMMA expression (expression :: expressions_rec)
+
+expressions : LPAREN RPAREN (vec nil)
+| LPAREN expressions_rec RPAREN (vec expressions_rec)
+
+typename 
+: QCTYPE c_type_name QUOTE (c_type_name)
+| QTYPE type_specification QUOTE (Type.gen type_specification)
+
+typedecls : (vec nil)
+
+global : GLOBAL ID COLON typename ((ID,typename))
+
+globals_rec : global SEMICOLON ([global])
+	    | globals_rec global SEMICOLON (global :: globals_rec)
+
+globals : (vec nil)
+	| globals_rec (vec globals_rec)
+
+param : ID COLON typename ((ID,typename))
+
+params_rec : param ([param])
+	   | params_rec COMMA param (param :: params_rec)
+
+params : LPAREN RPAREN (vec nil)
+       | LPAREN params_rec RPAREN (vec params_rec)
+
+switchcase : INT DARROW control ((Int INT,control))
+	   | REAL DARROW control ((Real REAL,control))
+	   | BOOL DARROW control ((Bool BOOL,control))
+	   | ID DARROW control ((Const ID,control))
+
+cases_rec : switchcase SEMICOLON ([switchcase])
+	  | cases_rec switchcase SEMICOLON (switchcase :: cases_rec)
+
+cases : LBRACE cases_rec RBRACE (vec cases_rec)
+
+statements_rec : statement SEMICOLON ([statement])
+	       | statements_rec statement SEMICOLON (statement :: statements_rec)
+
+statements : (vec nil)
+	   | statements_rec (vec statements_rec)
+
+blocks_rec : block ([block])
+	   | blocks_rec block (block :: blocks_rec)
+
+blocks : LBRACE RBRACE (vec nil)
+       | LBRACE blocks_rec RBRACE (vec blocks_rec)
+
+functions_rec : function ([function])
+	      | functions_rec function (function :: functions_rec)
+
+functions : (vec nil)
+	  | functions_rec (vec functions_rec)
+
+statement : HALT (Statement.Halt)
+	  | comment (Statement.Comment comment)
+	  | ID COLON typename EQUALS atom (Statement.Bind {src= atom, dest= (ID, typename)})
+	  | ID COLON typename EQUALS operator args (Statement.Primitive {oper= operator, args= args, dest= (ID, typename)})
+	  | ID COLON typename EQUALS operator expressions (Statement.Graph {src= Expression.Apply {oper= operator, args= expressions}, dest= (ID, typename)})
+	  | atom EQUALS atom (Statement.Move {src= atom2, dest= atom1})
+
+check : LPAREN atom RPAREN (atom)
+
+control : CALL ID COLON typename EQUALS ID args (Control.Call {func= ID2, args= args, return= NONE})
+	| CALL ID COLON typename EQUALS ID args control (Control.Call {func= ID2, args= args, return= SOME control})
+	| JUMP ID args (Control.Jump {block= ID, args= args})
+	| SWITCH check cases DEFAULT control (Control.Switch {test= check, cases= cases, default= control})
+	| RETURN atom (Control.Return atom)
+
+block : ID COLON params statements control SEMICOLON (Block.Block {label= ID, params= params, body= statements, transfer= control})
+
+function : ID params COLON typename blocks (Function.Function {name= ID, params= params, blocks= blocks, start="", returns= typename})
+
+program : PROGRAM LBRACE typedecls globals functions RBRACE function (Program.Program {main= function, types= typedecls, globals= globals, functions= functions})
+
+
+type_specification
+: type_specification ARROW type_specification (Type.arrow (type_specification1, type_specification2))
+| LSQUARE type_dependencies RSQUARE atomic_type (atomic_type)
+| LSQUARE type_dependencies RSQUARE atomic_type VERTICAL type_proposition (atomic_type)
+| atomic_type (atomic_type)
+
+atomic_type
+: TYPE_INT type_vector (Type.int 32)
+| TYPE_REAL type_vector (Type.real 32)
+| TYPE_BOOL type_vector (Type.bool)
+| TYPE_STRING (Type.string)
+| TYPE_UNIT (Type.unit)
+| LPAREN type_specification RPAREN (type_specification)
+
+type_dependencies
+: type_dependencies COMMA INT (())
+| type_dependencies COMMA ID (())
+| INT (())
+| ID (())
+
+type_vector : (0) | INT (INT)
+
+type_proposition
+: ID (())
+| INT (())
+| proposition_term PLUS proposition_term (())
+| proposition_term MINUS proposition_term (())
+| proposition_term LT proposition_term (())
+| proposition_term GT proposition_term (())
+| proposition_term AND proposition_term (())
+| proposition_term OR proposition_term (())
+| proposition_term NOT proposition_term (())
+
+(* http://www.lysator.liu.se/c/ANSI-C-grammar-y.html*)
+c_type_name 
+: c_specifier_qualifier_list (Type.C (String.concatWith " " (List.rev c_specifier_qualifier_list)))
+| c_specifier_qualifier_list c_abstract_declarator (Type.C ((String.concatWith " " (List.rev c_specifier_qualifier_list)) ^ " " ^ c_abstract_declarator))
+
+c_specifier_qualifier_list
+: c_specifier_qualifier_list c_type_specifier (c_type_specifier :: c_specifier_qualifier_list)
+| c_type_specifier ([c_type_specifier])
+| c_specifier_qualifier_list c_type_qualifier (c_type_qualifier :: c_specifier_qualifier_list)
+| c_type_qualifier ([c_type_qualifier])
+
+c_type_specifier
+: c_struct_or_union_specifier (c_struct_or_union_specifier)
+| c_enum_specifier (c_enum_specifier)
+| C_TYPENAME (C_TYPENAME)
+
+c_type_qualifier
+: C_CONST ("const")
+| C_VOLATILE ("volatile")
+
+c_struct_or_union_specifier
+: c_struct_or_union LBRACE c_struct_declaration_list RBRACE (c_struct_or_union ^ "{" ^ (String.concatWith " " (List.rev c_struct_declaration_list)) ^ "}")
+| c_struct_or_union C_ID LBRACE c_struct_declaration_list RBRACE (c_struct_or_union ^ " " ^ C_ID ^ "{" ^ (String.concatWith " " (List.rev c_struct_declaration_list)) ^ "}")
+| c_struct_or_union C_ID (c_struct_or_union ^ " " ^ C_ID)
+
+c_struct_or_union : C_STRUCT ("struct") | C_UNION ("union")
+
+c_struct_declaration_list
+: c_struct_declaration_list c_struct_declaration (c_struct_declaration :: c_struct_declaration_list)
+| c_struct_declaration ([c_struct_declaration])
+
+c_struct_declaration : c_specifier_qualifier_list c_struct_declarator_list SEMICOLON ((String.concatWith " " (List.rev c_specifier_qualifier_list)) ^ " " ^ (String.concatWith ", " (List.rev c_struct_declarator_list)) ^ ";")
+
+c_struct_declarator_list
+: c_struct_declarator_list COMMA c_struct_declarator (c_struct_declarator :: c_struct_declarator_list)
+| c_struct_declarator ([c_struct_declarator])
+
+c_struct_declarator
+: c_declarator (c_declarator)
+| COLON c_constant_expression (": " ^ c_constant_expression)
+| c_declarator COLON c_constant_expression (c_declarator ^ " : " ^ c_constant_expression)
+
+c_declarator
+: c_pointer c_direct_declarator (c_pointer ^ " " ^ c_direct_declarator)
+| c_direct_declarator (c_direct_declarator)
+
+c_pointer
+: STAR ("*")
+| STAR c_type_qualifier_list ("* " ^ (String.concatWith " " (List.rev c_type_qualifier_list)))
+| STAR c_pointer ("* " ^ c_pointer)
+| STAR c_type_qualifier_list c_pointer ("* " ^ (String.concatWith " " (List.rev c_type_qualifier_list)) ^ " " ^ c_pointer)
+
+c_type_qualifier_list
+: c_type_qualifier_list c_type_qualifier (c_type_qualifier :: c_type_qualifier_list)
+| c_type_qualifier ([c_type_qualifier])
+
+c_direct_declarator
+: C_ID (C_ID)
+| LPAREN c_declarator RPAREN ("(" ^ c_declarator ^ ")")
+| c_direct_declarator LSQUARE RSQUARE (c_direct_declarator ^ "[]")
+| c_direct_declarator LSQUARE c_constant_expression RSQUARE (c_direct_declarator ^ "[" ^ c_constant_expression ^ "]")
+| c_direct_declarator LPAREN RPAREN (c_direct_declarator ^ "()")
+| c_direct_declarator LPAREN c_parameter_type_list RPAREN (c_direct_declarator ^ "(" ^ (String.concatWith ", " (List.rev c_parameter_type_list)) ^ ")")
+| c_direct_declarator LPAREN c_identifier_list RPAREN (c_direct_declarator ^ "(" ^ (String.concatWith ", " (List.rev c_identifier_list)) ^ ")")
+
+c_direct_abstract_declarator
+: LPAREN RPAREN ("()")
+| LPAREN c_abstract_declarator RPAREN ("(" ^ c_abstract_declarator ^ ")")
+| LPAREN c_parameter_type_list RPAREN ("(" ^ (String.concatWith ", " (List.rev c_parameter_type_list)) ^ ")")
+| c_direct_abstract_declarator LPAREN RPAREN (c_direct_abstract_declarator ^ "()")
+| c_direct_abstract_declarator LPAREN c_parameter_type_list RPAREN (c_direct_abstract_declarator ^ "(" ^ (String.concatWith ", " (List.rev c_parameter_type_list)) ^ ")")
+| LSQUARE RSQUARE ("[]")
+| LSQUARE c_constant_expression RSQUARE ("[" ^ c_constant_expression ^ "]")
+| c_direct_abstract_declarator LSQUARE RSQUARE (c_direct_abstract_declarator ^ "[]")
+| c_direct_abstract_declarator LSQUARE c_constant_expression RSQUARE (c_direct_abstract_declarator ^ "[" ^ c_constant_expression ^ "]")
+
+c_parameter_type_list
+: c_parameter_list COMMA ELLIPSIS ("..." :: c_parameter_list)
+| c_parameter_list (c_parameter_list)
+
+c_parameter_list
+: c_parameter_list COMMA c_parameter_declaration (c_parameter_declaration :: c_parameter_list)
+| c_parameter_declaration ([c_parameter_declaration])
+
+c_parameter_declaration
+: c_declaration_specifiers c_declarator ((String.concatWith " " (List.rev c_declaration_specifiers)) ^ " " ^ c_declarator)
+| c_declaration_specifiers c_abstract_declarator ((String.concatWith " " (List.rev c_declaration_specifiers)) ^ " " ^ c_abstract_declarator)
+| c_declaration_specifiers ((String.concatWith " " (List.rev c_declaration_specifiers)))
+
+c_declaration_specifiers
+: c_declaration_specifiers c_type_specifier (c_type_specifier :: c_declaration_specifiers)
+| c_declaration_specifiers c_type_qualifier (c_type_qualifier :: c_declaration_specifiers)
+| c_type_specifier ([c_type_specifier])
+| c_type_qualifier ([c_type_qualifier])
+
+c_abstract_declarator
+: c_pointer (c_pointer)
+| c_direct_abstract_declarator (c_direct_abstract_declarator)
+| c_pointer c_direct_abstract_declarator (c_pointer ^ " " ^ c_direct_abstract_declarator)
+
+c_identifier_list
+: c_identifier_list COMMA C_ID (C_ID :: c_identifier_list)
+| C_ID ([C_ID])
+
+c_enum_specifier
+: C_ENUM LBRACE c_enumerator_list RBRACE ("enum{" ^ (String.concatWith ", " (List.rev c_enumerator_list)) ^ "}")
+| C_ENUM C_ID LBRACE c_enumerator_list RBRACE ("enum " ^ C_ID ^ "{" ^ (String.concatWith ", " (List.rev c_enumerator_list)) ^ "}")
+| C_ENUM C_ID ("enum " ^ C_ID)
+
+c_enumerator_list
+: c_enumerator_list COMMA c_enumerator (c_enumerator :: c_enumerator_list)
+| c_enumerator ([c_enumerator])
+
+c_enumerator
+: C_ID (C_ID)
+| C_ID EQUALS c_constant_expression (C_ID ^ " = " ^ c_constant_expression)
+
+c_constant_expression
+: C_ID (C_ID)
+| INT (INT)
+| REAL (REAL)

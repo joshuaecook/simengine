@@ -57,13 +57,14 @@ signature SPIL = sig
 
     datatype immediate
     (* A literal value *)
-      = Real of real
-      | Int of int
-      | Bool of bool
+      = Real of string
+      | Int of string
+      | Bool of string
       | String of string
       | Const of ident
       | Infinity
       | Nan
+      | Undefined
 
     type address = string
 
@@ -81,6 +82,8 @@ signature SPIL = sig
 	datatype t
 	  = Int_add
 	  | Int_sub
+	  | Int_mul
+	  | Int_lt
 	  (* | ... *)
 
 	  | Float_add
@@ -156,6 +159,7 @@ signature SPIL = sig
 	  | Sim_bug
 
 	val name: t -> string
+	val find: string -> t option
 
 	structure Record: sig
 	    val extract: expression * ident -> expression
@@ -173,6 +177,7 @@ signature SPIL = sig
     structure Atom: sig
 	datatype t
 	  = Null
+	  | Void
 	  | Literal of immediate
 	  | Source of t
 	  | Sink of t
@@ -183,24 +188,6 @@ signature SPIL = sig
 	  | Address of address
 	  | Label of ident
 	  | Cast of t * Type.t
-	  | Offset of
-	    {base: t, index: size, offset: size, scale: size, basetype: Type.t}
-          (*
-	   #define OFFSET (b,i,o,s,t) \
-		   (*((t)*)((b) + ((i)*(s)) + (o)))
-	   *)
-	  | Offset2D of
-	    {base: t, 
-	     index: {x:size, y:size}, 
-	     offset: {x:size, y:size},
-	     scale: {x:size, y:size},
-	     basetype: Type.t}
-	  | Offset3D of
-	    {base: t,
-	     index: {x:size, y:size, z:size},
-	     offset: {x:size, y:size, z:size},
-	     scale: {x:size, y:size, z:size},
-	     basetype: Type.t}
     end
 
     structure Expression: sig
@@ -222,18 +209,18 @@ signature SPIL = sig
 	type operator
 	type expression
 	datatype t
-	  = HALT
-	  | NOP
-	  | COMMENT of string
-	  | PROFILE of ident
-	  | BIND of {src: atom,
+	  = Halt
+	  | Nop
+	  | Comment of string
+	  | Profile of ident
+	  | Bind of {src: atom,
 		     dest: ident * Type.t}
-	  | GRAPH of {src: expression,
+	  | Graph of {src: expression,
 		      dest: ident * Type.t}
-	  | PRIMITIVE of {oper: operator,
+	  | Primitive of {oper: operator,
 			  args: atom vector,
 			  dest: ident * Type.t}
-	  | MOVE of {src: atom, dest: atom}
+	  | Move of {src: atom, dest: atom}
     end
     sharing type Statement.atom = Atom.t
     sharing type Statement.operator = Operator.t
@@ -250,13 +237,13 @@ signature SPIL = sig
 	   * recursion may be optimized to prevent stack
 	   * growth. Stackless platforms may reject programs having
 	   * non-tail calls. *)
-	  = CALL of {func: ident,
+	  = Call of {func: ident,
 		     args: atom vector, 
 		     return: t option}
 	  (* "Goto-with-arguments" transfers control to a labeled
 	   * block. This makes variable versioning explicit without the
 	   * need for SSA-style "phi" functions *)
-	  | JUMP of {block: label,
+	  | Jump of {block: label,
 		     args: atom vector}
 
 	  (* Conditional branching to a labeled block. A given
@@ -265,11 +252,11 @@ signature SPIL = sig
 	   * block having the corresponding label. If none match,
 	   * control transfers to a default labeled block. The
 	   * target block must be nullary. *)
-	  | SWITCH of {test: atom,
-		       cases: (immediate * label) vector,
-		       default: label}
+	  | Switch of {test: atom,
+		       cases: (immediate * t) vector,
+		       default: t}
 	  (* Exits the current calling context and passes the result value to the return continuation label. *)
-	  | RETURN of atom
+	  | Return of atom
     end
     sharing type Control.atom = Atom.t
 
@@ -277,20 +264,20 @@ signature SPIL = sig
 	structure Uses: sig
 	    (* A uses set comprises all variable identifiers
 	     * appearing in a block. *)
-	    include ORD_SET where type item = ident
+	    include ORD_SET where type Key.ord_key = ident
 	end
 
 	structure Defs: sig
 	    (* A defs set comprises all variable definitions
 	     * appearing in a block, including parameters
 	     * and bindings. *)
-	    include ORD_SET where type item = ident * Type.t
+	    include ORD_SET where type Key.ord_key = ident * Type.t
 	end
 
 	structure Free: sig
 	    (* A free set comprises all variable identifers
 	     * appearing in a block, excluding definitions. *)
-	    include ORD_SET where type item = ident
+	    include ORD_SET where type Key.ord_key = ident
 	end
 
 	type statement
@@ -298,7 +285,7 @@ signature SPIL = sig
 	 * with a terminating control flow operation. Blocks may
 	 * accept an arbitrary number of parameters. *)
 	datatype t
-	  = BLOCK of {label: label,
+	  = Block of {label: label,
 		      params: (ident * Type.t) vector,
 		      body: Statement.t vector,
 		      transfer: Control.t}
@@ -318,12 +305,12 @@ signature SPIL = sig
 	structure Locals: sig
 	    (* A locals set comprises all variable identifers
 	     * appearing free in blocks, excluding function parameters. *)
-	    include ORD_SET where type item = ident
+	    include ORD_SET where type Key.ord_key = ident
 	end
 
 	type block
 	datatype t
-	  = FUNCTION of {params: (ident * Type.t) vector,
+	  = Function of {params: (ident * Type.t) vector,
 			 name: ident,
 			 start: label,
 			 blocks: Block.t vector,
@@ -345,7 +332,7 @@ signature SPIL = sig
     structure Program: sig
 	type function
 	datatype t 
-	  = PROGRAM of {functions: function vector,
+	  = Program of {functions: function vector,
 			main: function,
 			globals: (ident * Type.t) vector,
 			types: TypeDeclaration.t vector}
@@ -355,5 +342,56 @@ signature SPIL = sig
 	val foldTypes: (TypeDeclaration.t * 'a -> 'a) -> 'a -> t -> 'a
     end
     sharing type Program.function = Function.t
+
+    structure Context: sig
+	(* An ordered list of variable declarations. *)
+	type context
+	type atom
+	type expression
+	type operator
+	datatype binding
+	  = Assumption of Type.t
+	  | Bind of atom * Type.t
+	  | Graph of expression * Type.t
+	  | Primitive of operator * Type.t
+
+	val empty: context
+	val add: context * ident * binding -> context
+	val find: context * ident -> binding option
+    end
+    sharing type Context.atom = Atom.t
+    sharing type Context.operator = Operator.t
+    sharing type Context.expression = Expression.t
+
+    structure Environment: sig
+	(* An ordered list of global declarations. *)
+	type env
+	type expression
+	type context
+	datatype binding
+	  = Assumption of Type.t
+	  | Function of Type.t
+	  | Global of expression * Type.t
+	  | Type of Type.t
+
+	val empty: env
+	val add: env * context * ident * binding -> env
+    end
+    sharing type Environment.context = Context.context
+    sharing type Environment.expression = Expression.t
+
+
+    datatype fragment
+       = ATOM of Atom.t
+       | OPERATOR of Operator.t
+       | EXPRESSION of Expression.t
+       | STATEMENT of Statement.t
+       | CONTROL of Control.t
+       | BLOCK of Block.t
+       | FUNCTION of Function.t
+       | PROGRAM of Program.t
+       | TYPENAME of Type.t
+       | SERIES of fragment vector (* Comma-delimited *)
+       | SEQUENCE of fragment vector (* Semicolon-delimited *)
 end
 
