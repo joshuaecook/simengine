@@ -12,7 +12,6 @@ default_options () {
     link=
     dryrun=
     compare=
-    recursive=
 }
 
 dosay () {
@@ -101,7 +100,6 @@ echo "  -h	"Displays this message.
 echo "  -l	"Create symbolic links instead of copying files.
 echo "  -m	"Specifies the permissions of the installed files.
 echo "  -n	"Print commands but do not execute them.
-echo "  -r	"Treat sources as directories and install them recursively.
 echo "  -v	"Display extra information while installing.
 echo "  -C	"If the destination file exists, compare it with the
 echo "		"source and preserve the destination if they are the same.

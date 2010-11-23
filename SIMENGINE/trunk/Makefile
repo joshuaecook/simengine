@@ -157,11 +157,10 @@ external-publications:
 
 .PHONY: html
 html: install external-publications
-	#$(MAKE) -C external-publications SIMENGINE="$(realpath $(INSTALL_PREFIX))" DOCUMENTATION_OUTPUT_DIR="$(realpath $(INSTALL_PREFIX))/html" html
 	cd testing; $(MATLAB) -nosplash -nodesktop -r "addpath('$(realpath $(INSTALL_PREFIX))'); try; BuildDocumentation; catch me; disp(getReport(me, 'extended')); end; quit;"
-	$(INSTALL) -C external-publications/helptoc.xml -d $(realpath $(INSTALL_PREFIX))/html
-	$(INSTALL) -C external-publications/info.xml -d $(realpath $(INSTALL_PREFIX))
-	$(MATLAB) -nosplash -nodesktop -r "builddocsearchdb('$(realpath $(INSTALL_PREFIX))/html'); quit"
+	$(INSTALL) -C external-publications/helptoc.xml -d external-publications/html
+	$(MATLAB) -nosplash -nodesktop -r "builddocsearchdb('external-publications/html'); quit"
+	cp -r external-publications/html external-publications/info.xml $(INSTALL_PREFIX)
 
 .PHONY: test
 test: TEST_SUITE := $(if $(TEST_RELEASE),-release,-internal)

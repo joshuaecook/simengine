@@ -69,12 +69,7 @@ signature SPIL = sig
     type address = string
 
     structure TypeDeclaration: sig
-	datatype t 
-	  = ARRAY of {name: ident,
-		      size: size,
-		      base: Type.t}
-	  | STRUCTURE of {name: ident,
-			  fields: (ident * Type.t) vector}
+	type t = unit
     end
 
     structure Operator: sig
