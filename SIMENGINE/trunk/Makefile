@@ -147,7 +147,7 @@ install: $(TARGETS) $(INSTALLS)
 
 .PHONY: installer
 installer: INSTALL_PREFIX := Simatra
-installer: FILENAME := simEngine_$(PLATFORM)_$(ARCH)-$(VERSION_NUMBER)$(if $(SVN_IS_TAG),,_$(VERSION_BUILD)).tgz
+installer: FILENAME := simEngine_$(PLATFORM)_$(ARCH)_$(subst .,_,$(VERSION_NUMBER))$(if $(SVN_IS_TAG),,_$(VERSION_BUILD)).tgz
 installer: install $(if $(install-html),html,)
 	tar chzf $(FILENAME) $(INSTALL_PREFIX)
 
