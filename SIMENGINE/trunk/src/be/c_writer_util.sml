@@ -57,7 +57,7 @@ local
 			 args= v[X.Value (A.Variable ("rd_"^(Symbol.name scope))),
 				 case Property.getEPIndex props
 				  of SOME Property.STRUCT_OF_ARRAYS => X.Value STRUCT_IDX
-				   | _ => X.Value (A.Literal (Int 0))]}
+				   | _ => X.Value (A.Literal (Int "0"))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
 			 args= v[record, X.Value (A.Symbol (Symbol.name sym))]}
@@ -74,7 +74,7 @@ local
 			 args= v[X.Value (A.Variable ("wr_"^(Symbol.name scope))),
 				 case Property.getEPIndex props
 				  of SOME Property.STRUCT_OF_ARRAYS => X.Value STRUCT_IDX
-				   | _ => X.Value (A.Literal (Int 0))]}
+				   | _ => X.Value (A.Literal (Int "0"))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
 			 args= v[record, X.Value (A.Symbol (Symbol.name sym))]}
@@ -89,14 +89,14 @@ local
 	    val record = 
 		X.Apply {oper= Op.Record_extract,
 			 args= v[X.Apply {oper= Op.Array_extract,
-					  args= v[X.Value (A.Variable "sys_rd"), X.Value (A.Literal (Int 0))]},
+					  args= v[X.Value (A.Variable "sys_rd"), X.Value (A.Literal (Int "0"))]},
 				 X.Value (A.Symbol ("states_"^(Symbol.name scope)))]}
 	    val record = 
 		X.Apply {oper= Op.Array_extract,
 			 args= v[record,
 				 case Property.getEPIndex props
 				  of SOME Property.STRUCT_OF_ARRAYS => X.Value STRUCT_IDX
-				   | _ => X.Value (A.Literal (Int 0))]}
+				   | _ => X.Value (A.Literal (Int "0"))]}
 	    val field =
 		X.Apply {oper= Op.Record_extract,
 			 args= v[record, X.Value (A.Symbol (Symbol.name sym))]}
@@ -174,14 +174,19 @@ fun fun_to_spil to_spil (funtype, exps) =
       | Fun.OUTPUT _ =>
 	X.Value (A.Literal (Const "output"))
 
+local
+    val tr = String.map (fn #"~" => #"-" | c => c)
+    fun real r = tr (Real.fmt StringCvt.EXACT r)
+    fun int z = tr (Int.fmt StringCvt.DEC z)
+in
 val rec term_to_spil =
- fn Exp.INT z => X.Value (A.Literal (Int z))
-  | Exp.REAL r => X.Value (A.Literal (Real r))
+ fn Exp.INT z => X.Value (A.Literal (Int (int z)))
+  | Exp.REAL r => X.Value (A.Literal (Real (real r)))
   | Exp.NAN => X.Value (A.Literal Nan)
   | Exp.INFINITY => X.Value (A.Literal Infinity)
-  | Exp.BOOL b => X.Value (A.Literal (Bool b))
+  | Exp.BOOL b => X.Value (A.Literal (Bool (if b then "yes" else "no")))
   | Exp.STRING s => X.Value (A.Literal (String s))
-  | Exp.RATIONAL (num, den) => X.Apply {oper= Op.Rational_rational, args= v[X.Value (A.Literal (Int num)), X.Value (A.Literal (Int den))]}
+  | Exp.RATIONAL (num, den) => X.Apply {oper= Op.Rational_rational, args= v[X.Value (A.Literal (Int (Int.toString num))), X.Value (A.Literal (Int (Int.toString den)))]}
   | Exp.COMPLEX (real, imag) => X.Apply {oper= Op.Complex_complex, args= v[term_to_spil real, term_to_spil imag]}
   | Exp.TUPLE terms => 
     let
@@ -205,6 +210,7 @@ val rec term_to_spil =
   | Exp.SYMBOL (sym, props) => symbol_to_expr (sym, props)
   | term =>
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriterUtil.term_to_spil", Logger.INTERNAL)
+end
 
 fun container_to_spil to_spil =
  fn Exp.ARRAY array => 
@@ -216,7 +222,7 @@ fun container_to_spil to_spil =
 	case ! matrix
 	 of Matrix.DENSE _ => 
 	    X.Apply {oper= Op.Matrix_dense, 
-		     args= v[X.Value (A.Literal (Int rows)), X.Value (A.Literal (Int cols)), 
+		     args= v[X.Value (A.Literal (Int (Int.toString rows))), X.Value (A.Literal (Int (Int.toString cols))), 
 			     X.Apply {oper= Op.Array_array, args= v(map to_spil (Matrix.getElements matrix))}]}
 	  | Matrix.BANDED {upperbw, lowerbw, ...} =>
 	    let
@@ -224,8 +230,8 @@ fun container_to_spil to_spil =
 		val _ = Matrix.transpose m'
 	    in
 		X.Apply {oper= Op.Matrix_banded,
-			 args= v[X.Value (A.Literal (Int rows)), X.Value (A.Literal (Int cols)), 
-				 X.Value (A.Literal (Int upperbw)), X.Value (A.Literal (Int lowerbw)), 
+			 args= v[X.Value (A.Literal (Int (Int.toString rows))), X.Value (A.Literal (Int (Int.toString cols))), 
+				 X.Value (A.Literal (Int (Int.toString upperbw))), X.Value (A.Literal (Int (Int.toString lowerbw))), 
 				 X.Apply {oper= Op.Array_array, args= v(map to_spil (Matrix.getElements m'))}]}
 	    end
     end
