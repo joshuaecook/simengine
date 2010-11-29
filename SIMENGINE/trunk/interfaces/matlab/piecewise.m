@@ -35,8 +35,7 @@
 function r = piecewise(varargin)
 
 % Check arguments first
-isOdd = @(x)(mod(x,2)==1);
-if ~isOdd(nargin)
+if mod(nargin,2)==0
     error('Simatra:piecewise', 'Piecewise function expects to take in an odd number of arguments.');
 end
 
