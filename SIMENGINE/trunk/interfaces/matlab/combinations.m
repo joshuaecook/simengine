@@ -19,7 +19,10 @@
 function l = combinations(varargin)
 
 % Grab the lengths of each of the input arguments
-lengths = cell2mat(List.map(@(l)(length(l)), varargin));
+lengths = zeros(nargin,1);
+for i=1:nargin
+    lengths(i) = length(varargin{i});
+end
 dims = length(lengths);
 
 % Initialize the return matrix - each row is an input combination while

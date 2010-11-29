@@ -6,7 +6,7 @@ $(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
 # Define local variables.
 
 CLASSES_$(D)	:= $(addprefix $(D)/,$(addsuffix .m,simEngineUpdate simCheckLicense simexamplepath simplot simCheckVersion))
-ADD_CLASSES_$(D):= $(addprefix $(D)/,$(addsuffix .m,piecewise))
+ADD_CLASSES_$(D):= $(addprefix $(D)/,$(addsuffix .m,piecewise neighbors combinations))
 HELP_$(D)	:= $(addprefix $(D)/,$(addsuffix _info.m,simEngineUpdate simCheckLicense simexamplepath simplot simCheckVersion simex))
 PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D)))) $(D)/simex.p $(D)/parse_json.p
 
