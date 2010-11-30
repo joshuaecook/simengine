@@ -8,6 +8,10 @@
 debug ?=
 # If non-empty, instructs the compiler to produce additional profiling information.
 profile ?=
+# If non-empty, commands will execute operations which normally may be skipped.
+force ?=
+# If non-empty, commands will be quieter. (Overrides verbose.)
+quiet ?=
 # If non-empty, commands will print extra diagnostic information.
 verbose ?= 1
 # If non-empty, will not echo commands as they are executed
@@ -21,6 +25,20 @@ test-suite ?= internal
 TIME := $(shell date +%s)
 DATE := $(shell date +%d-%b-%Y)
 
+# User variables
+
+DEBUG := $(or $(debug),$(findstring branches,$(SVN_BRANCH)))
+PROFILE := $(if $(profile),$(profile),)
+VERBOSE := $(if $(quiet),,$(if $(verbose),$(verbose),))
+QUIET := $(if $(quiet),$(quiet),)
+FORCE := $(if $(force),$(force),)
+NOECHO := $(if $(noecho),@,)
+
+TEST_INTERNAL := $(findstring internal,$(test-suite))
+TEST_RELEASE := $(findstring release,$(test-suite))
+
+MAKEFLAGS += $(if $(noecho),--silent,) $(if $(verbose),--print-directory,)
+
 # Subversion RCS
 
 SVN_PREFIX = https://simatra.jira.com/svn
@@ -28,24 +46,14 @@ SVN_ROOT = $(SVN_PREFIX)/SIMENGINE
 SVN_TRUNK = $(addsuffix $(SVN_ROOT),trunk)
 SVN_INFO = svn info 2>/dev/null
 SVN_URL := $(shell $(SVN_INFO) | sed -n 's/^URL: //p')
-# The revision code below grabbed the latest revision number from the working copy - this is not
-# the same method used in the build makefile which takes the highest overall build number
-#SVN_REVISION := $(shell svnversion -nc . | cut -d: -f2 | sed -e 's/[^0-9]//g')
 SVN_REVISION := $(shell svnversion -n . | sed -e 's/[^0-9]//g')
+SVN_CO_ARGS := $(if $(QUIET),--quiet,) $(if $(FORCE),--force,)
+SVN_UP_ARGS := $(if $(QUIET),--quiet,) $(if $(FORCE),--force,)
 
 SVN_BRANCH := $(subst $(SVN_ROOT),,$(SVN_URL))
 SVN_IS_BRANCH := $(findstring branches,$(SVN_URL))
 SVN_IS_TRUNK := $(findstring trunk,$(SVN_URL))
 SVN_IS_TAG := $(findstring tag,$(SVN_URL))
-
-# User variables
-DEBUG := $(or $(debug),$(findstring branches,$(SVN_BRANCH)))
-PROFILE := $(if $(profile),$(profile),)
-VERBOSE := $(if $(verbose),$(verbose),)
-NOECHO := $(if $(noecho),@,)
-
-TEST_INTERNAL := $(findstring internal,$(test-suite))
-TEST_RELEASE := $(findstring release,$(test-suite))
 
 ## Platform and operating system detection
 OSLOWER := $(shell uname -s|tr [:upper:] [:lower:])
