@@ -410,6 +410,10 @@ fun areSymbols term =
 fun isScalar term =
     case term of
 	Exp.TUPLE _ => false
+      | Exp.RANGE _ => false
+      | Exp.RANDOM (typ,space) => Space.isScalar space
+      | Exp.SYMBOL (sym,props) => Space.isScalar (Property.getSpace props)
+      | Exp.FILEREF (entry,space) => Space.isScalar space
       | _ => true
 
 fun isIterator (Exp.SYMBOL (_, props)) =
