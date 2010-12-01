@@ -16,6 +16,8 @@ val onesym : string -> Exp.exp
 val anyterm : string -> Exp.exp (* match one term *)
 val anyconst : string -> Exp.exp
 val anylocal : Exp.exp
+val anyscalar : Exp.exp
+val anynonscalar : Exp.exp
 val anyfun : string -> Exp.exp (* match one function *)
 val anybuiltin : string -> Exp.exp (* match one builtin function *)
 val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
