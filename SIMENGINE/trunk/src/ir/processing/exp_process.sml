@@ -27,6 +27,8 @@ val isEquation : Exp.exp -> bool
 val isExpList : Exp.exp -> bool
 val isEmpty : Exp.exp -> bool
 val isSubRef : Exp.exp -> bool
+val isRange : Exp.exp -> bool
+val isRangeEq : Exp.exp -> bool
 val isArray : Exp.exp -> bool
 val isArrayEq : Exp.exp -> bool
 val isMatrix : Exp.exp -> bool
@@ -387,6 +389,11 @@ fun isSubRef exp =
 
 fun pruneSubRef (Exp.CONVERSION (Exp.SUBREF (exp,_))) = exp
   | pruneSubRef exp = exp
+
+fun isRange exp =
+    case exp
+     of Exp.TERM (Exp.RANGE _) => true
+      | _ => false
 
 fun isArray exp =
     case exp of
@@ -787,6 +794,10 @@ fun isStateEq exp =
     (isEquation exp andalso
      isStateTerm (lhs exp))
     handle e => DynException.checkpoint ("ExpProcess.isStateEq [exp="^(e2s exp)^"]") e
+
+fun isRangeEq exp =
+    isEquation exp andalso
+    isRange (rhs exp)
 
 fun isArrayEq exp =
     isEquation exp andalso

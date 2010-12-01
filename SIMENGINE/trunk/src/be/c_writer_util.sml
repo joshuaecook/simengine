@@ -252,43 +252,43 @@ val rec exp_to_spil =
 end
 
 local
-fun exp2c_str (Exp.FUN (str : Fun.funtype, exps)) =
-    let
-	fun useParen (Exp.FUN (str' : Fun.funtype, _)) = 
-	    let
-		val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
-		val {precedence=prec',...} = FunProcess.fun2props str'
-	    in
-		(prec = prec' andalso (not (FunProcess.equal (str, str')) orelse (not assoc))) orelse prec < prec'
-	    end
-	  | useParen (Exp.TERM _) = false
-	  | useParen (Exp.META _) = false
-	  | useParen (Exp.CONTAINER _) = false
-	  | useParen (Exp.CONVERSION _) = false
+    fun exp2c_str (exp as Exp.FUN (str : Fun.funtype, exps)) =
+	let
+	    fun useParen (Exp.FUN (str' : Fun.funtype, _)) = 
+		let
+		    val {precedence=prec,associative=assoc,...} = FunProcess.fun2props str
+		    val {precedence=prec',...} = FunProcess.fun2props str'
+		in
+		    (prec = prec' andalso (not (FunProcess.equal (str, str')) orelse (not assoc))) orelse prec < prec'
+		end
+	      | useParen (Exp.TERM _) = false
+	      | useParen (Exp.META _) = false
+	      | useParen (Exp.CONTAINER _) = false
+	      | useParen (Exp.CONVERSION _) = false
 
-	fun addParen (str, exp) = 
-	    if String.isPrefix "-" str then
-		"(" ^ str ^ ")"
-	    else if useParen exp then
-		"(" ^ str ^")"
-	    else
-		str
+	    fun addParen (str, exp) = 
+		if String.isPrefix "-" str then
+		    "(" ^ str ^ ")"
+		else if useParen exp then
+		    "(" ^ str ^")"
+		else
+		    str
 
-	fun replaceIndex str (i,e) = 
-	    Util.repStr(str, "$"^(i2s i), addParen (exp2c_str e, e))
+	    fun replaceIndex str (i,e) = 
+		Util.repStr(str, "$"^(i2s i), addParen (exp2c_str e, e))
 
-	fun notation2c_str (v, MathFunctionProperties.INFIX) = 
-	    String.concatWith (" "^v^" ") (map (fn(e)=>addParen ((exp2c_str e),e)) exps)
-	  | notation2c_str (v, MathFunctionProperties.PREFIX) = 
-	    v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2c_str e,e))) exps)) ^ ")"
-	  | notation2c_str (v, MathFunctionProperties.POSTFIX) = 
-	    (String.concatWith " " (map (fn(e)=> addParen ((exp2c_str e),e)) exps)) ^ " " ^ v
-	  | notation2c_str (v, MathFunctionProperties.MATCH) = 
-	    foldl (fn((exp, index),str')=>replaceIndex str' (index+1,exp)) v (Util.addCount exps)
+	    fun notation2c_str (v, MathFunctionProperties.INFIX) = 
+		String.concatWith (" "^v^" ") (map (fn(e)=>addParen ((exp2c_str e),e)) exps)
+	      | notation2c_str (v, MathFunctionProperties.PREFIX) = 
+		v ^ "(" ^ (String.concatWith ", " (map (fn(e)=>addParen((exp2c_str e,e))) exps)) ^ ")"
+	      | notation2c_str (v, MathFunctionProperties.POSTFIX) = 
+		(String.concatWith " " (map (fn(e)=> addParen ((exp2c_str e),e)) exps)) ^ " " ^ v
+	      | notation2c_str (v, MathFunctionProperties.MATCH) = 
+		foldl (fn((exp, index),str')=>replaceIndex str' (index+1,exp)) v (Util.addCount exps)
 
-    in
-	notation2c_str (FunProps.fun2cstrnotation str)
-    end
+	in
+	    notation2c_str (FunProps.fun2cstrnotation str)
+	end
   | exp2c_str (Exp.TERM term) = term2c_str term
   | exp2c_str (Exp.CONTAINER c) =
     let
@@ -351,9 +351,10 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
 	end
   | term2c_str (Exp.RANDOM (Exp.UNIFORM, space)) = "UNIFORM_RANDOM(PARALLEL_MODELS, modelid)"
   | term2c_str (Exp.RANDOM (Exp.NORMAL, space)) = "NORMAL_RANDOM(PARALLEL_MODELS, modelid)"
+  | term2c_str (Exp.RANGE {low, high, step}) = ("RANGE("^(term2c_str low)^","^(term2c_str high)^","^(term2c_str step)^")")
   | term2c_str Exp.DONTCARE = "_"
   | term2c_str term =
-    DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.exp2c_str", Logger.INTERNAL)
+    DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.term2c_str", Logger.INTERNAL)
 in
 fun exp2c_str_helper exp = exp2c_str exp
     handle e => DynException.checkpoint ("CWriterUtil.exp2c_str ["^(e2s exp)^"]") e

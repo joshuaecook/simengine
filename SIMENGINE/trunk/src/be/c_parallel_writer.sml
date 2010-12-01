@@ -12,6 +12,8 @@ end
 structure CParallelWriter : CPARALLELWRITER =
 struct
 
+structure X = ExpBuild
+
 datatype status =
 	 SUCCESS 
        | FAILURE of string
@@ -2074,8 +2076,10 @@ fun exp2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	outputeq2prog (exp, is_top_class, iter)
     else if (ExpProcess.isReadStateEq exp) then
 	differenceeq2prog exp
+    else if (ExpProcess.isInitialConditionEq exp) then
+	initialvaleq2prog exp
     else
-	DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.class_flow_code.equ_progs", Logger.INTERNAL)
+	DynException.stdException(("Unexpected expression '"^(e2s exp)^"'"), "CParallelWriter.exp2prog", Logger.INTERNAL)
 
 and intermediateeq2prog exp =
     ((if ExpProcess.isMatrixEq exp then
@@ -2155,15 +2159,72 @@ and intermediateeq2prog exp =
 	      Util.flatmap createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray rhs)))
 	  end
       else
- 	  [$("// " ^ (e2s exp)),
-	   $("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ ";")])
+ 	  [$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str exp) ^ "; // "^(e2s exp))])
      handle e => DynException.checkpoint "CParallelWriter.class_flow_code.intermediateeq2prog" e)
     
+and initialvaleq2prog exp =
+    (if ExpProcess.isMatrixEq exp then
+	 let
+	     val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
+	     val (var, m) = ("(&(" ^ (CWriterUtil.exp2c_str lhs) ^ "))", Container.expMatrixToMatrix rhs)
+	     val m' = 
+		 case !m 
+		  of Matrix.DENSE _ => m
+		   | Matrix.BANDED _ => 
+		     let
+			 val bands = Matrix.toPaddedBands m
+			 val m' = Matrix.fromRows (Exp.calculus()) bands
+			 val _ = Matrix.transpose m'
+		     in
+			 m'
+		     end
+	     val (rows, cols) = Matrix.size m'
+	     fun createIdx (i,j) = "MAT_IDX("^(i2s rows)^","^(i2s cols)^","^(i2s i)^","^(i2s j)^", PARALLEL_MODELS, modelid)"
+	     fun createEntry (i,j,exp) = [$(var ^ "["^(createIdx (i,j))^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ "; // " ^ (e2s exp))]
+	 in
+	     List.concat (Matrix.mapi createEntry m')
+	 end
+     else if ExpProcess.isArrayEq exp then
+	 let
+	     val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
+	     val var = "(&(" ^ (CWriterUtil.exp2c_str lhs) ^ "))"
+
+	     val size = ExpProcess.exp2size rhs
+	     fun createIdx i = "VEC_IDX("^(i2s size)^","^(i2s i)^", PARALLEL_MODELS, modelid)"
+	     fun createEntry (exp, i) = [$(var ^ "["^(createIdx i)^"]" ^ " = " ^ (CWriterUtil.exp2c_str exp) ^ "; // " ^ (e2s exp))]
+	 in
+	     Util.flatmap createEntry (StdFun.addCount (Container.arrayToList (Container.expArrayToArray rhs)))
+	 end
+     else if ExpProcess.isRangeEq exp then
+	 let
+	     fun termToReal (Exp.REAL v) = v
+	       | termToReal (Exp.INT v) = Real.fromInt v
+	       | termToReal t = (Logger.log_error (Printer.$("Can't convert term "^(ExpPrinter.exp2str (Exp.TERM t))^" to real")); DynException.setErrored(); 0.0)
+
+	     val (lhs, rhs) = (ExpProcess.lhs exp, ExpProcess.rhs exp)
+	     val (low,high,step) = 
+		 case rhs of Exp.TERM (Exp.RANGE {low,high,step}) => (termToReal low, termToReal high, termToReal step)
+			   | _ => DynException.stdException(("Unexpected expression '"^(e2s rhs)^"'"), "CParallelWriter.initialvaleq2prog", Logger.INTERNAL)
+
+	     val var = "(&(" ^ (CWriterUtil.exp2c_str lhs) ^ "))"
+	     val size = ExpProcess.exp2size rhs
+	     val entry = X.plus [X.real low, X.times [X.var "i", X.real step]]
+	 in
+	     [$ ("{ // "^(e2s exp)),
+	      $ "int i;",
+	      $ ("for (i = 0; i < "^(i2s size)^"; i++) {"),
+	      SUB [$ (var ^ "[VEC_IDX("^(i2s size)^",i,PARALLEL_MODELS,modelid)] = " ^(CWriterUtil.exp2c_str entry)^ ";")],
+	      $ "}",
+	      $ "}"]
+	 end
+     else
+ 	 [$((CWriterUtil.exp2c_str exp) ^ "; // "^(e2s exp))])
+    handle e => DynException.checkpoint "CParallelWriter.class_flow_code.initialvaleq2prog" e
 
 and firstorderdiffeq2prog exp =
-    [$((CWriterUtil.exp2c_str exp) ^ ";")]
+    [$((CWriterUtil.exp2c_str exp) ^ "; // "^(e2s exp))]
 and differenceeq2prog exp =
-    [$((CWriterUtil.exp2c_str exp) ^ ";")]
+    [$((CWriterUtil.exp2c_str exp) ^ "; // "^(e2s exp))]
 and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst exp
@@ -2786,6 +2847,7 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
     handle e => DynException.checkpoint "CParallelWriter.class_flow_code" e
 end
 
+
 fun state_init_code shardedModel iter_sym =
     let 
 	val model as (classes, {classname=top_class,...} ,_) = ShardedModel.toModel shardedModel iter_sym
@@ -2850,13 +2912,14 @@ fun state_init_code shardedModel iter_sym =
 			$("CDATAFORMAT " ^ (CWriterUtil.exp2c_str (Exp.TERM (DOF.Input.name input))) ^ " = inputs[" ^ (i2s i) ^ "];")
 
 		val ivqCode = ClassProcess.foldInitialValueEquations
-				  (fn (eqn, code) =>
+				  (fn (eqn, code) => 
 				      if ExpProcess.isEquation eqn then
 					  let
 					      val eqn' =  ClassProcess.flattenExpressionThroughInstances class eqn
 					  in
-					      ($((CWriterUtil.exp2c_str eqn') ^ ";")) :: code
+					      (exp2prog (eqn', isTopClass, iter)) @ code
 					  end
+
 				      else
 					  DynException.stdException(("Unexpected non equation present '"^(e2s eqn)^"'"),
 								    "CParallelWriter.stateInitCode.stateInitFunction",
