@@ -617,7 +617,7 @@ fun createClass top_class classes object =
 					     props=InstProps.setIterators InstProps.emptyinstprops iterators},
 				   [instanceInputs])
 
-		val exp = ExpBuild.equals (Exp.TERM (Exp.TUPLE []), rhs)
+		val exp = ExpBuild.equals (Exp.TERM (Exp.DONTCARE), rhs)
 
 		val output_exps = 
 		    map (fn out => 

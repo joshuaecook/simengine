@@ -127,7 +127,6 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
       | (Exp.RANDOM (Exp.NORMAL, space1), Exp.RANDOM (Exp.NORMAL, space2)) => (*matchCandidates*)
 	checkAndKillMatches matchCandidates (Space.equal (space1, space2))
       | (Exp.DONTCARE, _) => matchCandidates
-      | (_, Exp.DONTCARE) => matchCandidates
       (* now handle some of the other cases *)
       | (t1, Exp.PATTERN p2) => pattern_equivalent matchCandidates (p2, Exp.TERM t1)
       | (Exp.PATTERN p1, t2) => pattern_equivalent matchCandidates (p1, Exp.TERM t2)

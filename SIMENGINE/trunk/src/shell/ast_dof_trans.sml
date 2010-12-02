@@ -956,7 +956,7 @@ local
 					   (fn(sym)=> ExpProcess.exp2term (ExpBuild.var ((Symbol.name name) ^ "." ^ (Symbol.name sym))))
 					   returns
 
-		     val exp = ExpBuild.equals (ExpBuild.tuple nil, Exp.FUN (submodel_to_funtype(), [instanceInputs]))
+		     val exp = ExpBuild.equals (Exp.TERM Exp.DONTCARE, Exp.FUN (submodel_to_funtype(), [instanceInputs]))
 
 		     val output_exps = 
 			 map (fn outname =>
