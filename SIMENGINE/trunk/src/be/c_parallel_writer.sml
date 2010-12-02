@@ -1487,15 +1487,9 @@ local
     fun instanceNamed instname inst =
 	ExpProcess.instOrigInstName inst = instname
 
-    fun instance2member instances (classname, instname) =
+    fun instance2member instances (classname, instname, size) =
 	let val classTypeName = ClassProcess.classTypeName (CurrentModel.classname2class classname)		  
-	    val index = 
-		case List.find (instanceNamed instname) instances 
-		 of SOME inst' => 
-		    let val size = ExpProcess.instSpatialSize inst'
-		    in if 1 = size then ";" else "["^(i2s size)^"];"
-		    end
-		  | NONE => ";"
+	    val index = if size <> 1 then "["^(i2s size)^"];" else ";"
 	in
 	    "statedata_" ^ (Symbol.name classTypeName) ^ " " ^ (Symbol.name instname) ^ index
 	end
@@ -1517,30 +1511,30 @@ fun outputstatestructbyclass_code iterator (class : DOF.class as {exps, ...}) =
 
 	val instances = ClassProcess.class2instances class
 
-	fun classAndInstanceName eqn =
+	fun classAndInstanceNameWithSize eqn =
 	    let val {classname, ...} = ExpProcess.deconstructInst eqn
 	    in 
-		(classname, ExpProcess.instOrigInstName eqn)
+		(classname, ExpProcess.instOrigInstName eqn, ExpProcess.exp2size eqn)
 	    end
 	val class_inst_pairs =
 	    let 
-		fun uniq_fun ((c1,i1),(c2,i2)) = i1 = i2
+		fun uniq_fun ((_,i1,_),(_,i2,_)) = i1 = i2
 	    in
-		Util.uniquify_by_fun uniq_fun (map classAndInstanceName instances)
+		Util.uniquify_by_fun uniq_fun (map classAndInstanceNameWithSize instances)
 	    end
 
 	val class_inst_pairs_non_empty = 
-	    List.filter (fn (cn,instname) => 
+	    List.filter (fn (cn,instname,_) => 
 			    let 
 				val matching_classes = List.filter
-							   (fn(_, instname')=>instname=instname')
-							   (map classAndInstanceName instances)
+							   (fn(_, instname',_)=>instname=instname')
+							   (map classAndInstanceNameWithSize instances)
 				(*val class = CurrentModel.classname2class cn*)
 			    in 
 				List.exists (fn(c)=> 
 					       reads_iterator iterator c orelse
 					       writes_iterator iterator c) 
-					    (map (fn(cn,_)=>CurrentModel.classname2class cn) matching_classes)
+					    (map (fn(cn,_,_)=>CurrentModel.classname2class cn) matching_classes)
 			    end) 
 			class_inst_pairs
 
@@ -2211,10 +2205,10 @@ and initialvaleq2prog exp =
 	     val entry = X.plus [X.real low, X.times [X.var "i", X.real step]]
 	 in
 	     [$ ("{ // "^(e2s exp)),
-	      $ "int i;",
-	      $ ("for (i = 0; i < "^(i2s size)^"; i++) {"),
-	      SUB [$ (var ^ "[VEC_IDX("^(i2s size)^",i,PARALLEL_MODELS,modelid)] = " ^(CWriterUtil.exp2c_str entry)^ ";")],
-	      $ "}",
+	      SUB[$ "int i;",
+		  $ ("for (i = 0; i < "^(i2s size)^"; i++) {"),
+		  SUB [$ (var ^ "[VEC_IDX("^(i2s size)^",i,PARALLEL_MODELS,modelid)] = " ^(CWriterUtil.exp2c_str entry)^ ";")],
+		  $ "}"],
 	      $ "}"]
 	 end
      else
@@ -2339,6 +2333,7 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst exp
+	val size = ExpProcess.exp2size exp
 
 	val orig_instname = instname
 	(* every iterator except the update iterator uses an iter_name *)
@@ -2363,12 +2358,17 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
 
 	val (statereads, statewrites, systemstatereads) =
-	    (if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
-	     if writes_iterator iter instclass then "&wr_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
-	     if reads_system instclass then "&" ^ systemdata ^ ", " else "")
-	    
+	    if size = 1 then
+		(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
+		 if writes_iterator iter instclass then "&wr_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
+		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
+	    else
+		(if reads_iterator iter instclass then "rd_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ "+i, " else "",
+		 if writes_iterator iter instclass then "wr_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ "+i, " else "",
+		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
+		
 
-	fun systemstatedata_iterator (iter as (iter_name, _)) =
+		fun systemstatedata_iterator (iter as (iter_name, _)) =
 	    systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
 	and systemstatedata_states (iter as (iter_name, _)) =
 	    [systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name orig_instname)^";",
@@ -2438,22 +2438,39 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 						       NONE)
 			    output_term_pairs
     in
-	(map ($ o declare_output) output_symbol_pairs) @
-	[$("{"),
-	 SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-	      $("// " ^ (e2s exp))] @ 
-	     [inps_decl] @
-	     inps_init @ 
-	     (if reads_system instclass then
-		  sysstates_init 
-	      else [] ) @
-	     outs_decl @
-	     [$(calling_name ^ "("^iter_name'^", "^
-		statereads ^ statewrites ^ systemstatereads ^ 
-		inpvar^", "^outvar^", first_iteration, modelid);")
-	     ] @
-	     map ($ o assign_output) output_symbol_pairs),
-	 $("}"),$("")]
+	if size = 1 then
+	    [$("{"),
+	     SUB([$("// Calling instance class " ^ (Symbol.name classname)),
+		  $("// " ^ (e2s exp))] @ 
+		 [inps_decl] @
+		 inps_init @ 
+		 (if reads_system instclass then
+		      sysstates_init 
+		  else [] ) @
+		 outs_decl @
+		 [$(calling_name ^ "("^iter_name'^", "^
+		    statereads ^ statewrites ^ systemstatereads ^ 
+		    inpvar^", "^outvar^", first_iteration, modelid);")
+		 ] @
+		 map ($ o assign_output) output_symbol_pairs),
+	     $("}")]
+	else
+	    [$("{"),
+	     SUB([$("// Calling instance class " ^ (Symbol.name classname)),
+		  $("// " ^ (e2s exp)),
+		  $("int i;"),
+		  $("for (i = 0; i < "^(i2s size)^"; i++) {"), 
+		  SUB ([inps_decl] @
+		       inps_init @ 
+		       (if reads_system instclass then
+			    sysstates_init 
+			else [] ) @
+		       outs_decl @
+		       [$(calling_name ^ "("^iter_name'^", "^
+			  statereads ^ statewrites ^ systemstatereads ^ 
+			  inpvar^", "^outvar^", first_iteration, modelid);")]),
+		  $("}")]),
+	     $("}")]
     end
     handle e => DynException.checkpoint "CParallelWriter.class_flow_code.instanceeq2prog" e
 
@@ -2931,6 +2948,7 @@ fun state_init_code shardedModel iter_sym =
 			 (fn (eqn, code) => 
 			     let
 				 val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst eqn
+				 val size = ExpProcess.exp2size eqn
 				 val instclass = CurrentModel.classname2class classname
 				 val orig_instname = instname
 
@@ -2964,9 +2982,15 @@ fun state_init_code shardedModel iter_sym =
 				     end
 				     
 				 val (reads, writes, sysreads) = 
-				     (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
-				      if writes_iterator iter instclass then "&wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
-				      if reads_system instclass then "&" ^ sysreadsName else "NULL")
+				     if size = 1 then
+					 (if reads_iterator iter instclass then "&rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
+					  if writes_iterator iter instclass then "&wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) else "NULL",
+					  if reads_system instclass then "&" ^ sysreadsName else "NULL")
+				     else
+					 (if reads_iterator iter instclass then "rd_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) ^ "+i" else "NULL",
+					  if writes_iterator iter instclass then "wr_" ^ iter_name ^ dereference ^ (Symbol.name orig_instname) ^ "+i" else "NULL",
+					  if reads_system instclass then "&" ^ sysreadsName else "NULL")
+
 
 				 val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 
@@ -3000,16 +3024,30 @@ fun state_init_code shardedModel iter_sym =
 
 			     in
 				 if hasInitialValueEquation (fn _ => true) instclass then
-				     [$("{ // Initializing instance class " ^ (Symbol.name classname)),
-				      SUB([inps_decl] @
-					  inps_init @
-					  (if reads_system instclass then initSysreads else []) @
-					  [$("// " ^ (ExpPrinter.exp2str eqn)),
-					   $("init_states_" ^ (Symbol.name classname) ^ "(" ^
-					     reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^
-					     inpvar ^ ", modelid);")]),
-				      $("}")] @
-				     code
+				     (if size = 1 then
+					  [$("{ // Initializing instance class " ^ (Symbol.name classname)),
+					   SUB([inps_decl] @
+					       inps_init @
+					       (if reads_system instclass then initSysreads else []) @
+					       [$("// " ^ (ExpPrinter.exp2str eqn)),
+						$("init_states_" ^ (Symbol.name classname) ^ "(" ^
+						  reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^
+						  inpvar ^ ", modelid);")]),
+					   $("}")] 
+				      else
+					  [$("{ // Initializing instance class " ^ (Symbol.name classname)),
+					   SUB[$("int i;"),
+					       $("for (i = 0; i < "^(i2s size)^"; i++) {"),
+					       SUB([inps_decl] @
+						   inps_init @
+						   (if reads_system instclass then initSysreads else []) @
+						   [$("// " ^ (ExpPrinter.exp2str eqn)),
+						    $("init_states_" ^ (Symbol.name classname) ^ "(" ^
+						      reads ^ ", " ^ writes ^ ", " ^ sysreads ^ ", " ^
+						      inpvar ^ ", modelid);")]),
+					       $("}")],
+					   $("}")]
+				     ) @ code
 				 else code
 			     end)
 			 nil class

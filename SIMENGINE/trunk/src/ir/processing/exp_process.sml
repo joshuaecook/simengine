@@ -464,8 +464,8 @@ fun deconstructInst exp =
     in
 	if isInstanceEq exp then
 	    case exp of 
-		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.INST {classname, instname, props}, [Exp.CONTAINER (Exp.ASSOC inpargs)])]) => 
-		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs=(instance_outputs_to_output_table classname outargs)}
+		Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [_, Exp.FUN (Fun.INST {classname, instname, props}, [Exp.CONTAINER (Exp.ASSOC inpargs)])]) => 
+		{classname=classname, instname=instname, props=props, inpargs=inpargs, outargs= SymbolTable.empty}
 	      | _ => (error_no_return exp "Malformed instance equation"; empty_return)
 	else if isOutputEq exp then
 	    case exp of

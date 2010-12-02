@@ -1555,8 +1555,8 @@ fun assignCorrectScope (class: DOF.class) =
 	    let 
 		fun action (Exp.TERM (Exp.SYMBOL (s, p))) =
 		    Exp.TERM (Exp.SYMBOL (s, Property.setScope p Property.ITERATOR))
-		  | action _ = DynException.stdException
-				   ("Unexpected expression",
+		  | action exp = DynException.stdException
+				   ("Unexpected expression "^(e2s exp),
 				    "ClassProcess.assignCorrectScope.iter_actions", 
 				    Logger.INTERNAL)
 	    in
@@ -1881,7 +1881,7 @@ fun pruneUnusedInputs (class: DOF.class) =
 		ExpBuild.equals (Exp.TERM (Exp.TUPLE outargs), rhs)
 	    end
 
-	  | remove_unused_inputs (Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (func as Fun.INST {classname, instname, props}, inpargs)])) =
+	  | remove_unused_inputs (Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [outargs, Exp.FUN (func as Fun.INST {classname, instname, props}, inpargs)])) =
 	    (* Instance function *)
 	    let
 		val class' = CurrentModel.classname2class classname
@@ -1906,7 +1906,7 @@ fun pruneUnusedInputs (class: DOF.class) =
 
 		val rhs = Exp.FUN (func, [inpargs'])
 	    in
-		ExpBuild.equals (Exp.TERM (Exp.TUPLE outargs), rhs)
+		ExpBuild.equals (outargs, rhs)
 	    end
 
 	  | remove_unused_inputs _ =
