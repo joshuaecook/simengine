@@ -56,7 +56,7 @@ fun output2props (classname, outname, props) : MathFunctionProperties.op_props =
 	case (List.find (fn({name,...}:DOF.class)=>name=classname) classes)
 	 of SOME (c as {name,properties,inputs,outputs,exps}) => 
 	    let
-		val output_space = case List.find (fn(out)=>Term.sym2curname (DOF.Output.name out) = outname) (!outputs) of
+		val output_space = case List.find (fn(out)=>Term.sym2symname (DOF.Output.name out) = outname) (!outputs) of
 				       SOME out => (!expToSpace) (Exp.TERM (DOF.Output.name out))
 				     | NONE => (error ("Output '"^(Symbol.name outname)^"' not found in model '"
 						       ^(Symbol.name classname)^"'");
