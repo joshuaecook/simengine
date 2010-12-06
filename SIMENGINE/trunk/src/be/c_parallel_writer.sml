@@ -1233,7 +1233,9 @@ and output_datastruct_class_code is_top_class class =
 
 local
     fun output2struct (term,sym) =
-	$("CDATAFORMAT " ^(Symbol.name sym)^";")
+	case Space.size (#space (Term.sym2props term))
+	 of 1 => $("CDATAFORMAT " ^(Symbol.name sym)^";")
+	  | n => $("CDATAFORMAT " ^(Symbol.name sym)^"["^(i2s n)^"];") 
 in
 fun outputdatastruct_code shardedModel =
     let
@@ -2222,6 +2224,8 @@ and differenceeq2prog exp =
 and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst exp
+	val outsize = Space.size (ExpSpace.expToSpace_UserError exp)
+	val instsize = Space.size (#space props)
 	val outname = 
 	    case exp 
 	     of Exp.FUN (Fun.BUILTIN Fun.ASSIGN, [Exp.TERM (Exp.TUPLE outargs), Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, inpargs)]) => outname
@@ -2249,11 +2253,25 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 					     Logger.INTERNAL)
 	val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
 
+	fun mismatch () =
+		DynException.stdException(("Cannot combine non-scalar instance ("^(i2s instsize)^") with non-scalar output ("^(i2s outsize)^" in "^(e2s exp)),
+					  "CParallelWriter.outputeq2prog",
+					  Logger.INTERNAL)
+	    
+
 	val systemdata = Unique.unique "subsys_rd"
 	val (statereads, systemstatereads) =
-	    (if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name instname) ^ ", " else "",
-	     if reads_system instclass then "&" ^ systemdata ^ ", " else "")
-
+	    case (outsize, instsize)
+	     of (1,1) => 
+		(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name instname) ^ ", " else "",
+		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
+	      | (n,1) =>
+		(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name instname) ^ ", " else "",
+		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
+	      | (n,m) =>
+		if n <> m orelse n = 1 then mismatch () else
+		(if reads_iterator iter instclass then "rd_" ^ (iter_name) ^ dereference ^ (Symbol.name instname) ^ "+i, " else "",
+		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
 
 	fun systemstatedata_iterator (iter as (iter_name, _)) =
 	    systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
@@ -2306,29 +2324,67 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val outs_decl = 
 	    if SymbolTable.null outargs then Layout.empty
-	    else $("CDATAFORMAT " ^ outvar ^ "["^(i2s (SymbolTable.numItems outargs))^"];")
+	    else $("CDATAFORMAT " ^ outvar ^ "["^(i2s (SymbolTable.numItems outargs))^"*"^(i2s outsize)^"];")
 
 	fun declare_output (sym, idx) =
-	    $("CDATAFORMAT " ^ (Symbol.name sym) ^ ";")
+	    if outsize = 1 then $("CDATAFORMAT " ^ (Symbol.name sym) ^ ";")
+	    else $("CDATAFORMAT " ^ (Symbol.name sym) ^ "["^(i2s outsize)^"];")
+
 	fun assign_output (sym, idx) =
-	    $((Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];")
+	    case (outsize,instsize)
+	     of (1,1) => $((Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];")
+	      | (n,1) => $((Symbol.name sym) ^ "[i] = " ^ outvar ^ "["^(i2s idx)^"*"^(i2s (SymbolTable.numItems outargs))^"+i];")
+	      | (n,m) => $((Symbol.name sym) ^ "[i] = " ^ outvar ^ "["^(i2s idx)^"*"^(i2s (SymbolTable.numItems outargs))^"+i];")
 
 	val output_symbol_pairs =
 	    map (fn (out,idx) => (Term.sym2curname out,idx)) (SymbolTable.addCount outargs)
     in
-	[Layout.align (map declare_output output_symbol_pairs),
-	 $("{"),
-	 SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
-	      $("// " ^ (e2s exp)),
-	      inps_decl,
-	      Layout.align inps_init,
-	      sysstates_init,
-	      outs_decl,
-	      $(calling_name ^ "(" ^ iter_name' ^ "," ^
-		statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
-	      Layout.align (map assign_output output_symbol_pairs)
-	     ],
-	 $("}")]
+	Layout.align (map declare_output output_symbol_pairs) ::
+	(case (outsize, instsize)
+	  of (1,1) => 
+	     [$("{"),
+	      SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
+		   $("// " ^ (e2s exp)),
+		   inps_decl,
+		   Layout.align inps_init,
+		   sysstates_init,
+		   outs_decl,
+		   $(calling_name ^ "(" ^ iter_name' ^ "," ^
+		     statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
+		   Layout.align (map assign_output output_symbol_pairs)
+		  ],
+	      $("}")]
+	   | (n,1) =>
+	     [$("{"),
+	      SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
+		   $("// " ^ (e2s exp)),
+		   $("int i;"),
+		   Layout.align [
+		   inps_decl,
+		   Layout.align inps_init,
+		   sysstates_init,
+		   outs_decl,
+		   $(calling_name ^ "(" ^ iter_name' ^ "," ^
+		     statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);")],
+		   $("for (i = 0; i < "^(i2s n)^"; i++) {"),
+		   SUB [Layout.align (map assign_output output_symbol_pairs)],
+		   $("}")],
+	      $("}")]
+	   | (n,m) =>
+	     [$("{"),
+	      SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
+		   $("// " ^ (e2s exp)),
+		   $("int i;"),
+		   $("for (i = 0; i < "^(i2s (Int.max (outsize,instsize)))^"; i++) {"),
+		   SUB [inps_decl,
+			Layout.align inps_init,
+			sysstates_init,
+			outs_decl,
+			$(calling_name ^ "(" ^ iter_name' ^ "," ^
+			  statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
+			Layout.align (map assign_output output_symbol_pairs)],
+		   $("}")],
+	      $("}")])
     end
 and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
@@ -2747,9 +2803,26 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 
         val output_progs = 
             if is_top_class then
-                let fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
+                let
+		    fun cmp (a, b) = Term.sym2curname a = Term.sym2curname b
                     val outputs_symbols = Util.uniquify_by_fun cmp (ClassProcess.outputsSymbols class)
                     val (iterators_symbols, outputs_symbols) = List.partition Term.isIterator outputs_symbols
+							       
+		    fun write_iterval term =
+			case Space.size (#space (Term.sym2props term))
+			 of 1 => $("od[modelid]." ^ ((Symbol.name o Term.sym2curname) term) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")
+			  | n => Layout.align [
+				 $("for (i = 0; i < "^(i2s n)^"; i++)"),
+				 SUB[$("od[modelid]." ^ ((Symbol.name o Term.sym2curname) term) ^ "[i] = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ "[i];")]
+				 ]
+
+		    fun write_output term =
+			case Space.size (#space (Term.sym2props term))
+			 of 1 => $("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) term) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ ";")
+			  | n => Layout.align [
+				 $("for (i = 0; i < "^(i2s n)^"; i++)"),
+				 SUB[$("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) term) ^ "[i] = " ^ (CWriterUtil.exp2c_str (Exp.TERM term)) ^ "[i];")]
+				 ]
                 in
                     if List.null outputs_symbols andalso List.null iterators_symbols then
                         [$("// No outputs written")]
@@ -2759,13 +2832,10 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			 $("// FIXME use the appropriate output function instead"),
                          $("#if NUM_OUTPUTS > 0"),
                          $("if (first_iteration) {"),
-                         SUB($("output_data *od = (output_data*)outputs;") 
-                             :: (map (fn t => $("od[modelid]." ^ (Symbol.name (Term.sym2curname t)) ^ " = " ^
-						(CWriterUtil.exp2c_str (Exp.TERM t)) ^
-						";"))
-                                     iterators_symbols) 
-                             @ (map (fn(t)=> $("od[modelid]." ^ ((Symbol.name o Term.processInternalName o Term.sym2curname) t) ^ " = " ^ (CWriterUtil.exp2c_str (Exp.TERM t)) ^ ";"))
-                                    outputs_symbols)),
+                         SUB($("int i;") ::
+			     $("output_data *od = (output_data*)outputs;") :: 
+			     (map write_iterval iterators_symbols) @ 
+			     (map write_output outputs_symbols)),
                          $("}"),
                          $("#endif")]
                 end
