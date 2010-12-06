@@ -2224,7 +2224,7 @@ and differenceeq2prog exp =
 and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst exp
-	val outsize = Space.size (ExpSpace.expToSpace_UserError exp)
+	val expsize = Space.size (ExpSpace.expToSpace_UserError exp)
 	val instsize = Space.size (#space props)
 	val outname = 
 	    case exp 
@@ -2254,18 +2254,14 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
 
 	fun mismatch () =
-		DynException.stdException(("Cannot combine non-scalar instance ("^(i2s instsize)^") with non-scalar output ("^(i2s outsize)^" in "^(e2s exp)),
+		DynException.stdException(("Cannot combine non-scalar instance ("^(i2s instsize)^") with non-scalar output ("^(i2s expsize)^" in "^(e2s exp)),
 					  "CParallelWriter.outputeq2prog",
 					  Logger.INTERNAL)
-	    
 
 	val systemdata = Unique.unique "subsys_rd"
 	val (statereads, systemstatereads) =
-	    case (outsize, instsize)
-	     of (1,1) => 
-		(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name instname) ^ ", " else "",
-		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
-	      | (n,1) =>
+	    case (expsize, instsize)
+	     of (n,1) =>
 		(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name instname) ^ ", " else "",
 		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
 	      | (n,m) =>
@@ -2311,27 +2307,43 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 								  "CParallelWriter.outputeq2prog",
 								  Logger.INTERNAL)
 		    in
-			$(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str value) ^ "; // " ^ (Symbol.name key))
+			((key,value),idx)
 		    end
 		) inputs
+
+	val (scalar_inps, vector_inps) =
+	    List.partition (fn ((key,value),idx) => Space.isScalar (ExpSpace.expToSpace value)) inps_init
+
+	val scalar_inps_init =
+	    map (fn ((key,value),idx) =>
+		    $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str value) ^ "; // " ^ (Symbol.name key))
+		) scalar_inps		    
+
+	val vector_inps_init =
+	    map (fn ((key,value),idx) => 
+		    $(inpvar ^ "[" ^ (i2s idx) ^ "] = input_" ^ (Symbol.name key) ^ "[i]; // " ^ (Symbol.name key))
+		) vector_inps
 
 	val inps_decl = 
 	    if List.null inputs then
 		Layout.empty
 	    else
-		$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inputs)) ^ "];")
-
+		Layout.align (
+		$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inputs)) ^ "];") ::
+		(map (fn ((key,value),idx) =>
+			 $("CDATAFORMAT input_" ^ (Symbol.name key) ^ "[" ^(i2s (Space.size (ExpSpace.expToSpace value)))^"] = " ^ (CWriterUtil.exp2c_str value) ^ ";")
+		     ) vector_inps))
 
 	val outs_decl = 
 	    if SymbolTable.null outargs then Layout.empty
-	    else $("CDATAFORMAT " ^ outvar ^ "["^(i2s (SymbolTable.numItems outargs))^"*"^(i2s outsize)^"];")
+	    else $("CDATAFORMAT " ^ outvar ^ "["^(i2s (SymbolTable.numItems outargs))^"*"^(i2s expsize)^"];")
 
 	fun declare_output (sym, idx) =
-	    if outsize = 1 then $("CDATAFORMAT " ^ (Symbol.name sym) ^ ";")
-	    else $("CDATAFORMAT " ^ (Symbol.name sym) ^ "["^(i2s outsize)^"];")
+	    if expsize = 1 then $("CDATAFORMAT " ^ (Symbol.name sym) ^ ";")
+	    else $("CDATAFORMAT " ^ (Symbol.name sym) ^ "["^(i2s expsize)^"];")
 
 	fun assign_output (sym, idx) =
-	    case (outsize,instsize)
+	    case (expsize,instsize)
 	     of (1,1) => $((Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];")
 	      | (n,1) => $((Symbol.name sym) ^ "[i] = " ^ outvar ^ "["^(i2s idx)^"*"^(i2s (SymbolTable.numItems outargs))^"+i];")
 	      | (n,m) => $((Symbol.name sym) ^ "[i] = " ^ outvar ^ "["^(i2s idx)^"*"^(i2s (SymbolTable.numItems outargs))^"+i];")
@@ -2340,56 +2352,59 @@ and outputeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	    map (fn (out,idx) => (Term.sym2curname out,idx)) (SymbolTable.addCount outargs)
     in
 	Layout.align (map declare_output output_symbol_pairs) ::
-	(case (outsize, instsize)
+	(case (expsize, instsize)
 	  of (1,1) => 
 	     [$("{"),
-	      SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
-		   $("// " ^ (e2s exp)),
-		   inps_decl,
-		   Layout.align inps_init,
-		   sysstates_init,
-		   outs_decl,
-		   $(calling_name ^ "(" ^ iter_name' ^ "," ^
-		     statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
-		   Layout.align (map assign_output output_symbol_pairs)
-		  ],
+	      SUB ([$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
+		    $("// " ^ (e2s exp)),
+		    inps_decl] @
+		   scalar_inps_init @ 
+		   vector_inps_init @ 
+		   [sysstates_init,
+		    outs_decl,
+		    $(calling_name ^ "(" ^ iter_name' ^ "," ^
+		      statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
+		    Layout.align (map assign_output output_symbol_pairs)
+		  ]),
 	      $("}")]
 	   | (n,1) =>
 	     [$("{"),
-	      SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
+	      SUB ([$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
 		   $("// " ^ (e2s exp)),
 		   $("int i;"),
-		   Layout.align [
-		   inps_decl,
-		   Layout.align inps_init,
-		   sysstates_init,
-		   outs_decl,
-		   $(calling_name ^ "(" ^ iter_name' ^ "," ^
-		     statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);")],
-		   $("for (i = 0; i < "^(i2s n)^"; i++) {"),
-		   SUB [Layout.align (map assign_output output_symbol_pairs)],
-		   $("}")],
+		    inps_decl] @
+		   scalar_inps_init @ 
+		   vector_inps_init @ 
+		   [sysstates_init,
+		    outs_decl,
+		    $(calling_name ^ "(" ^ iter_name' ^ "," ^
+		      statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);")] @
+		   [$("for (i = 0; i < "^(i2s n)^"; i++) {"),
+		    SUB [Layout.align (map assign_output output_symbol_pairs)],
+		    $("}")]),
 	      $("}")]
 	   | (n,m) =>
 	     [$("{"),
-	      SUB [$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
-		   $("// " ^ (e2s exp)),
-		   $("int i;"),
-		   $("for (i = 0; i < "^(i2s (Int.max (outsize,instsize)))^"; i++) {"),
-		   SUB [inps_decl,
-			Layout.align inps_init,
-			sysstates_init,
-			outs_decl,
-			$(calling_name ^ "(" ^ iter_name' ^ "," ^
-			  statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
-			Layout.align (map assign_output output_symbol_pairs)],
-		   $("}")],
+	      SUB ([$("// Calling output " ^ (Symbol.name outname) ^ " of class " ^ (Symbol.name classname)),
+		    $("// " ^ (e2s exp)),
+		    $("int i;")] @
+		   [inps_decl] @
+		   scalar_inps_init @
+		   [$("for (i = 0; i < "^(i2s expsize)^"; i++) {"),
+		    SUB ([Layout.align vector_inps_init,
+			  sysstates_init,
+			  outs_decl,
+			  $(calling_name ^ "(" ^ iter_name' ^ "," ^
+			    statereads ^ systemstatereads ^ inpvar ^ "," ^ outvar ^ ",first_iteration,modelid);"),
+			  Layout.align (map assign_output output_symbol_pairs)]),
+		    $("}")]),
 	      $("}")])
     end
 and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
     let
 	val {classname, instname, props, inpargs=inpassoc, outargs} = ExpProcess.deconstructInst exp
-	val size = ExpProcess.exp2size exp
+	val expsize = ExpProcess.exp2size exp
+	val instsize = Space.size (#space props)
 
 	val orig_instname = instname
 	(* every iterator except the update iterator uses an iter_name *)
@@ -2403,6 +2418,10 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 
 	val instclass = CurrentModel.classname2class classname
 
+	fun mismatch () =
+		DynException.stdException(("Cannot combine non-scalar instance ("^(i2s instsize)^") with non-scalar input ("^(i2s expsize)^" in "^(e2s exp)),
+					  "CParallelWriter.outputeq2prog",
+					  Logger.INTERNAL)
 
 	val iterators = map (fn(sym, _)=>sym) (CurrentModel.iterators())
 	val statereads_top = "&rd_" ^ (iter_name) ^ "[STRUCT_IDX]." ^ (Symbol.name orig_instname)
@@ -2414,17 +2433,19 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	val dereference = if is_top_class then "[STRUCT_IDX]." else "->"
 
 	val (statereads, statewrites, systemstatereads) =
-	    if size = 1 then
+	    case (expsize, instsize)
+	     of (n,1) =>
 		(if reads_iterator iter instclass then "&rd_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
 		 if writes_iterator iter instclass then "&wr_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ ", " else "",
 		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
-	    else
+	      | (n,m) =>
+		if n <> m orelse n = 1 then mismatch () else
 		(if reads_iterator iter instclass then "rd_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ "+i, " else "",
 		 if writes_iterator iter instclass then "wr_" ^ (iter_name) ^ dereference ^ (Symbol.name orig_instname) ^ "+i, " else "",
 		 if reads_system instclass then "&" ^ systemdata ^ ", " else "")
 		
 
-		fun systemstatedata_iterator (iter as (iter_name, _)) =
+	fun systemstatedata_iterator (iter as (iter_name, _)) =
 	    systemdata^"."^(Symbol.name iter_name)^" = sys_rd->"^(Symbol.name iter_name)^";"
 	and systemstatedata_states (iter as (iter_name, _)) =
 	    [systemdata^"."^"states_"^(Symbol.name iter_name)^" = &sys_rd->states_"^(Symbol.name iter_name)^"[STRUCT_IDX]."^(Symbol.name orig_instname)^";",
@@ -2444,11 +2465,11 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 	val inpvar = if SymbolTable.null inpassoc then "NULL" else Unique.unique "inputdata"
 	val outvar = if SymbolTable.null outargs then "NULL" else Unique.unique "outputdata"
 			
-	val inputs = 
+	val inputs: (DOF.Input.input * int) list = 
 	    Util.addCount (!(#inputs instclass))
 
 	val inps_init =
-	    map (fn (input,idx) => 
+	    map (fn (input,idx) =>
 		    let
 			val key = Symbol.symbol (Util.removePrefix (Term.sym2name (DOF.Input.name input)))
 			val value = 
@@ -2458,70 +2479,59 @@ and instanceeq2prog (exp, is_top_class, iter as (iter_sym, iter_type)) =
 								  "CParallelWriter.outputeq2prog",
 								  Logger.INTERNAL)
 		    in
-			$(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str value) ^ "; // " ^ (Symbol.name key))
+			((key,value),idx)
 		    end
 		) inputs
+
+	val (scalar_inps, vector_inps) =
+	    List.partition (fn ((key,value),idx) => Space.isScalar (ExpSpace.expToSpace value)) inps_init
+
+	val scalar_inps_init =
+	    map (fn ((key,value),idx) =>
+		    $(inpvar ^ "[" ^ (i2s idx) ^ "] = " ^ (CWriterUtil.exp2c_str value) ^ "; // " ^ (Symbol.name key))
+		) scalar_inps		    
+
+	val vector_inps_init =
+	    map (fn ((key,value),idx) => 
+		    $(inpvar ^ "[" ^ (i2s idx) ^ "] = input_" ^ (Symbol.name key) ^ "[i]; // " ^ (Symbol.name key))
+		) vector_inps
 
 	val inps_decl = 
 	    if List.null inputs then
 		Layout.empty
 	    else
-		$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inputs)) ^ "];")
+		Layout.align (
+		$("CDATAFORMAT " ^ inpvar ^ "[" ^ (i2s (List.length inputs)) ^ "];") ::
+		(map (fn ((key,value),idx) =>
+			 $("CDATAFORMAT input_" ^ (Symbol.name key) ^ "[" ^(i2s (Space.size (ExpSpace.expToSpace value)))^"] = " ^ (CWriterUtil.exp2c_str value) ^ ";")
+		     ) vector_inps))
 
-	val outs_decl = 
-	    if SymbolTable.null outargs then []
-	    else [$("CDATAFORMAT " ^ outvar ^ "["^(i2s (SymbolTable.numItems outargs))^"];")]
-
-	fun declare_output ((sym,_),_) = "CDATAFORMAT "^(Symbol.name sym)^";"
-
-	fun assign_output ((sym, output), idx) =
-	    (Symbol.name sym) ^ " = " ^ outvar ^ "[" ^ (i2s idx) ^ "];" ^
-	    " // Mapped to "^ (Symbol.name classname) ^ ": " ^ (e2s (List.hd (DOF.Output.contents output)))
-
-	(* Output args could contain don't cares *)
-	val output_term_pairs = nil
-	(*
-	 Util.addCount (ListPair.zipEq (outargs, !(#outputs instclass)))
-	 handle ListPair.UnequalLengths =>
-		DynException.stdException(("Outputs of instance call and instance class are not the same length."),
-					  "CParallelWriter.class_flow_code.instaceeq2prog",
-					  Logger.INTERNAL)
-	 *)
-	val output_symbol_pairs =
-	    List.mapPartial (fn((outarg,outs),n)=> if Term.isSymbol outarg then 
-						       SOME ((Term.sym2curname outarg, outs), n)
-						   else 
-						       NONE)
-			    output_term_pairs
     in
-	if size = 1 then
-	    [$("{"),
-	     SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-		  $("// " ^ (e2s exp))] @ 
+	case (expsize, instsize)
+	 of (1,1) =>
+	    [$("{ // Calling instance class " ^ (Symbol.name classname)),
+	     SUB([$("// " ^ (e2s exp))] @ 
 		 [inps_decl] @
-		 inps_init @ 
+		 scalar_inps_init @ 
+		 vector_inps_init @ 
 		 (if reads_system instclass then
 		      sysstates_init 
 		  else [] ) @
-		 outs_decl @
 		 [$(calling_name ^ "("^iter_name'^", "^
 		    statereads ^ statewrites ^ systemstatereads ^ 
-		    inpvar^", "^outvar^", first_iteration, modelid);")
-		 ] @
-		 map ($ o assign_output) output_symbol_pairs),
+		    inpvar^", "^outvar^", first_iteration, modelid);")]),
 	     $("}")]
-	else
-	    [$("{"),
-	     SUB([$("// Calling instance class " ^ (Symbol.name classname)),
-		  $("// " ^ (e2s exp)),
-		  $("int i;"),
-		  $("for (i = 0; i < "^(i2s size)^"; i++) {"), 
-		  SUB ([inps_decl] @
-		       inps_init @ 
+	  | (n,m) =>
+	    [$("{ // Calling instance class " ^ (Symbol.name classname)),
+	     SUB([$("// " ^ (e2s exp)),
+		  $("int i;")] @
+		 [inps_decl] @
+		 scalar_inps_init @
+		 [$("for (i = 0; i < "^(i2s instsize)^"; i++) {"), 
+		  SUB (vector_inps_init @ 
 		       (if reads_system instclass then
 			    sysstates_init 
 			else [] ) @
-		       outs_decl @
 		       [$(calling_name ^ "("^iter_name'^", "^
 			  statereads ^ statewrites ^ systemstatereads ^ 
 			  inpvar^", "^outvar^", first_iteration, modelid);")]),
@@ -2597,7 +2607,8 @@ fun class_output_code (class, is_top_class, iter as (iter_sym, iter_type)) outpu
 		   " CDATAFORMAT *inputs, CDATAFORMAT *outputs, const unsigned int first_iteration, const unsigned int modelid) {"),
 		 SUB [read_inputs_progs,
 		      Layout.align extra_equations,
-		      write_outputs_progs],
+		      write_outputs_progs,
+		      $ "return 0;"],
 		 $("}")]
 	end	
 local

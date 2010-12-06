@@ -8,6 +8,13 @@ val i2s = Util.i2s
 val r2s = Util.real2exact_str
 val log = Util.log
 
+fun termToReal (Exp.REAL v) = v
+  | termToReal (Exp.INT v) = Real.fromInt v
+  | termToReal t = (Logger.log_error (Printer.$("Can't convert term "^(ExpPrinter.exp2str (Exp.TERM t))^" to real"));
+		    DynException.setErrored();
+		    0.0)
+
+
 local
     open Spil 
     structure T = Type
@@ -351,7 +358,17 @@ and term2c_str (Exp.RATIONAL (n,d)) = "(FLITERAL("^(i2s n) ^ ".0)/FLITERAL(" ^ (
 	end
   | term2c_str (Exp.RANDOM (Exp.UNIFORM, space)) = "UNIFORM_RANDOM(PARALLEL_MODELS, modelid)"
   | term2c_str (Exp.RANDOM (Exp.NORMAL, space)) = "NORMAL_RANDOM(PARALLEL_MODELS, modelid)"
-  | term2c_str (Exp.RANGE {low, high, step}) = ("RANGE("^(term2c_str low)^","^(term2c_str high)^","^(term2c_str step)^")")
+  | term2c_str (Exp.RANGE {low, high, step}) = 
+    let
+	val (low',high',step') = (termToReal low, termToReal high, termToReal step)
+	val numElements = Real.ceil((high' - low') / step' + 1.0)
+	val elements = 
+	    List.tabulate 
+		(numElements, fn i => ExpBuild.real (low' + (step' * (Real.fromInt i))))
+			   
+    in
+	"{" ^ (String.concatWith ", " (map exp2c_str elements)) ^ "}"
+    end
   | term2c_str Exp.DONTCARE = "_"
   | term2c_str term =
     DynException.stdException (("Can't write out term '"^(e2s (Exp.TERM term))^"'"),"CWriter.term2c_str", Logger.INTERNAL)
