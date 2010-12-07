@@ -23,6 +23,7 @@ exception StubbedOut
 %term
     EOF 
   | ID of string
+  | FILE of string
   | PATTERN of string
   | STRING_CHARS of string
   | INT of int 
@@ -366,7 +367,7 @@ conditions: lambda WHEN lambda COMMA conditions
 aexp: REAL (Ast.LITERAL(Ast.CONSTREAL REAL))
     | INT (Ast.LITERAL(Ast.CONSTREAL (Real.fromInt INT)))
     | string (string)
-    | AMPERSAND ID COLON ID optspace (Ast.FILEREF({file=Symbol.symbol ID1, entry=Symbol.symbol ID2}, optspace))
+    | AMPERSAND FILE COLON ID optspace (Ast.FILEREF({file=Symbol.symbol FILE, entry=Symbol.symbol ID}, optspace))
     (*| AT LPAREN spacedef COMMA lambda RPAREN (lambda)*)
     | UNDERSCORE (Ast.WILDCARD)
     | HEX (Ast.LITERAL(Ast.CONSTBINARY HEX))

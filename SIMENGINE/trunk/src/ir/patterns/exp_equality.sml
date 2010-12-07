@@ -126,6 +126,9 @@ fun terms_equivalent (matchCandidates: patterns_matched) (term1, term2) =
 	checkAndKillMatches matchCandidates (Space.equal (space1, space2))
       | (Exp.RANDOM (Exp.NORMAL, space1), Exp.RANDOM (Exp.NORMAL, space2)) => (*matchCandidates*)
 	checkAndKillMatches matchCandidates (Space.equal (space1, space2))
+      | (Exp.FILEREF (fileentry1, space1), Exp.FILEREF (fileentry2, space2)) =>
+	checkAndKillMatches matchCandidates ((FileEntry.equal (fileentry1, fileentry2)) andalso 
+					     (Space.equal (space1, space2)))
       | (Exp.DONTCARE, _) => matchCandidates
       (* now handle some of the other cases *)
       | (t1, Exp.PATTERN p2) => pattern_equivalent matchCandidates (p2, Exp.TERM t1)
