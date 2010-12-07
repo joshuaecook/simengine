@@ -186,7 +186,7 @@ HEX     = 0x({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 OCT     = 0o({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 BIN     = 0b({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 ID	= {LETTER}([a-zA-Z0-9_]*)?;
-
+FILE    = [a-zA-Z0-9_\.\/]+;
 
 EOL     = \n|\r\n|\r;
 ESCAPE  = \\[^\r\n];
@@ -386,6 +386,8 @@ WS      = [\012\ \t];
  
 <STRING_EXP>{ID} => (YYBEGIN STRING;
 		     Tokens.ID(yytext, genpos yypos, genpos (yypos + (size yytext))));
+<STRING_EXP>{FILE} => (YYBEGIN STRING;
+		     Tokens.FILE(yytext, genpos yypos, genpos (yypos + (size yytext))));
 
 <STRING_EXP>"("   => (YYBEGIN INITIAL;
 		      pushLexState PAREN_STATE;
@@ -405,6 +407,7 @@ WS      = [\012\ \t];
 
 
 <INITIAL>{ID}    => (Tokens.ID(yytext, genpos yypos, genpos (yypos + (size yytext))));
+<INITIAL>{FILE}    => (Tokens.FILE(yytext, genpos yypos, genpos (yypos + (size yytext))));
 
 
 

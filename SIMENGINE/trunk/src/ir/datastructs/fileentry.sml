@@ -6,6 +6,7 @@ val makeFileEntry :  Symbol.symbol * Symbol.symbol -> fileentry
 val tostring : fileentry -> string
 val file : fileentry -> Symbol.symbol
 val entry : fileentry -> Symbol.symbol
+val equal : (fileentry * fileentry) -> bool
 
 end
 
@@ -22,5 +23,9 @@ fun makeFileEntry (name, entry) =
 
 fun tostring {file, entry} =
     "&(" ^ (Symbol.name file) ^ " : " ^ (Symbol.name entry) ^ ")"
+
+fun equal ({file=file1,entry=entry1},
+	   {file=file2,entry=entry2}) =
+    file1 = file2 andalso entry1 = entry2
 end
 
