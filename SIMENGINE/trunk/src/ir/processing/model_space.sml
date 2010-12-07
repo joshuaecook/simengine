@@ -202,7 +202,12 @@ local
 			  (* case #2: we have multiple outputs in contents so we support only a scalar condition. This
 			   * also works in the empty case *)
 			  | (output_spaces, condition_space) => if Space.isScalar condition_space then
-								    Space.collection output_spaces
+								    (* case #2b: we can't have a group that doesn't consist of just scalar values *)
+								    if List.all Space.isScalar output_spaces then
+									Space.collection output_spaces
+								    else
+									(error ("Output groupings can only be created out of scalar quantities");
+									 Space.collection output_spaces)									
 								else
 								    (error ("Can't define a multi-demensional condition with a grouped output");
 								     Space.collection output_spaces)
