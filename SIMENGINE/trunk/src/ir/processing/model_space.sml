@@ -37,7 +37,7 @@ local
 		in
 		    {find=find,
 		     test=NONE,
-		     replace=Rewrite.ACTION (Symbol.symbol ("PropagateSpatial:"^(Symbol.name sym)), action)}
+		     replace=Rewrite.ACTION ("PropagateSpatial:"^(Symbol.name sym), action)}
 		end
 	    val rewrites = map symbol_space_pair_to_rewrite symbol_space_pair
 	in
@@ -70,7 +70,7 @@ local
 		in
 		    {find=find,
 		     test=NONE,
-		     replace=Rewrite.ACTION (Symbol.symbol ("PropagateInstance:"^(Symbol.name sym)), action)}
+		     replace=Rewrite.ACTION ("PropagateInstance:"^(Symbol.name sym), action)}
 		end
 	    val rewrites = map classname_output_space_triple_to_rewrite classname_output_space_triple
 	in

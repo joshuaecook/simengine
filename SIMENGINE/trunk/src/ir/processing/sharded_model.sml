@@ -351,7 +351,7 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 		  fun buildIteratorUpdate state =
 		      {find=ExpBuild.avar (Symbol.name state) (Symbol.name itername),
 		       test=NONE,
-		       replace=Rewrite.ACTION (Symbol.symbol ("t->t+1 on " ^ (Symbol.name state)), 
+		       replace=Rewrite.ACTION ("t->t+1 on " ^ (Symbol.name state), 
 					       ExpProcess.updateTemporalIterator (itername, Iterator.RELATIVE 1))}
 
 		  val iteratorUpdateRules = map buildIteratorUpdate states
@@ -886,7 +886,7 @@ local
 		let
 		    val rewrite_symbol = {find=Match.onesym "#a",
 					  test=NONE,
-					  replace=Rewrite.ACTION (Symbol.symbol "RewriteIterator", 
+					  replace=Rewrite.ACTION ("RewriteIterator", 
 								  (fn(exp)=>if ExpProcess.hasTemporalIterator exp then
 										ExpProcess.renameTemporalIteratorForAggregating (from_iterators, to_iterator) exp
 									    else
@@ -1040,7 +1040,7 @@ local
 						    | (BEFORE, SOME (iter_sym, Iterator.RELATIVE 1)) => List.exists (fn(sym, _)=>iter_sym=sym) iters andalso
 													not (isPostProcess iter_sym)
 						    | _ => false),
-			   replace=Rewrite.ACTION (id, case pos of 
+			   replace=Rewrite.ACTION (Symbol.name id, case pos of 
 							   AFTER => update_exp_to_post
 							 | BEFORE => update_exp_to_pre)}
 	    val next_sym = iter_sym2next_iter_sym new_iter_sym
@@ -1050,7 +1050,7 @@ local
 						  test=SOME (fn(exp,_) => case exp of
 									      Exp.TERM (Exp.SYMBOL (sym, props)) => List.exists (fn(sym', _)=> sym=sym') iters
 									    | _ => false),
-						  replace=Rewrite.ACTION (id, fn(exp) => case exp of 
+						  replace=Rewrite.ACTION (Symbol.name id, fn(exp) => case exp of 
 											     Exp.TERM (Exp.SYMBOL (sym, props)) => Exp.TERM (Exp.SYMBOL (next_sym, props))
 											   | _ => exp)}]
 				     | BEFORE => []
@@ -1141,7 +1141,7 @@ fun combineDiscreteShards (shardedModel as (_, sysprops)) =
 	    let
 		val rewrite = {find=Match.onesym "#a",
 			       test=NONE,
-			       replace=Rewrite.ACTION (Symbol.symbol "replaceScopeOnUpdate",
+			       replace=Rewrite.ACTION ("replaceScopeOnUpdate",
 						       fn(exp) => case exp of 
 								      Exp.TERM (Exp.SYMBOL (sym, props)) => 
 								      (case Property.getScope props of

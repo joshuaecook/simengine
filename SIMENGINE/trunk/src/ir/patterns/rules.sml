@@ -212,9 +212,21 @@ val ifRules = [{find = Exp.FUN (Fun.BUILTIN Fun.IF, [Match.anyconst "#b", Match.
 													Exp.TERM (Exp.BOOL true) => lookup assigned_patterns ("#t")
 												      | Exp.TERM (Exp.BOOL false) => lookup assigned_patterns ("#f")
 												      | _ => exp)}]
+val complexRules = [{find = Match.anycomplex,
+		     test=SOME (fn(exp,_)=>case exp of
+					       Exp.TERM (Exp.COMPLEX (r, i)) => if Term.isZero i then
+										    true
+										else
+										    false
+					     | _ => false),
+		     replace=Rewrite.ACTION ("constant folding complex", fn(exp) => case exp of
+											Exp.TERM (Exp.COMPLEX (r, _)) => Exp.TERM r
+										      | _ => exp)}]
+
 
 val evalRules = (map funop2rule Fun.op_list)
 		@ ifRules
+		@ complexRules
 
 
 val ruleTable = ref SymbolTable.empty

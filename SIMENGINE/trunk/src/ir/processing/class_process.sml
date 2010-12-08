@@ -981,7 +981,7 @@ fun createEventIterators (class: DOF.class) =
 	fun pp2rewrite (state_sym, (iter_sym,_)) = 
 	    {find=Match.asym state_sym,
 	     test=NONE,
-	     replace=Rewrite.ACTION (Symbol.symbol ("pp_update:" ^ (Symbol.name state_sym)),
+	     replace=Rewrite.ACTION ("pp_update:" ^ (Symbol.name state_sym),
 				     (fn(exp)=> 
 					if ExpProcess.hasTemporalIterator exp then
 					    ExpProcess.updateTemporalIteratorToSymbol (iter_sym, (fn(sym)=>sym)) exp
@@ -1410,7 +1410,7 @@ fun propagateSpatialIterators (class: DOF.class) =
 
 		val rewrite = {find=pattern,
 			       test=NONE,
-			       replace=Rewrite.ACTION (Symbol.symbol ("AddIterTo:"^(e2s expsym)), action)}
+			       replace=Rewrite.ACTION ("AddIterTo:"^(e2s expsym), action)}
 
 	    in
 		rewrite
@@ -1480,7 +1480,7 @@ fun propagateStateIterators (class: DOF.class) =
 			  (fn(sym, iter as (itersym, _))=>
 			     {find=Match.asym sym, 
 			      test=NONE, 
-			      replace=Rewrite.ACTION (Symbol.symbol (Symbol.name sym ^ "["^(Symbol.name (#1 iter))^"]"),
+			      replace=Rewrite.ACTION (Symbol.name sym ^ "["^(Symbol.name (#1 iter))^"]",
 						      (fn(exp)=> ExpProcess.prependIteratorToSymbol itersym exp))}) 
 			  symbol_state_iterators
 
@@ -1543,7 +1543,7 @@ fun assignCorrectScope (class: DOF.class) =
 			  (fn(sym, iter as (itersym, _))=>
 			     {find=Match.asym sym, 
 			      test=NONE, 
-			      replace=Rewrite.ACTION (Symbol.symbol (Symbol.name sym ^ "["^(Symbol.name itersym)^"]"),
+			      replace=Rewrite.ACTION (Symbol.name sym ^ "["^(Symbol.name itersym)^"]",
 						      (fn(exp)=>ExpProcess.assignCorrectScopeOnSymbol
 								    (ExpProcess.prependIteratorToSymbol itersym exp)))}) 
 			  symbol_state_iterators
@@ -1560,7 +1560,7 @@ fun assignCorrectScope (class: DOF.class) =
 				    "ClassProcess.assignCorrectScope.iter_actions", 
 				    Logger.INTERNAL)
 	    in
-		{find = Match.asym sym, test = NONE, replace = Rewrite.ACTION (sym, action)}
+		{find = Match.asym sym, test = NONE, replace = Rewrite.ACTION (Symbol.name sym, action)}
 	    end
 
 	val iter_actions = map makeIteratorRule indexable_iterators
@@ -1769,7 +1769,7 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 	    in
 		{find = Match.onesym "an iterator?",
 		 test = SOME predicate,
-		 replace = Rewrite.ACTION (iter_sym, action)}
+		 replace = Rewrite.ACTION (Symbol.name iter_sym, action)}
 	    end
 
 
@@ -1803,7 +1803,7 @@ fun updateForkedClassScope (iter as (iter_sym, iter_type)) (class: DOF.class) =
 			  | _ => exp)
 
 	val rule = {find=find, test=NONE, 
-		    replace=Rewrite.ACTION (Symbol.symbol ("UpdateForkedClassIterTo:"^(Symbol.name iter_sym)), 
+		    replace=Rewrite.ACTION ("UpdateForkedClassIterTo:"^(Symbol.name iter_sym), 
 					    action)}
 
 
@@ -2330,7 +2330,7 @@ and outputExpressions caller equation =
 	fun renameWithPrefix pref =
 	    {find = Match.anysym_with_predlist [("IS_SYMBOL", ExpProcess.isSymbol),
 						("NOT_ITERATOR", not o ExpProcess.isIterator)] (Symbol.symbol "anysym"),
-	     replace = Rewrite.ACTION (Symbol.symbol ("renameWithPrefix:"^(Symbol.name pref)), 
+	     replace = Rewrite.ACTION ("renameWithPrefix:"^(Symbol.name pref), 
 				       prefixSymbol ((Symbol.name pref) ^ "#_")),
 	     test = NONE}
 
@@ -2423,7 +2423,7 @@ and instanceExpressions caller equation =
 	fun renameWithPrefix pref =
 	    {find = Match.anysym_with_predlist [("IS_SYMBOL", ExpProcess.isSymbol),
 						("NOT_ITERATOR", not o ExpProcess.isIterator)] (Symbol.symbol "anysym"),
-	     replace = Rewrite.ACTION (Symbol.symbol ("renameWithPrefix:"^(Symbol.name pref)), 
+	     replace = Rewrite.ACTION ("renameWithPrefix:"^(Symbol.name pref), 
 				       prefixSymbol ((Symbol.name pref) ^ "#_")),
 	     test = NONE}
 

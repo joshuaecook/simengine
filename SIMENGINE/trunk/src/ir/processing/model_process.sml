@@ -318,7 +318,7 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 												   | NONE => false))
 					   val find = Match.anysym_with_predlist [PatternProcess.predicate_anysymbol, pred] (Symbol.symbol "a")
 					   val test = NONE
-					   val replace = Rewrite.ACTION (sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol (sym',Util.sym2codegensym) exp))
+					   val replace = Rewrite.ACTION (Symbol.name sym', (fn(exp)=>ExpProcess.updateTemporalIteratorToSymbol (sym',Util.sym2codegensym) exp))
 				       in
 					   {find=find,
 					    test=test,
@@ -334,7 +334,7 @@ fun fixTemporalIteratorNames (model as (classes, inst, props)) =
 			      (fn(sym,sym')=>
 				 let
 				     val find = Match.asym sym
-				     val replace = Rewrite.ACTION (sym', updateSymbolName sym')
+				     val replace = Rewrite.ACTION (Symbol.name sym', updateSymbolName sym')
 				 in
 				     {find=find,
 				      test=NONE,
@@ -437,7 +437,7 @@ local
 	    (fn(s, (iter_sym, _))=>
 	       {find=Match.asym s, 
 		test=NONE,
-		replace=Rewrite.ACTION (s, create_replace_function (SOME s, iter_sym))})
+		replace=Rewrite.ACTION (Symbol.name s, create_replace_function (SOME s, iter_sym))})
 	    (SymbolTable.listItemsi table)
 
     fun iter_rewrites (from_sym, to_sym) =
@@ -448,7 +448,7 @@ local
 	 (* find and replace use anywhere else of that iterator, such as in inputs or outputs *)
 	 {find=Match.anysym_with_temporal_iterator from_sym "#a",
 	  test=NONE,
-	  replace=Rewrite.ACTION (to_sym, create_replace_function (NONE, to_sym))}]
+	  replace=Rewrite.ACTION (Symbol.name to_sym, create_replace_function (NONE, to_sym))}]
 
     fun updateSystemProperties sysprops (auto_iter as (auto_iter_sym, _), fe_iter as (fe_iter_sym, _)) other_iters =
 	let

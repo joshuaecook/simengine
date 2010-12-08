@@ -181,12 +181,12 @@ DIGIT   = [0-9];
 DIGITS	= {DIGIT}+;
 LETTER  = [a-zA-Z];
 INT	= {DIGITS};
-REAL 	= ({DIGITS}?("."{DIGITS})?)|({DIGITS}("."{DIGITS})?[eE][+-]?{DIGITS})|(Inf(inity)?)|(NaN);
+REAL 	= ({DIGITS}?("."{DIGITS})?[ij]?)|({DIGITS}("."{DIGITS})?[eE][+-]?{DIGITS}[ij]?)|(Inf(inity)?)|(NaN);
 HEX     = 0x({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 OCT     = 0o({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 BIN     = 0b({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 ID	= {LETTER}([a-zA-Z0-9_]*)?;
-FILE    = [a-zA-Z0-9_\.\/]+;
+FILE    = \"[a-zA-Z0-9_\.\/]+\";
 
 EOL     = \n|\r\n|\r;
 ESCAPE  = \\[^\r\n];
@@ -315,6 +315,7 @@ WS      = [\012\ \t];
 			       continue())
 		   end);
 
+
 <INITIAL>{HEX} => ((* Rule to match hexadecimal numbers *)
 		   let
 		       val text = vetHex (removeUnderbars (String.extract (yytext, 2, NONE)))
@@ -357,6 +358,13 @@ WS      = [\012\ \t];
 
 <INITIAL>{REAL} => ((* Rule to match real numbers. *)
 		   let
+(* 		       val realval = if (String.isSuffix "i" yytext) orelse  *)
+(* 					(String.isSuffix "j" yytext) then *)
+(* 					 let val yytext' = String.extract (yytext, 0, SOME (size yytext - 1)) *)
+(* 					 in Real.fromString(yytext) *)
+(* 					 end *)
+(* 				     else *)
+(* 					 NONE *)
                        val realval = (Real.fromString(yytext))
 		   in
 		       case realval of

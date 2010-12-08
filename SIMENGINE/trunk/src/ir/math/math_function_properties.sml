@@ -314,14 +314,23 @@ fun op2props optype =
 		codomain= Codomain.vectorizedCodomain}
       | COMPLEX => {name="complex",
 		    operands=FIXED 2,
-		    precedence=4,
+		    precedence=1,
 		    commutative=false,
 		    associative=false,
-		    eval=empty_binary,
-		    text=("complex",INFIX),
+		    eval=BINARY {bool=SOME (fn(r,i)=> case (r,i) of
+							(true, true) => ExpBuild.complex (Exp.INT 1, Exp.INT 1)
+						      | (true, false) => ExpBuild.complex (Exp.INT 1, Exp.INT 0)
+						      | (false, true) => ExpBuild.complex (Exp.INT 0, Exp.INT 1)
+						      | (false, false) => ExpBuild.complex (Exp.INT 0, Exp.INT 0)),
+				 int=SOME (fn(r,i)=> ExpBuild.complex (Exp.INT r, Exp.INT i)),
+				 real=SOME (fn(r,i)=> ExpBuild.complex (Exp.REAL r, Exp.REAL i)),
+				 complex=SOME (fn(c1 as (r1,i1), c2 as (r2,i2))=> eval (plus [ExpBuild.complex c1, times [ExpBuild.complex c2, ExpBuild.complex(Exp.INT 0, Exp.INT 1)]])),
+				 rational=SOME (fn((n1,d1),(n2,d2)) => ExpBuild.complex (Exp.RATIONAL (n1,d1), Exp.RATIONAL (n2,d2))),
+				 collection=NONE},
+		    text=("complex",PREFIX),
 		    C=("complex",PREFIX),
 		    mathematica=("Complex",PREFIX),
-		    expcost=0,
+		    expcost=1,
 		    codomain= Codomain.vectorizedCodomain}
       | RE => unaryfun2props ("re", UNARY {bool=NONE,
 					   int=NONE,
@@ -392,7 +401,7 @@ fun op2props optype =
 				       int=NONE,
 				       real=SOME
 						(fn(r)=> if r < 0.0 then
-							     eval (ExpBuild.sqrt (complex (real r,int 0)))
+							     eval (complex (int 0, ExpBuild.sqrt (real (~r))))
 							 else
 							     real (Math.sqrt r)),
 				       complex=SOME (fn(r,i)=>
