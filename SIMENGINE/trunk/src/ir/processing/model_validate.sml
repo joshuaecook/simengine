@@ -26,7 +26,7 @@ fun executeTestOverModel class2exps rewriteInfo =
 				 NOTICE => (fn(exp) => (notice(messagefun(exp)); exp))
 			       | WARNING => (fn(exp) => (warning(messagefun(exp)); exp))
 			       | ERROR => (fn(exp) => (error(messagefun(exp)); exp))
-		val replace = Rewrite.ACTION (Symbol.symbol "createTest", action)
+		val replace = Rewrite.ACTION ("createTest", action)
 	    in
 		{find=find, test=test, replace=replace}
 	    end

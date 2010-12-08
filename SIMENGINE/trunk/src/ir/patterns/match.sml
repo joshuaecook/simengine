@@ -18,6 +18,7 @@ val anyconst : string -> Exp.exp
 val anylocal : Exp.exp
 val anyscalar : Exp.exp
 val anynonscalar : Exp.exp
+val anycomplex : Exp.exp
 val anyfun : string -> Exp.exp (* match one function *)
 val anybuiltin : string -> Exp.exp (* match one builtin function *)
 val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
@@ -65,6 +66,8 @@ fun anyterm sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predi
 val anylocal = Exp.TERM (Exp.PATTERN (Symbol.symbol "anylocal", PatternProcess.predicate_anylocal, Exp.ONE))
 val anyscalar = Exp.TERM (Exp.PATTERN (Symbol.symbol "anyscalar", PatternProcess.predicate_anyscalar, Exp.ONE))
 val anynonscalar = Exp.TERM (Exp.PATTERN (Symbol.symbol "anynonscalar", PatternProcess.predicate_anynonscalar, Exp.ONE))
+val anyzeroscalar = Exp.TERM (Exp.PATTERN (Symbol.symbol "anyzeroscalar", PatternProcess.predicate_anyzeroscalar, Exp.ONE))
+val anycomplex = Exp.TERM (Exp.PATTERN (Symbol.symbol "anycomplex", PatternProcess.predicate_anycomplex, Exp.ONE))
 fun anynum sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anynumeric, Exp.ONE))
 fun anyconst sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anyconstant, Exp.ONE))
 (*fun anysym sym = Exp.TERM (Exp.PATTERN (Symbol.symbol sym, PatternProcess.predicate_anysymbol, Exp.ONE))*)

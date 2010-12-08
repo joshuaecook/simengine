@@ -350,8 +350,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
   | exp2fullstr (Exp.TERM term) =
     (case term of 
 	 Exp.RATIONAL (n,d) => "Rational(" ^ (i2s n) ^ "," ^ (i2s d) ^ ")"
-       | Exp.INT v => i2s v
-       | Exp.REAL v => r2s v
+       | Exp.INT v => "Int(" ^ (i2s v) ^ ")"
+       | Exp.REAL v => "Real(" ^ (r2s v) ^ ")"
        | Exp.BOOL v => b2s v
        | Exp.COMPLEX (t1,t2) => "Complex("^(exp2fullstr (Exp.TERM t1))^","^(exp2fullstr (Exp.TERM t2))^")"
        (*if Term.isZero t1 andalso Term.isZero t2 then (exp2fullstr (Exp.TERM (Exp.INT 0)))

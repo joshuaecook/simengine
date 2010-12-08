@@ -60,11 +60,26 @@ rulematch modelop("or", [$$a.one]) -> $a,
 /* a^b*a^c -> a^(b+c) */
 rulematch modelop("mul", [$$d1.any, $$a.one^$$b.one, $$d2.any, $$a.one^$$c.one, $$d3.any]) -> modelop("mul", [$d1, $d2, $d3, $a ^ ($b + $c)]),
 
+/* sqrt(a)*a^c -> a^(1/2+c) */
+rulematch modelop("mul", [$$d1.any, modelop("sqrt", [$$a.one]), $$d2.any, $$a.one^$$c.one, $$d3.any]) -> modelop("mul", [$d1, $d2, $d3, $a ^ (1/2 + $c)]),
+
+/* a^b*sqrt(a) -> a^(1/2+b) */
+rulematch modelop("mul", [$$d1.any, $$a.one^$$b.one, $$d2.any, modelop("sqrt", [$$a.one]), $$d3.any]) -> modelop("mul", [$d1, $d2, $d3, $a ^ (1/2 + $b)]),
+
 /* a^c*b^c -> (a*b)^c */
 rulematch modelop("mul", [$$d1.any, $$a.one^$$c.one, $$d2.any, $$b.one^$$c.one, $$d3.any]) -> modelop("mul", [$d1, $d2, $d3, (($a * $b) ^ ($c))]),
 
+/* sqrt(a)*sqrt(b) -> sqrt(a*b) */
+rulematch modelop("mul", [$$d1.any, modelop("sqrt", [$$a.one]), $$d2.any, modelop("sqrt", [$$b.one]), $$d3.any]) -> modelop("mul", [$d1, $d2, $d3, modelop("sqrt", [$a * $b])]),
+
 /* (a^b)^c -> a^(b*c) */
 rulematch ($$a.one^$$b.one)^$$c.one -> $a^($b * $c),
+
+/* (sqrt(a))^c -> a^(1/2*c) */
+rulematch (modelop("sqrt", [$$a.one]))^$$c.one -> $a^(1/2 * $c),
+
+/* (sqrt(a^b)) -> a^(1/2*b) */
+rulematch (modelop("sqrt", [$$a.one^$$b.one])) -> $a^(1/2 * $b),
 
 /* a*a -> a^2 */
 rulematch modelop("mul", [$$d1.any, $$a.one, $$d2.any, $$a.one, $$d3.any]) -> modelop("mul", [$d1, $a^2, $d2, $d3]),
