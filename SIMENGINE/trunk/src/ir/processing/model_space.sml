@@ -40,10 +40,12 @@ local
 
 	    fun entryToLayout (sym, space) =
 		label (Symbol.name sym, Space.toLayout space)
-	    fun instanceTableToLayout (sym, (symbol_table, instance_table)) = 
+	    fun instanceTableToLayout (sym, (symbol_table, instance_table, output_table)) = 
 		heading (Symbol.name sym, 
-			 align [heading ("Outputs",
+			 align [heading ("Instances",
 					 align (map entryToLayout (SymbolTable.listItemsi instance_table))),
+				heading ("Outputs",
+					 align (map entryToLayout (SymbolTable.listItemsi output_table))),
 				heading ("Symbols",
 					 align (map entryToLayout (SymbolTable.listItemsi symbol_table)))])
 	    val l = 
@@ -85,17 +87,17 @@ local
     fun update_instances_in_exp class_to_space_table exp =
 	let
 	    val classname_table_pair = SymbolTable.listItemsi class_to_space_table
-	    val classname_output_space_triple = 
+	    val instance_space_pair = 
 		Util.flatmap 
-		    (fn(classname, (_,output_space_table))=> 
+		    (fn(classname, (_,instance_table,_))=> 
 		       map 
-			   (fn(output, space)=>(classname, output, space))
-			   (SymbolTable.listItemsi output_space_table))
+			   (fn(inst, space)=>(inst, space))
+			   (SymbolTable.listItemsi instance_table))
 		    classname_table_pair
 		    
-	    fun classname_output_space_triple_to_rewrite (sym, out, space) =
+	    fun instance_space_pair_to_rewrite (inst, space) =
 		let
-		    val find = Match.an_instance_by_classname_and_output (sym, out)
+		    val find = Match.an_instance_by_instname inst
 		    val action = fn(exp)=>
 				   case exp of
 				       Exp.FUN (Fun.OUTPUT {classname, instname, outname, props}, args) => 
@@ -107,11 +109,11 @@ local
 		in
 		    {find=find,
 		     test=NONE,
-		     replace=Rewrite.ACTION ("PropagateInstance:"^(Symbol.name sym), action)}
+		     replace=Rewrite.ACTION ("PropagateInstance:"^(Symbol.name inst), action)}
 		end
-	    val rewrites = map classname_output_space_triple_to_rewrite classname_output_space_triple
+	    val rewrites = map instance_space_pair_to_rewrite instance_space_pair
 	in
-	    Match.applyRewritesExp rewrites exp
+	    (*Match.applyRewritesExp rewrites*) exp
 	end
 	handle e => DynException.checkpoint "ModelSpace.update_instances_in_exp" e
 
@@ -225,7 +227,7 @@ local
 	handle e => DynException.checkpoint "ModelSpace.propagateSpacesThroughOutputs" e
 
 
-    fun add_class_to_table table symbol_table (class:DOF.class) =
+    fun add_class_to_table table symbol_table (class:DOF.class, instance_exps) =
 	let
 	    val classname = #name class
 	    val outputs = !(#outputs class)
@@ -238,8 +240,18 @@ local
 				      SymbolTable.enter (output_table, out, space))
 				   SymbolTable.empty
 				   (ListPair.zip (output_syms, output_spaces))
+
+	    val instance_table = foldl
+				     (fn(exp, table)=>
+					let
+					    val {instname, props, ...} = ExpProcess.deconstructInst exp
+					in
+					    SymbolTable.enter (table, instname, InstProps.getSpace props)
+					end)
+				     SymbolTable.empty
+				     instance_exps
 	in
-	    SymbolTable.enter (table, classname, (symbol_table, output_table))
+	    SymbolTable.enter (table, classname, (symbol_table, instance_table, output_table))
 	end
 	handle e => DynException.checkpoint "ModelSpace.add_class_to_table" e
 	
@@ -386,7 +398,8 @@ local
 	    val _ = (#outputs class) := outputs''
 
 	    (* add this class to the class_to_space_table symbol table *)
-	    val class_to_space_table = add_class_to_table class_to_space_table symbol_to_space_table class
+	    val instance_exps = List.filter ExpProcess.isInstanceEq intermediate_exps'
+	    val class_to_space_table = add_class_to_table class_to_space_table symbol_to_space_table (class, instance_exps)
 
 	in
 	    class_to_space_table 
