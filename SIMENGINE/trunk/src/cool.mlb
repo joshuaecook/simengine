@@ -131,8 +131,8 @@ ir/datastructs/inst.sml
 ir/processing/space_process.sml
 ir/processing/fun_process.sml
 
-ir/patterns/pattern_process.sml
 ir/processing/exp_printer.sml
+ir/patterns/pattern_process.sml
 ir/processing/exp_traverse.sml
 ir/processing/cost.sml
 

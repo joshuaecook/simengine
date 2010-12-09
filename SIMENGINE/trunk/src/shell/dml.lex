@@ -174,14 +174,15 @@ fun eof () =
 
 %header (functor DMLLexFun(structure Tokens: DML_TOKENS));
 
-KEYWORD = (let | in | end | LF | val | assert | or | and | if | then | else | elseif | true | false | import | class | function | multifunction | while | foreach | do | var | constant | quantity | global | operator | constructor | satisfies | extends | namespace | open | type | overload | when | otherwise | of | lambdafun | undefined | enumeration | d | equation | equations | error | to | by | with | stateful | tunable | visible | output | input | iterator | model | submodel | submodels | parameter | parameters | random | state | states | public | hidden | forall | exists | suchthat | property | get | set | rulematch | where);
+KEYWORD = (let | in | end | LF | val | assert | or | and | if | then | else | elseif | true | false | import | class | function | multifunction | while | foreach | do | var | constant | quantity | global | operator | constructor | satisfies | extends | namespace | open | type | overload | when | otherwise | of | lambdafun | undefined | enumeration | d | equation | equations | error
+ | to | by | with | stateful | tunable | visible | output | input | iterator | model | submodel | submodels | parameter | parameters | random | state | states | public | hidden | forall | exists | suchthat | property | get | set | rulematch | where);
 
 
 DIGIT   = [0-9];
 DIGITS	= {DIGIT}+;
 LETTER  = [a-zA-Z];
 INT	= {DIGITS};
-REAL 	= ({DIGITS}?("."{DIGITS})?[ij]?)|({DIGITS}("."{DIGITS})?[eE][+-]?{DIGITS}[ij]?)|(Inf(inity)?)|(NaN);
+REAL 	= ({DIGITS}?("."{DIGITS})?)|({DIGITS}("."{DIGITS})?[eE][+-]?{DIGITS})|(Inf(inity)?)|(NaN);
 HEX     = 0x({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 OCT     = 0o({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
 BIN     = 0b({DIGIT}|{LETTER})(({DIGIT}|{LETTER}|_)*({DIGIT}|{LETTER}))?;
@@ -311,7 +312,7 @@ WS      = [\012\ \t];
 		   in
 		       case realval of
 			   SOME(a:real) => Tokens.REAL(a, genpos yypos, genpos (yypos + (size yytext)))
-		    | NONE => (error (genpos yypos) ($"Real number conversion error");
+		    | NONE => (error (genpos yypos) ($("Real number conversion error ("^yytext^")"));
 			       continue())
 		   end);
 
@@ -369,7 +370,7 @@ WS      = [\012\ \t];
 		   in
 		       case realval of
 			   SOME(a:real) => Tokens.REAL(a, genpos yypos, genpos (yypos + (size yytext)))
-		    | NONE => (error (genpos yypos) ($"Real number conversion error");
+		    | NONE => (error (genpos yypos) ($("Real number conversion error ("^yytext^")"));
 			       continue())
 		   end);
 
