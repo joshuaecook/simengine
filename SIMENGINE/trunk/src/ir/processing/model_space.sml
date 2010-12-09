@@ -17,8 +17,43 @@ local
 						Logger.INTERNAL)
 
     val e2s = ExpPrinter.exp2str
+    val i2s = Util.i2s
     fun expToSpace exp = ExpSpace.expToSpace_UserError exp
 	handle e => DynException.checkpoint "ModelSpace.propagateSpaceThroughModel.expToSpace" e
+
+    fun log_space_table table =
+	let
+	    open Layout
+		 
+	    fun entryToLayout (sym, space) =
+		label (Symbol.name sym, Space.toLayout space)
+	    val l = 
+		heading ("Symbol Space Table:",
+			 align (map entryToLayout (SymbolTable.listItemsi table)))
+	in
+	    log l
+	end
+
+    fun log_instance_table table =
+	let
+	    open Layout
+
+	    fun entryToLayout (sym, space) =
+		label (Symbol.name sym, Space.toLayout space)
+	    fun instanceTableToLayout (sym, (symbol_table, instance_table)) = 
+		heading (Symbol.name sym, 
+			 align [heading ("Outputs",
+					 align (map entryToLayout (SymbolTable.listItemsi instance_table))),
+				heading ("Symbols",
+					 align (map entryToLayout (SymbolTable.listItemsi symbol_table)))])
+	    val l = 
+		heading ("Instance Space Table",
+			 align (map instanceTableToLayout (SymbolTable.listItemsi table)))
+	in
+	    log l
+	end
+
+
 
     (* function that given an exp and a space table, will use the term rewriter to 
      * replace all known symbols in the expression *)
@@ -45,6 +80,8 @@ local
 	end
 	handle e => DynException.checkpoint "ModelSpace.update_symbols_in_exp" e
 
+    (* update_instances_in_exp - takes the class-space table and updates instance space property with the output space 
+     * from the table.  This is accomplished through the term rewriter. *)
     fun update_instances_in_exp class_to_space_table exp =
 	let
 	    val classname_table_pair = SymbolTable.listItemsi class_to_space_table
@@ -74,7 +111,7 @@ local
 		end
 	    val rewrites = map classname_output_space_triple_to_rewrite classname_output_space_triple
 	in
-	    (*Match.applyRewritesExp rewrites*) exp
+	    Match.applyRewritesExp rewrites exp
 	end
 	handle e => DynException.checkpoint "ModelSpace.update_instances_in_exp" e
 
@@ -126,38 +163,6 @@ local
 	    terms
 	end
 	handle e => DynException.checkpoint "ModelSpaces.add_terms_to_table" e
-
-    fun log_space_table table =
-	let
-	    open Layout
-		 
-	    fun entryToLayout (sym, space) =
-		label (Symbol.name sym, Space.toLayout space)
-	    val l = 
-		heading ("Symbol Space Table:",
-			 align (map entryToLayout (SymbolTable.listItemsi table)))
-	in
-	    log l
-	end
-
-    fun log_instance_table table =
-	let
-	    open Layout
-
-	    fun entryToLayout (sym, space) =
-		label (Symbol.name sym, Space.toLayout space)
-	    fun instanceTableToLayout (sym, (symbol_table, instance_table)) = 
-		heading (Symbol.name sym, 
-			 align [heading ("Outputs",
-					 align (map entryToLayout (SymbolTable.listItemsi instance_table))),
-				heading ("Symbols",
-					 align (map entryToLayout (SymbolTable.listItemsi symbol_table)))])
-	    val l = 
-		heading ("Instance Space Table",
-			 align (map instanceTableToLayout (SymbolTable.listItemsi table)))
-	in
-	    log l
-	end
 
     (* we need to supply the correct spaces attribute on the name *)
     fun propagateSpacesThroughOutputs output =
