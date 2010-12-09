@@ -24,6 +24,7 @@ val anybuiltin : string -> Exp.exp (* match one builtin function *)
 val anysym_with_predlist : PatternProcess.predicate list -> Symbol.symbol -> Exp.exp (* if you want to specify a particular set of predicates for the pattern *)
 val anysym_with_temporal_iterator : Symbol.symbol -> string -> Exp.exp (* to match a symbol that has a temporal iterator *)
 val asym : Symbol.symbol -> Exp.exp (* match a particular symbol by name - ex. I want to find 'Vm' - asym (Symbol.symbol "Vm") *)
+val an_instance_by_instname : Symbol.symbol -> Exp.exp
 val an_instance_by_classname : Symbol.symbol -> Exp.exp
 val an_instance_by_classname_and_output : (Symbol.symbol * Symbol.symbol) -> Exp.exp
 
@@ -85,6 +86,9 @@ val anysymnotdiff = anysym_with_predlist [PatternProcess.predicate_anysymbol, Pa
 fun asym sym = Exp.TERM (Exp.PATTERN (sym, PatternProcess.gen_predicate_from_symbol sym, Exp.ONE))
 
 (* This will match a particular instance *)
+fun an_instance_by_instname instname = Exp.TERM (Exp.PATTERN (instname, 
+								PatternProcess.predicate_instance_with_instname instname,
+								Exp.ONE))
 fun an_instance_by_classname classname = Exp.TERM (Exp.PATTERN (classname, 
 								PatternProcess.predicate_instance_with_classname classname,
 								Exp.ONE))

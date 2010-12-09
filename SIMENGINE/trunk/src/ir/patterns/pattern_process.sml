@@ -28,6 +28,7 @@ sig
     val predicate_anydiffterm : predicate
     val gen_predicate_from_symbol : Symbol.symbol -> predicate (* create a predicate that matches a symbol by name *)
     val predicate_anysymbol_with_iter : Symbol.symbol -> predicate
+    val predicate_instance_with_instname : Symbol.symbol -> predicate
     val predicate_instance_with_classname : Symbol.symbol -> predicate
     val predicate_instance_with_classname_and_output : (Symbol.symbol * Symbol.symbol) -> predicate
 
@@ -158,6 +159,10 @@ val predicate_anydiffterm = ("DIFFTERM",
 					| NONE => false)
 				   | _ => false)
 
+fun predicate_instance_with_instname sym = ("INST",
+					     fn(x)=>case x 
+						     of Exp.FUN (Fun.INST {instname,...}, _) => instname = sym
+						      | _ => false)
 fun predicate_instance_with_classname sym = ("INST",
 					     fn(x)=>case x 
 						     of Exp.FUN (Fun.INST {classname,...}, _) => classname = sym
