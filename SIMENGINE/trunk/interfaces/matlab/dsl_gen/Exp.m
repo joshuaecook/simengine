@@ -909,7 +909,11 @@ classdef Exp
                 case e.ITERATOR
                     s = e.val;
                 case e.LITERAL
-                    s = mat2str(e.val,17);
+                    if isreal(e.val)
+                        s = mat2str(e.val,17);
+                    else
+                        s = ['complex(' mat2str(real(e.val),17) ', ' mat2str(imag(e.val),17) ')'];
+                    end
                 case e.OPERATION
                     arguments = e.args;
                     if strcmp(e.op, 'piecewise')

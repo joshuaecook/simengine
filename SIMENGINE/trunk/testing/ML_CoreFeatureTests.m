@@ -26,6 +26,7 @@ s = Suite(['MATLAB DIESEL Core Feature Tests ' target]);
 s.add(OutputFeatureTests(target));
 s.add(InputFeatureTests(target));
 s.add(StateFeatureTests(mode, target));
+s.add(PrecisionFeatureTests(target));
 s.add(InlineFunctionFeatureTests(target));
 s.add(ConstantFeatureTests(target));
 s.add(IntermediateFeatureTests(mode, target));
@@ -349,6 +350,43 @@ si.add(Test('SubmodelInitialValueTopInput', ...
             '-equal', struct('x', [0:10; 2:-2:-18]', 'y', [0:10; 1:-1:-9]')));
 
 end
+
+function s = PrecisionFeatureTests(target)
+
+s = Suite(['Precision Feature Tests ' target]);
+
+% Define a common iterator
+n = Iterator('discrete', 'sample_period', 1);
+
+    function m = PrecisionTest1
+        m = Model('PrecisionTest1',n);
+        x = m.state(0);
+        m.recurrenceequ(x,x+1);
+        m.output(x);
+    end
+
+precs = {'single', 'double', 'complex'};
+for p=1:length(precs)
+    tags = {};
+    if strcmp(precs{p},'complex')
+        tags = {'next','complex'};
+    end
+    s.add(Test(['Integer Precision Test (' precs{p} ')'], @()(simex(PrecisionTest1,10,target,['-' precs{p}])),'-equal',struct('x',[0:10; 0:10]')),tags);
+end
+
+    function m = PrecisionTest2
+        m = Model('PrecisionTest2',n);
+        x = m.state(1);
+        m.recurrenceequ(x,x*1i);
+        m.output(x);
+    end
+val = 1i * ones(1,11);
+val(1) = 1;
+exp_output = struct('x', [0:10, cumprod(val)]');
+tags = {'next', 'complex'};
+s.add(Test('Complex Number Test', @()(simex(PrecisionTest2,10,target,'-complex')),'-equal',exp_output),tags);
+end
+
 
 function s = InlineFunctionFeatureTests(target)
 
