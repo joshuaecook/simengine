@@ -26,7 +26,7 @@ and propertiesToJSON {debug, iterators, parallel_models, precision, profile, tar
     object [("debug", bool debug),
 	    ("iterators", array (map iteratorToJSON iterators)),
 	    ("parallelModels", int parallel_models),
-	    ("precision", JSONType (case precision of DOF.SINGLE => "DOF.SINGLE" | DOF.DOUBLE => "DOF.DOUBLE")),
+	    ("precision", JSONType (case precision of DOF.SINGLE => "DOF.SINGLE" | DOF.DOUBLE => "DOF.DOUBLE" | DOF.COMPLEX => "DOF.COMPLEX")),
 	    ("profile", bool profile),
 	    ("target", targetToJSON target)]
 

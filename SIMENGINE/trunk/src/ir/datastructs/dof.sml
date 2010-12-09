@@ -152,7 +152,7 @@ type classproperties = {sourcepos: PosLog.pos,
 			preshardname: Symbol.symbol,
 			classform: classform}
 
-datatype precisiontype = SINGLE | DOUBLE
+datatype precisiontype = SINGLE | DOUBLE | COMPLEX
 
 open Iterator (* pull in all the iterator definitions *)
 type systemiterator = iteratordef

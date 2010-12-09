@@ -1034,6 +1034,7 @@ local
 			 of "single" => DOF.SINGLE
 			  | "float" => DOF.SINGLE
 			  | "double" => DOF.DOUBLE
+			  | "complex" => DOF.COMPLEX
 			  | _ => (error ("unsupported precision '"^precision^"'");
 				  DOF.DOUBLE),
 	     target=case (StdFun.toLower target)

@@ -151,7 +151,7 @@ fun model_to_layout (model: DOF.model) =
 	    handle e => DynException.checkpoint "DOFLayout.model_to_layout.top_instance_to_layout" e
 
 	fun system_properties_to_layout {iterators,precision,target,parallel_models,debug,profile} =
-	    align [label ("precision", s2l (case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double")),
+	    align [label ("precision", s2l (case precision of DOF.SINGLE => "float" | DOF.DOUBLE => "double" | DOF.COMPLEX => "complex")),
 		   label ("target", s2l (Target.target2str target)),
 		   label ("# of parallel models", i2l parallel_models),
 		   if debug then s2l "DEBUG mode enabled" else empty,

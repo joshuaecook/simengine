@@ -199,6 +199,9 @@ function [options, restUserOptions] = getOption(options, userOptions)
     case {'float','single'}
       options.precision = 'float';
       options.args = [options.args ' --precision float'];
+    case 'complex'
+      options.precision = 'complex';
+      options.args = [options.args ' --precision complex'];
     case 'gpu'
       options.target = 'gpu';
     case 'cpu'
