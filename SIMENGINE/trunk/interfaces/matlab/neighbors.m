@@ -45,7 +45,7 @@ opts.radius = 1;
 opts.offsets = {};
 opts.diagonal = false;
 opts.indices = false;
-
+indices = false;
 args = varargin;
 i = 1;
 grab_indices = true;
@@ -54,10 +54,9 @@ while ~isempty(args)
     if ischar(arg) 
         if grab_indices 
             grab_indices = false;
-            if i == 1
-                error('Simatra:neighbors', 'Must specify an index into the data');
+            if i > 1
+                indices = cell2mat(varargin(1:(i-1)));
             end
-            indices = cell2mat(varargin(1:(i-1)));
         end
         switch lower(arg)
             case '-radius'
@@ -119,13 +118,24 @@ while ~isempty(args)
     % return the remaining args
     args = varargin(i:end);
 end
-if grab_indices
-    if i == 1
-        error('Simatra:neighbors', 'Must specify an index into the data');
+if ~indices
+    N = numel(m);
+    s = size(m);
+    c = cell(N,1);
+    d = ndims(m);
+    for i=1:N
+        indices = cell(1,d);
+        [indices{:}] = ind2sub(s, i);
+        c{i} = neighbors(m, indices{:}, varargin{:}, '-indices');
     end
-    indices = cell2mat(varargin(1:(i-1)));
-end
-
+    
+    varargout{1} = c;
+    
+    %error('Simatra:neighbors', 'Must specify an index into the data');
+else
+    if grab_indices
+        indices = cell2mat(varargin(1:(i-1)));
+    end    
 % error checking
 %if ~isnumeric(radius) || ~isscalar(radius)
 %    error('Simatra:neighbors', 'All indices must be numeric scalars');
@@ -199,12 +209,13 @@ if isempty(opts.offsets)
     % return arguments
     if opts.indices
         subset_indices = cell(1,length(center));
-        [subset_indices{:}] = ind2sub(size(sub_tensor),valid_indices);
-        s = zeros(length(subset_indices),length(subset_indices{1}));
+        [subset_indices{:}] = ind2sub(size(sub_tensor),valid_indices);        
+        c = cell(length(subset_indices),1);
         for i=1:length(subset_indices)
-            s(i,:) = subset_indices{i} + subset{i}(1)-1;
+            c{i} = subset_indices{i} + subset{i}(1)-1;
         end
-        varargout{1} = s;
+        entry_numbers = sub2ind(size(m),c{:});
+        varargout{1} = entry_numbers';
     else
         varargout{1} = n;
     end
@@ -239,7 +250,9 @@ else
     
     % return the results
     if opts.indices
-        varargout{1} = valid_indices';
+        c = num2cell(valid_indices,1);
+        entry_numbers = sub2ind(size(m), c{:});
+        varargout{1} = entry_numbers';
     else
         split_indices = num2cell(valid_indices,2);
         entries = zeros(1,size(valid_indices,1));
@@ -258,7 +271,7 @@ else
     end
 end
 
-
+end % if ~grab_indices ...
 end
 
 
