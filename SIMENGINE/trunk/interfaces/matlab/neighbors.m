@@ -123,13 +123,16 @@ if ~indices
     s = size(m);
     c = cell(N,1);
     d = ndims(m);
+    sp = sparse(N,N);
     for i=1:N
         indices = cell(1,d);
         [indices{:}] = ind2sub(s, i);
-        c{i} = neighbors(m, indices{:}, varargin{:}, '-indices');
+        elements = neighbors(m, indices{:}, varargin{:}, '-indices');
+        c{i} = elements;
+        sp(i,elements) = 1;
     end
     
-    varargout{1} = c;
+    varargout{1} = sp;
     
     %error('Simatra:neighbors', 'Must specify an index into the data');
 else
