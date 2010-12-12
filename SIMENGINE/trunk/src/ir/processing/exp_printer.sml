@@ -402,6 +402,8 @@ fun exp2fullstr (Exp.FUN (f, exps)) =
 	     case !m of
 		 Matrix.DENSE _ => 
 		 "DenseMatrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ ")"
+	       | Matrix.SPARSE _ => 
+		 "SparseMatrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ ")"
 	       | Matrix.BANDED _ => 
 		 "BandedMatrix"^(matrix2str m)^"(" ^ (list2str (map (Exp.CONTAINER o Exp.ARRAY) (Matrix.toRows m))) ^ ")"
     end

@@ -231,6 +231,9 @@ fun container_to_spil to_spil =
 	    X.Apply {oper= Op.Matrix_dense, 
 		     args= v[X.Value (A.Literal (Int (Int.toString rows))), X.Value (A.Literal (Int (Int.toString cols))), 
 			     X.Apply {oper= Op.Array_array, args= v(map to_spil (Matrix.getElements matrix))}]}
+	  | Matrix.SPARSE _ => DynException.stdException ("Unsupported sparse matrix format",
+							  "CWriter.exp2c_str",
+							  Logger.INTERNAL)
 	  | Matrix.BANDED {upperbw, lowerbw, ...} =>
 	    let
 		val m' = Matrix.fromRows (Exp.calculus())  (Matrix.toPaddedBands matrix)
@@ -312,6 +315,9 @@ local
 		    (String.concatWith ",\n" (map array2str arrays)) ^ "\n" ^
 		    "}"
 		end
+	      | Matrix.SPARSE _ => DynException.stdException ("Unsupported sparse matrix format",
+							     "CWriter.exp2c_str",
+							      Logger.INTERNAL)
 	      | Matrix.BANDED _ =>
 		let
 		    val bands = Matrix.toPaddedBands m

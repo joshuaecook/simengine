@@ -21,6 +21,11 @@ fun toJSON (m as ref (Matrix.DENSE {calculus, data})) =
 				 ("rows", int rows),
 				 ("FIXME", null)])
     end
+  | toJSON (m as ref (Matrix.SPARSE {calculus, data, nrows, ncols})) =
+    JSONTypedObject ("Matrix.SPARSE", 
+		     object [("columns", int ncols),
+			     ("rows", int nrows),
+			     ("data", array [])])
   | toJSON (m as ref (Matrix.BANDED {calculus, data, nrows, ncols, lowerbw, upperbw})) = 
     JSONTypedObject ("Matrix.BANDED", 
 		     object [("columns", int ncols),

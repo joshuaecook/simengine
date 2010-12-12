@@ -530,7 +530,7 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 		      case List.find (fn(init) => ExpProcess.getLHSSymbol(init) = state) inits of
 			  SOME init => init
 			| NONE => DynException.stdException ("State has no initial condition: " ^ (Symbol.name state), 
-							     "ShardedModel.updateSHardForSolver.LINEAR_BACKWARDS_EULER", 
+							     "ShardedModel.updateShardForSolver.LINEAR_BACKWARDS_EULER", 
 							     Logger.INTERNAL)
 
 		  val sorted_inits = map getInitialCondition orderedRelationships
@@ -544,6 +544,9 @@ fun updateShardForSolver systemproperties (shard as {classes, instance, ...}, it
 		  local
 		      val linSolver = case !matrix of 
 					  Matrix.DENSE _ => Solver.LSOLVER_DENSE
+					| Matrix.SPARSE _ => DynException.stdException ("Unsupported sparse matrix format",
+											"ShardedModel.updateShardForSolver.LINEAR_BACKWARDS_EULER",
+											Logger.INTERNAL)
 					| Matrix.BANDED {upperbw,lowerbw,...} => Solver.LSOLVER_BANDED {upperhalfbw=upperbw,
 													lowerhalfbw=lowerbw}
 		      val solver = Solver.LINEAR_BACKWARD_EULER {dt = dt, solv = linSolver}
@@ -1294,6 +1297,9 @@ fun refreshSysProps (shardedModel as (shards, sysprops)) =
 		val iter_type' = 
 		    DOF.CONTINUOUS (case !matrix of
 					Matrix.DENSE _ => Solver.LINEAR_BACKWARD_EULER {dt=dt, solv=Solver.LSOLVER_DENSE}
+				      | Matrix.SPARSE _ => DynException.stdException ("Unsupported sparse matrix format",
+										      "ShardedModel.refreshSysProps.update_iterator",
+										      Logger.INTERNAL)
 				      | Matrix.BANDED _ => 
 					let val (upperbw, lowerbw) = Matrix.findBandwidth matrix
 					in Solver.LINEAR_BACKWARD_EULER {dt=dt, solv=Solver.LSOLVER_BANDED {upperhalfbw=upperbw, lowerhalfbw=lowerbw}}
