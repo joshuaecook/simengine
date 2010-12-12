@@ -37,8 +37,10 @@ fun level (exp) =
 	      map 
 		  (Exp.CONTAINER o Exp.ARRAY)
 		  (Matrix.toRows m)
-	   | Matrix.BANDED {data,calculus,...} =>
-	     (#zero calculus)::(map Container.arrayToExpArray data))
+	    | Matrix.SPARSE {data,calculus,...} =>
+	      ((#zero calculus)::(Matrix.getElements m))
+	    | Matrix.BANDED {data,calculus,...} =>
+	      (#zero calculus)::(map Container.arrayToExpArray data))       
        | Exp.CONVERSION c =>
 	 (case c of 
 	      Exp.SUBREF (exp, subspace) => exp::(subspace_level subspace)
@@ -83,6 +85,36 @@ fun head (exp) =
 	(case !m of
 	     Matrix.DENSE {data, calculus} => 
 	     (fn(args') => Exp.CONTAINER (Exp.MATRIX (Matrix.fromRows (calculus) (Container.expListToArrayList args'))))
+	   | Matrix.SPARSE {data, calculus, nrows, ncols} =>
+	     (fn(all_args) =>
+		case all_args of
+		    (zero::args') =>
+		    let
+			val indices = 
+			    Util.flatmap (fn(i, row_table)=>
+					    map (fn(j,_)=> (i,j)) (IntTable.listItemsi row_table))
+					 (IntTable.listItemsi data)
+		    in
+			if (#isZero calculus) zero then
+			    let
+				val m' = Matrix.spzeros calculus (nrows, ncols)
+				val () = app
+					     (fn((i,j),value)=>Matrix.setIndex m' (i,j) value)
+					     (ListPair.zip (indices, args'))
+			    in
+				Exp.CONTAINER (Exp.MATRIX m')
+			    end
+			else
+			    let
+				val data' = Array2.array (nrows, ncols, zero)
+				val () = app
+					     (fn((i,j),exp)=>Array2.update (data', i, j, exp))
+					     (ListPair.zip (indices, args'))
+			    in
+				Exp.CONTAINER (Exp.MATRIX (ref (Matrix.DENSE {data=data', calculus=calculus})))
+			    end
+		    end
+		  | _ => DynException.stdException("Unexpected number of arguments", "ExpTraverse.head [Sparse Matrix]", Logger.INTERNAL))
 	   | Matrix.BANDED {data, calculus, nrows, ncols, upperbw, lowerbw} => 
 	     (fn(all_args) => 
 		case all_args of

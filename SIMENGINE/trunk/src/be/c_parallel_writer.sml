@@ -267,6 +267,9 @@ fun init_solver_props top_name shardedModel (iterators_with_solvers, algebraic_i
 					       in
 						   case !m of
 						       Matrix.DENSE _ => 0 (* set to zero when it is dense *)
+						     | Matrix.SPARSE _ => DynException.stdException("Unsupported sparse matrix format",
+												    "CParallelWriter.init_solve_props.init_props.progs",
+												    Logger.INTERNAL)			   
 						     | Matrix.BANDED {ncols,...} => List.length (Matrix.toPaddedBands m)
 					       end
 					   else
@@ -2093,6 +2096,9 @@ and intermediateeq2prog exp =
 			   in
 			       m
 			   end
+			 | Matrix.SPARSE _ => DynException.stdException("Unsupported sparse matrix format",
+									"CParallelWriter.intermediateeq2prog",
+									Logger.INTERNAL)			   
 			 | Matrix.BANDED _ => 
 			   let
 			       val bands = Matrix.toPaddedBands m
@@ -2166,6 +2172,9 @@ and initialvaleq2prog exp =
 	     val m' = 
 		 case !m 
 		  of Matrix.DENSE _ => m
+		   | Matrix.SPARSE _ => DynException.stdException("Unsupported sparse matrix format",
+								  "CParallelWriter.initialvaleq2prog",
+								  Logger.INTERNAL)			   
 		   | Matrix.BANDED _ => 
 		     let
 			 val bands = Matrix.toPaddedBands m
@@ -2714,6 +2723,9 @@ fun class_flow_code (class, is_top_class, iter as (iter_sym, iter_type)) =
 			    in
 				m
 			    end
+			  | m as ref (Matrix.SPARSE _) => DynException.stdException("Unsupported sparse matrix format",
+										    "CParallelWriter.class_flow_code.layoutMatrixEquationConstants",
+										    Logger.INTERNAL)			    
 			  | m as ref (Matrix.BANDED _) => 
 			    let
 				val bands = Matrix.toPaddedBands m
