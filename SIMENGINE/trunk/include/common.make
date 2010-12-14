@@ -95,6 +95,14 @@ SMLTARGET_ARCH = -codegen native
 SMLLEX = mllex
 SMLYACC = mlyacc
 
+# Check to ensure that libgmp is statically linked on Mac
+ifneq ($(DARWIN),)
+SMLSTATICGMP := $(shell grep libgmp.a $$(which $(SMLC)))
+ifeq ("$(SMLSTATICGMP)","")
+$(error SML compiler in $(SMLC) does not produce executables statically linked to libgmp)
+endif
+endif
+
 COMPILE.sml = $(SMLC) @MLton $(SMLRUNTIMEFLAGS) -- $(SMLFLAGS) $(SMLPPFLAGS) $(SMLTARGET_ARCH)
 LEX.sml = $(SMLLEX)
 YACC.sml = $(SMLYACC)
