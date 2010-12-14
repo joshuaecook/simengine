@@ -11,7 +11,7 @@ CLEAN_ALL :=
 
 # Import subsystem rules.
 
-SUBSYSTEMS := src share/cuda share/emacs interfaces codegen solvers ReleaseExamples
+SUBSYSTEMS := src share/cuda share/emacs share/protobuf interfaces codegen solvers ReleaseExamples
 $(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
 
 # Define local rules.

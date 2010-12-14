@@ -162,7 +162,7 @@ classdef Model < handle
                     id = arg;
                     i = i + 1;
                 elseif (isnumeric(arg) || isa(arg, 'Exp')) && init == false
-                    init = arg;
+                    init = Exp(arg);
                     i = i + 1;
                 elseif ischar(arg) && strcmpi(arg, 'iter') && length(args)>1
                     iterator = args{2};
@@ -338,12 +338,12 @@ classdef Model < handle
                 if identifier_exists(m, id)
                     error('Simatra:Model:input', ['Input ' id ' already exists']);
                 end
-                s = struct('default', nan, 'exhausted', false, 'iterator', false, 'dims', [1 1]);
+                s = struct('default', Exp(nan), 'exhausted', false, 'iterator', false, 'dims', [1 1]);
                 args = varargin;
                 i = 1;
                 while ~isempty(args)
                     if i == 1 && isnumeric(args{1})
-                        s.default = args{1};
+                        s.default = Exp(args{1});
                         s.dims = size(s.default);
                         i = i+1;
                     elseif ischar(args{1})
@@ -1135,7 +1135,7 @@ classdef Model < handle
             outputs = keys(m.Outputs);
         end
         
-        function toFile(m, fid)
+        function constStruct = toFile(m, fid)
             % MODEL/TOFILE - generate a string representation of a
             % model in a file
             % 
@@ -1159,6 +1159,7 @@ classdef Model < handle
             instances = keys(m.Instances);
             cachedmodels = keys(m.cachedModels);
             iterators = values(findIterators(m));
+            constStruct = struct();
             
             fprintf(fid, ['// Generated DSL model: ' m.Name '\n']);
             fprintf(fid, ['// Copyright 2010 Simatra Modeling ' ...
@@ -1203,24 +1204,18 @@ classdef Model < handle
                 else
                   iterator = '';
                 end
-                inputsize = prod(input.dims);
-                if inputsize > 1
-                  for j = 1:inputsize
-                    if isfinite(input.default(j))
-                      default = ['default=' toStr(input.default(j)) ', '];
-                    else
-                      default = '';
-                    end
-                    fprintf(fid, ['   input ' inputs{i} '_' num2str(j) ' with{' default iterator input.exhausted '_when_exhausted}\n']);
-                  end
+                %if isfinite(input.default.val)
+                  [s, constStruct] = toDslStr(input.default, constStruct);
+                  default = ['default=' s ', '];
+                %else
+                %  default = '';
+                %end
+                if isequal(input.dims, [1 1])
+                  space = '';
                 else
-                  if isfinite(input.default)
-                    default = ['default=' toStr(input.default) ', '];
-                  else
-                    default = '';
-                  end
-                  fprintf(fid, ['   input ' inputs{i} ' with{' default iterator input.exhausted '_when_exhausted}\n']);
+                  space = [' @(tensor ' mat2str(input.dims) ')'];
                 end
+                fprintf(fid, ['   input ' inputs{i} ' with{' default iterator input.exhausted '_when_exhausted}' space '\n']);
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // State definitions\n');
@@ -1230,19 +1225,8 @@ classdef Model < handle
                 if isa(state.iterator, 'Iterator')
                     iter_str = [' with {iter=' state.iterator.id '}'];
                 end
-                statesize = prod(state.dims);
-                if statesize > 1
-                  for j = 1:statesize
-                    if isequal(size(state.init), [1 1])
-                      sinit = state.init;
-                    else
-                      sinit = state.init(j);
-                    end
-                    fprintf(fid, ['   state ' states{i} '_' num2str(j) ' = ' toStr(sinit) iter_str '\n']);
-                  end
-                else
-                    fprintf(fid, ['   state ' states{i} ' = ' toStr(state.init) iter_str '\n']);
-                end
+                [sinit, constStruct] = toDslStr(state.init, constStruct);
+                fprintf(fid, ['   state ' states{i} ' = '  sinit iter_str '\n']);
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // Random definitions\n');
@@ -1260,15 +1244,7 @@ classdef Model < handle
                                           state.mean, ...
                                           state.stddev);
                 end
-                statesize = prod(state.dims);
-                if statesize > 1
-                  for j = 1:statesize
-                    fprintf(fid, ['   random ' randoms{i} '_' num2str(j) ' with {' iter_str ...
-                                  parameter_str '}\n']);
-                  end
-                else
-                  fprintf(fid, ['   random ' randoms{i} ' with {' iter_str parameter_str '}\n']);
-                end
+                fprintf(fid, ['   random ' randoms{i} ' with {' iter_str parameter_str '}\n']);
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // Instance definitions\n');
@@ -1281,71 +1257,32 @@ classdef Model < handle
             for i=1:length(eqs)
                 index = eqs{i};
                 equ = m.IntermediateEqs(index);
-                lhs = equ.lhs;
-                lhssize = prod(size(lhs));
-                if lhssize > 1
-                  for j = 1:lhssize
-                    if isfield(equ, 'rhs')
-                      if isequal(size(equ.rhs), [1 1])
-                        rhs = equ.rhs;
-                      else
-                        rhs = equ.rhs(j);
-                      end
-                      if isRef(lhs)
-                        fprintf(fid, ['   ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
-                      else
-                        fprintf(fid, ['   equation ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
-                      end
-                    elseif isfield(equ, 'value') && isfield(equ, 'condition')
-                      if isequal(size(equ.value), [1 1])
-                        value = equ.value;
-                      else
-                        value = equ.value(j);
-                      end
-                      if isequal(size(equ.condition), [1 1])
-                        condition = equ.condition;
-                      else
-                        condition = equ.condition(j);
-                      end
-                      fprintf(fid, ['   equation ' toStr(lhs(j)) ' = ' toStr(value) ' when ' toStr(condition) '\n']);
-                    else
-                      error('Simatra:Model:toStr', 'Unexpected equation form');
-                    end
+                [s1, constStruct] = toDslStr(equ.lhs, constStruct);
+                if isfield(equ, 'rhs')
+                  [s2, constStruct] = toDslStr(equ.rhs, constStruct);
+                  if isRef(lhs)
+                    fprintf(fid, ['   ' s1 ' = ' s2 '\n']);
+                  else
+                    fprintf(fid, ['   equation ' s1 ' = ' s2 '\n']);
                   end
+                elseif isfield(equ, 'value') && isfield(equ, 'condition')
+                  [s2, constStruct] = toDslStr(value, constStruct);
+                  [s3, constStruct] = toDslStr(condition, constStruct);
+                  fprintf(fid, ['   equation ' s1 ' = ' s2 ' when ' s3 '\n']);
                 else
-                    if isfield(equ, 'rhs')
-                      if isRef(lhs)
-                        fprintf(fid, ['   ' toStr(lhs) ' = ' toStr(equ.rhs) '\n']);
-                      else
-                        fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(equ.rhs) '\n']);
-                      end
-                    elseif isfield(equ, 'value') && isfield(equ, 'condition')
-                      fprintf(fid, ['   equation ' toStr(lhs) ' = ' toStr(equ.value) ' when ' toStr(equ.condition) '\n']);
-                    else
-                      error('Simatra:Model:toStr', 'Unexpected equation form');
-                    end
+                  error('Simatra:Model:toStr', 'Unexpected equation form');
                 end
             end
             fprintf(fid, '\n');
             fprintf(fid, '   // Differential equation definitions\n');
             fprintf(fid, '   equations\n');
             for i=1:length(diffeqs)
-                lhsid = diffeqs{i};
-                lhs = m.DiffEqs(lhsid).lhs;
-                lhssize = prod(size(lhs));
-                if lhssize > 1
-                  for j = 1:lhssize
-                    if isequal(size(m.DiffEqs(lhsid).rhs), [1 1])
-                      rhs = m.DiffEqs(lhsid).rhs;
-                    else
-                      rhs = m.DiffEqs(lhsid).rhs(j);
-                    end
-                    fprintf(fid, ['      ' toStr(lhs(j)) ''' = ' toStr(rhs) '\n']);
-                  end
-                else
-                  rhs = m.DiffEqs(lhsid).rhs;
-                  fprintf(fid, ['      ' toStr(lhs) ''' = ' toStr(rhs) '\n']);
-                end
+              lhsid = diffeqs{i};
+              lhs = m.DiffEqs(lhsid).lhs;
+              rhs = m.DiffEqs(lhsid).rhs;
+              [s1, constStruct] = toDslStr(lhs, constStruct);
+              [s2, constStruct] = toDslStr(rhs, constStruct);
+              fprintf(fid, ['      ' s1 ''' = ' s2 '\n']);
             end
             fprintf(fid, '   end\n');
             fprintf(fid, '\n');
@@ -1354,20 +1291,10 @@ classdef Model < handle
             for i=1:length(recurrenceeqs)
               key = recurrenceeqs{i};
               lhs = m.RecurrenceEqs(key).lhs;
-              lhssize = prod(size(lhs));
-              if lhssize > 1
-                for j = 1:prod(size(lhs))
-                  if isequal(size(rhs), [1 1])
-                    rhs = m.RecurrenceEqs(key).rhs;
-                  else
-                    rhs = m.RecurrenceEqs(key).rhs(j);
-                  end
-                  fprintf(fid, ['      ' toStr(lhs(j)) ' = ' toStr(rhs) '\n']);
-                end
-              else
-                rhs = m.RecurrenceEqs(key).rhs;
-                fprintf(fid, ['      ' toStr(lhs) ' = ' toStr(rhs) '\n']);
-              end
+              rhs = m.RecurrenceEqs(key).rhs;
+              [s1, constStruct] = toDslStr(lhs, constStruct);
+              [s2, constStruct] = toDslStr(rhs, constStruct);
+              fprintf(fid, ['      ' s1 ' = ' s2 '\n']);
             end
             fprintf(fid, '   end\n');
             fprintf(fid, '\n');
@@ -1378,17 +1305,7 @@ classdef Model < handle
                 contents = output.contents;                
                 contentsStr = cell(1,length(contents));
                 for j=1:length(contents);
-                  subcontentssize = prod(size(contents{j}));
-                  if subcontentssize > 1
-                    subcontents = contents{j};
-                    subcontentsStr = cell(1, subcontentssize);
-                    for k = 1:subcontentssize
-                      subcontentsStr{k} = subcontents(k).toStr;
-                    end
-                    contentsStr{j} = concatWith(', ', subcontentsStr);
-                  else
-                    contentsStr{j} = toStr(contents{j});
-                  end
+                  [contentsStr{j}, constStruct] = toDslStr(contents{j}, constStruct);
                 end
                 contentsList = ['(' concatWith(', ', contentsStr), ')'];
                 optcondition = '';
@@ -1406,19 +1323,19 @@ classdef Model < handle
             fprintf(fid, 'end\n');
         end
 
-        function str = toStr(m)
+        function [str, constStruct] = toStr(m)
         tempfile = tempname;
         fid = fopen(tempfile, 'w');
         if fid == -1
           error('Simatra:Model:toStr', 'Could not open temporary file %s for writing model.', tempfile);
         end
-        toFile(m, fid);
+        constStruct = toFile(m, fid);
         fclose(fid);
         str = fileread(tempfile);
         delete(tempfile);
         end
         
-        function filename = toDSL(m, filename)
+        function [filename, constStruct] = toDSL(m, filename)
             % MODEL/TODSL - view the resulting generated DSL code
             % 
             % Usage:
@@ -1439,7 +1356,7 @@ classdef Model < handle
             if fid == -1
                 error('Simatra:Model:toDSL', 'Can''t create a temporary file needed by simEngine, please check the temporary directory %s to make sure that there is space available and that you have permission to write into that directory.', tempdir);
             end
-            toFile(m, fid);
+            constStruct = toFile(m, fid);
             fclose(fid);
             
             % if one is not specified, then create one
@@ -1495,8 +1412,9 @@ classdef Model < handle
             % Website: www.simatratechnologies.com
             % Support: support@simatratechnologies.com
             %
-            str = toStr(m);
+            [str, constStruct] = toStr(m);
             fprintf(1, str);
+            disp(constStruct);
         end
         
         % overload the simex function
@@ -1537,11 +1455,20 @@ classdef Model < handle
                     % it's being overwritten on the simex call
                 end
             end
-                
+            
+            [filename, constStruct] = toDSL(m);
+
+            if length(fieldnames(constStruct)) > 0
+              varargin{end+1} = '-constants';
+              varargin{end+1} = constStruct;
+            end
+            
+            varargin{end+1} = '-fastcompile';
+            
             if nargout > 0
-                [varargout{:}] = simex(toDSL(m), varargin{:}, '-fastcompile');
+                [varargout{:}] = simex(filename, varargin{:});
             else
-                varargout{1} = simex(toDSL(m), varargin{:}, '-fastcompile');
+                varargout{1} = simex(filename, varargin{:});
             end
         end
         
@@ -1769,15 +1696,17 @@ if ~isempty(cellarray)
 end
 end
 
-function s = toStr(r)
+function [s, constStruct] = toStr(r, constStruct)
 if isnumeric(r)
-    s = sprintf('%.15g', r);
+  s = sprintf('%.15g', r);
 elseif isstruct(r)
-    disp('Simatra:Model:toStr', 'Unexpected structure found');
+  disp('Simatra:Model:toStr', 'Unexpected structure found');
 elseif isstr(r)
-    s = r;
+  s = r;
+elseif isa(class(r), 'Exp')
+  [s, constStruct] = r.toDslStr(constStruct);
 else
-    s = r.toStr;
+  [s, constStruct] = r.toStr;
 end
 end
 

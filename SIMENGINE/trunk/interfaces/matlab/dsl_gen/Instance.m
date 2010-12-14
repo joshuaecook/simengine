@@ -206,15 +206,12 @@ classdef Instance < handle
           if inst.Derived
             error('Simatra:Instance:toStr', 'Subsrefernced submodels should never be written to strings.');
           end
-          str = '';
-          numInst = prod(inst.Dims);
-          if numInst > 1
-            for i = 1:numInst;
-              str = [str '    submodel ' inst.MdlName ' ' inst.InstName '_' num2str(i) '\n'];
-            end
+          if isequal(inst.Dims, [1 1])
+            space = '';
           else
-            str = ['    submodel ' inst.MdlName ' ' inst.InstName '\n'];
+            space = [' @(tensor ' mat2str(inst.Dims) ')'];
           end
+          str = ['    submodel ' inst.MdlName ' ' inst.InstName space '\n'];
         end
     end
     
