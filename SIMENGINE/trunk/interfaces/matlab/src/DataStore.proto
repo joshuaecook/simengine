@@ -1,0 +1,25 @@
+message DataValue {
+  repeated int32 dims = 1;
+  repeated double dreal = 2;
+  repeated double dimag = 3;
+  repeated float sreal = 4;
+  repeated float simag = 5;
+}
+
+message DataGroup {
+  required string name = 1;
+  repeated DataValue member = 2;
+	
+  enum DataType {
+    DOUBLE = 0;
+    COMPLEXDOUBLE = 1;
+    SINGLE = 2;
+    COMPLEXSINGLE = 3;
+  }
+
+  optional DataType type = 3;
+}
+
+message DataStore {
+  repeated DataGroup group = 1;
+}

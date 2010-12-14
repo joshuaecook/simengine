@@ -5,7 +5,7 @@ function [options] = simexOptions (dsl, varargin)
                    'outputs', '', 'jsonfile', '', 'debug', false, ...
                    'quiet', false, 'args', '--binary', ...
                    'dslfile', '', 'target', 'default', ...
-                   'precision', 'double', 'shared_memory', true, ...
+                   'precision', 'double', 'complex', false, 'constants', [], 'shared_memory', true, ...
                    'buffer_count', 80);
   userOptions = varargin(:);
 
@@ -199,9 +199,6 @@ function [options, restUserOptions] = getOption(options, userOptions)
     case {'float','single'}
       options.precision = 'float';
       options.args = [options.args ' --precision float'];
-    case 'complex'
-      options.precision = 'complex';
-      options.args = [options.args ' --precision complex'];
     case 'gpu'
       options.target = 'gpu';
     case 'cpu'
@@ -273,6 +270,16 @@ function [options, restUserOptions] = getOption(options, userOptions)
       end
       options.buffer_count = userOptions{2};
       restUserOptions = userOptions(3:end);
+    case 'complex'
+      options.complex = true;
+      options.args = [options.args ' --complex'];
+    case 'constants'
+      if length(userOptions) < 2 || ~isstruct(userOptions{2})
+        simexError('argumentError', 'Option -constants requires a structure containing constants to be passed to simulation.')
+      end
+      options.constants = userOptions{2};
+      restUserOptions = userOptions(3:end);
+    
 
     % Any other options are passed to simEngine
     otherwise

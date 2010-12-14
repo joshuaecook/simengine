@@ -221,7 +221,7 @@ classdef Exp
                 case 1
                     er = Exp(varargin{1}); % NON STANDARD BEHAVIOR
                 case 2
-                    er = oper('.*', varargin);
+                    er = oper('*', varargin);
                 otherwise
                     er = List.foldl(fcn, varargin{1}, varargin(2:end));
             end
@@ -233,31 +233,54 @@ classdef Exp
         end
         
         function er = mtimes(e1, e2)
-            er = oper('*', {e1, e2});
+        if length(size(e1)) > 2 || length(size(e1)) > 2
+          error('Simatra:Exp:mtimes', 'Input arguments must be 2-D');
+        elseif size(e1,2) ~= size(e2,1)
+          if ~isequal(size(e1), [1 1]) && ~isequal(size(e2), [1 1])
+            error('Simatra:Exp:mtimes', 'Inner matrix dimensions must agree.');
+          end
+        end
+        if isequal(size(e1), [1 1]) || isequal(size(e2), [1 1])
+          er = oper('*', {e1, e2});
+        else
+          er = oper('matrix_mul', {e1, e2}, Exp.PREFIX, [size(e1,1) size(e2,2)]);
+        end
         end
         
         function er = rdivide(e1, e2)
-            er = oper('./', {e1, e2});
-        end
-
-        function er = mrdivide(e1, e2)
             er = oper('/', {e1, e2});
         end
 
+        function er = mrdivide(e1, e2)
+        if ~isequal(size(e1), [1 1]) || ~isequal(size(e2), [1 1])
+          error('Simatra:Exp:mrdivide', 'Not yet supported.');
+        else
+          er = oper('/', {e1, e2});
+        end
+        end
+
         function er = ldivide(e1, e2)
-            er = oper('./', {e2, e1});
+            er = oper('/', {e2, e1});
         end
 
         function er = mldivide(e1, e2)
-            er = oper('/', {e2, e1});
+        if ~isequal(size(e1), [1 1]) || ~isequal(size(e2), [1 1])
+          error('Simatra:Exp:mldivide', 'Not yet supported.');
+        else
+          er = oper('/', {e2, e1});
+        end
         end
         
         function er = power(e1, e2)
-            er = oper('.^', {e1, e2});
+            er = oper('^', {e1, e2});
         end
         
         function er = mpower(e1, e2)
-            er = oper('^', {e1, e2});
+        if ~isequal(size(e1), [1 1]) || ~isequal(size(e2), [1 1])
+          error('Simatra:Exp:mpower', 'Not yet supported.');
+        else
+          er = oper('^', {e1, e2});
+        end
         end
         
         function er = mod(e1, e2)
@@ -621,10 +644,14 @@ classdef Exp
             b = (e.type == e.REFERENCE);
         end
         
-        function er = subsref(e, s)
+        function [er, constStruct] = subsref(e, s)
+        constStruct = struct();
           if strcmp(s(1).type, '.')
             if strcmp(s(1).subs, 'toStr')
               er = toStr(e);
+            elseif strcmp(s(1).subs, 'toDslStr')
+              [er, constStruct] = toDslStr(e,s(2).subs);
+              s = [];
             elseif strcmp(s(1).subs, 'toMatStr')
               er = toMatStr(e);
             else
@@ -717,7 +744,7 @@ classdef Exp
                   end
                 end
                 
-                er = oper(e.op, args);
+                er = oper(e.op, args, e.notation);
                 if hasiref
                   er.iterReference = iref;
                 end
@@ -807,7 +834,8 @@ classdef Exp
         end
         
         function s = toStr(e)
-            s = toDslStr(e);
+        error('Simatra:Exp:toStr', 'Please call either toMatStr or toDslStr instead of toStr.');
+        %s = toDslStr(e);
         end
         
         function s = toMatStr(e)
@@ -877,65 +905,79 @@ classdef Exp
             end
         end
 
-        function s = toDslStr(e)
+        function [s, constStruct] = toDslStr(e, constStruct)
             if isempty(e.type)
                 e.val
                 error('Simatra:Exp:toDslStr', 'Unexpected empty expression type')
             end
             
-            if ~isequal(e.dims, [1 1])
-              error('Simatra:Exp:toDslStr', 'Multidimensional elements are not supported in Diesel. \n%s', toMatStr(e))
-            end
+            %if ~isequal(e.dims, [1 1])
+            %  error('Simatra:Exp:toDslStr', 'Multidimensional elements are not supported in Diesel. \n%s', toMatStr(e))
+            %end
 
             switch e.type
-                case e.VARIABLE
-                    if e.derived == true
-                      s = [e.val '_' num2str(e.indices)]; % Flatten the variable name with its index
-                    else
-                      s = e.val;
-                    end
-                    if isa(e.iterReference, 'IteratorReference')
-                        s = [s '[' e.iterReference.toStr ']'];
-                    end
+             case e.VARIABLE
+              if e.derived == true
+                error('Simatra:Exp:toDslStr', 'Not yet implemented subsref on variable');
+                %s = [e.val '_' num2str(e.indices)]; % Flatten the variable name with its index
+              else
+                s = e.val;
+              end
+              if isa(e.iterReference, 'IteratorReference')
+                s = [s '[' e.iterReference.toStr ']'];
+              end
              case e.REFERENCE
-                    if e.derived == true
-                      s = [e.inst '_' num2str(e.indices) '.' e.val];
-                    else
-                      s = [e.inst '.' e.val];
-                    end
-                    if isa(e.iterReference, 'IteratorReference')
-                        s = [s '[' e.iterReference.toStr ']'];
-                    end
-                case e.ITERATOR
-                    s = e.val;
-                case e.LITERAL
-                    if isreal(e.val)
-                        s = mat2str(e.val,17);
-                    else
-                        s = ['complex(' mat2str(real(e.val),17) ', ' mat2str(imag(e.val),17) ')'];
-                    end
-                case e.OPERATION
+              if e.derived == true
+                error('Simatra:Exp:toDslStr', 'Not yet implemented subsref on reference');
+                %s = [e.inst '_' num2str(e.indices) '.' e.val];
+              else
+                s = [e.inst '.' e.val];
+              end
+              if isa(e.iterReference, 'IteratorReference')
+                s = [s '[' e.iterReference.toStr ']'];
+              end
+             case e.ITERATOR
+              s = e.val;
+             case e.LITERAL
+              if isequal(e.dims, [1 1])
+                if isreal(e.val)
+                  s = mat2str(e.val,17);
+                else
+                  s = ['complex(' mat2str(real(e.val),17) ', ' mat2str(imag(e.val),17) ')'];
+                end 
+              else
+                cname = ['const_' num2str(length(fieldnames(constStruct)))];
+                constStruct.(cname) = e.val;
+                s = ['&"constants.pb":' cname ' @(tensor ' mat2str(size(e.val)) ')'];
+              end
+             case e.OPERATION
                     arguments = e.args;
                     if strcmp(e.op, 'piecewise')
                         if length(arguments) == 1
-                            s = toDslStr(arguments{1});
+                            [s, constStruct] = toDslStr(arguments{1}, constStruct);
                         else
                             s = '{';
                             for i=1:2:(length(arguments)-1);
-                                s = [s toDslStr(arguments{i}) ' when ' toStr(arguments{i+1}) ', '];
+                              [s1, constStruct] = toDslStr(arguments{i}, constStruct);
+                              [s2, constStruct] = toDslStr(arguments{i+1}, constStruct);
+                                s = [s  s1 ' when ' s2 ', '];
                             end
-                            s = [s  toDslStr(arguments{end}) ' otherwise}'];
+                            [s1, constStruct] = toDslStr(arguments{end}, constStruct)
+                            s = [s  s1 ' otherwise}'];
                         end
                     else
                         if length(arguments) == 1
-                            s = ['(' e.op '(' toDslStr(arguments{1}) '))'];
+                          [s1, constStruct] = toDslStr(arguments{1}, constStruct);
+                          s = ['(' e.op '(' s1 '))'];
                         elseif length(arguments) == 2
-                            if e.notation == Exp.INFIX
-                              s = ['(' toDslStr(arguments{1}) e.op toDslStr(arguments{2}) ')'];
-                            else
-                                % treat by default as Exp.PREFIX
-                                s = ['(' e.op '(' toDslStr(arguments{1}) ', ' toDslStr(arguments{2}) '))'];
-                            end
+                          [s1, constStruct] = toDslStr(arguments{1}, constStruct);
+                          [s2, constStruct] = toDslStr(arguments{2}, constStruct);
+                          if e.notation == Exp.INFIX
+                            s = ['(' s1 e.op s2 ')'];
+                          else
+                            % treat by default as Exp.PREFIX
+                            s = ['(' e.op '(' s1 ', ' s2 '))'];
+                          end
                         end
                     end
             end

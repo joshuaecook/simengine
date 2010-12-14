@@ -1,0 +1,39 @@
+# Define local variables.
+
+PROTOBUF_$(D)		:= protobuf-2.3.0
+PROTOBUF_URI_$(D)	:= http\://protobuf.googlecode.com/files/protobuf-2.3.0.tar.bz2
+PROTOBUF_TBZ_$(D)	:= $(wildcard $(TMPDIR)/simEngine_support/$(PROTOBUF_$(D)).tar.bz2)
+ifeq (,$(PROTOBUF_TBZ_$(D)))
+PROTOBUF_TBZ_$(D)	:= /var/tmp/$(PROTOBUF_$(D)).tar.bz2
+endif
+
+TARGETS_$(D)	:= $(D)/build
+TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+CLEAN_ALL	:= $(CLEAN) $(addprefix $(D)/,extract config build) $(shell find $(D)/*/ -type f)
+
+$(D)/extract: DIR := $(PROTOBUF_$(D))
+$(D)/extract: $(PROTOBUF_TBZ_$(D))
+	$(info Extracting sources for $@)
+	[ -d $(D) ] || $(MKDIR) $(@D)
+	tar -C $(@D) -xjf "$<"
+	touch $@
+
+$(D)/config: DIR := $(PROTOBUF_$(D))
+$(D)/config: CONFIGURE_FLAGS := --prefix=$(realpath $(D)) --disable-shared
+$(D)/config: $(D)/extract
+	$(info Configuring for $@)
+	(cd $(@D)/$(DIR); $(CONFIGURE) $(CONFIGURE_FLAGS))
+	touch $@
+
+$(D)/build: DIR := $(PROTOBUF_$(D))
+$(D)/build: export CXXFLAGS += -fPIC
+$(D)/build: $(D)/config
+	$(info Building for $@)
+	$(MAKE) -C $(@D)/$(DIR) install
+	touch $@
+
+$(PROTOBUF_TBZ_$(D)): | $(PROTOBUF_URI_$(D))
+	curl -o "$@" -# $|
+
+.PHONY: $(PROTOBUF_URI_$(D))
+$(PROTOBUF_URI_$(D)):

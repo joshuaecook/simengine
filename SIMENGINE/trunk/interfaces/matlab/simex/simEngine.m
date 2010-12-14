@@ -15,11 +15,23 @@ function [outputs y1 t1 interface] = simEngine (options)
 
   % File names
   logFile = fullfile(workingDir, 'logfile');
+  constFile = fullfile(workingDir, ['constants.pb']);
   compilationProgressFile = fullfile(workingDir, 'compilation_progress');
   simulationProgressFile = fullfile(workingDir, 'simulation_progress');
   statusFile = fullfile(workingDir, 'status');
   pidFile = fullfile(workingDir, 'pid');
 
+  % Write constants structure to file
+  if isstruct(options.constants)
+    if options.complex
+      complex = 'complex';
+    else
+      complex = '';
+    end
+    dataformat = [complex options.precision];
+    mexDataStore(constFile, dataformat, options.constants);
+  end
+  
   command = ['(' command ' &> "' logFile '" & pid=$! ; echo $pid > "' pidFile '" ; wait $pid; echo $? > "' statusFile '")&'];
   [stat, ignore] = system(command);
   while ~exist(pidFile,'file') || isempty(fileread(pidFile))
@@ -230,6 +242,7 @@ end
 function writeUserInputs (options)
 %  WRITEUSERINPUTS Creates files for the inputs of each model instance.
   inputs = options.inputs;
+  save('~clebsack/dummy.mat', 'inputs');
   names = fieldnames(inputs);
   fid = 0;
   onCleanup(@()fid > 0 && fclose(fid));
