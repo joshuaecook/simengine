@@ -22,14 +22,22 @@ $(D)/extract: $(PROTOBUF_TBZ_$(D))
 	touch $@
 
 $(D)/config: DIR := $(PROTOBUF_$(D))
+ifneq ($(DARWIN),)
+$(D)/config: CONFIGURE_FLAGS := --prefix=$(realpath $(D)) --disable-shared --disable-dependency-tracking
+else
 $(D)/config: CONFIGURE_FLAGS := --prefix=$(realpath $(D)) --disable-shared
+endif
 $(D)/config: $(D)/extract
 	$(info Configuring for $@)
 	(cd $(@D)/$(DIR); $(CONFIGURE) $(CONFIGURE_FLAGS))
 	touch $@
 
 $(D)/build: DIR := $(PROTOBUF_$(D))
+ifneq ($(DARWIN),)
+$(D)/build: export CXXFLAGS += -arch i386 -arch x86_64
+else
 $(D)/build: export CXXFLAGS += -fPIC
+endif
 $(D)/build: $(D)/config
 	$(info Building for $@)
 	$(MAKE) -C $(@D)/$(DIR) install
