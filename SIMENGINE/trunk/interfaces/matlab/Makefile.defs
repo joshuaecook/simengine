@@ -51,20 +51,18 @@ $(D)/Contents.m: $(D)/Makefile.defs
 	$(info Generating $@)
 	@echo "$(CONTENTS_M)" > $@
 
-#$(D)/src/mexDataStore.mex%: $(D)/src/mexDataStore.cpp $(D)/src/DataStore.pb.cc
-$(D)/src/mexDataStore.mex%: MEXFLAGS := -I$(D)/src -Ishare/protobuf/include -Lshare/protobuf/lib -lprotobuf
-#$(D)/src/mexDataStore$(MEXEXT): INCDIR := share/protobuf/include
-#$(D)/src/mexDataStore$(MEXEXT): $(addprefix $D/src/,mexDataStore.cpp DataStore.pb.cc)
-#	$(MEXC) -o $@ $^ -I. -I$(INCDIR) -L$(LIBDIR) -lprotobuf
+define mexDataStore_template
+$$(D)/src/mexDataStore$(1): MEXFLAGS := -I. -Ishare/protobuf/include
+$$(D)/src/mexDataStore$(1): $$(D)/src/mexDataStore.cpp $$(D)/src/DataStore.pb.cc share/protobuf/lib/libprotobuf.a
+	$$(COMPILE.mex) -output "$$*" $$^
+endef
+
+$(foreach ext,$(ALL_MEXEXT),$(eval $(call mexDataStore_template,$(ext))))
 
 $(D)/src/PrintDataStore: LIBDIR := share/protobuf/lib
 $(D)/src/PrintDataStore: INCDIR := share/protobuf/include
 $(D)/src/PrintDataStore: $(addprefix $D/src/,PrintDataStore.cpp DataStore.pb.cc)
 	$(CXX) -o $@ $^ -I. -I$(INCDIR) -L$(LIBDIR) -lprotobuf -lpthread
-
-$(D)/src/DataStore.pb.cc: PROTOC := share/protobuf/bin/protoc
-$(D)/src/DataStore.pb.cc: $(D)/src/DataStore.proto share/protobuf/build
-	$(PROTOC) --cpp_out=. $<
 
 $(D)/installs: CLASSES := $(PCODE_$(D)) $(ADD_CLASSES_$(D)) 
 $(D)/installs: HELP := $(HELP_$(D)) $(addprefix $(D)/,Contents.m)

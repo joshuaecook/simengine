@@ -7,9 +7,12 @@ ifeq (,$(PROTOBUF_TBZ_$(D)))
 PROTOBUF_TBZ_$(D)	:= /var/tmp/$(PROTOBUF_$(D)).tar.bz2
 endif
 
-TARGETS_$(D)	:= $(D)/build
+TARGETS_$(D)	:= $(D)/bin/protoc $(D)/lib/libprotobuf.a
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 CLEAN_ALL	:= $(CLEAN) $(addprefix $(D)/,extract config build) $(shell find $(D)/*/ -type f)
+
+$(TARGETS_$(D)): $(D)/build
 
 $(D)/extract: DIR := $(PROTOBUF_$(D))
 $(D)/extract: $(PROTOBUF_TBZ_$(D))
