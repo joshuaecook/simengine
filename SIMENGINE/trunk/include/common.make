@@ -201,6 +201,12 @@ else
 CUDART_LIBRARY_NAME = libcudart.so
 endif
 
+# Protocol buffers
+PROTOC := share/protobuf/bin/protoc
+COMPILE.pb.cc = $(PROTOC) --cpp_out=.
+
+%.pb.cc: %.proto $(PROTOC)
+	$(COMPILE.pb.cc) $<
 
 # MATLAB and the MEX compiler
 MATLAB := $(shell which matlab 2>/dev/null)
