@@ -255,18 +255,19 @@ endif
 
 # Rules for compiling various MEX targets
 COMPILE.mex = $(MEXC) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
+COMPILE.mexXX = $(MEXC) CC=$(CC) CXX=$(CXX) LD=$(CXX) $(MEXFLAGS) $(MEXTARGET_ARCH)
 
 %.mexglx: override MEXTARGET_ARCH = -glnx86
 %.mexglx: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 %.mexglx: %.cpp
-	$(COMPILE.mex) -output "$*" "$<"
+	$(COMPILE.mexXX) -output "$*" "$<"
 
 %.mexa64: override MEXTARGET_ARCH = -glnxa64
 %.mexa64: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 %.mexa64: %.cpp
-	$(COMPILE.mex) -output "$*" "$<"
+	$(COMPILE.mexXX) -output "$*" "$<"
 
 %.mexmaci: override MEXTARGET_ARCH = -maci
 %.mexmaci: override MEX := MACI64=0 $(MEXC)
@@ -275,7 +276,7 @@ COMPILE.mex = $(MEXC) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
 %.mexmaci: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 %.mexmaci: %.cpp
-	$(COMPILE.mex) -output "$*" "$<"
+	$(COMPILE.mexXX) -output "$*" "$<"
 
 %.mexmaci64: override MEXTARGET_ARCH = -maci64
 %.mexmaci64: override MEX := MACI64=1 $(MEXC)
@@ -284,25 +285,25 @@ COMPILE.mex = $(MEXC) CC=$(CC) CXX=$(CXX) LD=$(CC) $(MEXFLAGS) $(MEXTARGET_ARCH)
 %.mexmaci64: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 %.mexmaci64: %.cpp
-	$(COMPILE.mex) -output "$*" "$<"
+	$(COMPILE.mexXX) -output "$*" "$<"
 
 %.mexs64: override MEXTARGET_ARCH = -sol64
 %.mexs64: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 %.mexs64: %.cpp
-	$(COMPILE.mex) -output "$*" "$<"
+	$(COMPILE.mexXX) -output "$*" "$<"
 
 %.mexw32: override MEXTARGET_ARCH = -win32
 %.mexw32: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 %.mexw32: %.cpp
-	$(COMPILE.mex) -output "$*" "$<"
+	$(COMPILE.mexXX) -output "$*" "$<"
 
 %.mexw64: override MEXTARGET_ARCH = -win64
 %.mexw64: %.c
 	$(COMPILE.mex) -output "$*" "$<"
 %.mexw64: %.cpp
-	$(COMPILE.mex) -output "$*" "$<"
+	$(COMPILE.mexXX) -output "$*" "$<"
 
 %.p: MATLABFLAGS = -nodisplay -nosplash -nojvm
 %.p: %.m
