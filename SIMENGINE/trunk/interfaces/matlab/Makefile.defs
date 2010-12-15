@@ -54,7 +54,7 @@ $(D)/Contents.m: $(D)/Makefile.defs
 define mexDataStore_template
 $$(D)/src/mexDataStore$(1): MEXFLAGS := -I. -Ishare/protobuf/include
 $$(D)/src/mexDataStore$(1): $$(D)/src/mexDataStore.cpp $$(D)/src/DataStore.pb.cc share/protobuf/lib/libprotobuf.a
-	$$(COMPILE.mex) -output "$$*" $$^
+	$$(COMPILE.mexXX) -output "$$*" $$^
 endef
 
 $(foreach ext,$(ALL_MEXEXT),$(eval $(call mexDataStore_template,$(ext))))
