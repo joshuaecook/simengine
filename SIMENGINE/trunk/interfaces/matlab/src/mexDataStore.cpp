@@ -177,10 +177,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]){
   /* Open the file */
   filename = mxArrayToString(prhs[0]);
   output.open(filename, ios::out | ios::binary | ios::trunc);
+  if(output.fail()){
+    mexErrMsgIdAndTxt("Simatra:simEngine:mexDataStore", "Unable to open file '%s'.", filename);
+  }
   mxFree(filename);
 
   /* Write entire DataStore to file */
-  ds.SerializeToOstream(&output);
+  if(!ds.SerializeToOstream(&output)){
+    mexErrMsgIdAndTxt("Simatra:simEngine:mexDataStore", "Unable to serialize data to file '%s'.", filename);
+  }
 
   output.close();
   google::protobuf::ShutdownProtobufLibrary();
