@@ -242,7 +242,6 @@ end
 function writeUserInputs (options)
 %  WRITEUSERINPUTS Creates files for the inputs of each model instance.
   inputs = options.inputs;
-  save('~clebsack/dummy.mat', 'inputs');
   names = fieldnames(inputs);
   fid = 0;
   onCleanup(@()fid > 0 && fclose(fid));
