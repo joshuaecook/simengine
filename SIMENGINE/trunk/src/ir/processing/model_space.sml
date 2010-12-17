@@ -173,24 +173,6 @@ local
 					       DOF.Output.contents output,
 					       DOF.Output.condition output)
 
-(*
-	    local
-		open Layout
-		val e2l = ExpPrinter.exp2layout
-		val s2l = Space.toLayout
-		fun exp2layout exp =
-		    parenList [s2l (expToSpace exp), 
-			       e2l exp]
-
-		val l = heading("Output " ^ (Symbol.name (Term.sym2curname name)),
-				align [heading("Name", exp2layout (ExpProcess.term2exp name)),
-				       heading("Contents", align (map exp2layout contents)),
-				       heading("Condition", exp2layout condition)])
-	    in
-	    val _ = log l
-	    end
-*)
-
 	    (* when we propagate the spaces from the contents/condition, there are two valid and supported 
 	     * options.  Either the space definition for the name can come from the contents or from the
 	     * condition.  It can not come from both. *)
