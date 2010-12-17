@@ -614,7 +614,9 @@ fun createClass top_class classes object =
 
 		val rhs = Exp.FUN (Fun.INST {classname=name',
 					     instname=objname,
-					     props=InstProps.setIterators InstProps.emptyinstprops iterators},
+					     props=InstProps.setSpace
+						       (InstProps.setIterators InstProps.emptyinstprops iterators)
+						       Space.scalar},
 				   [instanceInputs])
 
 		val exp = ExpBuild.equals (Exp.TERM (Exp.DONTCARE), rhs)
@@ -627,7 +629,9 @@ fun createClass top_class classes object =
 				val rhs = Exp.FUN (Fun.OUTPUT {classname=name',
 							       instname=objname,
 							       outname=Symbol.symbol outname,
-							       props=InstProps.emptyinstprops},
+							       props= InstProps.setSpace 
+									  InstProps.emptyinstprops
+									  Space.scalar},
 						   [instanceInputs])
 			    in
 				ExpBuild.equals (lhs, rhs)
