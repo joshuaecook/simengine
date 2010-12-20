@@ -1237,9 +1237,11 @@ fun class2statesize (class: DOF.class) =
 	Util.sum ((map ExpProcess.exp2size initial_conditions) @
 		  (map (fn(exp)=> 
 			  let
-			      val {classname,...} = ExpProcess.deconstructInst exp
+			      val {classname,props,...} = ExpProcess.deconstructInst exp
+			      val space = InstProps.getSpace props
 			  in
-			      class2statesize (CurrentModel.classname2class classname)
+			      (Space.size space) * (* Instance size *)
+			      (class2statesize (CurrentModel.classname2class classname)) (* State size *)
 			  end
 		       ) instance_equations))
     end
@@ -1336,9 +1338,11 @@ fun class2statesizebyiterator (iter: DOF.systemiterator) (class: DOF.class) =
 	Util.sum ((map ExpProcess.exp2size initial_conditions) @
 		  (map (fn(exp)=> 
 			  let
-			      val {classname,...} = ExpProcess.deconstructInst exp
+			      val {classname,props,...} = ExpProcess.deconstructInst exp
+			      val space = InstProps.getSpace props
 			  in
-			      class2statesizebyiterator iter (CurrentModel.classname2class classname)
+			      (Space.size space) * (* Instance size *)
+			      (class2statesizebyiterator iter (CurrentModel.classname2class classname)) (* State size *)
 			  end
 		       ) instance_equations))
     end
