@@ -153,7 +153,7 @@ fun iterators2c_str iterators =
 
 fun iterator2mathematica_str (iterator as (sym, i)) =
     let
-	val str = Symbol.name sym
+	val str = Util.mathematica_fixname (Symbol.name sym)
     in
 	case i of
 	    ALL => ""

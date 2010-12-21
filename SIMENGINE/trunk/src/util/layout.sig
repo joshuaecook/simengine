@@ -92,6 +92,8 @@ signature LAYOUT =
       val space: t list -> t
       (* write to the screen *)
       val log: t -> unit
+      (***  utility functions added by Simatra ****)
+      val repStr : (t * string * string) -> t (* replace the second string with the third string in the first layout *)
 
       (* Sets the "detailed" option for the duration of a function. *)
       val withDetail: (unit -> 'a) -> 'a

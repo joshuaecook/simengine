@@ -819,12 +819,18 @@ fun normalizeModel (model:DOF.model) =
 	(* TODO, write the checks of the model IR as they are needed *)
 
 	val _ = if DynamoOptions.isFlagSet "generateMathematica" then
-		    CurrentModel.withModel (CurrentModel.getCurrentModel())
-		    (fn()=>
-		       (log ("Creating Mathematica model description (first propagating state iterators) ...");
-			app ClassProcess.propagateStateIterators (CurrentModel.classes()); (* pre-run the assignCorrectScope *)
-			log ("Creating Mathematica model description (converting model to code) ...");
-			Printer.progs2file (MathematicaWriter.model2progs (CurrentModel.getCurrentModel()), Symbol.name classname ^ ".nb")))
+		    let
+			val model' = unify (duplicateModel (CurrentModel.getCurrentModel()) (fn x=>x))
+			val filename =  "../Mathematica" ^ (Util.mathematica_fixname (Symbol.name classname)) ^ ".m"
+		    in
+			CurrentModel.withModel 
+			    model'
+			    (fn()=>
+			       (log ("Creating Mathematica model description (first propagating state iterators) ...");
+				app ClassProcess.propagateStateIterators (CurrentModel.classes()); (* pre-run the assignCorrectScope *)
+				log ("Creating Mathematica model description (converting model to code) ...");
+				Printer.progs2file (MathematicaWriter.model2progs (CurrentModel.getCurrentModel()),filename)))
+		    end
 		else
 		    ()
 
