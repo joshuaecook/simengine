@@ -322,23 +322,23 @@ fun sym2mathematica_str (s, props) =
 		      of SOME iter => if ignore_iter iter then
 					  ""
 				      else
-					  Iterator.iterator2mathematica_str iter
+					  "[" ^ (Iterator.iterator2mathematica_str iter) ^ "]"
 		       | NONE => "")
 
-	val n = Util.mathematica_fixname (Symbol.name s)
-
+	val sym2str = Util.mathematica_fixname o Symbol.name
+	val n = sym2str s
     in
 	if order < 0 then (* integral *)
-	    "Integrate["^n^","^(String.concatWith "," (map Symbol.name vars))^"]"
+	    "Integrate["^n^","^(String.concatWith "," (map sym2str vars))^"]"
 	    (*"Int(" ^ n ^ iters ^  ",["^(String.concatWith "," (map Symbol.name vars))^"])"*)
 	    (*DynException.stdException(("Can't support integrals ("^(sym2str (s, props))^")"), "DSL_TERMS.sym2mathematica_str", Logger.INTERNAL)*)
 	else if order = 0 then
 	    n ^ iters
 	else
 	    "D["^n^iters^","^(String.concatWith "," (map (fn(i)=>if order > 1 then
-							       "{"^(Symbol.name i)^","^(i2s order)^"}"
+							       "{"^(sym2str i)^","^(i2s order)^"}"
 							   else
-							       Symbol.name i) vars))^"]"
+							       sym2str i) vars))^"]"
 	(*else if order = 1 then*)
 	    (*"d_" ^ n ^ "_dt"*) (* only support first order derivatives with respect to t *)
 	    

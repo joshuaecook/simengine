@@ -11,7 +11,9 @@ fun mexps2list mexps =
 	{funname=Symbol.symbol "List",
 	 args=mexps}
 
-
+local
+    open Mathematica
+in
 fun class2mexp top_class (class: DOF.class) =
     let
 	(* pull out the useful parts of the class *)
@@ -21,7 +23,8 @@ fun class2mexp top_class (class: DOF.class) =
 	val outputs = !(#outputs class)
 
 	(* partition expressions *)
-	val (inst_eqs, rest_eqs) = List.partition ExpProcess.isInstanceEq exps
+	val (inst_eqs, non_inst_eqs) = List.partition ExpProcess.isInstanceEq exps
+	val (output_eqs, rest_eqs) = List.partition ExpProcess.isOutputEq non_inst_eqs
 		       
 	(* find all symbols used in instances *)
 	val instance_symbols = 
@@ -81,18 +84,32 @@ fun class2mexp top_class (class: DOF.class) =
 			      (fn output =>
 			      case DOF.Output.contents output of 
 				  nil => NONE
-				| [content] => SOME (ExpBuild.equals (ExpProcess.term2exp (DOF.Output.name output), content))
+				| [content as (Exp.TERM (Exp.SYMBOL (sym,_)))] =>
+				   let val name = DOF.Output.name output
+				   in if Term.sym2curname name = sym then
+					 NONE (* no need to do var == var *)
+				      else
+					  SOME (ExpBuild.equals (ExpProcess.term2exp name, content))
+				   end
 				| contents => SOME (ExpBuild.equals (ExpProcess.term2exp (DOF.Output.name output), ExpBuild.explist contents)))
 			      outputs
 	val output_mequs = map exp2mexp output_equs
 			       
-	(* all terms *)
-	val all_terms = Util.flatmap ExpProcess.exp2termsymbols exps
-	fun sym2term sym = valOf (List.find (fn(t)=> Term.sym2symname t = sym) all_terms)
+	(* sym2term - find a particular term that matches a symbol - don't want derivatives *)
+	fun sym2term sym = 
+	    let
+		val non_init_eqs = List.filter (not o ExpProcess.isInitialConditionEq) exps
+		val all_terms = Util.flatmap ExpProcess.exp2termsymbols non_init_eqs
+		val t = valOf (List.find (fn(t)=> Term.sym2symname t = sym) all_terms)
+	    in
+		case t of 
+		    Exp.SYMBOL (sym, props) => Exp.SYMBOL (sym, Property.clearDerivative props)
+		  | _ => t
+	    end
 
 
 	val local_output_mapping = map 
-				       (fn(sym,sym')=>Mathematica.MASSIGN {lhs=sym2mexp sym, rhs=sym2mexp sym'})
+				       (fn(sym,sym')=>MASSIGN {lhs=sym2mexp sym, rhs=sym2mexp sym'})
 				       (ListPair.zip (instance_symbols, local_instance_symbols))
 
 
@@ -103,26 +120,37 @@ fun class2mexp top_class (class: DOF.class) =
 	    let 
 		val sym = addPrefix "exps" (#instname (ExpProcess.deconstructInst exp))
 	    in
-		sym2mexp sym
+		MSYMBOL sym
 	    end
 
 	(* there may still be some local variables, if that's the case, use a rewrite to remove *)
-	val rewrites = map
-			   (fn(sym,sym')=> (sym2mexp sym', sym2mexp sym))
-			   (ListPair.zip (instance_symbols, local_instance_symbols))
+	val rewrites = MLIST (map
+				  (fn(sym,sym')=> MRULE (sym2mexp sym', sym2mexp sym))
+				  (ListPair.zip (instance_symbols, local_instance_symbols)))
+
+
+	fun output2mexp equ =
+	    let
+		val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst equ
+		val (outname, outarg) = List.hd (SymbolTable.listItemsi outargs)
+	    in
+		MINFIX ("==", (MEXP (Exp.TERM outarg), MBUILTIN {funname=fixname instname,
+						      args=[MSYMBOL (fixname outname)]}))
+	    end
 
 	(* create a variable 'fullEquList' that includes all the submodels and the equations *)
 	val full_equ_list = 
-	    Mathematica.MREWRITE {mexp=
-				  Mathematica.MASSIGN {lhs=exp2mexp (ExpBuild.var "fullEquList"),
-						       rhs=Mathematica.MBUILTIN {funname=Symbol.symbol "Join",
-										 args=((mexps2list (map exp2mexp rest_eqs)):: 
-										       (map inst2eqsvar inst_eqs)) @
-										      (if top_class then
-											   []
-										       else
-											   [mexps2list output_mequs])}},
-				  rewrites=rewrites}
+	    MREWRITE {mexp=
+		      MASSIGN {lhs=MSYMBOL (Symbol.symbol "fullEquList"),
+			       rhs=MBUILTIN {funname=Symbol.symbol "Join",
+					     args=((MLIST (map MEXP rest_eqs))::
+						   (MLIST (map output2mexp output_eqs))::
+						   (map inst2eqsvar inst_eqs)) @
+						  (if top_class then
+						       []
+						   else
+						       [MLIST output_mequs])}},
+		      rewrites=rewrites}
 
 	val return_data = exp2mexp (ExpBuild.tuple [Term.sym2term (Symbol.symbol "fullEquList"),
 								  Exp.TUPLE (if top_class then
@@ -130,26 +158,85 @@ fun class2mexp top_class (class: DOF.class) =
 									     else
 										 (map DOF.Output.name outputs))])
 
+	val input_defaults = List.mapPartial 
+				 (fn(inp)=>
+				    case DOF.Input.default inp of
+					SOME e => SOME (MRULE (MSYMBOL (Term.sym2symname (DOF.Input.name inp)),
+									   MEXP e))
+				      | NONE => NONE)
+				 inputs
 
+	val instances = map
+			    (fn(equ)=>
+			       let
+				   val {classname, instname, inpargs, outargs, props} = ExpProcess.deconstructInst equ
+			       in
+				   MASSIGN {lhs= MSYMBOL instname,
+					    rhs= 
+					    MBUILTIN {funname=Symbol.symbol "SubModel",
+						      args=
+						      [MBUILTIN {funname=fixname classname,
+								 args=
+								 [MLIST (map 
+									     (fn(sym, exp)=>
+										MRULE (MSYMBOL sym,
+										       MEXP exp))
+									     (SymbolTable.listItemsi inpargs))]
+								}
+						      ]
+						     }
+					   }
+			       end)
+			    inst_eqs
     in
-	Mathematica.MDELAYASSIGN 
-	    {lhs=Mathematica.MFUN 
+	MDELAYASSIGN 
+	    {lhs=MFUN 
 		     {name=name,
-		      args=map (fn input =>
-				  (Term.sym2symname (DOF.Input.name input), 
-				   case DOF.Input.default input of 
-				       SOME e => SOME (Mathematica.MEXP e)
-				     | NONE => NONE)) inputs},
-	     rhs=Mathematica.MODULE
+		      args=[(Symbol.symbol "rewrites_",
+			     SOME (MLIST input_defaults))]
+		     (* args=map (fn input =>
+				     (Term.sym2symname (DOF.Input.name input), 
+				      case DOF.Input.default input of 
+					  SOME e => SOME (MEXP e)
+					| NONE => NONE)) inputs*)
+		     },
+	     rhs=MODULE {locals=[Symbol.symbol "fullEquList"](*local_vars*),
+			 exps=[],
+			 return=
+			 MWITH
+			     {locals=map 
+					 (fn(var)=>(var, MBUILTIN {funname=Symbol.symbol "Unique",
+								   args=[MSYMBOL var]}))
+					 local_vars,
+			      exps=instances @ [full_equ_list],
+			      return=MREWRITE {mexp=return_data, rewrites=MSYMBOL (Symbol.symbol "rewrites")}}}}
+	     (*
+	     MODULE
 		     {locals=local_vars,
 		      exps=local_output_mapping @ instantiations @ [full_equ_list],
-		      return=return_data}}
+		      return=return_data}}*)
     end
     handle e => DynException.checkpoint "MathematicaWriter.class2mexp" e
+end
 
+local
+    open Layout
+in
 fun model2progs (model:DOF.model) =
     let
 	val (classes,{name,classname},_)=model
+	val iterators = CurrentModel.withModel model (fn()=> CurrentModel.iterators())
+	val iter_names = map (fn(iter_name,_)=>iter_name) 
+			     (List.filter (fn(_,iter_type)=> case iter_type of
+								 DOF.CONTINUOUS _ => true
+							       | _ => false) iterators)
+	val rewrite = seq [str "/.",
+			   curlyList (map (fn(sym)=>seq [str "a_",
+							 bracket (str (Util.mathematica_fixname (Symbol.name sym))),
+							 str "->",
+							 str "a",
+							 bracket (str "t")]) iter_names)]
+
 	val prog_list = map (fn(c)=>
 			       if #name c = classname then
 				   Mathematica.mexp2prog (class2mexp true c) (* boolean represents the top class *)
@@ -157,15 +244,29 @@ fun model2progs (model:DOF.model) =
 				   Mathematica.mexp2prog (class2mexp false c)
 			    ) classes
 
-	val additional_progs = [Printer.$(" "),
-				Printer.$("m = "^(Util.mathematica_fixname (Symbol.name classname))^"[];"),
-				Printer.$("equs = model2flatEqus[m[[1]]];"),
-				Printer.$("outputs = m[[2]]/.a_[_]->a;"),
-				Printer.$("{p,s}=EvalModel[equs, outputs, 100];"),
-				Printer.$("p")]
+	val model_name = Util.mathematica_fixname (Symbol.name classname)
+	val additional_progs = [str("m = "^model_name^"[];"),
+				seq [str "equs = Modeling`model2flatEqus[m[[1]]", rewrite, str "];"],
+				str("outputs = m[[2]]/.a_[_Symbol]->a;"),
+				str("{p,s}=Modeling`EvalModel[equs, outputs, {t, 0, 100}];"),
+				str("p")]
+
+	fun comment msg = 
+	    seq [str "(* ", str msg ,str " *)"]
+
+	val program = 
+	    align[str ("BeginPackage[\""^model_name^"`\"];"),
+		  indent(align[newline,
+			       comment "Class descriptions",
+			       align prog_list,
+			       newline,
+			       comment "Model code",
+			       align additional_progs]
+		       ,3),
+		  str ("EndPackage[];")]	    
     in
-	prog_list @ additional_progs
+	[program]
     end
     handle e => DynException.checkpoint "MathematicaWriter.model2progs" e
-
+end
 end

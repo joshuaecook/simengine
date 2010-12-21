@@ -336,4 +336,63 @@ fun space t = seq (separateLeft (t, " "))
 fun log t = (output (add_newline t, TextIO.stdOut);
 	     TextIO.flushOut(TextIO.stdOut))
 
+(* utility functions *)
+local
+
+(* inStr - returns boolean if s2 exists within s1 *)
+fun inStr (s1, s2) =
+    let
+	val l1 = String.size s1
+	val l2 = String.size s2
+    in
+	if l2 > l1 then (* if s1 is too short, then it has to be false *)
+	    false
+	else
+	    List.exists (* grab all possible substrings from s1 and see if anyone matches s2 *)
+		(fn(s)=>s=s2)
+		(List.tabulate (l1-l2+1, (fn(x)=>String.substring(s1,x,l2))))
+    end
+
+
+(* return the locations of the s2 inside s1 *)
+fun findStr (s1, s2) : int list=
+    let
+	val l1 = String.size s1
+	val l2 = String.size s2
+    in
+	if inStr (s1, s2) then
+	    map (fn(s,c)=>c)
+		(List.filter (* grab all possible substrings from s1 and see if anyone matches s2 *)
+		     (fn(s,c)=>s=s2)
+		     (List.tabulate (l1-l2+1, (fn(x)=>(String.substring(s1,x,l2),x)))))
+	else 
+	    []
+    end
+
+(* replace all occurrences of string s2 in s1 with the new string s3 *)
+fun repString (s1, s2, s3) =
+    (if inStr (s1, s2) then
+	 let
+	     val index = hd (findStr (s1, s2))
+	     val new_str = (implode (List.take (explode s1,index))) ^
+			   s3 ^
+			   (implode (List.drop (explode s1,index+(String.size s2))))
+	 in
+	     repString (new_str, s2, s3)
+	 end
+     else
+	 s1)
+in
+fun repStr (T {length, tree}, s2, s3) =
+    case tree of
+	Empty => empty
+      | String s1 => str (repString (s1, s2, s3))
+      | Sequence tlist => seq (map (fn(s1)=>repStr (s1,s2,s3)) tlist)
+      | Align {force, rows} => if force then
+				   align (map (fn(s1)=>repStr (s1,s2,s3)) rows)
+			       else
+				   mayAlign (map (fn(s1)=>repStr (s1,s2,s3)) rows)
+      | Indent (t, n) => indent (repStr (t,s2,s3), n)
+end
+
 end
