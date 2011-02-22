@@ -76,7 +76,7 @@ INSTALL := ./bin/install
 
 MAJOR_VERSION := 1
 MINOR_VERSION := 2
-VERSION_REVISION := a
+VERSION_REVISION := b
 VERSION_NUMBER := $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
 VERSION_BUILD := $(if $(SVN_IS_BRANCH),BRANCH_$(subst /,_,$(SVN_BRANCH))_$(SVN_REVISION),$(if $(SVN_IS_TRUNK),BUILD_$(SVN_REVISION),))
 
@@ -99,7 +99,8 @@ define BUILD_OPTIONS_JSON
 }
 endef
 
-CRYPTO_LIB := $(if $(DARWIN),/opt/local/lib/libcrypto.a /opt/local/lib/libz.a,$(if $(ARCH64),/usr/lib64/libcrypto.a,/usr/lib/libcrypto.a))
+# Crypto is not necessary when simEngine is an unlicensed product
+#CRYPTO_LIB := $(if $(DARWIN),/opt/local/lib/libcrypto.a /opt/local/lib/libz.a,$(if $(ARCH64),/usr/lib64/libcrypto.a,/usr/lib/libcrypto.a))
 UPDATE_QUERY := build=$(if $(SVN_IS_BRANCH),preview,$(if $(SVN_IS_TRUNK),development,release))
 
 # Insired by http://www.xs4all.nl/~evbergen/nonrecursive-make.html

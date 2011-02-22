@@ -26,7 +26,9 @@ $(D)/simEngine.deps: $(BASIS_$(D)) $(LIBS) $(D)/Makefile.defs
 	@$(SMLC) -stop f "$<" | perl -pe 's/\n/ /g' >> "$@"
 
 $(D)/simEngine: SMLFLAGS := $(SMLFLAGS) -link-opt "-ldl" -export-header $(D)/ffi/ffi-exports.h -link-opt "$(LIBS_$(D)) -fopenmp" $(if $DEBUG,-const 'Exn.keepHistory true',)
-$(D)/simEngine: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+#$(D)/simEngine: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c ffi-license.c)
+# we are removing the licensing check from this release
+$(D)/simEngine: SML_FOREIGN := $(addprefix $(D)/ffi/,ffi-simengine.c ffi-openmp.c ffi-cuda.c)
 
 
 $(D)/data/default.sew: DIR := $(D)

@@ -162,7 +162,8 @@ fun main () =
 	val _ = Profile.mark()
 
 	(* Verify the license file *)
-	val _ = CurrentLicense.findAndVerify()
+	(* RKW 2/22/2011: we don't need to worry about this at all since simEngine is now open source *)
+	(*val _ = CurrentLicense.findAndVerify()*)
 
 	(* initialize the exec *)
 	val env = PopulatedEnv.importSettings (rep_loop false) env

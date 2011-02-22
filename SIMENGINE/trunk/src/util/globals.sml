@@ -44,9 +44,16 @@ fun buildDateAsDate () =
 
 fun buildDate () = (!daysToString) (buildDateAsDate())
 
+(*
 fun startupMessage () =
     (name ^ " v" ^ version ^ ", " ^ (!edition) ^ " Edition" ^ "\n"
      ^ (!licenseHolder) ^ " " ^ (!expirationString) ^ "\n"
+     ^ "[built: " ^ (buildDate()) ^ "]" ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
+     ^ copyright)
+*)
+(* remove licensing information from startup message *)
+fun startupMessage () =
+    (name ^ " v" ^ version ^ "\n"
      ^ "[built: " ^ (buildDate()) ^ "]" ^ (if BuildOptions.build = "unknown" then "" else (" " ^ BuildOptions.build)) ^ "\n"
      ^ copyright)
     
