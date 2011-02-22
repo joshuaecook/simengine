@@ -43,7 +43,7 @@ sig
 
     (* low level routines to convert Licenses to/from internal SML structure and external string format *)
     val licenseFromData : string -> license option
-    val licenseToData : license -> string
+    (*val licenseToData : license -> string*)
 
     val toJSON: license -> JSON.json
     val verifyLicenseToJSONCallback : (license -> JSON.json) -> unit
@@ -137,14 +137,14 @@ end
 val default =
     make {product=SIMENGINE,
 	  customerID=0,
-	  customerName="Free User",
+	  customerName="OSS User",
 	  customerOrganization="",
-	  restriction=SITE "Free Evaluation License",
+	  restriction=SITE "Open Source License",
 	  serialNumber=0,
 	  maxMajorVersion=9999,
 	  maxMinorVersion=9999,
 	  expirationDate=NONE,
-	  version=BASIC,
+	  version=DEVELOPMENT,
 	  enhancements={}}
 
 
@@ -160,6 +160,7 @@ val secondsPerDay = 60 * 60 * 24
 val maxKeyStringLength = 180
 
 (* Fuctions that provide composed RSA encryption/decrytion and base64 encoding/decoding *)
+(*
 val licenseDecode' = 
     _import "license_Decode": (Int32.int * string) -> Int32.int;
 
@@ -175,6 +176,10 @@ fun licenseEncode licenseData =
     case licenseEncode' (String.size licenseData, licenseData)
      of 0 => FFIExports.getTheString () 
       | n => raise Fail ("Failed to encode license; error " ^ (Int.toString n))
+*)
+(* add dummy routines to allow the type checker to work fine even if the licensing is removed *)
+val licenseDecode = fn(cipher) => NONE
+val licenseEncode = fn(data) => ""
 
 (* Serialization/deserialization functions for packing/unpacking integers and strings together to/from a string of bytes *)
 fun bytesToInt bytes =
