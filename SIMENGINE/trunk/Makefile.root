@@ -99,7 +99,7 @@ define BUILD_OPTIONS_JSON
 }
 endef
 
-CRYPTO_LIB := $(if $(DARWIN),/opt/local/lib/libcrypto.a,$(if $(ARCH64),/usr/lib64/libcrypto.a,/usr/lib/libcrypto.a))
+CRYPTO_LIB := $(if $(DARWIN),/opt/local/lib/libcrypto.a /opt/local/lib/libz.a,$(if $(ARCH64),/usr/lib64/libcrypto.a,/usr/lib/libcrypto.a))
 UPDATE_QUERY := build=$(if $(SVN_IS_BRANCH),preview,$(if $(SVN_IS_TRUNK),development,release))
 
 # Insired by http://www.xs4all.nl/~evbergen/nonrecursive-make.html

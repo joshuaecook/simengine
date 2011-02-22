@@ -201,7 +201,8 @@ ALL_MEXEXT = .mexglx .mexa64 .mexmaci .mexmaci64 .mexs64 .mexw32 .mexw64 .mex
 # Determines the appropriate MEX extension for the current platform.
 ifneq ($(MATLAB),)
 ifneq ($(DARWIN),)
-MEXEXT = .mexmaci .mexmaci64
+# We are only supporting 64-bit MATLAB on a Mac since the 32-bit version has been deprecated
+MEXEXT = .mexmaci64
 else
 MEXEXT := .$(shell MATLABROOT=$(MATLAB_INSTALL_PATH) $(MATLAB_INSTALL_PATH)/bin/mexext)
 endif
