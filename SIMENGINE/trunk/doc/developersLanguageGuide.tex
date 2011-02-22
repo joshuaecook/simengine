@@ -1,0 +1,1255 @@
+
+\documentclass[11pt]{article}
+
+% Default margins are too wide all the way around. I reset them here
+\usepackage{fullpage}
+
+\setcounter{tocdepth}{2}
+
+% No indenting the first lines of paragraphs, some blank space between paragraphs.
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1ex plus 0.5ex minus 0.2ex}
+
+% Fancy source code listings
+\usepackage{listings}
+
+% Show references
+\usepackage{hyperref}
+
+% Nota bene: make appropriate use of the commands below for consistent typography in explanations and examples.
+
+% Typesets the abbreviated name of the DSL language.
+\newcommand{\DSL}{{\scshape dsl}}
+
+\newcommand{\esc}[1]{$\backslash$#1}
+
+% Typesets an inline string of literal DSL code.
+% Non-keyword identifiers are set italic.
+\newcommand{\literal}[1]{\lstinline[style=DSL,identifierstyle=\itshape]!#1!}
+
+% Typesets the name of a DSL keyword.
+% TODO: hook into indexing
+\newcommand{\keyword}[1]{\literal{#1}}
+
+% Typesets the name of a DSL variable.
+% TODO: hook into indexing
+\newcommand{\variable}[1]{\literal{#1}}
+
+\newcommand{\asideresult}[1]{\quad $\equiv$  #1}
+
+% Typesets a simulated interactive session with the DYNAMO shell.
+% TODO: this doesn't really work but this is what I want to type:
+%% \begin{dynamo}
+%%   \dyn {2+2} {4}
+%% \end{dynamo}
+% and this is what I want to see:
+%% DYN:> 2+2
+%% ::> 4
+
+%% \newenvironment{dynamo}
+%%                {\newcommand{\interact}[2]{DYN\colon> {#1}\\\colon\colon> {#2}\\}
+%%                  \newcommand{\dyn}[2]{\interact{#1}{#2}}
+%%                }{}
+
+
+\lstdefinelanguage{DSL}
+                   {morekeywords={constant,end,function,global,lambdafun,overload,returns,var},
+                     morekeywords=[2]{class,constructor,extends,hidden,interface,public,satisfies},
+                     morekeywords=[3]{import,namespace,open},
+                     morekeywords=[4]{equation,equations,model,submodel,parameter,tunable,visible,quantity,state},
+                     morekeywords=[5]{do,else,elseif,foreach,if,in,otherwise,then,when,while},
+                     morekeywords=[6]{true,false,and,or,not,undefined},
+                     morekeywords=[10]{of,type},
+                     morekeywords=[98]{apply,error,println,LF},
+                     morestring=[b]",
+                     morecomment=[s]{/*}{*/},
+                     morecomment=[l]{//},
+                     % patterns are delimited by vertical pipe characaters
+                     moredelim=[s][\ttfamily]{|}{|},
+                     % a special octothorpe delimiter for binary or scientific notation numeric literals; the delimiters are stripped in output
+%                     moredelim=[is][basicstyle]{#}{#},
+%                     moredelim=[il][\asideresult]{//:>}
+                   }[keywords,comments,strings]
+\lstdefinestyle{DSL}
+               {language=DSL,
+                 basicstyle={\small\sffamily},
+                 keywordstyle={\bfseries},
+                 columns=[l]fullflexible,
+                 xleftmargin=20pt,
+                 xrightmargin=20pt}
+\lstdefinestyle{dynamo}
+               {language=DSL,
+                 basicstyle={\ttfamily},
+                 xleftmargin=20pt,
+                 xrightmargin=20pt}                 
+\lstnewenvironment{dsl}
+                  {%\renewcommand{\asideresult}[1]{::> #1}%
+                    \lstset{language=DSL,style=DSL}}
+                  {}
+\lstnewenvironment{dynamo}
+                  {\lstset{language=DSL,style=dynamo}}
+                  {}
+
+\usepackage{array}
+\setlength\extrarowheight{4pt}
+\usepackage{longtable}
+
+
+\begin{document}
+\title{\DSL\ Developer's Guide}
+\author{Simatra Modeling Technologies}
+\maketitle
+
+\tableofcontents
+\newpage
+\section {Getting Started}
+% This section is intended to be a brief, introductory overview to the major features of DSL
+
+This document is a guide intended for developers of the Dynamo
+Simulation Language (\DSL) for the Dynamo platform.  It overlaps in
+places with the \DSL\ User's Guide, but aims to provide more information
+to allow power users to go beyond simply defining models and to
+enhance and extend the capabilities of the platform.
+
+Dynamo is a platform for high performance simulation of dynamical
+systems.  Models may be specified using a combination of differential
+and difference equations and compiled onto one of several simulation
+engines.  The simulation may be started, stopped, tweaked, and data
+logged.
+
+Various simulation engines may execute models and modeling protocols.
+Some simulation engines operate in double precision floating point
+values, some in a fixed point representation.  The latter means that
+all states and parameters must have range information present
+(maximum, minimum, and granularity of values).  This is described
+further in the section on models.
+
+\subsection{Typographic Conventions}
+
+TODO: explain the typography used to indicate literal code and interactive sessions.
+
+\subsection{Programming \DSL}
+
+\DSL\ programs are executed by the Dynamo interpreter. 
+To start the intepreter, type \verb!dynamo! at a shell prompt.
+The intepreter displays a prompt like \verb!DYN:>! when it is ready for input.
+After executing a complete statement, the intepreter prints the result value
+on a line beginning with \verb!::>!.
+
+\begin{lstlisting}
+DYN:> println "Hello World!"
+Hello World!
+::> ()
+DYN:> 
+\end{lstlisting}
+
+\DSL\ programs can also be saved in an ordinary text file.
+To execute a program stored in a file, provide the name of the file at the shell prompt.
+
+\begin{lstlisting}
+/* File "hello.dsl" */
+println "Hello World!"
+\end{lstlisting}
+
+\begin{verbatim}
+% dynamo hello.dsl
+Hello World!
+% 
+\end{verbatim}
+
+The interpreter executes every statement until it reaches the end of its input.
+To exit the interactive interpreter, type the end-of-file (EOF) character with CTRL-D.
+
+\subsection{Numbers, Variables, \& Arithmetic}
+
+\subsection{Booleans \& Conditional Expressions}
+
+\subsection{Strings}
+
+To construct a literal string of text, surround the text with double quotation marks.
+
+Strings are sequences of characters, indexed starting at 1.
+
+\subsection{Vectors}
+
+\subsection{Tuples}
+
+\subsection{Binaries}
+
+\subsection{Iteration \& Looping}
+
+\subsection{Functions}
+
+\subsection{Classes}
+
+\subsection{Namespaces}
+
+\newpage
+\section {Literals}
+\subsection{Numbers}
+A number literal is defined by simply typing it.  \literal{1} and \literal{5.12} and \literal{#1e-10#} are all number literals.  
+By default, numbers contain the following members.
+
+\begin{center}
+\begin{tabular}{|l|c|p{3.5in}|}
+\hline
+Name & Arguments & Description\\
+\hline
+\variable{abs} & None & Method computing the absolute value of the number\\
+\hline
+\variable{ceil} & None & Method computing the integer ceiling of the number\\
+\hline
+\variable{floor} & None & Method computing the integer floor of the number\\
+\hline
+\variable{round} & None & Method computing the nearest integer to the number\\
+\hline
+\variable{tostring} & None & Method computing the string representation of the number\\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Strings}
+A string is a sequence of text. Literal strings are enclosed in double (\literal{"}) quotation marks.
+
+\subsubsection{String interpolation}
+
+\DSL\ inspects double-quoted string literals for embedded expressions, which it evaluates, substituting the result into the string.
+A dollar sign (\literal{\$}) indicates where interpolation should occur.
+Simple variable substitution occurs when a valid identifier follows the dollar sign.
+A more complex expression requires parentheses delimiters.
+The parentheses are optional when the expression is a conditional form delimited by curly braces.
+
+\begin{lstlisting}
+var dog = "Rex"
+var cats = 2
+var kittens = 10
+println "a dog named $dog and $(cats + kittens) cat${"" when (cats + kittens) == 1, "s" otherwise}"
+\end{lstlisting}
+%$
+% add the above line just for emacs
+
+\subsubsection{Character escape codes}
+
+Special ``escape codes'' indicate literal characters that are not easily typed.
+An escape code begins with a backslash ($\backslash$) and continues with one or more characters.
+The following table shows the allowed escape codes. 
+Unrecognized escape codes are left unmodified with the backslash retained.
+
+\begin{longtable}[c]{l p{3.5in}|l}
+  \caption{String escape sequences} \\
+  {\bfseries Characters} & {\bfseries Description} & {\bfseries ASCII} \\ \hline
+\endfirsthead
+  {\bfseries Characters} & {\bfseries Description} & {\bfseries ASCII} \\ \hline
+\endhead
+  \hline \emph{Continued}
+\endfoot
+  \hline
+\endlastfoot
+
+\esc{a} & Alert & \verb|0x07| \\
+\esc{b} & Backspace & \verb|0x08| \\
+\esc{t}, \esc{$\rightarrow$} & Horizontal tab & \verb|0x09| \\
+\esc{n}, \esc{$\hookleftarrow$}  & Linefeed & \verb|0x0A| \\
+\esc{v} & Vertical tab & \verb|0x0B| \\
+\esc{f} & Form feed & \verb|0x0C| \\
+\esc{r} & Carriage return & \verb|0x0D| \\
+\esc{"} & Double quote & \verb|0x22| \\
+\esc{\$} & Dollar sign & \verb|0x24| \\
+\esc{$\backslash$} & Backslash & \verb|0x5C| \\
+\esc{\^{}\textit{c}} & The control character corresponding to the difference of 64 from the decimal ASCII code value of the character {\itshape c}. & \\
+\esc{\textit{ddd}} & The character corresponding to the 8-bit decimal encoding {\itshape ddd}, an integer in the range [0,255]. & \\
+% \esc{u\textit{xxxx}} & The unicode character corresponding to the 16-bit hexadecimal encoding {\itshape xxxx}. & \\
+\end{longtable}
+
+
+A string may be indexed using parentheses.  Examples:
+
+%% \begin{dynamo}
+%%   \dyn {"red"(1)} {"r"}
+%%   \dyn {"red"(3)} {"d"}
+%% \end{dynamo}
+
+\begin{dynamo}
+DYN:> "red"(1)
+::> "r"
+DYN:> "red"(3)
+::> "d"
+\end{dynamo}
+
+Methods are as follows:
+
+\begin{longtable}[c]{l l|p{3.5in}}
+  \caption{String methods} \\
+  {\bfseries Name} & {\bfseries Parameters} & {\bfseries Description} \\ \hline
+\endfirsthead
+  {\bfseries Name} & {\bfseries Parameters} & {\bfseries Description} \\ \hline
+\endhead
+  \hline \emph{Continued}
+\endfoot
+  \hline
+\endlastfoot
+
+\variable{s.length} & \literal{()} & Returns the number of characters.\\
+\variable{s.first} & \literal{()} & Returns the first character of the string.\\
+\variable{s.rest} & \literal{()} & Returns a new substring starting at the second character. Raises an error if the string contains fewer than one character.\\
+\variable{s.contains} & \literal{substr} & Indicates whether the given substring appears anywhere within the string.\\
+\variable{s.startsWith} & \literal{substr} & Indicates whether the given substring appears at the beginning of the string.\\
+\variable{s.endsWith} & \literal{substr} & Indicates whether the given substring appears at the end of the string.\\
+\variable{s.replace} & \literal{(old, new)} & Returns a new string with every occurance of a given substring replaced with a new substring.\\
+\variable{s.translate} & \literal{(oldchars, newchars)} & Returns a new string with every occurance of each character in a given string substituted by the corresponding new character. Raises an error if the given strings of characters are not the same length.\\
+\variable{s.split} & \literal{separator} & Returns a vector of strings formed by splitting the string at each occurance of the given separator. Discards the separator itself.\\
+\variable{s.strip} & \literal{chars} & Returns a new string with leading and trailing characters removed.\\
+\variable{s.lstrip} & \literal{chars} & Returns a new string with leading characters removed.\\
+\variable{s.rstrip} & \literal{chars} & Returns a new string with trailing characters removed.\\
+\variable{s.center} & \literal{(width, fillstr)} & Returns a new string padded to a given width with a repeated fill.\\
+\variable{s.join} & \literal{(substrings)} & Returns a new string formed by concatenating each item from a vector of strings using the string itself as a separator.\\
+\variable{s.tonumber} & \literal{()} & Returns a number by converting a string representation of a number. Raises an error if it cannot be converted.\\
+\variable{s.substring} & \literal{(position, length)} & Returns a new substring from the given position offset and length.\\
+\variable{s.tostring} & \literal{()} & Returns the string itself.\\
+\end{longtable}
+
+\subsection{Booleans}
+
+There are exactly two boolean values: \keyword{true} and \keyword{false}.  They each possess a \variable{tostring} method.  For more information on using these, see sections on binaries, if statements, and conditional expressions.
+
+\subsection{Binaries}
+
+A binary is an ordered collection of bits.  It may be specified in
+hexadecimal, octal, or binary.  All are specified by a zero (\literal{0}),
+followed by a format specification character, followed by the value of
+the binary.  The valid format specification characters are as follows.
+
+\begin{center}
+\begin{tabular}{|c|p{3.5in}|}
+\hline
+Character & Description\\
+\hline
+b & Binary (base 2)\\
+\hline
+o & Octal (base 8)\\
+\hline
+h & Hexadecimal (base 16)\\
+\hline
+\end{tabular}
+\end{center}
+
+As is common convention, hexadecimal numbers include the characters
+\textit{A} through \textit{F}, case insensitive.
+
+Examples include: \literal{#0x0FA3#}, \literal{#0o02347#}, \literal{#0x0#}, \literal{#0b0100111001#}.
+
+The number of bits is determined by the base and the number of characters used to specify the value.
+Each character represents 4 bits in base 16, 3 bits in base 8, and 1 bit in base 2.
+
+A binary may be indexed using parentheses.  Indexing a binary is equivalent to invoking its \variable{tovector} method
+and then indexing that vector.  Examples:
+
+%% \begin{dynamo}
+%%   \dyn {0b1100(1)} {true}
+%%   \dyn {0b1100(3)} {false}
+%% \end{dynamo}
+
+\begin{dsl}
+DYN> 0b1100(1)
+::> true
+DYN> 0b1100(3)
+::> false
+DYN> 0b1100.tovector()(3)
+::> false
+DYN> 0b1100(6)
+ERROR: Vector index out of bounds
+::> ()
+\end{dsl}
+
+Methods are as follows:
+
+\begin{center}
+\begin{tabular}{|c|p{3.5in}|}
+\hline
+Method & Description\\
+\hline
+tovector & Converts the binary into a vector of booleans, with true being a 1 bit and false being a 0 bit.  The resultant vector is a {\it big-endian}
+representation of the bits.  That is, the most significant bit is the first element and the least significant bit is the last.\\
+\hline
+tostring & Converts the binary into a string representation.  The representation consists of the value in hexadecimal, followed by a colon, and an integer specifying the number of bits in the binary \\
+\hline
+\end{tabular}
+\end{center}
+
+
+
+\subsection{Vectors}
+
+Vectors are an ordered, indexable collection.  They are defined by
+specifying a sequence of expressions, seperate by commas, inside of
+square braces \keyword{[} and \keyword{]}.  An empty vector may be specified by \literal{[]}.
+
+A vector may be indexed using parentheses.  Examples:
+
+\begin{dsl}
+DYN> [1,2,3](1)
+::> 1
+DYN> [1,2,3](3)
+::> 3
+DYN> ["red", "blue"](2)
+::> "blue"
+DYN> [[1,2,3],[4,5,6]](2)(2)
+::> 5
+DYN> [1,2,3](4)
+ERROR: Vector index out of bounds
+::> ()
+\end{dsl}
+
+Individual elements of a vector may be reassigned.  Example:
+
+\begin{dsl}
+DYN> var v = [1,2,3]
+::> ()
+DYN> v(2) = 4
+::> ()
+DYN> v
+::> [1, 4, 3]
+\end{dsl}
+
+The members of a vector are:
+
+\begin{center}
+\begin{tabular}{|l|l|p{3.5in}|}
+\hline
+Name & Arguments & Description\\
+\hline
+\variable{at} & (index:Number) & Returns the element at position denoted by index \\
+\hline
+\variable{clone} & None & Creates an exact copy of the vector\\
+\hline
+\variable{first} & None & Returns the first element of the vector\\
+\hline
+\variable{last} & None & Returns the last element of the vector\\
+\hline
+\variable{isempty} & None & Returns a boolean value for whether the vector is empty\\
+\hline
+\variable{length} & None & Returns the length of the vector\\
+\hline
+\variable{map} & (function) & Returns a vector formed by applying the function to each element of the vector\\
+\hline
+\variable{push\_back} & (element) & Adds element onto the end of the vector\\
+\hline
+\variable{push\_front} & (element) & Adds element onto the beginning of the vector\\
+\hline
+\variable{rest} & None & Returns a new vector without the first element of the vector\\
+\hline
+\variable{tostring} & None & Returns the string representation of the vector\\
+\hline
+\variable{totuple} & None & Converts the vector into a tuple\\
+\hline
+\variable{tobinary} & None & Appears only when the vector is a vector of booleans.  Converts the vector into a binary where each boolean value denotes the status of a bit\\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Patterns}
+
+What is a \textit{pattern}? A pattern \literal{|looks like|} that.
+
+\begin{dsl}
+var p = |A pattern|
+\end{dsl}
+
+\subsection{Tables}
+
+\section{Types}
+
+A \textit{type} or \textit{data type} is an abstract definition of a category of values.
+A \textit{type specification} or \textit{signature} determines the allowable
+values a particular datum may hold and the operations that may be performed on it.
+
+\subsection{Specifying types}
+
+Global, constant, and variable definitions may have an optional type signature.
+Specify the signature of a variable with a colon followed by a type expression.
+A value \emph{must} be immediately assigned to a variable with a type signature.
+
+\begin{dsl}
+var magic: Number = 5
+\end{dsl}
+
+Function parameters and return values may also have an optional type signature.
+Specify the signature of a parameter similarly to specifying the type of a variable.
+The \keyword{returns} keyword following a function's parameter list specifies its return type.
+
+\begin{dsl}
+function cadabra(magic: Number) returns String = "abra" * magic
+\end{dsl}
+
+Types in \DSL\ are \textit{first class values}.
+The \keyword{type} keyword constructs a type value.
+A type value may be assigned to a named variable or constant, 
+given as a parameter to a function, or returned as the result of a function.
+
+\subsubsection{Primitive types}
+
+The primitive types available in \DSL\ are \literal{Number}, \literal{String}, 
+\literal{Boolean}, \literal{Binary}, \literal{Vector}, and the object types.
+Specify these types by name.
+Specify object types using the name of the class as the type name.
+
+\begin{dsl}
+type Number
+type String
+type Boolean
+type Binary
+type Vector
+\end{dsl}
+
+\subsubsection{Composite types}
+
+Composite types define a type in terms of other primitive or composite types.
+
+The \textit{tupletype} defines an ordered sequence of two or more types.
+Specify a tupletype using parentheses and commas.
+
+\begin{dsl}
+type (Number, String)
+type (Boolean, (String, String), Binary)
+\end{dsl}
+
+\textit{Compound types} define collections which can contain values of a specific type.
+Specify a compound type using the name of the container, followed by the \keyword{of} keyword,
+followed by the type of the elements.
+
+\begin{dsl}
+type Vector of Number
+\end{dsl}
+
+An \textit{arrow type} defines the type of a function in terms of the types of its parameters and its return type.
+Arrow types frequently contain a tupletype specifying the parameter types.
+Specify an arrow type using the type of the parameters, followed by \keyword{->}, followed by the return type.
+
+\begin{dsl}
+type String -> Number
+type (Vector, Number) -> Boolean
+\end{dsl}
+
+\subsubsection{Other types}
+
+The \textit{dontcare type} acts as a wildcard.
+Specify a wildcard using an underbar character.
+
+\begin{dsl}
+type _
+\end{dsl}
+
+The \textit{unit type} defines a set of only one value, the \textit{unit value}.
+The unit type can define the parameter type of a function that doesn't require arguments,
+or the return type of a function that doesn't compute a value.
+Specify the unit type with a pair of empty parentheses.
+
+\begin{dsl}
+type ()
+\end{dsl}
+
+Specify the \textit{type of types} with the name \literal{Type}.
+
+\begin{dsl}
+type Type
+\end{dsl}
+
+\subsection{Typechecking}
+
+\subsubsection{Using \variable{istype}}
+
+%fill in why this is useful, how to use istype
+
+\newpage
+\section {Operations}
+\subsection {Numbers}
+
+\begin{center}
+\begin{tabular}{|l|l|l|p{3.5in}|}
+\hline
+Name & Example & Type & Description\\
+\hline
+Addition & \literal{1 + 2} & Binary Operation & Adds two numbers together\\
+\hline
+Subtraction & \literal{3 - 2} & Binary Operation & Subtracts one number from another\\
+\hline
+Minus & \literal{-x} & Unary Operation & Inverts the sign of a number\\
+\hline
+Multiplication & \literal{x * 2} & Binary Operation & Multiplies two numbers together\\
+\hline
+Division & \literal{1 / 2} & Binary Operation & Divides one number by another\\
+\hline
+Exponentiation & \literal{x \^ y} or \literal{pow(x, y)} & Binary Operation & Raises one number to the power of another\\
+\hline
+Greater than & \literal{x > 1} & Binary Operation & Returns a boolean value denoting whether the first argument is greater than the second\\
+\hline
+Greater than or equals & \literal{x >= 1} & Binary Operation & Returns a boolean value denoting whether the first argument is greater than or equal to the second\\
+\hline
+Less than & \literal{x < 1} & Binary Operation & Returns a boolean value denoting whether the first argument is less than the second\\
+\hline
+Less than or equals & \literal{x <= 1} & Binary Operation & Returns a boolean value denoting whether the first argument is less than or equals to the second\\
+\hline
+Equality & \literal{x == 1} & Binary Operation & Returns a boolean value denoting whether the arguments are equal\\
+\hline
+Non-Equality & \literal{x <> 1} & Binary Operation & Returns a boolean value denoting whether the arguments are {\it not} equal\\
+\hline
+%add trig functions
+\end{tabular}
+\end{center}
+
+\subsection {Strings}
+
+\begin{center}
+\begin{tabular}{|l|l|l|p{3.5in}|}
+\hline
+Name & Example & Type & Description\\
+\hline
+Concatenation & \variable{"hi" + " there"} & Binary Operation & Concatenates two strings and returns a new, combined string\\
+\hline
+Repitition & \variable{"hey\!" * 3} & Binary Operation & Returns a new string with the argument string repeated n times\\ 
+\hline
+Equality & \variable{x == 1} & Binary Operation & Returns a boolean value denoting whether the arguments are equal\\
+\hline
+Non-Equality & \variable{x <> 1} & Binary Operation & Returns a boolean value denoting whether the arguments are {\it not} equal\\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection {Booleans}
+
+
+\begin{center}
+\begin{tabular}{|l|l|l|p{3.5in}|}
+\hline
+Name & Example & Type & Description\\
+\hline
+Equality & \variable{x == 1} & Binary Operation & Returns a boolean value denoting whether the arguments are equal\\
+\hline
+Non-Equality & \variable{x <> 1} & Binary Operation & Returns a boolean value denoting whether the arguments are {\emph not equal}\\
+\hline
+\keyword{not} & \variable{not isRedColored} & Unary Operation & Inverts a boolean argument\\
+\hline
+\keyword{and} & \variable{isRedColored and isBouncy} & Binary Operation & Performs the logical and operation on two booleans\\ 
+\hline
+\keyword{or} & \variable{isSpherical or isOblong} & Binary Operation & Performs the logical or operation on two booleans\\ 
+\hline
+\end{tabular}
+\end{center}
+
+\subsection {Conditional Expressions}
+A conditional expression consists of a sequence of predicate and value
+pairs.  Each predicate is an expression which must resolve to a
+boolean value.  The predicates are tested in order and the first
+predicate that resolves to true returns its corresponding value as
+the result of the expression.  All conditional expressions must have a
+final ``otherwise'' value which is returned if all predicates return
+false.
+
+Conditional expressions consist of a pair of matching curly braces
+\keyword{\{} and \keyword{\}}, which enclose a sequence of predicate and value pairs
+of the form \literal{value when predicate}.  The ``otherwise'' value
+is specified of the form \literal{value otherwise}.  All conditions are
+seperated by commas.
+
+An example conditional expression is as follows
+
+\begin{dsl}
+var z = {f(x-1) when x > 0,
+         f(y+1) when x < -10,
+         f(x-y) otherwise}
+\end{dsl}
+
+\subsection {Vector Generators}
+
+Vectors may be generated using a concise notation known as a vector
+generator.  A vector generator consists of a generating expression and
+a sequence of one or more iteration descriptors.  An iteration
+descriptor consists of a collection of elements to iterate over, an
+identifier bound sequentially to each element, and an optional
+condition which filters elements from the collection.
+
+Example vector generators follow
+
+\begin{lstlisting}
+DYN:> "red"(1)
+::> "r"
+DYN:> "red"(3)
+::> "d"
+\end{lstlisting}
+
+\begin{lstlisting}
+DYN:1> [x*x foreach x in 1..10 when x % 2 == 0]
+::> [4, 16, 36, 64, 100]
+DYN:2> [x foreach x in 1..10 when isprime x]
+::> [2, 3, 5, 7]
+DYN:3> [x.tonumber() foreach x in ["1", "2", "3"]]
+::> [1, 2, 3]
+DYN:4> [x + y foreach x in 1..3, foreach y in 2..4]
+::> [3, 4, 5, 4, 5, 6, 5, 6, 7]
+\end{lstlisting}
+
+\subsection {Existential Tests}
+
+Similar to vector generators, collections have a special syntax for
+existential testing.  Two supported tests are \keyword{exists} and
+\keyword{forall}.  Both tests return a boolean value.
+
+The tests consist of an identifier, a collection to iterate over, and
+an expression using the identifier which must resolve to a boolean
+value.  Tests using \keyword{exists} return true when 1 or more
+elements of the collection make the expression true and similarly
+tests using \keyword{forall} return true when every element of the
+collection makes the expression true.
+
+Examples follow
+
+\begin{lstlisting}
+DYN:1> exists x in [1,2,3] suchthat x == 3
+::> true
+DYN:2> forall x in [1,2,3] suchthat x == 3
+::> false
+DYN:3> forall x in [1,2,3] suchthat x < 20
+::> true
+DYN:4> exists x in [1,2,3] suchthat forall y in [2,4,8] suchthat (x * y) % 6 == 0
+::> true
+\end{lstlisting}
+
+\newpage
+\section {Imperative Statements}
+
+Imperative statements are ordered sequences of commands that change the state of the system.  
+In short, they ``do'' things while functional expressions ``compute'' things.  
+While models must ultimately consist of data structures representing purely functional expressions, 
+imperative statements are useful for executing algorithms, building data structures, and creating models.
+
+\subsection{Constant declarations}
+A constant is a named value binding which cannot be altered.
+Constants are stored in an \emph{immutable} storage location and cannot be the subject of assignment.
+A constant binding may be \emph{eclipsed} with a new declaration of the same name.
+Any value may be placed in a constant.
+
+The \keyword{constant} keyword constructs a constant binding.
+
+\begin{dsl}
+constant earth_g = 9.81
+constant name = "Simatra"
+constant base_model = BlackSholesBase.new()
+\end{dsl}
+
+The transcendental mathematical constants \variable{pi} and \variable{e} are predefined.
+
+\subsection{Variable declarations}
+
+A variable is a named mutable storage location which may be updated
+any number of times.  Variables are optionally typed and optionally
+initialized.  If the type is omitted, the default type is \literal{_},
+meaning any type.  If the initial value is omitted, then the default
+value is \literal{undefined}.
+
+The type is used to perform a check on every assignment into the
+storage location.  If a value which does not match the variable's type
+is assigned, an error will be produced.
+
+If a new declaration has the same name as a pre-existing variable, the
+new declaration will not update the old variable.  It will instead
+replace it in the current scope.  For more information, see the
+section on scope.
+
+\subsection{If Statements}
+
+An if statement is the imperative counterpart to a conditional
+expression.
+
+An if statement takes the form \literal{if predicate then statements elseif alternative 
+then statements else statements}.
+
+
+\subsection{Foreach Loops}
+
+A foreach loop takes the form \literal{foreach item in collection do statements end}.
+
+\subsection{While Loops}
+
+A while loop takes the form \literal{while predicate do statements end}.
+
+\newpage
+\section {Functions}
+
+Functions are self-contained pieces of code that can be invoked with parameters to compute a value.
+Functions in \DSL\ are {\it first class} and {\it higher order}.
+
+\subsection{Usage}
+
+Function application in \DSL\ is indicated by juxtaposition.
+Functions which accept multiple parameters require parentheses to delimit the parameter list.
+
+\subsection{Definition}
+
+\DSL\ provides two forms of named function definition. 
+Both begin with the \keyword{function} keyword.
+The {\it declarative} form comprises a single expression.
+The return value is the result of evaluating that expression in context.
+
+\begin{dsl}
+function sushi (x) = "hamachi " * x
+\end{dsl}
+
+The {\it imperative} form may contain many consecutive expressions, delimited by the \keyword{end} keyword.
+This form is useful for defining functions that perform sequential execution or cause some side effect.
+The expressions within an imperative function are evaluated in the order in which they are specified.
+The return value of an imperative function is the result of evaluating its {\it last} expression in context.
+
+\begin{dsl}
+TODO: show example of imperative function
+...
+\end{dsl}
+
+The \keyword{lambdafun} keyword constructs an anonymous declarative function.
+
+\begin{dsl}
+TODO: show example of anonymous function
+...
+\end{dsl}
+
+\subsection{Headers}
+
+A function's header specifies its name, a list of its formal parameters, and the optional type signatures of its parameters and result.
+
+\subsection{Overloading}
+
+Many different function definitions may share the same name.
+
+\subsubsection{Pitfalls}
+
+The typechecker must decide which definition to apply when arguments are given to a function call.
+The typechecker picks the \emph{most recently defined} function that matches the type signature of the given arguments.
+
+A function may accept a tuple as its sole parameter. 
+An overloaded definition for this function may accept a pair of parameters.
+The typechecker resolves this ambiguity by choosing the \emph{most recent} definition.
+% TODO: explain the distinction invoking the function with a single named variable vs. with a literal tuple
+
+To explicitly resolve the ambiguity, use the \keyword{apply} library function.
+
+\begin{dsl}
+var tup = (2, 3)
+
+/* Returns the first element of a pair. */
+function fst (pair: (_, _)) = pair 1
+
+fst tup //::> 2
+fst (2, 3) //::> 2
+
+/* Intentionally broken; returns the second of its two parameters. */
+overload function fst (first, second) = second
+
+fst tup //::> 2
+fst (2, 3) //::> 3
+
+LF apply (fst, (2,3)) //::> 2
+LF apply (fst, 2, 3) //::> 3
+\end{dsl}
+
+
+\subsection{Multifunctions}
+
+\newpage
+\section{Namespaces}
+\newpage
+\section {Objects}
+\subsection{Class Definition}
+\subsection{Members}
+\subsection{Dynamic Extension}
+\subsection{Hidden}
+\subsection{Constructors}
+\subsection{Inheritance}
+\subsection{Table Application}
+\subsection{Properties}
+\newpage
+\section{Scope}
+\newpage
+\section {Models}
+\subsection{Overview}
+A model is a description of a system of equations for running
+simulations.  At the most basic level, a model is a collection of
+simulation quantities.  Some quantities represent parameters of the
+system, some represent states with associated quantities.  Some of
+these quantities are externally tunable (changable).  Some require
+initial values while others do not.  
+
+Equations describe how computation is performed while a system is
+running.  Three types of equations are supported: Differential
+(presently only first order), difference, and algebraic equations.
+
+The simplest model definition is 
+
+\begin{dsl}
+model Simple
+end
+\end{dsl}
+
+This defines a model which contains three quantities: {\bf t}, {\bf
+dt}, and {\bf keep\_running}.  
+
+{\bf dt} is a non-tunable parameter which specifies the timestep to be
+taken in an integration method.  It is used for any fixed step size
+integration method.  It can be made tunable, in which case precision
+must also be specified.
+
+{\bf t} is a state representing the current simulation time.  It is
+initialized to $0$ and has the equation $t = t + dt$.  By default,
+it has $\inf$ precision.
+
+{\bf keep\_running} is a state that gives a model to end a simulation
+(as opposed to being ended by a protocol).  It has an initial value of
+$1$ and a default equation of $keep\_running = 1$.  This can be
+replaced.  Its default precision is {\bf $0$ to $1$ by $1$}.
+
+\subsection{Quantities}
+\subsubsection{Definition}
+A quantity is a named ``thing'' in a model.  How the quantity is used
+by the model depends on various attributes of it.  These attributes are:
+
+\begin{center}
+\begin{tabular}{|l|l|p{3.5in}|}
+\hline
+Attribute & Type & Description\\
+\hline
+Initial Value & Number & The value of the quantity when the simulation is reset. \\
+\hline
+Precision & Precision & This value represents the precision to be used when storing the quantity while running a simulation.  No specification means $\inf$ precision (double precision floating point is as close as we get).  If a fixed point engine is to be used, a range precision (low, high, and granularity) must be specified.\\
+\hline
+Tunable & Flag & Controls whether a quantity can have its initial value changed when it is loaded on a simulation engine.\\
+\hline
+ Visible & Flag & Controls whether a quantity is externally accessible (values are streamed from the simulation engine and logged).\\
+\hline
+\end{tabular}
+\end{center}
+
+A quantity is declared in a model as follows:
+
+\begin{dsl}
+model Simple
+  quantity q
+  quantity x = 1 // declare an initial value
+  quantity y (0 to 1 by 0.1) // declare a range precision
+  quantity z (- 100 to 100 by 2) = 2 // declare both
+  visible tunable quantity p = 0 // setting flag attributes and an initial value
+end
+\end{dsl}
+
+\subsubsection{Precision}
+
+By default, all simulation quantities have $\inf$ precision.  This
+means that they will be represented by double precision floating
+point.  However, some simulation engines do not support floating point
+representations and need more information specified in order to
+generate fixed-point storage and operations.
+
+Fixed-point representation means that every operation and storage
+location will have a fixed number of bits with a fixed decimal point
+(and sign bit if needed).  Luckily, Dynamo does not require users to
+specify such values on every operation and storage location; doing so
+would make the system extremely cumbersome to use.  Instead, parameter
+and state quantities must have range information specified.  
+
+A range is the triple low (minimal value), high (maximal value), and
+granularity (the smallest differential between two values).  From this
+range, we can generate bit information and propogate it through all
+operations in a simulation.
+
+%TODO: discuss constant accuracy, look up table accuracy, etc.
+
+
+\subsubsection{Parameters}
+A parameter is a quantity that will not be used with an equation.  It
+may be tunable, and is by default.  That is, the following two
+quantities in the sample model are equivalent
+
+\begin{dsl}
+model Example
+  tunable quantity q1 = 1
+  parameter q2 = 1
+end
+\end{dsl}
+
+If a parameter is set to be {\it not} tunable, it will act like a
+constant definition.
+
+\subsubsection{States}
+
+A state is a quantity which must have a differential or difference
+equation assigned to it.  It is declared as follows:
+
+\begin{dsl}
+model StateExample
+  state x = 3
+  state y
+  y.setInitialValue(2)
+  state z (0 to 1 by 0.1) = 0
+end
+\end{dsl}
+
+States {\it must} have equations and initial values associated with
+them.  States may be set tunable, which will allow their initial value
+to be changed.  They may be set visible to log their values during
+simulation.
+
+\subsection{Submodels}
+
+Since any statement may appear inside of a model definition, it
+follows that model definitions may also be present.  Models are
+defined the same inside another model as outside.
+
+\begin{dsl}
+model OuterModel
+  model InnerModel
+    //...
+  end
+  //...
+end
+\end{dsl}
+
+Any model defined inside another will appear as a member of any
+instantiations of that model.  
+
+Model instantiation may also occur inside of a model definition.  It
+may appear as before 
+
+\begin{dsl}
+model name = ModelClass.new()
+\end{dsl}
+
+or using a new keyword \keyword{submodel}.
+
+\begin{dsl}
+submodel name = ModelClass.new()
+\end{dsl}
+
+There is no implementation difference; the new keyword exists for
+better readability.
+
+Submodel quantities may be referenced in the same manner inside and
+outside of model definitions.  They use the same syntax as object
+members: the dot operator.
+
+Example:
+
+\begin{dsl}
+model Test
+  model InnerTest
+    state x = 1
+  end
+  
+  model a = InnerTest.new()
+
+  equation a.x' = 3
+end
+
+model z = Test.new()
+
+println (z.t.x.getName())
+\end{dsl}
+
+\subsection{Equations}
+
+Equations are defined either individually or in equation blocks.
+Regardless of type, they all require a state on the left hand side of
+the equals sign and an expression on the right.  
+
+Examples follow:
+
+\begin{dsl}
+model Test
+  model Test2
+    state x = 1
+  end
+
+  submodel t = Test2.new()
+
+  state y = 3
+  state z = 0
+
+  equation y' = 1
+
+  equations
+    t.x' = y + z
+    z' = y - t.x
+  end
+end
+\end{dsl}
+
+
+\subsubsection{Differential Equations}
+
+Differential equations are specified by placing a tick (') after the
+assigned state in an equation.  At the moment, only first order
+differential equations are supported.
+
+Example:
+
+\begin{dsl}
+model Ramp
+  state x = 0
+  equation x' = 1
+end
+\end{dsl}
+  
+
+\subsubsection{Difference Equations}
+
+A difference equation is specified with a subscript operator (\_[]).  Presently, subscripting does not work on the right hand side of an equation, so difference equations are unusable.
+
+The argument to the subscript operator is the number of iterations back to reference.  The current is 0, the previous is -1, etc.
+
+The syntax will be:
+
+\begin{dsl}
+model Ramp
+  state x = 0
+  equation x_[0] = x_[-1] + 1
+\end{dsl}
+
+
+\subsubsection{Algebraic Equations}
+
+Algebraic equations are a special form of equation.  They are the only
+form of equation in which the quantity on the left hand side does not
+have to have been declared already.  If it does not exist, an
+``intermediate'' quantity will be created in the model (or submodel if
+referenced as such).  If a quantity by that name already exists, it
+must be an intermediate quantity (have been created by another
+algebraic equation).  If so, its equation will be replaced by the
+newer definition.
+
+Examples follow:
+
+\begin{dsl}
+model Interms
+  model Test
+  end
+  
+  submodel t = Test.new()
+
+  equations
+    x = 3 //creates x
+    t.z = 2 //creates z inside t
+  end
+end
+\end{dsl}
+
+Algebraic equations have a special behavior: they are macro expanded wherever they occur in other equations at compile time.  That is, the following two equations are equivalent:
+
+\begin{dsl}
+equation x' = 3 + z
+
+equation i = z
+equation x' = 3 + i
+\end{dsl}
+
+Algebraic equations may also be used to couple models together.
+
+\begin{dsl}
+model Component
+  equation x = 0
+end
+
+model c1 = Component.new()
+model c2 = Component.new()
+
+equation c1.x = c2.x + 1
+equation c2.x = c1.x - 1
+\end{dsl}
+
+\subsection{Instantiation and Compilation}
+
+Models are instantiated by calling their constructor, much like a class.
+
+Example:
+
+\begin{dsl}
+  model t = MyModel.new()
+\end{dsl}
+
+Models may be compiled through the backend by running the ``compile''
+command with an instantiated model as the argument.  For now, idynamo
+should be used instead.
+
+\newpage
+\section{Simulation Engines}
+
+\newpage
+\section{iDynamo}
+\subsection{Defining a Model}
+
+Write your model definition into a \DSL\ file (with the extension
+``.dsl'').  Add the following statements into the model definition,
+before the final end:
+
+\begin{verbatim}
+  t.setPrecision (Range.new(0, 1000, 0.0005))
+
+  settings.integrationMethod.dt = dt
+  dt.setInitialValue(0.001)
+  dt.setPrecision(Range.new(0,1,0.0005))
+\end{verbatim}
+
+Replace the precision/initial value on dt and t with whatever is appropriate for your model.
+
+Don't forget to set some quantities visible, or they will be
+unavailable to be logged.  States with equations which have no impact
+on any visible state's values will be pruned.
+
+\subsection{Compiling Models}
+
+Compilation is done with the compile command.  This command returns an
+object which will be used to reference the model's simulation engine.
+
+An example usage of this command is:
+
+\begin{verbatim}
+  $s = compile(myfile.dsl)
+\end{verbatim}
+%$
+
+\subsection{Changing Attributes}
+
+Quantities to be logged are controlled by calling {\it enable\_output}
+in the engine reference.  In the argument, wildcard masks may be used.
+
+Example:
+
+\begin{verbatim}
+  $s.enable_output(t.V)
+  $s.enable_output(x.*.current)
+\end{verbatim}
+
+
+
+\subsection{Running Simulations}
+
+Simulations are executed by calling {\it runfor} in the engine
+reference.  It takes as an argument the number of simulation time
+units to execute for.  
+
+Example:
+
+\begin{verbatim}
+  $s.runfor(100)
+\end{verbatim}
+
+\subsection{Processing Data}
+
+Data may be plotted by calling {\it plot} with the engine reference as
+an argument. 
+
+Example:
+
+\begin{verbatim}
+  plot($s)
+\end{verbatim}
+
+%talk about how to export data
+
+
+\end{document} 
