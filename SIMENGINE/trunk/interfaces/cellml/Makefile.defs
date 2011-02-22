@@ -1,0 +1,11 @@
+# Define local variables.
+
+CLASSES_$(D)	:= $(wildcard $(D)/*.m)
+INSTALLS	:= $(INSTALLS) $(D)/installs
+
+# Import subsystem rules.
+
+# Define local rules.
+
+$(D)/installs: $(CLASSES_$(D))
+	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)

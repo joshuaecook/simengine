@@ -1,0 +1,8 @@
+# Define local variables.
+
+# Import subsystem rules.
+
+SUBSYSTEMS := $(addprefix $(D)/,matlab neuron cellml)
+$(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
+
+# Define local rules.
