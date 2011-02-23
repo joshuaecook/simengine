@@ -13,3 +13,6 @@ simEngine offers multiple ways to develop your models. You can easily design you
 
 == Better ==
 With incomparable flexibility and ease of use, simEngine allows you to develop large, complex systems that are difficult or downright impossible to model with MATLAB or Simulink. Don't spend months producing custom simulation code in C!
+
+== Open ==
+simEngine is available for free to anyone. simEngine was originally developed by Simatra Modelling Technologies and funded by a grant from NIH. The fully-featured MATLAB toolbox for parallel dynamical systems simulations is now available under an Open Source license.
