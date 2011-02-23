@@ -1,0 +1,5 @@
+#summary Faster ODEs for multi-core and CUDA GPUs with simEngine
+
+= Faster ODEs for multi-core and CUDA GPUs =
+
+simEngine is the faster and easier way to solve nonlinear dynamical systems with MATLAB. simEngine Standard combines intuitive expression of differential equation-based systems with highly optimized compiled code to produce simulation executables that perform up to 10× faster than MATLAB’s standard ODE solvers. simEngine Professional adds even more performance and capabilities, automatically creating parallel simulations for multi-core and GPU hardware. With simEngine you'll be able to do more with your models in less time than ever before.
