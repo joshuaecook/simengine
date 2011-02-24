@@ -161,8 +161,12 @@ OPENMP_CFLAGS = -fopenmp
 
 # The CUDA compiler
 NVCC := $(shell which nvcc 2>/dev/null)
-ifneq ($(NVCC),)
+ifeq ($(NVCC),)
+# If it's not on the path, assume the version is in /usr/local/cuda
+CUDA_INSTALL_PATH = /usr/local/cuda
+else
 CUDA_INSTALL_PATH := $(shell dirname $$(dirname $(realpath $(NVCC))))
+endif
 NVCC = $(CUDA_INSTALL_PATH)/bin/nvcc
 CUDA_RELEASE_VERSION := $(shell $(NVCC) --version | grep release | sed 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/')
 CUDA_INCLUDES = -I$(CUDA_INSTALL_PATH)/include
@@ -171,7 +175,6 @@ ifneq ($(ARCH64),)
 CUDA_LDFLAGS := -L$(CUDA_INSTALL_PATH)/lib64 $(CUDA_LDFLAGS)
 endif
 CUDA_LDLIBS = -lcudart
-endif
 ifneq ($(DARWIN),)
 CUDART_LIBRARY_NAME = libcudart.dylib
 else
