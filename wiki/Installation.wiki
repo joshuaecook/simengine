@@ -1,0 +1,11 @@
+#summary One simEngine Installation Guide
+
+= Prerequisites =
+
+== Mac OS X ==
+
+simEngine is known to work on Mac OS X 10.5 (Leopard) and 10.6 (Snow Leopard)
+
+== Linux ==
+
+simEngine is known to work on Redhat, CentOS, Ubuntu, and SuSE.
