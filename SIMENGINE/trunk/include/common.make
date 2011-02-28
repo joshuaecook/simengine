@@ -61,7 +61,8 @@ endif
 
 TARGET_ARCH = $(if $(ARCH64),-m64,-m32)
 ifneq ($(DARWIN),)
-TARGET_ARCH = -arch i386 -arch x86_64
+#TARGET_ARCH = -arch i386 -arch x86_64
+TARGET_ARCH = -arch x86_64
 endif
 
 ## Compilers and commands
