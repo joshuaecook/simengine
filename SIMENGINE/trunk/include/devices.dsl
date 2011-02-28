@@ -8,7 +8,7 @@ namespace Devices
 	hidden function device_props ()
 	/* FIXME recognize and report errors */
 	    var lines = LF cudaDeviceProps ()
-	    //cudaErr = LF cudaDevicePropsError ()
+	    cudaErr = LF cudaDevicePropsError ()
 
             var propkeys = ["deviceId",
 			    "name",

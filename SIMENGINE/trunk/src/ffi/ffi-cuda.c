@@ -19,6 +19,9 @@ enum status {
   DeviceProps_NoCudaRuntime
 };
 
+char *devicePropsError();
+int getDeviceProps(int *ndevices, char **props);
+
 void cuda_devicePropsError (void)
     {
     char *message = devicePropsError();
