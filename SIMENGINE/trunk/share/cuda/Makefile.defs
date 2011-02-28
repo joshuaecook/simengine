@@ -9,7 +9,7 @@ CLEAN		:= $(CLEAN) $(TARGETS_$(D))
 $(D)/%: LDFLAGS = -ldl
 
 ifneq ($(DARWIN),)
-$(D)/%: TARGET_ARCH = -arch i386
+#$(D)/%: TARGET_ARCH = -arch i386
 $(D)/%: CUDART_LIBRARY_NAME = libcudart.dylib
 else
 $(D)/%: CUDART_LIBRARY_NAME = libcudart.so

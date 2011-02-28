@@ -7,7 +7,7 @@ endif
 LDFLAGS = -ldl
 
 ifneq ($(DARWIN),)
-TARGET_ARCH = -arch i386
+#TARGET_ARCH = -arch i386
 CUDART_LIBRARY_NAME = libcudart.dylib
 else
 CUDART_LIBRARY_NAME = libcudart.so
