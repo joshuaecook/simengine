@@ -5,15 +5,15 @@ $(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
 
 # Define local variables.
 
-CLASSES_$(D)	:= $(addprefix $(D)/,$(addsuffix .m,simEngineUpdate simCheckLicense simexamplepath simplot simCheckVersion))
+CLASSES_$(D)	:= $(addprefix $(D)/,$(addsuffix .m,simexamplepath simplot simex parse_json))
 ADD_CLASSES_$(D):= $(addprefix $(D)/,$(addsuffix .m,piecewise))
-HELP_$(D)	:= $(addprefix $(D)/,$(addsuffix _info.m,simEngineUpdate simCheckLicense simexamplepath simplot simCheckVersion simex))
-PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D)))) $(D)/simex.p $(D)/parse_json.p
+#HELP_$(D)	:= $(addprefix $(D)/,$(addsuffix _info.m,simEngineUpdate simCheckLicense simexamplepath simplot simCheckVersion simex))
+#PCODE_$(D)	:= $(addsuffix .p,$(basename $(CLASSES_$(D)))) $(D)/simex.p $(D)/parse_json.p
 
-TARGETS_$(D)	:= $(PCODE_$(D)) $(addprefix $(D)/,Contents.m $(addprefix src/readSimulationData,$(MEXEXT)))
+TARGETS_$(D)	:= $(CLASSES_$(D)) $(addprefix $(D)/,Contents.m $(addprefix src/readSimulationData,$(MEXEXT)))
 TARGETS		:= $(TARGETS) $(TARGETS_$(D))
 INSTALLS	:= $(INSTALLS) $(D)/installs
-CLEAN		:= $(CLEAN) $(TARGETS_$(D)) $(addprefix $(D)/src/readSimulationData,$(ALL_MEXEXT))
+CLEAN		:= $(CLEAN) $(addprefix $(D)/src/readSimulationData,$(ALL_MEXEXT))
 CLEAN_ALL	:= $(CLEAN_ALL) $(D)/simex.m
 
 define CONTENTS_M
@@ -51,10 +51,10 @@ $(D)/Contents.m: $(D)/Makefile.defs
 	$(info Generating $@)
 	@echo "$(CONTENTS_M)" > $@
 
-$(D)/installs: CLASSES := $(PCODE_$(D)) $(ADD_CLASSES_$(D)) 
-$(D)/installs: HELP := $(HELP_$(D)) $(addprefix $(D)/,Contents.m)
+$(D)/installs: CLASSES := $(CLASSES_$(D)) $(ADD_CLASSES_$(D)) 
+#$(D)/installs: HELP := $(HELP_$(D)) $(addprefix $(D)/,Contents.m)
 $(D)/installs: MEXES := $(addprefix $(D)/src/readSimulationData,$(MEXEXT))
 $(D)/installs: DIR := $(D)
 $(D)/installs: $(TARGETS_$(D)) $(ADD_CLASSES_$(D)) $(HELP_$(D))
 	$(INSTALL) -C $(CLASSES) $(MEXES) -d $(INSTALL_PREFIX)
-	$(INSTALL) $(foreach help,$(HELP),-C $(help) -T $(subst _info,,$(subst $(DIR),$(INSTALL_PREFIX),$(help))))
+#	$(INSTALL) $(foreach help,$(HELP),-C $(help) -T $(subst _info,,$(subst $(DIR),$(INSTALL_PREFIX),$(help))))
