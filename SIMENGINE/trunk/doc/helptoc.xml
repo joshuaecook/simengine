@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding="utf-8"?>
+
+<toc version="2.0">
+        <tocitem target="simEngine_product_page.html">
+            simEngine by Simatra
+	<tocitem target="simEngine_product_page.html" image="HelpIcon.GETTING_STARTED"> Getting Started
+	  <tocitem target="simEngine_matlab_tutorial.html" image="HelpIcon.GETTING_STARTED"> simEngine Tutorial </tocitem>
+	  <tocitem target="simEngine_matlab_iterator_tutorial.html" image="HelpIcon.GETTING_STARTED"> simEngine Iterator Tutorial </tocitem>
+	</tocitem>
+	<tocitem target="simEngine_product_page.html" image="HelpIcon.FUNCTION"> Function Reference
+	  <tocitem target="simEngine_Model_help.html" image="HelpIcon.FUNCTION"> Model class </tocitem>
+	  <tocitem target="simEngine_Exp_help.html" image="HelpIcon.FUNCTION"> Supported operations </tocitem>
+	  <tocitem target="simEngine_Iterator_help.html" image="HelpIcon.FUNCTION"> Iterator class </tocitem>
+	  <tocitem target="simEngine_Neuron_help.html" image="HelpIcon.FUNCTION"> Neuron class 
+	    <tocitem target="simEngine_Section_help.html" image="HelpIcon.FUNCTION"> Neuron Section </tocitem>
+	    <tocitem target="simEngine_IClamp_help.html" image="HelpIcon.FUNCTION"> Neuron IClamp </tocitem>
+	    <tocitem target="simEngine_NMODL_help.html" image="HelpIcon.FUNCTION"> Neuron NMODL </tocitem>
+	  </tocitem>
+	  <tocitem target="simEngine_CellMLModel_help.html" image="HelpIcon.FUNCTION"> CellML Converter </tocitem>
+	</tocitem>
+        <tocitem target="simEngine_demo_page.html" image="HelpIcon.DEMOS"> Demos and Examples </tocitem>
+        <!-- Optional link or links to your or other Web sites -->
+        <tocitem target="http://www.simatratechnologies.com/simEngine.html"
+                 image="$toolbox/matlab/icons/webicon.gif">
+            simEngine Web Site
+        </tocitem>
+    </tocitem>
+</toc>
