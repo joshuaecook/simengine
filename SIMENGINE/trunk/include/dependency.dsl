@@ -224,7 +224,7 @@ end
     end
 
     //nvcc = "release ([0-9]+.[0-9]+)" with --version
-    var nvcc_path = checkCmdExists ("nvcc", ["/usr/local/cuda/lib", "/opt/cuda/lib"])
+    var nvcc_path = checkCmdExists ("nvcc", ["/usr/local/cuda/bin", "/opt/cuda/bin"])
     var nvcc_version = parseCmdForVersion ("release ([0-9]+.[0-9]+)", nvcc_path, ["--version"])
 
     //file = "file-([0-9]+.[0-9]+)" with --version
