@@ -1,0 +1,9 @@
+SUBSYSTEMS := $(D)/simEngine $(D)/simEngine/demos
+$(eval $(call IMPORT_SUBSYSTEMS,$(SUBSYSTEMS)))
+
+
+HTML_INSTALLS := $(HTML_INSTALLS) $(D)/html-installs
+
+$(D)/html-installs: INFO := $(D)/info.xml $(D)/helptoc.xml
+$(D)/html-installs: $(HTML_DOCUMENTS_$(D)) 
+	$(INSTALL) -C $(INFO) -d $(INSTALL_PREFIX)/html

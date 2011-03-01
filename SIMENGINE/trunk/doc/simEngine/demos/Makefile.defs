@@ -1,0 +1,16 @@
+PUBLISH_DOCS_$(D) := $(patsubst %.m,%,$(notdir $(wildcard $(D)/*.m)))
+PUBLISH_OPTS_$(D) := opts.createThumbnail = false; opts.outputDir = '$(abspath $(D))'
+
+HTML_DOCUMENTS_$(D) := $(addprefix $(D)/html/,$(addsuffix .html,$(PUBLISH_DOCS_$(D))))
+
+HTML_DOCUMENTS := $(HTML_DOCUMENTS) $(HTML_DOCUMENTS_$(D))
+HTML_INSTALLS := $(HTML_INSTALLS) $(D)/html-installs
+CLEAN := $(CLEAN) $(HTML_DOCUMENTS_$(D)) $(D)/html/*.png
+CLEAN_ALL := $(CLEAN_ALL) $(D)/*.sim
+
+$(D)/html/%.html: $(D)/%.m
+	$(MATLAB) -nosplash -nodesktop -r "addpath('$(abspath $(INSTALL_PREFIX))'); cd('$(dir $<)'); opts.format='html'; global SIMEX_NO_TEXT_STATUS_BAR; SIMEX_NO_TEXT_STATUS_BAR = true; $(PUBLISH_OPTS) publish('$(notdir $<)',opts); quit"
+
+$(D)/html-installs: PNGS := $(D)/html/*.png
+$(D)/html-installs: $(HTML_DOCUMENTS_$(D)) 
+	$(INSTALL) -C $^ $(PNGS) -d $(INSTALL_PREFIX)/html/demos

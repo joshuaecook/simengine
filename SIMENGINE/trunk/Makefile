@@ -19,6 +19,7 @@ clean		Removes compiled objects.
 clean-all	Removes all generated resources.
 
 show-targets	Lists all defined targets.
+show-html	Lists all HTML documentation.
 
 Variables
 ==============================================================================
@@ -147,12 +148,12 @@ installer: FILENAME := simEngine_$(PLATFORM)_$(ARCH)-$(VERSION_NUMBER)$(if $(SVN
 installer: install $(if $(install-html),html,)
 	tar chzf $(FILENAME) $(INSTALL_PREFIX)
 
+.PHONY: show-html
+show-html:
+	@(export TARGETS="$(HTML_DOCUMENTS)"; echo $$TARGETS | perl -pe 's/ /\n/g')
+
 .PHONY: html
-html: install
-	$(MAKE) -C external-publications SIMENGINE="$(realpath $(INSTALL_PREFIX))" DOCUMENTATION_OUTPUT_DIR="$(realpath $(INSTALL_PREFIX))/html" html
-	$(INSTALL) -C external-publications/helptoc.xml -d $(realpath $(INSTALL_PREFIX))/html
-	$(INSTALL) -C external-publications/info.xml -d $(realpath $(INSTALL_PREFIX))
-	$(MATLAB) -nosplash -nodesktop -r "builddocsearchdb('$(realpath $(INSTALL_PREFIX))/html'); quit"
+html: $(HTML_DOCUMENTS) $(HTML_INSTALLS)
 
 .PHONY: test
 test: TEST_SUITE := $(if $(TEST_RELEASE),-release,-internal)
