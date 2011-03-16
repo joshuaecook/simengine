@@ -195,11 +195,9 @@ import "command_line.dsl"
       precision = settings.simulation.precision.getValue()
       emulate = settings.simulation_debug.emulate.getValue()
 
-      var cc = shell("which", ["nvcc"])
-      if cc.isempty() then 
-	nostack_error "Could not find nvcc. Please ensure that it exists in your path."
-      end
-      nvcc = FileSystem.realpath (cc[1].rstrip("\n"))
+      var deps = Dependency.getDependencies()
+
+      nvcc = deps.nvcc.fullpath
       cudaInstallPath = Path.dir (Path.dir (nvcc))
       if Devices.CUDA.numDevices == 0 then
         nostack_error("Cannot target the GPU : " + Devices.CUDA.cudaErr)
