@@ -6,7 +6,7 @@
 % Adapted for use with simEngine
 % Copyright 2009-2010 Simatra Modeling Technologies, L.L.C.
 %
-function brk_iv()
+function brk_if()
 
 % create the model
 m = create_brk();
