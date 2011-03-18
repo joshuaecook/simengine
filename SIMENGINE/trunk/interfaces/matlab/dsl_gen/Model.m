@@ -90,11 +90,11 @@ classdef Model < handle
             switch nargin
                 case 0
                     Name = [];
-                    m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', 'ode45', 'dt', 0.01);
+                    m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', 'ode45');
                 case 1
                     if ischar(varargin{1})
                         Name = varargin{1};
-                        m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', 'ode45', 'dt', 0.01);
+                        m.DefaultIterator = Iterator('ModelTime', 'continuous', 'solver', 'ode45');
                     elseif isa(varargin{1}, 'Iterator')
                         Name = [];
                         m.DefaultIterator = varargin{1};

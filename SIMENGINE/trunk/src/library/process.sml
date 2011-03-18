@@ -41,22 +41,24 @@ fun error msg =
 
 fun std_popen exec args =
     case args of
-	[a as KEC.LITERAL (KEC.CONSTSTR str), b as KEC.VECTOR vec] => 
+	[a as KEC.LITERAL (KEC.CONSTSTR str), b as KEC.VECTOR vec, e as KEC.VECTOR env_vec] => 
 	let
 	     fun kecstr2str (KEC.LITERAL(KEC.CONSTSTR s)) = s
 	       | kecstr2str exp = 
 		 PrettyPrint.kecexp2prettystr exec exp
 
 	     val args = map kecstr2str (KEC.kecvector2list vec)
+	     val envs = map kecstr2str (KEC.kecvector2list env_vec)
 
 	     val file = 
 		 case FilePath.find str (!Globals.path)
 		  of SOME f => f
 		   | NONE => raise ValueError ("Cannot find executable " ^ str)
 
+
 	     val proc = 
 		 Proc.create {args = args,
-			      env = SOME (Posix.ProcEnv.environ()),
+			      env = SOME (envs @ (Posix.ProcEnv.environ())),
 			      path = file,
 			      stderr = Param.pipe,
 			      stdin = Param.pipe,
