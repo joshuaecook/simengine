@@ -94,7 +94,7 @@ int getDeviceProps (int *deviceCount, char **deviceProps) {
   if (cudaSuccess != cudaGetDeviceCount(&ndevices)) {
     snprintf(error_message, BUFFER_LENGTH,
 	     "Error obtaining device count.\n"
-	     "\tThe CUDA library found is incompatible with simEngine.");
+	     "\tIs there a CUDA capable GPU available on this computer?");
     error_message[BUFFER_LENGTH - 1] = '\0';
     return DeviceProps_UnknownError;
   }

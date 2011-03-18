@@ -400,6 +400,7 @@ import "command_line.dsl"
     var simexCommands = []
     var gdb = objectContains(settings.simulation_debug, "gdb") and settings.simulation_debug.gdb.getValue()
     var p
+    var deps = Dependency.getDependencies()
 
     foreach setting in simulationSettings.keys do
       // C command-line options use "--" instead of "-" (artifact of getopt library)
@@ -421,10 +422,12 @@ import "command_line.dsl"
       // emacsclient returns immediately when called with '--eval'
       Process.run("emacsclient", emacsArgs)
     else
-      if debug then
-	println("Run: " + simulation + " " + (join(" ", simexCommands)))
-      end
-      p = Process.run(simulation, simexCommands)
+	var lib_path = Path.dir(deps.libcudart.fullpath)
+	var simenv = "LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:" + lib_path
+	if debug then
+	    println("Run: " + simulation + " " + (join(" ", simexCommands)))
+	end
+	p = Process.run("env", [simenv, simulation] + simexCommands)
     end
     var allout = Process.readAll(p)
     var stat = Process.reap(p)

@@ -542,6 +542,21 @@ namespace Process
   /* Reads the entire stdout and stderr buffers and returns two 
    * vectors of lines of text. */
   function readAll (process) = LF preadAll (process)
+
+  /* Print all that was generated from the process */
+  function printAll (process)
+    var all = Process.readAll(process)
+    foreach line in all(1) do
+      print line
+    end
+    if all(2).length() > 0 then
+	println "===========  ERROR OUTPUT ============"
+        foreach line in all(1) do
+          print line
+        end 
+	println "======================================"
+    end
+  end
     
   /* Reads the entire stdout buffer and returns a vector of lines of text,
    * discarding any text on stderr. */
@@ -559,8 +574,9 @@ namespace Process
 
   function write (process, text) = LF pwrite (process, text)
 
-  function run (name: String, args: Vector) = LF popen (name, args)
-  overload function run (name: String) = LF popen (name, [])
+  function run (name: String, args: Vector, env: Vector) = LF popen (name, args, env)
+  overload function run (name: String, args: Vector) = LF popen (name, args, [])
+  overload function run (name: String) = LF popen (name, [], [])
 
   // Always returns () regardless of process exit status,
   // due to a bug in MLton's subprocess libraries.
