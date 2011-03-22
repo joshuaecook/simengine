@@ -61,8 +61,17 @@ endif
 
 TARGET_ARCH = $(if $(ARCH64),-m64,-m32)
 ifneq ($(DARWIN),)
+#ARCH = x86_64
 TARGET_ARCH = -arch i386 -arch x86_64
 endif
+
+## Installer options
+# TODO move this to common.make
+INSTALL := ./bin/install
+VERSION_NUMBER := $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
+VERSION_BUILD := $(if $(SVN_IS_BRANCH),BRANCH_$(subst /,_,$(SVN_BRANCH))_$(SVN_REVISION),$(if $(SVN_IS_TRUNK),BUILD_$(SVN_REVISION),))
+INSTALL_FILENAME := installer/simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER)$(if $(SVN_IS_TAG),,_$(VERSION_BUILD)).tgz
+INSTALL_PREFIX ?= local-install
 
 ## Compilers and commands
 # The SML compiler
@@ -279,10 +288,10 @@ CONFIGURE = ./configure
 ifeq ($(VERBOSE),)
 CONFIGURE_FLAGS += --quiet
 endif
-INSTALL = install
-INSTALL_PROG = $(INSTALL)
-INSTALL_HEADER = $(INSTALL) -m 644
-INSTALL_DOC = $(INSTALL) -m 644
+INSTALL_ = install
+INSTALL_PROG = $(INSTALL_)
+INSTALL_HEADER = $(INSTALL_) -m 644
+INSTALL_DOC = $(INSTALL_) -m 644
 
 # Substitute $(CURDIR) with $(SAFE_CURDIR) to escape any spaces in the components 
 # of the working path for variable which appear in dependency lists. Substitute with
