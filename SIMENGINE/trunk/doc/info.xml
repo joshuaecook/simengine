@@ -49,5 +49,15 @@
       <callback>web('http://www.simatratechnologies.com/simEngine.html','-browser');</callback>
       <icon>$docroot/techdoc/matlab_env/examples/webicon.gif</icon>
     </listitem>
+    <listitem>
+      <label>simEngine Open Source</label>
+      <callback>web('http://simengine.googlecode.com','-browser');</callback>
+      <icon>$docroot/techdoc/matlab_env/examples/webicon.gif</icon>
+    </listitem>
+    <listitem>
+      <label>simEngine Forum</label>
+      <callback>web('http://groups.google.com/group/simengine','-browser');</callback>
+      <icon>$docroot/techdoc/matlab_env/examples/webicon.gif</icon>
+    </listitem>
   </list>
 </productinfo>

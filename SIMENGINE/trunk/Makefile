@@ -70,8 +70,8 @@ help:
 
 # Define top-level variables.
 MAJOR_VERSION := 1
-MINOR_VERSION := 2
-VERSION_REVISION := b
+MINOR_VERSION := 3
+VERSION_REVISION :=
 include include/common.make
 
 define BUILD_OPTIONS_JSON
@@ -137,11 +137,11 @@ install: $(TARGETS) $(INSTALLS)
 installer: INSTALL_PREFIX := Simatra
 installer: install html $(INSTALL_FILENAME) $(INSTALL_PCODE) # always produce documentation with the installer
 
-installer/simEngine_%.tgz:
+installer/simEngine_%.tgz: $(INSTALLS)
 	$(info Creating installer tgz file as $@)
 	tar chzf $@ $(INSTALL_PREFIX)
 
-$(INSTALL_PCODE):
+$(INSTALL_PCODE): $(INSTALL_FILENAME)
 	$(MATLAB) -nosplash -nodesktop -r "cd installer/src; try; create_installer('../../$(INSTALL_FILENAME)'); catch me; warning(getReport(me)); end; quit"
 
 .PHONY: show-html
