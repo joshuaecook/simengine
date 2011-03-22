@@ -24,5 +24,13 @@
                  image="$toolbox/matlab/icons/webicon.gif">
             simEngine Web Site
         </tocitem>
+        <tocitem target="http://simengine.googlecode.com"
+                 image="$toolbox/matlab/icons/webicon.gif">
+	    Open-source simEngine
+        </tocitem>
+        <tocitem target="http://groups.google.com/group/simengine"
+                 image="$toolbox/matlab/icons/webicon.gif">
+            simEngine User Forum
+        </tocitem>
     </tocitem>
 </toc>

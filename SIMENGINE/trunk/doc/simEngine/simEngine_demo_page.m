@@ -37,6 +37,10 @@
 % <matlab:run(sprintf('%s/HH/hh_compartment.m',simexamplepath)) Run> | 
 % <matlab:edit(sprintf('%s/HH/hh_compartment.m',simexamplepath)) Edit>
 %
+% * *Booth, Rinzel, & Kiehn Motoneuron Model (GPU)* - 
+% <matlab:run(sprintf('%s/BRK/brk_if.m',simexamplepath)) Run> | 
+% <matlab:edit(sprintf('%s/BRK/brk_if.m',simexamplepath)) Edit>
+%
 % * *McIntyre, Richardson, & Grill Axon Model* - 
 % <matlab:run(sprintf('%s/MRG/mrg.m',simexamplepath)) Run> | 
 % <matlab:edit(sprintf('%s/MRG/mrg.m',simexamplepath)) Edit>
