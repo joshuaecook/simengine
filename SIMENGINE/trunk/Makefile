@@ -69,19 +69,10 @@ help:
 	$(info $(HELP_TEXT))
 
 # Define top-level variables.
-
-include include/common.make
-
-# TODO move this to common.make
-INSTALL := ./bin/install
-
 MAJOR_VERSION := 1
 MINOR_VERSION := 2
 VERSION_REVISION := b
-VERSION_NUMBER := $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
-VERSION_BUILD := $(if $(SVN_IS_BRANCH),BRANCH_$(subst /,_,$(SVN_BRANCH))_$(SVN_REVISION),$(if $(SVN_IS_TRUNK),BUILD_$(SVN_REVISION),))
-
-INSTALL_PREFIX ?= local-install
+include include/common.make
 
 define BUILD_OPTIONS_JSON
 {\
@@ -144,9 +135,11 @@ install: $(TARGETS) $(INSTALLS)
 
 .PHONY: installer
 installer: INSTALL_PREFIX := Simatra
-installer: FILENAME := simEngine_$(PLATFORM)_$(ARCH)-$(VERSION_NUMBER)$(if $(SVN_IS_TAG),,_$(VERSION_BUILD)).tgz
-installer: install $(if $(install-html),html,)
-	tar chzf $(FILENAME) $(INSTALL_PREFIX)
+installer: install html $(INSTALL_FILENAME) # always produce documentation with the installer
+
+installer/simEngine_%.tgz:
+	$(info Creating installer tgz file as $@)
+	tar chzf $@ $(INSTALL_PREFIX)
 
 .PHONY: show-html
 show-html:
