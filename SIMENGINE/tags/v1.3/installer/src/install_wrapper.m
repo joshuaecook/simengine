@@ -79,7 +79,16 @@ disp_wrap(['Supporting ' computer]);
 
 % ======= CHECKING DEPENDENCIES ========
 disp(' ');
-disp_wrap('simEngine installer will now check dependencies')
+
+%%%% accept license agreement
+license = get_license();
+disp_wrap(license);
+disp(' ');
+ret = ask_yn(' -> Accept license agreement');
+if not(ret)
+  return;
+end
+
 
 %%% check if local/global install
 isLocal = true; % assume it's local, but test if there's a global installation
