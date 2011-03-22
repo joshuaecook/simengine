@@ -135,11 +135,14 @@ install: $(TARGETS) $(INSTALLS)
 
 .PHONY: installer
 installer: INSTALL_PREFIX := Simatra
-installer: install html $(INSTALL_FILENAME) # always produce documentation with the installer
+installer: install html $(INSTALL_FILENAME) $(INSTALL_PCODE) # always produce documentation with the installer
 
 installer/simEngine_%.tgz:
 	$(info Creating installer tgz file as $@)
 	tar chzf $@ $(INSTALL_PREFIX)
+
+$(INSTALL_PCODE):
+	$(MATLAB) -nosplash -nodesktop -r "cd installer/src; try; create_installer('../../$(INSTALL_FILENAME)'); catch me; warning(getReport(me)); end; quit"
 
 .PHONY: show-html
 show-html:
@@ -157,6 +160,7 @@ test: install
 .PHONY: clean
 clean:
 	rm -f $(CLEAN)
+	rm -f installer/*.tgz
 
 .SECONDARY: $(CLEAN_ALL)
 .PHONY: clean-all
