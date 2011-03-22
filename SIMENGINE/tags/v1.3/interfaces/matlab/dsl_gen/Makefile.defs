@@ -1,0 +1,11 @@
+# Import subdirectory rules.
+
+# Define local variables.
+
+CLASSES_$(D)	:= $(addprefix $(D)/,$(addsuffix .m,Instance List Exp Iterator Model IteratorReference))
+INSTALLS	:= $(INSTALLS) $(D)/install
+
+# Define local rules.
+
+$(D)/install: $(CLASSES_$(D))
+	$(INSTALL) -C $^ -d $(INSTALL_PREFIX)

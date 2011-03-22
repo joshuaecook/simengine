@@ -1,0 +1,27 @@
+# Define local variables.
+
+TARGETS_$(D)	:= $(D)/device_props $(D)/device_props.a
+TARGETS		:= $(TARGETS) $(TARGETS_$(D))
+CLEAN		:= $(CLEAN) $(TARGETS_$(D)) $(D)/device_props.o
+
+# Define local rules.
+
+$(D)/%: LDFLAGS = -ldl
+
+ifneq ($(DARWIN),)
+$(D)/%: CUDART_LIBRARY_NAME = libcudart.dylib
+else
+$(D)/%: CUDART_LIBRARY_NAME = libcudart.so
+endif
+
+$(D)/%: INCLUDES = $(CUDA_INCLUDES)
+$(D)/%: CPPFLAGS = $(INCLUDES) -DCUDART_LIBRARY_NAME='"$(CUDART_LIBRARY_NAME)"'
+
+$(D)/device_props: CPPFLAGS += -DDEVICE_PROPS_MAIN
+
+ifneq ($(DARWIN),)
+$(D)/device_props.a: $(D)/device_props.o
+	lipo "$<" -create -output "$@"
+else
+$(D)/device_props.a: $(D)/device_props.a($(D)/device_props.o)
+endif
