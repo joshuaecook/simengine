@@ -71,6 +71,7 @@ INSTALL := ./bin/install
 VERSION_NUMBER := $(MAJOR_VERSION).$(MINOR_VERSION)$(VERSION_REVISION)
 VERSION_BUILD := $(if $(SVN_IS_BRANCH),BRANCH_$(subst /,_,$(SVN_BRANCH))_$(SVN_REVISION),$(if $(SVN_IS_TRUNK),BUILD_$(SVN_REVISION),))
 INSTALL_FILENAME := installer/simEngine_$(PLATFORM)_$(ARCH)_$(VERSION_NUMBER)$(if $(SVN_IS_TAG),,_$(VERSION_BUILD)).tgz
+INSTALL_PCODE := $(patsubst %_tgz,%.p,$(subst .,_,$(INSTALL_FILENAME)))
 INSTALL_PREFIX ?= local-install
 
 ## Compilers and commands

@@ -44,7 +44,7 @@ end
 % ask to install
 disp(' ')
 disp(['Simatra simEngine installer for MATLAB(TM)'])
-disp(['(Copyright 2006-2010 Simatra Modeling Technologies, '...
+disp(['(Copyright 2006-2011 Simatra Modeling Technologies, '...
       'L.L.C.)'])
 
 % ======= CHECKING COMPUTER ========
@@ -52,7 +52,7 @@ disp(['(Copyright 2006-2010 Simatra Modeling Technologies, '...
 fprintf(1, 'Checking for a supported architecture: ');
 switch computer
     case {'MACI','MACI64'}
-        restore_filename = ['restore_MACI'];
+        restore_filename = ['restore_' computer];
     case {'GLNX86', 'GLNXA64'}
         restore_filename = ['restore_' computer];
     case {'PCWIN','PCWIN64'}
@@ -80,22 +80,6 @@ disp_wrap(['Supporting ' computer]);
 % ======= CHECKING DEPENDENCIES ========
 disp(' ');
 disp_wrap('simEngine installer will now check dependencies')
-
-% run the full check:
-restored_filename = restore_simatraCheckFeatures();
-[d, f, e] = fileparts(restored_filename);
-result = feval(f);
-delete(restored_filename);
-
-
-%%%% accept license agreement
-license = get_license();
-disp_wrap(license);
-disp(' ');
-ret = ask_yn(' -> Accept license agreement');
-if not(ret)
-  return;
-end
 
 %%% check if local/global install
 isLocal = true; % assume it's local, but test if there's a global installation
@@ -153,19 +137,6 @@ else
                                                     % trailing Simatra
   directory = ask_dir(' -> Simatra installation directory', install_path);
   target_dir = fullfile(directory, topinstalldir);
-end
-
-%copy old license over before updating (if is local, it should
-%stay in the .simatra folder)
-licensecopy = false;
-local_has_license = false;
-oldlicense = fullfile(target_dir, 'data', 'license.key');
-
-if not (isLocal) && exist(oldlicense, 'file')
-  licensecopy = tempname;%fullfile(tempdir, 'license.key');
-  copyfile(oldlicense, licensecopy);
-elseif isLocal && exist(abspath(fullfile('~', '.simatra', 'license.key')))
-  local_has_license = true;
 end
 
 
@@ -229,10 +200,7 @@ if exist(target_dir, 'dir')
   
   if isUpgrade || ask_yn(sprintf(' -> Installation already exists, remove ''%s'' and recreate',target_dir))
     clear('simex');
-    clear('simEngineUpdate');
     clear('simplot');
-    clear('simCheckLicense');
-    clear('simCheckVersion');
     if using_octave
       prev_setting = confirm_recursive_rmdir;
       confirm_recursive_rmdir(false);
@@ -263,8 +231,7 @@ end
 [success, message, messageid] = mkdir(directory, topinstalldir);
 if not(success)
   disp(sprintf('Couldn''t create directory "%s/%s"',directory, topinstalldir));
-  error('simatra:installError', '%s (%s)', message, messageid);
-  return
+  error('Simatra:installError', '%s (%s)', message, messageid);
 end
 
 %%% copy tmp dir to install dir
@@ -277,10 +244,6 @@ end
 
 % copy both 'simcheck' and 'simtest' to installdir
 disp_wrap('Copying additional files from installer ...');
-restored_filename = restore_simatraCheckFeatures();
-simcheck_file = fullfile(installdir, 'simatra_simcheck.p');
-copyfile(restored_filename,simcheck_file);
-delete(restored_filename);
 restored_filename = get_tests();
 simtest_file = fullfile(installdir, 'simatra_simtest.p');
 copyfile(restored_filename,simtest_file);
@@ -307,12 +270,6 @@ if (not(isLocal))
     if ~isInPath(path, installdir)
       addpath(installdir);
     end
-  end
-
-  %%% append check to matlabrc iff user agrees
-  matlabrc_path = which('matlabrc');
-  if ~tagExists(matlabrc_path, 'SIMATRAUPDATECHECK') && ask_yn(' -> Automatically check for updates to simEngine')
-    addUpdateCheck(matlabrc_path);
   end
 
 elseif ask_yn(' -> Add simEngine to your default search path')
@@ -403,64 +360,7 @@ elseif ask_yn(' -> Add simEngine to your default search path')
   end
   rehash
 
-  %%% append check to startup.m iff user agrees
-  if (~tagExists(startupfile, 'SIMATRAUPDATECHECK') && ask_yn('  -> Automatically check for updates to simEngine'))
-    addUpdateCheck(startupfile);
-  end
 end
-
-%%% setup license
-valid_local_license = false;
-local_license_path = abspath('~/.simatra/license.key');
-if exist(local_license_path)
-  try
-    lic = simCheckLicense('-SIMATRAINTERNALCOMMAND!!!', '-check', ...
-                          local_license_path);
-    valid_local_license = islogical(lic.status) && lic.status == true;
-  catch    
-    valid_local_license = false;
-  end
-end
-if isstr(licensecopy) || (isLocal && valid_local_license)
-  simCheckLicense
-  message1 = 'the existing';
-  message2 = 'from an old installation';
-else
-  if valid_local_license % this implies that isLocal is false
-    simCheckLicense('-check', local_license_path)
-    % this will only occur for global installations that have a
-    % .simatra license
-    disp_wrap('Currently, simEngine is not licensed globally, but is licensed to you.  All other users will revert to the Basic edition.  If you would not like to use the Basic edition for all other users, you can supply a valid license after this prompt.  By adding a new license, both your local license and the global license will be replaced by the new one you specify.')
-    message1 = 'the basic global';
-  else
-    disp_wrap('Currently, simEngine is not licensed and will revert to the Basic edition.  If you would not like to use the Basic edition, you can supply a valid license.')
-    message1 = 'the basic';
-  end
-  message2 = '(this limited version is free)';
-end
-
-% for global installs, set a license location
-global_license_location = fullfile(target_dir, 'data', 'license.key');
-if ~ask_yn(sprintf(' -> Would you like to replace %s license %s', message1, ...
-                   message2), 'n')
-  % user does not want to replace license
-  %%% copy license to install dir
-  if isstr(licensecopy)
-    copyfile(licensecopy, global_license_location);
-    delete(licensecopy);
-  end
-else % here, we want to apply a new license
-  %enter a new license 
-  try
-    lic = simCheckLicense('-update');
-  catch
-    lic = false;
-  end
-  if isstr(lic) && ~strcmp(lic, 'BASIC') && ~isLocal && exist(local_license_path)
-    copyfile(local_license_path, global_license_location);
-  end
-end
-
 
 % now rehash
 if not(using_octave)
@@ -502,35 +402,13 @@ disp_wrap(['Then, browse for simEngine by running ''doc'' and start working '...
 disp(' ')
 disp_wrap(['  For questions or comments, please contact us at ' ...
            'support@simatratechnologies.com or post at ' ...
-           'www.simatratechnologies.com/forum.'])
+           'https://groups.google.com/group/simengine.'])
 disp(' ')
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-
-
-% key_file = savePublicKey();
-% licensefile = ask_file(' -> Enter the license file location');
-% if not(licensefile)
-%   disp('You must enter a valid license file')
-%   return
-% end
-% 
-% serial = ask_serial(' -> Enter your serial number');
-% 
-% if not(serial)
-%   disp ('You must enter a valid serial number')
-%   return
-% end
-% 
-% key = load(key_file, 'publickey');
-% 
-% if not(verify(licensefile, str2num(serial), key.publickey))
-%   disp('License and serial do not match.  Please contact Simatra.')
-%   return
-% end
 
 
 
@@ -550,30 +428,6 @@ function y = in_octave
 y = exist('octave_config_info');
 
 end
-
-% check executable
-% function error_count = check_executable(cmd, errors)
-% fprintf(1, 'Checking for %s: ', cmd);
-% if executable_exists(cmd)
-%   disp(['Found at ' executable_location(cmd)]);
-%   error_count = errors;
-% else
-%   disp('NOT FOUND');
-%   error_count = errors + 1;
-% end
-% end
-
-% % check if something exists in the system
-% function e = executable_exists(cmd)
-% [status, result] = system(['which -s ' cmd]);
-% e = not(status);
-% end
-% 
-% % find the location of an executable
-% function loc = executable_location(cmd)
-% [status, loc] = system(['which ' cmd]);
-% loc = strtrim(loc);
-% end
 
 % decode the included hex file into a restored file
 function [varargout] = decode_hex(str, varargin)
@@ -784,11 +638,6 @@ end
 
 end
 
-function [isvalid] = licensevalid(licensefile)
-  isvalid = true; %RANDYTODO: fill in
-end
-
-
 function r = run(cmd)
   [status, result] = system(cmd);
   r = status;
@@ -805,10 +654,6 @@ function writable = dirIsWritable(path)
     fclose(filehandle);
     delete(writablefilename);
   end
-end
-
-function [] = addUpdateCheck(startupfile)
-  writeStartupCode(startupfile, 'SIMATRAUPDATECHECK', 'simCheckVersion', 'simCheckVersion(''-quiet'')'); 
 end
 
 function r = tagExists(filename, tag)
