@@ -9,3 +9,27 @@ simEngine is known to work on Mac OS X 10.5 (Leopard) and 10.6 (Snow Leopard)
 == Linux ==
 
 simEngine is known to work on Redhat, CentOS, Ubuntu, and SuSE.
+
+= Installing from binary =
+
+simEngine is packaged as a .p file, which is an encrypted MATLAB script.  To install simEngine from a binary, first download the .p file from the [http://code.google.com/p/simengine/downloads/list Downloads] tab.  Next, open MATLAB and browse to the location of the downloaded file.  From the MATLAB prompt, enter in the name of the .p file. 
+
+From there, the installer will prompt you on where you want to install the toolbox, whether it should be installed for just you or for all users of the machine, and if you would like the simEngine toolbox to be automatically added to your path.
+
+After the installer completes, please restart MATLAB.  On the next invocation of MATLAB, open up the documentation browser with the doc command and browse through to the demos.  From there, you can get started trying out some of the example models bundled with simEngine.
+
+= Installing from source =
+
+The simEngine compiler is mostly written in Standard ML.  The [http://mlton.org MLton] compiler is required to be installed prior to invoking the Makefile.
+
+To install simEngine to a local directory, run the following make target in the source directory:
+{{{
+make install
+}}}
+A new directory, local_install, will be generated which will include all of the simEngine files.
+
+Alternative, one could create an installer that will bundle together the binaries, example files, and the MATLAB help files by running:
+{{{
+make installer
+}}}
+A .p file will be generated in the installer directory.
