@@ -1,0 +1,16 @@
+# Faster ODEs for multi-core and CUDA GPUs #
+
+simEngine is the faster and easier way to solve nonlinear dynamical systems with MATLAB. simEngine combines intuitive expression of differential equation-based systems with highly optimized compiled code to produce simulation executables that perform up to 10× faster than MATLAB’s standard ODE solvers. simEngine also creates “embarrassingly parallel” simulations for multi-core and GPU hardware automatically. With simEngine you'll be able to do more with your models in less time than ever before.
+
+
+## Faster ##
+simEngine automatically creates high-performance simulation by optimizing your model and generating low-level C or CUDA code targeted specifically for your workstation. Taking advantage of multi-core processors and GPUs, you'll get your results up to 100× faster than MATLAB or Simulink. And since simEngine optimizes the underlying math, simEngine simulations perform even better than other compiled products like Simulink Accelerator.
+
+## Easier ##
+simEngine offers multiple ways to develop your models. You can easily design your models using our intuitive, equation-based DIESEL modeling language, or build your models directly in MATLAB, or import existing models created in CellML or NEURON. simEngine combines the performance benefits of hand-tuned C code with the rapid development, code readability, and maintainability of a high-level environment.
+
+## Better ##
+With incomparable flexibility and ease of use, simEngine allows you to develop large, complex systems that are difficult or downright impossible to model with MATLAB or Simulink. Don't spend months producing custom simulation code in C!
+
+## Open ##
+simEngine is available for free to anyone. simEngine was originally developed by [Simatra Modelling Technologies](http://simatratechnologies.com) and funded by a grant from NIH. The fully-featured MATLAB toolbox for parallel dynamical systems simulations is now available under an Open Source license.
